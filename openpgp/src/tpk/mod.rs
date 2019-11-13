@@ -3045,7 +3045,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                      CipherSuite::P256,
                      CipherSuite::P384,
                      CipherSuite::P521,
-                     CipherSuite::RSA2k ]
+                     CipherSuite::RSA2k,
+                     CipherSuite::RSA4k ]
         {
             let (alice, _) = TPKBuilder::new()
                 .set_cipher_suite(*cs)

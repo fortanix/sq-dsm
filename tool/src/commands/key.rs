@@ -118,6 +118,9 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
         None | Some("rsa3k") => {
             builder = builder.set_cipher_suite(CipherSuite::RSA3k);
         }
+        Some("rsa4k") => {
+            builder = builder.set_cipher_suite(CipherSuite::RSA4k);
+        }
         Some("cv25519") => {
             builder = builder.set_cipher_suite(CipherSuite::Cv25519);
         }

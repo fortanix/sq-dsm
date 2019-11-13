@@ -371,7 +371,7 @@ pub fn build() -> App<'static, 'static> {
                              .value_name("CIPHER-SUITE")
                              .long("cipher-suite")
                              .short("c")
-                             .possible_values(&["rsa3k", "cv25519"])
+                             .possible_values(&["rsa3k", "rsa4k", "cv25519"])
                              .default_value("cv25519")
                              .help("Cryptographic algorithms used for the key."))
                         .arg(Arg::with_name("with-password")

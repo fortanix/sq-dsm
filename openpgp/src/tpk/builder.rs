@@ -38,6 +38,8 @@ pub enum CipherSuite {
     P521,
     /// 2048 bit RSA with SHA512 and AES256
     RSA2k,
+    /// 4096 bit RSA with SHA512 and AES256
+    RSA4k,
 }
 
 impl Default for CipherSuite {
@@ -58,6 +60,8 @@ impl CipherSuite {
                 Key4::generate_rsa(2048),
             CipherSuite::RSA3k =>
                 Key4::generate_rsa(3072),
+            CipherSuite::RSA4k =>
+                Key4::generate_rsa(4096),
             CipherSuite::Cv25519 | CipherSuite::P256 |
             CipherSuite::P384 | CipherSuite::P521 => {
                 let sign = flags.can_certify() || flags.can_sign()
@@ -599,7 +603,7 @@ mod tests {
     fn all_ciphersuites() {
         use self::CipherSuite::*;
 
-        for cs in vec![Cv25519, RSA3k, P256, P384, P521, RSA2k] {
+        for cs in vec![Cv25519, RSA3k, P256, P384, P521, RSA2k, RSA4k] {
             assert!(TPKBuilder::new()
                 .set_cipher_suite(cs)
                 .generate().is_ok());
