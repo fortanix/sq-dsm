@@ -115,7 +115,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
 
     // Cipher Suite
     match m.value_of("cipher-suite") {
-        None | Some("rsa3k") => {
+        Some("rsa3k") => {
             builder = builder.set_cipher_suite(CipherSuite::RSA3k);
         }
         Some("rsa4k") => {
@@ -127,6 +127,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
         Some(ref cs) => {
             return Err(format_err!("Unknown cipher suite '{}'", cs));
         }
+        None => panic!("argument has a default value"),
     }
 
     // Signing Capability
