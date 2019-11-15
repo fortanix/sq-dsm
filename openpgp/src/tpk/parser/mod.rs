@@ -557,6 +557,13 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     // If we complete parsing a TPK, returns the TPK.  Otherwise,
     // returns None.
     fn parse(&mut self, p: Packet) -> Result<Option<TPK>> {
+        if let Packet::Marker(_) = p {
+            // Ignore Marker Packet.  RFC4880, section 5.8:
+            //
+            //   Such a packet MUST be ignored when received.
+            return Ok(None);
+        }
+
         if self.packets.len() > 0 {
             match p.tag() {
                 Tag::PublicKey | Tag::SecretKey => {
@@ -908,5 +915,17 @@ mod test {
                 Err(e) => assert!(! v.result, "Parsing: {:?} => {:?}", v.s, e),
             }
         }
+    }
+
+    #[test]
+    fn marker_packet_ignored() {
+        use crate::serialize::Serialize;
+        let mut testy_with_marker = Vec::new();
+        Packet::Marker(Default::default())
+            .serialize(&mut testy_with_marker).unwrap();
+        testy_with_marker.extend_from_slice(crate::tests::key("testy.pgp"));
+        TPKParser::from_packet_parser(
+            PacketParser::from_bytes(&testy_with_marker).unwrap())
+            .nth(0).unwrap().unwrap();
     }
 }
