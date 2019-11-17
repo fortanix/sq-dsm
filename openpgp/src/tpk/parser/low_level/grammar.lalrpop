@@ -132,7 +132,7 @@ OptionalSignatures: Option<Vec<Signature>> = {
         }
     },
 
-    // A trust packet can go whereever a signature can go, but they
+    // A trust packet can go wherever a signature can go, but they
     // are ignored.
     <OptionalSignatures> TRUST,
 }

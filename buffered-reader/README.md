@@ -31,7 +31,7 @@ objects are nested.
 # Details
 
 Because the [`BufRead`] trait doesn't provide a mechanism for the
-user to size the interal buffer, a parser can't generally be sure
+user to size the internal buffer, a parser can't generally be sure
 that the internal buffer will be large enough to allow it to work
 with all data in place.
 

@@ -83,7 +83,7 @@ typedef enum pgp_status {
   PGP_STATUS_UNSUPPORTED_COMPRESSION_ALGORITHM = -28,
 
   /*/
-  /// Unsupport signature type.
+  /// Unsupported signature type.
   /*/
   PGP_STATUS_UNSUPPORTED_SIGNATURE_TYPE = -20,
 

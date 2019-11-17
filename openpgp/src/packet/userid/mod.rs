@@ -782,7 +782,7 @@ mod tests {
         g &= c("Foo  (Bar  (Baz)",
           Some("Foo  (Bar"), Some("Baz"), None);
 
-        // Make sure whitespace is stipped.
+        // Make sure whitespace is stripped.
         g &= c("  Name   Last   (   some  comment )   <name@example.org>",
                Some("Name   Last"), Some("some  comment"),
                Some("name@example.org"));
@@ -818,7 +818,7 @@ mod tests {
     // Make sure we can't parse non conventional User IDs.
     #[test]
     fn decompose_non_conventional() {
-        // Emptry string is not allowed.
+        // Empty string is not allowed.
         assert!(ConventionallyParsedUserID::new("").is_err());
         // Likewise, only whitespace.
         assert!(ConventionallyParsedUserID::new(" ").is_err());

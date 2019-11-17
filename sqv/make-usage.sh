@@ -14,7 +14,7 @@ end_code() {
     printf '```\n'
 }
 
-dump_help() { # subcommand, indention
+dump_help() { # subcommand, indentation
     if [ -z "$1" ]
     then
 	printf "\n# Usage\n\n"

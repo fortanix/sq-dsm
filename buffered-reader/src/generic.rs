@@ -150,7 +150,7 @@ impl<T: io::Read, C> Generic<T, C> {
             = self.buffer.as_ref().map(|b| b.len() - self.cursor).unwrap_or(0);
 
         if let Some(error) = error {
-            // An error occured.  If we have enough data to fulfill
+            // An error occurred.  If we have enough data to fulfill
             // the caller's request, then don't return the error.
             if hard && amount > amount_buffered {
                 return Err(error);

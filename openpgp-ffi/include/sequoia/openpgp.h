@@ -417,7 +417,7 @@ bool pgp_signature_key_expired(pgp_signature_t signature, pgp_key_t key,
 /*/
 /// Returns the PKESK's recipient.
 ///
-/// The return value is a reference ot a `KeyID`.  The caller must not
+/// The return value is a reference to a `KeyID`.  The caller must not
 /// modify or free it.
 /*/
 pgp_keyid_t pgp_pkesk_recipient(pgp_pkesk_t pkesk);
