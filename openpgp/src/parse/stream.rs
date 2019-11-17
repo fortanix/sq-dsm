@@ -1799,7 +1799,7 @@ mod test {
             },
             Test {
                 sig: crate::tests::message(
-                    "emmelie-dorothea-dina-samantha-awina-detachted-signature-of-100MB-of-zeros.sig"),
+                    "emmelie-dorothea-dina-samantha-awina-detached-signature-of-100MB-of-zeros.sig"),
                 content: &vec![ 0; 100 * 1024 * 1024 ][..],
                 reference: time::Tm::from_pgp(1572602018),
             },
