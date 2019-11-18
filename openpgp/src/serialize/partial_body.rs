@@ -114,7 +114,7 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
 
             // Write the body.
             inner.write_all(&self.buffer[..])?;
-            self.buffer.clear();
+            crate::vec_truncate(&mut self.buffer, 0);
             inner.write_all(other)?;
         } else {
             while self.buffer.len() + other.len() > self.buffer_threshold {

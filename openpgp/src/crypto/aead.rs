@@ -645,7 +645,7 @@ impl<W: io::Write> Encryptor<W> {
                 aead.encrypt(&mut self.scratch, &self.buffer);
                 self.bytes_encrypted += self.scratch.len() as u64;
                 self.chunk_index += 1;
-                self.buffer.clear();
+                crate::vec_truncate(&mut self.buffer, 0);
                 inner.write_all(&self.scratch)?;
 
                 // Write digest.
@@ -694,7 +694,7 @@ impl<W: io::Write> Encryptor<W> {
                 aead.encrypt(&mut self.scratch, &self.buffer);
                 self.bytes_encrypted += self.scratch.len() as u64;
                 self.chunk_index += 1;
-                self.buffer.clear();
+                crate::vec_truncate(&mut self.buffer, 0);
                 inner.write_all(&self.scratch)?;
 
                 // Write digest.

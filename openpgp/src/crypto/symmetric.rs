@@ -433,7 +433,7 @@ impl<W: io::Write> Encryptor<W> {
             if self.buffer.len() > 0 {
                 unsafe { self.scratch.set_len(self.buffer.len()) }
                 self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer)?;
-                self.buffer.clear();
+                crate::vec_truncate(&mut self.buffer, 0);
                 inner.write_all(&self.scratch)?;
             }
             Ok(inner)
@@ -476,7 +476,7 @@ impl<W: io::Write> io::Write for Encryptor<W> {
                 self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer)
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                                 format!("{}", e)))?;
-                self.buffer.clear();
+                crate::vec_truncate(&mut self.buffer, 0);
                 inner.write_all(&self.scratch)?;
             }
         }

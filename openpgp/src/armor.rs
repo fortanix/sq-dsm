@@ -217,7 +217,7 @@ impl<W: Write> Writer<W> {
             self.sink.as_mut().ok_or_else(Self::e_finalized)?
                 .write_all(&self.header)?;
             // Release memory.
-            self.header.clear();
+            crate::vec_truncate(&mut self.header, 0);
             self.header.shrink_to_fit();
         }
         Ok(())
@@ -337,7 +337,7 @@ impl<W: Write> Write for Writer<W> {
                     &self.stash, base64::STANDARD_NO_PAD).as_bytes())?;
             self.column += 4;
             self.linebreak()?;
-            self.stash.clear();
+            crate::vec_truncate(&mut self.stash, 0);
         }
 
         // Ensure that a multiple of 3 bytes are encoded, stash the
@@ -637,7 +637,7 @@ impl<'a> Reader<'a> {
             if lines > 0 {
                 // Find the start of the next line.
                 self.source.drop_through(&[b'\n'], true)?;
-                prefix.clear();
+                crate::vec_truncate(&mut prefix, 0);
             }
             lines += 1;
 
@@ -653,7 +653,7 @@ impl<'a> Reader<'a> {
                 let c = self.source.data(1)?[0];
                 if c == b'\n' {
                     // We found a newline while walking whitespace, reset prefix
-                    prefix.clear();
+                    crate::vec_truncate(&mut prefix, 0);
                 } else {
                     prefix.push(self.source.data_hard(1)?[0]);
                 }
@@ -742,7 +742,7 @@ impl<'a> Reader<'a> {
             // was purely whitespace.  Any non-whitespace remains an error
             // while searching for the armor header if it's not repeated.
             if prefix.iter().all(|b| (*b as char).is_ascii_whitespace()) {
-                prefix.clear();
+                crate::vec_truncate(&mut prefix, 0);
             } else {
                 // Nope, we have actually failed to read this properly
                 return Err(
