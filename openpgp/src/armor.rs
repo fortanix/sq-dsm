@@ -146,7 +146,7 @@ pub struct Writer<W: Write> {
     stash: Vec<u8>,
     column: usize,
     crc: CRC,
-    epilogue: Vec<u8>,
+    header: Vec<u8>,
     dirty: bool,
 }
 
@@ -188,12 +188,12 @@ impl<W: Write> Writer<W> {
             stash: Vec::<u8>::with_capacity(2),
             column: 0,
             crc: CRC::new(),
-            epilogue: Vec::with_capacity(128),
+            header: Vec::with_capacity(128),
             dirty: false,
         };
 
         {
-            let mut cur = Cursor::new(&mut w.epilogue);
+            let mut cur = Cursor::new(&mut w.header);
             write!(&mut cur, "{}{}", kind.begin(), LINE_ENDING)?;
 
             for h in headers {
@@ -211,14 +211,14 @@ impl<W: Write> Writer<W> {
         Error::new(ErrorKind::BrokenPipe, "Writer is finalized.")
     }
 
-    fn write_epilogue(&mut self) -> Result<()> {
+    fn finalize_headers(&mut self) -> Result<()> {
         if ! self.dirty {
             self.dirty = true;
             self.sink.as_mut().ok_or_else(Self::e_finalized)?
-                .write_all(&self.epilogue)?;
+                .write_all(&self.header)?;
             // Release memory.
-            self.epilogue.clear();
-            self.epilogue.shrink_to_fit();
+            self.header.clear();
+            self.header.shrink_to_fit();
         }
         Ok(())
     }
@@ -247,7 +247,7 @@ impl<W: Write> Writer<W> {
             // No data was written to us, don't emit anything.
             return Ok(());
         }
-        self.write_epilogue()?;
+        self.finalize_headers()?;
         if let Some(sink) = self.sink.as_mut() {
             // Write any stashed bytes and pad.
             if self.stash.len() > 0 {
@@ -304,7 +304,7 @@ impl<W: Write> Writer<W> {
 
 impl<W: Write> Write for Writer<W> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
-        self.write_epilogue()?;
+        self.finalize_headers()?;
 
         // Update CRC on the unencoded data.
         self.crc.update(buf);
