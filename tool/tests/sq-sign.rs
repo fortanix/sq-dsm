@@ -216,9 +216,9 @@ fn sq_sign_append_on_compress_then_sign() {
     let keypair = KeyPair::new(key.clone(), sec).unwrap();
     let signer = Signer::new(Message::new(File::create(&sig0).unwrap()),
                              keypair).build().unwrap();
-    let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed,
-                                     None)
-        .unwrap();
+    let compressor = Compressor::new(signer)
+        .algo(CompressionAlgorithm::Uncompressed)
+        .build().unwrap();
     let mut literal = LiteralWriter::new(compressor).build()
         .unwrap();
     io::copy(

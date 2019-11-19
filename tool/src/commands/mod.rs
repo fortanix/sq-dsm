@@ -137,12 +137,12 @@ pub fn encrypt(mapping: &mut store::Mapping,
     match compression {
         "none" => (),
         "pad" => sink = Padder::new(sink, padme)?,
-        "zip" =>
-            sink = Compressor::new(sink, CompressionAlgorithm::Zip, None)?,
-        "zlib" =>
-            sink = Compressor::new(sink, CompressionAlgorithm::Zlib, None)?,
-        "bzip2" =>
-            sink = Compressor::new(sink, CompressionAlgorithm::BZip2, None)?,
+        "zip" => sink =
+            Compressor::new(sink).algo(CompressionAlgorithm::Zip).build()?,
+        "zlib" => sink =
+            Compressor::new(sink).algo(CompressionAlgorithm::Zlib).build()?,
+        "bzip2" => sink =
+            Compressor::new(sink).algo(CompressionAlgorithm::BZip2).build()?,
         _ => unreachable!("all possible choices are handled")
     }
 

@@ -726,8 +726,8 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// let mut o = vec![];
 /// {
 ///     let message = Message::new(&mut o);
-///     let w = Compressor::new(message,
-///                             CompressionAlgorithm::Uncompressed, None)?;
+///     let w = Compressor::new(message)
+///         .algo(CompressionAlgorithm::Uncompressed).build()?;
 ///     let mut w = LiteralWriter::new(w).build()?;
 ///     w.write_all(b"Hello world.")?;
 ///     w.finalize()?;
@@ -737,6 +737,8 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// # Ok(())
 /// # }
 pub struct Compressor<'a> {
+    algo: CompressionAlgorithm,
+    level: writer::CompressionLevel,
     inner: writer::BoxStack<'a, Cookie>,
 }
 
@@ -745,24 +747,43 @@ impl<'a> Compressor<'a> {
     ///
     /// Passing `None` to `compression_level` selects the default
     /// compression level.
-    pub fn new<C, L>(inner: writer::Stack<'a, Cookie>,
-                     algo: C, compression_level: L)
-                     -> Result<writer::Stack<'a, Cookie>>
-        where C: Into<Option<CompressionAlgorithm>>,
-              L: Into<Option<writer::CompressionLevel>>
-    {
-        let mut inner = writer::BoxStack::from(inner);
-        let algo = algo.into().unwrap_or_default();
-        let compression_level = compression_level.into().unwrap_or_default();
-        let level = inner.cookie_ref().level + 1;
+    pub fn new(inner: writer::Stack<'a, Cookie>) -> Self {
+        Self {
+            algo: Default::default(),
+            level: Default::default(),
+            inner: inner.into(),
+        }
+    }
+
+    /// Sets the compression algorithm.
+    pub fn algo(mut self, algo: CompressionAlgorithm) -> Self {
+        self.algo = algo;
+        self
+    }
+
+    /// Sets the compression level.
+    pub fn level(mut self, level: writer::CompressionLevel) -> Self {
+        self.level = level;
+        self
+    }
+
+    /// Finalizes the literal writer, returning the writer stack.
+    ///
+    /// `format`, `filename`, and `date` will be emitted as part of
+    /// the literal packets headers.  Note that these headers will not
+    /// be authenticated by signatures (but will be authenticated by a
+    /// SEIP/MDC container), and are therefore unreliable and should
+    /// not be trusted.
+    pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>> {
+        let level = self.inner.cookie_ref().level + 1;
 
         // Packet header.
-        CTB::new(Tag::CompressedData).serialize(&mut inner)?;
+        CTB::new(Tag::CompressedData).serialize(&mut self.inner)?;
         let inner: writer::Stack<'a, Cookie>
-            = PartialBodyFilter::new(writer::Stack::from(inner),
+            = PartialBodyFilter::new(writer::Stack::from(self.inner),
                                      Cookie::new(level));
 
-        Self::new_naked(inner, algo, compression_level, level)
+        Self::new_naked(inner, self.algo, self.level, level)
     }
 
 
@@ -798,7 +819,11 @@ impl<'a> Compressor<'a> {
                 return Err(Error::UnsupportedCompressionAlgorithm(a).into()),
         };
 
-        Ok(writer::Stack::from(Box::new(Self{inner: inner.into()})))
+        Ok(writer::Stack::from(Box::new(Self {
+            algo,
+            level: compression_level,
+            inner: inner.into(),
+        })))
     }
 }
 
@@ -1266,8 +1291,8 @@ mod test {
         let mut o = vec![];
         {
             let m = Message::new(&mut o);
-            let c = Compressor::new(
-                m, CompressionAlgorithm::Uncompressed, None).unwrap();
+            let c = Compressor::new(m)
+                .algo(CompressionAlgorithm::Uncompressed).build().unwrap();
             let mut ls = LiteralWriter::new(c).format(T).build().unwrap();
             write!(ls, "one").unwrap();
             let c = ls.finalize_one().unwrap().unwrap(); // Pop the LiteralWriter.
@@ -1325,10 +1350,10 @@ mod test {
         let mut o = vec![];
         {
             let m = Message::new(&mut o);
-            let c0 = Compressor::new(
-                m, CompressionAlgorithm::Uncompressed, None).unwrap();
-            let c = Compressor::new(
-                c0, CompressionAlgorithm::Uncompressed, None).unwrap();
+            let c0 = Compressor::new(m)
+                .algo(CompressionAlgorithm::Uncompressed).build().unwrap();
+            let c = Compressor::new(c0)
+                .algo(CompressionAlgorithm::Uncompressed).build().unwrap();
             let mut ls = LiteralWriter::new(c).format(T).build().unwrap();
             write!(ls, "one").unwrap();
             let c = ls.finalize_one().unwrap().unwrap();
@@ -1336,8 +1361,8 @@ mod test {
             write!(ls, "two").unwrap();
             let c = ls.finalize_one().unwrap().unwrap();
             let c0 = c.finalize_one().unwrap().unwrap();
-            let c = Compressor::new(
-                c0, CompressionAlgorithm::Uncompressed, None).unwrap();
+            let c = Compressor::new(c0)
+                .algo(CompressionAlgorithm::Uncompressed).build().unwrap();
             let mut ls = LiteralWriter::new(c).format(T).build().unwrap();
             write!(ls, "three").unwrap();
             let c = ls.finalize_one().unwrap().unwrap();
@@ -1363,8 +1388,8 @@ mod test {
         let mut o = vec![];
         {
             let m = Message::new(&mut o);
-            let c = Compressor::new(m,
-                                    CompressionAlgorithm::BZip2, None).unwrap();
+            let c = Compressor::new(m)
+                .algo(CompressionAlgorithm::BZip2).build().unwrap();
             let mut ls = LiteralWriter::new(c).build().unwrap();
             // Write 64 megabytes of zeroes.
             for _ in 0 .. 16 {
