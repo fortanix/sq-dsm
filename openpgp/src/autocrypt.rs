@@ -471,8 +471,7 @@ impl AutocryptSetupMessage {
                                vec![ self.passcode.as_ref().unwrap() ],
                                &[], None, None)?;
 
-        let mut w = LiteralWriter::new(w, None,
-                                       /* filename*/ None, /* date */ None)?;
+        let mut w = LiteralWriter::new(w).build()?;
 
         // The inner message is an ASCII-armored encoded TPK.
         let mut w = armor::Writer::new(

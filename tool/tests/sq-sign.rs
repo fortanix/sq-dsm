@@ -219,7 +219,7 @@ fn sq_sign_append_on_compress_then_sign() {
     let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed,
                                      None)
         .unwrap();
-    let mut literal = LiteralWriter::new(compressor, None, None, None)
+    let mut literal = LiteralWriter::new(compressor).build()
         .unwrap();
     io::copy(
         &mut File::open(&p("messages/a-cypherpunks-manifesto.txt")).unwrap(),

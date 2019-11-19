@@ -62,7 +62,7 @@ fn main() {
     let padder = Padder::new(encryptor, padme)
         .expect("Failed to create padder");
 
-    let mut literal_writer = LiteralWriter::new(padder, None, None, None)
+    let mut literal_writer = LiteralWriter::new(padder).build()
         .expect("Failed to create literal writer");
 
     // Copy stdin to our writer stack to encrypt the data.

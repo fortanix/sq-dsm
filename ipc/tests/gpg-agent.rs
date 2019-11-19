@@ -111,7 +111,7 @@ fn sign() {
 
             // Emit a literal data packet.
             let mut literal_writer = LiteralWriter::new(
-                signer, None, None, None).unwrap();
+                signer).build().unwrap();
 
             // Sign the data.
             literal_writer.write_all(MESSAGE.as_bytes()).unwrap();
@@ -225,7 +225,7 @@ fn decrypt() {
 
             // Emit a literal data packet.
             let mut literal_writer = LiteralWriter::new(
-                encryptor, None, None, None).unwrap();
+                encryptor).build().unwrap();
 
             // Encrypt the data.
             literal_writer.write_all(MESSAGE.as_bytes()).unwrap();

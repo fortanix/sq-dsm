@@ -232,7 +232,7 @@ pub extern "C" fn pgp_literal_writer_new
 {
     ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
-    ffi_try_box!(LiteralWriter::new(*inner, None, None, None))
+    ffi_try_box!(LiteralWriter::new(*inner).build())
 }
 
 /// A recipient of an encrypted message.

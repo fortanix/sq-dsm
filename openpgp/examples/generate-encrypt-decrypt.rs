@@ -59,7 +59,7 @@ fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::TPK)
                                    None, None)?;
 
     // Emit a literal data packet.
-    let mut literal_writer = LiteralWriter::new(encryptor, None, None, None)?;
+    let mut literal_writer = LiteralWriter::new(encryptor).build()?;
 
     // Encrypt the data.
     literal_writer.write_all(plaintext.as_bytes())?;

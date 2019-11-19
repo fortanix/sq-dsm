@@ -102,7 +102,7 @@ use crate::constants::{
 ///     let message = Message::new(&mut unpadded);
 ///     // XXX: Insert Encryptor here.
 ///     // XXX: Insert Signer here.
-///     let mut w = LiteralWriter::new(message, None, None, None)?;
+///     let mut w = LiteralWriter::new(message).build()?;
 ///     w.write_all(b"Hello world.")?;
 ///     w.finalize()?;
 /// }
@@ -113,7 +113,7 @@ use crate::constants::{
 ///     // XXX: Insert Encryptor here.
 ///     let padder = Padder::new(message, padme)?;
 ///     // XXX: Insert Signer here.
-///     let mut w = LiteralWriter::new(padder, None, None, None)?;
+///     let mut w = LiteralWriter::new(padder).build()?;
 ///     w.write_all(b"Hello world.")?;
 ///     w.finalize()?;
 /// }
@@ -341,9 +341,7 @@ mod test {
         {
             let message = Message::new(&mut padded);
             let padder = Padder::new(message, padme).unwrap();
-            let mut w =
-                LiteralWriter::new(padder, None, None, None)
-                .unwrap();
+            let mut w = LiteralWriter::new(padder).build().unwrap();
             w.write_all(&msg).unwrap();
             w.finalize().unwrap();
         }
@@ -366,8 +364,7 @@ mod test {
         {
             let message = Message::new(&mut padded);
             let padder = Padder::new(message, padme).unwrap();
-            let mut w = LiteralWriter::new(padder, None, None, None)
-                .unwrap();
+            let mut w = LiteralWriter::new(padder).build().unwrap();
             w.write_all(MSG).unwrap();
             w.finalize().unwrap();
         }

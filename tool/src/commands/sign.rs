@@ -109,7 +109,7 @@ fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
         signer
     } else {
         // We want to wrap the data in a literal data packet.
-        LiteralWriter::new(signer, None, None, None)
+        LiteralWriter::new(signer).build()
             .context("Failed to create literal writer")?
     };
 
@@ -238,9 +238,15 @@ fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
             };
             // Create a literal writer to wrap the data in a literal
             // message packet.
-            let mut literal =
-                LiteralWriter::new(sink, l.format(), l.filename(),
-                                   l.date().map(|d| *d))
+            let mut literal = LiteralWriter::new(sink).format(l.format());
+            if let Some(f) = l.filename() {
+                literal = literal.filename(f)?;
+            }
+            if let Some(d) = l.date() {
+                literal = literal.date(*d)?;
+            }
+
+            let mut literal = literal.build()
                 .context("Failed to create literal writer")?;
 
             // Finally, just copy all the data.

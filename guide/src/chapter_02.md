@@ -68,7 +68,7 @@ fn main() {
 #                                    None, None)?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(encryptor, None, None, None)?;
+#     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
 #
 #     // Encrypt the data.
 #     literal_writer.write_all(plaintext.as_bytes())?;
@@ -209,7 +209,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #                                    None, None)?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(encryptor, None, None, None)?;
+#     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
 #
 #     // Encrypt the data.
 #     literal_writer.write_all(plaintext.as_bytes())?;
@@ -350,7 +350,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
                                    None, None)?;
 
     // Emit a literal data packet.
-    let mut literal_writer = LiteralWriter::new(encryptor, None, None, None)?;
+    let mut literal_writer = LiteralWriter::new(encryptor).build()?;
 
     // Encrypt the data.
     literal_writer.write_all(plaintext.as_bytes())?;
@@ -505,7 +505,7 @@ Decrypted data can be read from this using [`io::Read`].
 #                                    None, None)?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(encryptor, None, None, None)?;
+#     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
 #
 #     // Encrypt the data.
 #     literal_writer.write_all(plaintext.as_bytes())?;

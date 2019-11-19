@@ -61,7 +61,7 @@ fn main() {
 #     let signer = Signer::new(message, keypair).build()?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;
+#     let mut literal_writer = LiteralWriter::new(signer).build()?;
 #
 #     // Sign the data.
 #     literal_writer.write_all(plaintext.as_bytes())?;
@@ -206,7 +206,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #     let signer = Signer::new(message, keypair).build()?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;
+#     let mut literal_writer = LiteralWriter::new(signer).build()?;
 #
 #     // Sign the data.
 #     literal_writer.write_all(plaintext.as_bytes())?;
@@ -351,7 +351,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
     let signer = Signer::new(message, keypair).build()?;
 
     // Emit a literal data packet.
-    let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;
+    let mut literal_writer = LiteralWriter::new(signer).build()?;
 
     // Sign the data.
     literal_writer.write_all(plaintext.as_bytes())?;
@@ -507,7 +507,7 @@ Verified data can be read from this using [`io::Read`].
 #     let signer = Signer::new(message, keypair).build()?;
 # 
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;
+#     let mut literal_writer = LiteralWriter::new(signer).build()?;
 # 
 #     // Sign the data.
 #     literal_writer.write_all(plaintext.as_bytes())?;

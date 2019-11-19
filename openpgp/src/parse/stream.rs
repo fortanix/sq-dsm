@@ -1905,7 +1905,7 @@ mod test {
 
             let m = Message::new(&mut buf);
             let signer = Signer::new(m, keypair).build().unwrap();
-            let mut ls = LiteralWriter::new(signer, None, None, None).unwrap();
+            let mut ls = LiteralWriter::new(signer).build().unwrap();
 
             ls.write_all(&mut vec![42u8; 30 * 1024 * 1024]).unwrap();
             ls.finalize().unwrap();

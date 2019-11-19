@@ -158,7 +158,7 @@ pub fn encrypt(mapping: &mut store::Mapping,
         sink = signer.build()?;
     }
 
-    let mut literal_writer = LiteralWriter::new(sink, None, None, None)
+    let mut literal_writer = LiteralWriter::new(sink).build()
         .context("Failed to create literal writer")?;
 
     // Finally, copy stdin to our writer stack to encrypt the data.
