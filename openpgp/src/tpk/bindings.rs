@@ -41,7 +41,7 @@ impl Key<key::PublicParts, key::SubordinateRole> {
     ///     = Key::V4(Key4::generate_ecc(false, Curve::Cv25519)?);
     /// let builder = signature::Builder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(&flags)?;
-    /// let binding = subkey.bind(&mut keypair, &tpk, builder, None, None)?;
+    /// let binding = subkey.bind(&mut keypair, &tpk, builder, None)?;
     ///
     /// // Now merge the key and binding signature into the TPK.
     /// let tpk = tpk.merge_packets(vec![subkey.into(),
@@ -50,12 +50,11 @@ impl Key<key::PublicParts, key::SubordinateRole> {
     /// // Check that we have an encryption subkey.
     /// assert_eq!(tpk.keys_valid().key_flags(flags).count(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
-                         signature: signature::Builder,
-                         hash_algo: H, creation_time: T)
+    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
+                      signature: signature::Builder,
+                      creation_time: T)
         -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>,
+        where T: Into<Option<time::Tm>>,
               R: key::KeyRole
     {
         signature
@@ -63,9 +62,7 @@ impl Key<key::PublicParts, key::SubordinateRole> {
                 creation_time.into().unwrap_or_else(time::now_utc))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
-            .sign_subkey_binding(
-                signer, tpk.primary(), self,
-                hash_algo.into().unwrap_or(HashAlgorithm::SHA512))
+            .sign_subkey_binding(signer, tpk.primary(), self)
     }
 }
 
@@ -101,7 +98,7 @@ impl UserID {
     /// let userid = UserID::from("test@example.org");
     /// let builder =
     ///     signature::Builder::new(SignatureType::PositiveCertificate);
-    /// let binding = userid.bind(&mut keypair, &tpk, builder, None, None)?;
+    /// let binding = userid.bind(&mut keypair, &tpk, builder, None)?;
     ///
     /// // Now merge the userid and binding signature into the TPK.
     /// let tpk = tpk.merge_packets(vec![userid.into(), binding.into()])?;
@@ -109,12 +106,11 @@ impl UserID {
     /// // Check that we have a userid.
     /// assert_eq!(tpk.userids().len(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
+    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
                       signature: signature::Builder,
-                      hash_algo: H, creation_time: T)
+                      creation_time: T)
                       -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>,
+        where T: Into<Option<time::Tm>>,
               R: key::KeyRole
     {
         signature
@@ -123,8 +119,7 @@ impl UserID {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_userid_binding(
-                signer, tpk.primary(), self,
-                hash_algo.into().unwrap_or(HashAlgorithm::SHA512))
+                signer, tpk.primary(), self)
     }
 
     /// Returns a certificate for the user id.
@@ -198,10 +193,13 @@ impl UserID {
                 format!("Invalid signature type: {}", t)).into()),
             None => SignatureType::GenericCertificate,
         };
-        self.bind(signer, tpk, signature::Builder::new(typ),
+        let mut sig = signature::Builder::new(typ);
+        if let Some(algo) = hash_algo.into() {
+            sig = sig.set_hash_algo(algo);
+        }
+        self.bind(signer, tpk, sig,
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
-                  hash_algo.into().unwrap_or(HashAlgorithm::SHA512),
                   creation_time.into().unwrap_or_else(time::now_utc))
     }
 }
@@ -243,7 +241,7 @@ impl UserAttribute {
     /// ])?;
     /// let builder =
     ///     signature::Builder::new(SignatureType::PositiveCertificate);
-    /// let binding = user_attr.bind(&mut keypair, &tpk, builder, None, None)?;
+    /// let binding = user_attr.bind(&mut keypair, &tpk, builder, None)?;
     ///
     /// // Now merge the user attribute and binding signature into the TPK.
     /// let tpk = tpk.merge_packets(vec![user_attr.into(), binding.into()])?;
@@ -251,12 +249,11 @@ impl UserAttribute {
     /// // Check that we have a user attribute.
     /// assert_eq!(tpk.user_attributes().len(), 1);
     /// # Ok(()) }
-    pub fn bind<H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
-                         signature: signature::Builder,
-                         hash_algo: H, creation_time: T)
+    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
+                      signature: signature::Builder,
+                      creation_time: T)
         -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>,
+        where T: Into<Option<time::Tm>>,
               R: key::KeyRole
     {
         signature
@@ -264,9 +261,7 @@ impl UserAttribute {
                 creation_time.into().unwrap_or_else(time::now_utc))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
-            .sign_user_attribute_binding(
-                signer, tpk.primary(), self,
-                hash_algo.into().unwrap_or(HashAlgorithm::SHA512))
+            .sign_user_attribute_binding(signer, tpk.primary(), self)
     }
 
     /// Returns a certificate for the user attribute.
@@ -345,10 +340,13 @@ impl UserAttribute {
                 format!("Invalid signature type: {}", t)).into()),
             None => SignatureType::GenericCertificate,
         };
-        self.bind(signer, tpk, signature::Builder::new(typ),
+        let mut sig = signature::Builder::new(typ);
+        if let Some(algo) = hash_algo.into() {
+            sig = sig.set_hash_algo(algo);
+        }
+        self.bind(signer, tpk, sig,
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
-                  hash_algo.into().unwrap_or(HashAlgorithm::SHA512),
                   creation_time.into().unwrap_or_else(time::now_utc))
     }
 }

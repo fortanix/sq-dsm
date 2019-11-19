@@ -219,7 +219,7 @@ impl SubkeyRevocationBuilder {
 
     /// Returns a revocation certificate for the tpk `TPK` signed by
     /// `signer`.
-    pub fn build<H, R>(self, signer: &mut dyn Signer<R>,
+    pub fn build<H, R>(mut self, signer: &mut dyn Signer<R>,
                        tpk: &TPK, key: &key::PublicSubkey,
                        hash_algo: H)
         -> Result<Signature>
@@ -230,7 +230,10 @@ impl SubkeyRevocationBuilder {
         let creation_time
             = self.signature_creation_time().unwrap_or_else(time::now);
 
-        key.bind(signer, tpk, self.builder, hash_algo, creation_time)
+        if let Some(algo) = hash_algo.into() {
+            self.builder = self.builder.set_hash_algo(algo);
+        }
+        key.bind(signer, tpk, self.builder, creation_time)
     }
 }
 
@@ -331,7 +334,7 @@ impl UserIDRevocationBuilder {
 
     /// Returns a revocation certificate for the tpk `TPK` signed by
     /// `signer`.
-    pub fn build<H, R>(self, signer: &mut dyn Signer<R>,
+    pub fn build<H, R>(mut self, signer: &mut dyn Signer<R>,
                        tpk: &TPK, userid: &UserID,
                        hash_algo: H)
         -> Result<Signature>
@@ -342,7 +345,10 @@ impl UserIDRevocationBuilder {
         let creation_time
             = self.signature_creation_time().unwrap_or_else(time::now);
 
-        userid.bind(signer, tpk, self.builder, hash_algo, creation_time)
+        if let Some(algo) = hash_algo.into() {
+            self.builder = self.builder.set_hash_algo(algo);
+        }
+        userid.bind(signer, tpk, self.builder, creation_time)
     }
 }
 
@@ -446,7 +452,7 @@ impl UserAttributeRevocationBuilder {
 
     /// Returns a revocation certificate for the tpk `TPK` signed by
     /// `signer`.
-    pub fn build<H, R>(self, signer: &mut dyn Signer<R>,
+    pub fn build<H, R>(mut self, signer: &mut dyn Signer<R>,
                        tpk: &TPK, ua: &UserAttribute,
                        hash_algo: H)
         -> Result<Signature>
@@ -457,7 +463,10 @@ impl UserAttributeRevocationBuilder {
         let creation_time
             = self.signature_creation_time().unwrap_or_else(time::now);
 
-        ua.bind(signer, tpk, self.builder, hash_algo, creation_time)
+        if let Some(algo) = hash_algo.into() {
+            self.builder = self.builder.set_hash_algo(algo);
+        }
+        ua.bind(signer, tpk, self.builder, creation_time)
     }
 }
 

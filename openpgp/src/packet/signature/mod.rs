@@ -75,7 +75,7 @@ impl Builder {
             version: 4,
             typ: typ,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
-            hash_algo: HashAlgorithm::Unknown(0),
+            hash_algo: HashAlgorithm::default(),
             subpackets: SubpacketAreas::empty(),
         }
     }
@@ -106,26 +106,28 @@ impl Builder {
         self.hash_algo
     }
 
+    /// Sets the hash algorithm.
+    pub fn set_hash_algo(mut self, h: HashAlgorithm) -> Self {
+        self.hash_algo = h;
+        self
+    }
+
     /// Creates a standalone signature.
-    pub fn sign_standalone<R>(mut self, signer: &mut dyn Signer<R>,
-                              algo: HashAlgorithm)
+    pub fn sign_standalone<R>(mut self, signer: &mut dyn Signer<R>)
                               -> Result<Signature>
         where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
-        self.hash_algo = algo;
         let digest = Signature::standalone_hash(&self)?;
         self.sign(signer, digest)
     }
 
     /// Creates a timestamp signature.
-    pub fn sign_timestamp<R>(mut self, signer: &mut dyn Signer<R>,
-                              algo: HashAlgorithm)
+    pub fn sign_timestamp<R>(mut self, signer: &mut dyn Signer<R>)
                               -> Result<Signature>
         where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
-        self.hash_algo = algo;
         let digest = Signature::timestamp_hash(&self)?;
         self.sign(signer, digest)
     }
@@ -135,13 +137,11 @@ impl Builder {
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`, the hash-algorithm field is set to
     /// `hash_algo`.
-    pub fn sign_primary_key_binding<R>(mut self, signer: &mut dyn Signer<R>,
-                                       algo: HashAlgorithm)
+    pub fn sign_primary_key_binding<R>(mut self, signer: &mut dyn Signer<R>)
         -> Result<Signature>
         where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
-        self.hash_algo = algo;
         let digest =
             Signature::primary_key_binding_hash(&self,
                                                 signer.public()
@@ -157,13 +157,11 @@ impl Builder {
     /// `hash_algo`.
     pub fn sign_userid_binding<R>(mut self, signer: &mut dyn Signer<R>,
                                  key: &key::PublicKey,
-                                 userid: &UserID,
-                                 algo: HashAlgorithm)
+                                 userid: &UserID)
         -> Result<Signature>
         where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
-        self.hash_algo = algo;
         let digest = Signature::userid_binding_hash(&self, key, userid)?;
 
         self.sign(signer, digest)
@@ -176,13 +174,11 @@ impl Builder {
     /// `hash_algo`.
     pub fn sign_subkey_binding<R>(mut self, signer: &mut dyn Signer<R>,
                                   primary: &key::PublicKey,
-                                  subkey: &key::PublicSubkey,
-                                  algo: HashAlgorithm)
+                                  subkey: &key::PublicSubkey)
         -> Result<Signature>
         where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
-        self.hash_algo = algo;
         let digest = Signature::subkey_binding_hash(&self, primary, subkey)?;
 
         self.sign(signer, digest)
@@ -195,13 +191,11 @@ impl Builder {
     /// `hash_algo`.
     pub fn sign_user_attribute_binding<R>(mut self, signer: &mut dyn Signer<R>,
                                           key: &key::PublicKey,
-                                          ua: &UserAttribute,
-                                          algo: HashAlgorithm)
+                                          ua: &UserAttribute)
         -> Result<Signature>
         where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
-        self.hash_algo = algo;
         let digest =
             Signature::user_attribute_binding_hash(&self, key, ua)?;
 
@@ -235,18 +229,16 @@ impl Builder {
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`, the hash-algorithm field is set to
     /// `hash_algo`.
-    pub fn sign_message<R>(mut self, signer: &mut dyn Signer<R>,
-                           hash_algo: HashAlgorithm, msg: &[u8])
+    pub fn sign_message<R>(mut self, signer: &mut dyn Signer<R>, msg: &[u8])
         -> Result<Signature>
         where R: key::KeyRole
     {
         // Hash the message
-        let mut hash = hash_algo.context()?;
+        let mut hash = self.hash_algo.context()?;
         hash.update(msg);
 
         // Fill out some fields, then hash the packet.
         self.pk_algo = signer.public().pk_algo();
-        self.hash_algo = hash_algo;
         self.hash(&mut hash);
 
         // Compute the digest.
@@ -1304,7 +1296,7 @@ mod test {
             .set_signature_creation_time(time::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
-            .sign_message(&mut pair, HashAlgorithm::SHA512, msg).unwrap();
+            .sign_message(&mut pair, msg).unwrap();
 
         assert!(sig.verify_message(pair.public(), msg).unwrap());
     }
@@ -1452,7 +1444,7 @@ mod test {
             .set_signature_creation_time(time::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
-            .sign_standalone(&mut pair, HashAlgorithm::SHA256)
+            .sign_standalone(&mut pair)
             .unwrap();
 
         assert!(sig.verify_standalone(pair.public()).unwrap());
@@ -1483,7 +1475,7 @@ mod test {
             .set_signature_creation_time(time::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
-            .sign_timestamp(&mut pair, HashAlgorithm::SHA256)
+            .sign_timestamp(&mut pair)
             .unwrap();
 
         assert!(sig.verify_timestamp(pair.public()).unwrap());

@@ -2382,8 +2382,7 @@ mod test {
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
-                .sign_primary_key_binding(&mut pair,
-                                          HashAlgorithm::SHA512).unwrap();
+                .sign_primary_key_binding(&mut pair).unwrap();
 
             let rev1 = signature::Builder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t2).unwrap()
@@ -2391,8 +2390,7 @@ mod test {
                                            &b""[..]).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
-                .sign_primary_key_binding(&mut pair,
-                                          HashAlgorithm::SHA512).unwrap();
+                .sign_primary_key_binding(&mut pair).unwrap();
 
             let bind2 = signature::Builder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
@@ -2402,8 +2400,7 @@ mod test {
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
-                .sign_primary_key_binding(&mut pair,
-                                          HashAlgorithm::SHA512).unwrap();
+                .sign_primary_key_binding(&mut pair).unwrap();
 
             let rev2 = signature::Builder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t4).unwrap()
@@ -2411,8 +2408,7 @@ mod test {
                                            &b""[..]).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
-                .sign_primary_key_binding(&mut pair,
-                                          HashAlgorithm::SHA512).unwrap();
+                .sign_primary_key_binding(&mut pair).unwrap();
 
             (bind1, rev1, bind2, rev2)
         };
@@ -3012,8 +3008,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                     .set_issuer(key.keyid()).unwrap()
                     .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                     .set_signature_creation_time(*t).unwrap()
-                    .sign_primary_key_binding(&mut pair,
-                                              HashAlgorithm::SHA512).unwrap();
+                    .sign_primary_key_binding(&mut pair).unwrap();
 
                 let binding : Packet = binding.into();
 
@@ -3074,7 +3069,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                         .into_keypair().unwrap(),
                     &bob,
                     sig_template,
-                    None, None).unwrap();
+                    None).unwrap();
 
             let bob
                 = bob.merge_packets(vec![ alice_certifies_bob.clone().into() ])

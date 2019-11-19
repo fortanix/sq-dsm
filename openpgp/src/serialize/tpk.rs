@@ -739,7 +739,7 @@ mod test {
                     &KeyFlags::default().set_encrypt_for_transport(true))
                 .unwrap()
                 .set_exportable_certification(false).unwrap(),
-            None, None).unwrap();
+            None).unwrap();
 
         let uid = UserID::from("foo");
         let uid_binding = uid.bind(
@@ -748,7 +748,7 @@ mod test {
                 tpk.primary_key_signature(None).unwrap().clone())
                 .set_type(SignatureType::PositiveCertificate)
                 .set_exportable_certification(false).unwrap(),
-            None, None).unwrap();
+            None).unwrap();
 
         let ua = UserAttribute::new(&[
             Subpacket::Unknown(2, b"foo".to_vec().into_boxed_slice()),
@@ -759,7 +759,7 @@ mod test {
                 tpk.primary_key_signature(None).unwrap().clone())
                 .set_type(SignatureType::PositiveCertificate)
                 .set_exportable_certification(false).unwrap(),
-            None, None).unwrap();
+            None).unwrap();
 
         let tpk = tpk.merge_packets(vec![
             Packet::SecretSubkey(key), key_binding.into(),

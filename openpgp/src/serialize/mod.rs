@@ -2945,7 +2945,7 @@ mod test {
         let sig = uid.bind(
             &mut keypair, &tpk,
             signature::Builder::new(SignatureType::GenericCertificate),
-            None, None).unwrap();
+            None).unwrap();
 
         // The signature is exportable.  Try to export it in
         // various ways.
@@ -2970,7 +2970,7 @@ mod test {
             &mut keypair, &tpk,
             signature::Builder::new(SignatureType::GenericCertificate)
                 .set_exportable_certification(true).unwrap(),
-            None, None).unwrap();
+            None).unwrap();
 
         // The signature is exportable.  Try to export it in
         // various ways.
@@ -2995,7 +2995,7 @@ mod test {
             &mut keypair, &tpk,
             signature::Builder::new(SignatureType::GenericCertificate)
                 .set_exportable_certification(false).unwrap(),
-            None, None).unwrap();
+            None).unwrap();
 
         // The signature is not exportable.  Try to export it in
         // various ways.

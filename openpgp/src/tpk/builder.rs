@@ -321,16 +321,20 @@ impl TPKBuilder {
         // Sign UserIDs.
         for uid in self.userids.into_iter() {
             let builder = signature::Builder::from(sig.clone())
-                .set_type(SignatureType::PositiveCertificate);
-            let signature = uid.bind(&mut signer, &tpk, builder, None, None)?;
+                .set_type(SignatureType::PositiveCertificate)
+                // GnuPG wants at least a 512-bit hash for P521 keys.
+                .set_hash_algo(HashAlgorithm::SHA512);
+            let signature = uid.bind(&mut signer, &tpk, builder, None)?;
             tpk = tpk.merge_packets(vec![uid.into(), signature.into()])?;
         }
 
         // Sign UserAttributes.
         for ua in self.user_attributes.into_iter() {
             let builder = signature::Builder::from(sig.clone())
-                .set_type(SignatureType::PositiveCertificate);
-            let signature = ua.bind(&mut signer, &tpk, builder, None, None)?;
+                .set_type(SignatureType::PositiveCertificate)
+            // GnuPG wants at least a 512-bit hash for P521 keys.
+                .set_hash_algo(HashAlgorithm::SHA512);
+            let signature = ua.bind(&mut signer, &tpk, builder, None)?;
             tpk = tpk.merge_packets(vec![ua.into(), signature.into()])?;
         }
 
@@ -341,6 +345,8 @@ impl TPKBuilder {
 
             let mut builder =
                 signature::Builder::new(SignatureType::SubkeyBinding)
+                // GnuPG wants at least a 512-bit hash for P521 keys.
+                .set_hash_algo(HashAlgorithm::SHA512)
                 .set_features(&Features::sequoia())?
                 .set_key_flags(flags)?
                 .set_key_expiration_time(self.expiration)?;
@@ -361,17 +367,18 @@ impl TPKBuilder {
                 let mut subkey_signer = subkey.clone().into_keypair().unwrap();
                 let backsig =
                     signature::Builder::new(SignatureType::PrimaryKeyBinding)
+                    // GnuPG wants at least a 512-bit hash for P521 keys.
+                    .set_hash_algo(HashAlgorithm::SHA512)
                     .set_signature_creation_time(time::now().canonicalize())?
                     .set_issuer_fingerprint(subkey.fingerprint())?
                     .set_issuer(subkey.keyid())?
                     .sign_subkey_binding(&mut subkey_signer, &primary,
-                                         &subkey.mark_parts_public_ref(),
-                                         HashAlgorithm::SHA512)?;
+                                         &subkey.mark_parts_public_ref())?;
                 builder = builder.set_embedded_signature(backsig)?;
             }
 
             let signature = subkey.mark_parts_public_ref()
-                .bind(&mut signer, &tpk, builder, None, None)?;
+                .bind(&mut signer, &tpk, builder, None)?;
 
             if let Some(ref password) = self.password {
                 subkey.secret_mut().unwrap().encrypt_in_place(password)?;
@@ -398,6 +405,8 @@ impl TPKBuilder {
         let key = self.ciphersuite.generate_key(
             &KeyFlags::default().set_certify(true))?;
         let sig = signature::Builder::new(SignatureType::DirectKey)
+            // GnuPG wants at least a 512-bit hash for P521 keys.
+            .set_hash_algo(HashAlgorithm::SHA512)
             .set_features(&Features::sequoia())?
             .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(time::now().canonicalize())?
@@ -408,8 +417,7 @@ impl TPKBuilder {
 
         let mut signer = key.clone().into_keypair()
             .expect("key generated above has a secret");
-        let sig = sig.sign_primary_key_binding(&mut signer,
-                                               HashAlgorithm::SHA512)?;
+        let sig = sig.sign_primary_key_binding(&mut signer)?;
 
         Ok((key.mark_parts_public(), sig.into()))
     }
