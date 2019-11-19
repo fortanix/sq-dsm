@@ -194,9 +194,7 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
 /// For every signing key, a signer writes a one-pass-signature
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
-pub struct Signer<'a, R>
-    where R: key::KeyRole
-{
+pub struct Signer<'a> {
     // The underlying writer.
     //
     // Because this writer implements `Drop`, we cannot move the inner
@@ -207,7 +205,7 @@ pub struct Signer<'a, R>
     // take our inner reader.  If that happens, we only update the
     // digests.
     inner: Option<writer::BoxStack<'a, Cookie>>,
-    signers: Vec<&'a mut dyn crypto::Signer<R>>,
+    signers: Vec<&'a mut dyn crypto::Signer<key::UnspecifiedRole>>,
     intended_recipients: Option<Vec<Fingerprint>>,
     detached: bool,
     hash: crypto::hash::Context,
@@ -215,9 +213,7 @@ pub struct Signer<'a, R>
     position: u64,
 }
 
-impl<'a, R> Signer<'a, R>
-    where R: key::KeyRole
-{
+impl<'a> Signer<'a> {
     /// Creates a signer.
     ///
     /// # Example
@@ -237,7 +233,8 @@ impl<'a, R> Signer<'a, R>
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
-    /// # fn f<R: key::KeyRole>(tpk: TPK, mut signing_keypair: KeyPair<R>) -> Result<()> {
+    /// # fn f(tpk: TPK, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
+    /// #      -> Result<()> {
     ///
     /// let mut o = vec![];
     /// {
@@ -277,7 +274,8 @@ impl<'a, R> Signer<'a, R>
     /// # }
     /// ```
     pub fn new<H>(inner: writer::Stack<'a, Cookie>,
-                  signers: Vec<&'a mut dyn crypto::Signer<R>>,
+                  signers: Vec<&'a mut dyn crypto::Signer<
+                          key::UnspecifiedRole>>,
                   hash_algo: H)
         -> Result<writer::Stack<'a, Cookie>>
         where H: Into<Option<HashAlgorithm>>
@@ -293,7 +291,8 @@ impl<'a, R> Signer<'a, R>
     /// signature.  This prevents forwarding a signed message using a
     /// different encryption context.
     pub fn with_intended_recipients<H>(inner: writer::Stack<'a, Cookie>,
-                                       signers: Vec<&'a mut dyn crypto::Signer<R>>,
+                                       signers: Vec<&'a mut dyn crypto::Signer<
+                                               key::UnspecifiedRole>>,
                                        recipients: &[&'a TPK],
                                        hash_algo: H)
         -> Result<writer::Stack<'a, Cookie>>
@@ -323,7 +322,8 @@ impl<'a, R> Signer<'a, R>
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
-    /// # fn f<R: key::KeyRole>(tpk: TPK, mut signing_keypair: KeyPair<R>) -> Result<()> {
+    /// # fn f(tpk: TPK, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
+    /// #      -> Result<()> {
     ///
     /// let mut o = vec![];
     /// {
@@ -366,7 +366,7 @@ impl<'a, R> Signer<'a, R>
     /// # }
     /// ```
     pub fn detached<H>(inner: writer::Stack<'a, Cookie>,
-                       signers: Vec<&'a mut dyn crypto::Signer<R>>,
+                       signers: Vec<&'a mut dyn crypto::Signer<key::UnspecifiedRole>>,
                        hash_algo: H)
         -> Result<writer::Stack<'a, Cookie>>
         where H: Into<Option<HashAlgorithm>>
@@ -376,7 +376,7 @@ impl<'a, R> Signer<'a, R>
     }
 
     fn make(inner: writer::Stack<'a, Cookie>,
-            signers: Vec<&'a mut dyn crypto::Signer<R>>,
+            signers: Vec<&'a mut dyn crypto::Signer<key::UnspecifiedRole>>,
             intended_recipients: Option<Vec<Fingerprint>>, detached: bool,
             hash_algo: HashAlgorithm)
         -> Result<writer::Stack<'a, Cookie>>
@@ -450,17 +450,13 @@ impl<'a, R> Signer<'a, R>
     }
 }
 
-impl<'a, R> Drop for Signer<'a, R>
-    where R: key::KeyRole
-{
+impl<'a> Drop for Signer<'a> {
     fn drop(&mut self) {
         let _ = self.emit_signatures();
     }
 }
 
-impl<'a, R> fmt::Debug for Signer<'a, R>
-    where R: key::KeyRole
-{
+impl<'a> fmt::Debug for Signer<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Signer")
             .field("inner", &self.inner)
@@ -469,9 +465,7 @@ impl<'a, R> fmt::Debug for Signer<'a, R>
     }
 }
 
-impl<'a, R> Write for Signer<'a, R>
-    where R: key::KeyRole
-{
+impl<'a> Write for Signer<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let written = match self.inner.as_mut() {
             // If we are creating a normal signature, pass data
@@ -503,9 +497,7 @@ impl<'a, R> Write for Signer<'a, R>
     }
 }
 
-impl<'a, R> writer::Stackable<'a, Cookie> for Signer<'a, R>
-    where R: key::KeyRole
-{
+impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
     fn pop(&mut self) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         Ok(self.inner.take())
     }
