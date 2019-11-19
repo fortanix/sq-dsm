@@ -1583,6 +1583,12 @@ pgp_writer_stack_t pgp_arbitrary_writer_new (pgp_error_t *errp,
 /// For every signing key, a signer writes a one-pass-signature
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
+///
+/// The signers are consumed.
+///
+/// The hash is performed using the algorithm specified in
+/// `hash_algo`.  Pass 0 for the default (which is what you usually
+/// want).
 /*/
 pgp_writer_stack_t pgp_signer_new (pgp_error_t *errp,
                                    pgp_writer_stack_t inner,

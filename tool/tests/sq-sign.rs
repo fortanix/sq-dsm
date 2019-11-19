@@ -213,10 +213,9 @@ fn sq_sign_append_on_compress_then_sign() {
         Some(SecretKeyMaterial::Unencrypted(ref u)) => u.clone(),
         _ => unreachable!(),
     };
-    let mut keypair = KeyPair::new(key.clone(), sec).unwrap();
+    let keypair = KeyPair::new(key.clone(), sec).unwrap();
     let signer = Signer::new(Message::new(File::create(&sig0).unwrap()),
-                             vec![&mut keypair], None)
-        .unwrap();
+                             keypair).build().unwrap();
     let compressor = Compressor::new(signer, CompressionAlgorithm::Uncompressed,
                                      None)
         .unwrap();

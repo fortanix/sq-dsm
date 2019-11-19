@@ -15,7 +15,6 @@ extern crate time;
 
 use self::openpgp::constants::{
     AEADAlgorithm,
-    HashAlgorithm,
     SymmetricAlgorithm,
 };
 
@@ -143,6 +142,8 @@ pub extern "C" fn pgp_arbitrary_writer_new
 /// packet, then hashes and emits the data stream, then for every key
 /// writes a signature packet.
 ///
+/// The signers are consumed.
+///
 /// The hash is performed using the algorithm specified in
 /// `hash_algo`.  Pass 0 for the default (which is what you usually
 /// want).
@@ -162,18 +163,23 @@ pub extern "C" fn pgp_signer_new
     let signers = unsafe {
         slice::from_raw_parts(signers, signers_len)
     };
-    let signers = signers.into_iter().map(
-        |s| -> &mut dyn self::openpgp::crypto::Signer<_> {
-            let signer = *s;
-            ffi_param_ref_mut!(signer).as_mut()
-        }
-    ).collect();
-    let hash_algo : Option<HashAlgorithm> = if hash_algo == 0 {
-        None
-    } else {
-        Some(hash_algo.into())
-    };
-    ffi_try_box!(Signer::new(*inner, signers, hash_algo))
+    let mut signers = signers.iter().map(|s| {
+        *ffi_param_move!(*s)
+    }).collect::<Vec<_>>();
+
+    let mut signer =
+        Signer::new(*inner, ffi_try!(signers.pop().ok_or_else(|| {
+            failure::format_err!("signers is empty")
+        })));
+    for s in signers {
+        signer = signer.add_signer(s);
+    }
+
+    if hash_algo != 0 {
+        signer = ffi_try!(signer.hash_algo(hash_algo.into()));
+    }
+
+    ffi_try_box!(signer.build())
 }
 
 /// Creates a signer for a detached signature.
@@ -195,18 +201,23 @@ pub extern "C" fn pgp_signer_new_detached
     let signers = unsafe {
         slice::from_raw_parts(signers, signers_len)
     };
-    let signers = signers.into_iter().map(
-        |s| -> &mut dyn self::openpgp::crypto::Signer<_> {
-            let signer = *s;
-            ffi_param_ref_mut!(signer).as_mut()
-        }
-    ).collect();
-    let hash_algo : Option<HashAlgorithm> = if hash_algo == 0 {
-        None
-    } else {
-        Some(hash_algo.into())
-    };
-    ffi_try_box!(Signer::detached(*inner, signers, hash_algo))
+    let mut signers = signers.iter().map(|s| {
+        *ffi_param_move!(*s)
+    }).collect::<Vec<_>>();
+
+    let mut signer =
+        Signer::new(*inner, ffi_try!(signers.pop().ok_or_else(|| {
+            failure::format_err!("signers is empty")
+        })));
+    for s in signers {
+        signer = signer.add_signer(s);
+    }
+
+    if hash_algo != 0 {
+        signer = ffi_try!(signer.hash_algo(hash_algo.into()));
+    }
+
+    ffi_try_box!(signer.detached().build())
 }
 
 /// Writes a literal data packet.

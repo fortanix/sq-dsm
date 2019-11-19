@@ -94,7 +94,7 @@ fn sign() {
         tpk.as_tsk().serialize(&mut buf).unwrap();
         gpg_import(&ctx, &buf);
 
-        let mut keypair = KeyPair::new(
+        let keypair = KeyPair::new(
             &ctx, tpk.keys_valid().signing_capable().take(1).next().unwrap().2)
             .unwrap();
 
@@ -104,9 +104,10 @@ fn sign() {
             let message = Message::new(&mut message);
 
             // We want to sign a literal data packet.
-            let signer = Signer::new(message, vec![&mut keypair],
-                                     HashAlgorithm::SHA512)
-                .unwrap();
+            let signer = Signer::new(message, keypair)
+                 // XXX: Is this necessary?  If so, it shouldn't.
+                .hash_algo(HashAlgorithm::SHA512).unwrap()
+                .build().unwrap();
 
             // Emit a literal data packet.
             let mut literal_writer = LiteralWriter::new(

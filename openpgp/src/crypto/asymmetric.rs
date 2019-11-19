@@ -27,6 +27,17 @@ pub trait Signer<R>
             -> Result<mpis::Signature>;
 }
 
+impl<R: key::KeyRole> Signer<R> for Box<dyn Signer<R>> {
+    fn public(&self) -> &Key<key::PublicParts, R> {
+        self.as_ref().public()
+    }
+
+    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
+            -> Result<mpis::Signature> {
+        self.as_mut().sign(hash_algo, digest)
+    }
+}
+
 /// Decrypts a message.
 ///
 /// This is a low-level mechanism to decrypt an arbitrary OpenPGP

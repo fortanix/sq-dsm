@@ -205,8 +205,8 @@ pub struct Signer<'a> {
     // take our inner reader.  If that happens, we only update the
     // digests.
     inner: Option<writer::BoxStack<'a, Cookie>>,
-    signers: Vec<&'a mut dyn crypto::Signer<key::UnspecifiedRole>>,
-    intended_recipients: Option<Vec<Fingerprint>>,
+    signers: Vec<Box<dyn crypto::Signer<key::UnspecifiedRole> + 'a>>,
+    intended_recipients: Vec<Fingerprint>,
     detached: bool,
     hash: crypto::hash::Context,
     cookie: Cookie,
@@ -239,7 +239,7 @@ impl<'a> Signer<'a> {
     /// let mut o = vec![];
     /// {
     ///     let message = Message::new(&mut o);
-    ///     let signer = Signer::new(message, vec![&mut signing_keypair], None)?;
+    ///     let signer = Signer::new(message, signing_keypair).build()?;
     ///     let mut ls = LiteralWriter::new(signer, None, None, None)?;
     ///     ls.write_all(b"Make it so, number one!")?;
     ///     ls.finalize()?;
@@ -273,34 +273,48 @@ impl<'a> Signer<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<H>(inner: writer::Stack<'a, Cookie>,
-                  signers: Vec<&'a mut dyn crypto::Signer<
-                          key::UnspecifiedRole>>,
-                  hash_algo: H)
-        -> Result<writer::Stack<'a, Cookie>>
-        where H: Into<Option<HashAlgorithm>>
+    pub fn new<S>(inner: writer::Stack<'a, Cookie>, signer: S) -> Self
+        where S: crypto::Signer<key::UnspecifiedRole> + 'a
     {
-        Self::make(inner, signers, None, false,
-                   hash_algo.into().unwrap_or_default())
+        let inner = writer::BoxStack::from(inner);
+        let level = inner.cookie_ref().level + 1;
+        Signer {
+            inner: Some(inner),
+            signers: vec![Box::new(signer)],
+            intended_recipients: Vec::new(),
+            detached: false,
+            hash: HashAlgorithm::default().context().unwrap(),
+            cookie: Cookie {
+                level: level,
+                private: Private::Signer,
+            },
+            position: 0,
+        }
     }
 
-    /// Creates a signer with intended recipients.
+    /// Sets the hash algorithm to use for the signatures.
+    pub fn hash_algo(mut self, algo: HashAlgorithm) -> Result<Self> {
+        self.hash = algo.context()?;
+        Ok(self)
+    }
+
+    /// Adds an additional signer.
+    pub fn add_signer<S>(mut self, signer: S) -> Self
+        where S: crypto::Signer<key::UnspecifiedRole> + 'a
+    {
+        self.signers.push(Box::new(signer));
+        self
+    }
+
+    /// Adds an intended recipient.
     ///
     /// This signer emits signatures indicating the intended
     /// recipients of the encryption container containing the
     /// signature.  This prevents forwarding a signed message using a
     /// different encryption context.
-    pub fn with_intended_recipients<H>(inner: writer::Stack<'a, Cookie>,
-                                       signers: Vec<&'a mut dyn crypto::Signer<
-                                               key::UnspecifiedRole>>,
-                                       recipients: &[&'a TPK],
-                                       hash_algo: H)
-        -> Result<writer::Stack<'a, Cookie>>
-        where H: Into<Option<HashAlgorithm>>
-    {
-        Self::make(inner, signers,
-                   Some(recipients.iter().map(|r| r.fingerprint()).collect()),
-                   false, hash_algo.into().unwrap_or_default())
+    pub fn add_intended_recipient(mut self, recipient: &TPK) -> Self {
+        self.intended_recipients.push(recipient.fingerprint());
+        self
     }
 
     /// Creates a signer for a detached signature.
@@ -329,7 +343,7 @@ impl<'a> Signer<'a> {
     /// {
     ///     let message = Message::new(&mut o);
     ///     let mut signer =
-    ///         Signer::detached(message, vec![&mut signing_keypair], None)?;
+    ///         Signer::new(message, signing_keypair).detached().build()?;
     ///     signer.write_all(b"Make it so, number one!")?;
     ///     // In reality, just io::copy() the file to be signed.
     ///     signer.finalize()?;
@@ -365,56 +379,33 @@ impl<'a> Signer<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn detached<H>(inner: writer::Stack<'a, Cookie>,
-                       signers: Vec<&'a mut dyn crypto::Signer<key::UnspecifiedRole>>,
-                       hash_algo: H)
-        -> Result<writer::Stack<'a, Cookie>>
-        where H: Into<Option<HashAlgorithm>>
-    {
-        Self::make(inner, signers, None, true,
-                   hash_algo.into().unwrap_or_default())
+    pub fn detached(mut self) -> Self {
+        self.detached = true;
+        self
     }
 
-    fn make(inner: writer::Stack<'a, Cookie>,
-            signers: Vec<&'a mut dyn crypto::Signer<key::UnspecifiedRole>>,
-            intended_recipients: Option<Vec<Fingerprint>>, detached: bool,
-            hash_algo: HashAlgorithm)
-        -> Result<writer::Stack<'a, Cookie>>
+    /// Finalizes the signer, returning the writer stack.
+    pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>>
     {
-        let mut inner = writer::BoxStack::from(inner);
+        assert!(self.signers.len() > 0, "The constructor adds a signer.");
+        assert!(self.inner.is_some(), "The constructor adds an inner writer.");
 
-        if signers.len() == 0 {
-            return Err(Error::InvalidArgument(
-                "No signing keys given".into()).into());
-        }
-
-        if ! detached {
+        if ! self.detached {
             // For every key we collected, build and emit a one pass
             // signature packet.
-            for (i, keypair) in signers.iter().enumerate() {
+            for (i, keypair) in self.signers.iter().enumerate() {
                 let key = keypair.public();
                 let mut ops = OnePassSig3::new(SignatureType::Binary);
                 ops.set_pk_algo(key.pk_algo());
-                ops.set_hash_algo(hash_algo);
+                ops.set_hash_algo(self.hash.algo());
                 ops.set_issuer(key.keyid());
-                ops.set_last(i == signers.len() - 1);
-                Packet::OnePassSig(ops.into()).serialize(&mut inner)?;
+                ops.set_last(i == self.signers.len() - 1);
+                Packet::OnePassSig(ops.into())
+                    .serialize(self.inner.as_mut().unwrap())?;
             }
         }
 
-        let level = inner.cookie_ref().level + 1;
-        Ok(writer::Stack::from(Box::new(Signer {
-            inner: Some(inner),
-            signers: signers,
-            intended_recipients: intended_recipients,
-            detached: detached,
-            hash: hash_algo.context()?,
-            cookie: Cookie {
-                level: level,
-                private: Private::Signer,
-            },
-            position: 0,
-        })))
+        Ok(writer::Stack::from(Box::new(self)))
     }
 
     fn emit_signatures(&mut self) -> Result<()> {
@@ -435,12 +426,13 @@ impl<'a> Signer<'a> {
                     // Issuer subpacket to be present.
                     .set_issuer(signer.public().keyid())?;
 
-                if let Some(ref ir) = self.intended_recipients {
-                    sig = sig.set_intended_recipients(ir.clone())?;
+                if ! self.intended_recipients.is_empty() {
+                    sig = sig.set_intended_recipients(
+                        self.intended_recipients.clone())?;
                 }
 
                 // Compute the signature.
-                let sig = sig.sign_hash(*signer, self.hash.algo(), hash)?;
+                let sig = sig.sign_hash(signer.as_mut(), self.hash.algo(), hash)?;
 
                 // And emit the packet.
                 Packet::Signature(sig).serialize(sink)?;
@@ -1405,13 +1397,11 @@ mod test {
             }).collect::<Vec<KeyPair<_>>>();
 
             let m = Message::new(&mut o);
-            let signer = Signer::new(
-                m,
-                signers.iter_mut()
-                    .map(|s| -> &mut dyn crypto::Signer<_> {s})
-                    .collect(),
-                None)
-                .unwrap();
+            let mut signer = Signer::new(m, signers.pop().unwrap());
+            for s in signers.into_iter() {
+                signer = signer.add_signer(s);
+            }
+            let signer = signer.build().unwrap();
             let mut ls = LiteralWriter::new(signer, None, None, None).unwrap();
             ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
             let signer = ls.finalize_one().unwrap().unwrap();

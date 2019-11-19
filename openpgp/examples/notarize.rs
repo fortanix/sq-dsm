@@ -7,7 +7,6 @@ use std::io;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{
     armor,
-    crypto,
     Packet,
     parse::{Parse, PacketParserResult},
     serialize::Serialize,
@@ -60,14 +59,13 @@ fn main() {
     // Stream an OpenPGP message.
     let message = Message::new(sink);
 
-    // Now, create a signer that emits a detached signature.
-    let mut signer = Signer::new(
-        message,
-        keys.iter_mut()
-            .map(|s| -> &mut dyn crypto::Signer<_> { s })
-            .collect(),
-        None)
-        .expect("Failed to create signer");
+    // Now, create a signer that emits the signature(s).
+    let mut signer =
+        Signer::new(message, keys.pop().expect("No key for signing"));
+    for s in keys {
+        signer = signer.add_signer(s);
+    }
+    let mut signer = signer.build().expect("Failed to create signer");
 
     // Create a parser for the message to be notarized.
     let mut input = io::stdin();

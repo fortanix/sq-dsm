@@ -52,13 +52,13 @@ fn main() {
 #     // Get the keypair to do the signing from the TPK.
 #     let key : key::UnspecifiedSecret
 #         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
-#     let mut keypair = key.into_keypair()?;
+#     let keypair = key.into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 #
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, vec![&mut keypair], None)?;
+#     let signer = Signer::new(message, keypair).build()?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;
@@ -197,13 +197,13 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #     // Get the keypair to do the signing from the TPK.
 #     let key : key::UnspecifiedSecret
 #         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
-#     let mut keypair = key.into_keypair()?;
+#     let keypair = key.into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 #
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, vec![&mut keypair], None)?;
+#     let signer = Signer::new(message, keypair).build()?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;
@@ -342,13 +342,13 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
     // Get the keypair to do the signing from the TPK.
     let key : key::UnspecifiedSecret
         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
-    let mut keypair = key.into_keypair()?;
+    let keypair = key.into_keypair()?;
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
 
     // We want to sign a literal data packet.
-    let signer = Signer::new(message, vec![&mut keypair], None)?;
+    let signer = Signer::new(message, keypair).build()?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;
@@ -498,13 +498,13 @@ Verified data can be read from this using [`io::Read`].
 #     // Get the keypair to do the signing from the TPK.
 #     let key : key::UnspecifiedSecret
 #         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
-#     let mut keypair = key.into_keypair()?;
+#     let keypair = key.into_keypair()?;
 # 
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 # 
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, vec![&mut keypair], None)?;
+#     let signer = Signer::new(message, keypair).build()?;
 # 
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;

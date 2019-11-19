@@ -38,14 +38,11 @@ fn main() {
         }).collect::<Vec<_>>();
 
     // Construct a KeyPair for every signing-capable (sub)key.
-    let mut keypairs = tpks.iter().flat_map(|tpk| tpk.keys_valid().signing_capable().filter_map(|(_, _, key)| {
-        KeyPair::new(&ctx, key).ok()
-    })).collect::<Vec<KeyPair<_>>>();
-
-    // Well, this is awkward...
-    let signers = keypairs.iter_mut()
-        .map(|s| -> &mut dyn openpgp::crypto::Signer<_> { s })
-        .collect();
+    let mut signers = tpks.iter().flat_map(|tpk| {
+        tpk.keys_valid().signing_capable().filter_map(|(_, _, key)| {
+            KeyPair::new(&ctx, key).ok()
+        })
+    }).collect::<Vec<KeyPair<_>>>();
 
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.  First, we want the output to be
@@ -56,9 +53,13 @@ fn main() {
     // Stream an OpenPGP message.
     let message = Message::new(sink);
 
-    // Now, create a signer that emits a signature.
-    let signer = Signer::new(message, signers, None)
-        .expect("Failed to create signer");
+    // Now, create a signer that emits the signature(s).
+    let mut signer =
+        Signer::new(message, signers.pop().expect("No key for signing"));
+    for s in signers {
+        signer = signer.add_signer(s);
+    }
+    let signer = signer.build().expect("Failed to create signer");
 
     // Then, create a literal writer to wrap the data in a literal
     // message packet.

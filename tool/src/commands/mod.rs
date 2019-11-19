@@ -148,12 +148,14 @@ pub fn encrypt(mapping: &mut store::Mapping,
 
     // Optionally sign message.
     if ! signers.is_empty() {
-        sink = Signer::with_intended_recipients(
-            sink,
-            signers.iter_mut().map(|s| -> &mut dyn crypto::Signer<_> { s })
-                .collect(),
-            &recipients,
-            None)?;
+        let mut signer = Signer::new(sink, signers.pop().unwrap());
+        for s in signers {
+            signer = signer.add_signer(s);
+        }
+        for r in recipients {
+            signer = signer.add_intended_recipient(r);
+        }
+        sink = signer.build()?;
     }
 
     let mut literal_writer = LiteralWriter::new(sink, None, None, None)

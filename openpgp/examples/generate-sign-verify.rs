@@ -40,14 +40,14 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 fn sign(sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::TPK)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the TPK.
-    let mut keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
+    let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
         .clone().mark_parts_secret().into_keypair()?;
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
 
     // We want to sign a literal data packet.
-    let signer = Signer::new(message, vec![&mut keypair], None)?;
+    let signer = Signer::new(message, keypair).build()?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(signer, None, None, None)?;

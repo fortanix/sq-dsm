@@ -1900,10 +1900,11 @@ mod test {
         let mut buf = vec![];
         {
             let key = tpk.keys_all().signing_capable().nth(0).unwrap().2;
-            let mut keypair = key.clone().mark_parts_secret().into_keypair().unwrap();
+            let keypair =
+                key.clone().mark_parts_secret().into_keypair().unwrap();
 
             let m = Message::new(&mut buf);
-            let signer = Signer::new(m, vec![&mut keypair], None).unwrap();
+            let signer = Signer::new(m, keypair).build().unwrap();
             let mut ls = LiteralWriter::new(signer, None, None, None).unwrap();
 
             ls.write_all(&mut vec![42u8; 30 * 1024 * 1024]).unwrap();
