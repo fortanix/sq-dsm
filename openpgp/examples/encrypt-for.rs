@@ -35,7 +35,7 @@ fn main() {
     }).collect();
 
     // Build a vector of recipients to hand to Encryptor.
-    let recipients =
+    let mut recipients =
         tpks.iter()
         .flat_map(|tpk| tpk.keys_valid().key_flags(mode.clone()))
         .map(|(_, _, key)| key.into())
@@ -51,11 +51,13 @@ fn main() {
     let message = Message::new(sink);
 
     // We want to encrypt a literal data packet.
-    let encryptor = Encryptor::new(message,
-                                   &[], // No symmetric encryption.
-                                   &recipients,
-                                   None, None)
-        .expect("Failed to create encryptor");
+    let mut encryptor = Encryptor::for_recipient(
+        message, recipients.pop().expect("No encryption key found"));
+    for r in recipients {
+        encryptor = encryptor.add_recipient(r)
+    }
+    let encryptor = encryptor.build().expect("Failed to create encryptor");
+
     let mut literal_writer = LiteralWriter::new(encryptor).build()
         .expect("Failed to create literal writer");
 

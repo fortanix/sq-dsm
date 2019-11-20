@@ -309,6 +309,8 @@ fn pgp_recipients_from_key_iter<'a>(
 /// which will be encrypted using the given passwords, and all
 /// encryption-capable subkeys of the given TPKs.
 ///
+/// The recipients are consumed.
+///
 /// The stream is encrypted using `cipher_algo`.  Pass 0 for the
 /// default (which is what you usually want).
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
@@ -316,7 +318,7 @@ pub extern "C" fn pgp_encryptor_new<'a>
     (errp: Option<&mut *mut crate::error::Error>,
      inner: *mut writer::Stack<'a, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
-     recipients: Option<&*const Recipient<'a>>, recipients_len: size_t,
+     recipients: Option<&*mut Recipient<'a>>, recipients_len: size_t,
      cipher_algo: u8,
      aead_algo: u8)
      -> *mut writer::Stack<'a, Cookie>
@@ -341,7 +343,7 @@ pub extern "C" fn pgp_encryptor_new<'a>
             slice::from_raw_parts(recipients, recipients_len)
         };
         for recipient in recipients {
-            recipients_.push(recipient.ref_raw());
+            recipients_.push(recipient.move_from_raw());
         }
     };
     let cipher_algo : Option<SymmetricAlgorithm> = if cipher_algo == 0 {
@@ -354,9 +356,27 @@ pub extern "C" fn pgp_encryptor_new<'a>
     } else {
         Some(aead_algo.into())
     };
-    ffi_try_box!(Encryptor::new(*inner,
-                                passwords_.iter().collect::<Vec<_>>(),
-                                recipients_,
-                                cipher_algo,
-                                aead_algo))
+    if passwords_.len() + recipients_.len() == 0 {
+        ffi_try!(Err(failure::format_err!(
+            "Neither recipient nor password given")));
+    }
+
+    let mut encryptor = if let Some(p) = passwords_.pop() {
+        Encryptor::with_password(*inner, p)
+    } else {
+        Encryptor::for_recipient(*inner, recipients_.pop().unwrap())
+    };
+    for p in passwords_ {
+        encryptor = encryptor.add_password(p);
+    }
+    for r in recipients_ {
+        encryptor = encryptor.add_recipient(r);
+    }
+    if let Some(algo) = cipher_algo {
+        encryptor = encryptor.sym_algo(algo);
+    }
+    if let Some(algo) = aead_algo {
+        encryptor = encryptor.aead_algo(algo);
+    }
+    ffi_try_box!(encryptor.build())
 }

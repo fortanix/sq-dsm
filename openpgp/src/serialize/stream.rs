@@ -9,7 +9,6 @@
 //!
 //! [encryption example]: struct.Encryptor.html#example
 
-use std::borrow::Borrow;
 use std::fmt;
 use std::io::{self, Write};
 use time;
@@ -910,6 +909,10 @@ impl<'a> Recipient<'a> {
 /// Encrypts a packet stream.
 pub struct Encryptor<'a> {
     inner: Option<writer::BoxStack<'a, Cookie>>,
+    recipients: Vec<Recipient<'a>>,
+    passwords: Vec<Password>,
+    sym_algo: SymmetricAlgorithm,
+    aead_algo: Option<AEADAlgorithm>,
     hash: crypto::hash::Context,
     cookie: Cookie,
 }
@@ -979,46 +982,109 @@ impl<'a> Encryptor<'a> {
     /// ).unwrap();
     ///
     /// // Build a vector of recipients to hand to Encryptor.
-    /// let recipients =
+    /// let recipient =
     ///     tpk.keys_valid()
     ///     .key_flags(KeyFlags::default()
     ///                .set_encrypt_at_rest(true)
     ///                .set_encrypt_for_transport(true))
     ///     .map(|(_, _, key)| key.into())
-    ///     .collect::<Vec<_>>();
+    ///     .nth(0).unwrap();
     ///
     /// let mut o = vec![];
     /// let message = Message::new(&mut o);
-    /// let encryptor = Encryptor::new(message,
-    ///                                &["совершенно секретно".into()],
-    ///                                &recipients, None, None)
-    ///     .expect("Failed to create encryptor");
+    /// let encryptor =
+    ///     Encryptor::for_recipient(message, recipient)
+    ///         .build().expect("Failed to create encryptor");
     /// let mut w = LiteralWriter::new(encryptor).build()?;
     /// w.write_all(b"Hello world.")?;
     /// w.finalize()?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<'r, P, R, C, A>(inner: writer::Stack<'a, Cookie>,
-                               passwords: P, recipients: R,
-                               cipher_algo: C, aead_algo: A)
-                               -> Result<writer::Stack<'a, Cookie>>
-        where P: IntoIterator,
-              P::Item: Borrow<Password>,
-              R: IntoIterator,
-              R::Item: Borrow<Recipient<'r>>,
-              C: Into<Option<SymmetricAlgorithm>>,
-              A: Into<Option<AEADAlgorithm>>,
-    {
-        let passwords = passwords.into_iter().collect::<Vec<_>>();
-        let passwords_ref = passwords.iter().map(|r| r.borrow()).collect();
-        let recipients = recipients.into_iter().collect::<Vec<_>>();
-        let recipients_ref = recipients.iter().map(|r| r.borrow()).collect();
-        Self::make(inner,
-                   passwords_ref,
-                   recipients_ref,
-                   cipher_algo.into().unwrap_or_default(),
-                   aead_algo.into())
+    pub fn for_recipient(inner: writer::Stack<'a, Cookie>,
+                         recipient: Recipient<'a>) -> Self {
+        Self {
+            inner: Some(inner.into()),
+            recipients: vec![recipient],
+            passwords: Vec::new(),
+            sym_algo: Default::default(),
+            aead_algo: Default::default(),
+            hash: HashAlgorithm::SHA1.context().unwrap(),
+            cookie: Default::default(), // Will be fixed in build.
+        }
+    }
+
+    /// Creates a new encryptor.
+    ///
+    /// The stream will be encrypted using a generated session key,
+    /// which will be encrypted using the given passwords, and all
+    /// encryption-capable subkeys of the given TPKs.
+    ///
+    /// Unless otherwise specified, the stream is encrypted using
+    /// AES256.  If `aead_algo` is `None`, a `SEIP` packet is emitted,
+    /// otherwise the given AEAD algorithm is used.
+    ///
+    /// Key preferences of the recipients are not honored.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::io::Write;
+    /// extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::constants::KeyFlags;
+    /// use openpgp::serialize::stream::{
+    ///     Message, Encryptor, LiteralWriter,
+    /// };
+    /// # use openpgp::Result;
+    /// # use openpgp::parse::Parse;
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// let mut o = vec![];
+    /// let message = Message::new(&mut o);
+    /// let encryptor =
+    ///     Encryptor::with_password(message, "совершенно секретно".into())
+    ///         .build().expect("Failed to create encryptor");
+    /// let mut w = LiteralWriter::new(encryptor).build()?;
+    /// w.write_all(b"Hello world.")?;
+    /// w.finalize()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_password(inner: writer::Stack<'a, Cookie>,
+                         password: Password) -> Self {
+        Self {
+            inner: Some(inner.into()),
+            recipients: Vec::new(),
+            passwords: vec![password],
+            sym_algo: Default::default(),
+            aead_algo: Default::default(),
+            hash: HashAlgorithm::SHA1.context().unwrap(),
+            cookie: Default::default(), // Will be fixed in build.
+        }
+    }
+
+    /// Adds a recipient.
+    pub fn add_recipient(mut self, recipient: Recipient<'a>) -> Self {
+        self.recipients.push(recipient);
+        self
+    }
+
+    /// Adds a password.
+    pub fn add_password(mut self, password: Password) -> Self {
+        self.passwords.push(password);
+        self
+    }
+
+    /// Sets the symmetric algorithm to use.
+    pub fn sym_algo(mut self, algo: SymmetricAlgorithm) -> Self {
+        self.sym_algo = algo;
+        self
+    }
+
+    /// Enables AEAD and sets the AEAD algorithm to use.
+    pub fn aead_algo(mut self, algo: AEADAlgorithm) -> Self {
+        self.aead_algo = Some(algo);
+        self
     }
 
     // The default chunk size.
@@ -1026,17 +1092,10 @@ impl<'a> Encryptor<'a> {
     // A page, 3 per mille overhead.
     const AEAD_CHUNK_SIZE : usize = 4096;
 
-    fn make(mut inner: writer::Stack<'a, Cookie>,
-            passwords: Vec<&Password>,
-            recipients: Vec<&Recipient>,
-            algo: SymmetricAlgorithm,
-            aead_algo: Option<AEADAlgorithm>)
-            -> Result<writer::Stack<'a, Cookie>>
-    {
-        if recipients.len() + passwords.len() == 0 {
-            return Err(Error::InvalidArgument(
-                "Neither recipient keys nor passwords given".into()).into());
-        }
+    /// Finalizes the encryptor, returning the writer stack.
+    pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>> {
+        assert!(self.recipients.len() + self.passwords.len() > 0,
+                "The constructors add at least one recipient or password");
 
         struct AEADParameters {
             algo: AEADAlgorithm,
@@ -1044,7 +1103,7 @@ impl<'a> Encryptor<'a> {
             nonce: Box<[u8]>,
         }
 
-        let aead = if let Some(algo) = aead_algo {
+        let aead = if let Some(algo) = self.aead_algo {
             let mut nonce = vec![0; algo.iv_size()?];
             crypto::random(&mut nonce);
             Some(AEADParameters {
@@ -1056,38 +1115,41 @@ impl<'a> Encryptor<'a> {
             None
         };
 
+        let mut inner = self.inner.take().expect("Added in constructors");
         let level = inner.as_ref().cookie_ref().level + 1;
 
         // Generate a session key.
-        let sk = SessionKey::new(algo.key_size()?);
+        let sk = SessionKey::new(self.sym_algo.key_size()?);
 
         // Write the PKESK packet(s).
-        for recipient in recipients {
-            let recipient = recipient.borrow();
-            let mut pkesk = PKESK3::for_recipient(algo, &sk, recipient.key)?;
+        for recipient in self.recipients.iter() {
+            let mut pkesk =
+                PKESK3::for_recipient(self.sym_algo, &sk, recipient.key)?;
             pkesk.set_recipient(recipient.keyid.clone());
             Packet::PKESK(pkesk.into()).serialize(&mut inner)?;
         }
 
         // Write the SKESK packet(s).
-        for password in passwords {
+        for password in self.passwords.iter() {
             if let Some(aead) = aead.as_ref() {
-                let skesk = SKESK5::with_password(algo, aead.algo,
+                let skesk = SKESK5::with_password(self.sym_algo, aead.algo,
                                                   Default::default(),
                                                   &sk, password).unwrap();
                 Packet::SKESK(skesk.into()).serialize(&mut inner)?;
             } else {
-                let skesk = SKESK4::with_password(algo, Default::default(),
+                let skesk = SKESK4::with_password(self.sym_algo,
+                                                  Default::default(),
                                                   &sk, password).unwrap();
                 Packet::SKESK(skesk.into()).serialize(&mut inner)?;
             }
         }
 
-        let encryptor = if let Some(aead) = aead {
+        if let Some(aead) = aead {
             // Write the AED packet.
             CTB::new(Tag::AED).serialize(&mut inner)?;
-            let mut inner = PartialBodyFilter::new(inner, Cookie::new(level));
-            let aed = AED1::new(algo, aead.algo, aead.chunk_size, aead.nonce)?;
+            let mut inner = PartialBodyFilter::new(writer::Stack::from(inner),
+                                                   Cookie::new(level));
+            let aed = AED1::new(self.sym_algo, aead.algo, aead.chunk_size, aead.nonce)?;
             aed.serialize_headers(&mut inner)?;
 
             writer::AEADEncryptor::new(
@@ -1098,38 +1160,34 @@ impl<'a> Encryptor<'a> {
                 aed.chunk_size(),
                 aed.iv(),
                 &sk,
-            )?
+            )
         } else {
             // Write the SEIP packet.
             CTB::new(Tag::SEIP).serialize(&mut inner)?;
-            let mut inner = PartialBodyFilter::new(inner, Cookie::new(level));
+            let mut inner = PartialBodyFilter::new(writer::Stack::from(inner),
+                                                   Cookie::new(level));
             inner.write_all(&[1])?; // Version.
 
-            let encryptor = writer::Encryptor::new(
+            // Install encryptor.
+            self.inner = Some(writer::Encryptor::new(
                 inner.into(),
                 Cookie::new(level),
-                algo,
+                self.sym_algo,
                 &sk,
-            )?;
+            )?.into());
+            self.cookie = Cookie::new(level);
 
-            // The hash for the MDC must include the initialization
-            // vector, hence we build the object here.
-            let mut encryptor = writer::Stack::from(Box::new(Self{
-                inner: Some(encryptor.into()),
-                hash: HashAlgorithm::SHA1.context().unwrap(),
-                cookie: Cookie::new(level),
-            }));
-
-            // Write the initialization vector, and the quick-check bytes.
-            let mut iv = vec![0; algo.block_size()?];
+            // Write the initialization vector, and the quick-check
+            // bytes.  The hash for the MDC must include the
+            // initialization vector, hence we must write this to
+            // self after installing the encryptor at self.inner.
+            let mut iv = vec![0; self.sym_algo.block_size()?];
             crypto::random(&mut iv);
-            encryptor.write_all(&iv)?;
-            encryptor.write_all(&iv[iv.len() - 2..])?;
+            self.write_all(&iv)?;
+            self.write_all(&iv[iv.len() - 2..])?;
 
-            encryptor
-        };
-
-        Ok(encryptor)
+            Ok(writer::Stack::from(Box::new(self)))
+        }
     }
 
     /// Emits the MDC packet and recovers the original writer.
@@ -1462,10 +1520,9 @@ mod test {
         let mut o = vec![];
         {
             let m = Message::new(&mut o);
-            let encryptor = Encryptor::new(
-                m, &passwords,
-                &[], None, None)
-                .unwrap();
+            let encryptor = Encryptor::with_password(m, passwords[0].clone())
+                .add_password(passwords[1].clone())
+                .build().unwrap();
             let mut literal = LiteralWriter::new(encryptor).build()
                 .unwrap();
             literal.write_all(message).unwrap();
@@ -1599,15 +1656,6 @@ mod test {
             .add_encryption_subkey()
             .generate().unwrap();
 
-        // Build a vector of recipients to hand to Encryptor.
-        let recipients =
-            tsk.keys_all()
-            .key_flags(KeyFlags::default()
-                       .set_encrypt_at_rest(true)
-                       .set_encrypt_for_transport(true))
-            .map(|(_, _, key)| key.into())
-            .collect::<Vec<_>>();
-
         struct Helper<'a> {
             tsk: &'a TPK,
         };
@@ -1651,9 +1699,16 @@ mod test {
                 let mut msg = vec![];
                 {
                     let m = Message::new(&mut msg);
-                    let encryptor = Encryptor::new(
-                        m, &[], &recipients, None, AEADAlgorithm::EAX)
-                        .unwrap();
+                    let recipient =
+                        tsk.keys_all()
+                        .key_flags(KeyFlags::default()
+                                   .set_encrypt_at_rest(true)
+                                   .set_encrypt_for_transport(true))
+                        .map(|(_, _, key)| key.into())
+                        .nth(0).unwrap();
+                    let encryptor = Encryptor::for_recipient(m, recipient)
+                        .aead_algo(AEADAlgorithm::EAX)
+                        .build().unwrap();
                     let mut literal = LiteralWriter::new(encryptor).build()
                         .unwrap();
                     literal.write_all(&content).unwrap();

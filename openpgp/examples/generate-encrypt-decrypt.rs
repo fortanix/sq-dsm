@@ -41,7 +41,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::TPK)
            -> openpgp::Result<()> {
     // Build a vector of recipients to hand to Encryptor.
-    let recipients =
+    let mut recipients =
         recipient.keys_valid()
         .key_flags(KeyFlags::default()
                    .set_encrypt_at_rest(true)
@@ -53,10 +53,12 @@ fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::TPK)
     let message = Message::new(sink);
 
     // We want to encrypt a literal data packet.
-    let encryptor = Encryptor::new(message,
-                                   &[], // No symmetric encryption.
-                                   &recipients,
-                                   None, None)?;
+    let mut encryptor = Encryptor::for_recipient(
+        message, recipients.pop().expect("No encryption key found"));
+    for r in recipients {
+        encryptor = encryptor.add_recipient(r)
+    }
+    let encryptor = encryptor.build().expect("Failed to create encryptor");
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(encryptor).build()?;

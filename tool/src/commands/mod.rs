@@ -105,6 +105,11 @@ pub fn encrypt(mapping: &mut store::Mapping,
             }))?.into());
     }
 
+    if tpks.len() + passwords.len() == 0 {
+        return Err(failure::format_err!(
+            "Neither recipient nor password given"));
+    }
+
     let mut signers = get_signing_keys(&signers)?;
 
     // Build a vector of references to hand to Signer.
@@ -128,10 +133,19 @@ pub fn encrypt(mapping: &mut store::Mapping,
     let message = Message::new(output);
 
     // We want to encrypt a literal data packet.
-    let mut sink = Encryptor::new(message,
-                                  passwords,
-                                  recipient_subkeys,
-                                  None, None)
+    let mut encryptor = if let Some(p) = passwords.pop() {
+        Encryptor::with_password(message, p)
+    } else {
+        Encryptor::for_recipient(message, recipient_subkeys.pop().unwrap())
+    };
+    for p in passwords {
+        encryptor = encryptor.add_password(p);
+    }
+    for r in recipient_subkeys {
+        encryptor = encryptor.add_recipient(r);
+    }
+
+    let mut sink = encryptor.build()
         .context("Failed to create encryptor")?;
 
     match compression {
