@@ -53,7 +53,7 @@ mod integration {
             .with_args(
                 &["--keyring",
                   &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
-                  "--not-after", "2018-08-14",
+                  "--not-after", "2018-08-13",
                   &p("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
                   &p("messages/a-cypherpunks-manifesto.txt")])
             .fails()

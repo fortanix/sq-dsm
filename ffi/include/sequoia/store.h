@@ -119,12 +119,12 @@ struct sq_stamps {
   /*/
   /// Records the time when this has been used first.
   /*/
-  uint64_t first;
+  time_t first;
 
   /*/
   /// Records the time when this has been used last.
   /*/
-  uint64_t last;
+  time_t last;
 };
 
 /*/
@@ -134,12 +134,12 @@ struct sq_stats {
   /*/
   /// Records the time this item was created.
   /*/
-  uint64_t created;
+  time_t created;
 
   /*/
   /// Records the time this item was last updated.
   /*/
-  uint64_t updated;
+  time_t updated;
 
   /*/
   /// Records counters and timestamps of encryptions.

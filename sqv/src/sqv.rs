@@ -6,7 +6,6 @@
 extern crate clap;
 extern crate failure;
 use failure::ResultExt;
-extern crate time;
 
 extern crate sequoia_openpgp as openpgp;
 
@@ -47,18 +46,25 @@ fn real_main() -> Result<(), failure::Error> {
         exit(2);
     }
 
-    let not_before = if let Some(t) = matches.value_of("not-before") {
-        Some(time::strptime(t, "%Y-%m-%d")
-             .context(format!("Bad value passed to --not-before: {:?}", t))?)
-    } else {
-        None
-    };
-    let not_after = if let Some(t) = matches.value_of("not-after") {
-        Some(time::strptime(t, "%Y-%m-%d")
-             .context(format!("Bad value passed to --not-after: {:?}", t))?)
-    } else {
-        None
-    }.unwrap_or_else(|| time::now_utc());
+    use chrono::{DateTime, offset::Utc, NaiveDate};
+    let not_before: Option<std::time::SystemTime> =
+        if let Some(t) = matches.value_of("not-before") {
+            Some(NaiveDate::parse_from_str(t, "%Y-%m-%d")
+                 .map(|n| DateTime::<Utc>::from_utc(n.and_hms(0, 0, 0), Utc))
+                 .context(format!("Bad value passed to --not-before: {:?}", t))?
+                 .into())
+        } else {
+            None
+        };
+    let not_after: std::time::SystemTime =
+        if let Some(t) = matches.value_of("not-after") {
+            Some(NaiveDate::parse_from_str(t, "%Y-%m-%d")
+                 .map(|n| DateTime::<Utc>::from_utc(n.and_hms(23, 59, 59), Utc))
+                 .context(format!("Bad value passed to --not-after: {:?}", t))?
+                 .into())
+        } else {
+            None
+        }.unwrap_or_else(|| std::time::SystemTime::now());
 
     // First, we collect the signatures and the alleged issuers.
     // Then, we scan the keyrings exactly once to find the associated

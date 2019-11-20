@@ -5,7 +5,7 @@ use std::cmp;
 use std::fmt;
 use std::io;
 use std::rc::Rc;
-use time::Duration;
+use std::time::Duration;
 
 use capnp::capability::Promise;
 use capnp;
@@ -47,21 +47,21 @@ mod log;
 
 /// Minimum sleep time.
 fn min_sleep_time() -> Duration {
-    Duration::minutes(5)
+    Duration::new(5 * 60, 0)
 }
 
 /// Interval after which all keys should be refreshed once.
 fn refresh_interval() -> Duration {
-    Duration::weeks(1)
+    Duration::new(1 * 7 * 24 * 60 * 60, 0)
 }
 
 /// Returns a value from the uniform distribution over [0, 2*d).
 ///
 /// This function is used to randomize key refresh times.
 fn random_duration(d: Duration) -> Duration {
-    let s = Uniform::from(0..2 * d.num_seconds())
+    let s = Uniform::from(0..2 * d.as_secs())
         .sample(&mut thread_rng());
-    Duration::seconds(s)
+    Duration::new(s, 0)
 }
 
 /* Entry point.  */
@@ -873,7 +873,7 @@ impl KeyServer {
 
     /// Returns the number of keys using the given policy.
     fn need_update(c: &Rc<Connection>, network_policy: core::NetworkPolicy)
-                   -> Result<i32> {
+                   -> Result<u32> {
         let network_policy_u8 = u8::from(&network_policy);
 
         let count: i64 = c.query_row(
@@ -883,7 +883,7 @@ impl KeyServer {
                  WHERE mappings.network_policy >= ?1",
             &[&network_policy_u8], |row| row.get(0))?;
         assert!(count >= 0);
-        Ok(count as i32)
+        Ok(count as u32)
     }
 
     /// Helper for `update`.
@@ -953,7 +953,8 @@ impl KeyServer {
                     }))
         } else {
             assert!(at > now);
-            Box::new(future::ok(cmp::max(min_sleep_time(), at - now)))
+            Box::new(future::ok(cmp::max(min_sleep_time(),
+                                         now.duration_since(at).unwrap())))
         }
     }
 
@@ -969,10 +970,7 @@ impl KeyServer {
             Self::update(&c, network_policy)
                 .then(move |d| {
                     let d = d.unwrap_or(min_sleep_time());
-                     Timeout::new(
-                         ::std::time::Duration::new(random_duration(d)
-                                                    .num_seconds() as u64, 0),
-                         &h1)
+                     Timeout::new(random_duration(d), &h1)
                      .unwrap() // XXX: May fail if the eventloop expired.
                      .then(move |timeout| {
                          if timeout.is_ok() {

@@ -1,5 +1,4 @@
 use std::io::{self, Read};
-use time;
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::constants::SymmetricAlgorithm;
@@ -13,8 +12,6 @@ use self::openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
 use self::openpgp::crypto::{SessionKey, s2k::S2K};
 use self::openpgp::parse::{map::Map, Parse, PacketParserResult};
 
-use super::TIMEFMT;
-
 #[derive(Debug)]
 pub enum Kind {
     Message {
@@ -23,6 +20,24 @@ pub enum Kind {
     Keyring,
     TPK,
     Unknown,
+}
+
+/// Converts sequoia_openpgp types for rendering.
+pub trait Convert<T> {
+    /// Performs the conversion.
+    fn convert(self) -> T;
+}
+
+impl Convert<chrono::Duration> for std::time::Duration {
+    fn convert(self) -> chrono::Duration {
+        chrono::Duration::seconds(self.as_secs() as i64)
+    }
+}
+
+impl Convert<chrono::DateTime<chrono::offset::Utc>> for std::time::SystemTime {
+    fn convert(self) -> chrono::DateTime<chrono::offset::Utc> {
+        chrono::DateTime::<chrono::offset::Utc>::from(self)
+    }
 }
 
 pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
@@ -267,7 +282,7 @@ impl PacketDumper {
         {
             writeln!(output, "{}  Version: {}", i, k.version())?;
             writeln!(output, "{}  Creation time: {}", i,
-                     time::strftime(TIMEFMT, k.creation_time()).unwrap())?;
+                     k.creation_time().convert())?;
             writeln!(output, "{}  Pk algo: {}", i, k.pk_algo())?;
             if let Some(bits) = k.mpis().bits() {
                 writeln!(output, "{}  Pk size: {} bits", i, bits)?;
@@ -534,7 +549,7 @@ impl PacketDumper {
                 }
                 if let Some(timestamp) = l.date() {
                     writeln!(output, "{}  Timestamp: {}", i,
-                             time::strftime(TIMEFMT, timestamp).unwrap())?;
+                             timestamp.convert())?;
                 }
             },
 
@@ -705,15 +720,14 @@ impl PacketDumper {
                          if s.critical() { " (critical)" } else { "" })?;
                 hexdump_unknown(output, b)?;
             },
-            SignatureCreationTime(ref t) =>
+            SignatureCreationTime(t) =>
                 write!(output, "{}    Signature creation time: {}", i,
-                       time::strftime(TIMEFMT, t).unwrap())?,
-            SignatureExpirationTime(ref t) =>
+                       (*t).convert())?,
+            SignatureExpirationTime(t) =>
                 write!(output, "{}    Signature expiration time: {} ({})",
-                       i, t,
+                       i, t.convert(),
                        if let Some(creation) = sig.signature_creation_time() {
-                           time::strftime(TIMEFMT, &(creation + *t))
-                               .unwrap()
+                           (creation + *t).convert().to_string()
                        } else {
                            " (no Signature Creation Time subpacket)".into()
                        })?,
@@ -727,8 +741,9 @@ impl PacketDumper {
                        String::from_utf8_lossy(r))?,
             Revocable(r) =>
                 write!(output, "{}    Revocable: {}", i, r)?,
-            KeyExpirationTime(ref t) =>
-                write!(output, "{}    Key expiration time: {}", i, t)?,
+            KeyExpirationTime(t) =>
+                write!(output, "{}    Key expiration time: {}", i,
+                       t.convert())?,
             PreferredSymmetricAlgorithms(ref c) =>
                 write!(output, "{}    Symmetric algo preferences: {}", i,
                        c.iter().map(|c| format!("{:?}", c))

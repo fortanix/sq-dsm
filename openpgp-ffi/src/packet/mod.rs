@@ -7,7 +7,6 @@
 use libc::c_char;
 
 extern crate sequoia_openpgp as openpgp;
-extern crate time;
 
 use self::openpgp::{
     packet::Tag,

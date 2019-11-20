@@ -12,7 +12,6 @@ use std::slice;
 use libc::{c_char, c_int, size_t};
 
 extern crate sequoia_openpgp as openpgp;
-extern crate time;
 
 use super::packet::{
     Packet,

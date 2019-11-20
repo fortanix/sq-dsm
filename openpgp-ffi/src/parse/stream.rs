@@ -14,7 +14,6 @@ use std::ptr;
 use libc::{c_int, c_void, time_t};
 
 extern crate sequoia_openpgp as openpgp;
-extern crate time;
 
 use self::openpgp::{
     crypto::SessionKey,
@@ -39,6 +38,7 @@ use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
 use crate::RefRaw;
 use crate::RefMutRaw;
+use crate::maybe_time;
 
 use super::super::{
     error::Status,
@@ -540,14 +540,6 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
     Verifier::from_reader(input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
         .move_into_raw(errp)
-}
-
-fn maybe_time(t: time_t) -> Option<time::Tm> {
-    if t == 0 {
-        None
-    } else {
-        Some(time::at(time::Timespec::new(t as i64, 0)))
-    }
 }
 
 /// Verifies a detached OpenPGP signature.

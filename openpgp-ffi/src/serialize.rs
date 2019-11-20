@@ -11,7 +11,6 @@ use std::io::Write;
 use libc::{c_char, size_t, ssize_t};
 
 extern crate sequoia_openpgp as openpgp;
-extern crate time;
 
 use self::openpgp::constants::{
     AEADAlgorithm,

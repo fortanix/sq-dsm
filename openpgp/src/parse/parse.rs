@@ -6,7 +6,7 @@ use std::str;
 use std::mem;
 use std::fmt;
 use std::path::Path;
-use time;
+use std::time;
 use failure;
 
 use ::buffered_reader::*;
@@ -1532,7 +1532,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             where P: key::KeyParts,
                   R: key::KeyRole,
         {
-            Key4::new(time::Tm::from_pgp(creation_time),
+            Key4::new(std::time::SystemTime::from_pgp(creation_time),
                       pk_algo, mpis, secret)
         }
 
@@ -1708,7 +1708,7 @@ impl Literal {
             literal.set_filename_from_bytes(&filename)
                 .expect("length checked above");
         }
-        literal.set_date(Some(time::Tm::from_pgp(date)));
+        literal.set_date(Some(time::SystemTime::from_pgp(date)));
         let mut pp = php.ok(Packet::Literal(literal))?;
 
         // Enable hashing of the body.
@@ -1734,7 +1734,7 @@ fn literal_parser_test () {
         if let &Packet::Literal(ref p) = p {
             assert_eq!(p.format(), DataFormat::Binary);
             assert_eq!(p.filename().unwrap()[..], b"foobar"[..]);
-            assert_eq!(p.date(), Some(&time::Tm::from_pgp(1507458744)));
+            assert_eq!(p.date(), Some(time::SystemTime::from_pgp(1507458744)));
             assert_eq!(content, b"FOOBAR");
         } else {
             panic!("Wrong packet!");
@@ -1751,7 +1751,7 @@ fn literal_parser_test () {
             assert_eq!(p.format(), DataFormat::Text);
             assert_eq!(p.filename().unwrap()[..],
                        b"manifesto.txt"[..]);
-            assert_eq!(p.date(), Some(&time::Tm::from_pgp(1508000649)));
+            assert_eq!(p.date(), Some(time::SystemTime::from_pgp(1508000649)));
 
             let expected = crate::tests::manifesto();
 
@@ -1867,7 +1867,8 @@ fn compressed_data_parser_test () {
         if let Packet::Literal(literal) = literal {
             assert_eq!(literal.filename(), None);
             assert_eq!(literal.format(), DataFormat::Binary);
-            assert_eq!(literal.date(), Some(&time::Tm::from_pgp(1509219866)));
+            assert_eq!(literal.date(),
+                       Some(time::SystemTime::from_pgp(1509219866)));
             assert_eq!(content, expected.to_vec());
         } else {
             panic!("Wrong packet!");

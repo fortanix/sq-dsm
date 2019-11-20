@@ -172,7 +172,7 @@ fn pgp_signature_alive(sig: *const Signature, time: time_t)
     let time = if time == 0 {
         None
     } else {
-        Some(time::at(time::Timespec::new(time as i64, 0)))
+        Some(std::time::UNIX_EPOCH + std::time::Duration::new(time as u64, 0))
     };
     sig.ref_raw().signature_alive(time, None)
 }
@@ -233,9 +233,9 @@ fn pgp_signature_alive_with_tolerance(sig: *const Signature,
     let time = if time == 0 {
         None
     } else {
-        Some(time::at(time::Timespec::new(time as i64, 0)))
+        Some(std::time::UNIX_EPOCH + std::time::Duration::new(time as u64, 0))
     };
-    let tolerance = time::Duration::seconds(tolerance as i64);
+    let tolerance = std::time::Duration::new(tolerance as u64, 0);
     sig.ref_raw().signature_alive(time, Some(tolerance))
 }
 
@@ -247,7 +247,7 @@ fn pgp_signature_expired(sig: *const Signature, when: time_t) -> bool {
     let t = if when == 0 {
         None
     } else {
-        Some(time::at(time::Timespec::new(when as i64, 0)))
+        Some(std::time::UNIX_EPOCH + std::time::Duration::new(when as u64, 0))
     };
     sig.ref_raw().signature_expired(t)
 }
@@ -265,7 +265,7 @@ fn pgp_signature_key_alive(sig: *const Signature, key: *const Key,
     let t = if when == 0 {
         None
     } else {
-        Some(time::at(time::Timespec::new(when as i64, 0)))
+        Some(std::time::UNIX_EPOCH + std::time::Duration::new(when as u64, 0))
     };
     sig.ref_raw().key_alive(key.ref_raw(), t)
 }
@@ -279,7 +279,7 @@ fn pgp_signature_key_expired(sig: *const Signature, key: *const Key,
     let t = if when == 0 {
         None
     } else {
-        Some(time::at(time::Timespec::new(when as i64, 0)))
+        Some(std::time::UNIX_EPOCH + std::time::Duration::new(when as u64, 0))
     };
     sig.ref_raw().key_expired(key.ref_raw(), t)
 }

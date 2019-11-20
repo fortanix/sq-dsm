@@ -243,7 +243,7 @@ fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
                 literal = literal.filename(f)?;
             }
             if let Some(d) = l.date() {
-                literal = literal.date(*d)?;
+                literal = literal.date(d)?;
             }
 
             let mut literal = literal.build()

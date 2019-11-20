@@ -43,6 +43,7 @@ use crate::RefRaw;
 use crate::MoveFromRaw;
 use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
+use crate::maybe_time;
 
 /// A transferable public key (TPK).
 ///
@@ -166,14 +167,7 @@ fn pgp_tpk_primary_key(tpk: *const TPK) -> *const Key {
 fn pgp_tpk_revoked(tpk: *const TPK, when: time_t)
     -> *mut RevocationStatus<'static>
 {
-    let when = when as i64;
-    let when = if when == 0 {
-        None
-    } else {
-        Some(time::at(time::Timespec::new(when, 0)))
-    };
-
-    tpk.ref_raw().revoked(when).move_into_raw()
+    tpk.ref_raw().revoked(maybe_time(when)).move_into_raw()
 }
 
 fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
@@ -328,13 +322,7 @@ fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
 /// If `when` is 0, then the current time is used.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_expired(tpk: *const TPK, when: time_t) -> c_int {
-    let tpk = tpk.ref_raw();
-    let t = if when == 0 {
-        None
-    } else {
-        Some(time::at(time::Timespec::new(when as i64, 0)))
-    };
-    tpk.expired(t) as c_int
+    tpk.ref_raw().expired(maybe_time(when)) as c_int
 }
 
 /// Returns whether the TPK is alive at the specified time.
@@ -343,13 +331,7 @@ fn pgp_tpk_expired(tpk: *const TPK, when: time_t) -> c_int {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_tpk_alive(tpk: *const TPK, when: time_t)
                     -> c_int {
-    let tpk = tpk.ref_raw();
-    let t = if when == 0 {
-        None
-    } else {
-        Some(time::at(time::Timespec::new(when as i64, 0)))
-    };
-    tpk.alive(t) as c_int
+    tpk.ref_raw().alive(maybe_time(when)) as c_int
 }
 
 /// Changes the TPK's expiration.
@@ -368,7 +350,7 @@ fn pgp_tpk_set_expiry(errp: Option<&mut *mut crate::error::Error>,
     let signer = ffi_param_ref_mut!(primary_signer);
 
     tpk.set_expiry(signer.as_mut(),
-                   Some(time::Duration::seconds(expiry as i64)))
+                   Some(std::time::Duration::new(expiry as u64, 0)))
         .move_into_raw(errp)
 }
 
@@ -642,7 +624,8 @@ pub extern "C" fn pgp_tpk_key_iter_alive_at<'a>(
 
     use std::mem;
     let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
-    iter_wrapper.iter = tmp.alive_at(time::at(time::Timespec::new(when as i64, 0)));
+    iter_wrapper.iter =
+        tmp.alive_at(maybe_time(when).unwrap_or(std::time::UNIX_EPOCH));
 }
 
 /// Changes the iterator to only return keys whose revocation status

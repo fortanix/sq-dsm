@@ -42,6 +42,7 @@ use crate::RefRaw;
 use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
 use crate::Maybe;
+use crate::to_time_t;
 
 /// Lists all mappings with the given prefix.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
@@ -159,7 +160,7 @@ fn sq_log_iter_next(iter: *mut LogIter) -> *mut Log {
             };
 
             box_raw!(Log{
-                timestamp: e.timestamp.sec as u64,
+                timestamp: to_time_t(e.timestamp),
                 mapping: maybe_box_raw!(e.mapping),
                 binding: maybe_box_raw!(e.binding),
                 key: maybe_box_raw!(e.key),
@@ -572,20 +573,18 @@ pub struct Stamps {
     pub count: u64,
 
     /// Records the time when this has been used first.
-    pub first:  u64,
+    pub first:  libc::time_t,
 
     /// Records the time when this has been used last.
-    pub last: u64,
+    pub last: libc::time_t,
 }
 
 impl Stamps {
     fn new(s: &sequoia_store::Stamps) -> Stamps {
         Stamps{
             count: s.count as u64,
-            first: s.first.map(|t| t.sec).unwrap_or(0)
-                as u64,
-            last: s.last.map(|t| t.sec).unwrap_or(0)
-                as u64,
+            first: to_time_t(s.first),
+            last: to_time_t(s.last),
         }
     }
 }
@@ -598,10 +597,10 @@ impl Stamps {
 #[repr(C)]
 pub struct Stats {
     /// Records the time this item was created.
-    pub created: u64,
+    pub created: libc::time_t,
 
     /// Records the time this item was last updated.
-    pub updated: u64,
+    pub updated: libc::time_t,
 
     /// Records counters and timestamps of encryptions.
     pub encryption: Stamps,
@@ -613,8 +612,8 @@ pub struct Stats {
 impl Stats {
     fn new(s: sequoia_store::Stats) -> Stats {
         Stats {
-            created: s.created.map(|t| t.sec).unwrap_or(0) as u64,
-            updated: s.updated.map(|t| t.sec).unwrap_or(0) as u64,
+            created: to_time_t(s.created),
+            updated: to_time_t(s.updated),
             encryption: Stamps::new(&s.encryption),
             verification: Stamps::new(&s.verification),
         }
@@ -625,7 +624,7 @@ impl Stats {
 #[repr(C)]
 pub struct Log {
     /// Records the time of the entry.
-    pub timestamp: u64,
+    pub timestamp: libc::time_t,
 
     /// Relates the entry to a mapping.
     ///

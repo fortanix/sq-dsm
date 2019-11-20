@@ -47,7 +47,8 @@ fn pgp_key_creation_time(key: *const Key) -> time_t {
     let key = key.ref_raw();
     let ct = key.creation_time();
 
-    ct.to_timespec().sec as time_t
+    ct.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs())
+        .unwrap_or(0) as time_t
 }
 
 /// Returns the key's public key algorithm.

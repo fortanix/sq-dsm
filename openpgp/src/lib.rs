@@ -64,8 +64,6 @@ extern crate quickcheck;
 
 extern crate rand;
 
-extern crate time;
-
 #[macro_use] extern crate lazy_static;
 
 extern crate idna;
@@ -156,9 +154,9 @@ mod tests;
 /// The time is chosen to that the subkeys in
 /// openpgp/tests/data/keys/neal.pgp are not expired.
 #[cfg(test)]
-fn frozen_time() -> time::Tm {
+fn frozen_time() -> std::time::SystemTime {
     use crate::conversions::Time;
-    time::Tm::from_pgp(1554542220 - 1)
+    std::time::SystemTime::from_pgp(1554542220 - 1)
 }
 
 /// Crate result specialization.

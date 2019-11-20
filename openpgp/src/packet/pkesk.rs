@@ -340,7 +340,6 @@ mod tests {
         use crate::packet::key;
         use crate::packet::key::Key4;
         use nettle::curve25519;
-        use time;
 
         // 20 byte sec key
         let mut sec = [
@@ -363,7 +362,7 @@ mod tests {
             scalar: MPI::new(&sec[..]).into(),
         };
         let mut key: key::UnspecifiedPublic
-            = Key4::new(time::now().canonicalize(),
+            = Key4::new(std::time::SystemTime::now().canonicalize(),
                         PublicKeyAlgorithm::ECDH,
                         public_mpis, None)
                 .unwrap().into();

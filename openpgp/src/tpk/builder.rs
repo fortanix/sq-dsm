@@ -1,4 +1,4 @@
-use time;
+use std::time;
 
 use crate::packet;
 use crate::packet::{
@@ -166,7 +166,8 @@ impl TPKBuilder {
             userids: userids.into_iter().map(|x| x.into()).collect(),
             user_attributes: vec![],
             password: None,
-            expiration: Some(time::Duration::weeks(3 * 52)),
+            expiration: Some(
+                time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
         }
     }
 
@@ -203,7 +204,8 @@ impl TPKBuilder {
             userids: vec![],
             user_attributes: vec![],
             password: None,
-            expiration: Some(time::Duration::weeks(3 * 52)),
+            expiration: Some(
+                time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
         };
 
         if let Some(userid) = userid {
@@ -369,7 +371,8 @@ impl TPKBuilder {
                     signature::Builder::new(SignatureType::PrimaryKeyBinding)
                     // GnuPG wants at least a 512-bit hash for P521 keys.
                     .set_hash_algo(HashAlgorithm::SHA512)
-                    .set_signature_creation_time(time::now().canonicalize())?
+                    .set_signature_creation_time(
+                        time::SystemTime::now().canonicalize())?
                     .set_issuer_fingerprint(subkey.fingerprint())?
                     .set_issuer(subkey.keyid())?
                     .sign_subkey_binding(&mut subkey_signer, &primary,
@@ -409,7 +412,8 @@ impl TPKBuilder {
             .set_hash_algo(HashAlgorithm::SHA512)
             .set_features(&Features::sequoia())?
             .set_key_flags(&self.primary.flags)?
-            .set_signature_creation_time(time::now().canonicalize())?
+            .set_signature_creation_time(
+                time::SystemTime::now().canonicalize())?
             .set_key_expiration_time(self.expiration)?
             .set_issuer_fingerprint(key.fingerprint())?
             .set_issuer(key.keyid())?

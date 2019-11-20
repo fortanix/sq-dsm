@@ -63,7 +63,7 @@ use std::ops::{Deref, DerefMut};
 use std::fmt;
 use std::io;
 use std::cmp;
-use time;
+use std::time; 
 
 use quickcheck::{Arbitrary, Gen};
 
@@ -127,7 +127,7 @@ lazy_static!{
     /// If te is close to t1, then t1 may be considered valid, which
     /// is probably not what you want.
     pub static ref CLOCK_SKEW_TOLERANCE: time::Duration
-        = time::Duration::seconds(30 * 60);
+        = time::Duration::new(30 * 60, 0);
 }
 
 /// The subpacket types specified by [Section 5.2.3.1 of RFC 4880].
@@ -702,7 +702,7 @@ pub enum SubpacketValue<'a> {
     Invalid(&'a [u8]),
 
     /// 4-octet time field
-    SignatureCreationTime(time::Tm),
+    SignatureCreationTime(time::SystemTime),
     /// 4-octet time field
     SignatureExpirationTime(time::Duration),
     /// 1 octet of exportability, 0 for not, 1 for exportable
@@ -992,7 +992,8 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
             SubpacketTag::SignatureCreationTime =>
                 // The timestamp is in big endian format.
                 from_be_u32(raw.value).map(|v| {
-                    SubpacketValue::SignatureCreationTime(time::Tm::from_pgp(v))
+                    SubpacketValue::SignatureCreationTime(
+                        time::SystemTime::from_pgp(v))
                 }),
 
             SubpacketTag::SignatureExpirationTime =>
@@ -1331,7 +1332,7 @@ impl SubpacketArea {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn signature_creation_time(&self) -> Option<time::Tm> {
+    pub fn signature_creation_time(&self) -> Option<time::SystemTime> {
         // 4-octet time field
         if let Some(sb)
                 = self.subpacket(SubpacketTag::SignatureCreationTime) {
@@ -2093,12 +2094,13 @@ impl SubpacketAreas {
     ///
     ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     pub fn signature_expired<T>(&self, t: T) -> bool
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         match (self.signature_creation_time(), self.signature_expiration_time())
         {
-            (Some(_), Some(e)) if e.num_seconds() == 0 =>
+            (Some(_), Some(e)) if e.as_secs() == 0 =>
                 false, // Zero expiration time, does not expire.
             (Some(c), Some(e)) =>
                 (c + e) <= t,
@@ -2162,25 +2164,27 @@ impl SubpacketAreas {
     ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     pub fn signature_alive<T, U>(&self, time: T, clock_skew_tolerance: U)
         -> bool
-        where T: Into<Option<time::Tm>>,
+        where T: Into<Option<time::SystemTime>>,
               U: Into<Option<time::Duration>>
     {
         let (time, tolerance)
             = match (time.into(), clock_skew_tolerance.into()) {
                 (None, None) =>
-                    (time::now_utc(), *CLOCK_SKEW_TOLERANCE),
+                    (time::SystemTime::now().canonicalize(),
+                     *CLOCK_SKEW_TOLERANCE),
                 (None, Some(tolerance)) =>
-                    (time::now_utc(), tolerance),
+                    (time::SystemTime::now().canonicalize(),
+                     tolerance),
                 (Some(time), None) =>
-                    (time, time::Duration::seconds(0)),
+                    (time, time::Duration::new(0, 0)),
                 (Some(time), Some(tolerance)) =>
                     (time, tolerance)
             };
-        let time_zero = || time::at_utc(time::Timespec::new(0, 0));
 
         if let Some(creation_time) = self.signature_creation_time() {
             // Be careful to avoid underflow.
-            cmp::max(creation_time, time_zero() + tolerance) - tolerance <= time
+            cmp::max(creation_time, time::UNIX_EPOCH + tolerance)
+                - tolerance <= time
                 && ! self.signature_expired(time)
         } else {
             false
@@ -2197,14 +2201,15 @@ impl SubpacketAreas {
     pub fn key_expired<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
         where P: key::KeyParts,
               R: key::KeyRole,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         match self.key_expiration_time() {
-            Some(e) if e.num_seconds() == 0 =>
+            Some(e) if e.as_secs() == 0 =>
                 false, // Zero expiration time, does not expire.
             Some(e) =>
-                *key.creation_time() + e <= t,
+                key.creation_time() + e <= t,
             None =>
                 false, // No expiration time, does not expire.
         }
@@ -2223,10 +2228,11 @@ impl SubpacketAreas {
     pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
         where P: key::KeyParts,
               R: key::KeyRole,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
-        *key.creation_time() <= t && ! self.key_expired(key, t)
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+        key.creation_time() <= t && ! self.key_expired(key, t)
     }
 
     /// Returns the value of the Issuer subpacket, which contains the
@@ -2366,7 +2372,7 @@ impl Signature4 {
 
 impl signature::Builder {
     /// Sets the value of the Creation Time subpacket.
-    pub fn set_signature_creation_time(mut self, creation_time: time::Tm)
+    pub fn set_signature_creation_time(mut self, creation_time: time::SystemTime)
                                        -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::SignatureCreationTime(creation_time.canonicalize()),
@@ -2732,15 +2738,17 @@ fn accessors() {
     let mut keypair = key.clone().mark_parts_secret().into_keypair().unwrap();
 
     // Cook up a timestamp without ns resolution.
-    let now = time::Tm::from_pgp(time::now_utc().to_pgp().unwrap());
+    let now = time::SystemTime::now().canonicalize();
 
     sig = sig.set_signature_creation_time(now).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.signature_creation_time(), Some(now));
 
-    let five_minutes = time::Duration::minutes(5);
-    let ten_minutes = time::Duration::minutes(10);
+    let zero_s = time::Duration::new(0, 0);
+    let minute = time::Duration::new(60, 0);
+    let five_minutes = 5 * minute;
+    let ten_minutes = 10 * minute;
     sig = sig.set_signature_expiration_time(Some(five_minutes)).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
@@ -2750,10 +2758,10 @@ fn accessors() {
     assert!(!sig_.signature_expired(now));
     assert!(sig_.signature_expired(now + ten_minutes));
 
-    assert!(sig_.signature_alive(None, time::Duration::seconds(0)));
-    assert!(sig_.signature_alive(now, time::Duration::seconds(0)));
-    assert!(!sig_.signature_alive(now - five_minutes, time::Duration::seconds(0)));
-    assert!(!sig_.signature_alive(now + ten_minutes, time::Duration::seconds(0)));
+    assert!(sig_.signature_alive(None, zero_s));
+    assert!(sig_.signature_alive(now, zero_s));
+    assert!(!sig_.signature_alive(now - five_minutes, zero_s));
+    assert!(!sig_.signature_alive(now + ten_minutes, zero_s));
 
     sig = sig.set_signature_expiration_time(None).unwrap();
     let sig_ =
@@ -2763,10 +2771,10 @@ fn accessors() {
     assert!(!sig_.signature_expired(now));
     assert!(!sig_.signature_expired(now + ten_minutes));
 
-    assert!(sig_.signature_alive(None, time::Duration::seconds(0)));
-    assert!(sig_.signature_alive(now, time::Duration::seconds(0)));
-    assert!(!sig_.signature_alive(now - five_minutes, time::Duration::seconds(0)));
-    assert!(sig_.signature_alive(now + ten_minutes, time::Duration::seconds(0)));
+    assert!(sig_.signature_alive(None, zero_s));
+    assert!(sig_.signature_alive(now, zero_s));
+    assert!(!sig_.signature_alive(now - five_minutes, zero_s));
+    assert!(sig_.signature_alive(now + ten_minutes, zero_s));
 
     sig = sig.set_exportable_certification(true).unwrap();
     let sig_ =
@@ -3082,13 +3090,13 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::Tm::from_pgp(1515791508)));
+                   Some(time::SystemTime::from_pgp(1515791508)));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::Tm::from_pgp(1515791508))
+                           time::SystemTime::from_pgp(1515791508))
                    }));
 
         // The signature does not expire.
@@ -3107,10 +3115,10 @@ fn subpacket_test_2() {
         // Check key expiration.
         assert!(! sig.key_expired(
             key,
-            *key.creation_time() + time::Duration::seconds(63072000 - 1)));
+            key.creation_time() + time::Duration::new(63072000 - 1, 0)));
         assert!(sig.key_expired(
             key,
-            *key.creation_time() + time::Duration::seconds(63072000)));
+            key.creation_time() + time::Duration::new(63072000, 0)));
 
         assert_eq!(sig.preferred_symmetric_algorithms(),
                    Some(vec![SymmetricAlgorithm::AES256,
@@ -3243,13 +3251,13 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::Tm::from_pgp(1515791490)));
+                   Some(time::SystemTime::from_pgp(1515791490)));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::Tm::from_pgp(1515791490))
+                           time::SystemTime::from_pgp(1515791490))
                    }));
 
         assert_eq!(sig.exportable_certification(), Some(false));
@@ -3279,13 +3287,13 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::Tm::from_pgp(1515791376)));
+                   Some(time::SystemTime::from_pgp(1515791376)));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::Tm::from_pgp(1515791376))
+                           time::SystemTime::from_pgp(1515791376))
                    }));
 
         assert_eq!(sig.revocable(), Some(false));
@@ -3350,13 +3358,13 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::Tm::from_pgp(1515886658)));
+                   Some(time::SystemTime::from_pgp(1515886658)));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::Tm::from_pgp(1515886658))
+                           time::SystemTime::from_pgp(1515886658))
                    }));
 
         assert_eq!(sig.reason_for_revocation(),
@@ -3380,13 +3388,13 @@ fn subpacket_test_2() {
         // has multiple notations.
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::Tm::from_pgp(1515791467)));
+                   Some(time::SystemTime::from_pgp(1515791467)));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::Tm::from_pgp(1515791467))
+                           time::SystemTime::from_pgp(1515791467))
                    }));
 
         let n1 = NotationData {
@@ -3454,13 +3462,13 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::Tm::from_pgp(1515791223)));
+                   Some(time::SystemTime::from_pgp(1515791223)));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::Tm::from_pgp(1515791223))
+                           time::SystemTime::from_pgp(1515791223))
                    }));
 
         assert_eq!(sig.trust_signature(), Some((2, 120)));

@@ -1097,6 +1097,7 @@ impl From<Signature4> for super::Signature {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::conversions::Time;
     use crate::crypto;
     use crate::crypto::mpis::MPI;
     use crate::TPK;
@@ -1284,7 +1285,6 @@ mod test {
 
     #[test]
     fn sign_message() {
-        use time;
         use crate::constants::Curve;
 
         let key: Key<key::SecretParts, key::PrimaryRole>
@@ -1293,7 +1293,8 @@ mod test {
         let msg = b"Hello, World";
         let mut pair = key.into_keypair().unwrap();
         let sig = Builder::new(SignatureType::Binary)
-            .set_signature_creation_time(time::now()).unwrap()
+            .set_signature_creation_time(
+                std::time::SystemTime::now().canonicalize()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
             .sign_message(&mut pair, msg).unwrap();
@@ -1322,7 +1323,6 @@ mod test {
     fn sign_with_short_ed25519_secret_key() {
         use crate::conversions::Time;
         use nettle;
-        use time;
 
         // 20 byte sec key
         let sec = [
@@ -1342,7 +1342,7 @@ mod test {
             scalar: MPI::new(&sec[..]).into(),
         };
         let key : key::SecretKey
-            = Key4::new(time::now().canonicalize(),
+            = Key4::new(std::time::SystemTime::now().canonicalize(),
                         PublicKeyAlgorithm::EdDSA,
                         public_mpis, Some(private_mpis.into()))
             .unwrap()
@@ -1441,7 +1441,8 @@ mod test {
         let mut pair = key.into_keypair().unwrap();
 
         let sig = Builder::new(SignatureType::Standalone)
-            .set_signature_creation_time(time::now()).unwrap()
+            .set_signature_creation_time(
+                std::time::SystemTime::now().canonicalize()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
             .sign_standalone(&mut pair)
@@ -1472,7 +1473,8 @@ mod test {
         let mut pair = key.into_keypair().unwrap();
 
         let sig = Builder::new(SignatureType::Timestamp)
-            .set_signature_creation_time(time::now()).unwrap()
+            .set_signature_creation_time(
+                std::time::SystemTime::now().canonicalize()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
             .sign_timestamp(&mut pair)

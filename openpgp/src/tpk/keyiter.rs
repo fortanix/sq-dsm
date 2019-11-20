@@ -6,6 +6,7 @@ use crate::{
     packet::Key,
     packet::key::SecretKeyMaterial,
     constants::KeyFlags,
+    conversions::Time,
     packet::Signature,
     TPK,
     tpk::KeyBindingIter,
@@ -36,7 +37,7 @@ pub struct KeyIter<'a, P: key::KeyParts, R: key::KeyRole> {
 
     // If not None, only returns keys that are live at the specified
     // time.
-    alive_at: Option<time::Tm>,
+    alive_at: Option<std::time::SystemTime>,
 
     // If not None, filters by revocation status.
     revoked: Option<bool>,
@@ -299,7 +300,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// If you call this function (or `alive`) multiple times, only
     /// the last value is used.
     pub fn alive_at<T>(mut self, alive_at: T) -> Self
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<std::time::SystemTime>>
     {
         self.alive_at = alive_at.into();
         self
@@ -311,7 +312,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// the last value is used.
     pub fn alive(mut self) -> Self
     {
-        self.alive_at = Some(time::now());
+        self.alive_at = Some(std::time::SystemTime::now().canonicalize());
         self
     }
 
@@ -406,10 +407,10 @@ mod test {
         let (tpk, _) = TPKBuilder::new()
             .add_encryption_subkey()
             .generate().unwrap();
-        let mut now = time::now();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
-        now.tm_year -= 1;
+        let now = std::time::SystemTime::now().canonicalize()
+            - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
         assert_eq!(tpk.keys_all().key_flags(flags).alive_at(now).count(), 0);
     }
 

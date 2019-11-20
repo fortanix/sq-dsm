@@ -3,7 +3,6 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, Write};
-use time;
 use rpassword;
 
 extern crate sequoia_openpgp as openpgp;
@@ -36,17 +35,12 @@ mod decrypt;
 pub use self::decrypt::decrypt;
 mod sign;
 pub use self::sign::sign;
-mod dump;
+pub mod dump;
+use dump::Convert;
 pub use self::dump::dump;
 mod inspect;
 pub use self::inspect::inspect;
 pub mod key;
-
-const TIMEFMT: &'static str = "%Y-%m-%dT%H:%M";
-
-fn tm2str(t: &time::Tm) -> String {
-    time::strftime(TIMEFMT, t).expect("TIMEFMT is correct")
-}
 
 /// Returns suitable signing keys from a given list of TPKs.
 fn get_signing_keys(tpks: &[openpgp::TPK])
@@ -506,20 +500,20 @@ pub fn mapping_print_stats(mapping: &store::Mapping, label: &str) -> Result<()> 
     fn print_stamps(st: &store::Stamps) -> Result<()> {
         println!("{} messages using this key", st.count);
         if let Some(t) = st.first {
-            println!("    First: {}", tm2str(&time::at(t)));
+            println!("    First: {}", t.convert());
         }
         if let Some(t) = st.last {
-            println!("    Last: {}", tm2str(&time::at(t)));
+            println!("    Last: {}", t.convert());
         }
         Ok(())
     }
 
     fn print_stats(st: &store::Stats) -> Result<()> {
         if let Some(t) = st.created {
-            println!("  Created: {}", tm2str(&time::at(t)));
+            println!("  Created: {}", t.convert());
         }
         if let Some(t) = st.updated {
-            println!("  Updated: {}", tm2str(&time::at(t)));
+            println!("  Updated: {}", t.convert());
         }
         print!("  Encrypted ");
         print_stamps(&st.encryption)?;

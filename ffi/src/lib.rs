@@ -140,6 +140,8 @@ pub(crate) use crate::openpgp::{
     MoveIntoRaw,
     MoveResultIntoRaw,
     Maybe,
+    maybe_time,
+    to_time_t,
 };
 
 /* Error handling with implicit context.  */

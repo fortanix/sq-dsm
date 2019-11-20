@@ -1,5 +1,4 @@
 use std::io::{self, Read};
-use time;
 
 use clap;
 
@@ -7,7 +6,7 @@ extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, Result};
 use crate::openpgp::parse::{Parse, PacketParserResult};
 
-use super::TIMEFMT;
+use super::dump::Convert;
 
 pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
                -> Result<()> {
@@ -151,7 +150,8 @@ fn inspect_tpk(output: &mut dyn io::Write, tpk: &openpgp::TPK,
         if let Some(sig) = uidb.binding_signature(None) {
             if sig.signature_expired(None) {
                 writeln!(output, "                 Expired")?;
-            } else if ! sig.signature_alive(None, time::Duration::seconds(0)) {
+            } else if ! sig.signature_alive(None,
+                                            std::time::Duration::new(0, 0)) {
                 writeln!(output, "                 Not yet valid")?;
             }
         }
@@ -192,14 +192,14 @@ fn inspect_key<P, R>(output: &mut dyn io::Write,
         writeln!(output, "{}Public-key size: {} bits", indent, bits)?;
     }
     writeln!(output, "{}  Creation time: {}", indent,
-             time::strftime(TIMEFMT, key.creation_time())?)?;
+             key.creation_time().convert())?;
     if let Some(sig) = binding_signature {
         if let Some(expires) = sig.key_expiration_time() {
-            let expiration_time = *key.creation_time() + expires;
+            let expiration_time = key.creation_time() + expires;
             writeln!(output, "{}Expiration time: {} (creation time + {})",
                      indent,
-                     time::strftime(TIMEFMT, &expiration_time)?,
-                     expires)?;
+                     expiration_time.convert(),
+                     expires.convert())?;
         }
 
         if let Some(keyflags) = inspect_key_flags(sig.key_flags()) {

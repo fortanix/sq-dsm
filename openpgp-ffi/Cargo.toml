@@ -29,7 +29,6 @@ lazy_static = "1.0.0"
 libc = "0.2.33"
 memsec = "0.5.6"
 nettle = "5.0"
-time = "0.1.40"
 
 [dev-dependencies]
 filetime = "0.2"

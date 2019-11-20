@@ -8,7 +8,6 @@ extern crate prettytable;
 extern crate rpassword;
 extern crate tempfile;
 extern crate termsize;
-extern crate time;
 extern crate itertools;
 extern crate tokio_core;
 
@@ -36,6 +35,7 @@ use store::{Mapping, LogIter};
 
 mod sq_cli;
 mod commands;
+use commands::dump::Convert;
 
 fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read>, failure::Error> {
     match f {
@@ -495,8 +495,8 @@ fn real_main() -> Result<(), failure::Error> {
                                 .context("Failed to get key stats")?;
                             table.add_row(Row::new(vec![
                                 Cell::new(&fingerprint.to_string()),
-                                if let Some(ref t) = stats.updated {
-                                    Cell::new(&format_time(t))
+                                if let Some(t) = stats.updated {
+                                    Cell::new(&t.convert().to_string())
                                 } else {
                                     Cell::new("")
                                 },
@@ -605,7 +605,7 @@ fn print_log(iter: LogIter, with_slug: bool) {
     table.set_titles(head);
 
     for entry in iter {
-        let mut row = row![&format_time(&entry.timestamp),
+        let mut row = row![&entry.timestamp.convert().to_string(),
                            &entry.short()];
         if with_slug {
             row.insert_cell(1, Cell::new(&entry.slug));
@@ -614,11 +614,6 @@ fn print_log(iter: LogIter, with_slug: bool) {
     }
 
     table.printstd();
-}
-
-fn format_time(t: &time::Timespec) -> String {
-    time::strftime("%F %H:%M", &time::at(*t))
-    .unwrap() // Only parse errors can happen.
 }
 
 fn main() {

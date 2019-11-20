@@ -3,8 +3,12 @@
 use rusqlite;
 use rusqlite::types::{ToSql, ToSqlOutput, FromSql, FromSqlResult, ValueRef};
 use std::fmt;
-use std::ops::{Add, Sub};
-use time::{Timespec, Duration, now_utc};
+use std::ops::Add;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+use crate::{
+    Result,
+};
 
 /// Represents a row id.
 ///
@@ -52,29 +56,41 @@ impl FromSql for ID {
 
 
 /// A serializable system time.
+///
+/// XXX: Drop this.  Instead, use chrono::DateTime which implements
+/// ToSql and FromSql.
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
-pub struct Timestamp(Timespec);
+pub struct Timestamp(SystemTime);
 
 impl Timestamp {
     pub fn now() -> Self {
-        Timestamp(now_utc().to_timespec())
+        Timestamp(SystemTime::now())
     }
 
     /// Converts to unix time.
     pub fn unix(&self) -> i64 {
-        self.0.sec
+        match self.0.duration_since(UNIX_EPOCH) {
+            Ok(d) if d.as_secs() < std::i64::MAX as u64 =>
+                d.as_secs() as i64,
+            _ => 0, // Not representable.
+        }
+    }
+
+    pub fn duration_since(&self, earlier: Timestamp) -> Result<Duration> {
+        Ok(self.0.duration_since(earlier.0)?)
     }
 }
 
 impl ToSql for Timestamp {
     fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
-        Ok(ToSqlOutput::from(self.0.sec))
+        Ok(ToSqlOutput::from(self.unix()))
     }
 }
 
 impl FromSql for Timestamp {
     fn column_result(value: ValueRef) -> FromSqlResult<Self> {
-        value.as_i64().map(|t| Timestamp(Timespec::new(t, 0)))
+        value.as_i64()
+            .map(|t| Timestamp(UNIX_EPOCH + Duration::new(t as u64, 0)))
     }
 }
 
@@ -83,13 +99,5 @@ impl Add<Duration> for Timestamp {
 
     fn add(self, other: Duration) -> Timestamp {
         Timestamp(self.0 + other)
-    }
-}
-
-impl Sub<Timestamp> for Timestamp {
-    type Output = Duration;
-
-    fn sub(self, other: Self) -> Self::Output {
-        self.0 - other.0
     }
 }

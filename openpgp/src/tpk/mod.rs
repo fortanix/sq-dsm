@@ -8,10 +8,10 @@ use std::slice;
 use std::mem;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-
-use time;
+use std::time;
 
 use crate::{
+    conversions::Time,
     crypto::{hash::Hash, Signer},
     Error,
     Result,
@@ -68,7 +68,7 @@ const TRACE : bool = false;
 
 /// Compare the creation time of two signatures.  Order them so that
 /// the more recent signature is first.
-fn canonical_signature_order(a: Option<time::Tm>, b: Option<time::Tm>)
+fn canonical_signature_order(a: Option<time::SystemTime>, b: Option<time::SystemTime>)
                              -> Ordering {
     // Note: None < Some, so the normal ordering is:
     //
@@ -156,9 +156,9 @@ impl<C> ComponentBinding<C> {
     /// This function returns None if there are no active binding
     /// signatures at time `t`.
     pub fn binding_signature<T>(&self, t: T) -> Option<&Signature>
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into().unwrap_or_else(|| time::SystemTime::now().canonicalize());
 
         // Recall: the signatures are sorted by their creation time in
         // descending order, i.e., newest first.
@@ -213,7 +213,7 @@ impl<C> ComponentBinding<C> {
             };
 
         self.self_signatures[i..].iter().filter(|s| {
-            s.signature_alive(t, time::Duration::seconds(0))
+            s.signature_alive(t, time::Duration::new(0, 0))
         }).nth(0)
     }
 
@@ -264,22 +264,23 @@ impl<C> ComponentBinding<C> {
     fn _revoked<'a, T>(&'a self, hard_revocations_are_final: bool,
                        selfsig: Option<&Signature>, t: T)
         -> RevocationStatus<'a>
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         // Fallback time.
-        let time_zero = || time::at_utc(time::Timespec::new(0, 0));
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let time_zero = || time::UNIX_EPOCH;
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         let selfsig_creation_time
             = selfsig.and_then(|s| s.signature_creation_time())
                      .unwrap_or_else(time_zero);
 
         tracer!(TRACE, "ComponentBinding::_revoked", 0);
-        t!("hard_revocations_are_final: {}, selfsig: {}, t: {}",
+        t!("hard_revocations_are_final: {}, selfsig: {:?}, t: {:?}",
            hard_revocations_are_final,
-           selfsig_creation_time.rfc822(),
-           t.rfc822());
+           selfsig_creation_time,
+           t);
         if let Some(selfsig) = selfsig {
-            assert!(selfsig.signature_alive(t, time::Duration::seconds(0)));
+            assert!(selfsig.signature_alive(t, time::Duration::new(0, 0)));
         }
 
         macro_rules! check {
@@ -295,9 +296,9 @@ impl<C> ComponentBinding<C> {
                                // revocation.
                                .unwrap_or(true)
                     {
-                        t!("  got a hard revocation: {}, {:?}",
+                        t!("  got a hard revocation: {:?}, {:?}",
                            rev.signature_creation_time()
-                               .unwrap_or_else(time_zero).rfc822(),
+                               .unwrap_or_else(time_zero),
                            rev.reason_for_revocation()
                                .map(|r| (r.0, String::from_utf8_lossy(r.1))));
                         Some(rev)
@@ -305,21 +306,21 @@ impl<C> ComponentBinding<C> {
                               > rev.signature_creation_time()
                                     .unwrap_or_else(time_zero)
                     {
-                        t!("  ignoring out of date revocation ({})",
+                        t!("  ignoring out of date revocation ({:?})",
                            rev.signature_creation_time()
-                               .unwrap_or_else(time_zero).rfc822());
+                               .unwrap_or_else(time_zero));
                         None
-                    } else if !rev.signature_alive(t, time::Duration::seconds(0)) {
-                        t!("  ignoring revocation that is not alive ({} - {})",
+                    } else if !rev.signature_alive(t, time::Duration::new(0, 0)) {
+                        t!("  ignoring revocation that is not alive ({:?} - {:?})",
                            rev.signature_creation_time()
-                               .unwrap_or_else(time_zero).rfc822(),
+                               .unwrap_or_else(time_zero),
                            rev.signature_expiration_time()
-                               .unwrap_or_else(time::Duration::zero));
+                               .unwrap_or_else(|| time::Duration::new(0, 0)));
                         None
                     } else {
-                        t!("  got a revocation: {} ({:?})",
+                        t!("  got a revocation: {:?} ({:?})",
                            rev.signature_creation_time()
-                               .unwrap_or_else(time_zero).rfc822(),
+                               .unwrap_or_else(time_zero),
                            rev.reason_for_revocation()
                                .map(|r| (r.0, String::from_utf8_lossy(r.1))));
                         Some(rev)
@@ -414,7 +415,7 @@ impl<P: key::KeyParts> ComponentBinding<Key<P, key::SubordinateRole>> {
     /// does not imply anything about the TPK or other components.
     pub fn revoked<T>(&self, t: T)
         -> RevocationStatus
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
         self._revoked(true, self.binding_signature(t), t)
@@ -441,7 +442,7 @@ impl ComponentBinding<UserID> {
     /// does not imply anything about the TPK or other components.
     pub fn revoked<T>(&self, t: T)
         -> RevocationStatus
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
         self._revoked(false, self.binding_signature(t), t)
@@ -468,7 +469,7 @@ impl ComponentBinding<UserAttribute> {
     /// it does not imply anything about the TPK or other components.
     pub fn revoked<T>(&self, t: T)
         -> RevocationStatus
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
         self._revoked(false, self.binding_signature(t), t)
@@ -761,7 +762,7 @@ impl TPK {
     /// See `TPK::primary_userid_full` for a description of how the
     /// primary user id is determined.
     pub fn primary_userid<T>(&self, t: T) -> Option<&UserIDBinding>
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         self.primary_userid_full(t).map(|r| r.0)
     }
@@ -784,9 +785,10 @@ impl TPK {
     /// deterministic, but undefined manner.
     pub fn primary_userid_full<T>(&self, t: T)
         -> Option<(&UserIDBinding, &Signature, RevocationStatus)>
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         self.userids()
             // Filter out User IDs that are not alive at time `t`.
             //
@@ -797,7 +799,7 @@ impl TPK {
                 // No binding signature at time `t` => not alive.
                 let selfsig = b.binding_signature(t)?;
 
-                if !selfsig.signature_alive(t, time::Duration::seconds(0)) {
+                if !selfsig.signature_alive(t, time::Duration::new(0, 0)) {
                     return None;
                 }
 
@@ -859,9 +861,10 @@ impl TPK {
     /// If there are no applicable signatures, `None` is returned.
     pub fn primary_key_signature_full<T>(&self, t: T)
         -> Option<(&Signature, Option<(&UserIDBinding, RevocationStatus)>)>
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
 
         // 1. Self-signature from the non-revoked primary UserID.
         let primary_userid = self.primary_userid_full(t);
@@ -892,7 +895,7 @@ impl TPK {
     /// `TPK::primary_key_signature_full()`, but it doesn't return the
     /// `UserIDBinding`.
     pub fn primary_key_signature<T>(&self, t: T) -> Option<&Signature>
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         if let Some((sig, _)) = self.primary_key_signature_full(t) {
             Some(sig)
@@ -949,7 +952,7 @@ impl TPK {
     /// Note: this only returns whether this TPK is revoked; it does
     /// not imply anything about the TPK or other components.
     pub fn revoked<T>(&self, t: T) -> RevocationStatus
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
         self.primary._revoked(true, self.primary_key_signature(t), t)
@@ -1013,7 +1016,7 @@ impl TPK {
 
     /// Returns whether or not the TPK is expired at `t`.
     pub fn expired<T>(&self, t: T) -> bool
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
         if let Some(Signature::V4(sig)) = self.primary_key_signature(t) {
@@ -1025,7 +1028,7 @@ impl TPK {
 
     /// Returns whether or not the TPK is alive at `t`.
     pub fn alive<T>(&self, t: T) -> bool
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
         if let Some(sig) = self.primary_key_signature(t) {
@@ -1044,7 +1047,7 @@ impl TPK {
     /// not exported.
     fn set_expiry_as_of<R>(self, primary_signer: &mut dyn Signer<R>,
                            expiration: Option<time::Duration>,
-                           now: time::Tm)
+                           now: time::SystemTime)
         -> Result<TPK>
         where R: key::KeyRole
     {
@@ -1083,7 +1086,8 @@ impl TPK {
         -> Result<TPK>
         where R: key::KeyRole
     {
-        self.set_expiry_as_of(primary_signer, expiration, time::now())
+        self.set_expiry_as_of(primary_signer, expiration,
+                              time::SystemTime::now().canonicalize())
     }
 
     /// Returns an iterator over the TPK's `UserIDBinding`s.
@@ -2062,8 +2066,8 @@ mod test {
 
     #[test]
     fn set_expiry() {
-        let now = time::now_utc();
-        let a_sec = time::Duration::seconds(1);
+        let now = time::SystemTime::now().canonicalize();
+        let a_sec = time::Duration::new(1, 0);
 
         let (tpk, _) = TPKBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
@@ -2075,7 +2079,7 @@ mod test {
             .into_keypair().unwrap();
 
         // Clear the expiration.
-        let as_of1 = now + time::Duration::seconds(10);
+        let as_of1 = now + time::Duration::new(10, 0);
         let tpk = tpk.set_expiry_as_of(
             &mut keypair,
             None,
@@ -2097,10 +2101,10 @@ mod test {
         // Shorten the expiry.  (The default expiration should be at
         // least a few weeks, so removing an hour should still keep us
         // over 0.)
-        let expiry_new = expiry_orig - time::Duration::hours(1);
-        assert!(expiry_new > time::Duration::seconds(0));
+        let expiry_new = expiry_orig - time::Duration::new(60 * 60, 0);
+        assert!(expiry_new > time::Duration::new(0, 0));
 
-        let as_of2 = as_of1 + time::Duration::seconds(10);
+        let as_of2 = as_of1 + time::Duration::new(10, 0);
         let tpk = tpk.set_expiry_as_of(
             &mut keypair,
             Some(expiry_new),
@@ -2366,10 +2370,11 @@ mod test {
          * One the hard revocation is merged, then the TPK is
          * considered revoked at all times.
          */
-        let t1 = time::strptime("2000-1-1", "%F").unwrap();
-        let t2 = time::strptime("2001-1-1", "%F").unwrap();
-        let t3 = time::strptime("2002-1-1", "%F").unwrap();
-        let t4 = time::strptime("2003-1-1", "%F").unwrap();
+        let t1 = time::UNIX_EPOCH + time::Duration::new(946681200, 0);  // 2000-1-1
+        let t2 = time::UNIX_EPOCH + time::Duration::new(978303600, 0);  // 2001-1-1
+        let t3 = time::UNIX_EPOCH + time::Duration::new(1009839600, 0); // 2002-1-1
+        let t4 = time::UNIX_EPOCH + time::Duration::new(1041375600, 0); // 2003-1-1
+
         let key: key::SecretKey
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
@@ -2378,7 +2383,7 @@ mod test {
                 .set_features(&Features::sequoia()).unwrap()
                 .set_key_flags(&KeyFlags::default()).unwrap()
                 .set_signature_creation_time(t1).unwrap()
-                .set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap()
+                .set_key_expiration_time(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
@@ -2396,7 +2401,7 @@ mod test {
                 .set_features(&Features::sequoia()).unwrap()
                 .set_key_flags(&KeyFlags::default()).unwrap()
                 .set_signature_creation_time(t3).unwrap()
-                .set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap()
+                .set_key_expiration_time(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
@@ -2423,10 +2428,10 @@ mod test {
         let f1: f32 = thread_rng().sample(Open01);
         let f2: f32 = thread_rng().sample(Open01);
         let f3: f32 = thread_rng().sample(Open01);
-        let te1 = t1 - time::Duration::days((300.0 * f1) as i64);
-        let t12 = t1 + time::Duration::days((300.0 * f2) as i64);
-        let t23 = t2 + time::Duration::days((300.0 * f3) as i64);
-        let t34 = t3 + time::Duration::days((300.0 * f3) as i64);
+        let te1 = t1 - time::Duration::new((60. * 60. * 24. * 300.0 * f1) as u64, 0);
+        let t12 = t1 + time::Duration::new((60. * 60. * 24. * 300.0 * f2) as u64, 0);
+        let t23 = t2 + time::Duration::new((60. * 60. * 24. * 300.0 * f3) as u64, 0);
+        let t34 = t3 + time::Duration::new((60. * 60. * 24. * 300.0 * f3) as u64, 0);
 
         assert_eq!(tpk.revoked(te1), RevocationStatus::NotAsFarAsWeKnow);
         assert_eq!(tpk.revoked(t12), RevocationStatus::NotAsFarAsWeKnow);
@@ -2441,7 +2446,7 @@ mod test {
         assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t34));
         assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t4));
         assert_match!(RevocationStatus::Revoked(_)
-                      = tpk.revoked(time::now_utc()));
+                      = tpk.revoked(time::SystemTime::now()));
     }
 
     #[test]
@@ -2449,14 +2454,14 @@ mod test {
         tracer!(true, "tpk_revoked2", 0);
 
         fn tpk_revoked<T>(tpk: &TPK, t: T) -> bool
-            where T: Into<Option<time::Tm>>
+            where T: Into<Option<time::SystemTime>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
                               = tpk.revoked(t))
         }
 
         fn subkey_revoked<T>(tpk: &TPK, t: T) -> bool
-            where T: Into<Option<time::Tm>>
+            where T: Into<Option<time::SystemTime>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
                               = tpk.subkeys().nth(0).unwrap().revoked(t))
@@ -2526,7 +2531,7 @@ mod test {
     #[test]
     fn userid_revoked2() {
         fn check_userids<T>(tpk: &TPK, revoked: bool, t: T)
-            where T: Into<Option<time::Tm>>, T: Copy
+            where T: Into<Option<time::SystemTime>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
                           = tpk.revoked(None));
@@ -2559,7 +2564,7 @@ mod test {
         }
 
         fn check_uas<T>(tpk: &TPK, revoked: bool, t: T)
-            where T: Into<Option<time::Tm>>, T: Copy
+            where T: Into<Option<time::SystemTime>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
                           = tpk.revoked(None));
@@ -2591,7 +2596,7 @@ mod test {
                 crate::tests::key(
                     &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
 
-            let now = time::now_utc();
+            let now = time::SystemTime::now().canonicalize();
             let selfsig0
                 = tpk.userids().map(|b| {
                     b.binding_signature(now).unwrap()
@@ -2841,7 +2846,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let tpk = TPK::from_bytes(
             crate::tests::key("really-revoked-userid-0-public.pgp")).unwrap();
 
-        let now = time::now_utc();
+        let now = time::SystemTime::now().canonicalize();
         let selfsig0
             = tpk.userids().map(|b| {
                 b.binding_signature(now).unwrap()
@@ -2980,13 +2985,13 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         use crate::packet::key::Key4;
         use crate::constants::Curve;
 
-        let a_sec = time::Duration::seconds(1);
-        let time_zero = time::at_utc(time::Timespec::new(0, 0));
+        let a_sec = time::Duration::new(1, 0);
+        let time_zero = time::UNIX_EPOCH;
 
-        let t1 = time::strptime("2000-1-1", "%F").unwrap();
-        let t2 = time::strptime("2001-1-1", "%F").unwrap();
-        let t3 = time::strptime("2002-1-1", "%F").unwrap();
-        let t4 = time::strptime("2003-1-1", "%F").unwrap();
+        let t1 = time::UNIX_EPOCH + time::Duration::new(946681200, 0);  // 2000-1-1
+        let t2 = time::UNIX_EPOCH + time::Duration::new(978303600, 0);  // 2001-1-1
+        let t3 = time::UNIX_EPOCH + time::Duration::new(1009839600, 0); // 2002-1-1
+        let t4 = time::UNIX_EPOCH + time::Duration::new(1041375600, 0); // 2003-1-1
 
         let key: key::SecretKey
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
@@ -3003,7 +3008,9 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                     .set_key_flags(&KeyFlags::default()).unwrap()
                     .set_signature_creation_time(t1).unwrap()
                     // Vary this...
-                    .set_key_expiration_time(Some(time::Duration::days(1 + i))).unwrap()
+                    .set_key_expiration_time(Some(
+                        time::Duration::new((1 + i) * 24 * 60 * 60, 0)))
+                    .unwrap()
                     .set_issuer_fingerprint(key.fingerprint()).unwrap()
                     .set_issuer(key.keyid()).unwrap()
                     .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()

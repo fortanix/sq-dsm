@@ -1,7 +1,10 @@
+use std::time;
+
 use crate::Error;
 use crate::Result;
 use crate::TPK;
 use crate::constants::{HashAlgorithm, SignatureType};
+use crate::conversions::Time;
 use crate::crypto::Signer;
 use crate::packet::{UserID, UserAttribute, key, Key, signature, Signature};
 
@@ -54,12 +57,14 @@ impl Key<key::PublicParts, key::SubordinateRole> {
                       signature: signature::Builder,
                       creation_time: T)
         -> Result<Signature>
-        where T: Into<Option<time::Tm>>,
+        where T: Into<Option<time::SystemTime>>,
               R: key::KeyRole
     {
         signature
             .set_signature_creation_time(
-                creation_time.into().unwrap_or_else(time::now_utc))?
+                creation_time.into().unwrap_or_else(|| {
+                    time::SystemTime::now().canonicalize()
+                }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_subkey_binding(signer, tpk.primary(), self)
@@ -110,12 +115,14 @@ impl UserID {
                       signature: signature::Builder,
                       creation_time: T)
                       -> Result<Signature>
-        where T: Into<Option<time::Tm>>,
+        where T: Into<Option<time::SystemTime>>,
               R: key::KeyRole
     {
         signature
             .set_signature_creation_time(
-                creation_time.into().unwrap_or_else(time::now_utc))?
+                creation_time.into().unwrap_or_else(|| {
+                    time::SystemTime::now().canonicalize()
+                }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_userid_binding(
@@ -180,7 +187,7 @@ impl UserID {
         -> Result<Signature>
         where S: Into<Option<SignatureType>>,
               H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>,
+              T: Into<Option<time::SystemTime>>,
               R: key::KeyRole
     {
         let typ = signature_type.into();
@@ -200,7 +207,9 @@ impl UserID {
         self.bind(signer, tpk, sig,
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
-                  creation_time.into().unwrap_or_else(time::now_utc))
+                  creation_time.into().unwrap_or_else(|| {
+                      time::SystemTime::now().canonicalize()
+                  }))
     }
 }
 
@@ -253,12 +262,14 @@ impl UserAttribute {
                       signature: signature::Builder,
                       creation_time: T)
         -> Result<Signature>
-        where T: Into<Option<time::Tm>>,
+        where T: Into<Option<time::SystemTime>>,
               R: key::KeyRole
     {
         signature
             .set_signature_creation_time(
-                creation_time.into().unwrap_or_else(time::now_utc))?
+                creation_time.into().unwrap_or_else(|| {
+                    time::SystemTime::now().canonicalize()
+                }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_user_attribute_binding(signer, tpk.primary(), self)
@@ -327,7 +338,7 @@ impl UserAttribute {
         -> Result<Signature>
         where S: Into<Option<SignatureType>>,
               H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::Tm>>,
+              T: Into<Option<time::SystemTime>>,
               R: key::KeyRole
     {
         let typ = signature_type.into();
@@ -347,6 +358,8 @@ impl UserAttribute {
         self.bind(signer, tpk, sig,
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
-                  creation_time.into().unwrap_or_else(time::now_utc))
+                  creation_time.into().unwrap_or_else(|| {
+                      time::SystemTime::now().canonicalize()
+                  }))
     }
 }

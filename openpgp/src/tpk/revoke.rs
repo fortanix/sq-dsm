@@ -1,6 +1,8 @@
 use std::ops::Deref;
+use std::time;
 
 use crate::{
+    conversions::Time,
     HashAlgorithm,
     Result,
     SignatureType,
@@ -89,7 +91,7 @@ impl TPKRevocationBuilder {
     }
 
     /// Sets the revocation signature's creation time.
-    pub fn set_signature_creation_time(self, creation_time: time::Tm)
+    pub fn set_signature_creation_time(self, creation_time: time::SystemTime)
         -> Result<Self>
     {
         Ok(Self {
@@ -110,7 +112,8 @@ impl TPKRevocationBuilder {
         tpk.primary().hash(&mut hash);
 
         let creation_time
-            = self.signature_creation_time().unwrap_or_else(time::now);
+            = self.signature_creation_time()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
 
         self.builder
             // If not set, set it to now.
@@ -209,7 +212,7 @@ impl SubkeyRevocationBuilder {
     }
 
     /// Sets the revocation signature's creation time.
-    pub fn set_signature_creation_time(self, creation_time: time::Tm)
+    pub fn set_signature_creation_time(self, creation_time: time::SystemTime)
         -> Result<Self>
     {
         Ok(Self {
@@ -228,7 +231,8 @@ impl SubkeyRevocationBuilder {
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time
-            = self.signature_creation_time().unwrap_or_else(time::now);
+            = self.signature_creation_time()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);
@@ -324,7 +328,7 @@ impl UserIDRevocationBuilder {
     }
 
     /// Sets the revocation signature's creation time.
-    pub fn set_signature_creation_time(self, creation_time: time::Tm)
+    pub fn set_signature_creation_time(self, creation_time: time::SystemTime)
         -> Result<Self>
     {
         Ok(Self {
@@ -343,7 +347,8 @@ impl UserIDRevocationBuilder {
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time
-            = self.signature_creation_time().unwrap_or_else(time::now);
+            = self.signature_creation_time()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);
@@ -442,7 +447,7 @@ impl UserAttributeRevocationBuilder {
     }
 
     /// Sets the revocation signature's creation time.
-    pub fn set_signature_creation_time(self, creation_time: time::Tm)
+    pub fn set_signature_creation_time(self, creation_time: time::SystemTime)
         -> Result<Self>
     {
         Ok(Self {
@@ -461,7 +466,8 @@ impl UserAttributeRevocationBuilder {
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time
-            = self.signature_creation_time().unwrap_or_else(time::now);
+            = self.signature_creation_time()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);

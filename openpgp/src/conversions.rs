@@ -1,6 +1,5 @@
 //! Conversions for primitive OpenPGP types.
 
-use time;
 
 use crate::Error;
 use crate::Result;
@@ -16,24 +15,28 @@ pub trait Time {
     fn canonicalize(self) -> Self;
 }
 
-impl Time for time::Tm {
+impl Time for std::time::SystemTime {
     fn from_pgp(timestamp: u32) -> Self {
-        time::at_utc(time::Timespec::new(timestamp as i64, 0))
+        std::time::UNIX_EPOCH + std::time::Duration::new(timestamp as u64, 0)
     }
 
     fn to_pgp(&self) -> Result<u32> {
-        let epoch = self.to_timespec().sec;
-        if epoch > ::std::u32::MAX as i64 {
-            return Err(Error::InvalidArgument(
+        match self.duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) if d.as_secs() <= std::u32::MAX as u64 =>
+                Ok(d.as_secs() as u32),
+            _ => Err(Error::InvalidArgument(
                 format!("Time exceeds u32 epoch: {:?}", self))
-                       .into());
+                     .into()),
         }
-        Ok(epoch as u32)
     }
 
-    fn canonicalize(mut self) -> Self {
-        self.tm_nsec = 0;
-        self.to_utc()
+    fn canonicalize(self) -> Self {
+        match self.duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) if d.as_secs() <= std::u32::MAX as u64 =>
+                Self::from_pgp(d.as_secs() as u32),
+            _ =>
+                Self::from_pgp(0), // XXX
+        }
     }
 }
 
@@ -47,23 +50,23 @@ pub trait Duration {
     fn canonicalize(self) -> Self;
 }
 
-impl Duration for time::Duration {
+impl Duration for std::time::Duration {
     fn from_pgp(duration: u32) -> Self {
-        time::Duration::seconds(duration as i64)
+        std::time::Duration::new(duration as u64, 0)
     }
 
     fn to_pgp(&self) -> Result<u32> {
-        let secs = self.num_seconds();
-        if secs > ::std::u32::MAX as i64 {
-            return Err(Error::InvalidArgument(
+        if self.as_secs() <= std::u32::MAX as u64 {
+            Ok(self.as_secs() as u32)
+        } else {
+            Err(Error::InvalidArgument(
                 format!("Duration exceeds u32: {:?}", self))
-                       .into());
+                       .into())
         }
-        Ok(secs as u32)
     }
 
     fn canonicalize(self) -> Self {
-        time::Duration::seconds(self.num_seconds())
+        std::time::Duration::new(self.as_secs(), 0)
     }
 }
 

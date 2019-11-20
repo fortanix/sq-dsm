@@ -58,7 +58,6 @@ extern crate failure;
 extern crate futures;
 extern crate rand;
 extern crate rusqlite;
-extern crate time;
 extern crate tokio_core;
 extern crate tokio_io;
 
@@ -69,7 +68,7 @@ use std::rc::Rc;
 use capnp::capability::Promise;
 use capnp_rpc::rpc_twoparty_capnp::Side;
 use futures::{Future};
-use time::Timespec;
+use std::time;
 use tokio_core::reactor::Core;
 
 extern crate sequoia_openpgp as openpgp;
@@ -924,12 +923,14 @@ impl Key {
 }
 
 
-/// Returns `t` as Timespec.
-fn from_unix(t: i64) -> Option<Timespec> {
+/// Returns `t` as time::SystemTime.
+fn from_unix(t: i64) -> Option<time::SystemTime> {
     if t == 0 {
         None
     } else {
-        Some(Timespec::new(t, 0))
+        // XXX: Backend and frontend should really communicate
+        // unsigned timestamps.
+        Some(time::UNIX_EPOCH + time::Duration::new(t as u64, 0))
     }
 }
 
@@ -941,10 +942,10 @@ fn from_unix(t: i64) -> Option<Timespec> {
 #[derive(Debug)]
 pub struct Stats {
     /// Records the time this item was created.
-    pub created: Option<Timespec>,
+    pub created: Option<time::SystemTime>,
 
     /// Records the time this item was last updated.
-    pub updated: Option<Timespec>,
+    pub updated: Option<time::SystemTime>,
 
     /// Records counters and timestamps of encryptions.
     pub encryption: Stamps,
@@ -957,7 +958,7 @@ pub struct Stats {
 #[derive(Debug)]
 pub struct Log {
     /// Records the time of the entry.
-    pub timestamp: Timespec,
+    pub timestamp: time::SystemTime,
 
     /// Relates the entry to a mapping.
     pub mapping: Option<Mapping>,
@@ -1016,20 +1017,6 @@ impl Log {
             Err((ref m, ref e)) => format!("{}: {}: {}", self.slug, m, e),
         }
     }
-
-    /// Returns the message with timestamp and context.
-    pub fn full(&self) -> String {
-        let timestamp =
-            time::strftime("%F %H:%M", &time::at(self.timestamp))
-            .unwrap(); // Only parse errors can happen.
-
-        match self.status {
-            Ok(ref m) => format!(
-                "{}: {}: {}", timestamp, self.slug, m),
-            Err((ref m, ref e)) => format!(
-                "{}: {}: {}: {}", timestamp, self.slug, m, e),
-        }
-    }
 }
 
 /// Counter and timestamps.
@@ -1039,14 +1026,16 @@ pub struct Stamps {
     pub count: usize,
 
     /// Records the time when this has been used first.
-    pub first:  Option<Timespec>,
+    pub first:  Option<time::SystemTime>,
 
     /// Records the time when this has been used last.
-    pub last: Option<Timespec>,
+    pub last: Option<time::SystemTime>,
 }
 
 impl Stamps {
-    fn new(count: i64, first: Option<Timespec>, last: Option<Timespec>) -> Self {
+    fn new(count: i64,
+           first: Option<time::SystemTime>,
+           last: Option<time::SystemTime>) -> Self {
         Stamps {
             count: count as usize,
             first: first,

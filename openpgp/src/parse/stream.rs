@@ -14,6 +14,7 @@ use std::convert::TryFrom;
 use std::collections::HashMap;
 use std::io::{self, Read};
 use std::path::Path;
+use std::time;
 
 use buffered_reader::BufferedReader;
 use crate::{
@@ -25,6 +26,7 @@ use crate::{
         DataFormat,
         SymmetricAlgorithm,
     },
+    conversions::Time,
     packet::{
         header::BodyLength,
         header::CTB,
@@ -131,7 +133,7 @@ pub struct Verifier<'a, H: VerificationHelper> {
     reserve: Option<Vec<u8>>,
 
     /// Signature verification relative to this time.
-    time: time::Tm,
+    time: time::SystemTime,
 }
 
 /// Contains the result of a signature verification.
@@ -409,9 +411,10 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// current time, if `t` is `None`.
     pub fn from_reader<R, T>(reader: R, helper: H, t: T)
                           -> Result<Verifier<'a, H>>
-        where R: io::Read + 'a, T: Into<Option<time::Tm>>
+        where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
@@ -424,9 +427,10 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// current time, if `t` is `None`.
     pub fn from_file<P, T>(path: P, helper: H, t: T) -> Result<Verifier<'a, H>>
         where P: AsRef<Path>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
@@ -439,9 +443,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// current time, if `t` is `None`.
     pub fn from_bytes<T>(bytes: &'a [u8], helper: H, t: T)
                          -> Result<Verifier<'a, H>>
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into().unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
@@ -476,10 +480,11 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
     pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>,
-                                       helper: H, t: time::Tm)
+                                       helper: H, t: time::SystemTime)
                                        -> Result<Verifier<'a, H>>
     {
-        fn can_sign<P, R>(key: &Key<P, R>, sig: Option<&Signature>, t: time::Tm)
+        fn can_sign<P, R>(key: &Key<P, R>, sig: Option<&Signature>,
+                          t: time::SystemTime)
             -> bool
             where P: key::KeyParts, R: key::KeyRole
         {
@@ -977,9 +982,10 @@ impl DetachedVerifier {
                                            helper: H, t: T)
                                            -> Result<Verifier<'a, H>>
         where R: io::Read + 'a, S: io::Read + 's, H: VerificationHelper,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Self::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(signature_reader, None,
                                                         Default::default())),
@@ -995,9 +1001,10 @@ impl DetachedVerifier {
                                      helper: H, t: T)
                                      -> Result<Verifier<'a, H>>
         where P: AsRef<Path>, S: AsRef<Path>, H: VerificationHelper,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Self::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(signature_path,
                                                      Default::default())?),
@@ -1012,9 +1019,9 @@ impl DetachedVerifier {
     pub fn from_bytes<'a, 's, H, T>(signature_bytes: &'s [u8], bytes: &'a [u8],
                                     helper: H, t: T)
                                     -> Result<Verifier<'a, H>>
-        where H: VerificationHelper, T: Into<Option<time::Tm>>
+        where H: VerificationHelper, T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into().unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Self::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(signature_bytes,
                                                           Default::default())),
@@ -1029,7 +1036,7 @@ impl DetachedVerifier {
     pub(crate) fn from_buffered_reader<'a, 's, H>
         (signature_bio: Box<dyn BufferedReader<Cookie> + 's>,
          reader: Box<dyn BufferedReader<()> + 'a>,
-         helper: H, t: time::Tm)
+         helper: H, t: time::SystemTime)
          -> Result<Verifier<'a, H>>
         where H: VerificationHelper
     {
@@ -1123,7 +1130,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     reserve: Option<Vec<u8>>,
 
     /// Signature verification relative to this time.
-    time: time::Tm,
+    time: time::SystemTime,
 }
 
 /// Helper for decrypting messages.
@@ -1167,9 +1174,10 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     /// current time, if `t` is `None`.
     pub fn from_reader<R, T>(reader: R, helper: H, t: T)
                           -> Result<Decryptor<'a, H>>
-        where R: io::Read + 'a, T: Into<Option<time::Tm>>
+        where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
@@ -1182,9 +1190,10 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     /// current time, if `t` is `None`.
     pub fn from_file<P, T>(path: P, helper: H, t: T) -> Result<Decryptor<'a, H>>
         where P: AsRef<Path>,
-              T: Into<Option<time::Tm>>
+              T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
@@ -1197,9 +1206,10 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     /// current time, if `t` is `None`.
     pub fn from_bytes<T>(bytes: &'a [u8], helper: H, t: T)
                          -> Result<Decryptor<'a, H>>
-        where T: Into<Option<time::Tm>>
+        where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(time::now_utc);
+        let t = t.into()
+            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
@@ -1231,7 +1241,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
     /// Creates the `Decryptor`, and buffers the data up to `BUFFER_SIZE`.
     pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>,
-                                       helper: H, t: time::Tm)
+                                       helper: H, t: time::SystemTime)
                                        -> Result<Decryptor<'a, H>>
     {
         tracer!(TRACE, "Decryptor::from_buffered_reader", 0);
@@ -1788,7 +1798,7 @@ mod test {
         struct Test<'a> {
             sig: &'a [u8],
             content: &'a [u8],
-            reference: time::Tm,
+            reference: time::SystemTime,
         };
         let tests = [
             Test {
@@ -1801,7 +1811,7 @@ mod test {
                 sig: crate::tests::message(
                     "emmelie-dorothea-dina-samantha-awina-detached-signature-of-100MB-of-zeros.sig"),
                 content: &vec![ 0; 100 * 1024 * 1024 ][..],
-                reference: time::Tm::from_pgp(1572602018),
+                reference: time::SystemTime::from_pgp(1572602018),
             },
         ];
 

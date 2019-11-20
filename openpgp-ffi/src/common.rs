@@ -279,6 +279,32 @@ pub(crate) fn build_hasher() -> DefaultHasher {
     RANDOM_STATE.build_hasher()
 }
 
+/* time_t support.  */
+
+/// Converts a time_t for use in Sequoia.
+pub(crate) fn maybe_time(t: libc::time_t) -> Option<std::time::SystemTime> {
+    if t == 0 {
+        None
+    } else {
+        Some(std::time::UNIX_EPOCH + std::time::Duration::new(t as u64, 0))
+    }
+}
+
+/// Converts a time_t for use in C.
+#[allow(dead_code)]
+pub(crate) fn to_time_t<T>(t: T) -> libc::time_t
+    where T: Into<Option<std::time::SystemTime>>
+{
+    if let Some(t) = t.into() {
+        match t.duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) => d.as_secs() as libc::time_t,
+            Err(_) => 0, // Unrepresentable.
+        }
+    } else {
+        0
+    }
+}
+
 pub mod armor;
 pub mod crypto;
 pub mod error;

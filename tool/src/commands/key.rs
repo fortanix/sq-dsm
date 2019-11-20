@@ -25,10 +25,10 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
     }
 
     // Expiration.
-    const SECONDS_IN_DAY : i64 = 24 * 60 * 60;
-    const SECONDS_IN_YEAR : i64 =
+    const SECONDS_IN_DAY : u64 = 24 * 60 * 60;
+    const SECONDS_IN_YEAR : u64 =
         // Average number of days in a year.
-        (365.2422222 * SECONDS_IN_DAY as f64) as i64;
+        (365.2422222 * SECONDS_IN_DAY as f64) as u64;
 
     let even_off = |s| {
         if s < 7 * SECONDS_IN_DAY {
@@ -68,11 +68,11 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
                      (try: '2y' for 2 years)"));
             }
 
-            let count : i64 = match digits.parse::<i32>() {
+            let count = match digits.parse::<i32>() {
                 Ok(count) if count < 0 =>
                     return Err(format_err!(
                         "--expiry: Expiration can't be in the past")),
-                Ok(count) => count as i64,
+                Ok(count) => count as u64,
                 Err(err) =>
                     return Err(err.context(
                         "--expiry: count is out of range").into()),
@@ -103,13 +103,14 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
             }
 
             builder = builder.set_expiration(
-                Some(time::Duration::seconds(even_off(count * factor))));
+                Some(std::time::Duration::new(even_off(count * factor), 0)));
         }
 
         // Not specified.  Use the default.
         None => {
             builder = builder.set_expiration(
-                Some(time::Duration::seconds(even_off(3 * SECONDS_IN_YEAR))));
+                Some(std::time::Duration::new(even_off(3 * SECONDS_IN_YEAR), 0))
+            );
         }
     };
 

@@ -11,7 +11,7 @@
 
 use std::fmt;
 use std::io::{self, Write};
-use time;
+use std::time;
 
 use crate::{
     crypto,
@@ -419,7 +419,8 @@ impl<'a> Signer<'a> {
 
                 // Make and hash a signature packet.
                 let mut sig = signature::Builder::new(SignatureType::Binary)
-                    .set_signature_creation_time(time::now().canonicalize())?
+                    .set_signature_creation_time(
+                        std::time::SystemTime::now().canonicalize())?
                     .set_issuer_fingerprint(signer.public().fingerprint())?
                     // GnuPG up to (and including) 2.2.8 requires the
                     // Issuer subpacket to be present.
@@ -583,7 +584,7 @@ impl<'a> LiteralWriter<'a> {
     }
 
     /// Sets the data format.
-    pub fn date(mut self, timestamp: time::Tm) -> Result<Self>
+    pub fn date(mut self, timestamp: time::SystemTime) -> Result<Self>
     {
         self.template.set_date(Some(timestamp));
         Ok(self)
