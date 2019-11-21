@@ -25,6 +25,12 @@ use crate::Error;
 ///   - <name@example.org>
 ///   - name@example.org
 ///
+///   - Name (Comment) <scheme://hostname/path>
+///   - Name (Comment) <mailto:user@example.org>
+///   - Name <scheme://hostname/path>
+///   - <scheme://hostname/path>
+///   - scheme://hostname/path
+///
 /// Names consist of UTF-8 non-control characters and may include
 /// punctuation.  For instance, the following names are valid:
 ///
@@ -51,6 +57,36 @@ use crate::Error;
 /// balanced:
 ///
 ///   - (foo (bar))
+///
+/// URIs
+/// ----
+///
+/// The URI parser recognizes URIs using a regular expression similar
+/// to the one recommended in [RFC 3986] with the following extensions
+/// and restrictions:
+///
+///   - UTF-8 characters are in the range \u{80}-\u{10ffff} are
+///     allowed wherever percent-encoded characters are allowed (i.e.,
+///     everywhere but the schema).
+///
+///   - The scheme component and its trailing ":" are required.
+///
+///   - The URI must have an authority component ("//domain") or a
+///     path component ("/path/to/resource").
+///
+///   - Although the RFC does not allow it, in practice, the '[' and
+///     ']' characters are allowed wherever percent-encoded characters
+///     are allowed (i.e., everywhere but the schema).
+///
+/// URIs are neither normalized nor interpreted.  For instance, dot
+/// segments are not removed, escape sequences are not decoded, etc.
+///
+/// Note: the recommended regular expression is less strict than the
+/// grammar.  For instance, a percent encoded character must consist
+/// of three characters: the percent character followed by two hex
+/// digits.  The parser that we use does not enforce this either.
+///
+///   [RFC 3986]: https://tools.ietf.org/html/rfc3986
 ///
 /// Formal Grammar
 /// --------------
@@ -102,8 +138,12 @@ use crate::Error;
 ///
 ///   addr-spec          = dot-atom-text "@" dot-atom-text
 ///
+///   uri                = See [RFC 3986] and the note on URIs above.
+///
 ///   pgp-uid-convention = addr-spec /
+///                        uri /
 ///                        *WS [name] *WS [comment] *WS "<" addr-spec ">" /
+///                        *WS [name] *WS [comment] *WS "<" uri ">" /
 ///                        *WS name *WS [comment] *WS
 #[derive(Clone, Debug)]
 pub struct ConventionallyParsedUserID {
@@ -112,9 +152,7 @@ pub struct ConventionallyParsedUserID {
     name: Option<(usize, usize)>,
     comment: Option<(usize, usize)>,
     email: Option<(usize, usize)>,
-
-    // XXX: Add support for URIs.
-    // uri: Option<(usize, usize)>,
+    uri: Option<(usize, usize)>,
 }
 
 impl ConventionallyParsedUserID {
@@ -138,6 +176,14 @@ impl ConventionallyParsedUserID {
     /// Returns the User ID's email component, if any.
     pub fn email(&self) -> Option<&str> {
         self.email.map(|(s, e)| &self.userid[s..e])
+    }
+
+    /// Returns the User ID's URI component, if any.
+    ///
+    /// Note: the URI is returned as is; dot segments are not removed,
+    /// escape sequences are not unescaped, etc.
+    pub fn uri(&self) -> Option<&str> {
+        self.uri.map(|(s, e)| &self.userid[s..e])
     }
 
     fn parse(userid: String) -> Result<Self> {
@@ -191,21 +237,95 @@ impl ConventionallyParsedUserID {
                 let addr_spec
                     = format!("(?:{}@{})", dot_atom_text, dot_atom_text);
 
+                let uri = |prefix| {
+                    // The regex suggested from the RFC:
+                    //
+                    // ^(([^:/?#]+):)?(//([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?
+                    //   ^schema         ^authority ^path      ^query     ^fragment
+                    //
+                    // Since only the path component is required, and
+                    // the path matches everything but the '?' and '#'
+                    // characters, this regular expression will match
+                    // almost any string.
+                    //
+                    // This regular expression is good for picking
+                    // apart strings that are known to be URIs.  But,
+                    // we want to detect URIs and distinguish them
+                    // from things that are almost certainly not URIs,
+                    // like email addresses.
+                    //
+                    // As such, we require the URI to have a
+                    // well-formed schema, and the schema must be
+                    // followed by a non-empty component.  Further, we
+                    // restrict the alphabet to approximately what the
+                    // grammar permits.
 
-                let addr_spec_raw
+                    // Looking at the productions for the schema,
+                    // authority, path, query, and fragment
+                    // components, we can distil the following useful
+                    // alphabets (the symbols are drawn from the
+                    // following pct-encoded, unreserved, gen-delims,
+                    // sub-delims, pchar, and IP-literal productions):
+                    let symbols = "-{}0-9._~%!$&'()*+,;=:@\\[\\]";
+                    let ascii_alpha = "a-zA-Z";
+                    let utf8_alpha = "a-zA-Z\u{80}-\u{10ffff}";
+
+                    // We strictly match the schema production:
+                    //
+                    // scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+                    let schema
+                        = format!("(?:[{}][-+.{}0-9]*:)",
+                                  ascii_alpha, ascii_alpha);
+
+                    // The symbols that can occur in a fragment are a
+                    // superset of those that can occur in a query and
+                    // its delimiters.  Likewise, the symbols that can
+                    // occur in a query are a superset of those that
+                    // can occur in a path and its delimiters.  The
+                    // symbols that can occur in a path are *almost* a
+                    // subset of those that can occur in an authority:
+                    // '[' and ']' can occur in an authority component
+                    // (via the IP-literal production, e.g.,
+                    // '[2001:db8::7]'), but not in a path.  But, URI
+                    // parsers appear to accept '[' and ']' as part of
+                    // a path.  So, we accept them too.
+                    //
+                    // Given this, a fragment matches all components
+                    // and everything that precedes it.  Since we
+                    // don't need to distinguish the individual parts
+                    // here, matching what follows the schema in a URI
+                    // is straightforward:
+                    let rest = format!("(?:[{}{}/\\?#]+)",
+                                       symbols, utf8_alpha);
+
+                    format!("(?P<{}_uri>{}{})",
+                            prefix, schema, rest)
+                };
+
+                let raw_addr_spec
                     = format!("(?P<raw_addr_spec>{})", addr_spec);
+
+                let raw_uri = format!("(?:{})", uri("raw"));
 
                 // whitespace is ignored.  It is allowed (but not
                 // required) at the start and between components, but
                 // it is not allowed after the closing '>'.  space is
                 // not allowed.
-                let addr_spec_wrapped
-                    = format!("{}(?P<wrapped_name>{})?{}\
+                let wrapped_addr_spec
+                    = format!("{}(?P<wrapped_addr_spec_name>{})?{}\
                                (:?{})?{}\
                                <(?P<wrapped_addr_spec>{})>",
                               optional_ws, name, optional_ws,
-                              comment("wrapped"), optional_ws,
+                              comment("wrapped_addr_spec"), optional_ws,
                               addr_spec);
+
+                let wrapped_uri
+                    = format!("{}(?P<wrapped_uri_name>{})?{}\
+                               (?:{})?{}\
+                               <(?:{})>",
+                              optional_ws, name, optional_ws,
+                              comment("wrapped_uri"), optional_ws,
+                              uri("wrapped"));
 
                 let bare_name
                     = format!("{}(?P<bare_name>{}){}\
@@ -217,8 +337,10 @@ impl ConventionallyParsedUserID {
                 // prefer addr-spec-raw to bare-name when the match is
                 // ambiguous.
                 let pgp_uid_convention
-                    = format!("^(?:{}|{}|{})$",
-                              addr_spec_raw, addr_spec_wrapped, bare_name);
+                    = format!("^(?:{}|{}|{}|{}|{})$",
+                              raw_addr_spec, raw_uri,
+                              wrapped_addr_spec, wrapped_uri,
+                              bare_name);
 
                 Regex::new(&pgp_uid_convention).unwrap()
             };
@@ -229,45 +351,71 @@ impl ConventionallyParsedUserID {
         if let Some(cap) = USER_ID_PARSER.captures_iter(&userid).nth(0) {
             let to_range = |m: regex::Match| (m.start(), m.end());
 
-            match (cap.name("raw_addr_spec"), cap.name("bare_name")) {
-                // addr-spec-raw
-                (Some(email), None) => {
-                    let email = Some(to_range(email));
-                    let comment = cap.name("bare_comment").map(to_range);
+            // We need to figure out which branch matched.  Match on a
+            // required capture for each branch.
 
-                    Ok(ConventionallyParsedUserID {
-                        userid: userid,
-                        name: None,
-                        comment: comment,
-                        email: email,
-                    })
-                }
-                // addr-spec-wrapped
-                (None, None) => {
-                    let name = cap.name("wrapped_name").map(to_range);
-                    let comment = cap.name("wrapped_comment").map(to_range);
-                    let email = cap.name("wrapped_addr_spec").map(to_range);
+            if let Some(email) = cap.name("raw_addr_spec") {
+                // raw-addr-spec
+                let email = Some(to_range(email));
 
-                    Ok(ConventionallyParsedUserID {
-                        userid: userid,
-                        name: name,
-                        comment: comment,
-                        email: email,
-                    })
-                }
-                // bare name
-                (None, Some(name)) => {
-                    let name = Some(to_range(name));
-                    let comment = cap.name("bare_comment").map(to_range);
+                Ok(ConventionallyParsedUserID {
+                    userid: userid,
+                    name: None,
+                    comment: None,
+                    email: email,
+                    uri: None,
+                })
+            } else if let Some(uri) = cap.name("raw_uri") {
+                // raw-uri
+                let uri = Some(to_range(uri));
 
-                    Ok(ConventionallyParsedUserID {
-                        userid: userid,
-                        name: name,
-                        comment: comment,
-                        email: None,
-                    })
-                }
-                _ => panic!("Unexpected result"),
+                Ok(ConventionallyParsedUserID {
+                    userid: userid,
+                    name: None,
+                    comment: None,
+                    email: None,
+                    uri: uri,
+                })
+            } else if let Some(email) = cap.name("wrapped_addr_spec") {
+                // wrapped-addr-spec
+                let name = cap.name("wrapped_addr_spec_name").map(to_range);
+                let comment = cap.name("wrapped_addr_spec_comment").map(to_range);
+                let email = Some(to_range(email));
+
+                Ok(ConventionallyParsedUserID {
+                    userid: userid,
+                    name: name,
+                    comment: comment,
+                    email: email,
+                    uri: None,
+                })
+            } else if let Some(uri) = cap.name("wrapped_uri") {
+                // uri-wrapped
+                let name = cap.name("wrapped_uri_name").map(to_range);
+                let comment = cap.name("wrapped_uri_comment").map(to_range);
+                let uri = Some(to_range(uri));
+
+                Ok(ConventionallyParsedUserID {
+                    userid: userid,
+                    name: name,
+                    comment: comment,
+                    email: None,
+                    uri: uri,
+                })
+            } else if let Some(name) = cap.name("bare_name") {
+                // name-bare
+                let name = to_range(name);
+                let comment = cap.name("bare_comment").map(to_range);
+
+                Ok(ConventionallyParsedUserID {
+                    userid: userid,
+                    name: Some(name),
+                    comment: comment,
+                    email: None,
+                    uri: None,
+                })
+            } else {
+                panic!("Unexpected result");
             }
         } else {
             return Err(Error::InvalidArgument(
@@ -609,6 +757,16 @@ impl UserID {
         }
     }
 
+    /// Parses the User ID according to de facto conventions, and
+    /// returns the URI, if any.
+    pub fn uri(&self) -> Result<Option<String>> {
+        self.do_parse()?;
+        match *self.parsed.lock().unwrap().borrow() {
+            Some(ref puid) => Ok(puid.uri().map(|s| s.to_string())),
+            None => unreachable!(),
+        }
+    }
+
     /// Returns a normalized version of the UserID's email address.
     ///
     /// Normalized email addresses are primarily needed when email
@@ -690,14 +848,16 @@ mod tests {
         tracer!(true, "decompose", 0);
 
         fn c(userid: &str,
-             name: Option<&str>, comment: Option<&str>, email: Option<&str>)
+             name: Option<&str>, comment: Option<&str>,
+             email: Option<&str>, uri: Option<&str>)
             -> bool
         {
             match ConventionallyParsedUserID::new(userid) {
                 Ok(puid) => {
                     let good = puid.name() == name
                         && puid.comment() == comment
-                        && puid.email() == email;
+                        && puid.email() == email
+                        && puid.uri() == uri;
 
                     if ! good {
                         t!("userid: {}", userid);
@@ -714,6 +874,10 @@ mod tests {
                            puid.email(),
                            if puid.email() == email { "=" } else { "!" },
                            email);
+                        t!("  {:?} {}= {:?}",
+                           puid.uri(),
+                           if puid.uri() == uri { "=" } else { "!" },
+                           uri);
 
                         t!(" -> BAD PARSE");
                     }
@@ -730,85 +894,213 @@ mod tests {
 
         // Conventional User IDs:
         g &= c("First Last (Comment) <name@example.org>",
-          Some("First Last"), Some("Comment"), Some("name@example.org"));
+          Some("First Last"), Some("Comment"), Some("name@example.org"), None);
         g &= c("First Last <name@example.org>",
-          Some("First Last"), None, Some("name@example.org"));
-        g &= c("First Last", Some("First Last"), None, None);
+          Some("First Last"), None, Some("name@example.org"), None);
+        g &= c("First Last", Some("First Last"), None, None, None);
         g &= c("name@example.org <name@example.org>",
-          Some("name@example.org"), None, Some("name@example.org"));
+          Some("name@example.org"), None, Some("name@example.org"), None);
         g &= c("<name@example.org>",
-          None, None, Some("name@example.org"));
+          None, None, Some("name@example.org"), None);
         g &= c("name@example.org",
-          None, None, Some("name@example.org"));
+          None, None, Some("name@example.org"), None);
 
         // Examples from dkg's mail:
         g &= c("Björn Björnson <bjoern@example.net>",
-          Some("Björn Björnson"), None, Some("bjoern@example.net"));
+          Some("Björn Björnson"), None, Some("bjoern@example.net"), None);
         // We explicitly don't support RFC 2047 so the following is
         // correctly not escaped.
         g &= c("Bj=?utf-8?q?=C3=B6?=rn Bj=?utf-8?q?=C3=B6?=rnson \
            <bjoern@example.net>",
           Some("Bj=?utf-8?q?=C3=B6?=rn Bj=?utf-8?q?=C3=B6?=rnson"),
-          None, Some("bjoern@example.net"));
+          None, Some("bjoern@example.net"), None);
         g &= c("Acme Industries, Inc. <info@acme.example>",
-          Some("Acme Industries, Inc."), None, Some("info@acme.example"));
+          Some("Acme Industries, Inc."), None, Some("info@acme.example"), None);
         g &= c("Michael O'Brian <obrian@example.biz>",
-          Some("Michael O'Brian"), None, Some("obrian@example.biz"));
+          Some("Michael O'Brian"), None, Some("obrian@example.biz"), None);
         g &= c("Smith, John <jsmith@example.com>",
-          Some("Smith, John"), None, Some("jsmith@example.com"));
+          Some("Smith, John"), None, Some("jsmith@example.com"), None);
         g &= c("mariag@example.org",
-          None, None, Some("mariag@example.org"));
+          None, None, Some("mariag@example.org"), None);
         g &= c("joe@example.net <joe@example.net>",
-          Some("joe@example.net"), None, Some("joe@example.net"));
+          Some("joe@example.net"), None, Some("joe@example.net"), None);
         g &= c("иван.сергеев@пример.рф",
-          None, None, Some("иван.сергеев@пример.рф"));
+          None, None, Some("иван.сергеев@пример.рф"), None);
         g &= c("Dörte@Sörensen.example.com",
-          None, None, Some("Dörte@Sörensen.example.com"));
+          None, None, Some("Dörte@Sörensen.example.com"), None);
 
         // Some craziness.
 
         g &= c("Vorname Nachname, Dr.",
-               Some("Vorname Nachname, Dr."), None, None);
+               Some("Vorname Nachname, Dr."), None, None, None);
         g &= c("Vorname Nachname, Dr. <dr@example.org>",
-               Some("Vorname Nachname, Dr."), None, Some("dr@example.org"));
+               Some("Vorname Nachname, Dr."), None, Some("dr@example.org"), None);
 
         // Only the last comment counts as a comment.  The rest if
         // part of the name.
         g &= c("Foo (Bar) (Baz)",
-          Some("Foo (Bar)"), Some("Baz"), None);
+          Some("Foo (Bar)"), Some("Baz"), None, None);
         // The same with extra whitespace.
         g &= c("Foo  (Bar)  (Baz)",
-          Some("Foo  (Bar)"), Some("Baz"), None);
+          Some("Foo  (Bar)"), Some("Baz"), None, None);
         g &= c("Foo  (Bar  (Baz)",
-          Some("Foo  (Bar"), Some("Baz"), None);
+          Some("Foo  (Bar"), Some("Baz"), None, None);
 
         // Make sure whitespace is stripped.
         g &= c("  Name   Last   (   some  comment )   <name@example.org>",
                Some("Name   Last"), Some("some  comment"),
-               Some("name@example.org"));
+               Some("name@example.org"), None);
 
         // Make sure an email is a comment is recognized as a comment.
         g &= c(" Name Last (email@example.org)",
-               Some("Name Last"), Some("email@example.org"), None);
+               Some("Name Last"), Some("email@example.org"), None, None);
 
         // Quoting in the local part of the email address is not
         // allowed, but it is recognized as a name.  That's fine.
         g &= c("\"user\"@example.org",
-               Some("\"user\"@example.org"), None, None);
+               Some("\"user\"@example.org"), None, None, None);
         // Even unbalanced quotes.
         g &= c("\"user@example.org",
-               Some("\"user@example.org"), None, None);
+               Some("\"user@example.org"), None, None, None);
 
         g &= c("Henry Ford (CEO) <henry@ford.com>",
-               Some("Henry Ford"), Some("CEO"), Some("henry@ford.com"));
+               Some("Henry Ford"), Some("CEO"), Some("henry@ford.com"), None);
 
         g &= c("Thomas \"Tomakin\" (DHC) <thomas@clh.co.uk>",
                Some("Thomas \"Tomakin\""), Some("DHC"),
-               Some("thomas@clh.co.uk"));
+               Some("thomas@clh.co.uk"), None);
 
         g &= c("Aldous L. Huxley <huxley@old-world.org>",
                Some("Aldous L. Huxley"), None,
-               Some("huxley@old-world.org"));
+               Some("huxley@old-world.org"), None);
+
+
+        // Some URIs.
+
+        // Examples from https://tools.ietf.org/html/rfc3986#section-1.1.2
+        g &= c("<ftp://ftp.is.co.za/rfc/rfc1808.txt>",
+               None, None,
+               None, Some("ftp://ftp.is.co.za/rfc/rfc1808.txt"));
+
+        g &= c("<http://www.ietf.org/rfc/rfc2396.txt>",
+               None, None,
+               None, Some("http://www.ietf.org/rfc/rfc2396.txt"));
+
+        g &= c("<ldap://[2001:db8::7]/c=GB?objectClass?one>",
+               None, None,
+               None, Some("ldap://[2001:db8::7]/c=GB?objectClass?one"));
+
+        g &= c("<mailto:John.Doe@example.com>",
+               None, None,
+               None, Some("mailto:John.Doe@example.com"));
+
+        g &= c("<news:comp.infosystems.www.servers.unix>",
+               None, None,
+               None, Some("news:comp.infosystems.www.servers.unix"));
+
+        g &= c("<tel:+1-816-555-1212>",
+               None, None,
+               None, Some("tel:+1-816-555-1212"));
+
+        g &= c("<telnet://192.0.2.16:80/>",
+               None, None,
+               None, Some("telnet://192.0.2.16:80/"));
+
+        g &= c("<urn:oasis:names:specification:docbook:dtd:xml:4.1.2>",
+               None, None,
+               None, Some("urn:oasis:names:specification:docbook:dtd:xml:4.1.2"));
+
+
+
+        g &= c("Foo's ssh server <ssh://hostname>",
+               Some("Foo's ssh server"), None,
+               None, Some("ssh://hostname"));
+
+        g &= c("Foo (ssh server) <ssh://hostname>",
+               Some("Foo"), Some("ssh server"),
+               None, Some("ssh://hostname"));
+
+        g &= c("<ssh://hostname>",
+               None, None,
+               None, Some("ssh://hostname"));
+
+        g &= c("Warez <ftp://127.0.0.1>",
+               Some("Warez"), None,
+               None, Some("ftp://127.0.0.1"));
+
+        g &= c("ssh://hostname",
+               None, None,
+               None, Some("ssh://hostname"));
+
+        g &= c("ssh:hostname",
+               None, None,
+               None, Some("ssh:hostname"));
+
+        g &= c("Frank Füber <ssh://ïntérnätïònál.eu>",
+               Some("Frank Füber"), None,
+               None, Some("ssh://ïntérnätïònál.eu"));
+
+        g &= c("ssh://ïntérnätïònál.eu",
+               None, None,
+               None, Some("ssh://ïntérnätïònál.eu"));
+
+        g &= c("<foo://domain.org>",
+               None, None,
+               None, Some("foo://domain.org"));
+
+        g &= c("<foo-bar://domain.org>",
+               None, None,
+               None, Some("foo-bar://domain.org"));
+
+        g &= c("<foo+bar://domain.org>",
+               None, None,
+               None, Some("foo+bar://domain.org"));
+
+        g &= c("<foo.bar://domain.org>",
+               None, None,
+               None, Some("foo.bar://domain.org"));
+
+        g &= c("<foo.bar://domain.org#anchor?query>",
+               None, None,
+               None, Some("foo.bar://domain.org#anchor?query"));
+
+        // Is it an email address or a URI?  It should show up as a URI.
+        g &= c("<foo://user:password@domain.org>",
+               None, None,
+               None, Some("foo://user:password@domain.org"));
+
+        // Ports...
+        g &= c("<foo://domain.org:348>",
+               None, None,
+               None, Some("foo://domain.org:348"));
+
+        g &= c("<foo://domain.org:348/>",
+               None, None,
+               None, Some("foo://domain.org:348/"));
+
+        // Some test vectors from
+        // https://github.com/cweb/iri-tests/blob/master/iris.txt
+        g &= c("<http://[:]>", None, None, None, Some("http://[:]"));
+        g &= c("<http://2001:db8::1>", None, None, None, Some("http://2001:db8::1"));
+        g &= c("<http://[www.google.com]/>", None, None, None, Some("http://[www.google.com]/"));
+        g &= c("<http:////////user:@google.com:99?foo>", None, None, None, Some("http:////////user:@google.com:99?foo"));
+        g &= c("<http:path>", None, None, None, Some("http:path"));
+        g &= c("<http:/path>", None, None, None, Some("http:/path"));
+        g &= c("<http:host>", None, None, None, Some("http:host"));
+        g &= c("<http://user:pass@foo:21/bar;par?b#c>", None, None, None,
+               Some("http://user:pass@foo:21/bar;par?b#c"));
+        g &= c("<http:foo.com>", None, None, None, Some("http:foo.com"));
+        g &= c("<http://f:/c>", None, None, None, Some("http://f:/c"));
+        g &= c("<http://f:0/c>", None, None, None, Some("http://f:0/c"));
+        g &= c("<http://f:00000000000000/c>", None, None, None, Some("http://f:00000000000000/c"));
+        g &= c("<http://f:&#x000A;/c>", None, None, None, Some("http://f:&#x000A;/c"));
+        g &= c("<http://f:fifty-two/c>", None, None, None, Some("http://f:fifty-two/c"));
+        g &= c("<foo://>", None, None, None, Some("foo://"));
+        g &= c("<http://a:b@c:29/d>", None, None, None, Some("http://a:b@c:29/d"));
+        g &= c("<http::@c:29>", None, None, None, Some("http::@c:29"));
+        g &= c("<http://&amp;a:foo(b]c@d:2/>", None, None, None, Some("http://&amp;a:foo(b]c@d:2/"));
+        g &= c("<http://iris.test.ing/re&#x301;sume&#x301;/re&#x301;sume&#x301;.html>", None, None, None, Some("http://iris.test.ing/re&#x301;sume&#x301;/re&#x301;sume&#x301;.html"));
+        g &= c("<http://google.com/foo[bar]>", None, None, None, Some("http://google.com/foo[bar]"));
 
         if !g {
             panic!("Parse error");
@@ -877,6 +1169,15 @@ mod tests {
         //
         // assert!(ConventionallyParsedUserID::new(
         //     "@old-world.org").is_err());
+
+
+        // URI schemas must be ASCII.
+        assert!(ConventionallyParsedUserID::new(
+            "<über://domain.org>").is_err());
+
+        // Whitespace is not allowed.
+        assert!(ConventionallyParsedUserID::new(
+            "<http://some domain.org>").is_err());
     }
 
     #[test]

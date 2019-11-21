@@ -249,6 +249,46 @@ fn pgp_user_id_email(
     Status::Success
 }
 
+/// Returns the User ID's URI, if any.
+///
+/// The User ID is parsed according to de factor convention, and the
+/// URI is extracted.
+///
+/// If the User ID cannot be parsed, then an error is returned.
+///
+/// If the User ID does not contain a URI, *urip is set to NULL.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C"
+fn pgp_user_id_uri(
+    errp: Option<&mut *mut crate::error::Error>, uid: *const Packet,
+    urip: &mut *mut c_char)
+    -> Status
+{
+    ffi_make_fry_from_errp!(errp);
+    let uid = uid.ref_raw();
+
+    if let &openpgp::Packet::UserID(ref uid) = uid {
+        match uid.uri() {
+            Ok(Some(uri)) =>
+                *urip = ffi_return_string!(uri),
+            Ok(None) =>
+                *urip = ::std::ptr::null_mut(),
+            Err(err) => {
+                use crate::MoveIntoRaw;
+                let status = crate::error::Status::from(&err);
+                if let Some(errp) = errp {
+                    *errp = err.move_into_raw();
+                }
+                return status;
+            }
+        }
+    } else {
+        panic!("Not a UserID packet");
+    }
+
+    Status::Success
+}
+
 /// Returns a normalized version of the UserID's email address.
 ///
 /// Normalized email addresses are primarily needed when email

@@ -1266,6 +1266,19 @@ pgp_status_t pgp_user_id_email_normalized(pgp_error_t *errp, pgp_packet_t uid,
                                           char **emailp);
 
 /*/
+/// Returns the User ID's URI, if any.
+///
+/// The User ID is parsed according to de factor convention, and the
+/// URI is extracted.
+///
+/// If the User ID cannot be parsed, then an error is returned.
+///
+/// If the User ID does not contain a URI, *urip is set to NULL.
+/*/
+pgp_status_t pgp_user_id_uri(pgp_error_t *errp, pgp_packet_t uid,
+                             char **uri);
+
+/*/
 /// Returns the value of the User Attribute Packet.
 ///
 /// The returned pointer is valid until `ua` is deallocated.  If
