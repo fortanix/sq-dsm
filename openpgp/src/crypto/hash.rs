@@ -1,6 +1,7 @@
 //! Functionality to hash packets, and generate hashes.
 
 use crate::HashAlgorithm;
+use crate::packet::Key;
 use crate::packet::UserID;
 use crate::packet::UserAttribute;
 use crate::packet::key;
@@ -388,11 +389,12 @@ impl Signature {
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn subkey_binding_hash<'a, S>(sig: S,
-                                      key: &key::PublicKey,
-                                      subkey: &key::PublicSubkey)
+    pub fn subkey_binding_hash<'a, P, S>(sig: S,
+                                         key: &key::PublicKey,
+                                         subkey: &Key<P, key::SubordinateRole>)
         -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder>
+        where P: key::KeyParts,
+              S: Into<&'a signature::Builder>
     {
 
         let sig = sig.into();
