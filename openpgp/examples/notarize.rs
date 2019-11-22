@@ -41,7 +41,7 @@ fn main() {
                         .expect("decryption failed");
                 }
                 n += 1;
-                key.mark_parts_secret().into_keypair().unwrap()
+                key.mark_parts_secret().unwrap().into_keypair().unwrap()
             });
         }
 

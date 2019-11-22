@@ -1260,7 +1260,7 @@ mod test {
         ] {
             let tpk = TPK::from_bytes(crate::tests::key(key)).unwrap();
             let mut pair = tpk.primary().clone()
-                .mark_parts_secret()
+                .mark_parts_secret().unwrap()
                 .into_keypair()
                 .expect("secret key is encrypted/missing");
 

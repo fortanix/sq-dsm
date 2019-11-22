@@ -91,6 +91,18 @@ fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
 /// signatures.
 pub type KeyBinding<KeyPart, KeyRole> = ComponentBinding<Key<KeyPart, KeyRole>>;
 
+impl<K: key::KeyParts, R: key::KeyRole> KeyBinding<K, R>
+{
+    /// Gets the key packet's `SecretKeyMaterial`.
+    ///
+    /// Note: The key module installs conversion functions on
+    /// KeyBinding.  They need to access the key's secret.
+    pub(crate) fn secret(&self)
+                         -> Option<&crate::packet::key::SecretKeyMaterial> {
+        self.key().secret()
+    }
+}
+
 /// A primary key and any associated signatures.
 pub type PrimaryKeyBinding<KeyPart> = KeyBinding<KeyPart, key::PrimaryRole>;
 
@@ -987,7 +999,7 @@ impl TPK {
     ///            tpk.revoked(None));
     ///
     /// let mut keypair = tpk.primary().clone()
-    ///     .mark_parts_secret().into_keypair()?;
+    ///     .mark_parts_secret()?.into_keypair()?;
     /// let tpk = tpk.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
     ///                               b"It was the maid :/")?;
@@ -2076,7 +2088,7 @@ mod test {
             .expect("Keys expire by default.");
 
         let mut keypair = tpk.primary().clone().mark_parts_secret()
-            .into_keypair().unwrap();
+            .unwrap().into_keypair().unwrap();
 
         // Clear the expiration.
         let as_of1 = now + time::Duration::new(10, 0);
@@ -2249,7 +2261,7 @@ mod test {
                    tpk.revoked(None));
 
         let mut keypair = tpk.primary().clone().mark_parts_secret()
-            .into_keypair().unwrap();
+            .unwrap().into_keypair().unwrap();
 
         let sig = TPKRevocationBuilder::new()
             .set_reason_for_revocation(
@@ -2271,7 +2283,7 @@ mod test {
             .generate().unwrap();
 
         let mut keypair = other.primary().clone().mark_parts_secret()
-            .into_keypair().unwrap();
+            .unwrap().into_keypair().unwrap();
 
         let sig = TPKRevocationBuilder::new()
             .set_reason_for_revocation(
@@ -2300,7 +2312,7 @@ mod test {
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, subkey.revoked(None));
 
             let mut keypair = tpk.primary().clone().mark_parts_secret()
-                .into_keypair().unwrap();
+                .unwrap().into_keypair().unwrap();
             SubkeyRevocationBuilder::new()
                 .set_reason_for_revocation(
                     ReasonForRevocation::UIDRetired,
@@ -2332,7 +2344,7 @@ mod test {
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked(None));
 
             let mut keypair = tpk.primary().clone().mark_parts_secret()
-                .into_keypair().unwrap();
+                .unwrap().into_keypair().unwrap();
             UserIDRevocationBuilder::new()
                 .set_reason_for_revocation(
                     ReasonForRevocation::UIDRetired,
@@ -3073,7 +3085,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             let alice_certifies_bob
                 = bob_userid_binding.userid().bind(
                     &mut alice.primary().clone().mark_parts_secret()
-                        .into_keypair().unwrap(),
+                        .unwrap().into_keypair().unwrap(),
                     &bob,
                     sig_template,
                     None).unwrap();

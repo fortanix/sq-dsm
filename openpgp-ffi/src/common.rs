@@ -164,6 +164,30 @@ macro_rules! ffi_make_fry_from_errp {
 
         /// Like try! for ffi glue.
         ///
+        /// Evaluates the given expression.  `Ok(v)` evaluates to `v`.
+        /// On failure, stashes the error in the context and returns
+        /// the appropriate Status code.
+        #[allow(unused_macros)]
+        macro_rules! ffi_try_or_status {
+            ($expr:expr) => {
+                match $expr {
+                    Ok(v) => v,
+                    Err(e) => {
+                        use crate::MoveIntoRaw;
+                        use failure::Error;
+                        let status = crate::error::Status::from(&e);
+                        if let Some(errp) = $errp {
+                            let e : Error = e.into();
+                            *errp = e.move_into_raw();
+                        }
+                        return status;
+                    },
+                }
+            };
+        }
+
+        /// Like try! for ffi glue.
+        ///
         /// Unwraps the given expression.  On failure, stashes the
         /// error in the context and returns $or.
         #[allow(unused_macros)]

@@ -65,8 +65,8 @@ impl Helper {
                     .unwrap_or(false)
                 {
                     // This only works for unencrypted secret keys.
-                    if let Ok(keypair)
-                        = key.clone().mark_parts_secret().into_keypair()
+                    if let Ok(keypair) =
+                        key.clone().mark_parts_secret().unwrap().into_keypair()
                     {
                         keys.insert(key.keyid(), keypair);
                     }

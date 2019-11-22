@@ -44,7 +44,9 @@ pub extern "C" fn pgp_pkesk_decrypt(errp: Option<&mut *mut crate::error::Error>,
     let algo = ffi_param_ref_mut!(algo);
     let key_len = ffi_param_ref_mut!(key_len);
 
-    match secret_key.clone().mark_parts_secret().into_keypair() {
+    match ffi_try_or_status!(secret_key.clone().mark_parts_secret())
+        .into_keypair()
+    {
         Ok(mut keypair) => {
             match pkesk.decrypt(&mut keypair) {
                 Ok((a, k)) => {

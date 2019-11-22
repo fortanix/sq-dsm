@@ -4,6 +4,8 @@
 //!
 //!   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 
+use std::convert::TryInto;
+
 use libc::{c_int, time_t};
 
 extern crate sequoia_openpgp as openpgp;
@@ -79,6 +81,6 @@ fn pgp_key_into_key_pair(errp: Option<&mut *mut crate::error::Error>,
 {
     ffi_make_fry_from_errp!(errp);
     let key : self::openpgp::packet::key::UnspecifiedSecret
-        = key.move_from_raw().into();
+        = ffi_try!(key.move_from_raw().try_into());
     ffi_try_box!(key.into_keypair())
 }

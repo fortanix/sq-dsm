@@ -306,7 +306,8 @@ impl TPKBuilder {
 
         // Generate & and self-sign primary key.
         let (primary, sig) = self.primary_key()?;
-        let mut signer = primary.clone().mark_parts_secret().into_keypair().unwrap();
+        let mut signer = primary.clone().mark_parts_secret().unwrap()
+            .into_keypair().unwrap();
 
         packets.push(Packet::PublicKey({
             let mut primary = primary.clone();

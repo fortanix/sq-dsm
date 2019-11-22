@@ -229,7 +229,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy.gpg")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .key().clone().mark_parts_secret().into_keypair().unwrap();
+            .key().clone().mark_parts_secret().unwrap().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -250,7 +250,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy-new.pgp")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .key().clone().mark_parts_secret().into_keypair().unwrap();
+            .key().clone().mark_parts_secret().unwrap().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -271,7 +271,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy-nistp256.pgp")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .key().clone().mark_parts_secret().into_keypair().unwrap();
+            .key().clone().mark_parts_secret().unwrap().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -292,7 +292,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy-nistp384.pgp")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .key().clone().mark_parts_secret().into_keypair().unwrap();
+            .key().clone().mark_parts_secret().unwrap().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -313,7 +313,7 @@ mod tests {
             crate::tests::message("encrypted-to-testy-nistp521.pgp")).unwrap();
         let mut keypair =
             tpk.subkeys().next().unwrap()
-            .key().clone().mark_parts_secret().into_keypair().unwrap();
+            .key().clone().mark_parts_secret().unwrap().into_keypair().unwrap();
 
         let pkg = pile.descendants().skip(0).next().clone();
 
@@ -370,7 +370,8 @@ mod tests {
         let sess_key = SessionKey::new(32);
         let pkesk = PKESK3::for_recipient(SymmetricAlgorithm::AES256, &sess_key,
                                           &key).unwrap();
-        let mut keypair = key.mark_parts_secret().into_keypair().unwrap();
+        let mut keypair =
+            key.mark_parts_secret().unwrap().into_keypair().unwrap();
         pkesk.decrypt(&mut keypair).unwrap();
     }
 }

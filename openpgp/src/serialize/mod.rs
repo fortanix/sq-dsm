@@ -2938,7 +2938,7 @@ mod test {
 
         let (tpk, _) = TPKBuilder::new().generate().unwrap();
         let mut keypair = tpk.primary().clone().mark_parts_secret()
-            .into_keypair().unwrap();
+            .unwrap().into_keypair().unwrap();
         let uid = UserID::from("foo");
 
         // Make a signature w/o an exportable certification subpacket.

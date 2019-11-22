@@ -55,7 +55,7 @@ use crate::tpk::TPK;
 ///            tpk.revoked(None));
 ///
 /// let mut signer = tpk.primary().clone()
-///     .mark_parts_secret().into_keypair()?;
+///     .mark_parts_secret()?.into_keypair()?;
 /// let sig = TPKRevocationBuilder::new()
 ///     .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
 ///                                b"It was the maid :/")?
@@ -163,7 +163,7 @@ impl Deref for TPKRevocationBuilder {
 ///     .add_encryption_subkey()
 ///     .generate()?;
 /// let mut keypair = tpk.primary().clone()
-///     .mark_parts_secret().into_keypair()?;
+///     .mark_parts_secret()?.into_keypair()?;
 /// let subkey = tpk.subkeys().nth(0).unwrap();
 ///
 /// // Generate the revocation for the first and only Subkey.
@@ -279,7 +279,7 @@ impl Deref for SubkeyRevocationBuilder {
 ///     .add_userid("some@example.org")
 ///     .generate()?;
 /// let mut keypair = tpk.primary().clone()
-///     .mark_parts_secret().into_keypair()?;
+///     .mark_parts_secret()?.into_keypair()?;
 /// let userid = tpk.userids().nth(0).unwrap();
 ///
 /// // Generate the revocation for the first and only UserID.
@@ -398,7 +398,7 @@ impl Deref for UserIDRevocationBuilder {
 ///     .add_user_attribute(some_user_attribute)
 ///     .generate()?;
 /// let mut keypair = tpk.primary().clone()
-///     .mark_parts_secret().into_keypair()?;
+///     .mark_parts_secret()?.into_keypair()?;
 /// let ua = tpk.user_attributes().nth(0).unwrap();
 ///
 /// // Generate the revocation for the first and only UserAttribute.

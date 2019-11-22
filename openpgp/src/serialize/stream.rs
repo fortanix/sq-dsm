@@ -230,7 +230,7 @@ impl<'a> Signer<'a> {
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-    /// #     .clone().mark_parts_secret().into_keypair().unwrap();
+    /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(tpk: TPK, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
     /// #      -> Result<()> {
@@ -333,7 +333,7 @@ impl<'a> Signer<'a> {
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-    /// #     .clone().mark_parts_secret().into_keypair().unwrap();
+    /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(tpk: TPK, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
     /// #      -> Result<()> {
@@ -1478,7 +1478,7 @@ mod test {
         let mut o = vec![];
         {
             let mut signers = keys.iter().map(|(_, key)| {
-                key.clone().mark_parts_secret().into_keypair()
+                key.clone().mark_parts_secret().unwrap().into_keypair()
                     .expect("expected unencrypted secret key")
             }).collect::<Vec<KeyPair<_>>>();
 
@@ -1678,7 +1678,8 @@ mod test {
                         KeyFlags::default()
                             .set_encrypt_for_transport(true))
                     .map(|(_, _, key)| key).next().unwrap()
-                    .clone().mark_parts_secret().into_keypair().unwrap();
+                    .clone().mark_parts_secret().unwrap()
+                    .into_keypair().unwrap();
                 pkesks[0].decrypt(&mut keypair)
                     .and_then(|(algo, session_key)| decrypt(algo, &session_key))
                     .map(|_| None)

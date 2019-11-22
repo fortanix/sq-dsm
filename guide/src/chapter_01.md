@@ -10,6 +10,7 @@ fragments yields the [`openpgp/examples/generate-sign-verify.rs`].
 
 ```rust
 use std::io::{self, Write};
+use std::convert::TryInto;
 
 extern crate failure;
 extern crate sequoia_openpgp as openpgp;
@@ -51,7 +52,7 @@ fn main() {
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the TPK.
 #     let key : key::UnspecifiedSecret
-#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
+#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().try_into()?;
 #     let keypair = key.into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
@@ -155,6 +156,7 @@ create it:
 
 ```rust
 # use std::io::{self, Write};
+# use std::convert::TryInto;
 #
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
@@ -196,7 +198,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the TPK.
 #     let key : key::UnspecifiedSecret
-#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
+#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().try_into()?;
 #     let keypair = key.into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
@@ -300,6 +302,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 
 ```rust
 # use std::io::{self, Write};
+# use std::convert::TryInto;
 #
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
@@ -341,7 +344,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::TPK)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the TPK.
     let key : key::UnspecifiedSecret
-        = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
+        = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().try_into()?;
     let keypair = key.into_keypair()?;
 
     // Start streaming an OpenPGP message.
@@ -456,7 +459,8 @@ Verified data can be read from this using [`io::Read`].
 
 ```rust
 # use std::io::{self, Write};
-# 
+# use std::convert::TryInto;
+#
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::serialize::stream::*;
@@ -497,7 +501,7 @@ Verified data can be read from this using [`io::Read`].
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the TPK.
 #     let key : key::UnspecifiedSecret
-#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().into();
+#         = tsk.keys_valid().signing_capable().nth(0).unwrap().2.clone().try_into()?;
 #     let keypair = key.into_keypair()?;
 # 
 #     // Start streaming an OpenPGP message.

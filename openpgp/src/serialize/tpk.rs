@@ -323,7 +323,8 @@ impl<'a> TSK<'a> {
     /// tpk.as_tsk()
     ///     .set_filter(
     ///         |k| k == tpk.primary()
-    ///                 .mark_parts_secret_ref().mark_role_unspecified_ref())
+    ///                  .mark_parts_secret_ref().unwrap()
+    ///                  .mark_role_unspecified_ref())
     ///     .serialize(&mut buf)?;
     ///
     /// let tpk_ = TPK::from_bytes(&buf)?;
@@ -728,7 +729,7 @@ mod test {
 
         let (tpk, _) = TPKBuilder::new().generate().unwrap();
         let mut keypair = tpk.primary().clone().mark_parts_secret()
-            .into_keypair().unwrap();
+            .unwrap().into_keypair().unwrap();
 
         let key: key::SecretSubkey =
             Key4::generate_ecc(false, Curve::Cv25519).unwrap().into();

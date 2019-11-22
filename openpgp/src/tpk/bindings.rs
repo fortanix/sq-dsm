@@ -33,7 +33,7 @@ impl Key<key::PublicParts, key::SubordinateRole> {
     /// // Generate a TPK, and create a keypair from the primary key.
     /// let (tpk, _) = TPKBuilder::new().generate()?;
     /// let mut keypair = tpk.primary().clone()
-    ///     .mark_parts_secret().into_keypair()?;
+    ///     .mark_parts_secret()?.into_keypair()?;
     ///
     /// // Let's add an encryption subkey.
     /// let flags = KeyFlags::default().set_encrypt_at_rest(true);
@@ -96,7 +96,7 @@ impl UserID {
     /// // Generate a TPK, and create a keypair from the primary key.
     /// let (tpk, _) = TPKBuilder::new().generate()?;
     /// let mut keypair = tpk.primary().clone()
-    ///     .mark_parts_secret().into_keypair()?;
+    ///     .mark_parts_secret()?.into_keypair()?;
     /// assert_eq!(tpk.userids().len(), 0);
     ///
     /// // Generate a userid and a binding signature.
@@ -161,7 +161,7 @@ impl UserID {
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary().clone()
-    ///     .mark_parts_secret().into_keypair()?;
+    ///     .mark_parts_secret()?.into_keypair()?;
     ///
     /// // Generate a TPK for Bob.
     /// let (bob, _) = TPKBuilder::new()
@@ -240,7 +240,7 @@ impl UserAttribute {
     /// let (tpk, _) = TPKBuilder::new()
     ///     .generate()?;
     /// let mut keypair = tpk.primary().clone()
-    ///     .mark_parts_secret().into_keypair()?;
+    ///     .mark_parts_secret()?.into_keypair()?;
     /// assert_eq!(tpk.userids().len(), 0);
     ///
     /// // Generate a user attribute and a binding signature.
@@ -307,7 +307,7 @@ impl UserAttribute {
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary().clone()
-    ///     .mark_parts_secret().into_keypair()?;
+    ///     .mark_parts_secret()?.into_keypair()?;
     ///
     /// // Generate a TPK for Bob.
     /// let user_attr = UserAttribute::new(&[

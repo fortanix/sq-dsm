@@ -1911,7 +1911,8 @@ mod test {
         {
             let key = tpk.keys_all().signing_capable().nth(0).unwrap().2;
             let keypair =
-                key.clone().mark_parts_secret().into_keypair().unwrap();
+                key.clone().mark_parts_secret().unwrap()
+                .into_keypair().unwrap();
 
             let m = Message::new(&mut buf);
             let signer = Signer::new(m, keypair).build().unwrap();

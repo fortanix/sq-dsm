@@ -42,16 +42,18 @@
 //! #         .generate()?;
 //! // Get a handle to the TPK's primary key that allows using the
 //! // secret key material.
-//! let sk : &key::SecretKey = tpk.primary().into();
+//! use std::convert::TryInto;
+//! let sk : &key::SecretKey = tpk.primary().try_into()?;
 //!
 //! // Make the conversion explicit.
-//! let sk : &key::SecretKey = tpk.primary().mark_parts_secret_ref();
+//! let sk : &key::SecretKey = tpk.primary().mark_parts_secret_ref()?;
 //! #     Ok(())
 //! # }
 //! ```
 
 use std::fmt;
 use std::cmp::Ordering;
+use std::convert::TryFrom;
 use std::time;
 
 use crate::Error;
@@ -249,14 +251,43 @@ macro_rules! create_conversions {
             }
         }
 
-        p!(<PublicParts> -> <SecretParts>);
+        // Likewise, but using TryFrom.
+        macro_rules! p_try {
+            ( <$from_parts:ty> -> <$to_parts:ty>) => {
+                impl<R> TryFrom<$Key<$from_parts, R>> for $Key<$to_parts, R>
+                    where R: KeyRole
+                {
+                    type Error = failure::Error;
+                    fn try_from(p: $Key<$from_parts, R>) -> Result<Self> {
+                        p.mark_parts_secret()
+                    }
+                }
+
+                impl<R> TryFrom<&$Key<$from_parts, R>> for &$Key<$to_parts, R>
+                    where R: KeyRole
+                {
+                    type Error = failure::Error;
+                    fn try_from(p: &$Key<$from_parts, R>) -> Result<Self> {
+                        if p.secret().is_some() {
+                            Ok(convert_ref!(p))
+                        } else {
+                            Err(Error::InvalidArgument("No secret key".into())
+                                .into())
+                        }
+                    }
+                }
+            }
+        }
+
+
+        p_try!(<PublicParts> -> <SecretParts>);
         p!(<PublicParts> -> <UnspecifiedParts>);
 
         p!(<SecretParts> -> <PublicParts>);
         p!(<SecretParts> -> <UnspecifiedParts>);
 
         p!(<UnspecifiedParts> -> <PublicParts>);
-        p!(<UnspecifiedParts> -> <SecretParts>);
+        p_try!(<UnspecifiedParts> -> <SecretParts>);
 
         // Convert between two KeyRoles for a constant KeyParts.  See
         // the comment for the p macro above.
@@ -438,13 +469,22 @@ macro_rules! create_conversions {
             }
 
             /// Changes the key's parts tag to `SecretParts`.
-            pub fn mark_parts_secret(self) -> $Key<SecretParts, R> {
-                convert!(self)
+            pub fn mark_parts_secret(self) -> Result<$Key<SecretParts, R>> {
+                if self.secret().is_some() {
+                    Ok(convert!(self))
+                } else {
+                    Err(Error::InvalidArgument("No secret key".into()).into())
+                }
             }
 
             /// Changes the key's parts tag to `SecretParts`.
-            pub fn mark_parts_secret_ref(&self) -> &$Key<SecretParts, R> {
-                convert_ref!(self)
+            pub fn mark_parts_secret_ref(&self) -> Result<&$Key<SecretParts, R>>
+            {
+                if self.secret().is_some() {
+                    Ok(convert_ref!(self))
+                } else {
+                    Err(Error::InvalidArgument("No secret key".into()).into())
+                }
             }
 
             /// Changes the key's parts tag to `UnspecifiedParts`.
@@ -1370,7 +1410,8 @@ mod tests {
         for key in keys.into_iter() {
             let key : key::PublicKey = key.into();
             let mut keypair
-                = key.clone().mark_parts_secret().into_keypair().unwrap();
+                = key.clone().mark_parts_secret().unwrap()
+                .into_keypair().unwrap();
             let cipher = SymmetricAlgorithm::AES256;
             let sk = SessionKey::new(cipher.key_size().unwrap());
 

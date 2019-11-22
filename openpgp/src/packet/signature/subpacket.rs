@@ -2735,7 +2735,8 @@ fn accessors() {
     let mut sig = signature::Builder::new(crate::constants::SignatureType::Binary);
     let mut key: crate::packet::key::PublicKey =
         crate::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
-    let mut keypair = key.clone().mark_parts_secret().into_keypair().unwrap();
+    let mut keypair = key.clone().mark_parts_secret().unwrap()
+        .into_keypair().unwrap();
 
     // Cook up a timestamp without ns resolution.
     let now = time::SystemTime::now().canonicalize();

@@ -132,7 +132,7 @@ fn main() {
 #             .unwrap();
 #
 #         // The secret key is not encrypted.
-#         let mut pair = key.mark_parts_secret().into_keypair().unwrap();
+#         let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
@@ -275,7 +275,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #             .unwrap();
 #
 #         // The secret key is not encrypted.
-#         let mut pair = key.mark_parts_secret().into_keypair().unwrap();
+#         let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
@@ -418,7 +418,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #             .unwrap();
 #
 #         // The secret key is not encrypted.
-#         let mut pair = key.mark_parts_secret().into_keypair().unwrap();
+#         let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
@@ -575,7 +575,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
             .unwrap();
 
         // The secret key is not encrypted.
-        let mut pair = key.mark_parts_secret().into_keypair().unwrap();
+        let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 
         pkesks[0].decrypt(&mut pair)
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))

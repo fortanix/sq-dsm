@@ -280,6 +280,6 @@ impl<R> From<KeyPair<R>> for Key<key::SecretParts, R>
     fn from(p: KeyPair<R>) -> Self {
         let (mut key, secret) = (p.public, p.secret);
         key.set_secret(Some(secret.into()));
-        key.mark_parts_secret()
+        key.mark_parts_secret().expect("XXX")
     }
 }

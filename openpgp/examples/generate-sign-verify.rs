@@ -41,7 +41,7 @@ fn sign(sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::TPK)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the TPK.
     let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
-        .clone().mark_parts_secret().into_keypair()?;
+        .clone().mark_parts_secret().unwrap().into_keypair()?;
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
