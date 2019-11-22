@@ -617,13 +617,12 @@ impl<P, R> Key4<P, R>
     }
 }
 
-impl<P, R> Key4<P, R>
-    where P: key::KeyParts,
-          R: key::KeyRole,
+impl<R> Key4<key::PublicParts, R>
+    where R: key::KeyRole,
 {
     /// Creates a new OpenPGP key packet.
     pub fn new<T>(creation_time: T, pk_algo: PublicKeyAlgorithm,
-                  mpis: mpis::PublicKey, secret: Option<SecretKeyMaterial>)
+                  mpis: mpis::PublicKey)
                   -> Result<Self>
         where T: Into<time::SystemTime>
     {
@@ -632,7 +631,7 @@ impl<P, R> Key4<P, R>
             creation_time: creation_time.into(),
             pk_algo: pk_algo,
             mpis: mpis,
-            secret: secret,
+            secret: None,
             p: std::marker::PhantomData,
             r: std::marker::PhantomData,
         })
@@ -662,8 +661,69 @@ impl<P, R> Key4<P, R>
                 hash: hash.into().unwrap_or(HashAlgorithm::SHA512),
                 sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
                 q: mpis::MPI::new(&point),
-            },
-            None)
+            })
+    }
+
+    /// Creates a new OpenPGP public key packet for an existing Ed25519 key.
+    ///
+    /// The ECDH key will use hash algorithm `hash` and symmetric
+    /// algorithm `sym`.  If one or both are `None` secure defaults
+    /// will be used.  The key will have it's creation date set to
+    /// `ctime` or the current time if `None` is given.
+    pub fn import_public_ed25519<T>(public_key: &[u8], ctime: T) -> Result<Self>
+        where  T: Into<Option<time::SystemTime>>
+    {
+        let mut point = Vec::from(public_key);
+        point.insert(0, 0x40);
+
+        Self::new(
+            ctime.into()
+                .unwrap_or_else(|| time::SystemTime::now().canonicalize()),
+            PublicKeyAlgorithm::EdDSA,
+            mpis::PublicKey::EdDSA {
+                curve: Curve::Ed25519,
+                q: mpis::MPI::new(&point),
+            })
+    }
+
+    /// Creates a new OpenPGP public key packet for an existing RSA key.
+    ///
+    /// The RSA key will use public exponent `e` and modulo `n`. The key will
+    /// have it's creation date set to `ctime` or the current time if `None`
+    /// is given.
+    pub fn import_public_rsa<T>(e: &[u8], n: &[u8], ctime: T)
+        -> Result<Self> where T: Into<Option<time::SystemTime>>
+    {
+        Self::new(
+            ctime.into()
+                .unwrap_or_else(|| time::SystemTime::now().canonicalize()),
+            PublicKeyAlgorithm::RSAEncryptSign,
+            mpis::PublicKey::RSA {
+                e: mpis::MPI::new(e),
+                n: mpis::MPI::new(n),
+            })
+    }
+}
+
+impl<R> Key4<SecretParts, R>
+    where R: key::KeyRole,
+{
+    /// Creates a new OpenPGP key packet with secrets.
+    pub fn with_secret<T>(creation_time: T, pk_algo: PublicKeyAlgorithm,
+                          mpis: mpis::PublicKey,
+                          secret: SecretKeyMaterial)
+                          -> Result<Self>
+        where T: Into<time::SystemTime>
+    {
+        Ok(Key4 {
+            common: Default::default(),
+            creation_time: creation_time.into(),
+            pk_algo: pk_algo,
+            mpis: mpis,
+            secret: Some(secret),
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
+        })
     }
 
     /// Creates a new OpenPGP secret key packet for an existing X25519 key.
@@ -686,7 +746,7 @@ impl<P, R> Key4<P, R>
         let mut private_key = Vec::from(private_key);
         private_key.reverse();
 
-        Self::new(
+        Self::with_secret(
             ctime.into()
                 .unwrap_or_else(|| time::SystemTime::now().canonicalize()),
             PublicKeyAlgorithm::ECDH,
@@ -696,32 +756,9 @@ impl<P, R> Key4<P, R>
                 sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
                 q: mpis::MPI::new(&public_key),
             },
-            Some(mpis::SecretKeyMaterial::ECDH {
+            mpis::SecretKeyMaterial::ECDH {
                 scalar: private_key.into(),
-            }.into()))
-    }
-
-    /// Creates a new OpenPGP public key packet for an existing Ed25519 key.
-    ///
-    /// The ECDH key will use hash algorithm `hash` and symmetric
-    /// algorithm `sym`.  If one or both are `None` secure defaults
-    /// will be used.  The key will have it's creation date set to
-    /// `ctime` or the current time if `None` is given.
-    pub fn import_public_ed25519<T>(public_key: &[u8], ctime: T) -> Result<Self>
-        where  T: Into<Option<time::SystemTime>>
-    {
-        let mut point = Vec::from(public_key);
-        point.insert(0, 0x40);
-
-        Self::new(
-            ctime.into()
-                .unwrap_or_else(|| time::SystemTime::now().canonicalize()),
-            PublicKeyAlgorithm::EdDSA,
-            mpis::PublicKey::EdDSA {
-                curve: Curve::Ed25519,
-                q: mpis::MPI::new(&point),
-            },
-            None)
+            }.into())
     }
 
     /// Creates a new OpenPGP secret key packet for an existing Ed25519 key.
@@ -738,7 +775,7 @@ impl<P, R> Key4<P, R>
         let mut public_key = [0x40u8; ED25519_KEY_SIZE + 1];
         ed25519::public_key(&mut public_key[1..], private_key).unwrap();
 
-        Self::new(
+        Self::with_secret(
             ctime.into()
                 .unwrap_or_else(|| time::SystemTime::now().canonicalize()),
             PublicKeyAlgorithm::EdDSA,
@@ -746,28 +783,9 @@ impl<P, R> Key4<P, R>
                 curve: Curve::Ed25519,
                 q: mpis::MPI::new(&public_key),
             },
-            Some(mpis::SecretKeyMaterial::EdDSA {
+            mpis::SecretKeyMaterial::EdDSA {
                 scalar: mpis::MPI::new(private_key).into(),
-            }.into()))
-    }
-
-    /// Creates a new OpenPGP public key packet for an existing RSA key.
-    ///
-    /// The RSA key will use public exponent `e` and modulo `n`. The key will
-    /// have it's creation date set to `ctime` or the current time if `None`
-    /// is given.
-    pub fn import_public_rsa<T>(e: &[u8], n: &[u8], ctime: T)
-        -> Result<Self> where T: Into<Option<time::SystemTime>>
-    {
-        Self::new(
-            ctime.into()
-                .unwrap_or_else(|| time::SystemTime::now().canonicalize()),
-            PublicKeyAlgorithm::RSAEncryptSign,
-            mpis::PublicKey::RSA {
-                e: mpis::MPI::new(e),
-                n: mpis::MPI::new(n),
-            },
-            None)
+            }.into())
     }
 
     /// Creates a new OpenPGP public key packet for an existing RSA key.
@@ -784,7 +802,7 @@ impl<P, R> Key4<P, R>
         let key = sec.public_key()?;
         let (a, b, c) = sec.as_rfc4880();
 
-        Self::new(
+        Self::with_secret(
             ctime.into()
                 .unwrap_or_else(|| time::SystemTime::now().canonicalize()),
             PublicKeyAlgorithm::RSAEncryptSign,
@@ -792,12 +810,12 @@ impl<P, R> Key4<P, R>
                 e: mpis::MPI::new(&key.e()[..]),
                 n: mpis::MPI::new(&key.n()[..]),
             },
-            Some(mpis::SecretKeyMaterial::RSA {
+            mpis::SecretKeyMaterial::RSA {
                 d: mpis::MPI::new(d).into(),
                 p: mpis::MPI::new(&a[..]).into(),
                 q: mpis::MPI::new(&b[..]).into(),
                 u: mpis::MPI::new(&c[..]).into(),
-            }.into()))
+            }.into())
     }
 
     /// Generates a new RSA key with a public modulos of size `bits`.
@@ -818,13 +836,12 @@ impl<P, R> Key4<P, R>
             q: MPI::new(&*q).into(),
             u: MPI::new(&*u).into(),
         };
-        let sec = Some(private_mpis.into());
 
-        Self::new(
+        Self::with_secret(
             time::SystemTime::now().canonicalize(),
             PublicKeyAlgorithm::RSAEncryptSign,
             public_mpis,
-            sec)
+            private_mpis.into())
     }
 
     /// Generates a new ECC key over `curve`.
@@ -862,7 +879,7 @@ impl<P, R> Key4<P, R>
                 let private_mpis = mpis::SecretKeyMaterial::EdDSA {
                     scalar: private.into(),
                 };
-                let sec = Some(private_mpis.into());
+                let sec = private_mpis.into();
 
                 (public_mpis, sec, EdDSA)
             }
@@ -889,7 +906,7 @@ impl<P, R> Key4<P, R>
                 let private_mpis = mpis::SecretKeyMaterial::ECDH {
                     scalar: private.into(),
                 };
-                let sec = Some(private_mpis.into());
+                let sec = private_mpis.into();
 
                 (public_mpis, sec, ECDH)
             }
@@ -922,7 +939,7 @@ impl<P, R> Key4<P, R>
                 let private_mpis = mpis::SecretKeyMaterial::ECDSA{
                     scalar: MPI::new(&private.as_bytes()).into(),
                 };
-                let sec = Some(private_mpis.into());
+                let sec = private_mpis.into();
 
                 (public_mpis, sec, ECDSA)
             }
@@ -961,7 +978,7 @@ impl<P, R> Key4<P, R>
                     let private_mpis = mpis::SecretKeyMaterial::ECDH{
                         scalar: MPI::new(&private.as_bytes()).into(),
                     };
-                    let sec = Some(private_mpis.into());
+                    let sec = private_mpis.into();
 
                     (public_mpis, sec, ECDH)
                 }
@@ -971,13 +988,18 @@ impl<P, R> Key4<P, R>
             }
         };
 
-        Self::new(
+        Self::with_secret(
             time::SystemTime::now().canonicalize(),
             pk_algo,
             mpis,
             secret)
     }
+}
 
+impl<P, R> Key4<P, R>
+     where P: key::KeyParts,
+           R: key::KeyRole,
+{
     /// Gets the key packet's creation time field.
     pub fn creation_time(&self) -> time::SystemTime {
         self.creation_time
@@ -1293,9 +1315,9 @@ mod tests {
         use crate::constants::Curve::*;
 
         for curve in vec![NistP256, NistP384, NistP521] {
-            let sign_key : Key4<key::PublicParts, key::UnspecifiedRole>
+            let sign_key : Key4<_, key::UnspecifiedRole>
                 = Key4::generate_ecc(true, curve.clone()).unwrap();
-            let enc_key : Key4<key::PublicParts, key::UnspecifiedRole>
+            let enc_key : Key4<_, key::UnspecifiedRole>
                 = Key4::generate_ecc(false, curve).unwrap();
             let sign_clone = sign_key.clone();
             let enc_clone = enc_key.clone();
@@ -1305,7 +1327,7 @@ mod tests {
         }
 
         for bits in vec![1024, 2048, 3072, 4096] {
-            let key : Key4<key::PublicParts, key::UnspecifiedRole>
+            let key : Key4<_, key::UnspecifiedRole>
                 = Key4::generate_rsa(bits).unwrap();
             let clone = key.clone();
             assert_eq!(key, clone);
@@ -1376,14 +1398,14 @@ mod tests {
         }));
 
         for key in keys.into_iter() {
-            let key : key::PublicKey = key.into();
-            let mut keypair
-                = key.clone().mark_parts_secret().unwrap()
-                .into_keypair().unwrap();
+            let key: Key<key::SecretParts, key::UnspecifiedRole> = key.into();
+            let mut keypair = key.clone().into_keypair().unwrap();
             let cipher = SymmetricAlgorithm::AES256;
             let sk = SessionKey::new(cipher.key_size().unwrap());
 
-            let pkesk = PKESK3::for_recipient(cipher, &sk, &key).unwrap();
+            let pkesk =
+                PKESK3::for_recipient(cipher, &sk, &key.mark_parts_public())
+                .unwrap();
             let (cipher_, sk_) = pkesk.decrypt(&mut keypair).unwrap();
 
             assert_eq!(cipher, cipher_);
@@ -1430,7 +1452,7 @@ mod tests {
         let ctime =
             time::UNIX_EPOCH + time::Duration::new(0x5c487129, 0);
         let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
-        let key : key::SecretKey
+        let key : Key<_, key::UnspecifiedRole>
             = Key4::import_public_cv25519(&public[..],
                                           HashAlgorithm::SHA256,
                                           SymmetricAlgorithm::AES128,
@@ -1466,7 +1488,7 @@ mod tests {
             time::UNIX_EPOCH + time::Duration::new(0x5c487129, 0);
         let public = b"\xed\x59\x0a\x15\x08\x95\xe9\x92\xd2\x2c\x14\x01\xb3\xe9\x3b\x7f\xff\xe6\x6f\x22\x65\xec\x69\xd9\xb8\xda\x24\x2c\x64\x84\x44\x11";
         let secret = b"\xa0\x27\x13\x99\xc9\xe3\x2e\xd2\x47\xf6\xd6\x63\x9d\xe6\xec\xcb\x57\x0b\x92\xbb\x17\xfe\xb8\xf1\xc4\x1f\x06\x7c\x55\xfc\xdd\x58";
-        let key: key::PublicKey
+        let key: Key<_, UnspecifiedRole>
             = Key4::import_secret_cv25519(&secret[..],
                                           HashAlgorithm::SHA256,
                                           SymmetricAlgorithm::AES128,
@@ -1487,9 +1509,11 @@ mod tests {
         // Session key
         let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
 
+        let key = key.mark_parts_public();
         let got_dek = match key.secret() {
             Some(SecretKeyMaterial::Unencrypted(ref u)) => u.map(|mpis| {
-                ecdh::decrypt(&key, mpis, &ciphertext).unwrap()
+                ecdh::decrypt(&key, mpis, &ciphertext)
+                    .unwrap()
             }),
             _ => unreachable!(),
         };

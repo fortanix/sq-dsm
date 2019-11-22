@@ -1343,9 +1343,9 @@ mod test {
             scalar: MPI::new(&sec[..]).into(),
         };
         let key : key::SecretKey
-            = Key4::new(std::time::SystemTime::now().canonicalize(),
-                        PublicKeyAlgorithm::EdDSA,
-                        public_mpis, Some(private_mpis.into()))
+            = Key4::with_secret(std::time::SystemTime::now().canonicalize(),
+                                PublicKeyAlgorithm::EdDSA,
+                                public_mpis, private_mpis.into())
             .unwrap()
             .into();
         let mut pair = key.into_keypair().unwrap();

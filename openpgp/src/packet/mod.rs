@@ -760,6 +760,29 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     }
 }
 
+impl<R: key::KeyRole> key::Key4<key::SecretParts, R> {
+    /// Creates a new key pair from a Key packet with an unencrypted
+    /// secret key.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the secret key is missing, or encrypted.
+    pub fn into_keypair(mut self) -> Result<KeyPair<R>> {
+        use crate::packet::key::SecretKeyMaterial;
+        let secret = match self.set_secret(None) {
+            Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
+            Some(SecretKeyMaterial::Encrypted(_)) =>
+                return Err(Error::InvalidArgument(
+                    "secret key is encrypted".into()).into()),
+            None =>
+                return Err(Error::InvalidArgument(
+                    "no secret key".into()).into()),
+        };
+
+        KeyPair::new(self.mark_parts_public().into(), secret)
+    }
+}
+
 // Trivial forwarder for singleton enum.
 impl<P: key::KeyParts, R: key::KeyRole> Deref for Key<P, R> {
     type Target = self::key::Key4<P, R>;

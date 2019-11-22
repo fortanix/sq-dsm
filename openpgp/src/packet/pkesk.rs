@@ -364,7 +364,7 @@ mod tests {
         let mut key: key::UnspecifiedPublic
             = Key4::new(std::time::SystemTime::now().canonicalize(),
                         PublicKeyAlgorithm::ECDH,
-                        public_mpis, None)
+                        public_mpis)
                 .unwrap().into();
         key.set_secret(Some(private_mpis.into()));
         let sess_key = SessionKey::new(32);

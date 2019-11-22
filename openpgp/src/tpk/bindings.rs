@@ -8,7 +8,7 @@ use crate::conversions::Time;
 use crate::crypto::Signer;
 use crate::packet::{UserID, UserAttribute, key, Key, signature, Signature};
 
-impl Key<key::PublicParts, key::SubordinateRole> {
+impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// Creates a binding signature.
     ///
     /// The signature binds this userid to `tpk`. `signer` will be used
@@ -40,8 +40,8 @@ impl Key<key::PublicParts, key::SubordinateRole> {
     /// assert_eq!(tpk.keys_valid().key_flags(flags.clone()).count(), 0);
     ///
     /// // Generate a subkey and a binding signature.
-    /// let subkey : key::PublicSubkey
-    ///     = Key::V4(Key4::generate_ecc(false, Curve::Cv25519)?);
+    /// let subkey : key::SecretSubkey
+    ///     = Key4::generate_ecc(false, Curve::Cv25519)?.into();
     /// let builder = signature::Builder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(&flags)?;
     /// let binding = subkey.bind(&mut keypair, &tpk, builder, None)?;

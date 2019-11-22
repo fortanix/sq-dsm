@@ -1524,16 +1524,24 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             }
         }
 
-        fn k<P, R>(creation_time: u32,
-                   pk_algo: PublicKeyAlgorithm,
-                   mpis: PublicKey,
-                   secret: Option<SecretKeyMaterial>)
-            -> Result<Key4<P, R>>
-            where P: key::KeyParts,
-                  R: key::KeyRole,
+        fn k<R>(creation_time: u32,
+                pk_algo: PublicKeyAlgorithm,
+                mpis: PublicKey)
+            -> Result<Key4<key::PublicParts, R>>
+            where R: key::KeyRole
         {
             Key4::new(std::time::SystemTime::from_pgp(creation_time),
-                      pk_algo, mpis, secret)
+                      pk_algo, mpis)
+        }
+        fn s<R>(creation_time: u32,
+                pk_algo: PublicKeyAlgorithm,
+                mpis: PublicKey,
+                secret: SecretKeyMaterial)
+            -> Result<Key4<key::SecretParts, R>>
+            where R: key::KeyRole
+        {
+            Key4::with_secret(std::time::SystemTime::from_pgp(creation_time),
+                              pk_algo, mpis, secret)
         }
 
         let tag = php.header.ctb().tag();
@@ -1542,19 +1550,22 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             // For the benefit of Key::from_bytes.
             Tag::Reserved => if have_secret {
                 Packet::SecretKey(
-                    php_try!(k(creation_time, pk_algo, mpis, secret)).into())
+                    php_try!(s(creation_time, pk_algo, mpis, secret.unwrap()))
+                        .into())
             } else {
                 Packet::PublicKey(
-                    php_try!(k(creation_time, pk_algo, mpis, secret)).into())
+                    php_try!(k(creation_time, pk_algo, mpis)).into())
             },
             Tag::PublicKey => Packet::PublicKey(
-                php_try!(k(creation_time, pk_algo, mpis, secret)).into()),
+                php_try!(k(creation_time, pk_algo, mpis)).into()),
             Tag::PublicSubkey => Packet::PublicSubkey(
-                php_try!(k(creation_time, pk_algo, mpis, secret)).into()),
+                php_try!(k(creation_time, pk_algo, mpis)).into()),
             Tag::SecretKey => Packet::SecretKey(
-                php_try!(k(creation_time, pk_algo, mpis, secret)).into()),
+                php_try!(s(creation_time, pk_algo, mpis, secret.unwrap()))
+                    .into()),
             Tag::SecretSubkey => Packet::SecretSubkey(
-                php_try!(k(creation_time, pk_algo, mpis, secret)).into()),
+                php_try!(s(creation_time, pk_algo, mpis, secret.unwrap()))
+                    .into()),
             _ => unreachable!(),
         };
 

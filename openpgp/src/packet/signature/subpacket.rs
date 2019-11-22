@@ -2733,10 +2733,9 @@ fn accessors() {
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
     let mut sig = signature::Builder::new(crate::constants::SignatureType::Binary);
-    let mut key: crate::packet::key::PublicKey =
+    let mut key: crate::packet::key::SecretKey =
         crate::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
-    let mut keypair = key.clone().mark_parts_secret().unwrap()
-        .into_keypair().unwrap();
+    let mut keypair = key.clone().into_keypair().unwrap();
 
     // Cook up a timestamp without ns resolution.
     let now = time::SystemTime::now().canonicalize();
