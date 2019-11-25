@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::Error;
 use crate::Result;
-use crate::constants::{Curve, HashAlgorithm};
+use crate::types::{Curve, HashAlgorithm};
 use crate::crypto::mpis::{MPI, PublicKey};
 
 /// A proprietary, protocol agnostic identifier for public keys.

@@ -11,7 +11,7 @@ use std::env;
 use std::collections::HashMap;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::Packet;
-use crate::openpgp::constants::*;
+use crate::openpgp::types::*;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
 use crate::openpgp::packet::signature::subpacket::SubpacketTag;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};

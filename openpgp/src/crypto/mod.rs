@@ -6,7 +6,7 @@ use std::fmt;
 
 use nettle::{Random, Yarrow};
 
-use crate::constants::HashAlgorithm;
+use crate::types::HashAlgorithm;
 use crate::Result;
 
 pub(crate) mod aead;

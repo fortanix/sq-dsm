@@ -13,7 +13,7 @@ use crate::Result;
 use crate::crypto;
 use crate::crypto::s2k::S2K;
 use crate::Error;
-use crate::constants::{
+use crate::types::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };

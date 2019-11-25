@@ -3,7 +3,7 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-use crate::constants::Curve;
+use crate::types::Curve;
 use crate::Error;
 use crate::Result;
 use crate::crypto::{
@@ -1286,7 +1286,7 @@ mod test {
 
     #[test]
     fn sign_message() {
-        use crate::constants::Curve;
+        use crate::types::Curve;
 
         let key: Key<key::SecretParts, key::PrimaryRole>
             = Key4::generate_ecc(true, Curve::Ed25519)

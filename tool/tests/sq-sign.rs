@@ -10,7 +10,7 @@ extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, PacketPile, TPK};
 use crate::openpgp::crypto::KeyPair;
 use crate::openpgp::packet::key::SecretKeyMaterial;
-use crate::openpgp::constants::{CompressionAlgorithm, SignatureType};
+use crate::openpgp::types::{CompressionAlgorithm, SignatureType};
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
 

@@ -37,7 +37,7 @@ use super::{
     Serialize,
     writer,
 };
-use crate::constants::{
+use crate::types::{
     AEADAlgorithm,
     CompressionAlgorithm,
     DataFormat,
@@ -718,7 +718,7 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// extern crate sequoia_openpgp as openpgp;
 /// use std::io::Write;
 /// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
-/// use openpgp::constants::CompressionAlgorithm;
+/// use openpgp::types::CompressionAlgorithm;
 /// # use openpgp::Result;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
@@ -936,7 +936,7 @@ impl<'a> Encryptor<'a> {
     /// ```
     /// use std::io::Write;
     /// extern crate sequoia_openpgp as openpgp;
-    /// use openpgp::constants::KeyFlags;
+    /// use openpgp::types::KeyFlags;
     /// use openpgp::serialize::stream::{
     ///     Message, Encryptor, LiteralWriter,
     /// };
@@ -1032,7 +1032,7 @@ impl<'a> Encryptor<'a> {
     /// ```
     /// use std::io::Write;
     /// extern crate sequoia_openpgp as openpgp;
-    /// use openpgp::constants::KeyFlags;
+    /// use openpgp::types::KeyFlags;
     /// use openpgp::serialize::stream::{
     ///     Message, Encryptor, LiteralWriter,
     /// };
@@ -1293,7 +1293,7 @@ mod test {
     use crate::{Packet, PacketPile, packet::CompressedData};
     use crate::parse::{Parse, PacketParserResult, PacketParser};
     use super::*;
-    use crate::constants::DataFormat::Text as T;
+    use crate::types::DataFormat::Text as T;
 
     #[test]
     fn arbitrary() {
@@ -1640,7 +1640,7 @@ mod test {
 
         use std::cmp;
 
-        use crate::constants::KeyFlags;
+        use crate::types::KeyFlags;
         use crate::parse::{
             stream::{
                 Decryptor,

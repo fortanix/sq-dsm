@@ -12,7 +12,7 @@ use futures::{Async, Future, Stream};
 extern crate libc;
 extern crate tempfile;
 
-use crate::openpgp::constants::HashAlgorithm;
+use crate::openpgp::types::HashAlgorithm;
 use crate::openpgp::conversions::hex;
 use crate::openpgp::crypto;
 use crate::openpgp::crypto::sexp::Sexp;
@@ -719,7 +719,7 @@ impl<'a, R> crypto::Signer<R> for KeyPair<'a, R>
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
             -> Result<openpgp::crypto::mpis::Signature>
     {
-        use crate::openpgp::constants::PublicKeyAlgorithm::*;
+        use crate::openpgp::types::PublicKeyAlgorithm::*;
         use crate::openpgp::crypto::mpis::PublicKey;
 
         #[allow(deprecated)]

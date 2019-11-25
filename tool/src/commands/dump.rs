@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::constants::SymmetricAlgorithm;
+use self::openpgp::types::SymmetricAlgorithm;
 use self::openpgp::conversions::hex;
 use self::openpgp::crypto::mpis;
 use self::openpgp::{Packet, Result};

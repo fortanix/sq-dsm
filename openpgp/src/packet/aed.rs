@@ -2,7 +2,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use crate::constants::{
+use crate::types::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };

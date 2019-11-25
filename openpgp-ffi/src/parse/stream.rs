@@ -17,7 +17,7 @@ extern crate sequoia_openpgp as openpgp;
 
 use self::openpgp::{
     crypto::SessionKey,
-    constants::SymmetricAlgorithm,
+    types::SymmetricAlgorithm,
     packet::{
         PKESK,
         SKESK,

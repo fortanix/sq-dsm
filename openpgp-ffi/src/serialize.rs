@@ -12,7 +12,7 @@ use libc::{c_char, size_t, ssize_t};
 
 extern crate sequoia_openpgp as openpgp;
 
-use self::openpgp::constants::{
+use self::openpgp::types::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };

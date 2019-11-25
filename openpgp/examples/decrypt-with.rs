@@ -9,7 +9,7 @@ extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 
 use crate::openpgp::crypto::{KeyPair, SessionKey};
-use crate::openpgp::constants::SymmetricAlgorithm;
+use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::packet::key;
 use crate::openpgp::parse::{
     Parse,

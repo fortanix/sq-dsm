@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
 
-use crate::constants::{
+use crate::types::{
     Curve,
     HashAlgorithm,
     PublicKeyAlgorithm,

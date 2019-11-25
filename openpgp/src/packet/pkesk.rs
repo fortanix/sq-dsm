@@ -336,7 +336,7 @@ mod tests {
         use crate::PublicKeyAlgorithm;
         use crate::SymmetricAlgorithm;
         use crate::HashAlgorithm;
-        use crate::constants::Curve;
+        use crate::types::Curve;
         use crate::packet::key;
         use crate::packet::key::Key4;
         use nettle::curve25519;

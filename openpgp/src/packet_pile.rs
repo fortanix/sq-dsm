@@ -180,7 +180,7 @@ impl PacketPile {
     ///
     /// ```rust
     /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::{Result, constants::{CompressionAlgorithm, DataFormat},
+    /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     ///
     /// # fn main() { f().unwrap(); }
@@ -418,8 +418,8 @@ impl<'a> PacketParserBuilder<'a> {
 mod test {
     use super::*;
 
-    use crate::constants::CompressionAlgorithm;
-    use crate::constants::DataFormat::Text;
+    use crate::types::CompressionAlgorithm;
+    use crate::types::DataFormat::Text;
     use crate::packet::Literal;
     use crate::packet::CompressedData;
     use crate::packet::seip::SEIP1;

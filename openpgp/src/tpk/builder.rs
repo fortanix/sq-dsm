@@ -15,7 +15,7 @@ use crate::Error;
 use crate::conversions::Time;
 use crate::crypto::Password;
 use crate::autocrypt::Autocrypt;
-use crate::constants::{
+use crate::types::{
     Features,
     HashAlgorithm,
     KeyFlags,
@@ -53,7 +53,7 @@ impl CipherSuite {
         -> Result<Key<key::SecretParts, R>>
         where R: key::KeyRole
     {
-        use crate::constants::Curve;
+        use crate::types::Curve;
 
         match self {
             CipherSuite::RSA2k =>
@@ -293,7 +293,7 @@ impl TPKBuilder {
     /// Generates the actual TPK.
     pub fn generate(mut self) -> Result<(TPK, Signature)> {
         use crate::{PacketPile, Packet};
-        use crate::constants::ReasonForRevocation;
+        use crate::types::ReasonForRevocation;
 
         let mut packets = Vec::<Packet>::with_capacity(
             1 + 1 + self.subkeys.len() + self.userids.len()
@@ -432,7 +432,7 @@ impl TPKBuilder {
 mod tests {
     use super::*;
     use crate::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
-    use crate::constants::PublicKeyAlgorithm;
+    use crate::types::PublicKeyAlgorithm;
 
     #[test]
     fn all_opts() {
@@ -468,7 +468,7 @@ mod tests {
 
         assert_eq!(tpk.userids().count(), 0);
         assert_eq!(tpk.primary_key_signature(None).unwrap().typ(),
-                   crate::constants::SignatureType::DirectKey);
+                   crate::types::SignatureType::DirectKey);
         assert_eq!(tpk.subkeys().count(), 3);
         if let Some(sig) = tpk.primary_key_signature(None) {
             assert!(sig.features().supports_mdc());
@@ -535,7 +535,7 @@ mod tests {
                    PublicKeyAlgorithm::ECDH);
         assert_match!(
             crate::crypto::mpis::PublicKey::ECDH {
-                curve: crate::constants::Curve::Cv25519, ..
+                curve: crate::types::Curve::Cv25519, ..
             } = tpk1.subkeys().next().unwrap().key().mpis());
         assert_eq!(tpk1.userids().count(), 1);
     }

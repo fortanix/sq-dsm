@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use crate::packet::{self, Common};
 use crate::Packet;
 use crate::Container;
-use crate::constants::CompressionAlgorithm;
+use crate::types::CompressionAlgorithm;
 
 /// Holds a compressed data packet.
 ///

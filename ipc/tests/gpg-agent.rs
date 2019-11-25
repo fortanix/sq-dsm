@@ -7,12 +7,12 @@ use futures::future::Future;
 use futures::stream::Stream;
 
 extern crate sequoia_openpgp as openpgp;
-use crate::openpgp::constants::{
+use crate::openpgp::types::{
     HashAlgorithm,
     SymmetricAlgorithm,
 };
 use crate::openpgp::crypto::SessionKey;
-use crate::openpgp::constants::KeyFlags;
+use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::stream::*;
 use crate::openpgp::serialize::{Serialize, stream::*};
 use crate::openpgp::tpk::{TPKBuilder, CipherSuite};

@@ -81,7 +81,7 @@ use crate::{
     KeyID,
     SignatureType,
 };
-use crate::constants::{
+use crate::types::{
     AEADAlgorithm,
     CompressionAlgorithm,
     Features,
@@ -2727,12 +2727,12 @@ impl signature::Builder {
 
 #[test]
 fn accessors() {
-    use crate::constants::Curve;
+    use crate::types::Curve;
 
     let pk_algo = PublicKeyAlgorithm::EdDSA;
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
-    let mut sig = signature::Builder::new(crate::constants::SignatureType::Binary);
+    let mut sig = signature::Builder::new(crate::types::SignatureType::Binary);
     let mut key: crate::packet::key::SecretKey =
         crate::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
     let mut keypair = key.clone().into_keypair().unwrap();

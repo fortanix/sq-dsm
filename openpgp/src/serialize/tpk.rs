@@ -721,7 +721,7 @@ mod test {
     fn export() {
         use crate::Packet;
         use crate::tpk::TPKBuilder;
-        use crate::constants::{Curve, KeyFlags, SignatureType};
+        use crate::types::{Curve, KeyFlags, SignatureType};
         use crate::packet::{
             signature, UserID, user_attribute::{UserAttribute, Subpacket},
             key::Key4,

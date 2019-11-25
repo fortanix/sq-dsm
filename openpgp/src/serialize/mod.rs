@@ -2486,7 +2486,7 @@ impl Serialize for autocrypt::AutocryptHeader {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::constants::CompressionAlgorithm;
+    use crate::types::CompressionAlgorithm;
     use crate::parse::to_unknown_packet;
     use crate::parse::PacketParserBuilder;
     use crate::parse::Parse;
@@ -2744,7 +2744,7 @@ mod test {
     // reparse them, and make sure we get the same result.
     #[test]
     fn serialize_test_3() {
-        use crate::constants::DataFormat::Text as T;
+        use crate::types::DataFormat::Text as T;
 
         // serialize_test_1 and serialize_test_2 parse a byte stream.
         // This tests creates the message, and then serializes and

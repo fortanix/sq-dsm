@@ -33,7 +33,7 @@ mod integration {
 //         },
 //         crypto::KeyPair,
 //         serialize::Serialize,
-//         constants::{
+//         types::{
 //             SignatureType,
 //             HashAlgorithm,
 //         }

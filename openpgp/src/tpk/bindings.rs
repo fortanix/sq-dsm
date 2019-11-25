@@ -3,7 +3,7 @@ use std::time;
 use crate::Error;
 use crate::Result;
 use crate::TPK;
-use crate::constants::{HashAlgorithm, SignatureType};
+use crate::types::{HashAlgorithm, SignatureType};
 use crate::conversions::Time;
 use crate::crypto::Signer;
 use crate::packet::{UserID, UserAttribute, key, Key, signature, Signature};
@@ -27,7 +27,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// subkeys to a TPK.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, constants::*, tpk::*};
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
@@ -90,7 +90,7 @@ impl UserID {
     /// userids to a TPK.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, constants::*, tpk::*};
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
@@ -152,7 +152,7 @@ impl UserID {
     /// This example demonstrates how to certify a userid.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, constants::*, tpk::*};
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a TPK, and create a keypair from the primary key.
@@ -232,7 +232,7 @@ impl UserAttribute {
     /// to add userids to a TPK.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, constants::*, tpk::*,
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*,
     ///                         packet::user_attribute::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
@@ -298,7 +298,7 @@ impl UserAttribute {
     /// This example demonstrates how to certify a userid.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, constants::*, tpk::*,
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*,
     ///                         packet::user_attribute::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {

@@ -444,9 +444,9 @@ impl ::std::ops::Deref for Message {
 mod tests {
     use super::*;
 
-    use crate::constants::DataFormat::Text;
+    use crate::types::DataFormat::Text;
     use crate::HashAlgorithm;
-    use crate::constants::CompressionAlgorithm;
+    use crate::types::CompressionAlgorithm;
     use crate::SymmetricAlgorithm;
     use crate::PublicKeyAlgorithm;
     use crate::SignatureType;
@@ -807,9 +807,9 @@ mod tests {
         let mut lit = Literal::new(Text);
         lit.set_body(b"data".to_vec());
 
-        let hash = crate::constants::HashAlgorithm::SHA512;
+        let hash = crate::types::HashAlgorithm::SHA512;
         let key: key::SecretKey =
-            crate::packet::key::Key4::generate_ecc(true, crate::constants::Curve::Ed25519)
+            crate::packet::key::Key4::generate_ecc(true, crate::types::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
         let sig = crate::packet::signature::Builder::new(SignatureType::Binary)
@@ -919,9 +919,9 @@ mod tests {
         let mut lit = Literal::new(Text);
         lit.set_body(b"data".to_vec());
 
-        let hash = crate::constants::HashAlgorithm::SHA512;
+        let hash = crate::types::HashAlgorithm::SHA512;
         let key: key::SecretKey =
-            crate::packet::key::Key4::generate_ecc(true, crate::constants::Curve::Ed25519)
+            crate::packet::key::Key4::generate_ecc(true, crate::types::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
         let sig = crate::packet::signature::Builder::new(SignatureType::Binary)

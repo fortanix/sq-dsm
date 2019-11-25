@@ -15,7 +15,7 @@ use std::fmt;
 use std::io;
 
 use crate::crypto::{aead, symmetric};
-use crate::constants::{
+use crate::types::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };

@@ -7,7 +7,7 @@ use crate::packet::{
     key,
 };
 use crate::Result;
-use crate::constants::{
+use crate::types::{
     Curve,
     HashAlgorithm,
     SymmetricAlgorithm,

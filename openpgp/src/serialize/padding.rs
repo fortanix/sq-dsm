@@ -49,7 +49,7 @@ use super::{
     writer,
     stream::Cookie,
 };
-use crate::constants::{
+use crate::types::{
     CompressionAlgorithm,
 };
 
@@ -92,7 +92,7 @@ use crate::constants::{
 /// use std::io::Write;
 /// use openpgp::serialize::stream::{Message, LiteralWriter};
 /// use openpgp::serialize::padding::{Padder, padme};
-/// use openpgp::constants::CompressionAlgorithm;
+/// use openpgp::types::CompressionAlgorithm;
 /// # use openpgp::Result;
 /// # f().unwrap();
 /// # fn f() -> Result<()> {

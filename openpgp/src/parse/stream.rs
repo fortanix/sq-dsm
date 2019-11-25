@@ -20,7 +20,7 @@ use buffered_reader::BufferedReader;
 use crate::{
     Error,
     Fingerprint,
-    constants::{
+    types::{
         AEADAlgorithm,
         CompressionAlgorithm,
         DataFormat,
@@ -1067,7 +1067,7 @@ impl DetachedVerifier {
 /// extern crate failure;
 /// use std::io::Read;
 /// use openpgp::crypto::SessionKey;
-/// use openpgp::constants::SymmetricAlgorithm;
+/// use openpgp::types::SymmetricAlgorithm;
 /// use openpgp::{KeyID, TPK, Result, packet::{Key, PKESK, SKESK}};
 /// use openpgp::parse::stream::*;
 /// # fn main() { f().unwrap(); }

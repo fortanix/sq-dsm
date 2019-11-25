@@ -3,7 +3,7 @@ use std::cmp;
 use std::time;
 use quickcheck::{Arbitrary, Gen};
 
-use crate::constants::DataFormat;
+use crate::types::DataFormat;
 use crate::conversions::Time;
 use crate::Error;
 use crate::packet;

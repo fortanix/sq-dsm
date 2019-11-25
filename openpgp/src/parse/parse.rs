@@ -28,7 +28,7 @@ use crate::{
     KeyID,
     crypto::SessionKey,
 };
-use crate::constants::{
+use crate::types::{
     AEADAlgorithm,
     CompressionAlgorithm,
     SignatureType,
@@ -1734,7 +1734,7 @@ impl_parse_generic_packet!(Literal);
 
 #[test]
 fn literal_parser_test () {
-    use crate::constants::DataFormat;
+    use crate::types::DataFormat;
     {
         let data = crate::tests::message("literal-mode-b.gpg");
         let mut pp = PacketParser::from_bytes(data).unwrap().unwrap();
@@ -1840,7 +1840,7 @@ impl_parse_generic_packet!(CompressedData);
 #[cfg(any(feature = "compression-deflate", feature = "compression-bzip2"))]
 #[test]
 fn compressed_data_parser_test () {
-    use crate::constants::DataFormat;
+    use crate::types::DataFormat;
 
     let expected = crate::tests::manifesto();
 

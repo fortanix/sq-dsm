@@ -7,7 +7,7 @@ use rpassword;
 
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
-use crate::openpgp::constants::{
+use crate::openpgp::types::{
     CompressionAlgorithm,
 };
 use crate::openpgp::crypto;
@@ -82,7 +82,7 @@ pub fn encrypt(mapping: &mut store::Mapping,
                input: &mut dyn io::Read, output: &mut dyn io::Write,
                npasswords: usize, recipients: Vec<&str>,
                mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>,
-               mode: openpgp::constants::KeyFlags,
+               mode: openpgp::types::KeyFlags,
                compression: &str)
                -> Result<()> {
     for r in recipients {

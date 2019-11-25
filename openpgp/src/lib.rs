@@ -135,8 +135,8 @@ pub mod serialize;
 mod packet_pile;
 pub mod message;
 
-pub mod constants;
-use crate::constants::{
+pub mod types;
+use crate::types::{
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
     HashAlgorithm,
@@ -196,7 +196,7 @@ pub enum Error {
 
     /// Unsupported elliptic curve ASN.1 OID.
     #[fail(display = "Unsupported elliptic curve: {}", _0)]
-    UnsupportedEllipticCurve(constants::Curve),
+    UnsupportedEllipticCurve(types::Curve),
 
     /// Unsupported symmetric key algorithm.
     #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
@@ -204,11 +204,11 @@ pub enum Error {
 
     /// Unsupported AEAD algorithm.
     #[fail(display = "Unsupported AEAD algorithm: {}", _0)]
-    UnsupportedAEADAlgorithm(constants::AEADAlgorithm),
+    UnsupportedAEADAlgorithm(types::AEADAlgorithm),
 
     /// Unsupported Compression algorithm.
     #[fail(display = "Unsupported Compression algorithm: {}", _0)]
-    UnsupportedCompressionAlgorithm(constants::CompressionAlgorithm),
+    UnsupportedCompressionAlgorithm(types::CompressionAlgorithm),
 
     /// Unsupported signature type.
     #[fail(display = "Unsupported signature type: {}", _0)]

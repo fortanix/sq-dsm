@@ -63,7 +63,7 @@ use crate::packet::prelude::*;
 use crate::PublicKeyAlgorithm;
 use crate::SymmetricAlgorithm;
 use crate::HashAlgorithm;
-use crate::constants::Curve;
+use crate::types::Curve;
 use crate::crypto::s2k::S2K;
 use crate::Result;
 use crate::conversions::Time;
@@ -1312,7 +1312,7 @@ mod tests {
 
     #[test]
     fn eq() {
-        use crate::constants::Curve::*;
+        use crate::types::Curve::*;
 
         for curve in vec![NistP256, NistP384, NistP521] {
             let sign_key : Key4<_, key::UnspecifiedRole>
@@ -1336,7 +1336,7 @@ mod tests {
 
     #[test]
     fn roundtrip() {
-        use crate::constants::Curve::*;
+        use crate::types::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().flat_map(|cv|
         {
@@ -1389,7 +1389,7 @@ mod tests {
     #[test]
     fn encryption_roundtrip() {
         use crate::crypto::SessionKey;
-        use crate::constants::Curve::*;
+        use crate::types::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
             Key4::generate_ecc(false, cv).unwrap()
@@ -1415,7 +1415,7 @@ mod tests {
 
     #[test]
     fn secret_encryption_roundtrip() {
-        use crate::constants::Curve::*;
+        use crate::types::Curve::*;
 
         let keys = vec![NistP256, NistP384, NistP521].into_iter().map(|cv| {
             let k : Key4<key::SecretParts, key::PrimaryRole>
@@ -1558,7 +1558,7 @@ mod tests {
     #[test]
     fn import_ed25519() {
         use crate::{Fingerprint, KeyID};
-        use crate::constants::SignatureType;
+        use crate::types::SignatureType;
         use crate::packet::signature::Signature4;
         use crate::packet::signature::subpacket::{
             Subpacket, SubpacketValue, SubpacketArea};

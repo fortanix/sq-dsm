@@ -5,7 +5,7 @@ use nettle::{dsa, ecc, ecdsa, ed25519, rsa, Yarrow};
 use crate::packet::{self, key, Key};
 use crate::crypto::SessionKey;
 use crate::crypto::mpis::{self, MPI};
-use crate::constants::{Curve, HashAlgorithm};
+use crate::types::{Curve, HashAlgorithm};
 
 use crate::Error;
 use crate::Result;

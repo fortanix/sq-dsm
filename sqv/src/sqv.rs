@@ -14,7 +14,7 @@ use std::fs::File;
 use std::collections::{HashMap, HashSet};
 
 use crate::openpgp::{TPK, Packet, packet::Signature, KeyID, RevocationStatus};
-use crate::openpgp::constants::HashAlgorithm;
+use crate::openpgp::types::HashAlgorithm;
 use crate::openpgp::crypto::hash::Hash;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
 use crate::openpgp::tpk::TPKParser;

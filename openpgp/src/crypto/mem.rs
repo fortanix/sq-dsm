@@ -130,7 +130,7 @@ const ENCRYPTED_MEMORY_PAGE_SIZE: usize = 4096;
 mod has_access_to_prekey {
     use std::io::{self, Cursor, Write};
     use lazy_static;
-    use crate::constants::{AEADAlgorithm, HashAlgorithm, SymmetricAlgorithm};
+    use crate::types::{AEADAlgorithm, HashAlgorithm, SymmetricAlgorithm};
     use crate::crypto::{aead, SessionKey};
     use super::*;
 

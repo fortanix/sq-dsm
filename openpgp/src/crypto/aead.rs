@@ -5,7 +5,7 @@ use std::io;
 use nettle::{aead, cipher};
 use buffered_reader::BufferedReader;
 
-use crate::constants::{
+use crate::types::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };

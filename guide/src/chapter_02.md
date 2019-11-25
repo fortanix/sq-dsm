@@ -13,7 +13,7 @@ use std::io::{self, Write};
 
 extern crate sequoia_openpgp as openpgp;
 use openpgp::crypto::SessionKey;
-use openpgp::constants::{KeyFlags, SymmetricAlgorithm};
+use openpgp::types::{KeyFlags, SymmetricAlgorithm};
 use openpgp::serialize::stream::*;
 use openpgp::parse::stream::*;
 
@@ -156,7 +156,7 @@ create it:
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::constants::{KeyFlags, SymmetricAlgorithm};
+# use openpgp::types::{KeyFlags, SymmetricAlgorithm};
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
 #
@@ -299,7 +299,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::constants::{KeyFlags, SymmetricAlgorithm};
+# use openpgp::types::{KeyFlags, SymmetricAlgorithm};
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
 #
@@ -456,7 +456,7 @@ Decrypted data can be read from this using [`io::Read`].
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::constants::{KeyFlags, SymmetricAlgorithm};
+# use openpgp::types::{KeyFlags, SymmetricAlgorithm};
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
 #

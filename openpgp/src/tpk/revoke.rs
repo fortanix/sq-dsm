@@ -7,7 +7,7 @@ use crate::{
     Result,
     SignatureType,
 };
-use crate::constants::{
+use crate::types::{
     ReasonForRevocation,
 };
 use crate::crypto::hash::Hash;
@@ -40,7 +40,7 @@ use crate::tpk::TPK;
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// use openpgp::RevocationStatus;
-/// use openpgp::constants::{ReasonForRevocation, SignatureType};
+/// use openpgp::types::{ReasonForRevocation, SignatureType};
 /// use openpgp::tpk::{CipherSuite, TPKBuilder, TPKRevocationBuilder};
 /// use openpgp::crypto::KeyPair;
 /// use openpgp::parse::Parse;
@@ -155,7 +155,7 @@ impl Deref for TPKRevocationBuilder {
 /// # Example
 ///
 /// ```
-/// # use sequoia_openpgp::{*, packet::*, constants::*, tpk::*};
+/// # use sequoia_openpgp::{*, packet::*, types::*, tpk::*};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// // Generate a TPK, and create a keypair from the primary key.
@@ -271,7 +271,7 @@ impl Deref for SubkeyRevocationBuilder {
 /// # Example
 ///
 /// ```
-/// # use sequoia_openpgp::{*, packet::*, constants::*, tpk::*};
+/// # use sequoia_openpgp::{*, packet::*, types::*, tpk::*};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// // Generate a TPK, and create a keypair from the primary key.
@@ -387,7 +387,7 @@ impl Deref for UserIDRevocationBuilder {
 /// # Example
 ///
 /// ```
-/// # use sequoia_openpgp::{*, packet::*, constants::*, tpk::*};
+/// # use sequoia_openpgp::{*, packet::*, types::*, tpk::*};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// # let subpacket

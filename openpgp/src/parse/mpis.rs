@@ -8,7 +8,7 @@ use crate::{
     SymmetricAlgorithm,
     HashAlgorithm,
 };
-use crate::constants::Curve;
+use crate::types::Curve;
 use crate::crypto::mpis::{self, MPI};
 use crate::parse::{
     PacketHeaderParser,

@@ -1,7 +1,7 @@
-//! Constants used in OpenPGP.
+//! Primitive OpenPGP types.
 //!
-//! This module defines enumerations describing algorithms used in
-//! OpenPGP.
+//! This module provides types used in OpenPGP, like enumerations
+//! describing algorithms.
 
 use std::fmt;
 use std::str::FromStr;

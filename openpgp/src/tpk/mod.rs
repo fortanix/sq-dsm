@@ -32,7 +32,7 @@ use crate::{
     Fingerprint,
 };
 use crate::parse::{Parse, PacketParserResult, PacketParser};
-use crate::constants::{
+use crate::types::{
     ReasonForRevocation,
     RevocationType,
 };
@@ -985,7 +985,7 @@ impl TPK {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// use openpgp::RevocationStatus;
-    /// use openpgp::constants::{ReasonForRevocation, SignatureType};
+    /// use openpgp::types::{ReasonForRevocation, SignatureType};
     /// use openpgp::tpk::{CipherSuite, TPKBuilder};
     /// use openpgp::crypto::KeyPair;
     /// use openpgp::parse::Parse;
@@ -1543,7 +1543,7 @@ mod test {
 
     use crate::{
         KeyID,
-        constants::KeyFlags,
+        types::KeyFlags,
     };
 
     fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {
@@ -2146,7 +2146,7 @@ mod test {
 
     #[test]
     fn direct_key_sig() {
-        use crate::constants::SignatureType;
+        use crate::types::SignatureType;
         // XXX: testing sequoia against itself isn't optimal, but I couldn't
         // find a tool to generate direct key signatures :-(
 
@@ -2363,9 +2363,9 @@ mod test {
 
     #[test]
     fn key_revoked() {
-        use crate::constants::Features;
+        use crate::types::Features;
         use crate::packet::key::Key4;
-        use crate::constants::Curve;
+        use crate::types::Curve;
         use rand::{thread_rng, Rng, distributions::Open01};
         /*
          * t1: 1st binding sig ctime
@@ -2993,9 +2993,9 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // Check that searching for the right binding signature works
         // even when there are signatures with the same time.
 
-        use crate::constants::Features;
+        use crate::types::Features;
         use crate::packet::key::Key4;
-        use crate::constants::Curve;
+        use crate::types::Curve;
 
         let a_sec = time::Duration::new(1, 0);
         let time_zero = time::UNIX_EPOCH;

@@ -13,7 +13,7 @@ extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
     autocrypt::Autocrypt,
     crypto,
-    constants::ReasonForRevocation,
+    types::ReasonForRevocation,
     parse::{
         PacketParserResult,
         Parse,

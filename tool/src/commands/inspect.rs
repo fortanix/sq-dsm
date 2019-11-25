@@ -227,7 +227,7 @@ fn inspect_revocation(output: &mut dyn io::Write,
     Ok(())
 }
 
-fn inspect_key_flags(flags: openpgp::constants::KeyFlags) -> Option<String> {
+fn inspect_key_flags(flags: openpgp::types::KeyFlags) -> Option<String> {
     let mut capabilities = Vec::new();
     if flags.can_certify() {
         capabilities.push("certification")
@@ -254,7 +254,7 @@ fn inspect_key_flags(flags: openpgp::constants::KeyFlags) -> Option<String> {
 
 fn inspect_signatures(output: &mut dyn io::Write,
                       sigs: &[openpgp::packet::Signature]) -> Result<()> {
-    use crate::openpgp::constants::SignatureType::*;
+    use crate::openpgp::types::SignatureType::*;
     for sig in sigs {
         match sig.typ() {
             Binary | Text => (),

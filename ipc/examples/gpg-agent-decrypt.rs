@@ -8,7 +8,7 @@ extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_ipc as ipc;
 
 use crate::openpgp::crypto::SessionKey;
-use crate::openpgp::constants::SymmetricAlgorithm;
+use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::parse::{
     Parse,
     stream::{

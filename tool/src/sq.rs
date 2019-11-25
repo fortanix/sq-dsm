@@ -25,7 +25,7 @@ extern crate sequoia_store as store;
 
 use crate::openpgp::{armor, autocrypt, Fingerprint, TPK};
 use crate::openpgp::conversions::hex;
-use crate::openpgp::constants::KeyFlags;
+use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
 use crate::openpgp::tpk::TPKParser;
