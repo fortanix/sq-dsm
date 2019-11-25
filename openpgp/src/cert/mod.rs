@@ -2333,15 +2333,15 @@ mod test {
     fn merge_with_incomplete_update() {
         let cert = Cert::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
-        assert!(cert.primary_key_signature(None).unwrap()
-                .key_expired(cert.primary(), None));
+        assert!(! cert.primary_key_signature(None).unwrap()
+                .key_alive(cert.primary(), None).is_ok());
 
         let update =
             Cert::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let cert = cert.merge(update).unwrap();
-        assert!(! cert.primary_key_signature(None).unwrap()
-                .key_expired(cert.primary(), None));
+        assert!(cert.primary_key_signature(None).unwrap()
+                .key_alive(cert.primary(), None).is_ok());
     }
 
     #[test]

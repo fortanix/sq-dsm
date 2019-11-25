@@ -2166,30 +2166,6 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns whether or not the key is expired at the given time.
-    ///
-    /// If `t` is None, uses the current time.
-    ///
-    /// See [Section 5.2.3.6 of RFC 4880].
-    ///
-    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_expired<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
-        where P: key::KeyParts,
-              R: key::KeyRole,
-              T: Into<Option<time::SystemTime>>
-    {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
-        match self.key_expiration_time() {
-            Some(e) if e.as_secs() == 0 =>
-                false, // Zero expiration time, does not expire.
-            Some(e) =>
-                key.creation_time() + e <= t,
-            None =>
-                false, // No expiration time, does not expire.
-        }
-    }
-
     /// Returns whether or not the given key is alive at `t`.
     ///
     /// A key is considered to be alive if `creation time <= t` and `t
@@ -2783,10 +2759,6 @@ fn accessors() {
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.key_expiration_time(), Some(five_minutes));
 
-    assert!(!sig_.key_expired(&key, None));
-    assert!(!sig_.key_expired(&key, now));
-    assert!(sig_.key_expired(&key, now + ten_minutes));
-
     assert!(sig_.key_alive(&key, None).is_ok());
     assert!(sig_.key_alive(&key, now).is_ok());
     assert!(!sig_.key_alive(&key, now - five_minutes).is_ok());
@@ -2796,9 +2768,6 @@ fn accessors() {
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.key_expiration_time(), None);
-    assert!(!sig_.key_expired(&key, None));
-    assert!(!sig_.key_expired(&key, now));
-    assert!(!sig_.key_expired(&key, now + ten_minutes));
 
     assert!(sig_.key_alive(&key, None).is_ok());
     assert!(sig_.key_alive(&key, now).is_ok());
@@ -3085,12 +3054,14 @@ fn subpacket_test_2() {
                    }));
 
         // Check key expiration.
-        assert!(! sig.key_expired(
+        assert!(sig.key_alive(
             key,
-            key.creation_time() + time::Duration::new(63072000 - 1, 0)));
-        assert!(sig.key_expired(
+            key.creation_time() + time::Duration::new(63072000 - 1, 0))
+                .is_ok());
+        assert!(! sig.key_alive(
             key,
-            key.creation_time() + time::Duration::new(63072000, 0)));
+            key.creation_time() + time::Duration::new(63072000 + 1, 0))
+                .is_ok());
 
         assert_eq!(sig.preferred_symmetric_algorithms(),
                    Some(vec![SymmetricAlgorithm::AES256,

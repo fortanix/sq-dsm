@@ -264,17 +264,3 @@ fn pgp_signature_key_alive(errp: Option<&mut *mut crate::error::Error>,
     };
     ffi_try_status!(sig.ref_raw().key_alive(key.ref_raw(), t))
 }
-
-/// Returns whether the signature is expired at the specified time.
-///
-/// If `when` is 0, then the current time is used.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_key_expired(sig: *const Signature, key: *const Key,
-                             when: time_t) -> bool {
-    let t = if when == 0 {
-        None
-    } else {
-        Some(std::time::UNIX_EPOCH + std::time::Duration::new(when as u64, 0))
-    };
-    sig.ref_raw().key_expired(key.ref_raw(), t)
-}

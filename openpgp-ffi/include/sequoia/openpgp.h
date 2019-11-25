@@ -499,14 +499,6 @@ pgp_status_t pgp_signature_key_alive(pgp_error_t *errp,
 				     time_t when);
 
 /*/
-/// Returns whether the signature is expired at the specified time.
-///
-/// If `when` is 0, then the current time is used.
-/*/
-bool pgp_signature_key_expired(pgp_signature_t signature, pgp_key_t key,
-                               time_t when);
-
-/*/
 /// Returns the PKESK's recipient.
 ///
 /// The return value is a reference to a `KeyID`.  The caller must not
