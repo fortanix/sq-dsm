@@ -1,14 +1,14 @@
 [package]
 name = "sequoia-tool"
 description = "Command-line frontends for Sequoia"
-version = "0.11.0"
+version = "0.12.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
 build = "build.rs"
-documentation = "https://docs.sequoia-pgp.org/0.11.0/sq"
+documentation = "https://docs.sequoia-pgp.org/0.12.0/sq"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
@@ -22,10 +22,10 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.11" }
-sequoia-core = { path = "../core", version = "0.11" }
-sequoia-net = { path = "../net", version = "0.11" }
-sequoia-store = { path = "../store", version = "0.11" }
+sequoia-openpgp = { path = "../openpgp", version = "0.12" }
+sequoia-core = { path = "../core", version = "0.12" }
+sequoia-net = { path = "../net", version = "0.12" }
+sequoia-store = { path = "../store", version = "0.12" }
 chrono = "0.4"
 clap = "2.32.0"
 failure = "0.1.2"
