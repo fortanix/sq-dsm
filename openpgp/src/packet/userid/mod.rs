@@ -313,7 +313,7 @@ impl ConventionallyParsedUserID {
                 // not allowed.
                 let wrapped_addr_spec
                     = format!("{}(?P<wrapped_addr_spec_name>{})?{}\
-                               (:?{})?{}\
+                               (?:{})?{}\
                                <(?P<wrapped_addr_spec>{})>",
                               optional_ws, name, optional_ws,
                               comment("wrapped_addr_spec"), optional_ws,
