@@ -178,10 +178,8 @@ fn inspect_key<P, R>(output: &mut dyn io::Write,
               R: openpgp::packet::key::KeyRole
 {
     if let Some(sig) = binding_signature {
-        if sig.key_expired(key, None) {
-            writeln!(output, "{}                 Expired", indent)?;
-        } else if ! sig.key_alive(key, None) {
-            writeln!(output, "{}                 Not yet valid", indent)?;
+        if let Err(e) = sig.key_alive(key, None) {
+            writeln!(output, "{}                 Invalid: {}", indent, e)?;
         }
     }
 

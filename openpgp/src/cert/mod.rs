@@ -1127,7 +1127,7 @@ impl Cert {
     {
         let t = t.into();
         if let Some(sig) = self.primary_key_signature(t) {
-            sig.key_alive(self.primary(), t)
+            sig.key_alive(self.primary(), t).is_ok()
         } else {
             false
         }

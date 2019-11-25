@@ -2230,14 +2230,21 @@ impl SubpacketAreas {
     /// See [Section 5.2.3.6 of RFC 4880].
     ///
     ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> bool
+    pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
               T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
             .unwrap_or_else(|| time::SystemTime::now());
-        key.creation_time() <= t && ! self.key_expired(key, t)
+
+        match self.key_expiration_time() {
+            Some(e) if e.as_secs() > 0 && key.creation_time() + e < t =>
+                Err(Error::Expired(key.creation_time() + e).into()),
+            _ if key.creation_time() > t =>
+                Err(Error::NotYetLive(key.creation_time()).into()),
+            _ => Ok(()),
+        }
     }
 
     /// Returns the value of the Issuer subpacket, which contains the
@@ -2817,10 +2824,10 @@ fn accessors() {
     assert!(!sig_.key_expired(&key, now));
     assert!(sig_.key_expired(&key, now + ten_minutes));
 
-    assert!(sig_.key_alive(&key, None));
-    assert!(sig_.key_alive(&key, now));
-    assert!(!sig_.key_alive(&key, now - five_minutes));
-    assert!(!sig_.key_alive(&key, now + ten_minutes));
+    assert!(sig_.key_alive(&key, None).is_ok());
+    assert!(sig_.key_alive(&key, now).is_ok());
+    assert!(!sig_.key_alive(&key, now - five_minutes).is_ok());
+    assert!(!sig_.key_alive(&key, now + ten_minutes).is_ok());
 
     sig = sig.set_key_expiration_time(None).unwrap();
     let sig_ =
@@ -2830,10 +2837,10 @@ fn accessors() {
     assert!(!sig_.key_expired(&key, now));
     assert!(!sig_.key_expired(&key, now + ten_minutes));
 
-    assert!(sig_.key_alive(&key, None));
-    assert!(sig_.key_alive(&key, now));
-    assert!(!sig_.key_alive(&key, now - five_minutes));
-    assert!(sig_.key_alive(&key, now + ten_minutes));
+    assert!(sig_.key_alive(&key, None).is_ok());
+    assert!(sig_.key_alive(&key, now).is_ok());
+    assert!(!sig_.key_alive(&key, now - five_minutes).is_ok());
+    assert!(sig_.key_alive(&key, now + ten_minutes).is_ok());
 
     let pref = vec![SymmetricAlgorithm::AES256,
                     SymmetricAlgorithm::AES192,

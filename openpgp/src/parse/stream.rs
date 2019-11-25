@@ -569,7 +569,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 sig.key_flags().for_signing()
                 // Check expiry.
                     && sig.signature_alive(time, tolerance).is_ok()
-                    && sig.key_alive(key, time)
+                    && sig.key_alive(key, time).is_ok()
             } else {
                 false
             }
@@ -1442,7 +1442,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 // Check expiry.
                                     && sig.signature_alive(time, tolerance)
                                        .is_ok()
-                                    && sig.key_alive(key, time)
+                                    && sig.key_alive(key, time).is_ok()
                             } else {
                                 false
                             }

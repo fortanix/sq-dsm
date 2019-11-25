@@ -158,7 +158,7 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
 
             if let Some(alive_at) = self.alive_at {
                 if let Some(sig) = sigo {
-                    if ! sig.key_alive(key, alive_at) {
+                    if ! sig.key_alive(key, alive_at).is_ok() {
                         t!("Key not alive... skipping.");
                         continue;
                     }
