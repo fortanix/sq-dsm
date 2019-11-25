@@ -24,7 +24,7 @@ fn main() {
             .expect("Failed to read key");
         let mut n = 0;
 
-        for (_, _, key) in tsk.keys_valid().signing_capable().secret(true) {
+        for (_, _, key) in tsk.keys_valid().signing_capable().secret() {
             keys.push({
                 let mut key = key.clone();
                 if key.secret().expect("filtered").is_encrypted() {
@@ -37,7 +37,7 @@ fn main() {
                         .expect("decryption failed");
                 }
                 n += 1;
-                key.mark_parts_secret().unwrap().into_keypair().unwrap()
+                key.into_keypair().unwrap()
             });
         }
 

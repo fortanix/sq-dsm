@@ -699,21 +699,19 @@ void pgp_tpk_key_iter_alive_at (pgp_tpk_key_iter_t iter, time_t when);
 void pgp_tpk_key_iter_revoked (pgp_tpk_key_iter_t iter, bool revoked);
 
 /*/
-/// Changes the iterator to only return keys that have secret keys (or
-/// not).
+/// Changes the iterator to only return keys that have secret keys.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_secret (pgp_tpk_key_iter_t iter, bool secret);
+void pgp_tpk_key_iter_secret (pgp_tpk_key_iter_t iter);
 
 /*/
 /// Changes the iterator to only return keys that have unencrypted
-/// secret keys (or not).
+/// secret keys.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_unencrypted_secret (pgp_tpk_key_iter_t iter,
-                                          bool unencrypted_secret);
+void pgp_tpk_key_iter_unencrypted_secret (pgp_tpk_key_iter_t iter);
 
 /*/
 /// Returns a reference to the next key.  Returns NULL if there are no

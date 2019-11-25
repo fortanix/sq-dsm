@@ -647,14 +647,12 @@ pub extern "C" fn pgp_tpk_key_iter_revoked<'a>(
     iter_wrapper.iter = tmp.revoked(Some(revoked));
 }
 
-/// Changes the iterator to only return keys that have secret keys (or
-/// not).
+/// Changes the iterator to only return keys that have secret keys.
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_tpk_key_iter_secret<'a>(
-    iter_wrapper: *mut KeyIterWrapper<'a>,
-    secret: bool)
+    iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
@@ -663,17 +661,16 @@ pub extern "C" fn pgp_tpk_key_iter_secret<'a>(
 
     use std::mem;
     let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
-    iter_wrapper.iter = tmp.secret(Some(secret));
+    iter_wrapper.iter = unsafe { std::mem::transmute(tmp.secret()) };
 }
 
 /// Changes the iterator to only return keys that have unencrypted
-/// secret keys (or not).
+/// secret keys.
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_tpk_key_iter_unencrypted_secret<'a>(
-    iter_wrapper: *mut KeyIterWrapper<'a>,
-    unencrypted_secret: bool)
+    iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
@@ -682,7 +679,8 @@ pub extern "C" fn pgp_tpk_key_iter_unencrypted_secret<'a>(
 
     use std::mem;
     let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
-    iter_wrapper.iter = tmp.unencrypted_secret(Some(unencrypted_secret));
+    iter_wrapper.iter =
+        unsafe { std::mem::transmute(tmp.unencrypted_secret()) };
 }
 
 /// Returns the next key.  Returns NULL if there are no more elements.

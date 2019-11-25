@@ -316,7 +316,7 @@ impl<'a> TSK<'a> {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// let (tpk, _) = TPKBuilder::new().add_signing_subkey().generate()?;
-    /// assert_eq!(tpk.keys_valid().secret(true).count(), 2);
+    /// assert_eq!(tpk.keys_valid().secret().count(), 2);
     ///
     /// // Only write out the primary key's secret.
     /// let mut buf = Vec::new();
@@ -328,7 +328,7 @@ impl<'a> TSK<'a> {
     ///     .serialize(&mut buf)?;
     ///
     /// let tpk_ = TPK::from_bytes(&buf)?;
-    /// assert_eq!(tpk_.keys_valid().secret(true).count(), 1);
+    /// assert_eq!(tpk_.keys_valid().secret().count(), 1);
     /// assert!(tpk_.primary().secret().is_some());
     /// # Ok(()) }
     pub fn set_filter<P>(mut self, predicate: P) -> Self

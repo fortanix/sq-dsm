@@ -67,14 +67,49 @@ impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
     }
 }
 
-impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> Iterator
-    for KeyIter<'a, P, R>
-    where &'a Key<P, R>: From<&'a Key<key::PublicParts,
-                                      key::UnspecifiedRole>>
+// Very carefully implement Iterator for
+// Key<{PublicParts,UnspecifiedParts}, _>.  We cannot just abstract
+// over the parts, because then we cannot specialize the
+// implementation for Key<SecretParts, _> below.
+macro_rules! impl_iterator {
+    ($parts:path) => {
+        impl<'a, R: 'a + key::KeyRole> Iterator for KeyIter<'a, $parts, R>
+            where &'a Key<$parts, R>: From<&'a Key<key::PublicParts,
+                                                   key::UnspecifiedRole>>
+        {
+            type Item = (Option<&'a Signature>, RevocationStatus<'a>,
+                         &'a Key<$parts, R>);
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.next_common().map(|(s, r, k)| (s, r, k.into()))
+            }
+        }
+    }
+}
+impl_iterator!(key::PublicParts);
+impl_iterator!(key::UnspecifiedParts);
+
+impl<'a, R: 'a + key::KeyRole> Iterator for KeyIter<'a, key::SecretParts, R>
+    where &'a Key<key::SecretParts, R>: From<&'a Key<key::SecretParts,
+                                                     key::UnspecifiedRole>>
 {
-    type Item = (Option<&'a Signature>, RevocationStatus<'a>, &'a Key<P, R>);
+    type Item = (Option<&'a Signature>, RevocationStatus<'a>,
+                 &'a Key<key::SecretParts, R>);
 
     fn next(&mut self) -> Option<Self::Item> {
+        self.next_common()
+            .map(|(s, r, k)|
+                 (s, r,
+                  k.mark_parts_secret_ref().expect("has secret parts").into()))
+    }
+}
+
+impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
+    fn next_common(&mut self)
+                   -> Option<(Option<&'a Signature>,
+                              RevocationStatus<'a>,
+                              &'a Key<key::PublicParts, key::UnspecifiedRole>)>
+    {
         tracer!(false, "KeyIter::next", 0);
         t!("KeyIter: {:?}", self);
 
@@ -186,7 +221,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> Iterator
                 }
             }
 
-            return Some((sigo, revoked, key.into()));
+            return Some((sigo, revoked, key));
         }
     }
 }
@@ -333,27 +368,43 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
         self
     }
 
-    /// If not None, filters by whether a key has secret key material.
-    ///
-    /// If you call this function multiple times, only the last value
-    /// is used.
-    pub fn secret<T>(mut self, secret: T) -> Self
-        where T: Into<Option<bool>>
-    {
-        self.secret = secret.into();
-        self
+    /// Changes the filter to only return keys with secret key material.
+    pub fn secret(self) -> KeyIter<'a, key::SecretParts, R> {
+        KeyIter {
+            tpk: self.tpk,
+            primary: self.primary,
+            subkey_iter: self.subkey_iter,
+
+            // The filters.
+            flags: self.flags,
+            alive_at: self.alive_at,
+            revoked: self.revoked,
+            secret: Some(true),
+            unencrypted_secret: self.unencrypted_secret,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
     }
 
-    /// If not None, filters by whether a key has an unencrypted
-    /// secret.
-    ///
-    /// If you call this function multiple times, only the last value
-    /// is used.
-    pub fn unencrypted_secret<T>(mut self, unencrypted_secret: T) -> Self
-        where T: Into<Option<bool>>
-    {
-        self.unencrypted_secret = unencrypted_secret.into();
-        self
+    /// Changes the filter to only return keys with unencrypted secret
+    /// key material.
+    pub fn unencrypted_secret(self)  -> KeyIter<'a, key::SecretParts, R> {
+        KeyIter {
+            tpk: self.tpk,
+            primary: self.primary,
+            subkey_iter: self.subkey_iter,
+
+            // The filters.
+            flags: self.flags,
+            alive_at: self.alive_at,
+            revoked: self.revoked,
+            secret: self.secret,
+            unencrypted_secret: Some(true),
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
     }
 }
 
