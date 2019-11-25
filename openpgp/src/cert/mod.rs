@@ -225,7 +225,7 @@ impl<C> ComponentBinding<C> {
             };
 
         self.self_signatures[i..].iter().filter(|s| {
-            s.signature_alive(t, time::Duration::new(0, 0))
+            s.signature_alive(t, time::Duration::new(0, 0)).is_ok()
         }).nth(0)
     }
 
@@ -292,7 +292,8 @@ impl<C> ComponentBinding<C> {
            selfsig_creation_time,
            t);
         if let Some(selfsig) = selfsig {
-            assert!(selfsig.signature_alive(t, time::Duration::new(0, 0)));
+            assert!(
+                selfsig.signature_alive(t, time::Duration::new(0, 0)).is_ok());
         }
 
         macro_rules! check {
@@ -322,7 +323,10 @@ impl<C> ComponentBinding<C> {
                            rev.signature_creation_time()
                                .unwrap_or_else(time_zero));
                         None
-                    } else if !rev.signature_alive(t, time::Duration::new(0, 0)) {
+                    } else if
+                        ! rev.signature_alive(t, time::Duration::new(0, 0))
+                          .is_ok()
+                    {
                         t!("  ignoring revocation that is not alive ({:?} - {:?})",
                            rev.signature_creation_time()
                                .unwrap_or_else(time_zero),
@@ -891,7 +895,7 @@ impl Cert {
                 // No binding signature at time `t` => not alive.
                 let selfsig = b.binding_signature(t)?;
 
-                if !selfsig.signature_alive(t, time::Duration::new(0, 0)) {
+                if !selfsig.signature_alive(t, time::Duration::new(0, 0)).is_ok() {
                     return None;
                 }
 

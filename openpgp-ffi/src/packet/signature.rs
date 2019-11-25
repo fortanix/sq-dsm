@@ -16,6 +16,7 @@ use super::super::fingerprint::Fingerprint;
 use super::super::keyid::KeyID;
 use super::key::Key;
 
+use crate::error::Status;
 use crate::Maybe;
 use crate::MoveFromRaw;
 use crate::MoveIntoRaw;
@@ -166,15 +167,17 @@ fn pgp_signature_is_group_key(sig: *const Signature) -> bool {
 ///
 ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_alive(sig: *const Signature, time: time_t)
-    -> bool
+fn pgp_signature_alive(errp: Option<&mut *mut crate::error::Error>,
+                       sig: *const Signature, time: time_t)
+                       -> Status
 {
+    ffi_make_fry_from_errp!(errp);
     let time = if time == 0 {
         None
     } else {
         Some(std::time::UNIX_EPOCH + std::time::Duration::new(time as u64, 0))
     };
-    sig.ref_raw().signature_alive(time, None)
+    ffi_try_status!(sig.ref_raw().signature_alive(time, None))
 }
 
 /// Returns whether the signature is alive at the specified time.
@@ -226,17 +229,19 @@ fn pgp_signature_alive(sig: *const Signature, time: time_t)
 ///
 ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_alive_with_tolerance(sig: *const Signature,
+fn pgp_signature_alive_with_tolerance(errp: Option<&mut *mut crate::error::Error>,
+                                      sig: *const Signature,
                                       time: time_t, tolerance: c_uint)
-    -> bool
+                                      -> Status
 {
+    ffi_make_fry_from_errp!(errp);
     let time = if time == 0 {
         None
     } else {
         Some(std::time::UNIX_EPOCH + std::time::Duration::new(time as u64, 0))
     };
     let tolerance = std::time::Duration::new(tolerance as u64, 0);
-    sig.ref_raw().signature_alive(time, Some(tolerance))
+    ffi_try_status!(sig.ref_raw().signature_alive(time, Some(tolerance)))
 }
 
 /// Returns whether the signature is expired at the specified time.
@@ -249,7 +254,7 @@ fn pgp_signature_expired(sig: *const Signature, when: time_t) -> bool {
     } else {
         Some(std::time::UNIX_EPOCH + std::time::Duration::new(when as u64, 0))
     };
-    sig.ref_raw().signature_expired(t)
+    sig.ref_raw().signature_expired(t).is_ok()
 }
 
 /// Returns whether the signature is alive at the specified time.

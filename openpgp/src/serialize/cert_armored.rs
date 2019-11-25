@@ -40,7 +40,7 @@ impl Cert {
             // Ignore userids not "alive".
             }).filter_map(|uidb| {
                 if uidb.binding_signature(None)?
-                    .signature_alive(None, None)
+                    .signature_alive(None, None).is_ok()
                 {
                     Some(uidb)
                 } else {

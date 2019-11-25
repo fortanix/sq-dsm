@@ -428,7 +428,8 @@ bool pgp_signature_is_group_key(pgp_signature_t signature);
 ///
 ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 /*/
-bool pgp_signature_alive(pgp_signature_t signature, time_t when);
+pgp_status_t pgp_signature_alive(pgp_error_t *errp,
+				 pgp_signature_t signature, time_t when);
 
 /*/
 /// Returns whether the signature is alive at the specified time.
@@ -480,8 +481,10 @@ bool pgp_signature_alive(pgp_signature_t signature, time_t when);
 ///
 ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 /*/
-bool pgp_signature_alive_with_tolerance(pgp_signature_t signature,
-                                        time_t time, unsigned int tolerance);
+pgp_status_t pgp_signature_alive_with_tolerance(pgp_error_t *errp,
+						pgp_signature_t signature,
+						time_t time,
+						unsigned int tolerance);
 
 /*/
 /// Returns whether the signature is expired at the specified time.

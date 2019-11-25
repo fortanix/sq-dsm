@@ -151,11 +151,10 @@ fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
         writeln!(output, "         UserID: {}", uidb.userid())?;
         inspect_revocation(output, "", uidb.revoked(None))?;
         if let Some(sig) = uidb.binding_signature(None) {
-            if sig.signature_expired(None) {
-                writeln!(output, "                 Expired")?;
-            } else if ! sig.signature_alive(None,
-                                            std::time::Duration::new(0, 0)) {
-                writeln!(output, "                 Not yet valid")?;
+            if let Err(e) =
+                sig.signature_alive(None, std::time::Duration::new(0, 0))
+            {
+                writeln!(output, "                 Invalid: {}", e)?;
             }
         }
         inspect_certifications(output,
