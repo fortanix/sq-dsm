@@ -2080,36 +2080,6 @@ impl SubpacketAreas {
         self.unhashed_area().lookup(tag)
     }
 
-    /// Returns whether or not the signature is expired at the given time.
-    ///
-    /// If `t` is None, uses the current time.
-    ///
-    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
-    /// Signature Creation Time subpacket]] MUST be present in the
-    /// hashed area."  Consequently, if such a packet does not exist,
-    /// but a "Signature Expiration Time" subpacket exists, we
-    /// conservatively treat the signature as expired, because there
-    /// is no way to evaluate the expiration time.
-    ///
-    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    pub fn signature_expired<T>(&self, t: T) -> bool
-        where T: Into<Option<time::SystemTime>>
-    {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
-        match (self.signature_creation_time(), self.signature_expiration_time())
-        {
-            (Some(_), Some(e)) if e.as_secs() == 0 =>
-                false, // Zero expiration time, does not expire.
-            (Some(c), Some(e)) =>
-                (c + e) <= t,
-            (None, Some(_)) =>
-                true, // No creation time, treat as always expired.
-            (_, None) =>
-                false, // No expiration time, does not expire.
-        }
-    }
-
     /// Returns whether or not the signature is alive at the specified
     /// time.
     ///
@@ -2764,10 +2734,6 @@ fn accessors() {
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.signature_expiration_time(), Some(five_minutes));
 
-    assert!(!sig_.signature_expired(None));
-    assert!(!sig_.signature_expired(now));
-    assert!(sig_.signature_expired(now + ten_minutes));
-
     assert!(sig_.signature_alive(None, zero_s).is_ok());
     assert!(sig_.signature_alive(now, zero_s).is_ok());
     assert!(!sig_.signature_alive(now - five_minutes, zero_s).is_ok());
@@ -2777,9 +2743,6 @@ fn accessors() {
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.signature_expiration_time(), None);
-    assert!(!sig_.signature_expired(None));
-    assert!(!sig_.signature_expired(now));
-    assert!(!sig_.signature_expired(now + ten_minutes));
 
     assert!(sig_.signature_alive(None, zero_s).is_ok());
     assert!(sig_.signature_alive(now, zero_s).is_ok());
@@ -3109,7 +3072,7 @@ fn subpacket_test_2() {
                    }));
 
         // The signature does not expire.
-        assert!(! sig.signature_expired(None));
+        assert!(sig.signature_alive(None, None).is_ok());
 
         assert_eq!(sig.key_expiration_time(),
                    Some(Duration::from(63072000).into()));
