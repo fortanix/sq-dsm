@@ -1158,7 +1158,7 @@ pgp_key_pair_t pgp_key_into_key_pair (pgp_error_t *errp, pgp_key_t key);
 /// Constructs a User ID.
 ///
 /// This does a basic check and any necessary escaping to form a de
-/// factor User ID.  Only the address is required.
+/// facto User ID.  Only the address is required.
 /*/
 pgp_packet_t pgp_user_id_from_address (pgp_error_t *errp,
                                        const char *name,
@@ -1169,7 +1169,7 @@ pgp_packet_t pgp_user_id_from_address (pgp_error_t *errp,
 /// Constructs a User ID.
 ///
 /// This does a basic check and any necessary escaping to form a de
-/// factor User ID.  The address is not checked.
+/// facto User ID.  The address is not checked.
 ///
 /// This is useful when you want to specify a URI instead of an
 /// email address.
@@ -1201,7 +1201,7 @@ const uint8_t *pgp_user_id_value (pgp_packet_t uid,
 /*/
 /// Returns the User ID's name component, if any.
 ///
-/// The User ID is parsed according to de factor convention, and the
+/// The User ID is parsed according to de facto convention, and the
 /// name component is extracted.
 ///
 /// If the User ID cannot be parsed, then an error is returned.
@@ -1215,7 +1215,7 @@ pgp_status_t pgp_user_id_name(pgp_error_t *errp, pgp_packet_t uid,
 /*/
 /// Returns the User ID's comment field, if any.
 ///
-/// The User ID is parsed according to de factor convention, and the
+/// The User ID is parsed according to de facto convention, and the
 /// comment field is extracted.
 ///
 /// If the User ID cannot be parsed, then an error is returned.
@@ -1229,7 +1229,7 @@ pgp_status_t pgp_user_id_comment(pgp_error_t *errp, pgp_packet_t uid,
 /*/
 /// Returns the User ID's email address, if any.
 ///
-/// The User ID is parsed according to de factor convention, and the
+/// The User ID is parsed according to de facto convention, and the
 /// email address is extracted.
 ///
 /// If the User ID cannot be parsed, then an error is returned.
@@ -1266,7 +1266,7 @@ pgp_status_t pgp_user_id_email_normalized(pgp_error_t *errp, pgp_packet_t uid,
 /*/
 /// Returns the User ID's URI, if any.
 ///
-/// The User ID is parsed according to de factor convention, and the
+/// The User ID is parsed according to de facto convention, and the
 /// URI is extracted.
 ///
 /// If the User ID cannot be parsed, then an error is returned.

@@ -653,7 +653,7 @@ impl UserID {
     /// Constructs a User ID.
     ///
     /// This does a basic check and any necessary escaping to form a de
-    /// factor User ID.
+    /// facto User ID.
     ///
     /// Only the address is required.  If a comment is supplied, then
     /// a name is also required.
@@ -680,7 +680,7 @@ impl UserID {
     /// Constructs a User ID.
     ///
     /// This does a basic check and any necessary escaping to form a de
-    /// factor User ID modulo the address, which is not checked.
+    /// facto User ID modulo the address, which is not checked.
     ///
     /// This is useful when you want to specify a URI instead of an
     /// email address.

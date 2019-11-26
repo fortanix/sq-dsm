@@ -28,7 +28,7 @@ fn pgp_user_id_new(value: *const c_char)
 /// Constructs a User ID.
 ///
 /// This does a basic check and any necessary escaping to form a de
-/// factor User ID.  Only the address is required.
+/// facto User ID.  Only the address is required.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C"
 fn pgp_user_id_from_address(
@@ -61,7 +61,7 @@ fn pgp_user_id_from_address(
 /// Constructs a User ID.
 ///
 /// This does a basic check and any necessary escaping to form a de
-/// factor User ID.  The address is not checked.
+/// facto User ID.  The address is not checked.
 ///
 /// This is useful when you want to specify a URI instead of an
 /// email address.
@@ -128,7 +128,7 @@ fn pgp_user_id_value(uid: *const Packet, value_len: Option<&mut size_t>)
 
 /// Returns the User ID's name component, if any.
 ///
-/// The User ID is parsed according to de factor convention, and the
+/// The User ID is parsed according to de facto convention, and the
 /// name component is extracted.
 ///
 /// If the User ID cannot be parsed, then an error is returned.
@@ -169,7 +169,7 @@ fn pgp_user_id_name(
 
 /// Returns the User ID's comment field, if any.
 ///
-/// The User ID is parsed according to de factor convention, and the
+/// The User ID is parsed according to de facto convention, and the
 /// comment field is extracted.
 ///
 /// If the User ID cannot be parsed, then an error is returned.
@@ -210,7 +210,7 @@ fn pgp_user_id_comment(
 
 /// Returns the User ID's email address, if any.
 ///
-/// The User ID is parsed according to de factor convention, and the
+/// The User ID is parsed according to de facto convention, and the
 /// email address is extracted.
 ///
 /// If the User ID cannot be parsed, then an error is returned.
@@ -251,7 +251,7 @@ fn pgp_user_id_email(
 
 /// Returns the User ID's URI, if any.
 ///
-/// The User ID is parsed according to de factor convention, and the
+/// The User ID is parsed according to de facto convention, and the
 /// URI is extracted.
 ///
 /// If the User ID cannot be parsed, then an error is returned.
