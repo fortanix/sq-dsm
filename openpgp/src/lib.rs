@@ -145,6 +145,8 @@ use crate::types::{
 
 mod fingerprint;
 mod keyid;
+mod id;
+pub use id::ID;
 
 #[cfg(test)]
 mod tests;
