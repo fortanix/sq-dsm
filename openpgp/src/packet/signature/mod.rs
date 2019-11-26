@@ -507,7 +507,7 @@ impl Signature4 {
             if let Some(issuer) = self.issuer_fingerprint() {
                 // Prefer the IssuerFingerprint.
                 area.add(Subpacket::new(
-                    SubpacketValue::Issuer(issuer.to_keyid()), false).unwrap())
+                    SubpacketValue::Issuer(issuer.into()), false).unwrap())
                     .unwrap();
             } else if let Some(issuer) = self.issuer() {
                 // Fall back to the Issuer, which we will also get
@@ -1394,7 +1394,7 @@ mod test {
         hash.update(&msg[..]);
 
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-        let keyid = fp.to_keyid();
+        let keyid = KeyID::from(&fp);
 
         // First, make sure any superfluous subpackets are removed,
         // yet the Issuer and EmbeddedSignature ones are kept.

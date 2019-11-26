@@ -2847,10 +2847,10 @@ fn accessors() {
     assert_eq!(sig_.revocation_key(),
                Some((2, pk_algo.into(), fp.clone())));
 
-    sig = sig.set_issuer(fp.to_keyid()).unwrap();
+    sig = sig.set_issuer(fp.clone().into()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
-    assert_eq!(sig_.issuer(), Some(fp.to_keyid()));
+    assert_eq!(sig_.issuer(), Some(fp.clone().into()));
 
     let pref = vec![HashAlgorithm::SHA512,
                     HashAlgorithm::SHA384,

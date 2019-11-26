@@ -229,7 +229,7 @@ impl Store {
     /// # let tpk = TPK::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// Store::import(&ctx, &tpk)?;
-    /// let key = Store::lookup_by_keyid(&ctx, &tpk.fingerprint().to_keyid())?;
+    /// let key = Store::lookup_by_keyid(&ctx, &tpk.fingerprint().into())?;
     /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
     /// # Ok(())
     /// # }

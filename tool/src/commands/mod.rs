@@ -320,7 +320,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
             .flat_map(|tpk| {
                 // Even if a key is revoked or expired, we can still
                 // use it to verify a message.
-                tpk.keys_all().map(|(_, _, key)| key.fingerprint().to_keyid())
+                tpk.keys_all().map(|(_, _, key)| key.fingerprint().into())
             }).collect();
 
         // Explicitly provided keys are trusted.

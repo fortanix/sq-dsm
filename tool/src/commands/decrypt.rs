@@ -54,12 +54,12 @@ impl<'a> Helper<'a> {
 
             let hint = match tsk.userids().nth(0) {
                 Some(uid) => format!("{} ({})", uid.userid(),
-                                     tsk.fingerprint().to_keyid()),
-                None => format!("{}", tsk.fingerprint().to_keyid()),
+                                     KeyID::from(tsk.fingerprint())),
+                None => format!("{}", KeyID::from(tsk.fingerprint())),
             };
 
             if can_encrypt(tsk.primary(), tsk.primary_key_signature(None)) {
-                let id = tsk.fingerprint().to_keyid();
+                let id: KeyID = tsk.fingerprint().into();
                 keys.insert(id.clone(), tsk.primary().clone().into());
                 identities.insert(id.clone(), tsk.fingerprint());
                 hints.insert(id, hint.clone());
@@ -68,7 +68,7 @@ impl<'a> Helper<'a> {
             for skb in tsk.subkeys() {
                 let key = skb.key();
                 if can_encrypt(key, skb.binding_signature(None)) {
-                    let id = key.fingerprint().to_keyid();
+                    let id: KeyID = key.fingerprint().into();
                     keys.insert(id.clone(), key.clone().into());
                     identities.insert(id.clone(), tsk.fingerprint());
                     hints.insert(id, hint.clone());
@@ -101,7 +101,7 @@ impl<'a> Helper<'a> {
                       -> openpgp::Result<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
-        let keyid = keypair.public().fingerprint().to_keyid();
+        let keyid = keypair.public().fingerprint().into();
         match pkesk.decrypt(keypair)
             .and_then(|(algo, sk)| {
                 decrypt(algo, &sk)?; Ok(sk)

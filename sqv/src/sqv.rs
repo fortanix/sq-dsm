@@ -108,7 +108,7 @@ fn real_main() -> Result<(), failure::Error> {
 
                     // XXX: We use a KeyID even though we have a
                     // fingerprint!
-                    sigs.push((sig, fp.to_keyid(), None));
+                    sigs.push((sig, fp.into(), None));
                 } else if let Some(keyid) = sig.issuer() {
                     if trace {
                         eprintln!("Will check signature allegedly issued by {}.",

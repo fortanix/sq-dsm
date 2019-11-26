@@ -348,7 +348,7 @@ impl node::mapping::Server for MappingServer {
                 &self.c,
                 log::Refers::to().mapping(self.id).binding(binding_id).key(key_id),
                 &self.slug(),
-                &format!("New binding {} -> {}", label, fp.to_keyid())));
+                &format!("New binding {} -> {}", label, KeyID::from(fp))));
         }
 
 
@@ -913,7 +913,7 @@ impl KeyServer {
         let keyserver = net::KeyServer::keys_openpgp_org(&ctx)?;
 
         Ok((KeyServer::new(c.clone(), id),
-            fingerprint.to_keyid(),
+            fingerprint.into(),
             keyserver))
     }
 
@@ -1005,7 +1005,7 @@ impl Query for KeyServer {
             &[&self.id], |row| -> rusqlite::Result<String> { row.get(0) })
             .ok()
             .and_then(|fp| Fingerprint::from_hex(&fp).ok())
-            .map(|fp| fp.to_keyid().to_string())
+            .map(|fp| KeyID::from(fp).to_string())
             .unwrap_or(
                 format!("{}::{}", Self::table_name(), self.id())
             )

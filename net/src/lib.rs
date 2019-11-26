@@ -184,7 +184,7 @@ impl KeyServer {
                                  match TPK::from_reader(r) {
                                      Ok(tpk) => {
                                          if tpk.keys_all().any(|(_, _, key)| {
-                                             key.fingerprint().to_keyid()
+                                             KeyID::from(key.fingerprint())
                                                  == keyid_want
                                          }) {
                                              future::done(Ok(tpk))

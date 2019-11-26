@@ -673,7 +673,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             }
 
             let primary_fp = tpk.primary().fingerprint();
-            let primary_keyid = primary_fp.to_keyid();
+            let primary_keyid = KeyID::from(&primary_fp);
 
             // The parser puts all of the signatures on the
             // certifications field.  Split them now.

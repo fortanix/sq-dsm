@@ -99,5 +99,5 @@ fn pgp_fingerprint_to_hex(fp: *const Fingerprint)
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_fingerprint_to_keyid(fp: *const Fingerprint)
                             -> *mut KeyID {
-    fp.ref_raw().to_keyid().move_into_raw()
+    openpgp::KeyID::from(fp.ref_raw()).move_into_raw()
 }

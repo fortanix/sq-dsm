@@ -53,7 +53,7 @@ mod integration {
 //         let mut b = signature::Builder::new(SignatureType::Binary);
 //         b.set_signature_creation_time(time::now()).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-//         b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+//         b.set_issuer(key.fingerprint().into()).unwrap();
 //         b.sign_message(
 //             &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
 //             HashAlgorithm::SHA512, b"Hello, World").unwrap()

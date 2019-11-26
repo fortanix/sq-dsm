@@ -96,7 +96,7 @@ mod integration {
 //         b.set_signature_creation_time(t1).unwrap();
 //         b.set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-//         b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+//         b.set_issuer(key.fingerprint().into()).unwrap();
 //         b.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap();
 //         let bind1 = b.sign_primary_key_binding(
 //             &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
@@ -106,7 +106,7 @@ mod integration {
 //         b = signature::Builder::new(SignatureType::KeyRevocation);
 //         b.set_signature_creation_time(t2).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-//         b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+//         b.set_issuer(key.fingerprint().into()).unwrap();
 //         let rev = b.sign_primary_key_binding(
 //             &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
 //             HashAlgorithm::SHA512).unwrap();
@@ -118,7 +118,7 @@ mod integration {
 //         b.set_signature_creation_time(t3).unwrap();
 //         b.set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-//         b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+//         b.set_issuer(key.fingerprint().into()).unwrap();
 //         b.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap();
 //         let bind2 = b.sign_primary_key_binding(
 //             &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
@@ -129,7 +129,7 @@ mod integration {
 //         b.set_features(&Features::sequoia()).unwrap();
 //         b.set_signature_creation_time(t12).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-//         b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+//         b.set_issuer(key.fingerprint().into()).unwrap();
 //         let sig1 = b.sign_message(
 //             &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
 //             HashAlgorithm::SHA512, msg).unwrap();
@@ -139,7 +139,7 @@ mod integration {
 //         b.set_features(&Features::sequoia()).unwrap();
 //         b.set_signature_creation_time(t23).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-//         b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+//         b.set_issuer(key.fingerprint().into()).unwrap();
 //         let sig2 = b.sign_message(
 //             &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
 //             HashAlgorithm::SHA512, msg).unwrap();
@@ -149,7 +149,7 @@ mod integration {
 //         b.set_features(&Features::sequoia()).unwrap();
 //         b.set_signature_creation_time(time::now()).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
-//         b.set_issuer(key.fingerprint().to_keyid()).unwrap();
+//         b.set_issuer(key.fingerprint().into()).unwrap();
 //         let sig3 = b.sign_message(
 //             &mut KeyPair::new(key.clone(), mpis.clone()).unwrap(),
 //             HashAlgorithm::SHA512, msg).unwrap();
