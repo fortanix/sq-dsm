@@ -169,20 +169,17 @@ fn pgp_verification_result_variant(result: *const VerificationResult)
 {
     use self::stream::VerificationResult::*;
     match result.ref_raw() {
-        GoodChecksum(..) => 1,
-        MissingKey(_) => 2,
-        BadChecksum(_) => 3,
-        NotAlive(_) => 4,
+        GoodChecksum { .. } => 1,
+        MissingKey { .. } => 2,
+        BadChecksum { .. } => 3,
+        NotAlive { .. } => 4,
     }
 }
 
-/// Decomposes a `VerificationResult::GoodChecksum`.
-///
-/// Returns `true` iff the given value is a
-/// `VerificationResult::GoodChecksum`, and returns the variants members
-/// in `sig_r` and the like iff `sig_r != NULL`.
+macro_rules! make_decomposition_fn {
+    ($fn_name:ident, $variant:path) => {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_good_checksum<'a>(
+fn $fn_name<'a>(
     result: *const VerificationResult<'a>,
     sig_r: Maybe<*mut Signature>,
     tpk_r: Maybe<*mut TPK>,
@@ -193,9 +190,7 @@ fn pgp_verification_result_good_checksum<'a>(
     -> bool
 {
     use self::stream::VerificationResult::*;
-    if let GoodChecksum(ref sig, ref tpk, ref key, ref binding, ref revocation)
-        = result.ref_raw()
-    {
+    if let $variant { sig, tpk, key, binding, revoked } = result.ref_raw() {
         if let Some(mut p) = sig_r {
             *unsafe { p.as_mut() } = sig.move_into_raw();
         }
@@ -213,36 +208,29 @@ fn pgp_verification_result_good_checksum<'a>(
             *unsafe { p.as_mut() } = binding.move_into_raw();
         }
         if let Some(mut p) = revocation_status_r {
-            *unsafe { p.as_mut() } = revocation.move_into_raw();
+            *unsafe { p.as_mut() } = revoked.move_into_raw();
         }
         true
     } else {
         false
     }
 }
+    }
+}
+
+/// Decomposes a `VerificationResult::GoodChecksum`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::GoodChecksum`, and returns the variants members
+/// in `sig_r` and the like iff `sig_r != NULL`.
+make_decomposition_fn!(pgp_verification_result_good_checksum, GoodChecksum);
 
 /// Decomposes a `VerificationResult::NotAlive`.
 ///
 /// Returns `true` iff the given value is a
 /// `VerificationResult::NotAlive`, and returns the variant's members
 /// in `sig_r` and the like iff `sig_r != NULL`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_not_alive<'a>(
-    result: *const VerificationResult<'a>,
-    sig_r: Maybe<*mut Signature>)
-    -> bool
-{
-    use self::stream::VerificationResult::*;
-    if let NotAlive(ref sig) = result.ref_raw()
-    {
-        if let Some(mut p) = sig_r {
-            *unsafe { p.as_mut() } = sig.move_into_raw();
-        }
-        true
-    } else {
-        false
-    }
-}
+make_decomposition_fn!(pgp_verification_result_not_alive, NotAlive);
 
 /// Decomposes a `VerificationResult::MissingKey`.
 ///
@@ -256,8 +244,7 @@ fn pgp_verification_result_missing_key<'a>(
     -> bool
 {
     use self::stream::VerificationResult::*;
-    if let MissingKey(ref sig) = result.ref_raw()
-    {
+    if let MissingKey { sig, .. } = result.ref_raw() {
         if let Some(mut p) = sig_r {
             *unsafe { p.as_mut() } = sig.move_into_raw();
         }
@@ -272,23 +259,7 @@ fn pgp_verification_result_missing_key<'a>(
 /// Returns `true` iff the given value is a
 /// `VerificationResult::BadChecksum`, and returns the variants
 /// members in `sig_r` and the like iff `sig_r != NULL`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_bad_checksum<'a>(
-    result: *const VerificationResult<'a>,
-    sig_r: Maybe<*mut Signature>)
-    -> bool
-{
-    use self::stream::VerificationResult::*;
-    if let BadChecksum(ref sig) = result.ref_raw()
-    {
-        if let Some(mut p) = sig_r {
-            *unsafe { p.as_mut() } = sig.move_into_raw();
-        }
-        true
-    } else {
-        false
-    }
-}
+make_decomposition_fn!(pgp_verification_result_bad_checksum, BadChecksum);
 
 /// Passed as the first argument to the callbacks used by pgp_verify
 /// and pgp_decrypt.

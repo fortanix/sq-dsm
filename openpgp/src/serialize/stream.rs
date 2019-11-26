@@ -257,7 +257,7 @@ impl<'a> Signer<'a> {
     ///         if let MessageLayer::SignatureGroup { ref results } =
     ///             structure.iter().nth(0).unwrap()
     ///         {
-    ///             if let VerificationResult::GoodChecksum(..) =
+    ///             if let VerificationResult::GoodChecksum { .. } =
     ///                 results.get(0).unwrap()
     ///             { Ok(()) /* good */ } else { panic!() }
     ///         } else { panic!() }
@@ -361,7 +361,7 @@ impl<'a> Signer<'a> {
     ///         if let MessageLayer::SignatureGroup { ref results } =
     ///             structure.iter().nth(0).unwrap()
     ///         {
-    ///             if let VerificationResult::GoodChecksum(..) =
+    ///             if let VerificationResult::GoodChecksum { .. } =
     ///                 results.get(0).unwrap()
     ///             { Ok(()) /* good */ } else { panic!() }
     ///         } else { panic!() }

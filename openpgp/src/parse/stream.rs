@@ -149,21 +149,68 @@ pub enum VerificationResult<'a> {
     /// model, such as the [web of trust] (WoT).
     ///
     /// [web of trust]: https://en.wikipedia.org/wiki/Web_of_trust
-    GoodChecksum(Signature,
-                 &'a TPK,
-                 &'a key::UnspecifiedPublic,
-                 Option<&'a Signature>,
-                 RevocationStatus<'a>),
+    GoodChecksum {
+        /// The signature.
+        sig: Signature,
+
+        /// The signature's issuer.
+        tpk: &'a TPK,
+
+        /// The signing key that made the signature.
+        key: &'a key::UnspecifiedPublic,
+
+        /// The signing key's binding signature.
+        binding: Option<&'a Signature>,
+
+        /// The signing key's revocation status
+        revoked: RevocationStatus<'a>,
+    },
+
     /// The signature is good, but it is not alive at the specified
     /// time.
     ///
     /// See `SubpacketAreas::signature_alive` for a definition of
     /// liveness.
-    NotAlive(Signature),
+    NotAlive {
+        /// The signature.
+        sig: Signature,
+
+        /// The signature's issuer.
+        tpk: &'a TPK,
+
+        /// The signing key that made the signature.
+        key: &'a key::UnspecifiedPublic,
+
+        /// The signing key's binding signature.
+        binding: Option<&'a Signature>,
+
+        /// The signing key's revocation status
+        revoked: RevocationStatus<'a>,
+    },
+
     /// Unable to verify the signature because the key is missing.
-    MissingKey(Signature),
+    MissingKey {
+        /// The signature.
+        sig: Signature,
+    },
+
     /// The signature is bad.
-    BadChecksum(Signature),
+    BadChecksum {
+        /// The signature.
+        sig: Signature,
+
+        /// The signature's issuer.
+        tpk: &'a TPK,
+
+        /// The signing key that made the signature.
+        key: &'a key::UnspecifiedPublic,
+
+        /// The signing key's binding signature.
+        binding: Option<&'a Signature>,
+
+        /// The signing key's revocation status
+        revoked: RevocationStatus<'a>,
+    },
 }
 
 impl<'a> VerificationResult<'a> {
@@ -171,10 +218,10 @@ impl<'a> VerificationResult<'a> {
     pub fn level(&self) -> usize {
         use self::VerificationResult::*;
         match self {
-            &GoodChecksum(ref sig, ..) => sig.level(),
-            &NotAlive(ref sig, ..) => sig.level(),
-            &MissingKey(ref sig) => sig.level(),
-            &BadChecksum(ref sig) => sig.level(),
+            GoodChecksum { sig, .. } => sig.level(),
+            NotAlive { sig, .. } => sig.level(),
+            MissingKey { sig, .. } => sig.level(),
+            BadChecksum { sig, .. } => sig.level(),
         }
     }
 }
@@ -609,32 +656,37 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     for sig in sigs.into_iter() {
-                        let r = if let Some(issuer) = sig.get_issuer() {
-                            if let Some((i, j)) =
+                        if let Some(issuer) = sig.get_issuer() {
+                            let r =  if let Some((i, j)) =
                                 self.keys.get(&issuer)
                             {
                                 let tpk = &self.tpks[*i];
-                                let (binding, revocation, key)
+                                let (binding, revoked, key)
                                     = tpk.keys_all().nth(*j).unwrap();
                                 if sig.verify(key).unwrap_or(false) {
                                     if sig.signature_alive(self.time, None) {
-                                        VerificationResult::GoodChecksum
-                                            (sig, tpk, key, binding,
-                                             revocation)
+                                        VerificationResult::GoodChecksum {
+                                            sig, tpk, key, binding, revoked,
+                                        }
                                     } else {
-                                        VerificationResult::NotAlive(sig)
+                                        VerificationResult::NotAlive {
+                                            sig, tpk, key, binding, revoked,
+                                        }
                                     }
                                 } else {
-                                    VerificationResult::BadChecksum(sig)
+                                    VerificationResult::BadChecksum {
+                                        sig, tpk, key, binding, revoked,
+                                    }
                                 }
                             } else {
-                                VerificationResult::MissingKey(sig)
-                            }
+                                VerificationResult::MissingKey {
+                                    sig,
+                                }
+                            };
+                            results.push_verification_result(r);
                         } else {
-                            // No issuer.
-                            VerificationResult::BadChecksum(sig)
-                        };
-                        results.push_verification_result(r)
+                            // No issuer, ignore malformed signature.
+                        }
                     }
                 },
             }
@@ -1466,11 +1518,11 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     for sig in sigs.into_iter() {
-                        results.push_verification_result(
-                            if let Some(issuer) = sig.get_issuer() {
+                        if let Some(issuer) = sig.get_issuer() {
+                            results.push_verification_result(
                                 if let Some((i, j)) = self.keys.get(&issuer) {
                                     let tpk = &self.tpks[*i];
-                                    let (binding, revocation, key)
+                                    let (binding, revoked, key)
                                         = tpk.keys_all().nth(*j).unwrap();
                                     if sig.verify(key).unwrap_or(false) &&
                                         sig.signature_alive(self.time, None)
@@ -1490,33 +1542,35 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                                 // the signature as
                                                 // bad.
                                                 VerificationResult::BadChecksum
-                                                    (sig)
+                                                    { sig, tpk, key, binding,
+                                                      revoked, }
                                             } else {
                                                 VerificationResult::GoodChecksum
-                                                    (sig, tpk,
-                                                     key,
-                                                     binding,
-                                                     revocation)
+                                                    { sig, tpk, key, binding,
+                                                      revoked, }
                                             }
                                         } else {
                                             // No identity information.
                                             VerificationResult::GoodChecksum
-                                                (sig, tpk, key, binding,
-                                                 revocation)
+                                                { sig, tpk, key, binding,
+                                                  revoked, }
                                         }
                                     } else {
-                                        VerificationResult::BadChecksum(sig)
+                                        VerificationResult::BadChecksum {
+                                            sig, tpk, key, binding, revoked,
+                                        }
                                     }
                                 } else {
-                                    VerificationResult::MissingKey(sig)
+                                    VerificationResult::MissingKey {
+                                        sig,
+                                    }
                                 }
-                            } else {
-                                // No issuer.
-                                VerificationResult::BadChecksum(sig)
-                            }
-                        )
+                            );
+                        } else {
+                            // No issuer, ignore malformed signature.
+                        }
                     }
-                }
+                },
             }
         }
 
@@ -1628,10 +1682,10 @@ mod test {
                     MessageLayer::SignatureGroup { ref results } =>
                         for result in results {
                             match result {
-                                GoodChecksum(..) => self.good += 1,
-                                MissingKey(_) => self.unknown += 1,
-                                NotAlive(_) => self.bad += 1,
-                                BadChecksum(_) => self.bad += 1,
+                                GoodChecksum { .. } => self.good += 1,
+                                MissingKey { .. } => self.unknown += 1,
+                                NotAlive { .. } => self.bad += 1,
+                                BadChecksum { .. } => self.bad += 1,
                             }
                         }
                     MessageLayer::Compression { .. } => (),
@@ -1748,8 +1802,8 @@ mod test {
                     match layer {
                         MessageLayer::SignatureGroup { ref results } => {
                             assert_eq!(results.len(), 1);
-                            if let VerificationResult::MissingKey(ref sig) =
-                                results[0]
+                            if let VerificationResult::MissingKey { sig, .. } =
+                                &results[0]
                             {
                                 assert_eq!(
                                     &sig.issuer_fingerprint().unwrap()

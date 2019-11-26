@@ -126,31 +126,19 @@ impl VerificationHelper for Helper {
                 MessageLayer::SignatureGroup { ref results } =>
                     for result in results {
                         match result {
-                            GoodChecksum(ref sig, ..) => {
-                                let issuer = sig.issuer()
-                                    .expect("good checksum has an issuer");
-                                eprintln!("Good signature from {}", issuer);
+                            GoodChecksum { tpk, .. } => {
+                                eprintln!("Good signature from {}", tpk);
                             },
-                            NotAlive(ref sig) => {
-                                let issuer = sig.issuer()
-                                    .expect("not alive has an issuer");
+                            NotAlive { tpk, .. } => {
                                 eprintln!("Good, but not alive signature from {}",
-                                          issuer);
+                                          tpk);
                             },
-                            MissingKey(ref sig) => {
-                                let issuer = sig.issuer()
-                                    .expect("missing key checksum has an \
-                                             issuer");
-                                eprintln!("No key to check signature from {}",
-                                          issuer);
+                            MissingKey { .. } => {
+                                eprintln!("No key to check signature");
                             },
-                            BadChecksum(ref sig) =>
-                                if let Some(issuer) = sig.issuer() {
-                                    eprintln!("Bad signature from {}", issuer);
-                                } else {
-                                    eprintln!("Bad signature without issuer \
-                                               information");
-                                },
+                            BadChecksum { tpk, .. } => {
+                                eprintln!("Bad signature from {}", tpk);
+                            },
                         }
                     }
             }

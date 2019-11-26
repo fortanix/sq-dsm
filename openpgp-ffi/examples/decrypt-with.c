@@ -72,17 +72,27 @@ check_cb (void *cookie_opaque, pgp_message_structure_t structure)
              pgp_verification_result_iter_next (results);
            result;
            result = pgp_verification_result_iter_next (results)) {
-        pgp_signature_t sig;
+        pgp_signature_t sig = NULL;
+        pgp_key_t key = NULL;
         pgp_keyid_t keyid;
         char *keyid_str = NULL;
 
         switch (pgp_verification_result_variant (result)) {
         case PGP_VERIFICATION_RESULT_GOOD_CHECKSUM:
-          pgp_verification_result_good_checksum (result, &sig, NULL,
-                                                 NULL, NULL, NULL);
-          keyid = pgp_signature_issuer (sig);
+          pgp_verification_result_good_checksum (result, NULL, NULL,
+                                                 &key, NULL, NULL);
+          keyid = pgp_key_keyid (key);
           keyid_str = pgp_keyid_to_string (keyid);
           fprintf (stderr, "Good signature from %s\n", keyid_str);
+          break;
+
+        case PGP_VERIFICATION_RESULT_NOT_ALIVE:
+          pgp_verification_result_not_alive (result, NULL, NULL,
+                                             &key, NULL, NULL);
+          keyid = pgp_key_keyid (key);
+          keyid_str = pgp_keyid_to_string (keyid);
+          fprintf (stderr, "Good checksum, but not alive signature from %s\n",
+                   keyid_str);
           break;
 
         case PGP_VERIFICATION_RESULT_MISSING_KEY:
@@ -93,14 +103,11 @@ check_cb (void *cookie_opaque, pgp_message_structure_t structure)
           break;
 
         case PGP_VERIFICATION_RESULT_BAD_CHECKSUM:
-          pgp_verification_result_bad_checksum (result, &sig);
-          keyid = pgp_signature_issuer (sig);
-          if (keyid) {
-            keyid_str = pgp_keyid_to_string (keyid);
-            fprintf (stderr, "Bad signature from %s\n", keyid_str);
-          } else {
-            fprintf (stderr, "Bad signature without issuer information\n");
-          }
+          pgp_verification_result_bad_checksum (result, NULL, NULL,
+                                                &key, NULL, NULL);
+          keyid = pgp_key_keyid (key);
+          keyid_str = pgp_keyid_to_string (keyid);
+          fprintf (stderr, "Bad signature from %s\n", keyid_str);
           break;
 
         default:
@@ -108,6 +115,7 @@ check_cb (void *cookie_opaque, pgp_message_structure_t structure)
         }
         free (keyid_str);
         pgp_signature_free (sig);
+        pgp_key_free (key);
         pgp_verification_result_free (result);
       }
       pgp_verification_result_iter_free (results);

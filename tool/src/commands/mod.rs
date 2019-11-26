@@ -237,16 +237,26 @@ impl<'a> VHelper<'a> {
     fn print_sigs(&mut self, results: &[VerificationResult]) {
         use self::VerificationResult::*;
         for result in results {
+            if let MissingKey { sig } = result {
+                let issuer = sig.get_issuer()
+                    .expect("missing key checksum has an issuer");
+                let what = match sig.level() {
+                    0 => "checksum".into(),
+                    n => format!("level {} notarizing checksum", n),
+                };
+                eprintln!("No key to check {} from {}", what, issuer);
+                self.unknown_checksums += 1;
+                continue;
+            }
+
             let (issuer, level) = match result {
-                GoodChecksum(ref sig, ..) => (sig.get_issuer(), sig.level()),
-                NotAlive(ref sig) => (sig.get_issuer(), sig.level()),
-                MissingKey(ref sig) => (sig.get_issuer(), sig.level()),
-                BadChecksum(ref sig) => (sig.get_issuer(), sig.level()),
+                GoodChecksum { sig, key, .. }
+                | NotAlive { sig, key, .. }
+                | BadChecksum { sig, key, .. } => (key.keyid(), sig.level()),
+                MissingKey { .. } => unreachable!("handled above"),
             };
 
-            let trusted = issuer.as_ref().map(|i| {
-                self.trusted.contains(&i)
-            }).unwrap_or(false);
+            let trusted = self.trusted.contains(&issuer);
             let what = match (level == 0, trusted) {
                 (true,  true)  => "signature".into(),
                 (false, true)  => format!("level {} notarization", level),
@@ -255,59 +265,35 @@ impl<'a> VHelper<'a> {
                     format!("level {} notarizing checksum", level),
             };
 
+            let issuer_str = issuer.to_string();
+            let label = self.labels.get(&issuer).unwrap_or(&issuer_str);
             match result {
-                GoodChecksum(..) => {
-                    let issuer = issuer
-                        .expect("good checksum has an issuer");
-                    let issuer_str = format!("{}", issuer);
-                    eprintln!("Good {} from {}", what,
-                              self.labels.get(&issuer).unwrap_or(
-                                  &issuer_str));
+                GoodChecksum { .. } => {
+                    eprintln!("Good {} from {}", what, label);
                     if trusted {
                         self.good_signatures += 1;
                     } else {
                         self.good_checksums += 1;
                     }
                 },
-                NotAlive(_) => {
-                    if let Some(issuer) = issuer {
-                        let issuer_str = format!("{}", issuer);
-                        eprintln!("Good, but not alive {} from {}", what,
-                                  self.labels.get(&issuer).unwrap_or(
-                                      &issuer_str));
-                    } else {
-                        eprintln!("Good, but not alive signature from {} \
-                                   without issuer information",
-                                  what);
-                    }
+                NotAlive { .. } => {
+                    eprintln!("Good checksum, but not alive: {} from {}",
+                              what, label);
                     if trusted {
                         self.bad_signatures += 1;
                     } else {
                         self.bad_checksums += 1;
                     }
                 },
-                MissingKey(_) => {
-                    let issuer = issuer
-                        .expect("missing key checksum has an issuer");
-                    eprintln!("No key to check {} from {}", what, issuer);
-                    self.unknown_checksums += 1;
-                },
-                BadChecksum(_) => {
-                    if let Some(issuer) = issuer {
-                        let issuer_str = format!("{}", issuer);
-                        eprintln!("Bad {} from {}", what,
-                                  self.labels.get(&issuer).unwrap_or(
-                                      &issuer_str));
-                    } else {
-                        eprintln!("Bad {} without issuer information",
-                                  what);
-                    }
+                BadChecksum { .. } => {
+                    eprintln!("Bad {} from {}", what, label);
                     if trusted {
                         self.bad_signatures += 1;
                     } else {
                         self.bad_checksums += 1;
                     }
                 },
+                MissingKey { .. } => unreachable!("handled above"),
             }
         }
     }
