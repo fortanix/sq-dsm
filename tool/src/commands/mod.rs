@@ -238,8 +238,9 @@ impl<'a> VHelper<'a> {
         use self::VerificationResult::*;
         for result in results {
             if let MissingKey { sig } = result {
-                let issuer = sig.get_issuer()
-                    .expect("missing key checksum has an issuer");
+                let issuer = sig.get_issuers().iter().nth(0)
+                    .expect("missing key checksum has an issuer")
+                    .to_string();
                 let what = match sig.level() {
                     0 => "checksum".into(),
                     n => format!("level {} notarizing checksum", n),

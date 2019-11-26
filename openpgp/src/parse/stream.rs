@@ -606,8 +606,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 //
                 // In this case, we get the issuer from the
                 // signature itself.
-                if let Some(issuer) = sig.get_issuer() {
-                    issuers.push(issuer);
+                if let Some(issuer) = sig.get_issuers().iter().next() {
+                    issuers.push(issuer.clone().into());
                 } else {
                     issuers.push(KeyID::wildcard());
                 }
@@ -656,9 +656,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     for sig in sigs.into_iter() {
-                        if let Some(issuer) = sig.get_issuer() {
+                        if let Some(issuer) = sig.get_issuers().iter().next() {
                             let r =  if let Some((i, j)) =
-                                self.keys.get(&issuer)
+                                self.keys.get(&issuer.clone().into())
                             {
                                 let tpk = &self.tpks[*i];
                                 let (binding, revoked, key)
@@ -1421,8 +1421,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         //
                         // In this case, we get the issuer from the
                         // signature itself.
-                        if let Some(issuer) = sig.get_issuer() {
-                            issuers.push(issuer);
+                        if let Some(issuer) = sig.get_issuers().iter().next() {
+                            issuers.push(issuer.clone().into());
                         } else {
                             issuers.push(KeyID::wildcard());
                         }
@@ -1518,9 +1518,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     for sig in sigs.into_iter() {
-                        if let Some(issuer) = sig.get_issuer() {
+                        if let Some(issuer) = sig.get_issuers().iter().next() {
                             results.push_verification_result(
-                                if let Some((i, j)) = self.keys.get(&issuer) {
+                                if let Some((i, j)) = self.keys.get(&issuer.clone().into()) {
                                     let tpk = &self.tpks[*i];
                                     let (binding, revoked, key)
                                         = tpk.keys_all().nth(*j).unwrap();

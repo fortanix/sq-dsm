@@ -10,6 +10,7 @@
 use std::env;
 
 extern crate sequoia_openpgp as openpgp;
+use crate::openpgp::KeyID;
 use crate::openpgp::tpk::TPKParser;
 use crate::openpgp::parse::Parse;
 
@@ -39,14 +40,12 @@ fn main() {
                     let keyid = tpk.keyid();
                     for uidb in tpk.userids() {
                         for tps in uidb.certifications() {
-                            if let Some(issuer) = tps.get_issuer() {
+                            for issuer in tps.get_issuers() {
                                 println!("{}, {:?}, {}",
-                                         issuer.as_u64().unwrap(),
+                                         KeyID::from(issuer).as_u64().unwrap(),
                                          String::from_utf8_lossy(
                                              uidb.userid().value()),
                                          keyid.as_u64().unwrap());
-                            } else {
-                                eprintln!("No issuer!?");
                             }
                         }
                     }

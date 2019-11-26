@@ -19,7 +19,6 @@ use crate::packet::{
     key,
     Key,
 };
-use crate::KeyID;
 use crate::packet::UserID;
 use crate::packet::UserAttribute;
 use crate::Packet;
@@ -476,13 +475,25 @@ impl Signature4 {
         ::std::mem::replace(&mut self.level, level)
     }
 
-    /// Gets the issuer.
-    pub fn get_issuer(&self) -> Option<KeyID> {
-        if let Some(id) = self.issuer() {
-            Some(id)
-        } else {
-            None
-        }
+    /// Collects all the issuers.
+    ///
+    /// A signature can contain multiple hints as to who issued the
+    /// signature.
+    pub fn get_issuers(&self) -> std::collections::HashSet<crate::KeyHandle> {
+        use crate::packet::signature::subpacket:: SubpacketValue;
+
+        self.hashed_area().iter()
+            .chain(self.unhashed_area().iter())
+            .filter_map(|(_, _, subpacket)| {
+                match subpacket.value() {
+                    SubpacketValue::Issuer(i) =>
+                        Some(crate::KeyHandle::KeyID(i.clone())),
+                    SubpacketValue::IssuerFingerprint(i) =>
+                        Some(crate::KeyHandle::Fingerprint(i.clone())),
+                    _ => None,
+                }
+            })
+            .collect()
     }
 
     /// Normalizes the signature.
@@ -1098,6 +1109,7 @@ impl From<Signature4> for super::Signature {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::KeyID;
     use crate::conversions::Time;
     use crate::crypto;
     use crate::crypto::mpis::MPI;
