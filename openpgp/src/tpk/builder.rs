@@ -102,6 +102,7 @@ impl CipherSuite {
 #[derive(Clone, Debug)]
 pub struct KeyBlueprint {
     flags: KeyFlags,
+    expiration: Option<time::Duration>,
 }
 
 /// Simplifies generation of Keys.
@@ -115,7 +116,6 @@ pub struct TPKBuilder {
     userids: Vec<packet::UserID>,
     user_attributes: Vec<packet::UserAttribute>,
     password: Option<Password>,
-    expiration: Option<time::Duration>,
 }
 
 impl TPKBuilder {
@@ -132,12 +132,12 @@ impl TPKBuilder {
             ciphersuite: CipherSuite::default(),
             primary: KeyBlueprint{
                 flags: KeyFlags::default().set_certify(true),
+                expiration: None,
             },
             subkeys: vec![],
             userids: vec![],
             user_attributes: vec![],
             password: None,
-            expiration: None,
         }
     }
 
@@ -151,23 +151,24 @@ impl TPKBuilder {
     {
         TPKBuilder {
             ciphersuite: ciphersuite.into().unwrap_or(Default::default()),
-            primary: KeyBlueprint{
+            primary: KeyBlueprint {
                 flags: KeyFlags::default()
                     .set_certify(true)
-                    .set_sign(true)
+                    .set_sign(true),
+                expiration: Some(
+                    time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
             },
             subkeys: vec![
-                KeyBlueprint{
+                KeyBlueprint {
                     flags: KeyFlags::default()
                         .set_encrypt_for_transport(true)
-                        .set_encrypt_at_rest(true)
+                        .set_encrypt_at_rest(true),
+                    expiration: None,
                 }
             ],
             userids: userids.into_iter().map(|x| x.into()).collect(),
             user_attributes: vec![],
             password: None,
-            expiration: Some(
-                time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
         }
     }
 
@@ -189,23 +190,24 @@ impl TPKBuilder {
                 Autocrypt::V1 => CipherSuite::RSA3k,
                 Autocrypt::V1_1 => CipherSuite::Cv25519,
             },
-            primary: KeyBlueprint{
+            primary: KeyBlueprint {
                 flags: KeyFlags::default()
                     .set_certify(true)
-                    .set_sign(true)
+                    .set_sign(true),
+                expiration: Some(
+                    time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
             },
             subkeys: vec![
-                KeyBlueprint{
+                KeyBlueprint {
                     flags: KeyFlags::default()
                         .set_encrypt_for_transport(true)
-                        .set_encrypt_at_rest(true)
+                        .set_encrypt_at_rest(true),
+                    expiration: None,
                 }
             ],
             userids: vec![],
             user_attributes: vec![],
             password: None,
-            expiration: Some(
-                time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
         };
 
         if let Some(userid) = userid {
@@ -239,30 +241,36 @@ impl TPKBuilder {
 
     /// Adds a signing capable subkey.
     pub fn add_signing_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_sign(true))
+        self.add_subkey(KeyFlags::default().set_sign(true), None)
     }
 
     /// Adds an encryption capable subkey.
     pub fn add_encryption_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default()
                         .set_encrypt_for_transport(true)
-                        .set_encrypt_at_rest(true))
+                        .set_encrypt_at_rest(true), None)
     }
 
     /// Adds an certification capable subkey.
     pub fn add_certification_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_certify(true))
+        self.add_subkey(KeyFlags::default().set_certify(true), None)
     }
 
     /// Adds an authentication capable subkey.
     pub fn add_authentication_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_authenticate(true))
+        self.add_subkey(KeyFlags::default().set_authenticate(true), None)
     }
 
-    /// Adds a custom subkey
-    pub fn add_subkey(mut self, flags: KeyFlags) -> Self {
-        self.subkeys.push(KeyBlueprint{
-            flags: flags
+    /// Adds a custom subkey.
+    ///
+    /// If `expiration` is `None`, the subkey uses the same expiration
+    /// time as the primary key.
+    pub fn add_subkey<T>(mut self, flags: KeyFlags, expiration: T) -> Self
+        where T: Into<Option<time::Duration>>
+    {
+        self.subkeys.push(KeyBlueprint {
+            flags: flags,
+            expiration: expiration.into(),
         });
         self
     }
@@ -286,7 +294,7 @@ impl TPKBuilder {
     pub fn set_expiration<T>(mut self, expiration: T) -> Self
         where T: Into<Option<time::Duration>>
     {
-        self.expiration = expiration.into();
+        self.primary.expiration = expiration.into();
         self
     }
 
@@ -352,7 +360,8 @@ impl TPKBuilder {
                 .set_hash_algo(HashAlgorithm::SHA512)
                 .set_features(&Features::sequoia())?
                 .set_key_flags(flags)?
-                .set_key_expiration_time(self.expiration)?;
+                .set_key_expiration_time(
+                    blueprint.expiration.or(self.primary.expiration))?;
 
             if flags.can_encrypt_for_transport() || flags.can_encrypt_at_rest()
             {
@@ -415,7 +424,7 @@ impl TPKBuilder {
             .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(
                 time::SystemTime::now().canonicalize())?
-            .set_key_expiration_time(self.expiration)?
+            .set_key_expiration_time(self.primary.expiration)?
             .set_issuer_fingerprint(key.fingerprint())?
             .set_issuer(key.keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
@@ -562,7 +571,7 @@ mod tests {
         let (tpk1, _) = TPKBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_keyflags(KeyFlags::default())
-            .add_subkey(KeyFlags::default().set_certify(true))
+            .add_subkey(KeyFlags::default().set_certify(true), None)
             .generate().unwrap();
         let sig_pkts = tpk1.subkeys().next().unwrap().self_signatures[0].hashed_area();
 
@@ -621,5 +630,36 @@ mod tests {
                 .set_cipher_suite(cs)
                 .generate().is_ok());
         }
+    }
+
+    #[test]
+    fn expiration_times() {
+        let s = std::time::Duration::new(1, 0);
+        let (tpk,_) = TPKBuilder::new()
+            .set_expiration(600 * s)
+            .add_subkey(KeyFlags::default().set_sign(true),
+                        300 * s)
+            .add_subkey(KeyFlags::default().set_authenticate(true),
+                        None)
+            .generate().unwrap();
+
+        let now = tpk.primary().creation_time();
+        let key = tpk.primary();
+        let sig = tpk.primary_key_signature(None).unwrap();
+        assert!(sig.key_alive(key, now));
+        assert!(sig.key_alive(key, now + 599 * s));
+        assert!(! sig.key_alive(key, now + 601 * s));
+
+        let (sig, key) = tpk.keys_valid().signing_capable()
+            .nth(0).map(|(s, _, k)| (s.unwrap(), k)).unwrap();
+        assert!(sig.key_alive(key, now));
+        assert!(sig.key_alive(key, now + 299 * s));
+        assert!(! sig.key_alive(key, now + 301 * s));
+
+        let (sig, key) = tpk.keys_valid().authentication_capable()
+            .nth(0).map(|(s, _, k)| (s.unwrap(), k)).unwrap();
+        assert!(sig.key_alive(key, now));
+        assert!(sig.key_alive(key, now + 599 * s));
+        assert!(! sig.key_alive(key, now + 601 * s));
     }
 }
