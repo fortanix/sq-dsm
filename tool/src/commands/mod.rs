@@ -301,7 +301,7 @@ impl<'a> VHelper<'a> {
 }
 
 impl<'a> VerificationHelper for VHelper<'a> {
-    fn get_public_keys(&mut self, ids: &[KeyID]) -> Result<Vec<TPK>> {
+    fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<TPK>> {
         let mut tpks = self.tpks.take().unwrap();
         let seen: HashSet<_> = tpks.iter()
             .flat_map(|tpk| {
@@ -314,9 +314,11 @@ impl<'a> VerificationHelper for VHelper<'a> {
         self.trusted = seen.clone();
 
         // Try to get missing TPKs from the mapping.
-        for id in ids.iter().filter(|i| !seen.contains(i)) {
+        for id in ids.iter().map(|i| KeyID::from(i.clone()))
+            .filter(|i| !seen.contains(i))
+        {
             let _ =
-                self.mapping.lookup_by_subkeyid(id)
+                self.mapping.lookup_by_subkeyid(&id)
                 .and_then(|binding| {
                     self.labels.insert(id.clone(), binding.label()?);
 
@@ -335,9 +337,11 @@ impl<'a> VerificationHelper for VHelper<'a> {
         let seen = self.trusted.clone();
 
         // Try to get missing TPKs from the pool.
-        for id in ids.iter().filter(|i| !seen.contains(i)) {
+        for id in ids.iter().map(|i| KeyID::from(i.clone()))
+            .filter(|i| !seen.contains(i))
+        {
             let _ =
-                store::Store::lookup_by_subkeyid(self.ctx, id)
+                store::Store::lookup_by_subkeyid(self.ctx, &id)
                 .and_then(|key| {
                     // Keys from the pool are NOT trusted.
                     key.tpk()

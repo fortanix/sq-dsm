@@ -112,7 +112,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
 }
 
 impl<'a> VerificationHelper for Helper<'a> {
-    fn get_public_keys(&mut self, _ids: &[openpgp::KeyID])
+    fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
                        -> failure::Fallible<Vec<openpgp::TPK>> {
         Ok(Vec::new()) // Feed the TPKs to the verifier here.
     }

@@ -85,7 +85,7 @@ struct Helper<'a> {
 }
 
 impl<'a> VerificationHelper for Helper<'a> {
-    fn get_public_keys(&mut self, _ids: &[openpgp::KeyID])
+    fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
                        -> openpgp::Result<Vec<openpgp::TPK>> {
         // Return public keys for signature verification here.
         Ok(vec![self.tpk.clone()])

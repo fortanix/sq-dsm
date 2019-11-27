@@ -334,13 +334,14 @@ impl VHelper {
 }
 
 impl VerificationHelper for VHelper {
-    fn get_public_keys(&mut self, ids: &[openpgp::KeyID])
+    fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle])
         -> Result<Vec<openpgp::TPK>, failure::Error>
     {
-        // The size of KeyID is not known in C.  Convert from an array
-        // of KeyIDs to an array of KeyID refs.
+        // The size of ID is not known in C.  Convert to KeyID, and
+        // move it to C.
         let ids : Vec<*mut keyid::KeyID> =
-            ids.iter().map(|k| k.move_into_raw()).collect();
+            ids.iter().map(|k| openpgp::KeyID::from(k.clone()).move_into_raw())
+            .collect();
 
         let mut tpk_refs_raw : *mut *mut TPK = ptr::null_mut();
         let mut tpk_refs_raw_len = 0usize;
@@ -657,7 +658,7 @@ impl DHelper {
 }
 
 impl VerificationHelper for DHelper {
-    fn get_public_keys(&mut self, ids: &[openpgp::KeyID])
+    fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle])
         -> Result<Vec<openpgp::TPK>, failure::Error>
     {
         self.vhelper.get_public_keys(ids)

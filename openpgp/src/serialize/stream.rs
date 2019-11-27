@@ -247,7 +247,7 @@ impl<'a> Signer<'a> {
     /// // Now check the signature.
     /// struct Helper<'a>(&'a openpgp::TPK);
     /// impl<'a> VerificationHelper for Helper<'a> {
-    ///     fn get_public_keys(&mut self, _: &[openpgp::KeyID])
+    ///     fn get_public_keys(&mut self, _: &[openpgp::KeyHandle])
     ///                        -> openpgp::Result<Vec<openpgp::TPK>> {
     ///         Ok(vec![self.0.clone()])
     ///     }
@@ -351,7 +351,7 @@ impl<'a> Signer<'a> {
     /// // Now check the signature.
     /// struct Helper<'a>(&'a openpgp::TPK);
     /// impl<'a> VerificationHelper for Helper<'a> {
-    ///     fn get_public_keys(&mut self, _: &[openpgp::KeyID])
+    ///     fn get_public_keys(&mut self, _: &[openpgp::KeyHandle])
     ///                        -> openpgp::Result<Vec<openpgp::TPK>> {
     ///         Ok(vec![self.0.clone()])
     ///     }
@@ -1661,7 +1661,8 @@ mod test {
             tsk: &'a TPK,
         };
         impl<'a> VerificationHelper for Helper<'a> {
-            fn get_public_keys(&mut self, _ids: &[KeyID]) -> Result<Vec<TPK>> {
+            fn get_public_keys(&mut self, _ids: &[crate::KeyHandle])
+                               -> Result<Vec<TPK>> {
                 Ok(Vec::new())
             }
             fn check(&mut self, _structure: &MessageStructure) -> Result<()> {

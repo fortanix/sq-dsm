@@ -105,7 +105,7 @@ fn main() {
 # }
 #
 # impl<'a> VerificationHelper for Helper<'a> {
-#     fn get_public_keys(&mut self, _ids: &[openpgp::KeyID])
+#     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
 #                        -> openpgp::Result<Vec<openpgp::TPK>> {
 #         // Return public keys for signature verification here.
 #         Ok(Vec::new())
@@ -248,7 +248,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 # }
 #
 # impl<'a> VerificationHelper for Helper<'a> {
-#     fn get_public_keys(&mut self, _ids: &[openpgp::KeyID])
+#     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
 #                        -> openpgp::Result<Vec<openpgp::TPK>> {
 #         // Return public keys for signature verification here.
 #         Ok(Vec::new())
@@ -391,7 +391,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 # }
 #
 # impl<'a> VerificationHelper for Helper<'a> {
-#     fn get_public_keys(&mut self, _ids: &[openpgp::KeyID])
+#     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
 #                        -> openpgp::Result<Vec<openpgp::TPK>> {
 #         // Return public keys for signature verification here.
 #         Ok(Vec::new())
@@ -548,7 +548,7 @@ struct Helper<'a> {
 }
 
 impl<'a> VerificationHelper for Helper<'a> {
-    fn get_public_keys(&mut self, _ids: &[openpgp::KeyID])
+    fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
                        -> openpgp::Result<Vec<openpgp::TPK>> {
         // Return public keys for signature verification here.
         Ok(Vec::new())
