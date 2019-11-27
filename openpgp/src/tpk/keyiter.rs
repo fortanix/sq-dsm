@@ -310,6 +310,13 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
         self.key_flags(KeyFlags::default().set_sign(true))
     }
 
+    /// Returns keys that are authentication capable.
+    ///
+    /// See `key_flags` for caveats.
+    pub fn authentication_capable(self) -> Self {
+        self.key_flags(KeyFlags::default().set_authenticate(true))
+    }
+
     /// Returns keys that are capable of encrypting data at rest.
     ///
     /// See `key_flags` for caveats.
