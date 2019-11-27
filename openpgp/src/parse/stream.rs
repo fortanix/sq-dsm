@@ -1637,13 +1637,24 @@ mod test {
     use super::*;
     use crate::parse::Parse;
 
-    #[derive(Debug, PartialEq)]
+    #[derive(PartialEq)]
     struct VHelper {
         good: usize,
         unknown: usize,
         bad: usize,
         error: usize,
         keys: Vec<TPK>,
+    }
+
+    impl std::fmt::Debug for VHelper {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.debug_struct("VHelper")
+                .field("good", &self.good)
+                .field("unknown", &self.unknown)
+                .field("bad", &self.bad)
+                .field("error", &self.error)
+                .finish()
+        }
     }
 
     impl Default for VHelper {
