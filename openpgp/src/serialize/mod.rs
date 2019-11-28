@@ -17,9 +17,9 @@ use super::*;
 
 mod partial_body;
 mod sexp;
-mod tpk;
-pub use self::tpk::TSK;
-mod tpk_armored;
+mod cert;
+pub use self::cert::TSK;
+mod cert_armored;
 use self::partial_body::PartialBodyFilter;
 pub mod writer;
 pub mod stream;
@@ -55,13 +55,13 @@ pub trait Serialize {
     ///
     ///   - It is an error to export a [`Signature`] if it is marked
     ///     as non-exportable.
-    ///   - When exporting a [`TPK`], non-exportable signatures are
+    ///   - When exporting a [`Cert`], non-exportable signatures are
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
     ///   [`serialize(..)`]: #tymethod.serialize
     ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`TPK`]: ../struct.TPK.html
+    ///   [`Cert`]: ../struct.Cert.html
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.serialize(o)
     }
@@ -104,13 +104,13 @@ pub trait SerializeInto {
     ///
     ///   - It is an error to export a [`Signature`] if it is marked
     ///     as non-exportable.
-    ///   - When exporting a [`TPK`], non-exportable signatures are
+    ///   - When exporting a [`Cert`], non-exportable signatures are
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
     ///   [`serialize_into(..)`]: #tymethod.serialize_into
     ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`TPK`]: ../struct.TPK.html
+    ///   [`Cert`]: ../struct.Cert.html
     ///
     /// Returns the length of the serialized representation.
     ///
@@ -129,13 +129,13 @@ pub trait SerializeInto {
     ///
     ///   - It is an error to export a [`Signature`] if it is marked
     ///     as non-exportable.
-    ///   - When exporting a [`TPK`], non-exportable signatures are
+    ///   - When exporting a [`Cert`], non-exportable signatures are
     ///     not exported, and any component bound merely by
     ///     non-exportable signatures is not exported.
     ///
     ///   [`to_vec()`]: #method.to_vec
     ///   [`Signature`]: ../packet/enum.Signature.html
-    ///   [`TPK`]: ../struct.TPK.html
+    ///   [`Cert`]: ../struct.Cert.html
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         let mut o = vec![0; self.serialized_len()];
         let len = self.export_into(&mut o[..])?;
@@ -2934,16 +2934,16 @@ mod test {
 
     #[test]
     fn export_signature() {
-        use crate::tpk::TPKBuilder;
+        use crate::cert::CertBuilder;
 
-        let (tpk, _) = TPKBuilder::new().generate().unwrap();
-        let mut keypair = tpk.primary().clone().mark_parts_secret()
+        let (cert, _) = CertBuilder::new().generate().unwrap();
+        let mut keypair = cert.primary().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
         let uid = UserID::from("foo");
 
         // Make a signature w/o an exportable certification subpacket.
         let sig = uid.bind(
-            &mut keypair, &tpk,
+            &mut keypair, &cert,
             signature::Builder::new(SignatureType::GenericCertificate),
             None).unwrap();
 
@@ -2967,7 +2967,7 @@ mod test {
 
         // Make a signature that is explicitly marked as exportable.
         let sig = uid.bind(
-            &mut keypair, &tpk,
+            &mut keypair, &cert,
             signature::Builder::new(SignatureType::GenericCertificate)
                 .set_exportable_certification(true).unwrap(),
             None).unwrap();
@@ -2992,7 +2992,7 @@ mod test {
 
         // Make a non-exportable signature.
         let sig = uid.bind(
-            &mut keypair, &tpk,
+            &mut keypair, &cert,
             signature::Builder::new(SignatureType::GenericCertificate)
                 .set_exportable_certification(false).unwrap(),
             None).unwrap();

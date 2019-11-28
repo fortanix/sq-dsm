@@ -13,11 +13,11 @@ use std::process::exit;
 use std::fs::File;
 use std::collections::{HashMap, HashSet};
 
-use crate::openpgp::{TPK, Packet, packet::Signature, KeyID, RevocationStatus};
+use crate::openpgp::{Cert, Packet, packet::Signature, KeyID, RevocationStatus};
 use crate::openpgp::types::HashAlgorithm;
 use crate::openpgp::crypto::hash::Hash;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
-use crate::openpgp::tpk::TPKParser;
+use crate::openpgp::cert::CertParser;
 
 mod sqv_cli;
 
@@ -68,7 +68,7 @@ fn real_main() -> Result<(), failure::Error> {
 
     // First, we collect the signatures and the alleged issuers.
     // Then, we scan the keyrings exactly once to find the associated
-    // TPKs.
+    // Certs.
 
     // .unwrap() is safe, because "sig-file" is required.
     let sig_file = matches.value_of_os("sig-file").unwrap();
@@ -76,7 +76,7 @@ fn real_main() -> Result<(), failure::Error> {
     let mut ppr = PacketParser::from_file(sig_file)?;
 
     let mut sigs_seen = HashSet::new();
-    let mut sigs : Vec<(Signature, KeyID, Option<TPK>)> = Vec::new();
+    let mut sigs : Vec<(Signature, KeyID, Option<Cert>)> = Vec::new();
 
     // sig_i is count of all Signature packets that we've seen.  This
     // may be more than sigs.len() if we can't handle some of the
@@ -150,10 +150,10 @@ fn real_main() -> Result<(), failure::Error> {
         openpgp::crypto::hash_file(File::open(file)?, &hash_algos[..])?
         .into_iter().collect();
 
-    fn tpk_has_key(tpk: &TPK, keyid: &KeyID) -> bool {
+    fn cert_has_key(cert: &Cert, keyid: &KeyID) -> bool {
         // Even if a key is revoked or expired, we can still use it to
         // verify a message.
-        tpk.keys_all().any(|(_, _, k)| *keyid == k.keyid())
+        cert.keys_all().any(|(_, _, k)| *keyid == k.keyid())
     }
 
     // Find the keys.
@@ -161,18 +161,18 @@ fn real_main() -> Result<(), failure::Error> {
         .expect("No keyring specified.")
     {
         // Load the keyring.
-        let tpks : Vec<TPK> = TPKParser::from_file(filename)?
-            .unvalidated_tpk_filter(|tpk, _| {
+        let certs : Vec<Cert> = CertParser::from_file(filename)?
+            .unvalidated_cert_filter(|cert, _| {
                 for &(_, ref issuer, _) in &sigs {
-                    if tpk_has_key(tpk, issuer) {
+                    if cert_has_key(cert, issuer) {
                         return true;
                     }
                 }
                 false
             })
-            .map(|tpkr| {
-                match tpkr {
-                    Ok(tpk) => tpk,
+            .map(|certr| {
+                match certr {
+                    Ok(cert) => cert,
                     Err(err) => {
                         eprintln!("Error reading keyring {:?}: {}",
                                   filename, err);
@@ -182,23 +182,23 @@ fn real_main() -> Result<(), failure::Error> {
             })
             .collect();
 
-        for tpk in tpks {
-            for &mut (_, ref issuer, ref mut issuer_tpko) in sigs.iter_mut() {
-                if tpk_has_key(&tpk, issuer) {
-                    if let Some(issuer_tpk) = issuer_tpko.take() {
+        for cert in certs {
+            for &mut (_, ref issuer, ref mut issuer_certo) in sigs.iter_mut() {
+                if cert_has_key(&cert, issuer) {
+                    if let Some(issuer_cert) = issuer_certo.take() {
                         if trace {
                             eprintln!("Found key {} again.  Merging.",
                                       issuer);
                         }
 
-                        *issuer_tpko
-                            = issuer_tpk.merge(tpk.clone()).ok();
+                        *issuer_certo
+                            = issuer_cert.merge(cert.clone()).ok();
                     } else {
                         if trace {
                             eprintln!("Found key {}.", issuer);
                         }
 
-                        *issuer_tpko = Some(tpk.clone());
+                        *issuer_certo = Some(cert.clone());
                     }
                 }
             }
@@ -206,16 +206,16 @@ fn real_main() -> Result<(), failure::Error> {
     }
 
     // Verify the signatures.
-    let mut sigs_seen_from_tpk = HashSet::new();
+    let mut sigs_seen_from_cert = HashSet::new();
     let mut good = 0;
-    'sig_loop: for (mut sig, issuer, tpko) in sigs.into_iter() {
+    'sig_loop: for (mut sig, issuer, certo) in sigs.into_iter() {
         if trace {
             eprintln!("Checking signature allegedly issued by {}.", issuer);
         }
 
-        if let Some(ref tpk) = tpko {
+        if let Some(ref cert) = certo {
             // Find the right key.
-            for (maybe_binding, _, key) in tpk.keys_all() {
+            for (maybe_binding, _, key) in cert.keys_all() {
                 let binding = match maybe_binding {
                     Some(b) => b,
                     None => continue,
@@ -265,7 +265,7 @@ fn real_main() -> Result<(), failure::Error> {
                                 }
 
                                 // check key was valid at sig creation time
-                                let binding = tpk
+                                let binding = cert
                                     .subkeys()
                                     .find(|s| {
                                         s.key().fingerprint() == key.fingerprint()
@@ -279,7 +279,7 @@ fn real_main() -> Result<(), failure::Error> {
                                     }
                                 }
 
-                                if tpk.revoked(t)
+                                if cert.revoked(t)
                                     != RevocationStatus::NotAsFarAsWeKnow
                                 {
                                     eprintln!(
@@ -299,7 +299,7 @@ fn real_main() -> Result<(), failure::Error> {
                                 eprintln!("Signature by {} is good.", issuer);
                             }
 
-                            if sigs_seen_from_tpk.replace(tpk.fingerprint())
+                            if sigs_seen_from_cert.replace(cert.fingerprint())
                                 .is_some()
                             {
                                 eprintln!(
@@ -308,7 +308,7 @@ fn real_main() -> Result<(), failure::Error> {
                                 continue;
                             }
 
-                            println!("{}", tpk.primary().fingerprint());
+                            println!("{}", cert.primary().fingerprint());
                             good += 1;
                         },
                         Ok(false) => {

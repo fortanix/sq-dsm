@@ -64,12 +64,12 @@ impl<'a> FromSequoiaError<'a> for Status {
                     Status::ManipulatedMessage,
                 &openpgp::Error::MalformedMessage(_) =>
                     Status::MalformedMessage,
-                &openpgp::Error::MalformedTPK(_) =>
-                    Status::MalformedTPK,
+                &openpgp::Error::MalformedCert(_) =>
+                    Status::MalformedCert,
                 &openpgp::Error::IndexOutOfRange =>
                     Status::IndexOutOfRange,
-                &openpgp::Error::UnsupportedTPK(_) =>
-                    Status::UnsupportedTPK,
+                &openpgp::Error::UnsupportedCert(_) =>
+                    Status::UnsupportedCert,
             }
         }
 

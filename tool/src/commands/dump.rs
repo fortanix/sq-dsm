@@ -18,7 +18,7 @@ pub enum Kind {
         encrypted: bool,
     },
     Keyring,
-    TPK,
+    Cert,
     Unknown,
 }
 
@@ -140,8 +140,8 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
             Ok(Kind::Message {
                 encrypted: message_encrypted,
             })
-        } else if eof.is_tpk().is_ok() {
-            Ok(Kind::TPK)
+        } else if eof.is_cert().is_ok() {
+            Ok(Kind::Cert)
         } else if eof.is_keyring().is_ok() {
             Ok(Kind::Keyring)
         } else {

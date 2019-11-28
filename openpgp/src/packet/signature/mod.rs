@@ -1113,7 +1113,7 @@ mod test {
     use crate::conversions::Time;
     use crate::crypto;
     use crate::crypto::mpis::MPI;
-    use crate::TPK;
+    use crate::Cert;
     use crate::parse::Parse;
     use crate::packet::Key;
     use crate::packet::key::Key4;
@@ -1123,7 +1123,7 @@ mod test {
     fn signature_verification_test() {
         use super::*;
 
-        use crate::TPK;
+        use crate::Cert;
         use crate::parse::{PacketParserResult, PacketParser};
 
         struct Test<'a> {
@@ -1205,21 +1205,21 @@ mod test {
             eprintln!("{}, expect {} good signatures:",
                       test.data, test.good);
 
-            let tpk = TPK::from_bytes(crate::tests::key(test.key)).unwrap();
+            let cert = Cert::from_bytes(crate::tests::key(test.key)).unwrap();
 
             let mut good = 0;
             let mut ppr = PacketParser::from_bytes(
                 crate::tests::message(test.data)).unwrap();
             while let PacketParserResult::Some(pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
-                    let result = sig.verify(tpk.primary()).unwrap_or(false);
+                    let result = sig.verify(cert.primary()).unwrap_or(false);
                     eprintln!("  Primary {:?}: {:?}",
-                              tpk.primary().fingerprint(), result);
+                              cert.primary().fingerprint(), result);
                     if result {
                         good += 1;
                     }
 
-                    for sk in tpk.subkeys() {
+                    for sk in cert.subkeys() {
                         let result = sig.verify(sk.key()).unwrap_or(false);
                         eprintln!("   Subkey {:?}: {:?}",
                                   sk.key().fingerprint(), result);
@@ -1271,8 +1271,8 @@ mod test {
             "erika-corinna-daniela-simone-antonia-nistp521-private.pgp",
             "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
-            let tpk = TPK::from_bytes(crate::tests::key(key)).unwrap();
-            let mut pair = tpk.primary().clone()
+            let cert = Cert::from_bytes(crate::tests::key(key)).unwrap();
+            let mut pair = cert.primary().clone()
                 .mark_parts_secret().unwrap()
                 .into_keypair()
                 .expect("secret key is encrypted/missing");
@@ -1317,7 +1317,7 @@ mod test {
 
     #[test]
     fn verify_message() {
-        let tpk = TPK::from_bytes(crate::tests::key(
+        let cert = Cert::from_bytes(crate::tests::key(
                 "emmelie-dorothea-dina-samantha-awina-ed25519.pgp")).unwrap();
         let msg = crate::tests::manifesto();
         let p = Packet::from_bytes(
@@ -1329,7 +1329,7 @@ mod test {
             panic!("Expected a Signature, got: {:?}", p);
         };
 
-        assert!(sig.verify_message(tpk.primary(), &msg[..]).unwrap());
+        assert!(sig.verify_message(cert.primary(), &msg[..]).unwrap());
     }
 
     #[test]
@@ -1372,16 +1372,16 @@ mod test {
 
     #[test]
     fn verify_gpg_3rd_party_cert() {
-        use crate::TPK;
+        use crate::Cert;
 
-        let test1 = TPK::from_bytes(
+        let test1 = Cert::from_bytes(
             crate::tests::key("test1-certification-key.pgp")).unwrap();
         let cert_key1 = test1.keys_all()
             .certification_capable()
             .nth(0)
             .map(|x| x.2)
             .unwrap();
-        let test2 = TPK::from_bytes(
+        let test2 = Cert::from_bytes(
             crate::tests::key("test2-signed-by-test1.pgp")).unwrap();
         let uid_binding = &test2.primary_key_signature_full(None)
             .unwrap().1.unwrap().0;
@@ -1466,7 +1466,7 @@ mod test {
 
     #[test]
     fn timestamp_signature() {
-        let alpha = TPK::from_bytes(crate::tests::file(
+        let alpha = Cert::from_bytes(crate::tests::file(
             "contrib/gnupg/keys/alpha.pgp")).unwrap();
         let p = Packet::from_bytes(crate::tests::file(
             "contrib/gnupg/timestamp-signature-by-alice.asc")).unwrap();

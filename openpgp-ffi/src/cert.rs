@@ -1,9 +1,9 @@
-//! Transferable public keys.
+//! OpenPGP Certificates.
 //!
-//! Wraps [`sequoia-openpgp::TPK`] and [related functionality].
+//! Wraps [`sequoia-openpgp::Cert`] and [related functionality].
 //!
-//! [`sequoia-openpgp::TPK`]: ../../sequoia_openpgp/struct.TPK.html
-//! [related functionality]: ../../sequoia_openpgp/tpk/index.html
+//! [`sequoia-openpgp::Cert`]: ../../sequoia_openpgp/struct.Cert.html
+//! [related functionality]: ../../sequoia_openpgp/cert/index.html
 
 use std::ptr;
 use std::slice;
@@ -18,12 +18,12 @@ use self::openpgp::{
         PacketParserResult,
         Parse,
     },
-    tpk::{
+    cert::{
         CipherSuite,
         KeyIter,
-        TPKBuilder,
-        TPKParser,
-        TPKRevocationBuilder,
+        CertBuilder,
+        CertParser,
+        CertRevocationBuilder,
         UserIDBinding,
         UserIDBindingIter,
     },
@@ -45,13 +45,13 @@ use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
 use crate::maybe_time;
 
-/// A transferable public key (TPK).
+/// An OpenPGP Certificate.
 ///
-/// A TPK (see [RFC 4880, section 11.1]) can be used to verify
+/// A Certificate (see [RFC 4880, section 11.1]) can be used to verify
 /// signatures and encrypt data.  It can be stored in a keystore and
 /// uploaded to keyservers.
 ///
-/// TPKs are always canonicalized in the sense that only elements
+/// Certs are always canonicalized in the sense that only elements
 /// (user id, user attribute, subkey) with at least one valid
 /// self-signature are preserved.  Also, invalid self-signatures are
 /// dropped.  The self-signatures are sorted so that the newest
@@ -62,112 +62,112 @@ use crate::maybe_time;
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 #[crate::ffi_wrapper_type(
-    prefix = "pgp_", name = "tpk",
+    prefix = "pgp_", name = "cert",
     derive = "Clone, Debug, Display, PartialEq, Parse, Serialize")]
-pub struct TPK(openpgp::TPK);
+pub struct Cert(openpgp::Cert);
 
-/// Returns the first TPK found in `m`.
+/// Returns the first Cert found in `m`.
 ///
 /// Consumes `m`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_from_packet_pile(errp: Option<&mut *mut crate::error::Error>,
+fn pgp_cert_from_packet_pile(errp: Option<&mut *mut crate::error::Error>,
                             m: *mut PacketPile)
-                            -> Maybe<TPK> {
-    openpgp::TPK::from_packet_pile(m.move_from_raw()).move_into_raw(errp)
+                            -> Maybe<Cert> {
+    openpgp::Cert::from_packet_pile(m.move_from_raw()).move_into_raw(errp)
 }
 
-/// Returns the first TPK found in the packet parser.
+/// Returns the first Cert found in the packet parser.
 ///
 /// Consumes the packet parser result.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_from_packet_parser(errp: Option<&mut *mut crate::error::Error>,
+fn pgp_cert_from_packet_parser(errp: Option<&mut *mut crate::error::Error>,
                               ppr: *mut PacketParserResult)
-                              -> Maybe<TPK>
+                              -> Maybe<Cert>
 {
     let ppr = ffi_param_move!(ppr);
 
-    openpgp::TPK::from_packet_parser(*ppr).move_into_raw(errp)
+    openpgp::Cert::from_packet_parser(*ppr).move_into_raw(errp)
 }
 
-/// Merges `other` into `tpk`.
+/// Merges `other` into `cert`.
 ///
 /// If `other` is a different key, then nothing is merged into
-/// `tpk`, but `tpk` is still canonicalized.
+/// `cert`, but `cert` is still canonicalized.
 ///
-/// Consumes `tpk` and `other`.
+/// Consumes `cert` and `other`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_merge(errp: Option<&mut *mut crate::error::Error>,
-                 tpk: *mut TPK,
-                 other: *mut TPK)
-                 -> Maybe<TPK> {
-    let tpk = tpk.move_from_raw();
+fn pgp_cert_merge(errp: Option<&mut *mut crate::error::Error>,
+                 cert: *mut Cert,
+                 other: *mut Cert)
+                 -> Maybe<Cert> {
+    let cert = cert.move_from_raw();
     let other = other.move_from_raw();
-    tpk.merge(other).move_into_raw(errp)
+    cert.merge(other).move_into_raw(errp)
 }
 
-/// Adds packets to the TPK.
+/// Adds packets to the Cert.
 ///
-/// This recanonicalizes the TPK.  If the packets are invalid, they
+/// This recanonicalizes the Cert.  If the packets are invalid, they
 /// are dropped.
 ///
-/// Consumes `tpk` and the packets in `packets`.  The buffer, however,
+/// Consumes `cert` and the packets in `packets`.  The buffer, however,
 /// must be managed by the caller.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_merge_packets(errp: Option<&mut *mut crate::error::Error>,
-                         tpk: *mut TPK,
+fn pgp_cert_merge_packets(errp: Option<&mut *mut crate::error::Error>,
+                         cert: *mut Cert,
                          packets: *mut *mut Packet,
                          packets_len: size_t)
-                         -> Maybe<TPK> {
-    let tpk = tpk.move_from_raw();
+                         -> Maybe<Cert> {
+    let cert = cert.move_from_raw();
     let packets = unsafe {
         slice::from_raw_parts_mut(packets, packets_len)
     };
     let packets =
         packets.iter_mut().map(|&mut p| p.move_from_raw()).collect();
-    tpk.merge_packets(packets).move_into_raw(errp)
+    cert.merge_packets(packets).move_into_raw(errp)
 }
 
 /// Returns the fingerprint.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_fingerprint(tpk: *const TPK)
+fn pgp_cert_fingerprint(cert: *const Cert)
                        -> *mut Fingerprint {
-    let tpk = tpk.ref_raw();
-    tpk.fingerprint().move_into_raw()
+    let cert = cert.ref_raw();
+    cert.fingerprint().move_into_raw()
 }
 
 /// Derives a [`TSK`] object from this key.
 ///
 /// This object writes out secret keys during serialization.
 ///
-/// [`TSK`]: tpk/struct.TSK.html
+/// [`TSK`]: cert/struct.TSK.html
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_as_tsk(tpk: *const TPK) -> *mut TSK<'static> {
-    tpk.ref_raw().as_tsk().move_into_raw()
+fn pgp_cert_as_tsk(cert: *const Cert) -> *mut TSK<'static> {
+    cert.ref_raw().as_tsk().move_into_raw()
 }
 
-/// Returns a reference to the TPK's primary key.
+/// Returns a reference to the Cert's primary key.
 ///
-/// The tpk still owns the key.  The caller must not modify the key.
+/// The cert still owns the key.  The caller must not modify the key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_primary_key(tpk: *const TPK) -> *const Key {
+fn pgp_cert_primary_key(cert: *const Cert) -> *const Key {
     let key : &self::openpgp::packet::key::UnspecifiedKey
-        = tpk.ref_raw().primary().into();
+        = cert.ref_raw().primary().into();
     key.move_into_raw()
 }
 
-/// Returns the TPK's revocation status as of a given time.
+/// Returns the Cert's revocation status as of a given time.
 ///
-/// Note: this only returns whether the TPK has been revoked, and does
+/// Note: this only returns whether the Cert has been revoked, and does
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
 ///
-/// If `when` is 0, then returns the TPK's revocation status as of the
+/// If `when` is 0, then returns the Cert's revocation status as of the
 /// time of the call.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_revoked(tpk: *const TPK, when: time_t)
+fn pgp_cert_revoked(cert: *const Cert, when: time_t)
     -> *mut RevocationStatus<'static>
 {
-    tpk.ref_raw().revoked(maybe_time(when)).move_into_raw()
+    cert.ref_raw().revoked(maybe_time(when)).move_into_raw()
 }
 
 fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
@@ -183,9 +183,9 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 }
 
 
-/// Returns a new revocation certificate for the TPK.
+/// Returns a new revocation certificate for the Cert.
 ///
-/// This function does *not* consume `tpk`.
+/// This function does *not* consume `cert`.
 ///
 /// # Example
 ///
@@ -193,26 +193,26 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// #include <assert.h>
 /// #include <sequoia/openpgp.h>
 ///
-/// pgp_tpk_builder_t builder;
-/// pgp_tpk_t tpk;
+/// pgp_cert_builder_t builder;
+/// pgp_cert_t cert;
 /// pgp_signature_t revocation;
 /// pgp_key_t primary_key;
 /// pgp_key_pair_t primary_keypair;
 /// pgp_signer_t primary_signer;
 ///
-/// builder = pgp_tpk_builder_new ();
-/// pgp_tpk_builder_set_cipher_suite (&builder, PGP_TPK_CIPHER_SUITE_CV25519);
-/// pgp_tpk_builder_generate (NULL, builder, &tpk, &revocation);
-/// assert (tpk);
+/// builder = pgp_cert_builder_new ();
+/// pgp_cert_builder_set_cipher_suite (&builder, PGP_CERT_CIPHER_SUITE_CV25519);
+/// pgp_cert_builder_generate (NULL, builder, &cert, &revocation);
+/// assert (cert);
 /// assert (revocation);
 /// pgp_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// primary_key = pgp_tpk_primary_key (tpk);
+/// primary_key = pgp_cert_primary_key (cert);
 /// primary_keypair = pgp_key_into_key_pair (NULL, pgp_key_clone (primary_key));
 /// pgp_key_free (primary_key);
 /// assert (primary_keypair);
 /// primary_signer = pgp_key_pair_as_signer (primary_keypair);
-/// revocation = pgp_tpk_revoke (NULL, tpk, primary_signer,
+/// revocation = pgp_cert_revoke (NULL, cert, primary_signer,
 ///                              PGP_REASON_FOR_REVOCATION_KEY_COMPROMISED,
 ///                              "It was the maid :/");
 /// assert (revocation);
@@ -220,18 +220,18 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// pgp_key_pair_free (primary_keypair);
 ///
 /// pgp_packet_t packet = pgp_signature_into_packet (revocation);
-/// tpk = pgp_tpk_merge_packets (NULL, tpk, &packet, 1);
-/// assert (tpk);
+/// cert = pgp_cert_merge_packets (NULL, cert, &packet, 1);
+/// assert (cert);
 ///
-/// pgp_revocation_status_t rs = pgp_tpk_revoked (tpk, 0);
+/// pgp_revocation_status_t rs = pgp_cert_revoked (cert, 0);
 /// assert (pgp_revocation_status_variant (rs) == PGP_REVOCATION_STATUS_REVOKED);
 /// pgp_revocation_status_free (rs);
 ///
-/// pgp_tpk_free (tpk);
+/// pgp_cert_free (cert);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
-                  tpk: *const TPK,
+fn pgp_cert_revoke(errp: Option<&mut *mut crate::error::Error>,
+                  cert: *const Cert,
                   primary_signer: *mut Box<dyn crypto::Signer<
                           openpgp::packet::key::UnspecifiedRole>>,
                   code: c_int,
@@ -239,7 +239,7 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
                   -> Maybe<Signature>
 {
     ffi_make_fry_from_errp!(errp);
-    let tpk = tpk.ref_raw();
+    let cert = cert.ref_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
@@ -248,15 +248,15 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
         b""
     };
 
-    let builder = TPKRevocationBuilder::new();
+    let builder = CertRevocationBuilder::new();
     let builder = ffi_try_or!(builder.set_reason_for_revocation(code, reason), None);
-    let sig = builder.build(signer.as_mut(), tpk, None);
+    let sig = builder.build(signer.as_mut(), cert, None);
     sig.move_into_raw(errp)
 }
 
-/// Adds a revocation certificate to the tpk.
+/// Adds a revocation certificate to the cert.
 ///
-/// This function consumes the tpk.
+/// This function consumes the cert.
 ///
 /// # Example
 ///
@@ -264,48 +264,48 @@ fn pgp_tpk_revoke(errp: Option<&mut *mut crate::error::Error>,
 /// #include <assert.h>
 /// #include <sequoia/openpgp.h>
 ///
-/// pgp_tpk_builder_t builder;
-/// pgp_tpk_t tpk;
+/// pgp_cert_builder_t builder;
+/// pgp_cert_t cert;
 /// pgp_signature_t revocation;
 /// pgp_key_t primary_key;
 /// pgp_key_pair_t primary_keypair;
 /// pgp_signer_t primary_signer;
 ///
-/// builder = pgp_tpk_builder_new ();
-/// pgp_tpk_builder_set_cipher_suite (&builder, PGP_TPK_CIPHER_SUITE_CV25519);
-/// pgp_tpk_builder_generate (NULL, builder, &tpk, &revocation);
-/// assert (tpk);
+/// builder = pgp_cert_builder_new ();
+/// pgp_cert_builder_set_cipher_suite (&builder, PGP_CERT_CIPHER_SUITE_CV25519);
+/// pgp_cert_builder_generate (NULL, builder, &cert, &revocation);
+/// assert (cert);
 /// assert (revocation);
 /// pgp_signature_free (revocation);    /* Free the generated one.  */
 ///
-/// primary_key = pgp_tpk_primary_key (tpk);
+/// primary_key = pgp_cert_primary_key (cert);
 /// primary_keypair = pgp_key_into_key_pair (NULL, pgp_key_clone (primary_key));
 /// pgp_key_free (primary_key);
 /// assert (primary_keypair);
 /// primary_signer = pgp_key_pair_as_signer (primary_keypair);
-/// tpk = pgp_tpk_revoke_in_place (NULL, tpk, primary_signer,
+/// cert = pgp_cert_revoke_in_place (NULL, cert, primary_signer,
 ///                               PGP_REASON_FOR_REVOCATION_KEY_COMPROMISED,
 ///                               "It was the maid :/");
-/// assert (tpk);
+/// assert (cert);
 /// pgp_signer_free (primary_signer);
 /// pgp_key_pair_free (primary_keypair);
 ///
-/// pgp_revocation_status_t rs = pgp_tpk_revoked (tpk, 0);
+/// pgp_revocation_status_t rs = pgp_cert_revoked (cert, 0);
 /// assert (pgp_revocation_status_variant (rs) == PGP_REVOCATION_STATUS_REVOKED);
 /// pgp_revocation_status_free (rs);
 ///
-/// pgp_tpk_free (tpk);
+/// pgp_cert_free (cert);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
-                           tpk: *mut TPK,
+fn pgp_cert_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
+                           cert: *mut Cert,
                            primary_signer: *mut Box<dyn crypto::Signer<
                                    openpgp::packet::key::UnspecifiedRole>>,
                            code: c_int,
                            reason: Option<&c_char>)
-                           -> Maybe<TPK>
+                           -> Maybe<Cert>
 {
-    let tpk = tpk.move_from_raw();
+    let cert = cert.move_from_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
     let code = int_to_reason_for_revocation(code);
     let reason = if let Some(reason) = reason {
@@ -314,61 +314,61 @@ fn pgp_tpk_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
         b""
     };
 
-    tpk.revoke_in_place(signer.as_mut(), code, reason).move_into_raw(errp)
+    cert.revoke_in_place(signer.as_mut(), code, reason).move_into_raw(errp)
 }
 
-/// Returns whether the TPK has expired.
+/// Returns whether the Cert has expired.
 ///
 /// If `when` is 0, then the current time is used.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_expired(tpk: *const TPK, when: time_t) -> c_int {
-    tpk.ref_raw().expired(maybe_time(when)) as c_int
+fn pgp_cert_expired(cert: *const Cert, when: time_t) -> c_int {
+    cert.ref_raw().expired(maybe_time(when)) as c_int
 }
 
-/// Returns whether the TPK is alive at the specified time.
+/// Returns whether the Cert is alive at the specified time.
 ///
 /// If `when` is 0, then the current time is used.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_alive(tpk: *const TPK, when: time_t)
+fn pgp_cert_alive(cert: *const Cert, when: time_t)
                     -> c_int {
-    tpk.ref_raw().alive(maybe_time(when)) as c_int
+    cert.ref_raw().alive(maybe_time(when)) as c_int
 }
 
-/// Changes the TPK's expiration.
+/// Changes the Cert's expiration.
 ///
 /// Expiry is when the key should expire in seconds relative to the
 /// key's creation (not the current time).
 ///
-/// This function consumes `tpk` and returns a new `TPK`.
+/// This function consumes `cert` and returns a new `Cert`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_set_expiry(errp: Option<&mut *mut crate::error::Error>,
-                      tpk: *mut TPK, primary_signer: *mut Box<dyn crypto::Signer<
+fn pgp_cert_set_expiry(errp: Option<&mut *mut crate::error::Error>,
+                      cert: *mut Cert, primary_signer: *mut Box<dyn crypto::Signer<
                               openpgp::packet::key::UnspecifiedRole>>,
                       expiry: u32)
-                      -> Maybe<TPK> {
-    let tpk = tpk.move_from_raw();
+                      -> Maybe<Cert> {
+    let cert = cert.move_from_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
 
-    tpk.set_expiry(signer.as_mut(),
+    cert.set_expiry(signer.as_mut(),
                    Some(std::time::Duration::new(expiry as u64, 0)))
         .move_into_raw(errp)
 }
 
-/// Returns whether the TPK includes any secret key material.
+/// Returns whether the Cert includes any secret key material.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_is_tsk(tpk: *const TPK)
+fn pgp_cert_is_tsk(cert: *const Cert)
                   -> c_int {
-    let tpk = tpk.ref_raw();
-    tpk.is_tsk() as c_int
+    let cert = cert.ref_raw();
+    cert.is_tsk() as c_int
 }
 
-/// Returns an iterator over the TPK's user id bindings.
+/// Returns an iterator over the Cert's user id bindings.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_primary_user_id(tpk: *const TPK)
+fn pgp_cert_primary_user_id(cert: *const Cert)
                            -> *mut c_char
 {
-    let tpk = tpk.ref_raw();
-    if let Some(binding) = tpk.userids().nth(0) {
+    let cert = cert.ref_raw();
+    if let Some(binding) = cert.userids().nth(0) {
         ffi_return_string!(binding.userid().value())
     } else {
         ptr::null_mut()
@@ -407,13 +407,13 @@ pub extern "C" fn pgp_user_id_binding_selfsig(
 
 /* UserIDBindingIter */
 
-/// Returns an iterator over the TPK's user id bindings.
+/// Returns an iterator over the Cert's user id bindings.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_user_id_binding_iter(tpk: *const TPK)
+pub extern "C" fn pgp_cert_user_id_binding_iter(cert: *const Cert)
     -> *mut UserIDBindingIter<'static>
 {
-    let tpk = tpk.ref_raw();
-    box_raw!(tpk.userids())
+    let cert = cert.ref_raw();
+    box_raw!(cert.userids())
 }
 
 /// Frees a pgp_user_id_binding_iter_t.
@@ -434,7 +434,7 @@ pub extern "C" fn pgp_user_id_binding_iter_next<'a>(
     iter.next()
 }
 
-/* tpk::KeyIter. */
+/* cert::KeyIter. */
 
 /// Wraps a KeyIter for export via the FFI.
 pub struct KeyIterWrapper<'a> {
@@ -445,7 +445,7 @@ pub struct KeyIterWrapper<'a> {
     next_called: bool,
 }
 
-/// Returns an iterator over the TPK's live, non-revoked keys.
+/// Returns an iterator over the Cert's live, non-revoked keys.
 ///
 /// That is, this returns an iterator over the primary key and any
 /// subkeys, along with the corresponding signatures.
@@ -455,41 +455,41 @@ pub struct KeyIterWrapper<'a> {
 /// has no binding signature, the signature carrying the primary key's
 /// key flags is returned (either a direct key signature, or the
 /// self-signature on the primary User ID).  There are corner cases
-/// where no such signature exists (e.g. partial TPKs), therefore this
+/// where no such signature exists (e.g. partial Certs), therefore this
 /// iterator may return `None` for the primary key's signature.
 ///
 /// A valid `Key` has at least one good self-signature.
 ///
-/// To return all keys, use `pgp_tpk_key_iter_all()`.
+/// To return all keys, use `pgp_cert_key_iter_all()`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_valid(tpk: *const TPK)
+pub extern "C" fn pgp_cert_key_iter_valid(cert: *const Cert)
     -> *mut KeyIterWrapper<'static>
 {
-    let tpk = tpk.ref_raw();
+    let cert = cert.ref_raw();
     box_raw!(KeyIterWrapper {
-        iter: tpk.keys_valid(),
+        iter: cert.keys_valid(),
         next_called: false,
     })
 }
 
-/// Returns an iterator over all `Key`s in a TPK.
+/// Returns an iterator over all `Key`s in a Cert.
 ///
-/// Compare with `pgp_tpk_key_iter_valid`, which filters out expired
+/// Compare with `pgp_cert_key_iter_valid`, which filters out expired
 /// and revoked keys by default.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_all(tpk: *const TPK)
+pub extern "C" fn pgp_cert_key_iter_all(cert: *const Cert)
     -> *mut KeyIterWrapper<'static>
 {
-    let tpk = tpk.ref_raw();
+    let cert = cert.ref_raw();
     box_raw!(KeyIterWrapper {
-        iter: tpk.keys_all(),
+        iter: cert.keys_all(),
         next_called: false,
     })
 }
 
-/// Frees a pgp_tpk_key_iter_t.
+/// Frees a pgp_cert_key_iter_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_free(
+pub extern "C" fn pgp_cert_key_iter_free(
     iter: Option<&mut KeyIterWrapper>)
 {
     ffi_free!(iter)
@@ -505,7 +505,7 @@ pub extern "C" fn pgp_tpk_key_iter_free(
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_certification_capable<'a>(
+pub extern "C" fn pgp_cert_key_iter_certification_capable<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
@@ -528,7 +528,7 @@ pub extern "C" fn pgp_tpk_key_iter_certification_capable<'a>(
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_signing_capable<'a>(
+pub extern "C" fn pgp_cert_key_iter_signing_capable<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
@@ -551,7 +551,7 @@ pub extern "C" fn pgp_tpk_key_iter_signing_capable<'a>(
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_encrypting_capable_at_rest<'a>(
+pub extern "C" fn pgp_cert_key_iter_encrypting_capable_at_rest<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
@@ -573,7 +573,7 @@ pub extern "C" fn pgp_tpk_key_iter_encrypting_capable_at_rest<'a>(
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_encrypting_capable_for_transport<'a>(
+pub extern "C" fn pgp_cert_key_iter_encrypting_capable_for_transport<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
@@ -587,12 +587,12 @@ pub extern "C" fn pgp_tpk_key_iter_encrypting_capable_for_transport<'a>(
 
 /// Changes the iterator to only return keys that are alive.
 ///
-/// If you call this function (or `pgp_tpk_key_iter_alive_at`), only
+/// If you call this function (or `pgp_cert_key_iter_alive_at`), only
 /// the last value is used.
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_alive<'a>(
+pub extern "C" fn pgp_cert_key_iter_alive<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
@@ -608,12 +608,12 @@ pub extern "C" fn pgp_tpk_key_iter_alive<'a>(
 /// Changes the iterator to only return keys that are alive at the
 /// specified time.
 ///
-/// If you call this function (or `pgp_tpk_key_iter_alive`), only the
+/// If you call this function (or `pgp_cert_key_iter_alive`), only the
 /// last value is used.
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_alive_at<'a>(
+pub extern "C" fn pgp_cert_key_iter_alive_at<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
     when: time_t)
 {
@@ -633,7 +633,7 @@ pub extern "C" fn pgp_tpk_key_iter_alive_at<'a>(
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_revoked<'a>(
+pub extern "C" fn pgp_cert_key_iter_revoked<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
     revoked: bool)
 {
@@ -651,7 +651,7 @@ pub extern "C" fn pgp_tpk_key_iter_revoked<'a>(
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_secret<'a>(
+pub extern "C" fn pgp_cert_key_iter_secret<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
@@ -669,7 +669,7 @@ pub extern "C" fn pgp_tpk_key_iter_secret<'a>(
 ///
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_unencrypted_secret<'a>(
+pub extern "C" fn pgp_cert_key_iter_unencrypted_secret<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
@@ -693,7 +693,7 @@ pub extern "C" fn pgp_tpk_key_iter_unencrypted_secret<'a>(
 /// If rso is not NULL, this stores the key's revocation status in
 /// *rso.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_key_iter_next<'a>(
+pub extern "C" fn pgp_cert_key_iter_next<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
     sigo: Option<&mut Maybe<Signature>>,
     rso: Option<&mut *mut RevocationStatus<'a>>)
@@ -719,69 +719,69 @@ pub extern "C" fn pgp_tpk_key_iter_next<'a>(
     }
 }
 
-/// Wraps a TPKParser for export via the FFI.
-pub struct TPKParserWrapper<'a> {
-    parser: TPKParser<'a, std::vec::IntoIter<self::openpgp::Packet>>,
+/// Wraps a CertParser for export via the FFI.
+pub struct CertParserWrapper<'a> {
+    parser: CertParser<'a, std::vec::IntoIter<self::openpgp::Packet>>,
 }
 
-/// Returns a TPKParser.
+/// Returns a CertParser.
 ///
-/// A `TPKParser` parses a keyring, which is simply zero or more TPKs
+/// A `CertParser` parses a keyring, which is simply zero or more Certs
 /// concatenated together.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_parser_from_bytes(errp: Option<&mut *mut crate::error::Error>,
+fn pgp_cert_parser_from_bytes(errp: Option<&mut *mut crate::error::Error>,
                              buf: *mut u8, len: size_t)
-    -> *mut TPKParserWrapper<'static>
+    -> *mut CertParserWrapper<'static>
 {
     ffi_make_fry_from_errp!(errp);
 
     let buf : &[u8] = unsafe { std::slice::from_raw_parts(buf, len) };
-    box_raw!(TPKParserWrapper { parser: ffi_try!(TPKParser::from_bytes(buf)) })
+    box_raw!(CertParserWrapper { parser: ffi_try!(CertParser::from_bytes(buf)) })
 }
 
-/// Returns a TPKParser.
+/// Returns a CertParser.
 ///
-/// A `TPKParser` parses a keyring, which is simply zero or more TPKs
+/// A `CertParser` parses a keyring, which is simply zero or more Certs
 /// concatenated together.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_parser_from_packet_parser(ppr: *mut PacketParserResult<'static>)
-    -> *mut TPKParserWrapper<'static>
+fn pgp_cert_parser_from_packet_parser(ppr: *mut PacketParserResult<'static>)
+    -> *mut CertParserWrapper<'static>
 {
     let ppr = ffi_param_move!(ppr);
-    let parser = TPKParser::from_packet_parser(*ppr);
-    box_raw!(TPKParserWrapper { parser: parser })
+    let parser = CertParser::from_packet_parser(*ppr);
+    box_raw!(CertParserWrapper { parser: parser })
 }
 
 
-/// Returns the next TPK, if any.
+/// Returns the next Cert, if any.
 ///
-/// If there is an error parsing the TPK, it is returned in *errp.
+/// If there is an error parsing the Cert, it is returned in *errp.
 ///
 /// If this function returns NULL and does not set *errp, then the end
 /// of the file was reached.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_tpk_parser_next(errp: Option<&mut *mut crate::error::Error>,
-                       parser: *mut TPKParserWrapper)
-    -> *mut TPK
+fn pgp_cert_parser_next(errp: Option<&mut *mut crate::error::Error>,
+                       parser: *mut CertParserWrapper)
+    -> *mut Cert
 {
     ffi_make_fry_from_errp!(errp);
-    let wrapper : &mut TPKParserWrapper = ffi_param_ref_mut!(parser);
+    let wrapper : &mut CertParserWrapper = ffi_param_ref_mut!(parser);
     match wrapper.parser.next() {
-        Some(tpkr) => ffi_try!(tpkr).move_into_raw(),
+        Some(certr) => ffi_try!(certr).move_into_raw(),
         None => ::std::ptr::null_mut(),
     }
 }
 
-/// Frees a pgp_tpk_parser_t.
+/// Frees a pgp_cert_parser_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_parser_free(parser: Option<&mut TPKParserWrapper>)
+pub extern "C" fn pgp_cert_parser_free(parser: Option<&mut CertParserWrapper>)
 {
     ffi_free!(parser)
 }
 
-/* TPKBuilder */
+/* CertBuilder */
 
-/// Creates a default `pgp_tpk_builder_t`.
+/// Creates a default `pgp_cert_builder_t`.
 ///
 /// # Example
 ///
@@ -789,27 +789,27 @@ pub extern "C" fn pgp_tpk_parser_free(parser: Option<&mut TPKParserWrapper>)
 /// #include <assert.h>
 /// #include <sequoia/openpgp.h>
 ///
-/// pgp_tpk_builder_t builder;
-/// pgp_tpk_t tpk;
+/// pgp_cert_builder_t builder;
+/// pgp_cert_t cert;
 /// pgp_signature_t revocation;
 ///
-/// builder = pgp_tpk_builder_new ();
-/// pgp_tpk_builder_set_cipher_suite (&builder, PGP_TPK_CIPHER_SUITE_CV25519);
-/// pgp_tpk_builder_add_userid (&builder, "some@example.org");
-/// pgp_tpk_builder_add_signing_subkey (&builder);
-/// pgp_tpk_builder_add_encryption_subkey (&builder);
-/// pgp_tpk_builder_generate (NULL, builder, &tpk, &revocation);
-/// assert (tpk);
+/// builder = pgp_cert_builder_new ();
+/// pgp_cert_builder_set_cipher_suite (&builder, PGP_CERT_CIPHER_SUITE_CV25519);
+/// pgp_cert_builder_add_userid (&builder, "some@example.org");
+/// pgp_cert_builder_add_signing_subkey (&builder);
+/// pgp_cert_builder_add_encryption_subkey (&builder);
+/// pgp_cert_builder_generate (NULL, builder, &cert, &revocation);
+/// assert (cert);
 /// assert (revocation);
 ///
-/// /* Use the TPK.  */
+/// /* Use the Cert.  */
 ///
 /// pgp_signature_free (revocation);
-/// pgp_tpk_free (tpk);
+/// pgp_cert_free (cert);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_new() -> *mut TPKBuilder {
-    box_raw!(TPKBuilder::new())
+pub extern "C" fn pgp_cert_builder_new() -> *mut CertBuilder {
+    box_raw!(CertBuilder::new())
 }
 
 /// Generates a general-purpose key.
@@ -817,22 +817,22 @@ pub extern "C" fn pgp_tpk_builder_new() -> *mut TPKBuilder {
 /// The key's primary key is certification- and signature-capable.
 /// The key has one subkey, an encryption-capable subkey.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_general_purpose(cs: c_int,
+pub extern "C" fn pgp_cert_builder_general_purpose(cs: c_int,
                                                        uid: *const c_char)
-    -> *mut TPKBuilder
+    -> *mut CertBuilder
 {
     let uid = if uid.is_null() {
         None
     } else {
         Some(ffi_param_cstr!(uid).to_string_lossy())
     };
-    box_raw!(TPKBuilder::general_purpose(
+    box_raw!(CertBuilder::general_purpose(
         Some(int_to_cipher_suite(cs)), uid))
 }
 
 /// Generates a key compliant to [Autocrypt Level 1].
 ///
-/// Autocrypt requires a user id, however, if `uid` is NULL, a TPK is
+/// Autocrypt requires a user id, however, if `uid` is NULL, a Cert is
 /// created without any user ids.  It is then the caller's
 /// responsibility to ensure that a user id is added later.
 ///
@@ -842,22 +842,22 @@ pub extern "C" fn pgp_tpk_builder_general_purpose(cs: c_int,
 ///
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_autocrypt(uid: *const c_char)
-    -> *mut TPKBuilder
+pub extern "C" fn pgp_cert_builder_autocrypt(uid: *const c_char)
+    -> *mut CertBuilder
 {
     let uid = if uid.is_null() {
         None
     } else {
         Some(ffi_param_cstr!(uid).to_string_lossy())
     };
-    box_raw!(TPKBuilder::autocrypt(Autocrypt::V1, uid))
+    box_raw!(CertBuilder::autocrypt(Autocrypt::V1, uid))
 }
 
-/// Frees an `pgp_tpk_builder_t`.
+/// Frees an `pgp_cert_builder_t`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_free(tpkb: Option<&mut TPKBuilder>)
+pub extern "C" fn pgp_cert_builder_free(certb: Option<&mut CertBuilder>)
 {
-    ffi_free!(tpkb)
+    ffi_free!(certb)
 }
 
 fn int_to_cipher_suite(cs: c_int) -> CipherSuite {
@@ -878,14 +878,14 @@ fn int_to_cipher_suite(cs: c_int) -> CipherSuite {
 /// Sets the encryption and signature algorithms for primary and all
 /// subkeys.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_set_cipher_suite
-    (tpkb: *mut *mut TPKBuilder, cs: c_int)
+pub extern "C" fn pgp_cert_builder_set_cipher_suite
+    (certb: *mut *mut CertBuilder, cs: c_int)
 {
-    let tpkb = ffi_param_ref_mut!(tpkb);
-    let tpkb_ = ffi_param_move!(*tpkb);
+    let certb = ffi_param_ref_mut!(certb);
+    let certb_ = ffi_param_move!(*certb);
     let cs = int_to_cipher_suite(cs);
-    let tpkb_ = tpkb_.set_cipher_suite(cs);
-    *tpkb = box_raw!(tpkb_);
+    let certb_ = certb_.set_cipher_suite(cs);
+    *certb = box_raw!(certb_);
 }
 
 /// Adds a new user ID. The first user ID added replaces the default
@@ -895,70 +895,70 @@ pub extern "C" fn pgp_tpk_builder_set_cipher_suite
 /// UTF-8, then the invalid code points are silently replaced with
 /// `U+FFFD REPLACEMENT CHARACTER`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_add_userid
-    (tpkb: *mut *mut TPKBuilder, uid: *const c_char)
+pub extern "C" fn pgp_cert_builder_add_userid
+    (certb: *mut *mut CertBuilder, uid: *const c_char)
 {
-    let tpkb = ffi_param_ref_mut!(tpkb);
-    let tpkb_ = ffi_param_move!(*tpkb);
+    let certb = ffi_param_ref_mut!(certb);
+    let certb_ = ffi_param_move!(*certb);
     let uid = ffi_param_cstr!(uid).to_string_lossy();
-    let tpkb_ = tpkb_.add_userid(uid);
-    *tpkb = box_raw!(tpkb_);
+    let certb_ = certb_.add_userid(uid);
+    *certb = box_raw!(certb_);
 }
 
 /// Adds a signing capable subkey.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_add_signing_subkey
-    (tpkb: *mut *mut TPKBuilder)
+pub extern "C" fn pgp_cert_builder_add_signing_subkey
+    (certb: *mut *mut CertBuilder)
 {
-    let tpkb = ffi_param_ref_mut!(tpkb);
-    let tpkb_ = ffi_param_move!(*tpkb);
-    let tpkb_ = tpkb_.add_signing_subkey();
-    *tpkb = box_raw!(tpkb_);
+    let certb = ffi_param_ref_mut!(certb);
+    let certb_ = ffi_param_move!(*certb);
+    let certb_ = certb_.add_signing_subkey();
+    *certb = box_raw!(certb_);
 }
 
 /// Adds an encryption capable subkey.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_add_encryption_subkey
-    (tpkb: *mut *mut TPKBuilder)
+pub extern "C" fn pgp_cert_builder_add_encryption_subkey
+    (certb: *mut *mut CertBuilder)
 {
-    let tpkb = ffi_param_ref_mut!(tpkb);
-    let tpkb_ = ffi_param_move!(*tpkb);
-    let tpkb_ = tpkb_.add_encryption_subkey();
-    *tpkb = box_raw!(tpkb_);
+    let certb = ffi_param_ref_mut!(certb);
+    let certb_ = ffi_param_move!(*certb);
+    let certb_ = certb_.add_encryption_subkey();
+    *certb = box_raw!(certb_);
 }
 
 /// Adds an certification capable subkey.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_add_certification_subkey
-    (tpkb: *mut *mut TPKBuilder)
+pub extern "C" fn pgp_cert_builder_add_certification_subkey
+    (certb: *mut *mut CertBuilder)
 {
-    let tpkb = ffi_param_ref_mut!(tpkb);
-    let tpkb_ = ffi_param_move!(*tpkb);
-    let tpkb_ = tpkb_.add_certification_subkey();
-    *tpkb = box_raw!(tpkb_);
+    let certb = ffi_param_ref_mut!(certb);
+    let certb_ = ffi_param_move!(*certb);
+    let certb_ = certb_.add_certification_subkey();
+    *certb = box_raw!(certb_);
 }
 
-/// Generates the actual TPK.
+/// Generates the actual Cert.
 ///
-/// Consumes `tpkb`.
+/// Consumes `certb`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_tpk_builder_generate
-    (errp: Option<&mut *mut crate::error::Error>, tpkb: *mut TPKBuilder,
-     tpk_out: *mut Maybe<TPK>,
+pub extern "C" fn pgp_cert_builder_generate
+    (errp: Option<&mut *mut crate::error::Error>, certb: *mut CertBuilder,
+     cert_out: *mut Maybe<Cert>,
      revocation_out: *mut *mut Signature)
     -> Status
 {
-    let tpk_out = ffi_param_ref_mut!(tpk_out);
+    let cert_out = ffi_param_ref_mut!(cert_out);
     let revocation_out = ffi_param_ref_mut!(revocation_out);
-    let tpkb = ffi_param_move!(tpkb);
-    match tpkb.generate() {
-        Ok((tpk, revocation)) => {
-            *tpk_out = Some(tpk).move_into_raw();
+    let certb = ffi_param_move!(certb);
+    match certb.generate() {
+        Ok((cert, revocation)) => {
+            *cert_out = Some(cert).move_into_raw();
             *revocation_out = revocation.move_into_raw();
             Status::Success
         },
         Err(e) => {
-            *tpk_out = None;
+            *cert_out = None;
             Err::<(), failure::Error>(e).move_into_raw(errp)
         },
     }

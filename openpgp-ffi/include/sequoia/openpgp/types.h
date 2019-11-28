@@ -42,7 +42,7 @@ typedef enum pgp_armor_kind {
   PGP_ARMOR_KIND_MESSAGE,
 
   /*/
-  /// A transferable public key.
+  /// A certificate.
   /*/
   PGP_ARMOR_KIND_PUBLICKEY,
 
@@ -374,28 +374,28 @@ typedef struct pgp_user_id_binding *pgp_user_id_binding_t;
 typedef struct pgp_user_id_binding_iter *pgp_user_id_binding_iter_t;
 
 /*/
-/// An iterator over keys in a TPK.
+/// An iterator over keys in a Cert.
 /*/
-typedef struct pgp_tpk_key_iter *pgp_tpk_key_iter_t;
+typedef struct pgp_cert_key_iter *pgp_cert_key_iter_t;
 
 /*/
-/// A transferable public key (TPK).
+/// An OpenPGP Certificate.
 ///
-/// A TPK (see [RFC 4880, section 11.1]) can be used to verify
+/// A Certificate (see [RFC 4880, section 11.1]) can be used to verify
 /// signatures and encrypt data.  It can be stored in a keystore and
 /// uploaded to keyservers.
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 /*/
-typedef struct pgp_tpk *pgp_tpk_t;
+typedef struct pgp_cert *pgp_cert_t;
 
 /*/
-/// A parser for TPKs
+/// A parser for Certs
 ///
-/// A `TPKParser` parses a keyring, which is simply zero or more
-/// binary TPKs concatenated together.
+/// A `CertParser` parses a keyring, which is simply zero or more
+/// binary Certs concatenated together.
 /*/
-typedef struct pgp_tpk_parser *pgp_tpk_parser_t;
+typedef struct pgp_cert_parser *pgp_cert_parser_t;
 
 /*/
 /// A transferable secret key (TSK).
@@ -408,48 +408,48 @@ typedef struct pgp_tpk_parser *pgp_tpk_parser_t;
 typedef struct pgp_tsk *pgp_tsk_t;
 
 
-typedef enum pgp_tpk_cipher_suite {
+typedef enum pgp_cert_cipher_suite {
   /*/
   /// EdDSA and ECDH over Curve25519 with SHA512 and AES256.
   /*/
-  PGP_TPK_CIPHER_SUITE_CV25519,
+  PGP_CERT_CIPHER_SUITE_CV25519,
 
   /*/
   /// 3072 bit RSA with SHA512 and AES256.
   /*/
-  PGP_TPK_CIPHER_SUITE_RSA3K,
+  PGP_CERT_CIPHER_SUITE_RSA3K,
 
   /*/
   /// EdDSA and ECDH over NIST P-256 with SHA256 and AES256
   /*/
-  PGP_TPK_CIPHER_SUITE_P256,
+  PGP_CERT_CIPHER_SUITE_P256,
 
   /*/
   /// EdDSA and ECDH over NIST P-384 with SHA384 and AES256
   /*/
-  PGP_TPK_CIPHER_SUITE_P384,
+  PGP_CERT_CIPHER_SUITE_P384,
 
   /*/
   /// EdDSA and ECDH over NIST P-521 with SHA512 and AES256
   /*/
-  PGP_TPK_CIPHER_SUITE_P521,
+  PGP_CERT_CIPHER_SUITE_P521,
 
   /*/
   /// 2048 bit RSA with SHA512 and AES256.
   /*/
-  PGP_TPK_CIPHER_SUITE_RSA2K,
+  PGP_CERT_CIPHER_SUITE_RSA2K,
 
   /*/
   /// 4096 bit RSA with SHA512 and AES256.
   /*/
-  PGP_TPK_CIPHER_SUITE_RSA4K,
+  PGP_CERT_CIPHER_SUITE_RSA4K,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */
-  PGP_TPK_CIPHER_SUITE_FORCE_WIDTH = INT_MAX,
-} pgp_tpk_cipher_suite_t;
+  PGP_CERT_CIPHER_SUITE_FORCE_WIDTH = INT_MAX,
+} pgp_cert_cipher_suite_t;
 
-typedef struct pgp_tpk_builder *pgp_tpk_builder_t;
+typedef struct pgp_cert_builder *pgp_cert_builder_t;
 
 typedef struct pgp_writer_stack *pgp_writer_stack_t;
 
@@ -494,7 +494,7 @@ typedef enum pgp_verification_result_variant {
 
 typedef pgp_status_t (*pgp_decryptor_get_public_keys_cb_t) (void *,
     pgp_keyid_t *, size_t,
-    pgp_tpk_t **, size_t *,
+    pgp_cert_t **, size_t *,
     void (**free)(void *));
 
 typedef pgp_status_t (pgp_decryptor_do_decrypt_cb_t) (

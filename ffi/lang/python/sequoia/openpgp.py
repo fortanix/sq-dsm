@@ -79,48 +79,48 @@ class PacketPile(SQObject):
         if status:
             raise Error._last(self.context())
 
-class TPK(SQObject):
-    _del = lib.pgp_tpk_free
-    _clone = lib.pgp_tpk_clone
-    _eq = lib.pgp_tpk_equal
-    _str = lib.pgp_tpk_to_string
-    _debug = lib.pgp_tpk_debug
+class Cert(SQObject):
+    _del = lib.pgp_cert_free
+    _clone = lib.pgp_cert_clone
+    _eq = lib.pgp_cert_equal
+    _str = lib.pgp_cert_to_string
+    _debug = lib.pgp_cert_debug
 
     @classmethod
     def from_reader(cls, ctx, reader):
-        return TPK(invoke(lib.pgp_tpk_from_reader, reader.ref()),
+        return Cert(invoke(lib.pgp_cert_from_reader, reader.ref()),
                    context=ctx)
 
     @classmethod
     def open(cls, ctx, filename):
-        return TPK(invoke(lib.pgp_tpk_from_file, filename.encode()),
+        return Cert(invoke(lib.pgp_cert_from_file, filename.encode()),
                    context=ctx)
 
     @classmethod
     def from_packet_pile(cls, ctx, packet_pile):
-        return TPK(invoke(lib.pgp_tpk_from_packet_pile, packet_pile.ref_consume()),
+        return Cert(invoke(lib.pgp_cert_from_packet_pile, packet_pile.ref_consume()),
                    context=ctx)
 
     @classmethod
     def from_bytes(cls, ctx, source):
-        return TPK(invoke(lib.pgp_tpk_from_bytes,
+        return Cert(invoke(lib.pgp_cert_from_bytes,
                           ffi.from_buffer(source),
                           len(source)),
                    context=ctx)
 
     def serialize(self, writer):
-        status = invoke(lib.pgp_tpk_serialize,
+        status = invoke(lib.pgp_cert_serialize,
                         self.ref(),
                         writer.ref())
         if status:
             raise Error._last(self.context())
 
     def fingerprint(self):
-        return Fingerprint(lib.pgp_tpk_fingerprint(self.ref()),
+        return Fingerprint(lib.pgp_cert_fingerprint(self.ref()),
                            context=self.context())
 
     def merge(self, other):
-        new = invoke(lib.pgp_tpk_merge,
+        new = invoke(lib.pgp_cert_merge,
                      self.ref_consume(),
                      other.ref_consume())
         if new == ffi.NULL:

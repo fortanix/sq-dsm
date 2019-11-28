@@ -58,7 +58,7 @@ pub enum Kind {
     /// validated, in this crate's terminology, this is just a
     /// `PacketPile`.)
     Message,
-    /// A transferable public key.
+    /// A certificate.
     PublicKey,
     /// A transferable secret key.
     SecretKey,

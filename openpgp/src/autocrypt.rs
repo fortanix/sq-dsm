@@ -25,7 +25,7 @@ use crate::Error;
 use crate::Result;
 use crate::Packet;
 use crate::packet::SKESK;
-use crate::TPK;
+use crate::Cert;
 use crate::parse::{
     Parse,
     PacketParserResult, PacketParser,
@@ -80,7 +80,7 @@ pub struct AutocryptHeader {
     pub header_type: AutocryptHeaderType,
 
     /// The parsed key data.
-    pub key: Option<TPK>,
+    pub key: Option<Cert>,
 
     /// All attributes.
     pub attributes: Vec<Attribute>,
@@ -96,22 +96,22 @@ impl AutocryptHeader {
     }
 
     /// Creates a new "Autocrypt" header.
-    pub fn new_sender<'a, P>(tpk: &TPK, addr: &str, prefer_encrypt: P)
+    pub fn new_sender<'a, P>(cert: &Cert, addr: &str, prefer_encrypt: P)
                              -> Result<Self>
         where P: Into<Option<&'a str>>
     {
         use crate::packet::key;
 
-        // Minimize TPK.
+        // Minimize Cert.
         let mut acc = Vec::new();
 
         // The primary key and the most recent selfsig.
-        acc.push(tpk.primary().clone().into());
-        tpk.direct_signatures().iter().take(1)
+        acc.push(cert.primary().clone().into());
+        cert.direct_signatures().iter().take(1)
             .for_each(|s| acc.push(s.clone().into()));
 
         // The subkeys and the most recent selfsig.
-        for skb in tpk.subkeys() {
+        for skb in cert.subkeys() {
             // Skip if revoked.
             if ! skb.self_revocations().is_empty()
                 || ! skb.other_revocations().is_empty()
@@ -126,7 +126,7 @@ impl AutocryptHeader {
         }
 
         // The UserIDs matching ADDR.
-        for uidb in tpk.userids() {
+        for uidb in cert.userids() {
             // XXX: Fix match once we have the rfc2822-name-addr.
             if let Ok(Some(a)) = uidb.userid().email() {
                 if &a == addr {
@@ -143,11 +143,11 @@ impl AutocryptHeader {
             }
         }
 
-        let cleaned_tpk = TPK::from_packet_pile(acc.into())?;
+        let cleaned_cert = Cert::from_packet_pile(acc.into())?;
 
         Ok(AutocryptHeader {
             header_type: AutocryptHeaderType::Sender,
-            key: Some(cleaned_tpk),
+            key: Some(cleaned_cert),
             attributes: vec![
                 Attribute {
                     critical: true,
@@ -255,8 +255,8 @@ impl AutocryptHeaders {
                     if key == "keydata" {
                         if let Ok(decoded) = base64::decode(
                             &value.replace(" ", "")[..]) {
-                            if let Ok(tpk) = TPK::from_bytes(&decoded[..]) {
-                                header.key = Some(tpk);
+                            if let Ok(cert) = Cert::from_bytes(&decoded[..]) {
+                                header.key = Some(cert);
                             }
                         }
                     }
@@ -323,11 +323,11 @@ pub struct AutocryptSetupMessage {
     // passcode.
     passcode_begin: Option<String>,
 
-    tpk: TPK,
+    cert: Cert,
 }
 
 impl AutocryptSetupMessage {
-    /// Creates a new Autocrypt Setup Message for the specified `TPK`.
+    /// Creates a new Autocrypt Setup Message for the specified `Cert`.
     ///
     /// You can set the `prefer_encrypt` setting, which defaults to
     /// "nopreference", using `set_prefer_encrypt`.
@@ -337,13 +337,13 @@ impl AutocryptSetupMessage {
     ///
     /// To decode an Autocrypt Setup Message, use the `from_bytes` or
     /// `from_reader` methods.
-    pub fn new(tpk: TPK) -> Self {
+    pub fn new(cert: Cert) -> Self {
         AutocryptSetupMessage {
             prefer_encrypt: None,
             passcode: None,
             passcode_format: None,
             passcode_begin: None,
-            tpk: tpk,
+            cert: cert,
         }
     }
 
@@ -472,13 +472,13 @@ impl AutocryptSetupMessage {
 
         let mut w = LiteralWriter::new(w).build()?;
 
-        // The inner message is an ASCII-armored encoded TPK.
+        // The inner message is an ASCII-armored encoded Cert.
         let mut w = armor::Writer::new(
             &mut w, armor::Kind::SecretKey,
             &[ (&"Autocrypt-Prefer-Encrypt"[..],
                 self.prefer_encrypt().unwrap_or(&"nopreference"[..])) ])?;
 
-        self.tpk.as_tsk().serialize(&mut w)?;
+        self.cert.as_tsk().serialize(&mut w)?;
         w.finalize()?;
         Ok(())
     }
@@ -597,10 +597,10 @@ impl AutocryptSetupMessage {
         })
     }
 
-    /// Returns the TPK consuming the `AutocryptSetupMessage` in the
+    /// Returns the Cert consuming the `AutocryptSetupMessage` in the
     /// process.
-    pub fn into_tpk(self) -> TPK {
-        self.tpk
+    pub fn into_cert(self) -> Cert {
+        self.cert
     }
 }
 
@@ -670,7 +670,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
         }
 
         // Get the literal data packet.
-        let (prefer_encrypt, tpk) = if let PacketParserResult::Some(mut pp) = ppr {
+        let (prefer_encrypt, cert) = if let PacketParserResult::Some(mut pp) = ppr {
             match pp.packet {
                 Packet::Literal(_) => (),
                 p => return Err(Error::MalformedMessage(
@@ -680,8 +680,8 @@ impl<'a> AutocryptSetupMessageParser<'a> {
             }
 
             // The inner message consists of an ASCII-armored encoded
-            // TPK.
-            let (prefer_encrypt, tpk) = {
+            // Cert.
+            let (prefer_encrypt, cert) = {
                 let mut r = armor::Reader::new(
                     &mut pp,
                     armor::ReaderMode::Tolerant(
@@ -708,14 +708,14 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                     }
                 };
 
-                let tpk = TPK::from_reader(r)?;
+                let cert = Cert::from_reader(r)?;
 
-                (prefer_encrypt, tpk)
+                (prefer_encrypt, cert)
             };
 
             ppr = pp.recurse()?.1;
 
-            (prefer_encrypt, tpk)
+            (prefer_encrypt, cert)
         } else {
             return Err(
                 Error::MalformedMessage(
@@ -761,7 +761,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
             passcode: self.passcode,
             passcode_format: self.passcode_format,
             passcode_begin: self.passcode_begin,
-            tpk: tpk,
+            cert: cert,
         })
     }
 }
@@ -902,12 +902,12 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(ac.headers[0].get("prefer-encrypt").unwrap().value,
                    "mutual");
 
-        let tpk = ac.headers[0].key.as_ref()
+        let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(tpk.primary().fingerprint(),
+        assert_eq!(cert.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"156962B0F3115069ACA970C68E3B03A279B772D6"[..]).unwrap());
-        assert_eq!(tpk.userids().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().next().unwrap().userid().value(),
                    &b"holger krekel <holger@merlinux.eu>"[..]);
 
 
@@ -925,12 +925,12 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         assert!(ac.headers[0].get("prefer_encrypt").is_none());
 
-        let tpk = ac.headers[0].key.as_ref()
+        let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(tpk.primary().fingerprint(),
+        assert_eq!(cert.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"D4AB192964F76A7F8F8A9B357BD18320DEADFA11"[..]).unwrap());
-        assert_eq!(tpk.userids().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().next().unwrap().userid().value(),
                    &b"Vincent Breitmoser <look@my.amazin.horse>"[..]);
 
 
@@ -948,12 +948,12 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         assert!(ac.headers[0].get("prefer_encrypt").is_none());
 
-        let tpk = ac.headers[0].key.as_ref()
+        let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(tpk.primary().fingerprint(),
+        assert_eq!(cert.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"4F9F89F5505AC1D1A260631CDB1187B9DD5F693B"[..]).unwrap());
-        assert_eq!(tpk.userids().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().next().unwrap().userid().value(),
                    &b"Patrick Brunschwig <patrick@enigmail.net>"[..]);
 
         let ac2 = AutocryptHeaders::from_bytes(&PATRICK_UNFOLDED[..]).unwrap();
@@ -1039,18 +1039,18 @@ In the light of the Efail vulnerability I am asking myself if it's
         let asm = asm.parse().unwrap();
 
         // A basic check to make sure we got the key.
-        assert_eq!(asm.into_tpk().fingerprint(),
+        assert_eq!(asm.into_cert().fingerprint(),
                    Fingerprint::from_hex(
                        "E604 68CE 44D7 7C3F CE9F  D072 71DB C565 7FDE 65A7")
                        .unwrap());
 
 
         // Create an ASM for testy-private.  Then decrypt it and make
-        // sure the TPK, etc. survived the round trip.
-        let tpk =
-            TPK::from_bytes(crate::tests::key("testy-private.pgp")).unwrap();
+        // sure the Cert, etc. survived the round trip.
+        let cert =
+            Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap();
 
-        let mut asm = AutocryptSetupMessage::new(tpk)
+        let mut asm = AutocryptSetupMessage::new(cert)
             .set_prefer_encrypt("mutual");
         let mut buffer = Vec::new();
         asm.serialize(&mut buffer).unwrap();
@@ -1063,8 +1063,8 @@ In the light of the Efail vulnerability I am asking myself if it's
 
     #[test]
     fn autocrypt_header_new() {
-        let tpk = TPK::from_bytes(crate::tests::key("testy.pgp")).unwrap();
-        let header = AutocryptHeader::new_sender(&tpk, "testy@example.org",
+        let cert = Cert::from_bytes(crate::tests::key("testy.pgp")).unwrap();
+        let header = AutocryptHeader::new_sender(&cert, "testy@example.org",
                                                  "mutual").unwrap();
         let mut buf = Vec::new();
         write!(&mut buf, "Autocrypt: ").unwrap();
@@ -1081,13 +1081,13 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(ac.headers[0].get("prefer-encrypt").unwrap().value,
                    "mutual");
 
-        let tpk = ac.headers[0].key.as_ref()
+        let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(&tpk.primary().fingerprint().to_string(),
+        assert_eq!(&cert.primary().fingerprint().to_string(),
                    "3E88 77C8 7727 4692 9751  89F5 D03F 6F86 5226 FE8B");
-        assert_eq!(tpk.userids().len(), 1);
-        assert_eq!(tpk.subkeys().len(), 1);
-        assert_eq!(tpk.userids().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().len(), 1);
+        assert_eq!(cert.subkeys().len(), 1);
+        assert_eq!(cert.userids().next().unwrap().userid().value(),
                    &b"Testy McTestface <testy@example.org>"[..]);
     }
 }

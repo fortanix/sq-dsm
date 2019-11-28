@@ -28,7 +28,7 @@ use crate::{
         PublicParts,
         UnspecifiedRole,
     },
-    TPK,
+    Cert,
 };
 use crate::packet::header::CTB;
 use crate::packet::header::BodyLength;
@@ -221,18 +221,18 @@ impl<'a> Signer<'a> {
     /// extern crate sequoia_openpgp as openpgp;
     /// use std::io::{Read, Write};
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
-    /// # use openpgp::{Result, TPK};
+    /// # use openpgp::{Result, Cert};
     /// # use openpgp::packet::prelude::*;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
-    /// # let tsk = TPK::from_bytes(&include_bytes!(
+    /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
-    /// # fn f(tpk: TPK, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
+    /// # fn f(cert: Cert, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
     /// #      -> Result<()> {
     ///
     /// let mut o = vec![];
@@ -245,10 +245,10 @@ impl<'a> Signer<'a> {
     /// }
     ///
     /// // Now check the signature.
-    /// struct Helper<'a>(&'a openpgp::TPK);
+    /// struct Helper<'a>(&'a openpgp::Cert);
     /// impl<'a> VerificationHelper for Helper<'a> {
     ///     fn get_public_keys(&mut self, _: &[openpgp::KeyHandle])
-    ///                        -> openpgp::Result<Vec<openpgp::TPK>> {
+    ///                        -> openpgp::Result<Vec<openpgp::Cert>> {
     ///         Ok(vec![self.0.clone()])
     ///     }
     ///
@@ -264,7 +264,7 @@ impl<'a> Signer<'a> {
     ///     }
     /// }
     ///
-    /// let mut verifier = Verifier::from_bytes(&o, Helper(&tpk), None)?;
+    /// let mut verifier = Verifier::from_bytes(&o, Helper(&cert), None)?;
     ///
     /// let mut message = String::new();
     /// verifier.read_to_string(&mut message)?;
@@ -311,7 +311,7 @@ impl<'a> Signer<'a> {
     /// recipients of the encryption container containing the
     /// signature.  This prevents forwarding a signed message using a
     /// different encryption context.
-    pub fn add_intended_recipient(mut self, recipient: &TPK) -> Self {
+    pub fn add_intended_recipient(mut self, recipient: &Cert) -> Self {
         self.intended_recipients.push(recipient.fingerprint());
         self
     }
@@ -324,18 +324,18 @@ impl<'a> Signer<'a> {
     /// extern crate sequoia_openpgp as openpgp;
     /// use std::io::{Read, Write};
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
-    /// # use openpgp::{Result, TPK};
+    /// # use openpgp::{Result, Cert};
     /// # use openpgp::packet::prelude::*;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
-    /// # let tsk = TPK::from_bytes(&include_bytes!(
+    /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
     /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
-    /// # fn f(tpk: TPK, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
+    /// # fn f(cert: Cert, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
     /// #      -> Result<()> {
     ///
     /// let mut o = vec![];
@@ -349,10 +349,10 @@ impl<'a> Signer<'a> {
     /// }
     ///
     /// // Now check the signature.
-    /// struct Helper<'a>(&'a openpgp::TPK);
+    /// struct Helper<'a>(&'a openpgp::Cert);
     /// impl<'a> VerificationHelper for Helper<'a> {
     ///     fn get_public_keys(&mut self, _: &[openpgp::KeyHandle])
-    ///                        -> openpgp::Result<Vec<openpgp::TPK>> {
+    ///                        -> openpgp::Result<Vec<openpgp::Cert>> {
     ///         Ok(vec![self.0.clone()])
     ///     }
     ///
@@ -370,7 +370,7 @@ impl<'a> Signer<'a> {
     ///
     /// let mut verifier =
     ///     DetachedVerifier::from_bytes(&o, b"Make it so, number one!",
-    ///                                  Helper(&tpk), None)?;
+    ///                                  Helper(&cert), None)?;
     ///
     /// let mut message = String::new();
     /// verifier.read_to_string(&mut message)?;
@@ -923,7 +923,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// The stream will be encrypted using a generated session key,
     /// which will be encrypted using the given passwords, and all
-    /// encryption-capable subkeys of the given TPKs.
+    /// encryption-capable subkeys of the given Certs.
     ///
     /// Unless otherwise specified, the stream is encrypted using
     /// AES256.  If `aead_algo` is `None`, a `SEIP` packet is emitted,
@@ -944,8 +944,8 @@ impl<'a> Encryptor<'a> {
     /// # use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
-    /// let tpk = openpgp::TPK::from_bytes(
-    /// #   // We do some acrobatics here to abbreviate the TPK.
+    /// let cert = openpgp::Cert::from_bytes(
+    /// #   // We do some acrobatics here to abbreviate the Cert.
     ///     "-----BEGIN PGP PUBLIC KEY BLOCK-----
     ///
     ///      mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
@@ -984,7 +984,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// // Build a vector of recipients to hand to Encryptor.
     /// let recipient =
-    ///     tpk.keys_valid()
+    ///     cert.keys_valid()
     ///     .key_flags(KeyFlags::default()
     ///                .set_encrypt_at_rest(true)
     ///                .set_encrypt_for_transport(true))
@@ -1019,7 +1019,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// The stream will be encrypted using a generated session key,
     /// which will be encrypted using the given passwords, and all
-    /// encryption-capable subkeys of the given TPKs.
+    /// encryption-capable subkeys of the given Certs.
     ///
     /// Unless otherwise specified, the stream is encrypted using
     /// AES256.  If `aead_algo` is `None`, a `SEIP` packet is emitted,
@@ -1466,8 +1466,8 @@ mod test {
 
         let mut keys: HashMap<Fingerprint, key::UnspecifiedPublic> = HashMap::new();
         for tsk in &[
-            TPK::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
-            TPK::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
+            Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
+            Cert::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
             for key in tsk.keys_all().signing_capable().map(|x| x.2)
             {
@@ -1649,20 +1649,20 @@ mod test {
                 MessageStructure,
             },
         };
-        use crate::tpk::{TPKBuilder, CipherSuite};
+        use crate::cert::{CertBuilder, CipherSuite};
         use crate::serialize::stream::{LiteralWriter, Message};
 
-        let (tsk, _) = TPKBuilder::new()
+        let (tsk, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_encryption_subkey()
             .generate().unwrap();
 
         struct Helper<'a> {
-            tsk: &'a TPK,
+            tsk: &'a Cert,
         };
         impl<'a> VerificationHelper for Helper<'a> {
             fn get_public_keys(&mut self, _ids: &[crate::KeyHandle])
-                               -> Result<Vec<TPK>> {
+                               -> Result<Vec<Cert>> {
                 Ok(Vec::new())
             }
             fn check(&mut self, _structure: &MessageStructure) -> Result<()> {

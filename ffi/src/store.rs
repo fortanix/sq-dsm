@@ -1,6 +1,6 @@
-//! For storing transferable public keys.
+//! For storing OpenPGP certificates.
 //!
-//! The key store stores transferable public keys (TPKs) using an
+//! The key store stores OpenPGP Certificates ("Certs") using an
 //! arbitrary label.  Stored keys are automatically updated from
 //! remote sources.  This ensures that updates like new subkeys and
 //! revocations are discovered in a timely manner.
@@ -37,7 +37,7 @@ use super::core::Context;
 
 use crate::openpgp::fingerprint::Fingerprint;
 use crate::openpgp::keyid::KeyID;
-use crate::openpgp::tpk::TPK;
+use crate::openpgp::cert::Cert;
 use crate::RefRaw;
 use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
@@ -186,7 +186,7 @@ fn sq_log_iter_free(iter: Option<&mut LogIter>) {
 /// maintained by a background service.  The background service
 /// associates state with this name.
 ///
-/// The mapping updates TPKs in compliance with the network policy
+/// The mapping updates Certs in compliance with the network policy
 /// of the context that created the mapping in the first place.
 /// Opening the mapping with a different network policy is
 /// forbidden.
@@ -230,15 +230,15 @@ fn sq_mapping_add(ctx: *mut Context,
 fn sq_mapping_import(ctx: *mut Context,
                    mapping: *const Mapping,
                    label: *const c_char,
-                   tpk: *const TPK)
-                   -> Maybe<TPK> {
+                   cert: *const Cert)
+                   -> Maybe<Cert> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let mapping = ffi_param_ref!(mapping);
     let label = ffi_param_cstr!(label).to_string_lossy();
-    let tpk = tpk.ref_raw();
+    let cert = cert.ref_raw();
 
-    mapping.import(&label, tpk).move_into_raw(Some(ctx.errp()))
+    mapping.import(&label, cert).move_into_raw(Some(ctx.errp()))
 }
 
 /// Returns the binding for the given label.
@@ -409,23 +409,23 @@ fn sq_binding_key(ctx: *mut Context, binding: *const Binding)
     ffi_try_box!(binding.key())
 }
 
-/// Returns the `pgp_tpk_t` of this binding.
+/// Returns the `pgp_cert_t` of this binding.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_binding_tpk(ctx: *mut Context, binding: *const Binding)
-                  -> Maybe<TPK> {
+fn sq_binding_cert(ctx: *mut Context, binding: *const Binding)
+                  -> Maybe<Cert> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
 
-    binding.tpk().move_into_raw(Some(ctx.errp()))
+    binding.cert().move_into_raw(Some(ctx.errp()))
 }
 
-/// Updates this binding with the given TPK.
+/// Updates this binding with the given Cert.
 ///
-/// If the new key `tpk` matches the current key, i.e. they have
+/// If the new key `cert` matches the current key, i.e. they have
 /// the same fingerprint, both keys are merged and normalized.
 /// The returned key contains all packets known to Sequoia, and
-/// should be used instead of `tpk`.
+/// should be used instead of `cert`.
 ///
 /// If the new key does not match the current key, but carries a
 /// valid signature from the current key, it replaces the current
@@ -439,41 +439,41 @@ fn sq_binding_tpk(ctx: *mut Context, binding: *const Binding)
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_binding_import(ctx: *mut Context,
                      binding: *const Binding,
-                     tpk: *const TPK)
-                     -> Maybe<TPK> {
+                     cert: *const Cert)
+                     -> Maybe<Cert> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
-    let tpk = tpk.ref_raw();
+    let cert = cert.ref_raw();
 
-    binding.import(&tpk).move_into_raw(Some(ctx.errp()))
+    binding.import(&cert).move_into_raw(Some(ctx.errp()))
 }
 
 
-/// Forces a keyrotation to the given TPK.
+/// Forces a keyrotation to the given Cert.
 ///
-/// The current key is replaced with the new key `tpk`, even if
+/// The current key is replaced with the new key `cert`, even if
 /// they do not have the same fingerprint.  If a key with the same
-/// fingerprint as `tpk` is already in the mapping, is merged with
-/// `tpk` and normalized.  The returned key contains all packets
-/// known to Sequoia, and should be used instead of `tpk`.
+/// fingerprint as `cert` is already in the mapping, is merged with
+/// `cert` and normalized.  The returned key contains all packets
+/// known to Sequoia, and should be used instead of `cert`.
 ///
 /// Use this function to resolve conflicts returned from
 /// `sq_binding_import`.  Make sure that you have authenticated
-/// `tpk` properly.  How to do that depends on your thread model.
+/// `cert` properly.  How to do that depends on your thread model.
 /// You could simply ask Alice to call her communication partner
 /// Bob and confirm that he rotated his keys.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_binding_rotate(ctx: *mut Context,
                      binding: *const Binding,
-                     tpk: *const TPK)
-                     -> Maybe<TPK> {
+                     cert: *const Cert)
+                     -> Maybe<Cert> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let binding = ffi_param_ref!(binding);
-    let tpk = tpk.ref_raw();
+    let cert = cert.ref_raw();
 
-    binding.rotate(&tpk).move_into_raw(Some(ctx.errp()))
+    binding.rotate(&cert).move_into_raw(Some(ctx.errp()))
 }
 
 /// Deletes this binding.
@@ -514,38 +514,38 @@ fn sq_key_stats(ctx: *mut Context,
     box_raw!(Stats::new(ffi_try!(key.stats())))
 }
 
-/// Returns the `pgp_tpk_t`.
+/// Returns the `pgp_cert_t`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_key_tpk(ctx: *mut Context,
+fn sq_key_cert(ctx: *mut Context,
               key: *const Key)
-              -> Maybe<TPK> {
+              -> Maybe<Cert> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_ref!(key);
 
-    key.tpk().move_into_raw(Some(ctx.errp()))
+    key.cert().move_into_raw(Some(ctx.errp()))
 }
 
-/// Updates this stored key with the given TPK.
+/// Updates this stored key with the given Cert.
 ///
-/// If the new key `tpk` matches the current key, i.e. they have
+/// If the new key `cert` matches the current key, i.e. they have
 /// the same fingerprint, both keys are merged and normalized.
 /// The returned key contains all packets known to Sequoia, and
-/// should be used instead of `tpk`.
+/// should be used instead of `cert`.
 ///
 /// If the new key does not match the current key,
 /// `Error::Conflict` is returned.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_key_import(ctx: *mut Context,
                  key: *const Key,
-                 tpk: *const TPK)
-                 -> Maybe<TPK> {
+                 cert: *const Cert)
+                 -> Maybe<Cert> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let key = ffi_param_ref!(key);
-    let tpk = tpk.ref_raw();
+    let cert = cert.ref_raw();
 
-    key.import(&tpk).move_into_raw(Some(ctx.errp()))
+    key.import(&cert).move_into_raw(Some(ctx.errp()))
 }
 
 /// Lists all log entries related to this key.

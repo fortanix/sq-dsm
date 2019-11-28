@@ -339,6 +339,6 @@ pub mod packet;
 pub mod packet_pile;
 pub mod parse;
 pub mod serialize;
-pub mod tpk;
+pub mod cert;
 pub mod tsk;
 pub mod revocation_status;

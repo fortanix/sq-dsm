@@ -19,14 +19,14 @@
 //! sq_context_t ctx;
 //! pgp_keyid_t id;
 //! sq_keyserver_t ks;
-//! pgp_tpk_t tpk;
+//! pgp_cert_t cert;
 //!
 //! ctx = sq_context_new (NULL);
 //! ks = sq_keyserver_keys_openpgp_org (ctx);
 //! id = pgp_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
-//! tpk = sq_keyserver_get (ctx, ks, id);
+//! cert = sq_keyserver_get (ctx, ks, id);
 //!
-//! pgp_tpk_free (tpk);
+//! pgp_cert_free (cert);
 //! pgp_keyid_free (id);
 //! sq_keyserver_free (ks);
 //! sq_context_free (ctx);
@@ -45,7 +45,7 @@ use sequoia_net::KeyServer;
 use super::error::Status;
 use super::core::Context;
 use crate::openpgp::keyid::KeyID;
-use crate::openpgp::tpk::TPK;
+use crate::openpgp::cert::Cert;
 use crate::RefRaw;
 use crate::MoveResultIntoRaw;
 use crate::Maybe;
@@ -120,7 +120,7 @@ fn sq_keyserver_free(ks: Option<&mut KeyServer>) {
 fn sq_keyserver_get(ctx: *mut Context,
                     ks: *mut KeyServer,
                     id: *const KeyID)
-                    -> Maybe<TPK> {
+                    -> Maybe<Cert> {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let ks = ffi_param_ref_mut!(ks);
@@ -136,14 +136,14 @@ fn sq_keyserver_get(ctx: *mut Context,
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_keyserver_send(ctx: *mut Context,
                      ks: *mut KeyServer,
-                     tpk: *const TPK)
+                     cert: *const Cert)
                      -> Status {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let ks = ffi_param_ref_mut!(ks);
-    let tpk = tpk.ref_raw();
+    let cert = cert.ref_raw();
 
     ffi_try_status!(tokio_core::reactor::Core::new()
                     .map_err(|e| e.into())
-                    .and_then(|mut core| core.run(ks.send(tpk))))
+                    .and_then(|mut core| core.run(ks.send(cert))))
 }

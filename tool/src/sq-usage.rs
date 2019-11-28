@@ -52,10 +52,11 @@
 //!     -V, --version             Prints version information
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>                    Sets the output file to use
-//!         --public-key-file <TPK-FILE>...    Public key to verify with, given as a file (can be given multiple times)
-//!         --secret-key-file <TSK-FILE>...    Secret key to decrypt with, given as a file (can be given multiple times)
-//!     -n, --signatures <N>                   The number of valid signatures required.  Default: 0
+//!     -o, --output <FILE>                      Sets the output file to use
+//!         --secret-key-file <TSK-FILE>...      Secret key to decrypt with, given as a file (can be given multiple times)
+//!         --sender-cert-file <CERT-FILE>...    The sender's certificate verify signatures with, given as a file (can be
+//!                                              given multiple times)
+//!     -n, --signatures <N>                     The number of valid signatures required.  Default: 0
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -76,16 +77,16 @@
 //!     -V, --version      Prints version information
 //!
 //! OPTIONS:
-//!         --compression <KIND>                  Selects compression scheme to use [default: pad]  [possible values: none,
-//!                                               pad, zip, zlib, bzip2]
-//!         --mode <MODE>                         Selects what kind of keys are considered for encryption.  Transport select
-//!                                               subkeys marked as suitable for transport encryption, rest selects those
-//!                                               for encrypting data at rest, and all selects all encryption-capable
-//!                                               subkeys [default: all]  [possible values: transport, rest, all]
-//!     -o, --output <FILE>                       Sets the output file to use
-//!     -r, --recipient <LABEL>...                Recipient to encrypt for (can be given multiple times)
-//!         --recipient-key-file <TPK-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)
-//!         --signer-key-file <TSK-FILE>...       Secret key to sign with, given as a file (can be given multiple times)
+//!         --compression <KIND>                   Selects compression scheme to use [default: pad]  [possible values: none,
+//!                                                pad, zip, zlib, bzip2]
+//!         --mode <MODE>                          Selects what kind of keys are considered for encryption.  Transport
+//!                                                select subkeys marked as suitable for transport encryption, rest selects
+//!                                                those for encrypting data at rest, and all selects all encryption-capable
+//!                                                subkeys [default: all]  [possible values: transport, rest, all]
+//!     -o, --output <FILE>                        Sets the output file to use
+//!     -r, --recipient <LABEL>...                 Recipient to encrypt for (can be given multiple times)
+//!         --recipient-key-file <CERT-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)
+//!         --signer-key-file <TSK-FILE>...        Secret key to sign with, given as a file (can be given multiple times)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -128,10 +129,11 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!         --detached <SIG-FILE>              Verifies a detached signature
-//!     -o, --output <FILE>                    Sets the output file to use
-//!         --public-key-file <TPK-FILE>...    Public key to verify with, given as a file (can be given multiple times)
-//!     -n, --signatures <N>                   The number of valid signatures required.  Default: 0
+//!         --detached <SIG-FILE>                Verifies a detached signature
+//!     -o, --output <FILE>                      Sets the output file to use
+//!         --sender-cert-file <CERT-FILE>...    The sender's certificate verify signatures with, given as a file (can be
+//!                                              given multiple times)
+//!     -n, --signatures <N>                     The number of valid signatures required.  Default: 0
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -346,15 +348,15 @@
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
-//!     decode           Converts Autocrypt-encoded keys to OpenPGP TPKs
-//!     encode-sender    Encodes the senders' OpenPGP TPKs into an Autocrypt header
+//!     decode           Converts Autocrypt-encoded keys to OpenPGP Certificates
+//!     encode-sender    Encodes the sender's OpenPGP Certificates into an Autocrypt header
 //!     help             Prints this message or the help of the given subcommand(s)
 //! ```
 //!
 //! ### Subcommand autocrypt decode
 //!
 //! ```text
-//! Converts Autocrypt-encoded keys to OpenPGP TPKs
+//! Converts Autocrypt-encoded keys to OpenPGP Certificates
 //!
 //! USAGE:
 //!     sq autocrypt decode [OPTIONS] [FILE]
@@ -373,7 +375,7 @@
 //! ### Subcommand autocrypt encode-sender
 //!
 //! ```text
-//! Encodes the senders' OpenPGP TPKs into an Autocrypt header
+//! Encodes the sender's OpenPGP Certificates into an Autocrypt header
 //!
 //! USAGE:
 //!     sq autocrypt encode-sender [OPTIONS] [FILE]
@@ -672,7 +674,7 @@
 //! SUBCOMMANDS:
 //!     generate    Generates a Web Key Directory for the given domain and keys.  If the WKD exists, the new keys will
 //!                 be inserted and it is updated and existing ones will be updated.
-//!     get         Writes to the standard output the TPK retrieved from a Web Key Directory, given an email address
+//!     get         Writes to the standard output the Cert retrieved from a Web Key Directory, given an email address
 //!     help        Prints this message or the help of the given subcommand(s)
 //!     url         Prints the Web Key Directory URL of an email address.
 //! ```
@@ -700,7 +702,7 @@
 //! ### Subcommand wkd get
 //!
 //! ```text
-//! Writes to the standard output the TPK retrieved from a Web Key Directory, given an email address
+//! Writes to the standard output the Cert retrieved from a Web Key Directory, given an email address
 //!
 //! USAGE:
 //!     sq wkd get [FLAGS] <EMAIL_ADDRESS>
@@ -711,7 +713,7 @@
 //!     -V, --version    Prints version information
 //!
 //! ARGS:
-//!     <EMAIL_ADDRESS>    The email address from which to obtain the TPK from a WKD.
+//!     <EMAIL_ADDRESS>    The email address from which to obtain the Cert from a WKD.
 //! ```
 //!
 //! ### Subcommand wkd url

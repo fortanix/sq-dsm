@@ -23,12 +23,12 @@ extern crate sequoia_core;
 extern crate sequoia_net;
 extern crate sequoia_store as store;
 
-use crate::openpgp::{armor, autocrypt, Fingerprint, TPK};
+use crate::openpgp::{armor, autocrypt, Fingerprint, Cert};
 use crate::openpgp::conversions::hex;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
-use crate::openpgp::tpk::TPKParser;
+use crate::openpgp::cert::CertParser;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::{KeyServer, wkd};
 use store::{Mapping, LogIter};
@@ -67,38 +67,38 @@ fn create_or_stdout(f: Option<&str>, force: bool)
     }
 }
 
-fn load_tpks<'a, I>(files: I) -> openpgp::Result<Vec<TPK>>
+fn load_certs<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
     where I: Iterator<Item=&'a str>
 {
-    let mut tpks = vec![];
+    let mut certs = vec![];
     for f in files {
-        tpks.push(TPK::from_file(f)
+        certs.push(Cert::from_file(f)
                   .context(format!("Failed to load key from file {:?}", f))?);
     }
-    Ok(tpks)
+    Ok(certs)
 }
 
 /// Serializes a keyring, adding descriptive headers if armored.
-fn serialize_keyring(mut output: &mut dyn io::Write, tpks: &[TPK], binary: bool)
+fn serialize_keyring(mut output: &mut dyn io::Write, certs: &[Cert], binary: bool)
                      -> openpgp::Result<()> {
     // Handle the easy options first.  No armor no cry:
     if binary {
-        for tpk in tpks {
-            tpk.serialize(&mut output)?;
+        for cert in certs {
+            cert.serialize(&mut output)?;
         }
         return Ok(());
     }
 
-    // Just one TPK?  Ez:
-    if tpks.len() == 1 {
-        return tpks[0].armored().serialize(&mut output);
+    // Just one Cert?  Ez:
+    if certs.len() == 1 {
+        return certs[0].armored().serialize(&mut output);
     }
 
     // Otherwise, collect the headers first:
     let mut headers = Vec::new();
-    for (i, tpk) in tpks.iter().enumerate() {
+    for (i, cert) in certs.iter().enumerate() {
         headers.push(format!("Key #{}", i));
-        headers.append(&mut tpk.armor_headers());
+        headers.append(&mut cert.armor_headers());
     }
 
     let headers: Vec<_> = headers.iter()
@@ -107,8 +107,8 @@ fn serialize_keyring(mut output: &mut dyn io::Write, tpks: &[TPK], binary: bool)
     let mut output = armor::Writer::new(&mut output,
                                         armor::Kind::PublicKey,
                                         &headers)?;
-    for tpk in tpks {
-        tpk.serialize(&mut output)?;
+    for cert in certs {
+        cert.serialize(&mut output)?;
     }
     Ok(())
 }
@@ -173,17 +173,17 @@ fn real_main() -> Result<(), failure::Error> {
             let mut output = create_or_stdout(m.value_of("output"), force)?;
             let signatures: usize =
                 m.value_of("signatures").unwrap_or("0").parse()?;
-            let tpks = m.values_of("public-key-file")
-                .map(load_tpks)
+            let certs = m.values_of("sender-cert-file")
+                .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             let secrets = m.values_of("secret-key-file")
-                .map(load_tpks)
+                .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
             commands::decrypt(&ctx, &mut mapping,
                               &mut input, &mut output,
-                              signatures, tpks, secrets,
+                              signatures, certs, secrets,
                               m.is_present("dump-session-key"),
                               m.is_present("dump"), m.is_present("hex"))?;
         },
@@ -202,11 +202,11 @@ fn real_main() -> Result<(), failure::Error> {
             let recipients = m.values_of("recipient")
                 .map(|r| r.collect())
                 .unwrap_or(vec![]);
-            let additional_tpks = m.values_of("recipient-key-file")
-                .map(load_tpks)
+            let additional_certs = m.values_of("recipient-key-file")
+                .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             let additional_secrets = m.values_of("signer-key-file")
-                .map(load_tpks)
+                .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             let mode = match m.value_of("mode").expect("has default") {
                 "rest" => KeyFlags::default()
@@ -220,7 +220,7 @@ fn real_main() -> Result<(), failure::Error> {
             };
             commands::encrypt(&mut mapping, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
-                              recipients, additional_tpks, additional_secrets,
+                              recipients, additional_certs, additional_secrets,
                               mode,
                               m.value_of("compression").expect("has default"))?;
         },
@@ -232,7 +232,7 @@ fn real_main() -> Result<(), failure::Error> {
             let append = m.is_present("append");
             let notarize = m.is_present("notarize");
             let secrets = m.values_of("secret-key-file")
-                .map(load_tpks)
+                .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             commands::sign(&mut input, output, secrets, detached, binary,
                            append, notarize, force)?;
@@ -247,14 +247,14 @@ fn real_main() -> Result<(), failure::Error> {
             };
             let signatures: usize =
                 m.value_of("signatures").unwrap_or("0").parse()?;
-            let tpks = m.values_of("public-key-file")
-                .map(load_tpks)
+            let certs = m.values_of("sender-cert-file")
+                .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
             commands::verify(&ctx, &mut mapping, &mut input,
                              detached.as_mut().map(|r| r as &mut dyn io::Read),
-                             &mut output, signatures, tpks)?;
+                             &mut output, signatures, certs)?;
         },
 
         ("enarmor",  Some(m)) => {
@@ -277,10 +277,10 @@ fn real_main() -> Result<(), failure::Error> {
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
                     let ac = autocrypt::AutocryptHeaders::from_reader(input)?;
                     for h in &ac.headers {
-                        if let Some(ref tpk) = h.key {
+                        if let Some(ref cert) = h.key {
                             let mut filter = armor::Writer::new(
                                 &mut output, armor::Kind::PublicKey, &[])?;
-                            tpk.serialize(&mut filter)?;
+                            cert.serialize(&mut filter)?;
                         }
                     }
                 },
@@ -288,11 +288,11 @@ fn real_main() -> Result<(), failure::Error> {
                     let input = open_or_stdin(m.value_of("input"))?;
                     let mut output = create_or_stdout(m.value_of("output"),
                                                       force)?;
-                    let tpk = TPK::from_reader(input)?;
+                    let cert = Cert::from_reader(input)?;
                     let addr = m.value_of("address").map(|a| a.to_string())
                         .or_else(|| {
                             if let Some(Ok(Some(a))) =
-                                tpk.userids().nth(0).map(|u| u.userid().email())
+                                cert.userids().nth(0).map(|u| u.userid().email())
                             {
                                 Some(a)
                             } else {
@@ -300,7 +300,7 @@ fn real_main() -> Result<(), failure::Error> {
                             }
                         });
                     let ac = autocrypt::AutocryptHeader::new_sender(
-                        &tpk,
+                        &cert,
                         &addr.ok_or(failure::err_msg(
                             "No well-formed primary userid found, use \
                              --address to specify one"))?,
@@ -383,20 +383,20 @@ fn real_main() -> Result<(), failure::Error> {
                     let id = id.unwrap();
 
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    let tpk = core.run(ks.get(&id))
+                    let cert = core.run(ks.get(&id))
                         .context("Failed to retrieve key")?;
                     if ! m.is_present("binary") {
-                        tpk.armored().serialize(&mut output)
+                        cert.armored().serialize(&mut output)
                     } else {
-                        tpk.serialize(&mut output)
+                        cert.serialize(&mut output)
                     }.context("Failed to serialize key")?;
                 },
                 ("send",  Some(m)) => {
                     let mut input = open_or_stdin(m.value_of("input"))?;
-                    let tpk = TPK::from_reader(&mut input).
+                    let cert = Cert::from_reader(&mut input).
                         context("Malformed key")?;
 
-                    core.run(ks.send(&tpk))
+                    core.run(ks.send(&cert))
                         .context("Failed to send key to server")?;
                 },
                 _ => unreachable!(),
@@ -419,16 +419,16 @@ fn real_main() -> Result<(), failure::Error> {
                     let label = m.value_of("label").unwrap();
                     help_warning(label);
                     let mut input = open_or_stdin(m.value_of("input"))?;
-                    let tpk = TPK::from_reader(&mut input)?;
-                    mapping.import(label, &tpk)?;
+                    let cert = Cert::from_reader(&mut input)?;
+                    mapping.import(label, &cert)?;
                 },
                 ("export",  Some(m)) => {
-                    let tpk = mapping.lookup(m.value_of("label").unwrap())?.tpk()?;
+                    let cert = mapping.lookup(m.value_of("label").unwrap())?.cert()?;
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
                     if m.is_present("binary") {
-                        tpk.serialize(&mut output)?;
+                        cert.serialize(&mut output)?;
                     } else {
-                        tpk.armored().serialize(&mut output)?;
+                        cert.armored().serialize(&mut output)?;
                     }
                 },
                 ("delete",  Some(m)) => {
@@ -533,7 +533,7 @@ fn real_main() -> Result<(), failure::Error> {
                     // stderr and exit.
                     // Because it might be created a WkdServer struct, not
                     // doing it for now.
-                    let tpks = core.run(wkd::get(&email_address))?;
+                    let certs = core.run(wkd::get(&email_address))?;
                     // ```text
                     //     The HTTP GET method MUST return the binary representation of the
                     //     OpenPGP key for the given mail address.
@@ -542,7 +542,7 @@ fn real_main() -> Result<(), failure::Error> {
                     // But to keep the parallelism with `store export` and `keyserver get`,
                     // The output is armored if not `--binary` option is given.
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    serialize_keyring(&mut output, &tpks,
+                    serialize_keyring(&mut output, &certs,
                                       m.is_present("binary"))?;
                 },
                 ("generate", Some(m)) => {
@@ -555,11 +555,11 @@ fn real_main() -> Result<(), failure::Error> {
                     } else {
                         wkd::Variant::Advanced
                     };
-                    let parser = TPKParser::from_reader(f)?;
-                    let tpks: Vec<TPK> = parser.filter_map(|tpk| tpk.ok())
+                    let parser = CertParser::from_reader(f)?;
+                    let certs: Vec<Cert> = parser.filter_map(|cert| cert.ok())
                         .collect();
-                    for tpk in tpks {
-                        wkd::insert(&base_path, domain, variant, &tpk)
+                    for cert in certs {
+                        wkd::insert(&base_path, domain, variant, &cert)
                             .context(format!("Failed to generate the WKD in \
                                               {}.", base_path))?;
                     }

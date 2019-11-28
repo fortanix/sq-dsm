@@ -4,7 +4,7 @@ extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::parse::Parse;
 
 fn main() {
-    let tpk =
+    let cert =
         "-----BEGIN PGP PUBLIC KEY BLOCK-----
 
          mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
@@ -36,8 +36,8 @@ fn main() {
          =lAie
          -----END PGP PUBLIC KEY BLOCK-----";
 
-    // Parse the TPK.
-    let pile = openpgp::PacketPile::from_bytes(tpk).unwrap();
+    // Parse the Cert.
+    let pile = openpgp::PacketPile::from_bytes(cert).unwrap();
 
     // Iterate over children.
     for (i, p) in pile.children().enumerate() {
@@ -47,12 +47,12 @@ fn main() {
     // Some space to make the output easier to parse.
     println!();
 
-    // Parse into TPK.
-    let tpk = openpgp::TPK::from_packet_pile(pile).unwrap();
-    println!("Fingerprint: {}", tpk.fingerprint());
+    // Parse into Cert.
+    let cert = openpgp::Cert::from_packet_pile(pile).unwrap();
+    println!("Fingerprint: {}", cert.fingerprint());
 
     // List userids.
-    for (i, u) in tpk.userids().enumerate() {
+    for (i, u) in cert.userids().enumerate() {
         println!("{}: UID: {}, {} self-signature(s), {} certification(s)",
                  i, u.userid(),
                  u.self_signatures().len(),
@@ -60,7 +60,7 @@ fn main() {
     }
 
     // List subkeys.
-    for (i, s) in tpk.subkeys().enumerate() {
+    for (i, s) in cert.subkeys().enumerate() {
         println!("{}: Fingerprint: {}, {} self-signature(s), {} certification(s)",
                  i, s.key().fingerprint(),
                  s.self_signatures().len(),

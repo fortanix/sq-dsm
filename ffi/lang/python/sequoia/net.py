@@ -1,6 +1,6 @@
 from _sequoia import ffi, lib
 
-from .openpgp import TPK
+from .openpgp import Cert
 from .error import Error
 from .glue import SQObject
 
@@ -24,14 +24,14 @@ class KeyServer(SQObject):
                          context=ctx)
 
     def get(self, keyid):
-        return TPK(lib.sq_keyserver_get(self.context().ref(),
+        return Cert(lib.sq_keyserver_get(self.context().ref(),
                                         self.ref(),
                                         keyid.ref()),
                    context=self.context())
 
-    def send(self, tpk):
+    def send(self, cert):
         r = lib.sq_keyserver_send(self.context().ref(),
                                   self.ref(),
-                                  tpk.ref())
+                                  cert.ref())
         if r:
             raise Error._last(self.context())

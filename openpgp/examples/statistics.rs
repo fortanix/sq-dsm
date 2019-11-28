@@ -63,11 +63,11 @@ fn main() {
     let mut p_aead: HashMap<Vec<AEADAlgorithm>, usize> =
         Default::default();
 
-    // Per-TPK statistics.
-    let mut tpk_count = 0;
-    let mut tpk = PerTPK::min();
-    let mut tpk_min = PerTPK::max();
-    let mut tpk_max = PerTPK::min();
+    // Per-Cert statistics.
+    let mut cert_count = 0;
+    let mut cert = PerCert::min();
+    let mut cert_min = PerCert::max();
+    let mut cert_max = PerCert::min();
 
     // UserAttribute statistics.
     let mut ua_image_count = vec![0; 256];
@@ -100,18 +100,18 @@ fn main() {
             tags_count[i] += 1;
 
             match packet {
-                // If a new TPK starts, update TPK statistics.
+                // If a new Cert starts, update Cert statistics.
                 Packet::PublicKey(_) | Packet::SecretKey(_) => {
-                    if tpk_count > 0 {
-                        tpk.update_min_max(&mut tpk_min, &mut tpk_max);
+                    if cert_count > 0 {
+                        cert.update_min_max(&mut cert_min, &mut cert_max);
                     }
-                    tpk_count += 1;
-                    tpk = PerTPK::min();
+                    cert_count += 1;
+                    cert = PerCert::min();
                 },
 
                 Packet::Signature(ref sig) => {
                     sigs_count[u8::from(sig.typ()) as usize] += 1;
-                    tpk.sigs[u8::from(sig.typ()) as usize] += 1;
+                    cert.sigs[u8::from(sig.typ()) as usize] += 1;
                     let mut signature = PerSignature::min();
 
                     for (_offset, len, sub) in sig.hashed_area().iter()
@@ -120,7 +120,7 @@ fn main() {
                         use crate::openpgp::packet::signature::subpacket::*;
                         let i = u8::from(sub.tag()) as usize;
                         sigs_subpacket_tags_count[i] += 1;
-                        tpk.sigs_subpacket_tags_count[i] += 1;
+                        cert.sigs_subpacket_tags_count[i] += 1;
                         signature.subpacket_tags_count[i] += 1;
                         if let SubpacketValue::Unknown(_) = sub.value() {
                             sigs_subpacket_tags_unknown
@@ -231,14 +231,14 @@ fn main() {
                         tags_size_max[i] = n;
                     }
 
-                    tpk.bytes += n as usize;
+                    cert.bytes += n as usize;
                 }
 
-                tpk.packets += 1;
-                tpk.tags[i] += 1;
+                cert.packets += 1;
+                cert.tags[i] += 1;
             }
         }
-        tpk.update_min_max(&mut tpk_min, &mut tpk_max);
+        cert.update_min_max(&mut cert_min, &mut cert_max);
     }
 
     // Print statistics.
@@ -273,7 +273,7 @@ fn main() {
                  "", "count",);
         println!("--------------------------------");
         for t in 0..256 {
-            let max = tpk_max.sigs[t];
+            let max = cert_max.sigs[t];
             if max > 0 {
                 println!("{:>22} {:>9}",
                          format!("{:?}", SignatureType::from(t as u8)),
@@ -479,55 +479,55 @@ fn main() {
         }
     }
 
-    if tpk_count == 0 {
+    if cert_count == 0 {
         return;
     }
 
     println!();
-    println!("# TPK statistics\n\n\
+    println!("# Cert statistics\n\n\
               {:>30} {:>9} {:>9} {:>9}",
              "", "min", "mean", "max");
     println!("------------------------------------------------------------");
     println!("{:>30} {:>9} {:>9} {:>9}",
              "Size (packets)",
-             tpk_min.packets, packet_count / tpk_count, tpk_max.packets);
+             cert_min.packets, packet_count / cert_count, cert_max.packets);
     println!("{:>30} {:>9} {:>9} {:>9}",
              "Size (bytes)",
-             tpk_min.bytes, packet_size / tpk_count, tpk_max.bytes);
+             cert_min.bytes, packet_size / cert_count, cert_max.bytes);
 
     println!("\n{:>30}", "- Packets -");
     for t in 0..64 {
-        let max = tpk_max.tags[t];
+        let max = cert_max.tags[t];
         if t as u8 != Tag::PublicKey.into() && max > 0 {
             println!("{:>30} {:>9} {:>9} {:>9}",
                      format!("{:?}", Tag::from(t as u8)),
-                     tpk_min.tags[t],
-                     tags_count[t] / tpk_count,
+                     cert_min.tags[t],
+                     tags_count[t] / cert_count,
                      max);
         }
     }
 
     println!("\n{:>30}", "- Signatures -");
     for t in 0..256 {
-        let max = tpk_max.sigs[t];
+        let max = cert_max.sigs[t];
         if max > 0 {
             println!("{:>30} {:>9} {:>9} {:>9}",
                      format!("{:?}",
                              SignatureType::from(t as u8)),
-                     tpk_min.sigs[t],
-                     sigs_count[t] / tpk_count,
+                     cert_min.sigs[t],
+                     sigs_count[t] / cert_count,
                      max);
         }
     }
 
     println!("\n{:>30}", "- Signature Subpackets -");
     for t in 0..256 {
-        let max = tpk_max.sigs_subpacket_tags_count[t];
+        let max = cert_max.sigs_subpacket_tags_count[t];
         if max > 0 {
             println!("{:>30} {:>9} {:>9} {:>9}",
                      subpacket_short_name(t),
-                     tpk_min.sigs_subpacket_tags_count[t],
-                     sigs_subpacket_tags_count[t] / tpk_count,
+                     cert_min.sigs_subpacket_tags_count[t],
+                     sigs_subpacket_tags_count[t] / cert_count,
                      max);
         }
     }
@@ -539,7 +539,7 @@ fn subpacket_short_name(t: usize) -> String {
         tag_name.as_bytes().chunks(30).next().unwrap()).into()
 }
 
-struct PerTPK {
+struct PerCert {
     packets: usize,
     bytes: usize,
     tags: Vec<u32>,
@@ -547,9 +547,9 @@ struct PerTPK {
     sigs_subpacket_tags_count: Vec<u32>,
 }
 
-impl PerTPK {
+impl PerCert {
     fn min() -> Self {
-        PerTPK {
+        PerCert {
             packets: 0,
             bytes: 0,
             tags: vec![0; 64],
@@ -559,7 +559,7 @@ impl PerTPK {
     }
 
     fn max() -> Self {
-        PerTPK {
+        PerCert {
             packets: ::std::usize::MAX,
             bytes: ::std::usize::MAX,
             tags: vec![::std::u32::MAX; 64],
@@ -568,7 +568,7 @@ impl PerTPK {
         }
     }
 
-    fn update_min_max(&self, min: &mut PerTPK, max: &mut PerTPK) {
+    fn update_min_max(&self, min: &mut PerCert, max: &mut PerCert) {
         if self.packets < min.packets {
             min.packets = self.packets;
         }

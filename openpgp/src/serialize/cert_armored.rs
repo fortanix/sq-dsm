@@ -1,4 +1,4 @@
-//! Module to serialize and enarmor a TPK and add informative headers.
+//! Module to serialize and enarmor a Cert and add informative headers.
 use std::io;
 use std::str;
 
@@ -8,7 +8,7 @@ use crate::RevocationStatus;
 use crate::serialize::{
     Serialize, SerializeInto, generic_serialize_into, generic_export_into,
 };
-use crate::TPK;
+use crate::Cert;
 
 
 /// Whether or not a character is printable.
@@ -19,12 +19,12 @@ pub(crate) fn is_printable(c: &char) -> bool {
     !c.is_control() && !c.is_ascii_control()
 }
 
-impl TPK {
+impl Cert {
     /// Creates descriptive armor headers.
     ///
-    /// Returns armor headers that describe this TPK.  The TPK's
+    /// Returns armor headers that describe this Cert.  The Cert's
     /// primary fingerprint and userids are included as comments, so
-    /// that it is easier to identify the TPK when looking at the
+    /// that it is easier to identify the Cert when looking at the
     /// armored data.
     pub fn armor_headers(&self) -> Vec<String> {
         let length_value = armor::LINE_LENGTH - "Comment: ".len();
@@ -64,26 +64,26 @@ impl TPK {
         headers
     }
 
-    /// Wraps this TPK in an armor structure when serialized.
+    /// Wraps this Cert in an armor structure when serialized.
     ///
-    /// Derives an object from this TPK that adds an armor structure
-    /// to the serialized TPK when it is serialized.  Additionally,
-    /// the TPK's userids are added as comments, so that it is easier
-    /// to identify the TPK when looking at the armored data.
+    /// Derives an object from this Cert that adds an armor structure
+    /// to the serialized Cert when it is serialized.  Additionally,
+    /// the Cert's userids are added as comments, so that it is easier
+    /// to identify the Cert when looking at the armored data.
     ///
     /// # Example
     ///
     /// ```rust
     /// use sequoia_openpgp as openpgp;
-    /// use openpgp::tpk;
+    /// use openpgp::cert;
     /// use openpgp::serialize::SerializeInto;
     ///
     /// # f().unwrap();
     /// # fn f() -> openpgp::Result<()> {
-    /// let (tpk, _) =
-    ///     tpk::TPKBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+    /// let (cert, _) =
+    ///     cert::CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
     ///     .generate()?;
-    /// let armored = String::from_utf8(tpk.armored().to_vec()?)?;
+    /// let armored = String::from_utf8(cert.armored().to_vec()?)?;
     ///
     /// assert!(armored.starts_with("-----BEGIN PGP PUBLIC KEY BLOCK-----"));
     /// assert!(armored.contains("Mr. Pink ☮☮☮"));
@@ -94,23 +94,23 @@ impl TPK {
     }
 }
 
-/// A `TPK` to be armored and serialized.
+/// A `Cert` to be armored and serialized.
 struct Encoder<'a> {
-    tpk: &'a TPK,
+    cert: &'a Cert,
 }
 
 
 impl<'a> Encoder<'a> {
-    /// Returns a new Encoder to enarmor and serialize a `TPK`.
-    fn new(tpk: &'a TPK) -> Self {
+    /// Returns a new Encoder to enarmor and serialize a `Cert`.
+    fn new(cert: &'a Cert) -> Self {
         Self {
-            tpk: tpk,
+            cert: cert,
         }
     }
 
     fn serialize_common(&self, o: &mut dyn io::Write, export: bool)
                         -> Result<()> {
-        let headers = self.tpk.armor_headers();
+        let headers = self.cert.armor_headers();
 
         // Convert the Vec<String> into Vec<(&str, &str)>
         // `iter_into` can not be used here because will take ownership and
@@ -121,9 +121,9 @@ impl<'a> Encoder<'a> {
 
         let mut w = armor::Writer::new(o, armor::Kind::PublicKey, &headers)?;
         if export {
-            self.tpk.export(&mut w)
+            self.cert.export(&mut w)
         } else {
-            self.tpk.serialize(&mut w)
+            self.cert.serialize(&mut w)
         }
     }
 }
@@ -140,11 +140,11 @@ impl<'a> Serialize for Encoder<'a> {
 
 impl<'a> SerializeInto for Encoder<'a> {
     fn serialized_len(&self) -> usize {
-        let h = self.tpk.armor_headers();
+        let h = self.cert.armor_headers();
         let headers_len =
             "Comment: ".len() * h.len()
             + h.iter().map(|c| c.len()).sum::<usize>();
-        let body_len = (self.tpk.serialized_len() + 2) / 3 * 4; // base64
+        let body_len = (self.cert.serialized_len() + 2) / 3 * 4; // base64
 
         "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n".len()
             + headers_len
@@ -166,7 +166,7 @@ impl<'a> SerializeInto for Encoder<'a> {
 #[cfg(test)]
 mod tests {
     use crate::armor::{Kind, Reader, ReaderMode};
-    use crate::tpk::TPKBuilder;
+    use crate::cert::CertBuilder;
     use crate::parse::Parse;
 
     use super::*;
@@ -201,11 +201,11 @@ mod tests {
 
     #[test]
     fn serialize_succeed() {
-        let tpk = TPK::from_bytes(crate::tests::key("neal.pgp")).unwrap();
+        let cert = Cert::from_bytes(crate::tests::key("neal.pgp")).unwrap();
 
-        // Enarmor the TPK.
+        // Enarmor the Cert.
         let mut buffer = Vec::new();
-        tpk.armored()
+        cert.armored()
             .serialize(&mut buffer)
             .unwrap();
 
@@ -269,8 +269,8 @@ mod tests {
         userid5[length_value-1] = 'ß';
         let userid5: String = userid5.into_iter().collect();
 
-        // Create a TPK with the userids.
-        let (tpk, _) = TPKBuilder::autocrypt(None, Some(&userid1[..]))
+        // Create a Cert with the userids.
+        let (cert, _) = CertBuilder::autocrypt(None, Some(&userid1[..]))
             .add_userid(&userid2[..])
             .add_userid(&userid3[..])
             .add_userid(&userid4[..])
@@ -278,9 +278,9 @@ mod tests {
             .generate()
             .unwrap();
 
-        // Enarmor the TPK.
+        // Enarmor the Cert.
         let mut buffer = Vec::new();
-        tpk.armored()
+        cert.armored()
             .serialize(&mut buffer)
             .unwrap();
 
@@ -298,7 +298,7 @@ mod tests {
                 &header.1[..]})
             .skip(1) // Ignore the first header since it is the fingerprint
             .collect();
-        // TPK canonicalization does not preserve the order of
+        // Cert canonicalization does not preserve the order of
         // userids.
         headers.sort();
 

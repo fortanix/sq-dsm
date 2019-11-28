@@ -2,18 +2,18 @@ Describes how to use some of Sequoia's parsers.
 
 Sequoia contains and exposes several parsers.  In this chapter, we
 will cover some of them, starting from a high level parser, the
-[`TPKParser`] that parses transferable public keys ([`TPK`]s), all
+[`CertParser`] that parses OpenPGP Certificates ([`Cert`]s), all
 down to the actual OpenPGP [`PacketParser`].
 
-[`TPKParser`]: ../../sequoia_openpgp/tpk/struct.TPKParser.html
-[`TPK`]: ../../sequoia_openpgp/struct.TPK.html
+[`CertParser`]: ../../sequoia_openpgp/cert/struct.CertParser.html
+[`Cert`]: ../../sequoia_openpgp/struct.Cert.html
 [`PacketParser`]: ../../sequoia_openpgp/parse/struct.PacketParser.html
 
-# Parsing TPKs
+# Parsing Certs
 
 First, we will start with a string that presumably contains a
-transferable public key, and feed it into the [`TPKParser`].  On
-success, we can use or examine the resulting [`TPK`]:
+OpenPGP Certificate, and feed it into the [`CertParser`].  On
+success, we can use or examine the resulting [`Cert`]:
 
 ```rust
 extern crate sequoia_openpgp as openpgp;
@@ -41,21 +41,21 @@ const KEY: &str =
      -----END PGP PUBLIC KEY BLOCK-----";
 
 fn main() {
-    let tpk = openpgp::TPK::from_bytes(KEY.as_bytes()).unwrap();
+    let cert = openpgp::Cert::from_bytes(KEY.as_bytes()).unwrap();
 
-    assert_eq!(tpk.fingerprint().to_string(),
+    assert_eq!(cert.fingerprint().to_string(),
                "C087 4478 A65C 540A 1F73  72B4 A22E AD61 4D11 744A");
 
     // Iterate over UserIDs.
-    assert_eq!(tpk.userids().count(), 1);
-    assert_eq!(tpk.userids().nth(0).unwrap().userid(),
+    assert_eq!(cert.userids().count(), 1);
+    assert_eq!(cert.userids().nth(0).unwrap().userid(),
                &"Ἀριστοτέλης".into());
 
     // Iterate over subkeys.
-    assert_eq!(tpk.subkeys().count(), 2);
-    assert_eq!(tpk.subkeys().nth(0).unwrap().key().fingerprint().to_string(),
+    assert_eq!(cert.subkeys().count(), 2);
+    assert_eq!(cert.subkeys().nth(0).unwrap().key().fingerprint().to_string(),
                "67A4 8753 A380 A6B3 B7DF  7DC5 E6C6 897A 4CEF 8924");
-    assert_eq!(tpk.subkeys().nth(1).unwrap().key().fingerprint().to_string(),
+    assert_eq!(cert.subkeys().nth(1).unwrap().key().fingerprint().to_string(),
                "185C DAA1 2723 0423 19E4  7F67 108F 2CAF 9034 356D");
 }
 ```
@@ -96,13 +96,13 @@ fn main() {
 
 [`PacketPile`]s are unstructured sequences of OpenPGP packets.  Packet
 piles can be inspected, manipulated, validated using a formal grammar
-and thereby turned into [`Message`]s or [`TPK`]s using
-[`Message::from_packet_pile`] or [`TPK::from_packet_pile`], or just
+and thereby turned into [`Message`]s or [`Cert`]s using
+[`Message::from_packet_pile`] or [`Cert::from_packet_pile`], or just
 turned into a vector of [`Packet`]s:
 
 [`PacketPile`]: ../../sequoia_openpgp/struct.PacketPile.html
 [`Packet`]: ../../sequoia_openpgp/enum.Packet.html
-[`TPK::from_packet_pile`]: ../../sequoia_openpgp/struct.TPK.html#method.from_packet_pile
+[`Cert::from_packet_pile`]: ../../sequoia_openpgp/struct.Cert.html#method.from_packet_pile
 [`Message::from_packet_pile`]: ../../sequoia_openpgp/struct.Message.html#method.from_packet_pile
 
 ```rust

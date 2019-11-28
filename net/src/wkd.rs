@@ -36,11 +36,11 @@ use url;
 
 use crate::openpgp::{
     Fingerprint,
-    TPK,
+    Cert,
 };
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
-use crate::openpgp::tpk::TPKParser;
+use crate::openpgp::cert::CertParser;
 
 use super::{Result, Error};
 
@@ -214,7 +214,7 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
 }
 
 
-/// Parse an HTTP response body that may contain TPKs and filter them based on
+/// Parse an HTTP response body that may contain Certs and filter them based on
 /// whether they contain a userid with the given email address.
 ///
 /// From [draft-koch]:
@@ -224,35 +224,35 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
 /// address.
 /// ```
 fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
-        -> Result<Vec<TPK>> {
+        -> Result<Vec<Cert>> {
     let email_address = email_address.as_ref();
     // This will fail on the first packet that can not be parsed.
-    let packets = TPKParser::from_bytes(&body)?;
+    let packets = CertParser::from_bytes(&body)?;
     // Collect only the correct packets.
-    let tpks: Vec<TPK> = packets.flatten().collect();
-    if tpks.is_empty() {
+    let certs: Vec<Cert> = packets.flatten().collect();
+    if certs.is_empty() {
         return Err(Error::NotFound.into());
     }
 
-    // Collect only the TPKs that contain the email in any of their userids
-    let valid_tpks: Vec<TPK> = tpks.iter()
-        // XXX: This filter could become a TPK method, but it adds other API
+    // Collect only the Certs that contain the email in any of their userids
+    let valid_certs: Vec<Cert> = certs.iter()
+        // XXX: This filter could become a Cert method, but it adds other API
         // method to maintain
-        .filter(|tpk| {tpk.userids()
+        .filter(|cert| {cert.userids()
             .any(|uidb|
                 if let Ok(Some(a)) = uidb.userid().email() {
                     a == email_address
                 } else { false })
         }).cloned().collect();
-    if valid_tpks.is_empty() {
+    if valid_certs.is_empty() {
         Err(Error::EmailNotInUserids(email_address.into()).into())
     } else {
-        Ok(valid_tpks)
+        Ok(valid_certs)
     }
 }
 
 
-/// Retrieves the TPKs that contain userids with a given email address
+/// Retrieves the Certs that contain userids with a given email address
 /// from a Web Key Directory URL.
 ///
 /// This function is call by [net::wkd::get](../../wkd/fn.get.html).
@@ -290,13 +290,13 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
 ///
 /// let email_address = "foo@bar.baz";
 /// let mut core = Core::new().unwrap();
-/// let tpks = core.run(wkd::get(&email_address)).unwrap();
+/// let certs = core.run(wkd::get(&email_address)).unwrap();
 /// ```
 
 // XXX: Maybe the direct method should be tried on other errors too.
 // https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
 pub fn get<S: AsRef<str>>(email_address: S)
-                          -> impl Future<Item=Vec<TPK>, Error=failure::Error> {
+                          -> impl Future<Item=Vec<Cert>, Error=failure::Error> {
     let email = email_address.as_ref().to_string();
     future::lazy(move || -> Result<_> {
         // First, prepare URIs and client.
@@ -330,15 +330,15 @@ pub fn get<S: AsRef<str>>(email_address: S)
 /// Inserts a key into a Web Key Directory.
 ///
 /// Creates a WKD hierarchy at `base_path` for `domain`, and inserts
-/// the given `tpk`.  If `tpk` already exists in the WKD, it is
-/// updated.  Any existing TPKs are left in place.
+/// the given `cert`.  If `cert` already exists in the WKD, it is
+/// updated.  Any existing Certs are left in place.
 ///
 /// # Errors
 ///
-/// If the TPK does not have a well-formed UserID with `domain`,
+/// If the Cert does not have a well-formed UserID with `domain`,
 /// `Error::InvalidArgument` is returned.
 pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
-                       tpk: &TPK)
+                       cert: &Cert)
                        -> Result<()>
     where P: AsRef<Path>,
           S: AsRef<str>,
@@ -349,7 +349,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
     let variant = variant.into().unwrap_or_default();
 
     // First, check which UserIDs are in `domain`.
-    let addresses = tpk.userids().filter_map(|uidb| {
+    let addresses = cert.userids().filter_map(|uidb| {
         uidb.userid().email().unwrap_or(None).and_then(|addr| {
             if EmailAddress::from(&addr).ok().map(|e| e.domain == domain)
                 .unwrap_or(false)
@@ -364,7 +364,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
     // Any?
     if addresses.len() == 0 {
         return Err(openpgp::Error::InvalidArgument(
-            format!("Key {} does not have a UserID in {}", tpk, domain)
+            format!("Key {} does not have a UserID in {}", cert, domain)
         ).into());
     }
 
@@ -374,14 +374,14 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
         fs::create_dir_all(path.parent().expect("by construction"))?;
         let mut keyring = KeyRing::default();
         if path.is_file() {
-            for t in TPKParser::from_file(&path).context(
+            for t in CertParser::from_file(&path).context(
                 format!("Error parsing existing file {:?}", path))?
             {
                 keyring.insert(t.context(
-                    format!("Malformed TPK in existing {:?}", path))?)?;
+                    format!("Malformed Cert in existing {:?}", path))?)?;
             }
         }
-        keyring.insert(tpk.clone())?;
+        keyring.insert(cert.clone())?;
         let mut file = fs::File::create(&path)?;
         keyring.export(&mut file)?;
     }
@@ -389,7 +389,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
     Ok(())
 }
 
-struct KeyRing(HashMap<Fingerprint, TPK>);
+struct KeyRing(HashMap<Fingerprint, Cert>);
 
 impl Default for KeyRing {
     fn default() -> Self {
@@ -398,12 +398,12 @@ impl Default for KeyRing {
 }
 
 impl KeyRing {
-    fn insert(&mut self, tpk: TPK) -> Result<()> {
-        let fp = tpk.fingerprint();
+    fn insert(&mut self, cert: Cert) -> Result<()> {
+        let fp = cert.fingerprint();
         if let Some(existing) = self.0.get_mut(&fp) {
-            *existing = existing.clone().merge(tpk)?;
+            *existing = existing.clone().merge(cert)?;
         } else {
-            self.0.insert(fp, tpk);
+            self.0.insert(fp, cert);
         }
         Ok(())
     }
@@ -411,15 +411,15 @@ impl KeyRing {
 
 impl Serialize for KeyRing {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        for tpk in self.0.values() {
-            tpk.serialize(o)?;
+        for cert in self.0.values() {
+            cert.serialize(o)?;
         }
         Ok(())
     }
 
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        for tpk in self.0.values() {
-            tpk.export(o)?;
+        for cert in self.0.values() {
+            cert.export(o)?;
         }
         Ok(())
     }
@@ -429,7 +429,7 @@ impl Serialize for KeyRing {
 #[cfg(test)]
 mod tests {
     use crate::openpgp::serialize::Serialize;
-    use crate::openpgp::tpk::TPKBuilder;
+    use crate::openpgp::cert::CertBuilder;
 
     use super::*;
     use self::Variant::*;
@@ -498,45 +498,45 @@ mod tests {
 
     #[test]
     fn test_parse_body() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_userid("test@example.example")
             .generate()
             .unwrap();
         let mut buffer: Vec<u8> = Vec::new();
-        tpk.serialize(&mut buffer).unwrap();
-        let valid_tpks = parse_body(&buffer, "juga@sequoia-pgp.org");
-        // The userid is not in the TPK
-        assert!(valid_tpks.is_err());
-        // XXX: add userid to the tpk, instead of creating a new one
-        // tpk.add_userid("juga@sequoia.org");
-        let (tpk, _) = TPKBuilder::new()
+        cert.serialize(&mut buffer).unwrap();
+        let valid_certs = parse_body(&buffer, "juga@sequoia-pgp.org");
+        // The userid is not in the Cert
+        assert!(valid_certs.is_err());
+        // XXX: add userid to the cert, instead of creating a new one
+        // cert.add_userid("juga@sequoia.org");
+        let (cert, _) = CertBuilder::new()
             .add_userid("test@example.example")
             .add_userid("juga@sequoia-pgp.org")
             .generate()
             .unwrap();
-        tpk.serialize(&mut buffer).unwrap();
-        let valid_tpks = parse_body(&buffer, "juga@sequoia-pgp.org");
-        assert!(valid_tpks.is_ok());
-        assert!(valid_tpks.unwrap().len() == 1);
-        // XXX: Test with more TPKs
+        cert.serialize(&mut buffer).unwrap();
+        let valid_certs = parse_body(&buffer, "juga@sequoia-pgp.org");
+        assert!(valid_certs.is_ok());
+        assert!(valid_certs.unwrap().len() == 1);
+        // XXX: Test with more Certs
     }
 
     #[test]
     fn wkd_generate() {
-       let (tpk, _) = TPKBuilder::new()
+       let (cert, _) = CertBuilder::new()
             .add_userid("test1@example.example")
             .add_userid("juga@sequoia-pgp.org")
             .generate()
             .unwrap();
-        let (tpk2, _) = TPKBuilder::new()
+        let (cert2, _) = CertBuilder::new()
             .add_userid("justus@sequoia-pgp.org")
             .generate()
             .unwrap();
 
         let dir = tempfile::tempdir().unwrap();
         let dir_path = dir.path();
-        insert(&dir_path, "sequoia-pgp.org", None, &tpk).unwrap();
-        insert(&dir_path, "sequoia-pgp.org", None, &tpk2).unwrap();
+        insert(&dir_path, "sequoia-pgp.org", None, &cert).unwrap();
+        insert(&dir_path, "sequoia-pgp.org", None, &cert2).unwrap();
 
         // justus and juga files will be generated, but not test one.
         let path = dir_path.join(

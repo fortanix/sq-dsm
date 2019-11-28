@@ -128,8 +128,8 @@ use crate::packet::{Container, key};
 
 pub mod parse;
 
-pub mod tpk;
-pub use tpk::TPK;
+pub mod cert;
+pub use cert::Cert;
 pub mod serialize;
 
 mod packet_pile;
@@ -245,16 +245,16 @@ pub enum Error {
     MalformedMessage(String),
 
     /// Malformed tranferable public key.
-    #[fail(display = "Malformed TPK: {}", _0)]
-    MalformedTPK(String),
+    #[fail(display = "Malformed Cert: {}", _0)]
+    MalformedCert(String),
 
-    /// Unsupported TPK.
+    /// Unsupported Cert.
     ///
     /// This usually occurs, because the primary key is in an
     /// unsupported format.  In particular, Sequoia does not support
     /// version 3 keys.
-    #[fail(display = "Unsupported TPK: {}", _0)]
-    UnsupportedTPK(String),
+    #[fail(display = "Unsupported Cert: {}", _0)]
+    UnsupportedCert(String),
 
     /// Index out of range.
     #[fail(display = "Index out of range")]
@@ -385,7 +385,7 @@ impl Packet {
 /// [`PacketPileParser`], or [`PacketPile::from_file`] (or related
 /// routines).
 ///
-/// Normally, you'll want to convert the `PacketPile` to a TPK or a
+/// Normally, you'll want to convert the `PacketPile` to a Cert or a
 /// `Message`.
 ///
 ///   [`PacketParser`]: parse/struct.PacketParser.html

@@ -3,10 +3,10 @@ use std::fmt;
 use crate::Error;
 use crate::Packet;
 use crate::packet::Tag;
-use crate::tpk::SubkeyBinding;
-use crate::tpk::UserIDBinding;
-use crate::tpk::UserAttributeBinding;
-use crate::tpk::UnknownBinding;
+use crate::cert::SubkeyBinding;
+use crate::cert::UserIDBinding;
+use crate::cert::UserAttributeBinding;
+use crate::cert::UnknownBinding;
 
 use crate::packet::key;
 

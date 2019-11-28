@@ -2254,10 +2254,10 @@ struct PacketParserState {
     message_validator: MessageValidator,
 
     /// Whether the packet sequence is a valid OpenPGP keyring.
-    keyring_validator: crate::tpk::KeyringValidator,
+    keyring_validator: crate::cert::KeyringValidator,
 
-    /// Whether the packet sequence is a valid OpenPGP TPK.
-    tpk_validator: crate::tpk::TPKValidator,
+    /// Whether the packet sequence is a valid OpenPGP Cert.
+    cert_validator: crate::cert::CertValidator,
 
     // Whether this is the first packet in the packet sequence.
     first_packet: bool,
@@ -2269,7 +2269,7 @@ impl PacketParserState {
             settings: settings,
             message_validator: Default::default(),
             keyring_validator: Default::default(),
-            tpk_validator: Default::default(),
+            cert_validator: Default::default(),
             first_packet: true,
         }
     }
@@ -2397,7 +2397,7 @@ impl PacketParserEOF {
     fn new(mut state: PacketParserState) -> Self {
         state.message_validator.finish();
         state.keyring_validator.finish();
-        state.tpk_validator.finish();
+        state.cert_validator.finish();
 
         PacketParserEOF {
             state: state,
@@ -2407,7 +2407,7 @@ impl PacketParserEOF {
 
     /// Whether the message is an OpenPGP Message.
     ///
-    /// As opposed to a TPK or just a bunch of packets.
+    /// As opposed to a Cert or just a bunch of packets.
     pub fn is_message(&self) -> Result<()> {
         use crate::message::MessageValidity;
 
@@ -2422,7 +2422,7 @@ impl PacketParserEOF {
     ///
     /// As opposed to a Message or just a bunch of packets.
     pub fn is_keyring(&self) -> Result<()> {
-        use crate::tpk::KeyringValidity;
+        use crate::cert::KeyringValidity;
 
         match self.state.keyring_validator.check() {
             KeyringValidity::Keyring => Ok(()),
@@ -2431,16 +2431,16 @@ impl PacketParserEOF {
         }
     }
 
-    /// Whether the message is an OpenPGP TPK.
+    /// Whether the message is an OpenPGP Cert.
     ///
     /// As opposed to a Message or just a bunch of packets.
-    pub fn is_tpk(&self) -> Result<()> {
-        use crate::tpk::TPKValidity;
+    pub fn is_cert(&self) -> Result<()> {
+        use crate::cert::CertValidity;
 
-        match self.state.tpk_validator.check() {
-            TPKValidity::TPK => Ok(()),
-            TPKValidity::TPKPrefix => unreachable!(),
-            TPKValidity::Error(err) => Err(err),
+        match self.state.cert_validator.check() {
+            CertValidity::Cert => Ok(()),
+            CertValidity::CertPrefix => unreachable!(),
+            CertValidity::Error(err) => Err(err),
         }
     }
 
@@ -2713,7 +2713,7 @@ impl <'a> PacketParser<'a> {
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP keyring.
     pub fn possible_keyring(&self) -> Result<()> {
-        use crate::tpk::KeyringValidity;
+        use crate::cert::KeyringValidity;
 
         match self.state.keyring_validator.check() {
             KeyringValidity::Keyring => unreachable!(),
@@ -2722,19 +2722,19 @@ impl <'a> PacketParser<'a> {
         }
     }
 
-    /// Returns whether the message appears to be an OpenPGP TPK.
+    /// Returns whether the message appears to be an OpenPGP Cert.
     ///
     /// Only when the whole message has been processed is it possible
-    /// to say whether the message is definitely an OpenPGP TPK.
+    /// to say whether the message is definitely an OpenPGP Cert.
     /// Before that, it is only possible to say that the message is a
-    /// valid prefix or definitely not an OpenPGP TPK.
-    pub fn possible_tpk(&self) -> Result<()> {
-        use crate::tpk::TPKValidity;
+    /// valid prefix or definitely not an OpenPGP Cert.
+    pub fn possible_cert(&self) -> Result<()> {
+        use crate::cert::CertValidity;
 
-        match self.state.tpk_validator.check() {
-            TPKValidity::TPK => unreachable!(),
-            TPKValidity::TPKPrefix => Ok(()),
-            TPKValidity::Error(err) => Err(err),
+        match self.state.cert_validator.check() {
+            CertValidity::Cert => unreachable!(),
+            CertValidity::CertPrefix => Ok(()),
+            CertValidity::Error(err) => Err(err),
         }
     }
 
@@ -2774,7 +2774,7 @@ impl <'a> PacketParser<'a> {
             Tag::UserID => bad,
             Tag::UserAttribute => bad,
 
-            // It is reasonable to try and ignore garbage in TPKs,
+            // It is reasonable to try and ignore garbage in Certs,
             // because who knows what the keyservers return, etc.
             // But, if we have what appears to be an OpenPGP message,
             // then, ignore.
@@ -2863,7 +2863,7 @@ impl <'a> PacketParser<'a> {
                     if state.first_packet || skip > 32 * 1024 {
                         // Limit the search space.  This should be
                         // enough to find a reasonable recovery point
-                        // in a TPK.
+                        // in a Cert.
                         return Err(orig_error.unwrap());
                     }
                 }
@@ -3136,7 +3136,7 @@ impl <'a> PacketParser<'a> {
                     let path = pp.path().to_vec();
                     pp.state.message_validator.push(pp.packet.tag(), &path);
                     pp.state.keyring_validator.push(pp.packet.tag());
-                    pp.state.tpk_validator.push(pp.packet.tag());
+                    pp.state.cert_validator.push(pp.packet.tag());
 
                     pp.last_path = self.last_path;
 
@@ -3205,7 +3205,7 @@ impl <'a> PacketParser<'a> {
                             pp.state.message_validator.push(
                                 pp.packet.tag(), &path);
                             pp.state.keyring_validator.push(pp.packet.tag());
-                            pp.state.tpk_validator.push(pp.packet.tag());
+                            pp.state.cert_validator.push(pp.packet.tag());
 
                             pp.last_path = last_path;
 
@@ -4014,7 +4014,7 @@ mod test {
             }
             if let PacketParserResult::EOF(eof) = ppr {
                 assert!(eof.is_keyring().is_ok());
-                assert!(eof.is_tpk().is_err());
+                assert!(eof.is_cert().is_err());
             } else {
                 unreachable!();
             }
@@ -4022,7 +4022,7 @@ mod test {
     }
 
     #[test]
-    fn tpk_validator() {
+    fn cert_validator() {
         for test in &["testy.pgp",
                       "lutz.gpg",
                       "testy-new.pgp",
@@ -4035,12 +4035,12 @@ mod test {
 
             while let PacketParserResult::Some(pp) = ppr {
                 assert!(pp.possible_keyring().is_ok());
-                assert!(pp.possible_tpk().is_ok());
+                assert!(pp.possible_cert().is_ok());
                 ppr = pp.recurse().unwrap().1;
             }
             if let PacketParserResult::EOF(eof) = ppr {
                 assert!(eof.is_keyring().is_ok());
-                assert!(eof.is_tpk().is_ok());
+                assert!(eof.is_cert().is_ok());
             } else {
                 unreachable!();
             }
@@ -4133,10 +4133,10 @@ mod test {
     }
 
     #[test]
-    fn corrupted_tpk() {
+    fn corrupted_cert() {
         use crate::armor::{Reader, ReaderMode, Kind};
 
-        // The following TPK is corrupted about a third the way
+        // The following Cert is corrupted about a third the way
         // through.  Make sure we can recover.
         let mut ppr = PacketParser::from_reader(
             Reader::from_bytes(crate::tests::key("corrupted.pgp"),

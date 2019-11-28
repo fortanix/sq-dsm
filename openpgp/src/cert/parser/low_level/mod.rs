@@ -11,7 +11,7 @@ mod grammar;
 pub(crate) use self::lexer::Token;
 pub(crate) use self::lexer::Lexer;
 
-pub(crate) use self::grammar::TPKParser;
+pub(crate) use self::grammar::CertParser;
 
 // Converts a ParseError<usize, Token, Error> to a
 // ParseError<usize, Tag, Error>.
@@ -57,24 +57,24 @@ pub(crate) fn parse_error_to_openpgp_error(e: ParseError<usize, Tag, Error>)
 {
     match e {
         ParseError::User { error } => error,
-        e => Error::MalformedTPK(format!("{}", e)),
+        e => Error::MalformedCert(format!("{}", e)),
     }
 }
 
-/// Errors that TPKValidator::check may return.
+/// Errors that CertValidator::check may return.
 #[derive(Debug, Clone)]
-pub enum TPKParserError {
+pub enum CertParserError {
     /// A parser error.
     Parser(ParseError<usize, Tag, Error>),
     /// An OpenPGP error.
     OpenPGP(Error),
 }
 
-impl From<TPKParserError> for failure::Error {
-    fn from(err: TPKParserError) -> Self {
+impl From<CertParserError> for failure::Error {
+    fn from(err: CertParserError) -> Self {
         match err {
-            TPKParserError::Parser(p) => p.into(),
-            TPKParserError::OpenPGP(p) => p.into(),
+            CertParserError::Parser(p) => p.into(),
+            CertParserError::OpenPGP(p) => p.into(),
         }
     }
 }

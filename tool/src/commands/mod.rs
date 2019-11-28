@@ -11,7 +11,7 @@ use crate::openpgp::types::{
     CompressionAlgorithm,
 };
 use crate::openpgp::crypto;
-use crate::openpgp::{TPK, KeyID, Result};
+use crate::openpgp::{Cert, KeyID, Result};
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::{
     Parse,
@@ -42,13 +42,13 @@ mod inspect;
 pub use self::inspect::inspect;
 pub mod key;
 
-/// Returns suitable signing keys from a given list of TPKs.
-fn get_signing_keys(tpks: &[openpgp::TPK])
+/// Returns suitable signing keys from a given list of Certs.
+fn get_signing_keys(certs: &[openpgp::Cert])
     -> Result<Vec<crypto::KeyPair<
            openpgp::packet::key::UnspecifiedRole>>>
 {
     let mut keys = Vec::new();
-    'next_tpk: for tsk in tpks {
+    'next_cert: for tsk in certs {
         for key in tsk.keys_valid()
             .signing_capable()
             .map(|k| k.2)
@@ -67,7 +67,7 @@ fn get_signing_keys(tpks: &[openpgp::TPK])
 
                 keys.push(crypto::KeyPair::new(key.clone(), unencrypted)
                           .unwrap());
-                break 'next_tpk;
+                break 'next_cert;
             }
         }
 
@@ -81,12 +81,12 @@ fn get_signing_keys(tpks: &[openpgp::TPK])
 pub fn encrypt(mapping: &mut store::Mapping,
                input: &mut dyn io::Read, output: &mut dyn io::Write,
                npasswords: usize, recipients: Vec<&str>,
-               mut tpks: Vec<openpgp::TPK>, signers: Vec<openpgp::TPK>,
+               mut certs: Vec<openpgp::Cert>, signers: Vec<openpgp::Cert>,
                mode: openpgp::types::KeyFlags,
                compression: &str)
                -> Result<()> {
     for r in recipients {
-        tpks.push(mapping.lookup(r).context("No such key found")?.tpk()?);
+        certs.push(mapping.lookup(r).context("No such key found")?.cert()?);
     }
     let mut passwords: Vec<crypto::Password> = Vec::with_capacity(npasswords);
     for n in 0..npasswords {
@@ -99,7 +99,7 @@ pub fn encrypt(mapping: &mut store::Mapping,
             }))?.into());
     }
 
-    if tpks.len() + passwords.len() == 0 {
+    if certs.len() + passwords.len() == 0 {
         return Err(failure::format_err!(
             "Neither recipient nor password given"));
     }
@@ -107,19 +107,19 @@ pub fn encrypt(mapping: &mut store::Mapping,
     let mut signers = get_signing_keys(&signers)?;
 
     // Build a vector of references to hand to Signer.
-    let recipients: Vec<&openpgp::TPK> = tpks.iter().collect();
+    let recipients: Vec<&openpgp::Cert> = certs.iter().collect();
 
     // Build a vector of recipients to hand to Encryptor.
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();
-    for tpk in tpks.iter() {
+    for cert in certs.iter() {
         let mut count = 0;
-        for (_, _, key) in tpk.keys_valid().key_flags(mode.clone()) {
+        for (_, _, key) in cert.keys_valid().key_flags(mode.clone()) {
             recipient_subkeys.push(key.into());
             count += 1;
         }
         if count == 0 {
             return Err(failure::format_err!(
-                "Key {} has no suitable encryption key", tpk));
+                "Key {} has no suitable encryption key", cert));
         }
     }
 
@@ -183,7 +183,7 @@ struct VHelper<'a> {
     ctx: &'a Context,
     mapping: &'a mut store::Mapping,
     signatures: usize,
-    tpks: Option<Vec<TPK>>,
+    certs: Option<Vec<Cert>>,
     labels: HashMap<KeyID, String>,
     trusted: HashSet<KeyID>,
     good_signatures: usize,
@@ -195,13 +195,13 @@ struct VHelper<'a> {
 
 impl<'a> VHelper<'a> {
     fn new(ctx: &'a Context, mapping: &'a mut store::Mapping, signatures: usize,
-           tpks: Vec<TPK>)
+           certs: Vec<Cert>)
            -> Self {
         VHelper {
             ctx: ctx,
             mapping: mapping,
             signatures: signatures,
-            tpks: Some(tpks),
+            certs: Some(certs),
             labels: HashMap::new(),
             trusted: HashSet::new(),
             good_signatures: 0,
@@ -301,19 +301,19 @@ impl<'a> VHelper<'a> {
 }
 
 impl<'a> VerificationHelper for VHelper<'a> {
-    fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<TPK>> {
-        let mut tpks = self.tpks.take().unwrap();
-        let seen: HashSet<_> = tpks.iter()
-            .flat_map(|tpk| {
+    fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+        let mut certs = self.certs.take().unwrap();
+        let seen: HashSet<_> = certs.iter()
+            .flat_map(|cert| {
                 // Even if a key is revoked or expired, we can still
                 // use it to verify a message.
-                tpk.keys_all().map(|(_, _, key)| key.fingerprint().into())
+                cert.keys_all().map(|(_, _, key)| key.fingerprint().into())
             }).collect();
 
         // Explicitly provided keys are trusted.
         self.trusted = seen.clone();
 
-        // Try to get missing TPKs from the mapping.
+        // Try to get missing Certs from the mapping.
         for id in ids.iter().map(|i| KeyID::from(i.clone()))
             .filter(|i| !seen.contains(i))
         {
@@ -325,10 +325,10 @@ impl<'a> VerificationHelper for VHelper<'a> {
                     // Keys from our mapping are trusted.
                     self.trusted.insert(id.clone());
 
-                    binding.tpk()
+                    binding.cert()
                 })
-                .and_then(|tpk| {
-                    tpks.push(tpk);
+                .and_then(|cert| {
+                    certs.push(cert);
                     Ok(())
                 });
         }
@@ -336,7 +336,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         // Update seen.
         let seen = self.trusted.clone();
 
-        // Try to get missing TPKs from the pool.
+        // Try to get missing Certs from the pool.
         for id in ids.iter().map(|i| KeyID::from(i.clone()))
             .filter(|i| !seen.contains(i))
         {
@@ -344,14 +344,14 @@ impl<'a> VerificationHelper for VHelper<'a> {
                 store::Store::lookup_by_subkeyid(self.ctx, &id)
                 .and_then(|key| {
                     // Keys from the pool are NOT trusted.
-                    key.tpk()
+                    key.cert()
                 })
-                .and_then(|tpk| {
-                    tpks.push(tpk);
+                .and_then(|cert| {
+                    certs.push(cert);
                     Ok(())
                 });
         }
-        Ok(tpks)
+        Ok(certs)
     }
 
     fn check(&mut self, structure: &MessageStructure) -> Result<()> {
@@ -385,9 +385,9 @@ pub fn verify(ctx: &Context, mapping: &mut store::Mapping,
               input: &mut dyn io::Read,
               detached: Option<&mut dyn io::Read>,
               output: &mut dyn io::Write,
-              signatures: usize, tpks: Vec<TPK>)
+              signatures: usize, certs: Vec<Cert>)
               -> Result<()> {
-    let helper = VHelper::new(ctx, mapping, signatures, tpks);
+    let helper = VHelper::new(ctx, mapping, signatures, certs);
     let mut verifier = if let Some(dsig) = detached {
         DetachedVerifier::from_reader(dsig, input, helper, None)?
     } else {

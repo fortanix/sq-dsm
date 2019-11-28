@@ -33,7 +33,7 @@ interface Node {
 
   interface Key {
     stats @0 () -> (result: Result(Stats));
-    tpk @1() -> (result: Result(Data));
+    cert @1() -> (result: Result(Data));
     import @2 (key: Data) -> (result: Result(Data));
     log @3 () -> (result: Result(LogIter));
   }
@@ -116,7 +116,7 @@ interface Node {
     notFound @1;
     conflict @2;
     systemError @3;
-    malformedTPK @4;
+    malformedCert @4;
     networkPolicyViolationOffline @5;
     networkPolicyViolationAnonymized @6;
     networkPolicyViolationEncrypted @7;

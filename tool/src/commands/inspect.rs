@@ -30,7 +30,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
     while let PacketParserResult::Some(mut pp) = ppr {
         match pp.packet {
             Packet::PublicKey(_) | Packet::SecretKey(_) => {
-                if pp.possible_tpk().is_err()
+                if pp.possible_cert().is_err()
                     && pp.possible_keyring().is_ok()
                 {
                     if ! type_called {
@@ -40,8 +40,8 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
                     }
                     let pp = openpgp::PacketPile::from(
                         ::std::mem::replace(&mut packets, Vec::new()));
-                    let tpk = openpgp::TPK::from_packet_pile(pp)?;
-                    inspect_tpk(output, &tpk, print_keygrips,
+                    let cert = openpgp::Cert::from_packet_pile(pp)?;
+                    inspect_cert(output, &cert, print_keygrips,
                                 print_certifications)?;
                 }
             },
@@ -72,7 +72,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
 
     if let PacketParserResult::EOF(eof) = ppr {
         let is_message = eof.is_message();
-        let is_tpk = eof.is_tpk();
+        let is_cert = eof.is_cert();
         let is_keyring = eof.is_keyring();
 
         if is_message.is_ok() {
@@ -97,10 +97,10 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
                          if literal_prefix.len() == 40 { "..." } else { "" })?;
             }
 
-        } else if is_tpk.is_ok() || is_keyring.is_ok() {
+        } else if is_cert.is_ok() || is_keyring.is_ok() {
             let pp = openpgp::PacketPile::from(packets);
-            let tpk = openpgp::TPK::from_packet_pile(pp)?;
-            inspect_tpk(output, &tpk, print_keygrips, print_certifications)?;
+            let cert = openpgp::Cert::from_packet_pile(pp)?;
+            inspect_cert(output, &cert, print_keygrips, print_certifications)?;
         } else if packets.is_empty() && ! sigs.is_empty() {
             writeln!(output, "Detached signature{}.",
                      if sigs.len() > 1 { "s" } else { "" })?;
@@ -111,7 +111,7 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
         } else {
             writeln!(output, "Unknown sequence of OpenPGP packets.")?;
             writeln!(output, "  Message: {}", is_message.unwrap_err())?;
-            writeln!(output, "  TPK: {}", is_tpk.unwrap_err())?;
+            writeln!(output, "  Cert: {}", is_cert.unwrap_err())?;
             writeln!(output, "  Keyring: {}", is_keyring.unwrap_err())?;
             writeln!(output)?;
             writeln!(output, "Hint: Try 'sq packet dump {}'", input_name)?;
@@ -123,19 +123,22 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
     Ok(())
 }
 
-fn inspect_tpk(output: &mut dyn io::Write, tpk: &openpgp::TPK,
+fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
                print_keygrips: bool, print_certifications: bool) -> Result<()> {
-    writeln!(output, "Transferable {} Key.",
-             if tpk.is_tsk() { "Secret" } else { "Public" })?;
+    if cert.is_tsk() {
+        writeln!(output, "Transferable Secret Key.")?;
+    } else {
+        writeln!(output, "OpenPGP Certificate.")?;
+    }
     writeln!(output)?;
-    writeln!(output, "    Fingerprint: {}", tpk.fingerprint())?;
-    inspect_revocation(output, "", tpk.revoked(None))?;
-    inspect_key(output, "", tpk.primary(), tpk.primary_key_signature(None),
-                tpk.certifications(),
+    writeln!(output, "    Fingerprint: {}", cert.fingerprint())?;
+    inspect_revocation(output, "", cert.revoked(None))?;
+    inspect_key(output, "", cert.primary(), cert.primary_key_signature(None),
+                cert.certifications(),
                 print_keygrips, print_certifications)?;
     writeln!(output)?;
 
-    for skb in tpk.subkeys() {
+    for skb in cert.subkeys() {
         writeln!(output, "         Subkey: {}", skb.key().fingerprint())?;
         inspect_revocation(output, "", skb.revoked(None))?;
         inspect_key(output, "", skb.key(), skb.binding_signature(None),
@@ -144,7 +147,7 @@ fn inspect_tpk(output: &mut dyn io::Write, tpk: &openpgp::TPK,
         writeln!(output)?;
     }
 
-    for uidb in tpk.userids() {
+    for uidb in cert.userids() {
         writeln!(output, "         UserID: {}", uidb.userid())?;
         inspect_revocation(output, "", uidb.revoked(None))?;
         if let Some(sig) = uidb.binding_signature(None) {

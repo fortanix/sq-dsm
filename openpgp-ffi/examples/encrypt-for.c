@@ -25,20 +25,20 @@ main (int argc, char **argv)
   pgp_status_t rc;
   pgp_error_t err;
   int use_armor = 1;
-  pgp_tpk_t tpk;
+  pgp_cert_t cert;
   pgp_writer_t sink;
   pgp_writer_stack_t writer = NULL;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <keyfile> <plain >cipher", argv[0]);
 
-  tpk = pgp_tpk_from_file (&err, argv[1]);
-  if (tpk == NULL)
-    error (1, 0, "pgp_tpk_from_file: %s", pgp_error_to_string (err));
+  cert = pgp_cert_from_file (&err, argv[1]);
+  if (cert == NULL)
+    error (1, 0, "pgp_cert_from_file: %s", pgp_error_to_string (err));
 
-  pgp_tpk_key_iter_t iter = pgp_tpk_key_iter_valid (tpk);
-  pgp_tpk_key_iter_encrypting_capable_at_rest (iter);
-  pgp_tpk_key_iter_encrypting_capable_for_transport (iter);
+  pgp_cert_key_iter_t iter = pgp_cert_key_iter_valid (cert);
+  pgp_cert_key_iter_encrypting_capable_at_rest (iter);
+  pgp_cert_key_iter_encrypting_capable_for_transport (iter);
   size_t recipients_len;
   pgp_recipient_t *recipients =
     pgp_recipients_from_key_iter (iter, &recipients_len);
@@ -88,6 +88,6 @@ main (int argc, char **argv)
   for (size_t i = 0; i < recipients_len; i++)
     pgp_recipient_free (recipients[i]);
   free (recipients);
-  pgp_tpk_free (tpk);
+  pgp_cert_free (cert);
   return 0;
 }

@@ -20,21 +20,21 @@ main (int argc, char **argv)
 {
   pgp_error_t err;
   pgp_reader_t reader;
-  pgp_tpk_t tpk;
+  pgp_cert_t cert;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
 
   reader = pgp_reader_from_file (&err, argv[1]);
-  tpk = pgp_tpk_from_reader (&err, reader);
-  if (tpk == NULL)
-    error (1, 0, "pgp_tpk_from_reader: %s", pgp_error_to_string (err));
+  cert = pgp_cert_from_reader (&err, reader);
+  if (cert == NULL)
+    error (1, 0, "pgp_cert_from_reader: %s", pgp_error_to_string (err));
 
-  char *debug = pgp_tpk_debug (tpk);
+  char *debug = pgp_cert_debug (cert);
   printf ("%s", debug);
   free (debug);
 
-  pgp_tpk_free (tpk);
+  pgp_cert_free (cert);
   pgp_reader_free (reader);
   return 0;
 }

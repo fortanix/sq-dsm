@@ -9,8 +9,8 @@ use crate::packet::{
 use crate::Result;
 use crate::packet::Signature;
 use crate::packet::signature;
-use crate::TPK;
-use crate::tpk::TPKRevocationBuilder;
+use crate::Cert;
+use crate::cert::CertRevocationBuilder;
 use crate::Error;
 use crate::conversions::Time;
 use crate::crypto::Password;
@@ -107,9 +107,9 @@ pub struct KeyBlueprint {
 
 /// Simplifies generation of Keys.
 ///
-/// Builder to generate complex TPK hierarchies with multiple user IDs.
+/// Builder to generate complex Cert hierarchies with multiple user IDs.
 #[derive(Clone, Debug)]
-pub struct TPKBuilder {
+pub struct CertBuilder {
     ciphersuite: CipherSuite,
     primary: KeyBlueprint,
     subkeys: Vec<KeyBlueprint>,
@@ -118,17 +118,17 @@ pub struct TPKBuilder {
     password: Option<Password>,
 }
 
-impl TPKBuilder {
-    /// Returns a new TPKBuilder.
+impl CertBuilder {
+    /// Returns a new CertBuilder.
     ///
-    /// The returned TPKBuilder is setup to only create a
+    /// The returned CertBuilder is setup to only create a
     /// certification-capable primary key using the default cipher
     /// suite.  You'll almost certainly want to add subkeys (using
-    /// `TPKBuilder::add_signing_subkey`, or
-    /// `TPKBuilder::add_encryption_subkey`, for instance), and user
-    /// ids (using `TPKBuilder::add_userid`).
+    /// `CertBuilder::add_signing_subkey`, or
+    /// `CertBuilder::add_encryption_subkey`, for instance), and user
+    /// ids (using `CertBuilder::add_userid`).
     pub fn new() -> Self {
-        TPKBuilder{
+        CertBuilder{
             ciphersuite: CipherSuite::default(),
             primary: KeyBlueprint{
                 flags: KeyFlags::default().set_certify(true),
@@ -149,7 +149,7 @@ impl TPKBuilder {
         where C: Into<Option<CipherSuite>>,
               U: Into<packet::UserID>
     {
-        TPKBuilder {
+        CertBuilder {
             ciphersuite: ciphersuite.into().unwrap_or(Default::default()),
             primary: KeyBlueprint {
                 flags: KeyFlags::default()
@@ -185,7 +185,7 @@ impl TPKBuilder {
         where V: Into<Option<Autocrypt>>,
               U: Into<packet::UserID>
     {
-        let builder = TPKBuilder{
+        let builder = CertBuilder{
             ciphersuite: match version.into().unwrap_or(Default::default()) {
                 Autocrypt::V1 => CipherSuite::RSA3k,
                 Autocrypt::V1_1 => CipherSuite::Cv25519,
@@ -298,8 +298,8 @@ impl TPKBuilder {
         self
     }
 
-    /// Generates the actual TPK.
-    pub fn generate(mut self) -> Result<(TPK, Signature)> {
+    /// Generates the actual Cert.
+    pub fn generate(mut self) -> Result<(Cert, Signature)> {
         use crate::{PacketPile, Packet};
         use crate::types::ReasonForRevocation;
 
@@ -326,8 +326,8 @@ impl TPKBuilder {
         }));
         packets.push(sig.clone().into());
 
-        let mut tpk =
-            TPK::from_packet_pile(PacketPile::from(packets))?;
+        let mut cert =
+            Cert::from_packet_pile(PacketPile::from(packets))?;
 
         // Sign UserIDs.
         for uid in self.userids.into_iter() {
@@ -335,8 +335,8 @@ impl TPKBuilder {
                 .set_type(SignatureType::PositiveCertificate)
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
-            let signature = uid.bind(&mut signer, &tpk, builder, None)?;
-            tpk = tpk.merge_packets(vec![uid.into(), signature.into()])?;
+            let signature = uid.bind(&mut signer, &cert, builder, None)?;
+            cert = cert.merge_packets(vec![uid.into(), signature.into()])?;
         }
 
         // Sign UserAttributes.
@@ -345,8 +345,8 @@ impl TPKBuilder {
                 .set_type(SignatureType::PositiveCertificate)
             // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
-            let signature = ua.bind(&mut signer, &tpk, builder, None)?;
-            tpk = tpk.merge_packets(vec![ua.into(), signature.into()])?;
+            let signature = ua.bind(&mut signer, &cert, builder, None)?;
+            cert = cert.merge_packets(vec![ua.into(), signature.into()])?;
         }
 
         // sign subkeys
@@ -391,25 +391,25 @@ impl TPKBuilder {
             }
 
             let signature = subkey.mark_parts_public_ref()
-                .bind(&mut signer, &tpk, builder, None)?;
+                .bind(&mut signer, &cert, builder, None)?;
 
             if let Some(ref password) = self.password {
                 subkey.secret_mut().unwrap().encrypt_in_place(password)?;
             }
-            tpk = tpk.merge_packets(vec![Packet::SecretSubkey(subkey),
+            cert = cert.merge_packets(vec![Packet::SecretSubkey(subkey),
                                          signature.into()])?;
         }
 
-        let revocation = TPKRevocationBuilder::new()
+        let revocation = CertRevocationBuilder::new()
             .set_reason_for_revocation(
                 ReasonForRevocation::Unspecified, b"Unspecified")?
-            .build(&mut signer, &tpk, None)?;
+            .build(&mut signer, &cert, None)?;
 
         // keys generated by the builder are never invalid
-        assert!(tpk.bad.is_empty());
-        assert!(tpk.unknowns.is_empty());
+        assert!(cert.bad.is_empty());
+        assert!(cert.unknowns.is_empty());
 
-        Ok((tpk, revocation))
+        Ok((cert, revocation))
     }
 
     fn primary_key(&self)
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn all_opts() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_userid("test1@example.com")
             .add_userid("test2@example.com")
@@ -454,7 +454,7 @@ mod tests {
             .add_certification_subkey()
             .generate().unwrap();
 
-        let mut userids = tpk.userids()
+        let mut userids = cert.userids()
             .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
@@ -463,23 +463,23 @@ mod tests {
                    &[ "test1@example.com",
                       "test2@example.com",
                    ][..]);
-        assert_eq!(tpk.subkeys().count(), 3);
+        assert_eq!(cert.subkeys().count(), 3);
     }
 
     #[test]
     fn direct_key_sig() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
             .add_encryption_subkey()
             .add_certification_subkey()
             .generate().unwrap();
 
-        assert_eq!(tpk.userids().count(), 0);
-        assert_eq!(tpk.primary_key_signature(None).unwrap().typ(),
+        assert_eq!(cert.userids().count(), 0);
+        assert_eq!(cert.primary_key_signature(None).unwrap().typ(),
                    crate::types::SignatureType::DirectKey);
-        assert_eq!(tpk.subkeys().count(), 3);
-        if let Some(sig) = tpk.primary_key_signature(None) {
+        assert_eq!(cert.subkeys().count(), 3);
+        if let Some(sig) = cert.primary_key_signature(None) {
             assert!(sig.features().supports_mdc());
         } else {
             panic!();
@@ -488,33 +488,33 @@ mod tests {
 
     #[test]
     fn setter() {
-        let (tpk1, _) = TPKBuilder::new()
+        let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_cipher_suite(CipherSuite::RSA3k)
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo(), PublicKeyAlgorithm::EdDSA);
+        assert_eq!(cert1.primary().pk_algo(), PublicKeyAlgorithm::EdDSA);
 
-        let (tpk2, _) = TPKBuilder::new()
+        let (cert2, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::RSA3k)
             .add_userid("test2@example.com")
             .add_encryption_subkey()
             .generate().unwrap();
-        assert_eq!(tpk2.primary().pk_algo(),
+        assert_eq!(cert2.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(tpk2.subkeys().next().unwrap().key().pk_algo(),
+        assert_eq!(cert2.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
     }
 
     #[test]
     fn defaults() {
-        let (tpk1, _) = TPKBuilder::new()
+        let (cert1, _) = CertBuilder::new()
             .add_userid("test2@example.com")
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo(),
+        assert_eq!(cert1.primary().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
-        assert!(tpk1.subkeys().next().is_none());
-        if let Some(sig) = tpk1.primary_key_signature(None) {
+        assert!(cert1.subkeys().next().is_none());
+        if let Some(sig) = cert1.primary_key_signature(None) {
             assert!(sig.features().supports_mdc());
         } else {
             panic!();
@@ -523,77 +523,77 @@ mod tests {
 
     #[test]
     fn autocrypt_v1() {
-        let (tpk1, _) = TPKBuilder::autocrypt(Autocrypt::V1,
+        let (cert1, _) = CertBuilder::autocrypt(Autocrypt::V1,
                                               Some("Foo"))
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo(),
+        assert_eq!(cert1.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(tpk1.subkeys().next().unwrap().key().pk_algo(),
+        assert_eq!(cert1.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(tpk1.userids().count(), 1);
+        assert_eq!(cert1.userids().count(), 1);
     }
 
     #[test]
     fn autocrypt_v1_1() {
-        let (tpk1, _) = TPKBuilder::autocrypt(Autocrypt::V1_1,
+        let (cert1, _) = CertBuilder::autocrypt(Autocrypt::V1_1,
                                               Some("Foo"))
             .generate().unwrap();
-        assert_eq!(tpk1.primary().pk_algo(),
+        assert_eq!(cert1.primary().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
-        assert_eq!(tpk1.subkeys().next().unwrap().key().pk_algo(),
+        assert_eq!(cert1.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::ECDH);
         assert_match!(
             crate::crypto::mpis::PublicKey::ECDH {
                 curve: crate::types::Curve::Cv25519, ..
-            } = tpk1.subkeys().next().unwrap().key().mpis());
-        assert_eq!(tpk1.userids().count(), 1);
+            } = cert1.subkeys().next().unwrap().key().mpis());
+        assert_eq!(cert1.userids().count(), 1);
     }
 
     #[test]
     fn always_certify() {
-        let (tpk1, _) = TPKBuilder::new()
+        let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_keyflags(KeyFlags::default())
             .add_encryption_subkey()
             .generate().unwrap();
-        let sig_pkts = &tpk1.primary_key_signature(None).unwrap().hashed_area();
+        let sig_pkts = &cert1.primary_key_signature(None).unwrap().hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
             SubpacketValue::KeyFlags(ref ks) => assert!(ks.can_certify()),
             v => panic!("Unexpected subpacket: {:?}", v),
         }
 
-        assert_eq!(tpk1.subkeys().count(), 1);
+        assert_eq!(cert1.subkeys().count(), 1);
     }
 
     #[test]
     fn gen_wired_subkeys() {
-        let (tpk1, _) = TPKBuilder::new()
+        let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_keyflags(KeyFlags::default())
             .add_subkey(KeyFlags::default().set_certify(true), None)
             .generate().unwrap();
-        let sig_pkts = tpk1.subkeys().next().unwrap().self_signatures[0].hashed_area();
+        let sig_pkts = cert1.subkeys().next().unwrap().self_signatures[0].hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
             SubpacketValue::KeyFlags(ref ks) => assert!(ks.can_certify()),
             v => panic!("Unexpected subpacket: {:?}", v),
         }
 
-        assert_eq!(tpk1.subkeys().count(), 1);
+        assert_eq!(cert1.subkeys().count(), 1);
     }
 
     #[test]
     fn generate_revocation_certificate() {
         use crate::RevocationStatus;
-        let (tpk, revocation) = TPKBuilder::new()
+        let (cert, revocation) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(tpk.revoked(None),
+        assert_eq!(cert.revoked(None),
                    RevocationStatus::NotAsFarAsWeKnow);
 
-        let tpk = tpk.merge_packets(vec![revocation.clone().into()]).unwrap();
-        assert_eq!(tpk.revoked(None),
+        let cert = cert.merge_packets(vec![revocation.clone().into()]).unwrap();
+        assert_eq!(cert.revoked(None),
                    RevocationStatus::Revoked(vec![ &revocation ]));
     }
 
@@ -601,24 +601,24 @@ mod tests {
     fn builder_roundtrip() {
         use crate::PacketPile;
 
-        let (tpk,_) = TPKBuilder::new()
+        let (cert,_) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
             .generate().unwrap();
-        let pile = tpk.clone().into_packet_pile().into_children().collect::<Vec<_>>();
-        let exp = TPK::from_packet_pile(PacketPile::from(pile))
+        let pile = cert.clone().into_packet_pile().into_children().collect::<Vec<_>>();
+        let exp = Cert::from_packet_pile(PacketPile::from(pile))
             .unwrap();
 
-        assert_eq!(tpk, exp);
+        assert_eq!(cert, exp);
     }
 
     #[test]
     fn encrypted_secrets() {
-        let (tpk,_) = TPKBuilder::new()
+        let (cert,_) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_password(Some(String::from("streng geheim").into()))
             .generate().unwrap();
-        assert!(tpk.primary().secret().unwrap().is_encrypted());
+        assert!(cert.primary().secret().unwrap().is_encrypted());
     }
 
     #[test]
@@ -626,7 +626,7 @@ mod tests {
         use self::CipherSuite::*;
 
         for cs in vec![Cv25519, RSA3k, P256, P384, P521, RSA2k, RSA4k] {
-            assert!(TPKBuilder::new()
+            assert!(CertBuilder::new()
                 .set_cipher_suite(cs)
                 .generate().is_ok());
         }
@@ -635,7 +635,7 @@ mod tests {
     #[test]
     fn expiration_times() {
         let s = std::time::Duration::new(1, 0);
-        let (tpk,_) = TPKBuilder::new()
+        let (cert,_) = CertBuilder::new()
             .set_expiration(600 * s)
             .add_subkey(KeyFlags::default().set_sign(true),
                         300 * s)
@@ -643,20 +643,20 @@ mod tests {
                         None)
             .generate().unwrap();
 
-        let now = tpk.primary().creation_time();
-        let key = tpk.primary();
-        let sig = tpk.primary_key_signature(None).unwrap();
+        let now = cert.primary().creation_time();
+        let key = cert.primary();
+        let sig = cert.primary_key_signature(None).unwrap();
         assert!(sig.key_alive(key, now));
         assert!(sig.key_alive(key, now + 599 * s));
         assert!(! sig.key_alive(key, now + 601 * s));
 
-        let (sig, key) = tpk.keys_valid().signing_capable()
+        let (sig, key) = cert.keys_valid().signing_capable()
             .nth(0).map(|(s, _, k)| (s.unwrap(), k)).unwrap();
         assert!(sig.key_alive(key, now));
         assert!(sig.key_alive(key, now + 299 * s));
         assert!(! sig.key_alive(key, now + 301 * s));
 
-        let (sig, key) = tpk.keys_valid().authentication_capable()
+        let (sig, key) = cert.keys_valid().authentication_capable()
             .nth(0).map(|(s, _, k)| (s.unwrap(), k)).unwrap();
         assert!(sig.key_alive(key, now));
         assert!(sig.key_alive(key, now + 599 * s));

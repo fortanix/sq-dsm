@@ -26,19 +26,19 @@ fn main() {
 }
 
 /// Generates an encryption-capable key.
-fn generate() -> openpgp::Result<openpgp::TPK> {
-    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
+fn generate() -> openpgp::Result<openpgp::Cert> {
+    let (cert, _revocation) = openpgp::cert::CertBuilder::new()
         .add_userid("someone@example.org")
         .add_encryption_subkey()
         .generate()?;
 
     // Save the revocation certificate somewhere.
 
-    Ok(tpk)
+    Ok(cert)
 }
 
 /// Encrypts the given message.
-fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::TPK)
+fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Build a vector of recipients to hand to Encryptor.
     let mut recipients =
@@ -74,7 +74,7 @@ fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::TPK)
 }
 
 /// Decrypts the given message.
-fn decrypt(sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::TPK)
+fn decrypt(sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Make a helper that that feeds the recipient's secret key to the
     // decryptor.
@@ -82,7 +82,7 @@ fn decrypt(sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::TPK)
         secret: recipient,
     };
 
-    // Now, create a decryptor with a helper using the given TPKs.
+    // Now, create a decryptor with a helper using the given Certs.
     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 
     // Decrypt the data.
@@ -92,12 +92,12 @@ fn decrypt(sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::TPK)
 }
 
 struct Helper<'a> {
-    secret: &'a openpgp::TPK,
+    secret: &'a openpgp::Cert,
 }
 
 impl<'a> VerificationHelper for Helper<'a> {
     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-                       -> openpgp::Result<Vec<openpgp::TPK>> {
+                       -> openpgp::Result<Vec<openpgp::Cert>> {
         // Return public keys for signature verification here.
         Ok(Vec::new())
     }
@@ -129,6 +129,6 @@ impl<'a> DecryptionHelper for Helper<'a> {
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
             .map(|_| None)
         // XXX: In production code, return the Fingerprint of the
-        // recipient's TPK here
+        // recipient's Cert here
     }
 }

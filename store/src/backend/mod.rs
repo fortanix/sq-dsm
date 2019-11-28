@@ -25,7 +25,7 @@ use tokio_core::reactor::{Handle, Timeout};
 use tokio_core;
 use tokio_io::io::ReadHalf;
 
-use crate::openpgp::{self, TPK, KeyID, Fingerprint};
+use crate::openpgp::{self, Cert, KeyID, Fingerprint};
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
 use sequoia_core as core;
@@ -197,7 +197,7 @@ impl node::Server for NodeServer {
               mut results: node::ImportResults)
               -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let new = sry!(TPK::from_bytes(&pry!(pry!(params.get()).get_key())));
+        let new = sry!(Cert::from_bytes(&pry!(pry!(params.get()).get_key())));
         let fp = new.fingerprint();
         let key_id = sry!(KeyServer::lookup_or_create(&self.c, &fp));
         let key = KeyServer::new(self.c.clone(), key_id);
@@ -556,7 +556,7 @@ impl node::binding::Server for BindingServer {
         let force = pry!(params.get()).get_force();
 
         // This is the key to import.
-        let mut new = sry!(TPK::from_bytes(&pry!(pry!(params.get()).get_key())));
+        let mut new = sry!(Cert::from_bytes(&pry!(pry!(params.get()).get_key())));
 
         // Check in the database for the current key.
         let key_id = sry!(self.key_id());
@@ -566,9 +566,9 @@ impl node::binding::Server for BindingServer {
                 &[&key_id],
                 |row| Ok((row.get(0)?, row.get(1).ok()))));
 
-        // If we found one, convert it to TPK.
+        // If we found one, convert it to Cert.
         let current = if let Some(current) = key {
-            let current = sry!(TPK::from_bytes(&current));
+            let current = sry!(Cert::from_bytes(&current));
             if current.fingerprint().to_hex() != fingerprint {
                 // Inconsistent database.
                 fail!(node::Error::SystemError);
@@ -767,7 +767,7 @@ impl KeyServer {
     /// Merges other into this key updating the database.
     ///
     /// Returns the merged key as blob.
-    fn merge(&self, other: TPK) -> Result<Vec<u8>> {
+    fn merge(&self, other: Cert) -> Result<Vec<u8>> {
         let mut new = other;
 
         // Get the current key from the database.
@@ -779,7 +779,7 @@ impl KeyServer {
 
         // If there was a key stored there, merge it.
         if let Some(current) = key {
-            let current = TPK::from_bytes(&current)?;
+            let current = Cert::from_bytes(&current)?;
 
             if current.fingerprint().to_hex() != fingerprint {
                 // Inconsistent database.
@@ -805,8 +805,8 @@ impl KeyServer {
     }
 
     /// Keeps the mapping of (sub)KeyIDs to keys up-to-date.
-    fn reindex_subkeys(c: &Connection, key_id: ID, tpk: &TPK) -> Result<()> {
-        for (_, _, key) in tpk.keys_all() {
+    fn reindex_subkeys(c: &Connection, key_id: ID, cert: &Cert) -> Result<()> {
+        for (_, _, key) in cert.keys_all() {
             let keyid = key.keyid().as_u64()
                 .expect("computed keyid is valid");
 
@@ -935,12 +935,12 @@ impl KeyServer {
         if at <= now {
             Box::new(
                 keyserver.get(&id)
-                    .then(move |tpk| {
+                    .then(move |cert| {
                         let next = Self::need_update(&c, network_policy)
                             .map(|c| refresh_interval() / c)
                             .unwrap_or(min_sleep_time());
 
-                        if let Err(e) = tpk.map(|t| key.merge(t)) {
+                        if let Err(e) = cert.map(|t| key.merge(t)) {
                             key.error("Update unsuccessful",
                                       &format!("{:?}", e), next / 2)
                                 .unwrap_or(());
@@ -1022,9 +1022,9 @@ impl node::key::Server for KeyServer {
         Promise::ok(())
     }
 
-    fn tpk(&mut self,
-           _: node::key::TpkParams,
-           mut results: node::key::TpkResults)
+    fn cert(&mut self,
+           _: node::key::CertParams,
+           mut results: node::key::CertResults)
            -> Promise<(), capnp::Error> {
         bind_results!(results);
         let key: Vec<u8> = sry!(
@@ -1041,7 +1041,7 @@ impl node::key::Server for KeyServer {
               mut results: node::key::ImportResults)
               -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let new = sry!(TPK::from_bytes(&pry!(pry!(params.get()).get_key())));
+        let new = sry!(Cert::from_bytes(&pry!(pry!(params.get()).get_key())));
         let blob = sry!(self.merge(new));
         pry!(pry!(results.get().get_result()).set_ok(&blob[..]));
         Promise::ok(())
@@ -1248,7 +1248,7 @@ impl fmt::Debug for node::Error {
                    &node::Error::NotFound => "NotFound",
                    &node::Error::Conflict => "Conflict",
                    &node::Error::SystemError => "SystemError",
-                   &node::Error::MalformedTPK => "MalformedTPK",
+                   &node::Error::MalformedCert => "MalformedCert",
                    &node::Error::MalformedFingerprint => "MalformedFingerprint",
                    &node::Error::NetworkPolicyViolationOffline =>
                        "NetworkPolicyViolation(Offline)",
@@ -1281,8 +1281,8 @@ impl From<failure::Error> for node::Error {
     fn from(e: failure::Error) -> Self {
         if let Some(e) = e.downcast_ref::<openpgp::Error>() {
             return match e {
-                &openpgp::Error::MalformedTPK(_) =>
-                    node::Error::MalformedTPK,
+                &openpgp::Error::MalformedCert(_) =>
+                    node::Error::MalformedCert,
                 _ => node::Error::SystemError,
             }
         }
@@ -1333,8 +1333,8 @@ impl From<failure::Error> for node::Error {
 impl From<openpgp::Error> for node::Error {
     fn from(e: openpgp::Error) -> Self {
         match e {
-            openpgp::Error::MalformedTPK(_) =>
-                node::Error::MalformedTPK,
+            openpgp::Error::MalformedCert(_) =>
+                node::Error::MalformedCert,
             _ => node::Error::SystemError,
         }
     }

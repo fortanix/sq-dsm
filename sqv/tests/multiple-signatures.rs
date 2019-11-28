@@ -6,11 +6,11 @@ fn p(filename: &str) -> String {
     format!("../openpgp/tests/data/{}", filename)
 }
 
-/// Asserts that multiple signatures from the same TPK are properly
+/// Asserts that multiple signatures from the same Cert are properly
 /// ignored.
 #[test]
 fn ignore_multiple_signatures() {
-    // Multiple signatures from the same TPK are ignored, and fails to
+    // Multiple signatures from the same Cert are ignored, and fails to
     // meet the threshold.
     Assert::cargo_binary("sqv")
         .with_args(

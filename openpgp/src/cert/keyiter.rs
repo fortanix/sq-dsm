@@ -8,14 +8,14 @@ use crate::{
     types::KeyFlags,
     conversions::Time,
     packet::Signature,
-    TPK,
-    tpk::KeyBindingIter,
+    Cert,
+    cert::KeyBindingIter,
 };
 
 /// An iterator over all `Key`s (both the primary key and any subkeys)
-/// in a TPK.
+/// in a Cert.
 ///
-/// Returned by `TPK::keys_all()` and `TPK::keys_valid()`.
+/// Returned by `Cert::keys_all()` and `Cert::keys_valid()`.
 ///
 /// `KeyIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
@@ -26,7 +26,7 @@ use crate::{
 /// `KeyIter::flags` to only return keys with particular flags set.
 pub struct KeyIter<'a, P: key::KeyParts, R: key::KeyRole> {
     // This is an option to make it easier to create an empty KeyIter.
-    tpk: Option<&'a TPK>,
+    cert: Option<&'a Cert>,
     primary: bool,
     subkey_iter: KeyBindingIter<'a,
                                 key::PublicParts,
@@ -113,10 +113,10 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
         tracer!(false, "KeyIter::next", 0);
         t!("KeyIter: {:?}", self);
 
-        if self.tpk.is_none() {
+        if self.cert.is_none() {
             return None;
         }
-        let tpk = self.tpk.unwrap();
+        let cert = self.cert.unwrap();
 
         if let Some(flags) = self.flags.as_ref() {
             if flags.is_empty() {
@@ -131,9 +131,9 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
                 = if ! self.primary {
                     self.primary = true;
 
-                    (tpk.primary_key_signature(None),
-                     tpk.revoked(None),
-                     tpk.primary().into())
+                    (cert.primary_key_signature(None),
+                     cert.revoked(None),
+                     cert.primary().into())
                 } else {
                     self.subkey_iter.next()
                         .map(|sk_binding| (sk_binding.binding_signature(None),
@@ -229,11 +229,11 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
 impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
 {
     /// Returns a new `KeyIter` instance with no filters enabled.
-    pub(crate) fn new(tpk: &'a TPK) -> Self where Self: 'a {
+    pub(crate) fn new(cert: &'a Cert) -> Self where Self: 'a {
         KeyIter {
-            tpk: Some(tpk),
+            cert: Some(cert),
             primary: false,
-            subkey_iter: tpk.subkeys(),
+            subkey_iter: cert.subkeys(),
 
             // The filters.
             flags: None,
@@ -249,15 +249,15 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
 
     /// Clears all filters.
     ///
-    /// This causes the `KeyIter` to return all keys in the TPK.
+    /// This causes the `KeyIter` to return all keys in the Cert.
     pub fn unfiltered(self) -> Self {
-        KeyIter::new(self.tpk.unwrap())
+        KeyIter::new(self.cert.unwrap())
     }
 
     /// Returns an empty KeyIter.
     pub fn empty() -> Self {
         KeyIter {
-            tpk: None,
+            cert: None,
             primary: false,
             subkey_iter: KeyBindingIter { iter: None },
 
@@ -279,7 +279,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// If you call this function (or one of `certification_capable`
     /// or `signing_capable` functions) multiple times, the *union* of
     /// the values is used.  Thus,
-    /// `tpk.flags().certification_capable().signing_capable()` will
+    /// `cert.flags().certification_capable().signing_capable()` will
     /// return keys that are certification capable or signing capable.
     ///
     /// If you need more complex filtering, e.g., you want a key that
@@ -378,7 +378,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// Changes the filter to only return keys with secret key material.
     pub fn secret(self) -> KeyIter<'a, key::SecretParts, R> {
         KeyIter {
-            tpk: self.tpk,
+            cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
 
@@ -398,7 +398,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// key material.
     pub fn unencrypted_secret(self)  -> KeyIter<'a, key::SecretParts, R> {
         KeyIter {
-            tpk: self.tpk,
+            cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
 
@@ -420,82 +420,82 @@ mod test {
     use super::*;
     use crate::{
         parse::Parse,
-        tpk::builder::TPKBuilder,
+        cert::builder::CertBuilder,
     };
 
     #[test]
     fn key_iter_test() {
-        let key = TPK::from_bytes(crate::tests::key("neal.pgp")).unwrap();
+        let key = Cert::from_bytes(crate::tests::key("neal.pgp")).unwrap();
         assert_eq!(1 + key.subkeys().count(),
                    key.keys_all().count());
     }
 
     #[test]
     fn select_no_keys() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
-        assert_eq!(tpk.keys_all().key_flags(flags).count(), 0);
+        assert_eq!(cert.keys_all().key_flags(flags).count(), 0);
     }
 
     #[test]
     fn select_valid_and_right_flags() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_encryption_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
-        assert_eq!(tpk.keys_all().key_flags(flags).count(), 1);
+        assert_eq!(cert.keys_all().key_flags(flags).count(), 1);
     }
 
     #[test]
     fn select_valid_and_wrong_flags() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_encryption_subkey()
             .add_signing_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
-        assert_eq!(tpk.keys_all().key_flags(flags).count(), 1);
+        assert_eq!(cert.keys_all().key_flags(flags).count(), 1);
     }
 
     #[test]
     fn select_invalid_and_right_flags() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_encryption_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
         let now = std::time::SystemTime::now().canonicalize()
             - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
-        assert_eq!(tpk.keys_all().key_flags(flags).alive_at(now).count(), 0);
+        assert_eq!(cert.keys_all().key_flags(flags).alive_at(now).count(), 0);
     }
 
     #[test]
     fn select_primary() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_certification_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_certify(true);
 
-        assert_eq!(tpk.keys_all().key_flags(flags).count(), 2);
+        assert_eq!(cert.keys_all().key_flags(flags).count(), 2);
     }
 
     #[test]
     fn selectors() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_signing_subkey()
             .add_certification_subkey()
             .add_encryption_subkey()
             .add_authentication_subkey()
             .generate().unwrap();
-        assert_eq!(tpk.keys_valid().certification_capable().count(), 2);
-        assert_eq!(tpk.keys_valid().encrypting_capable_for_transport().count(),
+        assert_eq!(cert.keys_valid().certification_capable().count(), 2);
+        assert_eq!(cert.keys_valid().encrypting_capable_for_transport().count(),
                    1);
-        assert_eq!(tpk.keys_valid().encrypting_capable_at_rest().count(), 1);
-        assert_eq!(tpk.keys_valid().signing_capable().count(), 1);
-        assert_eq!(tpk.keys_valid().key_flags(
+        assert_eq!(cert.keys_valid().encrypting_capable_at_rest().count(), 1);
+        assert_eq!(cert.keys_valid().signing_capable().count(), 1);
+        assert_eq!(cert.keys_valid().key_flags(
             KeyFlags::default().set_authenticate(true)).count(), 1);
     }
 }

@@ -19,7 +19,7 @@ use crate::openpgp::serialize::stream::{
 use crate::create_or_stdout;
 
 pub fn sign(input: &mut dyn io::Read, output_path: Option<&str>,
-            secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
+            secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
             append: bool, notarize: bool, force: bool)
             -> Result<()> {
     match (detached, append|notarize) {
@@ -32,7 +32,7 @@ pub fn sign(input: &mut dyn io::Read, output_path: Option<&str>,
 }
 
 fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
-             secrets: Vec<openpgp::TPK>, detached: bool, binary: bool,
+             secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
              append: bool, force: bool)
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
@@ -129,7 +129,7 @@ fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
 }
 
 fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
-                secrets: Vec<openpgp::TPK>, binary: bool, notarize: bool,
+                secrets: Vec<openpgp::Cert>, binary: bool, notarize: bool,
                 force: bool)
              -> Result<()> {
     let mut output = create_or_stdout(output_path, force)?;

@@ -103,9 +103,9 @@ typedef enum pgp_status {
   PGP_STATUS_MISSING_SESSION_KEY = -27,
 
   /*/
-  /// Malformed TPK.
+  /// Malformed Cert.
   /*/
-  PGP_STATUS_MALFORMED_TPK = -13,
+  PGP_STATUS_MALFORMED_Cert = -13,
 
   /*/
   /// Bad signature.
@@ -128,9 +128,9 @@ typedef enum pgp_status {
   PGP_STATUS_INDEX_OUT_OF_RANGE = -23,
 
   /*/
-  /// TPK not supported.
+  /// Cert not supported.
   /*/
-  PGP_STATUS_UNSUPPORTED_TPK = -24,
+  PGP_STATUS_UNSUPPORTED_Cert = -24,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */

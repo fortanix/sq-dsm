@@ -2,7 +2,7 @@ from _sequoia import ffi, lib
 
 from .error import Error
 from .glue import _str, _static_str, SQObject, sq_iterator, sq_time
-from .openpgp import Fingerprint, TPK
+from .openpgp import Fingerprint, Cert
 
 class Store(object):
     @classmethod
@@ -50,9 +50,9 @@ class Mapping(SQObject):
                                         label.encode(), fingerprint.ref()),
                        context=self.context())
 
-    def import_(self, label, tpk):
-        return TPK(lib.sq_mapping_import(self.context().ref(), self.ref(),
-                                       label.encode(), tpk.ref()),
+    def import_(self, label, cert):
+        return Cert(lib.sq_mapping_import(self.context().ref(), self.ref(),
+                                       label.encode(), cert.ref()),
                    context=self.context())
 
     def lookup(self, label):
@@ -102,16 +102,16 @@ class Binding(SQObject):
         return Key(lib.sq_binding_key(self.context().ref(), self.ref()),
                    self.context())
 
-    def tpk(self):
-        return TPK(lib.sq_binding_tpk(self.context().ref(), self.ref()),
+    def cert(self):
+        return Cert(lib.sq_binding_cert(self.context().ref(), self.ref()),
                    self.context())
 
-    def import_(self, tpk):
-        return TPK(lib.sq_binding_import(self.context().ref(), self.ref(), tpk),
+    def import_(self, cert):
+        return Cert(lib.sq_binding_import(self.context().ref(), self.ref(), cert),
                    self.context())
 
-    def rotate(self, tpk):
-        return TPK(lib.sq_binding_rotate(self.context().ref(), self.ref(), tpk),
+    def rotate(self, cert):
+        return Cert(lib.sq_binding_rotate(self.context().ref(), self.ref(), cert),
                    self.context())
 
     def delete(self):
@@ -134,12 +134,12 @@ class Key(SQObject):
         return Stats(lib.sq_key_stats(self.context().ref(), self.ref()),
                      self.context())
 
-    def tpk(self):
-        return TPK(lib.sq_key_tpk(self.context().ref(), self.ref()),
+    def cert(self):
+        return Cert(lib.sq_key_cert(self.context().ref(), self.ref()),
                    self.context())
 
-    def import_(self, tpk):
-        return TPK(lib.sq_key_import(self.context().ref(), self.ref(), tpk),
+    def import_(self, cert):
+        return Cert(lib.sq_key_import(self.context().ref(), self.ref(), cert),
                    self.context())
 
     def log(self):

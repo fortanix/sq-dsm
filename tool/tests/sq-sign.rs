@@ -7,7 +7,7 @@ extern crate tempfile;
 use tempfile::TempDir;
 
 extern crate sequoia_openpgp as openpgp;
-use crate::openpgp::{Packet, PacketPile, TPK};
+use crate::openpgp::{Packet, PacketPile, Cert};
 use crate::openpgp::crypto::KeyPair;
 use crate::openpgp::packet::key::SecretKeyMaterial;
 use crate::openpgp::types::{CompressionAlgorithm, SignatureType};
@@ -66,7 +66,7 @@ fn sq_sign() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/dennis-simon-anton.pgp"),
               &sig.to_string_lossy()])
         .unwrap();
@@ -120,7 +120,7 @@ fn sq_sign_append() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/dennis-simon-anton.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -183,7 +183,7 @@ fn sq_sign_append() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/dennis-simon-anton.pgp"),
               &sig1.to_string_lossy()])
         .unwrap();
@@ -192,7 +192,7 @@ fn sq_sign_append() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig1.to_string_lossy()])
         .unwrap();
@@ -206,7 +206,7 @@ fn sq_sign_append_on_compress_then_sign() {
 
     // This is quite an odd scheme, so we need to create such a
     // message by foot.
-    let tsk = TPK::from_file(&p("keys/dennis-simon-anton-private.pgp"))
+    let tsk = Cert::from_file(&p("keys/dennis-simon-anton-private.pgp"))
         .unwrap();
     let key = tsk.keys_all().signing_capable().nth(0).unwrap().2;
     let sec = match key.secret() {
@@ -255,7 +255,7 @@ fn sq_sign_append_on_compress_then_sign() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/dennis-simon-anton.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -322,7 +322,7 @@ fn sq_sign_append_on_compress_then_sign() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/dennis-simon-anton.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -331,7 +331,7 @@ fn sq_sign_append_on_compress_then_sign() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -375,7 +375,7 @@ fn sq_sign_detached() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/dennis-simon-anton.pgp"),
               "--detached",
               &sig.to_string_lossy(),
@@ -421,7 +421,7 @@ fn sq_sign_detached_append() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/dennis-simon-anton.pgp"),
               "--detached",
               &sig.to_string_lossy(),
@@ -482,7 +482,7 @@ fn sq_sign_detached_append() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/dennis-simon-anton.pgp"),
               "--detached",
               &sig.to_string_lossy(),
@@ -493,7 +493,7 @@ fn sq_sign_detached_append() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               "--detached",
               &sig.to_string_lossy(),
@@ -610,7 +610,7 @@ fn sq_sign_append_a_notarization() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/neal.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -619,7 +619,7 @@ fn sq_sign_append_a_notarization() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -628,7 +628,7 @@ fn sq_sign_append_a_notarization() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -696,7 +696,7 @@ fn sq_sign_notarize() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/neal.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -705,7 +705,7 @@ fn sq_sign_notarize() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -785,7 +785,7 @@ fn sq_sign_notarize_a_notarization() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/neal.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -794,7 +794,7 @@ fn sq_sign_notarize_a_notarization() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
@@ -803,7 +803,7 @@ fn sq_sign_notarize_a_notarization() {
             &["--home",
               &tmp_dir.path().to_string_lossy(),
               "verify",
-              "--public-key-file",
+              "--sender-cert-file",
               &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();

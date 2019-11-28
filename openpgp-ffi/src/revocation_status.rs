@@ -19,7 +19,7 @@ fn revocation_status_to_int(rs: &openpgp::RevocationStatus) -> c_int {
     }
 }
 
-/// Returns the TPK's revocation status variant.
+/// Returns the Cert's revocation status variant.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_revocation_status_variant(
     rs: *const RevocationStatus)

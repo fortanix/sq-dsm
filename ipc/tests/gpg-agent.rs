@@ -15,7 +15,7 @@ use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::stream::*;
 use crate::openpgp::serialize::{Serialize, stream::*};
-use crate::openpgp::tpk::{TPKBuilder, CipherSuite};
+use crate::openpgp::cert::{CertBuilder, CipherSuite};
 
 extern crate sequoia_ipc as ipc;
 use crate::ipc::gnupg::{Context, Agent, KeyPair};
@@ -84,18 +84,18 @@ fn sign() {
     let ctx = make_context!();
 
     for cs in &[RSA2k, Cv25519, P521] {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .set_cipher_suite(*cs)
             .add_userid("someone@example.org")
             .add_signing_subkey()
             .generate().unwrap();
 
         let mut buf = Vec::new();
-        tpk.as_tsk().serialize(&mut buf).unwrap();
+        cert.as_tsk().serialize(&mut buf).unwrap();
         gpg_import(&ctx, &buf);
 
         let keypair = KeyPair::new(
-            &ctx, tpk.keys_valid().signing_capable().take(1).next().unwrap().2)
+            &ctx, cert.keys_valid().signing_capable().take(1).next().unwrap().2)
             .unwrap();
 
         let mut message = Vec::new();
@@ -123,9 +123,9 @@ fn sign() {
 
         // Make a helper that that feeds the sender's public key to the
         // verifier.
-        let helper = Helper { tpk: &tpk };
+        let helper = Helper { cert: &cert };
 
-        // Now, create a verifier with a helper using the given TPKs.
+        // Now, create a verifier with a helper using the given Certs.
         let mut verifier =
             Verifier::from_bytes(&message, helper, None).unwrap();
 
@@ -136,14 +136,14 @@ fn sign() {
     }
 
     struct Helper<'a> {
-        tpk: &'a openpgp::TPK,
+        cert: &'a openpgp::Cert,
     }
 
     impl<'a> VerificationHelper for Helper<'a> {
         fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-                           -> openpgp::Result<Vec<openpgp::TPK>> {
+                           -> openpgp::Result<Vec<openpgp::Cert>> {
             // Return public keys for signature verification here.
-            Ok(vec![self.tpk.clone()])
+            Ok(vec![self.cert.clone()])
         }
 
         fn check(&mut self, structure: &MessageStructure)
@@ -195,20 +195,20 @@ fn decrypt() {
     let ctx = make_context!();
 
     for cs in &[RSA2k, Cv25519, P521] {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .set_cipher_suite(*cs)
             .add_userid("someone@example.org")
             .add_encryption_subkey()
             .generate().unwrap();
 
         let mut buf = Vec::new();
-        tpk.as_tsk().serialize(&mut buf).unwrap();
+        cert.as_tsk().serialize(&mut buf).unwrap();
         gpg_import(&ctx, &buf);
 
         let mut message = Vec::new();
         {
             let recipient =
-                tpk.keys_valid().key_flags(
+                cert.keys_valid().key_flags(
                     KeyFlags::default().set_encrypt_for_transport(true))
                 .map(|(_, _, key)| key.into())
                 .nth(0).unwrap();
@@ -234,9 +234,9 @@ fn decrypt() {
 
         // Make a helper that that feeds the recipient's secret key to the
         // decryptor.
-        let helper = Helper { ctx: &ctx, tpk: &tpk, };
+        let helper = Helper { ctx: &ctx, cert: &cert, };
 
-        // Now, create a decryptor with a helper using the given TPKs.
+        // Now, create a decryptor with a helper using the given Certs.
         let mut decryptor = Decryptor::from_bytes(&message, helper, None)
             .unwrap();
 
@@ -247,12 +247,12 @@ fn decrypt() {
 
         struct Helper<'a> {
             ctx: &'a Context,
-            tpk: &'a openpgp::TPK,
+            cert: &'a openpgp::Cert,
         }
 
         impl<'a> VerificationHelper for Helper<'a> {
             fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-                               -> openpgp::Result<Vec<openpgp::TPK>> {
+                               -> openpgp::Result<Vec<openpgp::Cert>> {
                 // Return public keys for signature verification here.
                 Ok(Vec::new())
             }
@@ -275,7 +275,7 @@ fn decrypt() {
             {
                 let mut keypair = KeyPair::new(
                     self.ctx,
-                    self.tpk.keys_valid().key_flags(
+                    self.cert.keys_valid().key_flags(
                         KeyFlags::default().set_encrypt_for_transport(true))
                         .take(1).next().unwrap().2)
                     .unwrap();
@@ -284,7 +284,7 @@ fn decrypt() {
                     .and_then(|(algo, session_key)| decrypt(algo, &session_key))
                     .map(|_| None)
                 // XXX: In production code, return the Fingerprint of the
-                // recipient's TPK here
+                // recipient's Cert here
             }
         }
     }

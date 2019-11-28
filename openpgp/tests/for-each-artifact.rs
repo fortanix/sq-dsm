@@ -27,18 +27,18 @@ mod for_each_artifact {
     }
 
     #[test]
-    fn tpk_roundtrip() {
+    fn cert_roundtrip() {
         for_all_files(&test_data_dir(), |src| {
-            let p = if let Ok(tpk) = openpgp::TPK::from_file(src) {
-                tpk
+            let p = if let Ok(cert) = openpgp::Cert::from_file(src) {
+                cert
             } else {
-                // Ignore non-TPK files.
+                // Ignore non-Cert files.
                 return Ok(());
             };
 
             let mut v = Vec::new();
             p.as_tsk().serialize(&mut v)?;
-            let q = openpgp::TPK::from_bytes(&v)?;
+            let q = openpgp::Cert::from_bytes(&v)?;
             if p != q {
                 eprintln!("roundtripping {:?} failed", src);
 

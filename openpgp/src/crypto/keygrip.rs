@@ -327,7 +327,7 @@ mod tests {
              KG::from_hex("8F669049015534649776D0F1F439D37EE3F3D948").unwrap()),
         ].iter().cloned().collect();
 
-        for (name, tpk) in [
+        for (name, cert) in [
             "testy.pgp",
             "neal.pgp",
             "dennis-simon-anton.pgp",
@@ -337,10 +337,10 @@ mod tests {
             "erika-corinna-daniela-simone-antonia-nistp384.pgp",
             "erika-corinna-daniela-simone-antonia-nistp521.pgp",
         ]
-            .iter().map(|n| (n, crate::TPK::from_bytes(crate::tests::key(n)).unwrap()))
+            .iter().map(|n| (n, crate::Cert::from_bytes(crate::tests::key(n)).unwrap()))
         {
             eprintln!("{}", name);
-            for key in tpk.keys_all() {
+            for key in cert.keys_all() {
                 let fp = key.2.fingerprint();
                 eprintln!("(sub)key: {}", fp);
                 assert_eq!(&key.2.mpis().keygrip().unwrap(),

@@ -37,7 +37,7 @@ use self::openpgp::serialize::{
 
 use super::keyid::KeyID;
 use super::packet::key::Key;
-use super::tpk::KeyIterWrapper;
+use super::cert::KeyIterWrapper;
 
 /// Streams an OpenPGP message.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
@@ -270,7 +270,7 @@ fn pgp_recipient_set_keyid(recipient: *mut Recipient, keyid: *mut KeyID) {
     recipient.ref_mut_raw().set_keyid(keyid.move_from_raw());
 }
 
-/// Collects recipients from a `pgp_tpk_key_iter_t`.
+/// Collects recipients from a `pgp_cert_key_iter_t`.
 ///
 /// Consumes the iterator.  The returned buffer must be freed using
 /// libc's allocator.
@@ -306,7 +306,7 @@ fn pgp_recipients_from_key_iter<'a>(
 ///
 /// The stream will be encrypted using a generated session key,
 /// which will be encrypted using the given passwords, and all
-/// encryption-capable subkeys of the given TPKs.
+/// encryption-capable subkeys of the given Certs.
 ///
 /// The recipients are consumed.
 ///

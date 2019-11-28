@@ -26,7 +26,7 @@ void sq_mapping_free (sq_mapping_t mapping);
 /*/
 /// Represents an entry in a Mapping.
 ///
-/// Mappings map labels to TPKs.  A `Binding` represents a pair in this
+/// Mappings map labels to Certs.  A `Binding` represents a pair in this
 /// relation.  We make this explicit because we associate metadata
 /// with these pairs.
 /*/
@@ -40,8 +40,8 @@ void sq_binding_free (sq_binding_t binding);
 /*/
 /// Represents a key in a mapping.
 ///
-/// A `Key` is a handle to a stored TPK.  We make this explicit
-/// because we associate metadata with TPKs.
+/// A `Key` is a handle to a stored Cert.  We make this explicit
+/// because we associate metadata with Certs.
 /*/
 typedef struct sq_key *sq_key_t;
 
@@ -257,7 +257,7 @@ sq_key_iter_t sq_store_list_keys (sq_context_t ctx);
 /// objects maintained by a background service.  The background
 /// service associates state with this name.
 ///
-/// The mapping updates TPKs in compliance with the network policy
+/// The mapping updates Certs in compliance with the network policy
 /// of the context that created the mapping in the first place.
 /// Opening the mapping with a different network policy is
 /// forbidden.
@@ -273,8 +273,8 @@ sq_binding_t sq_mapping_add (sq_context_t ctx, sq_mapping_t mapping,
 /*/
 /// Imports a key into the mapping.
 /*/
-pgp_tpk_t sq_mapping_import (sq_context_t ctx, sq_mapping_t mapping,
-			  const char *label, pgp_tpk_t tpk);
+pgp_cert_t sq_mapping_import (sq_context_t ctx, sq_mapping_t mapping,
+			  const char *label, pgp_cert_t cert);
 
 /*/
 /// Returns the binding for the given label.
@@ -320,17 +320,17 @@ sq_stats_t sq_binding_stats (sq_context_t ctx, sq_binding_t binding);
 sq_key_t sq_binding_key (sq_context_t ctx, sq_binding_t binding);
 
 /*/
-/// Returns the `pgp_tpk_t` of this binding.
+/// Returns the `pgp_cert_t` of this binding.
 /*/
-pgp_tpk_t sq_binding_tpk (sq_context_t ctx, sq_binding_t binding);
+pgp_cert_t sq_binding_cert (sq_context_t ctx, sq_binding_t binding);
 
 /*/
-/// Updates this binding with the given TPK.
+/// Updates this binding with the given Cert.
 ///
-/// If the new key `tpk` matches the current key, i.e. they have
+/// If the new key `cert` matches the current key, i.e. they have
 /// the same fingerprint, both keys are merged and normalized.
 /// The returned key contains all packets known to Sequoia, and
-/// should be used instead of `tpk`.
+/// should be used instead of `cert`.
 ///
 /// If the new key does not match the current key, but carries a
 /// valid signature from the current key, it replaces the current
@@ -342,26 +342,26 @@ pgp_tpk_t sq_binding_tpk (sq_context_t ctx, sq_binding_t binding);
 /// conflict, either by ignoring the new key, or by using
 /// `sq_binding_rotate` to force a rotation.
 /*/
-pgp_tpk_t sq_binding_import (sq_context_t ctx, sq_binding_t binding,
-			    pgp_tpk_t tpk);
+pgp_cert_t sq_binding_import (sq_context_t ctx, sq_binding_t binding,
+			    pgp_cert_t cert);
 
 /*/
-/// Forces a keyrotation to the given TPK.
+/// Forces a keyrotation to the given Cert.
 ///
-/// The current key is replaced with the new key `tpk`, even if
+/// The current key is replaced with the new key `cert`, even if
 /// they do not have the same fingerprint.  If a key with the same
-/// fingerprint as `tpk` is already in the store, is merged with
-/// `tpk` and normalized.  The returned key contains all packets
-/// known to Sequoia, and should be used instead of `tpk`.
+/// fingerprint as `cert` is already in the store, is merged with
+/// `cert` and normalized.  The returned key contains all packets
+/// known to Sequoia, and should be used instead of `cert`.
 ///
 /// Use this function to resolve conflicts returned from
 /// `sq_binding_import`.  Make sure that you have authenticated
-/// `tpk` properly.  How to do that depends on your thread model.
+/// `cert` properly.  How to do that depends on your thread model.
 /// You could simply ask Alice to call her communication partner
 /// Bob and confirm that he rotated his keys.
 /*/
-pgp_tpk_t sq_binding_rotate (sq_context_t ctx, sq_binding_t binding,
-			    pgp_tpk_t tpk);
+pgp_cert_t sq_binding_rotate (sq_context_t ctx, sq_binding_t binding,
+			    pgp_cert_t cert);
 
 /*/
 /// Deletes this binding.
@@ -381,23 +381,23 @@ sq_log_iter_t sq_binding_log (sq_context_t ctx, sq_binding_t binding);
 sq_stats_t sq_key_stats (sq_context_t ctx, sq_key_t key);
 
 /*/
-/// Returns the `pgp_tpk_t` of this key.
+/// Returns the `pgp_cert_t` of this key.
 /*/
-pgp_tpk_t sq_key_tpk (sq_context_t ctx, sq_key_t key);
+pgp_cert_t sq_key_cert (sq_context_t ctx, sq_key_t key);
 
 /*/
-/// Updates this stored key with the given TPK.
+/// Updates this stored key with the given Cert.
 ///
-/// If the new key `tpk` matches the current key, i.e. they have
+/// If the new key `cert` matches the current key, i.e. they have
 /// the same fingerprint, both keys are merged and normalized.
 /// The returned key contains all packets known to Sequoia, and
-/// should be used instead of `tpk`.
+/// should be used instead of `cert`.
 ///
 /// If the new key does not match the current key,
 /// `Error::Conflict` is returned.
 /*/
-pgp_tpk_t sq_key_import (sq_context_t ctx, sq_key_t key,
-			pgp_tpk_t tpk);
+pgp_cert_t sq_key_import (sq_context_t ctx, sq_key_t key,
+			pgp_cert_t cert);
 
 /*/
 /// Lists all log entries related to this key.

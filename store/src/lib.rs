@@ -1,6 +1,6 @@
-//! For storing transferable public keys.
+//! For storing OpenPGP Certificates.
 //!
-//! The key store stores transferable public keys (TPKs) using an
+//! The key store stores OpenPGP Certificates ("Certs") using an
 //! arbitrary label.  Stored keys are automatically updated from
 //! remote sources.  This ensures that updates like new subkeys and
 //! revocations are discovered in a timely manner.
@@ -80,7 +80,7 @@ extern crate sequoia_net;
 
 use crate::openpgp::Fingerprint;
 use crate::openpgp::KeyID;
-use crate::openpgp::TPK;
+use crate::openpgp::Cert;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
 use sequoia_core as core;
@@ -145,7 +145,7 @@ impl Store {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::TPK;
+    /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
@@ -155,16 +155,16 @@ impl Store {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let tpk = TPK::from_bytes(
+    /// # let cert = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
-    /// let key = Store::import(&ctx, &tpk)?;
-    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// let key = Store::import(&ctx, &cert)?;
+    /// assert_eq!(key.cert()?.fingerprint(), cert.fingerprint());
     /// # Ok(())
     /// # }
     /// ```
-    pub fn import(c: &Context, tpk: &TPK) -> Result<Key> {
+    pub fn import(c: &Context, cert: &Cert) -> Result<Key> {
         let mut blob = vec![];
-        tpk.serialize(&mut blob)?;
+        cert.serialize(&mut blob)?;
 
         let (mut core, client) = Self::connect(c)?;
         let mut request = client.import_request();
@@ -181,7 +181,7 @@ impl Store {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::TPK;
+    /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
@@ -191,11 +191,11 @@ impl Store {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let tpk = TPK::from_bytes(
+    /// # let cert = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
-    /// Store::import(&ctx, &tpk)?;
-    /// let key = Store::lookup(&ctx, &tpk.fingerprint())?;
-    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// Store::import(&ctx, &cert)?;
+    /// let key = Store::lookup(&ctx, &cert.fingerprint())?;
+    /// assert_eq!(key.cert()?.fingerprint(), cert.fingerprint());
     /// # Ok(())
     /// # }
     /// ```
@@ -216,7 +216,7 @@ impl Store {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::TPK;
+    /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
@@ -226,11 +226,11 @@ impl Store {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let tpk = TPK::from_bytes(
+    /// # let cert = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
-    /// Store::import(&ctx, &tpk)?;
-    /// let key = Store::lookup_by_keyid(&ctx, &tpk.fingerprint().into())?;
-    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// Store::import(&ctx, &cert)?;
+    /// let key = Store::lookup_by_keyid(&ctx, &cert.fingerprint().into())?;
+    /// assert_eq!(key.cert()?.fingerprint(), cert.fingerprint());
     /// # Ok(())
     /// # }
     /// ```
@@ -252,7 +252,7 @@ impl Store {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::{TPK, KeyID};
+    /// # use openpgp::{Cert, KeyID};
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
@@ -262,26 +262,26 @@ impl Store {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let tpk = TPK::from_bytes(
+    /// # let cert = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/neal.pgp")[..])
     /// #     .unwrap();
-    /// Store::import(&ctx, &tpk)?;
+    /// Store::import(&ctx, &cert)?;
     ///
     /// // Lookup by the primary key's KeyID.
     /// let key = Store::lookup_by_subkeyid(&ctx, &"AACB3243630052D9".parse()?)?;
-    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// assert_eq!(key.cert()?.fingerprint(), cert.fingerprint());
     ///
     /// // Lookup by the signing subkey's KeyID.
     /// let key = Store::lookup_by_subkeyid(&ctx, &"7223B56678E02528".parse()?)?;
-    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// assert_eq!(key.cert()?.fingerprint(), cert.fingerprint());
     ///
     /// // Lookup by the encryption subkey's KeyID.
     /// let key = Store::lookup_by_subkeyid(&ctx, &"C2B819056C652598".parse()?)?;
-    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// assert_eq!(key.cert()?.fingerprint(), cert.fingerprint());
     ///
     /// // Lookup by the authentication subkey's KeyID.
     /// let key = Store::lookup_by_subkeyid(&ctx, &"A3506AFB820ABD08".parse()?)?;
-    /// assert_eq!(key.tpk()?.fingerprint(), tpk.fingerprint());
+    /// assert_eq!(key.cert()?.fingerprint(), cert.fingerprint());
     /// # Ok(())
     /// # }
     /// ```
@@ -331,7 +331,7 @@ impl Mapping {
     /// maintained by a background service.  The background service
     /// associates state with this name.
     ///
-    /// The store updates TPKs in compliance with the network policy
+    /// The store updates Certs in compliance with the network policy
     /// of the context that created the mapping in the first place.
     /// Opening the mapping with a different network policy is
     /// forbidden.
@@ -400,7 +400,7 @@ impl Mapping {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::TPK;
+    /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -410,21 +410,21 @@ impl Mapping {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let tpk = TPK::from_bytes(
+    /// # let cert = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
-    /// mapping.import("Testy McTestface", &tpk)?;
+    /// mapping.import("Testy McTestface", &cert)?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn import(&self, label: &str, tpk: &TPK) -> Result<TPK> {
-        let fingerprint = tpk.fingerprint();
+    pub fn import(&self, label: &str, cert: &Cert) -> Result<Cert> {
+        let fingerprint = cert.fingerprint();
         let mut request = self.mapping.add_request();
         request.get().set_label(label);
         request.get().set_fingerprint(fingerprint.to_hex().as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
         let binding = Binding::new(self.core.clone(), Some(label), binding);
-        binding.import(tpk)
+        binding.import(cert)
     }
 
     /// Returns the binding for the given label.
@@ -471,7 +471,7 @@ impl Mapping {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::{TPK, KeyID};
+    /// # use openpgp::{Cert, KeyID};
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -481,21 +481,21 @@ impl Mapping {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let tpk = TPK::from_bytes(
+    /// # let cert = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp")[..])
     /// #     .unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
-    /// mapping.import("Emmelie", &tpk)?;
+    /// mapping.import("Emmelie", &cert)?;
     ///
     /// // Lookup by the primary key's KeyID.
-    /// let tpk_ = mapping.lookup_by_subkeyid(&"069C0C348DD82C19".parse()?)?
-    ///     .tpk()?;
-    /// assert_eq!(tpk, tpk_);
+    /// let cert_ = mapping.lookup_by_subkeyid(&"069C0C348DD82C19".parse()?)?
+    ///     .cert()?;
+    /// assert_eq!(cert, cert_);
     ///
     /// // Lookup by the subkey's KeyID.
-    /// let tpk_ = mapping.lookup_by_subkeyid(&"22E3FAFE96B56C32".parse()?)?
-    ///     .tpk()?;
-    /// assert_eq!(tpk, tpk_);
+    /// let cert_ = mapping.lookup_by_subkeyid(&"22E3FAFE96B56C32".parse()?)?
+    ///     .cert()?;
+    /// assert_eq!(cert, cert_);
     /// # Ok(())
     /// # }
     /// ```
@@ -578,7 +578,7 @@ macro_rules! make_stats_request {
 
 /// Represents an entry in a Mapping.
 ///
-/// Mappings map labels to TPKs.  A `Binding` represents a pair in this
+/// Mappings map labels to Certs.  A `Binding` represents a pair in this
 /// relation.  We make this explicit because we associate metadata
 /// with these pairs.
 pub struct Binding {
@@ -642,22 +642,22 @@ impl Binding {
     pub fn key(&self) -> Result<Key> {
         make_request_map!(self.core.borrow_mut(),
                           self.binding.key_request(),
-                          |tpk| Ok(Key::new(self.core.clone(), tpk)))
+                          |cert| Ok(Key::new(self.core.clone(), cert)))
     }
 
-    /// Returns the `Tpk` of this binding.
+    /// Returns the `Cert` of this binding.
     ///
-    /// A shortcut for `self.key()?.tpk()`.
-    pub fn tpk(&self) -> Result<TPK> {
-        self.key()?.tpk()
+    /// A shortcut for `self.key()?.cert()`.
+    pub fn cert(&self) -> Result<Cert> {
+        self.key()?.cert()
     }
 
-    /// Updates this binding with the given TPK.
+    /// Updates this binding with the given Cert.
     ///
-    /// If the new key `tpk` matches the current key, i.e. they have
+    /// If the new key `cert` matches the current key, i.e. they have
     /// the same fingerprint, both keys are merged and normalized.
     /// The returned key contains all packets known to Sequoia, and
-    /// should be used instead of `tpk`.
+    /// should be used instead of `cert`.
     ///
     /// If the new key does not match the current key, and it does not
     /// carry a valid signature from the current key, an
@@ -671,7 +671,7 @@ impl Binding {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::TPK;
+    /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -681,9 +681,9 @@ impl Binding {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let old = TPK::from_bytes(
+    /// # let old = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
-    /// # let new = TPK::from_bytes(
+    /// # let new = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// mapping.import("Testy McTestface", &old)?;
@@ -694,29 +694,29 @@ impl Binding {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn import(&self, tpk: &TPK) -> Result<TPK> {
+    pub fn import(&self, cert: &Cert) -> Result<Cert> {
         let mut blob = vec![];
-        tpk.serialize(&mut blob)?;
+        cert.serialize(&mut blob)?;
         let mut request = self.binding.import_request();
         request.get().set_force(false);
         request.get().set_key(&blob);
         make_request_map!(
             self.core.borrow_mut(),
             request,
-            |data| TPK::from_bytes(data).map_err(|e| e.into()))
+            |data| Cert::from_bytes(data).map_err(|e| e.into()))
     }
 
-    /// Forces a keyrotation to the given TPK.
+    /// Forces a keyrotation to the given Cert.
     ///
-    /// The current key is replaced with the new key `tpk`, even if
+    /// The current key is replaced with the new key `cert`, even if
     /// they do not have the same fingerprint.  If a key with the same
-    /// fingerprint as `tpk` is already in the store, is merged with
-    /// `tpk` and normalized.  The returned key contains all packets
-    /// known to Sequoia, and should be used instead of `tpk`.
+    /// fingerprint as `cert` is already in the store, is merged with
+    /// `cert` and normalized.  The returned key contains all packets
+    /// known to Sequoia, and should be used instead of `cert`.
     ///
     /// Use this function to resolve conflicts returned from
     /// `Binding::import`.  Make sure that you have authenticated
-    /// `tpk` properly.  How to do that depends on your thread model.
+    /// `cert` properly.  How to do that depends on your thread model.
     /// You could simply ask Alice to call her communication partner
     /// Bob and confirm that he rotated his keys.
     ///
@@ -726,7 +726,7 @@ impl Binding {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
-    /// # use openpgp::TPK;
+    /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -736,9 +736,9 @@ impl Binding {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let old = TPK::from_bytes(
+    /// # let old = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
-    /// # let new = TPK::from_bytes(
+    /// # let new = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// mapping.import("Testy McTestface", &old)?;
@@ -751,16 +751,16 @@ impl Binding {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn rotate(&self, tpk: &TPK) -> Result<TPK> {
+    pub fn rotate(&self, cert: &Cert) -> Result<Cert> {
         let mut blob = vec![];
-        tpk.serialize(&mut blob)?;
+        cert.serialize(&mut blob)?;
         let mut request = self.binding.import_request();
         request.get().set_force(true);
         request.get().set_key(&blob);
         make_request_map!(
             self.core.borrow_mut(),
             request,
-            |data| TPK::from_bytes(data).map_err(|e| e.into()))
+            |data| Cert::from_bytes(data).map_err(|e| e.into()))
     }
 
     /// Deletes this binding.
@@ -830,8 +830,8 @@ impl Binding {
 
 /// Represents a key in the store.
 ///
-/// A `Key` is a handle to a stored TPK.  We make this explicit
-/// because we associate metadata with TPKs.
+/// A `Key` is a handle to a stored Cert.  We make this explicit
+/// because we associate metadata with Certs.
 pub struct Key {
     core: Rc<RefCell<Core>>,
     key: node::key::Client,
@@ -848,11 +848,11 @@ impl Key {
         Key{core: core, key: key}
     }
 
-    /// Returns the TPK.
-    pub fn tpk(&self) -> Result<TPK> {
+    /// Returns the Cert.
+    pub fn cert(&self) -> Result<Cert> {
         make_request_map!(self.core.borrow_mut(),
-                          self.key.tpk_request(),
-                          |tpk| TPK::from_bytes(tpk).map_err(|e| e.into()))
+                          self.key.cert_request(),
+                          |cert| Cert::from_bytes(cert).map_err(|e| e.into()))
     }
 
     /// Returns stats for this key.
@@ -861,12 +861,12 @@ impl Key {
                             self.key.stats_request())
     }
 
-    /// Updates this stored key with the given TPK.
+    /// Updates this stored key with the given Cert.
     ///
-    /// If the new key `tpk` matches the current key, i.e. they have
+    /// If the new key `cert` matches the current key, i.e. they have
     /// the same fingerprint, both keys are merged and normalized.
     /// The returned key contains all packets known to Sequoia, and
-    /// should be used instead of `tpk`.
+    /// should be used instead of `cert`.
     ///
     /// If the new key does not match the current key,
     /// `Error::Conflict` is returned.
@@ -878,7 +878,7 @@ impl Key {
     /// # #[macro_use] extern crate sequoia_core;
     /// # extern crate sequoia_store;
     /// # use openpgp::Fingerprint;
-    /// # use openpgp::TPK;
+    /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -888,9 +888,9 @@ impl Key {
     /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// # let old = TPK::from_bytes(
+    /// # let old = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
-    /// # let new = TPK::from_bytes(
+    /// # let new = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
     /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_hex("3E8877C877274692975189F5D03F6F865226FE8B").unwrap();
@@ -903,15 +903,15 @@ impl Key {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn import(&self, tpk: &TPK) -> Result<TPK> {
+    pub fn import(&self, cert: &Cert) -> Result<Cert> {
         let mut blob = vec![];
-        tpk.serialize(&mut blob)?;
+        cert.serialize(&mut blob)?;
         let mut request = self.key.import_request();
         request.get().set_key(&blob);
         make_request_map!(
             self.core.borrow_mut(),
             request,
-            |data| TPK::from_bytes(data).map_err(|e| e.into()))
+            |data| Cert::from_bytes(data).map_err(|e| e.into()))
     }
 
     /// Lists all log entries related to this key.
@@ -1165,7 +1165,7 @@ impl From<node::Error> for failure::Error {
             node::Error::NotFound => Error::NotFound.into(),
             node::Error::Conflict => Error::Conflict.into(),
             node::Error::SystemError => Error::StoreError.into(),
-            node::Error::MalformedTPK => Error::MalformedTPK.into(),
+            node::Error::MalformedCert => Error::MalformedCert.into(),
             node::Error::MalformedFingerprint =>
                 Error::MalformedFingerprint.into(),
             node::Error::NetworkPolicyViolationOffline =>
@@ -1196,9 +1196,9 @@ pub enum Error {
     /// A protocol error occurred.
     #[fail(display = "Unspecified protocol error")]
     ProtocolError,
-    /// A TPK is malformed.
-    #[fail(display = "Malformed TPK")]
-    MalformedTPK,
+    /// A Cert is malformed.
+    #[fail(display = "Malformed Cert")]
+    MalformedCert,
     /// A fingerprint is malformed.
     #[fail(display = "Malformed fingerprint")]
     MalformedFingerprint,
@@ -1256,11 +1256,11 @@ mod test {
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
         let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let tpk = TPK::from_bytes(&bytes!("testy.pgp")[..]).unwrap();
-        mapping.import("Mr. McTestface", &tpk).unwrap();
+        let cert = Cert::from_bytes(&bytes!("testy.pgp")[..]).unwrap();
+        mapping.import("Mr. McTestface", &cert).unwrap();
         let binding = mapping.lookup("Mr. McTestface").unwrap();
-        let tpk_retrieved = binding.tpk().unwrap();
-        assert_eq!(tpk.fingerprint(), tpk_retrieved.fingerprint());
+        let cert_retrieved = binding.cert().unwrap();
+        assert_eq!(cert.fingerprint(), cert_retrieved.fingerprint());
     }
 
     #[test]
@@ -1284,10 +1284,10 @@ mod test {
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
         let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let tpk = TPK::from_bytes(&bytes!("testy.pgp")[..]).unwrap();
+        let cert = Cert::from_bytes(&bytes!("testy.pgp")[..]).unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = mapping.add("Mister B.", &fp).unwrap();
-        let r = binding.import(&tpk);
+        let r = binding.import(&cert);
         assert_match!(Error::Conflict
                       = r.err().unwrap().downcast::<Error>().unwrap());
     }

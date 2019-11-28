@@ -201,9 +201,9 @@ impl Tag {
     /// Returns whether the `Tag` can be at the start of a valid
     /// message.
     ///
-    /// [TPKs] can start with `PublicKey`, [TSKs] with a `SecretKey`.
+    /// [Certs] can start with `PublicKey`, [TSKs] with a `SecretKey`.
     ///
-    ///   [TPKs]: https://tools.ietf.org/html/rfc4880#section-11.1
+    ///   [Certs]: https://tools.ietf.org/html/rfc4880#section-11.1
     ///   [TSKs]: https://tools.ietf.org/html/rfc4880#section-11.2
     ///
     /// [Messages] start with a `OnePassSig`, `Signature` (old style
@@ -217,7 +217,7 @@ impl Tag {
     ///
     ///   [detached signature]: https://tools.ietf.org/html/rfc4880#section-11.3
     pub fn valid_start_of_message(&self) -> bool {
-        // TPK
+        // Cert
         *self == Tag::PublicKey || *self == Tag::SecretKey
             // Message.
             || *self == Tag::PKESK || *self == Tag::SKESK

@@ -2,7 +2,7 @@ use std::time;
 
 use crate::Error;
 use crate::Result;
-use crate::TPK;
+use crate::Cert;
 use crate::types::{HashAlgorithm, SignatureType};
 use crate::conversions::Time;
 use crate::crypto::Signer;
@@ -11,7 +11,7 @@ use crate::packet::{UserID, UserAttribute, key, Key, signature, Signature};
 impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// Creates a binding signature.
     ///
-    /// The signature binds this userid to `tpk`. `signer` will be used
+    /// The signature binds this userid to `cert`. `signer` will be used
     /// to create a signature using `signature` as builder.
     /// The`hash_algo` defaults to SHA512, `creation_time` to the
     /// current time.
@@ -22,38 +22,38 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///
     /// # Example
     ///
-    /// This example demonstrates how to bind this key to a TPK.  Note
-    /// that in general, the `TPKBuilder` is a better way to add
-    /// subkeys to a TPK.
+    /// This example demonstrates how to bind this key to a Cert.  Note
+    /// that in general, the `CertBuilder` is a better way to add
+    /// subkeys to a Cert.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*};
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
-    /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (tpk, _) = TPKBuilder::new().generate()?;
-    /// let mut keypair = tpk.primary().clone()
+    /// // Generate a Cert, and create a keypair from the primary key.
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    /// let mut keypair = cert.primary().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     ///
     /// // Let's add an encryption subkey.
     /// let flags = KeyFlags::default().set_encrypt_at_rest(true);
-    /// assert_eq!(tpk.keys_valid().key_flags(flags.clone()).count(), 0);
+    /// assert_eq!(cert.keys_valid().key_flags(flags.clone()).count(), 0);
     ///
     /// // Generate a subkey and a binding signature.
     /// let subkey : key::SecretSubkey
     ///     = Key4::generate_ecc(false, Curve::Cv25519)?.into();
     /// let builder = signature::Builder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(&flags)?;
-    /// let binding = subkey.bind(&mut keypair, &tpk, builder, None)?;
+    /// let binding = subkey.bind(&mut keypair, &cert, builder, None)?;
     ///
-    /// // Now merge the key and binding signature into the TPK.
-    /// let tpk = tpk.merge_packets(vec![subkey.into(),
+    /// // Now merge the key and binding signature into the Cert.
+    /// let cert = cert.merge_packets(vec![subkey.into(),
     ///                                  binding.into()])?;
     ///
     /// // Check that we have an encryption subkey.
-    /// assert_eq!(tpk.keys_valid().key_flags(flags).count(), 1);
+    /// assert_eq!(cert.keys_valid().key_flags(flags).count(), 1);
     /// # Ok(()) }
-    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
+    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
                       signature: signature::Builder,
                       creation_time: T)
         -> Result<Signature>
@@ -67,14 +67,14 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
                 }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
-            .sign_subkey_binding(signer, tpk.primary(), self)
+            .sign_subkey_binding(signer, cert.primary(), self)
     }
 }
 
 impl UserID {
     /// Creates a binding signature.
     ///
-    /// The signature binds this userid to `tpk`. `signer` will be used
+    /// The signature binds this userid to `cert`. `signer` will be used
     /// to create a signature using `signature` as builder.
     /// The`hash_algo` defaults to SHA512, `creation_time` to the
     /// current time.
@@ -85,33 +85,33 @@ impl UserID {
     ///
     /// # Example
     ///
-    /// This example demonstrates how to bind this userid to a TPK.
-    /// Note that in general, the `TPKBuilder` is a better way to add
-    /// userids to a TPK.
+    /// This example demonstrates how to bind this userid to a Cert.
+    /// Note that in general, the `CertBuilder` is a better way to add
+    /// userids to a Cert.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*};
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
-    /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (tpk, _) = TPKBuilder::new().generate()?;
-    /// let mut keypair = tpk.primary().clone()
+    /// // Generate a Cert, and create a keypair from the primary key.
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    /// let mut keypair = cert.primary().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
-    /// assert_eq!(tpk.userids().len(), 0);
+    /// assert_eq!(cert.userids().len(), 0);
     ///
     /// // Generate a userid and a binding signature.
     /// let userid = UserID::from("test@example.org");
     /// let builder =
     ///     signature::Builder::new(SignatureType::PositiveCertificate);
-    /// let binding = userid.bind(&mut keypair, &tpk, builder, None)?;
+    /// let binding = userid.bind(&mut keypair, &cert, builder, None)?;
     ///
-    /// // Now merge the userid and binding signature into the TPK.
-    /// let tpk = tpk.merge_packets(vec![userid.into(), binding.into()])?;
+    /// // Now merge the userid and binding signature into the Cert.
+    /// let cert = cert.merge_packets(vec![userid.into(), binding.into()])?;
     ///
     /// // Check that we have a userid.
-    /// assert_eq!(tpk.userids().len(), 1);
+    /// assert_eq!(cert.userids().len(), 1);
     /// # Ok(()) }
-    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
+    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
                       signature: signature::Builder,
                       creation_time: T)
                       -> Result<Signature>
@@ -126,12 +126,12 @@ impl UserID {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_userid_binding(
-                signer, tpk.primary(), self)
+                signer, cert.primary(), self)
     }
 
     /// Returns a certificate for the user id.
     ///
-    /// The signature binds this userid to `tpk`. `signer` will be
+    /// The signature binds this userid to `cert`. `signer` will be
     /// used to create a certification signature of type
     /// `signature_type`.  `signature_type` defaults to
     /// `SignatureType::GenericCertificate`, `hash_algo` to SHA512,
@@ -152,19 +152,19 @@ impl UserID {
     /// This example demonstrates how to certify a userid.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*};
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
-    /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (alice, _) = TPKBuilder::new()
+    /// // Generate a Cert, and create a keypair from the primary key.
+    /// let (alice, _) = CertBuilder::new()
     ///     .primary_keyflags(KeyFlags::default().set_certify(true))
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     ///
-    /// // Generate a TPK for Bob.
-    /// let (bob, _) = TPKBuilder::new()
+    /// // Generate a Cert for Bob.
+    /// let (bob, _) = CertBuilder::new()
     ///     .primary_keyflags(KeyFlags::default().set_certify(true))
     ///     .add_userid("bob@example.org")
     ///     .generate()?;
@@ -181,7 +181,7 @@ impl UserID {
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
-    pub fn certify<S, H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
+    pub fn certify<S, H, T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
                                signature_type: S,
                                hash_algo: H, creation_time: T)
         -> Result<Signature>
@@ -204,7 +204,7 @@ impl UserID {
         if let Some(algo) = hash_algo.into() {
             sig = sig.set_hash_algo(algo);
         }
-        self.bind(signer, tpk, sig,
+        self.bind(signer, cert, sig,
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
                   creation_time.into().unwrap_or_else(|| {
@@ -216,7 +216,7 @@ impl UserID {
 impl UserAttribute {
     /// Creates a binding signature.
     ///
-    /// The signature binds this user attribute to `tpk`. `signer`
+    /// The signature binds this user attribute to `cert`. `signer`
     /// will be used to create a signature using `signature` as
     /// builder.  The`hash_algo` defaults to SHA512, `creation_time`
     /// to the current time.
@@ -228,20 +228,20 @@ impl UserAttribute {
     /// # Example
     ///
     /// This example demonstrates how to bind this user attribute to a
-    /// TPK.  Note that in general, the `TPKBuilder` is a better way
-    /// to add userids to a TPK.
+    /// Cert.  Note that in general, the `CertBuilder` is a better way
+    /// to add userids to a Cert.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*,
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*,
     ///                         packet::user_attribute::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
-    /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (tpk, _) = TPKBuilder::new()
+    /// // Generate a Cert, and create a keypair from the primary key.
+    /// let (cert, _) = CertBuilder::new()
     ///     .generate()?;
-    /// let mut keypair = tpk.primary().clone()
+    /// let mut keypair = cert.primary().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
-    /// assert_eq!(tpk.userids().len(), 0);
+    /// assert_eq!(cert.userids().len(), 0);
     ///
     /// // Generate a user attribute and a binding signature.
     /// let user_attr = UserAttribute::new(&[
@@ -250,15 +250,15 @@ impl UserAttribute {
     /// ])?;
     /// let builder =
     ///     signature::Builder::new(SignatureType::PositiveCertificate);
-    /// let binding = user_attr.bind(&mut keypair, &tpk, builder, None)?;
+    /// let binding = user_attr.bind(&mut keypair, &cert, builder, None)?;
     ///
-    /// // Now merge the user attribute and binding signature into the TPK.
-    /// let tpk = tpk.merge_packets(vec![user_attr.into(), binding.into()])?;
+    /// // Now merge the user attribute and binding signature into the Cert.
+    /// let cert = cert.merge_packets(vec![user_attr.into(), binding.into()])?;
     ///
     /// // Check that we have a user attribute.
-    /// assert_eq!(tpk.user_attributes().len(), 1);
+    /// assert_eq!(cert.user_attributes().len(), 1);
     /// # Ok(()) }
-    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
+    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
                       signature: signature::Builder,
                       creation_time: T)
         -> Result<Signature>
@@ -272,12 +272,12 @@ impl UserAttribute {
                 }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
-            .sign_user_attribute_binding(signer, tpk.primary(), self)
+            .sign_user_attribute_binding(signer, cert.primary(), self)
     }
 
     /// Returns a certificate for the user attribute.
     ///
-    /// The signature binds this user attribute to `tpk`. `signer` will be
+    /// The signature binds this user attribute to `cert`. `signer` will be
     /// used to create a certification signature of type
     /// `signature_type`.  `signature_type` defaults to
     /// `SignatureType::GenericCertificate`, `hash_algo` to SHA512,
@@ -298,23 +298,23 @@ impl UserAttribute {
     /// This example demonstrates how to certify a userid.
     ///
     /// ```
-    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, tpk::*,
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*,
     ///                         packet::user_attribute::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
-    /// // Generate a TPK, and create a keypair from the primary key.
-    /// let (alice, _) = TPKBuilder::new()
+    /// // Generate a Cert, and create a keypair from the primary key.
+    /// let (alice, _) = CertBuilder::new()
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     ///
-    /// // Generate a TPK for Bob.
+    /// // Generate a Cert for Bob.
     /// let user_attr = UserAttribute::new(&[
     ///     Subpacket::Image(
     ///         Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
     /// ])?;
-    /// let (bob, _) = TPKBuilder::new()
+    /// let (bob, _) = CertBuilder::new()
     ///     .primary_keyflags(KeyFlags::default().set_certify(true))
     ///     .add_user_attribute(user_attr)
     ///     .generate()?;
@@ -332,7 +332,7 @@ impl UserAttribute {
     /// assert_eq!(bob.user_attributes().nth(0).unwrap().certifications().len(),
     ///            1);
     /// # Ok(()) }
-    pub fn certify<S, H, T, R>(&self, signer: &mut dyn Signer<R>, tpk: &TPK,
+    pub fn certify<S, H, T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
                                signature_type: S,
                                hash_algo: H, creation_time: T)
         -> Result<Signature>
@@ -355,7 +355,7 @@ impl UserAttribute {
         if let Some(algo) = hash_algo.into() {
             sig = sig.set_hash_algo(algo);
         }
-        self.bind(signer, tpk, sig,
+        self.bind(signer, cert, sig,
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
                   creation_time.into().unwrap_or_else(|| {

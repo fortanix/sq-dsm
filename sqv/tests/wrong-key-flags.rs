@@ -26,7 +26,7 @@ mod integration {
 // fn create_key() {
 //     use std::fs::File;
 //     use sequoia_openpgp::{
-//         tpk::TPKBuilder,
+//         cert::CertBuilder,
 //         packet::{
 //             signature,
 //             key::SecretKey,
@@ -39,11 +39,11 @@ mod integration {
 //         }
 //     };
 //
-//     let (tpk, _) = TPKBuilder::default()
+//     let (cert, _) = CertBuilder::default()
 //         .add_userid("Testy Mc Test")
 //         .add_encryption_subkey()
 //         .generate().unwrap();
-//     let subkey = tpk.subkeys().next().unwrap();
+//     let subkey = cert.subkeys().next().unwrap();
 //     let key = subkey.subkey();
 //     let sig = {
 //         let mpis = match key.secret() {
@@ -61,7 +61,7 @@ mod integration {
 //
 //     {
 //         let mut fd = File::create("key").unwrap();
-//         tpk.serialize(&mut fd).unwrap();
+//         cert.serialize(&mut fd).unwrap();
 //     }
 //
 //     {

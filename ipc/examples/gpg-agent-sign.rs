@@ -18,7 +18,7 @@ fn main() {
         .arg(clap::Arg::with_name("homedir").value_name("PATH")
              .long("homedir")
              .help("Use this GnuPG home directory, default: $GNUPGHOME"))
-        .arg(clap::Arg::with_name("tpk").value_name("TPK")
+        .arg(clap::Arg::with_name("cert").value_name("Cert")
              .required(true)
              .multiple(true)
              .help("Public part of the secret keys managed by gpg-agent"))
@@ -30,16 +30,16 @@ fn main() {
         Context::new().unwrap()
     };
 
-    // Read the TPKs from the given files.
-    let tpks =
-        matches.values_of("tpk").expect("required").map(|f| {
-            openpgp::TPK::from_file(f)
+    // Read the Certs from the given files.
+    let certs =
+        matches.values_of("cert").expect("required").map(|f| {
+            openpgp::Cert::from_file(f)
                 .expect("Failed to read key")
         }).collect::<Vec<_>>();
 
     // Construct a KeyPair for every signing-capable (sub)key.
-    let mut signers = tpks.iter().flat_map(|tpk| {
-        tpk.keys_valid().signing_capable().filter_map(|(_, _, key)| {
+    let mut signers = certs.iter().flat_map(|cert| {
+        cert.keys_valid().signing_capable().filter_map(|(_, _, key)| {
             KeyPair::new(&ctx, key).ok()
         })
     }).collect::<Vec<KeyPair<_>>>();

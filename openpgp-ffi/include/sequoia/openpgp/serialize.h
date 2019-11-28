@@ -30,11 +30,11 @@ pgp_keyid_t pgp_recipient_keyid (const pgp_recipient_t);
 void pgp_recipient_set_keyid (pgp_recipient_t, pgp_keyid_t);
 
 /*/
-/// Collects recipients from a `pgp_tpk_key_iter_t`.
+/// Collects recipients from a `pgp_cert_key_iter_t`.
 ///
 /// Consumes the iterator.  The returned buffer must be freed using
 /// libc's allocator.
 /*/
-pgp_recipient_t *pgp_recipients_from_key_iter (pgp_tpk_key_iter_t, size_t *);
+pgp_recipient_t *pgp_recipients_from_key_iter (pgp_cert_key_iter_t, size_t *);
 
 #endif

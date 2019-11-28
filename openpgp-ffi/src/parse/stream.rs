@@ -45,7 +45,7 @@ use super::super::{
     crypto,
     io,
     keyid,
-    tpk::TPK,
+    cert::Cert,
     packet::signature::Signature,
     packet::key::Key,
     parse::PacketParser,
@@ -182,7 +182,7 @@ macro_rules! make_decomposition_fn {
 fn $fn_name<'a>(
     result: *const VerificationResult<'a>,
     sig_r: Maybe<*mut Signature>,
-    tpk_r: Maybe<*mut TPK>,
+    cert_r: Maybe<*mut Cert>,
     key_r: Maybe<*mut Key>,
     binding_r: Maybe<Maybe<Signature>>,
     revocation_status_r:
@@ -190,12 +190,12 @@ fn $fn_name<'a>(
     -> bool
 {
     use self::stream::VerificationResult::*;
-    if let $variant { sig, tpk, key, binding, revoked } = result.ref_raw() {
+    if let $variant { sig, cert, key, binding, revoked } = result.ref_raw() {
         if let Some(mut p) = sig_r {
             *unsafe { p.as_mut() } = sig.move_into_raw();
         }
-        if let Some(mut p) = tpk_r {
-            *unsafe { p.as_mut() } = tpk.move_into_raw();
+        if let Some(mut p) = cert_r {
+            *unsafe { p.as_mut() } = cert.move_into_raw();
         }
         if let Some(mut p) = key_r {
             *unsafe { p.as_mut() } = {
@@ -269,13 +269,13 @@ pub struct HelperCookie {
 /// How to free the memory allocated by the callback.
 type FreeCallback = fn(*mut c_void);
 
-/// Returns the TPKs corresponding to the passed KeyIDs.
+/// Returns the Certs corresponding to the passed KeyIDs.
 ///
 /// If the free callback is not NULL, then it is called to free the
-/// returned array of TPKs.
+/// returned array of Certs.
 type GetPublicKeysCallback = fn(*mut HelperCookie,
                                 *const *mut keyid::KeyID, usize,
-                                &mut *mut *mut TPK, *mut usize,
+                                &mut *mut *mut Cert, *mut usize,
                                 *mut FreeCallback) -> Status;
 
 /// Inspect packets as they are decrypted.
@@ -335,7 +335,7 @@ impl VHelper {
 
 impl VerificationHelper for VHelper {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle])
-        -> Result<Vec<openpgp::TPK>, failure::Error>
+        -> Result<Vec<openpgp::Cert>, failure::Error>
     {
         // The size of ID is not known in C.  Convert to KeyID, and
         // move it to C.
@@ -343,15 +343,15 @@ impl VerificationHelper for VHelper {
             ids.iter().map(|k| openpgp::KeyID::from(k.clone()).move_into_raw())
             .collect();
 
-        let mut tpk_refs_raw : *mut *mut TPK = ptr::null_mut();
-        let mut tpk_refs_raw_len = 0usize;
+        let mut cert_refs_raw : *mut *mut Cert = ptr::null_mut();
+        let mut cert_refs_raw_len = 0usize;
 
         let mut free : FreeCallback = |_| {};
 
         let result = (self.get_public_keys_cb)(
             self.cookie,
             ids.as_ptr(), ids.len(),
-            &mut tpk_refs_raw, &mut tpk_refs_raw_len as *mut usize,
+            &mut cert_refs_raw, &mut cert_refs_raw_len as *mut usize,
             &mut free);
 
         // Free the KeyID wrappers.
@@ -366,17 +366,17 @@ impl VerificationHelper for VHelper {
                 format!("{:?}", result)).into());
         }
 
-        // Convert the array of references to TPKs to a Vec<TPK>
-        // (i.e., not a Vec<&TPK>).
-        let mut tpks : Vec<openpgp::TPK> = Vec::with_capacity(tpk_refs_raw_len);
-        for i in 0..tpk_refs_raw_len {
-            let tpk_raw = unsafe { *tpk_refs_raw.offset(i as isize) };
-            tpks.push(tpk_raw.move_from_raw());
+        // Convert the array of references to Certs to a Vec<Cert>
+        // (i.e., not a Vec<&Cert>).
+        let mut certs : Vec<openpgp::Cert> = Vec::with_capacity(cert_refs_raw_len);
+        for i in 0..cert_refs_raw_len {
+            let cert_raw = unsafe { *cert_refs_raw.offset(i as isize) };
+            certs.push(cert_raw.move_from_raw());
         }
 
-        (free)(tpk_refs_raw as *mut c_void);
+        (free)(cert_refs_raw as *mut c_void);
 
-        Ok(tpks)
+        Ok(certs)
     }
 
     fn check(&mut self, structure: &stream::MessageStructure)
@@ -416,21 +416,21 @@ impl VerificationHelper for VHelper {
 /// #include <sequoia/openpgp.h>
 ///
 /// struct verify_cookie {
-///   pgp_tpk_t key;
+///   pgp_cert_t key;
 /// };
 ///
 /// static pgp_status_t
 /// get_public_keys_cb (void *cookie_opaque,
 ///                     pgp_keyid_t *keyids, size_t keyids_len,
-///                     pgp_tpk_t **tpks, size_t *tpks_len,
+///                     pgp_cert_t **certs, size_t *certs_len,
 ///                     void (**our_free)(void *))
 /// {
-///   /* Feed the TPKs to the verifier here.  */
+///   /* Feed the Certs to the verifier here.  */
 ///   struct verify_cookie *cookie = cookie_opaque;
-///   *tpks = malloc (sizeof (pgp_tpk_t));
-///   assert (*tpks);
-///   *tpks[0] = cookie->key;
-///   *tpks_len = 1;
+///   *certs = malloc (sizeof (pgp_cert_t));
+///   assert (*certs);
+///   *certs[0] = cookie->key;
+///   *certs_len = 1;
 ///   *our_free = free;
 ///   return PGP_STATUS_SUCCESS;
 /// }
@@ -467,21 +467,21 @@ impl VerificationHelper for VHelper {
 /// int
 /// main (int argc, char **argv)
 /// {
-///   pgp_tpk_t tpk;
+///   pgp_cert_t cert;
 ///   pgp_reader_t source;
 ///   pgp_reader_t plaintext;
 ///   uint8_t buf[128];
 ///   ssize_t nread;
 ///
-///   tpk = pgp_tpk_from_file (NULL, "../openpgp/tests/data/keys/testy.pgp");
-///   assert(tpk);
+///   cert = pgp_cert_from_file (NULL, "../openpgp/tests/data/keys/testy.pgp");
+///   assert(cert);
 ///
 ///   source = pgp_reader_from_file (
 ///       NULL, "../openpgp/tests/data/messages/signed-1-sha256-testy.gpg");
 ///   assert (source);
 ///
 ///   struct verify_cookie cookie = {
-///     .key = tpk,  /* Move.  */
+///     .key = cert,  /* Move.  */
 ///   };
 ///   plaintext = pgp_verifier_new (NULL, source,
 ///                                 get_public_keys_cb, check_cb,
@@ -530,21 +530,21 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 /// #include <sequoia/openpgp.h>
 ///
 /// struct verify_cookie {
-///   pgp_tpk_t key;
+///   pgp_cert_t key;
 /// };
 ///
 /// static pgp_status_t
 /// get_public_keys_cb (void *cookie_opaque,
 ///                     pgp_keyid_t *keyids, size_t keyids_len,
-///                     pgp_tpk_t **tpks, size_t *tpks_len,
+///                     pgp_cert_t **certs, size_t *certs_len,
 ///                     void (**our_free)(void *))
 /// {
-///   /* Feed the TPKs to the verifier here.  */
+///   /* Feed the Certs to the verifier here.  */
 ///   struct verify_cookie *cookie = cookie_opaque;
-///   *tpks = malloc (sizeof (pgp_tpk_t));
-///   assert (*tpks);
-///   *tpks[0] = cookie->key;
-///   *tpks_len = 1;
+///   *certs = malloc (sizeof (pgp_cert_t));
+///   assert (*certs);
+///   *certs[0] = cookie->key;
+///   *certs_len = 1;
 ///   *our_free = free;
 ///   return PGP_STATUS_SUCCESS;
 /// }
@@ -577,16 +577,16 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 /// int
 /// main (int argc, char **argv)
 /// {
-///   pgp_tpk_t tpk;
+///   pgp_cert_t cert;
 ///   pgp_reader_t signature;
 ///   pgp_reader_t source;
 ///   pgp_reader_t plaintext;
 ///   uint8_t buf[128];
 ///   ssize_t nread;
 ///
-///   tpk = pgp_tpk_from_file (NULL,
+///   cert = pgp_cert_from_file (NULL,
 ///     "../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp");
-///   assert(tpk);
+///   assert(cert);
 ///
 ///   signature = pgp_reader_from_file (
 ///     NULL,
@@ -598,7 +598,7 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 ///   assert (source);
 ///
 ///   struct verify_cookie cookie = {
-///     .key = tpk,  /* Move.  */
+///     .key = cert,  /* Move.  */
 ///   };
 ///   plaintext = pgp_detached_verifier_new (NULL, signature, source,
 ///     get_public_keys_cb, check_cb,
@@ -659,7 +659,7 @@ impl DHelper {
 
 impl VerificationHelper for DHelper {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle])
-        -> Result<Vec<openpgp::TPK>, failure::Error>
+        -> Result<Vec<openpgp::Cert>, failure::Error>
     {
         self.vhelper.get_public_keys(ids)
     }
@@ -765,19 +765,19 @@ impl DecryptionHelper for DHelper {
 /// #include <sequoia/openpgp.h>
 ///
 /// struct decrypt_cookie {
-///   pgp_tpk_t key;
+///   pgp_cert_t key;
 ///   int decrypt_called;
 /// };
 ///
 /// static pgp_status_t
 /// get_public_keys_cb (void *cookie_raw,
 ///                     pgp_keyid_t *keyids, size_t keyids_len,
-///                     pgp_tpk_t **tpks, size_t *tpk_len,
+///                     pgp_cert_t **certs, size_t *cert_len,
 ///                     void (**our_free)(void *))
 /// {
-///   /* Feed the TPKs to the verifier here.  */
-///   *tpks = NULL;
-///   *tpk_len = 0;
+///   /* Feed the Certs to the verifier here.  */
+///   *certs = NULL;
+///   *cert_len = 0;
 ///   *our_free = free;
 ///   return PGP_STATUS_SUCCESS;
 /// }
@@ -815,9 +815,9 @@ impl DecryptionHelper for DHelper {
 ///     pgp_pkesk_t pkesk = pkesks[i];
 ///     pgp_keyid_t keyid = pgp_pkesk_recipient (pkesk);
 ///
-///     pgp_tpk_key_iter_t key_iter = pgp_tpk_key_iter_all (cookie->key);
+///     pgp_cert_key_iter_t key_iter = pgp_cert_key_iter_all (cookie->key);
 ///     pgp_key_t key;
-///     while ((key = pgp_tpk_key_iter_next (key_iter, NULL, NULL))) {
+///     while ((key = pgp_cert_key_iter_next (key_iter, NULL, NULL))) {
 ///       pgp_keyid_t this_keyid = pgp_key_keyid (key);
 ///       int match = pgp_keyid_equal (this_keyid, keyid);
 ///       pgp_keyid_free (this_keyid);
@@ -825,7 +825,7 @@ impl DecryptionHelper for DHelper {
 ///         break;
 ///       pgp_key_free (key);
 ///     }
-///     pgp_tpk_key_iter_free (key_iter);
+///     pgp_cert_key_iter_free (key_iter);
 ///     pgp_keyid_free (keyid);
 ///     if (! key)
 ///       continue;
@@ -845,7 +845,7 @@ impl DecryptionHelper for DHelper {
 ///     rc = decrypt (decrypt_cookie, algo, sk);
 ///     pgp_session_key_free (sk);
 ///
-///     *identity_out = pgp_tpk_fingerprint (cookie->key);
+///     *identity_out = pgp_cert_fingerprint (cookie->key);
 ///     return rc;
 ///   }
 ///
@@ -855,22 +855,22 @@ impl DecryptionHelper for DHelper {
 /// int
 /// main (int argc, char **argv)
 /// {
-///   pgp_tpk_t tpk;
+///   pgp_cert_t cert;
 ///   pgp_reader_t source;
 ///   pgp_reader_t plaintext;
 ///   uint8_t buf[128];
 ///   ssize_t nread;
 ///
-///   tpk = pgp_tpk_from_file (
+///   cert = pgp_cert_from_file (
 ///       NULL, "../openpgp/tests/data/keys/testy-private.pgp");
-///   assert(tpk);
+///   assert(cert);
 ///
 ///   source = pgp_reader_from_file (
 ///       NULL, "../openpgp/tests/data/messages/encrypted-to-testy.gpg");
 ///   assert (source);
 ///
 ///   struct decrypt_cookie cookie = {
-///     .key = tpk,
+///     .key = cert,
 ///     .decrypt_called = 0,
 ///   };
 ///   plaintext = pgp_decryptor_new (NULL, source,
@@ -885,7 +885,7 @@ impl DecryptionHelper for DHelper {
 ///
 ///   pgp_reader_free (plaintext);
 ///   pgp_reader_free (source);
-///   pgp_tpk_free (tpk);
+///   pgp_cert_free (cert);
 ///   return 0;
 /// }
 /// ```

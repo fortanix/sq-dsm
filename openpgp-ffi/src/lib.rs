@@ -84,13 +84,13 @@
 //! #include <error.h>
 //!
 //! pgp_error_t err;
-//! pgp_tpk_t tpk = pgp_tpk_from_file (&err, "../openpgp/tests/data/keys/testy.pgp");
-//! if (tpk == NULL)
-//!   error (1, 0, "pgp_tpk_from_file: %s", pgp_error_to_string (err));
+//! pgp_cert_t cert = pgp_cert_from_file (&err, "../openpgp/tests/data/keys/testy.pgp");
+//! if (cert == NULL)
+//!   error (1, 0, "pgp_cert_from_file: %s", pgp_error_to_string (err));
 //!
 //!  /* XXX: Do something interesting.  */
 //!
-//! pgp_tpk_free (tpk);
+//! pgp_cert_free (cert);
 //! ```
 //!
 //! The examples are compiled and executed as part of the test suite,

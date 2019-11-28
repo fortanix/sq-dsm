@@ -18,15 +18,15 @@ use crate::{
         PacketParser
     },
     Result,
-    tpk::ComponentBinding,
-    TPK,
+    cert::ComponentBinding,
+    Cert,
 };
 
 mod low_level;
 use low_level::{
     Lexer,
-    TPKParser as TPKLowLevelParser,
-    TPKParserError,
+    CertParser as CertLowLevelParser,
+    CertParserError,
     Token,
     parse_error_downcast,
 };
@@ -89,7 +89,7 @@ pub struct KeyringValidator {
     finished: bool,
 
     // If we know that the packet sequence is invalid.
-    error: Option<TPKParserError>,
+    error: Option<CertParserError>,
 }
 
 impl Default for KeyringValidator {
@@ -173,9 +173,9 @@ impl KeyringValidator {
             Tag::Trust => Token::Trust(None),
             _ => {
                 // Unknown token.
-                self.error = Some(TPKParserError::OpenPGP(
+                self.error = Some(CertParserError::OpenPGP(
                     Error::MalformedMessage(
-                        format!("Invalid TPK: {:?} packet (at {}) not expected",
+                        format!("Invalid Cert: {:?} packet (at {}) not expected",
                                 tag, self.n_packets).into())));
                 self.tokens.clear();
                 return;
@@ -215,7 +215,7 @@ impl KeyringValidator {
             return KeyringValidity::Error((*err).clone().into());
         }
 
-        let r = TPKLowLevelParser::new().parse(
+        let r = CertLowLevelParser::new().parse(
             Lexer::from_tokens(&self.tokens));
 
         if self.finished {
@@ -223,7 +223,7 @@ impl KeyringValidator {
                 Ok(_) => KeyringValidity::Keyring,
                 Err(err) =>
                     KeyringValidity::Error(
-                        TPKParserError::Parser(parse_error_downcast(err)).into()),
+                        CertParserError::Parser(parse_error_downcast(err)).into()),
             }
         } else {
             match r {
@@ -232,42 +232,42 @@ impl KeyringValidator {
                     KeyringValidity::KeyringPrefix,
                 Err(err) =>
                     KeyringValidity::Error(
-                        TPKParserError::Parser(parse_error_downcast(err)).into()),
+                        CertParserError::Parser(parse_error_downcast(err)).into()),
             }
         }
     }
 }
 
-/// Whether a packet sequence is a valid TPK.
+/// Whether a packet sequence is a valid Cert.
 #[derive(Debug)]
-pub enum TPKValidity {
-    /// The packet sequence is a valid TPK.
-    TPK,
-    /// The packet sequence is a valid TPK prefix.
-    TPKPrefix,
-    /// The packet sequence is definitely not a TPK.
+pub enum CertValidity {
+    /// The packet sequence is a valid Cert.
+    Cert,
+    /// The packet sequence is a valid Cert prefix.
+    CertPrefix,
+    /// The packet sequence is definitely not a Cert.
     Error(failure::Error),
 }
 
-impl TPKValidity {
-    /// Returns whether the packet sequence is a valid TPK.
+impl CertValidity {
+    /// Returns whether the packet sequence is a valid Cert.
     ///
-    /// Note: a `TPKValidator` will only return this after
-    /// `TPKValidator::finish` has been called.
-    pub fn is_tpk(&self) -> bool {
-        if let TPKValidity::TPK = self {
+    /// Note: a `CertValidator` will only return this after
+    /// `CertValidator::finish` has been called.
+    pub fn is_cert(&self) -> bool {
+        if let CertValidity::Cert = self {
             true
         } else {
             false
         }
     }
 
-    /// Returns whether the packet sequence is a valid TPK prefix.
+    /// Returns whether the packet sequence is a valid Cert prefix.
     ///
-    /// Note: a `TPKValidator` will only return this before
-    /// `TPKValidator::finish` has been called.
-    pub fn is_tpk_prefix(&self) -> bool {
-        if let TPKValidity::TPKPrefix = self {
+    /// Note: a `CertValidator` will only return this before
+    /// `CertValidator::finish` has been called.
+    pub fn is_cert_prefix(&self) -> bool {
+        if let CertValidity::CertPrefix = self {
             true
         } else {
             false
@@ -275,9 +275,9 @@ impl TPKValidity {
     }
 
     /// Returns whether the packet sequence is definitely not a valid
-    /// TPK.
+    /// Cert.
     pub fn is_err(&self) -> bool {
-        if let TPKValidity::Error(_) = self {
+        if let CertValidity::Error(_) = self {
             true
         } else {
             false
@@ -285,41 +285,41 @@ impl TPKValidity {
     }
 }
 
-/// Used to help validate that a packet sequence is a valid TPK.
+/// Used to help validate that a packet sequence is a valid Cert.
 #[derive(Debug)]
-pub struct TPKValidator(KeyringValidator);
+pub struct CertValidator(KeyringValidator);
 
-impl Default for TPKValidator {
+impl Default for CertValidator {
     fn default() -> Self {
-        TPKValidator::new()
+        CertValidator::new()
     }
 }
 
-impl TPKValidator {
-    /// Instantiates a new `TPKValidator`.
+impl CertValidator {
+    /// Instantiates a new `CertValidator`.
     pub fn new() -> Self {
-        TPKValidator(Default::default())
+        CertValidator(Default::default())
     }
 
-    /// Returns whether the packet sequence is a valid TPK.
+    /// Returns whether the packet sequence is a valid Cert.
     ///
-    /// Note: a `TPKValidator` will only return this after
-    /// `TPKValidator::finish` has been called.
-    pub fn is_tpk(&self) -> bool {
-        self.check().is_tpk()
+    /// Note: a `CertValidator` will only return this after
+    /// `CertValidator::finish` has been called.
+    pub fn is_cert(&self) -> bool {
+        self.check().is_cert()
     }
 
-    /// Returns whether the packet sequence forms a valid TPK
+    /// Returns whether the packet sequence forms a valid Cert
     /// prefix.
     ///
-    /// Note: a `TPKValidator` will only return this before
-    /// `TPKValidator::finish` has been called.
-    pub fn is_tpk_prefix(&self) -> bool {
-        self.check().is_tpk_prefix()
+    /// Note: a `CertValidator` will only return this before
+    /// `CertValidator::finish` has been called.
+    pub fn is_cert_prefix(&self) -> bool {
+        self.check().is_cert_prefix()
     }
 
     /// Returns whether the packet sequence is definitely not a valid
-    /// TPK.
+    /// Cert.
     pub fn is_err(&self) -> bool {
         self.check().is_err()
     }
@@ -339,40 +339,40 @@ impl TPKValidator {
     /// This function may only be called once.
     ///
     /// Once called, this function will no longer return
-    /// `TPKValidity::TPKPrefix`.
+    /// `CertValidity::CertPrefix`.
     pub fn finish(&mut self) {
         self.0.finish()
     }
 
     /// Returns whether the token stream corresponds to a valid
-    /// TPK.
+    /// Cert.
     ///
     /// This returns a tri-state: if the packet sequence is a valid
-    /// TPK, it returns TPKValidity::TPK, if the packet sequence is
-    /// invalid, then it returns TPKValidity::Error.  If the packet
+    /// Cert, it returns CertValidity::Cert, if the packet sequence is
+    /// invalid, then it returns CertValidity::Error.  If the packet
     /// sequence could be valid, then it returns
-    /// TPKValidity::TPKPrefix.
+    /// CertValidity::CertPrefix.
     ///
-    /// Note: if TPKValidator::finish() *hasn't* been called, then
+    /// Note: if CertValidator::finish() *hasn't* been called, then
     /// this function will only ever return either
-    /// TPKValidity::TPKPrefix or TPKValidity::Error.  Once
-    /// TPKValidity::finish() has been called, then only
-    /// TPKValidity::TPK or TPKValidity::Bad will be called.
-    pub fn check(&self) -> TPKValidity {
+    /// CertValidity::CertPrefix or CertValidity::Error.  Once
+    /// CertValidity::finish() has been called, then only
+    /// CertValidity::Cert or CertValidity::Bad will be called.
+    pub fn check(&self) -> CertValidity {
         if self.0.n_keys > 1 {
-            return TPKValidity::Error(Error::MalformedMessage(
+            return CertValidity::Error(Error::MalformedMessage(
                     "More than one key found, this is a keyring".into()).into());
         }
 
         match self.0.check() {
-            KeyringValidity::Keyring => TPKValidity::TPK,
-            KeyringValidity::KeyringPrefix => TPKValidity::TPKPrefix,
-            KeyringValidity::Error(e) => TPKValidity::Error(e),
+            KeyringValidity::Keyring => CertValidity::Cert,
+            KeyringValidity::KeyringPrefix => CertValidity::CertPrefix,
+            KeyringValidity::Error(e) => CertValidity::Error(e),
         }
     }
 }
 
-// A TPKParser can read packets from either an Iterator or a
+// A CertParser can read packets from either an Iterator or a
 // PacketParser.  Ideally, we would just take an iterator, but we
 // want to be able to handle errors, which iterators hide.
 enum PacketSource<'a, I: Iterator<Item=Packet>> {
@@ -381,7 +381,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
     Iter(I),
 }
 
-/// An iterator over a sequence of TPKs (e.g., an OpenPGP keyring).
+/// An iterator over a sequence of Certs (e.g., an OpenPGP keyring).
 ///
 /// The source of packets can either be a `PacketParser` or an
 /// iterator over `Packet`s.  (In the latter case, the underlying
@@ -395,16 +395,16 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-/// use openpgp::tpk::TPKParser;
+/// use openpgp::cert::CertParser;
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
 /// #     let ppr = PacketParser::from_bytes(b"")?;
-/// for tpko in TPKParser::from_packet_parser(ppr) {
-///     match tpko {
-///         Ok(tpk) => {
-///             println!("Key: {}", tpk.primary());
-///             for binding in tpk.userids() {
+/// for certo in CertParser::from_packet_parser(ppr) {
+///     match certo {
+///         Ok(cert) => {
+///             println!("Key: {}", cert.primary());
+///             for binding in cert.userids() {
 ///                 println!("User ID: {}", binding.userid());
 ///             }
 ///         }
@@ -416,16 +416,16 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// #     Ok(())
 /// # }
 /// ```
-pub struct TPKParser<'a, I: Iterator<Item=Packet>> {
+pub struct CertParser<'a, I: Iterator<Item=Packet>> {
     source: PacketSource<'a, I>,
     packets: Vec<Packet>,
     saw_error: bool,
-    filter: Vec<Box<dyn Fn(&TPK, bool) -> bool + 'a>>,
+    filter: Vec<Box<dyn Fn(&Cert, bool) -> bool + 'a>>,
 }
 
-impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
+impl<'a, I: Iterator<Item=Packet>> Default for CertParser<'a, I> {
     fn default() -> Self {
-        TPKParser {
+        CertParser {
             source: PacketSource::EOF,
             packets: vec![],
             saw_error: false,
@@ -437,8 +437,8 @@ impl<'a, I: Iterator<Item=Packet>> Default for TPKParser<'a, I> {
 // When using a `PacketParser`, we never use the `Iter` variant.
 // Nevertheless, we need to provide a concrete type.
 // vec::IntoIter<Packet> is about as good as any other.
-impl<'a> TPKParser<'a, vec::IntoIter<Packet>> {
-    /// Initializes a `TPKParser` from a `PacketParser`.
+impl<'a> CertParser<'a, vec::IntoIter<Packet>> {
+    /// Initializes a `CertParser` from a `PacketParser`.
     pub fn from_packet_parser(ppr: PacketParserResult<'a>) -> Self {
         let mut parser : Self = Default::default();
         if let PacketParserResult::Some(pp) = ppr {
@@ -448,63 +448,63 @@ impl<'a> TPKParser<'a, vec::IntoIter<Packet>> {
     }
 }
 
-impl<'a> Parse<'a, TPKParser<'a, vec::IntoIter<Packet>>>
-    for TPKParser<'a, vec::IntoIter<Packet>>
+impl<'a> Parse<'a, CertParser<'a, vec::IntoIter<Packet>>>
+    for CertParser<'a, vec::IntoIter<Packet>>
 {
-    /// Initializes a `TPKParser` from a `Read`er.
+    /// Initializes a `CertParser` from a `Read`er.
     fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
         Ok(Self::from_packet_parser(PacketParser::from_reader(reader)?))
     }
 
-    /// Initializes a `TPKParser` from a `File`.
+    /// Initializes a `CertParser` from a `File`.
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         Ok(Self::from_packet_parser(PacketParser::from_file(path)?))
     }
 
-    /// Initializes a `TPKParser` from a byte string.
+    /// Initializes a `CertParser` from a byte string.
     fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
         Ok(Self::from_packet_parser(PacketParser::from_bytes(data)?))
     }
 }
 
-impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
-    /// Initializes a TPKParser from an iterator over Packets.
+impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
+    /// Initializes a CertParser from an iterator over Packets.
     pub fn from_iter(iter: I) -> Self {
         let mut parser : Self = Default::default();
         parser.source = PacketSource::Iter(iter);
         parser
     }
 
-    /// Filters the TPKs prior to validation.
+    /// Filters the Certs prior to validation.
     ///
-    /// By default, the `TPKParser` only returns valdiated `TPK`s.
-    /// Checking that a `TPK`'s self-signatures are valid, however, is
+    /// By default, the `CertParser` only returns valdiated `Cert`s.
+    /// Checking that a `Cert`'s self-signatures are valid, however, is
     /// computationally expensive, and not always necessary.  For
-    /// example, when looking for a small number of `TPK`s in a large
-    /// keyring, most `TPK`s can be immediately discarded.  That is,
+    /// example, when looking for a small number of `Cert`s in a large
+    /// keyring, most `Cert`s can be immediately discarded.  That is,
     /// it is more efficient to filter, validate, and double check,
     /// than to validate and filter.  (It is necessary to double
     /// check, because the check might have been on an invalid part.
     /// For example, if searching for a key with a particular key ID,
     /// a matching subkey might not have any self signatures.)
     ///
-    /// If the `TPKParser` gave out unvalidated `TPK`s, and provided
+    /// If the `CertParser` gave out unvalidated `Cert`s, and provided
     /// an interface to validate them, then the caller could implement
     /// this first-validate-double-check pattern.  Giving out
-    /// unvalidated `TPK`s, however, is too dangerous: inevitably, a
-    /// `TPK` will be used without having been validated in a context
+    /// unvalidated `Cert`s, however, is too dangerous: inevitably, a
+    /// `Cert` will be used without having been validated in a context
     /// where it should have been.
     ///
     /// This function avoids this class of bugs while still providing
-    /// a mechanism to filter `TPK`s prior to validation: the caller
+    /// a mechanism to filter `Cert`s prior to validation: the caller
     /// provides a callback, that is invoked on the *unvalidated*
-    /// `TPK`.  If the callback returns `true`, then the parser
-    /// validates the `TPK`, and invokes the callback *a second time*
-    /// to make sure the `TPK` is really wanted.  If the callback
-    /// returns false, then the `TPK` is skipped.
+    /// `Cert`.  If the callback returns `true`, then the parser
+    /// validates the `Cert`, and invokes the callback *a second time*
+    /// to make sure the `Cert` is really wanted.  If the callback
+    /// returns false, then the `Cert` is skipped.
     ///
     /// Note: calling this function multiple times on a single
-    /// `TPKParser` will install multiple filters.
+    /// `CertParser` will install multiple filters.
     ///
     /// # Example
     ///
@@ -512,20 +512,20 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::parse::{Parse, PacketParser};
-    /// use openpgp::tpk::TPKParser;
-    /// use openpgp::TPK;
+    /// use openpgp::cert::CertParser;
+    /// use openpgp::Cert;
     /// use openpgp::KeyID;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// #     let ppr = PacketParser::from_bytes(b"")?;
     /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
-    /// for tpkr in TPKParser::from_packet_parser(ppr)
-    ///     .unvalidated_tpk_filter(|tpk, _| {
-    ///         if tpk.primary().keyid() == some_keyid {
+    /// for certr in CertParser::from_packet_parser(ppr)
+    ///     .unvalidated_cert_filter(|cert, _| {
+    ///         if cert.primary().keyid() == some_keyid {
     ///             return true;
     ///         }
-    ///         for binding in tpk.subkeys() {
+    ///         for binding in cert.subkeys() {
     ///             if binding.key().keyid() == some_keyid {
     ///                 return true;
     ///             }
@@ -533,9 +533,9 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     ///         false
     ///     })
     /// {
-    ///     match tpkr {
-    ///         Ok(tpk) => {
-    ///             // The TPK contains the subkey.
+    ///     match certr {
+    ///         Ok(cert) => {
+    ///             // The Cert contains the subkey.
     ///         }
     ///         Err(err) => {
     ///             eprintln!("Error reading keyring: {}", err);
@@ -545,8 +545,8 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn unvalidated_tpk_filter<F: 'a>(mut self, filter: F) -> Self
-        where F: Fn(&TPK, bool) -> bool
+    pub fn unvalidated_cert_filter<F: 'a>(mut self, filter: F) -> Self
+        where F: Fn(&Cert, bool) -> bool
     {
         self.filter.push(Box::new(filter));
         self
@@ -554,9 +554,9 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
 
     // Parses the next packet in the packet stream.
     //
-    // If we complete parsing a TPK, returns the TPK.  Otherwise,
+    // If we complete parsing a Cert, returns the Cert.  Otherwise,
     // returns None.
-    fn parse(&mut self, p: Packet) -> Result<Option<TPK>> {
+    fn parse(&mut self, p: Packet) -> Result<Option<Cert>> {
         if let Packet::Marker(_) = p {
             // Ignore Marker Packet.  RFC4880, section 5.8:
             //
@@ -567,7 +567,7 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
         if self.packets.len() > 0 {
             match p.tag() {
                 Tag::PublicKey | Tag::SecretKey => {
-                    return self.tpk(Some(p));
+                    return self.cert(Some(p));
                 },
                 _ => {},
             }
@@ -587,9 +587,9 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
         orig
     }
 
-    // Finalizes the current TPK and returns it.  Sets the parser up to
-    // begin parsing the next TPK.
-    fn tpk(&mut self, pk: Option<Packet>) -> Result<Option<TPK>> {
+    // Finalizes the current Cert and returns it.  Sets the parser up to
+    // begin parsing the next Cert.
+    fn cert(&mut self, pk: Option<Packet>) -> Result<Option<Cert>> {
         let orig = self.reset();
 
         if let Some(pk) = pk {
@@ -603,27 +603,27 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
             .collect::<Vec<Token>>();
         if tokens.len() != packets {
             // There was at least one packet that doesn't belong in a
-            // TPK.  Fail now.
-            return Err(Error::UnsupportedTPK(
-                "Packet sequence includes non-TPK packets.".into()).into());
+            // Cert.  Fail now.
+            return Err(Error::UnsupportedCert(
+                "Packet sequence includes non-Cert packets.".into()).into());
         }
 
-        let tpko = match TPKLowLevelParser::new()
+        let certo = match CertLowLevelParser::new()
             .parse(Lexer::from_tokens(&tokens))
         {
-            Ok(tpko) => tpko,
+            Ok(certo) => certo,
             Err(e) => return Err(
                 low_level::parse_error_to_openpgp_error(
                     low_level::parse_error_downcast(e)).into()),
-        }.and_then(|tpk| {
+        }.and_then(|cert| {
             for filter in &self.filter {
-                if !filter(&tpk, true) {
+                if !filter(&cert, true) {
                     return None;
                 }
             }
 
-            Some(tpk)
-        }).and_then(|mut tpk| {
+            Some(cert)
+        }).and_then(|mut cert| {
             fn split_sigs<C>(primary: &Fingerprint, primary_keyid: &KeyID,
                              b: &mut ComponentBinding<C>)
             {
@@ -672,56 +672,56 @@ impl<'a, I: Iterator<Item=Packet>> TPKParser<'a, I> {
                 b.other_revocations = other_revs;
             }
 
-            let primary_fp = tpk.primary().fingerprint();
+            let primary_fp = cert.primary().fingerprint();
             let primary_keyid = KeyID::from(&primary_fp);
 
             // The parser puts all of the signatures on the
             // certifications field.  Split them now.
 
-            split_sigs(&primary_fp, &primary_keyid, &mut tpk.primary);
+            split_sigs(&primary_fp, &primary_keyid, &mut cert.primary);
 
-            for b in tpk.userids.iter_mut() {
+            for b in cert.userids.iter_mut() {
                 split_sigs(&primary_fp, &primary_keyid, b);
             }
-            for b in tpk.user_attributes.iter_mut() {
+            for b in cert.user_attributes.iter_mut() {
                 split_sigs(&primary_fp, &primary_keyid, b);
             }
-            for b in tpk.subkeys.iter_mut() {
+            for b in cert.subkeys.iter_mut() {
                 split_sigs(&primary_fp, &primary_keyid, b);
             }
 
-            let tpk = tpk.canonicalize();
+            let cert = cert.canonicalize();
 
             // Make sure it is still wanted.
             for filter in &self.filter {
-                if !filter(&tpk, true) {
+                if !filter(&cert, true) {
                     return None;
                 }
             }
 
-            Some(tpk)
+            Some(cert)
         });
 
-        Ok(tpko)
+        Ok(certo)
     }
 }
 
-impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
-    type Item = Result<TPK>;
+impl<'a, I: Iterator<Item=Packet>> Iterator for CertParser<'a, I> {
+    type Item = Result<Cert>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             match mem::replace(&mut self.source, PacketSource::EOF) {
                 PacketSource::EOF => {
                     if TRACE {
-                        eprintln!("TPKParser::next: EOF.");
+                        eprintln!("CertParser::next: EOF.");
                     }
 
                     if self.packets.len() == 0 {
                         return None;
                     }
-                    match self.tpk(None) {
-                        Ok(Some(tpk)) => return Some(Ok(tpk)),
+                    match self.cert(None) {
+                        Ok(Some(cert)) => return Some(Ok(cert)),
                         Ok(None) => return None,
                         Err(err) => return Some(Err(err)),
                     }
@@ -734,7 +734,7 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                             }
 
                             match self.parse(packet) {
-                                Ok(Some(tpk)) => return Some(Ok(tpk)),
+                                Ok(Some(cert)) => return Some(Ok(cert)),
                                 Ok(None) => (),
                                 Err(err) => return Some(Err(err)),
                             }
@@ -752,16 +752,16 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for TPKParser<'a, I> {
                             self.parse(packet)
                         }
                         None if self.packets.len() == 0 => Ok(None),
-                        None => self.tpk(None),
+                        None => self.cert(None),
                     };
 
                     match r {
-                        Ok(Some(tpk)) => {
+                        Ok(Some(cert)) => {
                             if TRACE {
-                                eprintln!("TPKParser::next => {}",
-                                          tpk.primary().fingerprint());
+                                eprintln!("CertParser::next => {}",
+                                          cert.primary().fingerprint());
                             }
-                            return Some(Ok(tpk));
+                            return Some(Ok(cert));
                         }
                         Ok(None) => (),
                         Err(err) => return Some(Err(err)),
@@ -778,9 +778,9 @@ mod test {
 
     #[test]
     fn tokens() {
-        use crate::tpk::parser::low_level::lexer::{Token, Lexer};
-        use crate::tpk::parser::low_level::lexer::Token::*;
-        use crate::tpk::parser::low_level::TPKParser;
+        use crate::cert::parser::low_level::lexer::{Token, Lexer};
+        use crate::cert::parser::low_level::lexer::Token::*;
+        use crate::cert::parser::low_level::CertParser;
 
         struct TestVector<'a> {
             s: &'a [Token],
@@ -900,17 +900,17 @@ mod test {
 
         for v in test_vectors.into_iter() {
             if v.result {
-                let mut l = TPKValidator::new();
+                let mut l = CertValidator::new();
                 for token in v.s.into_iter() {
                     l.push_token((*token).clone());
-                    assert_match!(TPKValidity::TPKPrefix = l.check());
+                    assert_match!(CertValidity::CertPrefix = l.check());
                 }
 
                 l.finish();
-                assert_match!(TPKValidity::TPK = l.check());
+                assert_match!(CertValidity::Cert = l.check());
             }
 
-            match TPKParser::new().parse(Lexer::from_tokens(v.s)) {
+            match CertParser::new().parse(Lexer::from_tokens(v.s)) {
                 Ok(r) => assert!(v.result, "Parsing: {:?} => {:?}", v.s, r),
                 Err(e) => assert!(! v.result, "Parsing: {:?} => {:?}", v.s, e),
             }
@@ -924,7 +924,7 @@ mod test {
         Packet::Marker(Default::default())
             .serialize(&mut testy_with_marker).unwrap();
         testy_with_marker.extend_from_slice(crate::tests::key("testy.pgp"));
-        TPKParser::from_packet_parser(
+        CertParser::from_packet_parser(
             PacketParser::from_bytes(&testy_with_marker).unwrap())
             .nth(0).unwrap().unwrap();
     }

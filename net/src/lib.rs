@@ -64,7 +64,7 @@ use std::convert::From;
 use std::io::Cursor;
 use url::Url;
 
-use crate::openpgp::TPK;
+use crate::openpgp::Cert;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::{KeyID, armor, serialize::Serialize};
 use sequoia_core::{Context, NetworkPolicy};
@@ -159,7 +159,7 @@ impl KeyServer {
 
     /// Retrieves the key with the given `keyid`.
     pub fn get(&mut self, keyid: &KeyID)
-               -> Box<dyn Future<Item=TPK, Error=failure::Error> + 'static> {
+               -> Box<dyn Future<Item=Cert, Error=failure::Error> + 'static> {
         let keyid_want = keyid.clone();
         let uri = self.uri.join(
             &format!("pks/lookup?op=get&options=mr&search=0x{}",
@@ -181,16 +181,16 @@ impl KeyServer {
                                      c,
                                      armor::ReaderMode::Tolerant(
                                          Some(armor::Kind::PublicKey)));
-                                 match TPK::from_reader(r) {
-                                     Ok(tpk) => {
-                                         if tpk.keys_all().any(|(_, _, key)| {
+                                 match Cert::from_reader(r) {
+                                     Ok(cert) => {
+                                         if cert.keys_all().any(|(_, _, key)| {
                                              KeyID::from(key.fingerprint())
                                                  == keyid_want
                                          }) {
-                                             future::done(Ok(tpk))
+                                             future::done(Ok(cert))
                                          } else {
                                              future::err(Error::MismatchedKeyID(
-                                                 keyid_want, tpk).into())
+                                                 keyid_want, cert).into())
                                          }
                                      },
                                      Err(e) => {
@@ -206,7 +206,7 @@ impl KeyServer {
     }
 
     /// Sends the given key to the server.
-    pub fn send(&mut self, key: &TPK)
+    pub fn send(&mut self, key: &Cert)
                 -> Box<dyn Future<Item=(), Error=failure::Error> + 'static> {
         use crate::openpgp::armor::{Writer, Kind};
 
@@ -301,7 +301,7 @@ pub enum Error {
     NotFound,
     /// Mismatched key ID
     #[fail(display = "Mismatched key ID, expected {}", _0)]
-    MismatchedKeyID(KeyID, TPK),
+    MismatchedKeyID(KeyID, Cert),
     /// A given keyserver URI was malformed.
     #[fail(display = "Malformed URI; expected hkp: or hkps:")]
     MalformedUri,
@@ -332,8 +332,8 @@ pub enum Error {
     #[fail(display = "Malformed email address {}", _0)]
     MalformedEmail(String),
 
-    /// An email address was not found in TPK userids.
-    #[fail(display = "Email address {} not found in TPK's userids", _0)]
+    /// An email address was not found in Cert userids.
+    #[fail(display = "Email address {} not found in Cert's userids", _0)]
     EmailNotInUserids(String),
 }
 

@@ -9,13 +9,13 @@ main () {
   pgp_status_t rc;
 
   /* First, generate the key.  */
-  pgp_tpk_builder_t builder = pgp_tpk_builder_new ();
-  pgp_tpk_builder_set_cipher_suite (&builder, PGP_TPK_CIPHER_SUITE_CV25519);
+  pgp_cert_builder_t builder = pgp_cert_builder_new ();
+  pgp_cert_builder_set_cipher_suite (&builder, PGP_CERT_CIPHER_SUITE_CV25519);
 
-  pgp_tpk_t tpk;
+  pgp_cert_t cert;
   pgp_signature_t revocation;
-  pgp_tpk_builder_generate (NULL, builder, &tpk, &revocation);
-  assert (tpk);
+  pgp_cert_builder_generate (NULL, builder, &cert, &revocation);
+  assert (cert);
   assert (revocation);
   pgp_signature_free (revocation);    /* Free the generated revocation.  */
 
@@ -27,12 +27,12 @@ main () {
   assert (armor);
 
   /* Finally, derive a TSK object, and serialize it.  */
-  pgp_tsk_t tsk = pgp_tpk_as_tsk (tpk);
+  pgp_tsk_t tsk = pgp_cert_as_tsk (cert);
   rc = pgp_tsk_serialize (NULL, tsk, armor);
   assert (rc == PGP_STATUS_SUCCESS);
 
   pgp_tsk_free (tsk);
   pgp_writer_free (armor);
   pgp_writer_free (sink);
-  pgp_tpk_free (tpk);
+  pgp_cert_free (cert);
 }

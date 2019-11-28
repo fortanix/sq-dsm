@@ -21,19 +21,19 @@
 #include <sequoia/openpgp.h>
 
 struct decrypt_cookie {
-  pgp_tpk_t key;
+  pgp_cert_t key;
   int decrypt_called;
 };
 
 static pgp_status_t
 get_public_keys_cb (void *cookie_raw,
                     pgp_keyid_t *keyids, size_t keyids_len,
-                    pgp_tpk_t **tpks, size_t *tpk_len,
+                    pgp_cert_t **certs, size_t *cert_len,
                     void (**our_free)(void *))
 {
-  /* Feed the TPKs to the verifier here.  */
-  *tpks = NULL;
-  *tpk_len = 0;
+  /* Feed the Certs to the verifier here.  */
+  *certs = NULL;
+  *cert_len = 0;
   *our_free = free;
   return PGP_STATUS_SUCCESS;
 }
@@ -155,9 +155,9 @@ decrypt_cb (void *cookie_opaque,
     pgp_pkesk_t pkesk = pkesks[i];
     pgp_keyid_t keyid = pgp_pkesk_recipient (pkesk);
 
-    pgp_tpk_key_iter_t key_iter = pgp_tpk_key_iter_all (cookie->key);
+    pgp_cert_key_iter_t key_iter = pgp_cert_key_iter_all (cookie->key);
     pgp_key_t key;
-    while ((key = pgp_tpk_key_iter_next (key_iter, NULL, NULL))) {
+    while ((key = pgp_cert_key_iter_next (key_iter, NULL, NULL))) {
       pgp_keyid_t this_keyid = pgp_key_keyid (key);
       int match = pgp_keyid_equal (this_keyid, keyid);
       pgp_keyid_free (this_keyid);
@@ -165,7 +165,7 @@ decrypt_cb (void *cookie_opaque,
         break;
       pgp_key_free (key);
     }
-    pgp_tpk_key_iter_free (key_iter);
+    pgp_cert_key_iter_free (key_iter);
     pgp_keyid_free (keyid);
     if (! key)
       continue;
@@ -185,7 +185,7 @@ decrypt_cb (void *cookie_opaque,
     rc = decrypt (decrypt_cookie, algo, sk);
     pgp_session_key_free (sk);
 
-    *identity_out = pgp_tpk_fingerprint (cookie->key);
+    *identity_out = pgp_cert_fingerprint (cookie->key);
     return rc;
   }
 
@@ -196,7 +196,7 @@ int
 main (int argc, char **argv)
 {
   pgp_error_t err;
-  pgp_tpk_t tpk;
+  pgp_cert_t cert;
   pgp_reader_t source;
   pgp_reader_t plaintext;
   uint8_t buf[1024];
@@ -205,15 +205,15 @@ main (int argc, char **argv)
   if (argc != 2)
     error (1, 0, "Usage: %s <keyfile> <cipher >plain", argv[0]);
 
-  tpk = pgp_tpk_from_file (&err, argv[1]);
-  if (tpk == NULL)
-    error (1, 0, "pgp_tpk_from_file: %s", pgp_error_to_string (err));
+  cert = pgp_cert_from_file (&err, argv[1]);
+  if (cert == NULL)
+    error (1, 0, "pgp_cert_from_file: %s", pgp_error_to_string (err));
 
   source = pgp_reader_from_fd (STDIN_FILENO);
   assert (source);
 
   struct decrypt_cookie cookie = {
-    .key = tpk,
+    .key = cert,
     .decrypt_called = 0,
   };
   plaintext = pgp_decryptor_new (&err, source,
@@ -230,6 +230,6 @@ main (int argc, char **argv)
 
   pgp_reader_free (plaintext);
   pgp_reader_free (source);
-  pgp_tpk_free (tpk);
+  pgp_cert_free (cert);
   return 0;
 }

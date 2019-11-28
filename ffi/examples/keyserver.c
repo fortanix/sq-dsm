@@ -22,7 +22,7 @@ main (int argc, char **argv)
   sq_context_t ctx;
   pgp_keyid_t id;
   sq_keyserver_t ks;
-  pgp_tpk_t tpk;
+  pgp_cert_t cert;
 
   ctx = sq_context_new (&err);
   if (ctx == NULL)
@@ -37,18 +37,18 @@ main (int argc, char **argv)
     }
 
   id = pgp_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
-  tpk = sq_keyserver_get (ctx, ks, id);
-  if (tpk == NULL)
+  cert = sq_keyserver_get (ctx, ks, id);
+  if (cert == NULL)
     {
       pgp_error_t err = sq_context_last_error (ctx);
       error (1, 0, "Failed to retrieve key: %s", pgp_error_to_string (err));
     }
 
-  char *debug = pgp_tpk_debug (tpk);
+  char *debug = pgp_cert_debug (cert);
   printf ("%s", debug);
   free (debug);
 
-  pgp_tpk_free (tpk);
+  pgp_cert_free (cert);
   pgp_keyid_free (id);
   sq_keyserver_free (ks);
   sq_context_free (ctx);

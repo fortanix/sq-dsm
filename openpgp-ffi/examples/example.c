@@ -19,19 +19,19 @@ int
 main (int argc, char **argv)
 {
   pgp_error_t err;
-  pgp_tpk_t tpk;
+  pgp_cert_t cert;
 
   if (argc != 2)
     error (1, 0, "Usage: %s <file>", argv[0]);
 
-  tpk = pgp_tpk_from_file (&err, argv[1]);
-  if (tpk == NULL)
-    error (1, 0, "pgp_tpk_from_file: %s", pgp_error_to_string (err));
+  cert = pgp_cert_from_file (&err, argv[1]);
+  if (cert == NULL)
+    error (1, 0, "pgp_cert_from_file: %s", pgp_error_to_string (err));
 
-  char *debug = pgp_tpk_debug (tpk);
+  char *debug = pgp_cert_debug (cert);
   printf ("%s", debug);
   free (debug);
 
-  pgp_tpk_free (tpk);
+  pgp_cert_free (cert);
   return 0;
 }

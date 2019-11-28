@@ -585,7 +585,7 @@ pgp_packet_t pgp_literal_into_packet (pgp_literal_t literal);
 /*/
 void pgp_literal_free (pgp_literal_t literal);
 
-/* openpgp::tpk::UserIDBinding.  */
+/* openpgp::cert::UserIDBinding.  */
 
 /*/
 /// Returns the user id.
@@ -603,7 +603,7 @@ char *pgp_user_id_binding_user_id (pgp_user_id_binding_t binding);
 /*/
 pgp_signature_t pgp_user_id_binding_selfsig(pgp_user_id_binding_t binding);
 
-/* openpgp::tpk::UserIDBindingIter.  */
+/* openpgp::cert::UserIDBindingIter.  */
 
 /*/
 /// Returns the next element in the iterator.
@@ -615,7 +615,7 @@ pgp_user_id_binding_t pgp_user_id_binding_iter_next (pgp_user_id_binding_iter_t 
 /*/
 void pgp_user_id_binding_iter_free (pgp_user_id_binding_iter_t iter);
 
-/* openpgp::tpk::KeyIter.  */
+/* openpgp::cert::KeyIter.  */
 
 /*/
 /// Changes the iterator to only return keys that are certification
@@ -628,7 +628,7 @@ void pgp_user_id_binding_iter_free (pgp_user_id_binding_iter_t iter);
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_certification_capable (pgp_tpk_key_iter_t iter);
+void pgp_cert_key_iter_certification_capable (pgp_cert_key_iter_t iter);
 
 /*/
 /// Changes the iterator to only return keys that are certification
@@ -641,7 +641,7 @@ void pgp_tpk_key_iter_certification_capable (pgp_tpk_key_iter_t iter);
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_signing_capable (pgp_tpk_key_iter_t iter);
+void pgp_cert_key_iter_signing_capable (pgp_cert_key_iter_t iter);
 
 /*/
 /// Changes the iterator to only return keys that are capable of
@@ -654,7 +654,7 @@ void pgp_tpk_key_iter_signing_capable (pgp_tpk_key_iter_t iter);
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_encrypting_capable_at_rest (pgp_tpk_key_iter_t);
+void pgp_cert_key_iter_encrypting_capable_at_rest (pgp_cert_key_iter_t);
 
 /*/
 /// Changes the iterator to only return keys that are capable of
@@ -667,28 +667,28 @@ void pgp_tpk_key_iter_encrypting_capable_at_rest (pgp_tpk_key_iter_t);
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_encrypting_capable_for_transport (pgp_tpk_key_iter_t);
+void pgp_cert_key_iter_encrypting_capable_for_transport (pgp_cert_key_iter_t);
 
 /*/
 /// Changes the iterator to only return keys that are alive.
 ///
-/// If you call this function (or `pgp_tpk_key_iter_alive_at`), only
+/// If you call this function (or `pgp_cert_key_iter_alive_at`), only
 /// the last value is used.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_alive (pgp_tpk_key_iter_t iter);
+void pgp_cert_key_iter_alive (pgp_cert_key_iter_t iter);
 
 /*/
 /// Changes the iterator to only return keys that are alive at the
 /// specified time.
 ///
-/// If you call this function (or `pgp_tpk_key_iter_alive`), only the
+/// If you call this function (or `pgp_cert_key_iter_alive`), only the
 /// last value is used.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_alive_at (pgp_tpk_key_iter_t iter, time_t when);
+void pgp_cert_key_iter_alive_at (pgp_cert_key_iter_t iter, time_t when);
 
 /*/
 /// Changes the iterator to only return keys whose revocation status
@@ -696,14 +696,14 @@ void pgp_tpk_key_iter_alive_at (pgp_tpk_key_iter_t iter, time_t when);
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_revoked (pgp_tpk_key_iter_t iter, bool revoked);
+void pgp_cert_key_iter_revoked (pgp_cert_key_iter_t iter, bool revoked);
 
 /*/
 /// Changes the iterator to only return keys that have secret keys.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_secret (pgp_tpk_key_iter_t iter);
+void pgp_cert_key_iter_secret (pgp_cert_key_iter_t iter);
 
 /*/
 /// Changes the iterator to only return keys that have unencrypted
@@ -711,7 +711,7 @@ void pgp_tpk_key_iter_secret (pgp_tpk_key_iter_t iter);
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_tpk_key_iter_unencrypted_secret (pgp_tpk_key_iter_t iter);
+void pgp_cert_key_iter_unencrypted_secret (pgp_cert_key_iter_t iter);
 
 /*/
 /// Returns a reference to the next key.  Returns NULL if there are no
@@ -725,117 +725,117 @@ void pgp_tpk_key_iter_unencrypted_secret (pgp_tpk_key_iter_t iter);
 /// If rev is not NULL, this stores the key's revocation status in
 /// *rev.
 /*/
-pgp_key_t pgp_tpk_key_iter_next (pgp_tpk_key_iter_t iter,
+pgp_key_t pgp_cert_key_iter_next (pgp_cert_key_iter_t iter,
                                  pgp_signature_t *signature,
                                  pgp_revocation_status_t *rev);
 
 /*/
-/// Frees an pgp_tpk_key_iter_t.
+/// Frees an pgp_cert_key_iter_t.
 /*/
-void pgp_tpk_key_iter_free (pgp_tpk_key_iter_t iter);
+void pgp_cert_key_iter_free (pgp_cert_key_iter_t iter);
 
-/* openpgp::tpk.  */
+/* openpgp::cert.  */
 
 /*/
-/// Returns the first TPK encountered in the reader.
+/// Returns the first Cert encountered in the reader.
 /*/
-pgp_tpk_t pgp_tpk_from_reader (pgp_error_t *errp,
+pgp_cert_t pgp_cert_from_reader (pgp_error_t *errp,
 			     pgp_reader_t reader);
 
 /*/
-/// Returns the first TPK encountered in the file.
+/// Returns the first Cert encountered in the file.
 /*/
-pgp_tpk_t pgp_tpk_from_file (pgp_error_t *errp,
+pgp_cert_t pgp_cert_from_file (pgp_error_t *errp,
                            const char *filename);
 
 /*/
-/// Returns the first TPK found in `m`.
+/// Returns the first Cert found in `m`.
 ///
 /// Consumes `m`.
 /*/
-pgp_tpk_t pgp_tpk_from_packet_pile (pgp_error_t *errp,
+pgp_cert_t pgp_cert_from_packet_pile (pgp_error_t *errp,
 				  pgp_packet_pile_t m);
 
 /*/
-/// Returns the first TPK found in `buf`.
+/// Returns the first Cert found in `buf`.
 ///
-/// `buf` must be an OpenPGP-encoded TPK.
+/// `buf` must be an OpenPGP-encoded Cert.
 /*/
-pgp_tpk_t pgp_tpk_from_bytes (pgp_error_t *errp,
+pgp_cert_t pgp_cert_from_bytes (pgp_error_t *errp,
 			    const uint8_t *b, size_t len);
 
 /*/
-/// Returns the first TPK found in the packet parser.
+/// Returns the first Cert found in the packet parser.
 ///
 /// Consumes the packet parser result.
 /*/
-pgp_tpk_t pgp_tpk_from_packet_parser (pgp_error_t *errp,
+pgp_cert_t pgp_cert_from_packet_parser (pgp_error_t *errp,
                                     pgp_packet_parser_result_t ppr);
 
 /*/
-/// Frees the TPK.
+/// Frees the Cert.
 /*/
-void pgp_tpk_free (pgp_tpk_t tpk);
+void pgp_cert_free (pgp_cert_t cert);
 
 /*/
-/// Clones the TPK.
+/// Clones the Cert.
 /*/
-pgp_tpk_t pgp_tpk_clone (pgp_tpk_t tpk);
+pgp_cert_t pgp_cert_clone (pgp_cert_t cert);
 
 /*/
-/// Compares TPKs.
+/// Compares Certs.
 /*/
-int pgp_tpk_equal (const pgp_tpk_t a, const pgp_tpk_t b);
+int pgp_cert_equal (const pgp_cert_t a, const pgp_cert_t b);
 
 /*/
 /// Returns a human readable description of this object intended for
 /// communication with end users.
 /*/
-char *pgp_tpk_to_string (const pgp_tpk_t fp);
+char *pgp_cert_to_string (const pgp_cert_t fp);
 
 /*/
 /// Returns a human readable description of this object suitable for
 /// debugging.
 /*/
-char *pgp_tpk_debug (const pgp_tpk_t tpk);
+char *pgp_cert_debug (const pgp_cert_t cert);
 
 /*/
-/// Serializes the TPK.
+/// Serializes the Cert.
 /*/
-pgp_status_t pgp_tpk_serialize (pgp_error_t *errp,
-                              const pgp_tpk_t tpk,
+pgp_status_t pgp_cert_serialize (pgp_error_t *errp,
+                              const pgp_cert_t cert,
                               pgp_writer_t writer);
 
 /*/
-/// Merges `other` into `tpk`.
+/// Merges `other` into `cert`.
 ///
 /// If `other` is a different key, then nothing is merged into
-/// `tpk`, but `tpk` is still canonicalized.
+/// `cert`, but `cert` is still canonicalized.
 ///
-/// Consumes `tpk` and `other`.
+/// Consumes `cert` and `other`.
 /*/
-pgp_tpk_t pgp_tpk_merge (pgp_error_t *errp,
-                       pgp_tpk_t tpk,
-                       pgp_tpk_t other);
+pgp_cert_t pgp_cert_merge (pgp_error_t *errp,
+                       pgp_cert_t cert,
+                       pgp_cert_t other);
 
 /*/
-/// Adds packets to the TPK.
+/// Adds packets to the Cert.
 ///
-/// This recanonicalizes the TPK.  If the packets are invalid, they
+/// This recanonicalizes the Cert.  If the packets are invalid, they
 /// are dropped.
 ///
-/// Consumes `tpk` and the packets in `packets`.  The buffer, however,
+/// Consumes `cert` and the packets in `packets`.  The buffer, however,
 /// must be freed by the caller.
 /*/
-pgp_tpk_t pgp_tpk_merge_packets (pgp_error_t *errp,
-                               pgp_tpk_t tpk,
+pgp_cert_t pgp_cert_merge_packets (pgp_error_t *errp,
+                               pgp_cert_t cert,
                                pgp_packet_t *packets,
                                size_t packets_len);
 
 /*/
 /// Returns the fingerprint.
 /*/
-pgp_fingerprint_t pgp_tpk_fingerprint (const pgp_tpk_t tpk);
+pgp_fingerprint_t pgp_cert_fingerprint (const pgp_cert_t cert);
 
 
 /*/
@@ -843,91 +843,91 @@ pgp_fingerprint_t pgp_tpk_fingerprint (const pgp_tpk_t tpk);
 ///
 /// This object writes out secret keys during serialization.
 ///
-/// [`TSK`]: tpk/struct.TSK.html
+/// [`TSK`]: cert/struct.TSK.html
 /*/
-pgp_tsk_t pgp_tpk_as_tsk (pgp_tpk_t tpk);
+pgp_tsk_t pgp_cert_as_tsk (pgp_cert_t cert);
 
 /*/
-/// Returns a reference to the TPK's primary key.
+/// Returns a reference to the Cert's primary key.
 ///
-/// The tpk still owns the key.  The caller should neither modify nor
+/// The cert still owns the key.  The caller should neither modify nor
 /// free the key.
 /*/
-pgp_key_t pgp_tpk_primary_key (pgp_tpk_t tpk);
+pgp_key_t pgp_cert_primary_key (pgp_cert_t cert);
 
 /*/
-/// Returns the TPK's revocation status at the specified time.
+/// Returns the Cert's revocation status at the specified time.
 ///
-/// Note: this only returns whether the TPK has been revoked, and does
+/// Note: this only returns whether the Cert has been revoked, and does
 /// not reflect whether an individual user id, user attribute or
 /// subkey has been revoked.
 ///
-/// If `when` is 0, then returns the TPK's revocation status as of the
+/// If `when` is 0, then returns the Cert's revocation status as of the
 /// time of the call.
 /*/
-pgp_revocation_status_t pgp_tpk_revoked (pgp_tpk_t tpk, time_t when);
+pgp_revocation_status_t pgp_cert_revoked (pgp_cert_t cert, time_t when);
 
 /*/
 /// Writes a revocation certificate to the writer.
 ///
-/// This function consumes the writer.  It does *not* consume tpk.
+/// This function consumes the writer.  It does *not* consume cert.
 /*/
-pgp_signature_t pgp_tpk_revoke (pgp_error_t *errp,
-                              pgp_tpk_t tpk,
+pgp_signature_t pgp_cert_revoke (pgp_error_t *errp,
+                              pgp_cert_t cert,
                               pgp_signer_t primary_signer,
                               pgp_reason_for_revocation_t code,
                               const char *reason);
 
 /*/
-/// Adds a revocation certificate to the tpk.
+/// Adds a revocation certificate to the cert.
 ///
-/// This function consumes the tpk.
+/// This function consumes the cert.
 /*/
-pgp_tpk_t pgp_tpk_revoke_in_place (pgp_error_t *errp,
-                                 pgp_tpk_t tpk,
+pgp_cert_t pgp_cert_revoke_in_place (pgp_error_t *errp,
+                                 pgp_cert_t cert,
                                  pgp_signer_t primary_signer,
                                  pgp_reason_for_revocation_t code,
                                  const char *reason);
 
 /*/
-/// Returns whether the TPK has expired.
+/// Returns whether the Cert has expired.
 ///
 /// If `when` is 0, then the current time is used.
 /*/
-int pgp_tpk_expired(pgp_tpk_t tpk, time_t at);
+int pgp_cert_expired(pgp_cert_t cert, time_t at);
 
 /*/
-/// Returns whether the TPK is alive at the specified time.
+/// Returns whether the Cert is alive at the specified time.
 ///
 /// If `when` is 0, then the current time is used.
 /*/
-int pgp_tpk_alive(pgp_tpk_t tpk, time_t when);
+int pgp_cert_alive(pgp_cert_t cert, time_t when);
 
 /*/
-/// Changes the TPK's expiration.
+/// Changes the Cert's expiration.
 ///
 /// Expiry is when the key should expire in seconds relative to the
 /// key's creation (not the current time).
 ///
-/// This function consumes `tpk` and returns a new `TPK`.
+/// This function consumes `cert` and returns a new `Cert`.
 /*/
-pgp_tpk_t pgp_tpk_set_expiry(pgp_error_t *errp,
-                             pgp_tpk_t tpk,
+pgp_cert_t pgp_cert_set_expiry(pgp_error_t *errp,
+                             pgp_cert_t cert,
                              pgp_signer_t signer,
                              uint32_t expiry);
 
 /*/
-/// Returns whether the TPK includes any secret key material.
+/// Returns whether the Cert includes any secret key material.
 /*/
-int pgp_tpk_is_tsk(pgp_tpk_t tpk);
+int pgp_cert_is_tsk(pgp_cert_t cert);
 
 /*/
 /// Returns an iterator over the `UserIDBinding`s.
 /*/
-pgp_user_id_binding_iter_t pgp_tpk_user_id_binding_iter (pgp_tpk_t tpk);
+pgp_user_id_binding_iter_t pgp_cert_user_id_binding_iter (pgp_cert_t cert);
 
 /*/
-/// Returns an iterator over all `Key`s in a TPK.
+/// Returns an iterator over all `Key`s in a Cert.
 ///
 /// That is, this returns an iterator over the primary key and any
 /// subkeys, along with the corresponding signatures.
@@ -937,71 +937,71 @@ pgp_user_id_binding_iter_t pgp_tpk_user_id_binding_iter (pgp_tpk_t tpk);
 /// has no binding signature, the signature carrying the primary key's
 /// key flags is returned (either a direct key signature, or the
 /// self-signature on the primary User ID).  There are corner cases
-/// where no such signature exists (e.g. partial TPKs), therefore this
+/// where no such signature exists (e.g. partial Certs), therefore this
 /// iterator may return `None` for the primary key's signature.
 ///
 /// A valid `Key` has at least one good self-signature.
 ///
-/// Compare with `pgp_tpk_key_iter_valid`, which filters out expired and
+/// Compare with `pgp_cert_key_iter_valid`, which filters out expired and
 /// revoked keys.
 /*/
-pgp_tpk_key_iter_t pgp_tpk_key_iter_all (pgp_tpk_t tpk);
+pgp_cert_key_iter_t pgp_cert_key_iter_all (pgp_cert_t cert);
 
 /*/
-/// Returns an iterator over the live and unrevoked `Key`s in a TPK.
+/// Returns an iterator over the live and unrevoked `Key`s in a Cert.
 ///
-/// Compare with `pgp_tpk_key_iter_all`, which doesn't filter out
+/// Compare with `pgp_cert_key_iter_all`, which doesn't filter out
 /// expired and revoked keys by default.
 /*/
-pgp_tpk_key_iter_t pgp_tpk_key_iter_valid (pgp_tpk_t tpk);
+pgp_cert_key_iter_t pgp_cert_key_iter_valid (pgp_cert_t cert);
 
 /*/
-/// Returns the TPK's primary user id (if any).
+/// Returns the Cert's primary user id (if any).
 /*/
-char *pgp_tpk_primary_user_id(pgp_tpk_t tpk);
+char *pgp_cert_primary_user_id(pgp_cert_t cert);
 
 /*/
-/// Returns a TPKParser.
+/// Returns a CertParser.
 ///
-/// A TPK parser parses a keyring, which is simply zero or more TPKs
+/// A Cert parser parses a keyring, which is simply zero or more Certs
 /// concatenated together.
 /*/
-pgp_tpk_parser_t pgp_tpk_parser_from_bytes(pgp_error_t *errp,
+pgp_cert_parser_t pgp_cert_parser_from_bytes(pgp_error_t *errp,
                                            char *buf, size_t len);
 
 /*/
-/// Returns a TPKParser.
+/// Returns a CertParser.
 ///
-/// A TPK parser parses a keyring, which is simply zero or more TPKs
+/// A Cert parser parses a keyring, which is simply zero or more Certs
 /// concatenated together.
 /*/
-pgp_tpk_parser_t pgp_tpk_parser_from_packet_parser(pgp_packet_parser_result_t ppr);
+pgp_cert_parser_t pgp_cert_parser_from_packet_parser(pgp_packet_parser_result_t ppr);
 
 /*/
-/// Returns the next TPK, if any.
+/// Returns the next Cert, if any.
 ///
-/// If there is an error parsing the TPK, it is returned in *errp.
+/// If there is an error parsing the Cert, it is returned in *errp.
 ///
 /// If this function returns NULL and does not set *errp, then the end
 /// of the file was reached.
 /*/
-pgp_tpk_t pgp_tpk_parser_next(pgp_error_t *errp, pgp_tpk_parser_t parser);
+pgp_cert_t pgp_cert_parser_next(pgp_error_t *errp, pgp_cert_parser_t parser);
 
 /*/
-/// Frees an pgp_tpk_key_iter_t.
+/// Frees an pgp_cert_key_iter_t.
 /*/
-void pgp_tpk_parser_free (pgp_tpk_parser_t parser);
+void pgp_cert_parser_free (pgp_cert_parser_t parser);
 
-/* TPKBuilder */
+/* CertBuilder */
 
 /*/
-/// Creates a new `pgp_tpk_builder_t`.
+/// Creates a new `pgp_cert_builder_t`.
 ///
-/// The returned TPKBuilder is setup to only create a
+/// The returned CertBuilder is setup to only create a
 /// certification-capable primary key using the default cipher suite.
 /// You'll almost certainly want to add subkeys, and user ids.
 /*/
-pgp_tpk_builder_t pgp_tpk_builder_new(void);
+pgp_cert_builder_t pgp_cert_builder_new(void);
 
 /*/
 /// Generates a general-purpose key.
@@ -1009,7 +1009,7 @@ pgp_tpk_builder_t pgp_tpk_builder_new(void);
 /// The key's primary key is certification- and signature-capable.
 /// The key has one subkey, an encryption-capable subkey.
 /*/
-pgp_tpk_builder_t pgp_tpk_builder_general_purpose(pgp_tpk_cipher_suite_t cs,
+pgp_cert_builder_t pgp_cert_builder_general_purpose(pgp_cert_cipher_suite_t cs,
                                                   const char *uid);
 
 /*/
@@ -1017,49 +1017,49 @@ pgp_tpk_builder_t pgp_tpk_builder_general_purpose(pgp_tpk_cipher_suite_t cs,
 ///
 ///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
 /*/
-pgp_tpk_builder_t pgp_tpk_builder_autocrypt(const char *uid);
+pgp_cert_builder_t pgp_cert_builder_autocrypt(const char *uid);
 
 /*/
-/// Frees an `pgp_tpk_builder_t`.
+/// Frees an `pgp_cert_builder_t`.
 /*/
-void pgp_tpk_builder_free(pgp_tpk_builder_t tpkb);
+void pgp_cert_builder_free(pgp_cert_builder_t certb);
 
 /*/
 /// Sets the encryption and signature algorithms for primary and all
 /// subkeys.
 /*/
-void pgp_tpk_builder_set_cipher_suite(pgp_tpk_builder_t *tpkb,
-				     pgp_tpk_cipher_suite_t cs);
+void pgp_cert_builder_set_cipher_suite(pgp_cert_builder_t *certb,
+				     pgp_cert_cipher_suite_t cs);
 
 /*/
 /// Adds a new user ID. The first user ID added replaces the default
 /// ID that is just the empty string.
 /*/
-void pgp_tpk_builder_add_userid(pgp_tpk_builder_t *tpkb, const char *uid);
+void pgp_cert_builder_add_userid(pgp_cert_builder_t *certb, const char *uid);
 
 /*/
 /// Adds a signing capable subkey.
 /*/
-void pgp_tpk_builder_add_signing_subkey(pgp_tpk_builder_t *tpkb);
+void pgp_cert_builder_add_signing_subkey(pgp_cert_builder_t *certb);
 
 /*/
 /// Adds an encryption capable subkey.
 /*/
-void pgp_tpk_builder_add_encryption_subkey(pgp_tpk_builder_t *tpkb);
+void pgp_cert_builder_add_encryption_subkey(pgp_cert_builder_t *certb);
 
 /*/
 /// Adds an certification capable subkey.
 /*/
-void pgp_tpk_builder_add_certification_subkey(pgp_tpk_builder_t *tpkb);
+void pgp_cert_builder_add_certification_subkey(pgp_cert_builder_t *certb);
 
 /*/
-/// Generates the actual TPK.
+/// Generates the actual Cert.
 ///
-/// Consumes `tpkb`.
+/// Consumes `certb`.
 /*/
-pgp_status_t pgp_tpk_builder_generate(pgp_error_t *errp,
-                                      pgp_tpk_builder_t tpkb,
-                                      pgp_tpk_t *tpk,
+pgp_status_t pgp_cert_builder_generate(pgp_error_t *errp,
+                                      pgp_cert_builder_t certb,
+                                      pgp_cert_t *cert,
                                       pgp_signature_t *revocation);
 
 
@@ -1629,7 +1629,7 @@ pgp_writer_stack_t pgp_literal_writer_new (pgp_error_t *errp,
 ///
 /// The stream will be encrypted using a generated session key,
 /// which will be encrypted using the given passwords, and all
-/// encryption-capable subkeys of the given TPKs.
+/// encryption-capable subkeys of the given Certs.
 /*/
 pgp_writer_stack_t pgp_encryptor_new (pgp_error_t *errp,
 				      pgp_writer_stack_t inner,
@@ -1717,13 +1717,13 @@ pgp_verification_result_variant_t pgp_verification_result_variant (
 /*/
 bool pgp_verification_result_good_checksum (pgp_verification_result_t,
 					    pgp_signature_t *,
-					    pgp_tpk_t *,
+					    pgp_cert_t *,
 					    pgp_key_t *,
 					    pgp_signature_t *,
 					    pgp_revocation_status_t *);
 bool pgp_verification_result_not_alive (pgp_verification_result_t,
                                         pgp_signature_t *,
-					pgp_tpk_t *,
+					pgp_cert_t *,
 					pgp_key_t *,
 					pgp_signature_t *,
 					pgp_revocation_status_t *);
@@ -1731,7 +1731,7 @@ bool pgp_verification_result_missing_key (pgp_verification_result_t,
 					  pgp_signature_t *);
 bool pgp_verification_result_bad_checksum (pgp_verification_result_t,
 					   pgp_signature_t *,
-					   pgp_tpk_t *,
+					   pgp_cert_t *,
 					   pgp_key_t *,
 					   pgp_signature_t *,
 					   pgp_revocation_status_t *);

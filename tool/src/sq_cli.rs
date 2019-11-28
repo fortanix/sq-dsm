@@ -42,13 +42,14 @@ pub fn build() -> App<'static, 'static> {
                          .long("signatures")
                          .short("n")
                          .takes_value(true))
-                    .arg(Arg::with_name("public-key-file")
-                         .long("public-key-file")
+                    .arg(Arg::with_name("sender-cert-file")
+                         .long("sender-cert-file")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("TPK-FILE")
+                         .value_name("CERT-FILE")
                          .number_of_values(1)
-                         .help("Public key to verify with, given as a file \
+                         .help("The sender's certificate verify signatures \
+                                with, given as a file \
                                 (can be given multiple times)"))
                     .arg(Arg::with_name("secret-key-file")
                          .long("secret-key-file")
@@ -94,7 +95,7 @@ pub fn build() -> App<'static, 'static> {
                          .long("recipient-key-file")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("TPK-FILE")
+                         .value_name("CERT-FILE")
                          .number_of_values(1)
                          .help("Recipient to encrypt for, given as a file \
                                 (can be given multiple times)"))
@@ -184,13 +185,14 @@ pub fn build() -> App<'static, 'static> {
                          .long("signatures")
                          .short("n")
                          .takes_value(true))
-                    .arg(Arg::with_name("public-key-file")
-                         .long("public-key-file")
+                    .arg(Arg::with_name("sender-cert-file")
+                         .long("sender-cert-file")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("TPK-FILE")
+                         .value_name("CERT-FILE")
                          .number_of_values(1)
-                         .help("Public key to verify with, given as a file \
+                         .help("The sender's certificate verify signatures \
+                                with, given as a file \
                                 (can be given multiple times)")))
         .subcommand(SubCommand::with_name("enarmor")
                     .about("Applies ASCII Armor to a file")
@@ -220,7 +222,8 @@ pub fn build() -> App<'static, 'static> {
                     .about("Autocrypt support")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("decode")
-                                .about("Converts Autocrypt-encoded keys to OpenPGP TPKs")
+                                .about("Converts Autocrypt-encoded keys to \
+                                        OpenPGP Certificates")
                                 .arg(Arg::with_name("input").value_name("FILE")
                                      .help("Sets the input file to use"))
                                 .arg(Arg::with_name("output").value_name("FILE")
@@ -228,7 +231,8 @@ pub fn build() -> App<'static, 'static> {
                                      .short("o")
                                      .help("Sets the output file to use")))
                     .subcommand(SubCommand::with_name("encode-sender")
-                                .about("Encodes the senders' OpenPGP TPKs into \
+                                .about("Encodes the sender's OpenPGP \
+                                        Certificates into \
                                         an Autocrypt header")
                                 .arg(Arg::with_name("input").value_name("FILE")
                                      .help("Sets the input file to use"))
@@ -493,14 +497,14 @@ pub fn build() -> App<'static, 'static> {
                                             obtain the WKD URI.")))
                     .subcommand(SubCommand::with_name("get")
                                 .about("Writes to the standard output the \
-                                        TPK retrieved \
+                                        Cert retrieved \
                                         from a Web Key Directory, given an \
                                         email address")
                                 .arg(Arg::with_name("input")
                                     .value_name("EMAIL_ADDRESS")
                                     .required(true)
                                     .help("The email address from which to \
-                                            obtain the TPK from a WKD."))
+                                            obtain the Cert from a WKD."))
                                 .arg(Arg::with_name("binary")
                                     .long("binary")
                                     .short("B")

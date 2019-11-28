@@ -31,15 +31,15 @@ pub fn main() {
     }
 
     // Read the transferable secret keys from the given files.
-    let tpks =
+    let certs =
         args[1..].iter().map(|f| {
-            openpgp::TPK::from_file(f)
+            openpgp::Cert::from_file(f)
                 .expect("Failed to read key")
         }).collect();
 
-    // Now, create a decryptor with a helper using the given TPKs.
+    // Now, create a decryptor with a helper using the given Certs.
     let mut decryptor =
-        Decryptor::from_reader(io::stdin(), Helper::new(tpks), None).unwrap();
+        Decryptor::from_reader(io::stdin(), Helper::new(certs), None).unwrap();
 
     // Finally, stream the decrypted data to stdout.
     io::copy(&mut decryptor, &mut io::stdout())
@@ -54,12 +54,12 @@ struct Helper {
 }
 
 impl Helper {
-    /// Creates a Helper for the given TPKs with appropriate secrets.
-    fn new(tpks: Vec<openpgp::TPK>) -> Self {
+    /// Creates a Helper for the given Certs with appropriate secrets.
+    fn new(certs: Vec<openpgp::Cert>) -> Self {
         // Map (sub)KeyIDs to secrets.
         let mut keys = HashMap::new();
-        for tpk in tpks {
-            for (sig, _, key) in tpk.keys_all() {
+        for cert in certs {
+            for (sig, _, key) in cert.keys_all() {
                 if sig.map(|s| (s.key_flags().can_encrypt_at_rest()
                                 || s.key_flags().can_encrypt_for_transport()))
                     .unwrap_or(false)
@@ -99,15 +99,15 @@ impl DecryptionHelper for Helper {
             }
         }
         // XXX: In production code, return the Fingerprint of the
-        // recipient's TPK here
+        // recipient's Cert here
         Ok(None)
     }
 }
 
 impl VerificationHelper for Helper {
     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-                       -> failure::Fallible<Vec<openpgp::TPK>> {
-        Ok(Vec::new()) // Feed the TPKs to the verifier here.
+                       -> failure::Fallible<Vec<openpgp::Cert>> {
+        Ok(Vec::new()) // Feed the Certs to the verifier here.
     }
     fn check(&mut self, structure: &MessageStructure)
              -> failure::Fallible<()> {
@@ -126,18 +126,18 @@ impl VerificationHelper for Helper {
                 MessageLayer::SignatureGroup { ref results } =>
                     for result in results {
                         match result {
-                            GoodChecksum { tpk, .. } => {
-                                eprintln!("Good signature from {}", tpk);
+                            GoodChecksum { cert, .. } => {
+                                eprintln!("Good signature from {}", cert);
                             },
-                            NotAlive { tpk, .. } => {
+                            NotAlive { cert, .. } => {
                                 eprintln!("Good, but not alive signature from {}",
-                                          tpk);
+                                          cert);
                             },
                             MissingKey { .. } => {
                                 eprintln!("No key to check signature");
                             },
-                            BadChecksum { tpk, .. } => {
-                                eprintln!("Bad signature from {}", tpk);
+                            BadChecksum { cert, .. } => {
+                                eprintln!("Bad signature from {}", cert);
                             },
                         }
                     }

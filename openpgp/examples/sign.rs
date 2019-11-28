@@ -19,7 +19,7 @@ fn main() {
     // Read the transferable secret keys from the given files.
     let mut keys = Vec::new();
     for filename in &args[1..] {
-        let tsk = openpgp::TPK::from_file(filename)
+        let tsk = openpgp::Cert::from_file(filename)
             .expect("Failed to read key");
         let mut n = 0;
 

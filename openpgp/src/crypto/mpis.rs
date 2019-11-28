@@ -1046,10 +1046,10 @@ mod tests {
             ("erika-corinna-daniela-simone-antonia-nistp384.pgp", 0, 384),
             ("erika-corinna-daniela-simone-antonia-nistp521.pgp", 0, 521),
         ] {
-            let tpk = crate::TPK::from_bytes(crate::tests::key(name)).unwrap();
-            let key = tpk.keys_all().nth(*key_no).unwrap().2;
+            let cert = crate::Cert::from_bytes(crate::tests::key(name)).unwrap();
+            let key = cert.keys_all().nth(*key_no).unwrap().2;
             assert_eq!(key.mpis().bits().unwrap(), *bits,
-                       "TPK {}, key no {}", name, *key_no);
+                       "Cert {}, key no {}", name, *key_no);
         }
     }
 

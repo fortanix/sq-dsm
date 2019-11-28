@@ -14,7 +14,7 @@ fn ident2c(ident: &syn::Ident) -> (String, bool) {
     // Special cases :(
     match ident_string.as_str() {
         "KeyID" => return ("pgp_keyid_t".into(), true),
-        "TPKBuilder" => return ("pgp_tpk_builder_t".into(), true),
+        "CertBuilder" => return ("pgp_cert_builder_t".into(), true),
         "UserID" => return ("pgp_userid_t".into(), true),
         "UserIDBinding" => return ("pgp_user_id_binding_t".into(), true),
         "UserIDBindingIter" =>

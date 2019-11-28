@@ -35,19 +35,19 @@ fn main() {
 }
 #
 # /// Generates an encryption-capable key.
-# fn generate() -> openpgp::Result<openpgp::TPK> {
-#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
+# fn generate() -> openpgp::Result<openpgp::Cert> {
+#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_encryption_subkey()
 #         .generate()?;
 #
 #     // Save the revocation certificate somewhere.
 #
-#     Ok(tpk)
+#     Ok(cert)
 # }
 #
 # /// Encrypts the given message.
-# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
+# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
@@ -83,7 +83,7 @@ fn main() {
 # }
 #
 # /// Decrypts the given message.
-# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
+# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
@@ -91,7 +91,7 @@ fn main() {
 #         secret: recipient,
 #     };
 #
-#     // Now, create a decryptor with a helper using the given TPKs.
+#     // Now, create a decryptor with a helper using the given Certs.
 #     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
@@ -101,12 +101,12 @@ fn main() {
 # }
 #
 # struct Helper<'a> {
-#     secret: &'a openpgp::TPK,
+#     secret: &'a openpgp::Cert,
 # }
 #
 # impl<'a> VerificationHelper for Helper<'a> {
 #     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-#                        -> openpgp::Result<Vec<openpgp::TPK>> {
+#                        -> openpgp::Result<Vec<openpgp::Cert>> {
 #         // Return public keys for signature verification here.
 #         Ok(Vec::new())
 #     }
@@ -138,7 +138,7 @@ fn main() {
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
-#         // recipient's TPK here
+#         // recipient's Cert here
 #     }
 # }
 ```
@@ -146,10 +146,10 @@ fn main() {
 # Key generation
 
 First, we need to generate a new key.  This key shall have one user
-id, and one encryption-capable subkey.  We use the [`TPKBuilder`] to
+id, and one encryption-capable subkey.  We use the [`CertBuilder`] to
 create it:
 
-[`TPKBuilder`]: ../../sequoia_openpgp/tpk/struct.TPKBuilder.html
+[`CertBuilder`]: ../../sequoia_openpgp/cert/struct.CertBuilder.html
 
 ```rust
 # use std::io::{self, Write};
@@ -178,19 +178,19 @@ create it:
 # }
 #
 /// Generates an encryption-capable key.
-fn generate() -> openpgp::Result<openpgp::TPK> {
-    let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
+fn generate() -> openpgp::Result<openpgp::Cert> {
+    let (cert, _revocation) = openpgp::cert::CertBuilder::new()
         .add_userid("someone@example.org")
         .add_encryption_subkey()
         .generate()?;
 
     // Save the revocation certificate somewhere.
 
-    Ok(tpk)
+    Ok(cert)
 }
 #
 # /// Encrypts the given message.
-# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
+# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
@@ -226,7 +226,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 # }
 #
 # /// Decrypts the given message.
-# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
+# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
@@ -234,7 +234,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #         secret: recipient,
 #     };
 #
-#     // Now, create a decryptor with a helper using the given TPKs.
+#     // Now, create a decryptor with a helper using the given Certs.
 #     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
@@ -244,12 +244,12 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 # }
 #
 # struct Helper<'a> {
-#     secret: &'a openpgp::TPK,
+#     secret: &'a openpgp::Cert,
 # }
 #
 # impl<'a> VerificationHelper for Helper<'a> {
 #     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-#                        -> openpgp::Result<Vec<openpgp::TPK>> {
+#                        -> openpgp::Result<Vec<openpgp::Cert>> {
 #         // Return public keys for signature verification here.
 #         Ok(Vec::new())
 #     }
@@ -281,7 +281,7 @@ fn generate() -> openpgp::Result<openpgp::TPK> {
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
-#         // recipient's TPK here
+#         // recipient's Cert here
 #     }
 # }
 ```
@@ -321,19 +321,19 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # }
 #
 # /// Generates an encryption-capable key.
-# fn generate() -> openpgp::Result<openpgp::TPK> {
-#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
+# fn generate() -> openpgp::Result<openpgp::Cert> {
+#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_encryption_subkey()
 #         .generate()?;
 #
 #     // Save the revocation certificate somewhere.
 #
-#     Ok(tpk)
+#     Ok(cert)
 # }
 #
 /// Encrypts the given message.
-fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
+fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Build a vector of recipients to hand to Encryptor.
     let mut recipients =
@@ -369,7 +369,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 }
 #
 # /// Decrypts the given message.
-# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
+# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
@@ -377,7 +377,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #         secret: recipient,
 #     };
 #
-#     // Now, create a decryptor with a helper using the given TPKs.
+#     // Now, create a decryptor with a helper using the given Certs.
 #     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
@@ -387,12 +387,12 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 # }
 #
 # struct Helper<'a> {
-#     secret: &'a openpgp::TPK,
+#     secret: &'a openpgp::Cert,
 # }
 #
 # impl<'a> VerificationHelper for Helper<'a> {
 #     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-#                        -> openpgp::Result<Vec<openpgp::TPK>> {
+#                        -> openpgp::Result<Vec<openpgp::Cert>> {
 #         // Return public keys for signature verification here.
 #         Ok(Vec::new())
 #     }
@@ -424,7 +424,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
-#         // recipient's TPK here
+#         // recipient's Cert here
 #     }
 # }
 ```
@@ -478,19 +478,19 @@ Decrypted data can be read from this using [`io::Read`].
 # }
 #
 # /// Generates an encryption-capable key.
-# fn generate() -> openpgp::Result<openpgp::TPK> {
-#     let (tpk, _revocation) = openpgp::tpk::TPKBuilder::new()
+# fn generate() -> openpgp::Result<openpgp::Cert> {
+#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_encryption_subkey()
 #         .generate()?;
 #
 #     // Save the revocation certificate somewhere.
 #
-#     Ok(tpk)
+#     Ok(cert)
 # }
 #
 # /// Encrypts the given message.
-# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::TPK)
+# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
@@ -526,7 +526,7 @@ Decrypted data can be read from this using [`io::Read`].
 # }
 #
 /// Decrypts the given message.
-fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
+fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Make a helper that that feeds the recipient's secret key to the
     // decryptor.
@@ -534,7 +534,7 @@ fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
         secret: recipient,
     };
 
-    // Now, create a decryptor with a helper using the given TPKs.
+    // Now, create a decryptor with a helper using the given Certs.
     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
 
     // Decrypt the data.
@@ -544,12 +544,12 @@ fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::TPK)
 }
 
 struct Helper<'a> {
-    secret: &'a openpgp::TPK,
+    secret: &'a openpgp::Cert,
 }
 
 impl<'a> VerificationHelper for Helper<'a> {
     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-                       -> openpgp::Result<Vec<openpgp::TPK>> {
+                       -> openpgp::Result<Vec<openpgp::Cert>> {
         // Return public keys for signature verification here.
         Ok(Vec::new())
     }
@@ -581,7 +581,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
             .map(|_| None)
         // XXX: In production code, return the Fingerprint of the
-        // recipient's TPK here
+        // recipient's Cert here
     }
 }
 ```

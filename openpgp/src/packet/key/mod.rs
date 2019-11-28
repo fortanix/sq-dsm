@@ -16,7 +16,7 @@
 //! secret) and roles (primary or secondary).  We also add
 //! unspecified variants, because sometimes we want a slice of
 //! keys, and we don't care about the key's role.  For instance,
-//! when iterating over all of the keys in a TPK, we want the
+//! when iterating over all of the keys in a Cert, we want the
 //! primary and the subkeys.  These can't be put in the same slice
 //! without first wrapping them, which is awkward.
 //!
@@ -30,23 +30,23 @@
 //! # extern crate sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-//! # use openpgp::tpk::TPKParser;
-//! # use openpgp::tpk::{CipherSuite, TPKBuilder};
+//! # use openpgp::cert::CertParser;
+//! # use openpgp::cert::{CipherSuite, CertBuilder};
 //! use openpgp::packet::{Key, key};
 //!
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()>
 //! # {
-//! #     let (tpk, _) = TPKBuilder::new()
+//! #     let (cert, _) = CertBuilder::new()
 //! #         .set_cipher_suite(CipherSuite::Cv25519)
 //! #         .generate()?;
-//! // Get a handle to the TPK's primary key that allows using the
+//! // Get a handle to the Cert's primary key that allows using the
 //! // secret key material.
 //! use std::convert::TryInto;
-//! let sk : &key::SecretKey = tpk.primary().try_into()?;
+//! let sk : &key::SecretKey = cert.primary().try_into()?;
 //!
 //! // Make the conversion explicit.
-//! let sk : &key::SecretKey = tpk.primary().mark_parts_secret_ref()?;
+//! let sk : &key::SecretKey = cert.primary().mark_parts_secret_ref()?;
 //! #     Ok(())
 //! # }
 //! ```
@@ -540,7 +540,7 @@ macro_rules! create_conversions {
 create_conversions!(Key);
 create_conversions!(Key4);
 
-use crate::tpk::KeyBinding;
+use crate::cert::KeyBinding;
 create_conversions!(KeyBinding);
 
 /// Holds a public key, public subkey, private key or private subkey packet.
@@ -1279,7 +1279,7 @@ impl Encrypted {
 #[cfg(test)]
 mod tests {
     use crate::packet::Key;
-    use crate::TPK;
+    use crate::Cert;
     use crate::packet::pkesk::PKESK3;
     use crate::packet::key;
     use crate::packet::key::SecretKeyMaterial;
@@ -1291,9 +1291,9 @@ mod tests {
 
     #[test]
     fn encrypted_rsa_key() {
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("testy-new-encrypted-with-123.pgp")).unwrap();
-        let mut pair = tpk.primary().clone();
+        let mut pair = cert.primary().clone();
         let pk_algo = pair.pk_algo();
         let secret = pair.secret.as_mut().unwrap();
 

@@ -53,7 +53,7 @@ void sq_keyserver_free (sq_keyserver_t ks);
 ///
 /// Returns `NULL` on errors.
 /*/
-pgp_tpk_t sq_keyserver_get (sq_context_t ctx,
+pgp_cert_t sq_keyserver_get (sq_context_t ctx,
 			   sq_keyserver_t ks,
 			   const pgp_keyid_t id);
 
@@ -64,6 +64,6 @@ pgp_tpk_t sq_keyserver_get (sq_context_t ctx,
 /*/
 pgp_status_t sq_keyserver_send (sq_context_t ctx,
 			       sq_keyserver_t ks,
-			       const pgp_tpk_t tpk);
+			       const pgp_cert_t cert);
 
 #endif

@@ -111,8 +111,8 @@ pub enum Status {
     /// Missing session key.
     MissingSessionKey = -27,
 
-    /// Malformed TPK.
-    MalformedTPK = -13,
+    /// Malformed Cert.
+    MalformedCert = -13,
 
     // XXX: Skipping UnsupportedPacketType = -14.
 
@@ -139,8 +139,8 @@ pub enum Status {
     /// Index out of range.
     IndexOutOfRange = -23,
 
-    /// TPK not supported.
-    UnsupportedTPK = -24,
+    /// Cert not supported.
+    UnsupportedCert = -24,
 
     // XXX: Skipping ManipulatedMessage = -25
     // XXX: Skipping UnsupportedAEADAlgorithm = -26
@@ -180,13 +180,13 @@ pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
         InvalidPassword => "Invalid password\x00",
         InvalidSessionKey => "Invalid session key\x00",
         MissingSessionKey => "Missing session key\x00",
-        MalformedTPK => "Malformed TPK\x00",
+        MalformedCert => "Malformed Cert\x00",
         MalformedMPI => "Malformed MPI\x00",
         BadSignature => "Bad signature\x00",
         ManipulatedMessage => "Message has been manipulated\x00",
         MalformedMessage => "Malformed message\x00",
         IndexOutOfRange => "Index out of range\x00",
-        UnsupportedTPK => "TPK not supported\x00",
+        UnsupportedCert => "Cert not supported\x00",
     }.as_bytes().as_ptr() as *const c_char
 }
 
@@ -232,12 +232,12 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::ManipulatedMessage,
                 &openpgp::Error::MalformedMessage(_) =>
                     Status::MalformedMessage,
-                &openpgp::Error::MalformedTPK(_) =>
-                    Status::MalformedTPK,
+                &openpgp::Error::MalformedCert(_) =>
+                    Status::MalformedCert,
                 &openpgp::Error::IndexOutOfRange =>
                     Status::IndexOutOfRange,
-                &openpgp::Error::UnsupportedTPK(_) =>
-                    Status::UnsupportedTPK,
+                &openpgp::Error::UnsupportedCert(_) =>
+                    Status::UnsupportedCert,
             }
         }
 

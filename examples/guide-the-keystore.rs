@@ -6,7 +6,7 @@ use sequoia::{core, store};
 use crate::openpgp::parse::Parse;
 
 fn main() {
-    let tpk =
+    let cert =
         "-----BEGIN PGP PUBLIC KEY BLOCK-----
 
          mQENBFpxtsABCADZcBa1Q3ZLZnju18o0+t8LoQuIIeyeUQ0H45y6xUqyrD5HSkVM
@@ -41,17 +41,17 @@ fn main() {
     // Provide some context.
     let ctx = core::Context::new().unwrap();
 
-    // Parse TPK.
-    let tpk = openpgp::TPK::from_bytes(tpk).unwrap();
+    // Parse Cert.
+    let cert = openpgp::Cert::from_bytes(cert).unwrap();
 
     // Open a mapping.
     let mapping =
         store::Mapping::open(&ctx, store::REALM_CONTACTS, "default").unwrap();
 
-    // Store the TPK.
-    mapping.import("Ἀριστοτέλης", &tpk).unwrap();
+    // Store the Cert.
+    mapping.import("Ἀριστοτέλης", &cert).unwrap();
 
     // Now let's get it back.
-    let tpk_ = mapping.lookup("Ἀριστοτέλης").unwrap().tpk().unwrap();
-    assert_eq!(tpk.fingerprint(), tpk_.fingerprint());
+    let cert_ = mapping.lookup("Ἀριστοτέλης").unwrap().cert().unwrap();
+    assert_eq!(cert.fingerprint(), cert_.fingerprint());
 }

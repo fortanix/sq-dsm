@@ -55,7 +55,7 @@ mod integration {
 // fn create_key() {
 //     use std::fs::File;
 //     use sequoia_openpgp::{
-//         TPK,
+//         Cert,
 //         PacketPile,
 //         packet::{
 //             signature,
@@ -156,7 +156,7 @@ mod integration {
 //
 //         (bind1, rev, bind2, sig1, sig2, sig3)
 //     };
-//     let tpk = TPK::from_packet_pile(PacketPile::from(vec![
+//     let cert = Cert::from_packet_pile(PacketPile::from(vec![
 //          key.into_packet(Tag::PublicKey).unwrap(),
 //          bind1.into(),
 //          bind2.into(),
@@ -165,7 +165,7 @@ mod integration {
 //
 //     {
 //         let mut fd = File::create("key").unwrap();
-//         tpk.serialize(&mut fd).unwrap();
+//         cert.serialize(&mut fd).unwrap();
 //     }
 //
 //     {

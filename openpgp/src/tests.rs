@@ -26,7 +26,7 @@ macro_rules! t {
     }
 }
 
-pub const TPKS: &[&Test] = &[
+pub const CERTS: &[&Test] = &[
     t!("keys/dennis-simon-anton.pgp"),
     t!("keys/dsa2048-elgamal3072.pgp"),
     t!("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),

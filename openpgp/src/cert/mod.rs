@@ -1,4 +1,4 @@
-//! Transferable public keys.
+//! OpenPGP Certificates.
 
 use std::io;
 use std::cmp;
@@ -43,21 +43,21 @@ mod keyiter;
 mod parser;
 mod revoke;
 
-pub use self::builder::{TPKBuilder, CipherSuite};
+pub use self::builder::{CertBuilder, CipherSuite};
 
 pub use keyiter::KeyIter;
 
 pub use parser::{
     KeyringValidity,
     KeyringValidator,
-    TPKParser,
-    TPKValidity,
-    TPKValidator,
+    CertParser,
+    CertValidity,
+    CertValidator,
 };
 
 pub use revoke::{
     SubkeyRevocationBuilder,
-    TPKRevocationBuilder,
+    CertRevocationBuilder,
     UserAttributeRevocationBuilder,
     UserIDRevocationBuilder,
 };
@@ -125,10 +125,10 @@ pub type UserAttributeBinding = ComponentBinding<UserAttribute>;
 /// Note: all signatures are stored as certifications.
 pub type UnknownBinding = ComponentBinding<Unknown>;
 
-/// A TPK component binding.
+/// A Cert component binding.
 ///
-/// A TPK component is a primary key, a subkey, a user id, or a user
-/// attribute.  A binding is a TPK component and any related
+/// A Cert component is a primary key, a subkey, a user id, or a user
+/// attribute.  A binding is a Cert component and any related
 /// signatures.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentBinding<C> {
@@ -420,11 +420,11 @@ impl<P: key::KeyParts> ComponentBinding<Key<P, key::SubordinateRole>> {
     ///   - There is a hard revocation (even if it is not live at
     ///     time `t`, and even if there is a newer self-signature).
     ///
-    /// Note: TPKs and subkeys have different criteria from User IDs
+    /// Note: Certs and subkeys have different criteria from User IDs
     /// and User Attributes.
     ///
     /// Note: this only returns whether this subkey is revoked; it
-    /// does not imply anything about the TPK or other components.
+    /// does not imply anything about the Cert or other components.
     pub fn revoked<T>(&self, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
@@ -447,11 +447,11 @@ impl ComponentBinding<UserID> {
     ///   - There is a live revocation at time `t` that is newer than
     ///     all live self signatures at time `t`, or
     ///
-    /// Note: TPKs and subkeys have different criteria from User IDs
+    /// Note: Certs and subkeys have different criteria from User IDs
     /// and User Attributes.
     ///
     /// Note: this only returns whether this User ID is revoked; it
-    /// does not imply anything about the TPK or other components.
+    /// does not imply anything about the Cert or other components.
     pub fn revoked<T>(&self, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
@@ -474,11 +474,11 @@ impl ComponentBinding<UserAttribute> {
     ///   - There is a live revocation at time `t` that is newer than
     ///     all live self signatures at time `t`, or
     ///
-    /// Note: TPKs and subkeys have different criteria from User IDs
+    /// Note: Certs and subkeys have different criteria from User IDs
     /// and User Attributes.
     ///
     /// Note: this only returns whether this User Attribute is revoked;
-    /// it does not imply anything about the TPK or other components.
+    /// it does not imply anything about the Cert or other components.
     pub fn revoked<T>(&self, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
@@ -496,7 +496,7 @@ impl ComponentBinding<Unknown> {
 }
 
 
-impl fmt::Display for TPK {
+impl fmt::Display for Cert {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.primary().fingerprint())
     }
@@ -660,18 +660,18 @@ pub type UserAttributeBindings = ComponentBindings<UserAttribute>;
 pub type UnknownBindings = ComponentBindings<Unknown>;
 
 
-/// A transferable public key (TPK).
+/// A OpenPGP Certificate.
 ///
-/// A TPK (see [RFC 4880, section 11.1]) can be used to verify
+/// A Certificate (see [RFC 4880, section 11.1]) can be used to verify
 /// signatures and encrypt data.  It can be stored in a keystore and
 /// uploaded to keyservers.
 ///
-/// TPKs are always canonicalized in the sense that only elements
+/// Certs are always canonicalized in the sense that only elements
 /// (user id, user attribute, subkey) with at least one valid
 /// self-signature are preserved.  Also, invalid self-signatures are
 /// dropped.  The self-signatures are sorted so that the newest
 /// self-signature comes first.  Components are sorted, but in an
-/// undefined manner (i.e., when parsing the same TPK multiple times,
+/// undefined manner (i.e., when parsing the same Cert multiple times,
 /// the components will be in the same order, but we reserve the right
 /// to change the sort function between versions).  Third-party
 /// certifications are *not* validated, as the keys are not available;
@@ -681,13 +681,13 @@ pub type UnknownBindings = ComponentBindings<Unknown>;
 ///
 /// # Secret keys
 ///
-/// Any key in a `TPK` may have a secret key attached to it.  To
+/// Any key in a `Cert` may have a secret key attached to it.  To
 /// protect secret keys from being leaked, secret keys are not written
-/// out if a `TPK` is serialized.  To also serialize the secret keys,
-/// you need to use [`TPK::as_tsk()`] to get an object that writes
+/// out if a `Cert` is serialized.  To also serialize the secret keys,
+/// you need to use [`Cert::as_tsk()`] to get an object that writes
 /// them out during serialization.
 ///
-/// [`TPK::as_tsk()`]: #method.as_tsk
+/// [`Cert::as_tsk()`]: #method.as_tsk
 ///
 /// # Example
 ///
@@ -695,27 +695,27 @@ pub type UnknownBindings = ComponentBindings<Unknown>;
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-/// use openpgp::TPK;
+/// use openpgp::Cert;
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
 /// #     let ppr = PacketParser::from_bytes(&b""[..])?;
-/// match TPK::from_packet_parser(ppr) {
-///     Ok(tpk) => {
-///         println!("Key: {}", tpk.primary());
-///         for binding in tpk.userids() {
+/// match Cert::from_packet_parser(ppr) {
+///     Ok(cert) => {
+///         println!("Key: {}", cert.primary());
+///         for binding in cert.userids() {
 ///             println!("User ID: {}", binding.userid());
 ///         }
 ///     }
 ///     Err(err) => {
-///         eprintln!("Error parsing TPK: {}", err);
+///         eprintln!("Error parsing Cert: {}", err);
 ///     }
 /// }
 ///
 /// #     Ok(())
 /// # }
 #[derive(Debug, Clone, PartialEq)]
-pub struct TPK {
+pub struct Cert {
     primary: PrimaryKeyBinding<key::PublicParts>,
 
     userids: UserIDBindings,
@@ -729,7 +729,7 @@ pub struct TPK {
     bad: Vec<packet::Signature>,
 }
 
-impl std::str::FromStr for TPK {
+impl std::str::FromStr for Cert {
     type Err = failure::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
@@ -737,33 +737,33 @@ impl std::str::FromStr for TPK {
     }
 }
 
-impl<'a> Parse<'a, TPK> for TPK {
-    /// Returns the first TPK encountered in the reader.
+impl<'a> Parse<'a, Cert> for Cert {
+    /// Returns the first Cert encountered in the reader.
     fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
-        TPK::from_packet_parser(PacketParser::from_reader(reader)?)
+        Cert::from_packet_parser(PacketParser::from_reader(reader)?)
     }
 
-    /// Returns the first TPK encountered in the file.
+    /// Returns the first Cert encountered in the file.
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        TPK::from_packet_parser(PacketParser::from_file(path)?)
+        Cert::from_packet_parser(PacketParser::from_file(path)?)
     }
 
-    /// Returns the first TPK found in `buf`.
+    /// Returns the first Cert found in `buf`.
     ///
     /// `buf` must be an OpenPGP-encoded message.
     fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
-        TPK::from_packet_parser(PacketParser::from_bytes(data)?)
+        Cert::from_packet_parser(PacketParser::from_bytes(data)?)
     }
 }
 
-impl TPK {
+impl Cert {
     /// Returns a reference to the primary key binding.
     ///
     /// Note: information about the primary key is often stored on the
     /// primary User ID's self signature.  Since these signatures are
     /// associated with the UserID and not the primary key, that
     /// information is not contained in the key binding.  Instead, you
-    /// should use methods like `TPK::primary_key_signature()` to get
+    /// should use methods like `Cert::primary_key_signature()` to get
     /// information about the primary key.
     pub fn primary(&self) -> &key::PublicKey {
         &self.primary.key()
@@ -771,7 +771,7 @@ impl TPK {
 
     /// Returns the binding for the primary User ID at time `t`.
     ///
-    /// See `TPK::primary_userid_full` for a description of how the
+    /// See `Cert::primary_userid_full` for a description of how the
     /// primary user id is determined.
     pub fn primary_userid<T>(&self, t: T) -> Option<&UserIDBinding>
         where T: Into<Option<time::SystemTime>>
@@ -846,7 +846,7 @@ impl TPK {
                     Ordering::Less => return Ordering::Greater,
                     Ordering::Greater => return Ordering::Less,
                     Ordering::Equal =>
-                        panic!("non-canonicalized TPK (duplicate User IDs)"),
+                        panic!("non-canonicalized Cert (duplicate User IDs)"),
                 }
             })
             .map(|b| b.0)
@@ -904,7 +904,7 @@ impl TPK {
     /// Returns the primary key's current self-signature.
     ///
     /// This function is identical to
-    /// `TPK::primary_key_signature_full()`, but it doesn't return the
+    /// `Cert::primary_key_signature_full()`, but it doesn't return the
     /// `UserIDBinding`.
     pub fn primary_key_signature<T>(&self, t: T) -> Option<&Signature>
         where T: Into<Option<time::SystemTime>>
@@ -948,9 +948,9 @@ impl TPK {
         &self.primary.other_revocations
     }
 
-    /// Returns the TPK's revocation status at time `t`.
+    /// Returns the Cert's revocation status at time `t`.
     ///
-    /// A TPK is revoked at time `t` if:
+    /// A Cert is revoked at time `t` if:
     ///
     ///   - There is a live revocation at time `t` that is newer than
     ///     all live self signatures at time `t`, or
@@ -958,11 +958,11 @@ impl TPK {
     ///   - There is a hard revocation (even if it is not live at
     ///     time `t`, and even if there is a newer self-signature).
     ///
-    /// Note: TPKs and subkeys have different criteria from User IDs
+    /// Note: Certs and subkeys have different criteria from User IDs
     /// and User Attributes.
     ///
-    /// Note: this only returns whether this TPK is revoked; it does
-    /// not imply anything about the TPK or other components.
+    /// Note: this only returns whether this Cert is revoked; it does
+    /// not imply anything about the Cert or other components.
     pub fn revoked<T>(&self, t: T) -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
@@ -970,10 +970,10 @@ impl TPK {
         self.primary._revoked(true, self.primary_key_signature(t), t)
     }
 
-    /// Revokes the TPK in place.
+    /// Revokes the Cert in place.
     ///
     /// Note: to just generate a revocation certificate, use the
-    /// `TPKRevocationBuilder`.
+    /// `CertRevocationBuilder`.
     ///
     /// If you want to revoke an individual component, use
     /// `SubkeyRevocationBuilder`, `UserIDRevocationBuilder`, or
@@ -986,24 +986,24 @@ impl TPK {
     /// # use openpgp::Result;
     /// use openpgp::RevocationStatus;
     /// use openpgp::types::{ReasonForRevocation, SignatureType};
-    /// use openpgp::tpk::{CipherSuite, TPKBuilder};
+    /// use openpgp::cert::{CipherSuite, CertBuilder};
     /// use openpgp::crypto::KeyPair;
     /// use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()>
     /// # {
-    /// let (mut tpk, _) = TPKBuilder::new()
+    /// let (mut cert, _) = CertBuilder::new()
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-    ///            tpk.revoked(None));
+    ///            cert.revoked(None));
     ///
-    /// let mut keypair = tpk.primary().clone()
+    /// let mut keypair = cert.primary().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
-    /// let tpk = tpk.revoke_in_place(&mut keypair,
+    /// let cert = cert.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
     ///                               b"It was the maid :/")?;
-    /// if let RevocationStatus::Revoked(sigs) = tpk.revoked(None) {
+    /// if let RevocationStatus::Revoked(sigs) = cert.revoked(None) {
     ///     assert_eq!(sigs.len(), 1);
     ///     assert_eq!(sigs[0].typ(), SignatureType::KeyRevocation);
     ///     assert_eq!(sigs[0].reason_for_revocation(),
@@ -1017,16 +1017,16 @@ impl TPK {
     /// ```
     pub fn revoke_in_place<R>(self, primary_signer: &mut dyn Signer<R>,
                               code: ReasonForRevocation, reason: &[u8])
-        -> Result<TPK>
+        -> Result<Cert>
         where R: key::KeyRole
     {
-        let sig = TPKRevocationBuilder::new()
+        let sig = CertRevocationBuilder::new()
             .set_reason_for_revocation(code, reason)?
             .build(primary_signer, &self, None)?;
         self.merge_packets(vec![sig.into()])
     }
 
-    /// Returns whether or not the TPK is expired at `t`.
+    /// Returns whether or not the Cert is expired at `t`.
     pub fn expired<T>(&self, t: T) -> bool
         where T: Into<Option<time::SystemTime>>
     {
@@ -1038,7 +1038,7 @@ impl TPK {
         }
     }
 
-    /// Returns whether or not the TPK is alive at `t`.
+    /// Returns whether or not the Cert is alive at `t`.
     pub fn alive<T>(&self, t: T) -> bool
         where T: Into<Option<time::SystemTime>>
     {
@@ -1060,13 +1060,13 @@ impl TPK {
     fn set_expiry_as_of<R>(self, primary_signer: &mut dyn Signer<R>,
                            expiration: Option<time::Duration>,
                            now: time::SystemTime)
-        -> Result<TPK>
+        -> Result<Cert>
         where R: key::KeyRole
     {
         let sig = {
             let (template, userid) = self
                 .primary_key_signature_full(Some(now))
-                .ok_or(Error::MalformedTPK("No self-signature".into()))?;
+                .ok_or(Error::MalformedCert("No self-signature".into()))?;
 
             // Recompute the signature.
             let hash_algo = HashAlgorithm::SHA512;
@@ -1095,19 +1095,19 @@ impl TPK {
     /// current time!
     pub fn set_expiry<R>(self, primary_signer: &mut dyn Signer<R>,
                          expiration: Option<time::Duration>)
-        -> Result<TPK>
+        -> Result<Cert>
         where R: key::KeyRole
     {
         self.set_expiry_as_of(primary_signer, expiration,
                               time::SystemTime::now().canonicalize())
     }
 
-    /// Returns an iterator over the TPK's `UserIDBinding`s.
+    /// Returns an iterator over the Cert's `UserIDBinding`s.
     pub fn userids(&self) -> UserIDBindingIter {
         UserIDBindingIter { iter: Some(self.userids.iter()) }
     }
 
-    /// Returns an iterator over the TPK's valid `UserAttributeBinding`s.
+    /// Returns an iterator over the Cert's valid `UserAttributeBinding`s.
     ///
     /// A valid `UserIDAttributeBinding` has at least one good
     /// self-signature.
@@ -1115,7 +1115,7 @@ impl TPK {
         UserAttributeBindingIter { iter: Some(self.user_attributes.iter()) }
     }
 
-    /// Returns an iterator over the TPK's valid subkeys.
+    /// Returns an iterator over the Cert's valid subkeys.
     ///
     /// A valid `KeyBinding` has at least one good self-signature.
     pub fn subkeys(&self) -> KeyBindingIter<key::PublicParts,
@@ -1124,7 +1124,7 @@ impl TPK {
         KeyBindingIter { iter: Some(self.subkeys.iter()) }
     }
 
-    /// Returns an iterator over the TPK's valid unknown components.
+    /// Returns an iterator over the Cert's valid unknown components.
     ///
     /// A valid `UnknownBinding` has at least one good self-signature.
     pub fn unknowns(&self) -> UnknownBindingIter {
@@ -1139,7 +1139,7 @@ impl TPK {
         &self.bad
     }
 
-    /// Returns an iterator over the TPK's valid keys (live and
+    /// Returns an iterator over the Cert's valid keys (live and
     /// not-revoked).
     ///
     /// That is, this returns an iterator over the primary key and any
@@ -1150,7 +1150,7 @@ impl TPK {
     /// Furthermore, the primary key has no binding signature.  Here,
     /// the signature carrying the primary key's key flags is
     /// returned.  There are corner cases where no such signature
-    /// exists (e.g. partial TPKs), therefore this iterator may return
+    /// exists (e.g. partial Certs), therefore this iterator may return
     /// `None` for the primary key's signature.
     ///
     /// A valid `Key` has at least one good self-signature.
@@ -1164,9 +1164,9 @@ impl TPK {
         KeyIter::new(self).alive().revoked(false)
     }
 
-    /// Returns an iterator over the TPK's keys.
+    /// Returns an iterator over the Cert's keys.
     ///
-    /// Unlike `TPK::keys_valid()`, this iterator also returns expired
+    /// Unlike `Cert::keys_valid()`, this iterator also returns expired
     /// and revoked keys.
     pub fn keys_all(&self)
         -> KeyIter<key::PublicParts, key::UnspecifiedRole>
@@ -1174,33 +1174,33 @@ impl TPK {
         KeyIter::new(self)
     }
 
-    /// Returns the TPK found in the packet stream.
+    /// Returns the Cert found in the packet stream.
     ///
-    /// If there are more packets after the TPK, e.g. because the
+    /// If there are more packets after the Cert, e.g. because the
     /// packet stream is a keyring, this function will return
-    /// `Error::MalformedTPK`.
+    /// `Error::MalformedCert`.
     pub fn from_packet_parser(ppr: PacketParserResult) -> Result<Self> {
-        let mut parser = parser::TPKParser::from_packet_parser(ppr);
-        if let Some(tpk_result) = parser.next() {
+        let mut parser = parser::CertParser::from_packet_parser(ppr);
+        if let Some(cert_result) = parser.next() {
             if parser.next().is_some() {
-                Err(Error::MalformedTPK(
+                Err(Error::MalformedCert(
                     "Additional packets found, is this a keyring?".into()
                 ).into())
             } else {
-                tpk_result
+                cert_result
             }
         } else {
-            Err(Error::MalformedTPK("No data".into()).into())
+            Err(Error::MalformedCert("No data".into()).into())
         }
     }
 
-    /// Returns the first TPK found in the `PacketPile`.
+    /// Returns the first Cert found in the `PacketPile`.
     pub fn from_packet_pile(p: PacketPile) -> Result<Self> {
-        let mut i = parser::TPKParser::from_iter(p.into_children());
+        let mut i = parser::CertParser::from_iter(p.into_children());
         match i.next() {
-            Some(Ok(tpk)) => Ok(tpk),
+            Some(Ok(cert)) => Ok(cert),
             Some(Err(err)) => Err(err),
-            None => Err(Error::MalformedTPK("No data".into()).into()),
+            None => Err(Error::MalformedCert("No data".into()).into()),
         }
     }
 
@@ -1221,7 +1221,7 @@ impl TPK {
         // We collect bad signatures here in self.bad.  Below, we'll
         // test whether they are just out of order by checking them
         // against all userids and subkeys.  Furthermore, this may be
-        // a partial TPK that is merged into an older copy.
+        // a partial Cert that is merged into an older copy.
 
         // desc: a description of the component
         // binding: the binding to check
@@ -1440,7 +1440,7 @@ impl TPK {
         // self.userids().other_revocations, etc.)  If not, put the
         // sig on the bad list.
         //
-        // Note: just because the TPK doesn't indicate that a key is a
+        // Note: just because the Cert doesn't indicate that a key is a
         // designed revoker doesn't mean that it isn't---we might just
         // be missing the signature.  In other words, this is a policy
         // decision, but given how easy it could be to create rogue
@@ -1453,17 +1453,17 @@ impl TPK {
         self
     }
 
-    /// Returns the TPK's fingerprint.
+    /// Returns the Cert's fingerprint.
     pub fn fingerprint(&self) -> Fingerprint {
         self.primary().fingerprint()
     }
 
-    /// Returns the TPK's keyid.
+    /// Returns the Cert's keyid.
     pub fn keyid(&self) -> KeyID {
         self.primary().keyid()
     }
 
-    /// Converts the TPK into an iterator over a sequence of packets.
+    /// Converts the Cert into an iterator over a sequence of packets.
     ///
     /// This method discards invalid components and bad signatures.
     pub fn into_packets(self) -> impl Iterator<Item=Packet> {
@@ -1473,7 +1473,7 @@ impl TPK {
             .chain(self.subkeys.into_iter().flat_map(|b| b.into_packets()))
     }
 
-    /// Converts the TPK into a `PacketPile`.
+    /// Converts the Cert into a `PacketPile`.
     ///
     /// This method discards invalid components and bad signatures.
     pub fn into_packet_pile(self) -> PacketPile {
@@ -1483,7 +1483,7 @@ impl TPK {
     /// Merges `other` into `self`.
     ///
     /// If `other` is a different key, then an error is returned.
-    pub fn merge(mut self, mut other: TPK) -> Result<Self> {
+    pub fn merge(mut self, mut other: Cert) -> Result<Self> {
         if self.primary().fingerprint()
             != other.primary().fingerprint()
         {
@@ -1514,14 +1514,14 @@ impl TPK {
         Ok(self.canonicalize())
     }
 
-    /// Adds packets to the TPK.
+    /// Adds packets to the Cert.
     ///
-    /// This recanonicalizes the TPK.  If the packets are invalid,
+    /// This recanonicalizes the Cert.  If the packets are invalid,
     /// they are dropped.
     pub fn merge_packets(self, mut packets: Vec<Packet>) -> Result<Self> {
         let mut combined = self.into_packets().collect::<Vec<_>>();
         combined.append(&mut packets);
-        TPK::from_packet_pile(PacketPile::from(combined))
+        Cert::from_packet_pile(PacketPile::from(combined))
     }
 
     /// Returns whether at least one of the keys includes a secret
@@ -1546,12 +1546,12 @@ mod test {
         types::KeyFlags,
     };
 
-    fn parse_tpk(data: &[u8], as_message: bool) -> Result<TPK> {
+    fn parse_cert(data: &[u8], as_message: bool) -> Result<Cert> {
         if as_message {
             let pile = PacketPile::from_bytes(data).unwrap();
-            TPK::from_packet_pile(pile)
+            Cert::from_packet_pile(pile)
         } else {
-            TPK::from_bytes(data)
+            Cert::from_bytes(data)
         }
     }
 
@@ -1559,31 +1559,31 @@ mod test {
     fn broken() {
         use crate::conversions::Time;
         for i in 0..2 {
-            let tpk = parse_tpk(crate::tests::key("testy-broken-no-pk.pgp"),
+            let cert = parse_cert(crate::tests::key("testy-broken-no-pk.pgp"),
                                 i == 0);
-            assert_match!(Error::MalformedTPK(_)
-                          = tpk.err().unwrap().downcast::<Error>().unwrap());
+            assert_match!(Error::MalformedCert(_)
+                          = cert.err().unwrap().downcast::<Error>().unwrap());
 
-            // According to 4880, a TPK must have a UserID.  But, we
+            // According to 4880, a Cert must have a UserID.  But, we
             // don't require it.
-            let tpk = parse_tpk(crate::tests::key("testy-broken-no-uid.pgp"),
+            let cert = parse_cert(crate::tests::key("testy-broken-no-uid.pgp"),
                                 i == 0);
-            assert!(tpk.is_ok());
+            assert!(cert.is_ok());
 
             // We have:
             //
             //   [ pk, user id, sig, subkey ]
-            let tpk = parse_tpk(crate::tests::key("testy-broken-no-sig-on-subkey.pgp"),
+            let cert = parse_cert(crate::tests::key("testy-broken-no-sig-on-subkey.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(tpk.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
-            assert_eq!(tpk.userids.len(), 1);
-            assert_eq!(tpk.userids[0].userid().value(),
+            assert_eq!(cert.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
+            assert_eq!(cert.userids.len(), 1);
+            assert_eq!(cert.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].self_signatures.len(), 1);
-            assert_eq!(tpk.userids[0].self_signatures[0].hash_prefix(),
+            assert_eq!(cert.userids[0].self_signatures.len(), 1);
+            assert_eq!(cert.userids[0].self_signatures[0].hash_prefix(),
                        &[ 0xc6, 0x8f ]);
-            assert_eq!(tpk.user_attributes.len(), 0);
-            assert_eq!(tpk.subkeys.len(), 0);
+            assert_eq!(cert.user_attributes.len(), 0);
+            assert_eq!(cert.subkeys.len(), 0);
         }
     }
 
@@ -1591,190 +1591,190 @@ mod test {
     fn basics() {
         use crate::conversions::Time;
         for i in 0..2 {
-            let tpk = parse_tpk(crate::tests::key("testy.pgp"),
+            let cert = parse_cert(crate::tests::key("testy.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(tpk.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
-            assert_eq!(tpk.fingerprint().to_hex(),
+            assert_eq!(cert.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
+            assert_eq!(cert.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
-            assert_eq!(tpk.userids.len(), 1, "number of userids");
-            assert_eq!(tpk.userids[0].userid().value(),
+            assert_eq!(cert.userids.len(), 1, "number of userids");
+            assert_eq!(cert.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].self_signatures.len(), 1);
-            assert_eq!(tpk.userids[0].self_signatures[0].hash_prefix(),
+            assert_eq!(cert.userids[0].self_signatures.len(), 1);
+            assert_eq!(cert.userids[0].self_signatures[0].hash_prefix(),
                        &[ 0xc6, 0x8f ]);
 
-            assert_eq!(tpk.user_attributes.len(), 0);
+            assert_eq!(cert.user_attributes.len(), 0);
 
-            assert_eq!(tpk.subkeys.len(), 1, "number of subkeys");
-            assert_eq!(tpk.subkeys[0].key().creation_time().to_pgp().unwrap(),
+            assert_eq!(cert.subkeys.len(), 1, "number of subkeys");
+            assert_eq!(cert.subkeys[0].key().creation_time().to_pgp().unwrap(),
                        1511355130);
-            assert_eq!(tpk.subkeys[0].self_signatures[0].hash_prefix(),
+            assert_eq!(cert.subkeys[0].self_signatures[0].hash_prefix(),
                        &[ 0xb7, 0xb9 ]);
 
-            let tpk = parse_tpk(crate::tests::key("testy-no-subkey.pgp"),
+            let cert = parse_cert(crate::tests::key("testy-no-subkey.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(tpk.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
-            assert_eq!(tpk.fingerprint().to_hex(),
+            assert_eq!(cert.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
+            assert_eq!(cert.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
-            assert_eq!(tpk.user_attributes.len(), 0);
+            assert_eq!(cert.user_attributes.len(), 0);
 
-            assert_eq!(tpk.userids.len(), 1, "number of userids");
-            assert_eq!(tpk.userids[0].userid().value(),
+            assert_eq!(cert.userids.len(), 1, "number of userids");
+            assert_eq!(cert.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
-            assert_eq!(tpk.userids[0].self_signatures.len(), 1);
-            assert_eq!(tpk.userids[0].self_signatures[0].hash_prefix(),
+            assert_eq!(cert.userids[0].self_signatures.len(), 1);
+            assert_eq!(cert.userids[0].self_signatures[0].hash_prefix(),
                        &[ 0xc6, 0x8f ]);
 
-            assert_eq!(tpk.subkeys.len(), 0, "number of subkeys");
+            assert_eq!(cert.subkeys.len(), 0, "number of subkeys");
 
-            let tpk = parse_tpk(crate::tests::key("testy.asc"), i == 0).unwrap();
-            assert_eq!(tpk.fingerprint().to_hex(),
+            let cert = parse_cert(crate::tests::key("testy.asc"), i == 0).unwrap();
+            assert_eq!(cert.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
         }
     }
 
     #[test]
     fn only_a_public_key() {
-        // Make sure the TPK parser can parse a key that just consists
+        // Make sure the Cert parser can parse a key that just consists
         // of a public key---no signatures, no user ids, nothing.
-        let tpk = TPK::from_bytes(crate::tests::key("testy-only-a-pk.pgp")).unwrap();
-        assert_eq!(tpk.userids.len(), 0);
-        assert_eq!(tpk.user_attributes.len(), 0);
-        assert_eq!(tpk.subkeys.len(), 0);
+        let cert = Cert::from_bytes(crate::tests::key("testy-only-a-pk.pgp")).unwrap();
+        assert_eq!(cert.userids.len(), 0);
+        assert_eq!(cert.user_attributes.len(), 0);
+        assert_eq!(cert.subkeys.len(), 0);
     }
 
     #[test]
     fn merge() {
         use crate::tests::key;
-        let tpk_base = TPK::from_bytes(key("bannon-base.gpg")).unwrap();
+        let cert_base = Cert::from_bytes(key("bannon-base.gpg")).unwrap();
 
         // When we merge it with itself, we should get the exact same
         // thing.
-        let merged = tpk_base.clone().merge(tpk_base.clone()).unwrap();
-        assert_eq!(tpk_base, merged);
+        let merged = cert_base.clone().merge(cert_base.clone()).unwrap();
+        assert_eq!(cert_base, merged);
 
-        let tpk_add_uid_1
-            = TPK::from_bytes(key("bannon-add-uid-1-whitehouse.gov.gpg"))
+        let cert_add_uid_1
+            = Cert::from_bytes(key("bannon-add-uid-1-whitehouse.gov.gpg"))
                 .unwrap();
-        let tpk_add_uid_2
-            = TPK::from_bytes(key("bannon-add-uid-2-fox.com.gpg"))
+        let cert_add_uid_2
+            = Cert::from_bytes(key("bannon-add-uid-2-fox.com.gpg"))
                 .unwrap();
         // Duplicate user id, but with a different self-sig.
-        let tpk_add_uid_3
-            = TPK::from_bytes(key("bannon-add-uid-3-whitehouse.gov-dup.gpg"))
+        let cert_add_uid_3
+            = Cert::from_bytes(key("bannon-add-uid-3-whitehouse.gov-dup.gpg"))
                 .unwrap();
 
-        let tpk_all_uids
-            = TPK::from_bytes(key("bannon-all-uids.gpg"))
+        let cert_all_uids
+            = Cert::from_bytes(key("bannon-all-uids.gpg"))
             .unwrap();
         // We have four User ID packets, but one has the same User ID,
         // just with a different self-signature.
-        assert_eq!(tpk_all_uids.userids.len(), 3);
+        assert_eq!(cert_all_uids.userids.len(), 3);
 
         // Merge in order.
-        let merged = tpk_base.clone().merge(tpk_add_uid_1.clone()).unwrap()
-            .merge(tpk_add_uid_2.clone()).unwrap()
-            .merge(tpk_add_uid_3.clone()).unwrap();
-        assert_eq!(tpk_all_uids, merged);
+        let merged = cert_base.clone().merge(cert_add_uid_1.clone()).unwrap()
+            .merge(cert_add_uid_2.clone()).unwrap()
+            .merge(cert_add_uid_3.clone()).unwrap();
+        assert_eq!(cert_all_uids, merged);
 
         // Merge in reverse order.
-        let merged = tpk_base.clone()
-            .merge(tpk_add_uid_3.clone()).unwrap()
-            .merge(tpk_add_uid_2.clone()).unwrap()
-            .merge(tpk_add_uid_1.clone()).unwrap();
-        assert_eq!(tpk_all_uids, merged);
+        let merged = cert_base.clone()
+            .merge(cert_add_uid_3.clone()).unwrap()
+            .merge(cert_add_uid_2.clone()).unwrap()
+            .merge(cert_add_uid_1.clone()).unwrap();
+        assert_eq!(cert_all_uids, merged);
 
-        let tpk_add_subkey_1
-            = TPK::from_bytes(key("bannon-add-subkey-1.gpg")).unwrap();
-        let tpk_add_subkey_2
-            = TPK::from_bytes(key("bannon-add-subkey-2.gpg")).unwrap();
-        let tpk_add_subkey_3
-            = TPK::from_bytes(key("bannon-add-subkey-3.gpg")).unwrap();
+        let cert_add_subkey_1
+            = Cert::from_bytes(key("bannon-add-subkey-1.gpg")).unwrap();
+        let cert_add_subkey_2
+            = Cert::from_bytes(key("bannon-add-subkey-2.gpg")).unwrap();
+        let cert_add_subkey_3
+            = Cert::from_bytes(key("bannon-add-subkey-3.gpg")).unwrap();
 
-        let tpk_all_subkeys
-            = TPK::from_bytes(key("bannon-all-subkeys.gpg")).unwrap();
+        let cert_all_subkeys
+            = Cert::from_bytes(key("bannon-all-subkeys.gpg")).unwrap();
 
         // Merge the first user, then the second, then the third.
-        let merged = tpk_base.clone().merge(tpk_add_subkey_1.clone()).unwrap()
-            .merge(tpk_add_subkey_2.clone()).unwrap()
-            .merge(tpk_add_subkey_3.clone()).unwrap();
-        assert_eq!(tpk_all_subkeys, merged);
+        let merged = cert_base.clone().merge(cert_add_subkey_1.clone()).unwrap()
+            .merge(cert_add_subkey_2.clone()).unwrap()
+            .merge(cert_add_subkey_3.clone()).unwrap();
+        assert_eq!(cert_all_subkeys, merged);
 
         // Merge the third user, then the second, then the first.
-        let merged = tpk_base.clone().merge(tpk_add_subkey_3.clone()).unwrap()
-            .merge(tpk_add_subkey_2.clone()).unwrap()
-            .merge(tpk_add_subkey_1.clone()).unwrap();
-        assert_eq!(tpk_all_subkeys, merged);
+        let merged = cert_base.clone().merge(cert_add_subkey_3.clone()).unwrap()
+            .merge(cert_add_subkey_2.clone()).unwrap()
+            .merge(cert_add_subkey_1.clone()).unwrap();
+        assert_eq!(cert_all_subkeys, merged);
 
         // Merge a lot.
-        let merged = tpk_base.clone()
-            .merge(tpk_add_subkey_1.clone()).unwrap()
-            .merge(tpk_add_subkey_1.clone()).unwrap()
-            .merge(tpk_add_subkey_3.clone()).unwrap()
-            .merge(tpk_add_subkey_1.clone()).unwrap()
-            .merge(tpk_add_subkey_2.clone()).unwrap()
-            .merge(tpk_add_subkey_3.clone()).unwrap()
-            .merge(tpk_add_subkey_3.clone()).unwrap()
-            .merge(tpk_add_subkey_1.clone()).unwrap()
-            .merge(tpk_add_subkey_2.clone()).unwrap();
-        assert_eq!(tpk_all_subkeys, merged);
+        let merged = cert_base.clone()
+            .merge(cert_add_subkey_1.clone()).unwrap()
+            .merge(cert_add_subkey_1.clone()).unwrap()
+            .merge(cert_add_subkey_3.clone()).unwrap()
+            .merge(cert_add_subkey_1.clone()).unwrap()
+            .merge(cert_add_subkey_2.clone()).unwrap()
+            .merge(cert_add_subkey_3.clone()).unwrap()
+            .merge(cert_add_subkey_3.clone()).unwrap()
+            .merge(cert_add_subkey_1.clone()).unwrap()
+            .merge(cert_add_subkey_2.clone()).unwrap();
+        assert_eq!(cert_all_subkeys, merged);
 
-        let tpk_all
-            = TPK::from_bytes(key("bannon-all-uids-subkeys.gpg"))
+        let cert_all
+            = Cert::from_bytes(key("bannon-all-uids-subkeys.gpg"))
             .unwrap();
 
         // Merge all the subkeys with all the uids.
-        let merged = tpk_all_subkeys.clone()
-            .merge(tpk_all_uids.clone()).unwrap();
-        assert_eq!(tpk_all, merged);
+        let merged = cert_all_subkeys.clone()
+            .merge(cert_all_uids.clone()).unwrap();
+        assert_eq!(cert_all, merged);
 
         // Merge all uids with all the subkeys.
-        let merged = tpk_all_uids.clone()
-            .merge(tpk_all_subkeys.clone()).unwrap();
-        assert_eq!(tpk_all, merged);
+        let merged = cert_all_uids.clone()
+            .merge(cert_all_subkeys.clone()).unwrap();
+        assert_eq!(cert_all, merged);
 
         // All the subkeys and the uids in a mixed up order.
-        let merged = tpk_base.clone()
-            .merge(tpk_add_subkey_1.clone()).unwrap()
-            .merge(tpk_add_uid_2.clone()).unwrap()
-            .merge(tpk_add_uid_1.clone()).unwrap()
-            .merge(tpk_add_subkey_3.clone()).unwrap()
-            .merge(tpk_add_subkey_1.clone()).unwrap()
-            .merge(tpk_add_uid_3.clone()).unwrap()
-            .merge(tpk_add_subkey_2.clone()).unwrap()
-            .merge(tpk_add_subkey_1.clone()).unwrap()
-            .merge(tpk_add_uid_2.clone()).unwrap();
-        assert_eq!(tpk_all, merged);
+        let merged = cert_base.clone()
+            .merge(cert_add_subkey_1.clone()).unwrap()
+            .merge(cert_add_uid_2.clone()).unwrap()
+            .merge(cert_add_uid_1.clone()).unwrap()
+            .merge(cert_add_subkey_3.clone()).unwrap()
+            .merge(cert_add_subkey_1.clone()).unwrap()
+            .merge(cert_add_uid_3.clone()).unwrap()
+            .merge(cert_add_subkey_2.clone()).unwrap()
+            .merge(cert_add_subkey_1.clone()).unwrap()
+            .merge(cert_add_uid_2.clone()).unwrap();
+        assert_eq!(cert_all, merged);
 
         // Certifications.
-        let tpk_donald_signs_base
-            = TPK::from_bytes(key("bannon-the-donald-signs-base.gpg"))
+        let cert_donald_signs_base
+            = Cert::from_bytes(key("bannon-the-donald-signs-base.gpg"))
             .unwrap();
-        let tpk_donald_signs_all
-            = TPK::from_bytes(key("bannon-the-donald-signs-all-uids.gpg"))
+        let cert_donald_signs_all
+            = Cert::from_bytes(key("bannon-the-donald-signs-all-uids.gpg"))
             .unwrap();
-        let tpk_ivanka_signs_base
-            = TPK::from_bytes(key("bannon-ivanka-signs-base.gpg"))
+        let cert_ivanka_signs_base
+            = Cert::from_bytes(key("bannon-ivanka-signs-base.gpg"))
             .unwrap();
-        let tpk_ivanka_signs_all
-            = TPK::from_bytes(key("bannon-ivanka-signs-all-uids.gpg"))
+        let cert_ivanka_signs_all
+            = Cert::from_bytes(key("bannon-ivanka-signs-all-uids.gpg"))
             .unwrap();
 
-        assert!(tpk_donald_signs_base.userids.len() == 1);
-        assert!(tpk_donald_signs_base.userids[0].self_signatures.len() == 1);
-        assert!(tpk_base.userids[0].certifications.len() == 0);
-        assert!(tpk_donald_signs_base.userids[0].certifications.len() == 1);
+        assert!(cert_donald_signs_base.userids.len() == 1);
+        assert!(cert_donald_signs_base.userids[0].self_signatures.len() == 1);
+        assert!(cert_base.userids[0].certifications.len() == 0);
+        assert!(cert_donald_signs_base.userids[0].certifications.len() == 1);
 
-        let merged = tpk_donald_signs_base.clone()
-            .merge(tpk_ivanka_signs_base.clone()).unwrap();
+        let merged = cert_donald_signs_base.clone()
+            .merge(cert_ivanka_signs_base.clone()).unwrap();
         assert!(merged.userids.len() == 1);
         assert!(merged.userids[0].self_signatures.len() == 1);
         assert!(merged.userids[0].certifications.len() == 2);
 
-        let merged = tpk_donald_signs_base.clone()
-            .merge(tpk_donald_signs_all.clone()).unwrap();
+        let merged = cert_donald_signs_base.clone()
+            .merge(cert_donald_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
         assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from the Donald on the
@@ -1783,10 +1783,10 @@ mod test {
         assert!(merged.userids[1].certifications.len() == 1);
         assert!(merged.userids[2].certifications.len() == 1);
 
-        let merged = tpk_donald_signs_base.clone()
-            .merge(tpk_donald_signs_all.clone()).unwrap()
-            .merge(tpk_ivanka_signs_base.clone()).unwrap()
-            .merge(tpk_ivanka_signs_all.clone()).unwrap();
+        let merged = cert_donald_signs_base.clone()
+            .merge(cert_donald_signs_all.clone()).unwrap()
+            .merge(cert_ivanka_signs_base.clone()).unwrap()
+            .merge(cert_ivanka_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
         assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from each of the Donald
@@ -1796,15 +1796,15 @@ mod test {
         assert!(merged.userids[2].certifications.len() == 2);
 
         // Same as above, but redundant.
-        let merged = tpk_donald_signs_base.clone()
-            .merge(tpk_ivanka_signs_base.clone()).unwrap()
-            .merge(tpk_donald_signs_all.clone()).unwrap()
-            .merge(tpk_donald_signs_all.clone()).unwrap()
-            .merge(tpk_ivanka_signs_all.clone()).unwrap()
-            .merge(tpk_ivanka_signs_base.clone()).unwrap()
-            .merge(tpk_donald_signs_all.clone()).unwrap()
-            .merge(tpk_donald_signs_all.clone()).unwrap()
-            .merge(tpk_ivanka_signs_all.clone()).unwrap();
+        let merged = cert_donald_signs_base.clone()
+            .merge(cert_ivanka_signs_base.clone()).unwrap()
+            .merge(cert_donald_signs_all.clone()).unwrap()
+            .merge(cert_donald_signs_all.clone()).unwrap()
+            .merge(cert_ivanka_signs_all.clone()).unwrap()
+            .merge(cert_ivanka_signs_base.clone()).unwrap()
+            .merge(cert_donald_signs_all.clone()).unwrap()
+            .merge(cert_donald_signs_all.clone()).unwrap()
+            .merge(cert_ivanka_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
         assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from each of the Donald
@@ -1855,10 +1855,10 @@ mod test {
         // 21/20. auth subkey #3: A3506AFB820ABD08 (bad)
         // 22/19. sig over subkey #2
 
-        let tpk = TPK::from_bytes(crate::tests::key("neal-sigs-out-of-order.pgp"))
+        let cert = Cert::from_bytes(crate::tests::key("neal-sigs-out-of-order.pgp"))
             .unwrap();
 
-        let mut userids = tpk.userids()
+        let mut userids = cert.userids()
             .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
@@ -1872,7 +1872,7 @@ mod test {
                       "Neal H. Walfield <neal@walfield.org>",
                    ]);
 
-        let mut subkeys = tpk.subkeys()
+        let mut subkeys = cert.subkeys()
             .map(|sk| Some(sk.key().keyid()))
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
@@ -1884,10 +1884,10 @@ mod test {
 
         // DKG's key has all of the self-signatures moved to the last
         // subkey; all user ids/user attributes/subkeys have nothing.
-        let tpk =
-            TPK::from_bytes(crate::tests::key("dkg-sigs-out-of-order.pgp")).unwrap();
+        let cert =
+            Cert::from_bytes(crate::tests::key("dkg-sigs-out-of-order.pgp")).unwrap();
 
-        let mut userids = tpk.userids()
+        let mut userids = cert.userids()
             .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
@@ -1901,9 +1901,9 @@ mod test {
                       "Daniel Kahn Gillmor <dkg@openflows.com>",
                    ]);
 
-        assert_eq!(tpk.user_attributes.len(), 1);
+        assert_eq!(cert.user_attributes.len(), 1);
 
-        let mut subkeys = tpk.subkeys()
+        let mut subkeys = cert.subkeys()
             .map(|sk| Some(sk.key().keyid()))
             .collect::<Vec<Option<KeyID>>>();
         subkeys.sort();
@@ -1934,12 +1934,12 @@ mod test {
         let lutz = crate::tests::key("lutz.gpg");
 
         // v3 primary keys are not supported.
-        let tpk = TPK::from_bytes(lutz);
-        assert_match!(Error::MalformedTPK(_)
-                      = tpk.err().unwrap().downcast::<Error>().unwrap());
+        let cert = Cert::from_bytes(lutz);
+        assert_match!(Error::MalformedCert(_)
+                      = cert.err().unwrap().downcast::<Error>().unwrap());
 
-        let tpk = TPK::from_bytes(dkg);
-        assert!(tpk.is_ok(), "dkg.gpg: {:?}", tpk);
+        let cert = Cert::from_bytes(dkg);
+        assert!(cert.is_ok(), "dkg.gpg: {:?}", cert);
     }
 
     #[test]
@@ -1947,55 +1947,55 @@ mod test {
         let dkg = crate::tests::key("dkg.gpg");
         let lutz = crate::tests::key("lutz.gpg");
 
-        let tpk = TPK::from_bytes(dkg);
-        assert!(tpk.is_ok(), "dkg.gpg: {:?}", tpk);
+        let cert = Cert::from_bytes(dkg);
+        assert!(cert.is_ok(), "dkg.gpg: {:?}", cert);
 
         // Key ring with two good keys
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&dkg[..]);
-        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
-            .map(|tpkr| tpkr.is_ok())
+        let certs = CertParser::from_bytes(&combined[..]).unwrap()
+            .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
-        assert_eq!(tpks, &[ true, true ]);
+        assert_eq!(certs, &[ true, true ]);
 
         // Key ring with a good key, and a bad key.
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&lutz[..]);
-        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
-            .map(|tpkr| tpkr.is_ok())
+        let certs = CertParser::from_bytes(&combined[..]).unwrap()
+            .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
-        assert_eq!(tpks, &[ true, false ]);
+        assert_eq!(certs, &[ true, false ]);
 
         // Key ring with a bad key, and a good key.
         let mut combined = vec![];
         combined.extend_from_slice(&lutz[..]);
         combined.extend_from_slice(&dkg[..]);
-        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
-            .map(|tpkr| tpkr.is_ok())
+        let certs = CertParser::from_bytes(&combined[..]).unwrap()
+            .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
-        assert_eq!(tpks, &[ false, true ]);
+        assert_eq!(certs, &[ false, true ]);
 
         // Key ring with a good key, a bad key, and a good key.
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&lutz[..]);
         combined.extend_from_slice(&dkg[..]);
-        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
-            .map(|tpkr| tpkr.is_ok())
+        let certs = CertParser::from_bytes(&combined[..]).unwrap()
+            .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
-        assert_eq!(tpks, &[ true, false, true ]);
+        assert_eq!(certs, &[ true, false, true ]);
 
         // Key ring with a good key, a bad key, and a bad key.
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&lutz[..]);
         combined.extend_from_slice(&lutz[..]);
-        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
-            .map(|tpkr| tpkr.is_ok())
+        let certs = CertParser::from_bytes(&combined[..]).unwrap()
+            .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
-        assert_eq!(tpks, &[ true, false, false ]);
+        assert_eq!(certs, &[ true, false, false ]);
 
         // Key ring with a good key, a bad key, a bad key, and a good key.
         let mut combined = vec![];
@@ -2003,54 +2003,54 @@ mod test {
         combined.extend_from_slice(&lutz[..]);
         combined.extend_from_slice(&lutz[..]);
         combined.extend_from_slice(&dkg[..]);
-        let tpks = TPKParser::from_bytes(&combined[..]).unwrap()
-            .map(|tpkr| tpkr.is_ok())
+        let certs = CertParser::from_bytes(&combined[..]).unwrap()
+            .map(|certr| certr.is_ok())
             .collect::<Vec<bool>>();
-        assert_eq!(tpks, &[ true, false, false, true ]);
+        assert_eq!(certs, &[ true, false, false, true ]);
     }
 
     #[test]
     fn merge_with_incomplete_update() {
-        let tpk = TPK::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
+        let cert = Cert::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
-        assert!(tpk.primary_key_signature(None).unwrap()
-                .key_expired(tpk.primary(), None));
+        assert!(cert.primary_key_signature(None).unwrap()
+                .key_expired(cert.primary(), None));
 
         let update =
-            TPK::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
+            Cert::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
-        let tpk = tpk.merge(update).unwrap();
-        assert!(! tpk.primary_key_signature(None).unwrap()
-                .key_expired(tpk.primary(), None));
+        let cert = cert.merge(update).unwrap();
+        assert!(! cert.primary_key_signature(None).unwrap()
+                .key_expired(cert.primary(), None));
     }
 
     #[test]
     fn packet_pile_roundtrip() {
-        // Make sure TPK::from_packet_pile(TPK::to_packet_pile(tpk))
+        // Make sure Cert::from_packet_pile(Cert::to_packet_pile(cert))
         // does a clean round trip.
 
-        let tpk = TPK::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
-        let tpk2
-            = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
-        assert_eq!(tpk, tpk2);
+        let cert = Cert::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
+        let cert2
+            = Cert::from_packet_pile(cert.clone().into_packet_pile()).unwrap();
+        assert_eq!(cert, cert2);
 
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("already-revoked-direct-revocation.pgp")).unwrap();
-        let tpk2
-            = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
-        assert_eq!(tpk, tpk2);
+        let cert2
+            = Cert::from_packet_pile(cert.clone().into_packet_pile()).unwrap();
+        assert_eq!(cert, cert2);
 
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("already-revoked-userid-revocation.pgp")).unwrap();
-        let tpk2
-            = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
-        assert_eq!(tpk, tpk2);
+        let cert2
+            = Cert::from_packet_pile(cert.clone().into_packet_pile()).unwrap();
+        assert_eq!(cert, cert2);
 
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("already-revoked-subkey-revocation.pgp")).unwrap();
-        let tpk2
-            = TPK::from_packet_pile(tpk.clone().into_packet_pile()).unwrap();
-        assert_eq!(tpk, tpk2);
+        let cert2
+            = Cert::from_packet_pile(cert.clone().into_packet_pile()).unwrap();
+        assert_eq!(cert, cert2);
     }
 
     #[test]
@@ -2058,9 +2058,9 @@ mod test {
         use crate::armor;
         use crate::packet::Tag;
 
-        // Merge the revocation certificate into the TPK and make sure
+        // Merge the revocation certificate into the Cert and make sure
         // it shows up.
-        let tpk = TPK::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
+        let cert = Cert::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
 
         let rev = crate::tests::key("already-revoked.rev");
         let rev = PacketPile::from_reader(armor::Reader::new(&rev[..], None))
@@ -2070,9 +2070,9 @@ mod test {
         assert_eq!(rev.len(), 1);
         assert_eq!(rev[0].tag(), Tag::Signature);
 
-        let packets_pre_merge = tpk.clone().into_packets().count();
-        let tpk = tpk.merge_packets(rev).unwrap();
-        let packets_post_merge = tpk.clone().into_packets().count();
+        let packets_pre_merge = cert.clone().into_packets().count();
+        let cert = cert.merge_packets(rev).unwrap();
+        let packets_post_merge = cert.clone().into_packets().count();
         assert_eq!(packets_post_merge, packets_pre_merge + 1);
     }
 
@@ -2081,31 +2081,31 @@ mod test {
         let now = time::SystemTime::now().canonicalize();
         let a_sec = time::Duration::new(1, 0);
 
-        let (tpk, _) = TPKBuilder::autocrypt(None, Some("Test"))
+        let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
-        let expiry_orig = tpk.primary_key_signature(None).unwrap()
+        let expiry_orig = cert.primary_key_signature(None).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
 
-        let mut keypair = tpk.primary().clone().mark_parts_secret()
+        let mut keypair = cert.primary().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         // Clear the expiration.
         let as_of1 = now + time::Duration::new(10, 0);
-        let tpk = tpk.set_expiry_as_of(
+        let cert = cert.set_expiry_as_of(
             &mut keypair,
             None,
             as_of1).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
-            assert_eq!(tpk.primary_key_signature(now).unwrap()
+            assert_eq!(cert.primary_key_signature(now).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
-            assert_eq!(tpk.primary_key_signature(as_of1 - a_sec).unwrap()
+            assert_eq!(cert.primary_key_signature(as_of1 - a_sec).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
             // If t >= as_of1, we should get the new expiry.
-            assert_eq!(tpk.primary_key_signature(as_of1).unwrap()
+            assert_eq!(cert.primary_key_signature(as_of1).unwrap()
                            .key_expiration_time(),
                        None);
         }
@@ -2117,28 +2117,28 @@ mod test {
         assert!(expiry_new > time::Duration::new(0, 0));
 
         let as_of2 = as_of1 + time::Duration::new(10, 0);
-        let tpk = tpk.set_expiry_as_of(
+        let cert = cert.set_expiry_as_of(
             &mut keypair,
             Some(expiry_new),
             as_of2).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
-            assert_eq!(tpk.primary_key_signature(now).unwrap()
+            assert_eq!(cert.primary_key_signature(now).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
-            assert_eq!(tpk.primary_key_signature(as_of1 - a_sec).unwrap()
+            assert_eq!(cert.primary_key_signature(as_of1 - a_sec).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
             // If as_of1 <= t < as_of2, we should get the second
             // expiry (None).
-            assert_eq!(tpk.primary_key_signature(as_of1).unwrap()
+            assert_eq!(cert.primary_key_signature(as_of1).unwrap()
                            .key_expiration_time(),
                        None);
-            assert_eq!(tpk.primary_key_signature(as_of2 - a_sec).unwrap()
+            assert_eq!(cert.primary_key_signature(as_of2 - a_sec).unwrap()
                            .key_expiration_time(),
                        None);
             // If t <= as_of2, we should get the new expiry.
-            assert_eq!(tpk.primary_key_signature(as_of2).unwrap()
+            assert_eq!(cert.primary_key_signature(as_of2).unwrap()
                            .key_expiration_time(),
                        Some(expiry_new));
         }
@@ -2150,89 +2150,89 @@ mod test {
         // XXX: testing sequoia against itself isn't optimal, but I couldn't
         // find a tool to generate direct key signatures :-(
 
-        let (tpk1, _) = TPKBuilder::new().generate().unwrap();
+        let (cert1, _) = CertBuilder::new().generate().unwrap();
         let mut buf = Vec::default();
 
-        tpk1.serialize(&mut buf).unwrap();
-        let tpk2 = TPK::from_bytes(&buf).unwrap();
+        cert1.serialize(&mut buf).unwrap();
+        let cert2 = Cert::from_bytes(&buf).unwrap();
 
-        assert_eq!(tpk2.primary_key_signature(None).unwrap().typ(),
+        assert_eq!(cert2.primary_key_signature(None).unwrap().typ(),
                    SignatureType::DirectKey);
-        assert_eq!(tpk2.userids().count(), 0);
+        assert_eq!(cert2.userids().count(), 0);
     }
 
     #[test]
     fn revoked() {
-        fn check(tpk: &TPK, direct_revoked: bool,
+        fn check(cert: &Cert, direct_revoked: bool,
                  userid_revoked: bool, subkey_revoked: bool) {
             // If we have a user id---even if it is revoked---we have
             // a primary key signature.
-            let typ = tpk.primary_key_signature(None).unwrap().typ();
+            let typ = cert.primary_key_signature(None).unwrap().typ();
             assert_eq!(typ, SignatureType::PositiveCertificate,
-                       "{:#?}", tpk);
+                       "{:#?}", cert);
 
-            let revoked = tpk.revoked(None);
+            let revoked = cert.revoked(None);
             if direct_revoked {
                 assert_match!(RevocationStatus::Revoked(_) = revoked,
-                              "{:#?}", tpk);
+                              "{:#?}", cert);
             } else {
                 assert_eq!(revoked, RevocationStatus::NotAsFarAsWeKnow,
-                           "{:#?}", tpk);
+                           "{:#?}", cert);
             }
 
-            for userid in tpk.userids() {
+            for userid in cert.userids() {
                 let typ = userid.binding_signature(None).unwrap().typ();
                 assert_eq!(typ, SignatureType::PositiveCertificate,
-                           "{:#?}", tpk);
+                           "{:#?}", cert);
 
                 let revoked = userid.revoked(None);
                 if userid_revoked {
                     assert_match!(RevocationStatus::Revoked(_) = revoked);
                 } else {
                     assert_eq!(RevocationStatus::NotAsFarAsWeKnow, revoked,
-                               "{:#?}", tpk);
+                               "{:#?}", cert);
                 }
             }
 
-            for subkey in tpk.subkeys() {
+            for subkey in cert.subkeys() {
                 let typ = subkey.binding_signature(None).unwrap().typ();
                 assert_eq!(typ, SignatureType::SubkeyBinding,
-                           "{:#?}", tpk);
+                           "{:#?}", cert);
 
                 let revoked = subkey.revoked(None);
                 if subkey_revoked {
                     assert_match!(RevocationStatus::Revoked(_) = revoked);
                 } else {
                     assert_eq!(RevocationStatus::NotAsFarAsWeKnow, revoked,
-                               "{:#?}", tpk);
+                               "{:#?}", cert);
                 }
             }
         }
 
-        let tpk = TPK::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
-        check(&tpk, false, false, false);
+        let cert = Cert::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
+        check(&cert, false, false, false);
 
-        let d = TPK::from_bytes(
+        let d = Cert::from_bytes(
             crate::tests::key("already-revoked-direct-revocation.pgp")).unwrap();
         check(&d, true, false, false);
 
-        check(&tpk.clone().merge(d.clone()).unwrap(), true, false, false);
+        check(&cert.clone().merge(d.clone()).unwrap(), true, false, false);
         // Make sure the merge order does not matter.
-        check(&d.clone().merge(tpk.clone()).unwrap(), true, false, false);
+        check(&d.clone().merge(cert.clone()).unwrap(), true, false, false);
 
-        let u = TPK::from_bytes(
+        let u = Cert::from_bytes(
             crate::tests::key("already-revoked-userid-revocation.pgp")).unwrap();
         check(&u, false, true, false);
 
-        check(&tpk.clone().merge(u.clone()).unwrap(), false, true, false);
-        check(&u.clone().merge(tpk.clone()).unwrap(), false, true, false);
+        check(&cert.clone().merge(u.clone()).unwrap(), false, true, false);
+        check(&u.clone().merge(cert.clone()).unwrap(), false, true, false);
 
-        let k = TPK::from_bytes(
+        let k = Cert::from_bytes(
             crate::tests::key("already-revoked-subkey-revocation.pgp")).unwrap();
         check(&k, false, false, true);
 
-        check(&tpk.clone().merge(k.clone()).unwrap(), false, false, true);
-        check(&k.clone().merge(tpk.clone()).unwrap(), false, false, true);
+        check(&cert.clone().merge(k.clone()).unwrap(), false, false, true);
+        check(&k.clone().merge(cert.clone()).unwrap(), false, false, true);
 
         // direct and user id revocation.
         check(&d.clone().merge(u.clone()).unwrap(), true, true, false);
@@ -2255,41 +2255,41 @@ mod test {
 
     #[test]
     fn revoke() {
-        let (tpk, _) = TPKBuilder::autocrypt(None, Some("Test"))
+        let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   tpk.revoked(None));
+                   cert.revoked(None));
 
-        let mut keypair = tpk.primary().clone().mark_parts_secret()
+        let mut keypair = cert.primary().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
-        let sig = TPKRevocationBuilder::new()
+        let sig = CertRevocationBuilder::new()
             .set_reason_for_revocation(
                 ReasonForRevocation::KeyCompromised,
                 b"It was the maid :/").unwrap()
-            .build(&mut keypair, &tpk, None)
+            .build(&mut keypair, &cert, None)
             .unwrap();
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-        assert_eq!(sig.issuer(), Some(tpk.primary().keyid()));
+        assert_eq!(sig.issuer(), Some(cert.primary().keyid()));
         assert_eq!(sig.issuer_fingerprint(),
-                   Some(tpk.primary().fingerprint()));
+                   Some(cert.primary().fingerprint()));
 
-        let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(None));
+        let cert = cert.merge_packets(vec![sig.into()]).unwrap();
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(None));
 
 
-        // Have other revoke tpk.
-        let (other, _) = TPKBuilder::autocrypt(None, Some("Test 2"))
+        // Have other revoke cert.
+        let (other, _) = CertBuilder::autocrypt(None, Some("Test 2"))
             .generate().unwrap();
 
         let mut keypair = other.primary().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
-        let sig = TPKRevocationBuilder::new()
+        let sig = CertRevocationBuilder::new()
             .set_reason_for_revocation(
                 ReasonForRevocation::KeyCompromised,
                 b"It was the maid :/").unwrap()
-            .build(&mut keypair, &tpk, None)
+            .build(&mut keypair, &cert, None)
             .unwrap();
 
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
@@ -2302,30 +2302,30 @@ mod test {
     fn revoke_subkey() {
         use std::{thread, time};
 
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_encryption_subkey()
             .generate().unwrap();
 
         thread::sleep(time::Duration::from_secs(2));
         let sig = {
-            let subkey = tpk.subkeys().nth(0).unwrap();
+            let subkey = cert.subkeys().nth(0).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, subkey.revoked(None));
 
-            let mut keypair = tpk.primary().clone().mark_parts_secret()
+            let mut keypair = cert.primary().clone().mark_parts_secret()
                 .unwrap().into_keypair().unwrap();
             SubkeyRevocationBuilder::new()
                 .set_reason_for_revocation(
                     ReasonForRevocation::UIDRetired,
                     b"It was the maid :/").unwrap()
-                .build(&mut keypair, &tpk, subkey.key(), None)
+                .build(&mut keypair, &cert, subkey.key(), None)
                 .unwrap()
         };
         assert_eq!(sig.typ(), SignatureType::SubkeyRevocation);
-        let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
+        let cert = cert.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   tpk.revoked(None));
+                   cert.revoked(None));
 
-        let subkey = tpk.subkeys().nth(0).unwrap();
+        let subkey = cert.subkeys().nth(0).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = subkey.revoked(None));
     }
 
@@ -2333,31 +2333,31 @@ mod test {
     fn revoke_uid() {
         use std::{thread, time};
 
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_userid("Test1")
             .add_userid("Test2")
             .generate().unwrap();
 
         thread::sleep(time::Duration::from_secs(2));
         let sig = {
-            let uid = tpk.userids().skip(1).next().unwrap();
+            let uid = cert.userids().skip(1).next().unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked(None));
 
-            let mut keypair = tpk.primary().clone().mark_parts_secret()
+            let mut keypair = cert.primary().clone().mark_parts_secret()
                 .unwrap().into_keypair().unwrap();
             UserIDRevocationBuilder::new()
                 .set_reason_for_revocation(
                     ReasonForRevocation::UIDRetired,
                     b"It was the maid :/").unwrap()
-                .build(&mut keypair, &tpk, uid.userid(), None)
+                .build(&mut keypair, &cert, uid.userid(), None)
                 .unwrap()
         };
         assert_eq!(sig.typ(), SignatureType::CertificateRevocation);
-        let tpk = tpk.merge_packets(vec![sig.into()]).unwrap();
+        let cert = cert.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   tpk.revoked(None));
+                   cert.revoked(None));
 
-        let uid = tpk.userids().skip(1).next().unwrap();
+        let uid = cert.userids().skip(1).next().unwrap();
         assert_match!(RevocationStatus::Revoked(_) = uid.revoked(None));
     }
 
@@ -2379,7 +2379,7 @@ mod test {
          * [t3,t4): valid again (new self sig)
          * [t4,inf): hard revocation (hard revocation)
          *
-         * One the hard revocation is merged, then the TPK is
+         * One the hard revocation is merged, then the Cert is
          * considered revoked at all times.
          */
         let t1 = time::UNIX_EPOCH + time::Duration::new(946681200, 0);  // 2000-1-1
@@ -2430,7 +2430,7 @@ mod test {
             (bind1, rev1, bind2, rev2)
         };
         let pk : key::PublicKey = key.into();
-        let tpk = TPK::from_packet_pile(PacketPile::from(vec![
+        let cert = Cert::from_packet_pile(PacketPile::from(vec![
             pk.into(),
             bind1.into(),
             bind2.into(),
@@ -2445,42 +2445,42 @@ mod test {
         let t23 = t2 + time::Duration::new((60. * 60. * 24. * 300.0 * f3) as u64, 0);
         let t34 = t3 + time::Duration::new((60. * 60. * 24. * 300.0 * f3) as u64, 0);
 
-        assert_eq!(tpk.revoked(te1), RevocationStatus::NotAsFarAsWeKnow);
-        assert_eq!(tpk.revoked(t12), RevocationStatus::NotAsFarAsWeKnow);
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t23));
-        assert_eq!(tpk.revoked(t34), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(cert.revoked(te1), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(cert.revoked(t12), RevocationStatus::NotAsFarAsWeKnow);
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t23));
+        assert_eq!(cert.revoked(t34), RevocationStatus::NotAsFarAsWeKnow);
 
         // Merge in the hard revocation.
-        let tpk = tpk.merge_packets(vec![ rev2.into() ]).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(te1));
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t12));
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t23));
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t34));
-        assert_match!(RevocationStatus::Revoked(_) = tpk.revoked(t4));
+        let cert = cert.merge_packets(vec![ rev2.into() ]).unwrap();
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(te1));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t12));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t23));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t34));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t4));
         assert_match!(RevocationStatus::Revoked(_)
-                      = tpk.revoked(time::SystemTime::now()));
+                      = cert.revoked(time::SystemTime::now()));
     }
 
     #[test]
     fn key_revoked2() {
-        tracer!(true, "tpk_revoked2", 0);
+        tracer!(true, "cert_revoked2", 0);
 
-        fn tpk_revoked<T>(tpk: &TPK, t: T) -> bool
+        fn cert_revoked<T>(cert: &Cert, t: T) -> bool
             where T: Into<Option<time::SystemTime>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = tpk.revoked(t))
+                              = cert.revoked(t))
         }
 
-        fn subkey_revoked<T>(tpk: &TPK, t: T) -> bool
+        fn subkey_revoked<T>(cert: &Cert, t: T) -> bool
             where T: Into<Option<time::SystemTime>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = tpk.subkeys().nth(0).unwrap().revoked(t))
+                              = cert.subkeys().nth(0).unwrap().revoked(t))
         }
 
-        let tests : [(&str, Box<dyn Fn(&TPK, _) -> bool>); 2] = [
-            ("tpk", Box::new(tpk_revoked)),
+        let tests : [(&str, Box<dyn Fn(&Cert, _) -> bool>); 2] = [
+            ("cert", Box::new(cert_revoked)),
             ("subkey", Box::new(subkey_revoked)),
         ];
 
@@ -2489,68 +2489,68 @@ mod test {
             t!("Checking {} revocation", f);
 
             t!("Normal key");
-            let tpk = TPK::from_bytes(
+            let cert = Cert::from_bytes(
                 crate::tests::key(
                     &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
-            let selfsig0 = tpk.primary_key_signature(None).unwrap()
+            let selfsig0 = cert.primary_key_signature(None).unwrap()
                 .signature_creation_time().unwrap();
 
-            assert!(!revoked(&tpk, Some(selfsig0)));
-            assert!(!revoked(&tpk, None));
+            assert!(!revoked(&cert, Some(selfsig0)));
+            assert!(!revoked(&cert, None));
 
             t!("Soft revocation");
-            let tpk = tpk.merge(
-                TPK::from_bytes(
+            let cert = cert.merge(
+                Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-1-soft-revocation.pgp", f))
                 ).unwrap()).unwrap();
             // A soft revocation made after `t` is ignored when
             // determining whether the key is revoked at time `t`.
-            assert!(!revoked(&tpk, Some(selfsig0)));
-            assert!(revoked(&tpk, None));
+            assert!(!revoked(&cert, Some(selfsig0)));
+            assert!(revoked(&cert, None));
 
             t!("New self signature");
-            let tpk = tpk.merge(
-                TPK::from_bytes(
+            let cert = cert.merge(
+                Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-2-new-self-sig.pgp", f))
                 ).unwrap()).unwrap();
-            assert!(!revoked(&tpk, Some(selfsig0)));
+            assert!(!revoked(&cert, Some(selfsig0)));
             // Newer self-sig override older soft revocations.
-            assert!(!revoked(&tpk, None));
+            assert!(!revoked(&cert, None));
 
             t!("Hard revocation");
-            let tpk = tpk.merge(
-                TPK::from_bytes(
+            let cert = cert.merge(
+                Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-3-hard-revocation.pgp", f))
                 ).unwrap()).unwrap();
             // Hard revocations trump all.
-            assert!(revoked(&tpk, Some(selfsig0)));
-            assert!(revoked(&tpk, None));
+            assert!(revoked(&cert, Some(selfsig0)));
+            assert!(revoked(&cert, None));
 
             t!("New self signature");
-            let tpk = tpk.merge(
-                TPK::from_bytes(
+            let cert = cert.merge(
+                Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-4-new-self-sig.pgp", f))
                 ).unwrap()).unwrap();
-            assert!(revoked(&tpk, Some(selfsig0)));
-            assert!(revoked(&tpk, None));
+            assert!(revoked(&cert, Some(selfsig0)));
+            assert!(revoked(&cert, None));
         }
     }
 
     #[test]
     fn userid_revoked2() {
-        fn check_userids<T>(tpk: &TPK, revoked: bool, t: T)
+        fn check_userids<T>(cert: &Cert, revoked: bool, t: T)
             where T: Into<Option<time::SystemTime>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                          = tpk.revoked(None));
+                          = cert.revoked(None));
 
             let mut slim_shady = false;
             let mut eminem = false;
-            for b in tpk.userids() {
+            for b in cert.userids() {
                 if b.userid().value() == b"Slim Shady" {
                     assert!(!slim_shady);
                     slim_shady = true;
@@ -2575,14 +2575,14 @@ mod test {
             assert!(eminem);
         }
 
-        fn check_uas<T>(tpk: &TPK, revoked: bool, t: T)
+        fn check_uas<T>(cert: &Cert, revoked: bool, t: T)
             where T: Into<Option<time::SystemTime>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                          = tpk.revoked(None));
+                          = cert.revoked(None));
 
-            assert_eq!(tpk.user_attributes().count(), 1);
-            let ua = tpk.user_attributes().nth(0).unwrap();
+            assert_eq!(cert.user_attributes().count(), 1);
+            let ua = cert.user_attributes().nth(0).unwrap();
             if revoked {
                 assert_match!(RevocationStatus::Revoked(_)
                               = ua.revoked(t));
@@ -2594,7 +2594,7 @@ mod test {
 
         tracer!(true, "userid_revoked2", 0);
 
-        let tests : [(&str, Box<dyn Fn(&TPK, bool, _)>); 2] = [
+        let tests : [(&str, Box<dyn Fn(&Cert, bool, _)>); 2] = [
             ("userid", Box::new(check_userids)),
             ("user-attribute", Box::new(check_uas)),
         ];
@@ -2604,128 +2604,128 @@ mod test {
             t!("Checking {} revocation", f);
 
             t!("Normal key");
-            let tpk = TPK::from_bytes(
+            let cert = Cert::from_bytes(
                 crate::tests::key(
                     &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
 
             let now = time::SystemTime::now().canonicalize();
             let selfsig0
-                = tpk.userids().map(|b| {
+                = cert.userids().map(|b| {
                     b.binding_signature(now).unwrap()
                         .signature_creation_time().unwrap()
                 })
                 .max().unwrap();
 
-            check(&tpk, false, selfsig0);
-            check(&tpk, false, now);
+            check(&cert, false, selfsig0);
+            check(&cert, false, now);
 
             // A soft-revocation.
-            let tpk = tpk.merge(
-                TPK::from_bytes(
+            let cert = cert.merge(
+                Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-1-soft-revocation.pgp", f))
                 ).unwrap()).unwrap();
 
-            check(&tpk, false, selfsig0);
-            check(&tpk, true, now);
+            check(&cert, false, selfsig0);
+            check(&cert, true, now);
 
             // A new self signature.  This should override the soft-revocation.
-            let tpk = tpk.merge(
-                TPK::from_bytes(
+            let cert = cert.merge(
+                Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-2-new-self-sig.pgp", f))
                 ).unwrap()).unwrap();
 
-            check(&tpk, false, selfsig0);
-            check(&tpk, false, now);
+            check(&cert, false, selfsig0);
+            check(&cert, false, now);
 
-            // A hard revocation.  Unlike for TPKs, this does NOT trumps
+            // A hard revocation.  Unlike for Certs, this does NOT trumps
             // everything.
-            let tpk = tpk.merge(
-                TPK::from_bytes(
+            let cert = cert.merge(
+                Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-3-hard-revocation.pgp", f))
                 ).unwrap()).unwrap();
 
-            check(&tpk, false, selfsig0);
-            check(&tpk, true, now);
+            check(&cert, false, selfsig0);
+            check(&cert, true, now);
 
             // A newer self siganture.
-            let tpk = tpk.merge(
-                TPK::from_bytes(
+            let cert = cert.merge(
+                Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-4-new-self-sig.pgp", f))
                 ).unwrap()).unwrap();
 
-            check(&tpk, false, selfsig0);
-            check(&tpk, false, now);
+            check(&cert, false, selfsig0);
+            check(&cert, false, now);
         }
     }
 
     #[test]
     fn unrevoked() {
-        let tpk =
-            TPK::from_bytes(crate::tests::key("un-revoked-userid.pgp")).unwrap();
+        let cert =
+            Cert::from_bytes(crate::tests::key("un-revoked-userid.pgp")).unwrap();
 
-        for uid in tpk.userids() {
+        for uid in cert.userids() {
             assert_eq!(uid.revoked(None), RevocationStatus::NotAsFarAsWeKnow);
         }
     }
 
     #[test]
     fn is_tsk() {
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("already-revoked.pgp")).unwrap();
-        assert!(! tpk.is_tsk());
+        assert!(! cert.is_tsk());
 
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("already-revoked-private.pgp")).unwrap();
-        assert!(tpk.is_tsk());
+        assert!(cert.is_tsk());
     }
 
     #[test]
     fn export_only_exports_public_key() {
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("testy-new-private.pgp")).unwrap();
-        assert!(tpk.is_tsk());
+        assert!(cert.is_tsk());
 
         let mut v = Vec::new();
-        tpk.serialize(&mut v).unwrap();
-        let tpk = TPK::from_bytes(&v).unwrap();
-        assert!(! tpk.is_tsk());
+        cert.serialize(&mut v).unwrap();
+        let cert = Cert::from_bytes(&v).unwrap();
+        assert!(! cert.is_tsk());
     }
 
-    // Make sure that when merging two TPKs, the primary key and
+    // Make sure that when merging two Certs, the primary key and
     // subkeys with and without a private key are merged.
     #[test]
     fn public_private_merge() {
-        let (tsk, _) = TPKBuilder::autocrypt(None, Some("foo@example.com"))
+        let (tsk, _) = CertBuilder::autocrypt(None, Some("foo@example.com"))
             .generate().unwrap();
-        // tsk is now a tpk, but it still has its private bits.
+        // tsk is now a cert, but it still has its private bits.
         assert!(tsk.primary.key().secret().is_some());
         assert!(tsk.is_tsk());
         let subkey_count = tsk.subkeys().len();
         assert!(subkey_count > 0);
         assert!(tsk.subkeys().all(|k| k.key().secret().is_some()));
 
-        // This will write out the tsk as a tpk, i.e., without any
+        // This will write out the tsk as a cert, i.e., without any
         // private bits.
-        let mut tpk_bytes = Vec::new();
-        tsk.serialize(&mut tpk_bytes).unwrap();
+        let mut cert_bytes = Vec::new();
+        tsk.serialize(&mut cert_bytes).unwrap();
 
         // Reading it back in, the private bits have been stripped.
-        let tpk = TPK::from_bytes(&tpk_bytes[..]).unwrap();
-        assert!(tpk.primary.key().secret().is_none());
-        assert!(!tpk.is_tsk());
-        assert!(tpk.subkeys().all(|k| k.key().secret().is_none()));
+        let cert = Cert::from_bytes(&cert_bytes[..]).unwrap();
+        assert!(cert.primary.key().secret().is_none());
+        assert!(!cert.is_tsk());
+        assert!(cert.subkeys().all(|k| k.key().secret().is_none()));
 
-        let merge1 = tpk.clone().merge(tsk.clone()).unwrap();
+        let merge1 = cert.clone().merge(tsk.clone()).unwrap();
         assert!(merge1.is_tsk());
         assert!(merge1.primary.key().secret().is_some());
         assert_eq!(merge1.subkeys().len(), subkey_count);
         assert!(merge1.subkeys().all(|k| k.key().secret().is_some()));
 
-        let merge2 = tsk.clone().merge(tpk.clone()).unwrap();
+        let merge2 = tsk.clone().merge(cert.clone()).unwrap();
         assert!(merge2.is_tsk());
         assert!(merge2.primary.key().secret().is_some());
         assert_eq!(merge2.subkeys().len(), subkey_count);
@@ -2734,7 +2734,7 @@ mod test {
 
     #[test]
     fn issue_120() {
-        let tpk = "
+        let cert = "
 -----BEGIN PGP ARMORED FILE-----
 
 xcBNBFoVcvoBCACykTKOJddF8SSUAfCDHk86cNTaYnjCoy72rMgWJsrMLnz/V16B
@@ -2766,19 +2766,19 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 =1Vzu
 -----END PGP ARMORED FILE-----
 ";
-        assert!(TPK::from_bytes(tpk).is_err());
+        assert!(Cert::from_bytes(cert).is_err());
     }
 
     #[test]
     fn missing_uids() {
-        let (tpk, _) = TPKBuilder::new()
+        let (cert, _) = CertBuilder::new()
             .add_userid("test1@example.com")
             .add_userid("test2@example.com")
             .add_encryption_subkey()
             .add_certification_subkey()
             .generate().unwrap();
-        assert_eq!(tpk.subkeys().len(), 2);
-        let pile = tpk
+        assert_eq!(cert.subkeys().len(), 2);
+        let pile = cert
             .into_packet_pile()
             .into_children()
             .filter(|pkt| {
@@ -2796,14 +2796,14 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             })
         .collect::<Vec<_>>();
         eprintln!("parse back");
-        let tpk = TPK::from_packet_pile(PacketPile::from(pile)).unwrap();
+        let cert = Cert::from_packet_pile(PacketPile::from(pile)).unwrap();
 
-        assert_eq!(tpk.subkeys().len(), 2);
+        assert_eq!(cert.subkeys().len(), 2);
     }
 
     #[test]
     fn signature_order() {
-        let neal = TPK::from_bytes(crate::tests::key("neal.pgp")).unwrap();
+        let neal = Cert::from_bytes(crate::tests::key("neal.pgp")).unwrap();
 
         // This test is useless if we don't have some lists with more
         // than one signature.
@@ -2832,17 +2832,17 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     }
 
     #[test]
-    fn tpk_reject_keyrings() {
+    fn cert_reject_keyrings() {
         let mut keyring = Vec::new();
         keyring.extend_from_slice(crate::tests::key("neal.pgp"));
         keyring.extend_from_slice(crate::tests::key("neal.pgp"));
-        assert!(TPK::from_bytes(&keyring).is_err());
+        assert!(Cert::from_bytes(&keyring).is_err());
     }
 
     #[test]
-    fn tpk_is_send_and_sync() {
+    fn cert_is_send_and_sync() {
         fn f<T: Send + Sync>(_: T) {}
-        f(TPK::from_bytes(crate::tests::key("testy-new.pgp")).unwrap());
+        f(Cert::from_bytes(crate::tests::key("testy-new.pgp")).unwrap());
     }
 
     #[test]
@@ -2851,16 +2851,16 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // revoked and then restored.  Neither of the user ids has the
         // primary userid bit set.
         //
-        // This test makes sure that TPK::primary_userid prefers
+        // This test makes sure that Cert::primary_userid prefers
         // unrevoked user ids to revoked user ids, even if the latter
         // have newer self signatures.
 
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("really-revoked-userid-0-public.pgp")).unwrap();
 
         let now = time::SystemTime::now().canonicalize();
         let selfsig0
-            = tpk.userids().map(|b| {
+            = cert.userids().map(|b| {
                 b.binding_signature(now).unwrap()
                     .signature_creation_time().unwrap()
             })
@@ -2870,122 +2870,122 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         //
         //   Slim Shady: 2019-09-14T14:21
         //   Eminem:     2019-09-14T14:22
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Eminem");
 
         // A soft-revocation for "Slim Shady".
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("really-revoked-userid-1-soft-revocation.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Eminem");
 
         // A new self signature for "Slim Shady".  This should
         // override the soft-revocation.
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("really-revoked-userid-2-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Slim Shady");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Slim Shady");
 
         // A hard revocation for "Slim Shady".
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("really-revoked-userid-3-hard-revocation.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Eminem");
 
-        // A newer self siganture for "Slim Shady". Unlike for TPKs, this
+        // A newer self siganture for "Slim Shady". Unlike for Certs, this
         // does NOT trump everything.
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("really-revoked-userid-4-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"Slim Shady");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Slim Shady");
 
         // Play with the primary user id flag.
 
-        let tpk = TPK::from_bytes(
+        let cert = Cert::from_bytes(
             crate::tests::key("primary-key-0-public.pgp")).unwrap();
         let selfsig0
-            = tpk.userids().map(|b| {
+            = cert.userids().map(|b| {
                 b.binding_signature(now).unwrap()
                     .signature_creation_time().unwrap()
             })
             .max().unwrap();
 
         // There is only a single User ID.
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"aaaaa");
 
 
         // Add a second user id.  Since neither is marked primary, the
         // newer one should be considered primary.
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("primary-key-1-add-userid-bbbbb.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"bbbbb");
 
         // Mark aaaaa as primary.  It is now primary and the newest one.
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("primary-key-2-make-aaaaa-primary.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"aaaaa");
 
         // Update the preferences on bbbbb.  It is now the newest, but
         // it is not marked as primary.
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("primary-key-3-make-bbbbb-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"aaaaa");
 
         // Mark bbbbb as primary.  It is now the newest and marked as
         // primary.
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("primary-key-4-make-bbbbb-primary.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"bbbbb");
 
         // Update the preferences on aaaaa.  It is now has the newest
         // self sig, but that self sig does not say that it is
         // primary.
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("primary-key-5-make-aaaaa-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"bbbbb");
 
-        // Hard revoke aaaaa.  Unlike with TPKs, a hard revocation is
+        // Hard revoke aaaaa.  Unlike with Certs, a hard revocation is
         // not treated specially.
-        let tpk = tpk.merge(
-            TPK::from_bytes(
+        let cert = cert.merge(
+            Cert::from_bytes(
                 crate::tests::key("primary-key-6-revoked-aaaaa.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(tpk.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(tpk.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"bbbbb");
     }
 
     #[test]
@@ -3009,7 +3009,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
         let pk : key::PublicKey = key.clone().into();
-        let mut tpk = TPK::from_packet_pile(PacketPile::from(vec![
+        let mut cert = Cert::from_packet_pile(PacketPile::from(vec![
             pk.into(),
         ])).unwrap();
 
@@ -3031,28 +3031,28 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
                 let binding : Packet = binding.into();
 
-                tpk = tpk.merge_packets(vec![ binding ]).unwrap();
+                cert = cert.merge_packets(vec![ binding ]).unwrap();
                 // A time that matches multiple signatures.
-                assert_eq!(tpk.primary_key_signature(*t),
-                           tpk.direct_signatures().get(*offset));
+                assert_eq!(cert.primary_key_signature(*t),
+                           cert.direct_signatures().get(*offset));
                 // A time that doesn't match any signature.
-                assert_eq!(tpk.primary_key_signature(*t + a_sec),
-                           tpk.direct_signatures().get(*offset));
+                assert_eq!(cert.primary_key_signature(*t + a_sec),
+                           cert.direct_signatures().get(*offset));
 
                 // The current time, which should use the first signature.
-                assert_eq!(tpk.primary_key_signature(None),
-                           tpk.direct_signatures().get(0));
+                assert_eq!(cert.primary_key_signature(None),
+                           cert.direct_signatures().get(0));
 
                 // The beginning of time, which should return no
                 // binding signatures.
-                assert_eq!(tpk.primary_key_signature(time_zero), None);
+                assert_eq!(cert.primary_key_signature(time_zero), None);
             }
         }
     }
 
     #[test]
     fn keysigning_party() {
-        use crate::tpk::packet::signature;
+        use crate::cert::packet::signature;
 
         for cs in &[ CipherSuite::Cv25519,
                      CipherSuite::RSA3k,
@@ -3062,12 +3062,12 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                      CipherSuite::RSA2k,
                      CipherSuite::RSA4k ]
         {
-            let (alice, _) = TPKBuilder::new()
+            let (alice, _) = CertBuilder::new()
                 .set_cipher_suite(*cs)
                 .add_userid("alice@foo.com")
                 .generate().unwrap();
 
-            let (bob, _) = TPKBuilder::new()
+            let (bob, _) = CertBuilder::new()
                 .set_cipher_suite(*cs)
                 .add_userid("bob@bar.com")
                 .generate().unwrap();
