@@ -98,7 +98,9 @@ libraries.  Please see below for OS-specific notes.
 
 You can install the needed libraries with the following command:
 
+```shell
     $ sudo apt install git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
+```
 
 Notes:
 
@@ -113,13 +115,23 @@ Notes:
 
 You can install the needed libraries with the following command:
 
+```shell
     $ sudo pacman -S git cargo clang make pkg-config nettle openssl capnproto sqlite3 --needed
+```
+
+### Fedora
+
+```shell
+    $ sudo dnf install git rustc cargo clang make pkg-config nettle-devel openssl-devel capnproto sqlite-devel
+```
 
 ### macOS (Mojave), using MacPorts
 
 You can install the needed libraries with the following command:
 
+```shell
     $ sudo port install cargo rust capnproto nettle pkgconfig coreutils
+```
 
 ### Windows
 
@@ -140,11 +152,21 @@ setuptools, cffi, and pytest for Python3.
 
 #### Debian
 
+```shell
     $ sudo apt install python3-dev python3-setuptools python3-cffi python3-pytest
+```
+
+#### Fedora
+
+```shell
+    $ sudo dnf install python3-devel python3-setuptools python3-cffi python3-pytest
+```
 
 #### macOS (Mojave), using MacPorts
 
+```shell
     $ sudo port install py37-setuptools
+```
 
 Getting help
 ============
