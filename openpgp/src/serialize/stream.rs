@@ -586,7 +586,7 @@ impl<'a> LiteralWriter<'a> {
     /// Sets the data format.
     pub fn date(mut self, timestamp: time::SystemTime) -> Result<Self>
     {
-        self.template.set_date(Some(timestamp));
+        self.template.set_date(Some(timestamp))?;
         Ok(self)
     }
 

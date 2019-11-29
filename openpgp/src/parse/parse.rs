@@ -6,7 +6,6 @@ use std::str;
 use std::mem;
 use std::fmt;
 use std::path::Path;
-use std::time;
 use failure;
 
 use ::buffered_reader::*;
@@ -35,6 +34,7 @@ use crate::types::{
     HashAlgorithm,
     PublicKeyAlgorithm,
     SymmetricAlgorithm,
+    Timestamp,
 };
 use crate::conversions::Time;
 use crate::crypto::{self, mpis::{PublicKey, MPI}};
@@ -1719,7 +1719,8 @@ impl Literal {
             literal.set_filename_from_bytes(&filename)
                 .expect("length checked above");
         }
-        literal.set_date(Some(time::SystemTime::from_pgp(date)));
+        literal.set_date(
+            Some(std::time::SystemTime::from(Timestamp::from(date))))?;
         let mut pp = php.ok(Packet::Literal(literal))?;
 
         // Enable hashing of the body.
@@ -1745,7 +1746,7 @@ fn literal_parser_test () {
         if let &Packet::Literal(ref p) = p {
             assert_eq!(p.format(), DataFormat::Binary);
             assert_eq!(p.filename().unwrap()[..], b"foobar"[..]);
-            assert_eq!(p.date(), Some(time::SystemTime::from_pgp(1507458744)));
+            assert_eq!(p.date().unwrap(), Timestamp::from(1507458744).into());
             assert_eq!(content, b"FOOBAR");
         } else {
             panic!("Wrong packet!");
@@ -1762,7 +1763,7 @@ fn literal_parser_test () {
             assert_eq!(p.format(), DataFormat::Text);
             assert_eq!(p.filename().unwrap()[..],
                        b"manifesto.txt"[..]);
-            assert_eq!(p.date(), Some(time::SystemTime::from_pgp(1508000649)));
+            assert_eq!(p.date().unwrap(), Timestamp::from(1508000649).into());
 
             let expected = crate::tests::manifesto();
 
@@ -1878,8 +1879,8 @@ fn compressed_data_parser_test () {
         if let Packet::Literal(literal) = literal {
             assert_eq!(literal.filename(), None);
             assert_eq!(literal.format(), DataFormat::Binary);
-            assert_eq!(literal.date(),
-                       Some(time::SystemTime::from_pgp(1509219866)));
+            assert_eq!(literal.date().unwrap(),
+                       Timestamp::from(1509219866).into());
             assert_eq!(content, expected.to_vec());
         } else {
             panic!("Wrong packet!");

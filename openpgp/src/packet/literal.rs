@@ -1,10 +1,10 @@
 use std::fmt;
 use std::cmp;
+use std::convert::TryInto;
 use std::time;
 use quickcheck::{Arbitrary, Gen};
 
-use crate::types::DataFormat;
-use crate::conversions::Time;
+use crate::types::{DataFormat, Timestamp};
 use crate::Error;
 use crate::packet;
 use crate::Packet;
@@ -35,7 +35,7 @@ pub struct Literal {
     filename: Option<Vec<u8>>,
     /// A four-octet number that indicates a date associated with the
     /// literal data.
-    date: time::SystemTime, // XXX Should be Option<SystemTime>
+    date: Option<Timestamp>,
 }
 
 impl fmt::Debug for Literal {
@@ -76,7 +76,7 @@ impl Literal {
             common: Default::default(),
             format: format,
             filename: None,
-            date: time::SystemTime::from_pgp(0),
+            date: None,
         }
     }
 
@@ -148,11 +148,7 @@ impl Literal {
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should normally be ignored.
     pub fn date(&self) -> Option<time::SystemTime> {
-        if self.date.to_pgp().unwrap_or(0) == 0 {
-            None
-        } else {
-            Some(self.date)
-        }
+        self.date.map(|d| d.into())
     }
 
     /// Sets the literal packet's date field.
@@ -160,18 +156,21 @@ impl Literal {
     /// Note: when a literal data packet is protected by a signature,
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should not be used.
-    pub fn set_date(&mut self, timestamp: Option<time::SystemTime>)
-                    -> Option<time::SystemTime>
+    pub fn set_date<T>(&mut self, timestamp: T)
+                       -> Result<Option<time::SystemTime>>
+        where T: Into<Option<time::SystemTime>>
     {
-        let old = ::std::mem::replace(
-            &mut self.date,
-            timestamp.map(|t| t.canonicalize())
-                .unwrap_or(time::SystemTime::from_pgp(0)));
-        if old == time::SystemTime::from_pgp(0) {
-            None
+        let date = if let Some(d) = timestamp.into() {
+            let t = d.try_into()?;
+            if u32::from(t) == 0 {
+                None // RFC4880, section 5.9: 0 =^= "no specific time".
+            } else {
+                Some(t)
+            }
         } else {
-            Some(old)
-        }
+            None
+        };
+        Ok(std::mem::replace(&mut self.date, date).map(|d| d.into()))
     }
 }
 
@@ -188,8 +187,7 @@ impl Arbitrary for Literal {
         while let Err(_) = l.set_filename_from_bytes(&Vec::<u8>::arbitrary(g)) {
             // Too long, try again.
         }
-        l.set_date(Option::<u32>::arbitrary(g)
-                   .map(|t| time::SystemTime::from_pgp(t)));
+        l.set_date(Some(Timestamp::arbitrary(g).into())).unwrap();
         l
     }
 }
