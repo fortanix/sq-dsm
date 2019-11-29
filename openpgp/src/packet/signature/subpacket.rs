@@ -63,7 +63,7 @@ use std::ops::{Deref, DerefMut};
 use std::fmt;
 use std::io;
 use std::cmp;
-use std::time; 
+use std::time;
 
 use quickcheck::{Arbitrary, Gen};
 
