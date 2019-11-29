@@ -2804,7 +2804,7 @@ fn accessors() {
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
     assert_eq!(sig_.revocable(), Some(false));
 
-    key.set_creation_time(now);
+    key.set_creation_time(now).unwrap();
     sig = sig.set_key_expiration_time(Some(five_minutes)).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash_algo, hash.clone()).unwrap();
