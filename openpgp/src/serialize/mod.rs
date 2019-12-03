@@ -37,7 +37,6 @@ use crate::packet::signature::subpacket::{
 };
 use crate::conversions::{
     Time,
-    Duration,
 };
 use crate::packet::prelude::*;
 
@@ -992,7 +991,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
             Revocable(r) =>
                 o.write_all(&[if *r { 1 } else { 0 }])?,
             KeyExpirationTime(t) =>
-                write_be_u32(o, t.to_pgp()?)?,
+                write_be_u32(o, t.clone().into())?,
             PreferredSymmetricAlgorithms(ref p) =>
                 for a in p {
                     o.write_all(&[(*a).into()])?;

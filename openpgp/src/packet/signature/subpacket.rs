@@ -97,7 +97,6 @@ use crate::types::{
 };
 use crate::conversions::{
     Time,
-    Duration as DurationConversion,
 };
 
 lazy_static!{
@@ -736,7 +735,7 @@ pub enum SubpacketValue<'a> {
     /// 1 octet of revocability, 0 for not, 1 for revocable
     Revocable(bool),
     /// 4-octet time field.
-    KeyExpirationTime(time::Duration),
+    KeyExpirationTime(Duration),
     /// Array of one-octet values
     PreferredSymmetricAlgorithms(Vec<SymmetricAlgorithm>),
     /// 1 octet of class, 1 octet of public-key algorithm ID, 20 octets of
@@ -1045,7 +1044,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 // The time delta is in big endian format.
                 from_be_u32(raw.value).map(|v| {
                     SubpacketValue::KeyExpirationTime(
-                        time::Duration::from_pgp(v))
+                        v.into())
                 }),
 
             SubpacketTag::PreferredSymmetricAlgorithms =>
@@ -1498,7 +1497,7 @@ impl SubpacketArea {
         if let Some(sb)
                 = self.subpacket(SubpacketTag::KeyExpirationTime) {
             if let SubpacketValue::KeyExpirationTime(v) = sb.value {
-                Some(v)
+                Some(v.into())
             } else {
                 None
             }
@@ -2459,7 +2458,7 @@ impl signature::Builder {
                                    -> Result<Self> {
         if let Some(e) = expiration {
             self.hashed_area.replace(Subpacket::new(
-                SubpacketValue::KeyExpirationTime(e.canonicalize()),
+                SubpacketValue::KeyExpirationTime(e.try_into()?),
                 true)?)?;
         } else {
             self.hashed_area.remove_all(SubpacketTag::KeyExpirationTime);
@@ -3109,13 +3108,13 @@ fn subpacket_test_2() {
         assert!(! sig.signature_expired(None));
 
         assert_eq!(sig.key_expiration_time(),
-                   Some(time::Duration::from_pgp(63072000)));
+                   Some(Duration::from(63072000).into()));
         assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::KeyExpirationTime,
                        value: SubpacketValue::KeyExpirationTime(
-                           time::Duration::from_pgp(63072000))
+                           63072000.into())
                    }));
 
         // Check key expiration.
@@ -3521,13 +3520,13 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.key_expiration_time(),
-                   Some(time::Duration::from_pgp(63072000)));
+                   Some(Duration::from(63072000).into()));
         assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::KeyExpirationTime,
                        value: SubpacketValue::KeyExpirationTime(
-                           time::Duration::from_pgp(63072000))
+                           63072000.into())
                    }));
 
         let keyid = KeyID::from_hex("CEAD 0621 0934 7957").unwrap();
