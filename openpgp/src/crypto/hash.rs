@@ -1,5 +1,7 @@
 //! Functionality to hash packets, and generate hashes.
 
+use std::convert::TryFrom;
+
 use crate::HashAlgorithm;
 use crate::packet::Key;
 use crate::packet::UserID;
@@ -10,7 +12,7 @@ use crate::packet::Signature;
 use crate::packet::signature::{self, Signature4};
 use crate::Error;
 use crate::Result;
-use crate::conversions::Time;
+use crate::types::Timestamp;
 
 use nettle;
 use nettle::Hash as NettleHash;
@@ -256,8 +258,10 @@ impl<P, R> Hash for Key4<P, R>
         header.push(4);
 
         // Creation time.
-        let creation_time = self.creation_time().to_pgp()
-            .unwrap_or(0);
+        let creation_time: u32 =
+            Timestamp::try_from(self.creation_time())
+            .unwrap_or_else(|_| Timestamp::try_from(0).unwrap())
+            .into();
         header.push((creation_time >> 24) as u8);
         header.push((creation_time >> 16) as u8);
         header.push((creation_time >> 8) as u8);

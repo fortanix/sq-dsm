@@ -1557,7 +1557,7 @@ mod test {
 
     #[test]
     fn broken() {
-        use crate::conversions::Time;
+        use crate::types::Timestamp;
         for i in 0..2 {
             let cert = parse_cert(crate::tests::key("testy-broken-no-pk.pgp"),
                                 i == 0);
@@ -1575,7 +1575,8 @@ mod test {
             //   [ pk, user id, sig, subkey ]
             let cert = parse_cert(crate::tests::key("testy-broken-no-sig-on-subkey.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(cert.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
+            assert_eq!(cert.primary.key().creation_time(),
+                       Timestamp::from(1511355130).into());
             assert_eq!(cert.userids.len(), 1);
             assert_eq!(cert.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
@@ -1589,11 +1590,12 @@ mod test {
 
     #[test]
     fn basics() {
-        use crate::conversions::Time;
+        use crate::types::Timestamp;
         for i in 0..2 {
             let cert = parse_cert(crate::tests::key("testy.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(cert.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
+            assert_eq!(cert.primary.key().creation_time(),
+                       Timestamp::from(1511355130).into());
             assert_eq!(cert.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
@@ -1607,14 +1609,15 @@ mod test {
             assert_eq!(cert.user_attributes.len(), 0);
 
             assert_eq!(cert.subkeys.len(), 1, "number of subkeys");
-            assert_eq!(cert.subkeys[0].key().creation_time().to_pgp().unwrap(),
-                       1511355130);
+            assert_eq!(cert.subkeys[0].key().creation_time(),
+                       Timestamp::from(1511355130).into());
             assert_eq!(cert.subkeys[0].self_signatures[0].hash_prefix(),
                        &[ 0xb7, 0xb9 ]);
 
             let cert = parse_cert(crate::tests::key("testy-no-subkey.pgp"),
                                 i == 0).unwrap();
-            assert_eq!(cert.primary.key().creation_time().to_pgp().unwrap(), 1511355130);
+            assert_eq!(cert.primary.key().creation_time(),
+                       Timestamp::from(1511355130).into());
             assert_eq!(cert.fingerprint().to_hex(),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
