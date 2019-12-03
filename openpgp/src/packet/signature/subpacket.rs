@@ -56,6 +56,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::hash::{Hash, Hasher};
 use std::iter::FromIterator;
 use std::sync::Mutex;
@@ -91,6 +92,7 @@ use crate::types::{
     PublicKeyAlgorithm,
     ReasonForRevocation,
     SymmetricAlgorithm,
+    Timestamp,
 };
 use crate::conversions::{
     Time,
@@ -702,7 +704,7 @@ pub enum SubpacketValue<'a> {
     Invalid(&'a [u8]),
 
     /// 4-octet time field
-    SignatureCreationTime(time::SystemTime),
+    SignatureCreationTime(Timestamp),
     /// 4-octet time field
     SignatureExpirationTime(time::Duration),
     /// 1 octet of exportability, 0 for not, 1 for exportable
@@ -993,7 +995,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 // The timestamp is in big endian format.
                 from_be_u32(raw.value).map(|v| {
                     SubpacketValue::SignatureCreationTime(
-                        time::SystemTime::from_pgp(v))
+                        v.into())
                 }),
 
             SubpacketTag::SignatureExpirationTime =>
@@ -1337,7 +1339,7 @@ impl SubpacketArea {
         if let Some(sb)
                 = self.subpacket(SubpacketTag::SignatureCreationTime) {
             if let SubpacketValue::SignatureCreationTime(v) = sb.value {
-                Some(v)
+                Some(v.into())
             } else {
                 None
             }
@@ -2372,10 +2374,13 @@ impl Signature4 {
 
 impl signature::Builder {
     /// Sets the value of the Creation Time subpacket.
-    pub fn set_signature_creation_time(mut self, creation_time: time::SystemTime)
-                                       -> Result<Self> {
+    pub fn set_signature_creation_time<T>(mut self, creation_time: T)
+                                          -> Result<Self>
+        where T: Into<time::SystemTime>
+    {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::SignatureCreationTime(creation_time.canonicalize()),
+            SubpacketValue::SignatureCreationTime(
+                creation_time.into().try_into()?),
             true)?)?;
 
         Ok(self)
@@ -3096,7 +3101,7 @@ fn subpacket_test_2() {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::SystemTime::from_pgp(1515791508))
+                           1515791508.into())
                    }));
 
         // The signature does not expire.
@@ -3257,7 +3262,7 @@ fn subpacket_test_2() {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::SystemTime::from_pgp(1515791490))
+                           1515791490.into())
                    }));
 
         assert_eq!(sig.exportable_certification(), Some(false));
@@ -3293,7 +3298,7 @@ fn subpacket_test_2() {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::SystemTime::from_pgp(1515791376))
+                           1515791376.into())
                    }));
 
         assert_eq!(sig.revocable(), Some(false));
@@ -3364,7 +3369,7 @@ fn subpacket_test_2() {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::SystemTime::from_pgp(1515886658))
+                           1515886658.into())
                    }));
 
         assert_eq!(sig.reason_for_revocation(),
@@ -3394,7 +3399,7 @@ fn subpacket_test_2() {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::SystemTime::from_pgp(1515791467))
+                           1515791467.into())
                    }));
 
         let n1 = NotationData {
@@ -3468,7 +3473,7 @@ fn subpacket_test_2() {
                        critical: false,
                        tag: SubpacketTag::SignatureCreationTime,
                        value: SubpacketValue::SignatureCreationTime(
-                           time::SystemTime::from_pgp(1515791223))
+                           1515791223.into())
                    }));
 
         assert_eq!(sig.trust_signature(), Some((2, 120)));

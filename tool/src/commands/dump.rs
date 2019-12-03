@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 extern crate sequoia_openpgp as openpgp;
-use self::openpgp::types::SymmetricAlgorithm;
+use self::openpgp::types::{Timestamp, SymmetricAlgorithm};
 use self::openpgp::conversions::hex;
 use self::openpgp::crypto::mpis;
 use self::openpgp::{Packet, Result};
@@ -37,6 +37,12 @@ impl Convert<chrono::Duration> for std::time::Duration {
 impl Convert<chrono::DateTime<chrono::offset::Utc>> for std::time::SystemTime {
     fn convert(self) -> chrono::DateTime<chrono::offset::Utc> {
         chrono::DateTime::<chrono::offset::Utc>::from(self)
+    }
+}
+
+impl Convert<chrono::DateTime<chrono::offset::Utc>> for Timestamp {
+    fn convert(self) -> chrono::DateTime<chrono::offset::Utc> {
+        std::time::SystemTime::from(self).convert()
     }
 }
 

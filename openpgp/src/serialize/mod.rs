@@ -978,7 +978,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
         use self::SubpacketValue::*;
         match self {
             SignatureCreationTime(t) =>
-                write_be_u32(o, t.to_pgp()?)?,
+                write_be_u32(o, t.clone().into())?,
             SignatureExpirationTime(t) =>
                 write_be_u32(o, t.to_pgp()?)?,
             ExportableCertification(e) =>
