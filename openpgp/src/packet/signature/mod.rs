@@ -219,13 +219,13 @@ impl Builder {
     /// algorithm used by `signer`, the hash-algorithm field is set to
     /// `hash_algo`.
     pub fn sign_hash<R>(mut self, signer: &mut dyn Signer<R>,
-                        hash_algo: HashAlgorithm, mut hash: hash::Context)
+                        mut hash: hash::Context)
         -> Result<Signature>
         where R: key::KeyRole
     {
         // Fill out some fields, then hash the packet.
         self.pk_algo = signer.public().pk_algo();
-        self.hash_algo = hash_algo;
+        self.hash_algo = hash.algo();
         self.hash(&mut hash);
 
         // Compute the digest.
@@ -1291,7 +1291,7 @@ mod test {
             let hash = hash_algo.context().unwrap();
 
             // Make signature.
-            let sig = sig.sign_hash(&mut pair, hash_algo, hash).unwrap();
+            let sig = sig.sign_hash(&mut pair, hash).unwrap();
 
             // Good signature.
             let mut hash = hash_algo.context().unwrap();
@@ -1376,7 +1376,7 @@ mod test {
         hash.update(&msg[..]);
 
         Builder::new(SignatureType::Text)
-            .sign_hash(&mut pair, HashAlgorithm::SHA256, hash).unwrap();
+            .sign_hash(&mut pair, hash).unwrap();
     }
 
     #[test]
@@ -1431,11 +1431,11 @@ mod test {
 
         // Build and add an embedded sig.
         let embedded_sig = Builder::new(SignatureType::PrimaryKeyBinding)
-            .sign_hash(&mut pair, HashAlgorithm::SHA256, hash.clone()).unwrap();
+            .sign_hash(&mut pair, hash.clone()).unwrap();
         builder.unhashed_area_mut().add(Subpacket::new(
             SubpacketValue::EmbeddedSignature(embedded_sig.into()), false)
                                         .unwrap()).unwrap();
-        let sig = builder.sign_hash(&mut pair, HashAlgorithm::SHA256,
+        let sig = builder.sign_hash(&mut pair,
                                     hash.clone()).unwrap().normalize();
         assert_eq!(sig.unhashed_area().iter().count(), 2);
         assert_eq!(sig.unhashed_area().iter().nth(0).unwrap().2,
@@ -1448,7 +1448,7 @@ mod test {
         // the hashed area for compatibility.
         let sig = Builder::new(SignatureType::Text)
             .set_issuer_fingerprint(fp).unwrap()
-            .sign_hash(&mut pair, HashAlgorithm::SHA256,
+            .sign_hash(&mut pair,
                        hash.clone()).unwrap().normalize();
         assert_eq!(sig.unhashed_area().iter().count(), 1);
         assert_eq!(sig.unhashed_area().iter().nth(0).unwrap().2,

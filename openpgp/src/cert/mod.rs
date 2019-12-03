@@ -1082,7 +1082,7 @@ impl Cert {
             signature::Builder::from(template.clone())
                 .set_key_expiration_time(expiration)?
                 .set_signature_creation_time(now)?
-                .sign_hash(primary_signer, hash_algo, hash)?
+                .sign_hash(primary_signer, hash)?
         };
 
         self.merge_packets(vec![sig.into()])

@@ -813,7 +813,7 @@ mod tests {
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
         let sig = crate::packet::signature::Builder::new(SignatureType::Binary)
-            .sign_hash(&mut pair, hash, hash.context().unwrap()).unwrap();
+            .sign_hash(&mut pair, hash.context().unwrap()).unwrap();
 
         // 0: OnePassSig
         // => bad.
@@ -925,7 +925,7 @@ mod tests {
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
         let sig = crate::packet::signature::Builder::new(SignatureType::Binary)
-            .sign_hash(&mut pair, hash, hash.context().unwrap()).unwrap();
+            .sign_hash(&mut pair, hash.context().unwrap()).unwrap();
 
         // 0: Signature
         // => bad.

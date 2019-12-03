@@ -431,7 +431,7 @@ impl<'a> Signer<'a> {
                 }
 
                 // Compute the signature.
-                let sig = sig.sign_hash(signer.as_mut(), self.hash.algo(), hash)?;
+                let sig = sig.sign_hash(signer.as_mut(), hash)?;
 
                 // And emit the packet.
                 Packet::Signature(sig).serialize(sink)?;

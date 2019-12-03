@@ -119,7 +119,7 @@ impl CertRevocationBuilder {
             .set_signature_creation_time(creation_time)?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
-            .sign_hash(signer, hash_algo, hash)
+            .sign_hash(signer, hash)
     }
 }
 
