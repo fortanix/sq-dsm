@@ -147,6 +147,8 @@ mod fingerprint;
 mod keyid;
 mod keyhandle;
 pub use keyhandle::KeyHandle;
+
+pub(crate) mod utils;
 
 #[cfg(test)]
 mod tests;
