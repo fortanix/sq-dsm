@@ -6,7 +6,7 @@ mod integration {
     use std::path;
 
     #[test]
-    fn not_signing_capable_subkey() {
+    fn not_for_signing_subkey() {
         Assert::cargo_binary("sqv")
             .current_dir(path::Path::new("tests").join("data"))
             .with_args(

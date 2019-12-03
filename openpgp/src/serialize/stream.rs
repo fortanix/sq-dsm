@@ -228,7 +228,7 @@ impl<'a> Signer<'a> {
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
-    /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
+    /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
@@ -331,7 +331,7 @@ impl<'a> Signer<'a> {
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
-    /// # let keypair = tsk.keys_valid().signing_capable().nth(0).unwrap().2
+    /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
@@ -1468,7 +1468,7 @@ mod test {
             Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
             Cert::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
-            for key in tsk.keys_all().signing_capable().map(|x| x.2)
+            for key in tsk.keys_all().for_signing().map(|x| x.2)
             {
                 keys.insert(key.fingerprint(), key.clone());
             }

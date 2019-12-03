@@ -621,53 +621,53 @@ void pgp_user_id_binding_iter_free (pgp_user_id_binding_iter_t iter);
 /// Changes the iterator to only return keys that are certification
 /// capable.
 ///
-/// If you call this function and, e.g., the `signing_capable`
+/// If you call this function and, e.g., the `for_signing`
 /// function, the *union* of the values is used.  That is, the
 /// iterator will return keys that are certification capable *or*
 /// signing capable.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_cert_key_iter_certification_capable (pgp_cert_key_iter_t iter);
+void pgp_cert_key_iter_for_certification (pgp_cert_key_iter_t iter);
 
 /*/
 /// Changes the iterator to only return keys that are certification
 /// capable.
 ///
-/// If you call this function and, e.g., the `signing_capable`
+/// If you call this function and, e.g., the `for_signing`
 /// function, the *union* of the values is used.  That is, the
 /// iterator will return keys that are certification capable *or*
 /// signing capable.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_cert_key_iter_signing_capable (pgp_cert_key_iter_t iter);
+void pgp_cert_key_iter_for_signing (pgp_cert_key_iter_t iter);
 
 /*/
 /// Changes the iterator to only return keys that are capable of
 /// encrypting data at rest.
 ///
-/// If you call this function and, e.g., the `signing_capable`
+/// If you call this function and, e.g., the `for_signing`
 /// function, the *union* of the values is used.  That is, the
 /// iterator will return keys that are certification capable *or*
 /// signing capable.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_cert_key_iter_encrypting_capable_at_rest (pgp_cert_key_iter_t);
+void pgp_cert_key_iter_for_storage_encryption (pgp_cert_key_iter_t);
 
 /*/
 /// Changes the iterator to only return keys that are capable of
 /// encrypting data for transport.
 ///
-/// If you call this function and, e.g., the `signing_capable`
+/// If you call this function and, e.g., the `for_signing`
 /// function, the *union* of the values is used.  That is, the
 /// iterator will return keys that are certification capable *or*
 /// signing capable.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
-void pgp_cert_key_iter_encrypting_capable_for_transport (pgp_cert_key_iter_t);
+void pgp_cert_key_iter_for_transport_encryption (pgp_cert_key_iter_t);
 
 /*/
 /// Changes the iterator to only return keys that are alive.

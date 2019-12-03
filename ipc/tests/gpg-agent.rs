@@ -95,7 +95,7 @@ fn sign() {
         gpg_import(&ctx, &buf);
 
         let keypair = KeyPair::new(
-            &ctx, cert.keys_valid().signing_capable().take(1).next().unwrap().2)
+            &ctx, cert.keys_valid().for_signing().take(1).next().unwrap().2)
             .unwrap();
 
         let mut message = Vec::new();

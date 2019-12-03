@@ -2052,7 +2052,7 @@ mod test {
         // sign 30MiB message
         let mut buf = vec![];
         {
-            let key = cert.keys_all().signing_capable().nth(0).unwrap().2;
+            let key = cert.keys_all().for_signing().nth(0).unwrap().2;
             let keypair =
                 key.clone().mark_parts_secret().unwrap()
                 .into_keypair().unwrap();

@@ -50,7 +50,7 @@ fn get_signing_keys(certs: &[openpgp::Cert])
     let mut keys = Vec::new();
     'next_cert: for tsk in certs {
         for key in tsk.keys_valid()
-            .signing_capable()
+            .for_signing()
             .map(|k| k.2)
         {
             if let Some(secret) = key.secret() {
