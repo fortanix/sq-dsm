@@ -63,10 +63,10 @@ impl CipherSuite {
                 Key4::generate_rsa(4096),
             CipherSuite::Cv25519 | CipherSuite::P256 |
             CipherSuite::P384 | CipherSuite::P521 => {
-                let sign = flags.can_certify() || flags.can_sign()
-                    || flags.can_authenticate();
-                let encrypt = flags.can_encrypt_for_transport()
-                    || flags.can_encrypt_at_rest();
+                let sign = flags.for_certification() || flags.for_signing()
+                    || flags.for_authentication();
+                let encrypt = flags.for_transport_encryption()
+                    || flags.for_storage_encryption();
                 let curve = match self {
                     CipherSuite::Cv25519 if sign => Curve::Ed25519,
                     CipherSuite::Cv25519 if encrypt => Curve::Cv25519,
@@ -130,7 +130,7 @@ impl CertBuilder {
         CertBuilder{
             ciphersuite: CipherSuite::default(),
             primary: KeyBlueprint{
-                flags: KeyFlags::default().set_certify(true),
+                flags: KeyFlags::default().set_certification(true),
                 expiration: None,
             },
             subkeys: vec![],
@@ -152,16 +152,16 @@ impl CertBuilder {
             ciphersuite: ciphersuite.into().unwrap_or(Default::default()),
             primary: KeyBlueprint {
                 flags: KeyFlags::default()
-                    .set_certify(true)
-                    .set_sign(true),
+                    .set_certification(true)
+                    .set_signing(true),
                 expiration: Some(
                     time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
             },
             subkeys: vec![
                 KeyBlueprint {
                     flags: KeyFlags::default()
-                        .set_encrypt_for_transport(true)
-                        .set_encrypt_at_rest(true),
+                        .set_transport_encryption(true)
+                        .set_storage_encryption(true),
                     expiration: None,
                 }
             ],
@@ -191,16 +191,16 @@ impl CertBuilder {
             },
             primary: KeyBlueprint {
                 flags: KeyFlags::default()
-                    .set_certify(true)
-                    .set_sign(true),
+                    .set_certification(true)
+                    .set_signing(true),
                 expiration: Some(
                     time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
             },
             subkeys: vec![
                 KeyBlueprint {
                     flags: KeyFlags::default()
-                        .set_encrypt_for_transport(true)
-                        .set_encrypt_at_rest(true),
+                        .set_transport_encryption(true)
+                        .set_storage_encryption(true),
                     expiration: None,
                 }
             ],
@@ -240,24 +240,24 @@ impl CertBuilder {
 
     /// Adds a signing capable subkey.
     pub fn add_signing_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_sign(true), None)
+        self.add_subkey(KeyFlags::default().set_signing(true), None)
     }
 
     /// Adds an encryption capable subkey.
     pub fn add_encryption_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default()
-                        .set_encrypt_for_transport(true)
-                        .set_encrypt_at_rest(true), None)
+                        .set_transport_encryption(true)
+                        .set_storage_encryption(true), None)
     }
 
     /// Adds an certification capable subkey.
     pub fn add_certification_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_certify(true), None)
+        self.add_subkey(KeyFlags::default().set_certification(true), None)
     }
 
     /// Adds an authentication capable subkey.
     pub fn add_authentication_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_authenticate(true), None)
+        self.add_subkey(KeyFlags::default().set_authentication(true), None)
     }
 
     /// Adds a custom subkey.
@@ -308,7 +308,7 @@ impl CertBuilder {
 
         // make sure the primary key can sign subkeys
         if !self.subkeys.is_empty() {
-            self.primary.flags = self.primary.flags.set_certify(true);
+            self.primary.flags = self.primary.flags.set_certification(true);
         }
 
         // Generate & and self-sign primary key.
@@ -362,14 +362,14 @@ impl CertBuilder {
                 .set_key_expiration_time(
                     blueprint.expiration.or(self.primary.expiration))?;
 
-            if flags.can_encrypt_for_transport() || flags.can_encrypt_at_rest()
+            if flags.for_transport_encryption() || flags.for_storage_encryption()
             {
                 builder = builder.set_preferred_symmetric_algorithms(vec![
                     SymmetricAlgorithm::AES256,
                 ])?;
             }
 
-            if flags.can_certify() || flags.can_sign() {
+            if flags.for_certification() || flags.for_signing() {
                 builder = builder.set_preferred_hash_algorithms(vec![
                     HashAlgorithm::SHA512,
                 ])?;
@@ -415,7 +415,7 @@ impl CertBuilder {
         -> Result<(key::PublicKey, Signature)>
     {
         let key = self.ciphersuite.generate_key(
-            &KeyFlags::default().set_certify(true))?;
+            &KeyFlags::default().set_certification(true))?;
         let sig = signature::Builder::new(SignatureType::DirectKey)
             // GnuPG wants at least a 512-bit hash for P521 keys.
             .set_hash_algo(HashAlgorithm::SHA512)
@@ -558,7 +558,7 @@ mod tests {
         let sig_pkts = &cert1.primary_key_signature(None).unwrap().hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
-            SubpacketValue::KeyFlags(ref ks) => assert!(ks.can_certify()),
+            SubpacketValue::KeyFlags(ref ks) => assert!(ks.for_certification()),
             v => panic!("Unexpected subpacket: {:?}", v),
         }
 
@@ -570,12 +570,12 @@ mod tests {
         let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_keyflags(KeyFlags::default())
-            .add_subkey(KeyFlags::default().set_certify(true), None)
+            .add_subkey(KeyFlags::default().set_certification(true), None)
             .generate().unwrap();
         let sig_pkts = cert1.subkeys().next().unwrap().self_signatures[0].hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
-            SubpacketValue::KeyFlags(ref ks) => assert!(ks.can_certify()),
+            SubpacketValue::KeyFlags(ref ks) => assert!(ks.for_certification()),
             v => panic!("Unexpected subpacket: {:?}", v),
         }
 
@@ -636,9 +636,9 @@ mod tests {
         let s = std::time::Duration::new(1, 0);
         let (cert,_) = CertBuilder::new()
             .set_expiration(600 * s)
-            .add_subkey(KeyFlags::default().set_sign(true),
+            .add_subkey(KeyFlags::default().set_signing(true),
                         300 * s)
-            .add_subkey(KeyFlags::default().set_authenticate(true),
+            .add_subkey(KeyFlags::default().set_authentication(true),
                         None)
             .generate().unwrap();
 

@@ -222,7 +222,7 @@ fn real_main() -> Result<(), failure::Error> {
                 };
 
                 if issuer == key.keyid() {
-                    if !binding.key_flags().can_sign() {
+                    if !binding.key_flags().for_signing() {
                         eprintln!("Cannot check signature, key has no signing \
                                    capability");
                         continue 'sig_loop;

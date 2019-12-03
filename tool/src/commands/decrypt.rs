@@ -45,8 +45,8 @@ impl<'a> Helper<'a> {
                       R: key::KeyRole,
             {
                 if let Some(sig) = sig {
-                    sig.key_flags().can_encrypt_at_rest()
-                        || sig.key_flags().can_encrypt_for_transport()
+                    sig.key_flags().for_storage_encryption()
+                        || sig.key_flags().for_transport_encryption()
                 } else {
                     false
                 }

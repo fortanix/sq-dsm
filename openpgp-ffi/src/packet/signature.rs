@@ -69,37 +69,37 @@ fn pgp_signature_issuer_fingerprint(sig: *const Signature)
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make certifications.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_can_certify(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().can_certify()
+fn pgp_signature_for_certification(sig: *const Signature) -> bool {
+    sig.ref_raw().key_flags().for_certification()
 }
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make signatures.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_can_sign(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().can_sign()
+fn pgp_signature_for_signing(sig: *const Signature) -> bool {
+    sig.ref_raw().key_flags().for_signing()
 }
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data for transport.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_can_encrypt_for_transport(sig: *const Signature)
+fn pgp_signature_for_transport_encryption(sig: *const Signature)
                                            -> bool {
-    sig.ref_raw().key_flags().can_encrypt_for_transport()
+    sig.ref_raw().key_flags().for_transport_encryption()
 }
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data at rest.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_can_encrypt_at_rest(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().can_encrypt_at_rest()
+fn pgp_signature_for_storage_encryption(sig: *const Signature) -> bool {
+    sig.ref_raw().key_flags().for_storage_encryption()
 }
 
 /// Returns whether the KeyFlags indicates that the key can be used
 /// for authentication.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_signature_can_authenticate(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().can_authenticate()
+fn pgp_signature_for_authentication(sig: *const Signature) -> bool {
+    sig.ref_raw().key_flags().for_authentication()
 }
 
 /// Returns whether the KeyFlags indicates that the key is a split

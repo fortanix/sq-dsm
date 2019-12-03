@@ -985,8 +985,8 @@ impl<'a> Encryptor<'a> {
     /// let recipient =
     ///     cert.keys_valid()
     ///     .key_flags(KeyFlags::default()
-    ///                .set_encrypt_at_rest(true)
-    ///                .set_encrypt_for_transport(true))
+    ///                .set_storage_encryption(true)
+    ///                .set_transport_encryption(true))
     ///     .map(|(_, _, key)| key.into())
     ///     .nth(0).unwrap();
     ///
@@ -1676,7 +1676,7 @@ mod test {
                 let mut keypair = self.tsk.keys_all()
                     .key_flags(
                         KeyFlags::default()
-                            .set_encrypt_for_transport(true))
+                            .set_transport_encryption(true))
                     .map(|(_, _, key)| key).next().unwrap()
                     .clone().mark_parts_secret().unwrap()
                     .into_keypair().unwrap();
@@ -1704,8 +1704,8 @@ mod test {
                     let recipient =
                         tsk.keys_all()
                         .key_flags(KeyFlags::default()
-                                   .set_encrypt_at_rest(true)
-                                   .set_encrypt_for_transport(true))
+                                   .set_storage_encryption(true)
+                                   .set_transport_encryption(true))
                         .map(|(_, _, key)| key.into())
                         .nth(0).unwrap();
                     let encryptor = Encryptor::for_recipient(m, recipient)

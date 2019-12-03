@@ -210,12 +210,12 @@ fn real_main() -> Result<(), failure::Error> {
                 .unwrap_or(Ok(vec![]))?;
             let mode = match m.value_of("mode").expect("has default") {
                 "rest" => KeyFlags::default()
-                    .set_encrypt_at_rest(true),
+                    .set_storage_encryption(true),
                 "transport" => KeyFlags::default()
-                    .set_encrypt_for_transport(true),
+                    .set_transport_encryption(true),
                 "all" => KeyFlags::default()
-                    .set_encrypt_at_rest(true)
-                    .set_encrypt_for_transport(true),
+                    .set_storage_encryption(true)
+                    .set_transport_encryption(true),
                 _ => unreachable!("uses possible_values"),
             };
             commands::encrypt(&mut mapping, &mut input, &mut output,

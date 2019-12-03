@@ -1010,7 +1010,7 @@ impl Signature4 {
                                    unhashed_area_len as usize));
         let hash_prefix1 = php_try!(php.parse_u8("hash_prefix1"));
         let hash_prefix2 = php_try!(php.parse_u8("hash_prefix2"));
-        if ! pk_algo.can_sign() {
+        if ! pk_algo.for_signing() {
             return php.fail("not a signature algorithm");
         }
         let mpis = php_try!(

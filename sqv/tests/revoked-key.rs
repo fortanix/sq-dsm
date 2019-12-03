@@ -92,7 +92,7 @@ mod integration {
 //         // 1st binding sig valid from t1 on
 //         let mut b = signature::Builder::new(SignatureType::DirectKey);
 //         b.set_features(&Features::sequoia()).unwrap();
-//         b.set_key_flags(&KeyFlags::default().set_sign(true)).unwrap();
+//         b.set_key_flags(&KeyFlags::default().set_signing(true)).unwrap();
 //         b.set_signature_creation_time(t1).unwrap();
 //         b.set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
@@ -114,7 +114,7 @@ mod integration {
 //         // 2nd binding sig valid from t3 on
 //         b = signature::Builder::new(SignatureType::DirectKey);
 //         b.set_features(&Features::sequoia()).unwrap();
-//         b.set_key_flags(&KeyFlags::default().set_sign(true)).unwrap();
+//         b.set_key_flags(&KeyFlags::default().set_signing(true)).unwrap();
 //         b.set_signature_creation_time(t3).unwrap();
 //         b.set_key_expiration_time(Some(time::Duration::weeks(10 * 52))).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();

@@ -1418,7 +1418,7 @@ impl Cert {
         if ! self.subkeys.is_empty() {
             let pk_can_certify =
                 self.primary_key_signature(None)
-                .map(|sig| sig.key_flags().can_certify())
+                .map(|sig| sig.key_flags().for_certification())
                 .unwrap_or(true);
 
             if ! pk_can_certify {

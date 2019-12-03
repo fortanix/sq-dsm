@@ -232,19 +232,19 @@ fn inspect_revocation(output: &mut dyn io::Write,
 
 fn inspect_key_flags(flags: openpgp::types::KeyFlags) -> Option<String> {
     let mut capabilities = Vec::new();
-    if flags.can_certify() {
+    if flags.for_certification() {
         capabilities.push("certification")
     }
-    if flags.can_sign() {
+    if flags.for_signing() {
         capabilities.push("signing")
     }
-    if flags.can_authenticate() {
+    if flags.for_authentication() {
         capabilities.push("authentication")
     }
-    if flags.can_encrypt_for_transport() {
+    if flags.for_transport_encryption() {
         capabilities.push("transport encryption")
     }
-    if flags.can_encrypt_at_rest() {
+    if flags.for_storage_encryption() {
         capabilities.push("data-at-rest encryption")
     }
 

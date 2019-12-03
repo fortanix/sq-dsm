@@ -150,12 +150,12 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
         }
         (Some("rest"), false) => {
             builder = builder.add_subkey(KeyFlags::default()
-                                         .set_encrypt_at_rest(true),
+                                         .set_storage_encryption(true),
                                          None);
         }
         (Some("transport"), false) => {
             builder = builder.add_subkey(KeyFlags::default()
-                                         .set_encrypt_for_transport(true),
+                                         .set_transport_encryption(true),
                                          None);
         }
         (None, true) => { /* no encryption subkey */ }

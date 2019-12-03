@@ -53,8 +53,8 @@ fn main() {
 #    let mut recipients =
 #        recipient.keys_valid()
 #        .key_flags(KeyFlags::default()
-#                   .set_encrypt_at_rest(true)
-#                   .set_encrypt_for_transport(true))
+#                   .set_storage_encryption(true)
+#                   .set_transport_encryption(true))
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
 #
@@ -196,8 +196,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #    let mut recipients =
 #        recipient.keys_valid()
 #        .key_flags(KeyFlags::default()
-#                   .set_encrypt_at_rest(true)
-#                   .set_encrypt_for_transport(true))
+#                   .set_storage_encryption(true)
+#                   .set_transport_encryption(true))
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
 #
@@ -339,8 +339,8 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
     let mut recipients =
         recipient.keys_valid()
         .key_flags(KeyFlags::default()
-                   .set_encrypt_at_rest(true)
-                   .set_encrypt_for_transport(true))
+                   .set_storage_encryption(true)
+                   .set_transport_encryption(true))
         .map(|(_, _, key)| key.into())
         .collect::<Vec<_>>();
 
@@ -496,8 +496,8 @@ Decrypted data can be read from this using [`io::Read`].
 #    let mut recipients =
 #        recipient.keys_valid()
 #        .key_flags(KeyFlags::default()
-#                   .set_encrypt_at_rest(true)
-#                   .set_encrypt_for_transport(true))
+#                   .set_storage_encryption(true)
+#                   .set_transport_encryption(true))
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
 #

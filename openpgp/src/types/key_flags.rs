@@ -6,11 +6,11 @@ use std::ops::{BitAnd, BitOr};
 /// information.
 #[derive(Clone, Hash)]
 pub struct KeyFlags{
-    can_certify: bool,
-    can_sign: bool,
-    can_encrypt_for_transport: bool,
-    can_encrypt_at_rest: bool,
-    can_authenticate: bool,
+    for_certification: bool,
+    for_signing: bool,
+    for_transport_encryption: bool,
+    for_storage_encryption: bool,
+    for_authentication: bool,
     is_split_key: bool,
     is_group_key: bool,
     unknown: Box<[u8]>,
@@ -24,19 +24,19 @@ impl Default for KeyFlags {
 
 impl fmt::Debug for KeyFlags {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.can_certify() {
+        if self.for_certification() {
             f.write_str("C")?;
         }
-        if self.can_sign() {
+        if self.for_signing() {
             f.write_str("S")?;
         }
-        if self.can_encrypt_for_transport() {
+        if self.for_transport_encryption() {
             f.write_str("Et")?;
         }
-        if self.can_encrypt_at_rest() {
+        if self.for_storage_encryption() {
             f.write_str("Er")?;
         }
-        if self.can_authenticate() {
+        if self.for_authentication() {
             f.write_str("A")?;
         }
         if self.is_split_key() {
@@ -125,15 +125,15 @@ impl BitOr for &KeyFlags {
 impl KeyFlags {
     /// Creates a new instance from `bits`.
     pub fn new(bits: &[u8]) -> Self {
-        let can_certify = bits.get(0)
+        let for_certification = bits.get(0)
             .map(|x| x & KEY_FLAG_CERTIFY != 0).unwrap_or(false);
-        let can_sign = bits.get(0)
+        let for_signing = bits.get(0)
             .map(|x| x & KEY_FLAG_SIGN != 0).unwrap_or(false);
-        let can_encrypt_for_transport = bits.get(0)
+        let for_transport_encryption = bits.get(0)
             .map(|x| x & KEY_FLAG_ENCRYPT_FOR_TRANSPORT != 0).unwrap_or(false);
-        let can_encrypt_at_rest = bits.get(0)
+        let for_storage_encryption = bits.get(0)
             .map(|x| x & KEY_FLAG_ENCRYPT_AT_REST != 0).unwrap_or(false);
-        let can_authenticate = bits.get(0)
+        let for_authentication = bits.get(0)
             .map(|x| x & KEY_FLAG_AUTHENTICATE != 0).unwrap_or(false);
         let is_split_key = bits.get(0)
             .map(|x| x & KEY_FLAG_SPLIT_KEY != 0).unwrap_or(false);
@@ -155,8 +155,8 @@ impl KeyFlags {
         };
 
         KeyFlags{
-            can_certify, can_sign, can_encrypt_for_transport,
-            can_encrypt_at_rest, can_authenticate, is_split_key,
+            for_certification, for_signing, for_transport_encryption,
+            for_storage_encryption, for_authentication, is_split_key,
             is_group_key, unknown: unk
         }
     }
@@ -174,11 +174,11 @@ impl KeyFlags {
             self.unknown.clone().into()
         };
 
-        if self.can_certify { ret[0] |= KEY_FLAG_CERTIFY; }
-        if self.can_sign { ret[0] |= KEY_FLAG_SIGN; }
-        if self.can_encrypt_for_transport { ret[0] |= KEY_FLAG_ENCRYPT_FOR_TRANSPORT; }
-        if self.can_encrypt_at_rest { ret[0] |= KEY_FLAG_ENCRYPT_AT_REST; }
-        if self.can_authenticate { ret[0] |= KEY_FLAG_AUTHENTICATE; }
+        if self.for_certification { ret[0] |= KEY_FLAG_CERTIFY; }
+        if self.for_signing { ret[0] |= KEY_FLAG_SIGN; }
+        if self.for_transport_encryption { ret[0] |= KEY_FLAG_ENCRYPT_FOR_TRANSPORT; }
+        if self.for_storage_encryption { ret[0] |= KEY_FLAG_ENCRYPT_AT_REST; }
+        if self.for_authentication { ret[0] |= KEY_FLAG_AUTHENTICATE; }
         if self.is_split_key { ret[0] |= KEY_FLAG_SPLIT_KEY; }
         if self.is_group_key { ret[0] |= KEY_FLAG_GROUP_KEY }
 
@@ -186,51 +186,51 @@ impl KeyFlags {
     }
 
     /// This key may be used to certify other keys.
-    pub fn can_certify(&self) -> bool { self.can_certify }
+    pub fn for_certification(&self) -> bool { self.for_certification }
 
     /// Sets whether or not this key may be used to certify other keys.
-    pub fn set_certify(mut self, v: bool) -> Self {
-        self.can_certify = v;
+    pub fn set_certification(mut self, v: bool) -> Self {
+        self.for_certification = v;
         self
     }
 
     /// This key may be used to sign data.
-    pub fn can_sign(&self) -> bool { self.can_sign }
+    pub fn for_signing(&self) -> bool { self.for_signing }
 
     /// Sets whether or not this key may be used to sign data.
-    pub fn set_sign(mut self, v: bool) -> Self {
-        self.can_sign = v;
+    pub fn set_signing(mut self, v: bool) -> Self {
+        self.for_signing = v;
         self
     }
 
     /// This key may be used to encrypt communications.
-    pub fn can_encrypt_for_transport(&self) -> bool {
-        self.can_encrypt_for_transport
+    pub fn for_transport_encryption(&self) -> bool {
+        self.for_transport_encryption
     }
 
     /// Sets whether or not this key may be used to encrypt communications.
-    pub fn set_encrypt_for_transport(mut self, v: bool) -> Self {
-        self.can_encrypt_for_transport = v;
+    pub fn set_transport_encryption(mut self, v: bool) -> Self {
+        self.for_transport_encryption = v;
         self
     }
 
     /// This key may be used to encrypt storage.
-    pub fn can_encrypt_at_rest(&self) -> bool { self.can_encrypt_at_rest }
+    pub fn for_storage_encryption(&self) -> bool { self.for_storage_encryption }
 
     /// Sets whether or not this key may be used to encrypt storage.
-    pub fn set_encrypt_at_rest(mut self, v: bool) -> Self {
-        self.can_encrypt_at_rest = v;
+    pub fn set_storage_encryption(mut self, v: bool) -> Self {
+        self.for_storage_encryption = v;
         self
     }
 
     /// This key may be used for authentication.
-    pub fn can_authenticate(&self) -> bool {
-        self.can_authenticate
+    pub fn for_authentication(&self) -> bool {
+        self.for_authentication
     }
 
     /// Sets whether or not this key may be used for authentication.
-    pub fn set_authenticate(mut self, v: bool) -> Self {
-        self.can_authenticate = v;
+    pub fn set_authentication(mut self, v: bool) -> Self {
+        self.for_authentication = v;
         self
     }
 
@@ -299,14 +299,14 @@ mod tests {
     fn ordering() {
         let nothing = KeyFlags::default();
         let enc = KeyFlags::default()
-            .set_encrypt_for_transport(true)
-            .set_encrypt_at_rest(true);
+            .set_transport_encryption(true)
+            .set_storage_encryption(true);
         let sig = KeyFlags::default()
-            .set_sign(true);
+            .set_signing(true);
         let enc_and_auth = KeyFlags::default()
-            .set_encrypt_for_transport(true)
-            .set_encrypt_at_rest(true)
-            .set_authenticate(true);
+            .set_transport_encryption(true)
+            .set_storage_encryption(true)
+            .set_authentication(true);
 
         assert!(nothing < enc);
         assert!(sig >= nothing);

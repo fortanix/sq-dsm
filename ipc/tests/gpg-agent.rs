@@ -209,7 +209,7 @@ fn decrypt() {
         {
             let recipient =
                 cert.keys_valid().key_flags(
-                    KeyFlags::default().set_encrypt_for_transport(true))
+                    KeyFlags::default().set_transport_encryption(true))
                 .map(|(_, _, key)| key.into())
                 .nth(0).unwrap();
 
@@ -276,7 +276,7 @@ fn decrypt() {
                 let mut keypair = KeyPair::new(
                     self.ctx,
                     self.cert.keys_valid().key_flags(
-                        KeyFlags::default().set_encrypt_for_transport(true))
+                        KeyFlags::default().set_transport_encryption(true))
                         .take(1).next().unwrap().2)
                     .unwrap();
 

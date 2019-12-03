@@ -299,35 +299,35 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     ///
     /// See `key_flags` for caveats.
     pub fn for_certification(self) -> Self {
-        self.key_flags(KeyFlags::default().set_certify(true))
+        self.key_flags(KeyFlags::default().set_certification(true))
     }
 
     /// Returns keys that are signing capable.
     ///
     /// See `key_flags` for caveats.
     pub fn for_signing(self) -> Self {
-        self.key_flags(KeyFlags::default().set_sign(true))
+        self.key_flags(KeyFlags::default().set_signing(true))
     }
 
     /// Returns keys that are authentication capable.
     ///
     /// See `key_flags` for caveats.
     pub fn for_authentication(self) -> Self {
-        self.key_flags(KeyFlags::default().set_authenticate(true))
+        self.key_flags(KeyFlags::default().set_authentication(true))
     }
 
     /// Returns keys that are capable of encrypting data at rest.
     ///
     /// See `key_flags` for caveats.
     pub fn for_storage_encryption(self) -> Self {
-        self.key_flags(KeyFlags::default().set_encrypt_at_rest(true))
+        self.key_flags(KeyFlags::default().set_storage_encryption(true))
     }
 
     /// Returns keys that are capable of encrypting data for transport.
     ///
     /// See `key_flags` for caveats.
     pub fn for_transport_encryption(self) -> Self {
-        self.key_flags(KeyFlags::default().set_encrypt_for_transport(true))
+        self.key_flags(KeyFlags::default().set_transport_encryption(true))
     }
 
     /// Only returns keys that are live as of `now`.
@@ -433,7 +433,7 @@ mod test {
     fn select_no_keys() {
         let (cert, _) = CertBuilder::new()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_encrypt_for_transport(true);
+        let flags = KeyFlags::default().set_transport_encryption(true);
 
         assert_eq!(cert.keys_all().key_flags(flags).count(), 0);
     }
@@ -443,7 +443,7 @@ mod test {
         let (cert, _) = CertBuilder::new()
             .add_encryption_subkey()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_encrypt_for_transport(true);
+        let flags = KeyFlags::default().set_transport_encryption(true);
 
         assert_eq!(cert.keys_all().key_flags(flags).count(), 1);
     }
@@ -454,7 +454,7 @@ mod test {
             .add_encryption_subkey()
             .add_signing_subkey()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_encrypt_for_transport(true);
+        let flags = KeyFlags::default().set_transport_encryption(true);
 
         assert_eq!(cert.keys_all().key_flags(flags).count(), 1);
     }
@@ -464,7 +464,7 @@ mod test {
         let (cert, _) = CertBuilder::new()
             .add_encryption_subkey()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_encrypt_for_transport(true);
+        let flags = KeyFlags::default().set_transport_encryption(true);
 
         let now = std::time::SystemTime::now()
             - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
@@ -476,7 +476,7 @@ mod test {
         let (cert, _) = CertBuilder::new()
             .add_certification_subkey()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_certify(true);
+        let flags = KeyFlags::default().set_certification(true);
 
         assert_eq!(cert.keys_all().key_flags(flags).count(), 2);
     }
@@ -495,6 +495,6 @@ mod test {
         assert_eq!(cert.keys_valid().for_storage_encryption().count(), 1);
         assert_eq!(cert.keys_valid().for_signing().count(), 1);
         assert_eq!(cert.keys_valid().key_flags(
-            KeyFlags::default().set_authenticate(true)).count(), 1);
+            KeyFlags::default().set_authentication(true)).count(), 1);
     }
 }

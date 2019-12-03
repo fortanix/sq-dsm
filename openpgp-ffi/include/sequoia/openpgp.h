@@ -340,31 +340,31 @@ pgp_fingerprint_t pgp_signature_issuer_fingerprint(pgp_signature_t sig);
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make certifications.
 /*/
-bool pgp_signature_can_certify(pgp_signature_t signature);
+bool pgp_signature_for_certification(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make signatures.
 /*/
-bool pgp_signature_can_sign(pgp_signature_t signature);
+bool pgp_signature_for_signing(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data for transport.
 /*/
-bool pgp_signature_can_encrypt_for_transport(pgp_signature_t signature);
+bool pgp_signature_for_transport_encryption(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data at rest.
 /*/
-bool pgp_signature_can_encrypt_at_rest(pgp_signature_t signature);
+bool pgp_signature_for_storage_encryption(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key can be used
 /// for authentication.
 /*/
-bool pgp_signature_can_authenticate(pgp_signature_t signature);
+bool pgp_signature_for_authentication(pgp_signature_t signature);
 
 /*/
 /// Returns whether the KeyFlags indicates that the key is a split

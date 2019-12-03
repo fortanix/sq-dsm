@@ -868,7 +868,7 @@ impl Signature4 {
             return Ok(false);
         }
 
-        if ! self.key_flags().can_sign() {
+        if ! self.key_flags().for_signing() {
             // No backsig required.
             return Ok(true)
         }

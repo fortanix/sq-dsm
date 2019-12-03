@@ -61,7 +61,7 @@ pub enum PublicKeyAlgorithm {
 
 impl PublicKeyAlgorithm {
     /// Returns true if the algorithm can sign data.
-    pub fn can_sign(&self) -> bool {
+    pub fn for_signing(&self) -> bool {
         use self::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
         match &self {

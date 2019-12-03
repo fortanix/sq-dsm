@@ -35,7 +35,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///     .mark_parts_secret()?.into_keypair()?;
     ///
     /// // Let's add an encryption subkey.
-    /// let flags = KeyFlags::default().set_encrypt_at_rest(true);
+    /// let flags = KeyFlags::default().set_storage_encryption(true);
     /// assert_eq!(cert.keys_valid().key_flags(flags.clone()).count(), 0);
     ///
     /// // Generate a subkey and a binding signature.
@@ -156,7 +156,7 @@ impl UserID {
     /// # fn f() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (alice, _) = CertBuilder::new()
-    ///     .primary_keyflags(KeyFlags::default().set_certify(true))
+    ///     .primary_keyflags(KeyFlags::default().set_certification(true))
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary().clone()
@@ -164,7 +164,7 @@ impl UserID {
     ///
     /// // Generate a Cert for Bob.
     /// let (bob, _) = CertBuilder::new()
-    ///     .primary_keyflags(KeyFlags::default().set_certify(true))
+    ///     .primary_keyflags(KeyFlags::default().set_certification(true))
     ///     .add_userid("bob@example.org")
     ///     .generate()?;
     ///
@@ -314,7 +314,7 @@ impl UserAttribute {
     ///         Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
     /// ])?;
     /// let (bob, _) = CertBuilder::new()
-    ///     .primary_keyflags(KeyFlags::default().set_certify(true))
+    ///     .primary_keyflags(KeyFlags::default().set_certification(true))
     ///     .add_user_attribute(user_attr)
     ///     .generate()?;
     ///

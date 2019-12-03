@@ -2887,8 +2887,8 @@ fn accessors() {
     assert_eq!(sig_.policy_uri(), Some(&b"foobar"[..]));
 
     let key_flags = KeyFlags::default()
-        .set_certify(true)
-        .set_sign(true);
+        .set_certification(true)
+        .set_signing(true);
     sig = sig.set_key_flags(&key_flags).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
@@ -3174,13 +3174,13 @@ fn subpacket_test_2() {
                            KeyServerPreferences::default().set_no_modify(true)),
                    }));
 
-        assert!(sig.key_flags().can_certify() && sig.key_flags().can_sign());
+        assert!(sig.key_flags().for_certification() && sig.key_flags().for_signing());
         assert_eq!(sig.subpacket(SubpacketTag::KeyFlags),
                    Some(Subpacket {
                        critical: false,
                        tag: SubpacketTag::KeyFlags,
                        value: SubpacketValue::KeyFlags(
-                           KeyFlags::default().set_certify(true).set_sign(true))
+                           KeyFlags::default().set_certification(true).set_signing(true))
                    }));
 
         assert_eq!(sig.features(), Features::default().set_mdc(true));

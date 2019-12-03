@@ -60,8 +60,8 @@ impl Helper {
         let mut keys = HashMap::new();
         for cert in certs {
             for (sig, _, key) in cert.keys_all() {
-                if sig.map(|s| (s.key_flags().can_encrypt_at_rest()
-                                || s.key_flags().can_encrypt_for_transport()))
+                if sig.map(|s| (s.key_flags().for_storage_encryption()
+                                || s.key_flags().for_transport_encryption()))
                     .unwrap_or(false)
                 {
                     // This only works for unencrypted secret keys.

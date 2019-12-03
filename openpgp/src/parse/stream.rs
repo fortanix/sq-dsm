@@ -560,13 +560,13 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         let time = time
             .unwrap_or_else(|| time::SystemTime::now());
 
-        fn can_sign<P, R>(key: &Key<P, R>, sig: Option<&Signature>,
-                          time: time::SystemTime, tolerance: time::Duration)
+        fn for_signing<P, R>(key: &Key<P, R>, sig: Option<&Signature>,
+                             time: time::SystemTime, tolerance: time::Duration)
             -> bool
             where P: key::KeyParts, R: key::KeyRole
         {
             if let Some(sig) = sig {
-                sig.key_flags().can_sign()
+                sig.key_flags().for_signing()
                 // Check expiry.
                     && sig.signature_alive(time, tolerance)
                     && sig.key_alive(key, time)
@@ -608,17 +608,17 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     v.certs = v.helper.get_public_keys(&issuers)?;
 
                     for (i, cert) in v.certs.iter().enumerate() {
-                        if can_sign(cert.primary(),
-                                    cert.primary_key_signature(None),
-                                    time, tolerance) {
+                        if for_signing(cert.primary(),
+                                       cert.primary_key_signature(None),
+                                       time, tolerance) {
                             v.keys.insert(cert.fingerprint().into(), (i, 0));
                             v.keys.insert(cert.keyid().into(), (i, 0));
                         }
 
                         for (j, skb) in cert.subkeys().enumerate() {
                             let key = skb.key();
-                            if can_sign(key, skb.binding_signature(None),
-                                        time, tolerance) {
+                            if for_signing(key, skb.binding_signature(None),
+                                           time, tolerance) {
                                 v.keys.insert(key.fingerprint().into(),
                                               (i, j + 1));
                                 v.keys.insert(key.keyid().into(),
@@ -1433,11 +1433,11 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     v.certs = v.helper.get_public_keys(&issuers)?;
 
                     for (i, cert) in v.certs.iter().enumerate() {
-                        let can_sign = |key: &key::UnspecifiedKey,
+                        let for_signing = |key: &key::UnspecifiedKey,
                                         sig: Option<&Signature>| -> bool
                         {
                             if let Some(sig) = sig {
-                                sig.key_flags().can_sign()
+                                sig.key_flags().for_signing()
                                 // Check expiry.
                                     && sig.signature_alive(time, tolerance)
                                     && sig.key_alive(key, time)
@@ -1446,7 +1446,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             }
                         };
 
-                        if can_sign(cert.primary().into(),
+                        if for_signing(cert.primary().into(),
                                     cert.primary_key_signature(None)) {
                             v.keys.insert(cert.fingerprint().into(), (i, 0));
                             v.keys.insert(cert.keyid().into(), (i, 0));
@@ -1454,7 +1454,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                         for (j, skb) in cert.subkeys().enumerate() {
                             let key = skb.key();
-                            if can_sign(key.into(), skb.binding_signature(None)) {
+                            if for_signing(key.into(), skb.binding_signature(None)) {
                                 v.keys.insert(key.fingerprint().into(),
                                               (i, j + 1));
                                 v.keys.insert(key.keyid().into(),

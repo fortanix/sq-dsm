@@ -37,8 +37,8 @@ main (int argc, char **argv)
     error (1, 0, "pgp_cert_from_file: %s", pgp_error_to_string (err));
 
   pgp_cert_key_iter_t iter = pgp_cert_key_iter_valid (cert);
-  pgp_cert_key_iter_encrypting_capable_at_rest (iter);
-  pgp_cert_key_iter_encrypting_capable_for_transport (iter);
+  pgp_cert_key_iter_for_storage_encryption (iter);
+  pgp_cert_key_iter_for_transport_encryption (iter);
   size_t recipients_len;
   pgp_recipient_t *recipients =
     pgp_recipients_from_key_iter (iter, &recipients_len);
