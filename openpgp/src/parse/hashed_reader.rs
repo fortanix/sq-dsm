@@ -88,7 +88,7 @@ impl Cookie {
 
         if self.hashing == Hashing::Disabled {
             t!("    hash_update: NOT hashing {} bytes: {}.",
-               data.len(), crate::conversions::to_hex(data, true));
+               data.len(), crate::fmt::to_hex(data, true));
             return;
         }
 
@@ -96,7 +96,7 @@ impl Cookie {
         for (i, sig_group) in self.sig_groups.iter_mut().enumerate() {
             if topmost_group(i) && self.hashing != Hashing::Enabled {
                 t!("topmost group {} NOT hashing {} bytes: {}.",
-                   i, data.len(), crate::conversions::to_hex(data, true));
+                   i, data.len(), crate::fmt::to_hex(data, true));
 
                 return;
             }
@@ -280,7 +280,7 @@ mod test {
                 hash.digest(&mut digest);
 
                 assert_eq!(digest,
-                           &crate::conversions::from_hex(test.expected.get(algo)
+                           &crate::fmt::from_hex(test.expected.get(algo)
                                                     .unwrap(), true)
                            .unwrap()[..],
                            "Algo: {:?}", algo);

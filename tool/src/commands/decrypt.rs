@@ -7,7 +7,7 @@ extern crate termsize;
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use crate::openpgp::types::SymmetricAlgorithm;
-use crate::openpgp::conversions::hex;
+use crate::openpgp::fmt::hex;
 use crate::openpgp::crypto::{self, SessionKey};
 use crate::openpgp::{Fingerprint, Cert, KeyID, Result};
 use crate::openpgp::packet::prelude::*;

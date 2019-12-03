@@ -170,7 +170,7 @@ impl fmt::Debug for MPI {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_fmt(format_args!(
             "{} bits: {}", self.bits(),
-            crate::conversions::to_hex(&*self.value, true)))
+            crate::fmt::to_hex(&*self.value, true)))
     }
 }
 
@@ -264,7 +264,7 @@ impl fmt::Debug for ProtectedMPI {
         if cfg!(debug_assertions) {
             f.write_fmt(format_args!(
                 "{} bits: {}", self.bits(),
-                crate::conversions::to_hex(&*self.value, true)))
+                crate::fmt::to_hex(&*self.value, true)))
         } else {
             f.write_str("<Redacted>")
         }

@@ -34,7 +34,7 @@ impl fmt::Display for Trust {
 impl fmt::Debug for Trust {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Trust")
-            .field("value", &crate::conversions::hex::encode(&self.value))
+            .field("value", &crate::fmt::hex::encode(&self.value))
             .finish()
     }
 }

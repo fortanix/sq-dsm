@@ -9,7 +9,7 @@ use crate::types::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };
-use crate::conversions::{
+use crate::fmt::{
     write_be_u64,
 };
 use crate::Error;

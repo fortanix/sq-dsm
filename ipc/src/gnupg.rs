@@ -13,7 +13,7 @@ extern crate libc;
 extern crate tempfile;
 
 use crate::openpgp::types::HashAlgorithm;
-use crate::openpgp::conversions::hex;
+use crate::openpgp::fmt::hex;
 use crate::openpgp::crypto;
 use crate::openpgp::crypto::sexp::Sexp;
 use crate::openpgp::packet::prelude::*;

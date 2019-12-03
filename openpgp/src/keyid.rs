@@ -116,7 +116,7 @@ impl KeyID {
 
     /// Reads a hex-encoded Key ID.
     pub fn from_hex(hex: &str) -> Result<KeyID> {
-        let bytes = crate::conversions::from_hex(hex, true)?;
+        let bytes = crate::fmt::from_hex(hex, true)?;
 
         // A KeyID is exactly 8 bytes long.
         if bytes.len() == 8 {

@@ -48,7 +48,7 @@ impl fmt::Debug for KeyFlags {
         if self.unknown.len() > 0 {
             f.write_str("+0x")?;
             f.write_str(
-                &crate::conversions::hex::encode_pretty(&self.unknown))?;
+                &crate::fmt::hex::encode_pretty(&self.unknown))?;
         }
 
         Ok(())

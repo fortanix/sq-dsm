@@ -286,7 +286,7 @@ impl Arbitrary for S2K {
 mod tests {
     use super::*;
 
-    use crate::conversions::to_hex;
+    use crate::fmt::to_hex;
     use crate::SymmetricAlgorithm;
     use crate::Packet;
     use crate::parse::{Parse, PacketParser};

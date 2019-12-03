@@ -217,6 +217,6 @@ fn hash_file_test() {
         hash.digest(&mut digest);
 
         assert_eq!(*expected.get(&algo).unwrap(),
-                   &crate::conversions::to_hex(&digest[..], false));
+                   &crate::fmt::to_hex(&digest[..], false));
     }
 }

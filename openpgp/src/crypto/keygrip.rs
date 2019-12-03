@@ -40,7 +40,7 @@ impl std::str::FromStr for Keygrip {
 impl Keygrip {
     /// Parses a keygrip.
     pub fn from_hex(hex: &str) -> Result<Self> {
-        let bytes = crate::conversions::from_hex(hex, true)?;
+        let bytes = crate::fmt::from_hex(hex, true)?;
         if bytes.len() != 20 {
             return Err(Error::InvalidArgument(
                 format!("Expected 20 bytes, got {}", bytes.len())).into());
@@ -212,13 +212,13 @@ fn ecc_param(curve: &Curve, i: usize) -> MPI {
         (_, _) => unreachable!(),
     };
 
-    crate::conversions::from_hex(hex, true).unwrap().into()
+    crate::fmt::from_hex(hex, true).unwrap().into()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::conversions::from_hex;
+    use crate::fmt::from_hex;
 
     /// Test vectors from libgcrypt/tests/basic.c.
     #[test]

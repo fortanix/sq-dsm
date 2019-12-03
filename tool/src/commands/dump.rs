@@ -2,7 +2,7 @@ use std::io::{self, Read};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::types::{Duration, Timestamp, SymmetricAlgorithm};
-use self::openpgp::conversions::hex;
+use self::openpgp::fmt::hex;
 use self::openpgp::crypto::mpis;
 use self::openpgp::{Packet, Result};
 use self::openpgp::packet::prelude::*;

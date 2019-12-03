@@ -1385,10 +1385,10 @@ fn one_pass_sig_test () {
             } else if let Packet::Signature(ref sig) = pp.packet {
                 eprintln!("  {}:\n  prefix: expected: {}, in sig: {}",
                           test.filename,
-                          crate::conversions::to_hex(&test.hash_prefix[sigs][..], false),
-                          crate::conversions::to_hex(sig.hash_prefix(), false));
+                          crate::fmt::to_hex(&test.hash_prefix[sigs][..], false),
+                          crate::fmt::to_hex(sig.hash_prefix(), false));
                 eprintln!("  computed hash: {}",
-                          crate::conversions::to_hex(&sig.computed_hash().unwrap().1,
+                          crate::fmt::to_hex(&sig.computed_hash().unwrap().1,
                                                 false));
 
                 assert_eq!(&test.hash_prefix[sigs], sig.hash_prefix());
@@ -1987,7 +1987,7 @@ fn skesk_parser_test() {
 
             match skesk.decrypt(&test.password) {
                 Ok((_sym_algo, key)) => {
-                    let key = crate::conversions::to_hex(&key[..], false);
+                    let key = crate::fmt::to_hex(&key[..], false);
                     assert_eq!(&key[..], &test.key_hex[..]);
                 }
                 Err(e) => {
@@ -3574,7 +3574,7 @@ impl<'a> PacketParser<'a> {
                         return Err(Error::InvalidSessionKey(
                             format!(
                                 "Last two 16-bit quantities don't match: {}",
-                                crate::conversions::to_hex(&header[..], false)))
+                                crate::fmt::to_hex(&header[..], false)))
                                    .into());
                     }
                 }
@@ -3903,7 +3903,7 @@ mod test {
                 ppr, false, &[ Tag::SEIP, Tag::AED ][..],
                 &[ Tag::SKESK, Tag::PKESK ][..] );
             if let PacketParserResult::Some(ref mut pp) = ppr {
-                let key = crate::conversions::from_hex(test.key_hex, false)
+                let key = crate::fmt::from_hex(test.key_hex, false)
                     .unwrap().into();
 
                 pp.decrypt(test.algo, &key).unwrap();
@@ -3972,7 +3972,7 @@ mod test {
 
                 match pp.packet {
                     Packet::SEIP(_) | Packet::AED(_) => {
-                        let key = crate::conversions::from_hex(test.key_hex, false)
+                        let key = crate::fmt::from_hex(test.key_hex, false)
                             .unwrap().into();
                         pp.decrypt(test.algo, &key).unwrap();
                     },
@@ -4109,7 +4109,7 @@ mod test {
 
                 match pp.packet {
                     Packet::SEIP(_) | Packet::AED(_) => {
-                        let key = crate::conversions::from_hex(test.key_hex, false)
+                        let key = crate::fmt::from_hex(test.key_hex, false)
                             .unwrap().into();
 
                         pp.decrypt(test.algo, &key).unwrap();

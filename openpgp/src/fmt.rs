@@ -1,4 +1,4 @@
-//! Conversions for primitive OpenPGP types.
+//! Utilities for formatting, printing, and user communication.
 
 use crate::Error;
 use crate::Result;
@@ -32,7 +32,7 @@ pub mod hex {
     /// # Example
     ///
     /// ```rust
-    ///  use sequoia_openpgp::conversions::hex;
+    ///  use sequoia_openpgp::fmt::hex;
     ///
     /// let mut dumper = hex::Dumper::new(Vec::new(), "");
     /// dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();

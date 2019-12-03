@@ -52,7 +52,7 @@ impl Fingerprint {
     /// assert_eq!(fp.unwrap().to_hex(), hex);
     /// ```
     pub fn from_hex(hex: &str) -> Result<Fingerprint> {
-        Ok(Fingerprint::from_bytes(&crate::conversions::from_hex(hex, true)?[..]))
+        Ok(Fingerprint::from_bytes(&crate::fmt::from_hex(hex, true)?[..]))
     }
 
     /// Returns a reference to the raw Fingerprint.

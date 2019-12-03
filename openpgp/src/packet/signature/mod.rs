@@ -350,10 +350,10 @@ impl fmt::Debug for Signature4 {
             .field("hashed_area", self.hashed_area())
             .field("unhashed_area", self.unhashed_area())
             .field("hash_prefix",
-                   &crate::conversions::to_hex(&self.hash_prefix, false))
+                   &crate::fmt::to_hex(&self.hash_prefix, false))
             .field("computed_hash",
                    &if let Some((algo, ref hash)) = self.computed_hash {
-                       Some((algo, crate::conversions::to_hex(&hash[..], false)))
+                       Some((algo, crate::fmt::to_hex(&hash[..], false)))
                    } else {
                        None
                    })
@@ -1470,7 +1470,7 @@ mod test {
             "contrib/gnupg/timestamp-signature-by-alice.asc")).unwrap();
         if let Packet::Signature(sig) = p {
             let digest = Signature::standalone_hash(&sig).unwrap();
-            eprintln!("{}", crate::conversions::hex::encode(&digest));
+            eprintln!("{}", crate::fmt::hex::encode(&digest));
             assert!(sig.verify_timestamp(alpha.primary()).unwrap());
         } else {
             panic!("expected a signature packet");

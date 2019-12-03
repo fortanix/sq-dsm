@@ -13,7 +13,7 @@ use crate::types::{
     SymmetricAlgorithm,
     PublicKeyAlgorithm,
 };
-use crate::conversions::{
+use crate::fmt::{
     write_be_u64,
     read_be_u64,
 };
