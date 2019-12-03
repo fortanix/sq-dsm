@@ -578,7 +578,7 @@ impl<'a> LiteralWriter<'a> {
     /// The standard does not specify the encoding.  Filenames must
     /// not be longer than 255 bytes.
     pub fn filename<B: AsRef<[u8]>>(mut self, filename: B) -> Result<Self> {
-        self.template.set_filename_from_bytes(filename.as_ref())?;
+        self.template.set_filename(filename.as_ref())?;
         Ok(self)
     }
 

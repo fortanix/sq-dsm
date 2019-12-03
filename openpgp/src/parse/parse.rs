@@ -1715,7 +1715,7 @@ impl Literal {
 
         let mut literal = Literal::new(format.into());
         if let Some(filename) = filename {
-            literal.set_filename_from_bytes(&filename)
+            literal.set_filename(&filename)
                 .expect("length checked above");
         }
         literal.set_date(

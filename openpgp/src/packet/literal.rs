@@ -109,7 +109,7 @@ impl Literal {
         self.filename.as_ref().map(|b| b.as_slice())
     }
 
-    /// Sets the literal packet's filename field from a byte sequence.
+    /// Sets the literal packet's filename field.
     ///
     /// The standard does not specify the encoding.  Filenames must
     /// not be longer than 255 bytes.
@@ -117,8 +117,11 @@ impl Literal {
     /// Note: when a literal data packet is protected by a signature,
     /// only the literal data packet's body is protected, not the
     /// meta-data.  As such, this field should not be used.
-    pub fn set_filename_from_bytes(&mut self, filename: &[u8])
-                                   -> Result<Option<Vec<u8>>> {
+    pub fn set_filename<F>(&mut self, filename: F)
+                           -> Result<Option<Vec<u8>>>
+        where F: AsRef<[u8]>
+    {
+        let filename = filename.as_ref();
         Ok(::std::mem::replace(&mut self.filename, match filename.len() {
             0 => None,
             1..=255 => Some(filename.to_vec()),
@@ -126,20 +129,6 @@ impl Literal {
                 Err(Error::InvalidArgument(
                     format!("filename too long: {} bytes", n)).into()),
         }))
-    }
-
-    /// Sets the literal packet's filename field from a UTF-8 encoded
-    /// string.
-    ///
-    /// This is a convenience function, since the field is actually a
-    /// raw byte string.  Filenames must not be longer than 255 bytes.
-    ///
-    /// Note: when a literal data packet is protected by a signature,
-    /// only the literal data packet's body is protected, not the
-    /// meta-data.  As such, this field should not be used.
-    pub fn set_filename(&mut self, filename: &str)
-                        -> Result<Option<Vec<u8>>> {
-        self.set_filename_from_bytes(filename.as_bytes())
     }
 
     /// Gets the literal packet's date field.
@@ -184,7 +173,7 @@ impl Arbitrary for Literal {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let mut l = Literal::new(DataFormat::arbitrary(g));
         l.set_body(Vec::<u8>::arbitrary(g));
-        while let Err(_) = l.set_filename_from_bytes(&Vec::<u8>::arbitrary(g)) {
+        while let Err(_) = l.set_filename(&Vec::<u8>::arbitrary(g)) {
             // Too long, try again.
         }
         l.set_date(Some(Timestamp::arbitrary(g).into())).unwrap();
