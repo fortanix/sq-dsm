@@ -2351,12 +2351,6 @@ impl Signature4 {
         self.fields.typ()
     }
 
-    /// Sets the signature type.
-    pub fn set_type(mut self, t: SignatureType) -> Self {
-        self.fields = self.fields.set_type(t);
-        self
-    }
-
     /// Gets the public key algorithm.
     pub fn pk_algo(&self) -> PublicKeyAlgorithm {
         self.fields.pk_algo()
