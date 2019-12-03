@@ -85,6 +85,7 @@ use crate::{
 use crate::types::{
     AEADAlgorithm,
     CompressionAlgorithm,
+    Duration,
     Features,
     HashAlgorithm,
     KeyFlags,
@@ -96,7 +97,7 @@ use crate::types::{
 };
 use crate::conversions::{
     Time,
-    Duration,
+    Duration as DurationConversion,
 };
 
 lazy_static!{
@@ -130,8 +131,8 @@ lazy_static!{
     /// is probably not what you want.
     pub static ref CLOCK_SKEW_TOLERANCE: time::Duration
         = time::Duration::new(30 * 60, 0);
-}
 
+}
 /// The subpacket types specified by [Section 5.2.3.1 of RFC 4880].
 ///
 /// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
@@ -706,7 +707,7 @@ pub enum SubpacketValue<'a> {
     /// 4-octet time field
     SignatureCreationTime(Timestamp),
     /// 4-octet time field
-    SignatureExpirationTime(time::Duration),
+    SignatureExpirationTime(Duration),
     /// 1 octet of exportability, 0 for not, 1 for exportable
     ExportableCertification(bool),
     /// 1 octet "level" (depth), 1 octet of trust amount
@@ -1002,7 +1003,7 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
                 // The time delta is in big endian format.
                 from_be_u32(raw.value).map(|v| {
                     SubpacketValue::SignatureExpirationTime(
-                        time::Duration::from_pgp(v))
+                        v.into())
                 }),
 
             SubpacketTag::ExportableCertification =>
@@ -1362,7 +1363,7 @@ impl SubpacketArea {
         if let Some(sb)
                 = self.subpacket(SubpacketTag::SignatureExpirationTime) {
             if let SubpacketValue::SignatureExpirationTime(v) = sb.value {
-                Some(v)
+                Some(v.into())
             } else {
                 None
             }
@@ -2394,7 +2395,7 @@ impl signature::Builder {
                                          -> Result<Self> {
         if let Some(e) = expiration {
             self.hashed_area.replace(Subpacket::new(
-                SubpacketValue::SignatureExpirationTime(e.canonicalize()),
+                SubpacketValue::SignatureExpirationTime(e.try_into()?),
                 true)?)?;
         } else {
             self.hashed_area.remove_all(SubpacketTag::SignatureExpirationTime);

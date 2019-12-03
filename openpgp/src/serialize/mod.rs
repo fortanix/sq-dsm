@@ -980,7 +980,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
             SignatureCreationTime(t) =>
                 write_be_u32(o, t.clone().into())?,
             SignatureExpirationTime(t) =>
-                write_be_u32(o, t.to_pgp()?)?,
+                write_be_u32(o, t.clone().into())?,
             ExportableCertification(e) =>
                 o.write_all(&[if *e { 1 } else { 0 }])?,
             TrustSignature { ref level, ref trust } =>
