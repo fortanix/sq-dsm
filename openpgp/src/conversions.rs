@@ -1,74 +1,7 @@
 //! Conversions for primitive OpenPGP types.
 
-
 use crate::Error;
 use crate::Result;
-
-/// Conversions for OpenPGP time stamps.
-pub trait Time {
-    /// Converts an OpenPGP time stamp to broken-down time.
-    fn from_pgp(_: u32) -> Self;
-    /// Converts broken-down time to an OpenPGP time stamp.
-    fn to_pgp(&self) -> Result<u32>;
-    /// Strips off any subseconds that OpenPGP cannot represent, and
-    /// converts to UTC.
-    fn canonicalize(self) -> Self;
-}
-
-impl Time for std::time::SystemTime {
-    fn from_pgp(timestamp: u32) -> Self {
-        std::time::UNIX_EPOCH + std::time::Duration::new(timestamp as u64, 0)
-    }
-
-    fn to_pgp(&self) -> Result<u32> {
-        match self.duration_since(std::time::UNIX_EPOCH) {
-            Ok(d) if d.as_secs() <= std::u32::MAX as u64 =>
-                Ok(d.as_secs() as u32),
-            _ => Err(Error::InvalidArgument(
-                format!("Time exceeds u32 epoch: {:?}", self))
-                     .into()),
-        }
-    }
-
-    fn canonicalize(self) -> Self {
-        match self.duration_since(std::time::UNIX_EPOCH) {
-            Ok(d) if d.as_secs() <= std::u32::MAX as u64 =>
-                Self::from_pgp(d.as_secs() as u32),
-            _ =>
-                Self::from_pgp(0), // XXX
-        }
-    }
-}
-
-/// Conversions for OpenPGP durations.
-pub trait Duration {
-    /// Converts an OpenPGP duration to ISO 8601 time duration.
-    fn from_pgp(_: u32) -> Self;
-    /// Converts ISO 8601 time duration to an OpenPGP duration.
-    fn to_pgp(&self) -> Result<u32>;
-    /// Strips off any subseconds that OpenPGP cannot represent.
-    fn canonicalize(self) -> Self;
-}
-
-impl Duration for std::time::Duration {
-    fn from_pgp(duration: u32) -> Self {
-        std::time::Duration::new(duration as u64, 0)
-    }
-
-    fn to_pgp(&self) -> Result<u32> {
-        if self.as_secs() <= std::u32::MAX as u64 {
-            Ok(self.as_secs() as u32)
-        } else {
-            Err(Error::InvalidArgument(
-                format!("Duration exceeds u32: {:?}", self))
-                       .into())
-        }
-    }
-
-    fn canonicalize(self) -> Self {
-        std::time::Duration::new(self.as_secs(), 0)
-    }
-}
 
 /// Converts buffers to and from hexadecimal numbers.
 pub mod hex {
