@@ -39,6 +39,13 @@ const TRACE : bool = false;
 ///
 /// This is the mutable version of a `Signature4` packet.  To convert
 /// it to one, use `sign_hash(..)`.
+///
+/// Signatures must always include a creation time.  We automatically
+/// insert a creation time subpacket with the current time into the
+/// hashed subpacket area.  To override the creation time, use
+/// [`Builder::set_signature_creation_time`].
+///
+///   [`Builder::set_signature_creation_time`]: #method.set_signature_creation_time
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Builder {
     /// Version of the signature packet. Must be 4.
@@ -77,6 +84,10 @@ impl Builder {
             hash_algo: HashAlgorithm::default(),
             subpackets: SubpacketAreas::empty(),
         }
+        .set_signature_creation_time(
+            std::time::SystemTime::now())
+            .expect("area is empty, insertion cannot fail; \
+                     time is representable for the foreseeable future")
     }
 
     /// Gets the version.
