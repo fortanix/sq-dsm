@@ -36,7 +36,6 @@ use crate::types::{
     SymmetricAlgorithm,
     Timestamp,
 };
-use crate::conversions::Time;
 use crate::crypto::{self, mpis::{PublicKey, MPI}};
 use crate::crypto::symmetric::{Decryptor, BufferedReaderDecryptor};
 use crate::message;
@@ -1530,7 +1529,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             -> Result<Key4<key::PublicParts, R>>
             where R: key::KeyRole
         {
-            Key4::new(std::time::SystemTime::from_pgp(creation_time),
+            Key4::new(Timestamp::from(creation_time),
                       pk_algo, mpis)
         }
         fn s<R>(creation_time: u32,
@@ -1540,7 +1539,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             -> Result<Key4<key::SecretParts, R>>
             where R: key::KeyRole
         {
-            Key4::with_secret(std::time::SystemTime::from_pgp(creation_time),
+            Key4::with_secret(Timestamp::from(creation_time),
                               pk_algo, mpis, secret)
         }
 

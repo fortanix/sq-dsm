@@ -3037,7 +3037,6 @@ fn subpacket_test_1 () {
 
 #[test]
 fn subpacket_test_2() {
-    use crate::conversions::Time;
     use crate::parse::Parse;
     use crate::PacketPile;
 
@@ -3095,7 +3094,7 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::SystemTime::from_pgp(1515791508)));
+                   Some(Timestamp::from(1515791508).into()));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
@@ -3256,7 +3255,7 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::SystemTime::from_pgp(1515791490)));
+                   Some(Timestamp::from(1515791490).into()));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
@@ -3292,7 +3291,7 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::SystemTime::from_pgp(1515791376)));
+                   Some(Timestamp::from(1515791376).into()));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
@@ -3363,7 +3362,7 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::SystemTime::from_pgp(1515886658)));
+                   Some(Timestamp::from(1515886658).into()));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
@@ -3393,7 +3392,7 @@ fn subpacket_test_2() {
         // has multiple notations.
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::SystemTime::from_pgp(1515791467)));
+                   Some(Timestamp::from(1515791467).into()));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,
@@ -3467,7 +3466,7 @@ fn subpacket_test_2() {
         // }
 
         assert_eq!(sig.signature_creation_time(),
-                   Some(time::SystemTime::from_pgp(1515791223)));
+                   Some(Timestamp::from(1515791223).into()));
         assert_eq!(sig.subpacket(SubpacketTag::SignatureCreationTime),
                    Some(Subpacket {
                        critical: false,

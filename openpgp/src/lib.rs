@@ -157,8 +157,7 @@ mod tests;
 /// openpgp/tests/data/keys/neal.pgp are not expired.
 #[cfg(test)]
 fn frozen_time() -> std::time::SystemTime {
-    use crate::conversions::Time;
-    std::time::SystemTime::from_pgp(1554542220 - 1)
+    crate::types::Timestamp::from(1554542220 - 1).into()
 }
 
 /// Crate result specialization.

@@ -1887,8 +1887,6 @@ mod test {
     // This test is relatively long running in debug mode.  Split it
     // up.
     fn detached_verifier_read_size(l: usize) {
-        use crate::conversions::Time;
-
         struct Test<'a> {
             sig: &'a [u8],
             content: &'a [u8],
@@ -1905,7 +1903,8 @@ mod test {
                 sig: crate::tests::message(
                     "emmelie-dorothea-dina-samantha-awina-detached-signature-of-100MB-of-zeros.sig"),
                 content: &vec![ 0; 100 * 1024 * 1024 ][..],
-                reference: time::SystemTime::from_pgp(1572602018),
+                reference:
+                crate::types::Timestamp::try_from(1572602018).unwrap().into(),
             },
         ];
 
