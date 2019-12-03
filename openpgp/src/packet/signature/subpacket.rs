@@ -2334,14 +2334,13 @@ impl DerefMut for Signature4 {
     }
 }
 
+// We'd like to implement Deref for Signature4 for both
+// signature::Builder and SubpacketArea.  Unfortunately, it is
+// only possible to implement Deref for one of them.  Since
+// SubpacketArea has more methods with much more documentation,
+// implement deref for that, and write provider forwarders for
+// signature::Builder.
 impl Signature4 {
-    /// We'd like to implement Deref for Signature4 for both
-    /// signature::Builder and SubpacketArea.  Unfortunately, it is
-    /// only possible to implement Deref for one of them.  Since
-    /// SubpacketArea has more methods with much more documentation,
-    /// implement deref for that, and write provider forwarders for
-    /// signature::Builder.
-
     /// Gets the version.
     pub fn version(&self) -> u8 {
         self.fields.version()
