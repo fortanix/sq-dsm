@@ -26,7 +26,6 @@ use crate::{
         DataFormat,
         SymmetricAlgorithm,
     },
-    conversions::Time,
     packet::{
         header::BodyLength,
         header::CTB,
@@ -461,7 +460,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
@@ -477,7 +476,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
               T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
@@ -492,7 +491,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                          -> Result<Verifier<'a, H>>
         where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(|| time::SystemTime::now().canonicalize());
+        let t = t.into().unwrap_or_else(|| time::SystemTime::now());
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
@@ -1049,7 +1048,7 @@ impl DetachedVerifier {
               T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         Self::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(signature_reader, None,
                                                         Default::default())),
@@ -1068,7 +1067,7 @@ impl DetachedVerifier {
               T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         Self::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(signature_path,
                                                      Default::default())?),
@@ -1085,7 +1084,7 @@ impl DetachedVerifier {
                                     -> Result<Verifier<'a, H>>
         where H: VerificationHelper, T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(|| time::SystemTime::now().canonicalize());
+        let t = t.into().unwrap_or_else(|| time::SystemTime::now());
         Self::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(signature_bytes,
                                                           Default::default())),
@@ -1241,7 +1240,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
@@ -1257,7 +1256,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
               T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
@@ -1273,7 +1272,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),

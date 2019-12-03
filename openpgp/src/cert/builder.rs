@@ -12,7 +12,6 @@ use crate::packet::signature;
 use crate::Cert;
 use crate::cert::CertRevocationBuilder;
 use crate::Error;
-use crate::conversions::Time;
 use crate::crypto::Password;
 use crate::autocrypt::Autocrypt;
 use crate::types::{
@@ -382,7 +381,7 @@ impl CertBuilder {
                     // GnuPG wants at least a 512-bit hash for P521 keys.
                     .set_hash_algo(HashAlgorithm::SHA512)
                     .set_signature_creation_time(
-                        time::SystemTime::now().canonicalize())?
+                        time::SystemTime::now())?
                     .set_issuer_fingerprint(subkey.fingerprint())?
                     .set_issuer(subkey.keyid())?
                     .sign_subkey_binding(&mut subkey_signer, &primary,
@@ -423,7 +422,7 @@ impl CertBuilder {
             .set_features(&Features::sequoia())?
             .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(
-                time::SystemTime::now().canonicalize())?
+                time::SystemTime::now())?
             .set_key_expiration_time(self.primary.expiration)?
             .set_issuer_fingerprint(key.fingerprint())?
             .set_issuer(key.keyid())?

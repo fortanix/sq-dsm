@@ -4,7 +4,6 @@ use crate::Error;
 use crate::Result;
 use crate::Cert;
 use crate::types::{HashAlgorithm, SignatureType};
-use crate::conversions::Time;
 use crate::crypto::Signer;
 use crate::packet::{UserID, UserAttribute, key, Key, signature, Signature};
 
@@ -63,7 +62,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
         signature
             .set_signature_creation_time(
                 creation_time.into().unwrap_or_else(|| {
-                    time::SystemTime::now().canonicalize()
+                    time::SystemTime::now()
                 }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
@@ -121,7 +120,7 @@ impl UserID {
         signature
             .set_signature_creation_time(
                 creation_time.into().unwrap_or_else(|| {
-                    time::SystemTime::now().canonicalize()
+                    time::SystemTime::now()
                 }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
@@ -208,7 +207,7 @@ impl UserID {
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
                   creation_time.into().unwrap_or_else(|| {
-                      time::SystemTime::now().canonicalize()
+                      time::SystemTime::now()
                   }))
     }
 }
@@ -268,7 +267,7 @@ impl UserAttribute {
         signature
             .set_signature_creation_time(
                 creation_time.into().unwrap_or_else(|| {
-                    time::SystemTime::now().canonicalize()
+                    time::SystemTime::now()
                 }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
@@ -359,7 +358,7 @@ impl UserAttribute {
                   // Unwrap arguments to prevent further
                   // monomorphization of bind().
                   creation_time.into().unwrap_or_else(|| {
-                      time::SystemTime::now().canonicalize()
+                      time::SystemTime::now()
                   }))
     }
 }

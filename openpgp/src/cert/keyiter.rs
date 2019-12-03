@@ -6,7 +6,6 @@ use crate::{
     packet::Key,
     packet::key::SecretKeyMaterial,
     types::KeyFlags,
-    conversions::Time,
     packet::Signature,
     Cert,
     cert::KeyBindingIter,
@@ -354,7 +353,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// the last value is used.
     pub fn alive(mut self) -> Self
     {
-        self.alive_at = Some(std::time::SystemTime::now().canonicalize());
+        self.alive_at = Some(std::time::SystemTime::now());
         self
     }
 
@@ -467,7 +466,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_encrypt_for_transport(true);
 
-        let now = std::time::SystemTime::now().canonicalize()
+        let now = std::time::SystemTime::now()
             - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
         assert_eq!(cert.keys_all().key_flags(flags).alive_at(now).count(), 0);
     }

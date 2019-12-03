@@ -1110,7 +1110,6 @@ impl From<Signature4> for super::Signature {
 mod test {
     use super::*;
     use crate::KeyID;
-    use crate::conversions::Time;
     use crate::crypto;
     use crate::crypto::mpis::MPI;
     use crate::Cert;
@@ -1307,7 +1306,7 @@ mod test {
         let mut pair = key.into_keypair().unwrap();
         let sig = Builder::new(SignatureType::Binary)
             .set_signature_creation_time(
-                std::time::SystemTime::now().canonicalize()).unwrap()
+                std::time::SystemTime::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
             .sign_message(&mut pair, msg).unwrap();
@@ -1334,7 +1333,6 @@ mod test {
 
     #[test]
     fn sign_with_short_ed25519_secret_key() {
-        use crate::conversions::Time;
         use nettle;
 
         // 20 byte sec key
@@ -1355,7 +1353,7 @@ mod test {
             scalar: MPI::new(&sec[..]).into(),
         };
         let key : key::SecretKey
-            = Key4::with_secret(std::time::SystemTime::now().canonicalize(),
+            = Key4::with_secret(std::time::SystemTime::now(),
                                 PublicKeyAlgorithm::EdDSA,
                                 public_mpis, private_mpis.into())
             .unwrap()
@@ -1455,7 +1453,7 @@ mod test {
 
         let sig = Builder::new(SignatureType::Standalone)
             .set_signature_creation_time(
-                std::time::SystemTime::now().canonicalize()).unwrap()
+                std::time::SystemTime::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
             .sign_standalone(&mut pair)
@@ -1487,7 +1485,7 @@ mod test {
 
         let sig = Builder::new(SignatureType::Timestamp)
             .set_signature_creation_time(
-                std::time::SystemTime::now().canonicalize()).unwrap()
+                std::time::SystemTime::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
             .set_issuer(pair.public().keyid()).unwrap()
             .sign_timestamp(&mut pair)

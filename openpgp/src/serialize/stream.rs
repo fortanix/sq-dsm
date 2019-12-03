@@ -44,7 +44,6 @@ use crate::types::{
     SignatureType,
     SymmetricAlgorithm,
 };
-use crate::conversions::Time;
 
 /// Cookie must be public because the writers are.
 #[doc(hidden)]
@@ -420,7 +419,7 @@ impl<'a> Signer<'a> {
                 // Make and hash a signature packet.
                 let mut sig = signature::Builder::new(SignatureType::Binary)
                     .set_signature_creation_time(
-                        std::time::SystemTime::now().canonicalize())?
+                        std::time::SystemTime::now())?
                     .set_issuer_fingerprint(signer.public().fingerprint())?
                     // GnuPG up to (and including) 2.2.8 requires the
                     // Issuer subpacket to be present.

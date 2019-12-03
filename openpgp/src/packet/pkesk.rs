@@ -329,7 +329,6 @@ mod tests {
 
     #[test]
     fn decrypt_with_short_cv25519_secret_key() {
-        use crate::conversions::Time;
         use super::PKESK3;
         use crate::crypto::SessionKey;
         use crate::crypto::mpis::{self, MPI};
@@ -362,7 +361,7 @@ mod tests {
             scalar: MPI::new(&sec[..]).into(),
         };
         let mut key: key::UnspecifiedPublic
-            = Key4::new(std::time::SystemTime::now().canonicalize(),
+            = Key4::new(std::time::SystemTime::now(),
                         PublicKeyAlgorithm::ECDH,
                         public_mpis)
                 .unwrap().into();

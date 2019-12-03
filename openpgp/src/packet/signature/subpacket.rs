@@ -95,9 +95,6 @@ use crate::types::{
     SymmetricAlgorithm,
     Timestamp,
 };
-use crate::conversions::{
-    Time,
-};
 
 lazy_static!{
     /// The default amount of tolerance to use when comparing
@@ -2099,7 +2096,7 @@ impl SubpacketAreas {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         match (self.signature_creation_time(), self.signature_expiration_time())
         {
             (Some(_), Some(e)) if e.as_secs() == 0 =>
@@ -2172,10 +2169,10 @@ impl SubpacketAreas {
         let (time, tolerance)
             = match (time.into(), clock_skew_tolerance.into()) {
                 (None, None) =>
-                    (time::SystemTime::now().canonicalize(),
+                    (time::SystemTime::now(),
                      *CLOCK_SKEW_TOLERANCE),
                 (None, Some(tolerance)) =>
-                    (time::SystemTime::now().canonicalize(),
+                    (time::SystemTime::now(),
                      tolerance),
                 (Some(time), None) =>
                     (time, time::Duration::new(0, 0)),
@@ -2206,7 +2203,7 @@ impl SubpacketAreas {
               T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         match self.key_expiration_time() {
             Some(e) if e.as_secs() == 0 =>
                 false, // Zero expiration time, does not expire.
@@ -2233,7 +2230,7 @@ impl SubpacketAreas {
               T: Into<Option<time::SystemTime>>
     {
         let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
         key.creation_time() <= t && ! self.key_expired(key, t)
     }
 
@@ -2743,7 +2740,9 @@ fn accessors() {
     let mut keypair = key.clone().into_keypair().unwrap();
 
     // Cook up a timestamp without ns resolution.
-    let now = time::SystemTime::now().canonicalize();
+    use std::convert::TryFrom;
+    let now: time::SystemTime =
+        Timestamp::try_from(time::SystemTime::now()).unwrap().into();
 
     sig = sig.set_signature_creation_time(now).unwrap();
     let sig_ =

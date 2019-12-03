@@ -2,7 +2,6 @@ use std::ops::Deref;
 use std::time;
 
 use crate::{
-    conversions::Time,
     HashAlgorithm,
     Result,
     SignatureType,
@@ -113,7 +112,7 @@ impl CertRevocationBuilder {
 
         let creation_time
             = self.signature_creation_time()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
 
         self.builder
             // If not set, set it to now.
@@ -232,7 +231,7 @@ impl SubkeyRevocationBuilder {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time
             = self.signature_creation_time()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);
@@ -348,7 +347,7 @@ impl UserIDRevocationBuilder {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time
             = self.signature_creation_time()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);
@@ -467,7 +466,7 @@ impl UserAttributeRevocationBuilder {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time
             = self.signature_creation_time()
-            .unwrap_or_else(|| time::SystemTime::now().canonicalize());
+            .unwrap_or_else(|| time::SystemTime::now());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);
