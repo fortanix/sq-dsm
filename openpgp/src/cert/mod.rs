@@ -788,6 +788,7 @@ pub type UnknownBindings = ComponentBindings<Unknown>;
 ///
 /// #     Ok(())
 /// # }
+/// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cert {
     primary: PrimaryKeyBinding<key::PublicParts>,
