@@ -103,14 +103,15 @@ impl<K: key::KeyParts, R: key::KeyRole> KeyBinding<K, R>
 }
 
 /// A primary key and any associated signatures.
-pub type PrimaryKeyBinding<KeyPart> = KeyBinding<KeyPart, key::PrimaryRole>;
+type PrimaryKeyBinding<KeyPart> = KeyBinding<KeyPart, key::PrimaryRole>;
 
 /// A subkey and any associated signatures.
 pub type SubkeyBinding<KeyPart> = KeyBinding<KeyPart, key::SubordinateRole>;
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.
-pub type GenericKeyBinding
+#[allow(dead_code)]
+type GenericKeyBinding
     = ComponentBinding<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
 
 /// A User ID and any associated signatures.
@@ -541,7 +542,7 @@ impl<'a, C> ExactSizeIterator for ComponentBindingIter<'a, C>
 ///
 /// Note: we need this, because we can't `impl Vec<ComponentBindings>`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ComponentBindings<C>
+struct ComponentBindings<C>
     where ComponentBinding<C>: cmp::PartialEq
 {
     bindings: Vec<ComponentBinding<C>>,
@@ -637,26 +638,27 @@ impl<C> ComponentBindings<C>
 
 /// A vecor of key (primary or subkey, public or private) and any
 /// associated signatures.
-pub type KeyBindings<KeyPart, KeyRole> = ComponentBindings<Key<KeyPart, KeyRole>>;
+type KeyBindings<KeyPart, KeyRole> = ComponentBindings<Key<KeyPart, KeyRole>>;
 
 /// A vector of subkeys and any associated signatures.
-pub type SubkeyBindings<KeyPart> = KeyBindings<KeyPart, key::SubordinateRole>;
+type SubkeyBindings<KeyPart> = KeyBindings<KeyPart, key::SubordinateRole>;
 
 /// A vector of key (primary or subkey, public or private) and any
 /// associated signatures.
-pub type GenericKeyBindings
+#[allow(dead_code)]
+type GenericKeyBindings
     = ComponentBindings<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
 
 /// A vector of User ID bindings and any associated signatures.
-pub type UserIDBindings = ComponentBindings<UserID>;
+type UserIDBindings = ComponentBindings<UserID>;
 
 /// A vector of User Attribute bindings and any associated signatures.
-pub type UserAttributeBindings = ComponentBindings<UserAttribute>;
+type UserAttributeBindings = ComponentBindings<UserAttribute>;
 
 /// A vector of unknown components and any associated signatures.
 ///
 /// Note: all signatures are stored as certifications.
-pub type UnknownBindings = ComponentBindings<Unknown>;
+type UnknownBindings = ComponentBindings<Unknown>;
 
 
 /// A OpenPGP Certificate.
