@@ -145,13 +145,13 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
 
     // Encryption Capability
     match (m.value_of("can-encrypt"), m.is_present("cannot-encrypt")) {
-        (Some("all"), false) | (None, false) => {
+        (Some("universal"), false) | (None, false) => {
             builder = builder.add_subkey(KeyFlags::default()
                                          .set_transport_encryption(true)
                                          .set_storage_encryption(true),
                                          None);
         }
-        (Some("rest"), false) => {
+        (Some("storage"), false) => {
             builder = builder.add_storage_encryption_subkey();
         }
         (Some("transport"), false) => {

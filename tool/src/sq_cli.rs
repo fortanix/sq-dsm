@@ -405,9 +405,10 @@ pub fn build() -> App<'static, 'static> {
                                .args(&["can-encrypt", "cannot-encrypt"]))
                         .arg(Arg::with_name("can-encrypt").value_name("PURPOSE")
                              .long("can-encrypt")
-                             .possible_values(&["transport", "rest", "all"])
+                             .possible_values(&["transport", "storage",
+                                                "universal"])
                              .help("The key has an encryption-capable subkey \
-                                    (default)"))
+                                    (default: universal)"))
                         .arg(Arg::with_name("cannot-encrypt")
                              .long("cannot-encrypt")
                              .help("The key will not be able to encrypt data"))

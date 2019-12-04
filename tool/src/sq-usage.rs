@@ -486,8 +486,8 @@
 //!         --with-password     Prompt for a password to protect the generated key with.
 //!
 //! OPTIONS:
-//!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (default) [possible values: transport,
-//!                                          rest, all]
+//!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (default: universal) [possible values:
+//!                                          transport, storage, universal]
 //!     -c, --cipher-suite <CIPHER-SUITE>    Cryptographic algorithms used for the key. [default: cv25519]  [possible
 //!                                          values: rsa3k, rsa4k, cv25519]
 //!         --expiry <EXPIRY>                When the key should expire.  Either 'N[ymwd]', for N years, months, weeks, or
