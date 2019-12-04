@@ -124,7 +124,7 @@ impl CertBuilder {
     /// certification-capable primary key using the default cipher
     /// suite.  You'll almost certainly want to add subkeys (using
     /// `CertBuilder::add_signing_subkey`, or
-    /// `CertBuilder::add_encryption_subkey`, for instance), and user
+    /// `CertBuilder::add_transport_encryption_subkey`, for instance), and user
     /// ids (using `CertBuilder::add_userid`).
     pub fn new() -> Self {
         CertBuilder{
@@ -243,11 +243,16 @@ impl CertBuilder {
         self.add_subkey(KeyFlags::default().set_signing(true), None)
     }
 
-    /// Adds an encryption capable subkey.
-    pub fn add_encryption_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default()
-                        .set_transport_encryption(true)
-                        .set_storage_encryption(true), None)
+    /// Adds a subkey suitable for transport encryption.
+    pub fn add_transport_encryption_subkey(self) -> Self {
+        self.add_subkey(KeyFlags::default().set_transport_encryption(true),
+                        None)
+    }
+
+    /// Adds a subkey suitable for storage encryption.
+    pub fn add_storage_encryption_subkey(self) -> Self {
+        self.add_subkey(KeyFlags::default().set_storage_encryption(true),
+                        None)
     }
 
     /// Adds an certification capable subkey.
@@ -449,7 +454,7 @@ mod tests {
             .add_userid("test1@example.com")
             .add_userid("test2@example.com")
             .add_signing_subkey()
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .add_certification_subkey()
             .generate().unwrap();
 
@@ -470,7 +475,7 @@ mod tests {
         let (cert, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .add_certification_subkey()
             .generate().unwrap();
 
@@ -497,7 +502,7 @@ mod tests {
         let (cert2, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::RSA3k)
             .add_userid("test2@example.com")
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .generate().unwrap();
         assert_eq!(cert2.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
@@ -553,7 +558,7 @@ mod tests {
         let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_keyflags(KeyFlags::default())
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .generate().unwrap();
         let sig_pkts = &cert1.primary_key_signature(None).unwrap().hashed_area();
 

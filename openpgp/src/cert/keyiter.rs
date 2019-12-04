@@ -441,7 +441,7 @@ mod test {
     #[test]
     fn select_valid_and_right_flags() {
         let (cert, _) = CertBuilder::new()
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
@@ -451,7 +451,7 @@ mod test {
     #[test]
     fn select_valid_and_wrong_flags() {
         let (cert, _) = CertBuilder::new()
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .add_signing_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
@@ -462,7 +462,7 @@ mod test {
     #[test]
     fn select_invalid_and_right_flags() {
         let (cert, _) = CertBuilder::new()
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
@@ -486,7 +486,8 @@ mod test {
         let (cert, _) = CertBuilder::new()
             .add_signing_subkey()
             .add_certification_subkey()
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
+            .add_storage_encryption_subkey()
             .add_authentication_subkey()
             .generate().unwrap();
         assert_eq!(cert.keys_valid().for_certification().count(), 2);

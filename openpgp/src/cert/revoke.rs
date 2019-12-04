@@ -159,7 +159,7 @@ impl Deref for CertRevocationBuilder {
 /// # fn f() -> Result<()> {
 /// // Generate a Cert, and create a keypair from the primary key.
 /// let (cert, _) = CertBuilder::new()
-///     .add_encryption_subkey()
+///     .add_transport_encryption_subkey()
 ///     .generate()?;
 /// let mut keypair = cert.primary().clone()
 ///     .mark_parts_secret()?.into_keypair()?;

@@ -1045,7 +1045,7 @@ void pgp_cert_builder_add_signing_subkey(pgp_cert_builder_t *certb);
 /*/
 /// Adds an encryption capable subkey.
 /*/
-void pgp_cert_builder_add_encryption_subkey(pgp_cert_builder_t *certb);
+void pgp_cert_builder_add_transport_encryption_subkey(pgp_cert_builder_t *certb);
 
 /*/
 /// Adds an certification capable subkey.

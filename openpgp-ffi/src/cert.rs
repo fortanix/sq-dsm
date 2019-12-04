@@ -797,7 +797,7 @@ pub extern "C" fn pgp_cert_parser_free(parser: Option<&mut CertParserWrapper>)
 /// pgp_cert_builder_set_cipher_suite (&builder, PGP_CERT_CIPHER_SUITE_CV25519);
 /// pgp_cert_builder_add_userid (&builder, "some@example.org");
 /// pgp_cert_builder_add_signing_subkey (&builder);
-/// pgp_cert_builder_add_encryption_subkey (&builder);
+/// pgp_cert_builder_add_transport_encryption_subkey (&builder);
 /// pgp_cert_builder_generate (NULL, builder, &cert, &revocation);
 /// assert (cert);
 /// assert (revocation);
@@ -918,12 +918,12 @@ pub extern "C" fn pgp_cert_builder_add_signing_subkey
 
 /// Adds an encryption capable subkey.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_cert_builder_add_encryption_subkey
+pub extern "C" fn pgp_cert_builder_add_transport_encryption_subkey
     (certb: *mut *mut CertBuilder)
 {
     let certb = ffi_param_ref_mut!(certb);
     let certb_ = ffi_param_move!(*certb);
-    let certb_ = certb_.add_encryption_subkey();
+    let certb_ = certb_.add_transport_encryption_subkey();
     *certb = box_raw!(certb_);
 }
 

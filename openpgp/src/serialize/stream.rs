@@ -1653,7 +1653,7 @@ mod test {
 
         let (tsk, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .generate().unwrap();
 
         struct Helper<'a> {

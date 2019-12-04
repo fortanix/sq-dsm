@@ -198,7 +198,7 @@ fn decrypt() {
         let (cert, _) = CertBuilder::new()
             .set_cipher_suite(*cs)
             .add_userid("someone@example.org")
-            .add_encryption_subkey()
+            .add_transport_encryption_subkey()
             .generate().unwrap();
 
         let mut buf = Vec::new();

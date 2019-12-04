@@ -41,7 +41,7 @@ mod integration {
 //
 //     let (cert, _) = CertBuilder::default()
 //         .add_userid("Testy Mc Test")
-//         .add_encryption_subkey()
+//         .add_transport_encryption_subkey()
 //         .generate().unwrap();
 //     let subkey = cert.subkeys().next().unwrap();
 //     let key = subkey.subkey();

@@ -38,7 +38,7 @@ fn main() {
 # fn generate() -> openpgp::Result<openpgp::Cert> {
 #     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
 #         .add_userid("someone@example.org")
-#         .add_encryption_subkey()
+#         .add_transport_encryption_subkey()
 #         .generate()?;
 #
 #     // Save the revocation certificate somewhere.
@@ -52,7 +52,6 @@ fn main() {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
 #        recipient.keys_valid()
-#        .for_storage_encryption()
 #        .for_transport_encryption()
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
@@ -180,7 +179,7 @@ create it:
 fn generate() -> openpgp::Result<openpgp::Cert> {
     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
         .add_userid("someone@example.org")
-        .add_encryption_subkey()
+        .add_transport_encryption_subkey()
         .generate()?;
 
     // Save the revocation certificate somewhere.
@@ -194,7 +193,6 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
 #        recipient.keys_valid()
-#        .for_storage_encryption()
 #        .for_transport_encryption()
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
@@ -322,7 +320,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # fn generate() -> openpgp::Result<openpgp::Cert> {
 #     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
 #         .add_userid("someone@example.org")
-#         .add_encryption_subkey()
+#         .add_transport_encryption_subkey()
 #         .generate()?;
 #
 #     // Save the revocation certificate somewhere.
@@ -336,7 +334,6 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
     // Build a vector of recipients to hand to Encryptor.
     let mut recipients =
         recipient.keys_valid()
-        .for_storage_encryption()
         .for_transport_encryption()
         .map(|(_, _, key)| key.into())
         .collect::<Vec<_>>();
@@ -478,7 +475,7 @@ Decrypted data can be read from this using [`io::Read`].
 # fn generate() -> openpgp::Result<openpgp::Cert> {
 #     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
 #         .add_userid("someone@example.org")
-#         .add_encryption_subkey()
+#         .add_transport_encryption_subkey()
 #         .generate()?;
 #
 #     // Save the revocation certificate somewhere.
@@ -492,7 +489,6 @@ Decrypted data can be read from this using [`io::Read`].
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
 #        recipient.keys_valid()
-#        .for_storage_encryption()
 #        .for_transport_encryption()
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
