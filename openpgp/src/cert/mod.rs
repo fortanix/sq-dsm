@@ -688,6 +688,81 @@ pub type UnknownBindings = ComponentBindings<Unknown>;
 ///
 /// [`Cert::as_tsk()`]: #method.as_tsk
 ///
+/// # Filtering certificates
+///
+/// To filter certificates, iterate over all components, clone what
+/// you want to keep, and reassemble the certificate.  The following
+/// example simply copies all the packets, and can be adopted to
+/// suit your policy:
+///
+/// ```rust
+/// # extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+/// use openpgp::{Cert, cert::CertBuilder};
+///
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+/// fn identity_filter(cert: &Cert) -> Result<Cert> {
+///     // Iterate over all of the Cert components, pushing packets we
+///     // want to keep into the accumulator.
+///     let mut acc = Vec::new();
+///
+///     // Primary key and related signatures.
+///     acc.push(cert.primary().clone().into());
+///     for s in cert.direct_signatures()  { acc.push(s.clone().into()) }
+///     for s in cert.certifications()     { acc.push(s.clone().into()) }
+///     for s in cert.self_revocations()   { acc.push(s.clone().into()) }
+///     for s in cert.other_revocations()  { acc.push(s.clone().into()) }
+///
+///     // UserIDs and related signatures.
+///     for c in cert.userids() {
+///         acc.push(c.userid().clone().into());
+///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
+///         for s in c.certifications()    { acc.push(s.clone().into()) }
+///         for s in c.self_revocations()  { acc.push(s.clone().into()) }
+///         for s in c.other_revocations() { acc.push(s.clone().into()) }
+///     }
+///
+///     // UserAttributes and related signatures.
+///     for c in cert.user_attributes() {
+///         acc.push(c.user_attribute().clone().into());
+///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
+///         for s in c.certifications()    { acc.push(s.clone().into()) }
+///         for s in c.self_revocations()  { acc.push(s.clone().into()) }
+///         for s in c.other_revocations() { acc.push(s.clone().into()) }
+///     }
+///
+///     // Subkeys and related signatures.
+///     for c in cert.subkeys() {
+///         acc.push(c.key().clone().into());
+///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
+///         for s in c.certifications()    { acc.push(s.clone().into()) }
+///         for s in c.self_revocations()  { acc.push(s.clone().into()) }
+///         for s in c.other_revocations() { acc.push(s.clone().into()) }
+///     }
+///
+///     // Unknown components and related signatures.
+///     for c in cert.unknowns() {
+///         acc.push(c.unknown().clone().into());
+///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
+///         for s in c.certifications()    { acc.push(s.clone().into()) }
+///         for s in c.self_revocations()  { acc.push(s.clone().into()) }
+///         for s in c.other_revocations() { acc.push(s.clone().into()) }
+///     }
+///
+///     // Finally, parse into Cert.
+///     Cert::from_packet_pile(acc.into())
+/// }
+///
+/// let (cert, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     .generate()?;
+/// assert_eq!(cert, identity_filter(&cert)?);
+/// #     Ok(())
+/// # }
+/// ```
+///
 /// # Example
 ///
 /// ```rust
