@@ -131,8 +131,29 @@ pub struct Verifier<'a, H: VerificationHelper> {
     // The reserve data.
     reserve: Option<Vec<u8>>,
 
-    /// Signature verification relative to this time.
+    /// Perform the signature verification relative to this time.
+    ///
+    /// This is needed for checking the signature's liveness.
+    ///
+    /// We want the same semantics as `Subpacket::signature_alive`.
+    /// Specifically, when using the current time, we want to tolerate
+    /// some clock skew, but when using some specific time, we don't.
+    /// (See `Subpacket::signature_alive` for an explanation.)
+    ///
+    /// These semantics can be realized by making `time` an
+    /// `Option<time::SystemTime>` and passing that as is to
+    /// `Subpacket::signature_alive`.  But that approach has two new
+    /// problems.  First, if we are told to use the current time, then
+    /// we want to use the time at which the Verifier was
+    /// instantiated, not the time at which we call
+    /// `Subpacket::signature_alive`.  Second, if we call
+    /// `Subpacket::signature_alive` multiple times, they should all
+    /// use the same time.  To work around these issues, when a
+    /// Verifier is instantiated, we evaluate `time` and we record how
+    /// much we want to tolerate clock skew in the same way as
+    /// `Subpacket::signature_alive`.
     time: time::SystemTime,
+    clock_skew_tolerance: time::Duration,
 }
 
 /// Contains the result of a signature verification.
@@ -459,8 +480,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                           -> Result<Verifier<'a, H>>
         where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
@@ -475,8 +496,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         where P: AsRef<Path>,
               T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
@@ -491,7 +512,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                          -> Result<Verifier<'a, H>>
         where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
@@ -525,20 +547,29 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>,
-                                       helper: H, t: time::SystemTime)
-                                       -> Result<Verifier<'a, H>>
+    pub(crate) fn from_buffered_reader<T>(bio: Box<dyn BufferedReader<Cookie> + 'a>,
+                                          helper: H, time: T)
+        -> Result<Verifier<'a, H>>
+        where T: Into<Option<time::SystemTime>>
     {
+        let time = time.into();
+        let tolerance = time
+            .map(|_| time::Duration::new(0, 0))
+            .unwrap_or(
+                *crate::packet::signature::subpacket::CLOCK_SKEW_TOLERANCE);
+        let time = time
+            .unwrap_or_else(|| time::SystemTime::now());
+
         fn can_sign<P, R>(key: &Key<P, R>, sig: Option<&Signature>,
-                          t: time::SystemTime)
+                          time: time::SystemTime, tolerance: time::Duration)
             -> bool
             where P: key::KeyParts, R: key::KeyRole
         {
             if let Some(sig) = sig {
                 sig.key_flags().can_sign()
                 // Check expiry.
-                    && sig.signature_alive(t, None)
-                    && sig.key_alive(key, t)
+                    && sig.signature_alive(time, tolerance)
+                    && sig.key_alive(key, time)
             } else {
                 false
             }
@@ -553,7 +584,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             oppr: None,
             structure: IMessageStructure::new(),
             reserve: None,
-            time: t,
+            time: time,
+            clock_skew_tolerance: tolerance,
         };
 
         let mut issuers = Vec::new();
@@ -577,14 +609,16 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                     for (i, cert) in v.certs.iter().enumerate() {
                         if can_sign(cert.primary(),
-                                    cert.primary_key_signature(None), t) {
+                                    cert.primary_key_signature(None),
+                                    time, tolerance) {
                             v.keys.insert(cert.fingerprint().into(), (i, 0));
                             v.keys.insert(cert.keyid().into(), (i, 0));
                         }
 
                         for (j, skb) in cert.subkeys().enumerate() {
                             let key = skb.key();
-                            if can_sign(key, skb.binding_signature(None), t) {
+                            if can_sign(key, skb.binding_signature(None),
+                                        time, tolerance) {
                                 v.keys.insert(key.fingerprint().into(),
                                               (i, j + 1));
                                 v.keys.insert(key.keyid().into(),
@@ -668,7 +702,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                     = cert.keys_all().nth(*j).unwrap();
                                 results.push_verification_result(
                                     if sig.verify(key).unwrap_or(false) {
-                                        if sig.signature_alive(self.time, None)
+                                        if sig.signature_alive(
+                                            self.time, self.clock_skew_tolerance)
                                         {
                                             VerificationResult::GoodChecksum {
                                                 sig: sig.clone(),
@@ -1047,8 +1082,8 @@ impl DetachedVerifier {
         where R: io::Read + 'a, S: io::Read + 's, H: VerificationHelper,
               T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Self::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(signature_reader, None,
                                                         Default::default())),
@@ -1066,8 +1101,8 @@ impl DetachedVerifier {
         where P: AsRef<Path>, S: AsRef<Path>, H: VerificationHelper,
               T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Self::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(signature_path,
                                                      Default::default())?),
@@ -1081,10 +1116,11 @@ impl DetachedVerifier {
     /// current time, if `t` is `None`.
     pub fn from_bytes<'a, 's, H, T>(signature_bytes: &'s [u8], bytes: &'a [u8],
                                     helper: H, t: T)
-                                    -> Result<Verifier<'a, H>>
+        -> Result<Verifier<'a, H>>
         where H: VerificationHelper, T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Self::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(signature_bytes,
                                                           Default::default())),
@@ -1096,13 +1132,16 @@ impl DetachedVerifier {
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub(crate) fn from_buffered_reader<'a, 's, H>
+    pub(crate) fn from_buffered_reader<'a, 's, H, T>
         (signature_bio: Box<dyn BufferedReader<Cookie> + 's>,
          reader: Box<dyn BufferedReader<()> + 'a>,
-         helper: H, t: time::SystemTime)
+         helper: H, t: T)
          -> Result<Verifier<'a, H>>
-        where H: VerificationHelper
+        where H: VerificationHelper,
+              T: Into<Option<time::SystemTime>>
     {
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Verifier::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(
                 Transformer::new(signature_bio, reader)?,
@@ -1194,6 +1233,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
 
     /// Signature verification relative to this time.
     time: time::SystemTime,
+    clock_skew_tolerance: time::Duration,
 }
 
 /// Helper for decrypting messages.
@@ -1239,8 +1279,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                           -> Result<Decryptor<'a, H>>
         where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
@@ -1255,8 +1295,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         where P: AsRef<Path>,
               T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
@@ -1271,8 +1311,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                          -> Result<Decryptor<'a, H>>
         where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        // Do not eagerly map `t` to the current time.
+        let t = t.into();
         Decryptor::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
@@ -1303,11 +1343,20 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     }
 
     /// Creates the `Decryptor`, and buffers the data up to `BUFFER_SIZE`.
-    pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>,
-                                       helper: H, t: time::SystemTime)
-                                       -> Result<Decryptor<'a, H>>
+    pub(crate) fn from_buffered_reader<T>(bio: Box<dyn BufferedReader<Cookie> + 'a>,
+                                          helper: H, time: T)
+        -> Result<Decryptor<'a, H>>
+        where T: Into<Option<time::SystemTime>>
     {
         tracer!(TRACE, "Decryptor::from_buffered_reader", 0);
+
+        let time = time.into();
+        let tolerance = time
+            .map(|_| time::Duration::new(0, 0))
+            .unwrap_or(
+                *crate::packet::signature::subpacket::CLOCK_SKEW_TOLERANCE);
+        let time = time
+            .unwrap_or_else(|| time::SystemTime::now());
 
         let mut ppr = PacketParserBuilder::from_buffered_reader(bio)?
             .map(helper.mapping()).finalize()?;
@@ -1320,7 +1369,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             identity: None,
             structure: IMessageStructure::new(),
             reserve: None,
-            time: t,
+            time: time,
+            clock_skew_tolerance: tolerance,
         };
 
         let mut issuers = Vec::new();
@@ -1389,8 +1439,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             if let Some(sig) = sig {
                                 sig.key_flags().can_sign()
                                 // Check expiry.
-                                    && sig.signature_alive(t, None)
-                                    && sig.key_alive(key, t)
+                                    && sig.signature_alive(time, tolerance)
+                                    && sig.key_alive(key, time)
                             } else {
                                 false
                             }
@@ -1543,7 +1593,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     = cert.keys_all().nth(*j).unwrap();
                                 results.push_verification_result(
                                     if sig.verify(key).unwrap_or(false) &&
-                                        sig.signature_alive(self.time, None)
+                                        sig.signature_alive(
+                                            self.time, self.clock_skew_tolerance)
                                     {
                                         // Check intended recipients.
                                         if let Some(identity) =
