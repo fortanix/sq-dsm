@@ -751,6 +751,9 @@ pub type UnknownBindings = ComponentBindings<Unknown>;
 ///         for s in c.other_revocations() { acc.push(s.clone().into()) }
 ///     }
 ///
+///     // Any signatures that we could not associate with a component.
+///     for s in cert.bad_signatures()     { acc.push(s.clone().into()) }
+///
 ///     // Finally, parse into Cert.
 ///     Cert::from_packet_pile(acc.into())
 /// }
