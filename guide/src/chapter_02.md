@@ -13,7 +13,7 @@ use std::io::{self, Write};
 
 extern crate sequoia_openpgp as openpgp;
 use openpgp::crypto::SessionKey;
-use openpgp::types::{KeyFlags, SymmetricAlgorithm};
+use openpgp::types::SymmetricAlgorithm;
 use openpgp::serialize::stream::*;
 use openpgp::parse::stream::*;
 
@@ -52,9 +52,8 @@ fn main() {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
 #        recipient.keys_valid()
-#        .key_flags(KeyFlags::default()
-#                   .set_storage_encryption(true)
-#                   .set_transport_encryption(true))
+#        .for_storage_encryption()
+#        .for_transport_encryption()
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
 #
@@ -156,7 +155,7 @@ create it:
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::types::{KeyFlags, SymmetricAlgorithm};
+# use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
 #
@@ -195,9 +194,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
 #        recipient.keys_valid()
-#        .key_flags(KeyFlags::default()
-#                   .set_storage_encryption(true)
-#                   .set_transport_encryption(true))
+#        .for_storage_encryption()
+#        .for_transport_encryption()
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
 #
@@ -299,7 +297,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::types::{KeyFlags, SymmetricAlgorithm};
+# use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
 #
@@ -338,9 +336,8 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
     // Build a vector of recipients to hand to Encryptor.
     let mut recipients =
         recipient.keys_valid()
-        .key_flags(KeyFlags::default()
-                   .set_storage_encryption(true)
-                   .set_transport_encryption(true))
+        .for_storage_encryption()
+        .for_transport_encryption()
         .map(|(_, _, key)| key.into())
         .collect::<Vec<_>>();
 
@@ -456,7 +453,7 @@ Decrypted data can be read from this using [`io::Read`].
 #
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::crypto::SessionKey;
-# use openpgp::types::{KeyFlags, SymmetricAlgorithm};
+# use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
 #
@@ -495,9 +492,8 @@ Decrypted data can be read from this using [`io::Read`].
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
 #        recipient.keys_valid()
-#        .key_flags(KeyFlags::default()
-#                   .set_storage_encryption(true)
-#                   .set_transport_encryption(true))
+#        .for_storage_encryption()
+#        .for_transport_encryption()
 #        .map(|(_, _, key)| key.into())
 #        .collect::<Vec<_>>();
 #

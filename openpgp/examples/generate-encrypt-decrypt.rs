@@ -4,7 +4,7 @@ use std::io::{self, Write};
 
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::crypto::SessionKey;
-use crate::openpgp::types::{KeyFlags, SymmetricAlgorithm};
+use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::serialize::stream::*;
 use crate::openpgp::parse::stream::*;
 
@@ -43,9 +43,8 @@ fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
     // Build a vector of recipients to hand to Encryptor.
     let mut recipients =
         recipient.keys_valid()
-        .key_flags(KeyFlags::default()
-                   .set_encrypt_at_rest(true)
-                   .set_encrypt_for_transport(true))
+        .for_storage_encryption()
+        .for_transport_encryption()
         .map(|(_, _, key)| key.into())
         .collect::<Vec<_>>();
 
