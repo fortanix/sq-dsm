@@ -647,23 +647,24 @@ mod tests {
                         None)
             .generate().unwrap();
 
-        let now = cert.primary().creation_time();
+        let now = cert.primary().creation_time()
+            + 5 * s; // The subkeys may be created a tad later.
         let key = cert.primary();
         let sig = cert.primary_key_signature(None).unwrap();
         assert!(sig.key_alive(key, now));
-        assert!(sig.key_alive(key, now + 599 * s));
-        assert!(! sig.key_alive(key, now + 601 * s));
+        assert!(sig.key_alive(key, now + 590 * s));
+        assert!(! sig.key_alive(key, now + 610 * s));
 
         let (sig, key) = cert.keys_valid().for_signing()
             .nth(0).map(|(s, _, k)| (s.unwrap(), k)).unwrap();
         assert!(sig.key_alive(key, now));
-        assert!(sig.key_alive(key, now + 299 * s));
-        assert!(! sig.key_alive(key, now + 301 * s));
+        assert!(sig.key_alive(key, now + 290 * s));
+        assert!(! sig.key_alive(key, now + 310 * s));
 
         let (sig, key) = cert.keys_valid().for_authentication()
             .nth(0).map(|(s, _, k)| (s.unwrap(), k)).unwrap();
         assert!(sig.key_alive(key, now));
-        assert!(sig.key_alive(key, now + 599 * s));
-        assert!(! sig.key_alive(key, now + 601 * s));
+        assert!(sig.key_alive(key, now + 590 * s));
+        assert!(! sig.key_alive(key, now + 610 * s));
     }
 }
