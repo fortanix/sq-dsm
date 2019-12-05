@@ -702,9 +702,9 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     /// creation time and algorithm of the two `Key`s match.  This
     /// does not consider the packet's encoding, packet's tag or the
     /// secret key material.
-    pub fn public_cmp(a: &Self, b: &Self) -> ::std::cmp::Ordering {
-        match (a, b) {
-            (Key::V4(a), Key::V4(b)) => self::key::Key4::public_cmp(a, b),
+    pub fn public_cmp(&self, b: &Self) -> ::std::cmp::Ordering {
+        match (self, b) {
+            (Key::V4(a), Key::V4(b)) => a.public_cmp(b),
         }
     }
 }
