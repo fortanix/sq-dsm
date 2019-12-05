@@ -1595,9 +1595,50 @@ impl Cert {
     ///
     /// This recanonicalizes the Cert.  If the packets are invalid,
     /// they are dropped.
-    pub fn merge_packets(self, mut packets: Vec<Packet>) -> Result<Self> {
+    ///
+    /// If a key is merged in that already exists in the cert, it
+    /// replaces the key.  This way, secret key material can be added,
+    /// removed, encrypted, or decrypted.
+    pub fn merge_packets(self, packets: Vec<Packet>) -> Result<Self> {
         let mut combined = self.into_packets().collect::<Vec<_>>();
-        combined.append(&mut packets);
+
+        fn replace_or_push<P, R>(acc: &mut Vec<Packet>, k: Key<P, R>)
+            where P: key::KeyParts,
+                  R: key::KeyRole,
+                  Packet: From<packet::Key<P, R>>,
+        {
+            use std::cmp::Ordering;
+            for q in acc.iter_mut() {
+                let replace = match q {
+                    Packet::PublicKey(k_) =>
+                        k_.public_cmp(&k) == Ordering::Equal,
+                    Packet::SecretKey(k_) =>
+                        k_.public_cmp(&k) == Ordering::Equal,
+                    Packet::PublicSubkey(k_) =>
+                        k_.public_cmp(&k) == Ordering::Equal,
+                    Packet::SecretSubkey(k_) =>
+                        k_.public_cmp(&k) == Ordering::Equal,
+                    _ => false,
+                };
+
+                if replace {
+                    *q = k.into();
+                    return;
+                }
+            }
+            acc.push(k.into());
+        };
+
+        for p in packets.into_iter() {
+            match p {
+                Packet::PublicKey(k) => replace_or_push(&mut combined, k),
+                Packet::SecretKey(k) => replace_or_push(&mut combined, k),
+                Packet::PublicSubkey(k) => replace_or_push(&mut combined, k),
+                Packet::SecretSubkey(k) => replace_or_push(&mut combined, k),
+                p => combined.push(p),
+            }
+        }
+
         Cert::from_packet_pile(PacketPile::from(combined))
     }
 
@@ -3192,4 +3233,25 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 true);
         }
    }
+
+    #[test]
+    fn decrypt_secrets() {
+        let (cert, _) = CertBuilder::new()
+            .add_transport_encryption_subkey()
+            .set_password(Some(String::from("streng geheim").into()))
+            .generate().unwrap();
+        assert_eq!(cert.keys_all().secret().count(), 2);
+        assert_eq!(cert.keys_all().unencrypted_secret().count(), 0);
+
+        let mut primary = cert.primary().clone();
+        let algo = primary.pk_algo();
+        primary.secret_mut().unwrap()
+            .decrypt_in_place(algo, &"streng geheim".into()).unwrap();
+        let cert = cert.merge_packets(vec![
+            primary.mark_parts_secret().unwrap().mark_role_primary().into()
+        ]).unwrap();
+
+        assert_eq!(cert.keys_all().secret().count(), 2);
+        assert_eq!(cert.keys_all().unencrypted_secret().count(), 1);
+    }
 }
