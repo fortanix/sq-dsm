@@ -44,8 +44,7 @@ pub mod key;
 
 /// Returns suitable signing keys from a given list of Certs.
 fn get_signing_keys(certs: &[openpgp::Cert])
-    -> Result<Vec<crypto::KeyPair<
-           openpgp::packet::key::UnspecifiedRole>>>
+    -> Result<Vec<crypto::KeyPair>>
 {
     let mut keys = Vec::new();
     'next_cert: for tsk in certs {

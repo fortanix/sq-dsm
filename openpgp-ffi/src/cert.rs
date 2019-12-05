@@ -232,8 +232,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_revoke(errp: Option<&mut *mut crate::error::Error>,
                   cert: *const Cert,
-                  primary_signer: *mut Box<dyn crypto::Signer<
-                          openpgp::packet::key::UnspecifiedRole>>,
+                  primary_signer: *mut Box<dyn crypto::Signer>,
                   code: c_int,
                   reason: Option<&c_char>)
                   -> Maybe<Signature>
@@ -299,8 +298,7 @@ fn pgp_cert_revoke(errp: Option<&mut *mut crate::error::Error>,
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
                            cert: *mut Cert,
-                           primary_signer: *mut Box<dyn crypto::Signer<
-                                   openpgp::packet::key::UnspecifiedRole>>,
+                           primary_signer: *mut Box<dyn crypto::Signer>,
                            code: c_int,
                            reason: Option<&c_char>)
                            -> Maybe<Cert>
@@ -342,10 +340,10 @@ fn pgp_cert_alive(cert: *const Cert, when: time_t)
 /// This function consumes `cert` and returns a new `Cert`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_set_expiry(errp: Option<&mut *mut crate::error::Error>,
-                      cert: *mut Cert, primary_signer: *mut Box<dyn crypto::Signer<
-                              openpgp::packet::key::UnspecifiedRole>>,
-                      expiry: u32)
-                      -> Maybe<Cert> {
+                       cert: *mut Cert,
+                       primary_signer: *mut Box<dyn crypto::Signer>,
+                       expiry: u32)
+                       -> Maybe<Cert> {
     let cert = cert.move_from_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
 

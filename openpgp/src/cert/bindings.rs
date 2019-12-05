@@ -52,12 +52,11 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// // Check that we have an encryption subkey.
     /// assert_eq!(cert.keys_valid().key_flags(flags).count(), 1);
     /// # Ok(()) }
-    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
-                      signature: signature::Builder,
-                      creation_time: T)
+    pub fn bind<T>(&self, signer: &mut dyn Signer, cert: &Cert,
+                   signature: signature::Builder,
+                   creation_time: T)
         -> Result<Signature>
-        where T: Into<Option<time::SystemTime>>,
-              R: key::KeyRole
+        where T: Into<Option<time::SystemTime>>
     {
         signature
             .set_signature_creation_time(
@@ -110,12 +109,11 @@ impl UserID {
     /// // Check that we have a userid.
     /// assert_eq!(cert.userids().len(), 1);
     /// # Ok(()) }
-    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
-                      signature: signature::Builder,
-                      creation_time: T)
-                      -> Result<Signature>
-        where T: Into<Option<time::SystemTime>>,
-              R: key::KeyRole
+    pub fn bind<T>(&self, signer: &mut dyn Signer, cert: &Cert,
+                   signature: signature::Builder,
+                   creation_time: T)
+                   -> Result<Signature>
+        where T: Into<Option<time::SystemTime>>
     {
         signature
             .set_signature_creation_time(
@@ -180,14 +178,13 @@ impl UserID {
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
-    pub fn certify<S, H, T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
-                               signature_type: S,
-                               hash_algo: H, creation_time: T)
+    pub fn certify<S, H, T>(&self, signer: &mut dyn Signer, cert: &Cert,
+                            signature_type: S,
+                            hash_algo: H, creation_time: T)
         -> Result<Signature>
         where S: Into<Option<SignatureType>>,
               H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::SystemTime>>,
-              R: key::KeyRole
+              T: Into<Option<time::SystemTime>>
     {
         let typ = signature_type.into();
         let typ = match typ {
@@ -257,12 +254,11 @@ impl UserAttribute {
     /// // Check that we have a user attribute.
     /// assert_eq!(cert.user_attributes().len(), 1);
     /// # Ok(()) }
-    pub fn bind<T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
-                      signature: signature::Builder,
-                      creation_time: T)
+    pub fn bind<T>(&self, signer: &mut dyn Signer, cert: &Cert,
+                   signature: signature::Builder,
+                   creation_time: T)
         -> Result<Signature>
-        where T: Into<Option<time::SystemTime>>,
-              R: key::KeyRole
+        where T: Into<Option<time::SystemTime>>
     {
         signature
             .set_signature_creation_time(
@@ -331,14 +327,13 @@ impl UserAttribute {
     /// assert_eq!(bob.user_attributes().nth(0).unwrap().certifications().len(),
     ///            1);
     /// # Ok(()) }
-    pub fn certify<S, H, T, R>(&self, signer: &mut dyn Signer<R>, cert: &Cert,
-                               signature_type: S,
-                               hash_algo: H, creation_time: T)
+    pub fn certify<S, H, T>(&self, signer: &mut dyn Signer, cert: &Cert,
+                            signature_type: S,
+                            hash_algo: H, creation_time: T)
         -> Result<Signature>
         where S: Into<Option<SignatureType>>,
               H: Into<Option<HashAlgorithm>>,
-              T: Into<Option<time::SystemTime>>,
-              R: key::KeyRole
+              T: Into<Option<time::SystemTime>>
     {
         let typ = signature_type.into();
         let typ = match typ {

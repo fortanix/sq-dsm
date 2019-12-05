@@ -100,10 +100,9 @@ impl CertRevocationBuilder {
 
     /// Returns a revocation certificate for the cert `Cert` signed by
     /// `signer`.
-    pub fn build<H, R>(self, signer: &mut dyn Signer<R>, cert: &Cert, hash_algo: H)
+    pub fn build<H>(self, signer: &mut dyn Signer, cert: &Cert, hash_algo: H)
         -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>,
-              R: key::KeyRole
+        where H: Into<Option<HashAlgorithm>>
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let mut hash = hash_algo.context()?;
@@ -221,12 +220,11 @@ impl SubkeyRevocationBuilder {
 
     /// Returns a revocation certificate for the cert `Cert` signed by
     /// `signer`.
-    pub fn build<H, R>(mut self, signer: &mut dyn Signer<R>,
-                       cert: &Cert, key: &key::PublicSubkey,
-                       hash_algo: H)
+    pub fn build<H>(mut self, signer: &mut dyn Signer,
+                    cert: &Cert, key: &key::PublicSubkey,
+                    hash_algo: H)
         -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>,
-              R: key::KeyRole
+        where H: Into<Option<HashAlgorithm>>
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time
@@ -337,12 +335,11 @@ impl UserIDRevocationBuilder {
 
     /// Returns a revocation certificate for the cert `Cert` signed by
     /// `signer`.
-    pub fn build<H, R>(mut self, signer: &mut dyn Signer<R>,
-                       cert: &Cert, userid: &UserID,
-                       hash_algo: H)
+    pub fn build<H>(mut self, signer: &mut dyn Signer,
+                    cert: &Cert, userid: &UserID,
+                    hash_algo: H)
         -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>,
-              R: key::KeyRole
+        where H: Into<Option<HashAlgorithm>>
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time
@@ -456,12 +453,11 @@ impl UserAttributeRevocationBuilder {
 
     /// Returns a revocation certificate for the cert `Cert` signed by
     /// `signer`.
-    pub fn build<H, R>(mut self, signer: &mut dyn Signer<R>,
-                       cert: &Cert, ua: &UserAttribute,
-                       hash_algo: H)
+    pub fn build<H>(mut self, signer: &mut dyn Signer,
+                    cert: &Cert, ua: &UserAttribute,
+                    hash_algo: H)
         -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>,
-              R: key::KeyRole
+        where H: Into<Option<HashAlgorithm>>
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time

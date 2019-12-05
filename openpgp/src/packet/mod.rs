@@ -744,7 +744,7 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     /// # Errors
     ///
     /// Fails if the secret key is missing, or encrypted.
-    pub fn into_keypair(mut self) -> Result<KeyPair<R>> {
+    pub fn into_keypair(mut self) -> Result<KeyPair> {
         use crate::packet::key::SecretKeyMaterial;
         let secret = match self.set_secret(None) {
             Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
@@ -756,7 +756,7 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
                     "no secret key".into()).into()),
         };
 
-        KeyPair::new(self.into(), secret)
+        KeyPair::new(self.mark_role_unspecified().into(), secret)
     }
 }
 
@@ -767,7 +767,7 @@ impl<R: key::KeyRole> key::Key4<key::SecretParts, R> {
     /// # Errors
     ///
     /// Fails if the secret key is missing, or encrypted.
-    pub fn into_keypair(mut self) -> Result<KeyPair<R>> {
+    pub fn into_keypair(mut self) -> Result<KeyPair> {
         use crate::packet::key::SecretKeyMaterial;
         let secret = match self.set_secret(None) {
             Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
@@ -779,7 +779,8 @@ impl<R: key::KeyRole> key::Key4<key::SecretParts, R> {
                     "no secret key".into()).into()),
         };
 
-        KeyPair::new(self.mark_parts_public().into(), secret)
+        KeyPair::new(self.mark_role_unspecified().mark_parts_public().into(),
+                     secret)
     }
 }
 

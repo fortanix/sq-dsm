@@ -149,9 +149,8 @@ impl PKESK3 {
 
     /// Decrypts the ESK and returns the session key and symmetric algorithm
     /// used to encrypt the following payload.
-    pub fn decrypt<R>(&self, decryptor: &mut dyn Decryptor<R>)
+    pub fn decrypt(&self, decryptor: &mut dyn Decryptor)
         -> Result<(SymmetricAlgorithm, SessionKey)>
-        where R: key::KeyRole
     {
         let plain = decryptor.decrypt(&self.esk)?;
         let key_rgn = 1..(plain.len() - 2);

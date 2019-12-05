@@ -203,7 +203,7 @@ pub struct Signer<'a> {
     // take our inner reader.  If that happens, we only update the
     // digests.
     inner: Option<writer::BoxStack<'a, Cookie>>,
-    signers: Vec<Box<dyn crypto::Signer<key::UnspecifiedRole> + 'a>>,
+    signers: Vec<Box<dyn crypto::Signer + 'a>>,
     intended_recipients: Vec<Fingerprint>,
     detached: bool,
     hash: crypto::hash::Context,
@@ -231,7 +231,7 @@ impl<'a> Signer<'a> {
     /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
-    /// # fn f(cert: Cert, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
+    /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
     /// #      -> Result<()> {
     ///
     /// let mut o = vec![];
@@ -272,7 +272,7 @@ impl<'a> Signer<'a> {
     /// # }
     /// ```
     pub fn new<S>(inner: writer::Stack<'a, Cookie>, signer: S) -> Self
-        where S: crypto::Signer<key::UnspecifiedRole> + 'a
+        where S: crypto::Signer + 'a
     {
         let inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
@@ -298,7 +298,7 @@ impl<'a> Signer<'a> {
 
     /// Adds an additional signer.
     pub fn add_signer<S>(mut self, signer: S) -> Self
-        where S: crypto::Signer<key::UnspecifiedRole> + 'a
+        where S: crypto::Signer + 'a
     {
         self.signers.push(Box::new(signer));
         self
@@ -334,7 +334,7 @@ impl<'a> Signer<'a> {
     /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
-    /// # fn f(cert: Cert, mut signing_keypair: KeyPair<key::UnspecifiedRole>)
+    /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
     /// #      -> Result<()> {
     ///
     /// let mut o = vec![];
@@ -1479,7 +1479,7 @@ mod test {
             let mut signers = keys.iter().map(|(_, key)| {
                 key.clone().mark_parts_secret().unwrap().into_keypair()
                     .expect("expected unencrypted secret key")
-            }).collect::<Vec<KeyPair<_>>>();
+            }).collect::<Vec<KeyPair>>();
 
             let m = Message::new(&mut o);
             let mut signer = Signer::new(m, signers.pop().unwrap());

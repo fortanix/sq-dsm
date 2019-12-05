@@ -10,7 +10,6 @@ extern crate sequoia_openpgp as openpgp;
 
 use crate::openpgp::crypto::{KeyPair, SessionKey};
 use crate::openpgp::types::SymmetricAlgorithm;
-use crate::openpgp::packet::key;
 use crate::openpgp::parse::{
     Parse,
     stream::{
@@ -50,7 +49,7 @@ pub fn main() {
 /// keys for the signature verification and implements the
 /// verification policy.
 struct Helper {
-    keys: HashMap<openpgp::KeyID, KeyPair<key::UnspecifiedRole>>,
+    keys: HashMap<openpgp::KeyID, KeyPair>,
 }
 
 impl Helper {

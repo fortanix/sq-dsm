@@ -138,9 +138,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_standalone<R>(mut self, signer: &mut dyn Signer<R>)
-                              -> Result<Signature>
-        where R: key::KeyRole
+    pub fn sign_standalone(mut self, signer: &mut dyn Signer)
+                           -> Result<Signature>
     {
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::standalone_hash(&self)?;
@@ -151,9 +150,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_timestamp<R>(mut self, signer: &mut dyn Signer<R>)
-                              -> Result<Signature>
-        where R: key::KeyRole
+    pub fn sign_timestamp(mut self, signer: &mut dyn Signer)
+                          -> Result<Signature>
     {
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::timestamp_hash(&self)?;
@@ -164,9 +162,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_primary_key_binding<R>(mut self, signer: &mut dyn Signer<R>)
+    pub fn sign_primary_key_binding(mut self, signer: &mut dyn Signer)
         -> Result<Signature>
-        where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
         let digest =
@@ -181,11 +178,10 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_userid_binding<R>(mut self, signer: &mut dyn Signer<R>,
-                                 key: &key::PublicKey,
-                                 userid: &UserID)
+    pub fn sign_userid_binding(mut self, signer: &mut dyn Signer,
+                               key: &key::PublicKey,
+                               userid: &UserID)
         -> Result<Signature>
-        where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::userid_binding_hash(&self, key, userid)?;
@@ -197,12 +193,11 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_subkey_binding<P, R>(mut self, signer: &mut dyn Signer<R>,
-                                     primary: &key::PublicKey,
-                                     subkey: &Key<P, key::SubordinateRole>)
+    pub fn sign_subkey_binding<P>(mut self, signer: &mut dyn Signer,
+                                  primary: &key::PublicKey,
+                                  subkey: &Key<P, key::SubordinateRole>)
         -> Result<Signature>
-        where P: key:: KeyParts,
-              R: key::KeyRole
+        where P: key:: KeyParts
     {
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::subkey_binding_hash(&self, primary, subkey)?;
@@ -214,11 +209,10 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_user_attribute_binding<R>(mut self, signer: &mut dyn Signer<R>,
-                                          key: &key::PublicKey,
-                                          ua: &UserAttribute)
+    pub fn sign_user_attribute_binding(mut self, signer: &mut dyn Signer,
+                                       key: &key::PublicKey,
+                                       ua: &UserAttribute)
         -> Result<Signature>
-        where R: key::KeyRole
     {
         self.pk_algo = signer.public().pk_algo();
         let digest =
@@ -231,10 +225,9 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_hash<R>(mut self, signer: &mut dyn Signer<R>,
-                        mut hash: hash::Context)
+    pub fn sign_hash(mut self, signer: &mut dyn Signer,
+                     mut hash: hash::Context)
         -> Result<Signature>
-        where R: key::KeyRole
     {
         // Fill out some fields, then hash the packet.
         self.pk_algo = signer.public().pk_algo();
@@ -252,9 +245,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_message<R>(mut self, signer: &mut dyn Signer<R>, msg: &[u8])
+    pub fn sign_message(mut self, signer: &mut dyn Signer, msg: &[u8])
         -> Result<Signature>
-        where R: key::KeyRole
     {
         // Hash the message
         let mut hash = self.hash_algo.context()?;
@@ -271,9 +263,8 @@ impl Builder {
         self.sign(signer, digest)
     }
 
-    fn sign<R>(self, signer: &mut dyn Signer<R>, digest: Vec<u8>)
+    fn sign(self, signer: &mut dyn Signer, digest: Vec<u8>)
         -> Result<Signature>
-        where R: key::KeyRole
     {
         let algo = self.hash_algo;
         let mpis = signer.sign(algo, &digest)?;

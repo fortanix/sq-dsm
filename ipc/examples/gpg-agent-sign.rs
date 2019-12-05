@@ -42,7 +42,7 @@ fn main() {
         cert.keys_valid().for_signing().filter_map(|(_, _, key)| {
             KeyPair::new(&ctx, key).ok()
         })
-    }).collect::<Vec<KeyPair<_>>>();
+    }).collect::<Vec<KeyPair>>();
 
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.  First, we want the output to be

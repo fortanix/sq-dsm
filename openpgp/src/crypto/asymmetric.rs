@@ -16,19 +16,17 @@ use crate::Result;
 /// signature.  Using this trait allows Sequoia to perform all
 /// operations involving signing to use a variety of secret key
 /// storage mechanisms (e.g. smart cards).
-pub trait Signer<R>
-    where R: key::KeyRole
-{
+pub trait Signer {
     /// Returns a reference to the public key.
-    fn public(&self) -> &Key<key::PublicParts, R>;
+    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole>;
 
     /// Creates a signature over the `digest` produced by `hash_algo`.
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
             -> Result<mpis::Signature>;
 }
 
-impl<R: key::KeyRole> Signer<R> for Box<dyn Signer<R>> {
-    fn public(&self) -> &Key<key::PublicParts, R> {
+impl Signer for Box<dyn Signer> {
+    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
         self.as_ref().public()
     }
 
@@ -44,11 +42,9 @@ impl<R: key::KeyRole> Signer<R> for Box<dyn Signer<R>> {
 /// ciphertext.  Using this trait allows Sequoia to perform all
 /// operations involving decryption to use a variety of secret key
 /// storage mechanisms (e.g. smart cards).
-pub trait Decryptor<R>
-    where R: key::KeyRole
-{
+pub trait Decryptor {
     /// Returns a reference to the public key.
-    fn public(&self) -> &Key<key::PublicParts, R>;
+    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole>;
 
     /// Decrypts `ciphertext`, returning the plain session key.
     fn decrypt(&mut self, ciphertext: &mpis::Ciphertext)
@@ -64,18 +60,14 @@ pub trait Decryptor<R>
 /// [`Signer`]: trait.Signer.html
 /// [`Decryptor`]: trait.Decryptor.html
 #[derive(Clone)]
-pub struct KeyPair<R>
-    where R: key::KeyRole
-{
-    public: Key<key::PublicParts, R>,
+pub struct KeyPair {
+    public: Key<key::PublicParts, key::UnspecifiedRole>,
     secret: packet::key::Unencrypted,
 }
 
-impl<R> KeyPair<R>
-    where R: key::KeyRole
-{
+impl KeyPair {
     /// Creates a new key pair.
-    pub fn new(public: Key<key::PublicParts, R>,
+    pub fn new(public: Key<key::PublicParts, key::UnspecifiedRole>,
                secret: packet::key::Unencrypted)
         -> Result<Self>
     {
@@ -86,7 +78,7 @@ impl<R> KeyPair<R>
     }
 
     /// Returns a reference to the public key.
-    pub fn public(&self) -> &Key<key::PublicParts, R> {
+    pub fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
         &self.public
     }
 
@@ -96,10 +88,8 @@ impl<R> KeyPair<R>
     }
 }
 
-impl<R> Signer<R> for KeyPair<R>
-    where R: key::KeyRole
-{
-    fn public(&self) -> &Key<key::PublicParts, R> {
+impl Signer for KeyPair {
+    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
         &self.public
     }
 
@@ -226,10 +216,8 @@ impl<R> Signer<R> for KeyPair<R>
     }
 }
 
-impl<R> Decryptor<R> for KeyPair<R>
-    where R: key::KeyRole
-{
-    fn public(&self) -> &Key<key::PublicParts, R> {
+impl Decryptor for KeyPair {
+    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
         &self.public
     }
 
@@ -274,10 +262,8 @@ impl<R> Decryptor<R> for KeyPair<R>
     }
 }
 
-impl<R> From<KeyPair<R>> for Key<key::SecretParts, R>
-    where R: key::KeyRole
-{
-    fn from(p: KeyPair<R>) -> Self {
+impl From<KeyPair> for Key<key::SecretParts, key::UnspecifiedRole> {
+    fn from(p: KeyPair) -> Self {
         let (mut key, secret) = (p.public, p.secret);
         key.set_secret(Some(secret.into()));
         key.mark_parts_secret().expect("XXX")

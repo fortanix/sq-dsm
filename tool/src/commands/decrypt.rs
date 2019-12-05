@@ -96,7 +96,7 @@ impl<'a> Helper<'a> {
     /// Tries to decrypt the given PKESK packet with `keypair` and try
     /// to decrypt the packet parser using `decrypt`.
     fn try_decrypt<D>(&self, pkesk: &PKESK,
-                      keypair: &mut dyn crypto::Decryptor<key::UnspecifiedRole>,
+                      keypair: &mut dyn crypto::Decryptor,
                       decrypt: &mut D)
                       -> openpgp::Result<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>

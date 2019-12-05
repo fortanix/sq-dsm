@@ -76,8 +76,7 @@ fn pgp_key_public_key_bits(key: *const Key) -> c_int {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_key_into_key_pair(errp: Option<&mut *mut crate::error::Error>,
                          key: *mut Key)
-                         -> *mut self::openpgp::crypto::KeyPair<
-                                self::openpgp::packet::key::UnspecifiedRole>
+                         -> *mut self::openpgp::crypto::KeyPair
 {
     ffi_make_fry_from_errp!(errp);
     let key : self::openpgp::packet::key::UnspecifiedSecret

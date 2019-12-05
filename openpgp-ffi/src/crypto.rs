@@ -58,8 +58,7 @@ fn pgp_password_from_bytes(buf: *const u8, size: size_t) -> *mut Password {
 /// Frees a signer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_signer_free
-    (s: Option<&mut &'static mut dyn crypto::Signer<
-            openpgp::packet::key::UnspecifiedRole>>)
+    (s: Option<&mut &'static mut dyn crypto::Signer>)
 {
     ffi_free!(s)
 }
@@ -69,7 +68,7 @@ pub extern "C" fn pgp_signer_free
 pub extern "C" fn pgp_key_pair_new
     (errp: Option<&mut *mut crate::error::Error>, public: *mut Key,
      secret: *mut openpgp::packet::key::Unencrypted)
-     -> *mut crypto::KeyPair<openpgp::packet::key::UnspecifiedRole>
+     -> *mut crypto::KeyPair
 {
     ffi_make_fry_from_errp!(errp);
     let public = public.move_from_raw();
@@ -80,7 +79,7 @@ pub extern "C" fn pgp_key_pair_new
 /// Frees a key pair.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_key_pair_free
-    (kp: Option<&mut crypto::KeyPair<openpgp::packet::key::UnspecifiedRole>>)
+    (kp: Option<&mut crypto::KeyPair>)
 {
     ffi_free!(kp)
 }
@@ -91,11 +90,11 @@ pub extern "C" fn pgp_key_pair_free
 /// must not outlive the key pair.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_key_pair_as_signer
-    (kp: *mut crypto::KeyPair<openpgp::packet::key::UnspecifiedRole>)
-     -> *mut &'static mut dyn crypto::Signer<openpgp::packet::key::UnspecifiedRole>
+    (kp: *mut crypto::KeyPair)
+     -> *mut &'static mut dyn crypto::Signer
 {
     let kp = ffi_param_ref_mut!(kp);
-    let signer: &mut dyn crypto::Signer<_> = kp;
+    let signer: &mut dyn crypto::Signer = kp;
     box_raw!(signer)
     //box_raw!(kp)
 }

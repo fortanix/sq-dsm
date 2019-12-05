@@ -685,34 +685,30 @@ impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
 /// A `KeyPair` is a combination of public and secret key.  This
 /// particular implementation does not have the secret key, but
 /// diverges the cryptographic operations to `gpg-agent`.
-pub struct KeyPair<'a, R>
-    where R: key::KeyRole
-{
-    public: &'a Key<key::PublicParts, R>,
+pub struct KeyPair<'a> {
+    public: &'a Key<key::PublicParts, key::UnspecifiedRole>,
     agent_socket: PathBuf,
 }
 
-impl<'a, R> KeyPair<'a, R>
-    where R: key::KeyRole
-{
+impl<'a> KeyPair<'a> {
     /// Returns a `KeyPair` for `key` with the secret bits managed by
     /// the agent.
     ///
     /// This provides a convenient, synchronous interface for use with
     /// the low-level Sequoia crate.
-    pub fn new(ctx: &Context, key: &'a Key<key::PublicParts, R>)
-               -> Result<KeyPair<'a, R>> {
+    pub fn new<R>(ctx: &Context, key: &'a Key<key::PublicParts, R>)
+                  -> Result<KeyPair<'a>>
+        where R: key::KeyRole
+    {
         Ok(KeyPair {
-            public: key,
+            public: key.mark_role_unspecified_ref(),
             agent_socket: ctx.socket("agent")?.into(),
         })
     }
 }
 
-impl<'a, R> crypto::Signer<R> for KeyPair<'a, R>
-    where R: key::KeyRole
-{
-    fn public(&self) -> &Key<key::PublicParts, R> {
+impl<'a> crypto::Signer for KeyPair<'a> {
+    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
         self.public
     }
 
@@ -742,10 +738,8 @@ impl<'a, R> crypto::Signer<R> for KeyPair<'a, R>
     }
 }
 
-impl<'a, R> crypto::Decryptor<R> for KeyPair<'a, R>
-    where R: key::KeyRole
-{
-    fn public(&self) -> &Key<key::PublicParts, R> {
+impl<'a> crypto::Decryptor for KeyPair<'a> {
+    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
         self.public
     }
 

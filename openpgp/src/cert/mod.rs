@@ -1095,10 +1095,9 @@ impl Cert {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn revoke_in_place<R>(self, primary_signer: &mut dyn Signer<R>,
-                              code: ReasonForRevocation, reason: &[u8])
+    pub fn revoke_in_place(self, primary_signer: &mut dyn Signer,
+                           code: ReasonForRevocation, reason: &[u8])
         -> Result<Cert>
-        where R: key::KeyRole
     {
         let sig = CertRevocationBuilder::new()
             .set_reason_for_revocation(code, reason)?
@@ -1137,11 +1136,10 @@ impl Cert {
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
-    fn set_expiry_as_of<R>(self, primary_signer: &mut dyn Signer<R>,
-                           expiration: Option<time::Duration>,
-                           now: time::SystemTime)
+    fn set_expiry_as_of(self, primary_signer: &mut dyn Signer,
+                        expiration: Option<time::Duration>,
+                        now: time::SystemTime)
         -> Result<Cert>
-        where R: key::KeyRole
     {
         let sig = {
             let (template, userid) = self
@@ -1173,10 +1171,9 @@ impl Cert {
     ///
     /// Note: the time is relative to the key's creation time, not the
     /// current time!
-    pub fn set_expiry<R>(self, primary_signer: &mut dyn Signer<R>,
-                         expiration: Option<time::Duration>)
+    pub fn set_expiry(self, primary_signer: &mut dyn Signer,
+                      expiration: Option<time::Duration>)
         -> Result<Cert>
-        where R: key::KeyRole
     {
         self.set_expiry_as_of(primary_signer, expiration,
                               time::SystemTime::now())
