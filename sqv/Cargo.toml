@@ -1,6 +1,6 @@
 [package]
 name = "sequoia-sqv"
-description = "A simple signature verification program"
+description = "A simple OpenPGP signature verification program"
 version = "0.12.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
