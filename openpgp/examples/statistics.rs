@@ -10,7 +10,7 @@
 use std::env;
 use std::collections::HashMap;
 extern crate sequoia_openpgp as openpgp;
-use crate::openpgp::Packet;
+use crate::openpgp::{Packet, Fingerprint, KeyID, KeyHandle};
 use crate::openpgp::types::*;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
 use crate::openpgp::packet::signature::subpacket::SubpacketTag;
@@ -34,7 +34,10 @@ fn main() {
     let mut tags_size_count = vec![0; 64];
     let mut tags_size_min = vec![::std::u32::MAX; 64];
     let mut tags_size_max = vec![0; 64];
+
+    // Signature statistics.
     let mut sigs_count = vec![0; 256];
+    let mut sigs_count_1st_party = vec![0; 256];
 
     // Signature Subpacket statistics.
     let mut sigs_subpacket_tags_count = vec![0; 256];
@@ -74,6 +77,11 @@ fn main() {
     let mut ua_unknown_count = vec![0; 256];
     let mut ua_invalid_count = 0;
 
+    // Current certificate.
+    let mut current_fingerprint =
+        KeyHandle::Fingerprint(Fingerprint::from_bytes(&vec![0; 20]));
+    let mut current_keyid = KeyHandle::KeyID(KeyID::wildcard());
+
     // For each input file, create a parser.
     for input in &args[1..] {
         eprintln!("Parsing {}...", input);
@@ -101,16 +109,34 @@ fn main() {
 
             match packet {
                 // If a new Cert starts, update Cert statistics.
-                Packet::PublicKey(_) | Packet::SecretKey(_) => {
+                Packet::PublicKey(ref k) => {
                     if cert_count > 0 {
                         cert.update_min_max(&mut cert_min, &mut cert_max);
                     }
                     cert_count += 1;
                     cert = PerCert::min();
+                    current_fingerprint = k.fingerprint().into();
+                    current_keyid = k.keyid().into();
+                },
+                Packet::SecretKey(ref k) => {
+                    if cert_count > 0 {
+                        cert.update_min_max(&mut cert_min, &mut cert_max);
+                    }
+                    cert_count += 1;
+                    cert = PerCert::min();
+                    current_fingerprint = k.fingerprint().into();
+                    current_keyid = k.keyid().into();
                 },
 
                 Packet::Signature(ref sig) => {
                     sigs_count[u8::from(sig.typ()) as usize] += 1;
+                    let issuers = sig.get_issuers();
+                    if issuers.contains(&current_keyid)
+                        || issuers.contains(&current_fingerprint)
+                    {
+                        sigs_count_1st_party[u8::from(sig.typ()) as usize] += 1;
+                    }
+
                     cert.sigs[u8::from(sig.typ()) as usize] += 1;
                     let mut signature = PerSignature::min();
 
@@ -278,6 +304,9 @@ fn main() {
                 println!("{:>22} {:>9}",
                          format!("{:?}", SignatureType::from(t as u8)),
                          sigs_count[t]);
+                println!("{:>22} {:>9}", "1st party", sigs_count_1st_party[t]);
+                println!("{:>22} {:>9}", "3rd party",
+                         sigs_count[t] - sigs_count_1st_party[t]);
             }
         }
 
