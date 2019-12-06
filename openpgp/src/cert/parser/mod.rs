@@ -7,8 +7,7 @@ use lalrpop_util::ParseError;
 
 use crate::{
     Error,
-    Fingerprint,
-    KeyID,
+    KeyHandle,
     packet::Tag,
     packet::Signature,
     Packet,
@@ -624,7 +623,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
 
             Some(cert)
         }).and_then(|mut cert| {
-            fn split_sigs<C>(primary: &Fingerprint, primary_keyid: &KeyID,
+            fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
                              b: &mut ComponentBinding<C>)
             {
                 let mut self_signatures = vec![];
@@ -637,13 +636,11 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
                         Signature::V4(sig) => {
                             let typ = sig.typ();
 
+                            let issuers =
+                                sig.get_issuers();
                             let is_selfsig =
-                                sig.issuer_fingerprint()
-                                .map(|fp| fp == *primary)
-                                .unwrap_or(false)
-                                || sig.issuer()
-                                .map(|keyid| keyid == *primary_keyid)
-                                .unwrap_or(false);
+                                issuers.contains(primary)
+                                || issuers.contains(primary_keyid);
 
                             use crate::SignatureType::*;
                             if typ == KeyRevocation
@@ -672,8 +669,8 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
                 b.other_revocations = other_revs;
             }
 
-            let primary_fp = cert.primary().fingerprint();
-            let primary_keyid = KeyID::from(&primary_fp);
+            let primary_fp: KeyHandle = cert.primary().fingerprint().into();
+            let primary_keyid = KeyHandle::KeyID(primary_fp.clone().into());
 
             // The parser puts all of the signatures on the
             // certifications field.  Split them now.
