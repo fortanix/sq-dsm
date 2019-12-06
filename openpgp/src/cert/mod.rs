@@ -1333,10 +1333,89 @@ impl Cert {
             });
         }
 
+        // The same as check!, but for third party signatures.  If we
+        // do have the key that made the signature, we can verify it
+        // like in check!.  Otherwise, we use the hash prefix as
+        // heuristic approximating the verification.
+        macro_rules! check_3rd_party {
+            ($desc:expr,            // a description of the component
+             $binding:expr,         // the binding to check
+             $sigs:ident,           // a vector of sigs in $binding to check
+             $lookup_fn:expr,       // a function to lookup keys
+             $verify_method:ident,  // the method to call to verify it
+             $hash_method:ident,    // the method to call to compute the hash
+             $($verify_args:expr),* // additional arguments to pass to the above
+            ) => ({
+                t!("check_3rd_party!({}, {}, {:?}, {}, {}, ...)",
+                   $desc, stringify!($binding), $binding.$sigs,
+                   stringify!($verify_method), stringify!($hash_method));
+                for sig in mem::replace(&mut $binding.$sigs, Vec::new())
+                    .into_iter()
+                {
+                    if let Some(key) = $lookup_fn(&sig) {
+                        if let Ok(true) = sig.$verify_method(&key,
+                                                             self.primary.key(),
+                                                             $($verify_args),*)
+                        {
+                            $binding.$sigs.push(sig);
+                        } else {
+                            t!("Sig {:02X}{:02X}, type = {} \
+                                doesn't belong to {}",
+                               sig.hash_prefix()[0], sig.hash_prefix()[1],
+                               sig.typ(), $desc);
+
+                            self.bad.push(sig);
+                        }
+                    } else {
+                        // Use hash prefix as heuristic.
+                        if let Ok(hash) = Signature::$hash_method(
+                            &sig, self.primary.key(), $($verify_args),*) {
+                            if &sig.hash_prefix()[..] == &hash[..2] {
+                                $binding.$sigs.push(sig);
+                            } else {
+                                t!("Sig {:02X}{:02X}, type = {} \
+                                    likely doesn't belong to {}",
+                                   sig.hash_prefix()[0], sig.hash_prefix()[1],
+                                   sig.typ(), $desc);
+
+                                self.bad.push(sig);
+                            }
+                        } else {
+                            // Hashing failed, we likely don't support
+                            // the hash algorithm.
+                            t!("Sig {:02X}{:02X}, type = {}: \
+                                Hashing failed",
+                               sig.hash_prefix()[0], sig.hash_prefix()[1],
+                               sig.typ());
+
+                            self.bad.push(sig);
+                        }
+                    }
+                }
+            });
+            ($desc:expr, $binding:expr, $sigs:ident, $lookup_fn:expr,
+             $verify_method:ident, $hash_method:ident) => ({
+                 check_3rd_party!($desc, $binding, $sigs, $lookup_fn,
+                                  $verify_method, $hash_method, )
+            });
+        }
+
+        // Placeholder lookup function.
+        fn lookup_fn(_: &Signature)
+                     -> Option<Key<key::PublicParts, key::UnspecifiedRole>> {
+            None
+        }
+
         check!("primary key",
                self.primary, self_signatures, verify_primary_key_binding);
         check!("primary key",
                self.primary, self_revocations, verify_primary_key_revocation);
+        check_3rd_party!("primary key",
+                         self.primary, certifications, lookup_fn,
+                         verify_primary_key_binding, primary_key_binding_hash);
+        check_3rd_party!("primary key",
+                         self.primary, other_revocations, lookup_fn,
+                         verify_primary_key_revocation, primary_key_binding_hash);
 
         for binding in self.userids.iter_mut() {
             check!(format!("userid \"{}\"",
@@ -1347,6 +1426,18 @@ impl Cert {
                            String::from_utf8_lossy(binding.userid().value())),
                    binding, self_revocations, verify_userid_revocation,
                    binding.userid());
+            check_3rd_party!(
+                format!("userid \"{}\"",
+                        String::from_utf8_lossy(binding.userid().value())),
+                binding, certifications, lookup_fn,
+                verify_userid_binding, userid_binding_hash,
+                binding.userid());
+            check_3rd_party!(
+                format!("userid \"{}\"",
+                        String::from_utf8_lossy(binding.userid().value())),
+                binding, other_revocations, lookup_fn,
+                verify_userid_revocation, userid_binding_hash,
+                binding.userid());
         }
 
         for binding in self.user_attributes.iter_mut() {
@@ -1356,6 +1447,16 @@ impl Cert {
             check!("user attribute",
                    binding, self_revocations, verify_user_attribute_revocation,
                    binding.user_attribute());
+            check_3rd_party!(
+                "user attribute",
+                binding, certifications, lookup_fn,
+                verify_user_attribute_binding, user_attribute_binding_hash,
+                binding.user_attribute());
+            check_3rd_party!(
+                "user attribute",
+                binding, other_revocations, lookup_fn,
+                verify_user_attribute_revocation, user_attribute_binding_hash,
+                binding.user_attribute());
         }
 
         for binding in self.subkeys.iter_mut() {
@@ -1365,6 +1466,16 @@ impl Cert {
             check!(format!("subkey {}", binding.key().keyid()),
                    binding, self_revocations, verify_subkey_revocation,
                    binding.key());
+            check_3rd_party!(
+                format!("subkey {}", binding.key().keyid()),
+                binding, certifications, lookup_fn,
+                verify_subkey_binding, subkey_binding_hash,
+                binding.key());
+            check_3rd_party!(
+                format!("subkey {}", binding.key().keyid()),
+                binding, other_revocations, lookup_fn,
+                verify_subkey_revocation, subkey_binding_hash,
+                binding.key());
         }
 
         // See if the signatures that didn't validate are just out of
@@ -1398,10 +1509,70 @@ impl Cert {
                 });
             }
 
+            // The same as check_one!, but for third party signatures.
+            // If we do have the key that made the signature, we can
+            // verify it like in check!.  Otherwise, we use the hash
+            // prefix as heuristic approximating the verification.
+            macro_rules! check_one_3rd_party {
+                ($desc:expr,            // a description of the component
+                 $sigs:expr,            // where to put $sig if successful
+                 $sig:ident,            // the signature to check
+                 $lookup_fn:expr,       // a function to lookup keys
+                 $verify_method:ident,  // the method to verify it
+                 $hash_method:ident,    // the method to compute the hash
+                 $($verify_args:expr),* // additional arguments for the above
+                ) => ({
+                    t!("check_one_3rd_party!({}, {}, {:?}, {}, {}, ...)",
+                       $desc, stringify!($sigs), $sig,
+                       stringify!($verify_method), stringify!($hash_method));
+                    if let Some(key) = $lookup_fn(&sig) {
+                        if let Ok(true) = sig.$verify_method(&key,
+                                                             self.primary.key(),
+                                                             $($verify_args),*)
+                        {
+                            t!("Sig {:02X}{:02X}, {:?} \
+                                was out of place.  Belongs to {}.",
+                               $sig.hash_prefix()[0],
+                               $sig.hash_prefix()[1],
+                               $sig.typ(), $desc);
+
+                            $sigs.push($sig);
+                            continue 'outer;
+                        }
+                    } else {
+                        // Use hash prefix as heuristic.
+                        if let Ok(hash) = Signature::$hash_method(
+                            &sig, self.primary.key(), $($verify_args),*) {
+                            if &sig.hash_prefix()[..] == &hash[..2] {
+                                t!("Sig {:02X}{:02X}, {:?} \
+                                    was out of place.  Likely belongs to {}.",
+                                   $sig.hash_prefix()[0],
+                                   $sig.hash_prefix()[1],
+                                   $sig.typ(), $desc);
+
+                                $sigs.push($sig);
+                                continue 'outer;
+                            }
+                        }
+                    }
+                });
+                ($desc:expr, $sigs:expr, $sig:ident, $lookup_fn:expr,
+                 $verify_method:ident, $hash_method:ident) => ({
+                     check_one_3rd_party!($desc, $sigs, $sig, $lookup_fn,
+                                          $verify_method, $hash_method, )
+                 });
+            }
+
             check_one!("primary key", self.primary.self_signatures, sig,
                        verify_primary_key_binding);
             check_one!("primary key", self.primary.self_revocations, sig,
                        verify_primary_key_revocation);
+            check_one_3rd_party!(
+                "primary key", self.primary.certifications, sig, lookup_fn,
+                verify_primary_key_binding, primary_key_binding_hash);
+            check_one_3rd_party!(
+                "primary key", self.primary.other_revocations, sig, lookup_fn,
+                verify_primary_key_revocation, primary_key_binding_hash);
 
             for binding in self.userids.iter_mut() {
                 check_one!(format!("userid \"{}\"",
@@ -1414,6 +1585,18 @@ impl Cert {
                                        binding.userid().value())),
                            binding.self_revocations, sig,
                            verify_userid_revocation, binding.userid());
+                check_one_3rd_party!(
+                    format!("userid \"{}\"",
+                            String::from_utf8_lossy(binding.userid().value())),
+                    binding.certifications, sig, lookup_fn,
+                    verify_userid_binding, userid_binding_hash,
+                    binding.userid());
+                check_one_3rd_party!(
+                    format!("userid \"{}\"",
+                            String::from_utf8_lossy(binding.userid().value())),
+                    binding.other_revocations, sig, lookup_fn,
+                    verify_userid_revocation, userid_binding_hash,
+                    binding.userid());
             }
 
             for binding in self.user_attributes.iter_mut() {
@@ -1425,6 +1608,17 @@ impl Cert {
                            binding.self_revocations, sig,
                            verify_user_attribute_revocation,
                            binding.user_attribute());
+                check_one_3rd_party!(
+                    "user attribute",
+                    binding.certifications, sig, lookup_fn,
+                    verify_user_attribute_binding, user_attribute_binding_hash,
+                    binding.user_attribute());
+                check_one_3rd_party!(
+                    "user attribute",
+                    binding.other_revocations, sig, lookup_fn,
+                    verify_user_attribute_revocation,
+                    user_attribute_binding_hash,
+                    binding.user_attribute());
             }
 
             for binding in self.subkeys.iter_mut() {
@@ -1434,6 +1628,16 @@ impl Cert {
                 check_one!(format!("subkey {}", binding.key().keyid()),
                            binding.self_revocations, sig,
                            verify_subkey_revocation, binding.key());
+                check_one_3rd_party!(
+                    format!("subkey {}", binding.key().keyid()),
+                    binding.certifications, sig, lookup_fn,
+                    verify_subkey_binding, subkey_binding_hash,
+                    binding.key());
+                check_one_3rd_party!(
+                    format!("subkey {}", binding.key().keyid()),
+                    binding.other_revocations, sig, lookup_fn,
+                    verify_subkey_revocation, subkey_binding_hash,
+                    binding.key());
             }
 
             // Keep them for later.
@@ -3175,6 +3379,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     fn keysigning_party() {
         use crate::cert::packet::signature;
 
+        // Canonicalizing Bob's cert without having Alice's key has to
+        // resort to a heuristic to order third party signatures.
+        let mut bad_orderings = 0;
+
+        let mut n = 0;
         for cs in &[ CipherSuite::Cv25519,
                      CipherSuite::RSA3k,
                      CipherSuite::P256,
@@ -3183,6 +3392,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                      CipherSuite::RSA2k,
                      CipherSuite::RSA4k ]
         {
+            n += 1;
             let (alice, _) = CertBuilder::new()
                 .set_cipher_suite(*cs)
                 .add_userid("alice@foo.com")
@@ -3191,6 +3401,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             let (bob, _) = CertBuilder::new()
                 .set_cipher_suite(*cs)
                 .add_userid("bob@bar.com")
+                .add_signing_subkey()
                 .generate().unwrap();
 
             assert_eq!(bob.userids().len(), 1);
@@ -3220,8 +3431,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             assert_eq!(bob.userids().len(), 1);
             let bob_userid_binding = bob.userids().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
-            assert_eq!(bob_userid_binding.certifications(),
-                       &[ alice_certifies_bob.clone() ]);
+            if bob_userid_binding.certifications() !=
+                &[ alice_certifies_bob.clone() ]
+            {
+                bad_orderings += 1;
+            }
 
             // Make sure the certification is correct.
             assert_eq!(
@@ -3231,6 +3445,19 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                                            bob_userid_binding.userid())
                     .unwrap(),
                 true);
+        }
+
+        if bad_orderings == n {
+            // The heuristic to order the signatures failed every
+            // time.  The probability of this happening is:
+            //     1 : 2^(15 * n)
+            //
+            // (The heuristic compares 16 bit hash prefixes,
+            // probability of collision *per component* is 1:2^16.  On
+            // Bob's key, there are 3 components: primary, userid, and
+            // subkey.  Therefore, the chance of putting the signature
+            // into the wrong component is 1:2^15.  Repeat N times.)
+            panic!("Reordering third-party signatures is broken");
         }
    }
 
