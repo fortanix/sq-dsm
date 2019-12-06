@@ -959,10 +959,10 @@ impl Signature4 {
         -> Result<bool>
         where R: key::KeyRole
     {
-        if !(self.typ() == SignatureType::GenericCertificate
-             || self.typ() == SignatureType::PersonaCertificate
-             || self.typ() == SignatureType::CasualCertificate
-             || self.typ() == SignatureType::PositiveCertificate) {
+        if !(self.typ() == SignatureType::GenericCertification
+             || self.typ() == SignatureType::PersonaCertification
+             || self.typ() == SignatureType::CasualCertification
+             || self.typ() == SignatureType::PositiveCertification) {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
@@ -994,7 +994,7 @@ impl Signature4 {
         -> Result<bool>
         where R: key::KeyRole
     {
-        if self.typ() != SignatureType::CertificateRevocation {
+        if self.typ() != SignatureType::CertificationRevocation {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
@@ -1026,10 +1026,10 @@ impl Signature4 {
         -> Result<bool>
         where R: key::KeyRole
     {
-        if !(self.typ() == SignatureType::GenericCertificate
-             || self.typ() == SignatureType::PersonaCertificate
-             || self.typ() == SignatureType::CasualCertificate
-             || self.typ() == SignatureType::PositiveCertificate) {
+        if !(self.typ() == SignatureType::GenericCertification
+             || self.typ() == SignatureType::PersonaCertification
+             || self.typ() == SignatureType::CasualCertification
+             || self.typ() == SignatureType::PositiveCertification) {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
@@ -1061,7 +1061,7 @@ impl Signature4 {
         -> Result<bool>
         where R: key::KeyRole
     {
-        if self.typ() != SignatureType::CertificateRevocation {
+        if self.typ() != SignatureType::CertificationRevocation {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 

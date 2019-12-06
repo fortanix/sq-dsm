@@ -336,7 +336,7 @@ impl CertBuilder {
         // Sign UserIDs.
         for uid in self.userids.into_iter() {
             let builder = signature::Builder::from(sig.clone())
-                .set_type(SignatureType::PositiveCertificate)
+                .set_type(SignatureType::PositiveCertification)
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
             let signature = uid.bind(&mut signer, &cert, builder, None)?;
@@ -346,7 +346,7 @@ impl CertBuilder {
         // Sign UserAttributes.
         for ua in self.user_attributes.into_iter() {
             let builder = signature::Builder::from(sig.clone())
-                .set_type(SignatureType::PositiveCertificate)
+                .set_type(SignatureType::PositiveCertification)
             // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
             let signature = ua.bind(&mut signer, &cert, builder, None)?;

@@ -100,7 +100,7 @@ impl UserID {
     /// // Generate a userid and a binding signature.
     /// let userid = UserID::from("test@example.org");
     /// let builder =
-    ///     signature::Builder::new(SignatureType::PositiveCertificate);
+    ///     signature::Builder::new(SignatureType::PositiveCertification);
     /// let binding = userid.bind(&mut keypair, &cert, builder, None)?;
     ///
     /// // Now merge the userid and binding signature into the Cert.
@@ -131,7 +131,7 @@ impl UserID {
     /// The signature binds this userid to `cert`. `signer` will be
     /// used to create a certification signature of type
     /// `signature_type`.  `signature_type` defaults to
-    /// `SignatureType::GenericCertificate`, `hash_algo` to SHA512,
+    /// `SignatureType::GenericCertification`, `hash_algo` to SHA512,
     /// `creation_time` to the current time.
     ///
     /// This function adds a creation time subpacket, a issuer
@@ -169,7 +169,7 @@ impl UserID {
     /// // Alice now certifies the binding between `bob@example.org` and `bob`.
     /// let certificate =
     ///     bob.userids().nth(0).unwrap().userid()
-    ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertificate,
+    ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertification,
     ///              None, None)?;
     ///
     /// // `certificate` can now be used, e.g. by merging it into `bob`.
@@ -188,13 +188,13 @@ impl UserID {
     {
         let typ = signature_type.into();
         let typ = match typ {
-            Some(SignatureType::GenericCertificate)
-                | Some(SignatureType::PersonaCertificate)
-                | Some(SignatureType::CasualCertificate)
-                | Some(SignatureType::PositiveCertificate) => typ.unwrap(),
+            Some(SignatureType::GenericCertification)
+                | Some(SignatureType::PersonaCertification)
+                | Some(SignatureType::CasualCertification)
+                | Some(SignatureType::PositiveCertification) => typ.unwrap(),
             Some(t) => return Err(Error::InvalidArgument(
                 format!("Invalid signature type: {}", t)).into()),
-            None => SignatureType::GenericCertificate,
+            None => SignatureType::GenericCertification,
         };
         let mut sig = signature::Builder::new(typ);
         if let Some(algo) = hash_algo.into() {
@@ -245,7 +245,7 @@ impl UserAttribute {
     ///         Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
     /// ])?;
     /// let builder =
-    ///     signature::Builder::new(SignatureType::PositiveCertificate);
+    ///     signature::Builder::new(SignatureType::PositiveCertification);
     /// let binding = user_attr.bind(&mut keypair, &cert, builder, None)?;
     ///
     /// // Now merge the user attribute and binding signature into the Cert.
@@ -275,7 +275,7 @@ impl UserAttribute {
     /// The signature binds this user attribute to `cert`. `signer` will be
     /// used to create a certification signature of type
     /// `signature_type`.  `signature_type` defaults to
-    /// `SignatureType::GenericCertificate`, `hash_algo` to SHA512,
+    /// `SignatureType::GenericCertification`, `hash_algo` to SHA512,
     /// `creation_time` to the current time.
     ///
     /// This function adds a creation time subpacket, a issuer
@@ -317,7 +317,7 @@ impl UserAttribute {
     /// // Alice now certifies the binding between `bob@example.org` and `bob`.
     /// let certificate =
     ///     bob.user_attributes().nth(0).unwrap().user_attribute()
-    ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertificate,
+    ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertification,
     ///              None, None)?;
     ///
     /// // `certificate` can now be used, e.g. by merging it into `bob`.
@@ -337,13 +337,13 @@ impl UserAttribute {
     {
         let typ = signature_type.into();
         let typ = match typ {
-            Some(SignatureType::GenericCertificate)
-                | Some(SignatureType::PersonaCertificate)
-                | Some(SignatureType::CasualCertificate)
-                | Some(SignatureType::PositiveCertificate) => typ.unwrap(),
+            Some(SignatureType::GenericCertification)
+                | Some(SignatureType::PersonaCertification)
+                | Some(SignatureType::CasualCertification)
+                | Some(SignatureType::PositiveCertification) => typ.unwrap(),
             Some(t) => return Err(Error::InvalidArgument(
                 format!("Invalid signature type: {}", t)).into()),
-            None => SignatureType::GenericCertificate,
+            None => SignatureType::GenericCertification,
         };
         let mut sig = signature::Builder::new(typ);
         if let Some(algo) = hash_algo.into() {

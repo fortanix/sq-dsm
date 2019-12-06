@@ -286,7 +286,7 @@ impl Deref for SubkeyRevocationBuilder {
 ///             ReasonForRevocation::KeyRetired,
 ///             b"Left example.org.").unwrap()
 ///         .build(&mut keypair, &cert, userid.userid(), None)?;
-/// assert_eq!(revocation.typ(), SignatureType::CertificateRevocation);
+/// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 ///
 /// // Now merge the revocation signature into the Cert.
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
@@ -310,7 +310,7 @@ impl UserIDRevocationBuilder {
     pub fn new() -> Self {
         Self {
             builder:
-                signature::Builder::new(SignatureType::CertificateRevocation)
+                signature::Builder::new(SignatureType::CertificationRevocation)
         }
     }
 
@@ -404,7 +404,7 @@ impl Deref for UserIDRevocationBuilder {
 ///             ReasonForRevocation::KeyRetired,
 ///             b"Left example.org.").unwrap()
 ///         .build(&mut keypair, &cert, ua.user_attribute(), None)?;
-/// assert_eq!(revocation.typ(), SignatureType::CertificateRevocation);
+/// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 ///
 /// // Now merge the revocation signature into the Cert.
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
@@ -428,7 +428,7 @@ impl UserAttributeRevocationBuilder {
     pub fn new() -> Self {
         Self {
             builder:
-                signature::Builder::new(SignatureType::CertificateRevocation)
+                signature::Builder::new(SignatureType::CertificationRevocation)
         }
     }
 

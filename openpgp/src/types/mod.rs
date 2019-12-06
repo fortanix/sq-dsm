@@ -778,13 +778,13 @@ pub enum SignatureType {
     Standalone,
 
     /// Generic certification of a User ID and Public-Key packet.
-    GenericCertificate,
+    GenericCertification,
     /// Persona certification of a User ID and Public-Key packet.
-    PersonaCertificate,
+    PersonaCertification,
     /// Casual certification of a User ID and Public-Key packet.
-    CasualCertificate,
+    CasualCertification,
     /// Positive certification of a User ID and Public-Key packet.
-    PositiveCertificate,
+    PositiveCertification,
 
     /// Subkey Binding Signature
     SubkeyBinding,
@@ -798,7 +798,7 @@ pub enum SignatureType {
     /// Subkey revocation signature
     SubkeyRevocation,
     /// Certification revocation signature
-    CertificateRevocation,
+    CertificationRevocation,
 
     /// Timestamp signature.
     Timestamp,
@@ -815,16 +815,16 @@ impl From<u8> for SignatureType {
             0x00 => SignatureType::Binary,
             0x01 => SignatureType::Text,
             0x02 => SignatureType::Standalone,
-            0x10 => SignatureType::GenericCertificate,
-            0x11 => SignatureType::PersonaCertificate,
-            0x12 => SignatureType::CasualCertificate,
-            0x13 => SignatureType::PositiveCertificate,
+            0x10 => SignatureType::GenericCertification,
+            0x11 => SignatureType::PersonaCertification,
+            0x12 => SignatureType::CasualCertification,
+            0x13 => SignatureType::PositiveCertification,
             0x18 => SignatureType::SubkeyBinding,
             0x19 => SignatureType::PrimaryKeyBinding,
             0x1f => SignatureType::DirectKey,
             0x20 => SignatureType::KeyRevocation,
             0x28 => SignatureType::SubkeyRevocation,
-            0x30 => SignatureType::CertificateRevocation,
+            0x30 => SignatureType::CertificationRevocation,
             0x40 => SignatureType::Timestamp,
             0x50 => SignatureType::Confirmation,
             _ => SignatureType::Unknown(u),
@@ -838,16 +838,16 @@ impl From<SignatureType> for u8 {
             SignatureType::Binary => 0x00,
             SignatureType::Text => 0x01,
             SignatureType::Standalone => 0x02,
-            SignatureType::GenericCertificate => 0x10,
-            SignatureType::PersonaCertificate => 0x11,
-            SignatureType::CasualCertificate => 0x12,
-            SignatureType::PositiveCertificate => 0x13,
+            SignatureType::GenericCertification => 0x10,
+            SignatureType::PersonaCertification => 0x11,
+            SignatureType::CasualCertification => 0x12,
+            SignatureType::PositiveCertification => 0x13,
             SignatureType::SubkeyBinding => 0x18,
             SignatureType::PrimaryKeyBinding => 0x19,
             SignatureType::DirectKey => 0x1f,
             SignatureType::KeyRevocation => 0x20,
             SignatureType::SubkeyRevocation => 0x28,
-            SignatureType::CertificateRevocation => 0x30,
+            SignatureType::CertificationRevocation => 0x30,
             SignatureType::Timestamp => 0x40,
             SignatureType::Confirmation => 0x50,
             SignatureType::Unknown(u) => u,
@@ -864,14 +864,14 @@ impl fmt::Display for SignatureType {
                 f.write_str("Text"),
             SignatureType::Standalone =>
                 f.write_str("Standalone"),
-            SignatureType::GenericCertificate =>
-                f.write_str("GenericCertificate"),
-            SignatureType::PersonaCertificate =>
-                f.write_str("PersonaCertificate"),
-            SignatureType::CasualCertificate =>
-                f.write_str("CasualCertificate"),
-            SignatureType::PositiveCertificate =>
-                f.write_str("PositiveCertificate"),
+            SignatureType::GenericCertification =>
+                f.write_str("GenericCertification"),
+            SignatureType::PersonaCertification =>
+                f.write_str("PersonaCertification"),
+            SignatureType::CasualCertification =>
+                f.write_str("CasualCertification"),
+            SignatureType::PositiveCertification =>
+                f.write_str("PositiveCertification"),
             SignatureType::SubkeyBinding =>
                 f.write_str("SubkeyBinding"),
             SignatureType::PrimaryKeyBinding =>
@@ -882,8 +882,8 @@ impl fmt::Display for SignatureType {
                 f.write_str("KeyRevocation"),
             SignatureType::SubkeyRevocation =>
                 f.write_str("SubkeyRevocation"),
-            SignatureType::CertificateRevocation =>
-                f.write_str("CertificateRevocation"),
+            SignatureType::CertificationRevocation =>
+                f.write_str("CertificationRevocation"),
             SignatureType::Timestamp =>
                 f.write_str("Timestamp"),
             SignatureType::Confirmation =>

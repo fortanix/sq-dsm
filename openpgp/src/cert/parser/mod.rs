@@ -648,7 +648,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
                             use crate::SignatureType::*;
                             if typ == KeyRevocation
                                 || typ == SubkeyRevocation
-                                || typ == CertificateRevocation
+                                || typ == CertificationRevocation
                             {
                                 if is_selfsig {
                                     self_revs.push(sig.into());

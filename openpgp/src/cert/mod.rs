@@ -2289,7 +2289,7 @@ mod test {
             // If we have a user id---even if it is revoked---we have
             // a primary key signature.
             let typ = cert.primary_key_signature(None).unwrap().typ();
-            assert_eq!(typ, SignatureType::PositiveCertificate,
+            assert_eq!(typ, SignatureType::PositiveCertification,
                        "{:#?}", cert);
 
             let revoked = cert.revoked(None);
@@ -2303,7 +2303,7 @@ mod test {
 
             for userid in cert.userids() {
                 let typ = userid.binding_signature(None).unwrap().typ();
-                assert_eq!(typ, SignatureType::PositiveCertificate,
+                assert_eq!(typ, SignatureType::PositiveCertification,
                            "{:#?}", cert);
 
                 let revoked = userid.revoked(None);
@@ -2473,7 +2473,7 @@ mod test {
                 .build(&mut keypair, &cert, uid.userid(), None)
                 .unwrap()
         };
-        assert_eq!(sig.typ(), SignatureType::CertificateRevocation);
+        assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
         let cert = cert.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    cert.revoked(None));
@@ -3198,7 +3198,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             let sig_template
-                = signature::Builder::new(SignatureType::GenericCertificate)
+                = signature::Builder::new(SignatureType::GenericCertification)
                       .set_trust_signature(255, 120)
                       .unwrap();
 
