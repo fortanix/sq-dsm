@@ -1374,7 +1374,7 @@ impl Cert {
             macro_rules! check_one {
                 ($desc:expr, $sigs:expr, $sig:expr,
                  $verify_method:ident, $($verify_args:expr),*) => ({
-                     t!("check!({}, {:?}, {:?}, {}, ...)",
+                     t!("check_one!({}, {:?}, {:?}, {}, ...)",
                         $desc, $sigs, $sig,
                         stringify!($verify_method));
                      if let Ok(true)
