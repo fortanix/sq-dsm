@@ -1352,12 +1352,30 @@ impl Cert {
                 for sig in mem::replace(&mut $binding.$sigs, Vec::new())
                     .into_iter()
                 {
-                    if let Some(key) = $lookup_fn(&sig) {
-                        if let Ok(true) = sig.$verify_method(&key,
-                                                             self.primary.key(),
-                                                             $($verify_args),*)
-                        {
-                            $binding.$sigs.push(sig);
+                    // Use hash prefix as heuristic.
+                    if let Ok(hash) = Signature::$hash_method(
+                        &sig, self.primary.key(), $($verify_args),*) {
+                        if &sig.hash_prefix()[..] == &hash[..2] {
+                            // See if we can get the key for a
+                            // positive verification.
+                            if let Some(key) = $lookup_fn(&sig) {
+                                if let Ok(true) = sig.$verify_method(
+                                    &key, self.primary.key(), $($verify_args),*)
+                                {
+                                    $binding.$sigs.push(sig);
+                                } else {
+                                    t!("Sig {:02X}{:02X}, type = {} \
+                                        doesn't belong to {}",
+                                       sig.hash_prefix()[0],
+                                       sig.hash_prefix()[1],
+                                       sig.typ(), $desc);
+
+                                    self.bad.push(sig);
+                                }
+                            } else {
+                                // No key, we need to trust our heuristic.
+                                $binding.$sigs.push(sig);
+                            }
                         } else {
                             t!("Sig {:02X}{:02X}, type = {} \
                                 doesn't belong to {}",
@@ -1367,29 +1385,14 @@ impl Cert {
                             self.bad.push(sig);
                         }
                     } else {
-                        // Use hash prefix as heuristic.
-                        if let Ok(hash) = Signature::$hash_method(
-                            &sig, self.primary.key(), $($verify_args),*) {
-                            if &sig.hash_prefix()[..] == &hash[..2] {
-                                $binding.$sigs.push(sig);
-                            } else {
-                                t!("Sig {:02X}{:02X}, type = {} \
-                                    likely doesn't belong to {}",
-                                   sig.hash_prefix()[0], sig.hash_prefix()[1],
-                                   sig.typ(), $desc);
+                        // Hashing failed, we likely don't support
+                        // the hash algorithm.
+                        t!("Sig {:02X}{:02X}, type = {}: \
+                            Hashing failed",
+                           sig.hash_prefix()[0], sig.hash_prefix()[1],
+                           sig.typ());
 
-                                self.bad.push(sig);
-                            }
-                        } else {
-                            // Hashing failed, we likely don't support
-                            // the hash algorithm.
-                            t!("Sig {:02X}{:02X}, type = {}: \
-                                Hashing failed",
-                               sig.hash_prefix()[0], sig.hash_prefix()[1],
-                               sig.typ());
-
-                            self.bad.push(sig);
-                        }
+                        self.bad.push(sig);
                     }
                 }
             });
