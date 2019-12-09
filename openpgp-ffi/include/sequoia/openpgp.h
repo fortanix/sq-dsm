@@ -894,18 +894,11 @@ pgp_cert_t pgp_cert_revoke_in_place (pgp_error_t *errp,
                                  const char *reason);
 
 /*/
-/// Returns whether the Cert has expired.
-///
-/// If `when` is 0, then the current time is used.
-/*/
-int pgp_cert_expired(pgp_cert_t cert, time_t at);
-
-/*/
 /// Returns whether the Cert is alive at the specified time.
 ///
 /// If `when` is 0, then the current time is used.
 /*/
-int pgp_cert_alive(pgp_cert_t cert, time_t when);
+pgp_status_t pgp_cert_alive(pgp_error_t *errp, pgp_cert_t cert, time_t when);
 
 /*/
 /// Changes the Cert's expiration.

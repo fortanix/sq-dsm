@@ -315,21 +315,14 @@ fn pgp_cert_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
     cert.revoke_in_place(signer.as_mut(), code, reason).move_into_raw(errp)
 }
 
-/// Returns whether the Cert has expired.
-///
-/// If `when` is 0, then the current time is used.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_expired(cert: *const Cert, when: time_t) -> c_int {
-    cert.ref_raw().expired(maybe_time(when)) as c_int
-}
-
 /// Returns whether the Cert is alive at the specified time.
 ///
 /// If `when` is 0, then the current time is used.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_alive(cert: *const Cert, when: time_t)
-                    -> c_int {
-    cert.ref_raw().alive(maybe_time(when)) as c_int
+fn pgp_cert_alive(errp: Option<&mut *mut crate::error::Error>,
+                  cert: *const Cert, when: time_t) -> Status {
+    ffi_make_fry_from_errp!(errp);
+    ffi_try_status!(cert.ref_raw().alive(maybe_time(when)))
 }
 
 /// Changes the Cert's expiration.

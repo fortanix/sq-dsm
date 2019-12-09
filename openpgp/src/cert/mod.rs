@@ -1109,27 +1109,15 @@ impl Cert {
         self.merge_packets(vec![sig.into()])
     }
 
-    /// Returns whether or not the Cert is expired at `t`.
-    pub fn expired<T>(&self, t: T) -> bool
-        where T: Into<Option<time::SystemTime>>
-    {
-        let t = t.into();
-        if let Some(Signature::V4(sig)) = self.primary_key_signature(t) {
-            sig.key_expired(self.primary(), t)
-        } else {
-            false
-        }
-    }
-
     /// Returns whether or not the Cert is alive at `t`.
-    pub fn alive<T>(&self, t: T) -> bool
+    pub fn alive<T>(&self, t: T) -> Result<()>
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
         if let Some(sig) = self.primary_key_signature(t) {
-            sig.key_alive(self.primary(), t).is_ok()
+            sig.key_alive(self.primary(), t)
         } else {
-            false
+            Err(Error::MalformedCert("No primary key signature".into()).into())
         }
     }
 
