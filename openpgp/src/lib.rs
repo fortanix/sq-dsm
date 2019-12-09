@@ -260,6 +260,14 @@ pub enum Error {
     /// Index out of range.
     #[fail(display = "Index out of range")]
     IndexOutOfRange,
+
+    /// Expired.
+    #[fail(display = "Expired on {:?}", _0)]
+    Expired(std::time::SystemTime),
+
+    /// Not yet live.
+    #[fail(display = "Not live until {:?}", _0)]
+    NotYetLive(std::time::SystemTime),
 }
 
 /// The OpenPGP packets that Sequoia understands.

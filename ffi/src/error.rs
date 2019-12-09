@@ -70,6 +70,10 @@ impl<'a> FromSequoiaError<'a> for Status {
                     Status::IndexOutOfRange,
                 &openpgp::Error::UnsupportedCert(_) =>
                     Status::UnsupportedCert,
+                &openpgp::Error::Expired(_) =>
+                    Status::Expired,
+                &openpgp::Error::NotYetLive(_) =>
+                    Status::NotYetLive,
             }
         }
 
