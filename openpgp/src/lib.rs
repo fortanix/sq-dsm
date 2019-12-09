@@ -245,7 +245,7 @@ pub enum Error {
     #[fail(display = "Malformed Message: {}", _0)]
     MalformedMessage(String),
 
-    /// Malformed tranferable public key.
+    /// Malformed certificate.
     #[fail(display = "Malformed Cert: {}", _0)]
     MalformedCert(String),
 
