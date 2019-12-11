@@ -70,8 +70,8 @@ fn real_main() -> Result<(), failure::Error> {
     // Then, we scan the keyrings exactly once to find the associated
     // Certs.
 
-    // .unwrap() is safe, because "sig-file" is required.
-    let sig_file = matches.value_of_os("sig-file").unwrap();
+    let sig_file = matches.value_of_os("sig-file")
+        .expect("'sig-file' is required");
 
     let mut ppr = PacketParser::from_file(sig_file)?;
 
@@ -143,8 +143,7 @@ fn real_main() -> Result<(), failure::Error> {
 
     // Hash the content.
 
-    // .unwrap() is safe, because "file" is required.
-    let file = matches.value_of_os("file").unwrap();
+    let file = matches.value_of_os("file").expect("'file' is required");
     let hash_algos : Vec<HashAlgorithm>
         = sigs.iter().map(|&(ref sig, _, _)| sig.hash_algo()).collect();
     let hashes: HashMap<_, _> =
