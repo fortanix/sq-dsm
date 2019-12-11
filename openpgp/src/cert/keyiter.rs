@@ -246,13 +246,6 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
         }
     }
 
-    /// Clears all filters.
-    ///
-    /// This causes the `KeyIter` to return all keys in the Cert.
-    pub fn unfiltered(self) -> Self {
-        KeyIter::new(self.cert.unwrap())
-    }
-
     /// Returns an empty KeyIter.
     pub fn empty() -> Self {
         KeyIter {
