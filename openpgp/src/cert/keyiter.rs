@@ -246,25 +246,6 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
         }
     }
 
-    /// Returns an empty KeyIter.
-    pub fn empty() -> Self {
-        KeyIter {
-            cert: None,
-            primary: false,
-            subkey_iter: KeyBindingIter { iter: None },
-
-            // The filters.
-            flags: None,
-            alive_at: None,
-            revoked: None,
-            secret: None,
-            unencrypted_secret: None,
-
-            _p: std::marker::PhantomData,
-            _r: std::marker::PhantomData,
-        }
-    }
-
     /// Returns keys that have the at least one of the flags specified
     /// in `flags`.
     ///

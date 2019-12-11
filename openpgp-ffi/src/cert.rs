@@ -505,7 +505,7 @@ pub extern "C" fn pgp_cert_key_iter_for_certification<'a>(
     }
 
     use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter = tmp.for_certification();
 }
 
@@ -528,7 +528,7 @@ pub extern "C" fn pgp_cert_key_iter_for_signing<'a>(
     }
 
     use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter = tmp.for_signing();
 }
 
@@ -550,7 +550,8 @@ pub extern "C" fn pgp_cert_key_iter_for_storage_encryption<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    let tmp = std::mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter = tmp.for_storage_encryption();
 }
 
@@ -572,7 +573,8 @@ pub extern "C" fn pgp_cert_key_iter_for_transport_encryption<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    let tmp = std::mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    use std::mem;
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter = tmp.for_transport_encryption();
 }
 
@@ -592,7 +594,7 @@ pub extern "C" fn pgp_cert_key_iter_alive<'a>(
     }
 
     use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter = tmp.alive();
 }
 
@@ -614,7 +616,7 @@ pub extern "C" fn pgp_cert_key_iter_alive_at<'a>(
     }
 
     use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter =
         tmp.alive_at(maybe_time(when).unwrap_or(std::time::UNIX_EPOCH));
 }
@@ -634,7 +636,7 @@ pub extern "C" fn pgp_cert_key_iter_revoked<'a>(
     }
 
     use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter = tmp.revoked(Some(revoked));
 }
 
@@ -651,7 +653,7 @@ pub extern "C" fn pgp_cert_key_iter_secret<'a>(
     }
 
     use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter = unsafe { std::mem::transmute(tmp.secret()) };
 }
 
@@ -669,7 +671,7 @@ pub extern "C" fn pgp_cert_key_iter_unencrypted_secret<'a>(
     }
 
     use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, KeyIter::empty());
+    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
     iter_wrapper.iter =
         unsafe { std::mem::transmute(tmp.unencrypted_secret()) };
 }
