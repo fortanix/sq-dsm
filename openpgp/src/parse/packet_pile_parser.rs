@@ -34,19 +34,6 @@ use buffered_reader::BufferedReader;
 /// should be preferred.  If no per-packet processing needs to be
 /// done, then `PacketPile::from_file` will be slightly faster.
 ///
-/// Note: due to how lifetimes interact, it is not possible for the
-/// [`next()`] and [`recurse()`] methods to return a mutable reference
-/// to the packet (`&mut Packet`) that is currently being processed
-/// while continuing to support streaming operations.  It is also not
-/// possible to return a mutable reference to the `PacketParser`.
-/// Thus, we expose the `PacketParserResult` directly to the user.
-/// *However*, do *not* directly call `PacketParser::next()` or
-/// `PacketParser::recurse()`.  This will break the `PacketPileParser`
-/// implementation.
-///
-///   [`next()`]: #method.next
-///   [`recurse()`]: #method.recurse
-///
 /// # Examples
 ///
 /// ```rust
@@ -57,9 +44,10 @@ use buffered_reader::BufferedReader;
 /// #
 /// # fn f(message_data: &[u8]) -> Result<()> {
 /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
-/// while ppp.recurse() {
-///     let pp = ppp.ppr.as_mut().unwrap();
+/// let mut ppr = ppp.recurse()?;
+/// while let Some(pp) = ppr.as_ref() {
 ///     eprintln!("{:?}", pp);
+///     ppr = ppp.recurse()?;
 /// }
 /// let message = ppp.finish();
 /// message.pretty_print();
@@ -69,7 +57,7 @@ use buffered_reader::BufferedReader;
 #[derive(Debug)]
 pub struct PacketPileParser<'a> {
     /// The current packet.
-    pub ppr: PacketParserResult<'a>,
+    ppr: PacketParserResult<'a>,
 
     /// Whether the first packet has been returned.
     returned_first: bool,
@@ -170,26 +158,15 @@ impl<'a> PacketPileParser<'a> {
     /// packet parser for the next packet.  If the current packet is a
     /// container, this function tries to recurse into it.  Otherwise,
     /// it returns the following packet.
-    ///
-    /// Due to lifetime issues, this function does not return a
-    /// reference to the `PacketParser`, but a boolean indicating
-    /// whether a new packet is available.  Instead, the
-    /// `PacketParser` can be accessed as `self.ppo`.
-    pub fn recurse(&mut self) -> bool {
+    pub fn recurse(&mut self) -> Result<&mut PacketParserResult<'a>> {
         if self.returned_first {
             match self.ppr.take() {
                 PacketParserResult::Some(pp) => {
-                    match pp.recurse() {
-                        Ok((packet, ppr)) => {
-                            self.insert_packet(
-                                packet,
-                                ppr.last_recursion_depth().unwrap() as isize);
-                            self.ppr = ppr;
-                        }
-                        Err(_) => {
-                            // XXX: What should we do with the error?
-                        }
-                    }
+                    let (packet, ppr) = pp.recurse()?;
+                    self.insert_packet(
+                        packet,
+                        ppr.last_recursion_depth().unwrap() as isize);
+                    self.ppr = ppr;
                 }
                 eof @ PacketParserResult::EOF(_) => {
                     self.ppr = eof;
@@ -199,7 +176,7 @@ impl<'a> PacketPileParser<'a> {
             self.returned_first = true;
         }
 
-        !self.is_done()
+        Ok(&mut self.ppr)
     }
 
     /// Finishes parsing the current packet and starts parsing the
@@ -210,26 +187,15 @@ impl<'a> PacketPileParser<'a> {
     /// packet parser for the following packet.  If the current packet
     /// is a container, this function does *not* recurse into the
     /// container; it skips any packets that it may contain.
-    ///
-    /// Due to lifetime issues, this function does not return a
-    /// reference to the `PacketParser`, but a boolean indicating
-    /// whether a new packet is available.  Instead, the
-    /// `PacketParser` can be accessed as `self.ppo`.
-    pub fn next(&mut self) -> bool {
+    pub fn next(&mut self) -> Result<&mut PacketParserResult<'a>> {
         if self.returned_first {
             match self.ppr.take() {
                 PacketParserResult::Some(pp) => {
-                    match pp.next() {
-                        Ok((packet, ppr)) => {
-                            self.insert_packet(
-                                packet,
-                                ppr.last_recursion_depth().unwrap() as isize);
-                            self.ppr = ppr;
-                        }
-                        Err(_) => {
-                            // XXX: What should we do with the error?
-                        }
-                    }
+                    let (packet, ppr) = pp.next()?;
+                    self.insert_packet(
+                        packet,
+                        ppr.last_recursion_depth().unwrap() as isize);
+                    self.ppr = ppr;
                 },
                 eof @ PacketParserResult::EOF(_) => {
                     self.ppr = eof
@@ -239,7 +205,7 @@ impl<'a> PacketPileParser<'a> {
             self.returned_first = true;
         }
 
-        !self.is_done()
+        Ok(&mut self.ppr)
     }
 
     /// Returns the current packet's recursion depth.
@@ -276,11 +242,13 @@ impl<'a> PacketPileParser<'a> {
 #[test]
 fn message_parser_test() {
     let mut count = 0;
-    let mut mp =
+    let mut ppp =
         PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))
         .unwrap();
-    while mp.recurse() {
+    let mut ppr = ppp.recurse().unwrap();
+    while ppr.is_some() {
         count += 1;
+        ppr = ppp.recurse().unwrap();
     }
     assert_eq!(count, 61);
 }
@@ -296,11 +264,11 @@ fn message_parser_reader_interface() {
 
     // A message containing a compressed packet that contains a
     // literal packet.
-    let mut mp = PacketPileParser::from_bytes(
+    let mut ppp = PacketPileParser::from_bytes(
         crate::tests::message("compressed-data-algo-1.gpg")).unwrap();
     let mut count = 0;
-    while mp.recurse() {
-        let pp = mp.ppr.as_mut().unwrap();
+    let mut ppr = ppp.recurse().unwrap();
+    while let Some(pp) = ppr.as_mut() {
         count += 1;
         if let Packet::Literal(_) = pp.packet {
             assert_eq!(count, 2);
@@ -318,6 +286,7 @@ fn message_parser_reader_interface() {
             let r = pp.read(&mut buf).unwrap();
             assert_eq!(r, 0);
         }
+        ppr = ppp.recurse().unwrap();
     }
     assert_eq!(count, 2);
 }

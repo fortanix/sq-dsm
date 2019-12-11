@@ -496,9 +496,9 @@ mod test {
             .buffer_unread_content()
             .into_packet_pile_parser().unwrap();
 
-        while ppp.recurse() {
-            //let pp = ppp.ppo.as_mut().unwrap();
-            //eprintln!("{:?}", pp);
+        let mut ppr = ppp.recurse().unwrap();
+        while ppr.is_some() {
+            ppr = ppp.recurse().unwrap();
         }
         let pile = ppp.finish();
         //pile.pretty_print();
@@ -510,14 +510,10 @@ mod test {
             .buffer_unread_content()
             .into_packet_pile_parser().unwrap();
 
-        while ppp.recurse() {
-            if let PacketParserResult::Some(ref pp) = ppp.ppr {
-                eprintln!("{:?}", pp);
-            } else {
-                // If PacketPileParser::recurse returns true, then
-                // ppp.ppr is not EOF.
-                unreachable!();
-            }
+        let mut ppr = ppp.recurse().unwrap();
+        while let Some(pp) = ppr.as_mut() {
+            eprintln!("{:?}", pp);
+            ppr = ppp.recurse().unwrap();
         }
         let pile = ppp.finish();
         pile.pretty_print();
