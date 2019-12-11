@@ -125,6 +125,7 @@ fn real_main() -> Result<(), failure::Error> {
             Packet::CompressedData(_) => {
                 // Skip it.
             },
+            Packet::Marker(_) => (), // Marker packets must be ignored.
             packet => {
                 eprintln!("OpenPGP message is not a detached signature.  \
                            Encountered unexpected packet: {:?} packet.",
