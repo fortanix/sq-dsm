@@ -10,7 +10,7 @@ use crate::{
 /// Identifies OpenPGP keys.
 ///
 /// An `KeyHandle` is either a `Fingerprint` or a `KeyID`.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum KeyHandle {
     /// A Fingerprint.
     Fingerprint(Fingerprint),
