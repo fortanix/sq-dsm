@@ -12,8 +12,12 @@ extern crate sequoia_openpgp as openpgp;
 use std::process::exit;
 use std::fs::File;
 use std::collections::{HashMap, HashSet};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use crate::openpgp::{Cert, Packet, packet::Signature, KeyID, RevocationStatus};
+use crate::openpgp::{
+    Cert, Packet, packet::Signature, KeyHandle, KeyID, RevocationStatus,
+};
 use crate::openpgp::types::HashAlgorithm;
 use crate::openpgp::crypto::hash::Hash;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
@@ -76,7 +80,7 @@ fn real_main() -> Result<(), failure::Error> {
     let mut ppr = PacketParser::from_file(sig_file)?;
 
     let mut sigs_seen = HashSet::new();
-    let mut sigs : Vec<(Signature, KeyID, Option<Cert>)> = Vec::new();
+    let mut sigs: Vec<(Signature, KeyID)> = Vec::new();
 
     // sig_i is count of all Signature packets that we've seen.  This
     // may be more than sigs.len() if we can't handle some of the
@@ -108,14 +112,14 @@ fn real_main() -> Result<(), failure::Error> {
 
                     // XXX: We use a KeyID even though we have a
                     // fingerprint!
-                    sigs.push((sig, fp.into(), None));
+                    sigs.push((sig, fp.into()));
                 } else if let Some(keyid) = sig.issuer() {
                     if trace {
                         eprintln!("Will check signature allegedly issued by {}.",
                                   keyid);
                     }
 
-                    sigs.push((sig, keyid, None));
+                    sigs.push((sig, keyid));
                 } else {
                     eprintln!("Signature #{} does not contain information \
                                about the issuer.  Unable to validate.",
@@ -145,7 +149,7 @@ fn real_main() -> Result<(), failure::Error> {
 
     let file = matches.value_of_os("file").expect("'file' is required");
     let hash_algos : Vec<HashAlgorithm>
-        = sigs.iter().map(|&(ref sig, _, _)| sig.hash_algo()).collect();
+        = sigs.iter().map(|&(ref sig, _)| sig.hash_algo()).collect();
     let hashes: HashMap<_, _> =
         openpgp::crypto::hash_file(File::open(file)?, &hash_algos[..])?
         .into_iter().collect();
@@ -156,14 +160,15 @@ fn real_main() -> Result<(), failure::Error> {
         cert.keys_all().any(|(_, _, k)| *keyid == k.keyid())
     }
 
-    // Find the keys.
+    // Find the certs.
+    let mut certs: HashMap<KeyHandle, Rc<RefCell<Cert>>> = HashMap::new();
     for filename in matches.values_of_os("keyring")
         .expect("No keyring specified.")
     {
         // Load the keyring.
-        let certs : Vec<Cert> = CertParser::from_file(filename)?
+        for cert in CertParser::from_file(filename)?
             .unvalidated_cert_filter(|cert, _| {
-                for &(_, ref issuer, _) in &sigs {
+                for &(_, ref issuer) in &sigs {
                     if cert_has_key(cert, issuer) {
                         return true;
                     }
@@ -180,26 +185,40 @@ fn real_main() -> Result<(), failure::Error> {
                     }
                 }
             })
-            .collect();
-
-        for cert in certs {
-            for &mut (_, ref issuer, ref mut issuer_certo) in sigs.iter_mut() {
+        {
+            for (_, issuer) in sigs.iter() {
                 if cert_has_key(&cert, issuer) {
-                    if let Some(issuer_cert) = issuer_certo.take() {
+                    let fp: KeyHandle = cert.fingerprint().into();
+                    let id = KeyHandle::KeyID(fp.clone().into());
+
+                    let cert = if let Some(known) = certs.get(&fp) {
                         if trace {
                             eprintln!("Found key {} again.  Merging.",
-                                      issuer);
+                                      fp);
                         }
 
-                        *issuer_certo
-                            = issuer_cert.merge(cert.clone()).ok();
+                        // XXX: Use RefCell::replace_with once stabilized.
+                        let k = known.borrow().clone();
+                        known.replace(k.merge(cert)?);
+
+                        known.clone()
                     } else {
                         if trace {
                             eprintln!("Found key {}.", issuer);
                         }
 
-                        *issuer_certo = Some(cert.clone());
+                        Rc::new(RefCell::new(cert))
+                    };
+
+                    certs.insert(fp, cert.clone());
+                    certs.insert(id, cert.clone());
+                    for c in cert.borrow().subkeys() {
+                        let fp: KeyHandle = c.key().fingerprint().into();
+                        let id = KeyHandle::KeyID(fp.clone().into());
+                        certs.insert(fp, cert.clone());
+                        certs.insert(id, cert.clone());
                     }
+                    break;
                 }
             }
         }
@@ -208,12 +227,13 @@ fn real_main() -> Result<(), failure::Error> {
     // Verify the signatures.
     let mut sigs_seen_from_cert = HashSet::new();
     let mut good = 0;
-    'sig_loop: for (mut sig, issuer, certo) in sigs.into_iter() {
+    'sig_loop: for (mut sig, issuer) in sigs.into_iter() {
         if trace {
             eprintln!("Checking signature allegedly issued by {}.", issuer);
         }
 
-        if let Some(ref cert) = certo {
+        if let Some(cert) = certs.get(&issuer.clone().into()) {
+            let cert = cert.borrow();
             // Find the right key.
             for (maybe_binding, _, key) in cert.keys_all() {
                 let binding = match maybe_binding {
