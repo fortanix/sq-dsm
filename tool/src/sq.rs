@@ -7,10 +7,11 @@ extern crate failure;
 extern crate prettytable;
 extern crate rpassword;
 extern crate tempfile;
-extern crate termsize;
+extern crate crossterm;
 extern crate itertools;
 extern crate tokio_core;
 
+use crossterm::terminal;
 use failure::ResultExt;
 use prettytable::{Table, Cell, Row};
 use std::fs::{File, OpenOptions};
@@ -327,7 +328,7 @@ fn real_main() -> Result<(), failure::Error> {
                     } else {
                         None
                     };
-                let width = termsize::get().map(|s| s.cols as usize);
+                let width = terminal::size().ok().map(|(cols, _)| cols as usize);
                 commands::dump(&mut input, &mut output,
                                m.is_present("mpis"), m.is_present("hex"),
                                session_key.as_ref(), width)?;

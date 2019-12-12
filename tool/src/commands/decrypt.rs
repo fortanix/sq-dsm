@@ -1,8 +1,8 @@
+use crossterm::terminal;
 use failure::{self, ResultExt};
 use std::collections::HashMap;
 use std::io;
 use rpassword;
-extern crate termsize;
 
 extern crate sequoia_openpgp as openpgp;
 use sequoia_core::Context;
@@ -88,8 +88,8 @@ impl<'a> Helper<'a> {
             key_hints: hints,
             dump_session_key: dump_session_key,
             dumper: if dump || hex {
-                let width =
-                    termsize::get().map(|s| s.cols as usize).unwrap_or(80);
+                let width = terminal::size().ok().map(|(cols, _)| cols as usize)
+                    .unwrap_or(80);
                 Some(PacketDumper::new(width, false))
             } else {
                 None

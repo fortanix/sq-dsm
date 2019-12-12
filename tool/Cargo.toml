@@ -33,7 +33,7 @@ itertools = "0.8"
 prettytable-rs = "0.8.0"
 rpassword = "4.0"
 tempfile = "3.0.4"
-termsize = "0.1"
+crossterm = "0.13"
 tokio-core = "0.1"
 
 [build-dependencies]
