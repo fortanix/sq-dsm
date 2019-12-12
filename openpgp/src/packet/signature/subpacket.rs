@@ -2084,7 +2084,7 @@ impl SubpacketAreas {
     /// time.
     ///
     /// A signature is considered to be alive if `creation time -
-    /// tolerance <= time` and `time <= expiration time`.
+    /// tolerance <= time` and `time < expiration time`.
     ///
     /// If `time` is None, uses the current time.
     ///
@@ -2155,7 +2155,7 @@ impl SubpacketAreas {
             (None, _) =>
                 Err(Error::MalformedPacket("no signature creation time".into())
                     .into()),
-            (Some(c), Some(e)) if e.as_secs() > 0 && (c + e) < time =>
+            (Some(c), Some(e)) if e.as_secs() > 0 && (c + e) <= time =>
                 Err(Error::Expired(c + e).into()),
             // Be careful to avoid underflow.
             (Some(c), _) if cmp::max(c, time::UNIX_EPOCH + tolerance)
@@ -2169,7 +2169,7 @@ impl SubpacketAreas {
     /// Returns whether or not the given key is alive at `t`.
     ///
     /// A key is considered to be alive if `creation time <= t` and `t
-    /// <= expiration time`.
+    /// < expiration time`.
     ///
     /// This function does not check whether the key was revoked.
     ///
@@ -2185,7 +2185,7 @@ impl SubpacketAreas {
             .unwrap_or_else(|| time::SystemTime::now());
 
         match self.key_expiration_time() {
-            Some(e) if e.as_secs() > 0 && key.creation_time() + e < t =>
+            Some(e) if e.as_secs() > 0 && key.creation_time() + e <= t =>
                 Err(Error::Expired(key.creation_time() + e).into()),
             _ if key.creation_time() > t =>
                 Err(Error::NotYetLive(key.creation_time()).into()),
@@ -3060,7 +3060,7 @@ fn subpacket_test_2() {
                 .is_ok());
         assert!(! sig.key_alive(
             key,
-            key.creation_time() + time::Duration::new(63072000 + 1, 0))
+            key.creation_time() + time::Duration::new(63072000, 0))
                 .is_ok());
 
         assert_eq!(sig.preferred_symmetric_algorithms(),

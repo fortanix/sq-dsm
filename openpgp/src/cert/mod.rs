@@ -162,7 +162,7 @@ impl<C> ComponentBinding<C> {
     /// Returns the active binding signature at time `t`.
     ///
     /// An active binding signature is a non-revoked, self-signature
-    /// that is alive at time `t` (`creation time <= t`, `t <=
+    /// that is alive at time `t` (`creation time <= t`, `t <
     /// expiry`).
     ///
     /// This function returns None if there are no active binding
