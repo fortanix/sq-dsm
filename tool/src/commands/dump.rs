@@ -447,8 +447,8 @@ impl PacketDumper {
                         self.dump_subpacket(output, i, pkt, s)?;
                     }
                 }
-                writeln!(output, "{}  Hash prefix: {}", i,
-                         hex::encode(s.hash_prefix()))?;
+                writeln!(output, "{}  Digest prefix: {}", i,
+                         hex::encode(s.digest_prefix()))?;
                 write!(output, "{}  Level: {} ", i, s.level())?;
                 match s.level() {
                     0 => writeln!(output, "(signature over data)")?,

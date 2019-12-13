@@ -1194,8 +1194,8 @@ impl Serialize for Signature4 {
         write_be_u16(o, self.unhashed_area().data.len() as u16)?;
         o.write_all(&self.unhashed_area().data[..])?;
 
-        write_byte(o, self.hash_prefix()[0])?;
-        write_byte(o, self.hash_prefix()[1])?;
+        write_byte(o, self.digest_prefix()[0])?;
+        write_byte(o, self.digest_prefix()[1])?;
 
         self.mpis().serialize(o)?;
 

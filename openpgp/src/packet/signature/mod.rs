@@ -273,7 +273,7 @@ impl Builder {
         Ok(Signature4 {
             common: Default::default(),
             fields: self,
-            hash_prefix: [digest[0], digest[1]],
+            digest_prefix: [digest[0], digest[1]],
             mpis: mpis,
             computed_digest: Some(digest),
             level: 0,
@@ -328,7 +328,7 @@ pub struct Signature4 {
     pub(crate) fields: Builder,
 
     /// Lower 16 bits of the signed hash value.
-    hash_prefix: [u8; 2],
+    digest_prefix: [u8; 2],
     /// Signature MPIs.
     mpis: mpis::Signature,
 
@@ -364,8 +364,8 @@ impl fmt::Debug for Signature4 {
             .field("hash_algo", &self.hash_algo())
             .field("hashed_area", self.hashed_area())
             .field("unhashed_area", self.unhashed_area())
-            .field("hash_prefix",
-                   &crate::fmt::to_hex(&self.hash_prefix, false))
+            .field("digest_prefix",
+                   &crate::fmt::to_hex(&self.digest_prefix, false))
             .field("computed_digest",
                    &if let Some(ref hash) = self.computed_digest {
                        Some(crate::fmt::to_hex(&hash[..], false))
@@ -422,7 +422,7 @@ impl Signature4 {
     pub fn new(typ: SignatureType, pk_algo: PublicKeyAlgorithm,
                hash_algo: HashAlgorithm, hashed_area: SubpacketArea,
                unhashed_area: SubpacketArea,
-               hash_prefix: [u8; 2],
+               digest_prefix: [u8; 2],
                mpis: mpis::Signature) -> Self {
         Signature4 {
             common: Default::default(),
@@ -433,7 +433,7 @@ impl Signature4 {
                 hash_algo: hash_algo,
                 subpackets: SubpacketAreas::new(hashed_area, unhashed_area),
             },
-            hash_prefix: hash_prefix,
+            digest_prefix: digest_prefix,
             mpis: mpis,
             computed_digest: None,
             level: 0,
@@ -441,13 +441,13 @@ impl Signature4 {
     }
 
     /// Gets the hash prefix.
-    pub fn hash_prefix(&self) -> &[u8; 2] {
-        &self.hash_prefix
+    pub fn digest_prefix(&self) -> &[u8; 2] {
+        &self.digest_prefix
     }
 
     /// Sets the hash prefix.
-    pub fn set_hash_prefix(&mut self, prefix: [u8; 2]) -> [u8; 2] {
-        ::std::mem::replace(&mut self.hash_prefix, prefix)
+    pub fn set_digest_prefix(&mut self, prefix: [u8; 2]) -> [u8; 2] {
+        ::std::mem::replace(&mut self.digest_prefix, prefix)
     }
 
     /// Gets the signature packet's MPIs.

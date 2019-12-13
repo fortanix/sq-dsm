@@ -1312,7 +1312,7 @@ impl Cert {
                         $binding.$sigs.push(sig);
                     } else {
                         t!("Sig {:02X}{:02X}, type = {} doesn't belong to {}",
-                           sig.hash_prefix()[0], sig.hash_prefix()[1],
+                           sig.digest_prefix()[0], sig.digest_prefix()[1],
                            sig.typ(), $desc);
 
                         self.bad.push(sig);
@@ -1347,7 +1347,7 @@ impl Cert {
                     // Use hash prefix as heuristic.
                     if let Ok(hash) = Signature::$hash_method(
                         &sig, self.primary.key(), $($verify_args),*) {
-                        if &sig.hash_prefix()[..] == &hash[..2] {
+                        if &sig.digest_prefix()[..] == &hash[..2] {
                             // See if we can get the key for a
                             // positive verification.
                             if let Some(key) = $lookup_fn(&sig) {
@@ -1358,8 +1358,8 @@ impl Cert {
                                 } else {
                                     t!("Sig {:02X}{:02X}, type = {} \
                                         doesn't belong to {}",
-                                       sig.hash_prefix()[0],
-                                       sig.hash_prefix()[1],
+                                       sig.digest_prefix()[0],
+                                       sig.digest_prefix()[1],
                                        sig.typ(), $desc);
 
                                     self.bad.push(sig);
@@ -1371,7 +1371,7 @@ impl Cert {
                         } else {
                             t!("Sig {:02X}{:02X}, type = {} \
                                 doesn't belong to {}",
-                               sig.hash_prefix()[0], sig.hash_prefix()[1],
+                               sig.digest_prefix()[0], sig.digest_prefix()[1],
                                sig.typ(), $desc);
 
                             self.bad.push(sig);
@@ -1381,7 +1381,7 @@ impl Cert {
                         // the hash algorithm.
                         t!("Sig {:02X}{:02X}, type = {}: \
                             Hashing failed",
-                           sig.hash_prefix()[0], sig.hash_prefix()[1],
+                           sig.digest_prefix()[0], sig.digest_prefix()[1],
                            sig.typ());
 
                         self.bad.push(sig);
@@ -1490,8 +1490,8 @@ impl Cert {
                      {
                          t!("Sig {:02X}{:02X}, {:?} \
                              was out of place.  Belongs to {}.",
-                            $sig.hash_prefix()[0],
-                            $sig.hash_prefix()[1],
+                            $sig.digest_prefix()[0],
+                            $sig.digest_prefix()[1],
                             $sig.typ(), $desc);
 
                          $sigs.push($sig);
@@ -1527,8 +1527,8 @@ impl Cert {
                         {
                             t!("Sig {:02X}{:02X}, {:?} \
                                 was out of place.  Belongs to {}.",
-                               $sig.hash_prefix()[0],
-                               $sig.hash_prefix()[1],
+                               $sig.digest_prefix()[0],
+                               $sig.digest_prefix()[1],
                                $sig.typ(), $desc);
 
                             $sigs.push($sig);
@@ -1538,11 +1538,11 @@ impl Cert {
                         // Use hash prefix as heuristic.
                         if let Ok(hash) = Signature::$hash_method(
                             &sig, self.primary.key(), $($verify_args),*) {
-                            if &sig.hash_prefix()[..] == &hash[..2] {
+                            if &sig.digest_prefix()[..] == &hash[..2] {
                                 t!("Sig {:02X}{:02X}, {:?} \
                                     was out of place.  Likely belongs to {}.",
-                                   $sig.hash_prefix()[0],
-                                   $sig.hash_prefix()[1],
+                                   $sig.digest_prefix()[0],
+                                   $sig.digest_prefix()[1],
                                    $sig.typ(), $desc);
 
                                 $sigs.push($sig);
@@ -1638,7 +1638,7 @@ impl Cert {
             // Keep them for later.
             t!("Self-sig {:02X}{:02X}, {:?} doesn't belong \
                 to any known component or is bad.",
-               sig.hash_prefix()[0], sig.hash_prefix()[1],
+               sig.digest_prefix()[0], sig.digest_prefix()[1],
                sig.typ());
             self.bad.push(sig);
         }
@@ -1898,7 +1898,7 @@ mod test {
             assert_eq!(cert.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(cert.userids[0].self_signatures.len(), 1);
-            assert_eq!(cert.userids[0].self_signatures[0].hash_prefix(),
+            assert_eq!(cert.userids[0].self_signatures[0].digest_prefix(),
                        &[ 0xc6, 0x8f ]);
             assert_eq!(cert.user_attributes.len(), 0);
             assert_eq!(cert.subkeys.len(), 0);
@@ -1920,7 +1920,7 @@ mod test {
             assert_eq!(cert.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(cert.userids[0].self_signatures.len(), 1);
-            assert_eq!(cert.userids[0].self_signatures[0].hash_prefix(),
+            assert_eq!(cert.userids[0].self_signatures[0].digest_prefix(),
                        &[ 0xc6, 0x8f ]);
 
             assert_eq!(cert.user_attributes.len(), 0);
@@ -1928,7 +1928,7 @@ mod test {
             assert_eq!(cert.subkeys.len(), 1, "number of subkeys");
             assert_eq!(cert.subkeys[0].key().creation_time(),
                        Timestamp::from(1511355130).into());
-            assert_eq!(cert.subkeys[0].self_signatures[0].hash_prefix(),
+            assert_eq!(cert.subkeys[0].self_signatures[0].digest_prefix(),
                        &[ 0xb7, 0xb9 ]);
 
             let cert = parse_cert(crate::tests::key("testy-no-subkey.pgp"),
@@ -1944,7 +1944,7 @@ mod test {
             assert_eq!(cert.userids[0].userid().value(),
                        &b"Testy McTestface <testy@example.org>"[..]);
             assert_eq!(cert.userids[0].self_signatures.len(), 1);
-            assert_eq!(cert.userids[0].self_signatures[0].hash_prefix(),
+            assert_eq!(cert.userids[0].self_signatures[0].digest_prefix(),
                        &[ 0xc6, 0x8f ]);
 
             assert_eq!(cert.subkeys.len(), 0, "number of subkeys");

@@ -471,12 +471,12 @@ mod test {
                         selfsig,
                         cert.primary(),
                         binding.userid()).unwrap();
-                    if &h[..2] != selfsig.hash_prefix() {
+                    if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
                                   i, binding.userid(), selfsig);
                         eprintln!("  Hash: {:?}", h);
                     }
-                    assert_eq!(&h[..2], selfsig.hash_prefix());
+                    assert_eq!(&h[..2], selfsig.digest_prefix());
                     userid_sigs += 1;
                 }
             }
@@ -487,12 +487,12 @@ mod test {
                         selfsig,
                         cert.primary(),
                         binding.user_attribute()).unwrap();
-                    if &h[..2] != selfsig.hash_prefix() {
+                    if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
                                   i, binding.user_attribute(), selfsig);
                         eprintln!("  Hash: {:?}", h);
                     }
-                    assert_eq!(&h[..2], selfsig.hash_prefix());
+                    assert_eq!(&h[..2], selfsig.digest_prefix());
                     ua_sigs += 1;
                 }
             }
@@ -503,12 +503,12 @@ mod test {
                         selfsig,
                         cert.primary(),
                         binding.key()).unwrap();
-                    if &h[..2] != selfsig.hash_prefix() {
+                    if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?}", i, binding);
                         eprintln!("  Hash: {:?}", h);
                     }
-                    assert_eq!(h[0], selfsig.hash_prefix()[0]);
-                    assert_eq!(h[1], selfsig.hash_prefix()[1]);
+                    assert_eq!(h[0], selfsig.digest_prefix()[0]);
+                    assert_eq!(h[1], selfsig.digest_prefix()[1]);
                     subkey_sigs += 1;
                 }
             }
