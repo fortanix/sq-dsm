@@ -1008,9 +1008,12 @@ impl<P, R> Key4<P, R>
     }
 
     /// Sets the key packet's creation time field.
-    pub fn set_creation_time(&mut self, timestamp: time::SystemTime)
-                             -> Result<time::SystemTime> {
-        Ok(std::mem::replace(&mut self.creation_time, timestamp.try_into()?)
+    pub fn set_creation_time<T>(&mut self, timestamp: T)
+                                -> Result<time::SystemTime>
+        where T: Into<time::SystemTime>
+    {
+        Ok(std::mem::replace(&mut self.creation_time,
+                             timestamp.into().try_into()?)
            .into())
     }
 
