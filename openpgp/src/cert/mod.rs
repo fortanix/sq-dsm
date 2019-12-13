@@ -2707,8 +2707,9 @@ mod test {
         let t3 = time::UNIX_EPOCH + time::Duration::new(1009839600, 0); // 2002-1-1
         let t4 = time::UNIX_EPOCH + time::Duration::new(1041375600, 0); // 2003-1-1
 
-        let key: key::SecretKey
+        let mut key: key::SecretKey
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+        key.set_creation_time(t1).unwrap();
         let mut pair = key.clone().into_keypair().unwrap();
         let (bind1, rev1, bind2, rev2) = {
             let bind1 = signature::Builder::new(SignatureType::DirectKey)
