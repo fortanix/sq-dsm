@@ -563,9 +563,11 @@ impl Signature4 {
 
     /// Verifies the signature against `hash`.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
-    /// time, or signature revocations must be checked by the caller.
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature and checks that the key predates the
+    /// signature.  Further constraints on the signature, like
+    /// creation and expiration time, or signature revocations must be
+    /// checked by the caller.
     ///
     /// Likewise, this function does not check whether `key` can made
     /// valid signatures; it is up to the caller to make sure the key
@@ -581,6 +583,17 @@ impl Signature4 {
         use crate::PublicKeyAlgorithm::*;
         use crate::crypto::mpis::PublicKey;
         let digest = digest.as_ref();
+
+        if let Some(creation_time) = self.signature_creation_time() {
+            if creation_time < key.creation_time() {
+                return Err(Error::BadSignature(
+                    format!("Signature (created {:?}) predates key ({:?})",
+                            creation_time, key.creation_time())).into());
+            }
+        } else {
+            return Err(Error::BadSignature(
+                "Signature has no creation time subpacket".into()).into());
+        }
 
         #[allow(deprecated)]
         match (self.pk_algo(), key.mpis(), self.mpis()) {
@@ -688,8 +701,10 @@ impl Signature4 {
     /// Verifies the signature over text or binary documents using
     /// `key`.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `key` can make
@@ -714,8 +729,10 @@ impl Signature4 {
 
     /// Verifies the standalone signature using `key`.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `key` can make
@@ -739,8 +756,10 @@ impl Signature4 {
 
     /// Verifies the timestamp signature using `key`.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `key` can make
@@ -770,8 +789,10 @@ impl Signature4 {
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
@@ -801,8 +822,10 @@ impl Signature4 {
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
@@ -837,8 +860,10 @@ impl Signature4 {
     /// missing or can't be verified, then this function returns
     /// false.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
@@ -917,8 +942,10 @@ impl Signature4 {
     ///
     /// For a self-revocation, `signer` and `pk` will be the same.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
@@ -949,8 +976,10 @@ impl Signature4 {
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
@@ -984,8 +1013,10 @@ impl Signature4 {
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
@@ -1016,8 +1047,10 @@ impl Signature4 {
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
@@ -1051,8 +1084,10 @@ impl Signature4 {
     ///
     /// For a self-signature, `signer` and `pk` will be the same.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
@@ -1083,8 +1118,10 @@ impl Signature4 {
     /// This function is for short messages, if you want to verify larger files
     /// use `Verifier`.
     ///
-    /// Note: This only verifies the cryptographic signature.
-    /// Constraints on the signature, like creation and expiration
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
     /// time, or signature revocations must be checked by the caller.
     ///
     /// Likewise, this function does not check whether `signer` can
