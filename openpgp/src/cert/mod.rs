@@ -1224,7 +1224,7 @@ impl Cert {
     ///
     /// A valid `Key` has at least one good self-signature.
     ///
-    /// To return all keys, do `keys_all().unfiltered()`.  See the
+    /// To return all keys, do `keys_all()`.  See the
     /// documentation of `keys` for how to control what keys are
     /// returned.
     pub fn keys_valid(&self)
