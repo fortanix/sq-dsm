@@ -1407,10 +1407,10 @@ impl Cert {
                self.primary, self_revocations, verify_primary_key_revocation);
         check_3rd_party!("primary key",
                          self.primary, certifications, lookup_fn,
-                         verify_primary_key_binding, primary_key_binding_hash);
+                         verify_primary_key_binding, hash_primary_key_binding);
         check_3rd_party!("primary key",
                          self.primary, other_revocations, lookup_fn,
-                         verify_primary_key_revocation, primary_key_binding_hash);
+                         verify_primary_key_revocation, hash_primary_key_binding);
 
         for binding in self.userids.iter_mut() {
             check!(format!("userid \"{}\"",
@@ -1425,13 +1425,13 @@ impl Cert {
                 format!("userid \"{}\"",
                         String::from_utf8_lossy(binding.userid().value())),
                 binding, certifications, lookup_fn,
-                verify_userid_binding, userid_binding_hash,
+                verify_userid_binding, hash_userid_binding,
                 binding.userid());
             check_3rd_party!(
                 format!("userid \"{}\"",
                         String::from_utf8_lossy(binding.userid().value())),
                 binding, other_revocations, lookup_fn,
-                verify_userid_revocation, userid_binding_hash,
+                verify_userid_revocation, hash_userid_binding,
                 binding.userid());
         }
 
@@ -1445,12 +1445,12 @@ impl Cert {
             check_3rd_party!(
                 "user attribute",
                 binding, certifications, lookup_fn,
-                verify_user_attribute_binding, user_attribute_binding_hash,
+                verify_user_attribute_binding, hash_user_attribute_binding,
                 binding.user_attribute());
             check_3rd_party!(
                 "user attribute",
                 binding, other_revocations, lookup_fn,
-                verify_user_attribute_revocation, user_attribute_binding_hash,
+                verify_user_attribute_revocation, hash_user_attribute_binding,
                 binding.user_attribute());
         }
 
@@ -1464,12 +1464,12 @@ impl Cert {
             check_3rd_party!(
                 format!("subkey {}", binding.key().keyid()),
                 binding, certifications, lookup_fn,
-                verify_subkey_binding, subkey_binding_hash,
+                verify_subkey_binding, hash_subkey_binding,
                 binding.key());
             check_3rd_party!(
                 format!("subkey {}", binding.key().keyid()),
                 binding, other_revocations, lookup_fn,
-                verify_subkey_revocation, subkey_binding_hash,
+                verify_subkey_revocation, hash_subkey_binding,
                 binding.key());
         }
 
@@ -1564,10 +1564,10 @@ impl Cert {
                        verify_primary_key_revocation);
             check_one_3rd_party!(
                 "primary key", self.primary.certifications, sig, lookup_fn,
-                verify_primary_key_binding, primary_key_binding_hash);
+                verify_primary_key_binding, hash_primary_key_binding);
             check_one_3rd_party!(
                 "primary key", self.primary.other_revocations, sig, lookup_fn,
-                verify_primary_key_revocation, primary_key_binding_hash);
+                verify_primary_key_revocation, hash_primary_key_binding);
 
             for binding in self.userids.iter_mut() {
                 check_one!(format!("userid \"{}\"",
@@ -1584,13 +1584,13 @@ impl Cert {
                     format!("userid \"{}\"",
                             String::from_utf8_lossy(binding.userid().value())),
                     binding.certifications, sig, lookup_fn,
-                    verify_userid_binding, userid_binding_hash,
+                    verify_userid_binding, hash_userid_binding,
                     binding.userid());
                 check_one_3rd_party!(
                     format!("userid \"{}\"",
                             String::from_utf8_lossy(binding.userid().value())),
                     binding.other_revocations, sig, lookup_fn,
-                    verify_userid_revocation, userid_binding_hash,
+                    verify_userid_revocation, hash_userid_binding,
                     binding.userid());
             }
 
@@ -1606,13 +1606,13 @@ impl Cert {
                 check_one_3rd_party!(
                     "user attribute",
                     binding.certifications, sig, lookup_fn,
-                    verify_user_attribute_binding, user_attribute_binding_hash,
+                    verify_user_attribute_binding, hash_user_attribute_binding,
                     binding.user_attribute());
                 check_one_3rd_party!(
                     "user attribute",
                     binding.other_revocations, sig, lookup_fn,
                     verify_user_attribute_revocation,
-                    user_attribute_binding_hash,
+                    hash_user_attribute_binding,
                     binding.user_attribute());
             }
 
@@ -1626,12 +1626,12 @@ impl Cert {
                 check_one_3rd_party!(
                     format!("subkey {}", binding.key().keyid()),
                     binding.certifications, sig, lookup_fn,
-                    verify_subkey_binding, subkey_binding_hash,
+                    verify_subkey_binding, hash_subkey_binding,
                     binding.key());
                 check_one_3rd_party!(
                     format!("subkey {}", binding.key().keyid()),
                     binding.other_revocations, sig, lookup_fn,
-                    verify_subkey_revocation, subkey_binding_hash,
+                    verify_subkey_revocation, hash_subkey_binding,
                     binding.key());
             }
 

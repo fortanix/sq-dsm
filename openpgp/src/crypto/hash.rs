@@ -353,7 +353,7 @@ impl Hash for signature::Builder {
 /// Hashing-related functionality.
 impl Signature {
     /// Computes the message digest of standalone signatures.
-    pub fn standalone_hash<'a, S>(sig: S) -> Result<Vec<u8>>
+    pub fn hash_standalone<'a, S>(sig: S) -> Result<Vec<u8>>
         where S: Into<&'a signature::Builder>
     {
         let sig = sig.into();
@@ -367,15 +367,15 @@ impl Signature {
     }
 
     /// Computes the message digest of timestamp signatures.
-    pub fn timestamp_hash<'a, S>(sig: S) -> Result<Vec<u8>>
+    pub fn hash_timestamp<'a, S>(sig: S) -> Result<Vec<u8>>
         where S: Into<&'a signature::Builder>
     {
-        Self::standalone_hash(sig)
+        Self::hash_standalone(sig)
     }
 
     /// Returns the message digest of the primary key binding over the
     /// specified primary key.
-    pub fn primary_key_binding_hash<'a, S>(sig: S, key: &key::PublicKey)
+    pub fn hash_primary_key_binding<'a, S>(sig: S, key: &key::PublicKey)
         -> Result<Vec<u8>>
         where S: Into<&'a signature::Builder>
     {
@@ -393,7 +393,7 @@ impl Signature {
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn subkey_binding_hash<'a, P, S>(sig: S,
+    pub fn hash_subkey_binding<'a, P, S>(sig: S,
                                          key: &key::PublicKey,
                                          subkey: &Key<P, key::SubordinateRole>)
         -> Result<Vec<u8>>
@@ -415,7 +415,7 @@ impl Signature {
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
-    pub fn userid_binding_hash<'a, S>(sig: S,
+    pub fn hash_userid_binding<'a, S>(sig: S,
                                       key: &key::PublicKey,
                                       userid: &UserID)
         -> Result<Vec<u8>>
@@ -435,7 +435,7 @@ impl Signature {
 
     /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
-    pub fn user_attribute_binding_hash<'a, S>(sig: S,
+    pub fn hash_user_attribute_binding<'a, S>(sig: S,
                                               key: &key::PublicKey,
                                               ua: &UserAttribute)
         -> Result<Vec<u8>>
@@ -467,7 +467,7 @@ mod test {
             let mut userid_sigs = 0;
             for (i, binding) in cert.userids().enumerate() {
                 for selfsig in binding.self_signatures() {
-                    let h = Signature::userid_binding_hash(
+                    let h = Signature::hash_userid_binding(
                         selfsig,
                         cert.primary(),
                         binding.userid()).unwrap();
@@ -483,7 +483,7 @@ mod test {
             let mut ua_sigs = 0;
             for (i, binding) in cert.user_attributes().enumerate() {
                 for selfsig in binding.self_signatures() {
-                    let h = Signature::user_attribute_binding_hash(
+                    let h = Signature::hash_user_attribute_binding(
                         selfsig,
                         cert.primary(),
                         binding.user_attribute()).unwrap();
@@ -499,7 +499,7 @@ mod test {
             let mut subkey_sigs = 0;
             for (i, binding) in cert.subkeys().enumerate() {
                 for selfsig in binding.self_signatures() {
-                    let h = Signature::subkey_binding_hash(
+                    let h = Signature::hash_subkey_binding(
                         selfsig,
                         cert.primary(),
                         binding.key()).unwrap();

@@ -142,7 +142,7 @@ impl Builder {
                            -> Result<Signature>
     {
         self.pk_algo = signer.public().pk_algo();
-        let digest = Signature::standalone_hash(&self)?;
+        let digest = Signature::hash_standalone(&self)?;
         self.sign(signer, digest)
     }
 
@@ -154,7 +154,7 @@ impl Builder {
                           -> Result<Signature>
     {
         self.pk_algo = signer.public().pk_algo();
-        let digest = Signature::timestamp_hash(&self)?;
+        let digest = Signature::hash_timestamp(&self)?;
         self.sign(signer, digest)
     }
 
@@ -167,7 +167,7 @@ impl Builder {
     {
         self.pk_algo = signer.public().pk_algo();
         let digest =
-            Signature::primary_key_binding_hash(&self,
+            Signature::hash_primary_key_binding(&self,
                                                 signer.public()
                                                     .mark_role_primary_ref())?;
 
@@ -184,7 +184,7 @@ impl Builder {
         -> Result<Signature>
     {
         self.pk_algo = signer.public().pk_algo();
-        let digest = Signature::userid_binding_hash(&self, key, userid)?;
+        let digest = Signature::hash_userid_binding(&self, key, userid)?;
 
         self.sign(signer, digest)
     }
@@ -200,7 +200,7 @@ impl Builder {
         where P: key:: KeyParts
     {
         self.pk_algo = signer.public().pk_algo();
-        let digest = Signature::subkey_binding_hash(&self, primary, subkey)?;
+        let digest = Signature::hash_subkey_binding(&self, primary, subkey)?;
 
         self.sign(signer, digest)
     }
@@ -216,7 +216,7 @@ impl Builder {
     {
         self.pk_algo = signer.public().pk_algo();
         let digest =
-            Signature::user_attribute_binding_hash(&self, key, ua)?;
+            Signature::hash_user_attribute_binding(&self, key, ua)?;
 
         self.sign(signer, digest)
     }
@@ -733,7 +733,7 @@ impl Signature4 {
 
         // Standalone signatures are like binary-signatures over the
         // zero-sized string.
-        let digest = Signature::standalone_hash(self)?;
+        let digest = Signature::hash_standalone(self)?;
         self.verify_digest(key, &digest[..])
     }
 
@@ -758,7 +758,7 @@ impl Signature4 {
 
         // Timestamp signatures are like binary-signatures over the
         // zero-sized string.
-        let digest = Signature::timestamp_hash(self)?;
+        let digest = Signature::hash_timestamp(self)?;
         self.verify_digest(key, &digest[..])
     }
 
@@ -789,7 +789,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::primary_key_binding_hash(self, pk)?;
+        let hash = Signature::hash_primary_key_binding(self, pk)?;
         self.verify_digest(signer, &hash[..])
     }
 
@@ -820,7 +820,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::primary_key_binding_hash(self, pk)?;
+        let hash = Signature::hash_primary_key_binding(self, pk)?;
         self.verify_digest(signer, &hash[..])
     }
 
@@ -857,7 +857,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
+        let hash = Signature::hash_subkey_binding(self, pk, subkey)?;
         if self.verify_digest(signer, &hash[..])? {
             // The signature is good, but we may still need to verify
             // the back sig.
@@ -878,7 +878,7 @@ impl Signature4 {
                 return Err(Error::UnsupportedSignatureType(self.typ()).into());
             } else {
                 // We can't use backsig.verify_subkey_binding.
-                let hash = Signature::subkey_binding_hash(&backsig, pk, subkey)?;
+                let hash = Signature::hash_subkey_binding(&backsig, pk, subkey)?;
                 match backsig.verify_digest(subkey.mark_role_unspecified_ref(),
                                             &hash[..])
                 {
@@ -937,7 +937,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
+        let hash = Signature::hash_subkey_binding(self, pk, subkey)?;
         self.verify_digest(signer, &hash[..])
     }
 
@@ -972,7 +972,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::userid_binding_hash(self, pk, userid)?;
+        let hash = Signature::hash_userid_binding(self, pk, userid)?;
         self.verify_digest(signer, &hash[..])
     }
 
@@ -1004,7 +1004,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::userid_binding_hash(self, pk, userid)?;
+        let hash = Signature::hash_userid_binding(self, pk, userid)?;
         self.verify_digest(signer, &hash[..])
     }
 
@@ -1039,7 +1039,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
+        let hash = Signature::hash_user_attribute_binding(self, pk, ua)?;
         self.verify_digest(signer, &hash[..])
     }
 
@@ -1071,7 +1071,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
+        let hash = Signature::hash_user_attribute_binding(self, pk, ua)?;
         self.verify_digest(signer, &hash[..])
     }
 
@@ -1491,7 +1491,7 @@ mod test {
         let p = Packet::from_bytes(crate::tests::file(
             "contrib/gnupg/timestamp-signature-by-alice.asc")).unwrap();
         if let Packet::Signature(sig) = p {
-            let digest = Signature::standalone_hash(&sig).unwrap();
+            let digest = Signature::hash_standalone(&sig).unwrap();
             eprintln!("{}", crate::fmt::hex::encode(&digest));
             assert!(sig.verify_timestamp(alpha.primary()).unwrap());
         } else {
