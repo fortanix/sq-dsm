@@ -1558,81 +1558,118 @@ impl Cert {
                  });
             }
 
-            check_one!("primary key", self.primary.self_signatures, sig,
-                       verify_primary_key_binding);
-            check_one!("primary key", self.primary.self_revocations, sig,
-                       verify_primary_key_revocation);
-            check_one_3rd_party!(
-                "primary key", self.primary.certifications, sig, lookup_fn,
-                verify_primary_key_binding, hash_primary_key_binding);
-            check_one_3rd_party!(
-                "primary key", self.primary.other_revocations, sig, lookup_fn,
-                verify_primary_key_revocation, hash_primary_key_binding);
+            use SignatureType::*;
+            match sig.typ() {
+                DirectKey => {
+                    check_one!("primary key", self.primary.self_signatures,
+                               sig, verify_primary_key_binding);
+                    check_one_3rd_party!(
+                        "primary key", self.primary.certifications, sig,
+                        lookup_fn,
+                        verify_primary_key_binding, hash_primary_key_binding);
+                },
 
-            for binding in self.userids.iter_mut() {
-                check_one!(format!("userid \"{}\"",
-                                   String::from_utf8_lossy(
-                                       binding.userid().value())),
-                           binding.self_signatures, sig,
-                           verify_userid_binding, binding.userid());
-                check_one!(format!("userid \"{}\"",
-                                   String::from_utf8_lossy(
-                                       binding.userid().value())),
-                           binding.self_revocations, sig,
-                           verify_userid_revocation, binding.userid());
-                check_one_3rd_party!(
-                    format!("userid \"{}\"",
-                            String::from_utf8_lossy(binding.userid().value())),
-                    binding.certifications, sig, lookup_fn,
-                    verify_userid_binding, hash_userid_binding,
-                    binding.userid());
-                check_one_3rd_party!(
-                    format!("userid \"{}\"",
-                            String::from_utf8_lossy(binding.userid().value())),
-                    binding.other_revocations, sig, lookup_fn,
-                    verify_userid_revocation, hash_userid_binding,
-                    binding.userid());
-            }
+                KeyRevocation => {
+                    check_one!("primary key", self.primary.self_revocations,
+                               sig, verify_primary_key_revocation);
+                    check_one_3rd_party!(
+                        "primary key", self.primary.other_revocations, sig,
+                        lookup_fn, verify_primary_key_revocation,
+                        hash_primary_key_binding);
+                },
 
-            for binding in self.user_attributes.iter_mut() {
-                check_one!("user attribute",
-                           binding.self_signatures, sig,
-                           verify_user_attribute_binding,
-                           binding.user_attribute());
-                check_one!("user attribute",
-                           binding.self_revocations, sig,
-                           verify_user_attribute_revocation,
-                           binding.user_attribute());
-                check_one_3rd_party!(
-                    "user attribute",
-                    binding.certifications, sig, lookup_fn,
-                    verify_user_attribute_binding, hash_user_attribute_binding,
-                    binding.user_attribute());
-                check_one_3rd_party!(
-                    "user attribute",
-                    binding.other_revocations, sig, lookup_fn,
-                    verify_user_attribute_revocation,
-                    hash_user_attribute_binding,
-                    binding.user_attribute());
-            }
+                GenericCertification | PersonaCertification
+                    | CasualCertification | PositiveCertification =>
+                {
+                    for binding in self.userids.iter_mut() {
+                        check_one!(format!("userid \"{}\"",
+                                           String::from_utf8_lossy(
+                                               binding.userid().value())),
+                                   binding.self_signatures, sig,
+                                   verify_userid_binding, binding.userid());
+                        check_one_3rd_party!(
+                            format!("userid \"{}\"",
+                                    String::from_utf8_lossy(
+                                        binding.userid().value())),
+                            binding.certifications, sig, lookup_fn,
+                            verify_userid_binding, hash_userid_binding,
+                            binding.userid());
+                    }
 
-            for binding in self.subkeys.iter_mut() {
-                check_one!(format!("subkey {}", binding.key().keyid()),
-                           binding.self_signatures, sig,
-                           verify_subkey_binding, binding.key());
-                check_one!(format!("subkey {}", binding.key().keyid()),
-                           binding.self_revocations, sig,
-                           verify_subkey_revocation, binding.key());
-                check_one_3rd_party!(
-                    format!("subkey {}", binding.key().keyid()),
-                    binding.certifications, sig, lookup_fn,
-                    verify_subkey_binding, hash_subkey_binding,
-                    binding.key());
-                check_one_3rd_party!(
-                    format!("subkey {}", binding.key().keyid()),
-                    binding.other_revocations, sig, lookup_fn,
-                    verify_subkey_revocation, hash_subkey_binding,
-                    binding.key());
+                    for binding in self.user_attributes.iter_mut() {
+                        check_one!("user attribute",
+                                   binding.self_signatures, sig,
+                                   verify_user_attribute_binding,
+                                   binding.user_attribute());
+                        check_one_3rd_party!(
+                            "user attribute",
+                            binding.certifications, sig, lookup_fn,
+                            verify_user_attribute_binding,
+                            hash_user_attribute_binding,
+                            binding.user_attribute());
+                    }
+                },
+
+                CertificationRevocation => {
+                    for binding in self.userids.iter_mut() {
+                        check_one!(format!("userid \"{}\"",
+                                           String::from_utf8_lossy(
+                                               binding.userid().value())),
+                                   binding.self_revocations, sig,
+                                   verify_userid_revocation,
+                                   binding.userid());
+                        check_one_3rd_party!(
+                            format!("userid \"{}\"",
+                                    String::from_utf8_lossy(
+                                        binding.userid().value())),
+                            binding.other_revocations, sig, lookup_fn,
+                            verify_userid_revocation, hash_userid_binding,
+                            binding.userid());
+                    }
+
+                    for binding in self.user_attributes.iter_mut() {
+                        check_one!("user attribute",
+                                   binding.self_revocations, sig,
+                                   verify_user_attribute_revocation,
+                                   binding.user_attribute());
+                        check_one_3rd_party!(
+                            "user attribute",
+                            binding.other_revocations, sig, lookup_fn,
+                            verify_user_attribute_revocation,
+                            hash_user_attribute_binding,
+                            binding.user_attribute());
+                    }
+                },
+
+                SubkeyBinding => {
+                    for binding in self.subkeys.iter_mut() {
+                        check_one!(format!("subkey {}", binding.key().keyid()),
+                                   binding.self_signatures, sig,
+                                   verify_subkey_binding, binding.key());
+                        check_one_3rd_party!(
+                            format!("subkey {}", binding.key().keyid()),
+                            binding.certifications, sig, lookup_fn,
+                            verify_subkey_binding, hash_subkey_binding,
+                            binding.key());
+                    }
+                },
+
+                SubkeyRevocation => {
+                    for binding in self.subkeys.iter_mut() {
+                        check_one!(format!("subkey {}", binding.key().keyid()),
+                                   binding.self_revocations, sig,
+                                   verify_subkey_revocation, binding.key());
+                        check_one_3rd_party!(
+                            format!("subkey {}", binding.key().keyid()),
+                            binding.other_revocations, sig, lookup_fn,
+                            verify_subkey_revocation, hash_subkey_binding,
+                            binding.key());
+                    }
+                },
+
+                typ => {
+                    t!("Odd signature type: {:?}", typ);
+                },
             }
 
             // Keep them for later.
@@ -3375,11 +3412,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     fn keysigning_party() {
         use crate::cert::packet::signature;
 
-        // Canonicalizing Bob's cert without having Alice's key has to
-        // resort to a heuristic to order third party signatures.
-        let mut bad_orderings = 0;
-
-        let mut n = 0;
         for cs in &[ CipherSuite::Cv25519,
                      CipherSuite::RSA3k,
                      CipherSuite::P256,
@@ -3388,7 +3420,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                      CipherSuite::RSA2k,
                      CipherSuite::RSA4k ]
         {
-            n += 1;
             let (alice, _) = CertBuilder::new()
                 .set_cipher_suite(*cs)
                 .add_userid("alice@foo.com")
@@ -3427,11 +3458,15 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             assert_eq!(bob.userids().len(), 1);
             let bob_userid_binding = bob.userids().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
-            if bob_userid_binding.certifications() !=
-                &[ alice_certifies_bob.clone() ]
-            {
-                bad_orderings += 1;
-            }
+
+            // Canonicalizing Bob's cert without having Alice's key
+            // has to resort to a heuristic to order third party
+            // signatures.  However, since we know the signature's
+            // type (GenericCertification), we know that it can only
+            // go to the only userid, so there is no ambiguity in this
+            // case.
+            assert_eq!(bob_userid_binding.certifications(),
+                       &[ alice_certifies_bob.clone() ]);
 
             // Make sure the certification is correct.
             assert_eq!(
@@ -3441,19 +3476,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                                            bob_userid_binding.userid())
                     .unwrap(),
                 true);
-        }
-
-        if bad_orderings == n {
-            // The heuristic to order the signatures failed every
-            // time.  The probability of this happening is:
-            //     1 : 2^(15 * n)
-            //
-            // (The heuristic compares 16 bit hash prefixes,
-            // probability of collision *per component* is 1:2^16.  On
-            // Bob's key, there are 3 components: primary, userid, and
-            // subkey.  Therefore, the chance of putting the signature
-            // into the wrong component is 1:2^15.  Repeat N times.)
-            panic!("Reordering third-party signatures is broken");
         }
    }
 
