@@ -569,15 +569,15 @@ impl Signature4 {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_hash<R, D>(&self, key: &Key<key::PublicParts, R>,
-                             hash: D)
+    pub fn verify_digest<R, D>(&self, key: &Key<key::PublicParts, R>,
+                               digest: D)
         -> Result<bool>
         where R: key::KeyRole,
               D: AsRef<[u8]>,
     {
         use crate::PublicKeyAlgorithm::*;
         use crate::crypto::mpis::PublicKey;
-        let hash = hash.as_ref();
+        let digest = digest.as_ref();
 
         #[allow(deprecated)]
         match (self.pk_algo(), key.mpis(), self.mpis()) {
@@ -595,7 +595,7 @@ impl Signature4 {
                 //
                 //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
                 //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                verify_digest_pkcs1(&key, hash, self.hash_algo().oid()?,
+                verify_digest_pkcs1(&key, digest, self.hash_algo().oid()?,
                                     s.value())
             }
 
@@ -606,7 +606,7 @@ impl Signature4 {
                 let params = dsa::Params::new(p.value(), q.value(), g.value());
                 let signature = dsa::Signature::new(r.value(), s.value());
 
-                Ok(dsa::verify(&params, &key, hash, &signature))
+                Ok(dsa::verify(&params, &key, digest, &signature))
             }
 
             (EdDSA,
@@ -648,7 +648,7 @@ impl Signature4 {
                                 signature.len(), r.value(), s.value())).into());
                     }
 
-                    ed25519::verify(&q.value()[1..], hash, &signature)
+                    ed25519::verify(&q.value()[1..], digest, &signature)
                 },
                 _ =>
                     Err(Error::UnsupportedEllipticCurve(curve.clone())
@@ -673,7 +673,7 @@ impl Signature4 {
                 };
 
                 let signature = dsa::Signature::new(r.value(), s.value());
-                Ok(ecdsa::verify(&key, hash, &signature))
+                Ok(ecdsa::verify(&key, digest, &signature))
             },
 
             _ => Err(Error::MalformedPacket(format!(
@@ -703,7 +703,7 @@ impl Signature4 {
         }
 
         if let Some(ref hash) = self.computed_hash {
-            self.verify_hash(key, hash)
+            self.verify_digest(key, hash)
         } else {
             Err(Error::BadSignature("Hash not computed.".to_string()).into())
         }
@@ -731,7 +731,7 @@ impl Signature4 {
         // Standalone signatures are like binary-signatures over the
         // zero-sized string.
         let digest = Signature::standalone_hash(self)?;
-        self.verify_hash(key, &digest[..])
+        self.verify_digest(key, &digest[..])
     }
 
     /// Verifies the timestamp signature using `key`.
@@ -756,7 +756,7 @@ impl Signature4 {
         // Timestamp signatures are like binary-signatures over the
         // zero-sized string.
         let digest = Signature::timestamp_hash(self)?;
-        self.verify_hash(key, &digest[..])
+        self.verify_digest(key, &digest[..])
     }
 
     /// Verifies the primary key binding.
@@ -787,7 +787,7 @@ impl Signature4 {
         }
 
         let hash = Signature::primary_key_binding_hash(self, pk)?;
-        self.verify_hash(signer, &hash[..])
+        self.verify_digest(signer, &hash[..])
     }
 
     /// Verifies the primary key revocation certificate.
@@ -818,7 +818,7 @@ impl Signature4 {
         }
 
         let hash = Signature::primary_key_binding_hash(self, pk)?;
-        self.verify_hash(signer, &hash[..])
+        self.verify_digest(signer, &hash[..])
     }
 
     /// Verifies the subkey binding.
@@ -855,7 +855,7 @@ impl Signature4 {
         }
 
         let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
-        if self.verify_hash(signer, &hash[..])? {
+        if self.verify_digest(signer, &hash[..])? {
             // The signature is good, but we may still need to verify
             // the back sig.
         } else {
@@ -876,8 +876,8 @@ impl Signature4 {
             } else {
                 // We can't use backsig.verify_subkey_binding.
                 let hash = Signature::subkey_binding_hash(&backsig, pk, subkey)?;
-                match backsig.verify_hash(subkey.mark_role_unspecified_ref(),
-                                          &hash[..])
+                match backsig.verify_digest(subkey.mark_role_unspecified_ref(),
+                                            &hash[..])
                 {
                     Ok(true) => {
                         if TRACE {
@@ -935,7 +935,7 @@ impl Signature4 {
         }
 
         let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
-        self.verify_hash(signer, &hash[..])
+        self.verify_digest(signer, &hash[..])
     }
 
     /// Verifies the user id binding.
@@ -970,7 +970,7 @@ impl Signature4 {
         }
 
         let hash = Signature::userid_binding_hash(self, pk, userid)?;
-        self.verify_hash(signer, &hash[..])
+        self.verify_digest(signer, &hash[..])
     }
 
     /// Verifies the user id revocation certificate.
@@ -1002,7 +1002,7 @@ impl Signature4 {
         }
 
         let hash = Signature::userid_binding_hash(self, pk, userid)?;
-        self.verify_hash(signer, &hash[..])
+        self.verify_digest(signer, &hash[..])
     }
 
     /// Verifies the user attribute binding.
@@ -1037,7 +1037,7 @@ impl Signature4 {
         }
 
         let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
-        self.verify_hash(signer, &hash[..])
+        self.verify_digest(signer, &hash[..])
     }
 
     /// Verifies the user attribute revocation certificate.
@@ -1069,7 +1069,7 @@ impl Signature4 {
         }
 
         let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
-        self.verify_hash(signer, &hash[..])
+        self.verify_digest(signer, &hash[..])
     }
 
     /// Verifies a signature of a message.
@@ -1108,7 +1108,7 @@ impl Signature4 {
         self.hash(&mut hash);
         hash.digest(&mut digest);
 
-        self.verify_hash(signer, &digest[..])
+        self.verify_digest(signer, &digest[..])
     }
 }
 
@@ -1306,11 +1306,11 @@ mod test {
             sig.hash(&mut hash);
             let mut digest = vec![0u8; hash.digest_size()];
             hash.digest(&mut digest);
-            assert!(sig.verify_hash(pair.public(), &digest[..]).unwrap());
+            assert!(sig.verify_digest(pair.public(), &digest[..]).unwrap());
 
             // Bad signature.
             digest[0] ^= 0xff;
-            assert!(! sig.verify_hash(pair.public(), &digest[..]).unwrap());
+            assert!(! sig.verify_digest(pair.public(), &digest[..]).unwrap());
         }
     }
 
