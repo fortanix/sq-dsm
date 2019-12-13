@@ -1058,7 +1058,7 @@ impl Signature4 {
                         {
                             t!("popped a {:?} HashedReader", hash_algo);
                             computed_hash = Some((cookie.signature_level(),
-                                                  hash_algo, hash.clone()));
+                                                  hash.clone()));
                         }
 
                         if cookie.sig_group_unused() {
@@ -1072,14 +1072,14 @@ impl Signature4 {
             }
         }
 
-        if let Some((level, algo, mut hash)) = computed_hash {
+        if let Some((level, mut hash)) = computed_hash {
             if let Packet::Signature(ref mut sig) = pp.packet {
                 sig.hash(&mut hash);
 
                 let mut digest = vec![0u8; hash.digest_size()];
                 hash.digest(&mut digest);
 
-                sig.set_computed_hash(Some((algo, digest)));
+                sig.set_computed_hash(Some(digest));
                 sig.set_level(level);
             } else {
                 unreachable!()
@@ -1388,12 +1388,12 @@ fn one_pass_sig_test () {
                           crate::fmt::to_hex(&test.hash_prefix[sigs][..], false),
                           crate::fmt::to_hex(sig.hash_prefix(), false));
                 eprintln!("  computed hash: {}",
-                          crate::fmt::to_hex(&sig.computed_hash().unwrap().1,
+                          crate::fmt::to_hex(&sig.computed_hash().unwrap(),
                                                 false));
 
                 assert_eq!(&test.hash_prefix[sigs], sig.hash_prefix());
                 assert_eq!(&test.hash_prefix[sigs][..],
-                           &sig.computed_hash().unwrap().1[..2]);
+                           &sig.computed_hash().unwrap()[..2]);
 
                 sigs += 1;
             } else if one_pass_sigs > 0 {

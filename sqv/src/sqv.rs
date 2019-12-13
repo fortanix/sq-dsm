@@ -260,8 +260,7 @@ fn real_main() -> Result<(), failure::Error> {
 
                     let mut digest = vec![0u8; hash.digest_size()];
                     hash.digest(&mut digest);
-                    let hash_algo = sig.hash_algo();
-                    sig.set_computed_hash(Some((hash_algo, digest)));
+                    sig.set_computed_hash(Some(digest));
 
                     match sig.verify(key) {
                         Ok(true) => {

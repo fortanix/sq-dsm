@@ -274,7 +274,7 @@ impl Builder {
             fields: self,
             hash_prefix: [digest[0], digest[1]],
             mpis: mpis,
-            computed_hash: Some((algo, digest)),
+            computed_hash: Some(digest),
             level: 0,
         }.into())
     }
@@ -333,7 +333,7 @@ pub struct Signature4 {
 
     /// When used in conjunction with a one-pass signature, this is the
     /// hash computed over the enclosed message.
-    computed_hash: Option<(HashAlgorithm, Vec<u8>)>,
+    computed_hash: Option<Vec<u8>>,
 
     /// Signature level.
     ///
@@ -366,8 +366,8 @@ impl fmt::Debug for Signature4 {
             .field("hash_prefix",
                    &crate::fmt::to_hex(&self.hash_prefix, false))
             .field("computed_hash",
-                   &if let Some((algo, ref hash)) = self.computed_hash {
-                       Some((algo, crate::fmt::to_hex(&hash[..], false)))
+                   &if let Some(ref hash) = self.computed_hash {
+                       Some(crate::fmt::to_hex(&hash[..], false))
                    } else {
                        None
                    })
@@ -460,13 +460,13 @@ impl Signature4 {
     }
 
     /// Gets the computed hash value.
-    pub fn computed_hash(&self) -> Option<&(HashAlgorithm, Vec<u8>)> {
-        self.computed_hash.as_ref()
+    pub fn computed_hash(&self) -> Option<&[u8]> {
+        self.computed_hash.as_ref().map(|d| &d[..])
     }
 
     /// Sets the computed hash value.
-    pub fn set_computed_hash(&mut self, hash: Option<(HashAlgorithm, Vec<u8>)>)
-        -> Option<(HashAlgorithm, Vec<u8>)>
+    pub fn set_computed_hash(&mut self, hash: Option<Vec<u8>>)
+        -> Option<Vec<u8>>
     {
         ::std::mem::replace(&mut self.computed_hash, hash)
     }
@@ -699,8 +699,8 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        if let Some((hash_algo, ref hash)) = self.computed_hash {
-            self.verify_hash(key, hash_algo, hash)
+        if let Some(ref hash) = self.computed_hash {
+            self.verify_hash(key, self.hash_algo(), hash)
         } else {
             Err(Error::BadSignature("Hash not computed.".to_string()).into())
         }
