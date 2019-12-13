@@ -393,11 +393,13 @@ impl Signature {
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn hash_subkey_binding<'a, P, S>(sig: S,
-                                         key: &key::PublicKey,
-                                         subkey: &Key<P, key::SubordinateRole>)
+    pub fn hash_subkey_binding<'a, P, Q, S>(
+        sig: S,
+        key: &Key<P, key::PrimaryRole>,
+        subkey: &Key<Q, key::SubordinateRole>)
         -> Result<Vec<u8>>
         where P: key::KeyParts,
+              Q: key::KeyParts,
               S: Into<&'a signature::Builder>
     {
 
