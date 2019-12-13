@@ -466,7 +466,7 @@ impl Signature4 {
     }
 
     /// Sets the computed hash value.
-    pub fn set_computed_hash(&mut self, hash: Option<Vec<u8>>)
+    pub(crate) fn set_computed_hash(&mut self, hash: Option<Vec<u8>>)
         -> Option<Vec<u8>>
     {
         ::std::mem::replace(&mut self.computed_hash, hash)

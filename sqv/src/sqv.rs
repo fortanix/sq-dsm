@@ -227,7 +227,7 @@ fn real_main() -> Result<(), failure::Error> {
     // Verify the signatures.
     let mut sigs_seen_from_cert = HashSet::new();
     let mut good = 0;
-    'sig_loop: for (mut sig, issuer) in sigs.into_iter() {
+    'sig_loop: for (sig, issuer) in sigs.into_iter() {
         if trace {
             eprintln!("Checking signature allegedly issued by {}.", issuer);
         }
@@ -260,9 +260,7 @@ fn real_main() -> Result<(), failure::Error> {
 
                     let mut digest = vec![0u8; hash.digest_size()];
                     hash.digest(&mut digest);
-                    sig.set_computed_hash(Some(digest));
-
-                    match sig.verify(key) {
+                    match sig.verify_digest(key, &digest[..]) {
                         Ok(true) => {
                             if let Some(t) = sig.signature_creation_time() {
                                 if let Some(not_before) = not_before {
