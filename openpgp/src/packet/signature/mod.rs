@@ -569,7 +569,6 @@ impl Signature4 {
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
     pub fn verify_hash<R>(&self, key: &Key<key::PublicParts, R>,
-                          hash_algo: HashAlgorithm,
                           hash: &[u8])
         -> Result<bool>
         where R: key::KeyRole
@@ -593,7 +592,8 @@ impl Signature4 {
                 //
                 //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
                 //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                verify_digest_pkcs1(&key, hash, hash_algo.oid()?, s.value())
+                verify_digest_pkcs1(&key, hash, self.hash_algo().oid()?,
+                                    s.value())
             }
 
             (DSA,
@@ -700,7 +700,7 @@ impl Signature4 {
         }
 
         if let Some(ref hash) = self.computed_hash {
-            self.verify_hash(key, self.hash_algo(), hash)
+            self.verify_hash(key, hash)
         } else {
             Err(Error::BadSignature("Hash not computed.".to_string()).into())
         }
@@ -728,7 +728,7 @@ impl Signature4 {
         // Standalone signatures are like binary-signatures over the
         // zero-sized string.
         let digest = Signature::standalone_hash(self)?;
-        self.verify_hash(key, self.hash_algo(), &digest)
+        self.verify_hash(key, &digest)
     }
 
     /// Verifies the timestamp signature using `key`.
@@ -753,7 +753,7 @@ impl Signature4 {
         // Timestamp signatures are like binary-signatures over the
         // zero-sized string.
         let digest = Signature::timestamp_hash(self)?;
-        self.verify_hash(key, self.hash_algo(), &digest)
+        self.verify_hash(key, &digest)
     }
 
     /// Verifies the primary key binding.
@@ -784,7 +784,7 @@ impl Signature4 {
         }
 
         let hash = Signature::primary_key_binding_hash(self, pk)?;
-        self.verify_hash(signer, self.hash_algo(), &hash[..])
+        self.verify_hash(signer, &hash[..])
     }
 
     /// Verifies the primary key revocation certificate.
@@ -815,7 +815,7 @@ impl Signature4 {
         }
 
         let hash = Signature::primary_key_binding_hash(self, pk)?;
-        self.verify_hash(signer, self.hash_algo(), &hash[..])
+        self.verify_hash(signer, &hash[..])
     }
 
     /// Verifies the subkey binding.
@@ -852,7 +852,7 @@ impl Signature4 {
         }
 
         let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
-        if self.verify_hash(signer, self.hash_algo(), &hash[..])? {
+        if self.verify_hash(signer, &hash[..])? {
             // The signature is good, but we may still need to verify
             // the back sig.
         } else {
@@ -874,7 +874,7 @@ impl Signature4 {
                 // We can't use backsig.verify_subkey_binding.
                 let hash = Signature::subkey_binding_hash(&backsig, pk, subkey)?;
                 match backsig.verify_hash(subkey.mark_role_unspecified_ref(),
-                                          backsig.hash_algo(), &hash[..])
+                                          &hash[..])
                 {
                     Ok(true) => {
                         if TRACE {
@@ -932,7 +932,7 @@ impl Signature4 {
         }
 
         let hash = Signature::subkey_binding_hash(self, pk, subkey)?;
-        self.verify_hash(signer, self.hash_algo(), &hash[..])
+        self.verify_hash(signer, &hash[..])
     }
 
     /// Verifies the user id binding.
@@ -967,7 +967,7 @@ impl Signature4 {
         }
 
         let hash = Signature::userid_binding_hash(self, pk, userid)?;
-        self.verify_hash(signer, self.hash_algo(), &hash[..])
+        self.verify_hash(signer, &hash[..])
     }
 
     /// Verifies the user id revocation certificate.
@@ -999,7 +999,7 @@ impl Signature4 {
         }
 
         let hash = Signature::userid_binding_hash(self, pk, userid)?;
-        self.verify_hash(signer, self.hash_algo(), &hash[..])
+        self.verify_hash(signer, &hash[..])
     }
 
     /// Verifies the user attribute binding.
@@ -1034,7 +1034,7 @@ impl Signature4 {
         }
 
         let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
-        self.verify_hash(signer, self.hash_algo(), &hash[..])
+        self.verify_hash(signer, &hash[..])
     }
 
     /// Verifies the user attribute revocation certificate.
@@ -1066,7 +1066,7 @@ impl Signature4 {
         }
 
         let hash = Signature::user_attribute_binding_hash(self, pk, ua)?;
-        self.verify_hash(signer, self.hash_algo(), &hash[..])
+        self.verify_hash(signer, &hash[..])
     }
 
     /// Verifies a signature of a message.
@@ -1103,7 +1103,7 @@ impl Signature4 {
         self.hash(&mut hash);
         hash.digest(&mut digest);
 
-        self.verify_hash(signer, self.hash_algo(), &digest[..])
+        self.verify_hash(signer, &digest[..])
     }
 }
 
@@ -1301,11 +1301,11 @@ mod test {
             sig.hash(&mut hash);
             let mut digest = vec![0u8; hash.digest_size()];
             hash.digest(&mut digest);
-            assert!(sig.verify_hash(pair.public(), hash_algo, &digest).unwrap());
+            assert!(sig.verify_hash(pair.public(), &digest).unwrap());
 
             // Bad signature.
             digest[0] ^= 0xff;
-            assert!(! sig.verify_hash(pair.public(), hash_algo, &digest).unwrap());
+            assert!(! sig.verify_hash(pair.public(), &digest).unwrap());
         }
     }
 
