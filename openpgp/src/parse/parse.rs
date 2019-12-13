@@ -1026,7 +1026,7 @@ impl Signature4 {
 
         // Locate the corresponding HashedReader and extract the
         // computed hash.
-        let mut computed_hash = None;
+        let mut computed_digest = None;
         {
             let recursion_depth = pp.recursion_depth();
 
@@ -1057,8 +1057,8 @@ impl Signature4 {
                                 })
                         {
                             t!("popped a {:?} HashedReader", hash_algo);
-                            computed_hash = Some((cookie.signature_level(),
-                                                  hash.clone()));
+                            computed_digest = Some((cookie.signature_level(),
+                                                    hash.clone()));
                         }
 
                         if cookie.sig_group_unused() {
@@ -1072,14 +1072,14 @@ impl Signature4 {
             }
         }
 
-        if let Some((level, mut hash)) = computed_hash {
+        if let Some((level, mut hash)) = computed_digest {
             if let Packet::Signature(ref mut sig) = pp.packet {
                 sig.hash(&mut hash);
 
                 let mut digest = vec![0u8; hash.digest_size()];
                 hash.digest(&mut digest);
 
-                sig.set_computed_hash(Some(digest));
+                sig.set_computed_digest(Some(digest));
                 sig.set_level(level);
             } else {
                 unreachable!()
@@ -1388,12 +1388,12 @@ fn one_pass_sig_test () {
                           crate::fmt::to_hex(&test.hash_prefix[sigs][..], false),
                           crate::fmt::to_hex(sig.hash_prefix(), false));
                 eprintln!("  computed hash: {}",
-                          crate::fmt::to_hex(&sig.computed_hash().unwrap(),
-                                                false));
+                          crate::fmt::to_hex(&sig.computed_digest().unwrap(),
+                                             false));
 
                 assert_eq!(&test.hash_prefix[sigs], sig.hash_prefix());
                 assert_eq!(&test.hash_prefix[sigs][..],
-                           &sig.computed_hash().unwrap()[..2]);
+                           &sig.computed_digest().unwrap()[..2]);
 
                 sigs += 1;
             } else if one_pass_sigs > 0 {

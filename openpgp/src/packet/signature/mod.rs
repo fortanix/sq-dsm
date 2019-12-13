@@ -275,7 +275,7 @@ impl Builder {
             fields: self,
             hash_prefix: [digest[0], digest[1]],
             mpis: mpis,
-            computed_hash: Some(digest),
+            computed_digest: Some(digest),
             level: 0,
         }.into())
     }
@@ -334,7 +334,7 @@ pub struct Signature4 {
 
     /// When used in conjunction with a one-pass signature, this is the
     /// hash computed over the enclosed message.
-    computed_hash: Option<Vec<u8>>,
+    computed_digest: Option<Vec<u8>>,
 
     /// Signature level.
     ///
@@ -366,8 +366,8 @@ impl fmt::Debug for Signature4 {
             .field("unhashed_area", self.unhashed_area())
             .field("hash_prefix",
                    &crate::fmt::to_hex(&self.hash_prefix, false))
-            .field("computed_hash",
-                   &if let Some(ref hash) = self.computed_hash {
+            .field("computed_digest",
+                   &if let Some(ref hash) = self.computed_digest {
                        Some(crate::fmt::to_hex(&hash[..], false))
                    } else {
                        None
@@ -435,7 +435,7 @@ impl Signature4 {
             },
             hash_prefix: hash_prefix,
             mpis: mpis,
-            computed_hash: None,
+            computed_digest: None,
             level: 0,
         }
     }
@@ -461,15 +461,15 @@ impl Signature4 {
     }
 
     /// Gets the computed hash value.
-    pub fn computed_hash(&self) -> Option<&[u8]> {
-        self.computed_hash.as_ref().map(|d| &d[..])
+    pub fn computed_digest(&self) -> Option<&[u8]> {
+        self.computed_digest.as_ref().map(|d| &d[..])
     }
 
     /// Sets the computed hash value.
-    pub(crate) fn set_computed_hash(&mut self, hash: Option<Vec<u8>>)
+    pub(crate) fn set_computed_digest(&mut self, hash: Option<Vec<u8>>)
         -> Option<Vec<u8>>
     {
-        ::std::mem::replace(&mut self.computed_hash, hash)
+        ::std::mem::replace(&mut self.computed_digest, hash)
     }
 
     /// Gets the signature level.
@@ -702,7 +702,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        if let Some(ref hash) = self.computed_hash {
+        if let Some(ref hash) = self.computed_digest {
             self.verify_digest(key, hash)
         } else {
             Err(Error::BadSignature("Hash not computed.".to_string()).into())
