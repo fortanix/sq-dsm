@@ -1599,7 +1599,7 @@ mod test {
                     // Look for the MDC packet.
                     State::MDC =>
                         if let Packet::MDC(ref mdc) = pp.packet {
-                            assert_eq!(mdc.hash(), mdc.computed_hash());
+                            assert_eq!(mdc.digest(), mdc.computed_digest());
                             State::Done
                         } else {
                             panic!("Unexpected packet: {:?}", pp.packet)

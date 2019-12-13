@@ -1938,7 +1938,7 @@ impl SerializeInto for SEIP {
 
 impl Serialize for MDC {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        o.write_all(self.hash())?;
+        o.write_all(self.digest())?;
         Ok(())
     }
 }

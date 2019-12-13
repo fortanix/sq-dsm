@@ -2029,7 +2029,7 @@ impl MDC {
         // Nevertheless, we take some basic precautions to check
         // whether it is really the matching HashedReader.
 
-        let mut computed_hash : [u8; 20] = Default::default();
+        let mut computed_digest : [u8; 20] = Default::default();
         {
             let mut r : Option<&mut dyn BufferedReader<Cookie>>
                 = Some(&mut php.reader);
@@ -2046,7 +2046,7 @@ impl MDC {
                                     } else {
                                         None
                                     }).unwrap();
-                            h.digest(&mut computed_hash);
+                            h.digest(&mut computed_digest);
                         }
 
                         // If the outer most HashedReader is not the
@@ -2060,10 +2060,10 @@ impl MDC {
             }
         }
 
-        let mut hash : [u8; 20] = Default::default();
-        hash.copy_from_slice(&php_try!(php.parse_bytes("hash", 20)));
+        let mut digest: [u8; 20] = Default::default();
+        digest.copy_from_slice(&php_try!(php.parse_bytes("digest", 20)));
 
-        php.ok(Packet::MDC(MDC::new(hash, computed_hash)))
+        php.ok(Packet::MDC(MDC::new(digest, computed_digest)))
     }
 }
 
@@ -3943,7 +3943,7 @@ mod test {
             if let PacketParserResult::Some(
                 PacketParser { packet: Packet::MDC(ref mdc), .. }) = ppr
             {
-                assert_eq!(mdc.computed_hash(), mdc.hash(),
+                assert_eq!(mdc.computed_digest(), mdc.digest(),
                            "MDC doesn't match");
             }
 

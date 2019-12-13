@@ -648,10 +648,10 @@ impl PacketDumper {
             },
 
             MDC(ref m) => {
-                writeln!(output, "{}  Hash: {}",
-                         i, hex::encode(m.hash()))?;
-                writeln!(output, "{}  Computed hash: {}",
-                         i, hex::encode(m.computed_hash()))?;
+                writeln!(output, "{}  Digest: {}",
+                         i, hex::encode(m.digest()))?;
+                writeln!(output, "{}  Computed digest: {}",
+                         i, hex::encode(m.computed_digest()))?;
             },
 
             AED(ref a) => {

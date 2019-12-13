@@ -13,39 +13,39 @@ pub struct MDC {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
     /// Our SHA-1 hash.
-    computed_hash: [u8; 20],
+    computed_digest: [u8; 20],
     /// A 20-octet SHA-1 hash of the preceding plaintext data.
-    hash: [u8; 20],
+    digest: [u8; 20],
 }
 
 impl MDC {
     /// Creates an MDC packet.
-    pub fn new(hash: [u8; 20], computed_hash: [u8; 20]) -> Self {
+    pub fn new(digest: [u8; 20], computed_digest: [u8; 20]) -> Self {
         MDC {
             common: Default::default(),
-            computed_hash: computed_hash,
-            hash: hash,
+            computed_digest,
+            digest,
         }
     }
 
     /// Gets the packet's hash value.
-    pub fn hash(&self) -> &[u8] {
-        &self.hash[..]
+    pub fn digest(&self) -> &[u8] {
+        &self.digest[..]
     }
 
     /// Gets the computed hash value.
-    pub fn computed_hash(&self) -> &[u8] {
-        &self.computed_hash[..]
+    pub fn computed_digest(&self) -> &[u8] {
+        &self.computed_digest[..]
     }
 
     /// Returns whether the data protected by the MDC is valid.
     pub fn valid(&self) -> bool {
-        if self.hash == [ 0; 20 ] {
-            // If the computed_hash and hash are uninitialized, then
+        if self.digest == [ 0; 20 ] {
+            // If the computed_digest and digest are uninitialized, then
             // return false.
             false
         } else {
-            self.computed_hash == self.hash
+            self.computed_digest == self.digest
         }
     }
 }
@@ -57,12 +57,12 @@ impl From<MDC> for Packet {
 }
 
 impl From<[u8; 20]> for MDC {
-    fn from(hash: [u8; 20]) -> Self {
+    fn from(digest: [u8; 20]) -> Self {
         MDC {
             common: Default::default(),
             // All 0s.
-            computed_hash: Default::default(),
-            hash: hash,
+            computed_digest: Default::default(),
+            digest,
         }
     }
 }
@@ -74,4 +74,3 @@ impl From<crypto::hash::Context> for MDC {
         value.into()
     }
 }
-
