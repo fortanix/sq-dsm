@@ -294,6 +294,13 @@ fn real_main() -> Result<(), failure::Error> {
                                              was created.");
                                         break;
                                     }
+
+                                    if binding.binding_signature(t).is_none() {
+                                        eprintln!(
+                                            "Key was not live when the \
+                                             signature was created.");
+                                        break;
+                                    }
                                 }
 
                                 if cert.revoked(t)
