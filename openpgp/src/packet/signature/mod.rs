@@ -245,12 +245,13 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_message(mut self, signer: &mut dyn Signer, msg: &[u8])
+    pub fn sign_message<M>(mut self, signer: &mut dyn Signer, msg: M)
         -> Result<Signature>
+        where M: AsRef<[u8]>
     {
         // Hash the message
         let mut hash = self.hash_algo.context()?;
-        hash.update(msg);
+        hash.update(msg.as_ref());
 
         // Fill out some fields, then hash the packet.
         self.pk_algo = signer.public().pk_algo();
@@ -568,13 +569,15 @@ impl Signature4 {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_hash<R>(&self, key: &Key<key::PublicParts, R>,
-                          hash: &[u8])
+    pub fn verify_hash<R, D>(&self, key: &Key<key::PublicParts, R>,
+                             hash: D)
         -> Result<bool>
-        where R: key::KeyRole
+        where R: key::KeyRole,
+              D: AsRef<[u8]>,
     {
         use crate::PublicKeyAlgorithm::*;
         use crate::crypto::mpis::PublicKey;
+        let hash = hash.as_ref();
 
         #[allow(deprecated)]
         match (self.pk_algo(), key.mpis(), self.mpis()) {
@@ -728,7 +731,7 @@ impl Signature4 {
         // Standalone signatures are like binary-signatures over the
         // zero-sized string.
         let digest = Signature::standalone_hash(self)?;
-        self.verify_hash(key, &digest)
+        self.verify_hash(key, &digest[..])
     }
 
     /// Verifies the timestamp signature using `key`.
@@ -753,7 +756,7 @@ impl Signature4 {
         // Timestamp signatures are like binary-signatures over the
         // zero-sized string.
         let digest = Signature::timestamp_hash(self)?;
-        self.verify_hash(key, &digest)
+        self.verify_hash(key, &digest[..])
     }
 
     /// Verifies the primary key binding.
@@ -1086,9 +1089,11 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_message<R>(&self, signer: &Key<key::PublicParts, R>, msg: &[u8])
+    pub fn verify_message<R, M>(&self, signer: &Key<key::PublicParts, R>,
+                                msg: M)
         -> Result<bool>
-        where R: key::KeyRole
+        where R: key::KeyRole,
+              M: AsRef<[u8]>,
     {
         if self.typ() != SignatureType::Binary &&
             self.typ() != SignatureType::Text {
@@ -1099,7 +1104,7 @@ impl Signature4 {
         let mut hash = self.hash_algo().context()?;
         let mut digest = vec![0u8; hash.digest_size()];
 
-        hash.update(msg);
+        hash.update(msg.as_ref());
         self.hash(&mut hash);
         hash.digest(&mut digest);
 
@@ -1301,11 +1306,11 @@ mod test {
             sig.hash(&mut hash);
             let mut digest = vec![0u8; hash.digest_size()];
             hash.digest(&mut digest);
-            assert!(sig.verify_hash(pair.public(), &digest).unwrap());
+            assert!(sig.verify_hash(pair.public(), &digest[..]).unwrap());
 
             // Bad signature.
             digest[0] ^= 0xff;
-            assert!(! sig.verify_hash(pair.public(), &digest).unwrap());
+            assert!(! sig.verify_hash(pair.public(), &digest[..]).unwrap());
         }
     }
 
