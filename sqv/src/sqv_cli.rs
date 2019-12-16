@@ -24,14 +24,16 @@ pub fn build() -> App<'static, 'static> {
              .long("signatures")
              .short("n")
              .takes_value(true))
-        .arg(Arg::with_name("not-before").value_name("YYYY-MM-DD")
-             .help("Consider signatures created before YYYY-MM-DD as invalid.  \
-                    Default: no constraint")
+        .arg(Arg::with_name("not-before").value_name("TIMESTAMP")
+             .help("Consider signatures created before TIMESTAMP as invalid.  \
+                    If a date is given, 00:00:00 is used for the time. \
+                    \n[default: no constraint]")
              .long("not-before")
              .takes_value(true))
-        .arg(Arg::with_name("not-after").value_name("YYYY-MM-DD")
-             .help("Consider signatures created after YYYY-MM-DD as invalid.  \
-                    Default: now")
+        .arg(Arg::with_name("not-after").value_name("TIMESTAMP")
+             .help("Consider signatures created after TIMESTAMP as invalid.  \
+                    If a date is given, 23:59:59 is used for the time. \
+                    \n[default: now]")
              .long("not-after")
              .takes_value(true))
         .arg(Arg::with_name("sig-file").value_name("SIG-FILE")
@@ -43,4 +45,9 @@ pub fn build() -> App<'static, 'static> {
         .arg(Arg::with_name("trace")
              .help("Trace execution.")
              .long("trace"))
+        .after_help(
+            "TIMESTAMPs must be given in ISO 9801 format \
+             (e.g. '2017-03-04T13:25:35Z', '2017-03-04T13:25', \
+             '20170304T1325+0830', '2017-03-04', '2017031', ...). \
+             If no timezone is specified, UTC is assumed.")
 }
