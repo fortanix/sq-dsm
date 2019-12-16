@@ -27,7 +27,7 @@
 //!     <SIG-FILE>    File containing the detached signature.
 //!     <FILE>        File to verify.
 //!
-//! TIMESTAMPs must be given in ISO 9801 format (e.g. '2017-03-04T13:25:35Z', '2017-03-04T13:25', '20170304T1325+0830',
+//! TIMESTAMPs must be given in ISO 8601 format (e.g. '2017-03-04T13:25:35Z', '2017-03-04T13:25', '20170304T1325+0830',
 //! '2017-03-04', '2017031', ...). If no timezone is specified, UTC is assumed.
 //! ```
 
