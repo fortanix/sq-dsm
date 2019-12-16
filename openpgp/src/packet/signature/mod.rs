@@ -39,13 +39,13 @@ const TRACE : bool = false;
 ///
 /// This is the mutable version of a `Signature4` packet.  To convert
 /// it to one, use [`sign_hash`], [`sign_message`],
-/// [`sign_primary_key_binding`], [`sign_subkey_binding`],
+/// [`sign_direct_key`], [`sign_subkey_binding`],
 /// [`sign_userid_binding`], [`sign_user_attribute_binding`],
 /// [`sign_standalone`], or [`sign_timestamp`],
 ///
 ///   [`sign_hash`]: #method.sign_hash
 ///   [`sign_message`]: #method.sign_message
-///   [`sign_primary_key_binding`]: #method.sign_primary_key_binding
+///   [`sign_direct_key`]: #method.sign_direct_key
 ///   [`sign_subkey_binding`]: #method.sign_subkey_binding
 ///   [`sign_userid_binding`]: #method.sign_userid_binding
 ///   [`sign_user_attribute_binding`]: #method.sign_user_attribute_binding
@@ -162,14 +162,14 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_primary_key_binding(mut self, signer: &mut dyn Signer)
+    pub fn sign_direct_key(mut self, signer: &mut dyn Signer)
         -> Result<Signature>
     {
         self.pk_algo = signer.public().pk_algo();
         let digest =
-            Signature::hash_primary_key_binding(&self,
-                                                signer.public()
-                                                    .mark_role_primary_ref())?;
+            Signature::hash_direct_key(&self,
+                                       signer.public()
+                                       .mark_role_primary_ref())?;
 
         self.sign(signer, digest)
     }
@@ -782,9 +782,9 @@ impl Signature4 {
         self.verify_digest(key, &digest[..])
     }
 
-    /// Verifies the primary key binding.
+    /// Verifies the direct key signature.
     ///
-    /// `self` is the primary key binding signature, `signer` is the
+    /// `self` is the direct key signature, `signer` is the
     /// key that allegedly made the signature, and `pk` is the primary
     /// key.
     ///
@@ -801,9 +801,9 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_primary_key_binding<R>(&self,
-                                         signer: &Key<key::PublicParts, R>,
-                                         pk: &key::PublicKey)
+    pub fn verify_direct_key<R>(&self,
+                                signer: &Key<key::PublicParts, R>,
+                                pk: &key::PublicKey)
         -> Result<bool>
         where R: key::KeyRole
     {
@@ -811,7 +811,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_primary_key_binding(self, pk)?;
+        let hash = Signature::hash_direct_key(self, pk)?;
         self.verify_digest(signer, &hash[..])
     }
 
@@ -844,7 +844,7 @@ impl Signature4 {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_primary_key_binding(self, pk)?;
+        let hash = Signature::hash_direct_key(self, pk)?;
         self.verify_digest(signer, &hash[..])
     }
 

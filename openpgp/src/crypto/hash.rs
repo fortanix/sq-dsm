@@ -373,9 +373,9 @@ impl Signature {
         Self::hash_standalone(sig)
     }
 
-    /// Returns the message digest of the primary key binding over the
-    /// specified primary key.
-    pub fn hash_primary_key_binding<'a, S>(sig: S, key: &key::PublicKey)
+    /// Returns the message digest of the direct key signature over
+    /// the specified primary key.
+    pub fn hash_direct_key<'a, S>(sig: S, key: &key::PublicKey)
         -> Result<Vec<u8>>
         where S: Into<&'a signature::Builder>
     {

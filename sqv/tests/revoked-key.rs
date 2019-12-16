@@ -309,7 +309,7 @@ fn create_key() {
         .set_issuer(key.fingerprint().into()).unwrap()
         .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])
         .unwrap();
-    let direct1 = b.sign_primary_key_binding(&mut signer).unwrap();
+    let direct1 = b.sign_direct_key(&mut signer).unwrap();
 
     // 1st subkey binding signature valid from t_sk_binding on
     b = signature::Builder::new(SignatureType::SubkeyBinding)
@@ -336,7 +336,7 @@ fn create_key() {
         .set_issuer(key.fingerprint().into()).unwrap()
         .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])
         .unwrap();
-    let direct2 = b.sign_primary_key_binding(&mut signer).unwrap();
+    let direct2 = b.sign_direct_key(&mut signer).unwrap();
 
     // 2nd subkey binding signature valid from t3 on
     let mut b = signature::Builder::new(SignatureType::SubkeyBinding)
@@ -385,7 +385,7 @@ fn create_key() {
                 .unwrap();
         }
 
-        let rev = b.sign_primary_key_binding(&mut signer).unwrap();
+        let rev = b.sign_direct_key(&mut signer).unwrap();
         let cert = Cert::from_packet_pile(PacketPile::from(vec![
             key.clone().into(),
             direct1.clone().into(),

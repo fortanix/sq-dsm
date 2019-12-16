@@ -1402,15 +1402,15 @@ impl Cert {
         }
 
         check!("primary key",
-               self.primary, self_signatures, verify_primary_key_binding);
+               self.primary, self_signatures, verify_direct_key);
         check!("primary key",
                self.primary, self_revocations, verify_primary_key_revocation);
         check_3rd_party!("primary key",
                          self.primary, certifications, lookup_fn,
-                         verify_primary_key_binding, hash_primary_key_binding);
+                         verify_direct_key, hash_direct_key);
         check_3rd_party!("primary key",
                          self.primary, other_revocations, lookup_fn,
-                         verify_primary_key_revocation, hash_primary_key_binding);
+                         verify_primary_key_revocation, hash_direct_key);
 
         for binding in self.userids.iter_mut() {
             check!(format!("userid \"{}\"",
@@ -1562,11 +1562,11 @@ impl Cert {
             match sig.typ() {
                 DirectKey => {
                     check_one!("primary key", self.primary.self_signatures,
-                               sig, verify_primary_key_binding);
+                               sig, verify_direct_key);
                     check_one_3rd_party!(
                         "primary key", self.primary.certifications, sig,
                         lookup_fn,
-                        verify_primary_key_binding, hash_primary_key_binding);
+                        verify_direct_key, hash_direct_key);
                 },
 
                 KeyRevocation => {
@@ -1575,7 +1575,7 @@ impl Cert {
                     check_one_3rd_party!(
                         "primary key", self.primary.other_revocations, sig,
                         lookup_fn, verify_primary_key_revocation,
-                        hash_primary_key_binding);
+                        hash_direct_key);
                 },
 
                 GenericCertification | PersonaCertification
@@ -2757,7 +2757,7 @@ mod test {
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
-                .sign_primary_key_binding(&mut pair).unwrap();
+                .sign_direct_key(&mut pair).unwrap();
 
             let rev1 = signature::Builder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t2).unwrap()
@@ -2765,7 +2765,7 @@ mod test {
                                            &b""[..]).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
-                .sign_primary_key_binding(&mut pair).unwrap();
+                .sign_direct_key(&mut pair).unwrap();
 
             let bind2 = signature::Builder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
@@ -2775,7 +2775,7 @@ mod test {
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
-                .sign_primary_key_binding(&mut pair).unwrap();
+                .sign_direct_key(&mut pair).unwrap();
 
             let rev2 = signature::Builder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t4).unwrap()
@@ -2783,7 +2783,7 @@ mod test {
                                            &b""[..]).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
-                .sign_primary_key_binding(&mut pair).unwrap();
+                .sign_direct_key(&mut pair).unwrap();
 
             (bind1, rev1, bind2, rev2)
         };
@@ -3385,7 +3385,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                     .set_issuer(key.keyid()).unwrap()
                     .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                     .set_signature_creation_time(*t).unwrap()
-                    .sign_primary_key_binding(&mut pair).unwrap();
+                    .sign_direct_key(&mut pair).unwrap();
 
                 let binding : Packet = binding.into();
 
