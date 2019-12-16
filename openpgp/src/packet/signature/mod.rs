@@ -930,6 +930,9 @@ impl Signature4 {
                     },
                 }
             }
+        } else {
+            return Err(Error::BadSignature(
+                "Primary key binding signature missing".into()).into());
         }
 
         Ok(backsig_ok)
