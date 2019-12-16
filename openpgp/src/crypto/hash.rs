@@ -415,6 +415,20 @@ impl Signature {
         Ok(digest)
     }
 
+    /// Returns the message digest of the primary key binding over the
+    /// specified primary key and subkey.
+    pub fn hash_primary_key_binding<'a, P, Q, S>(
+        sig: S,
+        key: &Key<P, key::PrimaryRole>,
+        subkey: &Key<Q, key::SubordinateRole>)
+        -> Result<Vec<u8>>
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              S: Into<&'a signature::Builder>
+    {
+        Self::hash_subkey_binding(sig.into(), key, subkey)
+    }
+
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
     pub fn hash_userid_binding<'a, S>(sig: S,

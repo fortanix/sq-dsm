@@ -33,20 +33,20 @@ use nettle::rsa::verify_digest_pkcs1;
 
 pub mod subpacket;
 
-const TRACE : bool = false;
-
 /// Builds a signature packet.
 ///
 /// This is the mutable version of a `Signature4` packet.  To convert
 /// it to one, use [`sign_hash`], [`sign_message`],
 /// [`sign_direct_key`], [`sign_subkey_binding`],
-/// [`sign_userid_binding`], [`sign_user_attribute_binding`],
-/// [`sign_standalone`], or [`sign_timestamp`],
+/// [`sign_primary_key_binding`], [`sign_userid_binding`],
+/// [`sign_user_attribute_binding`], [`sign_standalone`], or
+/// [`sign_timestamp`],
 ///
 ///   [`sign_hash`]: #method.sign_hash
 ///   [`sign_message`]: #method.sign_message
 ///   [`sign_direct_key`]: #method.sign_direct_key
 ///   [`sign_subkey_binding`]: #method.sign_subkey_binding
+///   [`sign_primary_key_binding`]: #method.sign_primary_key_binding
 ///   [`sign_userid_binding`]: #method.sign_userid_binding
 ///   [`sign_user_attribute_binding`]: #method.sign_user_attribute_binding
 ///   [`sign_standalone`]: #method.sign_standalone
@@ -205,6 +205,26 @@ impl Builder {
 
         self.sign(signer, digest)
     }
+
+    /// Signs primary key binding from `primary` to `subkey` using
+    /// `subkey_signer`.
+    ///
+    /// The Signature's public-key algorithm field is set to the
+    /// algorithm used by `subkey_signer`.
+    pub fn sign_primary_key_binding<P, Q>(mut self,
+                                          subkey_signer: &mut dyn Signer,
+                                          primary: &Key<P, key::PrimaryRole>,
+                                          subkey: &Key<Q, key::SubordinateRole>)
+        -> Result<Signature>
+        where P: key:: KeyParts,
+              Q: key:: KeyParts,
+    {
+        self.pk_algo = subkey_signer.public().pk_algo();
+        let digest =
+            Signature::hash_primary_key_binding(&self, primary, subkey)?;
+        self.sign(subkey_signer, digest)
+    }
+
 
     /// Signs binding between `ua` and `key` using `signer`.
     ///
@@ -575,10 +595,10 @@ impl Signature4 {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_digest<R, D>(&self, key: &Key<key::PublicParts, R>,
-                               digest: D)
+    pub fn verify_digest<P, R, D>(&self, key: &Key<P, R>, digest: D)
         -> Result<bool>
-        where R: key::KeyRole,
+        where P: key::KeyParts,
+              R: key::KeyRole,
               D: AsRef<[u8]>,
     {
         use crate::PublicKeyAlgorithm::*;
@@ -896,46 +916,46 @@ impl Signature4 {
             return Ok(true)
         }
 
-        let mut backsig_ok = false;
         if let Some(Packet::Signature(super::Signature::V4(backsig))) =
             self.embedded_signature()
         {
-            if backsig.typ() != SignatureType::PrimaryKeyBinding {
-                return Err(Error::UnsupportedSignatureType(self.typ()).into());
-            } else {
-                // We can't use backsig.verify_subkey_binding.
-                let hash = Signature::hash_subkey_binding(&backsig, pk, subkey)?;
-                match backsig.verify_digest(subkey.mark_role_unspecified_ref(),
-                                            &hash[..])
-                {
-                    Ok(true) => {
-                        if TRACE {
-                            eprintln!("{} / {}: Backsig is good!",
-                                      pk.keyid(), subkey.keyid());
-                        }
-                        backsig_ok = true;
-                    },
-                    Ok(false) => {
-                        if TRACE {
-                            eprintln!("{} / {}: Backsig is bad!",
-                                      pk.keyid(), subkey.keyid());
-                        }
-                    },
-                    Err(err) => {
-                        if TRACE {
-                            eprintln!("{} / {}: Error validating backsig: {}",
-                                      pk.keyid(), subkey.keyid(),
-                                      err);
-                        }
-                    },
-                }
-            }
+            backsig.verify_primary_key_binding(pk, subkey)
         } else {
-            return Err(Error::BadSignature(
-                "Primary key binding signature missing".into()).into());
+            Err(Error::BadSignature(
+                "Primary key binding signature missing".into()).into())
+        }
+    }
+
+    /// Verifies the primary key binding.
+    ///
+    /// `self` is the primary key binding signature, `pk` is the
+    /// primary key, and `subkey` is the subkey.
+    ///
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `subkey` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
+    pub fn verify_primary_key_binding<P, Q>(
+        &self,
+        pk: &Key<P, key::PrimaryRole>,
+        subkey: &Key<Q, key::SubordinateRole>)
+        -> Result<bool>
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+    {
+        if self.typ() != SignatureType::PrimaryKeyBinding {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        Ok(backsig_ok)
+        let hash = Signature::hash_primary_key_binding(self, pk, subkey)?;
+        self.verify_digest(subkey, &hash[..])
     }
 
     /// Verifies the subkey revocation.
