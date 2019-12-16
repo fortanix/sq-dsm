@@ -1019,6 +1019,14 @@ impl<'a> Read for Reader<'a> {
             self.initialize()?;
         }
 
+        if buf.len() == 0 {
+            // Short-circuit here.  Otherwise, we copy 0 bytes into
+            // the buffer, which means we decoded 0 bytes, and we
+            // wrongfully assume that we reached the end of the
+            // armored block.
+            return Ok(0);
+        }
+
         if self.finalized {
             assert_eq!(self.buffer.len(), 0);
             return Ok(0);
@@ -1610,5 +1618,15 @@ mod test {
 
             payload == recovered && payload == recovered_any
         }
+    }
+
+    /// Tests issue #404, zero-sized reads break reader.
+    #[test]
+    fn zero_sized_read() {
+        let mut r = Reader::from_bytes(crate::tests::file("armor/test-1.asc"),
+                                       None);
+        let mut buf = Vec::new();
+        r.read(&mut buf).unwrap();
+        r.read(&mut buf).unwrap();
     }
 }
