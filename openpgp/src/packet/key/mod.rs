@@ -1595,7 +1595,7 @@ mod tests {
                                   mpis::Signature::EdDSA{
                                       r: mpis::MPI::new(r), s: mpis::MPI::new(s)
                                   });
-        assert_eq!(sig.verify_message(&key, b"Hello, World\n").ok(), Some(true));
+        assert_eq!(sig.verify_message(&key, b"Hello, World\n").unwrap(), true);
     }
 
     #[test]
