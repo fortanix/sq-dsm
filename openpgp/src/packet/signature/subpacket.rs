@@ -397,7 +397,7 @@ impl<'a> Iterator for SubpacketAreaIterRaw<'a> {
         if len.is_err() {
             return None;
         }
-        let len = len.unwrap() as usize;
+        let len = len.unwrap().len as usize;
 
         if self.reader.data(len).unwrap().len() < len {
             // Subpacket extends beyond the end of the hashed
@@ -595,7 +595,7 @@ impl SubpacketArea {
                 continue;
             }
 
-            let l: SubpacketLength = 1 + raw.value.len() as u32;
+            let l = SubpacketLength::from(1 + raw.value.len() as u32);
             let tag = u8::from(raw.tag)
                 | if raw.critical { 1 << 7 } else { 0 };
 
@@ -805,9 +805,9 @@ pub enum SubpacketValue<'a> {
 
 impl<'a> SubpacketValue<'a> {
     /// Returns the length of the serialized value.
-    pub fn len(&self) -> SubpacketLength {
+    pub fn len(&self) -> usize {
         use self::SubpacketValue::*;
-        (match self {
+        match self {
             SignatureCreationTime(_) => 4,
             SignatureExpirationTime(_) => 4,
             ExportableCertification(_) => 1,
@@ -853,7 +853,7 @@ impl<'a> SubpacketValue<'a> {
             },
             Unknown(u) => u.len(),
             Invalid(i) => i.len(),
-        } as u32)
+        }
     }
 
     /// Returns the subpacket tag for this value.
@@ -959,7 +959,8 @@ impl<'a> Subpacket<'a> {
     /// Returns the length of the serialized subpacket.
     pub fn len(&self) -> usize {
         let value_len = self.value.len();
-        1 + value_len.len() + value_len as usize
+        1 + SubpacketLength::from(value_len as u32).serialized_len()
+            + value_len as usize
 
     }
 }
@@ -1232,37 +1233,73 @@ impl<'a> From<SubpacketRaw<'a>> for Subpacket<'a> {
     }
 }
 
-pub(crate) type SubpacketLength = u32;
-pub(crate) trait SubpacketLengthTrait {
-    /// Parses a subpacket length.
-    fn parse<C>(bio: &mut buffered_reader::Memory<C>) -> io::Result<u32>;
-    /// Writes the subpacket length to `w`.
-    fn serialize(&self, sink: &mut dyn std::io::Write) -> io::Result<()>;
-    /// Returns the length of the serialized subpacket length.
-    fn len(&self) -> usize;
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub(crate) struct SubpacketLength {
+    /// The length.
+    len: u32,
+    /// Stores the raw bytes in case of suboptimal encoding.
+    raw: Option<Vec<u8>>,
 }
 
-impl SubpacketLengthTrait for SubpacketLength {
-    fn parse<C>(bio: &mut buffered_reader::Memory<C>) -> io::Result<u32> {
+impl From<u32> for SubpacketLength {
+    fn from(len: u32) -> Self {
+        SubpacketLength {
+            len, raw: None,
+        }
+    }
+}
+
+impl SubpacketLength {
+    /// Parses a subpacket length.
+    pub(crate) fn parse<C>(bio: &mut buffered_reader::Memory<C>)
+                           -> io::Result<Self> {
         let octet1 = bio.data_consume_hard(1)?[0];
         if octet1 < 192 {
             // One octet.
-            return Ok(octet1 as u32);
-        }
-        if 192 <= octet1 && octet1 < 255 {
+            Ok(Self {
+                len: octet1 as u32,
+                raw: None, // Unambiguous.
+            })
+        } else if 192 <= octet1 && octet1 < 255 {
             // Two octets length.
             let octet2 = bio.data_consume_hard(1)?[0];
-            return Ok(((octet1 as u32 - 192) << 8) + octet2 as u32 + 192);
+            let len = ((octet1 as u32 - 192) << 8) + octet2 as u32 + 192;
+            Ok(Self {
+                len,
+                raw: if Self::len_optimal_encoding(len) == 2 {
+                    None
+                } else {
+                    Some(vec![octet1, octet2])
+                },
+            })
+        } else {
+            // Five octets.
+            assert_eq!(octet1, 255);
+            let len = bio.read_be_u32()?;
+            Ok(Self {
+                len,
+                raw: if Self::len_optimal_encoding(len) == 5 {
+                    None
+                } else {
+                    Some(vec![
+                        octet1,
+                        (len >> 24) as u8,
+                        (len >> 16) as u8,
+                        (len >>  8) as u8,
+                        (len >>  0) as u8,
+                    ])
+                },
+            })
         }
-
-        // Five octets.
-        assert_eq!(octet1, 255);
-        Ok(bio.read_be_u32()?)
     }
 
-        fn serialize(&self, sink: &mut dyn std::io::Write) -> io::Result<()> {
-        let v = *self;
-        if v < 192 {
+    /// Writes the subpacket length to `w`.
+    pub(crate) fn serialize(&self, sink: &mut dyn std::io::Write)
+                            -> io::Result<()> {
+        let v = self.len;
+        if let Some(ref raw) = self.raw {
+            sink.write_all(raw)
+        } else if v < 192 {
             sink.write_all(&[v as u8])
         } else if v < 16320 {
             let v = v - 192 + (192 << 8);
@@ -1276,10 +1313,20 @@ impl SubpacketLengthTrait for SubpacketLength {
         }
     }
 
-    fn len(&self) -> usize {
-        if *self < 192 {
+    /// Returns the length of the serialized subpacket length.
+    pub(crate) fn serialized_len(&self) -> usize {
+        if let Some(ref raw) = self.raw {
+            raw.len()
+        } else {
+            Self::len_optimal_encoding(self.len)
+        }
+    }
+
+    /// Returns the length of the optimal encoding of `len`.
+    fn len_optimal_encoding(len: u32) -> usize {
+        if len < 192 {
             1
-        } else if *self < 16320 {
+        } else if len < 16320 {
             2
         } else {
             5
@@ -1289,12 +1336,13 @@ impl SubpacketLengthTrait for SubpacketLength {
 
 #[cfg(test)]
 quickcheck! {
-    fn length_roundtrip(length: SubpacketLength) -> bool {
+    fn length_roundtrip(l: u32) -> bool {
+        let length = SubpacketLength::from(l);
         let mut encoded = Vec::new();
         length.serialize(&mut encoded).unwrap();
-        assert_eq!(encoded.len(), length.len());
+        assert_eq!(encoded.len(), length.serialized_len());
         let mut reader = buffered_reader::Memory::new(&encoded);
-        SubpacketLength::parse(&mut reader).unwrap() == length
+        SubpacketLength::parse(&mut reader).unwrap().len == l
     }
 }
 

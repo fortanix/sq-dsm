@@ -34,7 +34,7 @@ use crate::packet::header::{
     ctb::CTBOld,
 };
 use crate::packet::signature::subpacket::{
-    Subpacket, SubpacketValue, SubpacketLengthTrait,
+    Subpacket, SubpacketValue, SubpacketLength,
 };
 use crate::packet::prelude::*;
 use crate::types::{
@@ -955,9 +955,8 @@ impl<'a> Serialize for Subpacket<'a> {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag = u8::from(self.tag())
             | if self.critical() { 1 << 7 } else { 0 };
-        let len = 1 + self.value().len();
 
-        len.serialize(o)?;
+        SubpacketLength::from(1 + self.value().len() as u32).serialize(o)?;
         o.write_all(&[tag])?;
         self.value().serialize(o)
     }
@@ -965,7 +964,8 @@ impl<'a> Serialize for Subpacket<'a> {
 
 impl<'a> SerializeInto for Subpacket<'a> {
     fn serialized_len(&self) -> usize {
-        (1 + self.value().len()).len() + 1 + self.value().serialized_len()
+        SubpacketLength::from(1 + self.value().len() as u32).serialized_len()
+            + 1 + self.value().serialized_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
