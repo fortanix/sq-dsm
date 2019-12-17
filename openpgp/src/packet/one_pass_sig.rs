@@ -156,7 +156,7 @@ impl<'a> std::convert::TryFrom<&'a Signature> for OnePassSig3 {
 
     fn try_from(s: &'a Signature) -> Result<Self> {
         let issuer = match s.issuer() {
-            Some(i) => i,
+            Some(i) => i.clone(),
             None =>
                 return Err(Error::InvalidArgument(
                     "Signature has no issuer".into()).into()),

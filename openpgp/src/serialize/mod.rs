@@ -34,7 +34,7 @@ use crate::packet::header::{
     ctb::CTBOld,
 };
 use crate::packet::signature::subpacket::{
-    Subpacket, SubpacketValue, SubpacketLength,
+    SubpacketArea, Subpacket, SubpacketValue,
 };
 use crate::packet::prelude::*;
 use crate::types::{
@@ -951,21 +951,44 @@ impl SerializeInto for Unknown {
     }
 }
 
-impl<'a> Serialize for Subpacket<'a> {
+impl Serialize for SubpacketArea {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        for sb in self.iter() {
+            sb.serialize(o)?;
+        }
+        Ok(())
+    }
+}
+
+impl SerializeInto for SubpacketArea {
+    fn serialized_len(&self) -> usize {
+        self.iter().map(|sb| sb.serialized_len()).sum()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        let mut written = 0;
+        for sb in self.iter() {
+            let n = sb.serialize_into(&mut buf[written..])?;
+            written += cmp::min(buf.len() - written, n);
+        }
+        Ok(written)
+    }
+}
+
+impl Serialize for Subpacket {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag = u8::from(self.tag())
             | if self.critical() { 1 << 7 } else { 0 };
 
-        SubpacketLength::from(1 + self.value().len() as u32).serialize(o)?;
+        self.length.serialize(o)?;
         o.write_all(&[tag])?;
         self.value().serialize(o)
     }
 }
 
-impl<'a> SerializeInto for Subpacket<'a> {
+impl SerializeInto for Subpacket {
     fn serialized_len(&self) -> usize {
-        SubpacketLength::from(1 + self.value().len() as u32).serialized_len()
-            + 1 + self.value().serialized_len()
+        self.length.serialized_len() + 1 + self.value().serialized_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -973,7 +996,7 @@ impl<'a> SerializeInto for Subpacket<'a> {
     }
 }
 
-impl<'a> Serialize for SubpacketValue<'a> {
+impl Serialize for SubpacketValue {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         use self::SubpacketValue::*;
         match self {
@@ -1074,7 +1097,7 @@ impl<'a> Serialize for SubpacketValue<'a> {
     }
 }
 
-impl<'a> SerializeInto for SubpacketValue<'a> {
+impl SerializeInto for SubpacketValue {
     fn serialized_len(&self) -> usize {
         use self::SubpacketValue::*;
         match self {
@@ -1180,19 +1203,21 @@ impl Serialize for Signature4 {
         write_byte(o, self.pk_algo().into())?;
         write_byte(o, self.hash_algo().into())?;
 
-        if self.hashed_area().data.len() > std::u16::MAX as usize {
+        let l = self.hashed_area().serialized_len();
+        if l > std::u16::MAX as usize {
             return Err(Error::InvalidArgument(
                 "Hashed area too large".into()).into());
         }
-        write_be_u16(o, self.hashed_area().data.len() as u16)?;
-        o.write_all(&self.hashed_area().data[..])?;
+        write_be_u16(o, l as u16)?;
+        self.hashed_area().serialize(o)?;
 
-        if self.unhashed_area().data.len() > std::u16::MAX as usize {
+        let l = self.unhashed_area().serialized_len();
+        if l > std::u16::MAX as usize {
             return Err(Error::InvalidArgument(
                 "Unhashed area too large".into()).into());
         }
-        write_be_u16(o, self.unhashed_area().data.len() as u16)?;
-        o.write_all(&self.unhashed_area().data[..])?;
+        write_be_u16(o, l as u16)?;
+        self.unhashed_area().serialize(o)?;
 
         write_byte(o, self.digest_prefix()[0])?;
         write_byte(o, self.digest_prefix()[1])?;
@@ -1219,9 +1244,9 @@ impl NetLength for Signature4 {
             + 1 // PK algorithm.
             + 1 // Hash algorithm.
             + 2 // Hashed area size.
-            + self.hashed_area().data.len()
+            + self.hashed_area().serialized_len()
             + 2 // Unhashed area size.
-            + self.unhashed_area().data.len()
+            + self.unhashed_area().serialized_len()
             + 2 // Hash prefix.
             + self.mpis().serialized_len()
     }

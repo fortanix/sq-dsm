@@ -1019,8 +1019,8 @@ impl Signature4 {
         let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::Signature(Signature4::new(
             typ.into(), pk_algo.into(), hash_algo,
-            SubpacketArea::new(hashed_area),
-            SubpacketArea::new(unhashed_area),
+            SubpacketArea::new(&hashed_area),
+            SubpacketArea::new(&unhashed_area),
             [digest_prefix1, digest_prefix2],
             mpis).into()))?;
 
@@ -1148,8 +1148,8 @@ fn signature_parser_test () {
             assert_eq!(p.typ(), SignatureType::Binary);
             assert_eq!(p.pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
             assert_eq!(p.hash_algo(), HashAlgorithm::SHA512);
-            assert_eq!(p.hashed_area().data.len(), 29);
-            assert_eq!(p.unhashed_area().data.len(), 10);
+            assert_eq!(p.hashed_area().iter().count(), 2);
+            assert_eq!(p.unhashed_area().iter().count(), 1);
             assert_eq!(p.digest_prefix(), &[0x65u8, 0x74]);
             assert_eq!(p.mpis().serialized_len(), 258);
         } else {

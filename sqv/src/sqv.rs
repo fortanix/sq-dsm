@@ -110,14 +110,14 @@ fn real_main() -> Result<(), failure::Error> {
 
                     // XXX: We use a KeyID even though we have a
                     // fingerprint!
-                    sigs.push((sig, fp.into()));
+                    sigs.push((sig.clone(), fp.into()));
                 } else if let Some(keyid) = sig.issuer() {
                     if trace {
                         eprintln!("Will check signature allegedly issued by {}.",
                                   keyid);
                     }
 
-                    sigs.push((sig, keyid));
+                    sigs.push((sig.clone(), keyid.clone()));
                 } else {
                     eprintln!("Signature #{} does not contain information \
                                about the issuer.  Unable to validate.",

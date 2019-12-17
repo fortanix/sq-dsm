@@ -523,7 +523,7 @@ impl Signature4 {
 
         self.hashed_area().iter()
             .chain(self.unhashed_area().iter())
-            .filter_map(|(_, _, subpacket)| {
+            .filter_map(|subpacket| {
                 match subpacket.value() {
                     SubpacketValue::Issuer(i) =>
                         Some(crate::KeyHandle::KeyID(i.clone())),
@@ -563,12 +563,13 @@ impl Signature4 {
                 // Fall back to the Issuer, which we will also get
                 // from the unhashed area if necessary.
                 area.add(Subpacket::new(
-                    SubpacketValue::Issuer(issuer), false).unwrap()).unwrap();
+                    SubpacketValue::Issuer(issuer.clone()), false).unwrap())
+                    .unwrap();
             }
 
             // Second, re-add the EmbeddedSignature, if present.
             if let Some(embedded_sig) =
-                self.unhashed_area().iter().find_map(|(_, _, v)| {
+                self.unhashed_area().iter().find_map(|v| {
                     if v.tag() == SubpacketTag::EmbeddedSignature {
                         Some(v)
                     } else {
@@ -576,7 +577,7 @@ impl Signature4 {
                     }
                 })
             {
-                area.add(embedded_sig).unwrap();
+                area.add(embedded_sig.clone()).unwrap();
             }
         }
         sig
@@ -1510,10 +1511,10 @@ mod test {
         let sig = builder.sign_hash(&mut pair,
                                     hash.clone()).unwrap().normalize();
         assert_eq!(sig.unhashed_area().iter().count(), 2);
-        assert_eq!(sig.unhashed_area().iter().nth(0).unwrap().2,
+        assert_eq!(*sig.unhashed_area().iter().nth(0).unwrap(),
                    Subpacket::new(SubpacketValue::Issuer(keyid.clone()),
                                   false).unwrap());
-        assert_eq!(sig.unhashed_area().iter().nth(1).unwrap().2.tag(),
+        assert_eq!(sig.unhashed_area().iter().nth(1).unwrap().tag(),
                    SubpacketTag::EmbeddedSignature);
 
         // Now, make sure that an Issuer subpacket is synthesized from
@@ -1523,7 +1524,7 @@ mod test {
             .sign_hash(&mut pair,
                        hash.clone()).unwrap().normalize();
         assert_eq!(sig.unhashed_area().iter().count(), 1);
-        assert_eq!(sig.unhashed_area().iter().nth(0).unwrap().2,
+        assert_eq!(*sig.unhashed_area().iter().nth(0).unwrap(),
                    Subpacket::new(SubpacketValue::Issuer(keyid.clone()),
                                   false).unwrap());
     }

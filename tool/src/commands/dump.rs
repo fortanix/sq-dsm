@@ -437,13 +437,13 @@ impl PacketDumper {
                 writeln!(output, "{}  Hash algo: {}", i, s.hash_algo())?;
                 if s.hashed_area().iter().count() > 0 {
                     writeln!(output, "{}  Hashed area:", i)?;
-                    for (_, _, pkt) in s.hashed_area().iter() {
+                    for pkt in s.hashed_area().iter() {
                         self.dump_subpacket(output, i, pkt, s)?;
                     }
                 }
                 if s.unhashed_area().iter().count() > 0 {
                     writeln!(output, "{}  Unhashed area:", i)?;
-                    for (_, _, pkt) in s.unhashed_area().iter() {
+                    for pkt in s.unhashed_area().iter() {
                         self.dump_subpacket(output, i, pkt, s)?;
                     }
                 }
@@ -710,7 +710,7 @@ impl PacketDumper {
     }
 
     fn dump_subpacket(&self, output: &mut dyn io::Write, i: &str,
-                      s: Subpacket, sig: &Signature)
+                      s: &Subpacket, sig: &Signature)
                       -> Result<()> {
         use self::SubpacketValue::*;
 

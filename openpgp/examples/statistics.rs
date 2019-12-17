@@ -15,6 +15,7 @@ use crate::openpgp::types::*;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
 use crate::openpgp::packet::signature::subpacket::SubpacketTag;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
+use crate::openpgp::serialize::SerializeInto;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -140,7 +141,7 @@ fn main() {
                     cert.sigs[u8::from(sig.typ()) as usize] += 1;
                     let mut signature = PerSignature::min();
 
-                    for (_offset, len, sub) in sig.hashed_area().iter()
+                    for sub in sig.hashed_area().iter()
                         .chain(sig.unhashed_area().iter())
                     {
                         use crate::openpgp::packet::signature::subpacket::*;
@@ -152,6 +153,7 @@ fn main() {
                             sigs_subpacket_tags_unknown
                                 [u8::from(sub.tag()) as usize] += 1;
                         } else {
+                            let len = sub.serialized_len();
                             sigs_subpacket_tags_size_bytes[i] += len;
                             sigs_subpacket_tags_size_count[i] += 1;
                             let len = len as u32;

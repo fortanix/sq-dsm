@@ -296,6 +296,12 @@ impl Hash for Signature4 {
 impl Hash for signature::Builder {
     /// Adds the `Signature` to the provided hash context.
     fn hash(&self, hash: &mut Context) {
+        use crate::serialize::SerializeInto;
+        // XXX: Annoyingly, we have no proper way of handling errors
+        // here.
+        let hashed_area = self.hashed_area().to_vec()
+            .unwrap_or_else(|_| Vec::new());
+
         // A version 4 signature packet is laid out as follows:
         //
         //   version - 1 byte                    \
@@ -315,13 +321,12 @@ impl Hash for signature::Builder {
         header[3] = self.hash_algo().into();
 
         // The length of the hashed area, as a 16-bit endian number.
-        let len = self.hashed_area().data.len();
+        let len = hashed_area.len();
         header[4] = (len >> 8) as u8;
         header[5] = len as u8;
 
         hash.update(&header[..]);
-
-        hash.update(&self.hashed_area().data[..]);
+        hash.update(&hashed_area);
 
         // A version 4 signature trailer is:
         //
@@ -340,7 +345,7 @@ impl Hash for signature::Builder {
         trailer[1] = 0xff;
         // The signature packet's length, not including the previous
         // two bytes and the length.
-        let len = header.len() + self.hashed_area().data.len();
+        let len = header.len() + hashed_area.len();
         trailer[2] = (len >> 24) as u8;
         trailer[3] = (len >> 16) as u8;
         trailer[4] = (len >> 8) as u8;
