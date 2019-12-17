@@ -1919,9 +1919,6 @@ impl SubpacketArea {
     /// stored in the unhashed area, i.e., it is not cryptographically
     /// secured.
     ///
-    /// This is used, for instance, to store a subkey's primary key
-    /// binding signature (0x19).
-    ///
     /// If the subpacket is not present or malformed, this returns
     /// `None`.
     ///
@@ -2255,9 +2252,6 @@ impl SubpacketAreas {
     /// Issuer subpacket is, for historic reasons, traditionally
     /// stored in the unhashed area, i.e., it is not cryptographically
     /// secured.
-    ///
-    /// This is used, for instance, to store a subkey's primary key
-    /// binding signature (0x19).
     ///
     /// If the subpacket is not present or malformed, this returns
     /// `None`.
