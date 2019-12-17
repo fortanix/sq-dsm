@@ -1,5 +1,5 @@
 /// Describes features supported by an OpenPGP implementation.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Features{
     mdc: bool,
     aead: bool,

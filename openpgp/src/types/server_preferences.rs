@@ -1,7 +1,7 @@
 use std::fmt;
 
 /// Describes preferences regarding key servers.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct KeyServerPreferences{
     no_modify: bool,
     unknown: Box<[u8]>,
