@@ -2435,11 +2435,12 @@ mod test {
 
     #[test]
     fn set_expiry() {
-        let now = time::SystemTime::now();
-        let a_sec = time::Duration::new(1, 0);
-
         let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
+
+        let now = cert.primary().creation_time();
+        let a_sec = time::Duration::new(1, 0);
+
         let expiry_orig = cert.primary_key_signature(None).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
