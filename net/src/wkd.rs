@@ -26,12 +26,6 @@ use failure::ResultExt;
 use futures::{future, Future, Stream};
 use hyper::{Uri, Client};
 use hyper_tls::HttpsConnector;
-// Hash implements the traits for Sha1
-// Sha1 is used to obtain a 20 bytes digest that after zbase32 encoding can
-// be used as file name
-use nettle::{
-    Hash, hash::insecure_do_not_use::Sha1,
-};
 use url;
 
 use crate::openpgp::{
@@ -40,6 +34,7 @@ use crate::openpgp::{
 };
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
+use crate::openpgp::types::HashAlgorithm;
 use crate::openpgp::cert::CertParser;
 
 use super::{Result, Error};
@@ -204,13 +199,15 @@ impl Url {
 ///     described in [RFC6189], section 5.1.6. The resulting string has a
 ///     fixed length of 32 octets.
 fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
-    let mut hasher = Sha1::default();
-    hasher.update(local_part.as_ref().as_bytes());
-    // Declare and assign a 20 bytes length vector to use in hasher.result
-    let mut local_hash = vec![0; 20];
-    hasher.digest(&mut local_hash);
+    let local_part = local_part.as_ref();
+
+    let mut digest = vec![0; 20];
+    let mut ctx = HashAlgorithm::SHA1.context().expect("must be implemented");
+    ctx.update(local_part.as_bytes());
+    ctx.digest(&mut digest);
+
     // After z-base-32 encoding 20 bytes, it will be 32 bytes long.
-    zbase32::encode_full_bytes(&local_hash[..])
+    zbase32::encode_full_bytes(&digest[..])
 }
 
 

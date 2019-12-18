@@ -45,7 +45,6 @@ extern crate http;
 extern crate hyper;
 extern crate hyper_tls;
 extern crate native_tls;
-extern crate nettle;
 extern crate tokio_core;
 extern crate tokio_io;
 extern crate percent_encoding;
