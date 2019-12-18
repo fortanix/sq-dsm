@@ -1,7 +1,6 @@
 extern crate failure;
 use failure::{Fallible as Result, ResultExt};
 extern crate filetime;
-extern crate nettle;
 
 use std::cmp::min;
 use std::env::{self, var_os};
