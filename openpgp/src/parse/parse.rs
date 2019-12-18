@@ -1352,10 +1352,7 @@ impl Subpacket {
             SubpacketTag::EmbeddedSignature =>
                 SubpacketValue::EmbeddedSignature(
                     Signature::from_bytes(
-                        &php.parse_bytes("embedded sig", len)?)?
-                    .into() // XXX: This should just be a Signature, really.
-                ),
-
+                        &php.parse_bytes("embedded sig", len)?)?),
             SubpacketTag::IssuerFingerprint => {
                 if len == 0 {
                     return Err(Error::MalformedPacket(

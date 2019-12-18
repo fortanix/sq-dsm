@@ -74,10 +74,10 @@ use crate::{
     packet::signature::{self, Signature4},
     packet::key,
     packet::Key,
-    Packet,
     Fingerprint,
     KeyID,
     SignatureType,
+    serialize::SerializeInto,
 };
 use crate::types::{
     AEADAlgorithm,
@@ -659,10 +659,7 @@ pub enum SubpacketValue {
         digest: Vec<u8>,
     },
     /// An embedded signature.
-    ///
-    /// This is a packet rather than a `Signature`, because we also
-    /// want to return an `Unknown` packet.
-    EmbeddedSignature(Packet),
+    EmbeddedSignature(Signature),
     /// 20-octet V4 fingerprint.
     IssuerFingerprint(Fingerprint),
     /// Preferred AEAD Algorithms.
@@ -698,16 +695,7 @@ impl SubpacketValue {
             ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
             Features(f) => f.as_vec().len(),
             SignatureTarget { ref digest, .. } => 1 + 1 + digest.len(),
-            EmbeddedSignature(p) => match p {
-                &Packet::Signature(Signature::V4(ref sig)) => {
-                    use crate::serialize::Serialize;
-                    let mut w = Vec::new();
-                    sig.serialize(&mut w).unwrap();
-                    w.len()
-                },
-                // Bogus.
-                _ => 0,
-            },
+            EmbeddedSignature(s) => s.serialized_len(),
             IssuerFingerprint(ref fp) => match fp {
                 Fingerprint::V4(_) => 1 + 20,
                 // Educated guess for unknown versions.
@@ -1493,7 +1481,7 @@ impl SubpacketArea {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn embedded_signature(&self) -> Option<&Packet> {
+    pub fn embedded_signature(&self) -> Option<&Signature> {
         // 1 signature packet body
         if let Some(sb)
                 = self.subpacket(SubpacketTag::EmbeddedSignature) {
@@ -1819,7 +1807,7 @@ impl SubpacketAreas {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn embedded_signature(&self) -> Option<&Packet> {
+    pub fn embedded_signature(&self) -> Option<&Signature> {
         // 1 signature packet body
         if let Some(sb)
                 = self.subpacket(SubpacketTag::EmbeddedSignature) {
@@ -2220,7 +2208,7 @@ impl signature::Builder {
     pub fn set_embedded_signature(mut self, signature: Signature)
                                   -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
-            SubpacketValue::EmbeddedSignature(signature.into()),
+            SubpacketValue::EmbeddedSignature(signature),
             true)?)?;
 
         Ok(self)
@@ -2459,8 +2447,7 @@ fn accessors() {
     sig = sig.set_embedded_signature(embedded_sig.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.embedded_signature(),
-               Some(&Packet::Signature(embedded_sig)));
+    assert_eq!(sig_.embedded_signature(), Some(&embedded_sig));
 
     sig = sig.set_issuer_fingerprint(fp.clone()).unwrap();
     let sig_ =
@@ -2506,6 +2493,7 @@ fn accessors() {
 #[cfg(feature = "compression-deflate")]
 #[test]
 fn subpacket_test_1 () {
+    use crate::Packet;
     use crate::PacketPile;
     use crate::parse::Parse;
 
@@ -2559,6 +2547,7 @@ fn subpacket_test_1 () {
 
 #[test]
 fn subpacket_test_2() {
+    use crate::Packet;
     use crate::parse::Parse;
     use crate::PacketPile;
 

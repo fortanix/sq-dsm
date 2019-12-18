@@ -1063,11 +1063,7 @@ impl Serialize for SubpacketValue {
                 o.write_all(&[(*pk_algo).into(), (*hash_algo).into()])?;
                 o.write_all(digest)?;
             },
-            EmbeddedSignature(ref p) => match p {
-                &Packet::Signature(ref sig) => sig.serialize(o)?,
-                _ => return Err(Error::InvalidArgument(
-                    format!("Not a signature: {:?}", p)).into()),
-            },
+            EmbeddedSignature(sig) => sig.serialize(o)?,
             IssuerFingerprint(ref fp) => match fp {
                 Fingerprint::V4(_) => {
                     o.write_all(&[4])?;
@@ -1121,10 +1117,7 @@ impl SerializeInto for SubpacketValue {
             ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
             Features(ref f) => f.as_vec().len(),
             SignatureTarget { ref digest, .. } => 2 + digest.len(),
-            EmbeddedSignature(ref p) => match p {
-                &Packet::Signature(ref sig) => sig.serialized_len(),
-                _ => 0,
-            },
+            EmbeddedSignature(sig) => sig.serialized_len(),
             IssuerFingerprint(ref fp) => match fp {
                 Fingerprint::V4(_) => 1 + fp.serialized_len(),
                 _ => 0,

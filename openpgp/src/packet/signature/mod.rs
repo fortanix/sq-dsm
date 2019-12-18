@@ -917,7 +917,7 @@ impl Signature4 {
             return Ok(true)
         }
 
-        if let Some(Packet::Signature(super::Signature::V4(backsig))) =
+        if let Some(super::Signature::V4(backsig)) =
             self.embedded_signature()
         {
             backsig.verify_primary_key_binding(pk, subkey)

@@ -818,7 +818,8 @@ impl PacketDumper {
                 writeln!(output)?;
                 let indent = format!("{}      ", i);
                 write!(output, "{}", indent)?;
-                self.dump_packet(output, &indent, None, sig, None, None)?;
+                self.dump_packet(output, &indent, None, &sig.clone().into(),
+                                 None, None)?;
             },
             _ => {
                 if s.critical() {
