@@ -75,11 +75,11 @@ impl Default for S2K {
 
 impl S2K {
     /// Convert the string to a key using the S2K's parameters.
-    pub fn derive_key(&self, string: &Password, key_size: usize)
+    pub fn derive_key(&self, password: &Password, key_size: usize)
     -> Result<SessionKey> {
         match self {
             &S2K::Simple { hash } | &S2K::Salted { hash, .. }
-            | &S2K::Iterated { hash, .. } => {
+            | &S2K::Iterated { hash, .. } => password.map(|string| {
                 let mut hash = hash.context()?;
 
                 // If the digest length is shorter than the key length,
@@ -143,7 +143,7 @@ impl S2K {
                 }
 
                 Ok(ret.into())
-            }
+            }),
             &S2K::Unknown(u) | &S2K::Private(u) =>
                 Err(Error::MalformedPacket(
                         format!("Unknown S2K type {:#x}", u)).into()),

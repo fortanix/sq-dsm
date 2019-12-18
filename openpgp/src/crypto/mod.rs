@@ -116,20 +116,6 @@ impl fmt::Debug for SessionKey {
 #[derive(Clone, PartialEq, Eq)]
 pub struct Password(mem::Protected);
 
-impl AsRef<[u8]> for Password {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl Deref for Password {
-    type Target = [u8];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl From<Vec<u8>> for Password {
     fn from(v: Vec<u8>) -> Self {
         Password(v.into())
@@ -163,6 +149,15 @@ impl From<&[u8]> for Password {
 impl fmt::Debug for Password {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Password ({:?})", self.0)
+    }
+}
+
+impl Password {
+    /// Maps the given function over the password.
+    pub fn map<F, T>(&self, mut fun: F) -> T
+        where F: FnMut(&mem::Protected) -> T
+    {
+        fun(&self.0)
     }
 }
 

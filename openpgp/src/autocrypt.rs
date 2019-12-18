@@ -400,18 +400,18 @@ impl AutocryptSetupMessage {
 
     // Generates a new passcode in "numeric9x4" format.
     fn passcode_gen() -> Password {
+        use crate::crypto::mem;
         // Generate a random passcode.
 
         // The passcode consists of 36 digits, which encode
         // approximately 119 bits of information.  120 bits = 15
         // bytes.
-        let mut p_as_vec = vec![0; 15];
+        let mut p_as_vec = mem::Protected::from(vec![0; 15]);
         crate::crypto::random(&mut p_as_vec[..]);
-        let p = Password::from(p_as_vec);
 
         // Turn it into a 128-bit number.
         let mut p_as_u128 = 0u128;
-        for v in p.iter() {
+        for v in p_as_vec.iter() {
             p_as_u128 = (p_as_u128 << 8) + *v as u128;
         }
 
@@ -437,8 +437,9 @@ impl AutocryptSetupMessage {
 
         let passcode = Self::passcode_gen();
         self.passcode_format = Some("numeric9x4".into());
-        self.passcode_begin
-            = Some(str::from_utf8(&passcode[..2]).unwrap().into());
+        self.passcode_begin = passcode.map(|p| {
+            Some(str::from_utf8(&p[..2]).unwrap().into())
+        });
         self.passcode = Some(passcode);
     }
 
@@ -973,18 +974,20 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         for _ in 0..samples {
             let p = AutocryptSetupMessage::passcode_gen();
-            assert_eq!(p.len(), passcode_len);
+            p.map(|p| {
+                assert_eq!(p.len(), passcode_len);
 
-            for c in p.iter() {
-                match *c as char {
-                    '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' => {
-                        let i = *c as usize - ('0' as usize);
-                        dist[i] = dist[i] + 1
-                    },
-                    '-' => (),
-                    _ => panic!("Unexpected character in passcode: {}", c),
+                for c in p.iter() {
+                    match *c as char {
+                        '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' => {
+                            let i = *c as usize - ('0' as usize);
+                            dist[i] = dist[i] + 1
+                        },
+                        '-' => (),
+                        _ => panic!("Unexpected character in passcode: {}", c),
+                    }
                 }
-            }
+            });
         }
 
         // Make sure the distribution is reasonable.  If this runs
