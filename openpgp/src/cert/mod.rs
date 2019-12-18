@@ -1843,7 +1843,6 @@ impl Cert {
                   R: key::KeyRole,
                   Packet: From<packet::Key<P, R>>,
         {
-            use std::cmp::Ordering;
             for q in acc.iter_mut() {
                 let replace = match q {
                     Packet::PublicKey(k_) =>

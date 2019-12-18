@@ -426,8 +426,6 @@ impl SubpacketArea {
     /// Returns `Error::MalformedPacket` if adding the packet makes
     /// the subpacket area exceed the size limit.
     pub fn add(&mut self, packet: Subpacket) -> Result<()> {
-        use crate::serialize::SerializeInto;
-
         if self.serialized_len() + packet.serialized_len()
             > ::std::u16::MAX as usize
         {
@@ -448,7 +446,6 @@ impl SubpacketArea {
     /// Returns `Error::MalformedPacket` if adding the packet makes
     /// the subpacket area exceed the size limit.
     pub fn replace(&mut self, packet: Subpacket) -> Result<()> {
-        use crate::serialize::SerializeInto;
         if self.iter().filter_map(|sp| if sp.tag() != packet.tag() {
             Some(sp.serialized_len())
         } else {
