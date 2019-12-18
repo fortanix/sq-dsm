@@ -1717,13 +1717,13 @@ mod test {
                     // literal.finalize().unwrap();
                 }
 
-                for &read_len in [
+                for &read_len in &[
                     37,
                     Encryptor::AEAD_CHUNK_SIZE - 1,
                     Encryptor::AEAD_CHUNK_SIZE,
                     100 * Encryptor::AEAD_CHUNK_SIZE
-                ].into_iter() {
-                    for &do_err in [ false, true ].into_iter() {
+                ] {
+                    for &do_err in &[ false, true ] {
                         let mut msg = msg.clone();
                         if do_err {
                             let l = msg.len() - 1;

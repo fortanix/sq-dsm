@@ -291,7 +291,7 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
     let default_derives = [
         (derive_free as DeriveFn, None),
     ];
-    for (dfn, arg) in derive.iter().chain(default_derives.into_iter()) {
+    for (dfn, arg) in derive.iter().chain(default_derives.iter()) {
         impls.extend(dfn(proc_macro2::Span::call_site(), &prefix, &name,
                          &st, &wrapped_type, arg));
     }

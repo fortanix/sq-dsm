@@ -581,7 +581,7 @@ mod tests {
             },
         ];
 
-        for v in test_vectors.into_iter() {
+        for v in &test_vectors {
             if v.result {
                 let mut l = MessageValidator::new();
                 for token in v.s.iter() {
@@ -700,7 +700,7 @@ mod tests {
             },
         ];
 
-        for v in test_vectors.into_iter() {
+        for v in &test_vectors {
             let mut l = MessageValidator::new();
             for (token, depth) in v.s.iter() {
                 l.push(*token,

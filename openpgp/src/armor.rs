@@ -593,10 +593,10 @@ impl<'a> Reader<'a> {
         lazy_static!{
             static ref START_CHARS : Vec<u8> = {
                 let mut valid_start = Vec::new();
-                for &tag in [ Tag::PKESK, Tag::SKESK,
+                for &tag in &[ Tag::PKESK, Tag::SKESK,
                               Tag::OnePassSig, Tag::Signature,
                               Tag::PublicKey, Tag::SecretKey,
-                              Tag::CompressedData, Tag::Literal ].into_iter() {
+                              Tag::CompressedData, Tag::Literal ] {
                     let mut ctb = [ 0u8; 1 ];
                     let mut o = [ 0u8; 4 ];
 
