@@ -512,13 +512,13 @@ macro_rules! create_conversions {
             }
 
             /// Changes the key's role tag to `SubordinateRole`.
-            pub fn mark_role_secondary(self) -> $Key<P, SubordinateRole>
+            pub fn mark_role_subordinate(self) -> $Key<P, SubordinateRole>
             {
                 convert!(self)
             }
 
             /// Changes the key's role tag to `SubordinateRole`.
-            pub fn mark_role_secondary_ref(&self) -> &$Key<P, SubordinateRole>
+            pub fn mark_role_subordinate_ref(&self) -> &$Key<P, SubordinateRole>
             {
                 convert_ref!(self)
             }
