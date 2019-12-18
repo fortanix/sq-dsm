@@ -12,6 +12,7 @@ use crate::types::{
 use crate::crypto::hash::Hash;
 use crate::crypto::Signer;
 use crate::packet::{
+    Key,
     key,
     signature,
     Signature,
@@ -220,11 +221,12 @@ impl SubkeyRevocationBuilder {
 
     /// Returns a revocation certificate for the cert `Cert` signed by
     /// `signer`.
-    pub fn build<H>(mut self, signer: &mut dyn Signer,
-                    cert: &Cert, key: &key::PublicSubkey,
-                    hash_algo: H)
+    pub fn build<H, P>(mut self, signer: &mut dyn Signer,
+                       cert: &Cert, key: &Key<P, key::SubordinateRole>,
+                       hash_algo: H)
         -> Result<Signature>
-        where H: Into<Option<HashAlgorithm>>
+        where H: Into<Option<HashAlgorithm>>,
+              P: key::KeyParts,
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
         let creation_time

@@ -380,9 +380,10 @@ impl Signature {
 
     /// Returns the message digest of the direct key signature over
     /// the specified primary key.
-    pub fn hash_direct_key<'a, S>(sig: S, key: &key::PublicKey)
+    pub fn hash_direct_key<'a, P, S>(sig: S, key: &Key<P, key::PrimaryRole>)
         -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder>
+        where P: key::KeyParts,
+              S: Into<&'a signature::Builder>,
     {
 
         let sig = sig.into();
@@ -436,11 +437,12 @@ impl Signature {
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
-    pub fn hash_userid_binding<'a, S>(sig: S,
-                                      key: &key::PublicKey,
-                                      userid: &UserID)
+    pub fn hash_userid_binding<'a, P, S>(sig: S,
+                                         key: &Key<P, key::PrimaryRole>,
+                                         userid: &UserID)
         -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder>
+        where P: key::KeyParts,
+              S: Into<&'a signature::Builder>
     {
         let sig = sig.into();
         let mut h = sig.hash_algo().context()?;
@@ -456,11 +458,13 @@ impl Signature {
 
     /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
-    pub fn hash_user_attribute_binding<'a, S>(sig: S,
-                                              key: &key::PublicKey,
-                                              ua: &UserAttribute)
+    pub fn hash_user_attribute_binding<'a, P, S>(
+        sig: S,
+        key: &Key<P, key::PrimaryRole>,
+        ua: &UserAttribute)
         -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder>
+        where P: key::KeyParts,
+              S: Into<&'a signature::Builder>,
     {
 
         let sig = sig.into();

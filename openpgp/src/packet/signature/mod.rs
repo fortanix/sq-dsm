@@ -178,10 +178,11 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_userid_binding(mut self, signer: &mut dyn Signer,
-                               key: &key::PublicKey,
-                               userid: &UserID)
+    pub fn sign_userid_binding<P>(mut self, signer: &mut dyn Signer,
+                                  key: &Key<P, key::PrimaryRole>,
+                                  userid: &UserID)
         -> Result<Signature>
+        where P: key::KeyParts,
     {
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::hash_userid_binding(&self, key, userid)?;
@@ -230,10 +231,11 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
-    pub fn sign_user_attribute_binding(mut self, signer: &mut dyn Signer,
-                                       key: &key::PublicKey,
-                                       ua: &UserAttribute)
+    pub fn sign_user_attribute_binding<P>(mut self, signer: &mut dyn Signer,
+                                          key: &Key<P, key::PrimaryRole>,
+                                          ua: &UserAttribute)
         -> Result<Signature>
+        where P: key::KeyParts,
     {
         self.pk_algo = signer.public().pk_algo();
         let digest =
@@ -734,8 +736,9 @@ impl Signature4 {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify<R>(&self, key: &Key<key::PublicParts, R>) -> Result<bool>
-        where R: key::KeyRole
+    pub fn verify<P, R>(&self, key: &Key<P, R>) -> Result<bool>
+        where P: key::KeyParts,
+              R: key::KeyRole,
     {
         if !(self.typ() == SignatureType::Binary
              || self.typ() == SignatureType::Text) {
@@ -762,9 +765,9 @@ impl Signature4 {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_standalone<R>(&self, key: &Key<key::PublicParts, R>)
-                                -> Result<bool>
-        where R: key::KeyRole
+    pub fn verify_standalone<P, R>(&self, key: &Key<P, R>) -> Result<bool>
+        where P: key::KeyParts,
+              R: key::KeyRole,
     {
         if self.typ() != SignatureType::Standalone {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -789,9 +792,9 @@ impl Signature4 {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_timestamp<R>(&self, key: &Key<key::PublicParts, R>)
-                                -> Result<bool>
-        where R: key::KeyRole
+    pub fn verify_timestamp<P, R>(&self, key: &Key<P, R>) -> Result<bool>
+        where P: key::KeyParts,
+              R: key::KeyRole,
     {
         if self.typ() != SignatureType::Timestamp {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -822,11 +825,13 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_direct_key<R>(&self,
-                                signer: &Key<key::PublicParts, R>,
-                                pk: &key::PublicKey)
+    pub fn verify_direct_key<P, Q, R>(&self,
+                                      signer: &Key<P, R>,
+                                      pk: &Key<Q, key::PrimaryRole>)
         -> Result<bool>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
     {
         if self.typ() != SignatureType::DirectKey {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -855,11 +860,13 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_primary_key_revocation<R>(&self,
-                                            signer: &Key<key::PublicParts, R>,
-                                            pk: &key::PublicKey)
+    pub fn verify_primary_key_revocation<P, Q, R>(&self,
+                                                  signer: &Key<P, R>,
+                                                  pk: &Key<Q, key::PrimaryRole>)
         -> Result<bool>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
     {
         if self.typ() != SignatureType::KeyRevocation {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -893,12 +900,16 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_subkey_binding<R>(&self,
-                                    signer: &Key<key::PublicParts, R>,
-                                    pk: &key::PublicKey,
-                                    subkey: &key::PublicSubkey)
+    pub fn verify_subkey_binding<P, Q, R, S>(
+        &self,
+        signer: &Key<P, R>,
+        pk: &Key<Q, key::PrimaryRole>,
+        subkey: &Key<S, key::SubordinateRole>)
         -> Result<bool>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
+              S: key::KeyParts,
     {
         if self.typ() != SignatureType::SubkeyBinding {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -978,12 +989,16 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_subkey_revocation<R>(&self,
-                                       signer: &Key<key::PublicParts, R>,
-                                       pk: &key::PublicKey,
-                                       subkey: &key::PublicSubkey)
+    pub fn verify_subkey_revocation<P, Q, R, S>(
+        &self,
+        signer: &Key<P, R>,
+        pk: &Key<Q, key::PrimaryRole>,
+        subkey: &Key<S, key::SubordinateRole>)
         -> Result<bool>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
+              S: key::KeyParts,
     {
         if self.typ() != SignatureType::SubkeyRevocation {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -1012,12 +1027,14 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_userid_binding<R>(&self,
-                                    signer: &Key<key::PublicParts, R>,
-                                    pk: &key::PublicKey,
-                                    userid: &UserID)
+    pub fn verify_userid_binding<P, Q, R>(&self,
+                                          signer: &Key<P, R>,
+                                          pk: &Key<Q, key::PrimaryRole>,
+                                          userid: &UserID)
         -> Result<bool>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
     {
         if !(self.typ() == SignatureType::GenericCertification
              || self.typ() == SignatureType::PersonaCertification
@@ -1049,12 +1066,14 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_userid_revocation<R>(&self,
-                                       signer: &Key<key::PublicParts, R>,
-                                       pk: &key::PublicKey,
-                                       userid: &UserID)
+    pub fn verify_userid_revocation<P, Q, R>(&self,
+                                             signer: &Key<P, R>,
+                                             pk: &Key<Q, key::PrimaryRole>,
+                                             userid: &UserID)
         -> Result<bool>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
     {
         if self.typ() != SignatureType::CertificationRevocation {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -1083,12 +1102,14 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_user_attribute_binding<R>(&self,
-                                            signer: &Key<key::PublicParts, R>,
-                                            pk: &key::PublicKey,
-                                            ua: &UserAttribute)
+    pub fn verify_user_attribute_binding<P, Q, R>(&self,
+                                                  signer: &Key<P, R>,
+                                                  pk: &Key<Q, key::PrimaryRole>,
+                                                  ua: &UserAttribute)
         -> Result<bool>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
     {
         if !(self.typ() == SignatureType::GenericCertification
              || self.typ() == SignatureType::PersonaCertification
@@ -1120,12 +1141,15 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_user_attribute_revocation<R>(&self,
-                                               signer: &Key<key::PublicParts, R>,
-                                               pk: &key::PublicKey,
-                                               ua: &UserAttribute)
+    pub fn verify_user_attribute_revocation<P, Q, R>(
+        &self,
+        signer: &Key<P, R>,
+        pk: &Key<Q, key::PrimaryRole>,
+        ua: &UserAttribute)
         -> Result<bool>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
     {
         if self.typ() != SignatureType::CertificationRevocation {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -1154,11 +1178,12 @@ impl Signature4 {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_message<R, M>(&self, signer: &Key<key::PublicParts, R>,
-                                msg: M)
+    pub fn verify_message<M, P, R>(&self, signer: &Key<P, R>,
+                                   msg: M)
         -> Result<bool>
-        where R: key::KeyRole,
-              M: AsRef<[u8]>,
+        where M: AsRef<[u8]>,
+              P: key::KeyParts,
+              R: key::KeyRole,
     {
         if self.typ() != SignatureType::Binary &&
             self.typ() != SignatureType::Text {
