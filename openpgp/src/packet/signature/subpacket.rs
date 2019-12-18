@@ -67,8 +67,6 @@ use std::time;
 
 use quickcheck::{Arbitrary, Gen};
 
-use buffered_reader::BufferedReader;
-
 use crate::{
     Error,
     Result,
@@ -317,35 +315,6 @@ mod tests {
     }
 }
 
-
-// Struct holding an arbitrary subpacket.
-//
-// The value is uninterpreted.
-struct SubpacketRaw<'a> {
-    length: SubpacketLength,
-    pub critical: bool,
-    pub tag: SubpacketTag,
-    pub value: &'a [u8],
-}
-
-impl<'a> fmt::Debug for SubpacketRaw<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let value = if self.value.len() > 16 {
-            &self.value[..16]
-        } else {
-            self.value
-        };
-
-        f.debug_struct("SubpacketRaw")
-            .field("length", &self.length)
-            .field("critical", &self.critical)
-            .field("tag", &self.tag)
-            .field(&format!("value ({} bytes)", self.value.len())[..],
-                   &value)
-            .finish()
-    }
-}
-
 /// Subpacket area.
 pub struct SubpacketArea {
     /// The subpackets.
@@ -386,75 +355,6 @@ impl Hash for SubpacketArea {
     }
 }
 
-/// Iterates over SubpacketAreas yielding raw packets.
-struct SubpacketAreaIterRaw<'a> {
-    reader: buffered_reader::Memory<'a, ()>,
-    data: &'a [u8],
-}
-
-impl<'a> Iterator for SubpacketAreaIterRaw<'a> {
-    // Start, length.
-    type Item = (usize, usize, SubpacketRaw<'a>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let length = match SubpacketLength::parse(&mut self.reader) {
-            Err(_) => return None,
-            Ok(v) => v,
-        };
-        let len = length.len as usize;
-
-        if self.reader.data(len).unwrap().len() < len {
-            // Subpacket extends beyond the end of the hashed
-            // area.  Skip it.
-            self.reader.drop_eof().unwrap();
-            // XXX: Return an error.  See #200.
-            return None;
-        }
-
-        if len == 0 {
-            // Hmm, a zero length packet.  In that case, there is
-            // no header.
-            // XXX: Return an error.  See #200.
-            return self.next();
-        }
-
-        let tag = if let Ok(tag) = self.reader.data_consume_hard(1) {
-            tag[0]
-        } else {
-            return None;
-        };
-        let len = len - 1;
-
-        // The critical bit is the high bit.  Extract it.
-        let critical = tag & (1 << 7) != 0;
-        // Then clear it from the type.
-        let tag = tag & !(1 << 7);
-
-        let start = self.reader.total_out();
-        assert!(start <= ::std::u16::MAX as usize);
-        assert!(len <= ::std::u16::MAX as usize);
-
-        let _ = self.reader.consume(len);
-
-        Some((start, len,
-              SubpacketRaw {
-                  length,
-                  critical: critical,
-                  tag: tag.into(),
-                  value: &self.data[start..start + len],
-              }))
-    }
-}
-
-impl<'a> SubpacketAreaIterRaw<'a> {
-    fn new(data: &'a [u8]) -> SubpacketAreaIterRaw<'a> {
-        SubpacketAreaIterRaw {
-            reader: buffered_reader::Memory::new(data),
-            data,
-        }
-    }
-}
-
 impl fmt::Debug for SubpacketArea {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_list()
@@ -474,17 +374,16 @@ impl<'a> IntoIterator for &'a SubpacketArea {
 
 impl SubpacketArea {
     /// Returns a new subpacket area based on `data`.
-    pub fn new(data: &[u8]) -> SubpacketArea {
+    pub fn new(packets: Vec<Subpacket>) -> SubpacketArea {
         SubpacketArea {
-            packets: SubpacketAreaIterRaw::new(data)
-                .map(|(_, _, raw)| raw.into()).collect(),
+            packets,
             parsed: Mutex::new(RefCell::new(None)),
         }
     }
 
     /// Returns a empty subpacket area.
     pub fn empty() -> SubpacketArea {
-        SubpacketArea::new(&[])
+        SubpacketArea::new(Vec::new())
     }
 
     // Initialize `Signature::hashed_area_parsed` from
@@ -590,12 +489,13 @@ pub struct NotationData {
 
 impl NotationData {
     /// Creates a new Notation Data subpacket payload.
-    pub fn new<F>(name: &str, value: &[u8], flags: F) -> Self
-        where F: Into<Option<NotationDataFlags>>
+    pub fn new<N, F>(name: N, value: &[u8], flags: F) -> Self
+        where N: AsRef<[u8]>,
+              F: Into<Option<NotationDataFlags>>,
     {
         Self {
             flags: flags.into().unwrap_or_default(),
-            name: name.into(),
+            name: name.as_ref().into(),
             value: value.into(),
         }
     }
@@ -623,6 +523,12 @@ pub struct NotationDataFlags(u32);
 impl Default for NotationDataFlags {
     fn default() -> Self {
         NotationDataFlags(0)
+    }
+}
+
+impl From<u32> for NotationDataFlags {
+    fn from(v: u32) -> Self {
+        Self(v)
     }
 }
 
@@ -873,7 +779,7 @@ pub struct Subpacket {
     /// roundtrip the subpackets, perfectly reproducing all the bits.
     /// To allow for suboptimal encoding of lenghts, we store the
     /// length when we parse subpackets.
-    pub(crate) // For serialize/mod.rs.
+    pub(crate) // For serialize/mod.rs, parse/parse.rs.
     length: SubpacketLength,
     /// Critical flag.
     critical: bool,
@@ -901,15 +807,19 @@ impl Subpacket {
     /// Creates a new subpacket.
     pub fn new(value: SubpacketValue, critical: bool)
                -> Result<Subpacket> {
-        Ok(Self::with_tag(value.tag()?, value, critical))
+        Ok(Self::with_length_tag(
+            SubpacketLength::from(1 /* Tag */ + value.len() as u32),
+            value.tag()?, value, critical))
     }
 
-    /// Creates a new subpacket with the given tag.
-    pub fn with_tag(tag: SubpacketTag, value: SubpacketValue,
-                    critical: bool)
-               -> Subpacket {
+    /// Creates a new subpacket with the given length and tag.
+    pub(crate) fn with_length_tag(length: SubpacketLength,
+                                  tag: SubpacketTag,
+                                  value: SubpacketValue,
+                                  critical: bool)
+                                  -> Subpacket {
         Subpacket {
-            length: SubpacketLength::from(1 /* Tag */ + value.len() as u32),
+            length,
             critical,
             tag,
             value,
@@ -932,276 +842,6 @@ impl Subpacket {
     }
 }
 
-fn from_be_u16(value: &[u8]) -> Option<u16> {
-    if value.len() >= 2 {
-        Some((value[0] as u16) << 8
-             | (value[1] as u16))
-    } else {
-        None
-    }
-}
-
-fn from_be_u32(value: &[u8]) -> Option<u32> {
-    if value.len() >= 4 {
-        Some((value[0] as u32) << 24
-             | (value[1] as u32) << 16
-             | (value[2] as u32) << 8
-             | (value[3] as u32))
-    } else {
-        None
-    }
-}
-
-impl<'a> From<SubpacketRaw<'a>> for Subpacket {
-    fn from(raw: SubpacketRaw<'a>) -> Self {
-        let value : Option<SubpacketValue>
-                = match raw.tag {
-            SubpacketTag::SignatureCreationTime =>
-                // The timestamp is in big endian format.
-                from_be_u32(raw.value).map(|v| {
-                    SubpacketValue::SignatureCreationTime(
-                        v.into())
-                }),
-
-            SubpacketTag::SignatureExpirationTime =>
-                // The time delta is in big endian format.
-                from_be_u32(raw.value).map(|v| {
-                    SubpacketValue::SignatureExpirationTime(
-                        v.into())
-                }),
-
-            SubpacketTag::ExportableCertification =>
-                // One u8 holding a bool.
-                if raw.value.len() == 1 {
-                    Some(SubpacketValue::ExportableCertification(
-                        raw.value[0] == 1u8))
-                } else {
-                    None
-                },
-
-            SubpacketTag::TrustSignature =>
-                // Two u8s.
-                if raw.value.len() == 2 {
-                    Some(SubpacketValue::TrustSignature {
-                        level: raw.value[0],
-                        trust: raw.value[1],
-                    })
-                } else {
-                    None
-                },
-
-            SubpacketTag::RegularExpression => {
-                let trim = if raw.value.len() > 0
-                    && raw.value[raw.value.len() - 1] == 0 { 1 } else { 0 };
-                Some(SubpacketValue::RegularExpression(
-                    raw.value[..raw.value.len() - trim].to_vec()))
-            },
-
-            SubpacketTag::Revocable =>
-                // One u8 holding a bool.
-                if raw.value.len() == 1 {
-                    Some(SubpacketValue::Revocable(raw.value[0] != 0u8))
-                } else {
-                    None
-                },
-
-            SubpacketTag::KeyExpirationTime =>
-                // The time delta is in big endian format.
-                from_be_u32(raw.value).map(|v| {
-                    SubpacketValue::KeyExpirationTime(
-                        v.into())
-                }),
-
-            SubpacketTag::PreferredSymmetricAlgorithms =>
-                // array of one-octet values.
-                Some(SubpacketValue::PreferredSymmetricAlgorithms(
-                    raw.value.iter().map(|o| (*o).into()).collect())),
-
-            SubpacketTag::RevocationKey =>
-                // 1 octet of class, 1 octet of pk algorithm, 20 bytes
-                // for a v4 fingerprint and 32 bytes for a v5
-                // fingerprint.
-                if raw.value.len() > 2 {
-                    Some(SubpacketValue::RevocationKey {
-                        class: raw.value[0],
-                        pk_algo: raw.value[1].into(),
-                        fp: Fingerprint::from_bytes(&raw.value[2..]),
-                    })
-                } else {
-                    None
-                },
-
-            SubpacketTag::Issuer =>
-                Some(SubpacketValue::Issuer(
-                    KeyID::from_bytes(&raw.value[..]))),
-
-            SubpacketTag::NotationData =>
-                if raw.value.len() > 8 {
-                    let flags = from_be_u32(raw.value).unwrap();
-                    let name_len
-                        = from_be_u16(&raw.value[4..]).unwrap() as usize;
-                    let value_len
-                        = from_be_u16(&raw.value[6..]).unwrap() as usize;
-
-                    if raw.value.len() == 8 + name_len + value_len {
-                        Some(SubpacketValue::NotationData(
-                            NotationData {
-                                flags: NotationDataFlags(flags),
-                                name: raw.value[8..8 + name_len].to_vec(),
-                                value: raw.value[8 + name_len..].to_vec(),
-                            }))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                },
-
-            SubpacketTag::PreferredHashAlgorithms =>
-                // array of one-octet values.
-                Some(SubpacketValue::PreferredHashAlgorithms(
-                    raw.value.iter().map(|o| (*o).into()).collect())),
-
-            SubpacketTag::PreferredCompressionAlgorithms =>
-                // array of one-octet values.
-                Some(SubpacketValue::PreferredCompressionAlgorithms(
-                    raw.value.iter().map(|o| (*o).into()).collect())),
-
-            SubpacketTag::KeyServerPreferences =>
-                // N octets of flags.
-                Some(SubpacketValue::KeyServerPreferences(
-                    KeyServerPreferences::new(raw.value))),
-
-            SubpacketTag::PreferredKeyServer =>
-                // String.
-                Some(SubpacketValue::PreferredKeyServer(
-                    raw.value.to_vec())),
-
-            SubpacketTag::PrimaryUserID =>
-                // 1 octet, Boolean
-                if raw.value.len() == 1 {
-                    Some(SubpacketValue::PrimaryUserID(
-                        raw.value[0] != 0u8))
-                } else {
-                    None
-                },
-
-            SubpacketTag::PolicyURI =>
-                // String.
-                Some(SubpacketValue::PolicyURI(raw.value.to_vec())),
-
-            SubpacketTag::KeyFlags =>
-                // N octets of flags.
-                Some(SubpacketValue::KeyFlags(KeyFlags::new(&raw.value))),
-
-            SubpacketTag::SignersUserID =>
-                // String.
-                Some(SubpacketValue::SignersUserID(raw.value.to_vec())),
-
-            SubpacketTag::ReasonForRevocation =>
-                // 1 octet of revocation code, N octets of reason string
-                if raw.value.len() >= 1 {
-                    Some(SubpacketValue::ReasonForRevocation {
-                        code: raw.value[0].into(),
-                        reason: raw.value[1..].to_vec(),
-                    })
-                } else {
-                    None
-                },
-
-            SubpacketTag::Features =>
-                // N octets of flags
-                Some(SubpacketValue::Features(Features::new(raw.value))),
-
-            SubpacketTag::SignatureTarget =>
-                // 1 octet public-key algorithm, 1 octet hash algorithm,
-                // N octets hash
-                if raw.value.len() > 2 {
-                    Some(SubpacketValue::SignatureTarget {
-                        pk_algo: raw.value[0].into(),
-                        hash_algo: raw.value[1].into(),
-                        digest: raw.value[2..].to_vec(),
-                    })
-                } else {
-                    None
-                },
-
-            SubpacketTag::EmbeddedSignature => {
-                use crate::parse::Parse;
-                // A signature packet.
-                Some(SubpacketValue::EmbeddedSignature(
-                    match Signature::from_bytes(&raw.value) {
-                        Ok(s) => Packet::Signature(s),
-                        Err(e) => {
-                            use crate::packet::{Tag, Unknown};
-                            let mut u = Unknown::new(Tag::Signature, e);
-                            u.set_body(raw.value.to_vec());
-                            Packet::Unknown(u)
-                        },
-                    }
-                ))
-            },
-
-            SubpacketTag::IssuerFingerprint => {
-                let version = raw.value.get(0);
-                if let Some(version) = version {
-                    if *version == 4 {
-                        Some(SubpacketValue::IssuerFingerprint(
-                            Fingerprint::from_bytes(&raw.value[1..])))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            },
-
-            SubpacketTag::PreferredAEADAlgorithms =>
-                // array of one-octet values.
-                Some(SubpacketValue::PreferredAEADAlgorithms(
-                    raw.value.iter().map(|o| (*o).into()).collect())),
-
-            SubpacketTag::IntendedRecipient => {
-                let version = raw.value.get(0);
-                if let Some(version) = version {
-                    if *version == 4 {
-                        Some(SubpacketValue::IntendedRecipient(
-                            Fingerprint::from_bytes(&raw.value[1..])))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            },
-
-            SubpacketTag::Reserved(_)
-                    | SubpacketTag::PlaceholderForBackwardCompatibility
-                    | SubpacketTag::Private(_)
-                    | SubpacketTag::Unknown(_) =>
-                // Unknown tag.
-                Some(SubpacketValue::Unknown(raw.value.to_vec())),
-            };
-
-        if let Some(value) = value {
-            Subpacket {
-                length: raw.length.clone(),
-                critical: raw.critical,
-                tag: raw.tag,
-                value: value,
-            }
-        } else {
-            // Invalid.
-            Subpacket {
-                length: raw.length.clone(),
-                critical: raw.critical,
-                tag: raw.tag,
-                value: SubpacketValue::Invalid(raw.value.to_vec()),
-            }
-        }
-    }
-}
-
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct SubpacketLength {
     /// The length.
@@ -1219,47 +859,8 @@ impl From<u32> for SubpacketLength {
 }
 
 impl SubpacketLength {
-    /// Parses a subpacket length.
-    pub(crate) fn parse<C>(bio: &mut buffered_reader::Memory<C>)
-                           -> io::Result<Self> {
-        let octet1 = bio.data_consume_hard(1)?[0];
-        if octet1 < 192 {
-            // One octet.
-            Ok(Self {
-                len: octet1 as u32,
-                raw: None, // Unambiguous.
-            })
-        } else if 192 <= octet1 && octet1 < 255 {
-            // Two octets length.
-            let octet2 = bio.data_consume_hard(1)?[0];
-            let len = ((octet1 as u32 - 192) << 8) + octet2 as u32 + 192;
-            Ok(Self {
-                len,
-                raw: if Self::len_optimal_encoding(len) == 2 {
-                    None
-                } else {
-                    Some(vec![octet1, octet2])
-                },
-            })
-        } else {
-            // Five octets.
-            assert_eq!(octet1, 255);
-            let len = bio.read_be_u32()?;
-            Ok(Self {
-                len,
-                raw: if Self::len_optimal_encoding(len) == 5 {
-                    None
-                } else {
-                    Some(vec![
-                        octet1,
-                        (len >> 24) as u8,
-                        (len >> 16) as u8,
-                        (len >>  8) as u8,
-                        (len >>  0) as u8,
-                    ])
-                },
-            })
-        }
+    pub(crate) fn new(len: u32, raw: Option<Vec<u8>>) -> Self {
+        Self { len, raw }
     }
 
     /// Writes the subpacket length to `w`.
@@ -1282,6 +883,11 @@ impl SubpacketLength {
         }
     }
 
+    /// Returns the length.
+    pub(crate) fn len(&self) -> usize {
+        self.len as usize
+    }
+
     /// Returns the length of the serialized subpacket length.
     pub(crate) fn serialized_len(&self) -> usize {
         if let Some(ref raw) = self.raw {
@@ -1292,7 +898,7 @@ impl SubpacketLength {
     }
 
     /// Returns the length of the optimal encoding of `len`.
-    fn len_optimal_encoding(len: u32) -> usize {
+    pub(crate) fn len_optimal_encoding(len: u32) -> usize {
         if len < 192 {
             1
         } else if len < 16320 {
@@ -1302,19 +908,6 @@ impl SubpacketLength {
         }
     }
 }
-
-#[cfg(test)]
-quickcheck! {
-    fn length_roundtrip(l: u32) -> bool {
-        let length = SubpacketLength::from(l);
-        let mut encoded = Vec::new();
-        length.serialize(&mut encoded).unwrap();
-        assert_eq!(encoded.len(), length.serialized_len());
-        let mut reader = buffered_reader::Memory::new(&encoded);
-        SubpacketLength::parse(&mut reader).unwrap().len == l
-    }
-}
-
 
 impl SubpacketArea {
     /// Returns the *last* instance of the specified subpacket.

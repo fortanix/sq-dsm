@@ -24,15 +24,19 @@ use crate::{
     packet::signature::Signature4,
     packet::prelude::*,
     Packet,
+    Fingerprint,
     KeyID,
     crypto::SessionKey,
 };
 use crate::types::{
     AEADAlgorithm,
     CompressionAlgorithm,
-    SignatureType,
+    Features,
     HashAlgorithm,
+    KeyFlags,
+    KeyServerPreferences,
     PublicKeyAlgorithm,
+    SignatureType,
     SymmetricAlgorithm,
     Timestamp,
 };
@@ -44,7 +48,14 @@ use crate::message::MessageValidator;
 mod partial_body;
 use self::partial_body::BufferedReaderPartialBodyFilter;
 
-use crate::packet::signature::subpacket::SubpacketArea;
+use crate::packet::signature::subpacket::{
+    NotationData,
+    Subpacket,
+    SubpacketArea,
+    SubpacketLength,
+    SubpacketTag,
+    SubpacketValue,
+};
 
 mod packet_pile_parser;
 pub use self::packet_pile_parser::PacketPileParser;
@@ -349,6 +360,17 @@ impl<'a> PacketHeaderParser<'a> {
     fn parse_be_u32(&mut self, name: &'static str) -> Result<u32> {
         self.field(name, 4);
         Ok(self.reader.read_be_u32()?)
+    }
+
+    fn parse_bool(&mut self, name: &'static str) -> Result<bool> {
+        self.field(name, 1);
+        let v = self.reader.data_consume_hard(1)?[0];
+        match v {
+            0 => Ok(false),
+            1 => Ok(true),
+            n => Err(Error::MalformedPacket(
+                format!("Invalid value for bool: {}", n)).into()),
+        }
     }
 
     fn parse_bytes(&mut self, name: &'static str, amount: usize)
@@ -1002,12 +1024,12 @@ impl Signature4 {
         let hash_algo = php_try!(php.parse_u8("hash_algo"));
         let hashed_area_len = php_try!(php.parse_be_u16("hashed_area_len"));
         let hashed_area
-            = php_try!(php.parse_bytes("hashed_area",
-                                   hashed_area_len as usize));
+            = php_try!(SubpacketArea::parse(&mut php,
+                                            hashed_area_len as usize));
         let unhashed_area_len = php_try!(php.parse_be_u16("unhashed_area_len"));
         let unhashed_area
-            = php_try!(php.parse_bytes("unhashed_area",
-                                   unhashed_area_len as usize));
+            = php_try!(SubpacketArea::parse(&mut php,
+                                            unhashed_area_len as usize));
         let digest_prefix1 = php_try!(php.parse_u8("digest_prefix1"));
         let digest_prefix2 = php_try!(php.parse_u8("digest_prefix2"));
         if ! pk_algo.for_signing() {
@@ -1019,8 +1041,8 @@ impl Signature4 {
         let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::Signature(Signature4::new(
             typ.into(), pk_algo.into(), hash_algo,
-            SubpacketArea::new(&hashed_area),
-            SubpacketArea::new(&unhashed_area),
+            hashed_area,
+            unhashed_area,
             [digest_prefix1, digest_prefix2],
             mpis).into()))?;
 
@@ -1155,6 +1177,309 @@ fn signature_parser_test () {
         } else {
             panic!("Wrong packet!");
         }
+    }
+}
+
+impl SubpacketArea {
+    // Parses a subpacket area.
+    fn parse<'a>(php: &mut PacketHeaderParser<'a>, mut limit: usize)
+                 -> Result<Self>
+    {
+        let mut packets = Vec::new();
+        while limit > 0 {
+            let p = Subpacket::parse(php, limit)?;
+            assert!(limit >= p.length.len() + p.length.serialized_len());
+            limit -= p.length.len() + p.length.serialized_len();
+            packets.push(p);
+        }
+        assert!(limit == 0);
+        Ok(Self::new(packets))
+    }
+}
+
+impl Subpacket {
+    // Parses a raw subpacket.
+    fn parse<'a>(php: &mut PacketHeaderParser<'a>, limit: usize)
+                 -> Result<Self> {
+        let length = SubpacketLength::parse(&mut php.reader)?;
+        php.field("subpacket length", length.serialized_len());
+        let len = length.len() as usize;
+
+        if limit < len {
+            return Err(Error::MalformedPacket(
+                "Subpacket extends beyond the end of the subpacket area".into())
+                       .into());
+        }
+
+        if len == 0 {
+            return Err(Error::MalformedPacket("Zero-length subpacket".into())
+                       .into());
+        }
+
+        let tag = php.parse_u8("subpacket tag")?;
+        let len = len - 1;
+
+        // Remember our position in the reader to check subpacket boundaries.
+        let total_out_before = php.reader.total_out();
+
+        // The critical bit is the high bit.  Extract it.
+        let critical = tag & (1 << 7) != 0;
+        // Then clear it from the type and convert it.
+        let tag: SubpacketTag = (tag & !(1 << 7)).into();
+
+        let value = match tag {
+            SubpacketTag::SignatureCreationTime =>
+                SubpacketValue::SignatureCreationTime(
+                    php.parse_be_u32("sig creation time")?.into()),
+            SubpacketTag::SignatureExpirationTime =>
+                SubpacketValue::SignatureExpirationTime(
+                    php.parse_be_u32("sig expiry time")?.into()),
+            SubpacketTag::ExportableCertification =>
+                SubpacketValue::ExportableCertification(
+                    php.parse_bool("exportable")?),
+            SubpacketTag::TrustSignature =>
+                SubpacketValue::TrustSignature {
+                    level: php.parse_u8("trust level")?,
+                    trust: php.parse_u8("trust value")?,
+                },
+            SubpacketTag::RegularExpression => {
+                let mut v = php.parse_bytes("regular expr", len)?;
+                if v.len() == 0 || v[v.len() - 1] != 0 {
+                    return Err(Error::MalformedPacket(
+                        "Regular expression not 0-terminated".into())
+                               .into());
+                }
+                v.pop();
+                SubpacketValue::RegularExpression(v)
+            },
+            SubpacketTag::Revocable =>
+                SubpacketValue::Revocable(php.parse_bool("revocable")?),
+            SubpacketTag::KeyExpirationTime =>
+                SubpacketValue::KeyExpirationTime(
+                    php.parse_be_u32("key expiry time")?.into()),
+            SubpacketTag::PreferredSymmetricAlgorithms =>
+                SubpacketValue::PreferredSymmetricAlgorithms(
+                    php.parse_bytes("pref sym algos", len)?
+                        .iter().map(|o| (*o).into()).collect()),
+            SubpacketTag::RevocationKey => {
+                // 1 octet of class, 1 octet of pk algorithm, 20 bytes
+                // for a v4 fingerprint and 32 bytes for a v5
+                // fingerprint.
+                if len < 22 {
+                    return Err(Error::MalformedPacket(
+                        "Short revocation key subpacket".into())
+                               .into());
+                }
+                SubpacketValue::RevocationKey {
+                    class: php.parse_u8("class")?,
+                    pk_algo: php.parse_u8("pk algo")?.into(),
+                    fp: Fingerprint::from_bytes(&php.parse_bytes("fingerprint",
+                                                                 len - 2)?),
+                }
+            },
+            SubpacketTag::Issuer =>
+                SubpacketValue::Issuer(
+                    KeyID::from_bytes(&php.parse_bytes("issuer", len)?)),
+            SubpacketTag::NotationData => {
+                let flags = php.parse_be_u32("flags")?;
+                let name_len = php.parse_be_u16("name len")? as usize;
+                let value_len = php.parse_be_u16("value len")? as usize;
+
+                if len != 8 + name_len + value_len {
+                    return Err(Error::MalformedPacket(
+                        format!("Malformed notation data subpacket: \
+                                 expected {} bytes, got {}",
+                                8 + name_len + value_len,
+                                len)).into());
+                }
+                SubpacketValue::NotationData(
+                    NotationData::new(
+                        &php.parse_bytes("notation name", name_len)?,
+                        &php.parse_bytes("notation value", value_len)?,
+                        Some(flags.into())))
+            },
+            SubpacketTag::PreferredHashAlgorithms =>
+                SubpacketValue::PreferredHashAlgorithms(
+                    php.parse_bytes("pref hash algos", len)?
+                        .iter().map(|o| (*o).into()).collect()),
+            SubpacketTag::PreferredCompressionAlgorithms =>
+                SubpacketValue::PreferredCompressionAlgorithms(
+                    php.parse_bytes("pref compression algos", len)?
+                        .iter().map(|o| (*o).into()).collect()),
+            SubpacketTag::KeyServerPreferences =>
+                SubpacketValue::KeyServerPreferences(
+                    KeyServerPreferences::new(
+                        &php.parse_bytes("key server pref", len)?
+                    )),
+            SubpacketTag::PreferredKeyServer =>
+                SubpacketValue::PreferredKeyServer(
+                    php.parse_bytes("pref key server", len)?),
+            SubpacketTag::PrimaryUserID =>
+                SubpacketValue::PrimaryUserID(
+                    php.parse_bool("primary user id")?),
+            SubpacketTag::PolicyURI =>
+                SubpacketValue::PolicyURI(php.parse_bytes("policy URI", len)?),
+            SubpacketTag::KeyFlags =>
+                SubpacketValue::KeyFlags(KeyFlags::new(
+                    &php.parse_bytes("key flags", len)?)),
+            SubpacketTag::SignersUserID =>
+                SubpacketValue::SignersUserID(
+                    php.parse_bytes("signers user id", len)?),
+            SubpacketTag::ReasonForRevocation => {
+                if len == 0 {
+                    return Err(Error::MalformedPacket(
+                        "Short reason for revocation subpacket".into()).into());
+                }
+                SubpacketValue::ReasonForRevocation {
+                    code: php.parse_u8("revocation reason")?.into(),
+                    reason: php.parse_bytes("human-readable", len - 1)?,
+                }
+            },
+            SubpacketTag::Features =>
+                SubpacketValue::Features(Features::new(
+                    &php.parse_bytes("features", len)?)),
+            SubpacketTag::SignatureTarget => {
+                if len < 2 {
+                    return Err(Error::MalformedPacket(
+                        "Short reason for revocation subpacket".into()).into());
+                }
+                SubpacketValue::SignatureTarget {
+                    pk_algo: php.parse_u8("pk algo")?.into(),
+                    hash_algo: php.parse_u8("hash algo")?.into(),
+                    digest: php.parse_bytes("digest", len - 2)?,
+                }
+            },
+            SubpacketTag::EmbeddedSignature =>
+                SubpacketValue::EmbeddedSignature(
+                    Signature::from_bytes(
+                        &php.parse_bytes("embedded sig", len)?)?
+                    .into() // XXX: This should just be a Signature, really.
+                ),
+
+            SubpacketTag::IssuerFingerprint => {
+                if len == 0 {
+                    return Err(Error::MalformedPacket(
+                        "Short issuer fingerprint subpacket".into()).into());
+                }
+                let version = php.parse_u8("version")?;
+                if let Some(expect_len) = match version {
+                    4 => Some(1 + 20),
+                    5 => Some(1 + 32),
+                    _ => None,
+                } {
+                    if len != expect_len {
+                        return Err(Error::MalformedPacket(
+                            format!("Malformed issuer fingerprint subpacket: \
+                                     expected {} bytes, got {}",
+                                    expect_len, len)).into());
+                    }
+                }
+                SubpacketValue::IssuerFingerprint(
+                    Fingerprint::from_bytes(
+                        &php.parse_bytes("issuer fp", len - 1)?))
+            },
+            SubpacketTag::PreferredAEADAlgorithms =>
+                SubpacketValue::PreferredAEADAlgorithms(
+                    php.parse_bytes("pref aead algos", len)?
+                        .iter().map(|o| (*o).into()).collect()),
+            SubpacketTag::IntendedRecipient => {
+                if len == 0 {
+                    return Err(Error::MalformedPacket(
+                        "Short intended recipient subpacket".into()).into());
+                }
+                let version = php.parse_u8("version")?;
+                if let Some(expect_len) = match version {
+                    4 => Some(1 + 20),
+                    5 => Some(1 + 32),
+                    _ => None,
+                } {
+                    if len != expect_len {
+                        return Err(Error::MalformedPacket(
+                            format!("Malformed intended recipient subpacket: \
+                                     expected {} bytes, got {}",
+                                    expect_len, len)).into());
+                    }
+                }
+                SubpacketValue::IntendedRecipient(
+                    Fingerprint::from_bytes(
+                        &php.parse_bytes("intended rcpt", len - 1)?))
+            },
+            SubpacketTag::Reserved(_)
+                | SubpacketTag::PlaceholderForBackwardCompatibility
+                | SubpacketTag::Private(_)
+                | SubpacketTag::Unknown(_) =>
+                SubpacketValue::Unknown(
+                    php.parse_bytes("unknown subpacket", len)?),
+        };
+
+        let total_out = php.reader.total_out();
+        if total_out_before + len != total_out {
+            return Err(Error::MalformedPacket(
+                format!("Malformed subpacket: \
+                         body length is {} bytes, but read {}",
+                        len, total_out - total_out_before)).into());
+        }
+
+        Ok(Subpacket::with_length_tag(
+            length,
+            tag,
+            value,
+            critical,
+        ))
+    }
+}
+
+impl SubpacketLength {
+    /// Parses a subpacket length.
+    fn parse<R: BufferedReader<C>, C>(bio: &mut R) -> Result<Self> {
+        let octet1 = bio.data_consume_hard(1)?[0];
+        if octet1 < 192 {
+            // One octet.
+            Ok(Self::new(
+                octet1 as u32,
+                // Unambiguous.
+                None))
+        } else if 192 <= octet1 && octet1 < 255 {
+            // Two octets length.
+            let octet2 = bio.data_consume_hard(1)?[0];
+            let len = ((octet1 as u32 - 192) << 8) + octet2 as u32 + 192;
+            Ok(Self::new(
+                len,
+                if Self::len_optimal_encoding(len) == 2 {
+                    None
+                } else {
+                    Some(vec![octet1, octet2])
+                }))
+        } else {
+            // Five octets.
+            assert_eq!(octet1, 255);
+            let len = bio.read_be_u32()?;
+            Ok(Self::new(
+                len,
+                if Self::len_optimal_encoding(len) == 5 {
+                    None
+                } else {
+                    Some(vec![
+                        octet1,
+                        (len >> 24) as u8,
+                        (len >> 16) as u8,
+                        (len >>  8) as u8,
+                        (len >>  0) as u8,
+                    ])
+                }))
+        }
+    }
+}
+
+#[cfg(test)]
+quickcheck! {
+    fn length_roundtrip(l: u32) -> bool {
+        let length = SubpacketLength::from(l);
+        let mut encoded = Vec::new();
+        length.serialize(&mut encoded).unwrap();
+        assert_eq!(encoded.len(), length.serialized_len());
+        let mut reader = buffered_reader::Memory::new(&encoded);
+        SubpacketLength::parse(&mut reader).unwrap().len() == l as usize
     }
 }
 
