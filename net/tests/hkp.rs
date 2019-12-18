@@ -67,7 +67,7 @@ const FP: &'static str = "3E8877C877274692975189F5D03F6F865226FE8B";
 const ID: &'static str = "D03F6F865226FE8B";
 
 fn service(req: Request<Body>)
-           -> Box<Future<Item=Response<Body>, Error=hyper::Error> + Send> {
+           -> Box<dyn Future<Item=Response<Body>, Error=hyper::Error> + Send> {
     let (parts, body) = req.into_parts();
     match (parts.method, parts.uri.path()) {
         (Method::GET, "/pks/lookup") => {
