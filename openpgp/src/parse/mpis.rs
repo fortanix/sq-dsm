@@ -130,8 +130,8 @@ impl mpis::PublicKey {
 
             Unknown(_) | Private(_) => {
                 let mut mpis = Vec::new();
-                while let Ok(mpi) = MPI::parse("unknown_parameter_len",
-                                               "unknown_parameter", php) {
+                while let Ok(mpi) = MPI::parse("unknown_len",
+                                               "unknown", php) {
                     mpis.push(mpi);
                 }
                 let rest = php.parse_bytes_eof("rest")?;
@@ -263,8 +263,8 @@ impl mpis::SecretKeyMaterial {
 
             Unknown(_) | Private(_) => {
                 let mut mpis = Vec::new();
-                while let Ok(mpi) = MPI::parse("unknown_parameter_len",
-                                               "unknown_parameter", php) {
+                while let Ok(mpi) = MPI::parse("unknown_len",
+                                               "unknown", php) {
                     mpis.push(mpi.into());
                 }
                 let rest = php.parse_bytes_eof("rest")?;
@@ -310,7 +310,7 @@ impl mpis::Ciphertext {
         #[allow(deprecated)]
         match algo {
             RSAEncryptSign | RSAEncrypt => {
-                let c = MPI::parse("rsa_ciphertext_len", "rsa_ciphertext",
+                let c = MPI::parse("rsa_ciphertxt_len", "rsa_ciphertxt",
                                    php)?;
 
                 Ok(mpis::Ciphertext::RSA {
@@ -341,8 +341,8 @@ impl mpis::Ciphertext {
 
             Unknown(_) | Private(_) => {
                 let mut mpis = Vec::new();
-                while let Ok(mpi) = MPI::parse("unknown_parameter_len",
-                                               "unknown_parameter", php) {
+                while let Ok(mpi) = MPI::parse("unknown_len",
+                                               "unknown", php) {
                     mpis.push(mpi);
                 }
                 let rest = php.parse_bytes_eof("rest")?;
@@ -399,9 +399,9 @@ impl mpis::Signature {
             }
 
             DSA => {
-                let r = MPI::parse("dsa_signature_r_len", "dsa_signature_r",
+                let r = MPI::parse("dsa_sig_r_len", "dsa_sig_r",
                                    php)?;
-                let s = MPI::parse("dsa_signature_s_len", "dsa_signature_s",
+                let s = MPI::parse("dsa_sig_s_len", "dsa_sig_s",
                                    php)?;
 
                 Ok(mpis::Signature::DSA {
@@ -411,10 +411,10 @@ impl mpis::Signature {
             }
 
             ElgamalEncryptSign => {
-                let r = MPI::parse("elgamal_signature_r_len",
-                                   "elgamal_signature_r", php)?;
-                let s = MPI::parse("elgamal_signature_s_len",
-                                   "elgamal_signature_s", php)?;
+                let r = MPI::parse("elgamal_sig_r_len",
+                                   "elgamal_sig_r", php)?;
+                let s = MPI::parse("elgamal_sig_s_len",
+                                   "elgamal_sig_s", php)?;
 
                 Ok(mpis::Signature::Elgamal {
                     r: r,
@@ -423,9 +423,9 @@ impl mpis::Signature {
             }
 
             EdDSA => {
-                let r = MPI::parse("eddsa_signature_r_len", "eddsa_signature_r",
+                let r = MPI::parse("eddsa_sig_r_len", "eddsa_sig_r",
                                    php)?;
-                let s = MPI::parse("eddsa_signature_s_len", "eddsa_signature_s",
+                let s = MPI::parse("eddsa_sig_s_len", "eddsa_sig_s",
                                    php)?;
 
                 Ok(mpis::Signature::EdDSA {
@@ -435,9 +435,9 @@ impl mpis::Signature {
             }
 
             ECDSA => {
-                let r = MPI::parse("ecdsa_signature_r_len", "ecdsa_signature_r",
+                let r = MPI::parse("ecdsa_sig_r_len", "ecdsa_sig_r",
                                    php)?;
-                let s = MPI::parse("ecdsa_signature_s_len", "ecdsa_signature_s",
+                let s = MPI::parse("ecdsa_sig_s_len", "ecdsa_sig_s",
                                    php)?;
 
                 Ok(mpis::Signature::ECDSA {
@@ -448,8 +448,8 @@ impl mpis::Signature {
 
             Unknown(_) | Private(_) => {
                 let mut mpis = Vec::new();
-                while let Ok(mpi) = MPI::parse("unknown_parameter_len",
-                                               "unknown_parameter", php) {
+                while let Ok(mpi) = MPI::parse("unknown_len",
+                                               "unknown", php) {
                     mpis.push(mpi);
                 }
                 let rest = php.parse_bytes_eof("rest")?;
