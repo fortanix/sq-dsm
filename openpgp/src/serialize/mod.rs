@@ -1090,8 +1090,6 @@ impl Serialize for SubpacketValue {
             }
             Unknown(ref raw) =>
                 o.write_all(raw)?,
-            Invalid(ref raw) =>
-                o.write_all(raw)?,
         }
         Ok(())
     }
@@ -1137,7 +1135,6 @@ impl SerializeInto for SubpacketValue {
                 _ => 0,
             },
             Unknown(ref raw) => raw.len(),
-            Invalid(ref raw) => raw.len(),
         }
     }
 

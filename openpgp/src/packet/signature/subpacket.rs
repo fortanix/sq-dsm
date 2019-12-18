@@ -567,8 +567,6 @@ impl NotationDataFlags {
 pub enum SubpacketValue {
     /// The subpacket is unknown.
     Unknown(Vec<u8>),
-    /// The packet is present, but the value is structured incorrectly.
-    Invalid(Vec<u8>),
 
     /// 4-octet time field
     SignatureCreationTime(Timestamp),
@@ -722,7 +720,6 @@ impl SubpacketValue {
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
             Unknown(u) => u.len(),
-            Invalid(i) => i.len(),
         }
     }
 

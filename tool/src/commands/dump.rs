@@ -727,11 +727,6 @@ impl PacketDumper {
                          if s.critical() { " (critical)" } else { "" })?;
                 hexdump_unknown(output, b)?;
             },
-            Invalid(ref b) => {
-                writeln!(output, "{}    {:?}{}:", i, s.tag(),
-                         if s.critical() { " (critical)" } else { "" })?;
-                hexdump_unknown(output, b)?;
-            },
             SignatureCreationTime(t) =>
                 write!(output, "{}    Signature creation time: {}", i,
                        (*t).convert())?,
@@ -815,7 +810,7 @@ impl PacketDumper {
         }
 
         match s.value() {
-            Unknown(_) | Invalid(_) => (),
+            Unknown(_) => (),
             EmbeddedSignature(ref sig) => {
                 if s.critical() {
                     write!(output, " (critical)")?;
