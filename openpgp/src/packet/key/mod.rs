@@ -43,10 +43,10 @@
 //! // Get a handle to the Cert's primary key that allows using the
 //! // secret key material.
 //! use std::convert::TryInto;
-//! let sk : &key::SecretKey = cert.primary().try_into()?;
+//! let sk: &Key<key::SecretParts, key::PrimaryRole> = cert.primary().try_into()?;
 //!
 //! // Make the conversion explicit.
-//! let sk : &key::SecretKey = cert.primary().mark_parts_secret_ref()?;
+//! let sk = cert.primary().mark_parts_secret_ref()?;
 //! #     Ok(())
 //! # }
 //! ```
@@ -131,29 +131,31 @@ pub struct UnspecifiedRole;
 impl KeyRole for UnspecifiedRole {}
 
 /// A Public Key.
-pub type PublicKey = Key<PublicParts, PrimaryRole>;
+pub(crate) type PublicKey = Key<PublicParts, PrimaryRole>;
 /// A Public Subkey.
-pub type PublicSubkey = Key<PublicParts, SubordinateRole>;
+pub(crate) type PublicSubkey = Key<PublicParts, SubordinateRole>;
 /// A Secret Key.
-pub type SecretKey = Key<SecretParts, PrimaryRole>;
+pub(crate) type SecretKey = Key<SecretParts, PrimaryRole>;
 /// A Secret Subkey.
-pub type SecretSubkey = Key<SecretParts, SubordinateRole>;
+pub(crate) type SecretSubkey = Key<SecretParts, SubordinateRole>;
 
 /// A key with public parts, and an unspecified role
 /// (`UnspecifiedRole`).
-pub type UnspecifiedPublic = Key<PublicParts, UnspecifiedRole>;
+pub(crate) type UnspecifiedPublic = Key<PublicParts, UnspecifiedRole>;
 /// A key with secret parts, and an unspecified role
 /// (`UnspecifiedRole`).
-pub type UnspecifiedSecret = Key<SecretParts, UnspecifiedRole>;
+pub(crate) type UnspecifiedSecret = Key<SecretParts, UnspecifiedRole>;
 
 /// A primary key with unspecified parts (`UnspecifiedParts`).
-pub type UnspecifiedPrimary = Key<UnspecifiedParts, PrimaryRole>;
+#[allow(dead_code)]
+pub(crate) type UnspecifiedPrimary = Key<UnspecifiedParts, PrimaryRole>;
 /// A subkey key with unspecified parts (`UnspecifiedParts`).
-pub type UnspecifiedSecondary = Key<UnspecifiedParts, SubordinateRole>;
+#[allow(dead_code)]
+pub(crate) type UnspecifiedSecondary = Key<UnspecifiedParts, SubordinateRole>;
 
 /// A key whose parts and role are unspecified
 /// (`UnspecifiedParts`, `UnspecifiedRole`).
-pub type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
+pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 
 macro_rules! convert {
     ( $x:ident ) => {

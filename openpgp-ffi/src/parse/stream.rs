@@ -199,8 +199,9 @@ fn $fn_name<'a>(
         }
         if let Some(mut p) = key_r {
             *unsafe { p.as_mut() } = {
-                let key : &self::openpgp::packet::key::UnspecifiedKey
-                    = (*key).into();
+                let key = key
+                    .mark_parts_unspecified_ref()
+                    .mark_role_unspecified_ref();
                 key.move_into_raw()
             };
         }

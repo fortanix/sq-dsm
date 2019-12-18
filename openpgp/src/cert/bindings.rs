@@ -39,8 +39,9 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// assert_eq!(cert.keys_valid().key_flags(flags.clone()).count(), 0);
     ///
     /// // Generate a subkey and a binding signature.
-    /// let subkey : key::SecretSubkey
-    ///     = Key4::generate_ecc(false, Curve::Cv25519)?.into();
+    /// let subkey: Key<_, key::SubordinateRole> =
+    ///     Key4::generate_ecc(false, Curve::Cv25519)?
+    ///     .into();
     /// let builder = signature::Builder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(&flags)?;
     /// let binding = subkey.bind(&mut keypair, &cert, builder, None)?;

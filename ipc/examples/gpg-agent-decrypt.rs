@@ -9,6 +9,7 @@ extern crate sequoia_ipc as ipc;
 
 use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::types::SymmetricAlgorithm;
+use crate::openpgp::packet::key;
 use crate::openpgp::parse::{
     Parse,
     stream::{
@@ -63,7 +64,8 @@ fn main() {
 /// verification policy.
 struct Helper<'a> {
     ctx: &'a Context,
-    keys: HashMap<openpgp::KeyID, openpgp::packet::key::UnspecifiedPublic>,
+    keys: HashMap<openpgp::KeyID,
+                  openpgp::packet::Key<key::PublicParts, key::UnspecifiedRole>>,
 }
 
 impl<'a> Helper<'a> {

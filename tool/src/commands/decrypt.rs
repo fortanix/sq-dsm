@@ -27,7 +27,7 @@ use super::{dump::PacketDumper, VHelper};
 struct Helper<'a> {
     vhelper: VHelper<'a>,
     secret_keys:
-        HashMap<KeyID, key::UnspecifiedSecret>,
+        HashMap<KeyID, Key<key::SecretParts, key::UnspecifiedRole>>,
     key_identities: HashMap<KeyID, Fingerprint>,
     key_hints: HashMap<KeyID, String>,
     dump_session_key: bool,
@@ -40,8 +40,7 @@ impl<'a> Helper<'a> {
            signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
            dump_session_key: bool, dump: bool, hex: bool)
            -> Self {
-        let mut keys: HashMap<KeyID, key::UnspecifiedSecret>
-            = HashMap::new();
+        let mut keys = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
         for tsk in secrets {

@@ -4,17 +4,20 @@
 //!
 //!   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 
-use std::convert::TryInto;
-
 use libc::{c_int, time_t};
 
 extern crate sequoia_openpgp as openpgp;
+use self::openpgp::packet::key;
 use super::super::fingerprint::Fingerprint;
 use super::super::keyid::KeyID;
 
 use crate::MoveFromRaw;
 use crate::MoveIntoRaw;
 use crate::RefRaw;
+
+/// A local alias to appease the proc macro transformation.
+type UnspecifiedKey =
+    openpgp::packet::Key<key::UnspecifiedParts, key::UnspecifiedRole>;
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
@@ -27,7 +30,7 @@ use crate::RefRaw;
 /// [`sequoia-openpgp::packet::key::Key`]: ../../sequoia_openpgp/packet/key/struct.Key.html
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq, Parse")]
-pub struct Key(openpgp::packet::key::UnspecifiedKey);
+pub struct Key(UnspecifiedKey);
 
 /// Computes and returns the key's fingerprint as per Section 12.2
 /// of RFC 4880.
@@ -79,7 +82,6 @@ fn pgp_key_into_key_pair(errp: Option<&mut *mut crate::error::Error>,
                          -> *mut self::openpgp::crypto::KeyPair
 {
     ffi_make_fry_from_errp!(errp);
-    let key : self::openpgp::packet::key::UnspecifiedSecret
-        = ffi_try!(key.move_from_raw().try_into());
+    let key = ffi_try!(key.move_from_raw().mark_parts_secret());
     ffi_try_box!(key.into_keypair())
 }

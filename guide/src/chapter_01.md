@@ -51,9 +51,8 @@ fn main() {
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the Cert.
-#     let key : key::UnspecifiedSecret
-#         = tsk.keys_valid().for_signing().nth(0).unwrap().2.clone().try_into()?;
-#     let keypair = key.into_keypair()?;
+#     let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
+#         .clone().mark_parts_secret().unwrap().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -197,9 +196,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the Cert.
-#     let key : key::UnspecifiedSecret
-#         = tsk.keys_valid().for_signing().nth(0).unwrap().2.clone().try_into()?;
-#     let keypair = key.into_keypair()?;
+#     let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
+#         .clone().mark_parts_secret().unwrap().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -343,9 +341,8 @@ implements [`io::Write`], and we simply write the plaintext to it.
 fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the Cert.
-    let key : key::UnspecifiedSecret
-        = tsk.keys_valid().for_signing().nth(0).unwrap().2.clone().try_into()?;
-    let keypair = key.into_keypair()?;
+    let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
+        .clone().mark_parts_secret().unwrap().into_keypair()?;
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
@@ -500,9 +497,8 @@ Verified data can be read from this using [`io::Read`].
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the Cert.
-#     let key : key::UnspecifiedSecret
-#         = tsk.keys_valid().for_signing().nth(0).unwrap().2.clone().try_into()?;
-#     let keypair = key.into_keypair()?;
+#     let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
+#         .clone().mark_parts_secret().unwrap().into_keypair()?;
 # 
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
