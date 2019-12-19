@@ -118,19 +118,6 @@ impl Container {
         &mut self.packets
     }
 
-    // Adds a new packet to the container.
-    pub(crate) fn push(&mut self, packet: Packet) {
-        self.packets.push(packet);
-    }
-
-    // Inserts a new packet to the container at a particular index.
-    // If `i` is 0, the new packet is insert at the front of the
-    // container.  If `i` is one, it is inserted after the first
-    // packet, etc.
-    pub(crate) fn insert(&mut self, i: usize, packet: Packet) {
-        self.packets.insert(i, packet);
-    }
-
     /// Returns an iterator over the packet's descendants.  The
     /// descendants are visited in depth-first order.
     pub fn descendants(&self) -> Iter {
@@ -281,13 +268,13 @@ impl Packet {
     }
 
     /// Returns an iterator over the packet's immediate children.
-    pub fn children<'a>(&'a self) -> impl Iterator<Item = &'a Packet> {
+    pub(crate) fn children<'a>(&'a self) -> impl Iterator<Item = &'a Packet> {
         self.container_ref().map(|c| c.children()).unwrap_or_else(|| [].iter())
     }
 
     /// Returns an iterator over all of the packet's descendants, in
     /// depth-first order.
-    pub fn descendants(&self) -> Iter {
+    pub(crate) fn descendants(&self) -> Iter {
         self.container_ref().map(|c| c.descendants()).unwrap_or_default()
     }
 
@@ -296,16 +283,7 @@ impl Packet {
     /// Packets can store a sequence of bytes as body, e.g. if the
     /// maximum recursion level is reached while parsing a sequence of
     /// packets, the container's body is stored as is.
-    pub fn body(&self) -> Option<&[u8]> {
+    pub(crate) fn body(&self) -> Option<&[u8]> {
         self.container_ref().and_then(|c| c.body())
-    }
-
-    #[deprecated]
-    /// Sets the packet's body.
-    ///
-    /// Setting the body clears the old body, or any of the packet's
-    /// descendants.
-    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-        self.container_mut().unwrap().set_body(data)
     }
 }

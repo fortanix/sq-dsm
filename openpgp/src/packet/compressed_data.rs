@@ -58,8 +58,9 @@ impl CompressedData {
     }
 
     /// Adds a new packet to the container.
+    #[cfg(test)]
     pub fn push(mut self, packet: Packet) -> Self {
-        self.container.push(packet);
+        self.container.children_mut().push(packet);
         self
     }
 
@@ -67,8 +68,9 @@ impl CompressedData {
     /// If `i` is 0, the new packet is insert at the front of the
     /// container.  If `i` is one, it is inserted after the first
     /// packet, etc.
+    #[cfg(test)]
     pub fn insert(mut self, i: usize, packet: Packet) -> Self {
-        self.container.insert(i, packet);
+        self.container.children_mut().insert(i, packet);
         self
     }
 }

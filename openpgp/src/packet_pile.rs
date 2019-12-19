@@ -188,9 +188,10 @@ impl PacketPile {
     /// // A compressed data packet that contains a literal data packet.
     /// let mut literal = Literal::new(DataFormat::Text);
     /// literal.set_body(b"old".to_vec());
-    /// let mut pile = PacketPile::from(Packet::from(
-    ///     CompressedData::new(CompressionAlgorithm::Uncompressed)
-    ///         .push(literal.into())));
+    /// let mut compressed =
+    ///     CompressedData::new(CompressionAlgorithm::Uncompressed);
+    /// compressed.children_mut().push(literal.into());
+    /// let mut pile = PacketPile::from(Packet::from(compressed));
     ///
     /// // Replace the literal data packet.
     /// let mut literal = Literal::new(DataFormat::Text);
@@ -627,7 +628,7 @@ mod test {
         }
 
         let mut seip = SEIP1::new();
-        seip.container_mut().push(cd.into());
+        seip.children_mut().push(cd.into());
         packets.push(seip.into());
 
         eprintln!("{:#?}", packets);
