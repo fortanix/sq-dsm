@@ -285,8 +285,19 @@ pub enum Error {
 /// than a `CompressedData` packet.
 ///
 ///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
+///
+/// # A note on partial equality
+///
+/// Container packets, like the [`CompressedData`] and the [`SEIP`]
+/// packet, can be streamed.  If a packet is streamed, we no longer
+/// have access to the content, and therefore cannot compare it to
+/// other packets.  Consequently, a streamed packet is not considered
+/// equal to any other packet.
+///
+///   [`CompressedData`]: packet/struct.CompressedData.html
+///   [`SEIP`]: packet/enum.SEIP.html
 #[derive(Debug)]
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Hash, Clone)]
 pub enum Packet {
     /// Unknown packet.
     Unknown(packet::Unknown),

@@ -3442,7 +3442,7 @@ impl <'a> PacketParser<'a> {
                     } else {
                         self.state = state_;
                         self.finish()?;
-                        // XXX self.content_was_read = false;
+                        // XXX self.set_content_was_read(false);
                         let (fake_eof_, reader_) = buffered_reader_stack_pop(
                             reader_, recursion_depth - 1)?;
                         fake_eof = fake_eof_;
@@ -3600,7 +3600,12 @@ impl <'a> PacketParser<'a> {
     /// # return Ok(());
     /// # }
     pub fn buffer_unread_content(&mut self) -> Result<&[u8]> {
+        // If the packet has not yet been streamed, then the following
+        // read operation should not be considered streaming.
+        let content_was_read = self.content_was_read;
         let mut rest = self.steal_eof()?;
+        self.set_content_was_read(content_was_read);
+
         match &mut self.packet {
             Packet::Literal(p) => {
                 if rest.len() > 0 {
@@ -3721,8 +3726,15 @@ impl <'a> PacketParser<'a> {
     /// Sets the content_was_read flag if `cond` is true.
     fn mark_content_was_read(&mut self, cond: bool) {
         if cond {
+            self.packet.container_mut().map(|c| c.set_streamed(true));
             self.content_was_read = true;
         }
+    }
+
+    /// Sets the content_was_read flag to `value`.
+    fn set_content_was_read(&mut self, value: bool) {
+        self.packet.container_mut().map(|c| c.set_streamed(value));
+        self.content_was_read = value;
     }
 
     /// Returns a reference to the current packet's header.

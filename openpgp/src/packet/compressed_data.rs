@@ -15,7 +15,14 @@ use crate::types::CompressionAlgorithm;
 /// of a `CompressedData` packet.
 ///
 /// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
-#[derive(PartialEq, Eq, Hash, Clone)]
+///
+/// # A note on partial equality
+///
+/// Container packets, like this one, can be streamed.  If a packet is
+/// streamed, we no longer have access to the content, and therefore
+/// cannot compare it to other packets.  Consequently, a streamed
+/// packet is not considered equal to any other packet.
+#[derive(PartialEq, Hash, Clone)]
 pub struct CompressedData {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
