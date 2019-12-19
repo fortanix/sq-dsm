@@ -21,6 +21,11 @@ pub struct Unknown {
     tag: Tag,
     /// Error that caused parsing or processing to abort.
     error: failure::Error,
+    /// Body data.
+    ///
+    /// This is written when serialized, and set by the packet parser
+    /// if `buffer_unread_content` is used.
+    body: Vec<u8>,
 }
 
 impl Eq for Unknown {}
@@ -42,7 +47,7 @@ impl Ord for Unknown
 {
     fn cmp(&self, other: &Unknown) -> Ordering {
         match self.tag.cmp(&other.tag) {
-            Ordering::Equal => self.common.body().cmp(&other.common.body()),
+            Ordering::Equal => self.body().cmp(&other.body()),
             o => o,
         }
     }
@@ -52,6 +57,7 @@ impl Hash for Unknown {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.common.hash(state);
         self.tag.hash(state);
+        self.body.hash(state);
     }
 }
 
@@ -74,6 +80,21 @@ impl Unknown {
             tag: tag,
             error: error,
         }
+    }
+
+    /// Gets a reference to the unknown packet's body.
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    /// Gets a mutable reference to the unknown packet's body.
+    pub fn body_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.body
+    }
+
+    /// Sets the unknown packet's body.
+    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
+        std::mem::replace(&mut self.body, data)
     }
 
     /// Gets the unknown packet's tag.

@@ -3613,6 +3613,17 @@ impl <'a> PacketParser<'a> {
 
                 Ok(p.body())
             },
+            Packet::Unknown(p) => {
+                if rest.len() > 0 {
+                    if p.body().len() > 0 {
+                        p.body_mut().append(&mut rest);
+                    } else {
+                        p.set_body(rest);
+                    }
+                }
+
+                Ok(p.body())
+            },
             p => {
                 if rest.len() > 0 {
                     if let Some(body) = p.body_mut() {

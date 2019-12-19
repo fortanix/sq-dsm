@@ -923,21 +923,14 @@ impl SerializeInto for S2K {
 
 impl Serialize for Unknown {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let body = if let Some(body) = self.body() {
-            &body[..]
-        } else {
-            &b""[..]
-        };
-
-        o.write_all(&body[..])?;
-
+        o.write_all(self.body())?;
         Ok(())
     }
 }
 
 impl NetLength for Unknown {
     fn net_len(&self) -> usize {
-        self.body().unwrap_or(&b""[..]).len()
+        self.body().len()
     }
 }
 
@@ -2545,16 +2538,8 @@ mod test {
         let expected = to_unknown_packet(expected).unwrap();
         let got = to_unknown_packet(got).unwrap();
 
-        let expected_body = if let Some(ref data) = expected.body() {
-            &data[..]
-        } else {
-            &b""[..]
-        };
-        let got_body = if let Some(ref data) = got.body() {
-            &data[..]
-        } else {
-            &b""[..]
-        };
+        let expected_body = expected.body();
+        let got_body = got.body();
 
         let mut fail = false;
         if expected.tag() != got.tag() {
