@@ -1701,7 +1701,7 @@ impl Cert {
                     b.set_secret(a.set_secret(None));
                 }
             });
-        self.unknowns.sort_and_dedup(Unknown::cmp, |_, _| {});
+        self.unknowns.sort_and_dedup(Unknown::best_effort_cmp, |_, _| {});
 
         // XXX: Check if the sigs in other_sigs issuer are actually
         // designated revokers for this key (listed in a "Revocation

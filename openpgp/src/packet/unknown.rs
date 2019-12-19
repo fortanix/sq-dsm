@@ -130,6 +130,17 @@ impl Unknown {
     pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
         std::mem::replace(&mut self.body, data)
     }
+
+    /// Best effort Ord implementation.
+    ///
+    /// The Cert canonicalization needs to order Unknown packets.
+    /// However, due to potential streaming, Unknown cannot implement
+    /// Eq.  This is cheating a little, we simply ignore the streaming
+    /// case.
+    pub(crate) // For cert/mod.rs
+    fn best_effort_cmp(&self, other: &Unknown) -> Ordering {
+        self.tag.cmp(&other.tag).then_with(|| self.body().cmp(&other.body()))
+    }
 }
 
 impl From<Unknown> for Packet {
