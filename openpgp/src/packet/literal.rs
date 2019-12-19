@@ -36,6 +36,11 @@ pub struct Literal {
     /// A four-octet number that indicates a date associated with the
     /// literal data.
     date: Option<Timestamp>,
+    /// The literal data.
+    ///
+    /// This is written when serialized, and set by the packet parser
+    /// if `buffer_unread_content` is used.
+    body: Vec<u8>,
 }
 
 impl fmt::Debug for Literal {
@@ -46,19 +51,13 @@ impl fmt::Debug for Literal {
             None
         };
 
-        let body = if let Some(ref body) = self.common.body {
-            &body[..]
-        } else {
-            &b""[..]
-        };
-
         let threshold = 36;
-        let prefix = &body[..cmp::min(threshold, body.len())];
+        let prefix = &self.body[..cmp::min(threshold, self.body.len())];
         let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
-        if body.len() > threshold {
+        if self.body.len() > threshold {
             prefix_fmt.push_str("...");
         }
-        prefix_fmt.push_str(&format!(" ({} bytes)", body.len())[..]);
+        prefix_fmt.push_str(&format!(" ({} bytes)", self.body.len())[..]);
 
         f.debug_struct("Literal")
             .field("format", &self.format)
@@ -77,17 +76,23 @@ impl Literal {
             format: format,
             filename: None,
             date: None,
+            body: Vec::with_capacity(0),
         }
     }
 
-    /// Gets the Literal packet's body.
-    pub fn body(&self) -> Option<&[u8]> {
-        self.common.body.as_ref().map(|b| b.as_slice())
+    /// Gets a reference to the Literal packet's body.
+    pub fn body(&self) -> &[u8] {
+        &self.body
     }
 
-    /// Sets the Literal packet's body to the provided byte string.
+    /// Gets a mutable reference to the Literal packet's body.
+    pub fn body_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.body
+    }
+
+    /// Sets the Literal packet's body.
     pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-        self.common.set_body(data)
+        std::mem::replace(&mut self.body, data)
     }
 
     /// Gets the Literal packet's content disposition.

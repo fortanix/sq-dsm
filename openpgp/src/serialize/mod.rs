@@ -1628,7 +1628,7 @@ impl Literal {
 
         if write_tag {
             let len = 1 + (1 + filename.len()) + 4
-                + self.body().as_ref().map(|b| b.len()).unwrap_or(0);
+                + self.body().len();
             CTB::new(Tag::Literal).serialize(o)?;
             BodyLength::Full(len as u32).serialize(o)?;
         }
@@ -1642,12 +1642,7 @@ impl Literal {
 
 impl Serialize for Literal {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        let body = if let Some(body) = self.body() {
-            &body[..]
-        } else {
-            &b""[..]
-        };
-
+        let body = self.body();
         if TRACE {
             let prefix = &body[..cmp::min(body.len(), 20)];
             eprintln!("Literal::serialize({}{}, {} bytes)",
@@ -1666,7 +1661,7 @@ impl Serialize for Literal {
 impl NetLength for Literal {
     fn net_len(&self) -> usize {
         1 + (1 + self.filename().map(|f| f.len()).unwrap_or(0)) + 4
-            + self.body().as_ref().map(|b| b.len()).unwrap_or(0)
+            + self.body().len()
     }
 }
 

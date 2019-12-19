@@ -146,7 +146,9 @@ pub struct Common {
     ///   [`Signature`]: ../packet/signature/struct.Signature.html
     ///
     ///   - One packet, the literal data packet, includes unstructured
-    ///     data.  That data can be stored here.
+    ///     data.  That data is stored in [`Literal`].
+    ///
+    ///   [`Literal`]: ../packet/struct.Literal.html
     ///
     ///   - Some packets are containers.  If the parser does not parse
     ///     the packet's child, either because the caller used

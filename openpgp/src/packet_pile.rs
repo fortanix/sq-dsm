@@ -200,7 +200,7 @@ impl PacketPile {
     ///     [ literal.into() ].to_vec())
     ///     .unwrap();
     /// # if let Some(Packet::Literal(lit)) = pile.path_ref(&[0, 0]) {
-    /// #     assert_eq!(lit.body(), Some(&b"new"[..]), "{:#?}", lit);
+    /// #     assert_eq!(lit.body(), &b"new"[..], "{:#?}", lit);
     /// # } else {
     /// #     panic!("Unexpected packet!");
     /// # }
@@ -661,10 +661,18 @@ mod test {
             assert_eq!(pile.path_ref_mut(&[ 0, 0, i ]).unwrap().tag(),
                        Tag::Literal);
 
-            assert_eq!(pile.path_ref(&[ 0, 0, i ]).unwrap().body(),
-                       Some(t));
-            assert_eq!(pile.path_ref_mut(&[ 0, 0, i ]).unwrap().body(),
-                       Some(t));
+            let packet = pile.path_ref(&[ 0, 0, i ]).unwrap();
+            if let Packet::Literal(l) = packet {
+                assert_eq!(l.body(), t);
+            } else {
+                panic!("Expected literal, got: {:?}", packet);
+            }
+            let packet = pile.path_ref_mut(&[ 0, 0, i ]).unwrap();
+            if let Packet::Literal(l) = packet {
+                assert_eq!(l.body(), t);
+            } else {
+                panic!("Expected literal, got: {:?}", packet);
+            }
         }
 
         // Try a few out of bounds accesses.
@@ -717,8 +725,7 @@ mod test {
         let children = pile.into_children().collect::<Vec<Packet>>();
         assert_eq!(children.len(), 1, "{:#?}", children);
         if let Packet::Literal(ref literal) = children[0] {
-            assert_eq!(literal.body(), Some(&b"two"[..]),
-                       "{:#?}", literal);
+            assert_eq!(literal.body(), &b"two"[..], "{:#?}", literal);
         } else {
             panic!("WTF");
         }
@@ -755,7 +762,7 @@ mod test {
                         .children()
                         .map(|p| {
                             if let Packet::Literal(ref literal) = p {
-                                literal.body().unwrap()
+                                literal.body()
                             } else {
                                 panic!("Expected a literal packet, got: {:?}", p);
                             }
@@ -812,7 +819,7 @@ mod test {
                         .children()
                         .map(|p| {
                             if let Packet::Literal(ref literal) = p {
-                                literal.body().unwrap()
+                                literal.body()
                             } else {
                                 panic!("Expected a literal packet, got: {:?}", p);
                             }

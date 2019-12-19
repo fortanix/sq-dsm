@@ -347,7 +347,7 @@ mod test {
         }
 
         let m = crate::Message::from_bytes(&padded).unwrap();
-        assert_eq!(m.body().unwrap().body().unwrap(), &msg[..]);
+        assert_eq!(m.body().unwrap().body(), &msg[..]);
     }
 
     /// Asserts that no actual compression is done.

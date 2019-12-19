@@ -3586,9 +3586,12 @@ impl <'a> PacketParser<'a> {
     ///                     .starts_with(b"A Cypherpunk's Manifesto"));
     /// #       assert!(pp.buffer_unread_content()?
     /// #                   .starts_with(b"A Cypherpunk's Manifesto"));
-    ///         assert!(pp.packet.body().unwrap()
-    ///                     .starts_with(b"A Cypherpunk's Manifesto"));
-    ///         assert_eq!(pp.packet.body().unwrap().len(), 5158);
+    ///         if let Packet::Literal(l) = &pp.packet {
+    ///             assert!(l.body().starts_with(b"A Cypherpunk's Manifesto"));
+    ///             assert_eq!(l.body().len(), 5158);
+    ///         } else {
+    ///             unreachable!();
+    ///         }
     ///     }
     ///
     ///     // Start parsing the next packet.
@@ -3598,18 +3601,33 @@ impl <'a> PacketParser<'a> {
     /// # }
     pub fn buffer_unread_content(&mut self) -> Result<&[u8]> {
         let mut rest = self.steal_eof()?;
-        if rest.len() > 0 {
-            if let Some(body) = self.packet.body_mut() {
-                body.append(&mut rest);
-            } else {
-                self.packet.set_body(rest);
-            }
-        }
+        match &mut self.packet {
+            Packet::Literal(p) => {
+                if rest.len() > 0 {
+                    if p.body().len() > 0 {
+                        p.body_mut().append(&mut rest);
+                    } else {
+                        p.set_body(rest);
+                    }
+                }
 
-        if let Some(body) = self.packet.body() {
-            Ok(&body[..])
-        } else {
-            Ok(&b""[..])
+                Ok(p.body())
+            },
+            p => {
+                if rest.len() > 0 {
+                    if let Some(body) = p.body_mut() {
+                        body.append(&mut rest);
+                    } else {
+                        p.set_body(rest);
+                    }
+                }
+
+                if let Some(body) = p.body() {
+                    Ok(&body[..])
+                } else {
+                    Ok(&b""[..])
+                }
+            },
         }
     }
 
@@ -4252,9 +4270,12 @@ mod test {
                                "{:?}", pp.packet);
                 } else {
                     pp.buffer_unread_content().unwrap();
-                    assert_eq!(pp.packet.body().unwrap(),
-                               &test.plaintext.content()[..],
-                               "{:?}", pp.packet);
+                    if let Packet::Literal(l) = &pp.packet {
+                        assert_eq!(l.body(), &test.plaintext.content()[..],
+                                   "{:?}", pp.packet);
+                    } else {
+                        panic!("Expected literal, got: {:?}", pp.packet);
+                    }
                 }
             } else {
                 panic!("Expected a Literal packet.  Got: {:?}", ppr);

@@ -471,7 +471,7 @@ impl<'a> Reader<'a> {
     /// reader.read_to_end(&mut buf)?;
     ///
     /// let message = Message::from_bytes(&buf)?;
-    /// assert_eq!(message.body().unwrap().body().unwrap(),
+    /// assert_eq!(message.body().unwrap().body(),
     ///            b"Hello world!");
     /// # Ok(())
     /// # }
