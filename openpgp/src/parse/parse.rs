@@ -3718,6 +3718,13 @@ impl <'a> PacketParser<'a> {
         Ok(&mut self.packet)
     }
 
+    /// Sets the content_was_read flag if `cond` is true.
+    fn mark_content_was_read(&mut self, cond: bool) {
+        if cond {
+            self.content_was_read = true;
+        }
+    }
+
     /// Returns a reference to the current packet's header.
     pub fn header(&self) -> &Header {
         &self.header
@@ -3742,7 +3749,7 @@ impl <'a> PacketParser<'a> {
 /// `BufferedReader` interfaces.
 impl<'a> io::Read for PacketParser<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.content_was_read = true;
+        self.mark_content_was_read(true);
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
@@ -3777,42 +3784,42 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
-        self.content_was_read |= amount > 0;
+        self.mark_content_was_read(amount > 0);
         self.reader.consume(amount)
     }
 
     fn data_consume(&mut self, amount: usize) -> io::Result<&[u8]> {
-        self.content_was_read |= amount > 0;
+        self.mark_content_was_read(amount > 0);
         self.reader.data_consume(amount)
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> io::Result<&[u8]> {
-        self.content_was_read |= amount > 0;
+        self.mark_content_was_read(amount > 0);
         self.reader.data_consume_hard(amount)
     }
 
     fn read_be_u16(&mut self) -> io::Result<u16> {
-        self.content_was_read = true;
+        self.mark_content_was_read(true);
         self.reader.read_be_u16()
     }
 
     fn read_be_u32(&mut self) -> io::Result<u32> {
-        self.content_was_read = true;
+        self.mark_content_was_read(true);
         self.reader.read_be_u32()
     }
 
     fn steal(&mut self, amount: usize) -> io::Result<Vec<u8>> {
-        self.content_was_read |= amount > 0;
+        self.mark_content_was_read(amount > 0);
         self.reader.steal(amount)
     }
 
     fn steal_eof(&mut self) -> io::Result<Vec<u8>> {
-        self.content_was_read = true;
+        self.mark_content_was_read(true);
         self.reader.steal_eof()
     }
 
     fn drop_eof(&mut self) -> io::Result<bool> {
-        self.content_was_read = true;
+        self.mark_content_was_read(true);
         self.reader.drop_eof()
     }
 
