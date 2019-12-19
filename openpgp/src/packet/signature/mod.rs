@@ -1486,7 +1486,7 @@ mod test {
         let cert_key1 = test1.keys_all()
             .for_certification()
             .nth(0)
-            .map(|x| x.2)
+            .map(|ka| ka.key())
             .unwrap();
         let test2 = Cert::from_bytes(
             crate::tests::key("test2-signed-by-test1.pgp")).unwrap();

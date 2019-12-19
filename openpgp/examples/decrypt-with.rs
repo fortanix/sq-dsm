@@ -58,16 +58,17 @@ impl Helper {
         // Map (sub)KeyIDs to secrets.
         let mut keys = HashMap::new();
         for cert in certs {
-            for (sig, _, key) in cert.keys_all() {
-                if sig.map(|s| (s.key_flags().for_storage_encryption()
-                                || s.key_flags().for_transport_encryption()))
+            for ka in cert.keys_all() {
+                if ka.binding_signature(None)
+                    .map(|s| (s.key_flags().for_storage_encryption()
+                              || s.key_flags().for_transport_encryption()))
                     .unwrap_or(false)
                 {
                     // This only works for unencrypted secret keys.
                     if let Ok(keypair) =
-                        key.clone().mark_parts_secret().unwrap().into_keypair()
+                        ka.key().clone().mark_parts_secret().unwrap().into_keypair()
                     {
-                        keys.insert(key.keyid(), keypair);
+                        keys.insert(ka.key().keyid(), keypair);
                     }
                 }
             }

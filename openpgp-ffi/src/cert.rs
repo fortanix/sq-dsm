@@ -695,7 +695,12 @@ pub extern "C" fn pgp_cert_key_iter_next<'a>(
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     iter_wrapper.next_called = true;
 
-    if let Some((sig, rs, key)) = iter_wrapper.iter.next() {
+    if let Some(ka) = iter_wrapper.iter.next() {
+        // XXX: Shouldn't assume the current time.
+        let sig = ka.binding_signature(None);
+        let rs = ka.revoked(None);
+        let key = ka.key();
+
         if let Some(ptr) = sigo {
             *ptr = sig.move_into_raw();
         }

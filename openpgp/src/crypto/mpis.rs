@@ -1047,7 +1047,7 @@ mod tests {
             ("erika-corinna-daniela-simone-antonia-nistp521.pgp", 0, 521),
         ] {
             let cert = crate::Cert::from_bytes(crate::tests::key(name)).unwrap();
-            let key = cert.keys_all().nth(*key_no).unwrap().2;
+            let key = cert.keys_all().nth(*key_no).unwrap().key();
             assert_eq!(key.mpis().bits().unwrap(), *bits,
                        "Cert {}, key no {}", name, *key_no);
         }

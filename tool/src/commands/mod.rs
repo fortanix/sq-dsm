@@ -50,7 +50,7 @@ fn get_signing_keys(certs: &[openpgp::Cert])
     'next_cert: for tsk in certs {
         for key in tsk.keys_valid()
             .for_signing()
-            .map(|k| k.2)
+            .map(|ka| ka.key())
         {
             if let Some(secret) = key.secret() {
                 let unencrypted = match secret {
@@ -112,7 +112,7 @@ pub fn encrypt(mapping: &mut store::Mapping,
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();
     for cert in certs.iter() {
         let mut count = 0;
-        for (_, _, key) in cert.keys_valid().key_flags(mode.clone()) {
+        for key in cert.keys_valid().key_flags(mode.clone()).map(|ka| ka.key()) {
             recipient_subkeys.push(key.into());
             count += 1;
         }
@@ -306,7 +306,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
             .flat_map(|cert| {
                 // Even if a key is revoked or expired, we can still
                 // use it to verify a message.
-                cert.keys_all().map(|(_, _, key)| key.fingerprint().into())
+                cert.keys_all().map(|ka| ka.key().fingerprint().into())
             }).collect();
 
         // Explicitly provided keys are trusted.

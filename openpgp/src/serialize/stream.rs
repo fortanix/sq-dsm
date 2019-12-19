@@ -228,7 +228,7 @@ impl<'a> Signer<'a> {
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
-    /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
+    /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().key()
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
@@ -331,7 +331,7 @@ impl<'a> Signer<'a> {
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
-    /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().2
+    /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().key()
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
@@ -987,7 +987,7 @@ impl<'a> Encryptor<'a> {
     ///     .key_flags(KeyFlags::default()
     ///                .set_storage_encryption(true)
     ///                .set_transport_encryption(true))
-    ///     .map(|(_, _, key)| key.into())
+    ///     .map(|ka| ka.key().into())
     ///     .nth(0).unwrap();
     ///
     /// let mut o = vec![];
@@ -1468,7 +1468,7 @@ mod test {
             Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
             Cert::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
-            for key in tsk.keys_all().for_signing().map(|x| x.2)
+            for key in tsk.keys_all().for_signing().map(|ka| ka.key())
             {
                 keys.insert(key.fingerprint(), key.clone());
             }
@@ -1677,7 +1677,7 @@ mod test {
                     .key_flags(
                         KeyFlags::default()
                             .set_transport_encryption(true))
-                    .map(|(_, _, key)| key).next().unwrap()
+                    .map(|ka| ka.key()).next().unwrap()
                     .clone().mark_parts_secret().unwrap()
                     .into_keypair().unwrap();
                 pkesks[0].decrypt(&mut keypair)
@@ -1706,8 +1706,7 @@ mod test {
                         .key_flags(KeyFlags::default()
                                    .set_storage_encryption(true)
                                    .set_transport_encryption(true))
-                        .map(|(_, _, key)| key.into())
-                        .nth(0).unwrap();
+                        .nth(0).unwrap().key().into();
                     let encryptor = Encryptor::for_recipient(m, recipient)
                         .aead_algo(AEADAlgorithm::EAX)
                         .build().unwrap();

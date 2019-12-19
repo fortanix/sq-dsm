@@ -340,10 +340,10 @@ mod tests {
             .iter().map(|n| (n, crate::Cert::from_bytes(crate::tests::key(n)).unwrap()))
         {
             eprintln!("{}", name);
-            for key in cert.keys_all() {
-                let fp = key.2.fingerprint();
+            for key in cert.keys_all().map(|ka| ka.key()) {
+                let fp = key.fingerprint();
                 eprintln!("(sub)key: {}", fp);
-                assert_eq!(&key.2.mpis().keygrip().unwrap(),
+                assert_eq!(&key.mpis().keygrip().unwrap(),
                            keygrips.get(&fp).unwrap());
             }
         }

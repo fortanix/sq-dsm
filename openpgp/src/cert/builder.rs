@@ -656,13 +656,17 @@ mod tests {
         assert!(! sig.key_alive(key, now + 610 * s).is_ok());
 
         let (sig, key) = cert.keys_valid().for_signing()
-            .nth(0).map(|(s, _, k)| (s.unwrap(), k)).unwrap();
+            .nth(0).map(|ka| {
+                (ka.binding_signature(None).unwrap(), ka.key())
+            }).unwrap();
         assert!(sig.key_alive(key, now).is_ok());
         assert!(sig.key_alive(key, now + 290 * s).is_ok());
         assert!(! sig.key_alive(key, now + 310 * s).is_ok());
 
         let (sig, key) = cert.keys_valid().for_authentication()
-            .nth(0).map(|(s, _, k)| (s.unwrap(), k)).unwrap();
+            .nth(0).map(|ka| {
+                (ka.binding_signature(None).unwrap(), ka.key())
+            }).unwrap();
         assert!(sig.key_alive(key, now).is_ok());
         assert!(sig.key_alive(key, now + 590 * s).is_ok());
         assert!(! sig.key_alive(key, now + 610 * s).is_ok());

@@ -38,7 +38,7 @@ fn main() {
     let mut recipients =
         certs.iter()
         .flat_map(|cert| cert.keys_valid().key_flags(mode.clone()))
-        .map(|(_, _, key)| key.into())
+        .map(|ka| ka.key().into())
         .collect::<Vec<_>>();
 
     // Compose a writer stack corresponding to the output format and

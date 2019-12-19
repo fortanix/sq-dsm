@@ -44,7 +44,7 @@ fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
     let mut recipients =
         recipient.keys_valid()
         .for_transport_encryption()
-        .map(|(_, _, key)| key.into())
+        .map(|ka| ka.key().into())
         .collect::<Vec<_>>();
 
     // Start streaming an OpenPGP message.

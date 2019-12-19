@@ -95,7 +95,7 @@ fn sign() {
         gpg_import(&ctx, &buf);
 
         let keypair = KeyPair::new(
-            &ctx, cert.keys_valid().for_signing().take(1).next().unwrap().2)
+            &ctx, cert.keys_valid().for_signing().take(1).next().unwrap().key())
             .unwrap();
 
         let mut message = Vec::new();
@@ -210,7 +210,7 @@ fn decrypt() {
             let recipient =
                 cert.keys_valid().key_flags(
                     KeyFlags::default().set_transport_encryption(true))
-                .map(|(_, _, key)| key.into())
+                .map(|ka| ka.key().into())
                 .nth(0).unwrap();
 
             // Start streaming an OpenPGP message.
@@ -277,7 +277,7 @@ fn decrypt() {
                     self.ctx,
                     self.cert.keys_valid().key_flags(
                         KeyFlags::default().set_transport_encryption(true))
-                        .take(1).next().unwrap().2)
+                        .take(1).next().unwrap().key())
                     .unwrap();
 
                 pkesks[0].decrypt(&mut keypair)

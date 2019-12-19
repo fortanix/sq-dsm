@@ -1,4 +1,5 @@
 use std::fmt;
+use std::convert::TryInto;
 
 use crate::{
     RevocationStatus,
@@ -6,9 +7,9 @@ use crate::{
     packet::Key,
     packet::key::SecretKeyMaterial,
     types::KeyFlags,
-    packet::Signature,
     Cert,
     cert::KeyBindingIter,
+    cert::KeyAmalgamation,
 };
 
 /// An iterator over all `Key`s (both the primary key and any subkeys)
@@ -76,11 +77,10 @@ macro_rules! impl_iterator {
             where &'a Key<$parts, R>: From<&'a Key<key::PublicParts,
                                                    key::UnspecifiedRole>>
         {
-            type Item = (Option<&'a Signature>, RevocationStatus<'a>,
-                         &'a Key<$parts, R>);
+            type Item = KeyAmalgamation<'a, $parts>;
 
             fn next(&mut self) -> Option<Self::Item> {
-                self.next_common().map(|(s, r, k)| (s, r, k.into()))
+                self.next_common().map(|ka| ka.into())
             }
         }
     }
@@ -92,22 +92,15 @@ impl<'a, R: 'a + key::KeyRole> Iterator for KeyIter<'a, key::SecretParts, R>
     where &'a Key<key::SecretParts, R>: From<&'a Key<key::SecretParts,
                                                      key::UnspecifiedRole>>
 {
-    type Item = (Option<&'a Signature>, RevocationStatus<'a>,
-                 &'a Key<key::SecretParts, R>);
+    type Item = KeyAmalgamation<'a, key::SecretParts>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next_common()
-            .map(|(s, r, k)|
-                 (s, r,
-                  k.mark_parts_secret_ref().expect("has secret parts").into()))
+        self.next_common().map(|ka| ka.try_into().expect("has secret parts"))
     }
 }
 
 impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
-    fn next_common(&mut self)
-                   -> Option<(Option<&'a Signature>,
-                              RevocationStatus<'a>,
-                              &'a Key<key::PublicParts, key::UnspecifiedRole>)>
+    fn next_common(&mut self) -> Option<KeyAmalgamation<'a, key::PublicParts>>
     {
         tracer!(false, "KeyIter::next", 0);
         t!("KeyIter: {:?}", self);
@@ -126,24 +119,20 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
         }
 
         loop {
-            let (sigo, revoked, key) : (_, _, &key::UnspecifiedPublic)
-                = if ! self.primary {
-                    self.primary = true;
+            let ka : KeyAmalgamation<'a, key::PublicParts> = if ! self.primary {
+                self.primary = true;
+                (cert, &cert.primary).into()
+            } else {
+                (cert, self.subkey_iter.next()?).into()
+            };
 
-                    (cert.primary_key_signature(None),
-                     cert.revoked(None),
-                     cert.primary().into())
-                } else {
-                    self.subkey_iter.next()
-                        .map(|sk_binding| (sk_binding.binding_signature(None),
-                                           sk_binding.revoked(None),
-                                           sk_binding.key().into(),))?
-                };
+            let key = ka.key();
 
-            t!("Considering key: {:?}", key);
+            t!("Considering key: {:?}", ka);
 
             if let Some(flags) = self.flags.as_ref() {
-                if let Some(sig) = sigo {
+                // XXX: Shouldn't assume the current time.
+                if let Some(sig) = ka.binding_signature(None) {
                     if (&sig.key_flags() & &flags).is_empty() {
                         t!("Have flags: {:?}, want flags: {:?}... skipping.",
                            sig.key_flags(), flags);
@@ -157,7 +146,8 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
             }
 
             if let Some(alive_at) = self.alive_at {
-                if let Some(sig) = sigo {
+                // XXX: Shouldn't assume the current time.
+                if let Some(sig) = ka.binding_signature(None) {
                     if ! sig.key_alive(key, alive_at).is_ok() {
                         t!("Key not alive... skipping.");
                         continue;
@@ -170,7 +160,8 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
             }
 
             if let Some(want_revoked) = self.revoked {
-                if let RevocationStatus::Revoked(_) = revoked {
+                // XXX: Shouldn't assume the current time.
+                if let RevocationStatus::Revoked(_) = ka.revoked(None) {
                     // The key is definitely revoked.
                     if ! want_revoked {
                         t!("Key revoked... skipping.");
@@ -220,7 +211,7 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
                 }
             }
 
-            return Some((sigo, revoked, key));
+            return Some(ka.into());
         }
     }
 }

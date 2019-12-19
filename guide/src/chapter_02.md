@@ -53,7 +53,7 @@ fn main() {
 #    let mut recipients =
 #        recipient.keys_valid()
 #        .for_transport_encryption()
-#        .map(|(_, _, key)| key.into())
+#        .map(|ka| ka.key().into())
 #        .collect::<Vec<_>>();
 #
 #     // Start streaming an OpenPGP message.
@@ -194,7 +194,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #    let mut recipients =
 #        recipient.keys_valid()
 #        .for_transport_encryption()
-#        .map(|(_, _, key)| key.into())
+#        .map(|ka| ka.key().into())
 #        .collect::<Vec<_>>();
 #
 #     // Start streaming an OpenPGP message.
@@ -335,7 +335,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
     let mut recipients =
         recipient.keys_valid()
         .for_transport_encryption()
-        .map(|(_, _, key)| key.into())
+        .map(|ka| ka.key().into())
         .collect::<Vec<_>>();
 
     // Start streaming an OpenPGP message.
@@ -490,7 +490,7 @@ Decrypted data can be read from this using [`io::Read`].
 #    let mut recipients =
 #        recipient.keys_valid()
 #        .for_transport_encryption()
-#        .map(|(_, _, key)| key.into())
+#        .map(|ka| ka.key().into())
 #        .collect::<Vec<_>>();
 #
 #     // Start streaming an OpenPGP message.

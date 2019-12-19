@@ -39,12 +39,14 @@ use crate::types::{
 mod builder;
 mod bindings;
 mod keyiter;
+mod key_amalgamation;
 mod parser;
 mod revoke;
 
 pub use self::builder::{CertBuilder, CipherSuite};
 
 pub use keyiter::KeyIter;
+pub use key_amalgamation::KeyAmalgamation;
 
 pub use parser::{
     KeyringValidity,
