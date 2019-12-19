@@ -220,6 +220,16 @@ macro_rules! impl_container_forwards {
                 &mut self.container
             }
 
+            /// Returns a reference to this Packet's children.
+            pub fn children_ref(&self) -> &[Packet] {
+                self.container.children_ref()
+            }
+
+            /// Returns a mutable reference to this Packet's children.
+            pub fn children_mut(&mut self) -> &mut Vec<Packet> {
+                self.container.children_mut()
+            }
+
             /// Gets a reference to the this packet's body.
             pub fn body(&self) -> Option<&[u8]> {
                 self.container.body()
