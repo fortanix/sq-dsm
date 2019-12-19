@@ -19,6 +19,9 @@ use crate::Packet;
 pub struct SEIP1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
+
+    /// This is a container packet.
+    container: packet::Container,
 }
 
 impl SEIP1 {
@@ -26,9 +29,12 @@ impl SEIP1 {
     pub fn new() -> Self {
         Self {
             common: Default::default(),
+            container: Default::default(),
         }
     }
 }
+
+impl_container_forwards!(SEIP1);
 
 impl From<SEIP1> for super::SEIP {
     fn from(p: SEIP1) -> Self {
@@ -64,9 +70,7 @@ mod tests {
 
     #[test]
     fn deref() {
-        let mut s = SEIP1 {
-            common: Default::default(),
-        };
+        let mut s = SEIP1::new();
         assert_eq!(s.body(), None);
         s.set_body(vec![0, 1, 2]);
         assert_eq!(s.body(), Some(&[0, 1, 2][..]));

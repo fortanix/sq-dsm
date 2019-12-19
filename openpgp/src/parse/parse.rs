@@ -3624,17 +3624,45 @@ impl <'a> PacketParser<'a> {
 
                 Ok(p.body())
             },
-            p => {
+            Packet::CompressedData(p) => {
                 if rest.len() > 0 {
-                    if let Some(body) = p.body_mut() {
-                        body.append(&mut rest);
+                    if p.body().map(|b| b.len()).unwrap_or(0) > 0 {
+                        p.body_mut().unwrap().append(&mut rest);
                     } else {
                         p.set_body(rest);
                     }
                 }
 
-                if let Some(body) = p.body() {
-                    Ok(&body[..])
+                Ok(p.body().unwrap_or(&b""[..]))
+            },
+            Packet::SEIP(p) => {
+                if rest.len() > 0 {
+                    if p.body().map(|b| b.len()).unwrap_or(0) > 0 {
+                        p.body_mut().unwrap().append(&mut rest);
+                    } else {
+                        p.set_body(rest);
+                    }
+                }
+
+                Ok(p.body().unwrap_or(&b""[..]))
+            },
+            Packet::AED(p) => {
+                if rest.len() > 0 {
+                    if p.body().map(|b| b.len()).unwrap_or(0) > 0 {
+                        p.body_mut().unwrap().append(&mut rest);
+                    } else {
+                        p.set_body(rest);
+                    }
+                }
+
+                Ok(p.body().unwrap_or(&b""[..]))
+            },
+            p => {
+                if rest.len() > 0 {
+                    Err(Error::MalformedPacket(
+                        format!("Unexpected body data for {:?}: {}",
+                                p, crate::fmt::hex::encode_pretty(rest)))
+                        .into())
                 } else {
                     Ok(&b""[..])
                 }

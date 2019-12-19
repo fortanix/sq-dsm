@@ -997,9 +997,9 @@ mod tests {
         //  1: MDC
         // => good.
         let mut seip = SEIP1::new();
-        seip.children_mut().unwrap().push(
+        seip.container_mut().push(
             lit.clone().into());
-        seip.children_mut().unwrap().push(
+        seip.container_mut().push(
             MDC::from([0u8; 20]).into());
         packets[1] = seip.into();
 
@@ -1079,7 +1079,7 @@ mod tests {
         //  2: Literal
         // => bad.
         packets.remove(3);
-        packets[2].children_mut().unwrap().push(lit.clone().into());
+        packets[2].container_mut().unwrap().push(lit.clone().into());
 
         assert!(packets.iter().map(|p| p.tag()).collect::<Vec<Tag>>()
                 == [ Tag::SKESK, Tag::SKESK, Tag::SEIP ]);
@@ -1093,7 +1093,7 @@ mod tests {
         // 2: SEIP
         //  0: Literal
         // => good.
-        packets[2].children_mut().unwrap().packets.pop().unwrap();
+        packets[2].container_mut().unwrap().packets.pop().unwrap();
 
         #[allow(deprecated)]
         packets.insert(

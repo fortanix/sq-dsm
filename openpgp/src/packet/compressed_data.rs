@@ -21,17 +21,18 @@ pub struct CompressedData {
     pub(crate) common: packet::Common,
     /// Algorithm used to compress the payload.
     algo: CompressionAlgorithm,
+
+    /// This is a container packet.
+    container: packet::Container,
 }
 
 impl fmt::Debug for CompressedData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("CompressedData")
             .field("algo", &self.algo)
-            .field("children",
-                   &self.common.children_ref()
-                       .map(|c| &c.packets).unwrap_or(&Vec::new()))
+            .field("children", &self.container.children_ref())
             .field("body (bytes)",
-                   &self.common.body().unwrap_or(&b"".to_vec()).len())
+                   &self.container.body().unwrap_or(&b"".to_vec()).len())
             .finish()
     }
 }
@@ -42,6 +43,7 @@ impl CompressedData {
         CompressedData {
             common: Default::default(),
             algo: algo,
+            container: Default::default(),
         }
     }
 
@@ -57,7 +59,7 @@ impl CompressedData {
 
     /// Adds a new packet to the container.
     pub fn push(mut self, packet: Packet) -> Self {
-        self.common.children_mut().unwrap().packets.push(packet);
+        self.container.push(packet);
         self
     }
 
@@ -66,10 +68,12 @@ impl CompressedData {
     /// container.  If `i` is one, it is inserted after the first
     /// packet, etc.
     pub fn insert(mut self, i: usize, packet: Packet) -> Self {
-        self.common.children_mut().unwrap().packets.insert(i, packet);
+        self.container.insert(i, packet);
         self
     }
 }
+
+impl_container_forwards!(CompressedData);
 
 impl From<CompressedData> for Packet {
     fn from(s: CompressedData) -> Self {

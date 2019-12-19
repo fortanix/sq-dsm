@@ -13,6 +13,8 @@ use crate::Error;
 use crate::Result;
 use crate::Packet;
 
+#[macro_use]
+mod container;
 pub mod prelude;
 
 use crate::crypto::KeyPair;
@@ -105,38 +107,45 @@ impl<'a> DerefMut for Packet {
 /// Fields used by multiple packet types.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Common {
-    /// XXX: Should only be embedded by the container types.
-    container: Container,
 }
 
 impl Default for Common {
     fn default() -> Common {
         Common {
-            container: Default::default(),
         }
     }
 }
 
-impl Common {
+impl Packet {
     pub(crate) // for packet_pile.rs
-    fn children_ref(&self) -> Option<&Container> {
-        self.container.as_ref()
+    fn container_ref(&self) -> Option<&Container> {
+        match self {
+            Packet::CompressedData(p) => Some(p.container_ref()),
+            Packet::SEIP(p) => Some(p.container_ref()),
+            Packet::AED(p) => Some(p.container_ref()),
+            _ => None,
+        }
     }
 
     pub(crate) // for packet_pile.rs
-    fn children_mut(&mut self) -> Option<&mut Container> {
-        Some(&mut self.container)
+    fn container_mut(&mut self) -> Option<&mut Container> {
+        match self {
+            Packet::CompressedData(p) => Some(p.container_mut()),
+            Packet::SEIP(p) => Some(p.container_mut()),
+            Packet::AED(p) => Some(p.container_mut()),
+            _ => None,
+        }
     }
 
     /// Returns an iterator over the packet's immediate children.
     pub fn children<'a>(&'a self) -> impl Iterator<Item = &'a Packet> {
-        self.container.children()
+        self.container_ref().map(|c| c.children()).unwrap_or_else(|| [].iter())
     }
 
     /// Returns an iterator over all of the packet's descendants, in
     /// depth-first order.
     pub fn descendants(&self) -> Iter {
-        self.container.descendants()
+        self.container_ref().map(|c| c.descendants()).unwrap_or_default()
     }
 
     /// Retrieves the packet's body.
@@ -145,22 +154,19 @@ impl Common {
     /// maximum recursion level is reached while parsing a sequence of
     /// packets, the container's body is stored as is.
     pub fn body(&self) -> Option<&[u8]> {
-        self.container.body()
+        self.container_ref().and_then(|c| c.body())
     }
 
+    #[deprecated]
     /// Sets the packet's body.
     ///
     /// Setting the body clears the old body, or any of the packet's
     /// descendants.
     pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-        self.container.set_body(data)
-    }
-
-    pub(crate) // For parse.rs
-    fn body_mut(&mut self) -> Option<&mut Vec<u8>> {
-        self.container.body_mut()
+        self.container_mut().unwrap().set_body(data)
     }
 }
+
 
 /// Holds zero or more OpenPGP packets.
 ///
@@ -258,12 +264,14 @@ impl fmt::Debug for Container {
 }
 
 impl Container {
-    pub(crate) fn as_ref(&self) -> Option<&Self> {
-        if ! self.packets.is_empty() {
-            Some(self)
-        } else {
-            None
-        }
+    /// Returns a reference to this Packet's children.
+    pub fn children_ref(&self) -> &[Packet] {
+        &self.packets
+    }
+
+    /// Returns a mutable reference to this Packet's children.
+    pub fn children_mut(&mut self) -> &mut Vec<Packet> {
+        &mut self.packets
     }
 
     // Adds a new packet to the container.
@@ -343,7 +351,7 @@ impl Container {
         for (i, p) in self.packets.iter().enumerate() {
             eprintln!("{}{}: {:?}",
                       Self::indent(indent), i + 1, p);
-            if let Some(ref children) = self.packets[i].children_ref() {
+            if let Some(ref children) = self.packets[i].container_ref() {
                 children.pretty_print(indent + 1);
             }
         }
@@ -364,6 +372,17 @@ pub struct Iter<'a> {
     // The depth of the last returned packet.  This is used by the
     // `paths` iter.
     depth: usize,
+}
+
+impl<'a> Default for Iter<'a> {
+    fn default() -> Self {
+        Iter {
+            children: [].iter(),
+            child: None,
+            grandchildren: None,
+            depth: 0,
+        }
+    }
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -469,7 +488,7 @@ fn packet_path_iter() {
             v.push(i);
             lpaths.push(v);
 
-            if let Some(ref container) = packet.children_ref() {
+            if let Some(ref container) = packet.container_ref() {
                 for mut path in paths(container.children()).into_iter() {
                     path.insert(0, i);
                     lpaths.push(path);

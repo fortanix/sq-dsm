@@ -67,6 +67,7 @@ impl Clone for Unknown {
             common: self.common.clone(),
             tag: self.tag,
             error: failure::err_msg(format!("{}", self.error)),
+            body: self.body.clone(),
         }
     }
 }
@@ -79,22 +80,8 @@ impl Unknown {
             common: Default::default(),
             tag: tag,
             error: error,
+            body: Vec::with_capacity(0),
         }
-    }
-
-    /// Gets a reference to the unknown packet's body.
-    pub fn body(&self) -> &[u8] {
-        &self.body
-    }
-
-    /// Gets a mutable reference to the unknown packet's body.
-    pub fn body_mut(&mut self) -> &mut Vec<u8> {
-        &mut self.body
-    }
-
-    /// Sets the unknown packet's body.
-    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-        std::mem::replace(&mut self.body, data)
     }
 
     /// Gets the unknown packet's tag.
@@ -126,8 +113,13 @@ impl Unknown {
     /// This is the raw packet content not include the CTB and length
     /// information, and not encoded using something like OpenPGP's
     /// partial body encoding.
-    pub fn body(&self) -> Option<&[u8]> {
-        self.common.body()
+    pub fn body(&self) -> &[u8] {
+        &self.body
+    }
+
+    /// Gets a mutable reference to the unknown packet's body.
+    pub fn body_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.body
     }
 
     /// Sets the packet's contents.
@@ -136,7 +128,7 @@ impl Unknown {
     /// information, and not encoded using something like OpenPGP's
     /// partial body encoding.
     pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-        self.common.set_body(data)
+        std::mem::replace(&mut self.body, data)
     }
 }
 

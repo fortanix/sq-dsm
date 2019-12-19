@@ -138,7 +138,7 @@ impl<'a> PacketPileParser<'a> {
                         "Internal inconsistency while building message.");
             }
 
-            container = p.children_mut().unwrap();
+            container = p.container_mut().unwrap();
         }
 
         container.packets.push(packet);

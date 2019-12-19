@@ -29,6 +29,9 @@ pub struct AED1 {
     chunk_size: usize,
     /// Initialization vector for the AEAD algorithm.
     iv: Box<[u8]>,
+
+    /// This is a container packet.
+    container: packet::Container,
 }
 
 impl AED1 {
@@ -55,6 +58,7 @@ impl AED1 {
             aead: aead,
             chunk_size: chunk_size,
             iv: iv,
+            container: Default::default(),
         })
     }
 
@@ -117,6 +121,8 @@ impl AED1 {
         ::std::mem::replace(&mut self.iv, iv)
     }
 }
+
+impl_container_forwards!(AED1);
 
 impl From<AED1> for Packet {
     fn from(p: AED1) -> Self {

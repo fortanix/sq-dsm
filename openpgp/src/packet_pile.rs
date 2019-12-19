@@ -126,7 +126,7 @@ impl PacketPile {
                 if *i < c.packets.len() {
                     let p = &c.packets[*i];
                     packet = Some(p);
-                    cont = p.children_ref();
+                    cont = p.container_ref();
                     continue;
                 }
             }
@@ -156,7 +156,7 @@ impl PacketPile {
                 return Some(p)
             }
 
-            container = p.children_mut().unwrap();
+            container = p.container_mut().unwrap();
         }
 
         None
@@ -243,20 +243,10 @@ impl PacketPile {
                 return Err(Error::IndexOutOfRange.into());
             }
 
-            let p = &mut tmp.packets[i];
-            if p.children_ref().is_none() {
-                match p {
-                    Packet::CompressedData(_)
-                        | Packet::SEIP(_)
-                        | Packet::AED(_)
-                        => (), // Ok.
-                    _ => {
-                        return Err(Error::IndexOutOfRange.into());
-                    }
-                }
-            }
-
-            container = p.children_mut().unwrap();
+            container = match tmp.packets[i].container_mut() {
+                Some(c) => c,
+                None => return Err(Error::IndexOutOfRange.into()),
+            };
         }
 
         return Err(Error::IndexOutOfRange.into());
@@ -331,7 +321,7 @@ impl PacketPile {
                 let packets_len = tmp.packets.len();
                 let p = &mut tmp.packets[packets_len - 1];
 
-                container = p.children_mut().unwrap();
+                container = p.container_mut().unwrap();
             }
 
             if relative_position < 0 {
@@ -346,8 +336,7 @@ impl PacketPile {
                     // Create a new container.
                     let tmp = container;
                     let i = tmp.packets.len() - 1;
-                    assert!(tmp.packets[i].children_ref().is_none());
-                    container = tmp.packets[i].children_mut().unwrap();
+                    container = tmp.packets[i].container_mut().unwrap();
                 }
 
                 container.packets.push(packet);
@@ -638,7 +627,7 @@ mod test {
         }
 
         let mut seip = SEIP1::new();
-        seip.children_mut().unwrap().push(cd.into());
+        seip.container_mut().push(cd.into());
         packets.push(seip.into());
 
         eprintln!("{:#?}", packets);
