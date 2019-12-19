@@ -3693,6 +3693,10 @@ impl <'a> PacketParser<'a> {
 
         let recursion_depth = self.recursion_depth();
 
+        // If there is no unread content left at this point, we want
+        // to preserve the content_was_read flag.
+        let content_was_read = self.content_was_read;
+
         let unread_content = if self.state.settings.buffer_unread_content {
             t!("({:?} at depth {}): buffering {} bytes of unread content",
                self.packet.tag(), recursion_depth,
@@ -3704,7 +3708,12 @@ impl <'a> PacketParser<'a> {
                self.packet.tag(), recursion_depth,
                self.data_eof().unwrap().len());
 
-            self.drop_eof()?
+            let dropped = self.drop_eof()?;
+            if ! dropped {
+                // Nothing was dropped, restore.
+                self.set_content_was_read(content_was_read);
+            }
+            dropped
         };
 
         if unread_content {
@@ -3923,7 +3932,7 @@ fn packet_parser_reader_interface() {
     let (packet, ppr) = pp.recurse().unwrap();
     assert!(ppr.is_none());
     // Since we read all of the data, we expect content to be None.
-    assert!(packet.body().is_none());
+    assert_eq!(packet.body().unwrap().len(), 0);
 }
 
 impl<'a> PacketParser<'a> {

@@ -244,10 +244,16 @@ impl PacketPile {
                 return Err(Error::IndexOutOfRange.into());
             }
 
-            container = match tmp.packets[i].container_mut() {
-                Some(c) => c,
-                None => return Err(Error::IndexOutOfRange.into()),
-            };
+            match tmp.packets[i] {
+                // The structured container types.
+                Packet::CompressedData(_)
+                    | Packet::SEIP(_)
+                    | Packet::AED(_)
+                    => (), // Ok.
+                _ => return Err(Error::IndexOutOfRange.into()),
+            }
+            container = tmp.packets[i].container_mut()
+                .expect("The above packets are structured containers");
         }
 
         return Err(Error::IndexOutOfRange.into());

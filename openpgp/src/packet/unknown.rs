@@ -21,35 +21,19 @@ pub struct Unknown {
     tag: Tag,
     /// Error that caused parsing or processing to abort.
     error: failure::Error,
-    /// Body data.
+    /// The unknown data packet is a container packet, but cannot
+    /// store packets.
     ///
     /// This is written when serialized, and set by the packet parser
     /// if `buffer_unread_content` is used.
-    body: Vec<u8>,
+    container: packet::Container,
 }
-
-impl Eq for Unknown {}
 
 impl PartialEq for Unknown {
     fn eq(&self, other: &Unknown) -> bool {
-        self.cmp(other) == Ordering::Equal
-    }
-}
-
-impl PartialOrd for Unknown
-{
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Unknown
-{
-    fn cmp(&self, other: &Unknown) -> Ordering {
-        match self.tag.cmp(&other.tag) {
-            Ordering::Equal => self.body().cmp(&other.body()),
-            o => o,
-        }
+        self.common == other.common
+            && self.tag == other.tag
+            && self.container == other.container
     }
 }
 
@@ -57,7 +41,7 @@ impl Hash for Unknown {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.common.hash(state);
         self.tag.hash(state);
-        self.body.hash(state);
+        self.container.hash(state);
     }
 }
 
@@ -67,7 +51,7 @@ impl Clone for Unknown {
             common: self.common.clone(),
             tag: self.tag,
             error: failure::err_msg(format!("{}", self.error)),
-            body: self.body.clone(),
+            container: self.container.clone(),
         }
     }
 }
@@ -80,7 +64,7 @@ impl Unknown {
             common: Default::default(),
             tag: tag,
             error: error,
-            body: Vec::with_capacity(0),
+            container: Default::default(),
         }
     }
 
@@ -108,29 +92,6 @@ impl Unknown {
         ::std::mem::replace(&mut self.error, error)
     }
 
-    /// Sets the packet's contents.
-    ///
-    /// This is the raw packet content not include the CTB and length
-    /// information, and not encoded using something like OpenPGP's
-    /// partial body encoding.
-    pub fn body(&self) -> &[u8] {
-        &self.body
-    }
-
-    /// Gets a mutable reference to the unknown packet's body.
-    pub fn body_mut(&mut self) -> &mut Vec<u8> {
-        &mut self.body
-    }
-
-    /// Sets the packet's contents.
-    ///
-    /// This is the raw packet content not include the CTB and length
-    /// information, and not encoded using something like OpenPGP's
-    /// partial body encoding.
-    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-        std::mem::replace(&mut self.body, data)
-    }
-
     /// Best effort Ord implementation.
     ///
     /// The Cert canonicalization needs to order Unknown packets.
@@ -142,6 +103,8 @@ impl Unknown {
         self.tag.cmp(&other.tag).then_with(|| self.body().cmp(&other.body()))
     }
 }
+
+impl_body_forwards!(Unknown);
 
 impl From<Unknown> for Packet {
     fn from(s: Unknown) -> Self {

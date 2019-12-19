@@ -21,7 +21,14 @@ use crate::Result;
 /// See [Section 5.9 of RFC 4880] for details.
 ///
 ///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
-#[derive(PartialEq, Eq, Hash, Clone)]
+///
+/// # A note on partial equality
+///
+/// Container packets, like this one, can be streamed.  If a packet is
+/// streamed, we no longer have access to the content, and therefore
+/// cannot compare it to other packets.  Consequently, a streamed
+/// packet is not considered equal to any other packet.
+#[derive(PartialEq, Hash, Clone)]
 pub struct Literal {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -36,11 +43,12 @@ pub struct Literal {
     /// A four-octet number that indicates a date associated with the
     /// literal data.
     date: Option<Timestamp>,
-    /// The literal data.
+    /// The literal data packet is a container packet, but cannot
+    /// store packets.
     ///
     /// This is written when serialized, and set by the packet parser
     /// if `buffer_unread_content` is used.
-    body: Vec<u8>,
+    container: packet::Container,
 }
 
 impl fmt::Debug for Literal {
@@ -52,18 +60,24 @@ impl fmt::Debug for Literal {
         };
 
         let threshold = 36;
-        let prefix = &self.body[..cmp::min(threshold, self.body.len())];
-        let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
-        if self.body.len() > threshold {
-            prefix_fmt.push_str("...");
-        }
-        prefix_fmt.push_str(&format!(" ({} bytes)", self.body.len())[..]);
+        let body_str = if self.was_streamed() {
+            "(streamed)".into()
+        } else {
+            let body = self.body();
+            let prefix = &body[..cmp::min(threshold, body.len())];
+            let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
+            if body.len() > threshold {
+                prefix_fmt.push_str("...");
+            }
+            prefix_fmt.push_str(&format!(" ({} bytes)", body.len())[..]);
+            prefix_fmt
+        };
 
         f.debug_struct("Literal")
             .field("format", &self.format)
             .field("filename", &filename)
             .field("date", &self.date)
-            .field("body", &prefix_fmt)
+            .field("body", &body_str)
             .finish()
     }
 }
@@ -76,23 +90,8 @@ impl Literal {
             format: format,
             filename: None,
             date: None,
-            body: Vec::with_capacity(0),
+            container: Default::default(),
         }
-    }
-
-    /// Gets a reference to the Literal packet's body.
-    pub fn body(&self) -> &[u8] {
-        &self.body
-    }
-
-    /// Gets a mutable reference to the Literal packet's body.
-    pub fn body_mut(&mut self) -> &mut Vec<u8> {
-        &mut self.body
-    }
-
-    /// Sets the Literal packet's body.
-    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-        std::mem::replace(&mut self.body, data)
     }
 
     /// Gets the Literal packet's content disposition.
@@ -167,6 +166,8 @@ impl Literal {
         Ok(std::mem::replace(&mut self.date, date).map(|d| d.into()))
     }
 }
+
+impl_body_forwards!(Literal);
 
 impl From<Literal> for Packet {
     fn from(s: Literal) -> Self {

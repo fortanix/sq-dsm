@@ -236,6 +236,55 @@ impl Container {
     }
 }
 
+macro_rules! the_common_container_forwards {
+    () => {
+        /// Returns a reference to the container.
+        pub(crate) fn container_ref(&self) -> &packet::Container {
+            &self.container
+        }
+
+        /// Returns a mutable reference to the container.
+        pub(crate) fn container_mut(&mut self) -> &mut packet::Container {
+            &mut self.container
+        }
+
+        /// Gets a reference to the this packet's body.
+        pub fn body(&self) -> &[u8] {
+            self.container.body()
+        }
+
+        /// Gets a mutable reference to the this packet's body.
+        pub fn body_mut(&mut self) -> &mut Vec<u8> {
+            self.container.body_mut()
+        }
+
+        /// Sets the this packet's body.
+        pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
+            self.container.set_body(data)
+        }
+
+        /// Returns whether or not this packet has been streamed.
+        ///
+        /// If it has, then we lost (parts of) the content, and cannot
+        /// compare it to other packets.
+        pub fn was_streamed(&self) -> bool {
+            self.container.was_streamed()
+        }
+    };
+}
+
+macro_rules! impl_body_forwards {
+    ($typ:ident) => {
+        /// This packet implements the unprocessed container
+        /// interface.
+        ///
+        /// Container packets like this one can contain unprocessed
+        /// data.
+        impl $typ {
+            the_common_container_forwards!();
+        }
+    };
+}
 
 macro_rules! impl_container_forwards {
     ($typ:ident) => {
@@ -244,15 +293,7 @@ macro_rules! impl_container_forwards {
         /// Container packets can contain other packets, unprocessed
         /// data, or both.
         impl $typ {
-            /// Returns a reference to the container.
-            pub(crate) fn container_ref(&self) -> &packet::Container {
-                &self.container
-            }
-
-            /// Returns a mutable reference to the container.
-            pub(crate) fn container_mut(&mut self) -> &mut packet::Container {
-                &mut self.container
-            }
+            the_common_container_forwards!();
 
             /// Returns a reference to this Packet's children.
             pub fn children_ref(&self) -> &[Packet] {
@@ -262,29 +303,6 @@ macro_rules! impl_container_forwards {
             /// Returns a mutable reference to this Packet's children.
             pub fn children_mut(&mut self) -> &mut Vec<Packet> {
                 self.container.children_mut()
-            }
-
-            /// Gets a reference to the this packet's body.
-            pub fn body(&self) -> &[u8] {
-                self.container.body()
-            }
-
-            /// Gets a mutable reference to the this packet's body.
-            pub fn body_mut(&mut self) -> &mut Vec<u8> {
-                self.container.body_mut()
-            }
-
-            /// Sets the this packet's body.
-            pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-                self.container.set_body(data)
-            }
-
-            /// Returns whether or not this packet has been streamed.
-            ///
-            /// If it has, then we lost (parts of) the content, and cannot
-            /// compare it to other packets.
-            pub fn was_streamed(&self) -> bool {
-                self.container.was_streamed()
             }
 
             /// Returns an iterator over the packet's immediate children.
@@ -308,6 +326,8 @@ impl Packet {
             Packet::CompressedData(p) => Some(p.container_ref()),
             Packet::SEIP(p) => Some(p.container_ref()),
             Packet::AED(p) => Some(p.container_ref()),
+            Packet::Literal(p) => Some(p.container_ref()),
+            Packet::Unknown(p) => Some(p.container_ref()),
             _ => None,
         }
     }
@@ -318,6 +338,8 @@ impl Packet {
             Packet::CompressedData(p) => Some(p.container_mut()),
             Packet::SEIP(p) => Some(p.container_mut()),
             Packet::AED(p) => Some(p.container_mut()),
+            Packet::Literal(p) => Some(p.container_mut()),
+            Packet::Unknown(p) => Some(p.container_mut()),
             _ => None,
         }
     }
