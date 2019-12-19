@@ -4,7 +4,6 @@ use std::path::Path;
 use crate::{
     Result,
     Packet,
-    Container,
     PacketPile,
 };
 use crate::parse::{
@@ -109,7 +108,7 @@ impl<'a> PacketPileParser<'a> {
         -> Result<PacketPileParser<'a>>
     {
         Ok(PacketPileParser {
-            pile: PacketPile { top_level: Container::new() },
+            pile: PacketPile { top_level: Default::default() },
             ppr: ppr,
             returned_first: false,
         })
@@ -135,13 +134,8 @@ impl<'a> PacketPileParser<'a> {
             let packets_len = tmp.packets.len();
             let p = &mut tmp.packets[packets_len - 1];
             if p.children().next().is_none() {
-                if i == position - 1 {
-                    // This is the leaf.  Create a new container
-                    // here.
-                    p.set_children(Some(Container::new()));
-                } else {
-                    panic!("Internal inconsistency while building message.");
-                }
+                assert!(i == position - 1,
+                        "Internal inconsistency while building message.");
             }
 
             container = p.children_mut().unwrap();

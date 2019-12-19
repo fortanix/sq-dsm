@@ -87,8 +87,7 @@ const MESSAGE: &str =
 fn main() {
     let message = openpgp::Message::from_bytes(MESSAGE.as_bytes()).unwrap();
 
-    assert_eq!(message.body().and_then(|literal| literal.body()),
-               Some("صداقة".as_bytes()));
+    assert_eq!(message.body().unwrap().body(), "صداقة".as_bytes());
 }
 ```
 
@@ -137,7 +136,7 @@ fn main() {
 
     // The second packet is the literal data packet.
     if let openpgp::Packet::Literal(ref literal) = packets[1] {
-        assert_eq!(literal.body(), Some("صداقة".as_bytes()));
+        assert_eq!(literal.body(), "صداقة".as_bytes());
     } else {
         panic!("expected literal data packet");
     }

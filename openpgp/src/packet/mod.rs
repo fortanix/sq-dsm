@@ -103,8 +103,71 @@ impl<'a> DerefMut for Packet {
 }
 
 /// Fields used by multiple packet types.
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Common {
+    /// XXX: Should only be embedded by the container types.
+    container: Container,
+}
+
+impl Default for Common {
+    fn default() -> Common {
+        Common {
+            container: Default::default(),
+        }
+    }
+}
+
+impl Common {
+    pub(crate) // for packet_pile.rs
+    fn children_ref(&self) -> Option<&Container> {
+        self.container.as_ref()
+    }
+
+    pub(crate) // for packet_pile.rs
+    fn children_mut(&mut self) -> Option<&mut Container> {
+        Some(&mut self.container)
+    }
+
+    /// Returns an iterator over the packet's immediate children.
+    pub fn children<'a>(&'a self) -> impl Iterator<Item = &'a Packet> {
+        self.container.children()
+    }
+
+    /// Returns an iterator over all of the packet's descendants, in
+    /// depth-first order.
+    pub fn descendants(&self) -> Iter {
+        self.container.descendants()
+    }
+
+    /// Retrieves the packet's body.
+    ///
+    /// Packets can store a sequence of bytes as body, e.g. if the
+    /// maximum recursion level is reached while parsing a sequence of
+    /// packets, the container's body is stored as is.
+    pub fn body(&self) -> Option<&[u8]> {
+        self.container.body()
+    }
+
+    /// Sets the packet's body.
+    ///
+    /// Setting the body clears the old body, or any of the packet's
+    /// descendants.
+    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
+        self.container.set_body(data)
+    }
+
+    pub(crate) // For parse.rs
+    fn body_mut(&mut self) -> Option<&mut Vec<u8>> {
+        self.container.body_mut()
+    }
+}
+
+/// Holds zero or more OpenPGP packets.
+///
+/// This is used by OpenPGP container packets, like the compressed
+/// data packet, to store the containing packets.
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub(crate) struct Container {
     /// Used by container packets (such as the encryption and
     /// compression packets) to reference their immediate children.
     /// This results in a tree structure.
@@ -118,7 +181,7 @@ pub struct Common {
     ///   [`PacketPile`]: ../struct.PacketPile.html
     ///   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
     ///   [`PacketParser`]: ../parse/struct.PacketParser.html
-    children: Option<Container>,
+    pub(crate) packets: Vec<Packet>,
 
     /// Holds a packet's body.
     ///
@@ -168,99 +231,22 @@ pub struct Common {
     body: Option<Vec<u8>>,
 }
 
-impl fmt::Debug for Common {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Common")
-            .field("children", &self.children)
-            .field("body (bytes)",
-                   &self.body.as_ref().map(|body| body.len()))
-            .finish()
-    }
-}
-
-impl Default for Common {
-    fn default() -> Common {
-        Common {
-            children: None,
+impl Default for Container {
+    fn default() -> Self {
+        Self {
+            packets: Vec::with_capacity(0),
             body: None,
         }
     }
 }
 
-impl Common {
-    pub(crate) // for packet_pile.rs
-    fn children_ref(&self) -> Option<&Container> {
-        self.children.as_ref()
-    }
-
-    pub(crate) // for packet_pile.rs
-    fn children_mut(&mut self) -> Option<&mut Container> {
-        self.children.as_mut()
-    }
-
-    pub(crate) // for packet_pile.rs
-    fn set_children(&mut self, v: Option<Container>) -> Option<Container> {
-        std::mem::replace(&mut self.children, v)
-    }
-
-    fn children_iter<'a>(&'a self) -> slice::Iter<'a, Packet> {
-        if let Some(ref container) = self.children {
-            container.packets.iter()
-        } else {
-            let empty_packet_slice : &[Packet] = &[];
-            empty_packet_slice.iter()
+impl From<Vec<Packet>> for Container {
+    fn from(packets: Vec<Packet>) -> Self {
+        Self {
+            packets,
+            body: None,
         }
     }
-
-    /// Returns an iterator over the packet's immediate children.
-    pub fn children<'a>(&'a self) -> impl Iterator<Item = &'a Packet> {
-        self.children_iter()
-    }
-
-    /// Returns an iterator over all of the packet's descendants, in
-    /// depth-first order.
-    pub fn descendants(&self) -> Iter {
-        return Iter {
-            children: self.children_iter(),
-            child: None,
-            grandchildren: None,
-            depth: 0,
-        }
-    }
-
-    /// Retrieves the packet's body.
-    ///
-    /// Packets can store a sequence of bytes as body, e.g. if the
-    /// maximum recursion level is reached while parsing a sequence of
-    /// packets, the container's body is stored as is.
-    pub fn body(&self) -> Option<&[u8]> {
-        self.body.as_ref().map(|b| b.as_slice())
-    }
-
-    /// Sets the packet's body.
-    ///
-    /// Setting the body clears the old body, or any of the packet's
-    /// descendants.
-    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
-        self.children = None;
-        ::std::mem::replace(&mut self.body,
-                            if data.len() == 0 { None } else { Some(data) })
-            .unwrap_or(Vec::new())
-    }
-
-    pub(crate) // For parse.rs
-    fn body_mut(&mut self) -> Option<&mut Vec<u8>> {
-        self.body.as_mut()
-    }
-}
-
-/// Holds zero or more OpenPGP packets.
-///
-/// This is used by OpenPGP container packets, like the compressed
-/// data packet, to store the containing packets.
-#[derive(PartialEq, Eq, Hash, Clone)]
-pub(crate) struct Container {
-    pub(crate) packets: Vec<Packet>,
 }
 
 impl fmt::Debug for Container {
@@ -272,8 +258,12 @@ impl fmt::Debug for Container {
 }
 
 impl Container {
-    pub(crate) fn new() -> Container {
-        Container { packets: Vec::with_capacity(8) }
+    pub(crate) fn as_ref(&self) -> Option<&Self> {
+        if ! self.packets.is_empty() {
+            Some(self)
+        } else {
+            None
+        }
     }
 
     // Adds a new packet to the container.
@@ -311,6 +301,31 @@ impl Container {
         self.packets.into_iter()
     }
 
+    /// Retrieves the packet's body.
+    ///
+    /// Packets can store a sequence of bytes as body, e.g. if the
+    /// maximum recursion level is reached while parsing a sequence of
+    /// packets, the container's body is stored as is.
+    pub fn body(&self) -> Option<&[u8]> {
+        self.body.as_ref().map(|b| b.as_slice())
+    }
+
+    /// Sets the packet's body.
+    ///
+    /// Setting the body clears the old body, or any of the packet's
+    /// descendants.
+    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
+        self.packets.clear();
+        ::std::mem::replace(&mut self.body,
+                            if data.len() == 0 { None } else { Some(data) })
+            .unwrap_or(Vec::new())
+    }
+
+    pub(crate) // For parse.rs
+    fn body_mut(&mut self) -> Option<&mut Vec<u8>> {
+        self.body.as_mut()
+    }
+
     // Converts an indentation level to whitespace.
     fn indent(depth: usize) -> &'static str {
         use std::cmp;
@@ -328,7 +343,7 @@ impl Container {
         for (i, p) in self.packets.iter().enumerate() {
             eprintln!("{}{}: {:?}",
                       Self::indent(indent), i + 1, p);
-            if let Some(ref children) = self.packets[i].children {
+            if let Some(ref children) = self.packets[i].children_ref() {
                 children.pretty_print(indent + 1);
             }
         }
@@ -454,8 +469,8 @@ fn packet_path_iter() {
             v.push(i);
             lpaths.push(v);
 
-            if let Some(ref children) = packet.children {
-                for mut path in paths(children.packets.iter()).into_iter() {
+            if let Some(ref container) = packet.children_ref() {
+                for mut path in paths(container.children()).into_iter() {
                     path.insert(0, i);
                     lpaths.push(path);
                 }

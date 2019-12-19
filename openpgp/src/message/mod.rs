@@ -454,7 +454,6 @@ mod tests {
     use crate::crypto::mpis::{Ciphertext, MPI};
     use crate::packet::prelude::*;
     use crate::KeyID;
-    use crate::Container;
 
     #[test]
     fn tokens() {
@@ -998,7 +997,6 @@ mod tests {
         //  1: MDC
         // => good.
         let mut seip = SEIP1::new();
-        seip.set_children(Some(Container::new()));
         seip.children_mut().unwrap().push(
             lit.clone().into());
         seip.children_mut().unwrap().push(

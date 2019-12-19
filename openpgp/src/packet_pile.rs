@@ -74,7 +74,7 @@ impl std::str::FromStr for PacketPile {
 
 impl From<Vec<Packet>> for PacketPile {
     fn from(p: Vec<Packet>) -> Self {
-        PacketPile { top_level: Container { packets: p } }
+        PacketPile { top_level: Container::from(p) }
     }
 }
 
@@ -246,11 +246,10 @@ impl PacketPile {
             let p = &mut tmp.packets[i];
             if p.children_ref().is_none() {
                 match p {
-                    Packet::CompressedData(_) | Packet::SEIP(_) => {
-                        // We have a container with no children.
-                        // That's okay.  We can create the container.
-                        p.set_children(Some(Container::new()));
-                    },
+                    Packet::CompressedData(_)
+                        | Packet::SEIP(_)
+                        | Packet::AED(_)
+                        => (), // Ok.
                     _ => {
                         return Err(Error::IndexOutOfRange.into());
                     }
@@ -304,7 +303,7 @@ impl PacketPile {
         }
 
         // Create a top-level container.
-        let mut top_level = Container::new();
+        let mut top_level = Container::default();
 
         let mut last_position = 0;
 
@@ -348,7 +347,6 @@ impl PacketPile {
                     let tmp = container;
                     let i = tmp.packets.len() - 1;
                     assert!(tmp.packets[i].children_ref().is_none());
-                    tmp.packets[i].set_children(Some(Container::new()));
                     container = tmp.packets[i].children_mut().unwrap();
                 }
 
@@ -640,7 +638,6 @@ mod test {
         }
 
         let mut seip = SEIP1::new();
-        seip.set_children(Some(Container::new()));
         seip.children_mut().unwrap().push(cd.into());
         packets.push(seip.into());
 

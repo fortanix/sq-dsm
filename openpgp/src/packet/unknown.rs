@@ -41,10 +41,6 @@ impl PartialOrd for Unknown
 impl Ord for Unknown
 {
     fn cmp(&self, other: &Unknown) -> Ordering {
-        // An unknown packet cannot have children.
-        assert!(self.common.children.is_none());
-        assert!(other.common.children.is_none());
-
         match self.tag.cmp(&other.tag) {
             Ordering::Equal => self.common.body().cmp(&other.common.body()),
             o => o,
@@ -110,7 +106,7 @@ impl Unknown {
     /// information, and not encoded using something like OpenPGP's
     /// partial body encoding.
     pub fn body(&self) -> Option<&[u8]> {
-        self.common.body.as_ref().map(|b| b.as_slice())
+        self.common.body()
     }
 
     /// Sets the packet's contents.
@@ -118,8 +114,8 @@ impl Unknown {
     /// This is the raw packet content not include the CTB and length
     /// information, and not encoded using something like OpenPGP's
     /// partial body encoding.
-    pub fn set_body(&mut self, data: Vec<u8>) -> Option<Vec<u8>> {
-        ::std::mem::replace(&mut self.common.body, Some(data))
+    pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
+        self.common.set_body(data)
     }
 }
 

@@ -3,7 +3,6 @@ use std::ops::{Deref, DerefMut};
 
 use crate::packet::{self, Common};
 use crate::Packet;
-use crate::Container;
 use crate::types::CompressionAlgorithm;
 
 /// Holds a compressed data packet.
@@ -29,10 +28,10 @@ impl fmt::Debug for CompressedData {
         f.debug_struct("CompressedData")
             .field("algo", &self.algo)
             .field("children",
-                   &self.common.children.as_ref()
+                   &self.common.children_ref()
                        .map(|c| &c.packets).unwrap_or(&Vec::new()))
             .field("body (bytes)",
-                   &self.common.body.as_ref().unwrap_or(&b"".to_vec()).len())
+                   &self.common.body().unwrap_or(&b"".to_vec()).len())
             .finish()
     }
 }
@@ -58,10 +57,7 @@ impl CompressedData {
 
     /// Adds a new packet to the container.
     pub fn push(mut self, packet: Packet) -> Self {
-        if self.common.children.is_none() {
-            self.common.children = Some(Container::new());
-        }
-        self.common.children.as_mut().unwrap().push(packet);
+        self.common.children_mut().unwrap().packets.push(packet);
         self
     }
 
@@ -70,10 +66,7 @@ impl CompressedData {
     /// container.  If `i` is one, it is inserted after the first
     /// packet, etc.
     pub fn insert(mut self, i: usize, packet: Packet) -> Self {
-        if self.common.children.is_none() {
-            self.common.children = Some(Container::new());
-        }
-        self.common.children.as_mut().unwrap().insert(i, packet);
+        self.common.children_mut().unwrap().packets.insert(i, packet);
         self
     }
 }
