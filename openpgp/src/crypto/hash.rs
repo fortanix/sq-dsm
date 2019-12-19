@@ -14,9 +14,6 @@ use crate::Error;
 use crate::Result;
 use crate::types::Timestamp;
 
-use nettle;
-use nettle::Hash as NettleHash;
-
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 

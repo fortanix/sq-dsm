@@ -1336,8 +1336,6 @@ mod test {
 
     #[test]
     fn sign_with_short_ed25519_secret_key() {
-        use nettle;
-
         // 20 byte sec key
         let sec = [
             0x0,0x0,
