@@ -1166,6 +1166,11 @@ impl SecretKeyMaterial {
 }
 
 /// Unencrypted secret key. Can be used as-is.
+///
+/// The secret key is encrypted in memory and only decrypted on
+/// demand.  See [`crypto::mem::Encrypted`] for details.
+///
+///  [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
 #[derive(Eq, Hash, Clone, Debug)]
 pub struct Unencrypted {
     /// MPIs of the secret key.

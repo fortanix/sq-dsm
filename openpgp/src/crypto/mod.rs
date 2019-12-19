@@ -15,7 +15,7 @@ pub(crate) mod ecdh;
 pub mod hash;
 mod keygrip;
 pub use self::keygrip::Keygrip;
-pub(crate) mod mem;
+pub mod mem;
 pub mod mpis;
 pub mod s2k;
 pub mod sexp;

@@ -1,4 +1,4 @@
-//! Memory protection.
+//! Memory protection and encryption.
 
 use std::cmp::{min, Ordering};
 use std::fmt;
@@ -110,7 +110,8 @@ impl fmt::Debug for Protected {
 /// it unusable with no indication of where the error occurred.
 ///
 /// This kind of protection was pioneered by OpenSSH.  The commit
-/// adding it is: https://marc.info/?l=openbsd-cvs&m=156109087822676
+/// adding it can be found
+/// [here](https://marc.info/?l=openbsd-cvs&m=156109087822676).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Encrypted {
     ciphertext: Protected,
