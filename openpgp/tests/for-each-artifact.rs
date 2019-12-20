@@ -17,10 +17,15 @@ mod for_each_artifact {
                 let mut v = Vec::new();
                 p.serialize(&mut v)?;
                 let q = openpgp::Packet::from_bytes(&v)?;
-                assert_eq!(p, &q, "roundtripping {:?} failed", src);
-                let w = p.to_vec().unwrap();
-                assert_eq!(v, w,
-                           "Serialize and SerializeInto disagree on {:?}", p);
+                if p != &q {
+                    return Err(failure::format_err!(
+                        "assertion failed: p == q\np = {:?}\nq = {:?}", p, q));
+                }
+                let w = p.to_vec()?;
+                if v != w {
+                    return Err(failure::format_err!(
+                        "assertion failed: v == w\nv = {:?}\nw = {:?}", v, w));
+                }
                 Ok(())
             })
         }).unwrap();
