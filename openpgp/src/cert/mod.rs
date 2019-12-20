@@ -1703,23 +1703,6 @@ impl Cert {
             });
         self.unknowns.sort_and_dedup(Unknown::cmp, |_, _| {});
 
-        // In case we have subkeys bound to the primary, it must be
-        // certification capable.
-        if ! self.subkeys.is_empty() {
-            let pk_can_certify =
-                self.primary_key_signature(None)
-                .map(|sig| sig.key_flags().for_certification())
-                .unwrap_or(true);
-
-            if ! pk_can_certify {
-                // Primary not certification capable, all binding sigs
-                // are invalid.
-                t!("Primary key not certification capable, dropping subkeys");
-                self.subkeys.clear();
-            }
-        }
-
-
         // XXX: Check if the sigs in other_sigs issuer are actually
         // designated revokers for this key (listed in a "Revocation
         // Key" subpacket in *any* non-revoked self-signature).  Only
