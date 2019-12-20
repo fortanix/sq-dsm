@@ -228,7 +228,7 @@ impl<'a> Signer<'a> {
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
-    /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().key()
+    /// # let keypair = tsk.keys().alive().revoked(false).for_signing().nth(0).unwrap().key()
     /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
@@ -331,8 +331,10 @@ impl<'a> Signer<'a> {
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
-    /// # let keypair = tsk.keys_valid().for_signing().nth(0).unwrap().key()
-    /// #     .clone().mark_parts_secret().unwrap().into_keypair().unwrap();
+    /// # let keypair
+    /// #     = tsk.keys().alive().revoked(false).for_signing().nth(0).unwrap()
+    /// #           .key().clone().mark_parts_secret().unwrap().into_keypair()
+    /// #           .unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
     /// #      -> Result<()> {
@@ -983,7 +985,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// // Build a vector of recipients to hand to Encryptor.
     /// let recipient =
-    ///     cert.keys_valid()
+    ///     cert.keys().alive().revoked(false)
     ///     .key_flags(KeyFlags::default()
     ///                .set_storage_encryption(true)
     ///                .set_transport_encryption(true))
@@ -1468,8 +1470,7 @@ mod test {
             Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
             Cert::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
-            for key in tsk.keys_all().for_signing().map(|ka| ka.key())
-            {
+            for key in tsk.keys().for_signing().map(|ka| ka.key()) {
                 keys.insert(key.fingerprint(), key.clone());
             }
         }
@@ -1673,10 +1674,9 @@ mod test {
                           mut decrypt: D) -> Result<Option<crate::Fingerprint>>
                 where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
             {
-                let mut keypair = self.tsk.keys_all()
+                let mut keypair = self.tsk.keys()
                     .key_flags(
-                        KeyFlags::default()
-                            .set_transport_encryption(true))
+                        KeyFlags::default().set_transport_encryption(true))
                     .map(|ka| ka.key()).next().unwrap()
                     .clone().mark_parts_secret().unwrap()
                     .into_keypair().unwrap();
@@ -1702,7 +1702,7 @@ mod test {
                 {
                     let m = Message::new(&mut msg);
                     let recipient =
-                        tsk.keys_all()
+                        tsk.keys()
                         .key_flags(KeyFlags::default()
                                    .set_storage_encryption(true)
                                    .set_transport_encryption(true))

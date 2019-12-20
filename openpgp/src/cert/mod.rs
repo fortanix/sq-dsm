@@ -1210,37 +1210,11 @@ impl Cert {
         &self.bad
     }
 
-    /// Returns an iterator over the Cert's valid keys (live and
-    /// not-revoked).
+    /// Returns an iterator over the certificate's keys.
     ///
     /// That is, this returns an iterator over the primary key and any
-    /// subkeys, along with the corresponding signatures.
-    ///
-    /// Note: since a primary key is different from a binding, the
-    /// iterator is over `Key`s and not `KeyBindings`.
-    /// Furthermore, the primary key has no binding signature.  Here,
-    /// the signature carrying the primary key's key flags is
-    /// returned.  There are corner cases where no such signature
-    /// exists (e.g. partial Certs), therefore this iterator may return
-    /// `None` for the primary key's signature.
-    ///
-    /// A valid `Key` has at least one good self-signature.
-    ///
-    /// To return all keys, do `keys_all()`.  See the
-    /// documentation of `keys` for how to control what keys are
-    /// returned.
-    pub fn keys_valid(&self)
-        -> KeyIter<key::PublicParts, key::UnspecifiedRole>
-    {
-        KeyIter::new(self).alive().revoked(false)
-    }
-
-    /// Returns an iterator over the Cert's keys.
-    ///
-    /// Unlike `Cert::keys_valid()`, this iterator also returns expired
-    /// and revoked keys.
-    pub fn keys_all(&self)
-        -> KeyIter<key::PublicParts, key::UnspecifiedRole>
+    /// subkeys.
+    pub fn keys(&self) -> KeyIter<key::PublicParts, key::UnspecifiedRole>
     {
         KeyIter::new(self)
     }
@@ -3487,8 +3461,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             .add_transport_encryption_subkey()
             .set_password(Some(String::from("streng geheim").into()))
             .generate().unwrap();
-        assert_eq!(cert.keys_all().secret().count(), 2);
-        assert_eq!(cert.keys_all().unencrypted_secret().count(), 0);
+        assert_eq!(cert.keys().secret().count(), 2);
+        assert_eq!(cert.keys().unencrypted_secret().count(), 0);
 
         let mut primary = cert.primary().clone();
         let algo = primary.pk_algo();
@@ -3498,7 +3472,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             primary.mark_parts_secret().unwrap().mark_role_primary().into()
         ]).unwrap();
 
-        assert_eq!(cert.keys_all().secret().count(), 2);
-        assert_eq!(cert.keys_all().unencrypted_secret().count(), 1);
+        assert_eq!(cert.keys().secret().count(), 2);
+        assert_eq!(cert.keys().unencrypted_secret().count(), 1);
     }
 }

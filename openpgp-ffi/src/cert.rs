@@ -436,44 +436,17 @@ pub struct KeyIterWrapper<'a> {
     next_called: bool,
 }
 
-/// Returns an iterator over the Cert's live, non-revoked keys.
-///
-/// That is, this returns an iterator over the primary key and any
-/// subkeys, along with the corresponding signatures.
-///
-/// Note: since a primary key is different from a subkey, the iterator
-/// is over `Key`s and not `SubkeyBindings`.  Since the primary key
-/// has no binding signature, the signature carrying the primary key's
-/// key flags is returned (either a direct key signature, or the
-/// self-signature on the primary User ID).  There are corner cases
-/// where no such signature exists (e.g. partial Certs), therefore this
-/// iterator may return `None` for the primary key's signature.
-///
-/// A valid `Key` has at least one good self-signature.
-///
-/// To return all keys, use `pgp_cert_key_iter_all()`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_cert_key_iter_valid(cert: *const Cert)
-    -> *mut KeyIterWrapper<'static>
-{
-    let cert = cert.ref_raw();
-    box_raw!(KeyIterWrapper {
-        iter: cert.keys_valid(),
-        next_called: false,
-    })
-}
-
 /// Returns an iterator over all `Key`s in a Cert.
 ///
-/// Compare with `pgp_cert_key_iter_valid`, which filters out expired
-/// and revoked keys by default.
+/// That is, this returns an iterator over the primary key and any
+/// subkeys.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_cert_key_iter_all(cert: *const Cert)
+pub extern "C" fn pgp_cert_key_iter(cert: *const Cert)
     -> *mut KeyIterWrapper<'static>
 {
     let cert = cert.ref_raw();
     box_raw!(KeyIterWrapper {
-        iter: cert.keys_all(),
+        iter: cert.keys(),
         next_called: false,
     })
 }

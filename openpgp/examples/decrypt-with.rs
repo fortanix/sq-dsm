@@ -58,7 +58,7 @@ impl Helper {
         // Map (sub)KeyIDs to secrets.
         let mut keys = HashMap::new();
         for cert in certs {
-            for ka in cert.keys_all() {
+            for ka in cert.keys() {
                 if ka.binding_signature(None)
                     .map(|s| (s.key_flags().for_storage_encryption()
                               || s.key_flags().for_transport_encryption()))

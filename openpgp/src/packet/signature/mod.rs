@@ -1483,7 +1483,7 @@ mod test {
 
         let test1 = Cert::from_bytes(
             crate::tests::key("test1-certification-key.pgp")).unwrap();
-        let cert_key1 = test1.keys_all()
+        let cert_key1 = test1.keys()
             .for_certification()
             .nth(0)
             .map(|ka| ka.key())

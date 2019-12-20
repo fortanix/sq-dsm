@@ -912,30 +912,9 @@ pgp_user_id_binding_iter_t pgp_cert_user_id_binding_iter (pgp_cert_t cert);
 /// Returns an iterator over all `Key`s in a Cert.
 ///
 /// That is, this returns an iterator over the primary key and any
-/// subkeys, along with the corresponding signatures.
-///
-/// Note: since a primary key is different from a subkey, the iterator
-/// is over `Key`s and not `SubkeyBindings`.  Since the primary key
-/// has no binding signature, the signature carrying the primary key's
-/// key flags is returned (either a direct key signature, or the
-/// self-signature on the primary User ID).  There are corner cases
-/// where no such signature exists (e.g. partial Certs), therefore this
-/// iterator may return `None` for the primary key's signature.
-///
-/// A valid `Key` has at least one good self-signature.
-///
-/// Compare with `pgp_cert_key_iter_valid`, which filters out expired and
-/// revoked keys.
+/// subkeys.
 /*/
-pgp_cert_key_iter_t pgp_cert_key_iter_all (pgp_cert_t cert);
-
-/*/
-/// Returns an iterator over the live and unrevoked `Key`s in a Cert.
-///
-/// Compare with `pgp_cert_key_iter_all`, which doesn't filter out
-/// expired and revoked keys by default.
-/*/
-pgp_cert_key_iter_t pgp_cert_key_iter_valid (pgp_cert_t cert);
+pgp_cert_key_iter_t pgp_cert_key_iter (pgp_cert_t cert);
 
 /*/
 /// Returns the Cert's primary user id (if any).

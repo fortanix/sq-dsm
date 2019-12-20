@@ -36,7 +36,9 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///
     /// // Let's add an encryption subkey.
     /// let flags = KeyFlags::default().set_storage_encryption(true);
-    /// assert_eq!(cert.keys_valid().key_flags(flags.clone()).count(), 0);
+    /// assert_eq!(cert.keys().alive().revoked(false)
+    ///                .key_flags(flags.clone()).count(),
+    ///            0);
     ///
     /// // Generate a subkey and a binding signature.
     /// let subkey: Key<_, key::SubordinateRole> =
@@ -51,7 +53,9 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///                                  binding.into()])?;
     ///
     /// // Check that we have an encryption subkey.
-    /// assert_eq!(cert.keys_valid().key_flags(flags).count(), 1);
+    /// assert_eq!(cert.keys().alive().revoked(false)
+    ///                .key_flags(flags).count(),
+    ///            1);
     /// # Ok(()) }
     pub fn bind<T>(&self, signer: &mut dyn Signer, cert: &Cert,
                    signature: signature::Builder,

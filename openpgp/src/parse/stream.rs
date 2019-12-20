@@ -699,7 +699,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                             if let Some((i, j)) = self.keys.get(&issuer) {
                                 let cert = &self.certs[*i];
 
-                                let ka = cert.keys_all().nth(*j).unwrap();
+                                let ka = cert.keys().nth(*j).unwrap();
                                 let binding = ka.binding_signature(self.time);
                                 let revoked = ka.revoked(self.time);
                                 let key = ka.key();
@@ -1596,7 +1596,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             if let Some((i, j)) = self.keys.get(&issuer) {
                                 let cert = &self.certs[*i];
 
-                                let ka = cert.keys_all().nth(*j).unwrap();
+                                let ka = cert.keys().nth(*j).unwrap();
                                 let binding = ka.binding_signature(self.time);
                                 let revoked = ka.revoked(self.time);
                                 let key = ka.key();
@@ -2063,7 +2063,7 @@ mod test {
         // sign 30MiB message
         let mut buf = vec![];
         {
-            let key = cert.keys_all().for_signing().nth(0).unwrap().key();
+            let key = cert.keys().for_signing().nth(0).unwrap().key();
             let keypair =
                 key.clone().mark_parts_secret().unwrap()
                 .into_keypair().unwrap();

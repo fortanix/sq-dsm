@@ -391,7 +391,7 @@ mod test {
     fn key_iter_test() {
         let key = Cert::from_bytes(crate::tests::key("neal.pgp")).unwrap();
         assert_eq!(1 + key.subkeys().count(),
-                   key.keys_all().count());
+                   key.keys().count());
     }
 
     #[test]
@@ -400,7 +400,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys_all().key_flags(flags).count(), 0);
+        assert_eq!(cert.keys().key_flags(flags).count(), 0);
     }
 
     #[test]
@@ -410,7 +410,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys_all().key_flags(flags).count(), 1);
+        assert_eq!(cert.keys().key_flags(flags).count(), 1);
     }
 
     #[test]
@@ -421,7 +421,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys_all().key_flags(flags).count(), 1);
+        assert_eq!(cert.keys().key_flags(flags).count(), 1);
     }
 
     #[test]
@@ -433,7 +433,7 @@ mod test {
 
         let now = std::time::SystemTime::now()
             - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
-        assert_eq!(cert.keys_all().key_flags(flags).alive_at(now).count(), 0);
+        assert_eq!(cert.keys().key_flags(flags).alive_at(now).count(), 0);
     }
 
     #[test]
@@ -443,7 +443,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_certification(true);
 
-        assert_eq!(cert.keys_all().key_flags(flags).count(), 2);
+        assert_eq!(cert.keys().key_flags(flags).count(), 2);
     }
 
     #[test]
@@ -455,12 +455,22 @@ mod test {
             .add_storage_encryption_subkey()
             .add_authentication_subkey()
             .generate().unwrap();
-        assert_eq!(cert.keys_valid().for_certification().count(), 2);
-        assert_eq!(cert.keys_valid().for_transport_encryption().count(),
+        assert_eq!(cert.keys().alive().revoked(false)
+                       .for_certification().count(),
+                   2);
+        assert_eq!(cert.keys().alive().revoked(false)
+                       .for_transport_encryption().count(),
                    1);
-        assert_eq!(cert.keys_valid().for_storage_encryption().count(), 1);
-        assert_eq!(cert.keys_valid().for_signing().count(), 1);
-        assert_eq!(cert.keys_valid().key_flags(
-            KeyFlags::default().set_authentication(true)).count(), 1);
+        assert_eq!(cert.keys().alive().revoked(false)
+                       .for_storage_encryption().count(),
+                   1);
+
+        assert_eq!(cert.keys().alive().revoked(false)
+                       .for_signing().count(),
+                   1);
+        assert_eq!(cert.keys().alive().revoked(false)
+                       .key_flags(KeyFlags::default().set_authentication(true))
+                       .count(),
+                   1);
     }
 }
