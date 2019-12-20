@@ -608,7 +608,7 @@ impl<P: key::KeyParts, R: key::KeyRole> DerefMut for Key<P, R> {
 /// 4880] for details.
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
-#[derive(PartialEq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SEIP {
     /// SEIP packet version 1.
     V1(self::seip::SEIP1),
@@ -655,7 +655,7 @@ impl DerefMut for SEIP {
 /// of RFC 4880bis] for details.
 ///
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
-#[derive(PartialEq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum AED {
     /// AED packet version 1.
     V1(self::aed::AED1),

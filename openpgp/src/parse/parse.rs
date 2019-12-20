@@ -20,7 +20,10 @@ use crate::{
     },
     crypto::s2k::S2K,
     Error,
-    packet::Header,
+    packet::{
+        Container,
+        Header,
+    },
     packet::signature::Signature4,
     packet::prelude::*,
     Packet,
@@ -327,6 +330,7 @@ impl<'a> PacketHeaderParser<'a> {
             decrypted: true,
             finished: false,
             map: self.map,
+            body_hash: None,
             state: self.state,
         })
     }
@@ -2677,6 +2681,10 @@ pub struct PacketParser<'a> {
     /// A map of this packet.
     map: Option<map::Map>,
 
+    /// We compute a hashsum over the body to implement comparison on
+    /// containers that have been streamed..
+    body_hash: Option<crate::crypto::hash::Context>,
+
     state: PacketParserState,
 }
 
@@ -3603,11 +3611,7 @@ impl <'a> PacketParser<'a> {
     /// # return Ok(());
     /// # }
     pub fn buffer_unread_content(&mut self) -> Result<&[u8]> {
-        // If the packet has not yet been streamed, then the following
-        // read operation should not be considered streaming.
-        let content_was_read = self.content_was_read;
         let mut rest = self.steal_eof()?;
-        self.set_content_was_read(content_was_read);
 
         match &mut self.packet {
             Packet::Literal(p) => {
@@ -3693,10 +3697,6 @@ impl <'a> PacketParser<'a> {
 
         let recursion_depth = self.recursion_depth();
 
-        // If there is no unread content left at this point, we want
-        // to preserve the content_was_read flag.
-        let content_was_read = self.content_was_read;
-
         let unread_content = if self.state.settings.buffer_unread_content {
             t!("({:?} at depth {}): buffering {} bytes of unread content",
                self.packet.tag(), recursion_depth,
@@ -3708,12 +3708,7 @@ impl <'a> PacketParser<'a> {
                self.packet.tag(), recursion_depth,
                self.data_eof().unwrap().len());
 
-            let dropped = self.drop_eof()?;
-            if ! dropped {
-                // Nothing was dropped, restore.
-                self.set_content_was_read(content_was_read);
-            }
-            dropped
+            self.drop_eof()?
         };
 
         if unread_content {
@@ -3730,23 +3725,26 @@ impl <'a> PacketParser<'a> {
             }
         }
 
+        if let Some(c) = self.packet.container_mut() {
+            let h = self.body_hash.take()
+                .unwrap_or_else(Container::make_body_hash);
+            c.set_body_hash(h);
+        }
+
         self.finished = true;
 
         Ok(&mut self.packet)
     }
 
-    /// Sets the content_was_read flag if `cond` is true.
-    fn mark_content_was_read(&mut self, cond: bool) {
-        if cond {
-            self.packet.container_mut().map(|c| c.set_streamed(true));
+    /// Hashes content that has been streamed.
+    fn hash_read_content(&mut self, b: &[u8]) {
+        if b.len() > 0 {
+            if self.body_hash.is_none() {
+                self.body_hash = Some(Container::make_body_hash());
+            }
+            self.body_hash.as_mut().map(|c| c.update(b));
             self.content_was_read = true;
         }
-    }
-
-    /// Sets the content_was_read flag to `value`.
-    fn set_content_was_read(&mut self, value: bool) {
-        self.packet.container_mut().map(|c| c.set_streamed(value));
-        self.content_was_read = value;
     }
 
     /// Returns a reference to the current packet's header.
@@ -3773,8 +3771,9 @@ impl <'a> PacketParser<'a> {
 /// `BufferedReader` interfaces.
 impl<'a> io::Read for PacketParser<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.mark_content_was_read(true);
-        return buffered_reader_generic_read_impl(self, buf);
+        let v = buffered_reader_generic_read_impl(self, buf)?;
+        self.hash_read_content(&buf[..v]);
+        Ok(v)
     }
 }
 
@@ -3808,43 +3807,71 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
-        self.mark_content_was_read(amount > 0);
+        // This is awkward.  Juggle mutable references around.
+        if let Some(mut body_hash) = self.body_hash.take() {
+            let data = self.data_hard(amount)
+                .expect("It is an error to consume more than data returns");
+            let read_something = data.len() > 0;
+            body_hash.update(data);
+            self.body_hash = Some(body_hash);
+            self.content_was_read |= read_something;
+        }
+
         self.reader.consume(amount)
     }
 
     fn data_consume(&mut self, amount: usize) -> io::Result<&[u8]> {
-        self.mark_content_was_read(amount > 0);
+        // This is awkward.  Juggle mutable references around.
+        if let Some(mut body_hash) = self.body_hash.take() {
+            let data = self.data(amount)?;
+            let read_something = data.len() > 0;
+            body_hash.update(data);
+            self.body_hash = Some(body_hash);
+            self.content_was_read |= read_something;
+        }
+
         self.reader.data_consume(amount)
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> io::Result<&[u8]> {
-        self.mark_content_was_read(amount > 0);
+        // This is awkward.  Juggle mutable references around.
+        if let Some(mut body_hash) = self.body_hash.take() {
+            let data = self.data_hard(amount)?;
+            let read_something = data.len() > 0;
+            body_hash.update(data);
+            self.body_hash = Some(body_hash);
+            self.content_was_read |= read_something;
+        }
+
         self.reader.data_consume_hard(amount)
     }
 
     fn read_be_u16(&mut self) -> io::Result<u16> {
-        self.mark_content_was_read(true);
-        self.reader.read_be_u16()
+        let v = self.reader.read_be_u16()?;
+        self.hash_read_content(&v.to_be_bytes());
+        Ok(v)
     }
 
     fn read_be_u32(&mut self) -> io::Result<u32> {
-        self.mark_content_was_read(true);
-        self.reader.read_be_u32()
+        let v = self.reader.read_be_u32()?;
+        self.hash_read_content(&v.to_be_bytes());
+        Ok(v)
     }
 
     fn steal(&mut self, amount: usize) -> io::Result<Vec<u8>> {
-        self.mark_content_was_read(amount > 0);
-        self.reader.steal(amount)
+        let v = self.reader.steal(amount)?;
+        self.hash_read_content(&v);
+        Ok(v)
     }
 
     fn steal_eof(&mut self) -> io::Result<Vec<u8>> {
-        self.mark_content_was_read(true);
-        self.reader.steal_eof()
+        let v = self.reader.steal_eof()?;
+        self.hash_read_content(&v);
+        Ok(v)
     }
 
     fn drop_eof(&mut self) -> io::Result<bool> {
-        self.mark_content_was_read(true);
-        self.reader.drop_eof()
+        Ok(! self.steal_eof()?.is_empty())
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {

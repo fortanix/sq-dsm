@@ -4,26 +4,22 @@
 //! structure.
 
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::slice;
 use std::vec;
 
 use crate::{
     Packet,
+    crypto::hash,
     packet::Iter,
+    types::HashAlgorithm,
 };
 
 /// Holds zero or more OpenPGP packets.
 ///
 /// This is used by OpenPGP container packets, like the compressed
 /// data packet, to store the containing packets.
-///
-/// # A note on partial equality
-///
-/// Container packets, like this one, can be streamed.  If a packet is
-/// streamed, we no longer have access to the content, and therefore
-/// cannot compare it to other packets.  Consequently, a streamed
-/// packet is not considered equal to any other packet.
-#[derive(Hash, Clone)]
+#[derive(Clone)]
 pub(crate) struct Container {
     /// Used by container packets (such as the encryption and
     /// compression packets) to reference their immediate children.
@@ -87,22 +83,25 @@ pub(crate) struct Container {
     /// content.
     body: Vec<u8>,
 
-    /// Remembers whether or not this packet has been streamed.
-    ///
-    /// If it has, then we lost (parts of) the content, and cannot
-    /// compare it to other packets.
-    was_streamed: bool,
+    /// We compute a digest over the body to implement comparison.
+    body_digest: Vec<u8>,
 }
+
+const CONTAINER_BODY_HASH: HashAlgorithm = HashAlgorithm::SHA256;
 
 impl PartialEq for Container {
     fn eq(&self, other: &Container) -> bool {
-        if self.was_streamed || other.was_streamed {
-            // If either was streamed, consider them not equal.
-            false
-        } else {
-            self.packets == other.packets
-                && self.body == other.body
-        }
+        self.packets == other.packets
+            && self.body_digest == other.body_digest
+    }
+}
+
+impl Eq for Container {}
+
+impl Hash for Container {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.packets.hash(state);
+        self.body_digest.hash(state);
     }
 }
 
@@ -111,7 +110,7 @@ impl Default for Container {
         Self {
             packets: Vec::with_capacity(0),
             body: Vec::with_capacity(0),
-            was_streamed: false,
+            body_digest: Self::empty_body_digest(),
         }
     }
 }
@@ -121,7 +120,7 @@ impl From<Vec<Packet>> for Container {
         Self {
             packets,
             body: Vec::with_capacity(0),
-            was_streamed: false,
+            body_digest: Self::empty_body_digest(),
         }
     }
 }
@@ -139,6 +138,7 @@ impl fmt::Debug for Container {
         f.debug_struct("Container")
             .field("packets", &self.packets)
             .field("body", &prefix_fmt)
+            .field("body_digest", &self.body_digest())
             .finish()
     }
 }
@@ -191,20 +191,43 @@ impl Container {
     /// descendants.
     pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
         self.packets.clear();
+        let mut h = Self::make_body_hash();
+        h.update(&data);
+        self.set_body_hash(h);
         std::mem::replace(&mut self.body, data)
     }
 
-    /// Returns whether or not this packet has been streamed.
-    ///
-    /// If it has, then we lost (parts of) the content, and cannot
-    /// compare it to other packets.
-    pub fn was_streamed(&self) -> bool {
-        self.was_streamed
+    /// Returns the hash for the empty body.
+    fn empty_body_digest() -> Vec<u8> {
+        lazy_static!{
+            static ref DIGEST: Vec<u8> = {
+                let mut h = Container::make_body_hash();
+                let mut d = vec![0; h.digest_size()];
+                h.digest(&mut d);
+                d
+            };
+        }
+
+        DIGEST.clone()
     }
 
-    /// Sets whether or not this packet has been streamed.
-    pub(crate) fn set_streamed(&mut self, value: bool) {
-        self.was_streamed = value;
+    /// Creates a hash context for hashing the body.
+    pub(crate) // For parse.rs
+    fn make_body_hash() -> hash::Context {
+        CONTAINER_BODY_HASH.context()
+            .expect("CONTAINER_BODY_HASH must be implemented")
+    }
+
+    /// Hashes content that has been streamed.
+    pub(crate) // For parse.rs
+    fn set_body_hash(&mut self, mut h: hash::Context) {
+        self.body_digest.resize(h.digest_size(), 0);
+        h.digest(&mut self.body_digest);
+    }
+
+    pub(crate)
+    fn body_digest(&self) -> String {
+        crate::fmt::hex::encode(&self.body_digest)
     }
 
     pub(crate) // For parse.rs
@@ -261,14 +284,6 @@ macro_rules! the_common_container_forwards {
         /// Sets the this packet's body.
         pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
             self.container.set_body(data)
-        }
-
-        /// Returns whether or not this packet has been streamed.
-        ///
-        /// If it has, then we lost (parts of) the content, and cannot
-        /// compare it to other packets.
-        pub fn was_streamed(&self) -> bool {
-            self.container.was_streamed()
         }
     };
 }
@@ -362,13 +377,5 @@ impl Packet {
     /// packets, the container's body is stored as is.
     pub(crate) fn body(&self) -> Option<&[u8]> {
         self.container_ref().map(|c| c.body())
-    }
-
-    /// Returns whether or not this packet has been streamed.
-    ///
-    /// If it has, then we lost (parts of) the content, and cannot
-    /// compare it to other packets.
-    pub fn was_streamed(&self) -> bool {
-        self.container_ref().map(|c| c.was_streamed()).unwrap_or(false)
     }
 }

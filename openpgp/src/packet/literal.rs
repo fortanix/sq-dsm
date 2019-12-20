@@ -21,14 +21,7 @@ use crate::Result;
 /// See [Section 5.9 of RFC 4880] for details.
 ///
 ///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
-///
-/// # A note on partial equality
-///
-/// Container packets, like this one, can be streamed.  If a packet is
-/// streamed, we no longer have access to the content, and therefore
-/// cannot compare it to other packets.  Consequently, a streamed
-/// packet is not considered equal to any other packet.
-#[derive(PartialEq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Literal {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -60,24 +53,20 @@ impl fmt::Debug for Literal {
         };
 
         let threshold = 36;
-        let body_str = if self.was_streamed() {
-            "(streamed)".into()
-        } else {
-            let body = self.body();
-            let prefix = &body[..cmp::min(threshold, body.len())];
-            let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
-            if body.len() > threshold {
-                prefix_fmt.push_str("...");
-            }
-            prefix_fmt.push_str(&format!(" ({} bytes)", body.len())[..]);
-            prefix_fmt
-        };
+        let body = self.body();
+        let prefix = &body[..cmp::min(threshold, body.len())];
+        let mut prefix_fmt = String::from_utf8_lossy(prefix).into_owned();
+        if body.len() > threshold {
+            prefix_fmt.push_str("...");
+        }
+        prefix_fmt.push_str(&format!(" ({} bytes)", body.len())[..]);
 
         f.debug_struct("Literal")
             .field("format", &self.format)
             .field("filename", &filename)
             .field("date", &self.date)
-            .field("body", &body_str)
+            .field("body", &prefix_fmt)
+            .field("body_digest", &self.container.body_digest())
             .finish()
     }
 }

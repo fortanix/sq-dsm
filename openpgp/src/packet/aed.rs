@@ -17,14 +17,7 @@ use crate::Result;
 /// of RFC 4880bis] for details.
 ///
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
-///
-/// # A note on partial equality
-///
-/// Container packets, like this one, can be streamed.  If a packet is
-/// streamed, we no longer have access to the content, and therefore
-/// cannot compare it to other packets.  Consequently, a streamed
-/// packet is not considered equal to any other packet.
-#[derive(PartialEq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct AED1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,

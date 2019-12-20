@@ -37,6 +37,8 @@ impl PartialEq for Unknown {
     }
 }
 
+impl Eq for Unknown { }
+
 impl Hash for Unknown {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.common.hash(state);

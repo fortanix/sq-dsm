@@ -15,14 +15,7 @@ use crate::Packet;
 /// 4880] for details.
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
-///
-/// # A note on partial equality
-///
-/// Container packets, like this one, can be streamed.  If a packet is
-/// streamed, we no longer have access to the content, and therefore
-/// cannot compare it to other packets.  Consequently, a streamed
-/// packet is not considered equal to any other packet.
-#[derive(PartialEq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct SEIP1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
