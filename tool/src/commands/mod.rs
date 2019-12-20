@@ -422,9 +422,10 @@ pub fn split(input: &mut dyn io::Read, prefix: &str)
     while let PacketParserResult::Some(pp) = ppr {
         if let Some(ref map) = pp.map() {
             let filename = format!(
-                "{}{}--{:?}", prefix,
+                "{}{}--{}{:?}", prefix,
                 pos.iter().map(|n| format!("{}", n))
                     .collect::<Vec<String>>().join("-"),
+                pp.packet.kind().map(|_| "").unwrap_or("Unknown-"),
                 pp.packet.tag());
             let mut sink = File::create(filename)
                 .context("Failed to create output file")?;
