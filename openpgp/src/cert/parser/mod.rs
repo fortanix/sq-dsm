@@ -723,7 +723,16 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for CertParser<'a, I> {
                         Err(err) => return Some(Err(err)),
                     }
                 },
-                PacketSource::PacketParser(pp) => {
+                PacketSource::PacketParser(mut pp) => {
+                    if let Packet::Unknown(_) = pp.packet {
+                        // Buffer unknown packets.  This may be a
+                        // signature that we don't understand, and
+                        // keeping it intact is important.
+                        if let Err(e) = pp.buffer_unread_content() {
+                            return Some(Err(e));
+                        }
+                    }
+
                     match pp.next() {
                         Ok((packet, ppr)) => {
                             if let PacketParserResult::Some(pp) = ppr {
