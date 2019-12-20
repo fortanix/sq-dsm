@@ -3700,13 +3700,13 @@ impl <'a> PacketParser<'a> {
         let unread_content = if self.state.settings.buffer_unread_content {
             t!("({:?} at depth {}): buffering {} bytes of unread content",
                self.packet.tag(), recursion_depth,
-               self.data_eof().unwrap().len());
+               self.data_eof().unwrap_or(&[]).len());
 
             self.buffer_unread_content()?.len() > 0
         } else {
             t!("({:?} at depth {}): dropping {} bytes of unread content",
                self.packet.tag(), recursion_depth,
-               self.data_eof().unwrap().len());
+               self.data_eof().unwrap_or(&[]).len());
 
             self.drop_eof()?
         };
