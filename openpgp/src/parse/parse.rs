@@ -337,7 +337,10 @@ impl<'a> PacketHeaderParser<'a> {
         self.error(Error::MalformedPacket(reason.into()).into())
     }
 
-    fn error(self, error: failure::Error) -> Result<PacketParser<'a>> {
+    fn error(mut self, error: failure::Error) -> Result<PacketParser<'a>> {
+        // Rewind the dup reader, so that the caller has a chance to
+        // buffer the whole body of the unknown packet.
+        self.reader.rewind();
         Unknown::parse(self, error)
     }
 
