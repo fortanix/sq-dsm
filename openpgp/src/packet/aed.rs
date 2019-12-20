@@ -162,8 +162,8 @@ mod tests {
                               AEADAlgorithm::EAX,
                               64,
                               vec![].into_boxed_slice()).unwrap();
-        assert_eq!(s.body(), None);
+        assert_eq!(s.body(), &[]);
         s.set_body(vec![0, 1, 2]);
-        assert_eq!(s.body(), Some(&[0, 1, 2][..]));
+        assert_eq!(s.body(), &[0, 1, 2]);
     }
 }

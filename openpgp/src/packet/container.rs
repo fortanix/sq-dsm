@@ -78,14 +78,14 @@ pub(crate) struct Container {
     /// `PacketParser` is configured to buffer unread content, then
     /// this is not the packet's entire content; it is just the unread
     /// content.
-    body: Option<Vec<u8>>,
+    body: Vec<u8>,
 }
 
 impl Default for Container {
     fn default() -> Self {
         Self {
             packets: Vec::with_capacity(0),
-            body: None,
+            body: Vec::with_capacity(0),
         }
     }
 }
@@ -94,15 +94,24 @@ impl From<Vec<Packet>> for Container {
     fn from(packets: Vec<Packet>) -> Self {
         Self {
             packets,
-            body: None,
+            body: Vec::with_capacity(0),
         }
     }
 }
 
 impl fmt::Debug for Container {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let threshold = 16;
+        let prefix = &self.body[..std::cmp::min(threshold, self.body.len())];
+        let mut prefix_fmt = crate::fmt::hex::encode(prefix);
+        if self.body.len() > threshold {
+            prefix_fmt.push_str("...");
+        }
+        prefix_fmt.push_str(&format!(" ({} bytes)", self.body.len())[..]);
+
         f.debug_struct("Container")
             .field("packets", &self.packets)
+            .field("body", &prefix_fmt)
             .finish()
     }
 }
@@ -145,8 +154,8 @@ impl Container {
     /// Packets can store a sequence of bytes as body, e.g. if the
     /// maximum recursion level is reached while parsing a sequence of
     /// packets, the container's body is stored as is.
-    pub fn body(&self) -> Option<&[u8]> {
-        self.body.as_ref().map(|b| b.as_slice())
+    pub fn body(&self) -> &[u8] {
+        &self.body
     }
 
     /// Sets the packet's body.
@@ -155,14 +164,12 @@ impl Container {
     /// descendants.
     pub fn set_body(&mut self, data: Vec<u8>) -> Vec<u8> {
         self.packets.clear();
-        ::std::mem::replace(&mut self.body,
-                            if data.len() == 0 { None } else { Some(data) })
-            .unwrap_or(Vec::new())
+        std::mem::replace(&mut self.body, data)
     }
 
     pub(crate) // For parse.rs
-    fn body_mut(&mut self) -> Option<&mut Vec<u8>> {
-        self.body.as_mut()
+    fn body_mut(&mut self) -> &mut Vec<u8> {
+        &mut self.body
     }
 
     // Converts an indentation level to whitespace.
@@ -218,12 +225,12 @@ macro_rules! impl_container_forwards {
             }
 
             /// Gets a reference to the this packet's body.
-            pub fn body(&self) -> Option<&[u8]> {
+            pub fn body(&self) -> &[u8] {
                 self.container.body()
             }
 
             /// Gets a mutable reference to the this packet's body.
-            pub fn body_mut(&mut self) -> Option<&mut Vec<u8>> {
+            pub fn body_mut(&mut self) -> &mut Vec<u8> {
                 self.container.body_mut()
             }
 
@@ -284,6 +291,6 @@ impl Packet {
     /// maximum recursion level is reached while parsing a sequence of
     /// packets, the container's body is stored as is.
     pub(crate) fn body(&self) -> Option<&[u8]> {
-        self.container_ref().and_then(|c| c.body())
+        self.container_ref().map(|c| c.body())
     }
 }

@@ -3626,36 +3626,36 @@ impl <'a> PacketParser<'a> {
             },
             Packet::CompressedData(p) => {
                 if rest.len() > 0 {
-                    if p.body().map(|b| b.len()).unwrap_or(0) > 0 {
-                        p.body_mut().unwrap().append(&mut rest);
+                    if p.body().len() > 0 {
+                        p.body_mut().append(&mut rest);
                     } else {
                         p.set_body(rest);
                     }
                 }
 
-                Ok(p.body().unwrap_or(&b""[..]))
+                Ok(p.body())
             },
             Packet::SEIP(p) => {
                 if rest.len() > 0 {
-                    if p.body().map(|b| b.len()).unwrap_or(0) > 0 {
-                        p.body_mut().unwrap().append(&mut rest);
+                    if p.body().len() > 0 {
+                        p.body_mut().append(&mut rest);
                     } else {
                         p.set_body(rest);
                     }
                 }
 
-                Ok(p.body().unwrap_or(&b""[..]))
+                Ok(p.body())
             },
             Packet::AED(p) => {
                 if rest.len() > 0 {
-                    if p.body().map(|b| b.len()).unwrap_or(0) > 0 {
-                        p.body_mut().unwrap().append(&mut rest);
+                    if p.body().len() > 0 {
+                        p.body_mut().append(&mut rest);
                     } else {
                         p.set_body(rest);
                     }
                 }
 
-                Ok(p.body().unwrap_or(&b""[..]))
+                Ok(p.body())
             },
             p => {
                 if rest.len() > 0 {

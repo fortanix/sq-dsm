@@ -32,7 +32,7 @@ impl fmt::Debug for CompressedData {
             .field("algo", &self.algo)
             .field("children", &self.container.children_ref())
             .field("body (bytes)",
-                   &self.container.body().unwrap_or(&b"".to_vec()).len())
+                   &self.container.body().len())
             .finish()
     }
 }

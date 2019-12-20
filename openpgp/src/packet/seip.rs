@@ -71,8 +71,8 @@ mod tests {
     #[test]
     fn deref() {
         let mut s = SEIP1::new();
-        assert_eq!(s.body(), None);
+        assert_eq!(s.body(), &[]);
         s.set_body(vec![0, 1, 2]);
-        assert_eq!(s.body(), Some(&[0, 1, 2][..]));
+        assert_eq!(s.body(), &[0, 1, 2]);
     }
 }

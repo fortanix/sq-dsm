@@ -1680,7 +1680,7 @@ impl Serialize for CompressedData {
                        algo: {}, {:?} children, {:?} bytes)",
                       self.algorithm(),
                       self.children().count(),
-                      self.body().as_ref().map(|body| body.len()));
+                      self.body().len());
         }
 
         let o = stream::Message::new(o);
@@ -1693,10 +1693,7 @@ impl Serialize for CompressedData {
         }
 
         // Append the data.
-        if let Some(data) = self.body() {
-            o.write_all(data)?;
-        }
-
+        o.write_all(self.body())?;
         o.finalize()
     }
 }
@@ -1705,7 +1702,7 @@ impl NetLength for CompressedData {
     fn net_len(&self) -> usize {
         let inner_length =
             self.children().map(|p| p.serialized_len()).sum::<usize>()
-            + self.body().as_ref().map(|body| body.len()).unwrap_or(0);
+            + self.body().len();
 
         // Worst case, the data gets larger.  Account for that.
         let inner_length = inner_length + cmp::max(inner_length / 2, 128);
@@ -1909,9 +1906,7 @@ impl Serialize for SEIP {
                        .into());
         } else {
             o.write_all(&[self.version()])?;
-            if let Some(body) = self.body() {
-                o.write_all(&body[..])?;
-            }
+            o.write_all(self.body())?;
         }
 
         Ok(())
@@ -1921,7 +1916,7 @@ impl Serialize for SEIP {
 impl NetLength for SEIP {
     fn net_len(&self) -> usize {
         1 // Version.
-            + self.body().as_ref().map(|b| b.len()).unwrap_or(0)
+            + self.body().len()
     }
 }
 
@@ -2012,10 +2007,7 @@ impl Serialize for AED1 {
                        .into());
         } else {
             self.serialize_headers(o)?;
-
-            if let Some(body) = self.body() {
-                o.write_all(&body[..])?;
-            }
+            o.write_all(self.body())?;
         }
 
         Ok(())
@@ -2029,7 +2021,7 @@ impl NetLength for AED1 {
         } else {
             4 // Headers.
                 + self.iv().len()
-                + self.body().as_ref().map(|b| b.len()).unwrap_or(0)
+                + self.body().len()
         }
     }
 }
