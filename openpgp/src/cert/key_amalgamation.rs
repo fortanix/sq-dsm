@@ -1,15 +1,18 @@
 use std::time;
 use std::convert::TryInto;
 use std::convert::TryFrom;
+use std::borrow::Borrow;
 
 use crate::{
     Cert,
     cert::KeyBinding,
     packet::key,
+    packet::key::SecretKeyMaterial,
     packet::Key,
     packet::Signature,
     Result,
     RevocationStatus,
+    types::KeyFlags,
 };
 
 /// A variant of `KeyAmalgamation` for primary keys.
@@ -178,6 +181,99 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
                 h.cert.revoked(t),
             KeyAmalgamation(KeyAmalgamation0::Subordinate(ref h)) =>
                 h.binding.revoked(t),
+        }
+    }
+
+    /// Returns the key's key flags at time `time`.
+    pub fn key_flags<T>(&self, time: T) -> Option<KeyFlags>
+        where T: Into<Option<time::SystemTime>>
+    {
+        self.binding_signature(time).map(|sig| sig.key_flags())
+    }
+
+    /// Returns whether the key has at least one of the specified key
+    /// flags at time `time`.
+    pub fn has_any_key_flag<T, F>(&self, time: T, flags: F) -> bool
+        where T: Into<Option<time::SystemTime>>,
+              F: Borrow<KeyFlags>
+    {
+        if let Some(our_flags) = self.key_flags(time) {
+            !(&our_flags & flags.borrow()).is_empty()
+        } else {
+            // We have no key flags.
+            false
+        }
+    }
+
+    /// Returns whether key is certification capable at time `time`.
+    pub fn for_certification<T>(&self, time: T) -> bool
+        where T: Into<Option<time::SystemTime>>
+    {
+        self.has_any_key_flag(time, KeyFlags::empty().set_certification(true))
+    }
+
+    /// Returns whether key is signing capable at time `time`.
+    pub fn for_signing<T>(&self, time: T) -> bool
+        where T: Into<Option<time::SystemTime>>
+    {
+        self.has_any_key_flag(time, KeyFlags::empty().set_signing(true))
+    }
+
+    /// Returns whether key is authentication capable at time `time`.
+    pub fn for_authentication<T>(&self, time: T) -> bool
+        where T: Into<Option<time::SystemTime>>
+    {
+        self.has_any_key_flag(time, KeyFlags::empty().set_authentication(true))
+    }
+
+    /// Returns whether key is intended for storage encryption at time
+    /// `time`.
+    pub fn for_storage_encryption<T>(&self, time: T) -> bool
+        where T: Into<Option<std::time::SystemTime>>
+    {
+        self.has_any_key_flag(time, KeyFlags::empty().set_storage_encryption(true))
+    }
+
+    /// Returns whether key is intended for transport encryption at
+    /// time `time`.
+    pub fn for_transport_encryption<T>(&self, time: T) -> bool
+        where T: Into<Option<std::time::SystemTime>>
+    {
+        self.has_any_key_flag(time, KeyFlags::empty().set_transport_encryption(true))
+    }
+
+    /// Returns whether the key is alive at time `time`.
+    pub fn alive<T>(&self, time: T) -> bool
+        where T: Into<Option<std::time::SystemTime>>,
+              &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
+    {
+        if let Some(sig) = self.binding_signature(None) {
+            sig.key_alive(self.key(), time).is_ok()
+        } else {
+            false
+        }
+    }
+
+    /// Returns whether the key contains secret key material.
+    pub fn has_secret(&self) -> bool
+        where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
+    {
+        self.key().secret().is_some()
+    }
+
+    /// Returns whether the key contains unencrypted secret key
+    /// material.
+    pub fn has_unencrypted_secret(&self) -> bool
+        where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
+    {
+        if let Some(secret) = self.key().secret() {
+            if let SecretKeyMaterial::Unencrypted { .. } = secret {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
         }
     }
 }
