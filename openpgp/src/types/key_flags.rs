@@ -18,7 +18,7 @@ pub struct KeyFlags{
 
 impl Default for KeyFlags {
     fn default() -> Self {
-        KeyFlags::new(&vec![0])
+        KeyFlags::new(&[])
     }
 }
 
@@ -124,7 +124,8 @@ impl BitOr for &KeyFlags {
 
 impl KeyFlags {
     /// Creates a new instance from `bits`.
-    pub fn new(bits: &[u8]) -> Self {
+    pub fn new<B: AsRef<[u8]>>(bits: B) -> Self {
+        let bits = bits.as_ref();
         let for_certification = bits.get(0)
             .map(|x| x & KEY_FLAG_CERTIFY != 0).unwrap_or(false);
         let for_signing = bits.get(0)
