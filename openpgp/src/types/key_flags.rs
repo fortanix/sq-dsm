@@ -14,6 +14,8 @@ pub struct KeyFlags{
     is_split_key: bool,
     is_group_key: bool,
     unknown: Box<[u8]>,
+    /// Original length, including trailing zeros.
+    pad_to: usize,
 }
 
 impl Default for KeyFlags {
@@ -50,6 +52,9 @@ impl fmt::Debug for KeyFlags {
             f.write_str(
                 &crate::fmt::hex::encode_pretty(&self.unknown))?;
         }
+        if self.pad_to > self.unknown.len() {
+            write!(f, "+padding({} bytes)", self.pad_to - self.unknown.len())?;
+        }
 
         Ok(())
     }
@@ -66,7 +71,9 @@ impl Eq for KeyFlags {}
 impl PartialOrd for KeyFlags {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         let mut a_bits = self.to_vec();
+        crate::types::bitfield_remove_padding(&mut a_bits);
         let mut b_bits = other.to_vec();
+        crate::types::bitfield_remove_padding(&mut b_bits);
         let len = cmp::max(a_bits.len(), b_bits.len());
 
         while a_bits.len() < len { a_bits.push(0); }
@@ -126,6 +133,8 @@ impl KeyFlags {
     /// Creates a new instance from `bits`.
     pub fn new<B: AsRef<[u8]>>(bits: B) -> Self {
         let bits = bits.as_ref();
+        let mut pad_to = 0;
+
         let for_certification = bits.get(0)
             .map(|x| x & KEY_FLAG_CERTIFY != 0).unwrap_or(false);
         let for_signing = bits.get(0)
@@ -151,14 +160,14 @@ impl KeyFlags {
                 KEY_FLAG_GROUP_KEY | KEY_FLAG_SPLIT_KEY
             ) ^ 0xff;
 
-            while cpy.last().cloned() == Some(0) { cpy.pop(); }
+            pad_to = crate::types::bitfield_remove_padding(&mut cpy);
             cpy.into_boxed_slice()
         };
 
         KeyFlags{
             for_certification, for_signing, for_transport_encryption,
             for_storage_encryption, for_authentication, is_split_key,
-            is_group_key, unknown: unk
+            is_group_key, unknown: unk, pad_to,
         }
     }
 
@@ -181,7 +190,19 @@ impl KeyFlags {
         if self.for_storage_encryption { ret[0] |= KEY_FLAG_ENCRYPT_AT_REST; }
         if self.for_authentication { ret[0] |= KEY_FLAG_AUTHENTICATE; }
         if self.is_split_key { ret[0] |= KEY_FLAG_SPLIT_KEY; }
-        if self.is_group_key { ret[0] |= KEY_FLAG_GROUP_KEY }
+        if self.is_group_key { ret[0] |= KEY_FLAG_GROUP_KEY; }
+
+        // Corner case: empty flag field.  We initialized ret to
+        // vec![0] for easy setting of flags.  See if any of the above
+        // was set.
+        if ret.len() == 1 && ret[0] == 0 {
+            // Nope.  Trim this byte.
+            ret.pop();
+        }
+
+        for _ in ret.len()..self.pad_to {
+            ret.push(0);
+        }
 
         ret
     }
@@ -318,5 +339,19 @@ mod tests {
         assert!(enc_and_auth >= enc);
         assert!(!(enc < sig));
         assert!(!(enc > sig));
+    }
+
+    quickcheck! {
+        fn roundtrip(raw: Vec<u8>) -> bool {
+            let val = KeyFlags::new(&raw);
+            assert_eq!(raw, val.to_vec());
+
+            // Check that equality ignores padding.
+            let mut val_without_padding = val.clone();
+            val_without_padding.pad_to = val.unknown.len();
+            assert_eq!(val, val_without_padding);
+
+            true
+        }
     }
 }
