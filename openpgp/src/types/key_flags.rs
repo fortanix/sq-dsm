@@ -1,10 +1,11 @@
+use std::hash::{Hash, Hasher};
 use std::fmt;
 use std::cmp;
 use std::ops::{BitAnd, BitOr};
 
 /// Describes how a key may be used, and stores additional
 /// information.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct KeyFlags{
     for_certification: bool,
     for_signing: bool,
@@ -67,6 +68,19 @@ impl PartialEq for KeyFlags {
 }
 
 impl Eq for KeyFlags {}
+
+impl Hash for KeyFlags {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.for_certification.hash(state);
+        self.for_signing.hash(state);
+        self.for_transport_encryption.hash(state);
+        self.for_storage_encryption.hash(state);
+        self.for_authentication.hash(state);
+        self.is_split_key.hash(state);
+        self.is_group_key.hash(state);
+        self.unknown.hash(state);
+    }
+}
 
 impl PartialOrd for KeyFlags {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
