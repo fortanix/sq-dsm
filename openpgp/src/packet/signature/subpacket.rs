@@ -562,8 +562,13 @@ impl NotationDataFlags {
 /// description of these tags.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum SubpacketValue {
-    /// The subpacket is unknown.
-    Unknown(Vec<u8>),
+    /// An unknown subpacket.
+    Unknown {
+        /// The unknown subpacket's tag.
+        tag: SubpacketTag,
+        /// The unknown subpacket's uninterpreted body.
+        body: Vec<u8>
+    },
 
     /// 4-octet time field
     SignatureCreationTime(Timestamp),
@@ -704,7 +709,7 @@ impl SubpacketValue {
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
-            Unknown(u) => u.len(),
+            Unknown { body, .. } => body.len(),
         }
     }
 
@@ -744,8 +749,7 @@ impl SubpacketValue {
             PreferredAEADAlgorithms(_) =>
                 Ok(SubpacketTag::PreferredAEADAlgorithms),
             IntendedRecipient(_) => Ok(SubpacketTag::IntendedRecipient),
-            _ => Err(Error::InvalidArgument(
-                "Unknown or invalid subpacket value".into()).into()),
+            Unknown { tag, .. } => Ok(*tag),
         }
     }
 }

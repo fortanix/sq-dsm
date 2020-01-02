@@ -149,7 +149,7 @@ fn main() {
                         sigs_subpacket_tags_count[i] += 1;
                         cert.sigs_subpacket_tags_count[i] += 1;
                         signature.subpacket_tags_count[i] += 1;
-                        if let SubpacketValue::Unknown(_) = sub.value() {
+                        if let SubpacketValue::Unknown { .. } = sub.value() {
                             sigs_subpacket_tags_unknown
                                 [u8::from(sub.tag()) as usize] += 1;
                         } else {
@@ -165,7 +165,8 @@ fn main() {
                             }
 
                             match sub.value() {
-                                SubpacketValue::Unknown(_) => unreachable!(),
+                                SubpacketValue::Unknown { .. } =>
+                                    unreachable!(),
                                 SubpacketValue::KeyFlags(k) =>
                                     if let Some(count) = key_flags.get_mut(&k) {
                                         *count += 1;
