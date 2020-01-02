@@ -560,6 +560,9 @@ impl NotationDataFlags {
 ///
 /// The value is well structured.  See `SubpacketTag` for a
 /// description of these tags.
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum SubpacketValue {
     /// An unknown subpacket.
@@ -668,6 +671,10 @@ pub enum SubpacketValue {
     PreferredAEADAlgorithms(Vec<AEADAlgorithm>),
     /// Intended Recipient Fingerprint [proposed].
     IntendedRecipient(Fingerprint),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl SubpacketValue {
@@ -710,6 +717,7 @@ impl SubpacketValue {
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
             Unknown { body, .. } => body.len(),
+            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -750,6 +758,7 @@ impl SubpacketValue {
                 Ok(SubpacketTag::PreferredAEADAlgorithms),
             IntendedRecipient(_) => Ok(SubpacketTag::IntendedRecipient),
             Unknown { tag, .. } => Ok(*tag),
+            __Nonexhaustive => unreachable!(),
         }
     }
 }

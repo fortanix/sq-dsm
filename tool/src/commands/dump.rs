@@ -812,6 +812,7 @@ impl PacketDumper {
                        .collect::<Vec<String>>().join(", "))?,
             IntendedRecipient(ref fp) =>
                 write!(output, "{}    Intended Recipient: {}", i, fp)?,
+            __Nonexhaustive => unreachable!(),
         }
 
         match s.value() {

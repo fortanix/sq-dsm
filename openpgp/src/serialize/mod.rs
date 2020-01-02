@@ -1079,6 +1079,7 @@ impl Serialize for SubpacketValue {
             }
             Unknown { body, .. } =>
                 o.write_all(body)?,
+            __Nonexhaustive => unreachable!(),
         }
         Ok(())
     }
@@ -1121,6 +1122,7 @@ impl SerializeInto for SubpacketValue {
                 _ => 0,
             },
             Unknown { body, .. } => body.len(),
+            __Nonexhaustive => unreachable!(),
         }
     }
 
