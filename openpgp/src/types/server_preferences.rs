@@ -45,7 +45,7 @@ impl KeyServerPreferences {
     }
 
     /// Returns a slice referencing the raw values.
-    pub(crate) fn as_vec(&self) -> Vec<u8> {
+    pub(crate) fn to_vec(&self) -> Vec<u8> {
         let mut ret = if self.unknown.is_empty() {
             vec![0]
         } else {

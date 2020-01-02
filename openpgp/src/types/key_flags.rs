@@ -65,8 +65,8 @@ impl Eq for KeyFlags {}
 
 impl PartialOrd for KeyFlags {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        let mut a_bits = self.as_vec();
-        let mut b_bits = other.as_vec();
+        let mut a_bits = self.to_vec();
+        let mut b_bits = other.to_vec();
         let len = cmp::max(a_bits.len(), b_bits.len());
 
         while a_bits.len() < len { a_bits.push(0); }
@@ -88,8 +88,8 @@ impl BitAnd for &KeyFlags {
     type Output = KeyFlags;
 
     fn bitand(self, rhs: Self) -> KeyFlags {
-        let l = self.as_vec();
-        let r = rhs.as_vec();
+        let l = self.to_vec();
+        let r = rhs.to_vec();
 
         let mut c = Vec::with_capacity(cmp::min(l.len(), r.len()));
         for (l, r) in l.into_iter().zip(r.into_iter()) {
@@ -104,8 +104,8 @@ impl BitOr for &KeyFlags {
     type Output = KeyFlags;
 
     fn bitor(self, rhs: Self) -> KeyFlags {
-        let l = self.as_vec();
-        let r = rhs.as_vec();
+        let l = self.to_vec();
+        let r = rhs.to_vec();
 
         // Make l the longer one.
         let (mut l, r) = if l.len() > r.len() {
@@ -168,7 +168,7 @@ impl KeyFlags {
     }
 
     /// Returns a slice referencing the raw values.
-    pub(crate) fn as_vec(&self) -> Vec<u8> {
+    pub(crate) fn to_vec(&self) -> Vec<u8> {
         let mut ret = if self.unknown.is_empty() {
             vec![0]
         } else {
@@ -263,7 +263,7 @@ impl KeyFlags {
 
     /// Returns whether no flags are set.
     pub fn is_empty(&self) -> bool {
-        self.as_vec().into_iter().all(|b| b == 0)
+        self.to_vec().into_iter().all(|b| b == 0)
     }
 }
 
