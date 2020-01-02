@@ -1,10 +1,13 @@
+use std::hash::{Hash, Hasher};
 use std::fmt;
 
 /// Describes preferences regarding key servers.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 pub struct KeyServerPreferences{
     no_modify: bool,
     unknown: Box<[u8]>,
+    /// Original length, including trailing zeros.
+    pad_to: usize,
 }
 
 impl Default for KeyServerPreferences {
@@ -23,9 +26,26 @@ impl fmt::Debug for KeyServerPreferences {
     }
 }
 
+impl PartialEq for KeyServerPreferences {
+    fn eq(&self, other: &Self) -> bool {
+        self.no_modify == other.no_modify
+    }
+}
+
+impl Eq for KeyServerPreferences {}
+
+impl Hash for KeyServerPreferences {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.no_modify.hash(state);
+    }
+}
+
 impl KeyServerPreferences {
     /// Creates a new instance from `bits`.
-    pub fn new(bits: &[u8]) -> Self {
+    pub fn new<B: AsRef<[u8]>>(bits: B) -> Self {
+        let bits = bits.as_ref();
+        let mut pad_to = 0;
+
         let no_mod = bits.get(0)
             .map(|x| x & KEYSERVER_PREFERENCE_NO_MODIFY != 0).unwrap_or(false);
         let unk = if bits.is_empty() {
@@ -35,12 +55,12 @@ impl KeyServerPreferences {
 
             cpy[0] &= KEYSERVER_PREFERENCE_NO_MODIFY ^ 0xff;
 
-            while cpy.last().cloned() == Some(0) { cpy.pop(); }
+            pad_to = crate::types::bitfield_remove_padding(&mut cpy);
             cpy.into_boxed_slice()
         };
 
         KeyServerPreferences{
-            no_modify: no_mod, unknown: unk
+            no_modify: no_mod, unknown: unk, pad_to,
         }
     }
 
@@ -53,6 +73,18 @@ impl KeyServerPreferences {
         };
 
         if self.no_modify { ret[0] |= KEYSERVER_PREFERENCE_NO_MODIFY; }
+
+        // Corner case: empty flag field.  We initialized ret to
+        // vec![0] for easy setting of flags.  See if any of the above
+        // was set.
+        if ret.len() == 1 && ret[0] == 0 {
+            // Nope.  Trim this byte.
+            ret.pop();
+        }
+
+        for _ in ret.len()..self.pad_to {
+            ret.push(0);
+        }
 
         ret
     }
@@ -72,3 +104,22 @@ impl KeyServerPreferences {
 /// The private component of this key may be in the possession of more
 /// than one person.
 const KEYSERVER_PREFERENCE_NO_MODIFY: u8 = 0x80;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    quickcheck! {
+        fn roundtrip(raw: Vec<u8>) -> bool {
+            let val = KeyServerPreferences::new(&raw);
+            assert_eq!(raw, val.to_vec());
+
+            // Check that equality ignores padding.
+            let mut val_without_padding = val.clone();
+            val_without_padding.pad_to = val.unknown.len();
+            assert_eq!(val, val_without_padding);
+
+            true
+        }
+    }
+}
