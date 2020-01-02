@@ -250,6 +250,7 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::Expired,
                 &openpgp::Error::NotYetLive(_) =>
                     Status::NotYetLive,
+                openpgp::Error::__Nonexhaustive => unreachable!(),
             }
         }
 

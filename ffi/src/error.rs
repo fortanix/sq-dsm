@@ -74,6 +74,7 @@ impl<'a> FromSequoiaError<'a> for Status {
                     Status::Expired,
                 &openpgp::Error::NotYetLive(_) =>
                     Status::NotYetLive,
+                openpgp::Error::__Nonexhaustive => unreachable!(),
             }
         }
 

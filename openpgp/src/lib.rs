@@ -167,6 +167,9 @@ pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
 #[derive(Fail, Debug, Clone)]
 /// Errors returned by this module.
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 pub enum Error {
     /// Invalid argument.
     #[fail(display = "Invalid argument: {}", _0)]
@@ -268,6 +271,10 @@ pub enum Error {
     /// Not yet live.
     #[fail(display = "Not live until {:?}", _0)]
     NotYetLive(std::time::SystemTime),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] #[fail(display = "__Nonexhaustive")] __Nonexhaustive,
 }
 
 /// The OpenPGP packets that Sequoia understands.
