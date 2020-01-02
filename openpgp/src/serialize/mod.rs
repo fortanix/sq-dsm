@@ -1133,12 +1133,14 @@ impl Serialize for Signature {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &Signature::V4(ref s) => s.serialize(o),
+            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &Signature::V4(ref s) => s.export(o),
+            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1147,24 +1149,28 @@ impl SerializeInto for Signature {
     fn serialized_len(&self) -> usize {
         match self {
             &Signature::V4(ref s) => s.serialized_len(),
+            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &Signature::V4(ref s) => s.serialize_into(buf),
+            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &Signature::V4(ref s) => s.export_into(buf),
+            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         match self {
             &Signature::V4(ref s) => s.export_to_vec(),
+            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1267,6 +1273,7 @@ impl Serialize for OnePassSig {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &OnePassSig::V3(ref s) => s.serialize(o),
+            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1275,12 +1282,14 @@ impl SerializeInto for OnePassSig {
     fn serialized_len(&self) -> usize {
         match self {
             &OnePassSig::V3(ref s) => s.serialized_len(),
+            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &OnePassSig::V3(ref s) => s.serialize_into(buf),
+            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1323,6 +1332,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Serialize for Key<P, R> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         match self {
             &Key::V4(ref p) => p.serialize(o),
+            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1331,6 +1341,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     fn net_len_key(&self, serialize_secrets: bool) -> usize {
         match self {
             &Key::V4(ref p) => p.net_len_key(serialize_secrets),
+            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1339,12 +1350,14 @@ impl<P: key::KeyParts, R: key::KeyRole> SerializeInto for Key<P, R> {
     fn serialized_len(&self) -> usize {
         match self {
             &Key::V4(ref p) => p.serialized_len(),
+            Key::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &Key::V4(ref p) => p.serialize_into(buf),
+            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1738,6 +1751,7 @@ impl Serialize for PKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &PKESK::V3(ref p) => p.serialize(o),
+            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1746,12 +1760,14 @@ impl SerializeInto for PKESK {
     fn serialized_len(&self) -> usize {
         match self {
             &PKESK::V3(ref p) => p.serialized_len(),
+            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &PKESK::V3(ref p) => generic_serialize_into(p, buf),
+            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1791,6 +1807,7 @@ impl Serialize for SKESK {
         match self {
             &SKESK::V4(ref s) => s.serialize(o),
             &SKESK::V5(ref s) => s.serialize(o),
+            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1800,6 +1817,7 @@ impl NetLength for SKESK {
         match self {
             &SKESK::V4(ref s) => s.net_len(),
             &SKESK::V5(ref s) => s.net_len(),
+            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1809,6 +1827,7 @@ impl SerializeInto for SKESK {
         match self {
             &SKESK::V4(ref s) => s.serialized_len(),
             &SKESK::V5(ref s) => s.serialized_len(),
+            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1816,6 +1835,7 @@ impl SerializeInto for SKESK {
         match self {
             &SKESK::V4(ref s) => generic_serialize_into(s, buf),
             &SKESK::V5(ref s) => generic_serialize_into(s, buf),
+            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1961,6 +1981,7 @@ impl Serialize for AED {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &AED::V1(ref p) => p.serialize(o),
+            AED::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1969,12 +1990,14 @@ impl SerializeInto for AED {
     fn serialized_len(&self) -> usize {
         match self {
             &AED::V1(ref p) => p.serialized_len(),
+            AED::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &AED::V1(ref p) => p.serialize_into(buf),
+            AED::__Nonexhaustive => unreachable!(),
         }
     }
 }

@@ -640,6 +640,9 @@ impl PacketDumper {
                         writeln!(output, "{}  Digest: {}", i,
                                  hex::encode(s.aead_digest()))?;
                     },
+
+                    self::openpgp::packet::SKESK::__Nonexhaustive =>
+                        unreachable!(),
                 }
             },
 

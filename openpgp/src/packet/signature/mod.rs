@@ -308,6 +308,7 @@ impl From<Signature> for Builder {
     fn from(sig: Signature) -> Self {
         match sig {
             Signature::V4(sig) => sig.into(),
+            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -322,6 +323,7 @@ impl<'a> From<&'a Signature> for &'a Builder {
     fn from(sig: &'a Signature) -> Self {
         match sig {
             Signature::V4(ref sig) => sig.into(),
+            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }

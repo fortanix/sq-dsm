@@ -660,6 +660,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
                                 }
                             }
                         },
+                        Signature::__Nonexhaustive => unreachable!(),
                     }
                 }
 
