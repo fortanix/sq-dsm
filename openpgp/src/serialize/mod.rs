@@ -2189,7 +2189,8 @@ impl SerializeInto for Packet {
 ///
 /// [`openpgp::Packet`]: ../enum.Packet.html
 /// [`packet::Signature`]: ../packet/enum.Signature.html
-pub enum PacketRef<'a> {
+#[allow(dead_code)]
+enum PacketRef<'a> {
     /// Unknown packet.
     Unknown(&'a packet::Unknown),
     /// Signature packet.
