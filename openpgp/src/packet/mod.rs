@@ -74,6 +74,7 @@ impl<'a> Deref for Packet {
             &Packet::SEIP(ref packet) => &packet.common,
             &Packet::MDC(ref packet) => &packet.common,
             &Packet::AED(AED::V1(ref packet)) => &packet.common,
+            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -101,6 +102,7 @@ impl<'a> DerefMut for Packet {
             &mut Packet::SEIP(ref mut packet) => &mut packet.common,
             &mut Packet::MDC(ref mut packet) => &mut packet.common,
             &mut Packet::AED(AED::V1(ref mut packet)) => &mut packet.common,
+            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }

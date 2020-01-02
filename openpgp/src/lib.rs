@@ -285,6 +285,9 @@ pub enum Error {
 /// than a `CompressedData` packet.
 ///
 ///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(Debug)]
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {
@@ -324,6 +327,10 @@ pub enum Packet {
     MDC(packet::MDC),
     /// AEAD Encrypted Data Packet.
     AED(packet::AED),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Packet {
@@ -353,6 +360,7 @@ impl Packet {
             &Packet::SEIP(_) => Tag::SEIP,
             &Packet::MDC(_) => Tag::MDC,
             &Packet::AED(_) => Tag::AED,
+            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -384,6 +392,7 @@ impl Packet {
             &Packet::SEIP(_) => Some(Tag::SEIP),
             &Packet::MDC(_) => Some(Tag::MDC),
             &Packet::AED(_) => Some(Tag::AED),
+            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }

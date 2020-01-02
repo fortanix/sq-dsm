@@ -2075,6 +2075,7 @@ impl Serialize for Packet {
             &Packet::SEIP(ref p) => p.serialize(o),
             &Packet::MDC(ref p) => p.serialize(o),
             &Packet::AED(ref p) => p.serialize(o),
+            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -2116,6 +2117,7 @@ impl Serialize for Packet {
             &Packet::SEIP(ref p) => p.export(o),
             &Packet::MDC(ref p) => p.export(o),
             &Packet::AED(ref p) => p.export(o),
+            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2141,6 +2143,7 @@ impl NetLength for Packet {
             &Packet::SEIP(ref p) => p.net_len(),
             &Packet::MDC(ref p) => p.net_len(),
             &Packet::AED(ref p) => p.net_len(),
+            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2166,6 +2169,7 @@ impl SerializeInto for Packet {
             &Packet::SEIP(ref p) => p.serialized_len(),
             &Packet::MDC(ref p) => p.serialized_len(),
             &Packet::AED(ref p) => p.serialized_len(),
+            Packet::__Nonexhaustive => unreachable!(),
         })
             + 1 // CTB.
             + BodyLength::Full(self.net_len() as u32).serialized_len()

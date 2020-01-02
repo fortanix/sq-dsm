@@ -3566,6 +3566,7 @@ impl <'a> PacketParser<'a> {
                 t!("A {:?} packet is not a container, not recursing.",
                    self.packet.tag());
             },
+            Packet::__Nonexhaustive => unreachable!(),
         }
 
         // No recursion.
