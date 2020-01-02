@@ -722,42 +722,42 @@ impl SubpacketValue {
     }
 
     /// Returns the subpacket tag for this value.
-    pub fn tag(&self) -> Result<SubpacketTag> {
+    pub fn tag(&self) -> SubpacketTag {
         use self::SubpacketValue::*;
         match &self {
-            SignatureCreationTime(_) => Ok(SubpacketTag::SignatureCreationTime),
+            SignatureCreationTime(_) => SubpacketTag::SignatureCreationTime,
             SignatureExpirationTime(_) =>
-                Ok(SubpacketTag::SignatureExpirationTime),
+                SubpacketTag::SignatureExpirationTime,
             ExportableCertification(_) =>
-                Ok(SubpacketTag::ExportableCertification),
-            TrustSignature { .. } => Ok(SubpacketTag::TrustSignature),
-            RegularExpression(_) => Ok(SubpacketTag::RegularExpression),
-            Revocable(_) => Ok(SubpacketTag::Revocable),
-            KeyExpirationTime(_) => Ok(SubpacketTag::KeyExpirationTime),
+                SubpacketTag::ExportableCertification,
+            TrustSignature { .. } => SubpacketTag::TrustSignature,
+            RegularExpression(_) => SubpacketTag::RegularExpression,
+            Revocable(_) => SubpacketTag::Revocable,
+            KeyExpirationTime(_) => SubpacketTag::KeyExpirationTime,
             PreferredSymmetricAlgorithms(_) =>
-                Ok(SubpacketTag::PreferredSymmetricAlgorithms),
-            RevocationKey { .. } => Ok(SubpacketTag::RevocationKey),
-            Issuer(_) => Ok(SubpacketTag::Issuer),
-            NotationData(_) => Ok(SubpacketTag::NotationData),
+                SubpacketTag::PreferredSymmetricAlgorithms,
+            RevocationKey { .. } => SubpacketTag::RevocationKey,
+            Issuer(_) => SubpacketTag::Issuer,
+            NotationData(_) => SubpacketTag::NotationData,
             PreferredHashAlgorithms(_) =>
-                Ok(SubpacketTag::PreferredHashAlgorithms),
+                SubpacketTag::PreferredHashAlgorithms,
             PreferredCompressionAlgorithms(_) =>
-                Ok(SubpacketTag::PreferredCompressionAlgorithms),
-            KeyServerPreferences(_) => Ok(SubpacketTag::KeyServerPreferences),
-            PreferredKeyServer(_) => Ok(SubpacketTag::PreferredKeyServer),
-            PrimaryUserID(_) => Ok(SubpacketTag::PrimaryUserID),
-            PolicyURI(_) => Ok(SubpacketTag::PolicyURI),
-            KeyFlags(_) => Ok(SubpacketTag::KeyFlags),
-            SignersUserID(_) => Ok(SubpacketTag::SignersUserID),
-            ReasonForRevocation { .. } => Ok(SubpacketTag::ReasonForRevocation),
-            Features(_) => Ok(SubpacketTag::Features),
-            SignatureTarget { .. } => Ok(SubpacketTag::SignatureTarget),
-            EmbeddedSignature(_) => Ok(SubpacketTag::EmbeddedSignature),
-            IssuerFingerprint(_) => Ok(SubpacketTag::IssuerFingerprint),
+                SubpacketTag::PreferredCompressionAlgorithms,
+            KeyServerPreferences(_) => SubpacketTag::KeyServerPreferences,
+            PreferredKeyServer(_) => SubpacketTag::PreferredKeyServer,
+            PrimaryUserID(_) => SubpacketTag::PrimaryUserID,
+            PolicyURI(_) => SubpacketTag::PolicyURI,
+            KeyFlags(_) => SubpacketTag::KeyFlags,
+            SignersUserID(_) => SubpacketTag::SignersUserID,
+            ReasonForRevocation { .. } => SubpacketTag::ReasonForRevocation,
+            Features(_) => SubpacketTag::Features,
+            SignatureTarget { .. } => SubpacketTag::SignatureTarget,
+            EmbeddedSignature(_) => SubpacketTag::EmbeddedSignature,
+            IssuerFingerprint(_) => SubpacketTag::IssuerFingerprint,
             PreferredAEADAlgorithms(_) =>
-                Ok(SubpacketTag::PreferredAEADAlgorithms),
-            IntendedRecipient(_) => Ok(SubpacketTag::IntendedRecipient),
-            Unknown { tag, .. } => Ok(*tag),
+                SubpacketTag::PreferredAEADAlgorithms,
+            IntendedRecipient(_) => SubpacketTag::IntendedRecipient,
+            Unknown { tag, .. } => *tag,
             __Nonexhaustive => unreachable!(),
         }
     }
@@ -804,7 +804,7 @@ impl Subpacket {
                -> Result<Subpacket> {
         Ok(Self::with_length_tag(
             SubpacketLength::from(1 /* Tag */ + value.len() as u32),
-            value.tag()?, value, critical))
+            value.tag(), value, critical))
     }
 
     /// Creates a new subpacket with the given length and tag.
