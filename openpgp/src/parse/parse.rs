@@ -1426,9 +1426,8 @@ impl Subpacket {
                         len, total_out - total_out_before)).into());
         }
 
-        Ok(Subpacket::with_length_tag(
+        Ok(Subpacket::with_length(
             length,
-            tag,
             value,
             critical,
         ))
