@@ -9,7 +9,7 @@ use self::openpgp::packet::prelude::*;
 use self::openpgp::packet::header::CTB;
 use self::openpgp::packet::{Header, header::BodyLength, Signature};
 use self::openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
-use self::openpgp::crypto::{SessionKey, s2k::S2K};
+use self::openpgp::crypto::{SessionKey, S2K};
 use self::openpgp::parse::{map::Map, Parse, PacketParserResult};
 
 #[derive(Debug)]

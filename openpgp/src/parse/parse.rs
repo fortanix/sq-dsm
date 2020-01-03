@@ -18,7 +18,7 @@ use crate::{
         BodyLength,
         ctb::PacketLengthType,
     },
-    crypto::s2k::S2K,
+    crypto::S2K,
     Error,
     packet::{
         Container,

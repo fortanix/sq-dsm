@@ -11,7 +11,7 @@ use quickcheck::{Arbitrary, Gen};
 
 use crate::Result;
 use crate::crypto;
-use crate::crypto::s2k::S2K;
+use crate::crypto::S2K;
 use crate::Error;
 use crate::types::{
     AEADAlgorithm,

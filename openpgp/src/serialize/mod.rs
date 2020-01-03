@@ -26,7 +26,7 @@ pub mod writer;
 pub mod stream;
 #[cfg(feature = "compression-deflate")]
 pub mod padding;
-use crate::crypto::s2k::S2K;
+use crate::crypto::S2K;
 use crate::packet::header::{
     BodyLength,
     CTB,

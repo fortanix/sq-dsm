@@ -450,7 +450,7 @@ mod tests {
     use crate::SymmetricAlgorithm;
     use crate::PublicKeyAlgorithm;
     use crate::SignatureType;
-    use crate::crypto::s2k::S2K;
+    use crate::crypto::S2K;
     use crate::crypto::mpis::{Ciphertext, MPI};
     use crate::packet::prelude::*;
     use crate::KeyID;

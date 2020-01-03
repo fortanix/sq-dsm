@@ -64,7 +64,7 @@ use crate::PublicKeyAlgorithm;
 use crate::SymmetricAlgorithm;
 use crate::HashAlgorithm;
 use crate::types::{Curve, Timestamp};
-use crate::crypto::s2k::S2K;
+use crate::crypto::S2K;
 use crate::Result;
 use crate::crypto::Password;
 use crate::KeyID;
