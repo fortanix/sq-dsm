@@ -109,7 +109,7 @@ impl<'a> DerefMut for Packet {
 }
 
 /// Fields used by multiple packet types.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Clone)]
 pub struct Common {
 }
 
