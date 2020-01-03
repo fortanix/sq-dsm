@@ -1693,14 +1693,14 @@ impl Serialize for CompressedData {
         if TRACE {
             eprintln!("CompressedData::serialize(\
                        algo: {}, {:?} children, {:?} bytes)",
-                      self.algorithm(),
+                      self.algo(),
                       self.children().count(),
                       self.body().len());
         }
 
         let o = stream::Message::new(o);
         let mut o = stream::Compressor::new_naked(
-            o, self.algorithm(), Default::default(), 0)?;
+            o, self.algo(), Default::default(), 0)?;
 
         // Serialize the packets.
         for p in self.children() {

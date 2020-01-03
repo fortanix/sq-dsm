@@ -49,12 +49,12 @@ impl CompressedData {
     }
 
     /// Gets the compression algorithm.
-    pub fn algorithm(&self) -> CompressionAlgorithm {
+    pub fn algo(&self) -> CompressionAlgorithm {
         self.algo
     }
 
     /// Sets the compression algorithm.
-    pub fn set_algorithm(&mut self, algo: CompressionAlgorithm) -> CompressionAlgorithm {
+    pub fn set_algo(&mut self, algo: CompressionAlgorithm) -> CompressionAlgorithm {
         ::std::mem::replace(&mut self.algo, algo)
     }
 

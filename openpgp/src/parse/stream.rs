@@ -597,7 +597,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
             match pp.packet {
                 Packet::CompressedData(ref p) =>
-                    v.structure.new_compression_layer(p.algorithm()),
+                    v.structure.new_compression_layer(p.algo()),
                 Packet::OnePassSig(ref ops) => {
                     v.structure.push_ops(ops);
                     issuers.push(ops.issuer().clone().into());
@@ -1392,7 +1392,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
             match pp.packet {
                 Packet::CompressedData(ref p) =>
-                    v.structure.new_compression_layer(p.algorithm()),
+                    v.structure.new_compression_layer(p.algo()),
                 Packet::SEIP(_) | Packet::AED(_) => {
                     saw_content = true;
 

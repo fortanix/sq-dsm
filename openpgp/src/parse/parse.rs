@@ -2189,7 +2189,7 @@ fn compressed_data_parser_test () {
         // We expect a compressed packet containing a literal data
         // packet, and that is it.
         if let Packet::CompressedData(ref compressed) = pp.packet {
-            assert_eq!(compressed.algorithm(), i.into());
+            assert_eq!(compressed.algo(), i.into());
         } else {
             panic!("Wrong packet!");
         }

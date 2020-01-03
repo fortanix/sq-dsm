@@ -566,7 +566,7 @@ impl PacketDumper {
             },
 
             CompressedData(ref c) => {
-                writeln!(output, "{}  Algorithm: {}", i, c.algorithm())?;
+                writeln!(output, "{}  Algorithm: {}", i, c.algo())?;
             },
 
             PKESK(ref p) => {
