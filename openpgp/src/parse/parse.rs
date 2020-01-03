@@ -256,7 +256,7 @@ impl<'a> PacketHeaderParser<'a> {
         PacketHeaderParser {
             reader: buffered_reader::Dup::with_cookie(inner, cookie),
             header: header,
-            header_bytes: header_bytes.clone(),
+            header_bytes: header_bytes,
             path: path,
             state: state,
             map: map,
