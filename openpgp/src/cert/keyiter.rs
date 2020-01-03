@@ -15,7 +15,7 @@ use crate::{
 /// An iterator over all `Key`s (both the primary key and any subkeys)
 /// in a Cert.
 ///
-/// Returned by `Cert::keys_all()` and `Cert::keys_valid()`.
+/// Returned by `Cert::keys()`.
 ///
 /// `KeyIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
