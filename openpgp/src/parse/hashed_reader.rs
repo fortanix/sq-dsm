@@ -40,7 +40,7 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
         let mut cookie = Cookie::default();
         for &algo in &algos {
             cookie.sig_group_mut().hashes
-                .push((algo, algo.context().unwrap()));
+                .push(algo.context().unwrap());
         }
         cookie.hashes_for = hashes_for;
 
@@ -69,11 +69,10 @@ impl Cookie {
             // We fix that here by hashing the stashed data into the
             // former topmost signature-group's hash.
             assert!(ngroups > 1);
-            for (algo, ref mut h) in
-                self.sig_groups[ngroups-2].hashes.iter_mut()
+            for h in self.sig_groups[ngroups-2].hashes.iter_mut()
             {
                 t!("({:?}): group {} {:?} hashing {} stashed bytes.",
-                   hashes_for, ngroups-2, algo, data.len());
+                   hashes_for, ngroups-2, h.algo(), data.len());
 
                 h.update(&stashed_data);
             }
@@ -101,9 +100,9 @@ impl Cookie {
                 return;
             }
 
-            for (algo, ref mut h) in sig_group.hashes.iter_mut() {
+            for h in sig_group.hashes.iter_mut() {
                 t!("{:?}): group {} {:?} hashing {} bytes.",
-                   hashes_for, i, algo, data.len());
+                   hashes_for, i, h.algo(), data.len());
                 h.update(data);
             }
         }
@@ -275,12 +274,13 @@ mod test {
 
             let mut hashes = mem::replace(&mut cookie.sig_group_mut().hashes,
                                           Default::default());
-            for (algo, ref mut hash) in hashes.iter_mut() {
+            for hash in hashes.iter_mut() {
+                let algo = hash.algo();
                 let mut digest = vec![0u8; hash.digest_size()];
                 hash.digest(&mut digest);
 
                 assert_eq!(digest,
-                           &crate::fmt::from_hex(test.expected.get(algo)
+                           &crate::fmt::from_hex(test.expected.get(&algo)
                                                     .unwrap(), true)
                            .unwrap()[..],
                            "Algo: {:?}", algo);

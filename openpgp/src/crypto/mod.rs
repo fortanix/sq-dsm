@@ -191,7 +191,6 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
     let hashes =
         mem::replace(&mut reader.cookie_mut().sig_group_mut().hashes,
                      Default::default());
-    let hashes = hashes.into_iter().map(|(_, ctx)| ctx).collect();
     Ok(hashes)
 }
 
