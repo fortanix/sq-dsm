@@ -31,7 +31,7 @@ impl Hash for Protected {
 
 impl Protected {
     /// Converts to a buffer for modification.
-    pub unsafe fn into_vec(self) -> Vec<u8> {
+    pub(crate) unsafe fn into_vec(self) -> Vec<u8> {
         self.iter().cloned().collect()
     }
 }

@@ -47,11 +47,6 @@ impl SessionKey {
         random(&mut sk);
         Self(sk)
     }
-
-    /// Converts to a buffer for modification.
-    pub unsafe fn into_vec(self) -> Vec<u8> {
-        self.0.into_vec()
-    }
 }
 
 impl Deref for SessionKey {
