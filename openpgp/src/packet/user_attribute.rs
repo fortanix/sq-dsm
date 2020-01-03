@@ -6,6 +6,7 @@
 
 use std::fmt;
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher};
 
 use quickcheck::{Arbitrary, Gen};
 use rand::Rng;
@@ -27,7 +28,7 @@ use crate::serialize::SerializeInto;
 /// See [Section 5.12 of RFC 4880] for details.
 ///
 ///   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
-#[derive(Hash, Clone)]
+#[derive(Clone)]
 pub struct UserAttribute {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -59,7 +60,12 @@ impl PartialEq for UserAttribute {
     }
 }
 
-impl Eq for UserAttribute {
+impl Eq for UserAttribute {}
+
+impl Hash for UserAttribute {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
 }
 
 impl PartialOrd for UserAttribute {

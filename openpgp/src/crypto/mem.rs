@@ -2,6 +2,7 @@
 
 use std::cmp::{min, Ordering};
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 
@@ -11,12 +12,20 @@ use memsec;
 ///
 /// The memory is guaranteed not to be copied around, and is cleared
 /// when the object is dropped.
-#[derive(Clone, Eq, Hash)]
+#[derive(Clone)]
 pub struct Protected(Pin<Box<[u8]>>);
 
 impl PartialEq for Protected {
     fn eq(&self, other: &Self) -> bool {
         secure_cmp(&self.0, &other.0) == Ordering::Equal
+    }
+}
+
+impl Eq for Protected {}
+
+impl Hash for Protected {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }
 

@@ -1171,7 +1171,7 @@ impl SecretKeyMaterial {
 /// demand.  See [`crypto::mem::Encrypted`] for details.
 ///
 ///  [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
-#[derive(Eq, Hash, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Unencrypted {
     /// MPIs of the secret key.
     mpis: mem::Encrypted,
@@ -1180,6 +1180,14 @@ pub struct Unencrypted {
 impl PartialEq for Unencrypted {
     fn eq(&self, other: &Self) -> bool {
         self.map(|a| other.map(|b| a == b))
+    }
+}
+
+impl Eq for Unencrypted {}
+
+impl std::hash::Hash for Unencrypted {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.map(|k| std::hash::Hash::hash(k, state));
     }
 }
 

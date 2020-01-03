@@ -20,7 +20,7 @@ use crate::Error;
 use crate::Result;
 
 /// Holds a single MPI.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct MPI {
     /// Integer value as big-endian.
     value: Box<[u8]>,
@@ -216,10 +216,16 @@ impl PartialEq for MPI {
 
 impl Eq for MPI {}
 
+impl std::hash::Hash for MPI {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
+}
+
 /// Holds a single MPI containing secrets.
 ///
 /// The memory will be cleared when the object is dropped.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct ProtectedMPI {
     /// Integer value as big-endian.
     value: Protected,
@@ -242,6 +248,12 @@ impl From<MPI> for ProtectedMPI {
         ProtectedMPI {
             value: m.value.into(),
         }
+    }
+}
+
+impl std::hash::Hash for ProtectedMPI {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
     }
 }
 
@@ -481,6 +493,8 @@ impl Arbitrary for PublicKey {
 ///
 /// Provides a typed and structured way of storing multiple MPIs in
 /// packets.
+// Deriving Hash here is okay: PartialEq is manually implemented to
+// ensure that secrets are compared in constant-time.
 #[derive(Clone, Hash)]
 pub enum SecretKeyMaterial {
     /// RSA secret key.

@@ -5,6 +5,7 @@
 //!   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
 
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -23,7 +24,7 @@ use crate::serialize::SerializeInto;
 /// See [Section 5.4 of RFC 4880] for details.
 ///
 ///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
-#[derive(Eq, Hash, Clone)]
+#[derive(Clone)]
 pub struct OnePassSig3 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -62,6 +63,18 @@ impl PartialEq for OnePassSig3 {
         } else {
             false
         }
+    }
+}
+
+impl Eq for OnePassSig3 {}
+
+impl Hash for OnePassSig3 {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.typ.hash(state);
+        self.hash_algo.hash(state);
+        self.pk_algo.hash(state);
+        self.issuer.hash(state);
+        self.last.hash(state);
     }
 }
 
