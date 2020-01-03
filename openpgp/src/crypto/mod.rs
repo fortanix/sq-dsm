@@ -169,7 +169,7 @@ impl Password {
 ///
 /// This is useful when verifying detached signatures.
 pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
-    -> Result<Vec<(HashAlgorithm, hash::Context)>>
+    -> Result<Vec<hash::Context>>
 {
     use std::mem;
 
@@ -188,10 +188,10 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
     // Hash all of the data.
     reader.drop_eof()?;
 
-    let mut hashes =
+    let hashes =
         mem::replace(&mut reader.cookie_mut().sig_group_mut().hashes,
                      Default::default());
-    let hashes = hashes.drain(..).collect();
+    let hashes = hashes.into_iter().map(|(_, ctx)| ctx).collect();
     Ok(hashes)
 }
 
@@ -210,7 +210,8 @@ fn hash_file_test() {
                   &expected.keys().cloned().collect::<Vec<HashAlgorithm>>())
         .unwrap();
 
-    for (algo, mut hash) in result.into_iter() {
+    for mut hash in result.into_iter() {
+        let algo = hash.algo();
         let mut digest = vec![0u8; hash.digest_size()];
         hash.digest(&mut digest);
 

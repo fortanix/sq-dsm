@@ -150,7 +150,7 @@ fn real_main() -> Result<(), failure::Error> {
         = sigs.iter().map(|&(ref sig, _)| sig.hash_algo()).collect();
     let hashes: HashMap<_, _> =
         openpgp::crypto::hash_file(File::open(file)?, &hash_algos[..])?
-        .into_iter().collect();
+        .into_iter().map(|ctx| (ctx.algo(), ctx)).collect();
 
     fn cert_has_key(cert: &Cert, keyid: &KeyID) -> bool {
         // Even if a key is revoked or expired, we can still use it to
