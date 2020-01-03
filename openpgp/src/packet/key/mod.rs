@@ -550,7 +550,7 @@ create_conversions!(KeyBinding);
 /// See [Section 5.5 of RFC 4880] for details.
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(Clone)]
 pub struct Key4<P, R>
     where P: KeyParts, R: KeyRole
 {
@@ -569,6 +569,25 @@ pub struct Key4<P, R>
     r: std::marker::PhantomData<R>,
 }
 
+impl<P: KeyParts, R: KeyRole> PartialEq for Key4<P, R> {
+    fn eq(&self, other: &Key4<P, R>) -> bool {
+        self.creation_time == other.creation_time
+            && self.pk_algo == other.pk_algo
+            && self.mpis == other.mpis
+            && self.secret == other.secret
+    }
+}
+
+impl<P: KeyParts, R: KeyRole> Eq for Key4<P, R> {}
+
+impl<P: KeyParts, R: KeyRole> std::hash::Hash for Key4<P, R> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.creation_time, state);
+        std::hash::Hash::hash(&self.pk_algo, state);
+        std::hash::Hash::hash(&self.mpis, state);
+        std::hash::Hash::hash(&self.secret, state);
+    }
+}
 
 impl<P, R> fmt::Debug for Key4<P, R>
     where P: key::KeyParts,
@@ -1365,7 +1384,6 @@ mod tests {
             if let Some(Packet::SecretKey(Key::V4(ref parsed_key))) =
                 pp.path_ref(&[0])
             {
-                assert_eq!(key.common, parsed_key.common);
                 assert_eq!(key.creation_time, parsed_key.creation_time);
                 assert_eq!(key.pk_algo, parsed_key.pk_algo);
                 assert_eq!(key.mpis, parsed_key.mpis);

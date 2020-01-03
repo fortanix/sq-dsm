@@ -528,7 +528,6 @@ impl Ord for UserID {
 impl Hash for UserID {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // We hash only the data; the cache does not implement hash.
-        self.common.hash(state);
         self.value.hash(state);
     }
 }

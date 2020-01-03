@@ -8,7 +8,7 @@ use crate::Packet;
 /// SEIP packet.  See [Section 5.14 of RFC 4880] for details.
 ///
 /// [Section 5.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.14
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct MDC {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -16,6 +16,20 @@ pub struct MDC {
     computed_digest: [u8; 20],
     /// A 20-octet SHA-1 hash of the preceding plaintext data.
     digest: [u8; 20],
+}
+
+impl PartialEq for MDC {
+    fn eq(&self, other: &MDC) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl Eq for MDC {}
+
+impl std::hash::Hash for MDC {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.digest, state);
+    }
 }
 
 impl MDC {

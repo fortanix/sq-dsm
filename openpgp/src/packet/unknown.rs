@@ -31,8 +31,7 @@ pub struct Unknown {
 
 impl PartialEq for Unknown {
     fn eq(&self, other: &Unknown) -> bool {
-        self.common == other.common
-            && self.tag == other.tag
+        self.tag == other.tag
             && self.container == other.container
     }
 }
@@ -41,7 +40,6 @@ impl Eq for Unknown { }
 
 impl Hash for Unknown {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.common.hash(state);
         self.tag.hash(state);
         self.container.hash(state);
     }

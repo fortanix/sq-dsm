@@ -14,7 +14,7 @@ use crate::types::CompressionAlgorithm;
 /// of a `CompressedData` packet.
 ///
 /// [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(Clone)]
 pub struct CompressedData {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -23,6 +23,22 @@ pub struct CompressedData {
 
     /// This is a container packet.
     container: packet::Container,
+}
+
+impl PartialEq for CompressedData {
+    fn eq(&self, other: &CompressedData) -> bool {
+        self.algo == other.algo
+            && self.container == other.container
+    }
+}
+
+impl Eq for CompressedData {}
+
+impl std::hash::Hash for CompressedData {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.algo, state);
+        std::hash::Hash::hash(&self.container, state);
+    }
 }
 
 impl fmt::Debug for CompressedData {

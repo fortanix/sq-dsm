@@ -14,13 +14,27 @@ use crate::Packet;
 /// 4880] for details.
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct SEIP1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
 
     /// This is a container packet.
     container: packet::Container,
+}
+
+impl PartialEq for SEIP1 {
+    fn eq(&self, other: &SEIP1) -> bool {
+        self.container == other.container
+    }
+}
+
+impl Eq for SEIP1 {}
+
+impl std::hash::Hash for SEIP1 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.container, state);
+    }
 }
 
 impl SEIP1 {

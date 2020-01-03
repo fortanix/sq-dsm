@@ -15,7 +15,7 @@ use crate::Result;
 /// of RFC 4880bis] for details.
 ///
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct AED1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -30,6 +30,28 @@ pub struct AED1 {
 
     /// This is a container packet.
     container: packet::Container,
+}
+
+impl PartialEq for AED1 {
+    fn eq(&self, other: &AED1) -> bool {
+        self.sym_algo == other.sym_algo
+            && self.aead == other.aead
+            && self.chunk_size == other.chunk_size
+            && self.iv == other.iv
+            && self.container == other.container
+    }
+}
+
+impl Eq for AED1 {}
+
+impl std::hash::Hash for AED1 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.sym_algo, state);
+        std::hash::Hash::hash(&self.aead, state);
+        std::hash::Hash::hash(&self.chunk_size, state);
+        std::hash::Hash::hash(&self.iv, state);
+        std::hash::Hash::hash(&self.container, state);
+    }
 }
 
 impl AED1 {

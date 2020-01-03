@@ -344,7 +344,7 @@ impl<'a> From<&'a Signature4> for &'a Builder {
 ///
 ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
 // Note: we can't derive PartialEq, because it includes the cached data.
-#[derive(Eq, Clone)]
+#[derive(Clone)]
 pub struct Signature4 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -424,6 +424,8 @@ impl PartialEq for Signature4 {
             && self.fields.hashed_area() == other.fields.hashed_area()
     }
 }
+
+impl Eq for Signature4 {}
 
 impl std::hash::Hash for Signature4 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
