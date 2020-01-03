@@ -1171,24 +1171,10 @@ impl SecretKeyMaterial {
 /// demand.  See [`crypto::mem::Encrypted`] for details.
 ///
 ///  [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Unencrypted {
     /// MPIs of the secret key.
     mpis: mem::Encrypted,
-}
-
-impl PartialEq for Unencrypted {
-    fn eq(&self, other: &Self) -> bool {
-        self.map(|a| other.map(|b| a == b))
-    }
-}
-
-impl Eq for Unencrypted {}
-
-impl std::hash::Hash for Unencrypted {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.map(|k| std::hash::Hash::hash(k, state));
-    }
 }
 
 impl From<mpis::SecretKeyMaterial> for Unencrypted {
