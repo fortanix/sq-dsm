@@ -165,10 +165,13 @@ impl Password {
 }
 
 
-/// Hash the specified file.
+/// Hashes the given reader.
 ///
-/// This is useful when verifying detached signatures.
-pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
+/// This can be used to verify detached signatures.  For a more
+/// convenient method, see [`DetachedVerifier`].
+///
+///  [`DetachedVerifier`]: ../parse/stream/struct.DetachedVerifier.html
+pub fn hash_reader<R: Read>(reader: R, algos: &[HashAlgorithm])
     -> Result<Vec<hash::Context>>
 {
     use std::mem;
@@ -196,7 +199,7 @@ pub fn hash_file<R: Read>(reader: R, algos: &[HashAlgorithm])
 
 
 #[test]
-fn hash_file_test() {
+fn hash_reader_test() {
     use std::collections::HashMap;
 
     let expected: HashMap<HashAlgorithm, &str> = [
@@ -205,8 +208,8 @@ fn hash_file_test() {
     ].iter().cloned().collect();
 
     let result =
-        hash_file(::std::io::Cursor::new(crate::tests::manifesto()),
-                  &expected.keys().cloned().collect::<Vec<HashAlgorithm>>())
+        hash_reader(std::io::Cursor::new(crate::tests::manifesto()),
+                    &expected.keys().cloned().collect::<Vec<HashAlgorithm>>())
         .unwrap();
 
     for mut hash in result.into_iter() {

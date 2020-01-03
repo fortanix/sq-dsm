@@ -149,7 +149,7 @@ fn real_main() -> Result<(), failure::Error> {
     let hash_algos : Vec<HashAlgorithm>
         = sigs.iter().map(|&(ref sig, _)| sig.hash_algo()).collect();
     let hashes: HashMap<_, _> =
-        openpgp::crypto::hash_file(File::open(file)?, &hash_algos[..])?
+        openpgp::crypto::hash_reader(File::open(file)?, &hash_algos[..])?
         .into_iter().map(|ctx| (ctx.algo(), ctx)).collect();
 
     fn cert_has_key(cert: &Cert, keyid: &KeyID) -> bool {
