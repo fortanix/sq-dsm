@@ -112,8 +112,8 @@ pub fn encrypt(mapping: &mut store::Mapping,
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();
     for cert in certs.iter() {
         let mut count = 0;
-        for key in cert.keys().alive().revoked(false).
-            key_flags(mode.clone()).map(|ka| ka.key())
+        for key in cert.keys().alive().revoked(false)
+            .key_flags(&mode).map(|ka| ka.key())
         {
             recipient_subkeys.push(key.into());
             count += 1;

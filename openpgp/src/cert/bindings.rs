@@ -37,7 +37,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// // Let's add an encryption subkey.
     /// let flags = KeyFlags::default().set_storage_encryption(true);
     /// assert_eq!(cert.keys().alive().revoked(false)
-    ///                .key_flags(flags.clone()).count(),
+    ///                .key_flags(&flags).count(),
     ///            0);
     ///
     /// // Generate a subkey and a binding signature.

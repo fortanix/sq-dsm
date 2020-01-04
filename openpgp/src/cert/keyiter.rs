@@ -1,5 +1,6 @@
 use std::fmt;
 use std::convert::TryInto;
+use std::borrow::Borrow;
 
 use crate::{
     RevocationStatus,
@@ -254,11 +255,14 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// [`Iterator::filter`].
     ///
     ///   [`Iterator::filter`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.filter
-    pub fn key_flags(mut self, flags: KeyFlags) -> Self {
+    pub fn key_flags<F>(mut self, flags: F) -> Self
+        where F: Borrow<KeyFlags>
+    {
+        let flags = flags.borrow();
         if let Some(flags_old) = self.flags {
-            self.flags = Some(&flags | &flags_old);
+            self.flags = Some(flags | &flags_old);
         } else {
-            self.flags = Some(flags);
+            self.flags = Some(flags.clone());
         }
         self
     }
