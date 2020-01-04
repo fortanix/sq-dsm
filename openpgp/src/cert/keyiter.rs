@@ -324,14 +324,56 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
 
     /// If not None, filters by whether a key is definitely revoked.
     ///
-    /// That is, whether it's revocation status is
-    /// `RevocationStatus::Revoked`.
+    /// A value of None disables this filter.
     ///
-    /// A value of None disables this filter, which is set by default
-    /// to not return revoked keys.
+    /// Note: If you call this function multiple times on the same
+    /// iterator, only the last value is used.
     ///
-    /// If you call this function multiple times, only the last value
-    /// is used.
+    /// This filter checks whether a key's revocation status is
+    /// `RevocationStatus::Revoked` or not.  The latter (i.e.,
+    /// `revoked(false)`) is equivalent to:
+    ///
+    /// ```rust
+    /// extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// # use openpgp::cert::CertBuilder;
+    /// use openpgp::RevocationStatus;
+    ///
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// let non_revoked_keys = cert
+    ///     .keys()
+    ///     .filter(|ka| {
+    ///         match ka.revoked(None) {
+    ///             RevocationStatus::Revoked(_) =>
+    ///                 // It's definitely revoked, skip it.
+    ///                 false,
+    ///             RevocationStatus::CouldBe(_) =>
+    ///                 // There is a designated revoker that we
+    ///                 // should check, but don't (or can't).  To
+    ///                 // avoid a denial of service arising from fake
+    ///                 // revocations, we assume that the key has not
+    ///                 // been revoked and return it.
+    ///                 true,
+    ///             RevocationStatus::NotAsFarAsWeKnow =>
+    ///                 // We have no evidence to suggest that the key
+    ///                 // is revoked.
+    ///                 true,
+    ///         }
+    ///     })
+    ///     .map(|ka| ka.key())
+    ///     .collect::<Vec<_>>();
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// As the example shows, this filter is significantly less
+    /// flexible than using `KeyAmalgamation::revoked`.  However, this
+    /// filter implements a typical policy, and does not preclude
+    /// using `filter` to realize alternative policies.
     pub fn revoked<T>(mut self, revoked: T) -> Self
         where T: Into<Option<bool>>
     {
