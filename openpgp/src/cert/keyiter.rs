@@ -12,18 +12,21 @@ use crate::{
     cert::KeyAmalgamation,
 };
 
-/// An iterator over all `Key`s (both the primary key and any subkeys)
-/// in a Cert.
+/// An iterator over all `Key`s (both the primary key and the subkeys)
+/// in a certificate.
 ///
 /// Returned by `Cert::keys()`.
 ///
 /// `KeyIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
-/// `Iterator` interface.
+/// `Iterator` trait.
 ///
-/// By default, `KeyIter` will only return live, non-revoked keys.  It
-/// is possible to control how `KeyIter` filters using, for instance,
-/// `KeyIter::flags` to only return keys with particular flags set.
+/// By default, `KeyIter` returns all keys.  `KeyIter` provides some
+/// filters to control what it returns.  For instance,
+/// `KeyIter::secret` causes the iterator to only returns keys that
+/// include secret key material.  Of course, since `KeyIter`
+/// implements `Iterator`, it is possible to use `Iterator::filter` to
+/// implement custom filters.
 pub struct KeyIter<'a, P: key::KeyParts, R: key::KeyRole> {
     // This is an option to make it easier to create an empty KeyIter.
     cert: Option<&'a Cert>,
@@ -218,7 +221,7 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
 
 impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
 {
-    /// Returns a new `KeyIter` instance with no filters enabled.
+    /// Returns a new `KeyIter` instance.
     pub(crate) fn new(cert: &'a Cert) -> Self where Self: 'a {
         KeyIter {
             cert: Some(cert),
@@ -240,15 +243,15 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// Returns keys that have the at least one of the flags specified
     /// in `flags`.
     ///
-    /// If you call this function (or one of `for_certification`
-    /// or `for_signing` functions) multiple times, the *union* of
-    /// the values is used.  Thus,
-    /// `cert.flags().for_certification().for_signing()` will
-    /// return keys that are certification capable or signing capable.
+    /// If you call this function (or one of `for_certification` or
+    /// `for_signing` functions) multiple times, the *union* of the
+    /// values is used.  Thus,
+    /// `cert.flags().for_certification().for_signing()` will return
+    /// keys that are certification capable *or* signing capable.
     ///
     /// If you need more complex filtering, e.g., you want a key that
-    /// is both certification and signing capable, then just use a
-    /// normal [`Iterator::filter`].
+    /// is both certification and signing capable, then use
+    /// [`Iterator::filter`].
     ///
     ///   [`Iterator::filter`]: https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.filter
     pub fn key_flags(mut self, flags: KeyFlags) -> Self {
@@ -297,11 +300,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
 
     /// Only returns keys that are live as of `now`.
     ///
-    /// If `now` is none, then all keys are returned whether they are
-    /// live or not.
-    ///
-    /// A value of None disables this filter, which is set by default
-    /// to only return live keys at the current time.
+    /// A value of None disables this filter.
     ///
     /// If you call this function (or `alive`) multiple times, only
     /// the last value is used.
@@ -312,7 +311,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
         self
     }
 
-    /// Only returns keys that are live right now.
+    /// Only returns keys that are alive right now.
     ///
     /// If you call this function (or `alive_at`) multiple times, only
     /// the last value is used.
@@ -322,7 +321,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
         self
     }
 
-    /// If not None, filters by whether a key is definitely revoked.
+    /// Filters by whether a key is definitely revoked.
     ///
     /// A value of None disables this filter.
     ///
