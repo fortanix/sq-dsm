@@ -74,15 +74,11 @@ impl<'a> Helper<'a> {
         // Map (sub)KeyIDs to secrets.
         let mut keys = HashMap::new();
         for cert in certs {
-            for ka in cert.keys().policy(None) {
-                if ka.binding_signature(None)
-                    .map(|s| (s.key_flags().for_storage_encryption()
-                              || s.key_flags().for_transport_encryption()))
-                    .unwrap_or(false)
-                {
-                    let key = ka.key();
-                    keys.insert(key.keyid(), key.clone().into());
-                }
+            for ka in cert.keys().policy(None)
+                .for_storage_encryption().for_transport_encryption()
+            {
+                let key = ka.key();
+                keys.insert(key.keyid(), key.clone().into());
             }
         }
 
