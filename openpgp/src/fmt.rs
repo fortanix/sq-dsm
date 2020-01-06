@@ -74,12 +74,15 @@ pub mod hex {
         /// Writes a chunk of data.
         ///
         /// The `msg` is printed at the end of the first line.
-        pub fn write(&mut self, buf: &[u8], msg: &str) -> io::Result<()> {
+        pub fn write<B, M>(&mut self, buf: B, msg: M) -> io::Result<()>
+            where B: AsRef<[u8]>,
+                  M: AsRef<str>,
+        {
             let mut first = true;
-            self.write_labeled(buf, move |_, _| {
+            self.write_labeled(buf.as_ref(), move |_, _| {
                 if first {
                     first = false;
-                    Some(msg.into())
+                    Some(msg.as_ref().into())
                 } else {
                     None
                 }
@@ -92,10 +95,12 @@ pub mod hex {
         /// label that printed at the end of the first line.  The
         /// functions first argument is the offset in the current line
         /// (0..16), the second the slice of the displayed data.
-        pub fn write_labeled<L>(&mut self, buf: &[u8], mut labeler: L)
+        pub fn write_labeled<B, L>(&mut self, buf: B, mut labeler: L)
                                 -> io::Result<()>
-            where L: FnMut(usize, &[u8]) -> Option<String>
+            where B: AsRef<[u8]>,
+                  L: FnMut(usize, &[u8]) -> Option<String>,
         {
+            let buf = buf.as_ref();
             let mut first_label_offset = self.offset % 16;
 
             write!(self.inner, "{}{:08x} ", self.indent, self.offset)?;
