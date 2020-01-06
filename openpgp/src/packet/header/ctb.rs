@@ -58,7 +58,7 @@ impl CTBNew {
 /// See [Section 4.2.1 of RFC 4880] for more details.
 ///
 ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
-///   [old CTB]: ./CTBOld.t.html
+///   [old CTB]: struct.CTBOld.html
 #[derive(Debug)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PacketLengthType {
