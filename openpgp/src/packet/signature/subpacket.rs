@@ -2058,19 +2058,21 @@ impl signature::Builder {
     ///
     /// Any existing Notation Data subpacket with the given name are
     /// replaced.
-    pub fn set_notation<F>(mut self, name: &str, value: &[u8], flags: F,
-                           critical: bool)
-                           -> Result<Self>
-        where F: Into<Option<NotationDataFlags>>
+    pub fn set_notation<N, V, F>(mut self, name: N, value: V, flags: F,
+                                 critical: bool)
+                                 -> Result<Self>
+        where N: AsRef<str>,
+              V: AsRef<[u8]>,
+              F: Into<Option<NotationDataFlags>>,
     {
         self.hashed_area.packets.retain(|s| {
             match s.value {
                 SubpacketValue::NotationData(ref v)
-                    if v.name == name => false,
+                    if v.name == name.as_ref() => false,
                 _ => true,
             }
         });
-        self.add_notation(name, value,
+        self.add_notation(name.as_ref(), value.as_ref(),
                           flags.into().unwrap_or_default(),
                           critical)
     }
@@ -2080,13 +2082,15 @@ impl signature::Builder {
     ///
     /// Any existing Notation Data subpacket with the given name are
     /// kept.
-    pub fn add_notation<F>(mut self, name: &str, value: &[u8], flags: F,
+    pub fn add_notation<N, V, F>(mut self, name: N, value: V, flags: F,
                            critical: bool)
                            -> Result<Self>
-        where F: Into<Option<NotationDataFlags>>
+        where N: AsRef<str>,
+              V: AsRef<[u8]>,
+              F: Into<Option<NotationDataFlags>>,
     {
         self.hashed_area.add(Subpacket::new(SubpacketValue::NotationData(
-            NotationData::new(name, value,
+            NotationData::new(name.as_ref(), value.as_ref(),
                               flags.into().unwrap_or_default())),
                                             critical)?)?;
         Ok(self)
