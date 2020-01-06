@@ -5,8 +5,13 @@ use crate::{
     Result,
 };
 use crate::packet::tag::Tag;
-pub mod ctb;
-pub use self::ctb::CTB;
+mod ctb;
+pub use self::ctb::{
+    CTB,
+    CTBOld,
+    CTBNew,
+    PacketLengthType,
+};
 
 /// An OpenPGP packet's header.
 #[derive(Clone, Debug)]

@@ -16,7 +16,7 @@ use crate::{
     packet::header::{
         CTB,
         BodyLength,
-        ctb::PacketLengthType,
+        PacketLengthType,
     },
     crypto::S2K,
     Error,

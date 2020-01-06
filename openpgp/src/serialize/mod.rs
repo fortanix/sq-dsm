@@ -30,8 +30,8 @@ use crate::crypto::S2K;
 use crate::packet::header::{
     BodyLength,
     CTB,
-    ctb::CTBNew,
-    ctb::CTBOld,
+    CTBNew,
+    CTBOld,
 };
 use crate::packet::signature::subpacket::{
     SubpacketArea, Subpacket, SubpacketValue,
