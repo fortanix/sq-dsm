@@ -45,7 +45,7 @@ mod revoke;
 
 pub use self::builder::{CertBuilder, CipherSuite};
 
-pub use keyiter::KeyIter;
+pub use keyiter::{KeyIter, ValidKeyIter};
 pub use key_amalgamation::KeyAmalgamation;
 
 pub use parser::{

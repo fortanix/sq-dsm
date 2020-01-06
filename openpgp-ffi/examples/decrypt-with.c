@@ -157,7 +157,7 @@ decrypt_cb (void *cookie_opaque,
 
     pgp_cert_key_iter_t key_iter = pgp_cert_key_iter (cookie->key);
     pgp_key_t key;
-    while ((key = pgp_cert_key_iter_next (key_iter, NULL, NULL))) {
+    while ((key = pgp_cert_key_iter_next (key_iter))) {
       pgp_keyid_t this_keyid = pgp_key_keyid (key);
       int match = pgp_keyid_equal (this_keyid, keyid);
       pgp_keyid_free (this_keyid);

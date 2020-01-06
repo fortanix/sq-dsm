@@ -23,8 +23,9 @@ fn main() {
             .expect("Failed to read key");
         let mut n = 0;
 
-        for key in tsk.keys().alive().revoked(false).for_signing().secret()
-                       .map(|ka| ka.key())
+        for key in tsk.keys()
+            .policy(None).alive().revoked(false).for_signing().secret()
+            .map(|ka| ka.key())
         {
             keys.push({
                 let mut key = key.clone();

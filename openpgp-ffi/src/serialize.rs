@@ -38,6 +38,7 @@ use self::openpgp::serialize::{
 use super::keyid::KeyID;
 use super::packet::key::Key;
 use super::cert::KeyIterWrapper;
+use super::cert::ValidKeyIterWrapper;
 
 /// Streams an OpenPGP message.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
@@ -275,6 +276,37 @@ fn pgp_recipient_set_keyid(recipient: *mut Recipient, keyid: *mut KeyID) {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_recipients_from_key_iter<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
+    result_len: *mut size_t)
+    -> *mut *mut Recipient<'a>
+{
+    let iter_wrapper = ffi_param_move!(iter_wrapper);
+    let result_len = ffi_param_ref_mut!(result_len);
+    let recipients =
+        iter_wrapper.iter
+        .map(|key| key.into())
+        .collect::<Vec<openpgp::serialize::stream::Recipient>>();
+
+    let result = unsafe {
+        libc::calloc(recipients.len(), std::mem::size_of::<* mut Recipient>())
+            as *mut *mut Recipient
+    };
+    let r = unsafe {
+        slice::from_raw_parts_mut(result,
+                                  recipients.len())
+    };
+    *result_len = recipients.len();
+    r.iter_mut().zip(recipients.into_iter())
+        .for_each(|(r, recipient)| *r = recipient.move_into_raw());
+    result
+}
+
+/// Collects recipients from a `pgp_cert_valid_key_iter_t`.
+///
+/// Consumes the iterator.  The returned buffer must be freed using
+/// libc's allocator.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_recipients_from_valid_key_iter<'a>(
+    iter_wrapper: *mut ValidKeyIterWrapper<'a>,
     result_len: *mut size_t)
     -> *mut *mut Recipient<'a>
 {

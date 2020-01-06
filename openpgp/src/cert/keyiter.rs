@@ -1,5 +1,6 @@
 use std::fmt;
 use std::convert::TryInto;
+use std::time::SystemTime;
 use std::borrow::Borrow;
 
 use crate::{
@@ -36,16 +37,6 @@ pub struct KeyIter<'a, P: key::KeyParts, R: key::KeyRole> {
                                 key::PublicParts,
                                 key::SubordinateRole>,
 
-    // If not None, only returns keys with the specified flags.
-    flags: Option<KeyFlags>,
-
-    // If not None, only returns keys that are live at the specified
-    // time.
-    alive_at: Option<std::time::SystemTime>,
-
-    // If not None, filters by revocation status.
-    revoked: Option<bool>,
-
     // If not None, filters by whether a key has a secret.
     secret: Option<bool>,
 
@@ -62,9 +53,6 @@ impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("KeyIter")
-            .field("flags", &self.flags)
-            .field("alive_at", &self.alive_at)
-            .field("revoked", &self.revoked)
             .field("secret", &self.secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
             .finish()
@@ -81,10 +69,10 @@ macro_rules! impl_iterator {
             where &'a Key<$parts, R>: From<&'a Key<key::PublicParts,
                                                    key::UnspecifiedRole>>
         {
-            type Item = KeyAmalgamation<'a, $parts>;
+            type Item = &'a Key<$parts, R>;
 
             fn next(&mut self) -> Option<Self::Item> {
-                self.next_common().map(|ka| ka.into())
+                self.next_common().map(|k| k.into())
             }
         }
     }
@@ -96,6 +84,244 @@ impl<'a, R: 'a + key::KeyRole> Iterator for KeyIter<'a, key::SecretParts, R>
     where &'a Key<key::SecretParts, R>: From<&'a Key<key::SecretParts,
                                                      key::UnspecifiedRole>>
 {
+    type Item = &'a Key<key::SecretParts, key::UnspecifiedRole>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_common().map(|k| k.try_into().expect("has secret parts"))
+    }
+}
+
+impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
+{
+    fn next_common(&mut self) -> Option<&'a Key<key::PublicParts,
+                                                key::UnspecifiedRole>>
+    {
+        tracer!(false, "KeyIter::next", 0);
+        t!("KeyIter: {:?}", self);
+
+        if self.cert.is_none() {
+            return None;
+        }
+        let cert = self.cert.unwrap();
+
+        loop {
+            let key : &Key<key::PublicParts, key::UnspecifiedRole>
+                = if ! self.primary {
+                    self.primary = true;
+                    cert.primary.key().into()
+                } else {
+                    self.subkey_iter.next()?.key().into()
+                };
+
+            t!("Considering key: {:?}", key);
+
+            if let Some(want_secret) = self.secret {
+                if key.secret().is_some() {
+                    // We have a secret.
+                    if ! want_secret {
+                        t!("Have a secret... skipping.");
+                        continue;
+                    }
+                } else {
+                    if want_secret {
+                        t!("No secret... skipping.");
+                        continue;
+                    }
+                }
+            }
+
+            if let Some(want_unencrypted_secret) = self.unencrypted_secret {
+                if let Some(secret) = key.secret() {
+                    if let SecretKeyMaterial::Unencrypted { .. } = secret {
+                        if ! want_unencrypted_secret {
+                            t!("Unencrypted secret... skipping.");
+                            continue;
+                        }
+                    } else {
+                        if want_unencrypted_secret {
+                            t!("Encrypted secret... skipping.");
+                            continue;
+                        }
+                    }
+                } else {
+                    // No secret.
+                    t!("No secret... skipping.");
+                    continue;
+                }
+            }
+
+            return Some(key);
+        }
+    }
+}
+
+impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
+{
+    /// Returns a new `KeyIter` instance.
+    pub(crate) fn new(cert: &'a Cert) -> Self where Self: 'a {
+        KeyIter {
+            cert: Some(cert),
+            primary: false,
+            subkey_iter: cert.subkeys(),
+
+            // The filters.
+            secret: None,
+            unencrypted_secret: None,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
+    }
+
+    /// Changes the filter to only return keys with secret key material.
+    pub fn secret(self) -> KeyIter<'a, key::SecretParts, R> {
+        KeyIter {
+            cert: self.cert,
+            primary: self.primary,
+            subkey_iter: self.subkey_iter,
+
+            // The filters.
+            secret: Some(true),
+            unencrypted_secret: self.unencrypted_secret,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
+    }
+
+    /// Changes the filter to only return keys with unencrypted secret
+    /// key material.
+    pub fn unencrypted_secret(self) -> KeyIter<'a, key::SecretParts, R> {
+        KeyIter {
+            cert: self.cert,
+            primary: self.primary,
+            subkey_iter: self.subkey_iter,
+
+            // The filters.
+            secret: self.secret,
+            unencrypted_secret: Some(true),
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
+    }
+
+    /// Changes the iterator to only return keys that are valid at
+    /// time `time`.
+    ///
+    /// If `time` is None, then the current time is used.
+    ///
+    /// See `ValidKeyIter` for the definition of a valid key.
+    ///
+    /// As a general rule of thumb, when encrypting or signing a
+    /// message, you want keys that are valid now.  When decrypting a
+    /// message, you want keys that were valid when the message was
+    /// encrypted, because these are the only keys that the encryptor
+    /// could have used.  The same holds when verifying a message.
+    pub fn policy<T>(self, time: T) -> ValidKeyIter<'a, P, R>
+        where T: Into<Option<SystemTime>>
+    {
+        ValidKeyIter {
+            cert: self.cert,
+            primary: self.primary,
+            subkey_iter: self.subkey_iter,
+
+            // The filters.
+            secret: self.secret,
+            unencrypted_secret: self.unencrypted_secret,
+            time: time.into().unwrap_or_else(SystemTime::now),
+            flags: None,
+            alive: None,
+            revoked: None,
+
+            _p: self._p,
+            _r: self._r,
+        }
+    }
+}
+
+/// An iterator over all valid `Key`s in a certificate.
+///
+/// A key is valid at time `t` if it was not created after `t` and it
+/// has a live self-signature at time `t`.  Note: this does not mean
+/// that the key is also live at time `t`; the key may be expired, but
+/// the self-signature is still valid.
+///
+/// `ValidKeyIter` follows the builder pattern.  There is no need to
+/// explicitly finalize it, however: it already implements the
+/// `Iterator` trait.
+pub struct ValidKeyIter<'a, P: key::KeyParts, R: key::KeyRole> {
+    // This is an option to make it easier to create an empty ValidKeyIter.
+    cert: Option<&'a Cert>,
+    primary: bool,
+    subkey_iter: KeyBindingIter<'a,
+                                key::PublicParts,
+                                key::SubordinateRole>,
+
+    // If not None, filters by whether a key has a secret.
+    secret: Option<bool>,
+
+    // If not None, filters by whether a key has an unencrypted
+    // secret.
+    unencrypted_secret: Option<bool>,
+
+    // The time.
+    time: SystemTime,
+
+    // If not None, only returns keys with the specified flags.
+    flags: Option<KeyFlags>,
+
+    // If not None, filters by whether a key is alive at time `t`.
+    alive: Option<()>,
+
+    // If not None, filters by whether the key is revoked or not at
+    // time `t`.
+    revoked: Option<bool>,
+
+    _p: std::marker::PhantomData<P>,
+    _r: std::marker::PhantomData<R>,
+}
+
+impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
+    for ValidKeyIter<'a, P, R>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("ValidKeyIter")
+            .field("secret", &self.secret)
+            .field("unencrypted_secret", &self.unencrypted_secret)
+            .field("time", &self.time)
+            .field("flags", &self.flags)
+            .field("alive", &self.alive)
+            .field("revoked", &self.revoked)
+            .finish()
+    }
+}
+
+// Very carefully implement Iterator for
+// Key<{PublicParts,UnspecifiedParts}, _>.  We cannot just abstract
+// over the parts, because then we cannot specialize the
+// implementation for Key<SecretParts, _> below.
+macro_rules! impl_iterator {
+    ($parts:path) => {
+        impl<'a, R: 'a + key::KeyRole> Iterator for ValidKeyIter<'a, $parts, R>
+            where &'a Key<$parts, R>: From<&'a Key<key::PublicParts,
+                                                   key::UnspecifiedRole>>
+        {
+            type Item = KeyAmalgamation<'a, $parts>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                self.next_common().map(|ka| ka.into())
+            }
+        }
+    }
+}
+impl_iterator!(key::PublicParts);
+impl_iterator!(key::UnspecifiedParts);
+
+impl<'a, R: 'a + key::KeyRole> Iterator for ValidKeyIter<'a, key::SecretParts, R>
+    where &'a Key<key::SecretParts, R>: From<&'a Key<key::SecretParts,
+                                                     key::UnspecifiedRole>>
+{
     type Item = KeyAmalgamation<'a, key::SecretParts>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -103,11 +329,11 @@ impl<'a, R: 'a + key::KeyRole> Iterator for KeyIter<'a, key::SecretParts, R>
     }
 }
 
-impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
+impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
     fn next_common(&mut self) -> Option<KeyAmalgamation<'a, key::PublicParts>>
     {
-        tracer!(false, "KeyIter::next", 0);
-        t!("KeyIter: {:?}", self);
+        tracer!(false, "ValidKeyIter::next", 0);
+        t!("ValidKeyIter: {:?}", self);
 
         if self.cert.is_none() {
             return None;
@@ -131,41 +357,33 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
             };
 
             let key = ka.key();
+            t!("Considering key: {:?}", key);
 
-            t!("Considering key: {:?}", ka);
+            let binding_signature
+                = if let Some(binding_signature) = ka.binding_signature(self.time) {
+                    binding_signature
+                } else {
+                    t!("No self-signature at time {:?}", self.time);
+                    continue
+                };
 
             if let Some(flags) = self.flags.as_ref() {
-                // XXX: Shouldn't assume the current time.
-                if let Some(sig) = ka.binding_signature(None) {
-                    if (&sig.key_flags() & &flags).is_empty() {
-                        t!("Have flags: {:?}, want flags: {:?}... skipping.",
-                           sig.key_flags(), flags);
-                        continue;
-                    }
-                } else {
-                    // No self-signature, skip it.
-                    t!("No self-signature... skipping.");
+                if (&binding_signature.key_flags() & &flags).is_empty() {
+                    t!("Have flags: {:?}, want flags: {:?}... skipping.",
+                       binding_signature.key_flags(), flags);
                     continue;
                 }
             }
 
-            if let Some(alive_at) = self.alive_at {
-                // XXX: Shouldn't assume the current time.
-                if let Some(sig) = ka.binding_signature(None) {
-                    if ! sig.key_alive(key, alive_at).is_ok() {
-                        t!("Key not alive... skipping.");
-                        continue;
-                    }
-                } else {
-                    // No self-signature, skip it.
-                    t!("No self-signature... skipping.");
+            if let Some(()) = self.alive {
+                if let Err(err) = binding_signature.key_alive(key, self.time) {
+                    t!("Key not alive: {:?}", err);
                     continue;
                 }
             }
 
             if let Some(want_revoked) = self.revoked {
-                // XXX: Shouldn't assume the current time.
-                if let RevocationStatus::Revoked(_) = ka.revoked(None) {
+                if let RevocationStatus::Revoked(_) = ka.revoked(self.time) {
                     // The key is definitely revoked.
                     if ! want_revoked {
                         t!("Key revoked... skipping.");
@@ -220,27 +438,8 @@ impl <'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R> {
     }
 }
 
-impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
+impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
 {
-    /// Returns a new `KeyIter` instance.
-    pub(crate) fn new(cert: &'a Cert) -> Self where Self: 'a {
-        KeyIter {
-            cert: Some(cert),
-            primary: false,
-            subkey_iter: cert.subkeys(),
-
-            // The filters.
-            flags: None,
-            alive_at: None,
-            revoked: None,
-            secret: None,
-            unencrypted_secret: None,
-
-            _p: std::marker::PhantomData,
-            _r: std::marker::PhantomData,
-        }
-    }
-
     /// Returns keys that have the at least one of the flags specified
     /// in `flags`.
     ///
@@ -302,26 +501,10 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
         self.key_flags(KeyFlags::default().set_transport_encryption(true))
     }
 
-    /// Only returns keys that are live as of `now`.
-    ///
-    /// A value of None disables this filter.
-    ///
-    /// If you call this function (or `alive`) multiple times, only
-    /// the last value is used.
-    pub fn alive_at<T>(mut self, alive_at: T) -> Self
-        where T: Into<Option<std::time::SystemTime>>
-    {
-        self.alive_at = alive_at.into();
-        self
-    }
-
-    /// Only returns keys that are alive right now.
-    ///
-    /// If you call this function (or `alive_at`) multiple times, only
-    /// the last value is used.
+    /// Only returns keys that are alive.
     pub fn alive(mut self) -> Self
     {
-        self.alive_at = Some(std::time::SystemTime::now());
+        self.alive = Some(());
         self
     }
 
@@ -349,6 +532,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// #         .generate()?;
     /// let non_revoked_keys = cert
     ///     .keys()
+    ///     .policy(None)
     ///     .filter(|ka| {
     ///         match ka.revoked(None) {
     ///             RevocationStatus::Revoked(_) =>
@@ -385,18 +569,20 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     }
 
     /// Changes the filter to only return keys with secret key material.
-    pub fn secret(self) -> KeyIter<'a, key::SecretParts, R> {
-        KeyIter {
+    pub fn secret(self) -> ValidKeyIter<'a, key::SecretParts, R> {
+        ValidKeyIter {
             cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
 
+            time: self.time,
+
             // The filters.
-            flags: self.flags,
-            alive_at: self.alive_at,
-            revoked: self.revoked,
             secret: Some(true),
             unencrypted_secret: self.unencrypted_secret,
+            flags: self.flags,
+            alive: self.alive,
+            revoked: self.revoked,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -405,18 +591,20 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
 
     /// Changes the filter to only return keys with unencrypted secret
     /// key material.
-    pub fn unencrypted_secret(self)  -> KeyIter<'a, key::SecretParts, R> {
-        KeyIter {
+    pub fn unencrypted_secret(self) -> ValidKeyIter<'a, key::SecretParts, R> {
+        ValidKeyIter {
             cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
 
+            time: self.time,
+
             // The filters.
-            flags: self.flags,
-            alive_at: self.alive_at,
-            revoked: self.revoked,
             secret: self.secret,
             unencrypted_secret: Some(true),
+            flags: self.flags,
+            alive: self.alive,
+            revoked: self.revoked,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -445,7 +633,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys().key_flags(flags).count(), 0);
+        assert_eq!(cert.keys().policy(None).key_flags(flags).count(), 0);
     }
 
     #[test]
@@ -455,7 +643,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys().key_flags(flags).count(), 1);
+        assert_eq!(cert.keys().policy(None).key_flags(flags).count(), 1);
     }
 
     #[test]
@@ -466,7 +654,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys().key_flags(flags).count(), 1);
+        assert_eq!(cert.keys().policy(None).key_flags(flags).count(), 1);
     }
 
     #[test]
@@ -476,9 +664,9 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        let now = std::time::SystemTime::now()
+        let now = SystemTime::now()
             - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
-        assert_eq!(cert.keys().key_flags(flags).alive_at(now).count(), 0);
+        assert_eq!(cert.keys().policy(now).key_flags(flags).alive().count(), 0);
     }
 
     #[test]
@@ -488,7 +676,7 @@ mod test {
             .generate().unwrap();
         let flags = KeyFlags::default().set_certification(true);
 
-        assert_eq!(cert.keys().key_flags(flags).count(), 2);
+        assert_eq!(cert.keys().policy(None).key_flags(flags).count(), 2);
     }
 
     #[test]
@@ -500,20 +688,20 @@ mod test {
             .add_storage_encryption_subkey()
             .add_authentication_subkey()
             .generate().unwrap();
-        assert_eq!(cert.keys().alive().revoked(false)
+        assert_eq!(cert.keys().policy(None).alive().revoked(false)
                        .for_certification().count(),
                    2);
-        assert_eq!(cert.keys().alive().revoked(false)
+        assert_eq!(cert.keys().policy(None).alive().revoked(false)
                        .for_transport_encryption().count(),
                    1);
-        assert_eq!(cert.keys().alive().revoked(false)
+        assert_eq!(cert.keys().policy(None).alive().revoked(false)
                        .for_storage_encryption().count(),
                    1);
 
-        assert_eq!(cert.keys().alive().revoked(false)
+        assert_eq!(cert.keys().policy(None).alive().revoked(false)
                        .for_signing().count(),
                    1);
-        assert_eq!(cert.keys().alive().revoked(false)
+        assert_eq!(cert.keys().policy(None).alive().revoked(false)
                        .key_flags(KeyFlags::default().set_authentication(true))
                        .count(),
                    1);

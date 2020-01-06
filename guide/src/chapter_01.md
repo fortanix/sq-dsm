@@ -51,7 +51,7 @@ fn main() {
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().alive().revoked(false).for_signing().nth(0).unwrap().
+#     let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing().nth(0).unwrap().
 #         key().clone().mark_parts_secret().unwrap().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
@@ -196,7 +196,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().alive().revoked(false).for_signing().nth(0).unwrap().
+#     let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing().nth(0).unwrap().
 #         key().clone().mark_parts_secret().unwrap().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
@@ -341,7 +341,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the Cert.
-    let keypair = tsk.keys().alive().revoked(false).for_signing().nth(0).unwrap().
+    let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing().nth(0).unwrap().
         key().clone().mark_parts_secret().unwrap().into_keypair()?;
 
     // Start streaming an OpenPGP message.
@@ -497,7 +497,7 @@ Verified data can be read from this using [`io::Read`].
 # fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().alive().revoked(false).for_signing().nth(0).unwrap().
+#     let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing().nth(0).unwrap().
 #         key().clone().mark_parts_secret().unwrap().into_keypair()?;
 # 
 #     // Start streaming an OpenPGP message.

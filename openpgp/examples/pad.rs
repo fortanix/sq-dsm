@@ -37,10 +37,11 @@ fn main() {
     }).collect();
 
     // Build a vector of recipients to hand to Encryptor.
-    let mut recipients =
-        certs.iter()
+    let mut recipients = certs
+        .iter()
         .flat_map(|cert| {
-            cert.keys().alive().revoked(false).key_flags(mode.clone())
+            cert.keys()
+                .policy(None).alive().revoked(false).key_flags(&mode)
         })
         .map(|ka| Recipient::new(KeyID::wildcard(), ka.key()))
         .collect::<Vec<_>>();

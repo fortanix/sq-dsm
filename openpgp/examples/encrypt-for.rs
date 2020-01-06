@@ -38,7 +38,8 @@ fn main() {
     let mut recipients =
         certs.iter()
         .flat_map(|cert| {
-            cert.keys().alive().revoked(false).key_flags(&mode)
+            cert.keys()
+                .policy(None).alive().revoked(false).key_flags(&mode)
         })
         .map(|ka| ka.key().into())
         .collect::<Vec<_>>();

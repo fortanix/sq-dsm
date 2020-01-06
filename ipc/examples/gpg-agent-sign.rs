@@ -39,9 +39,10 @@ fn main() {
 
     // Construct a KeyPair for every signing-capable (sub)key.
     let mut signers = certs.iter().flat_map(|cert| {
-        cert.keys().alive().revoked(false).for_signing().filter_map(|ka| {
-            KeyPair::new(&ctx, ka.key()).ok()
-        })
+        cert.keys().policy(None).alive().revoked(false).for_signing()
+            .filter_map(|ka| {
+                KeyPair::new(&ctx, ka.key()).ok()
+            })
     }).collect::<Vec<KeyPair>>();
 
     // Compose a writer stack corresponding to the output format and

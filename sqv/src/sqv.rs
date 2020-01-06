@@ -155,7 +155,7 @@ fn real_main() -> Result<(), failure::Error> {
     fn cert_has_key(cert: &Cert, keyid: &KeyID) -> bool {
         // Even if a key is revoked or expired, we can still use it to
         // verify a message.
-        cert.keys().any(|ka| *keyid == ka.key().keyid())
+        cert.keys().any(|key| *keyid == key.keyid())
     }
 
     // Find the certs.
@@ -233,7 +233,7 @@ fn real_main() -> Result<(), failure::Error> {
         if let Some(cert) = certs.get(&issuer.clone().into()) {
             let cert = cert.borrow();
             // Find the right key.
-            for ka in cert.keys() {
+            for ka in cert.keys().policy(None) {
                 // Use the current binding signature.
                 let binding = match ka.binding_signature(None) {
                     Some(b) => b,

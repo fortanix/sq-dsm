@@ -379,6 +379,11 @@ typedef struct pgp_user_id_binding_iter *pgp_user_id_binding_iter_t;
 typedef struct pgp_cert_key_iter *pgp_cert_key_iter_t;
 
 /*/
+/// An iterator over valid keys in a Cert.
+/*/
+typedef struct pgp_cert_valid_key_iter *pgp_cert_valid_key_iter_t;
+
+/*/
 /// An OpenPGP Certificate.
 ///
 /// A Certificate (see [RFC 4880, section 11.1]) can be used to verify

@@ -316,7 +316,7 @@ impl<'a> TSK<'a> {
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// let (cert, _) = CertBuilder::new().add_signing_subkey().generate()?;
-    /// assert_eq!(cert.keys().alive().revoked(false).secret().count(), 2);
+    /// assert_eq!(cert.keys().policy(None).alive().revoked(false).secret().count(), 2);
     ///
     /// // Only write out the primary key's secret.
     /// let mut buf = Vec::new();
@@ -328,7 +328,7 @@ impl<'a> TSK<'a> {
     ///     .serialize(&mut buf)?;
     ///
     /// let cert_ = Cert::from_bytes(&buf)?;
-    /// assert_eq!(cert_.keys().alive().revoked(false).secret().count(), 1);
+    /// assert_eq!(cert_.keys().policy(None).alive().revoked(false).secret().count(), 1);
     /// assert!(cert_.primary().secret().is_some());
     /// # Ok(()) }
     pub fn set_filter<P>(mut self, predicate: P) -> Self

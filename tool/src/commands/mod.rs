@@ -48,7 +48,7 @@ fn get_signing_keys(certs: &[openpgp::Cert])
 {
     let mut keys = Vec::new();
     'next_cert: for tsk in certs {
-        for key in tsk.keys().alive().revoked(false)
+        for key in tsk.keys().policy(None).alive().revoked(false)
             .for_signing()
             .map(|ka| ka.key())
         {
@@ -112,7 +112,7 @@ pub fn encrypt(mapping: &mut store::Mapping,
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();
     for cert in certs.iter() {
         let mut count = 0;
-        for key in cert.keys().alive().revoked(false)
+        for key in cert.keys().policy(None).alive().revoked(false)
             .key_flags(&mode).map(|ka| ka.key())
         {
             recipient_subkeys.push(key.into());
@@ -304,11 +304,11 @@ impl<'a> VHelper<'a> {
 impl<'a> VerificationHelper for VHelper<'a> {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
         let mut certs = self.certs.take().unwrap();
+        // Get all keys.  Even if a key is revoked or expired, we can
+        // still use it to verify a message.
         let seen: HashSet<_> = certs.iter()
             .flat_map(|cert| {
-                // Even if a key is revoked or expired, we can still
-                // use it to verify a message.
-                cert.keys().map(|ka| ka.key().fingerprint().into())
+                cert.keys().map(|key| key.fingerprint().into())
             }).collect();
 
         // Explicitly provided keys are trusted.

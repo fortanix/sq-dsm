@@ -41,8 +41,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 fn encrypt(sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Build a vector of recipients to hand to Encryptor.
-    let mut recipients =
-        recipient.keys().alive().revoked(false)
+    let mut recipients = recipient
+        .keys().policy(None).alive().revoked(false)
         .for_transport_encryption()
         .map(|ka| ka.key().into())
         .collect::<Vec<_>>();
