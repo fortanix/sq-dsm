@@ -2138,10 +2138,12 @@ impl signature::Builder {
 
     /// Sets the value of the Preferred Key Server subpacket, which
     /// contains the user's preferred key server for updates.
-    pub fn set_preferred_key_server(mut self, uri: &[u8])
-                                    -> Result<Self> {
+    pub fn set_preferred_key_server<U>(mut self, uri: U)
+                                       -> Result<Self>
+        where U: AsRef<[u8]>,
+    {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::PreferredKeyServer(uri.to_vec()),
+            SubpacketValue::PreferredKeyServer(uri.as_ref().to_vec()),
             false)?)?;
 
         Ok(self)
@@ -2159,9 +2161,11 @@ impl signature::Builder {
     }
 
     /// Sets the value of the Policy URI subpacket.
-    pub fn set_policy_uri(mut self, uri: &[u8]) -> Result<Self> {
+    pub fn set_policy_uri<U>(mut self, uri: U) -> Result<Self>
+        where U: AsRef<[u8]>,
+    {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::PolicyURI(uri.to_vec()),
+            SubpacketValue::PolicyURI(uri.as_ref().to_vec()),
             false)?)?;
 
         Ok(self)
@@ -2182,22 +2186,26 @@ impl signature::Builder {
     /// Sets the value of the Signer's UserID subpacket, which
     /// contains the User ID that the key holder considers responsible
     /// for the signature.
-    pub fn set_signers_user_id(mut self, uid: &[u8]) -> Result<Self> {
+    pub fn set_signers_user_id<U>(mut self, uid: U) -> Result<Self>
+        where U: AsRef<[u8]>,
+    {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::SignersUserID(uid.to_vec()),
+            SubpacketValue::SignersUserID(uid.as_ref().to_vec()),
             true)?)?;
 
         Ok(self)
     }
 
     /// Sets the value of the Reason for Revocation subpacket.
-    pub fn set_reason_for_revocation(mut self, code: ReasonForRevocation,
-                                     reason: &[u8])
-                                     -> Result<Self> {
+    pub fn set_reason_for_revocation<R>(mut self, code: ReasonForRevocation,
+                                        reason: R)
+                                        -> Result<Self>
+        where R: AsRef<[u8]>,
+    {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::ReasonForRevocation {
                 code: code,
-                reason: reason.to_vec(),
+                reason: reason.as_ref().to_vec(),
             },
             false)?)?;
 
@@ -2217,16 +2225,18 @@ impl signature::Builder {
 
     /// Sets the value of the Signature Target subpacket, which
     /// contains the hash of the referenced signature packet.
-    pub fn set_signature_target(mut self,
-                                pk_algo: PublicKeyAlgorithm,
-                                hash_algo: HashAlgorithm,
-                                digest: &[u8])
-                                -> Result<Self> {
+    pub fn set_signature_target<D>(mut self,
+                                   pk_algo: PublicKeyAlgorithm,
+                                   hash_algo: HashAlgorithm,
+                                   digest: D)
+                                   -> Result<Self>
+        where D: AsRef<[u8]>,
+    {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::SignatureTarget {
                 pk_algo: pk_algo,
                 hash_algo: hash_algo,
-                digest: digest.to_vec(),
+                digest: digest.as_ref().to_vec(),
             },
             true)?)?;
 
