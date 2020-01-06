@@ -1215,11 +1215,13 @@ impl SubpacketArea {
 
     /// Returns the value of all Notation Data subpackets with the
     /// given name.
-    pub fn notation(&self, name: &str) -> Vec<&[u8]> {
+    pub fn notation<N>(&self, name: N) -> Vec<&[u8]>
+        where N: AsRef<str>
+    {
         self.subpackets(SubpacketTag::NotationData)
             .into_iter().filter_map(|s| match s.value {
                 SubpacketValue::NotationData(ref v)
-                    if v.name == name => Some(&v.value[..]),
+                    if v.name == name.as_ref() => Some(&v.value[..]),
                 _ => None,
             })
             .collect()
