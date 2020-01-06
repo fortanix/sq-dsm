@@ -486,14 +486,15 @@ pub struct NotationData {
 
 impl NotationData {
     /// Creates a new Notation Data subpacket payload.
-    pub fn new<N, F>(name: N, value: &[u8], flags: F) -> Self
+    pub fn new<N, V, F>(name: N, value: V, flags: F) -> Self
         where N: AsRef<str>,
+              V: AsRef<[u8]>,
               F: Into<Option<NotationDataFlags>>,
     {
         Self {
             flags: flags.into().unwrap_or_default(),
             name: name.as_ref().into(),
-            value: value.into(),
+            value: value.as_ref().into(),
         }
     }
 
