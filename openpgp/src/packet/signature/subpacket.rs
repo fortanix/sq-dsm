@@ -1971,9 +1971,14 @@ impl signature::Builder {
     }
 
     /// Sets the value of the Regular Expression subpacket.
-    pub fn set_regular_expression(mut self, re: &[u8]) -> Result<Self> {
+    ///
+    /// Note: Sequoia will add the terminating nul byte when
+    /// serializing the signature.
+    pub fn set_regular_expression<R>(mut self, re: R) -> Result<Self>
+        where R: AsRef<[u8]>
+    {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::RegularExpression(re.to_vec()),
+            SubpacketValue::RegularExpression(re.as_ref().to_vec()),
             true)?)?;
 
         Ok(self)
