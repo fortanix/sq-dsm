@@ -1023,7 +1023,7 @@ impl Serialize for SubpacketValue {
                 write_be_u32(o, nd.flags().raw())?;
                 write_be_u16(o, nd.name().len() as u16)?;
                 write_be_u16(o, nd.value().len() as u16)?;
-                o.write_all(nd.name())?;
+                o.write_all(nd.name().as_bytes())?;
                 o.write_all(nd.value())?;
             },
             PreferredHashAlgorithms(ref p) =>

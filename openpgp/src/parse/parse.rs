@@ -1301,7 +1301,8 @@ impl Subpacket {
                 }
                 SubpacketValue::NotationData(
                     NotationData::new(
-                        &php.parse_bytes("notation name", name_len)?,
+                        std::str::from_utf8(
+                            &php.parse_bytes("notation name", name_len)?)?,
                         &php.parse_bytes("notation value", value_len)?,
                         Some(flags.into())))
             },
