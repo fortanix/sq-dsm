@@ -159,7 +159,7 @@ impl UserID {
     /// # fn f() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (alice, _) = CertBuilder::new()
-    ///     .primary_keyflags(KeyFlags::default().set_certification(true))
+    ///     .primary_key_flags(KeyFlags::default().set_certification(true))
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary().clone()
@@ -167,7 +167,7 @@ impl UserID {
     ///
     /// // Generate a Cert for Bob.
     /// let (bob, _) = CertBuilder::new()
-    ///     .primary_keyflags(KeyFlags::default().set_certification(true))
+    ///     .primary_key_flags(KeyFlags::default().set_certification(true))
     ///     .add_userid("bob@example.org")
     ///     .generate()?;
     ///
@@ -315,7 +315,7 @@ impl UserAttribute {
     ///         Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
     /// ])?;
     /// let (bob, _) = CertBuilder::new()
-    ///     .primary_keyflags(KeyFlags::default().set_certification(true))
+    ///     .primary_key_flags(KeyFlags::default().set_certification(true))
     ///     .add_user_attribute(user_attr)
     ///     .generate()?;
     ///
