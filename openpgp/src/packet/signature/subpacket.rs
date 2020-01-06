@@ -514,7 +514,7 @@ impl NotationData {
 }
 
 /// Flags for the Notation Data subpacket.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NotationDataFlags(u32);
 
 impl Default for NotationDataFlags {
@@ -526,6 +526,18 @@ impl Default for NotationDataFlags {
 impl From<u32> for NotationDataFlags {
     fn from(v: u32) -> Self {
         Self(v)
+    }
+}
+
+impl fmt::Debug for NotationDataFlags {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut d = f.debug_struct("NotationDataFlags");
+        d.field("human_readable", &self.human_readable());
+        let other = self.0 & !NOTATION_DATA_FLAG_HUMAN_READABLE;
+        if other > 0 {
+            d.field("other", &crate::fmt::hex::encode(&other.to_be_bytes()));
+        }
+        d.finish()
     }
 }
 
