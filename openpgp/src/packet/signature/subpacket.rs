@@ -613,7 +613,13 @@ pub enum SubpacketValue {
         /// values of 60 for partial trust and 120 for complete trust.
         trust: u8,
     },
-    /// Null-terminated regular expression
+    /// A regular expression.
+    ///
+    /// Note: The RFC requires that the serialized form includes a
+    /// trailing NUL byte.  When Sequoia parses the regular expression
+    /// subpacket, it strips the trailing NUL.  (If it doesn't include
+    /// a NUL, then parsing fails.)  Likewise, when it serializes a
+    /// regular expression subpacket, it unconditionally adds a NUL.
     RegularExpression(Vec<u8>),
     /// 1 octet of revocability, 0 for not, 1 for revocable
     Revocable(bool),
@@ -1042,8 +1048,8 @@ impl SubpacketArea {
 
     /// Returns the value of the Regular Expression subpacket.
     ///
-    /// This automatically strips any trailing NUL byte from the
-    /// string.
+    /// Note: the serialized form includes a trailing NUL byte.  This
+    /// returns the value without the trailing NUL.
     ///
     /// If the subpacket is not present or malformed, this returns
     /// `None`.
@@ -1051,7 +1057,6 @@ impl SubpacketArea {
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
     pub fn regular_expression(&self) -> Option<&[u8]> {
-        // null-terminated regular expression
         if let Some(sb)
                 = self.subpacket(SubpacketTag::RegularExpression) {
             if let SubpacketValue::RegularExpression(ref v) = sb.value {
@@ -1972,8 +1977,9 @@ impl signature::Builder {
 
     /// Sets the value of the Regular Expression subpacket.
     ///
-    /// Note: Sequoia will add the terminating nul byte when
-    /// serializing the signature.
+    /// Note: The serialized form includes a trailing NUL byte.
+    /// Sequoia adds this NUL when serializing the signature.  Adding
+    /// it yourself will result in two trailing NUL bytes.
     pub fn set_regular_expression<R>(mut self, re: R) -> Result<Self>
         where R: AsRef<[u8]>
     {
