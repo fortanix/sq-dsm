@@ -5,9 +5,13 @@
 //! already assembled in memory, with all information already in place
 //! (e.g. because it was parsed).
 //!
-//! If it is, you can use the `Serialize` or `SerializeKey`.
+//! If it is, you can use the [`Serialize`] or [`SerializeInto`]
+//! trait.  Otherwise, please use our [streaming serialization
+//! interface].
 //!
-//! Otherwise, please use our streaming serialization interface.
+//!   [`Serialize`]: trait.Serialize.html
+//!   [`SerializeInto`]: trait.SerializeInto.html
+//!   [streaming serialization interface]: stream/index.html
 
 use std::io::{self, Write};
 use std::cmp;
