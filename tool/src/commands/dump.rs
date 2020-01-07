@@ -749,13 +749,8 @@ impl PacketDumper {
                 write!(output, "{}    Trust signature: level {} trust {}", i,
                        level, trust)?,
             RegularExpression(ref r) =>
-                write!(output, "{}    Regular expression: {} ({})", i,
-                       String::from_utf8_lossy(r),
-                       if r[r.len() - 1] == 0 {
-                           "Required trailing NUL is present"
-                       } else {
-                           "Required trailing NUL is MISSING"
-                       })?,
+                write!(output, "{}    Regular expression: {}", i,
+                       String::from_utf8_lossy(r))?,
             Revocable(r) =>
                 write!(output, "{}    Revocable: {}", i, r)?,
             KeyExpirationTime(t) =>
