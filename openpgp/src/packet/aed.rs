@@ -1,12 +1,10 @@
 //! AEAD encrypted data packets.
 
-use std::ops::{Deref, DerefMut};
-
 use crate::types::{
     AEADAlgorithm,
     SymmetricAlgorithm,
 };
-use crate::packet::{self, Common};
+use crate::packet;
 use crate::Packet;
 use crate::Error;
 use crate::Result;
@@ -133,22 +131,6 @@ impl From<AED1> for Packet {
 impl From<AED1> for super::AED {
     fn from(p: AED1) -> Self {
         super::AED::V1(p)
-    }
-}
-
-// Allow transparent access of common fields.
-impl<'a> Deref for AED1 {
-    type Target = Common;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
-// Allow transparent access of common fields.
-impl<'a> DerefMut for AED1 {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.common
     }
 }
 

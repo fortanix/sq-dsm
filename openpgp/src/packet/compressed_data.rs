@@ -1,7 +1,6 @@
 use std::fmt;
-use std::ops::{Deref, DerefMut};
 
-use crate::packet::{self, Common};
+use crate::packet;
 use crate::Packet;
 use crate::types::CompressionAlgorithm;
 
@@ -81,21 +80,5 @@ impl_container_forwards!(CompressedData);
 impl From<CompressedData> for Packet {
     fn from(s: CompressedData) -> Self {
         Packet::CompressedData(s)
-    }
-}
-
-// Allow transparent access of common fields.
-impl<'a> Deref for CompressedData {
-    type Target = Common;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
-// Allow transparent access of common fields.
-impl<'a> DerefMut for CompressedData {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.common
     }
 }

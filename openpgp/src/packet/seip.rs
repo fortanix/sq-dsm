@@ -5,8 +5,7 @@
 //!
 //! [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
 
-use std::ops::{Deref, DerefMut};
-use crate::packet::{self, Common};
+use crate::packet;
 use crate::Packet;
 
 /// Holds an encrypted data packet.
@@ -45,22 +44,6 @@ impl From<SEIP1> for super::SEIP {
 impl From<SEIP1> for Packet {
     fn from(s: SEIP1) -> Self {
         Packet::SEIP(s.into())
-    }
-}
-
-// Allow transparent access of common fields.
-impl<'a> Deref for SEIP1 {
-    type Target = Common;
-
-    fn deref(&self) -> &Self::Target {
-        &self.common
-    }
-}
-
-// Allow transparent access of common fields.
-impl<'a> DerefMut for SEIP1 {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.common
     }
 }
 
