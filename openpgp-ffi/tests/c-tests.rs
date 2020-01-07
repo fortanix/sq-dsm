@@ -231,6 +231,11 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
         .env("LDFLAGS", &format!("-L{:?} -lsequoia_openpgp_ffi", ldpath))
         .arg("-C").arg(&target_dir)
         .arg("--quiet")
+        // XXX: We don't track the header files as dependencies for
+        // the build.  The quick fix is to always rebuild the test,
+        // the more involved fix is to compute the maximum mtime of
+        // the rust source and all the header files.
+        .arg("--always-make")
         .arg(target.file_name().unwrap())
         .status()
         .context("Compiling the C-tests requires Make \
