@@ -252,9 +252,10 @@ impl<'a> VHelper<'a> {
             }
 
             let (issuer, level) = match result {
-                GoodChecksum { sig, key, .. }
-                | NotAlive { sig, key, .. }
-                | BadChecksum { sig, key, .. } => (key.keyid(), sig.level()),
+                GoodChecksum { sig, ka, .. }
+                | NotAlive { sig, ka, .. }
+                | BadChecksum { sig, ka, .. } =>
+                    (ka.key().keyid(), sig.level()),
                 MissingKey { .. } => unreachable!("handled above"),
             };
 

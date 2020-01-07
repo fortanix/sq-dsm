@@ -41,10 +41,10 @@ use crate::{
     KeyID,
     Packet,
     Result,
-    RevocationStatus,
     packet,
     packet::Signature,
     Cert,
+    cert::KeyAmalgamation,
     crypto::SessionKey,
     serialize::Serialize,
 };
@@ -177,13 +177,10 @@ pub enum VerificationResult<'a> {
         cert: &'a Cert,
 
         /// The signing key that made the signature.
-        key: &'a key::UnspecifiedPublic,
+        ka: KeyAmalgamation<'a, key::PublicParts>,
 
-        /// The signing key's binding signature.
-        binding: Option<&'a Signature>,
-
-        /// The signing key's revocation status
-        revoked: RevocationStatus<'a>,
+        /// The time at which the signature is evaluated.
+        time: time::SystemTime,
     },
 
     /// The signature is good, but it is not alive at the specified
@@ -199,13 +196,10 @@ pub enum VerificationResult<'a> {
         cert: &'a Cert,
 
         /// The signing key that made the signature.
-        key: &'a key::UnspecifiedPublic,
+        ka: KeyAmalgamation<'a, key::PublicParts>,
 
-        /// The signing key's binding signature.
-        binding: Option<&'a Signature>,
-
-        /// The signing key's revocation status
-        revoked: RevocationStatus<'a>,
+        /// The time at which the signature is evaluated.
+        time: time::SystemTime,
     },
 
     /// Unable to verify the signature because the key is missing.
@@ -223,13 +217,10 @@ pub enum VerificationResult<'a> {
         cert: &'a Cert,
 
         /// The signing key that made the signature.
-        key: &'a key::UnspecifiedPublic,
+        ka: KeyAmalgamation<'a, key::PublicParts>,
 
-        /// The signing key's binding signature.
-        binding: Option<&'a Signature>,
-
-        /// The signing key's revocation status
-        revoked: RevocationStatus<'a>,
+        /// The time at which the signature is evaluated.
+        time: time::SystemTime,
     },
 }
 
@@ -698,32 +689,30 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         for issuer in sig.get_issuers() {
                             if let Some((i, j)) = self.keys.get(&issuer) {
                                 let cert = &self.certs[*i];
-
                                 let ka = cert.keys().policy(self.time).nth(*j).unwrap();
-                                let binding = ka.binding_signature(self.time);
-                                let revoked = ka.revoked(self.time);
-                                let key = ka.key();
-
                                 results.push_verification_result(
-                                    if sig.verify(key).unwrap_or(false) {
+                                    if sig.verify(ka.key()).unwrap_or(false) {
                                         if sig.signature_alive(
                                             self.time, self.clock_skew_tolerance)
                                             .is_ok()
                                         {
                                             VerificationResult::GoodChecksum {
                                                 sig: sig.clone(),
-                                                cert, key, binding, revoked,
+                                                cert, ka,
+                                                time: self.time,
                                             }
                                         } else {
                                             VerificationResult::NotAlive {
                                                 sig: sig.clone(),
-                                                cert, key, binding, revoked,
+                                                cert, ka,
+                                                time: self.time,
                                             }
                                         }
                                     } else {
                                         VerificationResult::BadChecksum {
                                             sig: sig.clone(),
-                                            cert, key, binding, revoked,
+                                            cert, ka,
+                                            time: self.time,
                                         }
                                     }
                                 );
@@ -1595,14 +1584,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         for issuer in sig.get_issuers() {
                             if let Some((i, j)) = self.keys.get(&issuer) {
                                 let cert = &self.certs[*i];
-
                                 let ka = cert.keys().policy(self.time).nth(*j).unwrap();
-                                let binding = ka.binding_signature(self.time);
-                                let revoked = ka.revoked(self.time);
-                                let key = ka.key();
-
                                 results.push_verification_result(
-                                    if sig.verify(key).unwrap_or(false) &&
+                                    if sig.verify(ka.key()).unwrap_or(false) &&
                                         sig.signature_alive(
                                             self.time, self.clock_skew_tolerance)
                                         .is_ok()
@@ -1624,26 +1608,30 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                                 VerificationResult::BadChecksum
                                                 {
                                                     sig: sig.clone(),
-                                                    cert, key, binding, revoked,
+                                                    cert, ka,
+                                                    time: self.time,
                                                 }
                                             } else {
                                                 VerificationResult::GoodChecksum
                                                 {
                                                     sig: sig.clone(),
-                                                    cert, key, binding, revoked,
+                                                    cert, ka,
+                                                    time: self.time,
                                                 }
                                             }
                                         } else {
                                             // No identity information.
                                             VerificationResult::GoodChecksum {
                                                 sig: sig.clone(),
-                                                cert, key, binding, revoked,
+                                                cert, ka,
+                                                time: self.time,
                                             }
                                         }
                                     } else {
                                         VerificationResult::BadChecksum {
                                             sig: sig.clone(),
-                                            cert, key, binding, revoked,
+                                            cert, ka,
+                                            time: self.time,
                                         }
                                     }
                                 );

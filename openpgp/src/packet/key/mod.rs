@@ -141,6 +141,7 @@ pub(crate) type SecretSubkey = Key<SecretParts, SubordinateRole>;
 
 /// A key with public parts, and an unspecified role
 /// (`UnspecifiedRole`).
+#[allow(dead_code)]
 pub(crate) type UnspecifiedPublic = Key<PublicParts, UnspecifiedRole>;
 /// A key with secret parts, and an unspecified role
 /// (`UnspecifiedRole`).

@@ -190,7 +190,7 @@ fn $fn_name<'a>(
     -> bool
 {
     use self::stream::VerificationResult::*;
-    if let $variant { sig, cert, key, binding, revoked } = result.ref_raw() {
+    if let $variant { sig, cert, ka, time } = result.ref_raw() {
         if let Some(mut p) = sig_r {
             *unsafe { p.as_mut() } = sig.move_into_raw();
         }
@@ -199,17 +199,18 @@ fn $fn_name<'a>(
         }
         if let Some(mut p) = key_r {
             *unsafe { p.as_mut() } = {
-                let key = key
+                let key = ka.key()
                     .mark_parts_unspecified_ref()
                     .mark_role_unspecified_ref();
                 key.move_into_raw()
             };
         }
         if let Some(mut p) = binding_r {
-            *unsafe { p.as_mut() } = binding.move_into_raw();
+            *unsafe { p.as_mut() } =
+                ka.binding_signature(*time).move_into_raw();
         }
         if let Some(mut p) = revocation_status_r {
-            *unsafe { p.as_mut() } = revoked.move_into_raw();
+            *unsafe { p.as_mut() } = ka.revoked(*time).move_into_raw();
         }
         true
     } else {
