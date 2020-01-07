@@ -8,7 +8,7 @@
 //! See the [get example].
 //!
 //! [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
-//! [get example]: get#example
+//! [get example]: fn.get.html#example
 //!
 
 
@@ -251,8 +251,6 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
 
 /// Retrieves the Certs that contain userids with a given email address
 /// from a Web Key Directory URL.
-///
-/// This function is call by [net::wkd::get](../../wkd/fn.get.html).
 ///
 /// From [draft-koch]:
 ///

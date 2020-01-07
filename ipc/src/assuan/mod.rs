@@ -92,9 +92,9 @@ impl Client {
     /// [`Connection::data()`], or the operation may be canceled using
     /// [`Connection::cancel()`].
     ///
-    /// [`Response::Ok`]: enum.Response.html#variant.Ok
-    /// [`Response::Error`]: enum.Response.html#variant.Error
-    /// [`Response::Inquire`]: enum.Response.html#variant.Inquire
+    /// [`Response::Ok`]: ../assuan/enum.Response.html#variant.Ok
+    /// [`Response::Error`]: ../assuan/enum.Response.html#variant.Error
+    /// [`Response::Inquire`]: ../assuan/enum.Response.html#variant.Inquire
     /// [`Connection::data()`]: #method.data
     /// [`Connection::cancel()`]: #method.cancel
     ///
@@ -147,9 +147,9 @@ impl Client {
     /// and `Error` indicate success and failure of the original
     /// operation that lead to the current inquiry.
     ///
-    /// [`Response::Ok`]: enum.Response.html#variant.Ok
-    /// [`Response::Error`]: enum.Response.html#variant.Error
-    /// [`Response::Inquire`]: enum.Response.html#variant.Inquire
+    /// [`Response::Ok`]: ../assuan/enum.Response.html#variant.Ok
+    /// [`Response::Error`]: ../assuan/enum.Response.html#variant.Error
+    /// [`Response::Inquire`]: ../assuan/enum.Response.html#variant.Inquire
     pub fn data<'a, C: 'a>(&'a mut self, data: C) -> Result<()>
         where C: AsRef<[u8]>
     {

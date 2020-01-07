@@ -170,8 +170,8 @@ impl CTBOld {
 /// There are two CTB variants: the [old CTB format] and the [new CTB
 /// format].
 ///
-///   [old CTB format]: ./CTBOld.t.html
-///   [new CTB format]: ./CTBNew.t.html
+///   [old CTB format]: struct.CTBOld.html
+///   [new CTB format]: struct.CTBNew.html
 ///
 /// Note: CTB stands for Cipher Type Byte.
 #[derive(Clone, Debug)]

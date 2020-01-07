@@ -1,8 +1,8 @@
 //! Transferable secret keys.
 //!
-//! Wraps [`sequoia-openpgp::cert::TSK`].
+//! Wraps [`sequoia-openpgp::serialize::TSK`].
 //!
-//! [`sequoia-openpgp::cert::TSK`]: ../../sequoia_openpgp/struct.TSK.html
+//! [`sequoia-openpgp::serialize::TSK`]: ../../../sequoia_openpgp/serialize/struct.TSK.html
 
 extern crate sequoia_openpgp as openpgp;
 
@@ -13,8 +13,8 @@ extern crate sequoia_openpgp as openpgp;
 ///
 /// [RFC 4880, section 11.2]: https://tools.ietf.org/html/rfc4880#section-11.2
 ///
-/// Wraps [`sequoia-openpgp::cert::TSK`].
+/// Wraps [`sequoia-openpgp::serialize::TSK`].
 ///
-/// [`sequoia-openpgp::cert::TSK`]: ../../sequoia_openpgp/enum.TSK.html
+/// [`sequoia-openpgp::serialize::TSK`]: ../../../sequoia_openpgp/serialize/struct.TSK.html
 #[crate::ffi_wrapper_type(prefix = "pgp_", name = "tsk", derive = "Serialize")]
 pub struct TSK<'a>(openpgp::serialize::TSK<'a>);

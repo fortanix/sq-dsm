@@ -6,7 +6,7 @@ will cover some of them, starting from a high level parser, the
 down to the actual OpenPGP [`PacketParser`].
 
 [`CertParser`]: ../../sequoia_openpgp/cert/struct.CertParser.html
-[`Cert`]: ../../sequoia_openpgp/struct.Cert.html
+[`Cert`]: ../../sequoia_openpgp/cert/struct.Cert.html
 [`PacketParser`]: ../../sequoia_openpgp/parse/struct.PacketParser.html
 
 # Parsing Certs
@@ -101,7 +101,7 @@ turned into a vector of [`Packet`]s:
 
 [`PacketPile`]: ../../sequoia_openpgp/struct.PacketPile.html
 [`Packet`]: ../../sequoia_openpgp/enum.Packet.html
-[`Cert::from_packet_pile`]: ../../sequoia_openpgp/struct.Cert.html#method.from_packet_pile
+[`Cert::from_packet_pile`]: ../../sequoia_openpgp/cert/struct.Cert.html#method.from_packet_pile
 [`Message::from_packet_pile`]: ../../sequoia_openpgp/struct.Message.html#method.from_packet_pile
 
 ```rust

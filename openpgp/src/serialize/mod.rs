@@ -309,8 +309,8 @@ impl Serialize for BodyLength {
     /// [`BodyLength::Indeterminate`].  If you want to serialize an
     /// old-style length, use [`serialize_old(..)`].
     ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
-    /// [`BodyLength::Indeterminate`]: ../packet/enum.BodyLength.html#variant.Indeterminate
+    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
+    /// [`BodyLength::Indeterminate`]: #variant.Indeterminate
     /// [`serialize_old(..)`]: #method.serialize_old
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
@@ -387,8 +387,8 @@ impl BodyLength {
     /// [`BodyLength::Partial`].  If you want to serialize a
     /// new-style length, use [`serialize(..)`].
     ///
-    /// [`Error::InvalidArgument`]: ../enum.Error.html#variant.InvalidArgument
-    /// [`BodyLength::Partial`]: ../packet/enum.BodyLength.html#variant.Partial
+    /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
+    /// [`BodyLength::Partial`]: #variant.Partial
     /// [`serialize(..)`]: #impl-Serialize
     pub fn serialize_old<W: io::Write>(&self, o: &mut W) -> Result<()> {
         // Assume an optimal encoding is desired.

@@ -8,7 +8,7 @@
 //! Wraps the streaming parsing functions, see
 //! [`sequoia-openpgp::parse::stream`].
 //!
-//! [`sequoia-openpgp::parse::stream`]: ../../../sequoia_openpgp/parse/stream/index.html
+//! [`sequoia-openpgp::parse::stream`]: ../../../../sequoia_openpgp/parse/stream/index.html
 
 use std::ptr;
 use libc::{c_int, c_void, time_t};

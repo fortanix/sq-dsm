@@ -3,8 +3,8 @@
 //! Wraps [`sequoia-openpgp::parse::PacketParser`] and [related
 //! functionality].
 //!
-//! [`sequoia-openpgp::parse::PacketParser`]: ../../sequoia_openpgp/parse/struct.PacketParser.html
-//! [related functionality]: ../../sequoia_openpgp/parse/index.html
+//! [`sequoia-openpgp::parse::PacketParser`]: ../../../sequoia_openpgp/parse/struct.PacketParser.html
+//! [related functionality]: ../../../sequoia_openpgp/parse/index.html
 
 use std::mem::forget;
 use std::ptr;
@@ -140,7 +140,7 @@ pub extern "C" fn pgp_packet_parser_recursion_depth
 /// recurse into the container, but skips any packets it contains.
 /// To recurse into the container, use the [`recurse()`] method.
 ///
-///   [`PacketParsererBuilder`]: ../../sequoia_openpgp/parse/struct.PacketParserBuilder.html
+///   [`PacketParsererBuilder`]: ../../../sequoia_openpgp/parse/struct.PacketParserBuilder.html
 ///   [`recurse()`]: fn.pgp_packet_parser_recurse.html
 ///
 /// The return value is a tuple containing:

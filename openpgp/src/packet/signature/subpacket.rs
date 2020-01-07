@@ -20,10 +20,10 @@
 //! changes by indicating whether it is safe to ignore an unknown
 //! subpacket or notation.
 //!
-//! A number of methods are defined on the [`Signature`] struct for
-//! working with subpackets.
+//! A number of methods are defined on [`Signature`] for working with
+//! subpackets.
 //!
-//! [`Signature`]: ../struct.Signature.html
+//! [`Signature`]: ../../enum.Signature.html
 //!
 //! # Examples
 //!

@@ -28,7 +28,7 @@ use crate::RefRaw;
 ///
 /// Wraps [`sequoia-openpgp::packet::literal::Literal`].
 ///
-/// [`sequoia-openpgp::packet::literal::Literal`]: ../../sequoia_openpgp/packet/literal/struct.Literal.html
+/// [`sequoia-openpgp::packet::literal::Literal`]: ../../../../sequoia_openpgp/packet/literal/struct.Literal.html
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Debug, Parse, Serialize")]
 pub struct Literal(openpgp::packet::Literal);

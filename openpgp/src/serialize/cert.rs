@@ -262,7 +262,7 @@ impl Cert {
     ///
     /// This object writes out secret keys during serialization.
     ///
-    /// [`TSK`]: serialize/struct.TSK.html
+    /// [`TSK`]: ../serialize/struct.TSK.html
     pub fn as_tsk<'a>(&'a self) -> TSK<'a> {
         TSK::new(self)
     }
@@ -275,7 +275,7 @@ impl Cert {
 /// create a `TSK`, which is a shim on top of the `Cert`, and serialize
 /// this.
 ///
-/// [`Cert::as_tsk()`]: ../struct.Cert.html#method.as_tsk
+/// [`Cert::as_tsk()`]: ../cert/struct.Cert.html#method.as_tsk
 ///
 /// # Example
 /// ```

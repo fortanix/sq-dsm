@@ -25,9 +25,9 @@ type UnspecifiedKey =
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 ///
-/// Wraps [`sequoia-openpgp::packet::key::Key`].
+/// Wraps [`sequoia-openpgp::packet::Key`].
 ///
-/// [`sequoia-openpgp::packet::key::Key`]: ../../sequoia_openpgp/packet/key/struct.Key.html
+/// [`sequoia-openpgp::packet::key::Key`]: ../../../../sequoia_openpgp/packet/enum.Key.html
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq, Parse")]
 pub struct Key(UnspecifiedKey);

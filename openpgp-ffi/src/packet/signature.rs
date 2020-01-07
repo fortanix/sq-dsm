@@ -31,9 +31,9 @@ use crate::RefRaw;
 ///
 ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
 ///
-/// Wraps [`sequoia-openpgp::packet::signature::Signature`].
+/// Wraps [`sequoia-openpgp::packet::Signature`].
 ///
-/// [`sequoia-openpgp::packet::signature::Signature`]: ../../sequoia_openpgp/packet/signature/struct.Signature.html
+/// [`sequoia-openpgp::packet::Signature`]: ../../../../sequoia_openpgp/packet/enum.Signature.html
 #[crate::ffi_wrapper_type(prefix = "pgp_",
                      derive = "Clone, Debug, PartialEq, Parse, Serialize")]
 pub struct Signature(openpgp::packet::Signature);
