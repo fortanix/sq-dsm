@@ -126,6 +126,9 @@ impl<'a> Field<'a> {
     }
 
     /// Returns the name of the field.
+    ///
+    /// Note: The returned names are for display purposes only and may
+    /// change in the future.
     pub fn name(&self) -> &'a str {
         self.name
     }
