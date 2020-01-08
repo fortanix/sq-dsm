@@ -17,7 +17,6 @@ use crate::KeyID;
 use crate::HashAlgorithm;
 use crate::PublicKeyAlgorithm;
 use crate::SignatureType;
-use crate::serialize::SerializeInto;
 
 /// Holds a one-pass signature packet.
 ///
@@ -55,14 +54,11 @@ impl fmt::Debug for OnePassSig3 {
 
 impl PartialEq for OnePassSig3 {
     fn eq(&self, other: &OnePassSig3) -> bool {
-        // Comparing the relevant fields is error prone in case we add
-        // a field at some point.  Instead, we compare the serialized
-        // versions.
-        if let (Ok(a), Ok(b)) = (self.to_vec(), other.to_vec()) {
-            a == b
-        } else {
-            false
-        }
+        self.typ == other.typ
+            && self.hash_algo == other.hash_algo
+            && self.pk_algo == other.pk_algo
+            && self.issuer == other.issuer
+            && self.last == other.last
     }
 }
 
