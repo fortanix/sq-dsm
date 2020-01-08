@@ -111,11 +111,15 @@ impl<'a> DerefMut for Packet {
 /// Fields used by multiple packet types.
 #[derive(Debug, Clone)]
 pub struct Common {
+    /// XXX: Prevents trivial matching on this structure.  Remove once
+    /// this structure actually gains some fields.
+    dummy: std::marker::PhantomData<()>,
 }
 
 impl Default for Common {
     fn default() -> Common {
         Common {
+            dummy: Default::default(),
         }
     }
 }
