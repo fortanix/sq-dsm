@@ -272,6 +272,10 @@ pub enum Error {
     #[fail(display = "Not live until {:?}", _0)]
     NotYetLive(std::time::SystemTime),
 
+    /// No binding signature.
+    #[fail(display = "No binding signature at time {:?}", _0)]
+    NoBindingSignature(std::time::SystemTime),
+
     /// This marks this enum as non-exhaustive.  Do not use this
     /// variant.
     #[doc(hidden)] #[fail(display = "__Nonexhaustive")] __Nonexhaustive,

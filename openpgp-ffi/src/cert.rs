@@ -767,9 +767,8 @@ pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
     iter_wrapper.next_called = true;
 
     if let Some(ka) = iter_wrapper.iter.next() {
-        // XXX: Shouldn't assume the current time.
-        let sig = ka.binding_signature(None);
-        let rs = ka.revoked(None);
+        let sig = ka.binding_signature();
+        let rs = ka.revoked();
         let key = ka.key();
 
         if let Some(ptr) = sigo {

@@ -351,16 +351,16 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
         loop {
             let ka : KeyAmalgamation<'a, key::PublicParts> = if ! self.primary {
                 self.primary = true;
-                (cert, &cert.primary).into()
+                (cert, &cert.primary, self.time).into()
             } else {
-                (cert, self.subkey_iter.next()?).into()
+                (cert, self.subkey_iter.next()?, self.time).into()
             };
 
             let key = ka.key();
             t!("Considering key: {:?}", key);
 
             let binding_signature
-                = if let Some(binding_signature) = ka.binding_signature(self.time) {
+                = if let Some(binding_signature) = ka.binding_signature() {
                     binding_signature
                 } else {
                     t!("No self-signature at time {:?}", self.time);
@@ -368,7 +368,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
                 };
 
             if let Some(flags) = self.flags.as_ref() {
-                if (&binding_signature.key_flags() & &flags).is_empty() {
+                if !ka.has_any_key_flag(flags) {
                     t!("Have flags: {:?}, want flags: {:?}... skipping.",
                        binding_signature.key_flags(), flags);
                     continue;
@@ -376,14 +376,14 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
             }
 
             if let Some(()) = self.alive {
-                if let Err(err) = binding_signature.key_alive(key, self.time) {
+                if let Err(err) = ka.alive() {
                     t!("Key not alive: {:?}", err);
                     continue;
                 }
             }
 
             if let Some(want_revoked) = self.revoked {
-                if let RevocationStatus::Revoked(_) = ka.revoked(self.time) {
+                if let RevocationStatus::Revoked(_) = ka.revoked() {
                     // The key is definitely revoked.
                     if ! want_revoked {
                         t!("Key revoked... skipping.");
@@ -534,7 +534,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
     ///     .keys()
     ///     .policy(None)
     ///     .filter(|ka| {
-    ///         match ka.revoked(None) {
+    ///         match ka.revoked() {
     ///             RevocationStatus::Revoked(_) =>
     ///                 // It's definitely revoked, skip it.
     ///                 false,

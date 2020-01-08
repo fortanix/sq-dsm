@@ -235,7 +235,7 @@ fn real_main() -> Result<(), failure::Error> {
             // Find the right key.
             for ka in cert.keys().policy(None) {
                 // Use the current binding signature.
-                let binding = match ka.binding_signature(None) {
+                let binding = match ka.binding_signature() {
                     Some(b) => b,
                     None => continue,
                 };

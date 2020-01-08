@@ -178,9 +178,6 @@ pub enum VerificationResult<'a> {
 
         /// The signing key that made the signature.
         ka: KeyAmalgamation<'a, key::PublicParts>,
-
-        /// The time at which the signature is evaluated.
-        time: time::SystemTime,
     },
 
     /// The signature is good, but it is not alive at the specified
@@ -197,9 +194,6 @@ pub enum VerificationResult<'a> {
 
         /// The signing key that made the signature.
         ka: KeyAmalgamation<'a, key::PublicParts>,
-
-        /// The time at which the signature is evaluated.
-        time: time::SystemTime,
     },
 
     /// Unable to verify the signature because the key is missing.
@@ -218,9 +212,6 @@ pub enum VerificationResult<'a> {
 
         /// The signing key that made the signature.
         ka: KeyAmalgamation<'a, key::PublicParts>,
-
-        /// The time at which the signature is evaluated.
-        time: time::SystemTime,
     },
 }
 
@@ -699,20 +690,17 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                             VerificationResult::GoodChecksum {
                                                 sig: sig.clone(),
                                                 cert, ka,
-                                                time: self.time,
                                             }
                                         } else {
                                             VerificationResult::NotAlive {
                                                 sig: sig.clone(),
                                                 cert, ka,
-                                                time: self.time,
                                             }
                                         }
                                     } else {
                                         VerificationResult::BadChecksum {
                                             sig: sig.clone(),
                                             cert, ka,
-                                            time: self.time,
                                         }
                                     }
                                 );
@@ -1609,14 +1597,12 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                                 {
                                                     sig: sig.clone(),
                                                     cert, ka,
-                                                    time: self.time,
                                                 }
                                             } else {
                                                 VerificationResult::GoodChecksum
                                                 {
                                                     sig: sig.clone(),
                                                     cert, ka,
-                                                    time: self.time,
                                                 }
                                             }
                                         } else {
@@ -1624,14 +1610,12 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                             VerificationResult::GoodChecksum {
                                                 sig: sig.clone(),
                                                 cert, ka,
-                                                time: self.time,
                                             }
                                         }
                                     } else {
                                         VerificationResult::BadChecksum {
                                             sig: sig.clone(),
                                             cert, ka,
-                                            time: self.time,
                                         }
                                     }
                                 );

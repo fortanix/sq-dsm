@@ -153,6 +153,9 @@ pub enum Status {
 
     /// Not yet live.
     NotYetLive = -31,
+
+    /// No binding signature.
+    NoBindingSignature = -32,
 }
 
 /// Returns the error message.
@@ -195,6 +198,7 @@ pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
         UnsupportedCert => "Cert not supported\x00",
         Expired => "Expired\x00",
         NotYetLive => "Not yet live\x00",
+        NoBindingSignature => "No binding signature\x00",
     }.as_bytes().as_ptr() as *const c_char
 }
 
@@ -250,6 +254,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::Expired,
                 &openpgp::Error::NotYetLive(_) =>
                     Status::NotYetLive,
+                &openpgp::Error::NoBindingSignature(_) =>
+                    Status::NoBindingSignature,
                 openpgp::Error::__Nonexhaustive => unreachable!(),
             }
         }

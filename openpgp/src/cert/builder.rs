@@ -655,22 +655,18 @@ mod tests {
         assert!(sig.key_alive(key, now + 590 * s).is_ok());
         assert!(! sig.key_alive(key, now + 610 * s).is_ok());
 
-        let (sig, key) = cert.keys().policy(now).alive().revoked(false)
+        let ka = cert.keys().policy(now).alive().revoked(false)
             .for_signing()
-            .nth(0).map(|ka| {
-                (ka.binding_signature(now).unwrap(), ka.key())
-            }).unwrap();
-        assert!(sig.key_alive(key, now).is_ok());
-        assert!(sig.key_alive(key, now + 290 * s).is_ok());
-        assert!(! sig.key_alive(key, now + 310 * s).is_ok());
+            .nth(0).unwrap();
+        assert!(ka.alive().is_ok());
+        assert!(ka.clone().set_time(now + 290 * s).alive().is_ok());
+        assert!(! ka.clone().set_time(now + 310 * s).alive().is_ok());
 
-        let (sig, key) = cert.keys().policy(now).alive().revoked(false)
+        let ka = cert.keys().policy(now).alive().revoked(false)
             .for_authentication()
-            .nth(0).map(|ka| {
-                (ka.binding_signature(now).unwrap(), ka.key())
-            }).unwrap();
-        assert!(sig.key_alive(key, now).is_ok());
-        assert!(sig.key_alive(key, now + 590 * s).is_ok());
-        assert!(! sig.key_alive(key, now + 610 * s).is_ok());
+            .nth(0).unwrap();
+        assert!(ka.alive().is_ok());
+        assert!(ka.clone().set_time(now + 590 * s).alive().is_ok());
+        assert!(! ka.clone().set_time(now + 610 * s).alive().is_ok());
     }
 }
