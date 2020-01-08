@@ -109,6 +109,7 @@ pub struct KeyBlueprint {
 /// Builder to generate complex Cert hierarchies with multiple user IDs.
 #[derive(Clone, Debug)]
 pub struct CertBuilder {
+    creation_time: Option<std::time::SystemTime>,
     ciphersuite: CipherSuite,
     primary: KeyBlueprint,
     subkeys: Vec<KeyBlueprint>,
@@ -128,6 +129,7 @@ impl CertBuilder {
     /// ids (using `CertBuilder::add_userid`).
     pub fn new() -> Self {
         CertBuilder{
+            creation_time: None,
             ciphersuite: CipherSuite::default(),
             primary: KeyBlueprint{
                 flags: KeyFlags::default().set_certification(true),
@@ -149,6 +151,7 @@ impl CertBuilder {
               U: Into<packet::UserID>
     {
         CertBuilder {
+            creation_time: None,
             ciphersuite: ciphersuite.into().unwrap_or(Default::default()),
             primary: KeyBlueprint {
                 flags: KeyFlags::default()
@@ -185,6 +188,7 @@ impl CertBuilder {
               U: Into<packet::UserID>
     {
         let builder = CertBuilder{
+            creation_time: None,
             ciphersuite: match version.into().unwrap_or(Default::default()) {
                 Autocrypt::V1 => CipherSuite::RSA3k,
                 Autocrypt::V1_1 => CipherSuite::Cv25519,
@@ -214,6 +218,14 @@ impl CertBuilder {
         } else {
             builder
         }
+    }
+
+    /// Sets the creation time.
+    pub fn set_creation_time<T>(mut self, creation_time: T) -> Self
+        where T: Into<std::time::SystemTime>,
+    {
+        self.creation_time = Some(creation_time.into());
+        self
     }
 
     /// Sets the encryption and signature algorithms for primary and all subkeys.
@@ -307,6 +319,9 @@ impl CertBuilder {
         use crate::{PacketPile, Packet};
         use crate::types::ReasonForRevocation;
 
+        let creation_time =
+            self.creation_time.unwrap_or_else(std::time::SystemTime::now);
+
         let mut packets = Vec::<Packet>::with_capacity(
             1 + 1 + self.subkeys.len() + self.userids.len()
                 + self.user_attributes.len());
@@ -317,7 +332,7 @@ impl CertBuilder {
         }
 
         // Generate & and self-sign primary key.
-        let (primary, sig) = self.primary_key()?;
+        let (primary, sig) = self.primary_key(creation_time)?;
         let mut signer = primary.clone().mark_parts_secret().unwrap()
             .into_keypair().unwrap();
 
@@ -357,9 +372,11 @@ impl CertBuilder {
         for blueprint in self.subkeys {
             let flags = &blueprint.flags;
             let mut subkey = self.ciphersuite.generate_key(flags)?;
+            subkey.set_creation_time(creation_time)?;
 
             let mut builder =
                 signature::Builder::new(SignatureType::SubkeyBinding)
+                .set_signature_creation_time(creation_time)?
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512)
                 .set_features(&Features::sequoia())?
@@ -383,6 +400,7 @@ impl CertBuilder {
                 let mut subkey_signer = subkey.clone().into_keypair().unwrap();
                 let backsig =
                     signature::Builder::new(SignatureType::PrimaryKeyBinding)
+                    .set_signature_creation_time(creation_time)?
                     // GnuPG wants at least a 512-bit hash for P521 keys.
                     .set_hash_algo(HashAlgorithm::SHA512)
                     .set_signature_creation_time(
@@ -405,6 +423,7 @@ impl CertBuilder {
         }
 
         let revocation = CertRevocationBuilder::new()
+            .set_signature_creation_time(creation_time)?
             .set_reason_for_revocation(
                 ReasonForRevocation::Unspecified, b"Unspecified")?
             .build(&mut signer, &cert, None)?;
@@ -416,18 +435,18 @@ impl CertBuilder {
         Ok((cert, revocation))
     }
 
-    fn primary_key(&self)
+    fn primary_key(&self, creation_time: std::time::SystemTime)
         -> Result<(key::PublicKey, Signature)>
     {
-        let key = self.ciphersuite.generate_key(
+        let mut key = self.ciphersuite.generate_key(
             &KeyFlags::default().set_certification(true))?;
+        key.set_creation_time(creation_time)?;
         let sig = signature::Builder::new(SignatureType::DirectKey)
             // GnuPG wants at least a 512-bit hash for P521 keys.
             .set_hash_algo(HashAlgorithm::SHA512)
             .set_features(&Features::sequoia())?
             .set_key_flags(&self.primary.flags)?
-            .set_signature_creation_time(
-                time::SystemTime::now())?
+            .set_signature_creation_time(creation_time)?
             .set_key_expiration_time(self.primary.expiration)?
             .set_issuer_fingerprint(key.fingerprint())?
             .set_issuer(key.keyid())?
@@ -668,5 +687,36 @@ mod tests {
         assert!(ka.alive().is_ok());
         assert!(ka.clone().set_time(now + 590 * s).alive().is_ok());
         assert!(! ka.clone().set_time(now + 610 * s).alive().is_ok());
+    }
+
+    #[test]
+    fn creation_time() {
+        use std::time::UNIX_EPOCH;
+        let (cert, rev) = CertBuilder::new()
+            .set_creation_time(UNIX_EPOCH)
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .add_userid("foo")
+            .add_signing_subkey()
+            .generate().unwrap();
+        dbg!(&cert);
+        assert_eq!(cert.primary().creation_time(), UNIX_EPOCH);
+        assert_eq!(cert.primary_key_signature(None).unwrap()
+                   .signature_creation_time().unwrap(), UNIX_EPOCH);
+        assert_eq!(rev.signature_creation_time().unwrap(), UNIX_EPOCH);
+
+        // (Sub)Keys.
+        assert_eq!(cert.keys().policy(None).count(), 2);
+        for ka in cert.keys().policy(None) {
+            assert_eq!(ka.key().creation_time(), UNIX_EPOCH);
+            assert_eq!(ka.binding_signature().unwrap()
+                       .signature_creation_time().unwrap(), UNIX_EPOCH);
+        }
+
+        // UserIDs.
+        assert_eq!(cert.userids().count(), 1);
+        for ui in cert.userids() {
+            assert_eq!(ui.binding_signature(None).unwrap()
+                       .signature_creation_time().unwrap(), UNIX_EPOCH);
+        }
     }
 }
