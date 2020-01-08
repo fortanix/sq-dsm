@@ -339,7 +339,7 @@ impl CertBuilder {
                 .set_type(SignatureType::PositiveCertification)
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
-            let signature = uid.bind(&mut signer, &cert, builder, None)?;
+            let signature = uid.bind(&mut signer, &cert, builder)?;
             cert = cert.merge_packets(vec![uid.into(), signature.into()])?;
         }
 
@@ -349,7 +349,7 @@ impl CertBuilder {
                 .set_type(SignatureType::PositiveCertification)
             // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
-            let signature = ua.bind(&mut signer, &cert, builder, None)?;
+            let signature = ua.bind(&mut signer, &cert, builder)?;
             cert = cert.merge_packets(vec![ua.into(), signature.into()])?;
         }
 
@@ -395,7 +395,7 @@ impl CertBuilder {
             }
 
             let signature = subkey.mark_parts_public_ref()
-                .bind(&mut signer, &cert, builder, None)?;
+                .bind(&mut signer, &cert, builder)?;
 
             if let Some(ref password) = self.password {
                 subkey.secret_mut().unwrap().encrypt_in_place(password)?;

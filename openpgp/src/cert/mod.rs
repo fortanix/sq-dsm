@@ -3405,8 +3405,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                     &mut alice.primary().clone().mark_parts_secret()
                         .unwrap().into_keypair().unwrap(),
                     &bob,
-                    sig_template,
-                    None).unwrap();
+                    sig_template).unwrap();
 
             let bob
                 = bob.merge_packets(vec![ alice_certifies_bob.clone().into() ])

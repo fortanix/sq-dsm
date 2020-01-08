@@ -739,8 +739,7 @@ mod test {
                 .set_key_flags(
                     &KeyFlags::default().set_transport_encryption(true))
                 .unwrap()
-                .set_exportable_certification(false).unwrap(),
-            None).unwrap();
+                .set_exportable_certification(false).unwrap()).unwrap();
 
         let uid = UserID::from("foo");
         let uid_binding = uid.bind(
@@ -748,8 +747,7 @@ mod test {
             signature::Builder::from(
                 cert.primary_key_signature(None).unwrap().clone())
                 .set_type(SignatureType::PositiveCertification)
-                .set_exportable_certification(false).unwrap(),
-            None).unwrap();
+                .set_exportable_certification(false).unwrap()).unwrap();
 
         let ua = UserAttribute::new(&[
             Subpacket::Unknown(2, b"foo".to_vec().into_boxed_slice()),
@@ -759,8 +757,7 @@ mod test {
             signature::Builder::from(
                 cert.primary_key_signature(None).unwrap().clone())
                 .set_type(SignatureType::PositiveCertification)
-                .set_exportable_certification(false).unwrap(),
-            None).unwrap();
+                .set_exportable_certification(false).unwrap()).unwrap();
 
         let cert = cert.merge_packets(vec![
             Packet::SecretSubkey(key), key_binding.into(),

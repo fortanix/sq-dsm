@@ -2965,8 +2965,8 @@ mod test {
         // Make a signature w/o an exportable certification subpacket.
         let sig = uid.bind(
             &mut keypair, &cert,
-            signature::Builder::new(SignatureType::GenericCertification),
-            None).unwrap();
+            signature::Builder::new(SignatureType::GenericCertification))
+            .unwrap();
 
         // The signature is exportable.  Try to export it in
         // various ways.
@@ -2990,8 +2990,7 @@ mod test {
         let sig = uid.bind(
             &mut keypair, &cert,
             signature::Builder::new(SignatureType::GenericCertification)
-                .set_exportable_certification(true).unwrap(),
-            None).unwrap();
+                .set_exportable_certification(true).unwrap()).unwrap();
 
         // The signature is exportable.  Try to export it in
         // various ways.
@@ -3015,8 +3014,7 @@ mod test {
         let sig = uid.bind(
             &mut keypair, &cert,
             signature::Builder::new(SignatureType::GenericCertification)
-                .set_exportable_certification(false).unwrap(),
-            None).unwrap();
+                .set_exportable_certification(false).unwrap()).unwrap();
 
         // The signature is not exportable.  Try to export it in
         // various ways.

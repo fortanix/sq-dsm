@@ -46,7 +46,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///     .into();
     /// let builder = signature::Builder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(&flags)?;
-    /// let binding = subkey.bind(&mut keypair, &cert, builder, None)?;
+    /// let binding = subkey.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the key and binding signature into the Cert.
     /// let cert = cert.merge_packets(vec![subkey.into(),
@@ -57,17 +57,11 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///                .key_flags(flags).count(),
     ///            1);
     /// # Ok(()) }
-    pub fn bind<T>(&self, signer: &mut dyn Signer, cert: &Cert,
-                   signature: signature::Builder,
-                   creation_time: T)
+    pub fn bind(&self, signer: &mut dyn Signer, cert: &Cert,
+                signature: signature::Builder)
         -> Result<Signature>
-        where T: Into<Option<time::SystemTime>>
     {
         signature
-            .set_signature_creation_time(
-                creation_time.into().unwrap_or_else(|| {
-                    time::SystemTime::now()
-                }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_subkey_binding(signer, cert.primary(), self)
@@ -106,7 +100,7 @@ impl UserID {
     /// let userid = UserID::from("test@example.org");
     /// let builder =
     ///     signature::Builder::new(SignatureType::PositiveCertification);
-    /// let binding = userid.bind(&mut keypair, &cert, builder, None)?;
+    /// let binding = userid.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the userid and binding signature into the Cert.
     /// let cert = cert.merge_packets(vec![userid.into(), binding.into()])?;
@@ -114,17 +108,11 @@ impl UserID {
     /// // Check that we have a userid.
     /// assert_eq!(cert.userids().len(), 1);
     /// # Ok(()) }
-    pub fn bind<T>(&self, signer: &mut dyn Signer, cert: &Cert,
-                   signature: signature::Builder,
-                   creation_time: T)
-                   -> Result<Signature>
-        where T: Into<Option<time::SystemTime>>
+    pub fn bind(&self, signer: &mut dyn Signer, cert: &Cert,
+                signature: signature::Builder)
+                -> Result<Signature>
     {
         signature
-            .set_signature_creation_time(
-                creation_time.into().unwrap_or_else(|| {
-                    time::SystemTime::now()
-                }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_userid_binding(
@@ -205,12 +193,10 @@ impl UserID {
         if let Some(algo) = hash_algo.into() {
             sig = sig.set_hash_algo(algo);
         }
-        self.bind(signer, cert, sig,
-                  // Unwrap arguments to prevent further
-                  // monomorphization of bind().
-                  creation_time.into().unwrap_or_else(|| {
-                      time::SystemTime::now()
-                  }))
+        if let Some(creation_time) = creation_time.into() {
+            sig = sig.set_signature_creation_time(creation_time)?;
+        }
+        self.bind(signer, cert, sig)
     }
 }
 
@@ -251,7 +237,7 @@ impl UserAttribute {
     /// ])?;
     /// let builder =
     ///     signature::Builder::new(SignatureType::PositiveCertification);
-    /// let binding = user_attr.bind(&mut keypair, &cert, builder, None)?;
+    /// let binding = user_attr.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the user attribute and binding signature into the Cert.
     /// let cert = cert.merge_packets(vec![user_attr.into(), binding.into()])?;
@@ -259,17 +245,11 @@ impl UserAttribute {
     /// // Check that we have a user attribute.
     /// assert_eq!(cert.user_attributes().len(), 1);
     /// # Ok(()) }
-    pub fn bind<T>(&self, signer: &mut dyn Signer, cert: &Cert,
-                   signature: signature::Builder,
-                   creation_time: T)
+    pub fn bind(&self, signer: &mut dyn Signer, cert: &Cert,
+                signature: signature::Builder)
         -> Result<Signature>
-        where T: Into<Option<time::SystemTime>>
     {
         signature
-            .set_signature_creation_time(
-                creation_time.into().unwrap_or_else(|| {
-                    time::SystemTime::now()
-                }))?
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_user_attribute_binding(signer, cert.primary(), self)
@@ -354,11 +334,9 @@ impl UserAttribute {
         if let Some(algo) = hash_algo.into() {
             sig = sig.set_hash_algo(algo);
         }
-        self.bind(signer, cert, sig,
-                  // Unwrap arguments to prevent further
-                  // monomorphization of bind().
-                  creation_time.into().unwrap_or_else(|| {
-                      time::SystemTime::now()
-                  }))
+        if let Some(creation_time) = creation_time.into() {
+            sig = sig.set_signature_creation_time(creation_time)?;
+        }
+        self.bind(signer, cert, sig)
     }
 }

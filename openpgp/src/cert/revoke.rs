@@ -229,14 +229,11 @@ impl SubkeyRevocationBuilder {
               P: key::KeyParts,
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
-        let creation_time
-            = self.signature_creation_time()
-            .unwrap_or_else(|| time::SystemTime::now());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);
         }
-        key.bind(signer, cert, self.builder, creation_time)
+        key.bind(signer, cert, self.builder)
     }
 }
 
@@ -344,14 +341,11 @@ impl UserIDRevocationBuilder {
         where H: Into<Option<HashAlgorithm>>
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
-        let creation_time
-            = self.signature_creation_time()
-            .unwrap_or_else(|| time::SystemTime::now());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);
         }
-        userid.bind(signer, cert, self.builder, creation_time)
+        userid.bind(signer, cert, self.builder)
     }
 }
 
@@ -462,14 +456,11 @@ impl UserAttributeRevocationBuilder {
         where H: Into<Option<HashAlgorithm>>
     {
         let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
-        let creation_time
-            = self.signature_creation_time()
-            .unwrap_or_else(|| time::SystemTime::now());
 
         if let Some(algo) = hash_algo.into() {
             self.builder = self.builder.set_hash_algo(algo);
         }
-        ua.bind(signer, cert, self.builder, creation_time)
+        ua.bind(signer, cert, self.builder)
     }
 }
 
