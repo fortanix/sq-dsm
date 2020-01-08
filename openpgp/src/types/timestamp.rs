@@ -56,6 +56,33 @@ impl Timestamp {
         SystemTime::now().try_into()
             .expect("representable for the next hundred years")
     }
+
+    /// Rounds down to the given level of precision.
+    ///
+    /// This can be used to reduce the metadata leak resulting from
+    /// time stamps.  For example, a group of people attending a key
+    /// signing event could be identified by comparing the time stamps
+    /// of resulting certifications.  By rounding the creation time of
+    /// these signatures down, all of them, and others, fall into the
+    /// same bucket.
+    ///
+    /// The given level `p` determines the resulting resolution of
+    /// `2^p` seconds.  The default is `21`, which results in a
+    /// resolution of 24 days, or roughly a month.  `p` must be lower
+    /// than 32.
+    ///
+    /// See [`Duration::round_up`](struct.Duration.html#method.round_up).
+    pub fn round_down<P>(&self, precision: P) -> Result<Timestamp>
+        where P: Into<Option<u8>>
+    {
+        let p = precision.into().unwrap_or(21) as u32;
+        if p < 32 {
+            Ok(Self(self.0 & !((1 << p) - 1)))
+        } else {
+            Err(Error::InvalidArgument(
+                format!("Invalid precision {}", p)).into())
+        }
+    }
 }
 
 impl Arbitrary for Timestamp {
@@ -159,10 +186,66 @@ impl Duration {
     pub fn as_secs(self) -> u64 {
         self.0 as u64
     }
+
+    /// Rounds up to the given level of precision.
+    ///
+    /// If [`Timestamp::round_down`] is used to round the creation
+    /// timestamp of a key or signature down, then this function may
+    /// be used to round the corresponding expiration time up.  This
+    /// ensures validity during the originally intended lifetime,
+    /// while avoiding the metadata leak associated with preserving
+    /// the originally intended expiration time.
+    ///
+    ///   [`Timestamp::round_down`]: struct.Timestamp.html#method.round_down
+    ///
+    /// The given level `p` determines the resulting resolution of
+    /// `2^p` seconds.  The default is `21`, which results in a
+    /// resolution of 24 days, or roughly a month.  `p` must be lower
+    /// than 32.
+    pub fn round_up<P>(&self, precision: P) -> Result<Duration>
+        where P: Into<Option<u8>>
+    {
+        let p = precision.into().unwrap_or(21) as u32;
+        if p < 32 {
+            if let Some(sum) = self.0.checked_add((1 << p) - 1) {
+                Ok(Self(sum & !((1 << p) - 1)))
+            } else {
+                Ok(Self(std::u32::MAX))
+            }
+        } else {
+            Err(Error::InvalidArgument(
+                format!("Invalid precision {}", p)).into())
+        }
+    }
 }
 
 impl Arbitrary for Duration {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Duration(u32::arbitrary(g))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    quickcheck! {
+        fn timestamp_round_down(t: Timestamp) -> bool {
+            let u = t.round_down(None).unwrap();
+            assert!(u <= t);
+            assert_eq!(u32::from(u) & 0b1_1111_1111_1111_1111, 0);
+            assert!(u32::from(t) - u32::from(u) < 2097152);
+            true
+        }
+    }
+
+    quickcheck! {
+        fn duration_round_up(t: Duration) -> bool {
+            let u = t.round_up(None).unwrap();
+            assert!(t <= u);
+            assert_eq!(u32::from(u) & 0b1_1111_1111_1111_1111, 0);
+            assert!(u32::from(u) - u32::from(t) < 2097152);
+            true
+        }
     }
 }
