@@ -271,6 +271,11 @@ impl<'a> MessageStructure<'a> {
     pub fn iter(&self) -> MessageStructureIter {
         MessageStructureIter(self.0.iter())
     }
+
+    /// Iterates over the message structure.
+    pub fn into_iter(self) -> MessageStructureIntoIter<'a> {
+        MessageStructureIntoIter(self.0.into_iter())
+    }
 }
 
 /// Iterates over the message structure.
@@ -278,6 +283,16 @@ pub struct MessageStructureIter<'a>(::std::slice::Iter<'a, MessageLayer<'a>>);
 
 impl<'a> Iterator for MessageStructureIter<'a> {
     type Item = &'a MessageLayer<'a>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+/// Iterates over the message structure.
+pub struct MessageStructureIntoIter<'a>(::std::vec::IntoIter<MessageLayer<'a>>);
+
+impl<'a> Iterator for MessageStructureIntoIter<'a> {
+    type Item = MessageLayer<'a>;
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
