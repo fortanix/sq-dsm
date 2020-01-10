@@ -108,15 +108,15 @@ fn main() {
 #         // policy.
 #
 #         let mut good = false;
-#         for (i, layer) in structure.iter().enumerate() {
+#         for (i, layer) in structure.into_iter().enumerate() {
 #             match (i, layer) {
 #                 // First, we are interested in signatures over the
 #                 // data, i.e. level 0 signatures.
-#                 (0, MessageLayer::SignatureGroup { ref results }) => {
+#                 (0, MessageLayer::SignatureGroup { results }) => {
 #                     // Finally, given a VerificationResult, which only says
 #                     // whether the signature checks out mathematically, we apply
 #                     // our policy.
-#                     match results.get(0) {
+#                     match results.into_iter().next() {
 #                         Some(VerificationResult::GoodChecksum { .. }) =>
 #                             good = true,
 #                         Some(VerificationResult::NotAlive { .. }) =>
@@ -253,15 +253,15 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #         // policy.
 #
 #         let mut good = false;
-#         for (i, layer) in structure.iter().enumerate() {
+#         for (i, layer) in structure.into_iter().enumerate() {
 #             match (i, layer) {
 #                 // First, we are interested in signatures over the
 #                 // data, i.e. level 0 signatures.
-#                 (0, MessageLayer::SignatureGroup { ref results }) => {
+#                 (0, MessageLayer::SignatureGroup { results }) => {
 #                     // Finally, given a VerificationResult, which only says
 #                     // whether the signature checks out mathematically, we apply
 #                     // our policy.
-#                     match results.get(0) {
+#                     match results.into_iter().next() {
 #                         Some(VerificationResult::GoodChecksum { .. }) =>
 #                             good = true,
 #                         Some(VerificationResult::NotAlive { .. }) =>
@@ -398,15 +398,15 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #         // policy.
 #
 #         let mut good = false;
-#         for (i, layer) in structure.iter().enumerate() {
+#         for (i, layer) in structure.into_iter().enumerate() {
 #             match (i, layer) {
 #                 // First, we are interested in signatures over the
 #                 // data, i.e. level 0 signatures.
-#                 (0, MessageLayer::SignatureGroup { ref results }) => {
+#                 (0, MessageLayer::SignatureGroup { results }) => {
 #                     // Finally, given a VerificationResult, which only says
 #                     // whether the signature checks out mathematically, we apply
 #                     // our policy.
-#                     match results.get(0) {
+#                     match results.into_iter().next() {
 #                         Some(VerificationResult::GoodChecksum { .. }) =>
 #                             good = true,
 #                         Some(VerificationResult::NotAlive { .. }) =>
@@ -554,15 +554,15 @@ impl<'a> VerificationHelper for Helper<'a> {
         // policy.
 
         let mut good = false;
-        for (i, layer) in structure.iter().enumerate() {
+        for (i, layer) in structure.into_iter().enumerate() {
             match (i, layer) {
                 // First, we are interested in signatures over the
                 // data, i.e. level 0 signatures.
-                (0, MessageLayer::SignatureGroup { ref results }) => {
+                (0, MessageLayer::SignatureGroup { results }) => {
                     // Finally, given a VerificationResult, which only says
                     // whether the signature checks out mathematically, we apply
                     // our policy.
-                    match results.get(0) {
+                    match results.into_iter().next() {
                         Some(VerificationResult::GoodChecksum { .. }) =>
                             good = true,
                         Some(VerificationResult::NotAlive { .. }) =>

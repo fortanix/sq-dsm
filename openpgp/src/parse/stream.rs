@@ -1886,9 +1886,9 @@ mod test {
 
             fn check(&mut self, structure: MessageStructure) -> Result<()> {
                 assert_eq!(structure.iter().count(), 2);
-                for (i, layer) in structure.iter().enumerate() {
+                for (i, layer) in structure.into_iter().enumerate() {
                     match layer {
-                        MessageLayer::SignatureGroup { ref results } => {
+                        MessageLayer::SignatureGroup { results } => {
                             assert_eq!(results.len(), 1);
                             if let VerificationResult::MissingKey { sig, .. } =
                                 &results[0]
