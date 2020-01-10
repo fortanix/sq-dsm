@@ -381,7 +381,7 @@ impl VerificationHelper for VHelper {
         Ok(certs)
     }
 
-    fn check(&mut self, structure: &stream::MessageStructure)
+    fn check(&mut self, structure: stream::MessageStructure)
         -> Result<(), failure::Error>
     {
         let result = (self.check_signatures_cb)(self.cookie,
@@ -666,7 +666,7 @@ impl VerificationHelper for DHelper {
         self.vhelper.get_public_keys(ids)
     }
 
-    fn check(&mut self, structure: &stream::MessageStructure)
+    fn check(&mut self, structure: stream::MessageStructure)
         -> Result<(), failure::Error>
     {
         self.vhelper.check(structure)

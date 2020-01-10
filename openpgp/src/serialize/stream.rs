@@ -252,7 +252,7 @@ impl<'a> Signer<'a> {
     ///         Ok(vec![self.0.clone()])
     ///     }
     ///
-    ///     fn check(&mut self, structure: &MessageStructure)
+    ///     fn check(&mut self, structure: MessageStructure)
     ///              -> openpgp::Result<()> {
     ///         if let MessageLayer::SignatureGroup { ref results } =
     ///             structure.iter().nth(0).unwrap()
@@ -359,7 +359,7 @@ impl<'a> Signer<'a> {
     ///         Ok(vec![self.0.clone()])
     ///     }
     ///
-    ///     fn check(&mut self, structure: &MessageStructure)
+    ///     fn check(&mut self, structure: MessageStructure)
     ///              -> openpgp::Result<()> {
     ///         if let MessageLayer::SignatureGroup { ref results } =
     ///             structure.iter().nth(0).unwrap()
@@ -1665,7 +1665,7 @@ mod test {
                                -> Result<Vec<Cert>> {
                 Ok(Vec::new())
             }
-            fn check(&mut self, _structure: &MessageStructure) -> Result<()> {
+            fn check(&mut self, _structure: MessageStructure) -> Result<()> {
                 Ok(())
             }
         }

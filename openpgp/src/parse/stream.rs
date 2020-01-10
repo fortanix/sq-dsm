@@ -89,7 +89,7 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 ///     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
 ///         Ok(Vec::new()) // Feed the Certs to the verifier here...
 ///     }
-///     fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
 ///         Ok(()) // Implement your verification policy here.
 ///     }
 /// }
@@ -450,7 +450,7 @@ pub trait VerificationHelper {
     /// be called again.  As such, any error returned by this function
     /// will abort reading, and the error will be propagated via the
     /// `io::Read` operation.
-    fn check(&mut self, structure: &MessageStructure) -> Result<()>;
+    fn check(&mut self, structure: MessageStructure) -> Result<()>;
 }
 
 impl<'a, H: VerificationHelper> Verifier<'a, H> {
@@ -720,7 +720,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
             }
         }
 
-        self.helper.check(&results)
+        self.helper.check(results)
     }
 
     // If the amount of remaining data does not exceed the reserve,
@@ -1019,7 +1019,7 @@ impl<'a> io::Read for Transformer<'a> {
 ///     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
 ///         Ok(Vec::new()) // Feed the Certs to the verifier here...
 ///     }
-///     fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
 ///         Ok(()) // Implement your verification policy here.
 ///     }
 /// }
@@ -1163,7 +1163,7 @@ impl DetachedVerifier {
 ///     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
 ///         Ok(Vec::new()) // Feed the Certs to the verifier here...
 ///     }
-///     fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
 ///         Ok(()) // Implement your verification policy here.
 ///     }
 /// }
@@ -1635,7 +1635,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             }
         }
 
-        self.helper.check(&results)
+        self.helper.check(results)
     }
 
     /// Like `io::Read::read()`, but returns our `Result`.
@@ -1747,7 +1747,7 @@ mod test {
             Ok(self.keys.clone())
         }
 
-        fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+        fn check(&mut self, structure: MessageStructure) -> Result<()> {
             use self::VerificationResult::*;
             for layer in structure.iter() {
                 match layer {
@@ -1869,7 +1869,7 @@ mod test {
                 Ok(Vec::new())
             }
 
-            fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+            fn check(&mut self, structure: MessageStructure) -> Result<()> {
                 assert_eq!(structure.iter().count(), 2);
                 for (i, layer) in structure.iter().enumerate() {
                     match layer {

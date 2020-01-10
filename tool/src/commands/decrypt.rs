@@ -130,7 +130,7 @@ impl<'a> VerificationHelper for Helper<'a> {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
         self.vhelper.get_public_keys(ids)
     }
-    fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+    fn check(&mut self, structure: MessageStructure) -> Result<()> {
         self.vhelper.check(structure)
     }
 }

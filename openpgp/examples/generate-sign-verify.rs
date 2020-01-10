@@ -93,7 +93,7 @@ impl<'a> VerificationHelper for Helper<'a> {
         Ok(vec![self.cert.clone()])
     }
 
-    fn check(&mut self, structure: &MessageStructure)
+    fn check(&mut self, structure: MessageStructure)
              -> openpgp::Result<()> {
         // In this function, we implement our signature verification
         // policy.

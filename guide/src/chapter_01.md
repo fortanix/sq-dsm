@@ -102,7 +102,7 @@ fn main() {
 #         Ok(vec![self.cert.clone()])
 #     }
 #
-#     fn check(&mut self, structure: &MessageStructure)
+#     fn check(&mut self, structure: MessageStructure)
 #              -> openpgp::Result<()> {
 #         // In this function, we implement our signature verification
 #         // policy.
@@ -247,7 +247,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #         Ok(vec![self.cert.clone()])
 #     }
 #
-#     fn check(&mut self, structure: &MessageStructure)
+#     fn check(&mut self, structure: MessageStructure)
 #              -> openpgp::Result<()> {
 #         // In this function, we implement our signature verification
 #         // policy.
@@ -392,7 +392,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #         Ok(vec![self.cert.clone()])
 #     }
 #
-#     fn check(&mut self, structure: &MessageStructure)
+#     fn check(&mut self, structure: MessageStructure)
 #              -> openpgp::Result<()> {
 #         // In this function, we implement our signature verification
 #         // policy.
@@ -548,7 +548,7 @@ impl<'a> VerificationHelper for Helper<'a> {
         Ok(vec![self.cert.clone()])
     }
 
-    fn check(&mut self, structure: &MessageStructure)
+    fn check(&mut self, structure: MessageStructure)
              -> openpgp::Result<()> {
         // In this function, we implement our signature verification
         // policy.

@@ -100,7 +100,7 @@ impl<'a> VerificationHelper for Helper<'a> {
         Ok(Vec::new())
     }
 
-    fn check(&mut self, _structure: &MessageStructure)
+    fn check(&mut self, _structure: MessageStructure)
              -> openpgp::Result<()> {
         // Implement your signature verification policy here.
         Ok(())

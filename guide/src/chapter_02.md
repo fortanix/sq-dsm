@@ -109,7 +109,7 @@ fn main() {
 #         Ok(Vec::new())
 #     }
 #
-#     fn check(&mut self, _structure: &MessageStructure)
+#     fn check(&mut self, _structure: MessageStructure)
 #              -> openpgp::Result<()> {
 #         // Implement your signature verification policy here.
 #         Ok(())
@@ -250,7 +250,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #         Ok(Vec::new())
 #     }
 #
-#     fn check(&mut self, _structure: &MessageStructure)
+#     fn check(&mut self, _structure: MessageStructure)
 #              -> openpgp::Result<()> {
 #         // Implement your signature verification policy here.
 #         Ok(())
@@ -391,7 +391,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #         Ok(Vec::new())
 #     }
 #
-#     fn check(&mut self, _structure: &MessageStructure)
+#     fn check(&mut self, _structure: MessageStructure)
 #              -> openpgp::Result<()> {
 #         // Implement your signature verification policy here.
 #         Ok(())
@@ -546,7 +546,7 @@ impl<'a> VerificationHelper for Helper<'a> {
         Ok(Vec::new())
     }
 
-    fn check(&mut self, _structure: &MessageStructure)
+    fn check(&mut self, _structure: MessageStructure)
              -> openpgp::Result<()> {
         // Implement your signature verification policy here.
         Ok(())

@@ -116,7 +116,7 @@ impl<'a> VerificationHelper for Helper<'a> {
                        -> failure::Fallible<Vec<openpgp::Cert>> {
         Ok(Vec::new()) // Feed the Certs to the verifier here.
     }
-    fn check(&mut self, structure: &MessageStructure)
+    fn check(&mut self, structure: MessageStructure)
              -> failure::Fallible<()> {
         use self::VerificationResult::*;
         for layer in structure.iter() {

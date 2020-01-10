@@ -356,7 +356,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         Ok(certs)
     }
 
-    fn check(&mut self, structure: &MessageStructure) -> Result<()> {
+    fn check(&mut self, structure: MessageStructure) -> Result<()> {
         for layer in structure.iter() {
             match layer {
                 MessageLayer::Compression { algo } =>
