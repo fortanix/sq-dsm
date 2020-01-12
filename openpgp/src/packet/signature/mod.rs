@@ -524,7 +524,7 @@ impl Signature4 {
     ///
     /// A signature can contain multiple hints as to who issued the
     /// signature.
-    pub fn get_issuers(&self) -> std::collections::HashSet<crate::KeyHandle> {
+    pub fn get_issuers(&self) -> Vec<crate::KeyHandle> {
         use crate::packet::signature::subpacket:: SubpacketValue;
 
         self.hashed_area().iter()

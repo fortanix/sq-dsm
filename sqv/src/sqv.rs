@@ -159,7 +159,7 @@ fn real_main() -> Result<(), failure::Error> {
     }
 
     // Find the certs.
-    let mut certs: HashMap<KeyHandle, Rc<RefCell<Cert>>> = HashMap::new();
+    let mut certs: Vec<(KeyHandle, Rc<RefCell<Cert>>)> = Vec::new();
     for filename in matches.values_of_os("keyring")
         .expect("No keyring specified.")
     {
@@ -187,19 +187,19 @@ fn real_main() -> Result<(), failure::Error> {
             for (_, issuer) in sigs.iter() {
                 if cert_has_key(&cert, issuer) {
                     let fp: KeyHandle = cert.fingerprint().into();
-                    let id = KeyHandle::KeyID(fp.clone().into());
-
-                    let cert = if let Some(known) = certs.get(&fp) {
+                    let cert = if let Some(known) = certs.iter().position(|(h, _)| {
+                        h.aliases(&fp)
+                    }) {
                         if trace {
                             eprintln!("Found key {} again.  Merging.",
                                       fp);
                         }
 
                         // XXX: Use RefCell::replace_with once stabilized.
-                        let k = known.borrow().clone();
-                        known.replace(k.merge(cert)?);
+                        let k = certs[known].1.borrow().clone();
+                        certs[known].1.replace(k.merge(cert)?);
 
-                        known.clone()
+                        certs[known].1.clone()
                     } else {
                         if trace {
                             eprintln!("Found key {}.", issuer);
@@ -208,13 +208,10 @@ fn real_main() -> Result<(), failure::Error> {
                         Rc::new(RefCell::new(cert))
                     };
 
-                    certs.insert(fp, cert.clone());
-                    certs.insert(id, cert.clone());
+                    certs.push((fp, cert.clone()));
                     for c in cert.borrow().subkeys() {
                         let fp: KeyHandle = c.key().fingerprint().into();
-                        let id = KeyHandle::KeyID(fp.clone().into());
-                        certs.insert(fp, cert.clone());
-                        certs.insert(id, cert.clone());
+                        certs.push((fp, cert.clone()));
                     }
                     break;
                 }
@@ -226,11 +223,15 @@ fn real_main() -> Result<(), failure::Error> {
     let mut sigs_seen_from_cert = HashSet::new();
     let mut good = 0;
     'sig_loop: for (sig, issuer) in sigs.into_iter() {
+        let issuer : KeyHandle = issuer.into();
+
         if trace {
             eprintln!("Checking signature allegedly issued by {}.", issuer);
         }
 
-        if let Some(cert) = certs.get(&issuer.clone().into()) {
+        if let Some((_, cert)) = certs.iter().find(|(h, _)| {
+            h.aliases(&issuer)
+        }) {
             let cert = cert.borrow();
             // Find the right key.
             for ka in cert.keys().policy(None) {
@@ -241,7 +242,7 @@ fn real_main() -> Result<(), failure::Error> {
                 };
                 let key = ka.key();
 
-                if issuer == key.keyid() {
+                if issuer.aliases(&key.fingerprint().into()) {
                     if !binding.key_flags().for_signing() {
                         eprintln!("Cannot check signature, key has no signing \
                                    capability");

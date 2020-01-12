@@ -11,7 +11,6 @@
 
 use std::cmp;
 use std::convert::TryFrom;
-use std::collections::HashMap;
 use std::io::{self, Read};
 use std::path::Path;
 use std::time;
@@ -124,7 +123,7 @@ pub struct Verifier<'a, H: VerificationHelper> {
     helper: H,
     certs: Vec<Cert>,
     /// Maps KeyID to certs[i].keys_all().nth(j).
-    keys: HashMap<crate::KeyHandle, (usize, usize)>,
+    keys: Vec<(crate::KeyHandle, (usize, usize))>,
     oppr: Option<PacketParserResult<'a>>,
     structure: IMessageStructure,
 
@@ -577,7 +576,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         let mut v = Verifier {
             helper: helper,
             certs: Vec::new(),
-            keys: HashMap::new(),
+            keys: Vec::new(),
             oppr: None,
             structure: IMessageStructure::new(),
             reserve: None,
@@ -608,18 +607,16 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         if for_signing(cert.primary(),
                                        cert.primary_key_signature(None),
                                        time, tolerance) {
-                            v.keys.insert(cert.fingerprint().into(), (i, 0));
-                            v.keys.insert(cert.keyid().into(), (i, 0));
+                            v.keys.push((cert.fingerprint().into(),
+                                         (i, 0)));
                         }
 
                         for (j, skb) in cert.subkeys().enumerate() {
                             let key = skb.key();
                             if for_signing(key, skb.binding_signature(None),
                                            time, tolerance) {
-                                v.keys.insert(key.fingerprint().into(),
-                                              (i, j + 1));
-                                v.keys.insert(key.keyid().into(),
-                                              (i, j + 1));
+                                v.keys.push((key.fingerprint().into(),
+                                             (i, j + 1)));
                             }
                         }
                     }
@@ -693,7 +690,9 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                     results.new_signature_group();
                     'sigs: for sig in sigs.into_iter() {
                         for issuer in sig.get_issuers() {
-                            if let Some((i, j)) = self.keys.get(&issuer) {
+                            if let Some((_, (i, j))) = self.keys.iter().find(|(h, _)| {
+                                h.aliases(&issuer)
+                            }) {
                                 let cert = &self.certs[*i];
                                 let ka = cert.keys().policy(self.time).nth(*j).unwrap();
                                 results.push_verification_result(
@@ -1222,7 +1221,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     helper: H,
     certs: Vec<Cert>,
     /// Maps KeyID to certs[i].keys_all().nth(j).
-    keys: HashMap<crate::KeyHandle, (usize, usize)>,
+    keys: Vec<(crate::KeyHandle, (usize, usize))>,
     oppr: Option<PacketParserResult<'a>>,
     identity: Option<Fingerprint>,
     structure: IMessageStructure,
@@ -1361,7 +1360,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         let mut v = Decryptor {
             helper: helper,
             certs: Vec::new(),
-            keys: HashMap::new(),
+            keys: vec![],
             oppr: None,
             identity: None,
             structure: IMessageStructure::new(),
@@ -1446,17 +1445,15 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                         if for_signing(cert.primary().into(),
                                     cert.primary_key_signature(None)) {
-                            v.keys.insert(cert.fingerprint().into(), (i, 0));
-                            v.keys.insert(cert.keyid().into(), (i, 0));
+                            v.keys.push((cert.fingerprint().into(),
+                                         (i, 0)));
                         }
 
                         for (j, skb) in cert.subkeys().enumerate() {
                             let key = skb.key();
                             if for_signing(key.into(), skb.binding_signature(None)) {
-                                v.keys.insert(key.fingerprint().into(),
-                                              (i, j + 1));
-                                v.keys.insert(key.keyid().into(),
-                                              (i, j + 1));
+                                v.keys.push((key.fingerprint().into(),
+                                             (i, j + 1)));
                             }
                         }
                     }
@@ -1585,7 +1582,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     results.new_signature_group();
                     'sigs: for sig in sigs.into_iter() {
                         for issuer in sig.get_issuers() {
-                            if let Some((i, j)) = self.keys.get(&issuer) {
+                            if let Some((_, (i, j))) = self.keys.iter().find(|(h, _)| {
+                                h.aliases(&issuer)
+                            }) {
                                 let cert = &self.certs[*i];
                                 let ka = cert.keys().policy(self.time).nth(*j).unwrap();
                                 results.push_verification_result(
