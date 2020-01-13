@@ -125,6 +125,9 @@ fn main() {
 #                         Some(VerificationResult::MissingKey { .. }) =>
 #                             return Err(failure::err_msg(
 #                                 "Missing key to verify signature")),
+#                         Some(VerificationResult::Error { error, .. }) =>
+#                             return Err(failure::err_msg(
+#                                 format!("Bad signature: {:?}", error))),
 #                         Some(VerificationResult::BadChecksum { .. }) =>
 #                             return Err(failure::err_msg("Bad signature")),
 #                         None =>
@@ -270,6 +273,9 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #                         Some(VerificationResult::MissingKey { .. }) =>
 #                             return Err(failure::err_msg(
 #                                 "Missing key to verify signature")),
+#                         Some(VerificationResult::Error { error, .. }) =>
+#                             return Err(failure::err_msg(
+#                                 format!("Bad signature: {:?}", error))),
 #                         Some(VerificationResult::BadChecksum { .. }) =>
 #                             return Err(failure::err_msg("Bad signature")),
 #                         None =>
@@ -415,6 +421,9 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #                         Some(VerificationResult::MissingKey { .. }) =>
 #                             return Err(failure::err_msg(
 #                                 "Missing key to verify signature")),
+#                         Some(VerificationResult::Error { error, .. }) =>
+#                             return Err(failure::err_msg(
+#                                 format!("Bad signature: {:?}", error))),
 #                         Some(VerificationResult::BadChecksum { .. }) =>
 #                             return Err(failure::err_msg("Bad signature")),
 #                         None =>
@@ -571,6 +580,9 @@ impl<'a> VerificationHelper for Helper<'a> {
                         Some(VerificationResult::MissingKey { .. }) =>
                             return Err(failure::err_msg(
                                 "Missing key to verify signature")),
+                        Some(VerificationResult::Error { error, .. }) =>
+                            return Err(failure::err_msg(
+                                format!("Bad signature: {:?}", error))),
                         Some(VerificationResult::BadChecksum { .. }) =>
                             return Err(failure::err_msg("Bad signature")),
                         None =>

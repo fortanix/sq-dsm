@@ -135,6 +135,9 @@ impl VerificationHelper for Helper {
                             BadChecksum { cert, .. } => {
                                 eprintln!("Bad signature from {}", cert);
                             },
+                            Error { error, .. } => {
+                                eprintln!("Error: {}", error);
+                            },
                         }
                     }
             }

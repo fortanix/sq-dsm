@@ -212,6 +212,20 @@ pub enum VerificationResult<'a> {
         /// The signing key that made the signature.
         ka: KeyAmalgamation<'a, key::PublicParts>,
     },
+
+    /// An error occured while verifying the signature.
+    ///
+    /// This could occur if the signature is invalid (e.g., no
+    /// Signature Creation Time packet), the key is invalid (e.g., the
+    /// key is not alive, the key is revoked, the key is not signing
+    /// capable), etc.
+    Error {
+        /// The signature.
+        sig: Signature,
+
+        /// The reason.
+        error: failure::Error,
+    },
 }
 
 impl<'a> VerificationResult<'a> {
@@ -223,6 +237,7 @@ impl<'a> VerificationResult<'a> {
             NotAlive { sig, .. } => sig.level(),
             MissingKey { sig, .. } => sig.level(),
             BadChecksum { sig, .. } => sig.level(),
+            Error { sig, .. } => sig.level(),
         }
     }
 }
@@ -1772,6 +1787,7 @@ mod test {
                                 MissingKey { .. } => self.unknown += 1,
                                 NotAlive { .. } => self.bad += 1,
                                 BadChecksum { .. } => self.bad += 1,
+                                Error { .. } => self.bad += 1,
                             }
                         }
                     MessageLayer::Compression { .. } => (),

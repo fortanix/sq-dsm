@@ -192,6 +192,7 @@ struct VHelper<'a> {
     unknown_checksums: usize,
     bad_signatures: usize,
     bad_checksums: usize,
+    broken_signatures: usize,
 }
 
 impl<'a> VHelper<'a> {
@@ -210,6 +211,7 @@ impl<'a> VHelper<'a> {
             unknown_checksums: 0,
             bad_signatures: 0,
             bad_checksums: 0,
+            broken_signatures: 0,
         }
     }
 
@@ -230,6 +232,7 @@ impl<'a> VHelper<'a> {
         p(&mut dirty, "unknown checksum", self.unknown_checksums);
         p(&mut dirty, "bad signature", self.bad_signatures);
         p(&mut dirty, "bad checksum", self.bad_checksums);
+        p(&mut dirty, "broken signatures", self.broken_signatures);
         if dirty {
             eprintln!(".");
         }
@@ -238,6 +241,19 @@ impl<'a> VHelper<'a> {
     fn print_sigs(&mut self, results: &[VerificationResult]) {
         use self::VerificationResult::*;
         for result in results {
+            if let Error { sig, error } = result {
+                let issuer = sig.get_issuers().iter().nth(0)
+                    .expect("key has an issuer")
+                    .to_string();
+                let what = match sig.level() {
+                    0 => "checksum".into(),
+                    n => format!("level {} notarizing checksum", n),
+                };
+                eprintln!("Error verifying {} from {}: {}",
+                          what, issuer, error);
+                self.broken_signatures += 1;
+                continue;
+            }
             if let MissingKey { sig } = result {
                 let issuer = sig.get_issuers().iter().nth(0)
                     .expect("missing key checksum has an issuer")
@@ -257,6 +273,7 @@ impl<'a> VHelper<'a> {
                 | BadChecksum { sig, ka, .. } =>
                     (ka.key().keyid(), sig.level()),
                 MissingKey { .. } => unreachable!("handled above"),
+                Error { .. } => unreachable!("handled above"),
             };
 
             let trusted = self.trusted.contains(&issuer);
@@ -297,6 +314,7 @@ impl<'a> VHelper<'a> {
                     }
                 },
                 MissingKey { .. } => unreachable!("handled above"),
+                Error { .. } => unreachable!("handled above"),
             }
         }
     }

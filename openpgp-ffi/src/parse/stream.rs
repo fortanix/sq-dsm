@@ -173,6 +173,7 @@ fn pgp_verification_result_variant(result: *const VerificationResult)
         MissingKey { .. } => 2,
         BadChecksum { .. } => 3,
         NotAlive { .. } => 4,
+        Error { .. } => 5,
     }
 }
 
@@ -262,6 +263,32 @@ fn pgp_verification_result_missing_key<'a>(
 /// `VerificationResult::BadChecksum`, and returns the variants
 /// members in `sig_r` and the like iff `sig_r != NULL`.
 make_decomposition_fn!(pgp_verification_result_bad_checksum, BadChecksum);
+
+/// Decomposes a `VerificationResult::Error`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::Error`, and returns the variants members
+/// in `sig_r` and the like iff `sig_r != NULL`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_error<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>,
+    err_r: Maybe<*mut crate::error::Error>)
+    -> bool
+{
+    use self::stream::VerificationResult::*;
+    if let Error { sig, error, .. } = result.ref_raw() {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
+        }
+        if let Some(mut p) = err_r {
+            *unsafe { p.as_mut() } = error.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
 
 /// Passed as the first argument to the callbacks used by pgp_verify
 /// and pgp_decrypt.

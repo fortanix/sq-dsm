@@ -118,6 +118,8 @@ impl<'a> VerificationHelper for Helper<'a> {
                                 "Missing key to verify signature")),
                         Some(VerificationResult::BadChecksum { .. }) =>
                             return Err(failure::err_msg("Bad signature")),
+                        Some(VerificationResult::Error { error, .. }) =>
+                            return Err(error),
                         None =>
                             return Err(failure::err_msg("No signature")),
                     }
