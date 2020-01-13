@@ -4,6 +4,7 @@ use std::time::SystemTime;
 use std::borrow::Borrow;
 
 use crate::{
+    KeyHandle,
     RevocationStatus,
     packet::key,
     packet::Key,
@@ -44,6 +45,9 @@ pub struct KeyIter<'a, P: key::KeyParts, R: key::KeyRole> {
     // secret.
     unencrypted_secret: Option<bool>,
 
+    // Only return keys in this set.
+    key_handles: Vec<KeyHandle>,
+
     _p: std::marker::PhantomData<P>,
     _r: std::marker::PhantomData<R>,
 }
@@ -55,6 +59,7 @@ impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
         f.debug_struct("KeyIter")
             .field("secret", &self.secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
+            .field("key_handles", &self.key_handles)
             .finish()
     }
 }
@@ -115,6 +120,17 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
 
             t!("Considering key: {:?}", key);
 
+            if self.key_handles.len() > 0 {
+                if !self.key_handles
+                    .iter()
+                    .any(|h| h.aliases(key.key_handle()))
+                {
+                    t!("{} is not one of the keys that we are looking for ({:?})",
+                       key.fingerprint(), self.key_handles);
+                    continue;
+                }
+            }
+
             if let Some(want_secret) = self.secret {
                 if key.secret().is_some() {
                     // We have a secret.
@@ -167,6 +183,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
             // The filters.
             secret: None,
             unencrypted_secret: None,
+            key_handles: vec![],
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -183,6 +200,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
             // The filters.
             secret: Some(true),
             unencrypted_secret: self.unencrypted_secret,
+            key_handles: self.key_handles,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -200,10 +218,34 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
             // The filters.
             secret: self.secret,
             unencrypted_secret: Some(true),
+            key_handles: self.key_handles,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
         }
+    }
+
+    /// Only returns a key if it matches the specified handle.
+    ///
+    /// Note: this function is cumulative.  If you call this function
+    /// (or `key_handles`) multiple times, then the iterator returns a
+    /// key if it matches *any* of the specified handles.
+    pub fn key_handle<H>(mut self, h: H) -> Self
+        where H: Into<KeyHandle>
+    {
+        self.key_handles.push(h.into());
+        self
+    }
+
+    /// Only returns a key if it matches any of the specified handles.
+    ///
+    /// Note: this function is cumulative.  If you call this function
+    /// (or `key_handle`) multiple times, then the iterator returns a
+    /// key if it matches *any* of the specified handles.
+    pub fn key_handles(mut self, h: impl Iterator<Item=&'a KeyHandle>) -> Self
+    {
+        self.key_handles.extend(h.map(|h| h.clone()));
+        self
     }
 
     /// Changes the iterator to only return keys that are valid at
@@ -229,6 +271,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
             // The filters.
             secret: self.secret,
             unencrypted_secret: self.unencrypted_secret,
+            key_handles: self.key_handles,
             time: time.into().unwrap_or_else(SystemTime::now),
             flags: None,
             alive: None,
@@ -265,6 +308,9 @@ pub struct ValidKeyIter<'a, P: key::KeyParts, R: key::KeyRole> {
     // secret.
     unencrypted_secret: Option<bool>,
 
+    // Only return keys in this set.
+    key_handles: Vec<KeyHandle>,
+
     // The time.
     time: SystemTime,
 
@@ -289,6 +335,7 @@ impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
         f.debug_struct("ValidKeyIter")
             .field("secret", &self.secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
+            .field("key_handles", &self.key_handles)
             .field("time", &self.time)
             .field("flags", &self.flags)
             .field("alive", &self.alive)
@@ -358,6 +405,17 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
 
             let key = ka.key();
             t!("Considering key: {:?}", key);
+
+            if self.key_handles.len() > 0 {
+                if !self.key_handles
+                    .iter()
+                    .any(|h| h.aliases(key.key_handle()))
+                {
+                    t!("{} is not one of the keys that we are looking for ({:?})",
+                       key.key_handle(), self.key_handles);
+                    continue;
+                }
+            }
 
             let binding_signature
                 = if let Some(binding_signature) = ka.binding_signature() {
@@ -580,6 +638,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
             // The filters.
             secret: Some(true),
             unencrypted_secret: self.unencrypted_secret,
+            key_handles: self.key_handles,
             flags: self.flags,
             alive: self.alive,
             revoked: self.revoked,
@@ -602,6 +661,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
             // The filters.
             secret: self.secret,
             unencrypted_secret: Some(true),
+            key_handles: self.key_handles,
             flags: self.flags,
             alive: self.alive,
             revoked: self.revoked,
@@ -609,6 +669,29 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
         }
+    }
+
+    /// Only returns a key if it matches the specified handle.
+    ///
+    /// Note: this function is cumulative.  If you call this function
+    /// (or `key_handles`) multiple times, then the iterator returns a
+    /// key if it matches *any* of the specified handles.
+    pub fn key_handle<H>(mut self, h: H) -> Self
+        where H: Into<KeyHandle>
+    {
+        self.key_handles.push(h.into());
+        self
+    }
+
+    /// Only returns a key if it matches any of the specified handles.
+    ///
+    /// Note: this function is cumulative.  If you call this function
+    /// (or `key_handle`) multiple times, then the iterator returns a
+    /// key if it matches *any* of the specified handles.
+    pub fn key_handles(mut self, h: impl Iterator<Item=&'a KeyHandle>) -> Self
+    {
+        self.key_handles.extend(h.map(|h| h.clone()));
+        self
     }
 }
 
@@ -705,5 +788,59 @@ mod test {
                        .key_flags(KeyFlags::default().set_authentication(true))
                        .count(),
                    1);
+    }
+
+    #[test]
+    fn select_key_handle() {
+        let (cert, _) = CertBuilder::new()
+            .add_signing_subkey()
+            .add_certification_subkey()
+            .add_transport_encryption_subkey()
+            .add_storage_encryption_subkey()
+            .add_authentication_subkey()
+            .generate().unwrap();
+
+        let keys = cert.keys().count();
+        assert_eq!(keys, 6);
+
+        let keyids = cert.keys().map(|key| key.keyid()).collect::<Vec<_>>();
+
+        fn check(got: &[KeyHandle], expected: &[KeyHandle]) {
+            if expected.len() != got.len() {
+                panic!("Got {}, expected {} handles",
+                       got.len(), expected.len());
+            }
+
+            for (g, e) in got.iter().zip(expected.iter()) {
+                if !e.aliases(g) {
+                    panic!("     Got: {:?}\nExpected: {:?}",
+                           got, expected);
+                }
+            }
+        }
+
+        for i in 1..keys {
+            for keyids in keyids[..].windows(i) {
+                let keyids : Vec<KeyHandle>
+                    = keyids.iter().map(Into::into).collect();
+                assert_eq!(keyids.len(), i);
+
+                check(
+                    &cert.keys().key_handles(keyids.iter())
+                        .map(|ka| ka.key_handle())
+                        .collect::<Vec<KeyHandle>>(),
+                    &keyids);
+                check(
+                    &cert.keys().policy(None).key_handles(keyids.iter())
+                        .map(|ka| ka.key().key_handle())
+                        .collect::<Vec<KeyHandle>>(),
+                    &keyids);
+                check(
+                    &cert.keys().key_handles(keyids.iter()).policy(None)
+                        .map(|ka| ka.key().key_handle())
+                        .collect::<Vec<KeyHandle>>(),
+                    &keyids);
+            }
+        }
     }
 }
