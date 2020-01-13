@@ -69,6 +69,7 @@ use crate::Result;
 use crate::crypto::Password;
 use crate::KeyID;
 use crate::Fingerprint;
+use crate::KeyHandle;
 
 /// A marker trait that indicates whether a `Key` only contains
 /// public key material or *may* also contains secret key
@@ -1081,6 +1082,12 @@ impl<P, R> Key4<P, R>
         -> Option<SecretKeyMaterial>
     {
         std::mem::replace(&mut self.secret, secret)
+    }
+
+    /// Computes and returns the key's fingerprint as per Section 12.2
+    /// of RFC 4880 as returns it as a KeyHandle.
+    pub fn key_handle(&self) -> KeyHandle {
+        self.fingerprint().into()
     }
 
     /// Computes and returns the key's fingerprint as per Section 12.2
