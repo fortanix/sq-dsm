@@ -36,6 +36,12 @@ impl From<KeyID> for KeyHandle {
     }
 }
 
+impl From<&KeyID> for KeyHandle {
+    fn from(i: &KeyID) -> Self {
+        KeyHandle::KeyID(i.clone())
+    }
+}
+
 impl From<KeyHandle> for KeyID {
     fn from(i: KeyHandle) -> Self {
         match i {
@@ -48,6 +54,12 @@ impl From<KeyHandle> for KeyID {
 impl From<Fingerprint> for KeyHandle {
     fn from(i: Fingerprint) -> Self {
         KeyHandle::Fingerprint(i)
+    }
+}
+
+impl From<&Fingerprint> for KeyHandle {
+    fn from(i: &Fingerprint) -> Self {
+        KeyHandle::Fingerprint(i.clone())
     }
 }
 
