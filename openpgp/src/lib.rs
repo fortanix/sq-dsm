@@ -276,6 +276,10 @@ pub enum Error {
     #[fail(display = "No binding signature at time {:?}", _0)]
     NoBindingSignature(std::time::SystemTime),
 
+    /// Invalid key.
+    #[fail(display = "Invalid key: {:?}", _0)]
+    InvalidKey(String),
+
     /// This marks this enum as non-exhaustive.  Do not use this
     /// variant.
     #[doc(hidden)] #[fail(display = "__Nonexhaustive")] __Nonexhaustive,

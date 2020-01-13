@@ -29,7 +29,6 @@ use crate::{
         header::BodyLength,
         header::CTB,
         key,
-        Key,
         Literal,
         OnePassSig,
         one_pass_sig::OnePassSig3,
@@ -122,8 +121,6 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 pub struct Verifier<'a, H: VerificationHelper> {
     helper: H,
     certs: Vec<Cert>,
-    /// Maps KeyID to certs[i].keys_all().nth(j).
-    keys: Vec<(crate::KeyHandle, (usize, usize))>,
     oppr: Option<PacketParserResult<'a>>,
     structure: IMessageStructure,
 
@@ -565,27 +562,11 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         let time = time
             .unwrap_or_else(|| time::SystemTime::now());
 
-        fn for_signing<P, R>(key: &Key<P, R>, sig: Option<&Signature>,
-                             time: time::SystemTime, tolerance: time::Duration)
-            -> bool
-            where P: key::KeyParts, R: key::KeyRole
-        {
-            if let Some(sig) = sig {
-                sig.key_flags().for_signing()
-                // Check expiry.
-                    && sig.signature_alive(time, tolerance).is_ok()
-                    && sig.key_alive(key, time).is_ok()
-            } else {
-                false
-            }
-        }
-
         let mut ppr = PacketParser::from_buffered_reader(bio)?;
 
         let mut v = Verifier {
             helper: helper,
             certs: Vec::new(),
-            keys: Vec::new(),
             oppr: None,
             structure: IMessageStructure::new(),
             reserve: None,
@@ -609,27 +590,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 },
                 Packet::Literal(_) => {
                     v.structure.insert_missing_signature_group();
-                    // Query keys.
                     v.certs = v.helper.get_public_keys(&issuers)?;
-
-                    for (i, cert) in v.certs.iter().enumerate() {
-                        if for_signing(cert.primary(),
-                                       cert.primary_key_signature(None),
-                                       time, tolerance) {
-                            v.keys.push((cert.fingerprint().into(),
-                                         (i, 0)));
-                        }
-
-                        for (j, skb) in cert.subkeys().enumerate() {
-                            let key = skb.key();
-                            if for_signing(key, skb.binding_signature(None),
-                                           time, tolerance) {
-                                v.keys.push((key.fingerprint().into(),
-                                             (i, j + 1)));
-                            }
-                        }
-                    }
-
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
                     return Ok(v);
@@ -698,38 +659,74 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     'sigs: for sig in sigs.into_iter() {
-                        for issuer in sig.get_issuers() {
-                            if let Some((_, (i, j))) = self.keys.iter().find(|(h, _)| {
-                                h.aliases(&issuer)
-                            }) {
-                                let cert = &self.certs[*i];
-                                let ka = cert.keys().policy(self.time).nth(*j).unwrap();
-                                results.push_verification_result(
-                                    if sig.verify(ka.key()).unwrap_or(false) {
-                                        if sig.signature_alive(
-                                            self.time, self.clock_skew_tolerance)
-                                            .is_ok()
-                                        {
-                                            VerificationResult::GoodChecksum {
-                                                sig: sig.clone(),
-                                                cert, ka,
-                                            }
-                                        } else {
-                                            VerificationResult::NotAlive {
-                                                sig: sig.clone(),
-                                            }
+                        let sig_time = if let Some(t) = sig.signature_creation_time() {
+                            t
+                        } else {
+                            // Invalid signature.
+                            results.push_verification_result(
+                                VerificationResult::Error {
+                                    sig,
+                                    error: Error::MalformedPacket(
+                                        "missing a Signature Creation Time subpacket"
+                                            .into()).into()
+                                });
+                            continue;
+                        };
+
+                        let issuers = sig.get_issuers();
+
+                        for ka in self.certs.iter()
+                            .flat_map(|cert| {
+                                cert.keys().policy(sig_time).filter_map(|ka| {
+                                    if issuers.iter().any(|i| {
+                                        i.aliases(ka.key().key_handle())
+                                    }) {
+                                        Some(ka)
+                                    } else {
+                                        None
+                                    }
+                                })
+                            })
+                        {
+                            results.push_verification_result(
+                                if sig.verify(ka.key()).unwrap_or(false) {
+                                    if let Err(err) = ka.alive() {
+                                        VerificationResult::Error {
+                                            sig,
+                                            error: err,
+                                        }
+                                    } else if ! ka.for_signing() {
+                                        VerificationResult::Error {
+                                            sig,
+                                            error: Error::InvalidKey(
+                                                "key is not signing capable".into())
+                                                .into(),
+                                        }
+                                    } else if sig.signature_alive(
+                                        self.time, self.clock_skew_tolerance)
+                                        .is_ok()
+                                    {
+                                        VerificationResult::GoodChecksum {
+                                            sig: sig.clone(),
+                                            cert: ka.cert(),
+                                            ka,
                                         }
                                     } else {
-                                        VerificationResult::BadChecksum {
+                                        VerificationResult::NotAlive {
                                             sig: sig.clone(),
-                                            cert, ka,
                                         }
                                     }
-                                );
+                                } else {
+                                    VerificationResult::BadChecksum {
+                                        sig: sig.clone(),
+                                        cert: ka.cert(),
+                                        ka,
+                                    }
+                                }
+                            );
 
-                                // We found a key, continue to next sig.
-                                continue 'sigs;
-                            }
+                            // We found a key, continue to next sig.
+                            continue 'sigs;
                         }
 
                         results.push_verification_result(
