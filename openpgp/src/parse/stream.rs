@@ -678,15 +678,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
                         for ka in self.certs.iter()
                             .flat_map(|cert| {
-                                cert.keys().policy(sig_time).filter_map(|ka| {
-                                    if issuers.iter().any(|i| {
-                                        i.aliases(ka.key().key_handle())
-                                    }) {
-                                        Some(ka)
-                                    } else {
-                                        None
-                                    }
-                                })
+                                cert.keys().policy(sig_time)
+                                    .key_handles(issuers.iter())
                             })
                         {
                             results.push_verification_result(
