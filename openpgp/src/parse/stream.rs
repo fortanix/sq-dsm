@@ -71,6 +71,14 @@ const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 /// is important to treat the data as unverified and untrustworthy
 /// until you have seen a positive verification.
 ///
+/// For a signature to be considered valid: The signature must have a
+/// `Signature Creation Time` subpacket.  The signature must be alive
+/// at the signature verification time (the time passed to
+/// `Verifier::from_reader`).  The key used to verify the signature
+/// must be alive at the signature creation time, not have been soft
+/// revoked at the signature creation time, not have ever been hard
+/// revoked, and be signing capable at the signature creation time.
+///
 /// # Example
 ///
 /// ```
