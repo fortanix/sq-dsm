@@ -230,6 +230,8 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
 
     /// Returns the key's revocation status as of the amalgamtion's
     /// reference time.
+    ///
+    /// Note: this does not return whether the certificate is valid.
     pub fn revoked(&self) -> RevocationStatus<'a>
     {
         match self {
@@ -238,6 +240,13 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
             KeyAmalgamation(KeyAmalgamation0::Subordinate(ref h)) =>
                 h.binding.revoked(self.time()),
         }
+    }
+
+    /// Returns the certificate's revocation status as of the
+    /// amalgamtion's reference time.
+    pub fn cert_revoked(&self) -> RevocationStatus<'a>
+    {
+        self.cert().revoked(self.time())
     }
 
     /// Returns the key's key flags as of the amalgamtion's
@@ -293,8 +302,17 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         self.has_any_key_flag(KeyFlags::empty().set_transport_encryption(true))
     }
 
+    /// Returns whether the certificateis alive as of the
+    /// amalgamtion's reference time.
+    pub fn cert_alive(&self) -> Result<()>
+    {
+        self.cert().alive(self.time())
+    }
+
     /// Returns whether the key is alive as of the amalgamtion's
     /// reference time.
+    ///
+    /// Note: this does not return whether the certificate is valid.
     pub fn alive(&self) -> Result<()>
         where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
     {
