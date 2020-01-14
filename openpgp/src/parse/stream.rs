@@ -39,6 +39,7 @@ use crate::{
     KeyID,
     Packet,
     Result,
+    RevocationStatus,
     packet,
     packet::Signature,
     Cert,
@@ -694,6 +695,15 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                         VerificationResult::Error {
                                             sig,
                                             error: err,
+                                        }
+                                    } else if destructures_to!(
+                                        RevocationStatus::Revoked(_) = ka.revoked())
+                                    {
+                                        VerificationResult::Error {
+                                            sig,
+                                            error: Error::InvalidKey(
+                                                "key is revoked".into())
+                                                .into(),
                                         }
                                     } else if ! ka.for_signing() {
                                         VerificationResult::Error {
