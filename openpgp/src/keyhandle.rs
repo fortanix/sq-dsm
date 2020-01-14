@@ -51,6 +51,15 @@ impl From<KeyHandle> for KeyID {
     }
 }
 
+impl From<&KeyHandle> for KeyID {
+    fn from(i: &KeyHandle) -> Self {
+        match i {
+            KeyHandle::Fingerprint(i) => i.clone().into(),
+            KeyHandle::KeyID(i) => i.clone(),
+        }
+    }
+}
+
 impl From<Fingerprint> for KeyHandle {
     fn from(i: Fingerprint) -> Self {
         KeyHandle::Fingerprint(i)
@@ -68,6 +77,17 @@ impl TryFrom<KeyHandle> for Fingerprint {
     fn try_from(i: KeyHandle) -> Result<Self> {
         match i {
             KeyHandle::Fingerprint(i) => Ok(i),
+            KeyHandle::KeyID(i) => Err(Error::InvalidOperation(
+                format!("Cannot convert keyid {} to fingerprint", i)).into()),
+        }
+    }
+}
+
+impl TryFrom<&KeyHandle> for Fingerprint {
+    type Error = failure::Error;
+    fn try_from(i: &KeyHandle) -> Result<Self> {
+        match i {
+            KeyHandle::Fingerprint(i) => Ok(i.clone()),
             KeyHandle::KeyID(i) => Err(Error::InvalidOperation(
                 format!("Cannot convert keyid {} to fingerprint", i)).into()),
         }
