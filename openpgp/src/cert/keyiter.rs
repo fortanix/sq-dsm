@@ -242,7 +242,9 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// Note: this function is cumulative.  If you call this function
     /// (or `key_handle`) multiple times, then the iterator returns a
     /// key if it matches *any* of the specified handles.
-    pub fn key_handles(mut self, h: impl Iterator<Item=&'a KeyHandle>) -> Self
+    pub fn key_handles<'b>(mut self, h: impl Iterator<Item=&'b KeyHandle>)
+        -> Self
+        where 'a: 'b
     {
         self.key_handles.extend(h.map(|h| h.clone()));
         self
@@ -688,7 +690,9 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
     /// Note: this function is cumulative.  If you call this function
     /// (or `key_handle`) multiple times, then the iterator returns a
     /// key if it matches *any* of the specified handles.
-    pub fn key_handles(mut self, h: impl Iterator<Item=&'a KeyHandle>) -> Self
+    pub fn key_handles<'b>(mut self, h: impl Iterator<Item=&'b KeyHandle>)
+        -> Self
+        where 'a: 'b
     {
         self.key_handles.extend(h.map(|h| h.clone()));
         self
