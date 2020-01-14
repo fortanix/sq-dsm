@@ -668,77 +668,88 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                 VerificationResult::Error {
                                     sig,
                                     error: Error::MalformedPacket(
-                                        "missing a Signature Creation Time subpacket"
+                                        "missing a Signature Creation Time \
+                                         subpacket"
                                             .into()).into()
                                 });
                             continue;
                         };
 
-                        let issuers = sig.get_issuers();
+                        if let Err(_err) = sig.signature_alive(
+                            self.time, self.clock_skew_tolerance)
+                        {
+                            // Invalid signature.
+                            results.push_verification_result(
+                                VerificationResult::NotAlive {
+                                    sig: sig.clone(),
+                                });
+                            continue;
+                        }
 
+                        let mut err = VerificationResult::MissingKey {
+                            sig: sig.clone(),
+                        };
+
+                        let issuers = sig.get_issuers();
                         for ka in self.certs.iter()
                             .flat_map(|cert| {
                                 cert.keys().policy(sig_time)
                                     .key_handles(issuers.iter())
                             })
                         {
-                            results.push_verification_result(
-                                if sig.verify(ka.key()).unwrap_or(false) {
-                                    if let Err(err) = ka.alive() {
-                                        VerificationResult::Error {
-                                            sig,
-                                            error: err,
-                                        }
-                                    } else if destructures_to!(
-                                        RevocationStatus::Revoked(_) = ka.revoked())
-                                    {
-                                        VerificationResult::Error {
-                                            sig,
-                                            error: Error::InvalidKey(
-                                                "key is revoked".into())
-                                                .into(),
-                                        }
-                                    } else if ! ka.for_signing() {
-                                        VerificationResult::Error {
-                                            sig,
-                                            error: Error::InvalidKey(
-                                                "key is not signing capable".into())
-                                                .into(),
-                                        }
-                                    } else if sig.signature_alive(
-                                        self.time, self.clock_skew_tolerance)
-                                        .is_ok()
-                                    {
-                                        VerificationResult::GoodChecksum {
+                            err = if let Err(err) = ka.alive() {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: err,
+                                }
+                            } else if destructures_to!(
+                                RevocationStatus::Revoked(_) = ka.revoked())
+                            {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::InvalidKey(
+                                        "key is revoked".into())
+                                        .into(),
+                                }
+                            } else if ! ka.for_signing() {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::InvalidKey(
+                                        "key is not signing capable".into())
+                                        .into(),
+                                }
+                            } else {
+                                match sig.verify(ka.key()) {
+                                    Ok(true) => {
+                                        results.push_verification_result(
+                                            VerificationResult::GoodChecksum {
+                                                sig: sig,
+                                                cert: ka.cert(),
+                                                ka,
+                                            });
+                                        // Continue to the next sig.
+                                        continue 'sigs;
+                                    }
+                                    Ok(false) => {
+                                        VerificationResult::BadChecksum {
                                             sig: sig.clone(),
                                             cert: ka.cert(),
                                             ka,
                                         }
-                                    } else {
-                                        VerificationResult::NotAlive {
+                                    }
+                                    Err(err) => {
+                                        VerificationResult::Error {
                                             sig: sig.clone(),
+                                            error: err,
                                         }
                                     }
-                                } else {
-                                    VerificationResult::BadChecksum {
-                                        sig: sig.clone(),
-                                        cert: ka.cert(),
-                                        ka,
-                                    }
                                 }
-                            );
-
-                            // We found a key, continue to next sig.
-                            continue 'sigs;
+                            }
                         }
 
-                        results.push_verification_result(
-                            VerificationResult::MissingKey {
-                                sig,
-                            }
-                        );
+                        results.push_verification_result(err);
                     }
-                },
+                }
             }
         }
 
