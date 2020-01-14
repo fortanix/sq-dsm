@@ -531,10 +531,8 @@ impl Signature4 {
             .chain(self.unhashed_area().iter())
             .filter_map(|subpacket| {
                 match subpacket.value() {
-                    SubpacketValue::Issuer(i) =>
-                        Some(crate::KeyHandle::KeyID(i.clone())),
-                    SubpacketValue::IssuerFingerprint(i) =>
-                        Some(crate::KeyHandle::Fingerprint(i.clone())),
+                    SubpacketValue::Issuer(i) => Some(i.into()),
+                    SubpacketValue::IssuerFingerprint(i) => Some(i.into()),
                     _ => None,
                 }
             })
