@@ -590,9 +590,10 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
+    /// # let timestamp = None;
     /// let non_revoked_keys = cert
     ///     .keys()
-    ///     .policy(None)
+    ///     .policy(timestamp)
     ///     .filter(|ka| {
     ///         match ka.revoked() {
     ///             RevocationStatus::Revoked(_) =>
