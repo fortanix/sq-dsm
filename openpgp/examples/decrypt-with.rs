@@ -125,9 +125,9 @@ impl VerificationHelper for Helper {
                             GoodChecksum { cert, .. } => {
                                 eprintln!("Good signature from {}", cert);
                             },
-                            NotAlive { cert, .. } => {
-                                eprintln!("Good, but not alive signature from {}",
-                                          cert);
+                            NotAlive { sig, .. } => {
+                                eprintln!("Good, but not alive signature from {:?}",
+                                          sig.get_issuers());
                             },
                             MissingKey { .. } => {
                                 eprintln!("No key to check signature");

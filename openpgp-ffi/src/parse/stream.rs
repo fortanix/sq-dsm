@@ -233,7 +233,22 @@ make_decomposition_fn!(pgp_verification_result_good_checksum, GoodChecksum);
 /// Returns `true` iff the given value is a
 /// `VerificationResult::NotAlive`, and returns the variant's members
 /// in `sig_r` and the like iff `sig_r != NULL`.
-make_decomposition_fn!(pgp_verification_result_not_alive, NotAlive);
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_not_alive<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>)
+    -> bool
+{
+    use self::stream::VerificationResult::*;
+    if let NotAlive { sig, .. } = result.ref_raw() {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
 
 /// Decomposes a `VerificationResult::MissingKey`.
 ///

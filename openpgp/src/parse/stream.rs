@@ -187,12 +187,6 @@ pub enum VerificationResult<'a> {
     NotAlive {
         /// The signature.
         sig: Signature,
-
-        /// The signature's issuer.
-        cert: &'a Cert,
-
-        /// The signing key that made the signature.
-        ka: KeyAmalgamation<'a, key::PublicParts>,
     },
 
     /// Unable to verify the signature because the key is missing.
@@ -723,7 +717,6 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                         } else {
                                             VerificationResult::NotAlive {
                                                 sig: sig.clone(),
-                                                cert, ka,
                                             }
                                         }
                                     } else {
