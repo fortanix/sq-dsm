@@ -172,6 +172,17 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         }
     }
 
+    /// Returns the certificate that the key came from.
+    pub fn cert(&self) -> &'a Cert
+    {
+        match self {
+            KeyAmalgamation(KeyAmalgamation0::Primary(ref h)) =>
+                h.cert,
+            KeyAmalgamation(KeyAmalgamation0::Subordinate(ref h)) =>
+                h.cert,
+        }
+    }
+
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this
