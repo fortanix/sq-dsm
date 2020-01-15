@@ -44,39 +44,22 @@ impl<'a> Helper<'a> {
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
         for tsk in secrets {
-            fn can_encrypt<R, P>(_: &Key<P, R>, sig: Option<&Signature>) -> bool
-                where P: key::KeyParts,
-                      R: key::KeyRole,
-            {
-                if let Some(sig) = sig {
-                    sig.key_flags().for_storage_encryption()
-                        || sig.key_flags().for_transport_encryption()
-                } else {
-                    false
-                }
-            }
-
             let hint = match tsk.userids().nth(0) {
                 Some(uid) => format!("{} ({})", uid.userid(),
                                      KeyID::from(tsk.fingerprint())),
                 None => format!("{}", KeyID::from(tsk.fingerprint())),
             };
 
-            if can_encrypt(tsk.primary(), tsk.primary_key_signature(None)) {
-                let id: KeyID = tsk.fingerprint().into();
-                keys.insert(id.clone(), tsk.primary().clone().into());
+            for ka in tsk.keys()
+            // XXX: Should use the message's creation time that we do not know.
+                .policy(None)
+                .for_transport_encryption().for_storage_encryption()
+                .secret()
+            {
+                let id: KeyID = ka.key().fingerprint().into();
+                keys.insert(id.clone(), ka.key().clone().into());
                 identities.insert(id.clone(), tsk.fingerprint());
                 hints.insert(id, hint.clone());
-            }
-
-            for skb in tsk.subkeys() {
-                let key = skb.key();
-                if can_encrypt(key, skb.binding_signature(None)) {
-                    let id: KeyID = key.fingerprint().into();
-                    keys.insert(id.clone(), key.clone().into());
-                    identities.insert(id.clone(), tsk.fingerprint());
-                    hints.insert(id, hint.clone());
-                }
             }
         }
 

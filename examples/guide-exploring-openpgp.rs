@@ -60,10 +60,10 @@ fn main() {
     }
 
     // List subkeys.
-    for (i, s) in cert.subkeys().enumerate() {
+    for (i, ka) in cert.keys().policy(None).skip(1).enumerate() {
         println!("{}: Fingerprint: {}, {} self-signature(s), {} certification(s)",
-                 i, s.key().fingerprint(),
-                 s.self_signatures().len(),
-                 s.certifications().len());
+                 i, ka.key().fingerprint(),
+                 ka.component().self_signatures().len(),
+                 ka.component().certifications().len());
     }
 }
