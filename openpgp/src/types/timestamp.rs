@@ -57,6 +57,22 @@ impl Timestamp {
             .expect("representable for the next hundred years")
     }
 
+    /// Adds a duration to this timestamp.
+    ///
+    /// Returns `None` if the resulting timestamp is not
+    /// representable.
+    pub fn checked_add(&self, d: Duration) -> Option<Timestamp> {
+        self.0.checked_add(d.0).map(|v| Self(v))
+    }
+
+    /// Subtracts a duration from this timestamp.
+    ///
+    /// Returns `None` if the resulting timestamp is not
+    /// representable.
+    pub fn checked_sub(&self, d: Duration) -> Option<Timestamp> {
+        self.0.checked_sub(d.0).map(|v| Self(v))
+    }
+
     /// Rounds down to the given level of precision.
     ///
     /// This can be used to reduce the metadata leak resulting from
