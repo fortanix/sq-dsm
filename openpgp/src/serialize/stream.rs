@@ -988,7 +988,8 @@ impl<'a> Encryptor<'a> {
     /// // Build a vector of recipients to hand to Encryptor.
     /// let recipient =
     ///     cert.keys().policy(None).alive().revoked(false)
-    ///     .for_storage_encryption().for_transport_encryption()
+    ///     // Or `for_storage_encryption()`, for data at rest.
+    ///     .for_transport_encryption()
     ///     .map(|ka| ka.key().into())
     ///     .nth(0).unwrap();
     ///
