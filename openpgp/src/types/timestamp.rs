@@ -88,6 +88,72 @@ impl Timestamp {
     /// than 32.
     ///
     /// See [`Duration::round_up`](struct.Duration.html#method.round_up).
+    ///
+    /// # Important note
+    ///
+    /// If we create a signature, it is important that the signature's
+    /// creation time does not predate the signing keys creation time,
+    /// or otherwise violate the key's validity constraints.  The
+    /// correct way to use this interface is to round the time down,
+    /// lookup all keys and other objects like userids using this
+    /// time, and on success create the signature:
+    ///
+    /// ```rust
+    /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
+    /// # f().unwrap();
+    /// # fn f() -> Result<()> {
+    /// // Let's fix a time.
+    /// let now = Timestamp::from(1583436160);
+    ///
+    /// // Generate a Cert for Alice.
+    /// let (alice, _) = CertBuilder::new()
+    ///     .set_creation_time(now.checked_sub(Duration::weeks(2)?).unwrap())
+    ///     .primary_key_flags(KeyFlags::default().set_certification(true))
+    ///     .add_userid("alice@example.org")
+    ///     .generate()?;
+    ///
+    /// // Generate a Cert for Bob.
+    /// let (bob, _) = CertBuilder::new()
+    ///     .set_creation_time(now.checked_sub(Duration::weeks(1)?).unwrap())
+    ///     .primary_key_flags(KeyFlags::default().set_certification(true))
+    ///     .add_userid("bob@example.org")
+    ///     .generate()?;
+    ///
+    /// let sign_with_p = |p| -> Result<Signature> {
+    ///     // Round `now` down, then use `t` for all lookups.
+    ///     let t: std::time::SystemTime = now.round_down(p)?.into();
+    ///
+    ///     /// First, get the certification key.
+    ///     let mut keypair =
+    ///         alice.keys().policy(t).secret().for_certification()
+    ///         .nth(0).ok_or_else(|| failure::err_msg("no valid key at"))?
+    ///         .key().clone().into_keypair()?;
+    ///
+    ///     // Then, lookup the binding between `bob@example.org` and
+    ///     // `bob` at `t`.
+    ///     let binding = bob.userids().nth(0).unwrap();
+    ///     if binding.binding_signature(t).is_none() {
+    ///         return Err(failure::err_msg("no valid userid"));
+    ///     }
+    ///
+    ///     // Finally, Alice certifies the binding between
+    ///     // `bob@example.org` and `bob` at `t`.
+    ///     binding.userid()
+    ///         .certify(&mut keypair, &bob,
+    ///                  SignatureType::PositiveCertification, None, t)
+    /// };
+    ///
+    /// assert!(sign_with_p(21).is_ok());
+    /// assert!(sign_with_p(22).is_err()); // Rounded-down t predates key, uid.
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// There are two possible policies that can be implemented using
+    /// this mechanism.  If protecting the timestamp is more important
+    /// than the signature, the process must fail.  Otherwise,
+    /// increasing the precision until all constraints are satisfied
+    /// will find a timestamp approximating `now`, assuming that the
+    /// constraints are satisfied at `now`.
     pub fn round_down<P>(&self, precision: P) -> Result<Timestamp>
         where P: Into<Option<u8>>
     {
