@@ -705,10 +705,24 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                     .key_handles(issuers.iter())
                             })
                         {
-                            err = if let Err(err) = ka.alive() {
+                            err = if let Err(err) = ka.cert_alive() {
                                 VerificationResult::Error {
                                     sig: sig.clone(),
                                     error: err,
+                                }
+                            } else if let Err(err) = ka.alive() {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: err,
+                                }
+                            } else if destructures_to!(
+                                RevocationStatus::Revoked(_) = ka.cert_revoked())
+                            {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::InvalidKey(
+                                        "certificate is revoked".into())
+                                        .into(),
                                 }
                             } else if destructures_to!(
                                 RevocationStatus::Revoked(_) = ka.revoked())
@@ -716,7 +730,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                 VerificationResult::Error {
                                     sig: sig.clone(),
                                     error: Error::InvalidKey(
-                                        "key is revoked".into())
+                                        "signing key is revoked".into())
                                         .into(),
                                 }
                             } else if ! ka.for_signing() {
