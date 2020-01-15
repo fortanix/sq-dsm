@@ -562,6 +562,9 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
     }
 
     /// Only returns keys that are alive.
+    ///
+    /// Note: this only checks if the key is alive; it does not check
+    /// whether the certificate is alive.
     pub fn alive(mut self) -> Self
     {
         self.alive = Some(());
@@ -574,6 +577,9 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R>
     ///
     /// Note: If you call this function multiple times on the same
     /// iterator, only the last value is used.
+    ///
+    /// Note: This only checks if the key is not revoked; it does not
+    /// check whether the certificate not revoked.
     ///
     /// This filter checks whether a key's revocation status is
     /// `RevocationStatus::Revoked` or not.  The latter (i.e.,
