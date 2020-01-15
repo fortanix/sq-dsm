@@ -278,8 +278,8 @@ fn decrypt() {
             {
                 let mut keypair = KeyPair::new(
                     self.ctx,
-                    self.cert.keys().policy(None).alive().revoked(false)
-                        .for_transport_encryption()
+                    self.cert.keys().policy(None)
+                        .for_storage_encryption().for_transport_encryption()
                         .take(1).next().unwrap().key())
                     .unwrap();
 
