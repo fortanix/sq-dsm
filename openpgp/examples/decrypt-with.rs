@@ -132,9 +132,6 @@ impl VerificationHelper for Helper {
                             MissingKey { .. } => {
                                 eprintln!("No key to check signature");
                             },
-                            BadChecksum { cert, .. } => {
-                                eprintln!("Bad signature from {}", cert);
-                            },
                             Error { error, .. } => {
                                 eprintln!("Error: {}", error);
                             },

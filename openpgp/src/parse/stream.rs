@@ -201,18 +201,6 @@ pub enum VerificationResult<'a> {
         sig: Signature,
     },
 
-    /// The signature is bad.
-    BadChecksum {
-        /// The signature.
-        sig: Signature,
-
-        /// The signature's issuer.
-        cert: &'a Cert,
-
-        /// The signing key that made the signature.
-        ka: KeyAmalgamation<'a, key::PublicParts>,
-    },
-
     /// An error occured while verifying the signature.
     ///
     /// This could occur if the signature is invalid (e.g., no
@@ -240,7 +228,6 @@ impl<'a> VerificationResult<'a> {
             GoodChecksum { sig, .. } => sig.level(),
             NotAlive { sig, .. } => sig.level(),
             MissingKey { sig, .. } => sig.level(),
-            BadChecksum { sig, .. } => sig.level(),
             Error { sig, .. } => sig.level(),
         }
     }
@@ -757,10 +744,10 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                         continue 'sigs;
                                     }
                                     Ok(false) => {
-                                        VerificationResult::BadChecksum {
+                                        VerificationResult::Error {
                                             sig: sig.clone(),
-                                            cert: ka.cert(),
-                                            ka,
+                                            error:
+                                            Error::ManipulatedMessage.into(),
                                         }
                                     }
                                     Err(err) => {
@@ -1750,10 +1737,10 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         continue 'sigs;
                                     }
                                     Ok(false) => {
-                                        VerificationResult::BadChecksum {
+                                        VerificationResult::Error {
                                             sig: sig.clone(),
-                                            cert: ka.cert(),
-                                            ka,
+                                            error:
+                                            Error::ManipulatedMessage.into(),
                                         }
                                     }
                                     Err(err) => {
@@ -1920,7 +1907,6 @@ mod test {
                                 GoodChecksum { .. } => self.good += 1,
                                 MissingKey { .. } => self.unknown += 1,
                                 NotAlive { .. } => self.bad += 1,
-                                BadChecksum { .. } => self.bad += 1,
                                 Error { .. } => self.bad += 1,
                             }
                         }

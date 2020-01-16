@@ -171,9 +171,8 @@ fn pgp_verification_result_variant(result: *const VerificationResult)
     match result.ref_raw() {
         GoodChecksum { .. } => 1,
         MissingKey { .. } => 2,
-        BadChecksum { .. } => 3,
-        NotAlive { .. } => 4,
-        Error { .. } => 5,
+        NotAlive { .. } => 3,
+        Error { .. } => 4,
     }
 }
 
@@ -271,13 +270,6 @@ fn pgp_verification_result_missing_key<'a>(
         false
     }
 }
-
-/// Decomposes a ``VerificationResult::BadChecksum`.
-///
-/// Returns `true` iff the given value is a
-/// `VerificationResult::BadChecksum`, and returns the variants
-/// members in `sig_r` and the like iff `sig_r != NULL`.
-make_decomposition_fn!(pgp_verification_result_bad_checksum, BadChecksum);
 
 /// Decomposes a `VerificationResult::Error`.
 ///

@@ -268,8 +268,7 @@ impl<'a> VHelper<'a> {
             }
 
             let (issuer, level) = match result {
-                GoodChecksum { sig, ka, .. }
-                | BadChecksum { sig, ka, .. } =>
+                GoodChecksum { sig, ka, .. } =>
                     (ka.key().keyid(), sig.level()),
                 NotAlive { sig, .. } =>
                     (sig.get_issuers().get(0)
@@ -303,14 +302,6 @@ impl<'a> VHelper<'a> {
                 NotAlive { .. } => {
                     eprintln!("Good checksum, but not alive: {} from {}",
                               what, label);
-                    if trusted {
-                        self.bad_signatures += 1;
-                    } else {
-                        self.bad_checksums += 1;
-                    }
-                },
-                BadChecksum { .. } => {
-                    eprintln!("Bad {} from {}", what, label);
                     if trusted {
                         self.bad_signatures += 1;
                     } else {

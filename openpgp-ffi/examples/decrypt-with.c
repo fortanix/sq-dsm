@@ -102,13 +102,15 @@ check_cb (void *cookie_opaque, pgp_message_structure_t structure)
           fprintf (stderr, "No key to check signature from %s\n", keyid_str);
           break;
 
-        case PGP_VERIFICATION_RESULT_BAD_CHECKSUM:
-          pgp_verification_result_bad_checksum (result, NULL, NULL,
-                                                &key, NULL, NULL);
-          keyid = pgp_key_keyid (key);
-          keyid_str = pgp_keyid_to_string (keyid);
-          fprintf (stderr, "Bad signature from %s\n", keyid_str);
+        case PGP_VERIFICATION_RESULT_ERROR: {
+          pgp_error_t err;
+          pgp_verification_result_error (result, NULL, &err);
+          char *err_str = pgp_error_to_string (err);
+          fprintf (stderr, "Bad signature: %s\n", err_str);
+          free (err_str);
+          pgp_error_free (err);
           break;
+        }
 
         default:
           assert (! "reachable");

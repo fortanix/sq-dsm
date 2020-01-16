@@ -128,8 +128,6 @@ fn main() {
 #                         Some(VerificationResult::Error { error, .. }) =>
 #                             return Err(failure::err_msg(
 #                                 format!("Bad signature: {:?}", error))),
-#                         Some(VerificationResult::BadChecksum { .. }) =>
-#                             return Err(failure::err_msg("Bad signature")),
 #                         None =>
 #                             return Err(failure::err_msg("No signature")),
 #                     }
@@ -276,8 +274,6 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #                         Some(VerificationResult::Error { error, .. }) =>
 #                             return Err(failure::err_msg(
 #                                 format!("Bad signature: {:?}", error))),
-#                         Some(VerificationResult::BadChecksum { .. }) =>
-#                             return Err(failure::err_msg("Bad signature")),
 #                         None =>
 #                             return Err(failure::err_msg("No signature")),
 #                     }
@@ -424,8 +420,6 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #                         Some(VerificationResult::Error { error, .. }) =>
 #                             return Err(failure::err_msg(
 #                                 format!("Bad signature: {:?}", error))),
-#                         Some(VerificationResult::BadChecksum { .. }) =>
-#                             return Err(failure::err_msg("Bad signature")),
 #                         None =>
 #                             return Err(failure::err_msg("No signature")),
 #                     }
@@ -583,8 +577,6 @@ impl<'a> VerificationHelper for Helper<'a> {
                         Some(VerificationResult::Error { error, .. }) =>
                             return Err(failure::err_msg(
                                 format!("Bad signature: {:?}", error))),
-                        Some(VerificationResult::BadChecksum { .. }) =>
-                            return Err(failure::err_msg("Bad signature")),
                         None =>
                             return Err(failure::err_msg("No signature")),
                     }

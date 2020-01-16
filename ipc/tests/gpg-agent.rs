@@ -170,8 +170,6 @@ fn sign() {
                             Some(VerificationResult::MissingKey { .. }) =>
                                 return Err(failure::err_msg(
                                     "Missing key to verify signature")),
-                            Some(VerificationResult::BadChecksum { .. }) =>
-                                return Err(failure::err_msg("Bad signature")),
                             Some(VerificationResult::Error { error, .. }) =>
                                 return Err(error),
                             None =>

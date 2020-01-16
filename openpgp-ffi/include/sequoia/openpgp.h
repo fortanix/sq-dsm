@@ -1722,12 +1722,6 @@ bool pgp_verification_result_not_alive (pgp_verification_result_t,
 					pgp_revocation_status_t *);
 bool pgp_verification_result_missing_key (pgp_verification_result_t,
 					  pgp_signature_t *);
-bool pgp_verification_result_bad_checksum (pgp_verification_result_t,
-					   pgp_signature_t *,
-					   pgp_cert_t *,
-					   pgp_key_t *,
-					   pgp_signature_t *,
-					   pgp_revocation_status_t *);
 bool pgp_verification_result_error (pgp_verification_result_t,
                                     pgp_signature_t *,
                                     pgp_error_t *);
