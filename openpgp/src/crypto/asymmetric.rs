@@ -304,4 +304,98 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
             algo => Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
         }
     }
+
+    /// Verifies the given signature.
+    pub fn verify(&self,
+                  sig: &packet::signature::Signature4, // XXX: Should be Signature
+                  digest: &[u8]) -> Result<bool>
+    {
+        use crate::PublicKeyAlgorithm::*;
+        use crate::crypto::mpis::{PublicKey, Signature};
+
+        #[allow(deprecated)]
+        match (sig.pk_algo(), self.mpis(), sig.mpis()) {
+            (RSASign,        PublicKey::RSA { e, n }, Signature::RSA { s }) |
+            (RSAEncryptSign, PublicKey::RSA { e, n }, Signature::RSA { s }) => {
+                let key = rsa::PublicKey::new(n.value(), e.value())?;
+
+                // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
+                // to verify the signature, we need to encode the
+                // signature data in a PKCS1-v1.5 packet.
+                //
+                //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
+                //   https://tools.ietf.org/html/rfc4880#section-5.2.2
+                rsa::verify_digest_pkcs1(&key, digest, sig.hash_algo().oid()?,
+                                         s.value())
+            },
+            (DSA, PublicKey::DSA{ y, p, q, g }, Signature::DSA { s, r }) => {
+                let key = dsa::PublicKey::new(y.value());
+                let params = dsa::Params::new(p.value(), q.value(), g.value());
+                let signature = dsa::Signature::new(r.value(), s.value());
+
+                Ok(dsa::verify(&params, &key, digest, &signature))
+            },
+            (EdDSA, PublicKey::EdDSA{ curve, q }, Signature::EdDSA { r, s }) =>
+              match curve {
+                Curve::Ed25519 => {
+                    if q.value().get(0).map(|&b| b != 0x40).unwrap_or(true) {
+                        return Err(Error::MalformedPacket(
+                            "Invalid point encoding".into()).into());
+                    }
+
+                    // OpenPGP encodes R and S separately, but our
+                    // cryptographic library expects them to be
+                    // concatenated.
+                    let mut signature =
+                        Vec::with_capacity(ed25519::ED25519_SIGNATURE_SIZE);
+
+                    // We need to zero-pad them at the front, because
+                    // the MPI encoding drops leading zero bytes.
+                    let half = ed25519::ED25519_SIGNATURE_SIZE / 2;
+                    if r.value().len() < half {
+                        for _ in 0..half - r.value().len() {
+                            signature.push(0);
+                        }
+                    }
+                    signature.extend_from_slice(r.value());
+                    if s.value().len() < half {
+                        for _ in 0..half - s.value().len() {
+                            signature.push(0);
+                        }
+                    }
+                    signature.extend_from_slice(s.value());
+
+                    // Let's see if we got it right.
+                    if signature.len() != ed25519::ED25519_SIGNATURE_SIZE {
+                        return Err(Error::MalformedPacket(
+                            format!(
+                                "Invalid signature size: {}, r: {:?}, s: {:?}",
+                                signature.len(), r.value(), s.value())).into());
+                    }
+
+                    ed25519::verify(&q.value()[1..], digest, &signature)
+                },
+                _ =>
+                    Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
+            },
+            (ECDSA, PublicKey::ECDSA{ curve, q }, Signature::ECDSA { s, r }) =>
+            {
+                let (x, y) = q.decode_point(curve)?;
+                let key = match curve {
+                    Curve::NistP256 => ecc::Point::new::<ecc::Secp256r1>(x, y)?,
+                    Curve::NistP384 => ecc::Point::new::<ecc::Secp384r1>(x, y)?,
+                    Curve::NistP521 => ecc::Point::new::<ecc::Secp521r1>(x, y)?,
+                    _ => return Err(
+                        Error::UnsupportedEllipticCurve(curve.clone()).into()),
+                };
+
+                let signature = dsa::Signature::new(r.value(), s.value());
+                Ok(ecdsa::verify(&key, digest, &signature))
+            },
+            _ => Err(Error::MalformedPacket(format!(
+                "unsupported combination of algorithm {}, key {} and \
+                 signature {:?}.",
+                sig.pk_algo(), self.pk_algo(), sig.mpis())).into()),
+        }
+    }
 }

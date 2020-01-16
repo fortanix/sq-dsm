@@ -3,7 +3,6 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
-use crate::types::Curve;
 use crate::Error;
 use crate::Result;
 use crate::crypto::{
@@ -27,9 +26,6 @@ use crate::packet::signature::subpacket::{
     SubpacketArea,
     SubpacketAreas,
 };
-
-use nettle::{dsa, ecc, ecdsa, ed25519, rsa};
-use nettle::rsa::verify_digest_pkcs1;
 
 pub mod subpacket;
 
@@ -606,10 +602,6 @@ impl Signature4 {
               R: key::KeyRole,
               D: AsRef<[u8]>,
     {
-        use crate::PublicKeyAlgorithm::*;
-        use crate::crypto::mpis::PublicKey;
-        let digest = digest.as_ref();
-
         if let Some(creation_time) = self.signature_creation_time() {
             if creation_time < key.creation_time() {
                 return Err(Error::BadSignature(
@@ -621,107 +613,7 @@ impl Signature4 {
                 "Signature has no creation time subpacket".into()).into());
         }
 
-        #[allow(deprecated)]
-        match (self.pk_algo(), key.mpis(), self.mpis()) {
-            (RSASign,
-             &PublicKey::RSA{ ref e, ref n },
-             &mpis::Signature::RSA { ref s }) |
-            (RSAEncryptSign,
-             &PublicKey::RSA{ ref e, ref n },
-             &mpis::Signature::RSA { ref s }) => {
-                let key = rsa::PublicKey::new(n.value(), e.value())?;
-
-                // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
-                // to verify the signature, we need to encode the
-                // signature data in a PKCS1-v1.5 packet.
-                //
-                //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
-                //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                verify_digest_pkcs1(&key, digest, self.hash_algo().oid()?,
-                                    s.value())
-            }
-
-            (DSA,
-             &PublicKey::DSA{ ref y, ref p, ref q, ref g },
-             &mpis::Signature::DSA { ref s, ref r }) => {
-                let key = dsa::PublicKey::new(y.value());
-                let params = dsa::Params::new(p.value(), q.value(), g.value());
-                let signature = dsa::Signature::new(r.value(), s.value());
-
-                Ok(dsa::verify(&params, &key, digest, &signature))
-            }
-
-            (EdDSA,
-             &PublicKey::EdDSA{ ref curve, ref q },
-             &mpis::Signature::EdDSA { ref r, ref s }) => match curve {
-                Curve::Ed25519 => {
-                    if q.value().get(0).map(|&b| b != 0x40).unwrap_or(true) {
-                        return Err(Error::MalformedPacket(
-                            "Invalid point encoding".into()).into());
-                    }
-
-                    // OpenPGP encodes R and S separately, but our
-                    // cryptographic library expects them to be
-                    // concatenated.
-                    let mut signature =
-                        Vec::with_capacity(ed25519::ED25519_SIGNATURE_SIZE);
-
-                    // We need to zero-pad them at the front, because
-                    // the MPI encoding drops leading zero bytes.
-                    let half = ed25519::ED25519_SIGNATURE_SIZE / 2;
-                    if r.value().len() < half {
-                        for _ in 0..half - r.value().len() {
-                            signature.push(0);
-                        }
-                    }
-                    signature.extend_from_slice(r.value());
-                    if s.value().len() < half {
-                        for _ in 0..half - s.value().len() {
-                            signature.push(0);
-                        }
-                    }
-                    signature.extend_from_slice(s.value());
-
-                    // Let's see if we got it right.
-                    if signature.len() != ed25519::ED25519_SIGNATURE_SIZE {
-                        return Err(Error::MalformedPacket(
-                            format!(
-                                "Invalid signature size: {}, r: {:?}, s: {:?}",
-                                signature.len(), r.value(), s.value())).into());
-                    }
-
-                    ed25519::verify(&q.value()[1..], digest, &signature)
-                },
-                _ =>
-                    Err(Error::UnsupportedEllipticCurve(curve.clone())
-                        .into()),
-            },
-
-            (ECDSA,
-             &PublicKey::ECDSA{ ref curve, ref q },
-             &mpis::Signature::ECDSA { ref s, ref r }) => {
-                let (x, y) = q.decode_point(curve)?;
-                let key = match curve {
-                    Curve::NistP256 =>
-                        ecc::Point::new::<ecc::Secp256r1>(x, y)?,
-                    Curve::NistP384 =>
-                        ecc::Point::new::<ecc::Secp384r1>(x, y)?,
-                    Curve::NistP521 =>
-                        ecc::Point::new::<ecc::Secp521r1>(x, y)?,
-                    _ =>
-                        return Err(
-                            Error::UnsupportedEllipticCurve(curve.clone())
-                                .into()),
-                };
-
-                let signature = dsa::Signature::new(r.value(), s.value());
-                Ok(ecdsa::verify(&key, digest, &signature))
-            },
-
-            _ => Err(Error::MalformedPacket(format!(
-                "unsupported combination of algorithm {:?}, key {:?} and signature {:?}.",
-                self.pk_algo(), key.mpis(), self.mpis)).into())
-        }
+        key.verify(self, digest.as_ref())
     }
 
     /// Verifies the signature over text or binary documents using
@@ -1227,6 +1119,7 @@ mod test {
     use crate::parse::Parse;
     use crate::packet::Key;
     use crate::packet::key::Key4;
+    use crate::types::Curve;
 
     #[cfg(feature = "compression-deflate")]
     #[test]
@@ -1454,7 +1347,7 @@ mod test {
             0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2
         ];
         let mut pnt = [0x40u8; nettle::ed25519::ED25519_KEY_SIZE + 1];
-        ed25519::public_key(&mut pnt[1..], &sec[..]).unwrap();
+        nettle::ed25519::public_key(&mut pnt[1..], &sec[..]).unwrap();
 
         let public_mpis = mpis::PublicKey::EdDSA {
             curve: Curve::Ed25519,
