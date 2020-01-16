@@ -769,6 +769,32 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                             }
                         }
 
+                        // Hmm, we didn't consider any keys.  Iterate
+                        // over the keys again, but this time, don't
+                        // use a policy.  If we find something now,
+                        // the policy must have rejected it.  Turn
+                        // that information into a more useful (and
+                        // less misleading) error message than
+                        // `VerificationResult::MissingKey`.
+                        if let VerificationResult::MissingKey { .. } = err {
+                            if let Some(key) = self.certs.iter()
+                                .flat_map(|cert| {
+                                    cert.keys().key_handles(issuers.iter())
+                                })
+                                .next()
+                            {
+                                err = VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::InvalidKey(
+                                        format!(
+                                            "Signing key ({}) not valid \
+                                             when signature was created",
+                                            key.fingerprint()))
+                                        .into(),
+                                }
+                            }
+                        }
+
                         results.push_verification_result(err);
                     }
                 }
