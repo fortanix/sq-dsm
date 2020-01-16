@@ -1282,9 +1282,9 @@ impl Cert {
                 for sig in mem::replace(&mut $binding.$sigs, Vec::new())
                     .into_iter()
                 {
-                    if let Ok(true) = sig.$verify_method(self.primary.key(),
-                                                         self.primary.key(),
-                                                         $($verify_args),*) {
+                    if let Ok(()) = sig.$verify_method(self.primary.key(),
+                                                       self.primary.key(),
+                                                       $($verify_args),*) {
                         $binding.$sigs.push(sig);
                     } else {
                         t!("Sig {:02X}{:02X}, type = {} doesn't belong to {}",
@@ -1327,7 +1327,7 @@ impl Cert {
                             // See if we can get the key for a
                             // positive verification.
                             if let Some(key) = $lookup_fn(&sig) {
-                                if let Ok(true) = sig.$verify_method(
+                                if let Ok(()) = sig.$verify_method(
                                     &key, self.primary.key(), $($verify_args),*)
                                 {
                                     $binding.$sigs.push(sig);
@@ -1459,7 +1459,7 @@ impl Cert {
                      t!("check_one!({}, {:?}, {:?}, {}, ...)",
                         $desc, $sigs, $sig,
                         stringify!($verify_method));
-                     if let Ok(true)
+                     if let Ok(())
                          = $sig.$verify_method(self.primary.key(),
                                                self.primary.key(),
                                                $($verify_args),*)
@@ -1497,9 +1497,9 @@ impl Cert {
                        $desc, stringify!($sigs), $sig,
                        stringify!($verify_method), stringify!($hash_method));
                     if let Some(key) = $lookup_fn(&sig) {
-                        if let Ok(true) = sig.$verify_method(&key,
-                                                             self.primary.key(),
-                                                             $($verify_args),*)
+                        if let Ok(()) = sig.$verify_method(&key,
+                                                           self.primary.key(),
+                                                           $($verify_args),*)
                         {
                             t!("Sig {:02X}{:02X}, {:?} \
                                 was out of place.  Belongs to {}.",
@@ -3427,13 +3427,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                        &[ alice_certifies_bob.clone() ]);
 
             // Make sure the certification is correct.
-            assert_eq!(
-                alice_certifies_bob
-                    .verify_userid_binding(&alice.primary().clone(),
-                                           &bob.primary().clone(),
-                                           bob_userid_binding.userid())
-                    .unwrap(),
-                true);
+            alice_certifies_bob
+                .verify_userid_binding(&alice.primary().clone(),
+                                       &bob.primary().clone(),
+                                       bob_userid_binding.userid()).unwrap();
         }
    }
 

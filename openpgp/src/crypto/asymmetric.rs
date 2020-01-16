@@ -306,13 +306,13 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     }
 
     /// Verifies the given signature.
-    pub fn verify(&self, sig: &packet::Signature, digest: &[u8]) -> Result<bool>
+    pub fn verify(&self, sig: &packet::Signature, digest: &[u8]) -> Result<()>
     {
         use crate::PublicKeyAlgorithm::*;
         use crate::crypto::mpis::{PublicKey, Signature};
 
         #[allow(deprecated)]
-        match (sig.pk_algo(), self.mpis(), sig.mpis()) {
+        let ok = match (sig.pk_algo(), self.mpis(), sig.mpis()) {
             (RSASign,        PublicKey::RSA { e, n }, Signature::RSA { s }) |
             (RSAEncryptSign, PublicKey::RSA { e, n }, Signature::RSA { s }) => {
                 let key = rsa::PublicKey::new(n.value(), e.value())?;
@@ -394,6 +394,12 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 "unsupported combination of algorithm {}, key {} and \
                  signature {:?}.",
                 sig.pk_algo(), self.pk_algo(), sig.mpis())).into()),
+        }?;
+
+        if ok {
+            Ok(())
+        } else {
+            Err(Error::ManipulatedMessage.into())
         }
     }
 }

@@ -1502,8 +1502,7 @@ mod test {
             if let Packet::Signature(ref sig) = pp.packet {
                 let key = keys.get(&sig.issuer_fingerprint().unwrap())
                     .unwrap();
-                let result = sig.verify(key).unwrap();
-                assert!(result);
+                sig.verify(key).unwrap();
                 good += 1;
             }
 

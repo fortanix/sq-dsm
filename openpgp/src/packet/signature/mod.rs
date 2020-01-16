@@ -599,7 +599,7 @@ impl crate::packet::Signature {
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
     pub fn verify_digest<P, R, D>(&self, key: &Key<P, R>, digest: D)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
               D: AsRef<[u8]>,
@@ -632,7 +632,7 @@ impl crate::packet::Signature {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify<P, R>(&self, key: &Key<P, R>) -> Result<bool>
+    pub fn verify<P, R>(&self, key: &Key<P, R>) -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
     {
@@ -661,7 +661,7 @@ impl crate::packet::Signature {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_standalone<P, R>(&self, key: &Key<P, R>) -> Result<bool>
+    pub fn verify_standalone<P, R>(&self, key: &Key<P, R>) -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
     {
@@ -688,7 +688,7 @@ impl crate::packet::Signature {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_timestamp<P, R>(&self, key: &Key<P, R>) -> Result<bool>
+    pub fn verify_timestamp<P, R>(&self, key: &Key<P, R>) -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
     {
@@ -724,7 +724,7 @@ impl crate::packet::Signature {
     pub fn verify_direct_key<P, Q, R>(&self,
                                       signer: &Key<P, R>,
                                       pk: &Key<Q, key::PrimaryRole>)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
               R: key::KeyRole,
@@ -759,7 +759,7 @@ impl crate::packet::Signature {
     pub fn verify_primary_key_revocation<P, Q, R>(&self,
                                                   signer: &Key<P, R>,
                                                   pk: &Key<Q, key::PrimaryRole>)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
               R: key::KeyRole,
@@ -801,7 +801,7 @@ impl crate::packet::Signature {
         signer: &Key<P, R>,
         pk: &Key<Q, key::PrimaryRole>,
         subkey: &Key<S, key::SubordinateRole>)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
               R: key::KeyRole,
@@ -812,23 +812,20 @@ impl crate::packet::Signature {
         }
 
         let hash = Signature::hash_subkey_binding(self, pk, subkey)?;
-        if self.verify_digest(signer, &hash[..])? {
-            // The signature is good, but we may still need to verify
-            // the back sig.
-        } else {
-            return Ok(false);
-        }
+        self.verify_digest(signer, &hash[..])?;
 
-        if ! self.key_flags().for_signing() {
+        // The signature is good, but we may still need to verify the
+        // back sig.
+        if self.key_flags().for_signing() {
+            if let Some(backsig) = self.embedded_signature() {
+                backsig.verify_primary_key_binding(pk, subkey)
+            } else {
+                Err(Error::BadSignature(
+                    "Primary key binding signature missing".into()).into())
+            }
+        } else {
             // No backsig required.
-            return Ok(true)
-        }
-
-        if let Some(backsig) = self.embedded_signature() {
-            backsig.verify_primary_key_binding(pk, subkey)
-        } else {
-            Err(Error::BadSignature(
-                "Primary key binding signature missing".into()).into())
+            Ok(())
         }
     }
 
@@ -852,7 +849,7 @@ impl crate::packet::Signature {
         &self,
         pk: &Key<P, key::PrimaryRole>,
         subkey: &Key<Q, key::SubordinateRole>)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
     {
@@ -888,7 +885,7 @@ impl crate::packet::Signature {
         signer: &Key<P, R>,
         pk: &Key<Q, key::PrimaryRole>,
         subkey: &Key<S, key::SubordinateRole>)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
               R: key::KeyRole,
@@ -925,7 +922,7 @@ impl crate::packet::Signature {
                                           signer: &Key<P, R>,
                                           pk: &Key<Q, key::PrimaryRole>,
                                           userid: &UserID)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
               R: key::KeyRole,
@@ -964,7 +961,7 @@ impl crate::packet::Signature {
                                              signer: &Key<P, R>,
                                              pk: &Key<Q, key::PrimaryRole>,
                                              userid: &UserID)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
               R: key::KeyRole,
@@ -1000,7 +997,7 @@ impl crate::packet::Signature {
                                                   signer: &Key<P, R>,
                                                   pk: &Key<Q, key::PrimaryRole>,
                                                   ua: &UserAttribute)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
               R: key::KeyRole,
@@ -1040,7 +1037,7 @@ impl crate::packet::Signature {
         signer: &Key<P, R>,
         pk: &Key<Q, key::PrimaryRole>,
         ua: &UserAttribute)
-        -> Result<bool>
+        -> Result<()>
         where P: key::KeyParts,
               Q: key::KeyParts,
               R: key::KeyRole,
@@ -1074,7 +1071,7 @@ impl crate::packet::Signature {
     /// signing capability, etc.
     pub fn verify_message<M, P, R>(&self, signer: &Key<P, R>,
                                    msg: M)
-        -> Result<bool>
+        -> Result<()>
         where M: AsRef<[u8]>,
               P: key::KeyParts,
               R: key::KeyRole,
@@ -1215,7 +1212,8 @@ mod test {
                 crate::tests::message(test.data)).unwrap();
             while let PacketParserResult::Some(pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
-                    let result = sig.verify(cert.primary()).unwrap_or(false);
+                    let result = sig.verify(cert.primary())
+                        .map(|_| true).unwrap_or(false);
                     eprintln!("  Primary {:?}: {:?}",
                               cert.primary().fingerprint(), result);
                     if result {
@@ -1223,7 +1221,8 @@ mod test {
                     }
 
                     for sk in cert.subkeys() {
-                        let result = sig.verify(sk.key()).unwrap_or(false);
+                        let result = sig.verify(sk.key())
+                            .map(|_| true).unwrap_or(false);
                         eprintln!("   Subkey {:?}: {:?}",
                                   sk.key().fingerprint(), result);
                         if result {
@@ -1291,11 +1290,11 @@ mod test {
             sig.hash(&mut hash);
             let mut digest = vec![0u8; hash.digest_size()];
             hash.digest(&mut digest);
-            assert!(sig.verify_digest(pair.public(), &digest[..]).unwrap());
+            sig.verify_digest(pair.public(), &digest[..]).unwrap();
 
             // Bad signature.
             digest[0] ^= 0xff;
-            assert!(! sig.verify_digest(pair.public(), &digest[..]).unwrap());
+            sig.verify_digest(pair.public(), &digest[..]).unwrap_err();
         }
     }
 
@@ -1315,7 +1314,7 @@ mod test {
             .set_issuer(pair.public().keyid()).unwrap()
             .sign_message(&mut pair, msg).unwrap();
 
-        assert!(sig.verify_message(pair.public(), msg).unwrap());
+        sig.verify_message(pair.public(), msg).unwrap();
     }
 
     #[test]
@@ -1332,7 +1331,7 @@ mod test {
             panic!("Expected a Signature, got: {:?}", p);
         };
 
-        assert!(sig.verify_message(cert.primary(), &msg[..]).unwrap());
+        sig.verify_message(cert.primary(), &msg[..]).unwrap();
     }
 
     #[test]
@@ -1389,10 +1388,9 @@ mod test {
             .unwrap().1.unwrap().0;
         let cert = &uid_binding.certifications()[0];
 
-        assert_eq!(cert.verify_userid_binding(cert_key1,
-                                              test2.primary(),
-                                              uid_binding.userid()).ok(),
-                   Some(true));
+        cert.verify_userid_binding(cert_key1,
+                                   test2.primary(),
+                                   uid_binding.userid()).unwrap();
     }
 
     #[test]
@@ -1463,7 +1461,7 @@ mod test {
             .sign_standalone(&mut pair)
             .unwrap();
 
-        assert!(sig.verify_standalone(pair.public()).unwrap());
+        sig.verify_standalone(pair.public()).unwrap();
     }
 
     #[test]
@@ -1475,7 +1473,7 @@ mod test {
         if let Packet::Signature(sig) = p {
             let digest = Signature::hash_standalone(&sig).unwrap();
             eprintln!("{}", crate::fmt::hex::encode(&digest));
-            assert!(sig.verify_timestamp(alpha.primary()).unwrap());
+            sig.verify_timestamp(alpha.primary()).unwrap();
         } else {
             panic!("expected a signature packet");
         }
@@ -1495,6 +1493,6 @@ mod test {
             .sign_timestamp(&mut pair)
             .unwrap();
 
-        assert!(sig.verify_timestamp(pair.public()).unwrap());
+        sig.verify_timestamp(pair.public()).unwrap();
     }
 }

@@ -262,7 +262,7 @@ fn real_main() -> Result<(), failure::Error> {
                     let mut digest = vec![0u8; hash.digest_size()];
                     hash.digest(&mut digest);
                     match sig.verify_digest(key, &digest[..]) {
-                        Ok(true) => {
+                        Ok(()) => {
                             if let Some(t) = sig.signature_creation_time() {
                                 if let Some(not_before) = not_before {
                                     if t < not_before {
@@ -335,11 +335,6 @@ fn real_main() -> Result<(), failure::Error> {
 
                             println!("{}", cert.primary().fingerprint());
                             good += 1;
-                        },
-                        Ok(false) => {
-                            if trace {
-                                eprintln!("Signature by {} is bad.", issuer);
-                            }
                         },
                         Err(err) => {
                             if trace {

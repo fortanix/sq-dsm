@@ -733,7 +733,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                 }
                             } else {
                                 match sig.verify(ka.key()) {
-                                    Ok(true) => {
+                                    Ok(()) => {
                                         results.push_verification_result(
                                             VerificationResult::GoodChecksum {
                                                 sig: sig,
@@ -742,13 +742,6 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                             });
                                         // Continue to the next sig.
                                         continue 'sigs;
-                                    }
-                                    Ok(false) => {
-                                        VerificationResult::Error {
-                                            sig: sig.clone(),
-                                            error:
-                                            Error::ManipulatedMessage.into(),
-                                        }
                                     }
                                     Err(err) => {
                                         VerificationResult::Error {
@@ -1726,7 +1719,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 }
                             } else {
                                 match sig.verify(ka.key()) {
-                                    Ok(true) => {
+                                    Ok(()) => {
                                         results.push_verification_result(
                                             VerificationResult::GoodChecksum {
                                                 sig: sig,
@@ -1735,13 +1728,6 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                             });
                                         // Continue to the next sig.
                                         continue 'sigs;
-                                    }
-                                    Ok(false) => {
-                                        VerificationResult::Error {
-                                            sig: sig.clone(),
-                                            error:
-                                            Error::ManipulatedMessage.into(),
-                                        }
                                     }
                                     Err(err) => {
                                         VerificationResult::Error {

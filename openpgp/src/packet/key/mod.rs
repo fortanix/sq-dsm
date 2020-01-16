@@ -1623,7 +1623,7 @@ mod tests {
                                       r: mpis::MPI::new(r), s: mpis::MPI::new(s)
                                   });
         let sig: Signature = sig.into();
-        assert_eq!(sig.verify_message(&key, b"Hello, World\n").unwrap(), true);
+        sig.verify_message(&key, b"Hello, World\n").unwrap();
     }
 
     #[test]
