@@ -269,3 +269,39 @@ impl From<KeyPair> for Key<key::SecretParts, key::UnspecifiedRole> {
         key.mark_parts_secret().expect("XXX")
     }
 }
+
+impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
+    /// Encrypts the given data with this key.
+    pub fn encrypt(&self, data: &SessionKey) -> Result<mpis::Ciphertext> {
+        use crate::PublicKeyAlgorithm::*;
+
+        #[allow(deprecated)]
+        match self.pk_algo() {
+            RSAEncryptSign | RSAEncrypt => {
+                // Extract the public recipient.
+                match self.mpis() {
+                    mpis::PublicKey::RSA { e, n } => {
+                        // The ciphertext has the length of the modulus.
+                        let mut esk = vec![0u8; n.value().len()];
+                        let mut rng = Yarrow::default();
+                        let pk = rsa::PublicKey::new(n.value(), e.value())?;
+                        rsa::encrypt_pkcs1(&pk, &mut rng, data,
+                                           &mut esk)?;
+                        Ok(mpis::Ciphertext::RSA {
+                            c: MPI::new(&esk),
+                        })
+                    },
+                    pk => {
+                        Err(Error::MalformedPacket(
+                            format!(
+                                "Key: Expected RSA public key, got {:?}",
+                                pk)).into())
+                    },
+                }
+            },
+            ECDH => crate::crypto::ecdh::encrypt(self.mark_parts_public_ref(),
+                                                 data),
+            algo => Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
+        }
+    }
+}

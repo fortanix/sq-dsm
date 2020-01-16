@@ -12,14 +12,12 @@ use crate::packet::key;
 use crate::packet::Key;
 use crate::KeyID;
 use crate::crypto::Decryptor;
-use crate::crypto::mpis::{self, MPI, Ciphertext};
+use crate::crypto::mpis::Ciphertext;
 use crate::Packet;
 use crate::PublicKeyAlgorithm;
 use crate::Result;
 use crate::SymmetricAlgorithm;
 use crate::crypto::SessionKey;
-use crate::crypto::ecdh;
-use nettle::{rsa, Yarrow};
 use crate::packet;
 
 /// Holds an asymmetrically encrypted session key.
@@ -81,9 +79,6 @@ impl PKESK3 {
         -> Result<PKESK3>
         where R: key::KeyRole
     {
-        use crate::PublicKeyAlgorithm::*;
-        let mut rng = Yarrow::default();
-
         // We need to prefix the cipher specifier to the session key,
         // and a two-octet checksum.
         let mut psk = Vec::with_capacity(1 + session_key.len() + 2);
@@ -96,37 +91,7 @@ impl PKESK3 {
         psk.push((checksum >> 8) as u8);
         psk.push((checksum >> 0) as u8);
         let psk: SessionKey = psk.into();
-
-        #[allow(deprecated)]
-        let esk = match recipient.pk_algo() {
-            RSAEncryptSign | RSAEncrypt => {
-                // Extract the public recipient.
-                match recipient.mpis() {
-                    &mpis::PublicKey::RSA { ref e, ref n } => {
-                        // The ciphertext has the length of the modulus.
-                        let mut esk = vec![0u8; n.value().len()];
-
-                        let pk = rsa::PublicKey::new(n.value(), e.value())?;
-                        rsa::encrypt_pkcs1(&pk, &mut rng, &psk, &mut esk)?;
-                        Ciphertext::RSA {c: MPI::new(&esk)}
-                    }
-
-                    pk => {
-                        return Err(
-                            Error::MalformedPacket(
-                                format!(
-                                    "Key: Expected RSA public key, got {:?}",
-                                    pk)).into());
-                    }
-                }
-            },
-
-            ECDH => ecdh::encrypt(recipient, &psk)?,
-
-            algo =>
-                return Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
-        };
-
+        let esk = recipient.encrypt(&psk)?;
         Ok(PKESK3{
             common: Default::default(),
             recipient: recipient.keyid(),
