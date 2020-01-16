@@ -1652,71 +1652,149 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     'sigs: for sig in sigs.into_iter() {
-                        for issuer in sig.get_issuers() {
-                            if let Some((_, (i, j))) = self.keys.iter().find(|(h, _)| {
-                                h.aliases(&issuer)
-                            }) {
-                                let cert = &self.certs[*i];
-                                let ka = cert.keys().policy(self.time).nth(*j).unwrap();
-                                results.push_verification_result(
-                                    if sig.verify(ka.key()).unwrap_or(false) &&
-                                        sig.signature_alive(
-                                            self.time, self.clock_skew_tolerance)
-                                        .is_ok()
-                                    {
-                                        // Check intended recipients.
-                                        if let Some(identity) =
-                                            self.identity.as_ref()
-                                        {
-                                            let ir = sig.intended_recipients();
-                                            if !ir.is_empty()
-                                                && !ir.contains(identity)
-                                            {
-                                                // The signature
-                                                // contains intended
-                                                // recipients, but we
-                                                // are not one.  Treat
-                                                // the signature as
-                                                // bad.
-                                                VerificationResult::BadChecksum
-                                                {
-                                                    sig: sig.clone(),
-                                                    cert, ka,
-                                                }
-                                            } else {
-                                                VerificationResult::GoodChecksum
-                                                {
-                                                    sig: sig.clone(),
-                                                    cert, ka,
-                                                }
-                                            }
-                                        } else {
-                                            // No identity information.
+                        let sig_time = if let Some(t) = sig.signature_creation_time() {
+                            t
+                        } else {
+                            // Invalid signature.
+                            results.push_verification_result(
+                                VerificationResult::Error {
+                                    sig,
+                                    error: Error::MalformedPacket(
+                                        "missing a Signature Creation Time \
+                                         subpacket"
+                                            .into()).into()
+                                });
+                            continue;
+                        };
+
+                        if let Err(_err) = sig.signature_alive(
+                            self.time, self.clock_skew_tolerance)
+                        {
+                            // Invalid signature.
+                            results.push_verification_result(
+                                VerificationResult::NotAlive {
+                                    sig: sig.clone(),
+                                });
+                            continue;
+                        }
+
+                        let mut err = VerificationResult::MissingKey {
+                            sig: sig.clone(),
+                        };
+
+                        let issuers = sig.get_issuers();
+                        for ka in self.certs.iter()
+                            .flat_map(|cert| {
+                                cert.keys().policy(sig_time)
+                                    .key_handles(issuers.iter())
+                            })
+                        {
+                            err = if let Err(err) = ka.cert_alive() {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: err,
+                                }
+                            } else if let Err(err) = ka.alive() {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: err,
+                                }
+                            } else if destructures_to!(
+                                RevocationStatus::Revoked(_) = ka.cert_revoked())
+                            {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::InvalidKey(
+                                        "certificate is revoked".into())
+                                        .into(),
+                                }
+                            } else if destructures_to!(
+                                RevocationStatus::Revoked(_) = ka.revoked())
+                            {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::InvalidKey(
+                                        "signing key is revoked".into())
+                                        .into(),
+                                }
+                            } else if ! ka.for_signing() {
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::InvalidKey(
+                                        "key is not signing capable".into())
+                                        .into(),
+                                }
+                            } else if self.identity.as_ref().map(|identity| {
+                                let ir = sig.intended_recipients();
+                                ! ir.is_empty() && ! ir.contains(identity)
+                            }).unwrap_or(false) {
+                                // The signature contains intended
+                                // recipients, but we are not one.
+                                // Treat the signature as bad.
+                                VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::BadSignature(
+                                        "Not an intended recipient".into())
+                                        .into(),
+                                }
+                            } else {
+                                match sig.verify(ka.key()) {
+                                    Ok(true) => {
+                                        results.push_verification_result(
                                             VerificationResult::GoodChecksum {
-                                                sig: sig.clone(),
-                                                cert, ka,
-                                            }
-                                        }
-                                    } else {
+                                                sig: sig,
+                                                cert: ka.cert(),
+                                                ka,
+                                            });
+                                        // Continue to the next sig.
+                                        continue 'sigs;
+                                    }
+                                    Ok(false) => {
                                         VerificationResult::BadChecksum {
                                             sig: sig.clone(),
-                                            cert, ka,
+                                            cert: ka.cert(),
+                                            ka,
                                         }
                                     }
-                                );
-
-                                // We found a key, continue to next sig.
-                                continue 'sigs;
+                                    Err(err) => {
+                                        VerificationResult::Error {
+                                            sig: sig.clone(),
+                                            error: err,
+                                        }
+                                    }
+                                }
                             }
                         }
 
-                        results.push_verification_result(
-                            VerificationResult::MissingKey {
-                                sig,
+                        // Hmm, we didn't consider any keys.  Iterate
+                        // over the keys again, but this time, don't
+                        // use a policy.  If we find something now,
+                        // the policy must have rejected it.  Turn
+                        // that information into a more useful (and
+                        // less misleading) error message than
+                        // `VerificationResult::MissingKey`.
+                        if let VerificationResult::MissingKey { .. } = err {
+                            if let Some(key) = self.certs.iter()
+                                .flat_map(|cert| {
+                                    cert.keys().key_handles(issuers.iter())
+                                })
+                                .next()
+                            {
+                                err = VerificationResult::Error {
+                                    sig: sig.clone(),
+                                    error: Error::InvalidKey(
+                                        format!(
+                                            "Signing key ({}) not valid \
+                                             when signature was created",
+                                            key.fingerprint()))
+                                        .into(),
+                                }
                             }
-                        );
+                        }
+
+                        results.push_verification_result(err);
                     }
-                },
+                }
             }
         }
 
