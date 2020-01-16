@@ -229,7 +229,11 @@ pub enum VerificationResult<'a> {
 }
 
 impl<'a> VerificationResult<'a> {
-    /// Simple forwarder.
+    /// Gets the signature level.
+    ///
+    /// A level of 0 indicates that the signature is directly over the
+    /// data, a level of 1 means that the signature is a notarization
+    /// over all level 0 signatures and the data, and so on.
     pub fn level(&self) -> usize {
         use self::VerificationResult::*;
         match self {
