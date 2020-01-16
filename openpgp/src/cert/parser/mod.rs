@@ -9,7 +9,6 @@ use crate::{
     Error,
     KeyHandle,
     packet::Tag,
-    packet::Signature,
     Packet,
     parse::{
         Parse,
@@ -632,35 +631,30 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
                 let mut other_revs = vec![];
 
                 for sig in mem::replace(&mut b.certifications, vec![]) {
-                    match sig {
-                        Signature::V4(sig) => {
-                            let typ = sig.typ();
+                    let typ = sig.typ();
 
-                            let issuers =
-                                sig.get_issuers();
-                            let is_selfsig =
-                                issuers.contains(primary)
-                                || issuers.contains(primary_keyid);
+                    let issuers =
+                        sig.get_issuers();
+                    let is_selfsig =
+                        issuers.contains(primary)
+                        || issuers.contains(primary_keyid);
 
-                            use crate::SignatureType::*;
-                            if typ == KeyRevocation
-                                || typ == SubkeyRevocation
-                                || typ == CertificationRevocation
-                            {
-                                if is_selfsig {
-                                    self_revs.push(sig.into());
-                                } else {
-                                    other_revs.push(sig.into());
-                                }
-                            } else {
-                                if is_selfsig {
-                                    self_signatures.push(sig.into());
-                                } else {
-                                    certifications.push(sig.into());
-                                }
-                            }
-                        },
-                        Signature::__Nonexhaustive => unreachable!(),
+                    use crate::SignatureType::*;
+                    if typ == KeyRevocation
+                        || typ == SubkeyRevocation
+                        || typ == CertificationRevocation
+                    {
+                        if is_selfsig {
+                            self_revs.push(sig.into());
+                        } else {
+                            other_revs.push(sig.into());
+                        }
+                    } else {
+                        if is_selfsig {
+                            self_signatures.push(sig.into());
+                        } else {
+                            certifications.push(sig.into());
+                        }
                     }
                 }
 

@@ -306,9 +306,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     }
 
     /// Verifies the given signature.
-    pub fn verify(&self,
-                  sig: &packet::signature::Signature4, // XXX: Should be Signature
-                  digest: &[u8]) -> Result<bool>
+    pub fn verify(&self, sig: &packet::Signature, digest: &[u8]) -> Result<bool>
     {
         use crate::PublicKeyAlgorithm::*;
         use crate::crypto::mpis::{PublicKey, Signature};

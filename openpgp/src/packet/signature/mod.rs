@@ -515,7 +515,9 @@ impl Signature4 {
     pub(crate) fn set_level(&mut self, level: usize) -> usize {
         ::std::mem::replace(&mut self.level, level)
     }
+}
 
+impl crate::packet::Signature {
     /// Collects all the issuers.
     ///
     /// A signature can contain multiple hints as to who issued the
@@ -822,9 +824,7 @@ impl Signature4 {
             return Ok(true)
         }
 
-        if let Some(super::Signature::V4(backsig)) =
-            self.embedded_signature()
-        {
+        if let Some(backsig) = self.embedded_signature() {
             backsig.verify_primary_key_binding(pk, subkey)
         } else {
             Err(Error::BadSignature(
