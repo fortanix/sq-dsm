@@ -520,11 +520,8 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
     /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
     /// for certr in CertParser::from_packet_parser(ppr)
     ///     .unvalidated_cert_filter(|cert, _| {
-    ///         if cert.primary().keyid() == some_keyid {
-    ///             return true;
-    ///         }
-    ///         for binding in cert.subkeys() {
-    ///             if binding.key().keyid() == some_keyid {
+    ///         for component in cert.keys().components() {
+    ///             if component.key().keyid() == some_keyid {
     ///                 return true;
     ///             }
     ///         }

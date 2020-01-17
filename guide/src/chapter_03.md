@@ -52,10 +52,10 @@ fn main() {
                &"Ἀριστοτέλης".into());
 
     // Iterate over subkeys.
-    assert_eq!(cert.subkeys().count(), 2);
-    assert_eq!(cert.subkeys().nth(0).unwrap().key().fingerprint().to_string(),
+    assert_eq!(cert.keys().subkeys().count(), 2);
+    assert_eq!(cert.keys().subkeys().nth(0).unwrap().key().fingerprint().to_string(),
                "67A4 8753 A380 A6B3 B7DF  7DC5 E6C6 897A 4CEF 8924");
-    assert_eq!(cert.subkeys().nth(1).unwrap().key().fingerprint().to_string(),
+    assert_eq!(cert.keys().subkeys().nth(1).unwrap().key().fingerprint().to_string(),
                "185C DAA1 2723 0423 19E4  7F67 108F 2CAF 9034 356D");
 }
 ```

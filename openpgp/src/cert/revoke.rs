@@ -163,7 +163,7 @@ impl Deref for CertRevocationBuilder {
 ///     .generate()?;
 /// let mut keypair = cert.primary().clone()
 ///     .mark_parts_secret()?.into_keypair()?;
-/// let subkey = cert.subkeys().nth(0).unwrap();
+/// let subkey = cert.keys().subkeys().nth(0).unwrap();
 ///
 /// // Generate the revocation for the first and only Subkey.
 /// let revocation =
@@ -178,7 +178,7 @@ impl Deref for CertRevocationBuilder {
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
 ///
 /// // Check that it is revoked.
-/// let subkey = cert.subkeys().nth(0).unwrap();
+/// let subkey = cert.keys().subkeys().nth(0).unwrap();
 /// if let RevocationStatus::Revoked(revocations) = subkey.revoked(None) {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);

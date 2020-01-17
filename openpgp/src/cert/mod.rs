@@ -742,7 +742,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 ///     }
 ///
 ///     // Subkeys and related signatures.
-///     for c in cert.subkeys() {
+///     for c in cert.keys().subkeys() {
 ///         acc.push(c.key().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -1189,7 +1189,7 @@ impl Cert {
     /// Returns an iterator over the Cert's valid subkeys.
     ///
     /// A valid `KeyBinding` has at least one good self-signature.
-    pub fn subkeys(&self) -> KeyBindingIter<key::PublicParts,
+    pub(crate) fn subkeys(&self) -> KeyBindingIter<key::PublicParts,
                                             key::SubordinateRole>
     {
         KeyBindingIter { iter: Some(self.subkeys.iter()) }
