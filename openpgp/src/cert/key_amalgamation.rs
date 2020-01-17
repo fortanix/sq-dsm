@@ -172,6 +172,17 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         }
     }
 
+    /// Returns the key, but without conversion to P.
+    fn generic_key(&self)
+                   -> &'a Key<key::UnspecifiedParts, key::UnspecifiedRole> {
+        match self {
+            KeyAmalgamation(KeyAmalgamation0::Primary(ref h)) =>
+                h.cert.primary.key().into(),
+            KeyAmalgamation(KeyAmalgamation0::Subordinate(ref h)) =>
+                h.binding.key().mark_parts_unspecified_ref().into(),
+        }
+    }
+
     /// Returns the certificate that the key came from.
     pub fn cert(&self) -> &'a Cert
     {
@@ -314,10 +325,9 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     ///
     /// Note: this does not return whether the certificate is valid.
     pub fn alive(&self) -> Result<()>
-        where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
     {
         if let Some(sig) = self.binding_signature() {
-            sig.key_alive(self.key(), self.time())
+            sig.key_alive(self.generic_key(), self.time())
         } else {
             Err(Error::NoBindingSignature(self.time()).into())
         }
@@ -325,17 +335,15 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
 
     /// Returns whether the key contains secret key material.
     pub fn has_secret(&self) -> bool
-        where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
     {
-        self.key().secret().is_some()
+        self.generic_key().secret().is_some()
     }
 
     /// Returns whether the key contains unencrypted secret key
     /// material.
     pub fn has_unencrypted_secret(&self) -> bool
-        where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
     {
-        if let Some(secret) = self.key().secret() {
+        if let Some(secret) = self.generic_key().secret() {
             if let SecretKeyMaterial::Unencrypted { .. } = secret {
                 true
             } else {
