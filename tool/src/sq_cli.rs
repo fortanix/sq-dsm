@@ -129,7 +129,13 @@ pub fn build() -> App<'static, 'static> {
                          .possible_values(&["none", "pad", "zip", "zlib",
                                             "bzip2"])
                          .default_value("pad")
-                         .help("Selects compression scheme to use")))
+                         .help("Selects compression scheme to use"))
+                    .arg(Arg::with_name("time").value_name("TIME")
+                         .long("time")
+                         .short("t")
+                         .help("Chooses keys valid at the specified time and \
+                                sets the signature's creation time"))
+        )
 
         .subcommand(SubCommand::with_name("sign")
                     .display_order(25)
@@ -164,7 +170,12 @@ pub fn build() -> App<'static, 'static> {
                          .value_name("TSK-FILE")
                          .number_of_values(1)
                          .help("Secret key to sign with, given as a file \
-                                (can be given multiple times)")))
+                                (can be given multiple times)"))
+                    .arg(Arg::with_name("time").value_name("TIME")
+                         .long("time")
+                         .short("t")
+                         .help("Chooses keys valid at the specified time and \
+                                sets the signature's creation time")))
         .subcommand(SubCommand::with_name("verify")
                     .display_order(26)
                     .about("Verifies a message")

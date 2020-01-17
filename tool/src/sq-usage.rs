@@ -87,6 +87,8 @@
 //!     -r, --recipient <LABEL>...                 Recipient to encrypt for (can be given multiple times)
 //!         --recipient-key-file <CERT-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)
 //!         --signer-key-file <TSK-FILE>...        Secret key to sign with, given as a file (can be given multiple times)
+//!     -t, --time <TIME>                          Chooses keys valid at the specified time and sets the signature's
+//!                                                creation time
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -111,6 +113,8 @@
 //! OPTIONS:
 //!     -o, --output <FILE>                    Sets the output file to use
 //!         --secret-key-file <TSK-FILE>...    Secret key to sign with, given as a file (can be given multiple times)
+//!     -t, --time <TIME>                      Chooses keys valid at the specified time and sets the signature's creation
+//!                                            time
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use

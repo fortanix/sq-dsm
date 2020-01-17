@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, Write};
+use std::time::SystemTime;
 use rpassword;
 
 extern crate sequoia_openpgp as openpgp;
@@ -43,12 +44,12 @@ pub use self::inspect::inspect;
 pub mod key;
 
 /// Returns suitable signing keys from a given list of Certs.
-fn get_signing_keys(certs: &[openpgp::Cert])
+fn get_signing_keys(certs: &[openpgp::Cert], timestamp: Option<SystemTime>)
     -> Result<Vec<crypto::KeyPair>>
 {
     let mut keys = Vec::new();
     'next_cert: for tsk in certs {
-        for key in tsk.keys().policy(None).alive().revoked(false)
+        for key in tsk.keys().policy(timestamp).alive().revoked(false)
             .for_signing()
             .map(|ka| ka.key())
         {
@@ -81,8 +82,8 @@ pub fn encrypt(mapping: &mut store::Mapping,
                input: &mut dyn io::Read, output: &mut dyn io::Write,
                npasswords: usize, recipients: Vec<&str>,
                mut certs: Vec<openpgp::Cert>, signers: Vec<openpgp::Cert>,
-               mode: openpgp::types::KeyFlags,
-               compression: &str)
+               mode: openpgp::types::KeyFlags, compression: &str,
+               time: Option<SystemTime>)
                -> Result<()> {
     for r in recipients {
         certs.push(mapping.lookup(r).context("No such key found")?.cert()?);
@@ -103,7 +104,7 @@ pub fn encrypt(mapping: &mut store::Mapping,
             "Neither recipient nor password given"));
     }
 
-    let mut signers = get_signing_keys(&signers)?;
+    let mut signers = get_signing_keys(&signers, time)?;
 
     // Build a vector of references to hand to Signer.
     let recipients: Vec<&openpgp::Cert> = certs.iter().collect();
@@ -160,6 +161,9 @@ pub fn encrypt(mapping: &mut store::Mapping,
         let mut signer = Signer::new(sink, signers.pop().unwrap());
         for s in signers {
             signer = signer.add_signer(s);
+            if let Some(time) = time {
+                signer = signer.creation_time(time);
+            }
         }
         for r in recipients {
             signer = signer.add_intended_recipient(r);

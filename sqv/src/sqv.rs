@@ -377,6 +377,8 @@ fn main() {
 fn parse_iso8601(s: &str, pad_date_with: chrono::NaiveTime)
                  -> failure::Fallible<DateTime<Utc>>
 {
+    // If you modify this function this function, synchronize the
+    // changes with the copy in sqv.rs!
     for f in &[
         "%Y-%m-%dT%H:%M:%S%#z",
         "%Y-%m-%dT%H:%M:%S",

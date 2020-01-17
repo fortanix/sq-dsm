@@ -18,6 +18,7 @@ use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use chrono::{DateTime, offset::Utc};
 
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
@@ -219,11 +220,19 @@ fn real_main() -> Result<(), failure::Error> {
                     .set_transport_encryption(true),
                 _ => unreachable!("uses possible_values"),
             };
+            let time = if let Some(time) = m.value_of("time") {
+                Some(parse_iso8601(time, chrono::NaiveTime::from_hms(0, 0, 0))
+                         .context(format!("Bad value passed to --time: {:?}",
+                                          time))?.into())
+            } else {
+                None
+            };
             commands::encrypt(&mut mapping, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
                               recipients, additional_certs, additional_secrets,
                               mode,
-                              m.value_of("compression").expect("has default"))?;
+                              m.value_of("compression").expect("has default"),
+                              time.into())?;
         },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
@@ -235,8 +244,15 @@ fn real_main() -> Result<(), failure::Error> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
+            let time = if let Some(time) = m.value_of("time") {
+                Some(parse_iso8601(time, chrono::NaiveTime::from_hms(0, 0, 0))
+                         .context(format!("Bad value passed to --time: {:?}",
+                                          time))?.into())
+            } else {
+                None
+            };
             commands::sign(&mut input, output, secrets, detached, binary,
-                           append, notarize, force)?;
+                           append, notarize, time, force)?;
         },
         ("verify",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
@@ -637,6 +653,78 @@ fn print_log(iter: LogIter, with_slug: bool) {
     }
 
     table.printstd();
+}
+
+/// Parses the given string depicting a ISO 8601 timestamp.
+fn parse_iso8601(s: &str, pad_date_with: chrono::NaiveTime)
+                 -> failure::Fallible<DateTime<Utc>>
+{
+    // If you modify this function this function, synchronize the
+    // changes with the copy in sqv.rs!
+    for f in &[
+        "%Y-%m-%dT%H:%M:%S%#z",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M%#z",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%dT%H%#z",
+        "%Y-%m-%dT%H",
+        "%Y%m%dT%H%M%S%#z",
+        "%Y%m%dT%H%M%S",
+        "%Y%m%dT%H%M%#z",
+        "%Y%m%dT%H%M",
+        "%Y%m%dT%H%#z",
+        "%Y%m%dT%H",
+    ] {
+        if f.ends_with("%#z") {
+            if let Ok(d) = DateTime::parse_from_str(s, *f) {
+                return Ok(d.into());
+            }
+        } else {
+            if let Ok(d) = chrono::NaiveDateTime::parse_from_str(s, *f) {
+                return Ok(DateTime::from_utc(d, Utc));
+            }
+        }
+    }
+    for f in &[
+        "%Y-%m-%d",
+        "%Y-%m",
+        "%Y-%j",
+        "%Y%m%d",
+        "%Y%m",
+        "%Y%j",
+        "%Y",
+    ] {
+        if let Ok(d) = chrono::NaiveDate::parse_from_str(s, *f) {
+            return Ok(DateTime::from_utc(d.and_time(pad_date_with), Utc));
+        }
+    }
+    Err(failure::format_err!("Malformed ISO8601 timestamp: {}", s))
+}
+
+#[test]
+fn test_parse_iso8601() {
+    let z = chrono::NaiveTime::from_hms(0, 0, 0);
+    parse_iso8601("2017-03-04T13:25:35Z", z).unwrap();
+    parse_iso8601("2017-03-04T13:25:35+08:30", z).unwrap();
+    parse_iso8601("2017-03-04T13:25:35", z).unwrap();
+    parse_iso8601("2017-03-04T13:25Z", z).unwrap();
+    parse_iso8601("2017-03-04T13:25", z).unwrap();
+    // parse_iso8601("2017-03-04T13Z", z).unwrap(); // XXX: chrono doesn't like
+    // parse_iso8601("2017-03-04T13", z).unwrap(); // ditto
+    parse_iso8601("2017-03-04", z).unwrap();
+    // parse_iso8601("2017-03", z).unwrap(); // ditto
+    parse_iso8601("2017-031", z).unwrap();
+    parse_iso8601("20170304T132535Z", z).unwrap();
+    parse_iso8601("20170304T132535+0830", z).unwrap();
+    parse_iso8601("20170304T132535", z).unwrap();
+    parse_iso8601("20170304T1325Z", z).unwrap();
+    parse_iso8601("20170304T1325", z).unwrap();
+    // parse_iso8601("20170304T13Z", z).unwrap(); // ditto
+    // parse_iso8601("20170304T13", z).unwrap(); // ditto
+    parse_iso8601("20170304", z).unwrap();
+    // parse_iso8601("201703", z).unwrap(); // ditto
+    parse_iso8601("2017031", z).unwrap();
+    // parse_iso8601("2017", z).unwrap(); // ditto
 }
 
 fn main() {

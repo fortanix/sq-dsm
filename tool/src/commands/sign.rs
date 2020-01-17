@@ -2,6 +2,7 @@ use failure::{self, ResultExt};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use tempfile::NamedTempFile;
 
 extern crate sequoia_openpgp as openpgp;
@@ -20,20 +21,22 @@ use crate::create_or_stdout;
 
 pub fn sign(input: &mut dyn io::Read, output_path: Option<&str>,
             secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
-            append: bool, notarize: bool, force: bool)
+            append: bool, notarize: bool, time: Option<SystemTime>,
+            force: bool)
             -> Result<()> {
     match (detached, append|notarize) {
         (_, false) | (true, true) =>
             sign_data(input, output_path, secrets, detached, binary, append,
-                      force),
+                      time, force),
         (false, true) =>
-            sign_message(input, output_path, secrets, binary, notarize, force),
+            sign_message(input, output_path, secrets, binary, notarize,
+                         time, force),
     }
 }
 
 fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
              secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
-             append: bool, force: bool)
+             append: bool, time: Option<SystemTime>, force: bool)
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
     (Box<dyn io::Write>, Vec<Signature>, Option<PathBuf>) =
@@ -80,7 +83,7 @@ fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
         output
     };
 
-    let mut keypairs = super::get_signing_keys(&secrets)?;
+    let mut keypairs = super::get_signing_keys(&secrets, time)?;
     if keypairs.is_empty() {
         return Err(failure::format_err!("No signing keys found"));
     }
@@ -97,6 +100,9 @@ fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
     let mut signer = Signer::new(sink, keypairs.pop().unwrap());
     for s in keypairs {
         signer = signer.add_signer(s);
+        if let Some(time) = time {
+            signer = signer.creation_time(time);
+        }
     }
     if detached {
         signer = signer.detached();
@@ -130,7 +136,7 @@ fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
 
 fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
                 secrets: Vec<openpgp::Cert>, binary: bool, notarize: bool,
-                force: bool)
+                time: Option<SystemTime>, force: bool)
              -> Result<()> {
     let mut output = create_or_stdout(output_path, force)?;
     let output = if ! binary {
@@ -141,7 +147,7 @@ fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
         output
     };
 
-    let mut keypairs = super::get_signing_keys(&secrets)?;
+    let mut keypairs = super::get_signing_keys(&secrets, time)?;
     if keypairs.is_empty() {
         return Err(failure::format_err!("No signing keys found"));
     }
@@ -213,6 +219,9 @@ fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
                 let mut signer = Signer::new(sink, keypairs.pop().unwrap());
                 for s in keypairs.drain(..) {
                     signer = signer.add_signer(s);
+                    if let Some(time) = time {
+                        signer = signer.creation_time(time);
+                    }
                 }
                 sink = signer.build().context("Failed to create signer")?;
                 state = State::Signing { signature_count: 0, };
