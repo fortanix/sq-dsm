@@ -75,12 +75,12 @@ mod integration {
     #[test]
     fn not_revoked() {
         let c = "not-revoked";
-        f0(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f0(c, "t0").fails().unwrap();
         f0(c, "t1-t2").unwrap();
         f0(c, "t2-t3").unwrap();
         f0(c, "t3-now").unwrap();
 
-        f1(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f1(c, "t0").fails().unwrap();
         f1(c, "t1-t2").fails().unwrap();
         f1(c, "t2-t3").unwrap();
         f1(c, "t3-now").unwrap();
@@ -190,17 +190,17 @@ mod integration {
     #[test]
     fn revoked_superseded() {
         let c = "revoked-superseded";
-        f0(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f0(c, "t0").fails().unwrap();
         f0(c, "t1-t2").unwrap();
         f0(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f0(c, "t3-now").unwrap();
 
-        f1(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f1(c, "t0").fails().unwrap();
         f1(c, "t1-t2").fails().unwrap();
         f1(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f1(c, "t3-now").unwrap();
 
-        f2(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f2(c, "t0").fails().unwrap();
         f2(c, "t1-t2").fails().unwrap();
         f2(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f2(c, "t3-now").unwrap();
@@ -209,17 +209,17 @@ mod integration {
     #[test]
     fn revoked_key_retired() {
         let c = "revoked-key_retired";
-        f0(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f0(c, "t0").fails().unwrap();
         f0(c, "t1-t2").unwrap();
         f0(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f0(c, "t3-now").unwrap();
 
-        f1(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f1(c, "t0").fails().unwrap();
         f1(c, "t1-t2").fails().unwrap();
         f1(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f1(c, "t3-now").unwrap();
 
-        f2(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f2(c, "t0").fails().unwrap();
         f2(c, "t1-t2").fails().unwrap();
         f2(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f2(c, "t3-now").unwrap();
@@ -229,17 +229,17 @@ mod integration {
     #[test]
     fn revoked_uid_retired() {
         let c = "revoked-uid_retired";
-        f0(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f0(c, "t0").fails().unwrap();
         f0(c, "t1-t2").unwrap();
         f0(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f0(c, "t3-now").unwrap();
 
-        f1(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f1(c, "t0").fails().unwrap();
         f1(c, "t1-t2").fails().unwrap();
         f1(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f1(c, "t3-now").unwrap();
 
-        f2(c, "t0").fails().and().stderr().contains("predates").unwrap();
+        f2(c, "t0").fails().unwrap();
         f2(c, "t1-t2").fails().unwrap();
         f2(c, "t2-t3").fails().and().stderr().contains("revoked").unwrap();
         f2(c, "t3-now").unwrap();
