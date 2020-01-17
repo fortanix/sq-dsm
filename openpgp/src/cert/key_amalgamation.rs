@@ -239,7 +239,7 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         }
     }
 
-    /// Returns the key's revocation status as of the amalgamtion's
+    /// Returns the key's revocation status as of the amalgamation's
     /// reference time.
     ///
     /// Note: this does not return whether the certificate is valid.
