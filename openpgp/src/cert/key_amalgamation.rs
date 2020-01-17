@@ -345,4 +345,12 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
             false
         }
     }
+
+    /// Returns this key's component.
+    pub fn component(&self) -> &'a KeyBinding<P, key::UnspecifiedRole> {
+        match &self.0 {
+            KeyAmalgamation0::Primary(h) => h.binding.into(),
+            KeyAmalgamation0::Subordinate(h) => h.binding.into(),
+        }
+    }
 }
