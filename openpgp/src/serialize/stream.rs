@@ -11,7 +11,7 @@
 
 use std::fmt;
 use std::io::{self, Write};
-use std::time;
+use std::time::SystemTime;
 
 use crate::{
     crypto,
@@ -206,6 +206,7 @@ pub struct Signer<'a> {
     signers: Vec<Box<dyn crypto::Signer + 'a>>,
     intended_recipients: Vec<Fingerprint>,
     detached: bool,
+    creation_time: Option<SystemTime>,
     hash: crypto::hash::Context,
     cookie: Cookie,
     position: u64,
@@ -282,6 +283,7 @@ impl<'a> Signer<'a> {
             signers: vec![Box::new(signer)],
             intended_recipients: Vec::new(),
             detached: false,
+            creation_time: None,
             hash: HashAlgorithm::default().context().unwrap(),
             cookie: Cookie {
                 level: level,
@@ -386,6 +388,15 @@ impl<'a> Signer<'a> {
         self
     }
 
+    /// Sets the signature's creation time to `time`.
+    ///
+    /// Note: it is up to the caller to make sure the signing keys are
+    /// actually valid as of `time`.
+    pub fn creation_time(mut self, creation_time: SystemTime) -> Self {
+        self.creation_time = Some(creation_time);
+        self
+    }
+
     /// Finalizes the signer, returning the writer stack.
     pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>>
     {
@@ -423,7 +434,8 @@ impl<'a> Signer<'a> {
                 // Make and hash a signature packet.
                 let mut sig = signature::Builder::new(SignatureType::Binary)
                     .set_signature_creation_time(
-                        std::time::SystemTime::now())?
+                        self.creation_time
+                            .unwrap_or_else(SystemTime::now))?
                     .set_issuer_fingerprint(signer.public().fingerprint())?
                     // GnuPG up to (and including) 2.2.8 requires the
                     // Issuer subpacket to be present.
@@ -587,7 +599,7 @@ impl<'a> LiteralWriter<'a> {
     }
 
     /// Sets the data format.
-    pub fn date(mut self, timestamp: time::SystemTime) -> Result<Self>
+    pub fn date(mut self, timestamp: SystemTime) -> Result<Self>
     {
         self.template.set_date(Some(timestamp))?;
         Ok(self)
@@ -1773,5 +1785,58 @@ mod test {
                 }
             }
         }
+    }
+
+    #[test]
+    fn signature_at_time() {
+        // Generates a signature with a specific Signature Creation
+        // Time.
+        use crate::cert::{CertBuilder, CipherSuite};
+        use crate::serialize::stream::{LiteralWriter, Message};
+        use crate::crypto::KeyPair;
+
+        let (cert, _) = CertBuilder::new()
+            .add_signing_subkey()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .generate().unwrap();
+
+        // What we're going to sign with.
+        let ka = cert.keys().policy(None).for_signing().nth(0).unwrap();
+
+        // A timestamp later than the key's creation.
+        let timestamp = ka.key().creation_time()
+            + std::time::Duration::from_secs(14 * 24 * 60 * 60);
+        assert!(ka.key().creation_time() < timestamp);
+
+        let mut o = vec![];
+        {
+            let signer_keypair : KeyPair =
+                ka.key().clone().mark_parts_secret().unwrap().into_keypair()
+                    .expect("expected unencrypted secret key");
+
+            let m = Message::new(&mut o);
+            let signer = Signer::new(m, signer_keypair);
+            let signer = signer.creation_time(timestamp);
+            let signer = signer.build().unwrap();
+
+            let mut ls = LiteralWriter::new(signer).build().unwrap();
+            ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
+            let signer = ls.finalize_one().unwrap().unwrap();
+            let _ = signer.finalize_one().unwrap().unwrap();
+        }
+
+        let mut ppr = PacketParser::from_bytes(&o).unwrap();
+        let mut good = 0;
+        while let PacketParserResult::Some(pp) = ppr {
+            if let Packet::Signature(ref sig) = pp.packet {
+                assert_eq!(sig.signature_creation_time(), Some(timestamp));
+                sig.verify(ka.key()).unwrap();
+                good += 1;
+            }
+
+            // Get the next packet.
+            ppr = pp.recurse().unwrap().1;
+        }
+        assert_eq!(good, 1);
     }
 }
