@@ -183,7 +183,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
             // The filters.
             secret: None,
             unencrypted_secret: None,
-            key_handles: vec![],
+            key_handles: Vec::with_capacity(0),
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
