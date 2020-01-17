@@ -278,7 +278,7 @@ impl<'a> MessageStructure<'a> {
     }
 
     /// Iterates over the message structure.
-    pub fn into_iter(self) -> MessageStructureIntoIter<'a> {
+    pub fn into_iter(self) -> impl Iterator<Item = MessageLayer<'a>> {
         MessageStructureIntoIter(self.0.into_iter())
     }
 }
@@ -294,7 +294,7 @@ impl<'a> Iterator for MessageStructureIter<'a> {
 }
 
 /// Iterates over the message structure.
-pub struct MessageStructureIntoIter<'a>(::std::vec::IntoIter<MessageLayer<'a>>);
+struct MessageStructureIntoIter<'a>(::std::vec::IntoIter<MessageLayer<'a>>);
 
 impl<'a> Iterator for MessageStructureIntoIter<'a> {
     type Item = MessageLayer<'a>;
