@@ -234,6 +234,15 @@ impl<'a> VerificationResult<'a> {
 }
 
 /// Communicates the message structure to the VerificationHelper.
+///
+/// A valid OpenPGP message contains one literal data packet with
+/// optional [encryption, signing, and compression layers] on top.
+/// This structure is passed to [`VerificationHelper::check`] for
+/// verification.  This method must check whether the structure is
+/// compatible with your policy.
+///
+///  [encryption, signing, and compression layers]: enum.MessageLayer.html
+///  [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
 #[derive(Debug)]
 pub struct MessageStructure<'a>(Vec<MessageLayer<'a>>);
 
@@ -304,6 +313,9 @@ impl<'a> Iterator for MessageStructureIntoIter<'a> {
 }
 
 /// Represents a layer of the message structure.
+///
+/// A valid OpenPGP message contains one literal data packet with
+/// optional encryption, signing, and compression layers on top.
 #[derive(Debug)]
 pub enum MessageLayer<'a> {
     /// Represents an compression container.
@@ -319,6 +331,17 @@ pub enum MessageLayer<'a> {
         aead_algo: Option<AEADAlgorithm>,
     },
     /// Represents a signature group.
+    ///
+    /// A signature group consists of all signatures with the same
+    /// [level].  Each [`VerificationResult`] represents the result of
+    /// a single signature verification.  In your
+    /// [`VerificationHelper::check`] method, iterate over the
+    /// verification results, see if it meets your policies' demands,
+    /// and communicate it to the user, if applicable.
+    ///
+    ///  [level]: enum.VerificationResult.html#method.level
+    ///  [`VerificationResult`]: enum.VerificationResult.html
+    ///  [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
     SignatureGroup {
         /// The results of the signature verifications.
         results: Vec<VerificationResult<'a>>,
