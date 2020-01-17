@@ -34,6 +34,7 @@ use crate::types::{
     ReasonForRevocation,
 };
 
+mod amalgamation;
 mod builder;
 mod bindings;
 pub mod components;
