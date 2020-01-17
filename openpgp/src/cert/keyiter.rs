@@ -350,7 +350,7 @@ impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
 // Key<{PublicParts,UnspecifiedParts}, _>.  We cannot just abstract
 // over the parts, because then we cannot specialize the
 // implementation for Key<SecretParts, _> below.
-macro_rules! impl_iterator {
+macro_rules! impl_valid_key_iterator {
     ($parts:path) => {
         impl<'a, R: 'a + key::KeyRole> Iterator for ValidKeyIter<'a, $parts, R>
             where &'a Key<$parts, R>: From<&'a Key<key::PublicParts,
@@ -364,8 +364,8 @@ macro_rules! impl_iterator {
         }
     }
 }
-impl_iterator!(key::PublicParts);
-impl_iterator!(key::UnspecifiedParts);
+impl_valid_key_iterator!(key::PublicParts);
+impl_valid_key_iterator!(key::UnspecifiedParts);
 
 impl<'a, R: 'a + key::KeyRole> Iterator for ValidKeyIter<'a, key::SecretParts, R>
     where &'a Key<key::SecretParts, R>: From<&'a Key<key::SecretParts,
