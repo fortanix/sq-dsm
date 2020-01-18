@@ -3,6 +3,9 @@
 /// See https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=872271 for
 /// the motivation.
 
+use std::process::exit;
+use std::io::Read;
+
 use chrono::{DateTime, offset::Utc};
 extern crate clap;
 extern crate failure;
@@ -10,23 +13,213 @@ use failure::ResultExt;
 
 extern crate sequoia_openpgp as openpgp;
 
-use std::process::exit;
-use std::fs::File;
-use std::collections::{HashMap, HashSet};
-use std::cell::RefCell;
-use std::rc::Rc;
-
 use crate::openpgp::{
-    Cert, Packet, packet::Signature, KeyHandle, KeyID, RevocationStatus,
+    Cert,
+    KeyHandle,
+    Result,
+    parse::Parse,
 };
-use crate::openpgp::types::HashAlgorithm;
-use crate::openpgp::crypto::hash::Hash;
-use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
+use crate::openpgp::parse::stream::{
+    DetachedVerifier,
+    MessageLayer,
+    MessageStructure,
+    VerificationHelper,
+    VerificationResult,
+};
 use crate::openpgp::cert::CertParser;
 
 mod sqv_cli;
 
-fn real_main() -> Result<(), failure::Error> {
+struct VHelper<'a> {
+    not_before: Option<std::time::SystemTime>,
+    not_after: std::time::SystemTime,
+
+    good: usize,
+    total: usize,
+    threshold: usize,
+
+    keyrings: clap::OsValues<'a>,
+}
+
+impl<'a> std::fmt::Debug for VHelper<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("VHelper")
+            .field("not_before", &self.not_before)
+            .field("not_after", &self.not_after)
+            .field("good", &self.good)
+            .field("total", &self.total)
+            .field("threshold", &self.threshold)
+            .field("keyrings", &self.keyrings)
+            .finish()
+    }
+}
+
+impl<'a> VHelper<'a> {
+    fn new(threshold: usize,
+           not_before: Option<std::time::SystemTime>,
+           not_after: std::time::SystemTime,
+           keyrings: clap::OsValues<'a>) -> Self {
+        VHelper {
+            not_before: not_before,
+            not_after: not_after,
+            good: 0,
+            total: 0,
+            threshold: threshold,
+            keyrings: keyrings,
+        }
+    }
+}
+
+impl<'a> VerificationHelper for VHelper<'a> {
+    fn get_public_keys(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>> {
+        let mut certs = Vec::with_capacity(ids.len());
+
+        // Load relevant keys from the keyring.
+        for filename in self.keyrings.clone() {
+            certs.extend(
+                CertParser::from_file(filename)?
+                    .unvalidated_cert_filter(|cert, _| {
+                        // We don't skip keys that are valid (not revoked,
+                        // alive, etc.) so that
+                        cert.keys().key_handles(ids.iter()).next().is_some()
+                    })
+                    .map(|certr| {
+                        match certr {
+                            Ok(cert) => cert,
+                            Err(err) => {
+                                eprintln!("Error reading keyring {:?}: {}",
+                                          filename, err);
+                                exit(2);
+                            }
+                        }
+                    }))
+        }
+
+        // Dedup.  To avoid cloning the certificates, we don't use
+        // Vec::dedup.
+        certs.sort_by(|a, b| a.fingerprint().cmp(&b.fingerprint()));
+        let count = certs.len();
+        let (certs, errs) = certs.into_iter().fold(
+            (Vec::with_capacity(count), Vec::new()),
+            |(mut certs, mut errs), a| {
+                if certs.len() == 0 {
+                    certs.push(a);
+                } else if certs[certs.len() - 1].fingerprint() == a.fingerprint() {
+                    // Merge `a` into the last element.
+                    match certs.pop().expect("non-empty vec").merge(a) {
+                        Ok(cert) => certs.push(cert),
+                        Err(err) => errs.push(err),
+                    }
+                } else {
+                    certs.push(a);
+                }
+
+                (certs, errs)
+            });
+
+        if errs.len() > 0 {
+            eprintln!("Error merging duplicate keys:");
+            for err in errs.iter() {
+                eprintln!("  {}", err);
+            }
+            Err(errs.into_iter().next().expect("non-empty vec"))
+        } else {
+            Ok(certs)
+        }
+    }
+
+    fn check(&mut self, structure: MessageStructure) -> Result<()> {
+        use self::VerificationResult::*;
+
+        let mut signers = Vec::with_capacity(2);
+        let mut verification_err = None;
+
+        for layer in structure.into_iter() {
+            match layer {
+                MessageLayer::SignatureGroup { results } =>
+                    for result in results {
+                        self.total += 1;
+                        match result {
+                            GoodChecksum { sig, ka, .. } => {
+                                match (sig.signature_creation_time(),
+                                                self.not_before,
+                                                self.not_after)
+                                {
+                                    (None, _, _) =>
+                                        eprintln!("Malformed signature: \
+                                                   no signature creation time"),
+                                    (Some(t), Some(not_before), not_after) => {
+                                        if t < not_before {
+                                            eprintln!(
+                                                "Signature by {} was created before \
+                                                 the --not-before date.",
+                                                ka.key().fingerprint());
+                                        } else if t > not_after {
+                                            eprintln!(
+                                                "Signature by {} was created after \
+                                                 the --not-after date.",
+                                                ka.key().fingerprint());
+                                        } else {
+                                            signers.push(ka.cert().fingerprint());
+                                        }
+                                    }
+                                    (Some(t), None, not_after) => {
+                                        if t > not_after {
+                                            eprintln!(
+                                                "Signature by {} was created after \
+                                                 the --not-after date.",
+                                                ka.key().fingerprint());
+                                        } else {
+                                            signers.push(ka.cert().fingerprint());
+                                        }
+                                    }
+                                };
+                            }
+                            NotAlive { .. } => {
+                                eprintln!("Signature is not alive.");
+                            }
+                            MissingKey { sig, .. } => {
+                                if let Some(issuer) = sig.get_issuers().first() {
+                                    eprintln!("Missing {}, which is needed to \
+                                               verify signature.",
+                                              issuer);
+                                } else {
+                                    eprintln!("Signature has no Issuer or \
+                                               Issuer Fingerprint subpacket. \
+                                               Don't know what key to use to \
+                                               verify signature.");
+                                }
+                            }
+                            Error { error, .. } => {
+                                eprintln!("Verifying signature: {}.", error);
+                                if verification_err.is_none() {
+                                    verification_err = Some(error)
+                                }
+                            }
+                        }
+                    }
+                MessageLayer::Compression { .. } => (),
+                _ => unreachable!(),
+            }
+        }
+
+        // Dedup the keys so that it is not possible to exceed the
+        // threshold by duplicating signatures or by using the same
+        // key.
+        signers.sort();
+        signers.dedup();
+
+        self.good = signers.len();
+        for signer in signers {
+            println!("{}", signer);
+        }
+
+        Ok(())
+    }
+}
+
+
+fn real_main() -> Result<()> {
     let matches = sqv_cli::build().get_matches();
 
     let trace = matches.is_present("trace");
@@ -51,6 +244,10 @@ fn real_main() -> Result<(), failure::Error> {
         exit(2);
     }
 
+    let file = matches.value_of_os("file").expect("'file' is required");
+    let sig_file = matches.value_of_os("sig-file")
+        .expect("'sig-file' is required");
+
     let not_before: Option<std::time::SystemTime> =
         if let Some(t) = matches.value_of("not-before") {
             Some(parse_iso8601(t, chrono::NaiveTime::from_hms(0, 0, 0))
@@ -68,296 +265,31 @@ fn real_main() -> Result<(), failure::Error> {
             None
         }.unwrap_or_else(|| std::time::SystemTime::now());
 
-    // First, we collect the signatures and the alleged issuers.
-    // Then, we scan the keyrings exactly once to find the associated
-    // Certs.
+    let keyrings = matches.values_of_os("keyring")
+        .expect("No keyring specified.");
 
-    let sig_file = matches.value_of_os("sig-file")
-        .expect("'sig-file' is required");
+    let h = VHelper::new(good_threshold, not_before, not_after, keyrings);
 
-    let mut ppr = PacketParser::from_file(sig_file)?;
+    let mut v = DetachedVerifier::from_file(
+        sig_file, file, h, None)?;
 
-    let mut sigs_seen = HashSet::new();
-    let mut sigs: Vec<(Signature, KeyID)> = Vec::new();
-
-    // sig_i is count of all Signature packets that we've seen.  This
-    // may be more than sigs.len() if we can't handle some of the
-    // sigs.
-    let mut sig_i = 0;
-
-    while let PacketParserResult::Some(pp) = ppr {
-        let (packet, ppr_tmp) = pp.recurse().unwrap();
-        ppr = ppr_tmp;
-
-        match packet {
-            Packet::Signature(sig) => {
-                // To check for duplicates, we normalize the
-                // signature, and put it into the hashset of seen
-                // signatures.
-                let mut sig_normalized = sig.clone();
-                sig_normalized.unhashed_area_mut().clear();
-                if sigs_seen.replace(sig_normalized).is_some() {
-                    eprintln!("Ignoring duplicate signature.");
-                    continue;
-                }
-
-                sig_i += 1;
-                if let Some(fp) = sig.issuer_fingerprint() {
-                    if trace {
-                        eprintln!("Will check signature allegedly issued by {}.",
-                                  fp);
-                    }
-
-                    // XXX: We use a KeyID even though we have a
-                    // fingerprint!
-                    sigs.push((sig.clone(), fp.into()));
-                } else if let Some(keyid) = sig.issuer() {
-                    if trace {
-                        eprintln!("Will check signature allegedly issued by {}.",
-                                  keyid);
-                    }
-
-                    sigs.push((sig.clone(), keyid.clone()));
-                } else {
-                    eprintln!("Signature #{} does not contain information \
-                               about the issuer.  Unable to validate.",
-                              sig_i);
-                }
-            },
-            Packet::CompressedData(_) => {
-                // Skip it.
-            },
-            Packet::Marker(_) => (), // Marker packets must be ignored.
-            packet => {
-                eprintln!("OpenPGP message is not a detached signature.  \
-                           Encountered unexpected packet: {:?} packet.",
-                          packet.tag());
-                exit(2);
-            }
+    let mut buffer = Vec::with_capacity(1024 * 1024);
+    loop {
+        match v.read(&mut buffer) {
+            Ok(0) => break, // EOF
+            Ok(_) => (), // There is more to read.
+            Err(err) => return Err(err.into()),
         }
     }
 
-    if sigs.len() == 0 {
-        eprintln!("{:?} does not contain an OpenPGP signature.", sig_file);
-        exit(2);
-    }
-
-
-    // Hash the content.
-
-    let file = matches.value_of_os("file").expect("'file' is required");
-    let hash_algos : Vec<HashAlgorithm>
-        = sigs.iter().map(|&(ref sig, _)| sig.hash_algo()).collect();
-    let hashes: HashMap<_, _> =
-        openpgp::crypto::hash_reader(File::open(file)?, &hash_algos[..])?
-        .into_iter().map(|ctx| (ctx.algo(), ctx)).collect();
-
-    fn cert_has_key(cert: &Cert, keyid: &KeyID) -> bool {
-        // Even if a key is revoked or expired, we can still use it to
-        // verify a message.
-        cert.keys().any(|key| *keyid == key.keyid())
-    }
-
-    // Find the certs.
-    let mut certs: Vec<(KeyHandle, Rc<RefCell<Cert>>)> = Vec::new();
-    for filename in matches.values_of_os("keyring")
-        .expect("No keyring specified.")
-    {
-        // Load the keyring.
-        for cert in CertParser::from_file(filename)?
-            .unvalidated_cert_filter(|cert, _| {
-                for &(_, ref issuer) in &sigs {
-                    if cert_has_key(cert, issuer) {
-                        return true;
-                    }
-                }
-                false
-            })
-            .map(|certr| {
-                match certr {
-                    Ok(cert) => cert,
-                    Err(err) => {
-                        eprintln!("Error reading keyring {:?}: {}",
-                                  filename, err);
-                        exit(2);
-                    }
-                }
-            })
-        {
-            for (_, issuer) in sigs.iter() {
-                if cert_has_key(&cert, issuer) {
-                    let fp: KeyHandle = cert.fingerprint().into();
-                    let cert = if let Some(known) = certs.iter().position(|(h, _)| {
-                        h.aliases(&fp)
-                    }) {
-                        if trace {
-                            eprintln!("Found key {} again.  Merging.",
-                                      fp);
-                        }
-
-                        // XXX: Use RefCell::replace_with once stabilized.
-                        let k = certs[known].1.borrow().clone();
-                        certs[known].1.replace(k.merge(cert)?);
-
-                        certs[known].1.clone()
-                    } else {
-                        if trace {
-                            eprintln!("Found key {}.", issuer);
-                        }
-
-                        Rc::new(RefCell::new(cert))
-                    };
-
-                    certs.push((fp, cert.clone()));
-                    for c in cert.borrow().subkeys() {
-                        let fp: KeyHandle = c.key().fingerprint().into();
-                        certs.push((fp, cert.clone()));
-                    }
-                    break;
-                }
-            }
-        }
-    }
-
-    // Verify the signatures.
-    let mut sigs_seen_from_cert = HashSet::new();
-    let mut good = 0;
-    'sig_loop: for (sig, issuer) in sigs.into_iter() {
-        let issuer : KeyHandle = issuer.into();
-
-        if trace {
-            eprintln!("Checking signature allegedly issued by {}.", issuer);
-        }
-
-        if let Some((_, cert)) = certs.iter().find(|(h, _)| {
-            h.aliases(&issuer)
-        }) {
-            let cert = cert.borrow();
-            // Find the right key.
-            for ka in cert.keys().policy(None) {
-                // Use the current binding signature.
-                let binding = match ka.binding_signature() {
-                    Some(b) => b,
-                    None => continue,
-                };
-                let key = ka.key();
-
-                if issuer.aliases(&key.fingerprint().into()) {
-                    if !binding.key_flags().for_signing() {
-                        eprintln!("Cannot check signature, key has no signing \
-                                   capability");
-                        continue 'sig_loop;
-                    }
-
-                    let mut hash = match hashes.get(&sig.hash_algo()) {
-                        Some(h) => h.clone(),
-                        None => {
-                            eprintln!("Cannot check signature, hash algorithm \
-                                       {} not supported.", sig.hash_algo());
-                            continue 'sig_loop;
-                        },
-                    };
-                    sig.hash(&mut hash);
-
-                    let mut digest = vec![0u8; hash.digest_size()];
-                    hash.digest(&mut digest);
-                    match sig.verify_digest(key, &digest[..]) {
-                        Ok(()) => {
-                            if let Some(t) = sig.signature_creation_time() {
-                                if let Some(not_before) = not_before {
-                                    if t < not_before {
-                                        eprintln!(
-                                            "Signature by {} was created before \
-                                             the --not-before date.",
-                                            issuer);
-                                        break;
-                                    }
-                                }
-
-                                if t > not_after {
-                                    eprintln!(
-                                        "Signature by {} was created after \
-                                         the --not-after date.",
-                                        issuer);
-                                    break;
-                                }
-
-                                // check key was valid at sig creation time
-                                let binding = cert
-                                    .subkeys()
-                                    .find(|s| {
-                                        s.key().fingerprint() == key.fingerprint()
-                                    });
-                                if let Some(binding) = binding {
-                                    if binding.revoked(t) != RevocationStatus::NotAsFarAsWeKnow {
-                                        eprintln!(
-                                            "Key was revoked when the signature \
-                                             was created.");
-                                        break;
-                                    }
-
-                                    if binding.binding_signature(t).is_none() {
-                                        eprintln!(
-                                            "Key was not live when the \
-                                             signature was created.");
-                                        break;
-                                    }
-                                }
-
-                                if cert.revoked(t)
-                                    != RevocationStatus::NotAsFarAsWeKnow
-                                {
-                                    eprintln!(
-                                        "Primary key was revoked when the \
-                                         signature was created.");
-                                    break;
-                                }
-                            } else {
-                                eprintln!(
-                                    "Signature by {} does not contain \
-                                     information about the creation time.",
-                                    issuer);
-                                break;
-                            }
-
-                            if trace {
-                                eprintln!("Signature by {} is good.", issuer);
-                            }
-
-                            if sigs_seen_from_cert.replace(cert.fingerprint())
-                                .is_some()
-                            {
-                                eprintln!(
-                                    "Ignoring additional good signature by {}.",
-                                    issuer);
-                                continue;
-                            }
-
-                            println!("{}", cert.primary().fingerprint());
-                            good += 1;
-                        },
-                        Err(err) => {
-                            if trace {
-                                eprintln!("Verifying signature: {}.", err);
-                            }
-                        },
-                    }
-
-                    break;
-                }
-            }
-        } else {
-            eprintln!("Can't verify signature by {}, missing key.",
-                      issuer);
-        }
-    }
+    let h = v.into_helper();
 
     if trace {
         eprintln!("{} of {} signatures are valid (threshold is: {}).",
-                  good, sig_i, good_threshold);
+                  h.good, h.total, good_threshold);
     }
 
-    exit(if good >= good_threshold { 0 } else { 1 });
+    exit(if h.good >= good_threshold { 0 } else { 1 });
 }
 
 fn main() {
