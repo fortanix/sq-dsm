@@ -12,8 +12,10 @@ use crate::{
     types::KeyFlags,
     cert::{
         Cert,
-        KeyBinding,
-        KeyBindingIter,
+        components::{
+            KeyBinding,
+            KeyBindingIter,
+        },
         KeyAmalgamation,
     },
     Error,

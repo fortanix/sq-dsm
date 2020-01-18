@@ -24,9 +24,11 @@ use self::openpgp::{
         CertBuilder,
         CertParser,
         CertRevocationBuilder,
-        UserIDBinding,
-        UserIDBindingIter,
         ValidKeyIter,
+        components::{
+            UserIDBinding,
+            UserIDBindingIter,
+        },
     },
 };
 

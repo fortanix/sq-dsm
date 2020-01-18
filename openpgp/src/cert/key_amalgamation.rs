@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 
 use crate::{
     Cert,
-    cert::KeyBinding,
+    cert::components::KeyBinding,
     Error,
     packet::key,
     packet::key::SecretKeyMaterial,

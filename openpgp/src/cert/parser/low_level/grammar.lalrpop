@@ -11,8 +11,8 @@ use crate::Cert;
 
 use crate::cert::parser::low_level::lexer;
 use crate::cert::parser::low_level::lexer::{Token, Component};
-use crate::cert::{
-    ComponentBindings,
+use crate::cert::ComponentBindings;
+use crate::cert::components::{
     PrimaryKeyBinding,
     SubkeyBinding,
     UserIDBinding,

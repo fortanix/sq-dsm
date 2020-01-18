@@ -16,7 +16,7 @@ use crate::{
         PacketParser
     },
     Result,
-    cert::ComponentBinding,
+    cert::components::ComponentBinding,
     Cert,
 };
 
