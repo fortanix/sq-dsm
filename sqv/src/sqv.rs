@@ -4,7 +4,7 @@
 /// the motivation.
 
 use std::process::exit;
-use std::io::Read;
+use std::io;
 
 use chrono::{DateTime, offset::Utc};
 extern crate clap;
@@ -273,14 +273,7 @@ fn real_main() -> Result<()> {
     let mut v = DetachedVerifier::from_file(
         sig_file, file, h, None)?;
 
-    let mut buffer = Vec::with_capacity(1024 * 1024);
-    loop {
-        match v.read(&mut buffer) {
-            Ok(0) => break, // EOF
-            Ok(_) => (), // There is more to read.
-            Err(err) => return Err(err.into()),
-        }
-    }
+    io::copy(&mut v, &mut io::sink())?;
 
     let h = v.into_helper();
 
