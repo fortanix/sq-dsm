@@ -399,15 +399,15 @@ impl Deref for UserIDRevocationBuilder {
 ///         .set_reason_for_revocation(
 ///             ReasonForRevocation::KeyRetired,
 ///             b"Left example.org.").unwrap()
-///         .build(&mut keypair, &cert, ua.user_attribute(), None)?;
+///         .build(&mut keypair, &cert, ua, None)?;
 /// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 ///
 /// // Now merge the revocation signature into the Cert.
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
 ///
 /// // Check that it is revoked.
-/// let ua = cert.user_attributes().nth(0).unwrap();
-/// if let RevocationStatus::Revoked(revocations) = ua.revoked(None) {
+/// let ua = cert.user_attributes().policy(None).nth(0).unwrap();
+/// if let RevocationStatus::Revoked(revocations) = ua.revoked() {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);
 /// } else {

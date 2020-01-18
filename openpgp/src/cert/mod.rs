@@ -44,8 +44,11 @@ use components::{
     KeyBindingIter,
     UserIDBinding,
     UserIDBindingIter,
-    UserAttributeBindingIter,
     UnknownBindingIter,
+};
+mod component_iter;
+pub use component_iter::{
+    ComponentIter,
 };
 mod keyiter;
 mod key_amalgamation;
@@ -292,7 +295,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 ///     }
 ///
 ///     // UserAttributes and related signatures.
-///     for c in cert.user_attributes() {
+///     for c in cert.user_attributes().components() {
 ///         acc.push(c.user_attribute().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -741,8 +744,12 @@ impl Cert {
     ///
     /// A valid `UserIDAttributeBinding` has at least one good
     /// self-signature.
-    pub fn user_attributes(&self) -> UserAttributeBindingIter {
-        UserAttributeBindingIter { iter: Some(self.user_attributes.iter()) }
+    pub fn user_attributes(&self) -> ComponentIter<UserAttribute> {
+        fn make_iter(c: &Cert)
+                     -> std::slice::Iter<ComponentBinding<UserAttribute>> {
+            c.user_attributes.iter()
+        }
+        ComponentIter::new(self, make_iter)
     }
 
     /// Returns an iterator over the Cert's valid subkeys.
@@ -2458,7 +2465,7 @@ mod test {
                           = cert.revoked(None));
 
             assert_eq!(cert.user_attributes().count(), 1);
-            let ua = cert.user_attributes().nth(0).unwrap();
+            let ua = cert.user_attributes().components().nth(0).unwrap();
             if revoked {
                 assert_match!(RevocationStatus::Revoked(_)
                               = ua.revoked(t));

@@ -243,7 +243,7 @@ impl UserAttribute {
     /// let cert = cert.merge_packets(vec![user_attr.into(), binding.into()])?;
     ///
     /// // Check that we have a user attribute.
-    /// assert_eq!(cert.user_attributes().len(), 1);
+    /// assert_eq!(cert.user_attributes().count(), 1);
     /// # Ok(()) }
     pub fn bind(&self, signer: &mut dyn Signer, cert: &Cert,
                 signature: signature::Builder)
@@ -301,7 +301,7 @@ impl UserAttribute {
     ///
     /// // Alice now certifies the binding between `bob@example.org` and `bob`.
     /// let certificate =
-    ///     bob.user_attributes().nth(0).unwrap().user_attribute()
+    ///     bob.user_attributes().nth(0).unwrap()
     ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertification,
     ///              None, None)?;
     ///
@@ -309,7 +309,8 @@ impl UserAttribute {
     /// let bob = bob.merge_packets(vec![certificate.into()])?;
     ///
     /// // Check that we have a certification on the userid.
-    /// assert_eq!(bob.user_attributes().nth(0).unwrap().certifications().len(),
+    /// assert_eq!(bob.user_attributes().components().nth(0).unwrap()
+    ///            .certifications().len(),
     ///            1);
     /// # Ok(()) }
     pub fn certify<S, H, T>(&self, signer: &mut dyn Signer, cert: &Cert,

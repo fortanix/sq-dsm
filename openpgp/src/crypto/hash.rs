@@ -507,7 +507,8 @@ mod test {
                 }
             }
             let mut ua_sigs = 0;
-            for (i, binding) in cert.user_attributes().enumerate() {
+            for (i, binding) in cert.user_attributes().components().enumerate()
+            {
                 for selfsig in binding.self_signatures() {
                     let h = Signature::hash_user_attribute_binding(
                         selfsig,
