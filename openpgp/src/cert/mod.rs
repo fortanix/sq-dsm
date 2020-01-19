@@ -2182,13 +2182,10 @@ mod test {
 
     #[test]
     fn revoke_subkey() {
-        use std::{thread, time};
-
         let (cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
             .generate().unwrap();
 
-        thread::sleep(time::Duration::from_secs(2));
         let sig = {
             let subkey = cert.subkeys().nth(0).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, subkey.revoked(None));
@@ -2213,14 +2210,11 @@ mod test {
 
     #[test]
     fn revoke_uid() {
-        use std::{thread, time};
-
         let (cert, _) = CertBuilder::new()
             .add_userid("Test1")
             .add_userid("Test2")
             .generate().unwrap();
 
-        thread::sleep(time::Duration::from_secs(2));
         let sig = {
             let uid = cert.userids().skip(1).next().unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked(None));
