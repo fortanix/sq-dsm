@@ -54,7 +54,7 @@ impl Cert {
             serialize_sig(o, s)?;
         }
 
-        for u in self.userids() {
+        for u in self.userids().components() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
@@ -173,7 +173,7 @@ impl SerializeInto for Cert {
             l += PacketRef::Signature(s).serialized_len();
         }
 
-        for u in self.userids() {
+        for u in self.userids().components() {
             l += PacketRef::UserID(u.userid()).serialized_len();
 
             for s in u.self_revocations() {
@@ -400,7 +400,7 @@ impl<'a> TSK<'a> {
             serialize_sig(o, s)?;
         }
 
-        for u in self.cert.userids() {
+        for u in self.cert.userids().components() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
@@ -553,7 +553,7 @@ impl<'a> SerializeInto for TSK<'a> {
             l += PacketRef::Signature(s).serialized_len();
         }
 
-        for u in self.cert.userids() {
+        for u in self.cert.userids().components() {
             l += PacketRef::UserID(u.userid()).serialized_len();
 
             for s in u.self_revocations() {
@@ -768,7 +768,7 @@ mod test {
         assert_eq!(cert.subkeys().count(), 1);
         assert!(cert.subkeys().nth(0).unwrap().binding_signature(None).is_some());
         assert_eq!(cert.userids().count(), 1);
-        assert!(cert.userids().nth(0).unwrap().binding_signature(None).is_some());
+        assert!(cert.userids().policy(None).nth(0).is_some());
         assert_eq!(cert.user_attributes().count(), 1);
         assert!(cert.user_attributes().policy(None).nth(0).is_some());
 

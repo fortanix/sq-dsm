@@ -477,7 +477,7 @@ mod tests {
             .add_certification_subkey()
             .generate().unwrap();
 
-        let mut userids = cert.userids()
+        let mut userids = cert.userids().policy(None)
             .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
@@ -714,8 +714,8 @@ mod tests {
 
         // UserIDs.
         assert_eq!(cert.userids().count(), 1);
-        for ui in cert.userids() {
-            assert_eq!(ui.binding_signature(None).unwrap()
+        for ui in cert.userids().policy(None) {
+            assert_eq!(ui.binding_signature().unwrap()
                        .signature_creation_time().unwrap(), UNIX_EPOCH);
         }
     }

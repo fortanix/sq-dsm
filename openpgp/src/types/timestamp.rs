@@ -131,16 +131,14 @@ impl Timestamp {
     ///
     ///     // Then, lookup the binding between `bob@example.org` and
     ///     // `bob` at `t`.
-    ///     let binding = bob.userids().nth(0).unwrap();
-    ///     if binding.binding_signature(t).is_none() {
-    ///         return Err(failure::err_msg("no valid userid"));
-    ///     }
+    ///     let ca = bob.userids().policy(t)
+    ///         .filter(|ca| ca.userid().value() == b"bob@example.org")
+    ///         .nth(0).ok_or_else(|| failure::err_msg("no valid userid"))?;
     ///
     ///     // Finally, Alice certifies the binding between
     ///     // `bob@example.org` and `bob` at `t`.
-    ///     binding.userid()
-    ///         .certify(&mut keypair, &bob,
-    ///                  SignatureType::PositiveCertification, None, t)
+    ///     ca.userid().certify(&mut keypair, &bob,
+    ///                         SignatureType::PositiveCertification, None, t)
     /// };
     ///
     /// assert!(sign_with_p(21).is_ok());

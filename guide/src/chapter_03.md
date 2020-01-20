@@ -48,8 +48,7 @@ fn main() {
 
     // Iterate over UserIDs.
     assert_eq!(cert.userids().count(), 1);
-    assert_eq!(cert.userids().nth(0).unwrap().userid(),
-               &"Ἀριστοτέλης".into());
+    assert_eq!(cert.userids().nth(0).unwrap().to_string(), "Ἀριστοτέλης");
 
     // Iterate over subkeys.
     assert_eq!(cert.keys().subkeys().count(), 2);

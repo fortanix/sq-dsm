@@ -43,7 +43,6 @@ use components::{
     PrimaryKeyBinding,
     KeyBindingIter,
     UserIDBinding,
-    UserIDBindingIter,
     UnknownBindingIter,
 };
 mod component_iter;
@@ -286,7 +285,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 ///     for s in cert.other_revocations()  { acc.push(s.clone().into()) }
 ///
 ///     // UserIDs and related signatures.
-///     for c in cert.userids() {
+///     for c in cert.userids().components() {
 ///         acc.push(c.userid().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -350,7 +349,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 /// match Cert::from_packet_parser(ppr) {
 ///     Ok(cert) => {
 ///         println!("Key: {}", cert.primary());
-///         for binding in cert.userids() {
+///         for binding in cert.userids().components() {
 ///             println!("User ID: {}", binding.userid());
 ///         }
 ///     }
@@ -447,57 +446,12 @@ impl Cert {
         -> Option<(&UserIDBinding, &Signature, RevocationStatus)>
         where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
-        self.userids()
-            // Filter out User IDs that are not alive at time `t`.
-            //
-            // While we have the binding signature, extract a few
-            // properties to avoid recomputing the same thing multiple
-            // times.
-            .filter_map(|b| {
-                // No binding signature at time `t` => not alive.
-                let selfsig = b.binding_signature(t)?;
-
-                if !selfsig.signature_alive(t, time::Duration::new(0, 0)).is_ok() {
-                    return None;
-                }
-
-                let revoked = b.revoked(t);
-                let primary = selfsig.primary_userid().unwrap_or(false);
-                let signature_creation_time = selfsig.signature_creation_time()?;
-
-                Some(((b, selfsig, revoked), primary, signature_creation_time))
-            })
-            .max_by(|(a, a_primary, a_signature_creation_time),
-                    (b, b_primary, b_signature_creation_time)| {
-                match (destructures_to!(RevocationStatus::Revoked(_) = &a.2),
-                       destructures_to!(RevocationStatus::Revoked(_) = &b.2)) {
-                    (true, false) => return Ordering::Less,
-                    (false, true) => return Ordering::Greater,
-                    _ => (),
-                }
-                match (a_primary, b_primary) {
-                    (true, false) => return Ordering::Greater,
-                    (false, true) => return Ordering::Less,
-                    _ => (),
-                }
-                match a_signature_creation_time.cmp(&b_signature_creation_time) {
-                    Ordering::Less => return Ordering::Less,
-                    Ordering::Greater => return Ordering::Greater,
-                    Ordering::Equal => (),
-                }
-
-                // Fallback to a lexographical comparison.  Prefer
-                // the "smaller" one.
-                match a.0.userid().value().cmp(&b.0.userid().value()) {
-                    Ordering::Less => return Ordering::Greater,
-                    Ordering::Greater => return Ordering::Less,
-                    Ordering::Equal =>
-                        panic!("non-canonicalized Cert (duplicate User IDs)"),
-                }
-            })
-            .map(|b| b.0)
+        self.userids().primary(t).and_then(|ca| {
+            let binding = ca.component();
+            let sig = ca.binding_signature()?;
+            let revoked = ca.revoked();
+            Some((binding, sig, revoked))
+        })
     }
 
     /// Returns the primary key's current self-signature as of `t`.
@@ -736,8 +690,12 @@ impl Cert {
     }
 
     /// Returns an iterator over the Cert's `UserIDBinding`s.
-    pub fn userids(&self) -> UserIDBindingIter {
-        UserIDBindingIter { iter: Some(self.userids.iter()) }
+    pub fn userids(&self) -> ComponentIter<UserID> {
+        fn make_iter(c: &Cert)
+                     -> std::slice::Iter<ComponentBinding<UserID>> {
+            c.userids.iter()
+        }
+        ComponentIter::new(self, make_iter)
     }
 
     /// Returns an iterator over the Cert's valid `UserAttributeBinding`s.
@@ -1740,7 +1698,7 @@ mod test {
             .unwrap();
 
         let mut userids = cert.userids()
-            .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
+            .map(|u| String::from_utf8_lossy(u.value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
 
@@ -1769,7 +1727,7 @@ mod test {
             Cert::from_bytes(crate::tests::key("dkg-sigs-out-of-order.pgp")).unwrap();
 
         let mut userids = cert.userids()
-            .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
+            .map(|u| String::from_utf8_lossy(u.value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
 
@@ -2062,12 +2020,12 @@ mod test {
                            "{:#?}", cert);
             }
 
-            for userid in cert.userids() {
-                let typ = userid.binding_signature(None).unwrap().typ();
+            for userid in cert.userids().policy(None) {
+                let typ = userid.binding_signature().unwrap().typ();
                 assert_eq!(typ, SignatureType::PositiveCertification,
                            "{:#?}", cert);
 
-                let revoked = userid.revoked(None);
+                let revoked = userid.revoked();
                 if userid_revoked {
                     assert_match!(RevocationStatus::Revoked(_) = revoked);
                 } else {
@@ -2216,8 +2174,8 @@ mod test {
             .generate().unwrap();
 
         let sig = {
-            let uid = cert.userids().skip(1).next().unwrap();
-            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked(None));
+            let uid = cert.userids().policy(None).nth(1).unwrap();
+            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
 
             let mut keypair = cert.primary().clone().mark_parts_secret()
                 .unwrap().into_keypair().unwrap();
@@ -2233,8 +2191,8 @@ mod test {
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    cert.revoked(None));
 
-        let uid = cert.userids().skip(1).next().unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = uid.revoked(None));
+        let uid = cert.userids().policy(None).nth(1).unwrap();
+        assert_match!(RevocationStatus::Revoked(_) = uid.revoked());
     }
 
     #[test]
@@ -2427,24 +2385,24 @@ mod test {
 
             let mut slim_shady = false;
             let mut eminem = false;
-            for b in cert.userids() {
+            for b in cert.userids().policy(t) {
                 if b.userid().value() == b"Slim Shady" {
                     assert!(!slim_shady);
                     slim_shady = true;
 
                     if revoked {
                         assert_match!(RevocationStatus::Revoked(_)
-                                      = b.revoked(t));
+                                      = b.revoked());
                     } else {
                         assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                                      = b.revoked(t));
+                                      = b.revoked());
                     }
                 } else {
                     assert!(!eminem);
                     eminem = true;
 
                     assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                                  = b.revoked(t));
+                                  = b.revoked());
                 }
             }
 
@@ -2487,8 +2445,8 @@ mod test {
 
             let now = time::SystemTime::now();
             let selfsig0
-                = cert.userids().map(|b| {
-                    b.binding_signature(now).unwrap()
+                = cert.userids().policy(now).map(|b| {
+                    b.binding_signature().unwrap()
                         .signature_creation_time().unwrap()
                 })
                 .max().unwrap();
@@ -2544,8 +2502,8 @@ mod test {
         let cert =
             Cert::from_bytes(crate::tests::key("un-revoked-userid.pgp")).unwrap();
 
-        for uid in cert.userids() {
-            assert_eq!(uid.revoked(None), RevocationStatus::NotAsFarAsWeKnow);
+        for uid in cert.userids().policy(None) {
+            assert_eq!(uid.revoked(), RevocationStatus::NotAsFarAsWeKnow);
         }
     }
 
@@ -2686,7 +2644,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // than one signature.
         let mut cmps = 0;
 
-        for uid in neal.userids() {
+        for uid in neal.userids().components() {
             for sigs in [
                 uid.self_signatures(),
                     uid.certifications(),
@@ -2737,8 +2695,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         let now = time::SystemTime::now();
         let selfsig0
-            = cert.userids().map(|b| {
-                b.binding_signature(now).unwrap()
+            = cert.userids().policy(now).map(|b| {
+                b.binding_signature().unwrap()
                     .signature_creation_time().unwrap()
             })
             .max().unwrap();
@@ -2793,8 +2751,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let cert = Cert::from_bytes(
             crate::tests::key("primary-key-0-public.pgp")).unwrap();
         let selfsig0
-            = cert.userids().map(|b| {
-                b.binding_signature(now).unwrap()
+            = cert.userids().policy(now).map(|b| {
+                b.binding_signature().unwrap()
                     .signature_creation_time().unwrap()
             })
             .max().unwrap();
@@ -2951,7 +2909,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 .generate().unwrap();
 
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().components().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             let sig_template
@@ -2974,7 +2932,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // Make sure the certification is merged, and put in the right
             // place.
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().components().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             // Canonicalizing Bob's cert without having Alice's key

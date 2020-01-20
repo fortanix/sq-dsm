@@ -161,7 +161,7 @@ impl UserID {
     ///
     /// // Alice now certifies the binding between `bob@example.org` and `bob`.
     /// let certificate =
-    ///     bob.userids().nth(0).unwrap().userid()
+    ///     bob.userids().nth(0).unwrap()
     ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertification,
     ///              None, None)?;
     ///
@@ -169,7 +169,8 @@ impl UserID {
     /// let bob = bob.merge_packets(vec![certificate.into()])?;
     ///
     /// // Check that we have a certification on the userid.
-    /// assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
+    /// assert_eq!(bob.userids().components().nth(0).unwrap()
+    ///            .certifications().len(), 1);
     /// # Ok(()) }
     pub fn certify<S, H, T>(&self, signer: &mut dyn Signer, cert: &Cert,
                             signature_type: S,

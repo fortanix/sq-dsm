@@ -126,13 +126,13 @@ impl AutocryptHeader {
         }
 
         // The UserIDs matching ADDR.
-        for uidb in cert.userids() {
+        for uidb in cert.userids().policy(None) {
             // XXX: Fix match once we have the rfc2822-name-addr.
             if let Ok(Some(a)) = uidb.userid().email() {
                 if &a == addr {
                     acc.push(uidb.userid().clone().into());
-                    uidb.self_signatures().iter().take(1)
-                        .for_each(|s| acc.push(s.clone().into()));
+                    uidb.binding_signature().iter()
+                        .for_each(|&s| acc.push(s.clone().into()));
                 } else {
                     // Address is not matching.
                     continue;
@@ -908,7 +908,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(cert.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"156962B0F3115069ACA970C68E3B03A279B772D6"[..]).unwrap());
-        assert_eq!(cert.userids().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().next().unwrap().value(),
                    &b"holger krekel <holger@merlinux.eu>"[..]);
 
 
@@ -931,7 +931,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(cert.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"D4AB192964F76A7F8F8A9B357BD18320DEADFA11"[..]).unwrap());
-        assert_eq!(cert.userids().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().next().unwrap().value(),
                    &b"Vincent Breitmoser <look@my.amazin.horse>"[..]);
 
 
@@ -954,7 +954,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(cert.primary().fingerprint(),
                    Fingerprint::from_hex(
                        &"4F9F89F5505AC1D1A260631CDB1187B9DD5F693B"[..]).unwrap());
-        assert_eq!(cert.userids().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().next().unwrap().value(),
                    &b"Patrick Brunschwig <patrick@enigmail.net>"[..]);
 
         let ac2 = AutocryptHeaders::from_bytes(&PATRICK_UNFOLDED[..]).unwrap();
@@ -1090,7 +1090,7 @@ In the light of the Efail vulnerability I am asking myself if it's
                    "3E88 77C8 7727 4692 9751  89F5 D03F 6F86 5226 FE8B");
         assert_eq!(cert.userids().len(), 1);
         assert_eq!(cert.subkeys().len(), 1);
-        assert_eq!(cert.userids().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().next().unwrap().value(),
                    &b"Testy McTestface <testy@example.org>"[..]);
     }
 }

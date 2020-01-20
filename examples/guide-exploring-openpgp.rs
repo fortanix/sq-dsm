@@ -52,11 +52,11 @@ fn main() {
     println!("Fingerprint: {}", cert.fingerprint());
 
     // List userids.
-    for (i, u) in cert.userids().enumerate() {
+    for (i, ca) in cert.userids().policy(None).enumerate() {
         println!("{}: UID: {}, {} self-signature(s), {} certification(s)",
-                 i, u.userid(),
-                 u.self_signatures().len(),
-                 u.certifications().len());
+                 i, ca.userid(),
+                 ca.component().self_signatures().len(),
+                 ca.component().certifications().len());
     }
 
     // List subkeys.

@@ -491,7 +491,7 @@ mod test {
     fn hash_verification() {
         fn check(cert: Cert) -> (usize, usize, usize) {
             let mut userid_sigs = 0;
-            for (i, binding) in cert.userids().enumerate() {
+            for (i, binding) in cert.userids().components().enumerate() {
                 for selfsig in binding.self_signatures() {
                     let h = Signature::hash_userid_binding(
                         selfsig,

@@ -284,15 +284,15 @@ impl Deref for SubkeyRevocationBuilder {
 ///         .set_reason_for_revocation(
 ///             ReasonForRevocation::KeyRetired,
 ///             b"Left example.org.").unwrap()
-///         .build(&mut keypair, &cert, userid.userid(), None)?;
+///         .build(&mut keypair, &cert, userid, None)?;
 /// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 ///
 /// // Now merge the revocation signature into the Cert.
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
 ///
 /// // Check that it is revoked.
-/// let userid = cert.userids().nth(0).unwrap();
-/// if let RevocationStatus::Revoked(revocations) = userid.revoked(None) {
+/// let userid = cert.userids().policy(None).nth(0).unwrap();
+/// if let RevocationStatus::Revoked(revocations) = userid.revoked() {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);
 /// } else {

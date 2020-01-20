@@ -362,7 +362,7 @@ fn pgp_cert_primary_user_id(cert: *const Cert)
                            -> *mut c_char
 {
     let cert = cert.ref_raw();
-    if let Some(binding) = cert.userids().nth(0) {
+    if let Some(binding) = cert.userids().primary(None) {
         ffi_return_string!(binding.userid().value())
     } else {
         ptr::null_mut()
@@ -407,7 +407,7 @@ pub extern "C" fn pgp_cert_user_id_binding_iter(cert: *const Cert)
     -> *mut UserIDBindingIter<'static>
 {
     let cert = cert.ref_raw();
-    box_raw!(cert.userids())
+    box_raw!(cert.userids().components())
 }
 
 /// Frees a pgp_user_id_binding_iter_t.
