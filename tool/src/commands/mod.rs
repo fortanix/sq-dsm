@@ -333,7 +333,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         self.trusted = seen.clone();
 
         // Try to get missing Certs from the mapping.
-        for id in ids.iter().map(|i| KeyID::from(i.clone()))
+        for id in ids.iter().map(|i| KeyID::from(i))
             .filter(|i| !seen.contains(i))
         {
             let _ =
