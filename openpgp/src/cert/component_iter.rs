@@ -149,12 +149,12 @@ impl<'a, C> ComponentIter<'a, C>
             .map(|c| ComponentAmalgamation::new(self.cert, (c.0).0, t))
     }
 
-    /// Changes the iterator to return components.
+    /// Changes the iterator to return component bindings.
     ///
-    /// A component is similar to a component amalgamation, but is not
-    /// bound to a specific time.  It contains the component and all
-    /// relevant signatures.
-    pub fn components(self) -> ComponentBindingIter<'a, C> {
+    /// A component binding is similar to a component amalgamation,
+    /// but is not bound to a specific time.  It contains the
+    /// component and all relevant signatures.
+    pub fn bindings(self) -> ComponentBindingIter<'a, C> {
         self.iter
     }
 }

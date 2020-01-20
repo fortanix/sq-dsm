@@ -147,7 +147,7 @@ fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
         writeln!(output)?;
     }
 
-    for uidb in cert.userids().components() {
+    for uidb in cert.userids().bindings() {
         writeln!(output, "         UserID: {}", uidb.userid())?;
         inspect_revocation(output, "", uidb.revoked(None))?;
         if let Some(sig) = uidb.binding_signature(None) {

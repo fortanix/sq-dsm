@@ -38,7 +38,7 @@ fn main() {
             match cert {
                 Ok(cert) => {
                     let keyid = cert.keyid();
-                    for uidb in cert.userids().components() {
+                    for uidb in cert.userids().bindings() {
                         for tps in uidb.certifications() {
                             for issuer in tps.get_issuers() {
                                 println!("{}, {:?}, {}",

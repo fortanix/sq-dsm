@@ -407,7 +407,7 @@ pub extern "C" fn pgp_cert_user_id_binding_iter(cert: *const Cert)
     -> *mut UserIDBindingIter<'static>
 {
     let cert = cert.ref_raw();
-    box_raw!(cert.userids().components())
+    box_raw!(cert.userids().bindings())
 }
 
 /// Frees a pgp_user_id_binding_iter_t.

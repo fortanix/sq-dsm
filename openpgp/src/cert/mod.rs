@@ -285,7 +285,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 ///     for s in cert.other_revocations()  { acc.push(s.clone().into()) }
 ///
 ///     // UserIDs and related signatures.
-///     for c in cert.userids().components() {
+///     for c in cert.userids().bindings() {
 ///         acc.push(c.userid().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -294,7 +294,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 ///     }
 ///
 ///     // UserAttributes and related signatures.
-///     for c in cert.user_attributes().components() {
+///     for c in cert.user_attributes().bindings() {
 ///         acc.push(c.user_attribute().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -349,7 +349,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 /// match Cert::from_packet_parser(ppr) {
 ///     Ok(cert) => {
 ///         println!("Key: {}", cert.primary());
-///         for binding in cert.userids().components() {
+///         for binding in cert.userids().bindings() {
 ///             println!("User ID: {}", binding.userid());
 ///         }
 ///     }
@@ -2384,7 +2384,7 @@ mod test {
                           = cert.revoked(None));
 
             assert_eq!(cert.user_attributes().count(), 1);
-            let ua = cert.user_attributes().components().nth(0).unwrap();
+            let ua = cert.user_attributes().bindings().nth(0).unwrap();
             if revoked {
                 assert_match!(RevocationStatus::Revoked(_)
                               = ua.revoked(t));
@@ -2611,7 +2611,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // than one signature.
         let mut cmps = 0;
 
-        for uid in neal.userids().components() {
+        for uid in neal.userids().bindings() {
             for sigs in [
                 uid.self_signatures(),
                     uid.certifications(),
@@ -2876,7 +2876,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 .generate().unwrap();
 
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().components().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().bindings().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             let sig_template
@@ -2899,7 +2899,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // Make sure the certification is merged, and put in the right
             // place.
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().components().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().bindings().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             // Canonicalizing Bob's cert without having Alice's key
