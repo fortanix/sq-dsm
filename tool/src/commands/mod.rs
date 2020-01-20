@@ -245,32 +245,6 @@ impl<'a> VHelper<'a> {
     fn print_sigs(&mut self, results: &[VerificationResult]) {
         use self::VerificationResult::*;
         for result in results {
-            if let Error { sig, error } = result {
-                let issuer = sig.get_issuers().iter().nth(0)
-                    .expect("key has an issuer")
-                    .to_string();
-                let what = match sig.level() {
-                    0 => "checksum".into(),
-                    n => format!("level {} notarizing checksum", n),
-                };
-                eprintln!("Error verifying {} from {}: {}",
-                          what, issuer, error);
-                self.broken_signatures += 1;
-                continue;
-            }
-            if let MissingKey { sig } = result {
-                let issuer = sig.get_issuers().iter().nth(0)
-                    .expect("missing key checksum has an issuer")
-                    .to_string();
-                let what = match sig.level() {
-                    0 => "checksum".into(),
-                    n => format!("level {} notarizing checksum", n),
-                };
-                eprintln!("No key to check {} from {}", what, issuer);
-                self.unknown_checksums += 1;
-                continue;
-            }
-
             let (issuer, level) = match result {
                 GoodChecksum { sig, ka, .. } =>
                     (ka.key().keyid(), sig.level()),
@@ -279,8 +253,31 @@ impl<'a> VHelper<'a> {
                          .map(|i| i.into())
                          .unwrap_or(KeyID::wildcard()),
                      sig.level()),
-                MissingKey { .. } => unreachable!("handled above"),
-                Error { .. } => unreachable!("handled above"),
+                MissingKey { sig } => {
+                    let issuer = sig.get_issuers().get(0)
+                        .expect("missing key checksum has an issuer")
+                        .to_string();
+                    let what = match sig.level() {
+                        0 => "checksum".into(),
+                        n => format!("level {} notarizing checksum", n),
+                    };
+                    eprintln!("No key to check {} from {}", what, issuer);
+                    self.unknown_checksums += 1;
+                    continue;
+                }
+                Error { sig, error } => {
+                    let issuer = sig.get_issuers().get(0)
+                        .expect("key has an issuer")
+                        .to_string();
+                    let what = match sig.level() {
+                        0 => "checksum".into(),
+                        n => format!("level {} notarizing checksum", n),
+                    };
+                    eprintln!("Error verifying {} from {}: {}",
+                              what, issuer, error);
+                    self.broken_signatures += 1;
+                    continue;
+                }
             };
 
             let trusted = self.trusted.contains(&issuer);
