@@ -1327,8 +1327,6 @@ impl DetachedVerifier {
 pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     helper: H,
     certs: Vec<Cert>,
-    /// Maps KeyID to certs[i].keys_all().nth(j).
-    keys: Vec<(crate::KeyHandle, (usize, usize))>,
     oppr: Option<PacketParserResult<'a>>,
     identity: Option<Fingerprint>,
     structure: IMessageStructure,
@@ -1467,7 +1465,6 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         let mut v = Decryptor {
             helper: helper,
             certs: Vec::new(),
-            keys: vec![],
             oppr: None,
             identity: None,
             structure: IMessageStructure::new(),
@@ -1534,37 +1531,6 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     v.structure.insert_missing_signature_group();
                     // Query keys.
                     v.certs = v.helper.get_public_keys(&issuers)?;
-
-                    for (i, cert) in v.certs.iter().enumerate() {
-                        let for_signing = |key: &key::UnspecifiedKey,
-                                        sig: Option<&Signature>| -> bool
-                        {
-                            if let Some(sig) = sig {
-                                sig.key_flags().for_signing()
-                                // Check expiry.
-                                    && sig.signature_alive(time, tolerance)
-                                       .is_ok()
-                                    && sig.key_alive(key, time).is_ok()
-                            } else {
-                                false
-                            }
-                        };
-
-                        if for_signing(cert.primary().into(),
-                                    cert.primary_key_signature(None)) {
-                            v.keys.push((cert.fingerprint().into(),
-                                         (i, 0)));
-                        }
-
-                        for (j, skb) in cert.subkeys().enumerate() {
-                            let key = skb.key();
-                            if for_signing(key.into(), skb.binding_signature(None)) {
-                                v.keys.push((key.fingerprint().into(),
-                                             (i, j + 1)));
-                            }
-                        }
-                    }
-
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
 

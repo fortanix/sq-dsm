@@ -157,6 +157,7 @@ pub(crate) type UnspecifiedSecondary = Key<UnspecifiedParts, SubordinateRole>;
 
 /// A key whose parts and role are unspecified
 /// (`UnspecifiedParts`, `UnspecifiedRole`).
+#[allow(dead_code)]
 pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 
 macro_rules! convert {
