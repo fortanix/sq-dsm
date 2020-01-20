@@ -499,14 +499,11 @@ mod tests {
             .generate().unwrap();
 
         assert_eq!(cert.userids().count(), 0);
-        assert_eq!(cert.primary_key_signature(None).unwrap().typ(),
-                   crate::types::SignatureType::DirectKey);
         assert_eq!(cert.subkeys().count(), 3);
-        if let Some(sig) = cert.primary_key_signature(None) {
-            assert!(sig.features().supports_mdc());
-        } else {
-            panic!();
-        }
+        let sig =
+            cert.keys().primary(None).unwrap().binding_signature();
+        assert_eq!(sig.typ(), crate::types::SignatureType::DirectKey);
+        assert!(sig.features().supports_mdc());
     }
 
     #[test]

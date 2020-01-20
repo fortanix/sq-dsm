@@ -1384,8 +1384,8 @@ mod test {
             .unwrap();
         let test2 = Cert::from_bytes(
             crate::tests::key("test2-signed-by-test1.pgp")).unwrap();
-        let uid_binding = &test2.primary_key_signature_full(None)
-            .unwrap().1.unwrap().0;
+        let uid_binding =
+            test2.userids().policy(None).nth(0).unwrap().binding();
         let cert = &uid_binding.certifications()[0];
 
         cert.verify_userid_binding(cert_key1,
