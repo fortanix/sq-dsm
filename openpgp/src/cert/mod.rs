@@ -282,11 +282,12 @@ type UnknownBindings = ComponentBindings<Unknown>;
 ///     let mut acc = Vec::new();
 ///
 ///     // Primary key and related signatures.
-///     acc.push(cert.primary_key().clone().into());
-///     for s in cert.direct_signatures()  { acc.push(s.clone().into()) }
-///     for s in cert.certifications()     { acc.push(s.clone().into()) }
-///     for s in cert.self_revocations()   { acc.push(s.clone().into()) }
-///     for s in cert.other_revocations()  { acc.push(s.clone().into()) }
+///     let c = cert.primary().binding();
+///     acc.push(c.key().clone().mark_role_primary().into());
+///     for s in c.self_signatures()   { acc.push(s.clone().into()) }
+///     for s in c.certifications()    { acc.push(s.clone().into()) }
+///     for s in c.self_revocations()  { acc.push(s.clone().into()) }
+///     for s in c.other_revocations() { acc.push(s.clone().into()) }
 ///
 ///     // UserIDs and related signatures.
 ///     for c in cert.userids().bindings() {
@@ -483,38 +484,6 @@ impl Cert {
         } else {
             None
         }
-    }
-
-    /// The direct signatures.
-    ///
-    /// The signatures are validated, and they are reverse sorted by
-    /// their creation time (newest first).
-    pub fn direct_signatures(&self) -> &[Signature] {
-        &self.primary.self_signatures()
-    }
-
-    /// Third-party certifications.
-    ///
-    /// The signatures are *not* validated.  They are reverse sorted by
-    /// their creation time (newest first).
-    pub fn certifications(&self) -> &[Signature] {
-        &self.primary.certifications()
-    }
-
-    /// Revocations issued by the key itself.
-    ///
-    /// The revocations are validated, and they are reverse sorted by
-    /// their creation time (newest first).
-    pub fn self_revocations(&self) -> &[Signature] {
-        &self.primary.self_revocations()
-    }
-
-    /// Revocations issued by other keys.
-    ///
-    /// The revocations are *not* validated.  They are reverse sorted
-    /// by their creation time (newest first).
-    pub fn other_revocations(&self) -> &[Signature] {
-        &self.primary.other_revocations()
     }
 
     /// Returns the Cert's revocation status at time `t`.
@@ -2839,15 +2808,17 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
                 cert = cert.merge_packets(vec![ binding ]).unwrap();
                 // A time that matches multiple signatures.
+                let direct_signatures =
+                    cert.primary().binding().self_signatures();
                 assert_eq!(cert.primary_key_signature(*t),
-                           cert.direct_signatures().get(*offset));
+                           direct_signatures.get(*offset));
                 // A time that doesn't match any signature.
                 assert_eq!(cert.primary_key_signature(*t + a_sec),
-                           cert.direct_signatures().get(*offset));
+                           direct_signatures.get(*offset));
 
                 // The current time, which should use the first signature.
                 assert_eq!(cert.primary_key_signature(None),
-                           cert.direct_signatures().get(0));
+                           direct_signatures.get(0));
 
                 // The beginning of time, which should return no
                 // binding signatures.
