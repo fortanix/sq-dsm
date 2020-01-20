@@ -416,34 +416,6 @@ impl Cert {
         &self.primary.key()
     }
 
-    /// Returns the binding for the primary User ID at time `t` and
-    /// some associated data.
-    ///
-    /// In addition to the User ID binding, this also returns the
-    /// binding signature and the User ID's `RevocationStatus` at time
-    /// `t`.
-    ///
-    /// The primary User ID is determined by taking the User IDs that
-    /// are alive at time `t`, and sorting them as follows:
-    ///
-    ///   - non-revoked first
-    ///   - primary first
-    ///   - signature creation first
-    ///
-    /// If there is more than one, than one is selected in a
-    /// deterministic, but undefined manner.
-    pub fn primary_userid_full<T>(&self, t: T)
-        -> Option<(&UserIDBinding, &Signature, RevocationStatus)>
-        where T: Into<Option<time::SystemTime>>
-    {
-        self.userids().primary(t).and_then(|ca| {
-            let binding = ca.component_binding();
-            let sig = ca.binding_signature()?;
-            let revoked = ca.revoked();
-            Some((binding, sig, revoked))
-        })
-    }
-
     /// Returns the primary key's current self-signature as of `t`.
     ///
     /// If the current self-signature is from a User ID binding (and
@@ -471,7 +443,12 @@ impl Cert {
             .unwrap_or_else(|| time::SystemTime::now());
 
         // 1. Self-signature from the non-revoked primary UserID.
-        let primary_userid = self.primary_userid_full(t);
+        let primary_userid = self.userids().primary(t).map(|ca| {
+            (ca.component_binding(),
+             ca.binding_signature()
+             .expect("primary userid must have a binding signature"),
+             ca.revoked())
+        });
         if let Some((ref u, ref s, ref r)) = primary_userid {
             if !destructures_to!(RevocationStatus::Revoked(_) = r) {
                 return Some((s, Some((u, r.clone()))));
