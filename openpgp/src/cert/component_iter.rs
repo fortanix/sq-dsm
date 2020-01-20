@@ -78,8 +78,17 @@ impl<'a, C> ComponentIter<'a, C>
     /// Returns the amalgamated primary component at time `time`
     ///
     /// If `time` is None, then the current time is used.
+    /// `ValidComponentIter` for the definition of a valid component.
     ///
-    /// See `ValidComponentIter` for the definition of a valid component.
+    /// The primary component is determined by taking the components that
+    /// are alive at time `t`, and sorting them as follows:
+    ///
+    ///   - non-revoked first
+    ///   - primary first
+    ///   - signature creation first
+    ///
+    /// If there is more than one, than one is selected in a
+    /// deterministic, but undefined manner.
     pub fn primary<T>(self, time: T) -> Option<ComponentAmalgamation<'a, C>>
         where T: Into<Option<SystemTime>>
     {
@@ -134,7 +143,7 @@ impl<'a, C> ComponentIter<'a, C>
                     Ordering::Less => return Ordering::Greater,
                     Ordering::Greater => return Ordering::Less,
                     Ordering::Equal =>
-                        panic!("non-canonicalized Cert (duplicate User IDs)"),
+                        panic!("non-canonicalized Cert (duplicate components)"),
                 }
             })
             .map(|c| ComponentAmalgamation::new(self.cert, (c.0).0, t))
@@ -145,8 +154,6 @@ impl<'a, C> ComponentIter<'a, C>
     /// A component is similar to a component amalgamation, but is not
     /// bound to a specific time.  It contains the component and all
     /// relevant signatures.
-    ///
-    /// The primary component is returned first.
     pub fn components(self) -> ComponentBindingIter<'a, C> {
         self.iter
     }
