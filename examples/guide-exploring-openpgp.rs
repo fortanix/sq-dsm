@@ -55,15 +55,15 @@ fn main() {
     for (i, ca) in cert.userids().policy(None).enumerate() {
         println!("{}: UID: {}, {} self-signature(s), {} certification(s)",
                  i, ca.userid(),
-                 ca.component().self_signatures().len(),
-                 ca.component().certifications().len());
+                 ca.component_binding().self_signatures().len(),
+                 ca.component_binding().certifications().len());
     }
 
     // List subkeys.
     for (i, ka) in cert.keys().policy(None).skip(1).enumerate() {
         println!("{}: Fingerprint: {}, {} self-signature(s), {} certification(s)",
                  i, ka.key().fingerprint(),
-                 ka.component().self_signatures().len(),
-                 ka.component().certifications().len());
+                 ka.component_binding().self_signatures().len(),
+                 ka.component_binding().certifications().len());
     }
 }

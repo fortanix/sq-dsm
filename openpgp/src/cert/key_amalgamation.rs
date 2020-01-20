@@ -336,8 +336,8 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         }
     }
 
-    /// Returns this key's component.
-    pub fn component(&self) -> &'a KeyBinding<P, key::UnspecifiedRole>
+    /// Returns this key's component binding.
+    pub fn component_binding(&self) -> &'a KeyBinding<P, key::UnspecifiedRole>
         where &'a KeyBinding<P, key::UnspecifiedRole>:
             From<&'a KeyBinding<key::PublicParts, key::PrimaryRole>>
     {

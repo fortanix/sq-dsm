@@ -437,7 +437,7 @@ impl Cert {
         where T: Into<Option<time::SystemTime>>
     {
         self.userids().primary(t).and_then(|ca| {
-            let binding = ca.component();
+            let binding = ca.component_binding();
             let sig = ca.binding_signature()?;
             let revoked = ca.revoked();
             Some((binding, sig, revoked))

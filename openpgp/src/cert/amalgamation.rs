@@ -95,8 +95,8 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
         }
     }
 
-    /// Returns this component's component.
-    pub fn component(&self) -> &'a ComponentBinding<C> {
+    /// Returns this component's component binding.
+    pub fn component_binding(&self) -> &'a ComponentBinding<C> {
         &self.binding
     }
 }
@@ -104,13 +104,13 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
 impl<'a> ComponentAmalgamation<'a, crate::packet::UserID> {
     /// Returns a reference to the User ID.
     pub fn userid(&self) -> &crate::packet::UserID {
-        self.component().userid()
+        self.component_binding().userid()
     }
 }
 
 impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
     /// Returns a reference to the User Attribute.
     pub fn user_attribute(&self) -> &crate::packet::UserAttribute {
-        self.component().user_attribute()
+        self.component_binding().user_attribute()
     }
 }
