@@ -94,15 +94,6 @@ impl TryFrom<&KeyHandle> for Fingerprint {
     }
 }
 
-impl From<KeyHandle> for String {
-    fn from(i: KeyHandle) -> Self {
-        match i {
-            KeyHandle::Fingerprint(i) => i.to_string(),
-            KeyHandle::KeyID(i) => i.to_string(),
-        }
-    }
-}
-
 impl PartialOrd for KeyHandle {
     fn partial_cmp(&self, other: &KeyHandle) -> Option<Ordering> {
         let a = self.as_slice();
