@@ -444,7 +444,7 @@ impl Cert {
 
         // 1. Self-signature from the non-revoked primary UserID.
         let primary_userid = self.userids().primary(t).map(|ca| {
-            (ca.component_binding(),
+            (ca.binding(),
              ca.binding_signature()
              .expect("primary userid must have a binding signature"),
              ca.revoked())

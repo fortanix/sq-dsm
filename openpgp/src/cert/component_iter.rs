@@ -199,7 +199,7 @@ impl<'a, C> Iterator for ValidComponentIter<'a, C>
         loop {
             let ca = ComponentAmalgamation::new(self.cert, self.iter.next()?,
                                                 self.time);
-            t!("Considering component: {:?}", ca.component_binding());
+            t!("Considering component: {:?}", ca.binding());
 
             let _binding_signature
                 = if let Some(binding_signature) = ca.binding_signature() {
@@ -284,7 +284,7 @@ impl<'a, C> ValidComponentIter<'a, C> {
     ///                 true,
     ///         }
     ///     })
-    ///     .map(|ca| ca.component_binding())
+    ///     .map(|ca| ca.binding())
     ///     .collect::<Vec<_>>();
     /// #     Ok(())
     /// # }
