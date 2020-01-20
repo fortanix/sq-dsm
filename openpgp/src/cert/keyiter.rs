@@ -303,9 +303,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     {
         if let Some(cert) = self.cert.as_ref() {
             let time = time.into().unwrap_or_else(std::time::SystemTime::now);
-            let primary: &KeyBinding<P, key::PrimaryRole> =
-                (&cert.primary).into();
-            let ka: KeyAmalgamation<'a, P> = (*cert, primary, time).into();
+            let ka: KeyAmalgamation<'a, P> = (*cert, time).into();
             ka.alive()?;
             Ok(ka)
         } else {
@@ -476,7 +474,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
         loop {
             let ka : KeyAmalgamation<'a, key::PublicParts> = if ! self.primary {
                 self.primary = true;
-                (cert, &cert.primary, self.time).into()
+                (cert, self.time).into()
             } else {
                 (cert, self.subkey_iter.next()?, self.time).into()
             };
