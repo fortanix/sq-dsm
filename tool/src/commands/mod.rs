@@ -322,8 +322,7 @@ impl<'a> VHelper<'a> {
 impl<'a> VerificationHelper for VHelper<'a> {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
         let mut certs = self.certs.take().unwrap();
-        // Get all keys.  Even if a key is revoked or expired, we can
-        // still use it to verify a message.
+        // Get all keys.
         let seen: HashSet<_> = certs.iter()
             .flat_map(|cert| {
                 cert.keys().map(|key| key.fingerprint().into())
