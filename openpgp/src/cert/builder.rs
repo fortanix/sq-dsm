@@ -513,14 +513,14 @@ mod tests {
             .set_cipher_suite(CipherSuite::RSA3k)
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(), PublicKeyAlgorithm::EdDSA);
+        assert_eq!(cert1.primary().pk_algo(), PublicKeyAlgorithm::EdDSA);
 
         let (cert2, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::RSA3k)
             .add_userid("test2@example.com")
             .add_transport_encryption_subkey()
             .generate().unwrap();
-        assert_eq!(cert2.primary_key().pk_algo(),
+        assert_eq!(cert2.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(cert2.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
@@ -531,7 +531,7 @@ mod tests {
         let (cert1, _) = CertBuilder::new()
             .add_userid("test2@example.com")
             .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(),
+        assert_eq!(cert1.primary().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert!(cert1.subkeys().next().is_none());
         if let Some(sig) = cert1.primary_key_signature(None) {
@@ -546,7 +546,7 @@ mod tests {
         let (cert1, _) = CertBuilder::autocrypt(Autocrypt::V1,
                                               Some("Foo"))
             .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(),
+        assert_eq!(cert1.primary().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
         assert_eq!(cert1.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::RSAEncryptSign);
@@ -558,7 +558,7 @@ mod tests {
         let (cert1, _) = CertBuilder::autocrypt(Autocrypt::V1_1,
                                               Some("Foo"))
             .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(),
+        assert_eq!(cert1.primary().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert_eq!(cert1.subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::ECDH);
@@ -638,7 +638,7 @@ mod tests {
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_password(Some(String::from("streng geheim").into()))
             .generate().unwrap();
-        assert!(cert.primary_key().secret().unwrap().is_encrypted());
+        assert!(cert.primary().secret().unwrap().is_encrypted());
     }
 
     #[test]
@@ -663,9 +663,9 @@ mod tests {
                         None)
             .generate().unwrap();
 
-        let now = cert.primary_key().creation_time()
+        let now = cert.primary().creation_time()
             + 5 * s; // The subkeys may be created a tad later.
-        let key = cert.primary_key();
+        let key = cert.primary().key();
         let sig = cert.primary_key_signature(None).unwrap();
         assert!(sig.key_alive(key, now).is_ok());
         assert!(sig.key_alive(key, now + 590 * s).is_ok());
@@ -696,7 +696,7 @@ mod tests {
             .add_signing_subkey()
             .generate().unwrap();
 
-        assert_eq!(cert.primary_key().creation_time(), UNIX_EPOCH);
+        assert_eq!(cert.primary().creation_time(), UNIX_EPOCH);
         assert_eq!(cert.primary_key_signature(None).unwrap()
                    .signature_creation_time().unwrap(), UNIX_EPOCH);
         assert_eq!(rev.signature_creation_time().unwrap(), UNIX_EPOCH);

@@ -325,15 +325,12 @@ impl<'a> TSK<'a> {
     /// // Only write out the primary key's secret.
     /// let mut buf = Vec::new();
     /// cert.as_tsk()
-    ///     .set_filter(
-    ///         |k| k == cert.primary_key()
-    ///                  .mark_parts_secret_ref().unwrap()
-    ///                  .mark_role_unspecified_ref())
+    ///     .set_filter(|k| k.fingerprint() == cert.fingerprint())
     ///     .serialize(&mut buf)?;
     ///
     /// let cert_ = Cert::from_bytes(&buf)?;
     /// assert_eq!(cert_.keys().policy(None).alive().revoked(false).secret().count(), 1);
-    /// assert!(cert_.primary_key().secret().is_some());
+    /// assert!(cert_.primary().secret().is_some());
     /// # Ok(()) }
     pub fn set_filter<P>(mut self, predicate: P) -> Self
         where P: 'a + Fn(&'a key::UnspecifiedSecret) -> bool
@@ -736,7 +733,7 @@ mod test {
         };
 
         let (cert, _) = CertBuilder::new().generate().unwrap();
-        let mut keypair = cert.primary_key().clone().mark_parts_secret()
+        let mut keypair = cert.primary().key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         let key: key::SecretSubkey =

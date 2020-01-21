@@ -401,7 +401,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// for certo in CertParser::from_packet_parser(ppr) {
 ///     match certo {
 ///         Ok(cert) => {
-///             println!("Key: {}", cert.primary_key());
+///             println!("Key: {}", cert.fingerprint());
 ///             for uid in cert.userids() {
 ///                 println!("User ID: {}", uid);
 ///             }

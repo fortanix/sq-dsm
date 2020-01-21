@@ -495,7 +495,7 @@ mod test {
                 for selfsig in binding.self_signatures() {
                     let h = Signature::hash_userid_binding(
                         selfsig,
-                        cert.primary_key(),
+                        cert.primary().key().mark_role_primary_ref(),
                         binding.userid()).unwrap();
                     if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
@@ -512,7 +512,7 @@ mod test {
                 for selfsig in binding.self_signatures() {
                     let h = Signature::hash_user_attribute_binding(
                         selfsig,
-                        cert.primary_key(),
+                        cert.primary().key().mark_role_primary_ref(),
                         binding.user_attribute()).unwrap();
                     if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
@@ -528,7 +528,7 @@ mod test {
                 for selfsig in binding.self_signatures() {
                     let h = Signature::hash_subkey_binding(
                         selfsig,
-                        cert.primary_key(),
+                        cert.primary().key().mark_role_primary_ref(),
                         binding.key()).unwrap();
                     if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?}", i, binding);
