@@ -281,9 +281,9 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
 
     /// Returns the key's key flags as of the amalgamtion's
     /// reference time.
-    pub fn key_flags(&self) -> Option<KeyFlags>
+    pub fn key_flags(&self) -> KeyFlags
     {
-        Some(self.binding_signature.key_flags())
+        self.binding_signature.key_flags()
     }
 
     /// Returns whether the key has at least one of the specified key
@@ -291,12 +291,8 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     pub fn has_any_key_flag<F>(&self, flags: F) -> bool
         where F: Borrow<KeyFlags>
     {
-        if let Some(our_flags) = self.key_flags() {
-            !(&our_flags & flags.borrow()).is_empty()
-        } else {
-            // We have no key flags.
-            false
-        }
+        let our_flags = self.key_flags();
+        !(&our_flags & flags.borrow()).is_empty()
     }
 
     /// Returns whether key is certification capable as of the

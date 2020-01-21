@@ -1380,8 +1380,7 @@ impl SubpacketArea {
     /// used (certification, signing, encryption, authentication), and
     /// how it is stored (split, held by multiple people).
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns the empty set.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
