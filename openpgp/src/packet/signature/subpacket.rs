@@ -939,8 +939,7 @@ impl SubpacketArea {
     /// contains the time when the signature was created as a unix
     /// timestamp.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -962,8 +961,7 @@ impl SubpacketArea {
     /// which contains when the signature expires as the number of
     /// seconds after its creation.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -985,8 +983,7 @@ impl SubpacketArea {
     /// which contains whether the certification should be exported
     /// (i.e., whether the packet is *not* a local signature).
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1051,8 +1048,7 @@ impl SubpacketArea {
     /// Note: the serialized form includes a trailing NUL byte.  This
     /// returns the value without the trailing NUL.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1073,8 +1069,7 @@ impl SubpacketArea {
     /// whether the signature is revocable, i.e., whether revocation
     /// certificates for this signature should be ignored.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1096,8 +1091,7 @@ impl SubpacketArea {
     /// contains when the referenced key expires as the number of
     /// seconds after the key's creation.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1120,8 +1114,7 @@ impl SubpacketArea {
     /// that the key holder prefers, ordered according by the key
     /// holder's preference.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1145,8 +1138,7 @@ impl SubpacketArea {
     /// Returns the value of the Revocation Key subpacket, which
     /// contains a designated revoker.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1177,8 +1169,7 @@ impl SubpacketArea {
     /// modify it in transit.  For this reason, the Issuer Fingerprint
     /// subpacket should be preferred, when it is present.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1237,8 +1228,7 @@ impl SubpacketArea {
     /// holders prefers, ordered according by the key holder's
     /// preference.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1262,8 +1252,7 @@ impl SubpacketArea {
     /// that the key holder prefers, ordered according by the key
     /// holder's preference.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1288,8 +1277,7 @@ impl SubpacketArea {
     /// Returns the value of the Key Server Preferences subpacket,
     /// which contains the key holder's key server preferences.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1312,8 +1300,7 @@ impl SubpacketArea {
     /// Note: this packet should be ignored, because it acts as key
     /// tracker.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1335,8 +1322,7 @@ impl SubpacketArea {
     /// indicates whether the referenced UserID should be considered
     /// the user's primary User ID.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1356,8 +1342,7 @@ impl SubpacketArea {
 
     /// Returns the value of the Policy URI subpacket.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1401,8 +1386,7 @@ impl SubpacketArea {
     /// contains the User ID that the key holder considers responsible
     /// for the signature.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1422,8 +1406,7 @@ impl SubpacketArea {
 
     /// Returns the value of the Reason for Revocation subpacket.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1471,8 +1454,7 @@ impl SubpacketArea {
     /// certification to designate the signature that is being
     /// revoked.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1500,8 +1482,7 @@ impl SubpacketArea {
     /// This is used, for instance, to store a subkey's primary key
     /// binding signature (0x19).
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1529,8 +1510,7 @@ impl SubpacketArea {
     /// stored in the unhashed area, i.e., it is not cryptographically
     /// secured.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1552,8 +1532,7 @@ impl SubpacketArea {
     /// which contains the list of AEAD algorithms that the key holder
     /// prefers, ordered according by the key holder's preference.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1801,8 +1780,7 @@ impl SubpacketAreas {
     /// modify it in transit.  For this reason, the Issuer Fingerprint
     /// subpacket should be preferred, when it is present.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1826,8 +1804,7 @@ impl SubpacketAreas {
     /// This is used, for instance, to store a subkey's primary key
     /// binding signature (0x19).
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1855,8 +1832,7 @@ impl SubpacketAreas {
     /// stored in the unhashed area, i.e., it is not cryptographically
     /// secured.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// `None`.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
