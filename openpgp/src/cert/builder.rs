@@ -501,7 +501,7 @@ mod tests {
         assert_eq!(cert.userids().count(), 0);
         assert_eq!(cert.subkeys().count(), 3);
         let sig =
-            cert.keys().primary(None).unwrap().binding_signature();
+            cert.primary().policy(None).unwrap().binding_signature();
         assert_eq!(sig.typ(), crate::types::SignatureType::DirectKey);
         assert!(sig.features().unwrap().supports_mdc());
     }

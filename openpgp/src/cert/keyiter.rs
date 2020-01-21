@@ -18,8 +18,6 @@ use crate::{
         KeyAmalgamation,
         ValidKeyAmalgamation,
     },
-    Error,
-    Result,
 };
 
 /// An iterator over all `Key`s (both the primary key and the subkeys)
@@ -275,26 +273,6 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
             revoked: None,
 
             _p: self._p,
-        }
-    }
-
-    /// Returns the amalgamated primary key at time `time`
-    ///
-    /// If `time` is None, then the current time is used.
-    ///
-    /// See `ValidKeyIter` for the definition of a valid key.
-    pub fn primary<T>(self, time: T) -> Result<ValidKeyAmalgamation<'a, P>>
-        where T: Into<Option<SystemTime>>,
-              &'a KeyBinding<P, key::PrimaryRole>:
-                  From<&'a KeyBinding<key::PublicParts, key::PrimaryRole>>
-    {
-        if let Some(cert) = self.cert.as_ref() {
-            let time = time.into().unwrap_or_else(std::time::SystemTime::now);
-            let ka: KeyAmalgamation<'a, P> = (*cert).try_into()?;
-            let ka = ka.policy(time)?;
-            Ok(ka)
-        } else {
-            Err(Error::InvalidOperation("empty iterator".into()).into())
         }
     }
 

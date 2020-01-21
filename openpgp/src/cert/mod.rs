@@ -414,6 +414,12 @@ impl Cert {
         &self.primary.key()
     }
 
+    /// Returns the amalgamated primary key.
+    pub fn primary(&self) -> KeyAmalgamation<key::PublicParts>
+    {
+        self.keys().nth(0).expect("primary key").into()
+    }
+
     /// Returns the primary key's current self-signature as of `t`.
     ///
     /// If the current self-signature is from a User ID binding (and
