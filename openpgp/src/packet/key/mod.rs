@@ -43,10 +43,10 @@
 //! // Get a handle to the Cert's primary key that allows using the
 //! // secret key material.
 //! use std::convert::TryInto;
-//! let sk: &Key<key::SecretParts, key::PrimaryRole> = cert.primary().key().try_into()?;
+//! let sk: &Key<key::SecretParts, key::PrimaryRole> = cert.primary_key().key().try_into()?;
 //!
 //! // Make the conversion explicit.
-//! let sk = cert.primary().key().mark_parts_secret_ref()?.mark_role_primary_ref();
+//! let sk = cert.primary_key().key().mark_parts_secret_ref()?.mark_role_primary_ref();
 //! #     Ok(())
 //! # }
 //! ```
@@ -1328,7 +1328,7 @@ mod tests {
     fn encrypted_rsa_key() {
         let cert = Cert::from_bytes(
             crate::tests::key("testy-new-encrypted-with-123.pgp")).unwrap();
-        let mut pair = cert.primary().key().clone();
+        let mut pair = cert.primary_key().key().clone();
         let pk_algo = pair.pk_algo();
         let secret = pair.secret.as_mut().unwrap();
 

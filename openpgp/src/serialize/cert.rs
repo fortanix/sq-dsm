@@ -25,7 +25,7 @@ impl Cert {
     fn serialize_common(&self, o: &mut dyn std::io::Write, export: bool)
                         -> Result<()>
     {
-        let primary = self.primary().binding();
+        let primary = self.primary_key().binding();
         PacketRef::PublicKey(primary.key().mark_role_primary_ref())
             .serialize(o)?;
 
@@ -160,7 +160,7 @@ impl Cert {
 impl SerializeInto for Cert {
     fn serialized_len(&self) -> usize {
         let mut l = 0;
-        let primary = self.primary().binding();
+        let primary = self.primary_key().binding();
         l += PacketRef::PublicKey(primary.key().mark_role_primary_ref())
             .serialized_len();
 
@@ -330,7 +330,7 @@ impl<'a> TSK<'a> {
     ///
     /// let cert_ = Cert::from_bytes(&buf)?;
     /// assert_eq!(cert_.keys().policy(None).alive().revoked(false).secret().count(), 1);
-    /// assert!(cert_.primary().secret().is_some());
+    /// assert!(cert_.primary_key().secret().is_some());
     /// # Ok(()) }
     pub fn set_filter<P>(mut self, predicate: P) -> Self
         where P: 'a + Fn(&'a key::UnspecifiedSecret) -> bool
@@ -386,7 +386,7 @@ impl<'a> TSK<'a> {
             }
         };
 
-        let primary = self.cert.primary().binding();
+        let primary = self.cert.primary_key().binding();
         serialize_key(o, primary.key().mark_role_primary_ref().into(),
                       Tag::PublicKey, Tag::SecretKey)?;
 
@@ -541,7 +541,7 @@ impl<'a> SerializeInto for TSK<'a> {
             packet.serialized_len()
         };
 
-        let primary = self.cert.primary().binding();
+        let primary = self.cert.primary_key().binding();
         l += serialized_len_key(primary.key().mark_role_primary_ref().into(),
                                 Tag::PublicKey, Tag::SecretKey);
 
@@ -733,7 +733,7 @@ mod test {
         };
 
         let (cert, _) = CertBuilder::new().generate().unwrap();
-        let mut keypair = cert.primary().key().clone().mark_parts_secret()
+        let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         let key: key::SecretSubkey =

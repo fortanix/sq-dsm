@@ -282,7 +282,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 ///     let mut acc = Vec::new();
 ///
 ///     // Primary key and related signatures.
-///     let c = cert.primary().binding();
+///     let c = cert.primary_key().binding();
 ///     acc.push(c.key().clone().mark_role_primary().into());
 ///     for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///     for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -410,7 +410,7 @@ impl<'a> Parse<'a, Cert> for Cert {
 
 impl Cert {
     /// Returns the amalgamated primary key.
-    pub fn primary(&self) -> KeyAmalgamation<key::PublicParts>
+    pub fn primary_key(&self) -> KeyAmalgamation<key::PublicParts>
     {
         self.keys().nth(0).expect("primary key").into()
     }
@@ -530,7 +530,7 @@ impl Cert {
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
     ///            cert.revoked(None));
     ///
-    /// let mut keypair = cert.primary().key().clone()
+    /// let mut keypair = cert.primary_key().key().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     /// let cert = cert.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
@@ -563,7 +563,7 @@ impl Cert {
     {
         let t = t.into();
         if let Some(sig) = self.primary_key_signature(t) {
-            sig.key_alive(self.primary().key(), t)
+            sig.key_alive(self.primary_key().key(), t)
         } else {
             Err(Error::MalformedCert("No primary key signature".into()).into())
         }
@@ -590,7 +590,7 @@ impl Cert {
             let hash_algo = HashAlgorithm::SHA512;
             let mut hash = hash_algo.context()?;
 
-            self.primary().hash(&mut hash);
+            self.primary_key().hash(&mut hash);
             if let Some((userid, _)) = userid {
                 userid.userid().hash(&mut hash);
             } else {
@@ -1297,7 +1297,7 @@ impl Cert {
     /// Returns whether at least one of the keys includes a secret
     /// part.
     pub fn is_tsk(&self) -> bool {
-        if self.primary().secret().is_some() {
+        if self.primary_key().secret().is_some() {
             return true;
         }
         self.subkeys().any(|sk| {
@@ -1787,14 +1787,14 @@ mod test {
         let cert = Cert::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
         assert!(! cert.primary_key_signature(None).unwrap()
-                .key_alive(cert.primary().key(), None).is_ok());
+                .key_alive(cert.primary_key().key(), None).is_ok());
 
         let update =
             Cert::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let cert = cert.merge(update).unwrap();
         assert!(cert.primary_key_signature(None).unwrap()
-                .key_alive(cert.primary().key(), None).is_ok());
+                .key_alive(cert.primary_key().key(), None).is_ok());
     }
 
     #[test]
@@ -1854,14 +1854,14 @@ mod test {
         let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
 
-        let now = cert.primary().creation_time();
+        let now = cert.primary_key().creation_time();
         let a_sec = time::Duration::new(1, 0);
 
         let expiry_orig = cert.primary_key_signature(None).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
 
-        let mut keypair = cert.primary().key().clone().mark_parts_secret()
+        let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         // Clear the expiration.
@@ -2034,7 +2034,7 @@ mod test {
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    cert.revoked(None));
 
-        let mut keypair = cert.primary().key().clone().mark_parts_secret()
+        let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         let sig = CertRevocationBuilder::new()
@@ -2056,7 +2056,7 @@ mod test {
         let (other, _) = CertBuilder::autocrypt(None, Some("Test 2"))
             .generate().unwrap();
 
-        let mut keypair = other.primary().key().clone().mark_parts_secret()
+        let mut keypair = other.primary_key().key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         let sig = CertRevocationBuilder::new()
@@ -2082,7 +2082,7 @@ mod test {
             let subkey = cert.subkeys().nth(0).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, subkey.revoked(None));
 
-            let mut keypair = cert.primary().key().clone().mark_parts_secret()
+            let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
                 .unwrap().into_keypair().unwrap();
             SubkeyRevocationBuilder::new()
                 .set_reason_for_revocation(
@@ -2111,7 +2111,7 @@ mod test {
             let uid = cert.userids().policy(None).nth(1).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
 
-            let mut keypair = cert.primary().key().clone().mark_parts_secret()
+            let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
                 .unwrap().into_keypair().unwrap();
             UserIDRevocationBuilder::new()
                 .set_reason_for_revocation(
@@ -2803,7 +2803,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 cert = cert.merge_packets(vec![ binding ]).unwrap();
                 // A time that matches multiple signatures.
                 let direct_signatures =
-                    cert.primary().binding().self_signatures();
+                    cert.primary_key().binding().self_signatures();
                 assert_eq!(cert.primary_key_signature(*t),
                            direct_signatures.get(*offset));
                 // A time that doesn't match any signature.
@@ -2856,7 +2856,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // Have alice cerify the binding "bob@bar.com" and bob's key.
             let alice_certifies_bob
                 = bob_userid_binding.userid().bind(
-                    &mut alice.primary().key().clone().mark_parts_secret()
+                    &mut alice.primary_key().key().clone().mark_parts_secret()
                         .unwrap().into_keypair().unwrap(),
                     &bob,
                     sig_template).unwrap();
@@ -2882,8 +2882,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
             // Make sure the certification is correct.
             alice_certifies_bob
-                .verify_userid_binding(alice.primary().key().mark_role_primary_ref(),
-                                       bob.primary().key().mark_role_primary_ref(),
+                .verify_userid_binding(alice.primary_key().key().mark_role_primary_ref(),
+                                       bob.primary_key().key().mark_role_primary_ref(),
                                        bob_userid_binding.userid()).unwrap();
         }
    }
@@ -2897,7 +2897,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.keys().secret().count(), 2);
         assert_eq!(cert.keys().unencrypted_secret().count(), 0);
 
-        let mut primary = cert.primary().key().clone();
+        let mut primary = cert.primary_key().key().clone();
         let algo = primary.pk_algo();
         primary.secret_mut().unwrap()
             .decrypt_in_place(algo, &"streng geheim".into()).unwrap();

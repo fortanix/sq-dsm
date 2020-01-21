@@ -31,7 +31,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// # fn f() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (cert, _) = CertBuilder::new().generate()?;
-    /// let mut keypair = cert.primary().key().clone()
+    /// let mut keypair = cert.primary_key().key().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     ///
     /// // Let's add an encryption subkey.
@@ -65,7 +65,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_subkey_binding(
-                signer, cert.primary().key().mark_role_primary_ref(), self)
+                signer, cert.primary_key().key().mark_role_primary_ref(), self)
     }
 }
 
@@ -93,7 +93,7 @@ impl UserID {
     /// # fn f() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (cert, _) = CertBuilder::new().generate()?;
-    /// let mut keypair = cert.primary().key().clone()
+    /// let mut keypair = cert.primary_key().key().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     /// assert_eq!(cert.userids().len(), 0);
     ///
@@ -117,7 +117,7 @@ impl UserID {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_userid_binding(
-                signer, cert.primary().key().mark_role_primary_ref(), self)
+                signer, cert.primary_key().key().mark_role_primary_ref(), self)
     }
 
     /// Returns a certificate for the user id.
@@ -151,7 +151,7 @@ impl UserID {
     ///     .primary_key_flags(KeyFlags::default().set_certification(true))
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
-    /// let mut keypair = alice.primary().key().clone()
+    /// let mut keypair = alice.primary_key().key().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     ///
     /// // Generate a Cert for Bob.
@@ -228,7 +228,7 @@ impl UserAttribute {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (cert, _) = CertBuilder::new()
     ///     .generate()?;
-    /// let mut keypair = cert.primary().key().clone()
+    /// let mut keypair = cert.primary_key().key().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     /// assert_eq!(cert.userids().len(), 0);
     ///
@@ -255,7 +255,7 @@ impl UserAttribute {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_user_attribute_binding(
-                signer, cert.primary().key().mark_role_primary_ref(), self)
+                signer, cert.primary_key().key().mark_role_primary_ref(), self)
     }
 
     /// Returns a certificate for the user attribute.
@@ -289,7 +289,7 @@ impl UserAttribute {
     /// let (alice, _) = CertBuilder::new()
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
-    /// let mut keypair = alice.primary().key().clone()
+    /// let mut keypair = alice.primary_key().key().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     ///
     /// // Generate a Cert for Bob.
