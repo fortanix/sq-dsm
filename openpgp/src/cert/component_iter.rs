@@ -294,9 +294,9 @@ impl<'a, C> ValidComponentIter<'a, C> {
     /// ```
     ///
     /// As the example shows, this filter is significantly less
-    /// flexible than using `ComponentAmalgamation::revoked`.  However, this
-    /// filter implements a typical policy, and does not preclude
-    /// using `filter` to realize alternative policies.
+    /// flexible than using `ValidComponentAmalgamation::revoked`.
+    /// However, this filter implements a typical policy, and does not
+    /// preclude using `filter` to realize alternative policies.
     pub fn revoked<T>(mut self, revoked: T) -> Self
         where T: Into<Option<bool>>
     {
