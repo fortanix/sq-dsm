@@ -1118,7 +1118,7 @@ impl Cert {
 
         if self.bad.len() > 0 {
             t!("{}: ignoring {} bad self-signatures",
-               self.primary_key().keyid(), self.bad.len());
+               self.keyid(), self.bad.len());
         }
 
         // Only keep user ids / user attributes / subkeys with at
@@ -2050,7 +2050,7 @@ mod test {
             .build(&mut keypair, &cert, None)
             .unwrap();
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-        assert_eq!(sig.issuer(), Some(&cert.primary_key().keyid()));
+        assert_eq!(sig.issuer(), Some(&cert.keyid()));
         assert_eq!(sig.issuer_fingerprint(),
                    Some(&cert.fingerprint()));
 

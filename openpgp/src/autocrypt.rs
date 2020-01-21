@@ -952,7 +952,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(cert.primary_key().fingerprint(),
+        assert_eq!(cert.fingerprint(),
                    Fingerprint::from_hex(
                        &"4F9F89F5505AC1D1A260631CDB1187B9DD5F693B"[..]).unwrap());
         assert_eq!(cert.userids().next().unwrap().value(),
