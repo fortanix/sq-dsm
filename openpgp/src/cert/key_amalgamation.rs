@@ -36,6 +36,16 @@ pub struct KeyAmalgamation<'a, P: key::KeyParts> {
     binding: KeyAmalgamationBinding<'a, P>,
 }
 
+impl<'a, P: key::KeyParts> Deref for KeyAmalgamation<'a, P>
+    where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
+{
+    type Target = Key<P, key::UnspecifiedRole>;
+
+    fn deref(&self) -> &Self::Target {
+        self.key()
+    }
+}
+
 impl<'a, P> From<&'a Cert>
     for KeyAmalgamation<'a, P>
     where P: key::KeyParts
