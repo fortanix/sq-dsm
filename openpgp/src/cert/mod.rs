@@ -408,7 +408,7 @@ impl<'a> Parse<'a, Cert> for Cert {
 }
 
 impl Cert {
-    /// Returns the primary key at time `time`
+    /// Returns the primary key.
     pub fn primary_key(&self) -> &key::PublicKey
     {
         &self.primary.key()
