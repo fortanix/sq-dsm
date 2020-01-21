@@ -141,7 +141,7 @@ fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
     for ka in cert.keys().policy(None).skip(1) {
         writeln!(output, "         Subkey: {}", ka.key().fingerprint())?;
         inspect_revocation(output, "", ka.revoked())?;
-        inspect_key(output, "", ka.key(), ka.binding_signature(),
+        inspect_key(output, "", ka.key(), Some(ka.binding_signature()),
                     ka.binding().certifications(),
                     print_keygrips, print_certifications)?;
         writeln!(output)?;

@@ -303,7 +303,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     {
         if let Some(cert) = self.cert.as_ref() {
             let time = time.into().unwrap_or_else(std::time::SystemTime::now);
-            let ka: KeyAmalgamation<'a, P> = (*cert, time).into();
+            let ka: KeyAmalgamation<'a, P> = (*cert, time).try_into()?;
             ka.alive()?;
             Ok(ka)
         } else {
@@ -474,9 +474,23 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
         loop {
             let ka : KeyAmalgamation<'a, key::PublicParts> = if ! self.primary {
                 self.primary = true;
-                (cert, self.time).into()
+                match (cert, self.time).try_into() {
+                    Ok(ka) => ka,
+                    Err(err) => {
+                        // The primary key is bad.  Abort.
+                        t!("Getting primary key: {:?}", err);
+                        return None;
+                    }
+                }
             } else {
-                (cert, self.subkey_iter.next()?, self.time).into()
+                match (cert, self.subkey_iter.next()?, self.time).try_into() {
+                    Ok(ka) => ka,
+                    Err(err) => {
+                        // The subkey is bad, abort.
+                        t!("Getting subkey: {:?}", err);
+                        continue;
+                    }
+                }
             };
 
             let key = ka.key();
@@ -493,13 +507,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
                 }
             }
 
-            let binding_signature
-                = if let Some(binding_signature) = ka.binding_signature() {
-                    binding_signature
-                } else {
-                    t!("No self-signature at time {:?}", self.time);
-                    continue
-                };
+            let binding_signature = ka.binding_signature();
 
             if let Some(flags) = self.flags.as_ref() {
                 if !ka.has_any_key_flag(flags) {

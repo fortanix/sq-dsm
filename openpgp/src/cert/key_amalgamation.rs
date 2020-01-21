@@ -32,33 +32,49 @@ enum KeyAmalgamationBinding<'a, P: key::KeyParts> {
 #[derive(Debug, Clone)]
 pub struct KeyAmalgamation<'a, P: key::KeyParts> {
     cert: &'a Cert,
-    time: SystemTime,
     binding: KeyAmalgamationBinding<'a, P>,
+
+    // The reference time.
+    time: SystemTime,
+    // The binding siganture at time `time`.  (This is just a cache.)
+    binding_signature: &'a Signature,
 }
 
-impl<'a, P> From<(&'a Cert, SystemTime)>
+impl<'a, P> TryFrom<(&'a Cert, SystemTime)>
     for KeyAmalgamation<'a, P>
     where P: key::KeyParts
 {
-    fn from(x: (&'a Cert, SystemTime)) -> Self {
-        KeyAmalgamation {
+    type Error = failure::Error;
+
+    fn try_from(x: (&'a Cert, SystemTime)) -> Result<Self> {
+        Ok(KeyAmalgamation {
             cert: x.0,
             binding: KeyAmalgamationBinding::Primary(),
             time: x.1,
-        }
+            binding_signature:
+                x.0.primary_key_signature(x.1)
+                    .ok_or_else(|| Error::NoBindingSignature(x.1))?,
+        })
     }
 }
 
-impl<'a, P> From<(&'a Cert, &'a KeyBinding<P, key::SubordinateRole>, SystemTime)>
+impl<'a, P> TryFrom<(&'a Cert, &'a KeyBinding<P, key::SubordinateRole>, SystemTime)>
     for KeyAmalgamation<'a, P>
     where P: key::KeyParts
 {
-    fn from(x: (&'a Cert, &'a KeyBinding<P, key::SubordinateRole>, SystemTime)) -> Self {
-        KeyAmalgamation {
+    type Error = failure::Error;
+
+    fn try_from(x: (&'a Cert, &'a KeyBinding<P, key::SubordinateRole>, SystemTime))
+        -> Result<Self>
+    {
+        Ok(KeyAmalgamation {
             cert: x.0,
             binding: KeyAmalgamationBinding::Subordinate(x.1),
             time: x.2,
-        }
+            binding_signature:
+                x.1.binding_signature(x.2)
+                    .ok_or_else(|| Error::NoBindingSignature(x.2))?,
+        })
     }
 }
 
@@ -73,21 +89,25 @@ impl<'a> From<KeyAmalgamation<'a, key::PublicParts>>
                 cert,
                 binding: KeyAmalgamationBinding::Primary(),
                 time,
+                binding_signature,
             } =>
                 KeyAmalgamation {
                     cert,
                     binding: KeyAmalgamationBinding::Primary(),
                     time,
+                    binding_signature,
                 },
             KeyAmalgamation {
                 cert,
                 binding: KeyAmalgamationBinding::Subordinate(binding),
                 time,
+                binding_signature,
             } =>
                 KeyAmalgamation {
                     cert,
                     binding: KeyAmalgamationBinding::Subordinate(binding.into()),
                     time,
+                    binding_signature,
                 },
         }
     }
@@ -101,22 +121,26 @@ impl<'a> From<KeyAmalgamation<'a, key::SecretParts>>
             KeyAmalgamation {
                 cert,
                 binding: KeyAmalgamationBinding::Primary(),
-                time
+                time,
+                binding_signature,
             } =>
                 KeyAmalgamation {
                     cert,
                     binding: KeyAmalgamationBinding::Primary(),
                     time,
+                    binding_signature,
                 },
             KeyAmalgamation {
                 cert,
                 binding: KeyAmalgamationBinding::Subordinate(binding),
-                time
+                time,
+                binding_signature,
             } =>
                 KeyAmalgamation {
                     cert,
                     binding: KeyAmalgamationBinding::Subordinate(binding.into()),
                     time,
+                    binding_signature,
                 },
         }
     }
@@ -132,7 +156,8 @@ impl<'a> TryFrom<KeyAmalgamation<'a, key::PublicParts>>
             KeyAmalgamation {
                 cert,
                 binding: KeyAmalgamationBinding::Primary(),
-                time
+                time,
+                binding_signature,
             } => {
                 // Error out if the primary key does not have secret
                 // key material.
@@ -142,17 +167,20 @@ impl<'a> TryFrom<KeyAmalgamation<'a, key::PublicParts>>
                     cert,
                     binding: KeyAmalgamationBinding::Primary(),
                     time,
+                    binding_signature,
                 }
             }
             KeyAmalgamation {
                 cert,
                 binding: KeyAmalgamationBinding::Subordinate(binding),
-                time
+                time,
+                binding_signature,
             } =>
                 KeyAmalgamation {
                     cert,
                     binding: KeyAmalgamationBinding::Subordinate(binding.try_into()?),
                     time,
+                    binding_signature,
                 },
         })
     }
@@ -202,23 +230,32 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     /// Changes the amalgamation's reference time.
     ///
     /// If `time` is `None`, the current time is used.
-    pub fn set_time<T>(mut self, time: T) -> Self
+    pub fn set_time<T>(mut self, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
         self.time = time.into().unwrap_or_else(SystemTime::now);
-        self
+        self.binding_signature = match self {
+            KeyAmalgamation {
+                binding: KeyAmalgamationBinding::Primary(),
+                ..
+            } =>
+                self.cert.primary_key_signature(self.time)
+                    .ok_or_else(|| Error::NoBindingSignature(self.time))?,
+            KeyAmalgamation {
+                binding: KeyAmalgamationBinding::Subordinate(binding),
+                ..
+            } =>
+                binding.binding_signature(self.time)
+                    .ok_or_else(|| Error::NoBindingSignature(self.time))?,
+        };
+        Ok(self)
     }
 
     /// Returns the key's binding signature as of the reference time,
     /// if any.
-    pub fn binding_signature(&self) -> Option<&'a Signature>
+    pub fn binding_signature(&self) -> &'a Signature
     {
-        match self {
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Primary(), .. } =>
-                self.cert.primary_key_signature(self.time()),
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Subordinate(ref binding), .. } =>
-                binding.binding_signature(self.time()),
-        }
+        self.binding_signature
     }
 
     /// Returns the key's revocation status as of the amalgamation's
@@ -246,7 +283,7 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     /// reference time.
     pub fn key_flags(&self) -> Option<KeyFlags>
     {
-        self.binding_signature().map(|sig| sig.key_flags())
+        Some(self.binding_signature.key_flags())
     }
 
     /// Returns whether the key has at least one of the specified key
@@ -308,11 +345,7 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     /// Note: this does not return whether the certificate is valid.
     pub fn alive(&self) -> Result<()>
     {
-        if let Some(sig) = self.binding_signature() {
-            sig.key_alive(self.generic_key(), self.time())
-        } else {
-            Err(Error::NoBindingSignature(self.time()).into())
-        }
+        self.binding_signature.key_alive(self.generic_key(), self.time())
     }
 
     /// Returns whether the key contains secret key material.

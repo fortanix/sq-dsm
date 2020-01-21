@@ -678,15 +678,15 @@ mod tests {
             .for_signing()
             .nth(0).unwrap();
         assert!(ka.alive().is_ok());
-        assert!(ka.clone().set_time(now + 290 * s).alive().is_ok());
-        assert!(! ka.clone().set_time(now + 310 * s).alive().is_ok());
+        assert!(ka.clone().set_time(now + 290 * s).unwrap().alive().is_ok());
+        assert!(! ka.clone().set_time(now + 310 * s).unwrap().alive().is_ok());
 
         let ka = cert.keys().policy(now).alive().revoked(false)
             .for_authentication()
             .nth(0).unwrap();
         assert!(ka.alive().is_ok());
-        assert!(ka.clone().set_time(now + 590 * s).alive().is_ok());
-        assert!(! ka.clone().set_time(now + 610 * s).alive().is_ok());
+        assert!(ka.clone().set_time(now + 590 * s).unwrap().alive().is_ok());
+        assert!(! ka.clone().set_time(now + 610 * s).unwrap().alive().is_ok());
     }
 
     #[test]
@@ -708,7 +708,7 @@ mod tests {
         assert_eq!(cert.keys().policy(None).count(), 2);
         for ka in cert.keys().policy(None) {
             assert_eq!(ka.key().creation_time(), UNIX_EPOCH);
-            assert_eq!(ka.binding_signature().unwrap()
+            assert_eq!(ka.binding_signature()
                        .signature_creation_time().unwrap(), UNIX_EPOCH);
         }
 

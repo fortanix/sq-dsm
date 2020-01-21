@@ -184,7 +184,7 @@ fn $fn_name<'a>(
     sig_r: Maybe<*mut Signature>,
     cert_r: Maybe<*mut Cert>,
     key_r: Maybe<*mut Key>,
-    binding_r: Maybe<Maybe<Signature>>,
+    binding_r: Maybe<*mut Signature>,
     revocation_status_r:
     Maybe<*mut RevocationStatus<'a>>)
     -> bool

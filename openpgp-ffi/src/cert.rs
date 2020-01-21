@@ -749,19 +749,17 @@ pub extern "C" fn pgp_cert_valid_key_iter_revoked<'a>(
     iter_wrapper.iter = tmp.revoked(Some(revoked));
 }
 
-/// Returns the next key.  Returns NULL if there are no more elements.
+/// Returns the next valid key.  Returns NULL if there are no more
+/// elements.
 ///
-/// If sigo is not NULL, stores the current self-signature (if any) in
-/// *sigo.  (Note: subkeys always have signatures, but a primary key
-/// may not have a direct signature, and there might not be any user
-/// ids.)
+/// If sigo is not NULL, stores the current self-signature.
 ///
 /// If rso is not NULL, this stores the key's revocation status in
 /// *rso.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
     iter_wrapper: *mut ValidKeyIterWrapper<'a>,
-    sigo: Option<&mut Maybe<Signature>>,
+    sigo: Option<&mut *mut Signature>,
     rso: Option<&mut *mut RevocationStatus<'a>>)
     -> Maybe<Key>
 {
