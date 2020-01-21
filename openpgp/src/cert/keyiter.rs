@@ -303,9 +303,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     {
         if let Some(cert) = self.cert.as_ref() {
             let time = time.into().unwrap_or_else(std::time::SystemTime::now);
-            let ka: KeyAmalgamation<'a, P> = (*cert, time).try_into()?;
-            ka.alive()?;
-            Ok(ka)
+            Ok((*cert, time).try_into()?)
         } else {
             Err(Error::InvalidOperation("empty iterator".into()).into())
         }
