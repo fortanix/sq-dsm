@@ -421,21 +421,7 @@ impl Cert {
     /// If the current self-signature is from a User ID binding (and
     /// not a direct signature), this also returns the User ID binding
     /// and its revocation status as of `t`.
-    ///
-    /// The primary key's current self-signature as of `t` is, in
-    /// order of preference:
-    ///
-    ///   - The binding signature of the primary User ID at time `t`,
-    ///     if the primary User ID is not revoked at time `t`.
-    ///
-    ///   - The newest, live, direct self signature at time `t`.
-    ///
-    ///   - The binding signature of the primary User ID at time `t`
-    ///     (this can only happen if there are only revoked User IDs
-    ///     at time `t`).
-    ///
-    /// If there are no applicable signatures, `None` is returned.
-    pub fn primary_key_signature_full<T>(&self, t: T)
+    fn primary_key_signature_full<T>(&self, t: T)
         -> Option<(&Signature, Option<(&UserIDBinding, RevocationStatus)>)>
         where T: Into<Option<time::SystemTime>>
     {
@@ -472,9 +458,19 @@ impl Cert {
 
     /// Returns the primary key's current self-signature.
     ///
-    /// This function is identical to
-    /// `Cert::primary_key_signature_full()`, but it doesn't return the
-    /// `UserIDBinding`.
+    /// The primary key's current self-signature as of `t` is, in
+    /// order of preference:
+    ///
+    ///   - The binding signature of the primary User ID at time `t`,
+    ///     if the primary User ID is not revoked at time `t`.
+    ///
+    ///   - The newest, live, direct self signature at time `t`.
+    ///
+    ///   - The binding signature of the primary User ID at time `t`
+    ///     (this can only happen if there are only revoked User IDs
+    ///     at time `t`).
+    ///
+    /// If there are no applicable signatures, `None` is returned.
     pub fn primary_key_signature<T>(&self, t: T) -> Option<&Signature>
         where T: Into<Option<time::SystemTime>>
     {
