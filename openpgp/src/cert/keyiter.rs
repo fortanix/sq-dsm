@@ -17,6 +17,7 @@ use crate::{
             KeyBindingIter,
         },
         KeyAmalgamation,
+        ValidKeyAmalgamation,
     },
     Error,
     Result,
@@ -296,14 +297,16 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
     /// If `time` is None, then the current time is used.
     ///
     /// See `ValidKeyIter` for the definition of a valid key.
-    pub fn primary<T>(self, time: T) -> Result<KeyAmalgamation<'a, P>>
+    pub fn primary<T>(self, time: T) -> Result<ValidKeyAmalgamation<'a, P>>
         where T: Into<Option<SystemTime>>,
               &'a KeyBinding<P, key::PrimaryRole>:
                   From<&'a KeyBinding<key::PublicParts, key::PrimaryRole>>
     {
         if let Some(cert) = self.cert.as_ref() {
             let time = time.into().unwrap_or_else(std::time::SystemTime::now);
-            Ok((*cert, time).try_into()?)
+            let ka: KeyAmalgamation<'a, P> = (*cert).try_into()?;
+            let ka = ka.policy(time)?;
+            Ok(ka)
         } else {
             Err(Error::InvalidOperation("empty iterator".into()).into())
         }
@@ -429,7 +432,7 @@ macro_rules! impl_valid_key_iterator {
             where &'a Key<$parts, R>: From<&'a Key<key::PublicParts,
                                                    key::UnspecifiedRole>>
         {
-            type Item = KeyAmalgamation<'a, $parts>;
+            type Item = ValidKeyAmalgamation<'a, $parts>;
 
             fn next(&mut self) -> Option<Self::Item> {
                 self.next_common().map(|ka| ka.into())
@@ -444,7 +447,7 @@ impl<'a, R: 'a + key::KeyRole> Iterator for ValidKeyIter<'a, key::SecretParts, R
     where &'a Key<key::SecretParts, R>: From<&'a Key<key::SecretParts,
                                                      key::UnspecifiedRole>>
 {
-    type Item = KeyAmalgamation<'a, key::SecretParts>;
+    type Item = ValidKeyAmalgamation<'a, key::SecretParts>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_common().map(|ka| ka.try_into().expect("has secret parts"))
@@ -452,7 +455,7 @@ impl<'a, R: 'a + key::KeyRole> Iterator for ValidKeyIter<'a, key::SecretParts, R
 }
 
 impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
-    fn next_common(&mut self) -> Option<KeyAmalgamation<'a, key::PublicParts>>
+    fn next_common(&mut self) -> Option<ValidKeyAmalgamation<'a, key::PublicParts>>
     {
         tracer!(false, "ValidKeyIter::next", 0);
         t!("ValidKeyIter: {:?}", self);
@@ -471,9 +474,10 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
         }
 
         loop {
-            let ka : KeyAmalgamation<'a, key::PublicParts> = if ! self.primary {
+            let ka : ValidKeyAmalgamation<'a, key::PublicParts> = if ! self.primary {
                 self.primary = true;
-                match (cert, self.time).try_into() {
+                let ka : KeyAmalgamation<_> = cert.into();
+                match ka.policy(self.time) {
                     Ok(ka) => ka,
                     Err(err) => {
                         // The primary key is bad.  Abort.
@@ -482,7 +486,9 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> ValidKeyIter<'a, P, R> {
                     }
                 }
             } else {
-                match (cert, self.subkey_iter.next()?, self.time).try_into() {
+                let ka : KeyAmalgamation<_>
+                    = (cert.into(), self.subkey_iter.next()?).into();
+                match ka.policy(self.time) {
                     Ok(ka) => ka,
                     Err(err) => {
                         // The subkey is bad, abort.

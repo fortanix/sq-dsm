@@ -43,7 +43,7 @@ use crate::{
     packet,
     packet::Signature,
     Cert,
-    cert::KeyAmalgamation,
+    cert::ValidKeyAmalgamation,
     crypto::SessionKey,
     serialize::Serialize,
 };
@@ -198,7 +198,7 @@ pub enum VerificationResult<'a> {
         cert: &'a Cert,
 
         /// The signing key that made the signature.
-        ka: KeyAmalgamation<'a, key::PublicParts>,
+        ka: ValidKeyAmalgamation<'a, key::PublicParts>,
     },
 
     /// The signature is good, but it is not alive at the specified

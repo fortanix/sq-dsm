@@ -675,15 +675,15 @@ mod tests {
             .for_signing()
             .nth(0).unwrap();
         assert!(ka.alive().is_ok());
-        assert!(ka.clone().set_time(now + 290 * s).unwrap().alive().is_ok());
-        assert!(! ka.clone().set_time(now + 310 * s).unwrap().alive().is_ok());
+        assert!(ka.clone().policy(now + 290 * s).unwrap().alive().is_ok());
+        assert!(! ka.clone().policy(now + 310 * s).unwrap().alive().is_ok());
 
         let ka = cert.keys().policy(now).alive().revoked(false)
             .for_authentication()
             .nth(0).unwrap();
         assert!(ka.alive().is_ok());
-        assert!(ka.clone().set_time(now + 590 * s).unwrap().alive().is_ok());
-        assert!(! ka.clone().set_time(now + 610 * s).unwrap().alive().is_ok());
+        assert!(ka.clone().policy(now + 590 * s).unwrap().alive().is_ok());
+        assert!(! ka.clone().policy(now + 610 * s).unwrap().alive().is_ok());
     }
 
     #[test]

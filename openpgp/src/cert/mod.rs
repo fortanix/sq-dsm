@@ -57,7 +57,10 @@ mod revoke;
 pub use self::builder::{CertBuilder, CipherSuite};
 
 pub use keyiter::{KeyIter, ValidKeyIter};
-pub use key_amalgamation::KeyAmalgamation;
+pub use key_amalgamation::{
+    KeyAmalgamation,
+    ValidKeyAmalgamation,
+};
 
 pub use parser::{
     KeyringValidity,
