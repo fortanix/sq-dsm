@@ -704,7 +704,7 @@ impl Cert {
     ///
     /// That is, this returns an iterator over the primary key and any
     /// subkeys.
-    pub fn keys(&self) -> KeyIter<key::PublicParts, key::UnspecifiedRole>
+    pub fn keys(&self) -> KeyIter<key::PublicParts>
     {
         KeyIter::new(self)
     }

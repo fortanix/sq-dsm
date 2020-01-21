@@ -817,7 +817,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                         // less misleading) error message than
                         // `VerificationResult::MissingKey`.
                         if let VerificationResult::MissingKey { .. } = err {
-                            if let Some(key) = self.certs.iter()
+                            if let Some(ka) = self.certs.iter()
                                 .flat_map(|cert| {
                                     cert.keys().key_handles(issuers.iter())
                                 })
@@ -829,7 +829,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
                                         format!(
                                             "Signing key ({}) not valid \
                                              when signature was created",
-                                            key.fingerprint()))
+                                            ka.key().fingerprint()))
                                         .into(),
                                 }
                             }
@@ -1769,7 +1769,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         // less misleading) error message than
                         // `VerificationResult::MissingKey`.
                         if let VerificationResult::MissingKey { .. } = err {
-                            if let Some(key) = self.certs.iter()
+                            if let Some(ka) = self.certs.iter()
                                 .flat_map(|cert| {
                                     cert.keys().key_handles(issuers.iter())
                                 })
@@ -1781,7 +1781,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         format!(
                                             "Signing key ({}) not valid \
                                              when signature was created",
-                                            key.fingerprint()))
+                                            ka.key().fingerprint()))
                                         .into(),
                                 }
                             }

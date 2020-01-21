@@ -322,7 +322,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         // Get all keys.
         let seen: HashSet<_> = certs.iter()
             .flat_map(|cert| {
-                cert.keys().map(|key| key.fingerprint().into())
+                cert.keys().map(|ka| ka.key().fingerprint().into())
             }).collect();
 
         // Explicitly provided keys are trusted.

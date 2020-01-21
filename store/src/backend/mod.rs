@@ -806,8 +806,8 @@ impl KeyServer {
 
     /// Keeps the mapping of (sub)KeyIDs to keys up-to-date.
     fn reindex_subkeys(c: &Connection, key_id: ID, cert: &Cert) -> Result<()> {
-        for key in cert.keys() {
-            let keyid = key.keyid().as_u64()
+        for ka in cert.keys() {
+            let keyid = ka.key().keyid().as_u64()
                 .expect("computed keyid is valid");
 
             let r = c.execute(

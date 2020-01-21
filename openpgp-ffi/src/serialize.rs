@@ -283,7 +283,7 @@ fn pgp_recipients_from_key_iter<'a>(
     let result_len = ffi_param_ref_mut!(result_len);
     let recipients =
         iter_wrapper.iter
-        .map(|key| key.into())
+        .map(|ka| ka.key().into())
         .collect::<Vec<openpgp::serialize::stream::Recipient>>();
 
     let result = unsafe {

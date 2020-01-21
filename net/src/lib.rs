@@ -182,8 +182,8 @@ impl KeyServer {
                                          Some(armor::Kind::PublicKey)));
                                  match Cert::from_reader(r) {
                                      Ok(cert) => {
-                                         if cert.keys().any(|key| {
-                                             KeyID::from(key.fingerprint())
+                                         if cert.keys().any(|ka| {
+                                             KeyID::from(ka.key().fingerprint())
                                                  == keyid_want
                                          }) {
                                              future::done(Ok(cert))
