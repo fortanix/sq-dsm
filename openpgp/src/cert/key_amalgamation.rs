@@ -274,7 +274,7 @@ pub struct ValidKeyAmalgamation<'a, P: key::KeyParts> {
 
     // The reference time.
     time: SystemTime,
-    // The binding siganture at time `time`.  (This is just a cache.)
+    // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
 }
 
