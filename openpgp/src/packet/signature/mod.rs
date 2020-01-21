@@ -1212,10 +1212,10 @@ mod test {
                 crate::tests::message(test.data)).unwrap();
             while let PacketParserResult::Some(pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
-                    let result = sig.verify(cert.primary())
+                    let result = sig.verify(cert.primary_key())
                         .map(|_| true).unwrap_or(false);
                     eprintln!("  Primary {:?}: {:?}",
-                              cert.primary().fingerprint(), result);
+                              cert.fingerprint(), result);
                     if result {
                         good += 1;
                     }
@@ -1274,7 +1274,7 @@ mod test {
             "emmelie-dorothea-dina-samantha-awina-ed25519-private.pgp",
         ] {
             let cert = Cert::from_bytes(crate::tests::key(key)).unwrap();
-            let mut pair = cert.primary().clone()
+            let mut pair = cert.primary_key().clone()
                 .mark_parts_secret().unwrap()
                 .into_keypair()
                 .expect("secret key is encrypted/missing");
@@ -1331,7 +1331,7 @@ mod test {
             panic!("Expected a Signature, got: {:?}", p);
         };
 
-        sig.verify_message(cert.primary(), &msg[..]).unwrap();
+        sig.verify_message(cert.primary_key(), &msg[..]).unwrap();
     }
 
     #[test]
@@ -1389,7 +1389,7 @@ mod test {
         let cert = &uid_binding.certifications()[0];
 
         cert.verify_userid_binding(cert_key1,
-                                   test2.primary(),
+                                   test2.primary_key(),
                                    uid_binding.userid()).unwrap();
     }
 
@@ -1473,7 +1473,7 @@ mod test {
         if let Packet::Signature(sig) = p {
             let digest = Signature::hash_standalone(&sig).unwrap();
             eprintln!("{}", crate::fmt::hex::encode(&digest));
-            sig.verify_timestamp(alpha.primary()).unwrap();
+            sig.verify_timestamp(alpha.primary_key()).unwrap();
         } else {
             panic!("expected a signature packet");
         }

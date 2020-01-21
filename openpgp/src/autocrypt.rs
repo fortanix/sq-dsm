@@ -106,7 +106,7 @@ impl AutocryptHeader {
         let mut acc = Vec::new();
 
         // The primary key and the most recent selfsig.
-        acc.push(cert.primary().clone().into());
+        acc.push(cert.primary_key().clone().into());
         cert.direct_signatures().iter().take(1)
             .for_each(|s| acc.push(s.clone().into()));
 
@@ -905,7 +905,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(cert.primary().fingerprint(),
+        assert_eq!(cert.fingerprint(),
                    Fingerprint::from_hex(
                        &"156962B0F3115069ACA970C68E3B03A279B772D6"[..]).unwrap());
         assert_eq!(cert.userids().next().unwrap().value(),
@@ -928,7 +928,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(cert.primary().fingerprint(),
+        assert_eq!(cert.fingerprint(),
                    Fingerprint::from_hex(
                        &"D4AB192964F76A7F8F8A9B357BD18320DEADFA11"[..]).unwrap());
         assert_eq!(cert.userids().next().unwrap().value(),
@@ -951,7 +951,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(cert.primary().fingerprint(),
+        assert_eq!(cert.primary_key().fingerprint(),
                    Fingerprint::from_hex(
                        &"4F9F89F5505AC1D1A260631CDB1187B9DD5F693B"[..]).unwrap());
         assert_eq!(cert.userids().next().unwrap().value(),
@@ -1086,7 +1086,7 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
-        assert_eq!(&cert.primary().fingerprint().to_string(),
+        assert_eq!(&cert.fingerprint().to_string(),
                    "3E88 77C8 7727 4692 9751  89F5 D03F 6F86 5226 FE8B");
         assert_eq!(cert.userids().len(), 1);
         assert_eq!(cert.subkeys().len(), 1);

@@ -133,7 +133,7 @@ fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
     writeln!(output)?;
     writeln!(output, "    Fingerprint: {}", cert.fingerprint())?;
     inspect_revocation(output, "", cert.revoked(None))?;
-    inspect_key(output, "", cert.primary(), cert.primary_key_signature(None),
+    inspect_key(output, "", cert.primary_key(), cert.primary_key_signature(None),
                 cert.certifications(),
                 print_keygrips, print_certifications)?;
     writeln!(output)?;

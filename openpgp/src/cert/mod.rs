@@ -105,7 +105,7 @@ fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
 
 impl fmt::Display for Cert {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.primary().fingerprint())
+        write!(f, "{}", self.fingerprint())
     }
 }
 
@@ -282,7 +282,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 ///     let mut acc = Vec::new();
 ///
 ///     // Primary key and related signatures.
-///     acc.push(cert.primary().clone().into());
+///     acc.push(cert.primary_key().clone().into());
 ///     for s in cert.direct_signatures()  { acc.push(s.clone().into()) }
 ///     for s in cert.certifications()     { acc.push(s.clone().into()) }
 ///     for s in cert.self_revocations()   { acc.push(s.clone().into()) }
@@ -352,7 +352,7 @@ type UnknownBindings = ComponentBindings<Unknown>;
 /// #     let ppr = PacketParser::from_bytes(&b""[..])?;
 /// match Cert::from_packet_parser(ppr) {
 ///     Ok(cert) => {
-///         println!("Key: {}", cert.primary());
+///         println!("Key: {}", cert.primary_key());
 ///         for binding in cert.userids().bindings() {
 ///             println!("User ID: {}", binding.userid());
 ///         }
@@ -408,15 +408,9 @@ impl<'a> Parse<'a, Cert> for Cert {
 }
 
 impl Cert {
-    /// Returns a reference to the primary key binding.
-    ///
-    /// Note: information about the primary key is often stored on the
-    /// primary User ID's self signature.  Since these signatures are
-    /// associated with the UserID and not the primary key, that
-    /// information is not contained in the key binding.  Instead, you
-    /// should use methods like `Cert::primary_key_signature()` to get
-    /// information about the primary key.
-    pub fn primary(&self) -> &key::PublicKey {
+    /// Returns the primary key at time `time`
+    pub fn primary_key(&self) -> &key::PublicKey
+    {
         &self.primary.key()
     }
 
@@ -567,7 +561,7 @@ impl Cert {
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
     ///            cert.revoked(None));
     ///
-    /// let mut keypair = cert.primary().clone()
+    /// let mut keypair = cert.primary_key().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     /// let cert = cert.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
@@ -600,7 +594,7 @@ impl Cert {
     {
         let t = t.into();
         if let Some(sig) = self.primary_key_signature(t) {
-            sig.key_alive(self.primary(), t)
+            sig.key_alive(self.primary_key(), t)
         } else {
             Err(Error::MalformedCert("No primary key signature".into()).into())
         }
@@ -627,7 +621,7 @@ impl Cert {
             let hash_algo = HashAlgorithm::SHA512;
             let mut hash = hash_algo.context()?;
 
-            self.primary().hash(&mut hash);
+            self.primary_key().hash(&mut hash);
             if let Some((userid, _)) = userid {
                 userid.userid().hash(&mut hash);
             } else {
@@ -1149,7 +1143,7 @@ impl Cert {
 
         if self.bad.len() > 0 {
             t!("{}: ignoring {} bad self-signatures",
-               self.primary().keyid(), self.bad.len());
+               self.primary_key().keyid(), self.bad.len());
         }
 
         // Only keep user ids / user attributes / subkeys with at
@@ -1223,12 +1217,12 @@ impl Cert {
 
     /// Returns the Cert's fingerprint.
     pub fn fingerprint(&self) -> Fingerprint {
-        self.primary().fingerprint()
+        self.primary_key().fingerprint()
     }
 
     /// Returns the Cert's keyid.
     pub fn keyid(&self) -> KeyID {
-        self.primary().keyid()
+        self.primary_key().keyid()
     }
 
     /// Converts the Cert into an iterator over a sequence of packets.
@@ -1252,8 +1246,7 @@ impl Cert {
     ///
     /// If `other` is a different key, then an error is returned.
     pub fn merge(mut self, mut other: Cert) -> Result<Self> {
-        if self.primary().fingerprint()
-            != other.primary().fingerprint()
+        if self.fingerprint() != other.fingerprint()
         {
             // The primary key is not the same.  There is nothing to
             // do.
@@ -1335,7 +1328,7 @@ impl Cert {
     /// Returns whether at least one of the keys includes a secret
     /// part.
     pub fn is_tsk(&self) -> bool {
-        if self.primary().secret().is_some() {
+        if self.primary_key().secret().is_some() {
             return true;
         }
         self.subkeys().any(|sk| {
@@ -1825,14 +1818,14 @@ mod test {
         let cert = Cert::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
         assert!(! cert.primary_key_signature(None).unwrap()
-                .key_alive(cert.primary(), None).is_ok());
+                .key_alive(cert.primary_key(), None).is_ok());
 
         let update =
             Cert::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let cert = cert.merge(update).unwrap();
         assert!(cert.primary_key_signature(None).unwrap()
-                .key_alive(cert.primary(), None).is_ok());
+                .key_alive(cert.primary_key(), None).is_ok());
     }
 
     #[test]
@@ -1892,14 +1885,14 @@ mod test {
         let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
 
-        let now = cert.primary().creation_time();
+        let now = cert.primary_key().creation_time();
         let a_sec = time::Duration::new(1, 0);
 
         let expiry_orig = cert.primary_key_signature(None).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
 
-        let mut keypair = cert.primary().clone().mark_parts_secret()
+        let mut keypair = cert.primary_key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         // Clear the expiration.
@@ -2072,7 +2065,7 @@ mod test {
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    cert.revoked(None));
 
-        let mut keypair = cert.primary().clone().mark_parts_secret()
+        let mut keypair = cert.primary_key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         let sig = CertRevocationBuilder::new()
@@ -2082,9 +2075,9 @@ mod test {
             .build(&mut keypair, &cert, None)
             .unwrap();
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-        assert_eq!(sig.issuer(), Some(&cert.primary().keyid()));
+        assert_eq!(sig.issuer(), Some(&cert.primary_key().keyid()));
         assert_eq!(sig.issuer_fingerprint(),
-                   Some(&cert.primary().fingerprint()));
+                   Some(&cert.fingerprint()));
 
         let cert = cert.merge_packets(vec![sig.into()]).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = cert.revoked(None));
@@ -2094,7 +2087,7 @@ mod test {
         let (other, _) = CertBuilder::autocrypt(None, Some("Test 2"))
             .generate().unwrap();
 
-        let mut keypair = other.primary().clone().mark_parts_secret()
+        let mut keypair = other.primary_key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
 
         let sig = CertRevocationBuilder::new()
@@ -2105,9 +2098,9 @@ mod test {
             .unwrap();
 
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-        assert_eq!(sig.issuer(), Some(&other.primary().keyid()));
+        assert_eq!(sig.issuer(), Some(&other.keyid()));
         assert_eq!(sig.issuer_fingerprint(),
-                   Some(&other.primary().fingerprint()));
+                   Some(&other.fingerprint()));
     }
 
     #[test]
@@ -2120,7 +2113,7 @@ mod test {
             let subkey = cert.subkeys().nth(0).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, subkey.revoked(None));
 
-            let mut keypair = cert.primary().clone().mark_parts_secret()
+            let mut keypair = cert.primary_key().clone().mark_parts_secret()
                 .unwrap().into_keypair().unwrap();
             SubkeyRevocationBuilder::new()
                 .set_reason_for_revocation(
@@ -2149,7 +2142,7 @@ mod test {
             let uid = cert.userids().policy(None).nth(1).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
 
-            let mut keypair = cert.primary().clone().mark_parts_secret()
+            let mut keypair = cert.primary_key().clone().mark_parts_secret()
                 .unwrap().into_keypair().unwrap();
             UserIDRevocationBuilder::new()
                 .set_reason_for_revocation(
@@ -2892,7 +2885,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // Have alice cerify the binding "bob@bar.com" and bob's key.
             let alice_certifies_bob
                 = bob_userid_binding.userid().bind(
-                    &mut alice.primary().clone().mark_parts_secret()
+                    &mut alice.primary_key().clone().mark_parts_secret()
                         .unwrap().into_keypair().unwrap(),
                     &bob,
                     sig_template).unwrap();
@@ -2918,8 +2911,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
             // Make sure the certification is correct.
             alice_certifies_bob
-                .verify_userid_binding(&alice.primary().clone(),
-                                       &bob.primary().clone(),
+                .verify_userid_binding(&alice.primary_key().clone(),
+                                       &bob.primary_key().clone(),
                                        bob_userid_binding.userid()).unwrap();
         }
    }
@@ -2933,7 +2926,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.keys().secret().count(), 2);
         assert_eq!(cert.keys().unencrypted_secret().count(), 0);
 
-        let mut primary = cert.primary().clone();
+        let mut primary = cert.primary_key().clone();
         let algo = primary.pk_algo();
         primary.secret_mut().unwrap()
             .decrypt_in_place(algo, &"streng geheim".into()).unwrap();

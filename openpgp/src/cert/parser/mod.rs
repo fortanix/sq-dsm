@@ -401,7 +401,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// for certo in CertParser::from_packet_parser(ppr) {
 ///     match certo {
 ///         Ok(cert) => {
-///             println!("Key: {}", cert.primary());
+///             println!("Key: {}", cert.primary_key());
 ///             for uid in cert.userids() {
 ///                 println!("User ID: {}", uid);
 ///             }
@@ -661,7 +661,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
                 b.other_revocations = other_revs;
             }
 
-            let primary_fp: KeyHandle = cert.primary().fingerprint().into();
+            let primary_fp: KeyHandle = cert.key_handle();
             let primary_keyid = KeyHandle::KeyID(primary_fp.clone().into());
 
             // The parser puts all of the signatures on the
@@ -757,7 +757,7 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for CertParser<'a, I> {
                         Ok(Some(cert)) => {
                             if TRACE {
                                 eprintln!("CertParser::next => {}",
-                                          cert.primary().fingerprint());
+                                          cert.fingerprint());
                             }
                             return Some(Ok(cert));
                         }

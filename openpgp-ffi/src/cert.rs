@@ -153,7 +153,7 @@ fn pgp_cert_as_tsk(cert: *const Cert) -> *mut TSK<'static> {
 /// The cert still owns the key.  The caller must not modify the key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_primary_key(cert: *const Cert) -> *const Key {
-    let key = cert.ref_raw().primary()
+    let key = cert.ref_raw().primary_key()
         .mark_parts_unspecified_ref().mark_role_unspecified_ref();
     key.move_into_raw()
 }
