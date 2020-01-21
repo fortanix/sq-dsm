@@ -2449,7 +2449,7 @@ impl Serialize for PacketPile {
     /// Exports a serialized version of the specified `PacketPile` to `o`.
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for p in self.children() {
-            dbg!(dbg!(p).export(o))?;
+            p.export(o)?;
         }
 
         Ok(())

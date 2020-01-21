@@ -695,7 +695,7 @@ mod tests {
             .add_userid("foo")
             .add_signing_subkey()
             .generate().unwrap();
-        dbg!(&cert);
+
         assert_eq!(cert.primary().creation_time(), UNIX_EPOCH);
         assert_eq!(cert.primary_key_signature(None).unwrap()
                    .signature_creation_time().unwrap(), UNIX_EPOCH);
