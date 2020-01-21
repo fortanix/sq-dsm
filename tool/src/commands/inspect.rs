@@ -202,7 +202,7 @@ fn inspect_key<P, R>(output: &mut dyn io::Write,
                      expires.convert())?;
         }
 
-        if let Some(flags) = inspect_key_flags(sig.key_flags()) {
+        if let Some(flags) = sig.key_flags().and_then(inspect_key_flags) {
             writeln!(output, "{}       Key flags: {}", indent, flags)?;
         }
     }

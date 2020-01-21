@@ -503,7 +503,7 @@ mod tests {
         let sig =
             cert.keys().primary(None).unwrap().binding_signature();
         assert_eq!(sig.typ(), crate::types::SignatureType::DirectKey);
-        assert!(sig.features().supports_mdc());
+        assert!(sig.features().unwrap().supports_mdc());
     }
 
     #[test]
@@ -535,7 +535,7 @@ mod tests {
                    PublicKeyAlgorithm::EdDSA);
         assert!(cert1.subkeys().next().is_none());
         if let Some(sig) = cert1.primary_key_signature(None) {
-            assert!(sig.features().supports_mdc());
+            assert!(sig.features().unwrap().supports_mdc());
         } else {
             panic!();
         }

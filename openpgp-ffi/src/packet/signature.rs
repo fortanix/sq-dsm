@@ -71,14 +71,14 @@ fn pgp_signature_issuer_fingerprint(sig: *const Signature)
 /// make certifications.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_for_certification(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().for_certification()
+    sig.ref_raw().key_flags().unwrap_or_default().for_certification()
 }
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// make signatures.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_for_signing(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().for_signing()
+    sig.ref_raw().key_flags().unwrap_or_default().for_signing()
 }
 
 /// Returns whether the KeyFlags indicates that the key can be used to
@@ -86,35 +86,35 @@ fn pgp_signature_for_signing(sig: *const Signature) -> bool {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_for_transport_encryption(sig: *const Signature)
                                            -> bool {
-    sig.ref_raw().key_flags().for_transport_encryption()
+    sig.ref_raw().key_flags().unwrap_or_default().for_transport_encryption()
 }
 
 /// Returns whether the KeyFlags indicates that the key can be used to
 /// encrypt data at rest.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_for_storage_encryption(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().for_storage_encryption()
+    sig.ref_raw().key_flags().unwrap_or_default().for_storage_encryption()
 }
 
 /// Returns whether the KeyFlags indicates that the key can be used
 /// for authentication.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_for_authentication(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().for_authentication()
+    sig.ref_raw().key_flags().unwrap_or_default().for_authentication()
 }
 
 /// Returns whether the KeyFlags indicates that the key is a split
 /// key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_is_split_key(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().is_split_key()
+    sig.ref_raw().key_flags().unwrap_or_default().is_split_key()
 }
 
 /// Returns whether the KeyFlags indicates that the key is a group
 /// key.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_is_group_key(sig: *const Signature) -> bool {
-    sig.ref_raw().key_flags().is_group_key()
+    sig.ref_raw().key_flags().unwrap_or_default().is_group_key()
 }
 
 

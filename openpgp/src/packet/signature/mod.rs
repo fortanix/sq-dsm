@@ -816,7 +816,7 @@ impl crate::packet::Signature {
 
         // The signature is good, but we may still need to verify the
         // back sig.
-        if self.key_flags().for_signing() {
+        if self.key_flags().map(|kf| kf.for_signing()).unwrap_or(false) {
             if let Some(backsig) = self.embedded_signature() {
                 backsig.verify_primary_key_binding(pk, subkey)
             } else {

@@ -1293,16 +1293,16 @@ impl SubpacketArea {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn key_server_preferences(&self) -> KeyServerPreferences {
+    pub fn key_server_preferences(&self) -> Option<KeyServerPreferences> {
         // N octets of flags
         if let Some(sb) = self.subpacket(SubpacketTag::KeyServerPreferences) {
             if let SubpacketValue::KeyServerPreferences(v) = &sb.value {
-                v.clone()
+                Some(v.clone())
             } else {
-                KeyServerPreferences::default()
+                None
             }
         } else {
-            KeyServerPreferences::default()
+            None
         }
     }
 
@@ -1380,20 +1380,20 @@ impl SubpacketArea {
     /// used (certification, signing, encryption, authentication), and
     /// how it is stored (split, held by multiple people).
     ///
-    /// If the subpacket is not present, this returns the empty set.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn key_flags(&self) -> KeyFlags {
+    pub fn key_flags(&self) -> Option<KeyFlags> {
         // N octets of flags
         if let Some(sb) = self.subpacket(SubpacketTag::KeyFlags) {
             if let SubpacketValue::KeyFlags(v) = &sb.value {
-                v.clone()
+                Some(v.clone())
             } else {
-                KeyFlags::default()
+                None
             }
         } else {
-            KeyFlags::default()
+            None
         }
     }
 
@@ -1447,21 +1447,20 @@ impl SubpacketArea {
     /// list of features that the user's OpenPGP implementation
     /// supports.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// the default value.
+    /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn features(&self) -> Features {
+    pub fn features(&self) -> Option<Features> {
         // N octets of flags
         if let Some(sb) = self.subpacket(SubpacketTag::Features) {
             if let SubpacketValue::Features(v) = &sb.value {
-                v.clone()
+                Some(v.clone())
             } else {
-                Features::default()
+                None
             }
         } else {
-            Features::default()
+            None
         }
     }
 
@@ -2432,7 +2431,7 @@ fn accessors() {
     sig = sig.set_key_server_preferences(pref.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.key_server_preferences(), pref);
+    assert_eq!(sig_.key_server_preferences().unwrap(), pref);
 
     sig = sig.set_primary_userid(true).unwrap();
     let sig_ =
@@ -2454,7 +2453,7 @@ fn accessors() {
     sig = sig.set_key_flags(&key_flags).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.key_flags(), key_flags);
+    assert_eq!(sig_.key_flags().unwrap(), key_flags);
 
     sig = sig.set_signers_user_id(b"foobar").unwrap();
     let sig_ =
@@ -2472,13 +2471,13 @@ fn accessors() {
     sig = sig.set_features(&feats).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.features(), feats);
+    assert_eq!(sig_.features().unwrap(), feats);
 
     let feats = Features::default().set_aead(true);
     sig = sig.set_features(&feats).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.features(), feats);
+    assert_eq!(sig_.features().unwrap(), feats);
 
     let digest = vec![0; hash_algo.context().unwrap().digest_size()];
     sig = sig.set_signature_target(pk_algo, hash_algo, &digest).unwrap();
@@ -2730,7 +2729,7 @@ fn subpacket_test_2() {
                                 CompressionAlgorithm::Zip]
                        )}));
 
-        assert_eq!(sig.key_server_preferences(),
+        assert_eq!(sig.key_server_preferences().unwrap(),
                    KeyServerPreferences::default().set_no_modify(true));
         assert_eq!(sig.subpacket(SubpacketTag::KeyServerPreferences),
                    Some(&Subpacket {
@@ -2740,7 +2739,8 @@ fn subpacket_test_2() {
                            KeyServerPreferences::default().set_no_modify(true)),
                    }));
 
-        assert!(sig.key_flags().for_certification() && sig.key_flags().for_signing());
+        assert!(sig.key_flags().unwrap().for_certification());
+        assert!(sig.key_flags().unwrap().for_signing());
         assert_eq!(sig.subpacket(SubpacketTag::KeyFlags),
                    Some(&Subpacket {
                        length: 2.into(),
@@ -2749,7 +2749,7 @@ fn subpacket_test_2() {
                            KeyFlags::default().set_certification(true).set_signing(true))
                    }));
 
-        assert_eq!(sig.features(), Features::default().set_mdc(true));
+        assert_eq!(sig.features().unwrap(), Features::default().set_mdc(true));
         assert_eq!(sig.subpacket(SubpacketTag::Features),
                    Some(&Subpacket {
                        length: 2.into(),

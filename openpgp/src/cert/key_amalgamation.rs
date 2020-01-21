@@ -281,8 +281,7 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
 
     /// Returns the key's key flags as of the amalgamtion's
     /// reference time.
-    pub fn key_flags(&self) -> KeyFlags
-    {
+    pub fn key_flags(&self) -> Option<KeyFlags> {
         self.binding_signature.key_flags()
     }
 
@@ -291,7 +290,7 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     pub fn has_any_key_flag<F>(&self, flags: F) -> bool
         where F: Borrow<KeyFlags>
     {
-        let our_flags = self.key_flags();
+        let our_flags = self.key_flags().unwrap_or_default();
         !(&our_flags & flags.borrow()).is_empty()
     }
 
