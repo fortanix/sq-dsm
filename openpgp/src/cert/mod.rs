@@ -429,10 +429,7 @@ impl Cert {
 
         // 1. Self-signature from the non-revoked primary UserID.
         let primary_userid = self.userids().primary(t).map(|ca| {
-            (ca.binding(),
-             ca.binding_signature()
-             .expect("primary userid must have a binding signature"),
-             ca.revoked())
+            (ca.binding(), ca.binding_signature(), ca.revoked())
         });
         if let Some((ref u, ref s, ref r)) = primary_userid {
             if !destructures_to!(RevocationStatus::Revoked(_) = r) {
@@ -446,9 +443,9 @@ impl Cert {
         }
 
         // 3. All User IDs are revoked.
-        if let Some((u, s, r)) = primary_userid {
+        if let Some((ref u, ref s, ref r)) = primary_userid {
             assert!(destructures_to!(RevocationStatus::Revoked(_) = &r));
-            return Some((s, Some((u, r))));
+            return Some((s, Some((u, r.clone()))));
         }
 
         // 4. No user ids and no direct signatures.
@@ -1955,7 +1952,7 @@ mod test {
             }
 
             for userid in cert.userids().policy(None) {
-                let typ = userid.binding_signature().unwrap().typ();
+                let typ = userid.binding_signature().typ();
                 assert_eq!(typ, SignatureType::PositiveCertification,
                            "{:#?}", cert);
 
@@ -2380,8 +2377,7 @@ mod test {
             let now = time::SystemTime::now();
             let selfsig0
                 = cert.userids().policy(now).map(|b| {
-                    b.binding_signature().unwrap()
-                        .signature_creation_time().unwrap()
+                    b.binding_signature().signature_creation_time().unwrap()
                 })
                 .max().unwrap();
 
@@ -2630,8 +2626,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let now = time::SystemTime::now();
         let selfsig0
             = cert.userids().policy(now).map(|b| {
-                b.binding_signature().unwrap()
-                    .signature_creation_time().unwrap()
+                b.binding_signature().signature_creation_time().unwrap()
             })
             .max().unwrap();
 
@@ -2686,8 +2681,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             crate::tests::key("primary-key-0-public.pgp")).unwrap();
         let selfsig0
             = cert.userids().policy(now).map(|b| {
-                b.binding_signature().unwrap()
-                    .signature_creation_time().unwrap()
+                b.binding_signature().signature_creation_time().unwrap()
             })
             .max().unwrap();
 

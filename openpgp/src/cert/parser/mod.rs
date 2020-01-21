@@ -402,8 +402,8 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 ///     match certo {
 ///         Ok(cert) => {
 ///             println!("Key: {}", cert.fingerprint());
-///             for uid in cert.userids() {
-///                 println!("User ID: {}", uid);
+///             for ca in cert.userids() {
+///                 println!("User ID: {}", ca.userid());
 ///             }
 ///         }
 ///         Err(err) => {

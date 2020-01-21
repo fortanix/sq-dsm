@@ -22,6 +22,10 @@ use super::{
     sig_cmp,
     canonical_signature_order,
 };
+pub use super::amalgamation::{
+    ComponentAmalgamation,
+    ValidComponentAmalgamation,
+};
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.

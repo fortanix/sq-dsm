@@ -132,8 +132,7 @@ impl AutocryptHeader {
             if let Ok(Some(a)) = uidb.userid().email() {
                 if &a == addr {
                     acc.push(uidb.userid().clone().into());
-                    uidb.binding_signature().iter()
-                        .for_each(|&s| acc.push(s.clone().into()));
+                    acc.push(uidb.binding_signature().clone().into());
                 } else {
                     // Address is not matching.
                     continue;

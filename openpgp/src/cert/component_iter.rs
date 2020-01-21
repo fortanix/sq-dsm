@@ -9,7 +9,10 @@ use crate::{
             ComponentBinding,
             ComponentBindingIter,
         },
-        amalgamation::ComponentAmalgamation,
+        amalgamation::{
+            ComponentAmalgamation,
+            ValidComponentAmalgamation,
+        },
     },
 };
 
@@ -38,10 +41,10 @@ impl<'a, C> fmt::Debug for ComponentIter<'a, C> {
 }
 
 impl<'a, C> Iterator for ComponentIter<'a, C> {
-    type Item = &'a C;
+    type Item = ComponentAmalgamation<'a, C>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|c| c.component())
+        self.iter.next().map(|c| ComponentAmalgamation::new(self.cert, c))
     }
 }
 
@@ -89,7 +92,7 @@ impl<'a, C> ComponentIter<'a, C>
     ///
     /// If there is more than one, than one is selected in a
     /// deterministic, but undefined manner.
-    pub fn primary<T>(self, time: T) -> Option<ComponentAmalgamation<'a, C>>
+    pub fn primary<T>(self, time: T) -> Option<ValidComponentAmalgamation<'a, C>>
         where T: Into<Option<SystemTime>>
     {
         use std::cmp::Ordering;
@@ -146,7 +149,8 @@ impl<'a, C> ComponentIter<'a, C>
                         panic!("non-canonicalized Cert (duplicate components)"),
                 }
             })
-            .map(|c| ComponentAmalgamation::new(self.cert, (c.0).0, t))
+            .and_then(|c| ComponentAmalgamation::new(self.cert, (c.0).0)
+                      .policy(t).ok())
     }
 
     /// Changes the iterator to return component bindings.
@@ -190,27 +194,26 @@ impl<'a, C> fmt::Debug for ValidComponentIter<'a, C> {
 impl<'a, C> Iterator for ValidComponentIter<'a, C>
     where C: std::fmt::Debug
 {
-    type Item = ComponentAmalgamation<'a, C>;
+    type Item = ValidComponentAmalgamation<'a, C>;
 
     fn next(&mut self) -> Option<Self::Item> {
         tracer!(false, "ValidComponentIter::next", 0);
         t!("ValidComponentIter: {:?}", self);
 
         loop {
-            let ca = ComponentAmalgamation::new(self.cert, self.iter.next()?,
-                                                self.time);
+            let ca = ComponentAmalgamation::new(self.cert, self.iter.next()?);
             t!("Considering component: {:?}", ca.binding());
 
-            let _binding_signature
-                = if let Some(binding_signature) = ca.binding_signature() {
-                    binding_signature
+            let vca
+                = if let Ok(vca) = ca.policy(self.time) {
+                    vca
                 } else {
                     t!("No self-signature at time {:?}", self.time);
                     continue;
                 };
 
             if let Some(want_revoked) = self.revoked {
-                if let RevocationStatus::Revoked(_) = ca.revoked() {
+                if let RevocationStatus::Revoked(_) = vca.revoked() {
                     // The component is definitely revoked.
                     if ! want_revoked {
                         t!("Component revoked... skipping.");
@@ -225,7 +228,7 @@ impl<'a, C> Iterator for ValidComponentIter<'a, C>
                 }
             }
 
-            return Some(ca);
+            return Some(vca);
         }
     }
 }

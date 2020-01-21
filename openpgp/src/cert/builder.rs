@@ -712,7 +712,7 @@ mod tests {
         // UserIDs.
         assert_eq!(cert.userids().count(), 1);
         for ui in cert.userids().policy(None) {
-            assert_eq!(ui.binding_signature().unwrap()
+            assert_eq!(ui.binding_signature()
                        .signature_creation_time().unwrap(), UNIX_EPOCH);
         }
     }
