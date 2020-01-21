@@ -4,6 +4,7 @@ use clap;
 
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, Result};
+use openpgp::packet::key::PublicParts;
 use crate::openpgp::parse::{Parse, PacketParserResult};
 
 use super::dump::Convert;
@@ -133,24 +134,14 @@ fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
     writeln!(output)?;
     writeln!(output, "    Fingerprint: {}", cert.fingerprint())?;
     inspect_revocation(output, "", cert.revoked(None))?;
-    let primary = cert.primary_key().binding();
-    inspect_key(output, "", primary.key(), cert.primary_key_signature(None),
-                primary.certifications(),
+    inspect_key(output, "", cert.keys().nth(0).unwrap(),
                 print_keygrips, print_certifications)?;
     writeln!(output)?;
 
-    for ka in cert.keys().skip(1) {
-        writeln!(output, "         Subkey: {}", ka.key().fingerprint())?;
-        match ka.policy(None) {
-            Ok(ka) => {
-                inspect_revocation(output, "", ka.revoked())?;
-                inspect_key(output, "", ka.key(), Some(ka.binding_signature()),
-                            ka.binding().certifications(),
-                            print_keygrips, print_certifications)?;
-            }
-            Err(err) =>
-                writeln!(output, "             Not valid: {}", err)?,
-        }
+    for vka in cert.keys().skip_primary().policy(None) {
+        writeln!(output, "         Subkey: {}", vka.key().fingerprint())?;
+        inspect_revocation(output, "", vka.revoked())?;
+        inspect_key(output, "", vka.into(), print_keygrips, print_certifications)?;
         writeln!(output)?;
     }
 
@@ -173,22 +164,27 @@ fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
     Ok(())
 }
 
-fn inspect_key<P, R>(output: &mut dyn io::Write,
-                     indent: &str,
-                     key: &openpgp::packet::Key<P, R>,
-                     binding_signature: Option<&openpgp::packet::Signature>,
-                     certs: &[openpgp::packet::Signature],
-                     print_keygrips: bool,
-                     print_certifications: bool)
+fn inspect_key(output: &mut dyn io::Write,
+               indent: &str,
+               ka: openpgp::cert::KeyAmalgamation<PublicParts>,
+               print_keygrips: bool,
+               print_certifications: bool)
         -> Result<()>
-        where P: openpgp::packet::key::KeyParts,
-              R: openpgp::packet::key::KeyRole
 {
-    if let Some(sig) = binding_signature {
-        if let Err(e) = sig.key_alive(key, None) {
+    let key = ka.key();
+    let binding = ka.binding();
+    let vka = match ka.policy(None) {
+        Ok(vka) => {
+            if let Err(e) = vka.alive() {
+                writeln!(output, "{}                 Invalid: {}", indent, e)?;
+            }
+            Some(vka)
+        },
+        Err(e) => {
             writeln!(output, "{}                 Invalid: {}", indent, e)?;
-        }
-    }
+            None
+        },
+    };
 
     if print_keygrips {
         writeln!(output, "{}        Keygrip: {}", indent,
@@ -200,8 +196,8 @@ fn inspect_key<P, R>(output: &mut dyn io::Write,
     }
     writeln!(output, "{}  Creation time: {}", indent,
              key.creation_time().convert())?;
-    if let Some(sig) = binding_signature {
-        if let Some(expires) = sig.key_expiration_time() {
+    if let Some(vka) = vka {
+        if let Some(expires) = vka.key_expiration_time() {
             let expiration_time = key.creation_time() + expires;
             writeln!(output, "{}Expiration time: {} (creation time + {})",
                      indent,
@@ -209,11 +205,12 @@ fn inspect_key<P, R>(output: &mut dyn io::Write,
                      expires.convert())?;
         }
 
-        if let Some(flags) = sig.key_flags().and_then(inspect_key_flags) {
+        if let Some(flags) = vka.key_flags().and_then(inspect_key_flags) {
             writeln!(output, "{}       Key flags: {}", indent, flags)?;
         }
     }
-    inspect_certifications(output, certs, print_certifications)?;
+    inspect_certifications(output, binding.certifications(),
+                           print_certifications)?;
 
     Ok(())
 }

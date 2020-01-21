@@ -499,7 +499,10 @@ impl Cert {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self.primary._revoked(true, self.primary_key_signature(t), t)
+        self.primary._revoked(
+            true,
+            self.primary_key().policy(t).ok().map(|ka| ka.binding_signature()),
+            t)
     }
 
     /// Revokes the Cert in place.
@@ -562,11 +565,7 @@ impl Cert {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        if let Some(sig) = self.primary_key_signature(t) {
-            sig.key_alive(self.primary_key().key(), t)
-        } else {
-            Err(Error::MalformedCert("No primary key signature".into()).into())
-        }
+        self.primary_key().policy(t)?.alive()
     }
 
     /// Sets the key to expire in delta seconds.
@@ -581,30 +580,37 @@ impl Cert {
                         now: time::SystemTime)
         -> Result<Cert>
     {
-        let sig = {
-            let (template, userid) = self
-                .primary_key_signature_full(Some(now))
-                .ok_or(Error::MalformedCert("No self-signature".into()))?;
-
+        let primary = self.primary_key().policy(now)?;
+        let mut sigs = Vec::new();
+        for template in [
+            Some(primary.binding_signature()),
+            primary.direct_key_signature(),
+        ].iter().filter_map(|&x| x) {
             // Recompute the signature.
             let hash_algo = HashAlgorithm::SHA512;
             let mut hash = hash_algo.context()?;
 
             self.primary_key().hash(&mut hash);
-            if let Some((userid, _)) = userid {
-                userid.userid().hash(&mut hash);
-            } else {
-                assert_eq!(template.typ(), SignatureType::DirectKey);
+            match template.typ() {
+                SignatureType::DirectKey =>
+                    (), // Nothing to hash.
+                SignatureType::GenericCertification
+                    | SignatureType::PersonaCertification
+                    | SignatureType::CasualCertification
+                    | SignatureType::PositiveCertification =>
+                    self.primary_userid(now).unwrap()
+                    .userid().hash(&mut hash),
+                _ => unreachable!(),
             }
 
             // Generate the signature.
-            signature::Builder::from(template.clone())
-                .set_key_expiration_time(expiration)?
-                .set_signature_creation_time(now)?
-                .sign_hash(primary_signer, hash)?
-        };
+            sigs.push(signature::Builder::from(template.clone())
+                      .set_key_expiration_time(expiration)?
+                      .set_signature_creation_time(now)?
+                      .sign_hash(primary_signer, hash)?.into());
+        }
 
-        self.merge_packets(vec![sig.into()])
+        self.merge_packets(sigs)
     }
 
     /// Sets the key to expire in delta.
@@ -1796,15 +1802,13 @@ mod test {
     fn merge_with_incomplete_update() {
         let cert = Cert::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
-        assert!(! cert.primary_key_signature(None).unwrap()
-                .key_alive(cert.primary_key().key(), None).is_ok());
+        cert.primary_key().policy(None).unwrap().alive().unwrap_err();
 
         let update =
             Cert::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let cert = cert.merge(update).unwrap();
-        assert!(cert.primary_key_signature(None).unwrap()
-                .key_alive(cert.primary_key().key(), None).is_ok());
+        cert.primary_key().policy(None).unwrap().alive().unwrap();
     }
 
     #[test]
@@ -1867,7 +1871,7 @@ mod test {
         let now = cert.primary_key().creation_time();
         let a_sec = time::Duration::new(1, 0);
 
-        let expiry_orig = cert.primary_key_signature(None).unwrap()
+        let expiry_orig = cert.primary_key().policy(None).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
 
@@ -1882,14 +1886,14 @@ mod test {
             as_of1).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
-            assert_eq!(cert.primary_key_signature(now).unwrap()
+            assert_eq!(cert.primary_key().policy(now).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
-            assert_eq!(cert.primary_key_signature(as_of1 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().policy(as_of1 - a_sec).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
             // If t >= as_of1, we should get the new expiry.
-            assert_eq!(cert.primary_key_signature(as_of1).unwrap()
+            assert_eq!(cert.primary_key().policy(as_of1).unwrap()
                            .key_expiration_time(),
                        None);
         }
@@ -1907,22 +1911,22 @@ mod test {
             as_of2).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
-            assert_eq!(cert.primary_key_signature(now).unwrap()
+            assert_eq!(cert.primary_key().policy(now).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
-            assert_eq!(cert.primary_key_signature(as_of1 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().policy(as_of1 - a_sec).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
             // If as_of1 <= t < as_of2, we should get the second
             // expiry (None).
-            assert_eq!(cert.primary_key_signature(as_of1).unwrap()
+            assert_eq!(cert.primary_key().policy(as_of1).unwrap()
                            .key_expiration_time(),
                        None);
-            assert_eq!(cert.primary_key_signature(as_of2 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().policy(as_of2 - a_sec).unwrap()
                            .key_expiration_time(),
                        None);
             // If t <= as_of2, we should get the new expiry.
-            assert_eq!(cert.primary_key_signature(as_of2).unwrap()
+            assert_eq!(cert.primary_key().policy(as_of2).unwrap()
                            .key_expiration_time(),
                        Some(expiry_new));
         }
@@ -1940,7 +1944,7 @@ mod test {
         cert1.serialize(&mut buf).unwrap();
         let cert2 = Cert::from_bytes(&buf).unwrap();
 
-        assert_eq!(cert2.primary_key_signature(None).unwrap().typ(),
+        assert_eq!(cert2.primary_key().binding().self_signatures()[0].typ(),
                    SignatureType::DirectKey);
         assert_eq!(cert2.userids().count(), 0);
     }
@@ -1951,7 +1955,8 @@ mod test {
                  userid_revoked: bool, subkey_revoked: bool) {
             // If we have a user id---even if it is revoked---we have
             // a primary key signature.
-            let typ = cert.primary_key_signature(None).unwrap().typ();
+            let typ = cert.primary_key().policy(None).unwrap()
+                .binding_signature().typ();
             assert_eq!(typ, SignatureType::PositiveCertification,
                        "{:#?}", cert);
 
@@ -2271,8 +2276,8 @@ mod test {
             let cert = Cert::from_bytes(
                 crate::tests::key(
                     &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
-            let selfsig0 = cert.primary_key_signature(None).unwrap()
-                .signature_creation_time().unwrap();
+            let selfsig0 = cert.primary_key().policy(None).unwrap()
+                .binding_signature().signature_creation_time().unwrap();
 
             assert!(!revoked(&cert, Some(selfsig0)));
             assert!(!revoked(&cert, None));
@@ -2781,13 +2786,20 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let t3 = time::UNIX_EPOCH + time::Duration::new(1009839600, 0); // 2002-1-1
         let t4 = time::UNIX_EPOCH + time::Duration::new(1041375600, 0); // 2003-1-1
 
-        let key: key::SecretKey
+        let mut key: key::SecretKey
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+        key.set_creation_time(t1).unwrap();
         let mut pair = key.clone().into_keypair().unwrap();
         let pk : key::PublicKey = key.clone().into();
         let mut cert = Cert::from_packet_pile(PacketPile::from(vec![
             pk.into(),
         ])).unwrap();
+        let uid: UserID = "foo@example.org".into();
+        let sig = uid.certify(&mut pair, &cert,
+                              SignatureType::PositiveCertification,
+                              None,
+                              t1).unwrap();
+        cert = cert.merge_packets(vec![uid.into(), sig.into()]).unwrap();
 
         for (t, offset) in &[ (t2, 0), (t4, 0), (t3, 100), (t1, 300) ] {
             for i in 0..100 {
@@ -2811,19 +2823,22 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 // A time that matches multiple signatures.
                 let direct_signatures =
                     cert.primary_key().binding().self_signatures();
-                assert_eq!(cert.primary_key_signature(*t),
+                assert_eq!(cert.primary_key().policy(*t).unwrap()
+                           .direct_key_signature(),
                            direct_signatures.get(*offset));
                 // A time that doesn't match any signature.
-                assert_eq!(cert.primary_key_signature(*t + a_sec),
+                assert_eq!(cert.primary_key().policy(*t + a_sec).unwrap()
+                           .direct_key_signature(),
                            direct_signatures.get(*offset));
 
                 // The current time, which should use the first signature.
-                assert_eq!(cert.primary_key_signature(None),
+                assert_eq!(cert.primary_key().policy(None).unwrap()
+                           .direct_key_signature(),
                            direct_signatures.get(0));
 
                 // The beginning of time, which should return no
                 // binding signatures.
-                assert_eq!(cert.primary_key_signature(time_zero), None);
+                assert!(cert.primary_key().policy(time_zero).is_err());
             }
         }
     }

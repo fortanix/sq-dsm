@@ -750,7 +750,8 @@ mod test {
         let uid_binding = uid.bind(
             &mut keypair, &cert,
             signature::Builder::from(
-                cert.primary_key_signature(None).unwrap().clone())
+                cert.primary_key().policy(None).unwrap()
+                    .direct_key_signature().unwrap().clone())
                 .set_type(SignatureType::PositiveCertification)
                 .set_exportable_certification(false).unwrap()).unwrap();
 
@@ -760,7 +761,8 @@ mod test {
         let ua_binding = ua.bind(
             &mut keypair, &cert,
             signature::Builder::from(
-                cert.primary_key_signature(None).unwrap().clone())
+                cert.primary_key().policy(None).unwrap()
+                    .direct_key_signature().unwrap().clone())
                 .set_type(SignatureType::PositiveCertification)
                 .set_exportable_certification(false).unwrap()).unwrap();
 

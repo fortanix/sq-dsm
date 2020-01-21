@@ -534,11 +534,8 @@ mod tests {
         assert_eq!(cert1.primary_key().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert!(cert1.subkeys().next().is_none());
-        if let Some(sig) = cert1.primary_key_signature(None) {
-            assert!(sig.features().unwrap().supports_mdc());
-        } else {
-            panic!();
-        }
+        assert!(cert1.primary_userid(None).unwrap()
+                .binding_signature().features().unwrap().supports_mdc());
     }
 
     #[test]
@@ -576,14 +573,8 @@ mod tests {
             .primary_key_flags(KeyFlags::default())
             .add_transport_encryption_subkey()
             .generate().unwrap();
-        let sig_pkts = &cert1.primary_key_signature(None).unwrap().hashed_area();
-
-        match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
-            SubpacketValue::KeyFlags(ref ks) => assert!(ks.for_certification()),
-            v => panic!("Unexpected subpacket: {:?}", v),
-        }
-
-        assert_eq!(cert1.subkeys().count(), 1);
+        assert!(cert1.primary_key().policy(None).unwrap().for_certification());
+        assert_eq!(cert1.keys().subkeys().count(), 1);
     }
 
     #[test]
@@ -666,7 +657,7 @@ mod tests {
         let now = cert.primary_key().creation_time()
             + 5 * s; // The subkeys may be created a tad later.
         let key = cert.primary_key().key();
-        let sig = cert.primary_key_signature(None).unwrap();
+        let sig = &cert.primary_key().binding().self_signatures()[0];
         assert!(sig.key_alive(key, now).is_ok());
         assert!(sig.key_alive(key, now + 590 * s).is_ok());
         assert!(! sig.key_alive(key, now + 610 * s).is_ok());
@@ -697,7 +688,11 @@ mod tests {
             .generate().unwrap();
 
         assert_eq!(cert.primary_key().creation_time(), UNIX_EPOCH);
-        assert_eq!(cert.primary_key_signature(None).unwrap()
+        assert_eq!(cert.primary_key().policy(None).unwrap()
+                   .binding_signature()
+                   .signature_creation_time().unwrap(), UNIX_EPOCH);
+        assert_eq!(cert.primary_key().policy(None).unwrap()
+                   .direct_key_signature().unwrap()
                    .signature_creation_time().unwrap(), UNIX_EPOCH);
         assert_eq!(rev.signature_creation_time().unwrap(), UNIX_EPOCH);
 

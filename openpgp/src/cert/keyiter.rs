@@ -586,12 +586,10 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P> {
                 }
             }
 
-            let binding_signature = ka.binding_signature();
-
             if let Some(flags) = self.flags.as_ref() {
                 if !ka.has_any_key_flag(flags) {
                     t!("Have flags: {:?}, want flags: {:?}... skipping.",
-                       binding_signature.key_flags(), flags);
+                      flags, flags);
                     continue;
                 }
             }
