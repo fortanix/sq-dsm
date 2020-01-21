@@ -360,9 +360,10 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyIter<'a, P, R>
 /// An iterator over all valid `Key`s in a certificate.
 ///
 /// A key is valid at time `t` if it was not created after `t` and it
-/// has a live self-signature at time `t`.  Note: this does not mean
-/// that the key is also live at time `t`; the key may be expired, but
-/// the self-signature is still valid.
+/// has a live *self-signature* at time `t`.  Note: this does not mean
+/// that the key or the certificate is also live at time `t`; the key
+/// or certificate may be expired, but the self-signature is still
+/// valid.
 ///
 /// `ValidKeyIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
