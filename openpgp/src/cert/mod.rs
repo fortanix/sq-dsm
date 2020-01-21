@@ -28,6 +28,7 @@ use crate::{
     PacketPile,
     KeyID,
     Fingerprint,
+    KeyHandle,
 };
 use crate::parse::{Parse, PacketParserResult, PacketParser};
 use crate::types::{
@@ -1213,6 +1214,11 @@ impl Cert {
         // XXX Do some more canonicalization.
 
         self
+    }
+
+    /// Returns the Cert's fingerprint.
+    pub fn key_handle(&self) -> KeyHandle {
+        self.primary_key().key_handle()
     }
 
     /// Returns the Cert's fingerprint.
