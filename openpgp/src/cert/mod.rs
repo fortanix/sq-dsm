@@ -642,8 +642,8 @@ impl Cert {
 
     /// Sets the key to expire in delta.
     ///
-    /// Note: the time is relative to the key's creation time, not the
-    /// current time!
+    /// Note: the time is relative to the primary key's creation time,
+    /// not the current time!
     pub fn set_expiry(self, primary_signer: &mut dyn Signer,
                       expiration: Option<time::Duration>)
         -> Result<Cert>
