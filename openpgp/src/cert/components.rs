@@ -238,64 +238,62 @@ impl<C> ComponentBinding<C> {
                 selfsig.signature_alive(t, time::Duration::new(0, 0)).is_ok());
         }
 
-        macro_rules! check {
-            ($revs:expr) => ({
-                let revs = $revs.iter().filter_map(|rev| {
-                    if hard_revocations_are_final
-                        && rev.reason_for_revocation()
-                               .map(|(r, _)| {
-                                   r.revocation_type() == RevocationType::Hard
-                               })
-                               // If there is no Reason for Revocation
-                               // packet, assume that it is a hard
-                               // revocation.
-                               .unwrap_or(true)
-                    {
-                        t!("  got a hard revocation: {:?}, {:?}",
-                           rev.signature_creation_time()
-                               .unwrap_or_else(time_zero),
-                           rev.reason_for_revocation()
-                               .map(|r| (r.0, String::from_utf8_lossy(r.1))));
-                        Some(rev)
-                    } else if selfsig_creation_time
-                              > rev.signature_creation_time()
-                                    .unwrap_or_else(time_zero)
-                    {
-                        t!("  ignoring out of date revocation ({:?})",
-                           rev.signature_creation_time()
-                               .unwrap_or_else(time_zero));
-                        None
-                    } else if
-                        ! rev.signature_alive(t, time::Duration::new(0, 0))
-                          .is_ok()
-                    {
-                        t!("  ignoring revocation that is not alive ({:?} - {:?})",
-                           rev.signature_creation_time()
-                               .unwrap_or_else(time_zero),
-                           rev.signature_expiration_time()
-                               .unwrap_or_else(|| time::Duration::new(0, 0)));
-                        None
-                    } else {
-                        t!("  got a revocation: {:?} ({:?})",
-                           rev.signature_creation_time()
-                               .unwrap_or_else(time_zero),
-                           rev.reason_for_revocation()
-                               .map(|r| (r.0, String::from_utf8_lossy(r.1))));
-                        Some(rev)
-                    }
-                }).collect::<Vec<&Signature>>();
-
-                if revs.len() == 0 {
+        let check = |revs: &'a [Signature]| -> Option<Vec<&'a Signature>> {
+            let revs = revs.iter().filter_map(|rev| {
+                if hard_revocations_are_final
+                    && rev.reason_for_revocation()
+                    .map(|(r, _)| {
+                        r.revocation_type() == RevocationType::Hard
+                    })
+                // If there is no Reason for Revocation
+                // packet, assume that it is a hard
+                // revocation.
+                    .unwrap_or(true)
+                {
+                    t!("  got a hard revocation: {:?}, {:?}",
+                       rev.signature_creation_time()
+                       .unwrap_or_else(time_zero),
+                       rev.reason_for_revocation()
+                       .map(|r| (r.0, String::from_utf8_lossy(r.1))));
+                    Some(rev)
+                } else if selfsig_creation_time
+                    > rev.signature_creation_time()
+                    .unwrap_or_else(time_zero)
+                {
+                    t!("  ignoring out of date revocation ({:?})",
+                       rev.signature_creation_time()
+                       .unwrap_or_else(time_zero));
+                    None
+                } else if
+                    ! rev.signature_alive(t, time::Duration::new(0, 0))
+                    .is_ok()
+                {
+                    t!("  ignoring revocation that is not alive ({:?} - {:?})",
+                       rev.signature_creation_time()
+                       .unwrap_or_else(time_zero),
+                       rev.signature_expiration_time()
+                       .unwrap_or_else(|| time::Duration::new(0, 0)));
                     None
                 } else {
-                    Some(revs)
+                    t!("  got a revocation: {:?} ({:?})",
+                       rev.signature_creation_time()
+                       .unwrap_or_else(time_zero),
+                       rev.reason_for_revocation()
+                       .map(|r| (r.0, String::from_utf8_lossy(r.1))));
+                    Some(rev)
                 }
-            })
-        }
+            }).collect::<Vec<&Signature>>();
 
-        if let Some(revs) = check!(&self.self_revocations) {
+            if revs.len() == 0 {
+                None
+            } else {
+                Some(revs)
+            }
+        };
+
+        if let Some(revs) = check(&self.self_revocations) {
             RevocationStatus::Revoked(revs)
-        } else if let Some(revs) = check!(&self.other_revocations) {
+        } else if let Some(revs) = check(&self.other_revocations) {
             RevocationStatus::CouldBe(revs)
         } else {
             RevocationStatus::NotAsFarAsWeKnow
