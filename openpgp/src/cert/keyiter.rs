@@ -109,9 +109,10 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P> {
             let ka : KeyAmalgamation<key::PublicParts>
                 = if ! self.primary {
                     self.primary = true;
-                    cert.into()
+                    KeyAmalgamation::new_primary(cert)
                 } else {
-                    (cert, self.subkey_iter.next()?).into()
+                    KeyAmalgamation::new_subordinate(
+                        cert, self.subkey_iter.next()?)
                 };
 
             t!("Considering key: {:?}", ka.key());
@@ -432,29 +433,30 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P> {
         }
 
         loop {
-            let ka : ValidKeyAmalgamation<'a, key::PublicParts> = if ! self.primary {
-                self.primary = true;
-                let ka : KeyAmalgamation<_> = cert.into();
-                match ka.policy(self.time) {
-                    Ok(ka) => ka,
-                    Err(err) => {
-                        // The primary key is bad.  Abort.
-                        t!("Getting primary key: {:?}", err);
-                        return None;
+            let ka : ValidKeyAmalgamation<'a, key::PublicParts>
+                = if ! self.primary {
+                    self.primary = true;
+                    let ka = KeyAmalgamation::new_primary(cert);
+                    match ka.policy(self.time) {
+                        Ok(ka) => ka,
+                        Err(err) => {
+                            // The primary key is bad.  Abort.
+                            t!("Getting primary key: {:?}", err);
+                            return None;
+                        }
                     }
-                }
-            } else {
-                let ka : KeyAmalgamation<_>
-                    = (cert.into(), self.subkey_iter.next()?).into();
-                match ka.policy(self.time) {
-                    Ok(ka) => ka,
-                    Err(err) => {
-                        // The subkey is bad, abort.
-                        t!("Getting subkey: {:?}", err);
-                        continue;
+                } else {
+                    let ka = KeyAmalgamation::new_subordinate(
+                        cert.into(), self.subkey_iter.next()?);
+                    match ka.policy(self.time) {
+                        Ok(ka) => ka,
+                        Err(err) => {
+                            // The subkey is bad, abort.
+                            t!("Getting subkey: {:?}", err);
+                            continue;
+                        }
                     }
-                }
-            };
+                };
 
             let key = ka.key();
             t!("Considering key: {:?}", key);

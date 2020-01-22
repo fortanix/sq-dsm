@@ -46,30 +46,6 @@ impl<'a, P: key::KeyParts> Deref for KeyAmalgamation<'a, P>
     }
 }
 
-impl<'a, P> From<&'a Cert>
-    for KeyAmalgamation<'a, P>
-    where P: key::KeyParts
-{
-    fn from(x: &'a Cert) -> Self {
-        KeyAmalgamation {
-            cert: x,
-            binding: KeyAmalgamationBinding::Primary(),
-        }
-    }
-}
-
-impl<'a, P> From<(&'a Cert, &'a KeyBinding<P, key::SubordinateRole>)>
-    for KeyAmalgamation<'a, P>
-    where P: key::KeyParts
-{
-    fn from(x: (&'a Cert, &'a KeyBinding<P, key::SubordinateRole>)) -> Self {
-        KeyAmalgamation {
-            cert: x.0,
-            binding: KeyAmalgamationBinding::Subordinate(x.1),
-        }
-    }
-}
-
 // We can't make the key parts generic, because then the impl would
 // conflict with 'impl<T> std::convert::From<T> for T'.
 impl<'a> From<KeyAmalgamation<'a, key::PublicParts>>
@@ -155,6 +131,23 @@ impl<'a> TryFrom<KeyAmalgamation<'a, key::PublicParts>>
 }
 
 impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
+    pub(crate) fn new_primary(cert: &'a Cert) -> Self {
+        KeyAmalgamation {
+            cert: cert,
+            binding: KeyAmalgamationBinding::Primary(),
+        }
+    }
+
+    pub(crate) fn new_subordinate(
+        cert: &'a Cert, binding: &'a KeyBinding<P, key::SubordinateRole>)
+        -> Self
+    {
+        KeyAmalgamation {
+            cert: cert,
+            binding: KeyAmalgamationBinding::Subordinate(binding),
+        }
+    }
+
     /// Returns the key.
     pub fn key(&self) -> &'a Key<P, key::UnspecifiedRole>
         where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
