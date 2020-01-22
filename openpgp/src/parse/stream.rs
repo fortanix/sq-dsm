@@ -1915,7 +1915,10 @@ mod test {
                                 GoodChecksum { .. } => self.good += 1,
                                 MissingKey { .. } => self.unknown += 1,
                                 NotAlive { .. } => self.bad += 1,
-                                Error { .. } => self.bad += 1,
+                                Error { error, .. } => {
+                                    eprintln!("error: {}", error);
+                                    self.bad += 1;
+                                },
                             }
                         }
                     MessageLayer::Compression { .. } => (),
@@ -1958,6 +1961,8 @@ mod test {
         let reference = crate::tests::manifesto();
 
         for (f, r) in tests {
+            eprintln!("{}...", f);
+
             // Test Verifier.
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
