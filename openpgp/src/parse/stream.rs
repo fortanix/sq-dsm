@@ -2149,19 +2149,6 @@ mod test {
             let h = v.into_helper();
             assert_eq!(h.good, 1);
             assert_eq!(h.bad, 0);
-
-            // Same, but with readers.
-            use std::io::Cursor;
-            let h = VHelper::new(0, 0, 0, 0, keys.clone());
-            let mut v = DetachedVerifier::from_reader(
-                Cursor::new(sig), Cursor::new(content),
-                h, reference).unwrap();
-
-            let got = read_to_end(&mut v, l, &mut buffer);
-            let got = &buffer[..got];
-            assert!(v.message_processed());
-            assert_eq!(got.len(), content.len());
-            assert_eq!(got, &content[..]);
         }
         crate::vec_truncate(&mut buffer, 0);
     }
