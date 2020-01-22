@@ -308,7 +308,7 @@ fn real_main() -> Result<(), failure::Error> {
                     let cert = Cert::from_reader(input)?;
                     let addr = m.value_of("address").map(|a| a.to_string())
                         .or_else(|| {
-                            cert.userids().primary(None)
+                            cert.primary_userid(None)
                                 .map(|ca| ca.userid().to_string())
                         });
                     let ac = autocrypt::AutocryptHeader::new_sender(

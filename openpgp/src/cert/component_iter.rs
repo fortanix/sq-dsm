@@ -16,10 +16,6 @@ use crate::{
     },
 };
 
-/// Returns a fresh iterator for the component bindings.
-pub(crate) type IterFactory<C> =
-    fn(&Cert) -> std::slice::Iter<ComponentBinding<C>>;
-
 /// An iterator over all components in a certificate.
 ///
 /// `ComponentIter` follows the builder pattern.  There is no need to
@@ -29,7 +25,6 @@ pub(crate) type IterFactory<C> =
 /// By default, `ComponentIter` returns all components without context.
 pub struct ComponentIter<'a, C> {
     cert: &'a Cert,
-    make_iter: IterFactory<C>,
     iter: ComponentBindingIter<'a, C>,
 }
 
@@ -48,16 +43,14 @@ impl<'a, C> Iterator for ComponentIter<'a, C> {
     }
 }
 
-impl<'a, C> ComponentIter<'a, C>
-    where C: Ord
-{
+impl<'a, C> ComponentIter<'a, C> {
     /// Returns a new `ComponentIter` instance.
-    pub(crate) fn new(cert: &'a Cert, make_iter: IterFactory<C>) -> Self
+    pub(crate) fn new(cert: &'a Cert,
+                      iter: std::slice::Iter<'a, ComponentBinding<C>>) -> Self
         where Self: 'a
     {
-        let iter = ComponentBindingIter { iter: Some(make_iter(cert)) };
         ComponentIter {
-            cert, make_iter, iter,
+            cert, iter: ComponentBindingIter { iter: Some(iter), },
         }
     }
 
@@ -76,81 +69,6 @@ impl<'a, C> ComponentIter<'a, C>
             time: time.into().unwrap_or_else(SystemTime::now),
             revoked: None,
         }
-    }
-
-    /// Returns the amalgamated primary component at time `time`
-    ///
-    /// If `time` is None, then the current time is used.
-    /// `ValidComponentIter` for the definition of a valid component.
-    ///
-    /// The primary component is determined by taking the components that
-    /// are alive at time `t`, and sorting them as follows:
-    ///
-    ///   - non-revoked first
-    ///   - primary first
-    ///   - signature creation first
-    ///
-    /// If there is more than one, than one is selected in a
-    /// deterministic, but undefined manner.
-    pub fn primary<T>(self, time: T) -> Option<ValidComponentAmalgamation<'a, C>>
-        where T: Into<Option<SystemTime>>
-    {
-        use std::cmp::Ordering;
-        use std::time::{Duration, SystemTime};
-
-        let t = time.into()
-            .unwrap_or_else(SystemTime::now);
-        (self.make_iter)(self.cert)
-            // Filter out components that are not alive at time `t`.
-            //
-            // While we have the binding signature, extract a few
-            // properties to avoid recomputing the same thing multiple
-            // times.
-            .filter_map(|c| {
-                // No binding signature at time `t` => not alive.
-                let sig = c.binding_signature(t)?;
-
-                if !sig.signature_alive(t, Duration::new(0, 0)).is_ok() {
-                    return None;
-                }
-
-                let revoked = c._revoked(false, Some(sig), t);
-                let primary = sig.primary_userid().unwrap_or(false);
-                let signature_creation_time = sig.signature_creation_time()?;
-
-                Some(((c, sig, revoked), primary, signature_creation_time))
-            })
-            .max_by(|(a, a_primary, a_signature_creation_time),
-                    (b, b_primary, b_signature_creation_time)| {
-                match (destructures_to!(RevocationStatus::Revoked(_) = &a.2),
-                       destructures_to!(RevocationStatus::Revoked(_) = &b.2)) {
-                    (true, false) => return Ordering::Less,
-                    (false, true) => return Ordering::Greater,
-                    _ => (),
-                }
-                match (a_primary, b_primary) {
-                    (true, false) => return Ordering::Greater,
-                    (false, true) => return Ordering::Less,
-                    _ => (),
-                }
-                match a_signature_creation_time.cmp(&b_signature_creation_time)
-                {
-                    Ordering::Less => return Ordering::Less,
-                    Ordering::Greater => return Ordering::Greater,
-                    Ordering::Equal => (),
-                }
-
-                // Fallback to a lexographical comparison.  Prefer
-                // the "smaller" one.
-                match a.0.component().cmp(&b.0.component()) {
-                    Ordering::Less => return Ordering::Greater,
-                    Ordering::Greater => return Ordering::Less,
-                    Ordering::Equal =>
-                        panic!("non-canonicalized Cert (duplicate components)"),
-                }
-            })
-            .and_then(|c| ComponentAmalgamation::new(self.cert, (c.0).0)
-                      .policy(t).ok())
     }
 
     /// Changes the iterator to return component bindings.

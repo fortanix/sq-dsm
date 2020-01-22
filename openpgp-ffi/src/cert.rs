@@ -362,7 +362,7 @@ fn pgp_cert_primary_user_id(cert: *const Cert)
                            -> *mut c_char
 {
     let cert = cert.ref_raw();
-    if let Some(binding) = cert.userids().primary(None) {
+    if let Some(binding) = cert.primary_userid(None) {
         ffi_return_string!(binding.userid().value())
     } else {
         ptr::null_mut()
