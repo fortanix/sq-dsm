@@ -183,7 +183,7 @@ impl KeyringValidator {
         self.push_token(token)
     }
 
-    /// Note that the entire message has been seen.
+    /// Notes that the entire message has been seen.
     ///
     /// This function may only be called once.
     ///
@@ -198,16 +198,18 @@ impl KeyringValidator {
     /// keyring.
     ///
     /// This returns a tri-state: if the packet sequence is a valid
-    /// Keyring, it returns KeyringValidity::Keyring, if the packet sequence is
-    /// invalid, then it returns KeyringValidity::Error.  If the packet
-    /// sequence could be valid, then it returns
-    /// KeyringValidity::KeyringPrefix.
+    /// Keyring, it returns `KeyringValidity::Keyring`, if the packet
+    /// sequence is invalid, then it returns `KeyringValidity::Error`.
+    /// If the packet sequence that has been processed so far is a
+    /// valid prefix, then it returns
+    /// `KeyringValidity::KeyringPrefix`.
     ///
-    /// Note: if KeyringValidator::finish() *hasn't* been called, then
-    /// this function will only ever return either
-    /// KeyringValidity::KeyringPrefix or KeyringValidity::Error.  Once
-    /// KeyringValidity::finish() has been called, then only
-    /// KeyringValidity::Keyring or KeyringValidity::Bad will be called.
+    /// Note: if `KeyringValidator::finish()` *hasn't* been called,
+    /// then this function will only ever return either
+    /// `KeyringValidity::KeyringPrefix` or `KeyringValidity::Error`.
+    /// Once `KeyringValidity::finish()` has been called, then it will
+    /// only return either `KeyringValidity::Keyring` or
+    /// `KeyringValidity::Error`.
     pub fn check(&self) -> KeyringValidity {
         if let Some(ref err) = self.error {
             return KeyringValidity::Error((*err).clone().into());
@@ -346,16 +348,16 @@ impl CertValidator {
     /// Cert.
     ///
     /// This returns a tri-state: if the packet sequence is a valid
-    /// Cert, it returns CertValidity::Cert, if the packet sequence is
-    /// invalid, then it returns CertValidity::Error.  If the packet
-    /// sequence could be valid, then it returns
-    /// CertValidity::CertPrefix.
+    /// Cert, it returns `CertValidity::Cert`, if the packet sequence
+    /// is invalid, then it returns `CertValidity::Error`.  If the
+    /// packet sequence that has been processed so far is a valid
+    /// prefix, then it returns `CertValidity::CertPrefix`.
     ///
-    /// Note: if CertValidator::finish() *hasn't* been called, then
+    /// Note: if `CertValidator::finish()` *hasn't* been called, then
     /// this function will only ever return either
-    /// CertValidity::CertPrefix or CertValidity::Error.  Once
-    /// CertValidity::finish() has been called, then only
-    /// CertValidity::Cert or CertValidity::Bad will be called.
+    /// `CertValidity::CertPrefix` or `CertValidity::Error`.  Once
+    /// `CertValidity::finish()` has been called, then it will only
+    /// return either `CertValidity::Cert` or `CertValidity::Error`.
     pub fn check(&self) -> CertValidity {
         if self.0.n_keys > 1 {
             return CertValidity::Error(Error::MalformedMessage(
