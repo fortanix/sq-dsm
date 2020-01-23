@@ -351,6 +351,14 @@ impl<'a, P: key::KeyParts> Deref for ValidKeyAmalgamation<'a, P> {
     }
 }
 
+impl<'a, P: key::KeyParts> From<ValidKeyAmalgamation<'a, P>>
+    for KeyAmalgamation<'a, P>
+{
+    fn from(vka: ValidKeyAmalgamation<'a, P>) -> Self {
+        vka.a
+    }
+}
+
 // We can't make the key parts generic, because then the impl would
 // conflict with 'impl<T> std::convert::From<T> for T'.
 impl<'a> From<ValidKeyAmalgamation<'a, key::PublicParts>>
