@@ -251,11 +251,119 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     ///
     /// See `ValidKeyIter` for the definition of a valid key.
     ///
+    /// This also makes a number of filters like `alive` and `revoked`
+    /// available and causes the iterator to return a
+    /// `KeyAmalgamation` instead of a bare `Key`.
+    ///
     /// As a general rule of thumb, when encrypting or signing a
-    /// message, you want keys that are valid now.  When decrypting a
-    /// message, you want keys that were valid when the message was
-    /// encrypted, because these are the only keys that the encryptor
-    /// could have used.  The same holds when verifying a message.
+    /// message, you only want to use keys that are alive, not
+    /// revoked, and have the appropriate capabilities keys right now.
+    /// For example:
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// # use openpgp::cert::CertBuilder;
+    /// use openpgp::RevocationStatus;
+    ///
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// if let RevocationStatus::Revoked(_) = cert.revoked(None) {
+    ///     // The certificate is revoked, don't use any keys from it.
+    /// } else if let Err(_) = cert.alive(None) {
+    ///     // The certificate is not alive, don't use any keys from it.
+    /// } else {
+    ///     for key in cert.keys().policy(None).alive().revoked(false).for_signing() {
+    ///         // We can sign the message with this key.
+    ///     }
+    /// }
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// When verifying a message, you only want to use keys that were
+    /// alive, not revoked, and signing capable when the message was
+    /// signed.  These are the only keys that the signer could have
+    /// used; anything else suggests an attack, e.g., a forged time
+    /// stamp.
+    ///
+    /// For version 4 Signature packets, the `Signature Creation Time`
+    /// subpacket indicates when the signature was allegedly created.
+    /// For the purpose of finding the key to verify the signature,
+    /// this time stamp should be trusted.
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// # use openpgp::cert::CertBuilder;
+    /// use openpgp::RevocationStatus;
+    ///
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// # let timestamp = None;
+    /// if let RevocationStatus::Revoked(_) = cert.revoked(None) {
+    ///     // The certificate is revoked, don't use any keys from it.
+    /// } else if let Err(_) = cert.alive(None) {
+    ///     // The certificate is not alive, don't use any keys from it.
+    /// } else {
+    ///     for key in cert.keys().policy(timestamp).alive().revoked(false).for_signing() {
+    ///         // Verify the message with this keys.
+    ///     }
+    /// }
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Similarly, when decrypting a message, you should only consider
+    /// keys that were alive, not revoked, and encryption-capable when
+    /// the message was encrypted.  Unfortunately, we don't know when
+    /// a message was encrypted.  This, of course, precludes checking
+    /// the key's liveness, its revocation status, and its key
+    /// capabilities at the time of encryption.
+    ///
+    /// Decrypting a message encrypt to an expired or revoked key is
+    /// not a security problem.  In fact, due to the slow propagation
+    /// of revocation certificates, it is better to not ignore revoked
+    /// keys in this case.  However, checking whether a key is
+    /// encryption capable is important.  [This discussion] explains
+    /// why using a signing key to decrypt a message can be dangerous.
+    ///
+    /// A possible workaround is to check whether the key is
+    /// encryption capable now.  Since a key's key flags don't
+    /// typically change, this will correctly filter out keys that are
+    /// not encryption capable.  But, it will also skip keys whose
+    /// self signature is now expired.  Happily, no one appears to use
+    /// [signature expirations] on self signatures.  Since using the
+    /// current time will almost never result in skipping the correct
+    /// decryption key, but does protect the user from a dangerous
+    /// attack, we recommend this approach when looking up a
+    /// decryption key.
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// # use openpgp::cert::CertBuilder;
+    /// #
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// let decryption_keys = cert.keys().policy(None)
+    ///     .for_storage_encryption().for_transport_encryption()
+    ///     .collect::<Vec<_>>();
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    /// [this discussion]: https://crypto.stackexchange.com/a/12138 .
     pub fn policy<T>(self, time: T) -> ValidKeyIter<'a, P>
         where T: Into<Option<SystemTime>>
     {
