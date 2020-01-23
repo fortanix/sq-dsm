@@ -183,7 +183,7 @@ impl KeyServer {
                                  match Cert::from_reader(r) {
                                      Ok(cert) => {
                                          if cert.keys().any(|ka| {
-                                             KeyID::from(ka.key().fingerprint())
+                                             KeyID::from(ka.fingerprint())
                                                  == keyid_want
                                          }) {
                                              future::done(Ok(cert))
