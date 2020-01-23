@@ -65,7 +65,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_subkey_binding(
-                signer, cert.primary_key().key().mark_role_primary_ref(), self)
+                signer, cert.primary_key().key(), self)
     }
 }
 
@@ -117,7 +117,7 @@ impl UserID {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_userid_binding(
-                signer, cert.primary_key().key().mark_role_primary_ref(), self)
+                signer, cert.primary_key().key(), self)
     }
 
     /// Returns a certificate for the user id.
@@ -255,7 +255,7 @@ impl UserAttribute {
             .set_issuer_fingerprint(signer.public().fingerprint())?
             .set_issuer(signer.public().keyid())?
             .sign_user_attribute_binding(
-                signer, cert.primary_key().key().mark_role_primary_ref(), self)
+                signer, cert.primary_key().key(), self)
     }
 
     /// Returns a certificate for the user attribute.

@@ -2889,8 +2889,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
             // Make sure the certification is correct.
             alice_certifies_bob
-                .verify_userid_binding(alice.primary_key().key().mark_role_primary_ref(),
-                                       bob.primary_key().key().mark_role_primary_ref(),
+                .verify_userid_binding(alice.primary_key().key(),
+                                       bob.primary_key().key(),
                                        bob_userid_binding.userid()).unwrap();
         }
    }

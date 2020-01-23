@@ -1389,7 +1389,7 @@ mod test {
         let cert = &uid_binding.certifications()[0];
 
         cert.verify_userid_binding(cert_key1,
-                                   test2.primary_key().key().mark_role_primary_ref(),
+                                   test2.primary_key().key(),
                                    uid_binding.userid()).unwrap();
     }
 
