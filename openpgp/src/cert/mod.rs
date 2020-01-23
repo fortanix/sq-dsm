@@ -61,6 +61,7 @@ pub use self::builder::{CertBuilder, CipherSuite};
 pub use keyiter::{KeyIter, ValidKeyIter};
 pub use key_amalgamation::{
     KeyAmalgamation,
+    PrimaryKeyAmalgamation,
     ValidKeyAmalgamation,
 };
 
@@ -411,9 +412,10 @@ impl<'a> Parse<'a, Cert> for Cert {
 
 impl Cert {
     /// Returns the amalgamated primary key.
-    pub fn primary_key(&self) -> KeyAmalgamation<key::PublicParts>
+    pub fn primary_key(&self) -> PrimaryKeyAmalgamation<key::PublicParts>
     {
-        self.keys().nth(0).expect("primary key").into()
+        PrimaryKeyAmalgamation::new(
+            self.keys().nth(0).expect("primary key"))
     }
 
     /// Returns the primary key's current self-signature as of `t`.

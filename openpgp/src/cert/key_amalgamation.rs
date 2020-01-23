@@ -255,7 +255,79 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
             Err(Error::NoBindingSignature(time).into())
         }
     }
+
+    // NOTE: If you add a method to KeyAmalgamation that takes
+    // ownership of self, then don't forget to write a forwarder for
+    // it for PrimaryKeyAmalgamation.
 }
+
+/// A `Key` and its associated data.
+///
+/// This is just a wrapper around `KeyAmalgamation` that preserves the
+/// `KeyAmalgamation`'s role.
+#[derive(Debug, Clone)]
+pub struct PrimaryKeyAmalgamation<'a, P: key::KeyParts> {
+    a: KeyAmalgamation<'a, P>,
+}
+
+impl<'a, P> From<PrimaryKeyAmalgamation<'a, P>>
+    for KeyAmalgamation<'a, P>
+    where P: key::KeyParts
+{
+    fn from(a: PrimaryKeyAmalgamation<'a, P>) -> Self {
+        a.a
+    }
+}
+
+impl<'a, P: key::KeyParts> Deref for PrimaryKeyAmalgamation<'a, P>
+    where &'a Key<P, key::PrimaryRole>: From<&'a key::PublicKey>
+{
+    type Target = KeyAmalgamation<'a, P>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.a
+    }
+}
+
+impl<'a, P: key::KeyParts> PrimaryKeyAmalgamation<'a, P> {
+    /// Constructs a PrimaryKeyAmalgamation from a KeyAmalgamation.
+    ///
+    /// Note: This function panics if the `KeyAmalgamation` does not
+    /// contain a primary key!
+    pub(super) fn new(a: KeyAmalgamation<'a, P>) -> Self {
+        assert_match!(
+            &KeyAmalgamation {
+                binding: KeyAmalgamationBinding::Primary(),
+                ..
+            } = &a);
+
+        PrimaryKeyAmalgamation {
+            a
+        }
+    }
+
+    /// Returns the key.
+    pub fn key(&self) -> &'a Key<P, key::PrimaryRole>
+        where &'a Key<P, key::UnspecifiedRole>:
+            From<&'a Key<key::PublicParts, key::PrimaryRole>>
+    {
+        self.a.key().into()
+    }
+
+    /// Sets the reference time for the amalgamation.
+    ///
+    /// If `time` is `None`, the current time is used.
+    ///
+    /// This transforms the `KeyAmalgamation` into a
+    /// `ValidKeyAmalgamation`.
+    pub fn policy<T>(self, time: T)
+        -> Result<ValidPrimaryKeyAmalgamation<'a, P>>
+        where T: Into<Option<time::SystemTime>>
+    {
+        Ok(ValidPrimaryKeyAmalgamation::new(self.a.policy(time)?))
+    }
+}
+
 
 /// A `Key` and its associated data.
 ///
@@ -490,5 +562,76 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
             } =>
                 (*binding).into(),
         }
+    }
+
+    // NOTE: If you add a method to ValidKeyAmalgamation that takes
+    // ownership of self, then don't forget to write a forwarder for
+    // it for ValidPrimaryKeyAmalgamation.
+}
+
+/// A `Key` and its associated data.
+///
+/// This is just a wrapper around `ValidKeyAmalgamation` that
+/// preserves the `ValidKeyAmalgamation`'s role.
+#[derive(Debug, Clone)]
+pub struct ValidPrimaryKeyAmalgamation<'a, P: key::KeyParts> {
+    a: ValidKeyAmalgamation<'a, P>,
+}
+
+impl<'a, P> From<ValidPrimaryKeyAmalgamation<'a, P>>
+    for ValidKeyAmalgamation<'a, P>
+    where P: key::KeyParts
+{
+    fn from(a: ValidPrimaryKeyAmalgamation<'a, P>) -> Self {
+        a.a
+    }
+}
+
+impl<'a, P: key::KeyParts> Deref for ValidPrimaryKeyAmalgamation<'a, P>
+    where &'a Key<P, key::PrimaryRole>: From<&'a key::PublicKey>
+{
+    type Target = ValidKeyAmalgamation<'a, P>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.a
+    }
+}
+
+impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
+    /// Constructs a ValidPrimaryKeyAmalgamation from a
+    /// ValidKeyAmalgamation.
+    ///
+    /// Note: This function panics if the `ValidKeyAmalgamation` does
+    /// not contain a primary key!
+    pub(super) fn new(a: ValidKeyAmalgamation<'a, P>) -> Self {
+        assert_match!(
+            &ValidKeyAmalgamation {
+                a: KeyAmalgamation {
+                    binding: KeyAmalgamationBinding::Primary(),
+                    ..
+                },
+                ..
+            } = &a);
+
+        ValidPrimaryKeyAmalgamation {
+            a
+        }
+    }
+
+    /// Returns the key.
+    pub fn key(&self) -> &'a Key<P, key::PrimaryRole>
+        where &'a Key<P, key::UnspecifiedRole>:
+            From<&'a Key<key::PublicParts, key::PrimaryRole>>
+    {
+        self.a.key().into()
+    }
+
+    /// Changes the amalgamation's policy.
+    ///
+    /// If `time` is `None`, the current time is used.
+    pub fn policy<T>(self, time: T) -> Result<Self>
+        where T: Into<Option<time::SystemTime>>
+    {
+        Ok(Self::new(self.a.policy(time)?))
     }
 }
