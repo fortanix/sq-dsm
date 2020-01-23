@@ -318,8 +318,8 @@ impl<'a, P: key::KeyParts> PrimaryKeyAmalgamation<'a, P> {
     ///
     /// If `time` is `None`, the current time is used.
     ///
-    /// This transforms the `KeyAmalgamation` into a
-    /// `ValidKeyAmalgamation`.
+    /// This transforms the `PrimaryKeyAmalgamation` into a
+    /// `ValidPrimaryKeyAmalgamation`.
     pub fn policy<T>(self, time: T)
         -> Result<ValidPrimaryKeyAmalgamation<'a, P>>
         where T: Into<Option<time::SystemTime>>
