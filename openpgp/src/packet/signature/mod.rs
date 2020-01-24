@@ -90,7 +90,7 @@ impl Builder {
             typ: typ,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             hash_algo: HashAlgorithm::default(),
-            subpackets: SubpacketAreas::empty(),
+            subpackets: SubpacketAreas::default(),
         }
         .set_signature_creation_time(
             std::time::SystemTime::now())

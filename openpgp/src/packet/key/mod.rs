@@ -1604,8 +1604,8 @@ mod tests {
         let key: key::PublicKey
             = Key4::import_public_ed25519(q, ctime).unwrap().into();
 
-        let mut hashed = SubpacketArea::empty();
-        let mut unhashed = SubpacketArea::empty();
+        let mut hashed = SubpacketArea::default();
+        let mut unhashed = SubpacketArea::default();
         let fpr = Fingerprint::from_hex("D81A 5DC0 DEBF EE5F 9AC8  20EB 6769 5DB9 920D 4FAC").unwrap();
         let kid = KeyID::from_hex("6769 5DB9 920D 4FAC").unwrap();
         let ctime = 1549460479.into();
