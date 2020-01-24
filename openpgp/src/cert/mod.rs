@@ -2751,15 +2751,16 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                               t1).unwrap();
         cert = cert.merge_packets(vec![uid.into(), sig.into()]).unwrap();
 
-        for (t, offset) in &[ (t2, 0), (t4, 0), (t3, 100), (t1, 300) ] {
-            for i in 0..100 {
+        const N: usize = 5;
+        for (t, offset) in &[ (t2, 0), (t4, 0), (t3, 1 * N), (t1, 3 * N) ] {
+            for i in 0..N {
                 let binding = signature::Builder::new(SignatureType::DirectKey)
                     .set_features(&Features::sequoia()).unwrap()
                     .set_key_flags(&KeyFlags::default()).unwrap()
                     .set_signature_creation_time(t1).unwrap()
                     // Vary this...
                     .set_key_expiration_time(Some(
-                        time::Duration::new((1 + i) * 24 * 60 * 60, 0)))
+                        time::Duration::new((1 + i as u64) * 24 * 60 * 60, 0)))
                     .unwrap()
                     .set_issuer_fingerprint(key.fingerprint()).unwrap()
                     .set_issuer(key.keyid()).unwrap()
