@@ -189,7 +189,11 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     }
 }
 
-impl<'a, C> ValidComponentAmalgamation<'a, C> {
+/// Represents a component under a given policy.
+pub trait Amalgamation<'a> {
+    /// Returns the certificate that the component came from.
+    fn cert(&self) -> &'a Cert;
+
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this
@@ -197,23 +201,66 @@ impl<'a, C> ValidComponentAmalgamation<'a, C> {
     /// created at `t_c` and expires at `t_e`, then
     /// `ValidComponentAmalgamation::alive` will return true if the reference
     /// time is greater than or equal to `t_c` and less than `t_e`.
-    pub fn time(&self) -> SystemTime {
+    fn time(&self) -> SystemTime;
+
+    /// Changes the amalgamation's policy.
+    ///
+    /// If `time` is `None`, the current time is used.
+    fn policy<T>(self, time: T) -> Result<Self>
+        where Self: Sized, T: Into<Option<time::SystemTime>>;
+
+    /// Returns the component's binding signature as of the reference time.
+    fn binding_signature(&self) -> &'a Signature;
+
+    /// Returns the component's revocation status as of the amalgamation's
+    /// reference time.
+    ///
+    /// Note: this does not return whether the certificate is valid.
+    fn revoked(&self) -> RevocationStatus<'a>;
+
+    /// Returns the certificate's revocation status as of the
+    /// amalgamtion's reference time.
+    fn cert_revoked(&self) -> RevocationStatus<'a> {
+        self.cert().revoked(self.time())
+    }
+
+    /// Returns whether the certificateis alive as of the
+    /// amalgamtion's reference time.
+    fn cert_alive(&self) -> Result<()> {
+        self.cert().alive(self.time())
+    }
+}
+
+impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
+    // NOTE: No docstring, because ComponentAmalgamation has the same method.
+    // Returns the certificate that the component came from.
+    fn cert(&self) -> &'a Cert {
+        self.cert
+    }
+
+    /// Returns the amalgamation's reference time.
+    ///
+    /// For queries that are with respect to a point in time, this
+    /// determines that point in time.  For instance, if a component is
+    /// created at `t_c` and expires at `t_e`, then
+    /// `ValidComponentAmalgamation::alive` will return true if the reference
+    /// time is greater than or equal to `t_c` and less than `t_e`.
+    fn time(&self) -> SystemTime {
         self.time
     }
 
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    pub fn policy<T>(self, time: T) -> Result<Self>
+    fn policy<T>(self, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
         self.a.policy(time)
     }
 
-    /// Returns the component's binding signature as of the reference time,
-    /// if any.
-    pub fn binding_signature(&self) -> &'a Signature {
+    /// Returns the component's binding signature as of the reference time.
+    fn binding_signature(&self) -> &'a Signature {
         self.binding_signature
     }
 
@@ -221,24 +268,8 @@ impl<'a, C> ValidComponentAmalgamation<'a, C> {
     /// reference time.
     ///
     /// Note: this does not return whether the certificate is valid.
-    pub fn revoked(&self) -> RevocationStatus<'a> {
+    fn revoked(&self) -> RevocationStatus<'a> {
         self.binding._revoked(false, Some(self.binding_signature), self.time)
     }
-
-    /// Returns the certificate's revocation status as of the
-    /// amalgamtion's reference time.
-    pub fn cert_revoked(&self) -> RevocationStatus<'a> {
-        self.cert().revoked(self.time())
-    }
-
-    /// Returns whether the certificateis alive as of the
-    /// amalgamtion's reference time.
-    pub fn cert_alive(&self) -> Result<()> {
-        self.cert().alive(self.time())
-    }
-
-    /// Returns this component's component binding.
-    pub fn binding(&self) -> &'a ComponentBinding<C> {
-        &self.binding
-    }
 }
+

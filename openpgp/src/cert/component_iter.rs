@@ -8,8 +8,7 @@ use crate::{
         components::{
             ComponentBinding,
             ComponentBindingIter,
-        },
-        amalgamation::{
+            Amalgamation,
             ComponentAmalgamation,
             ValidComponentAmalgamation,
         },
@@ -177,6 +176,7 @@ impl<'a, C> ValidComponentIter<'a, C> {
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
     /// use openpgp::RevocationStatus;
+    /// use openpgp::cert::components::Amalgamation;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {

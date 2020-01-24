@@ -7,7 +7,10 @@ use std::ops::Deref;
 
 use crate::{
     Cert,
-    cert::components::KeyBinding,
+    cert::components::{
+        Amalgamation,
+        KeyBinding,
+    },
     Error,
     packet::key,
     packet::key::SecretKeyMaterial,

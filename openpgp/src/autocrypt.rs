@@ -26,6 +26,7 @@ use crate::Result;
 use crate::Packet;
 use crate::packet::SKESK;
 use crate::Cert;
+use crate::cert::components::Amalgamation;
 use crate::parse::{
     Parse,
     PacketParserResult, PacketParser,

@@ -23,6 +23,7 @@ use super::{
     canonical_signature_order,
 };
 pub use super::amalgamation::{
+    Amalgamation,
     ComponentAmalgamation,
     ValidComponentAmalgamation,
 };

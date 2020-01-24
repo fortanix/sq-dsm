@@ -1286,6 +1286,7 @@ impl Cert {
 #[cfg(test)]
 mod test {
     use crate::serialize::Serialize;
+    use super::components::Amalgamation;
     use super::*;
 
     use crate::{

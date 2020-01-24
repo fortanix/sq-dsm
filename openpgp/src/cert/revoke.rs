@@ -268,6 +268,8 @@ impl Deref for SubkeyRevocationBuilder {
 ///
 /// ```
 /// # use sequoia_openpgp::{*, packet::*, types::*, cert::*};
+/// use sequoia_openpgp::cert::components::Amalgamation;
+///
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// // Generate a Cert, and create a keypair from the primary key.
@@ -380,6 +382,8 @@ impl Deref for UserIDRevocationBuilder {
 ///
 /// ```
 /// # use sequoia_openpgp::{*, packet::*, types::*, cert::*};
+/// use sequoia_openpgp::cert::components::Amalgamation;
+///
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// # let subpacket
