@@ -547,7 +547,9 @@ impl Cert {
                     | SignatureType::PersonaCertification
                     | SignatureType::CasualCertification
                     | SignatureType::PositiveCertification =>
-                    self.primary_userid(now).unwrap()
+                    self.primary_userid(now)
+                    .expect("this type must be from a userid binding, \
+                             hence there must be a userid valid at `now`")
                     .userid().hash(&mut hash),
                 _ => unreachable!(),
             }
