@@ -440,6 +440,15 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
         self.binding_signature
     }
 
+    /// Returns the Certificate's direct key signature as of the
+    /// reference time, if any.
+    ///
+    /// Subpackets on direct key signatures apply to all components of
+    /// the certificate.
+    fn direct_key_signature(&self) -> Option<&'a Signature> {
+        self.cert.primary.binding_signature(self.time())
+    }
+
     /// Returns the key's revocation status as of the amalgamation's
     /// reference time.
     ///
@@ -457,15 +466,6 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
 }
 
 impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
-    /// Returns the Certificate's direct key signature as of the
-    /// reference time, if any.
-    ///
-    /// Subpackets on direct key signatures apply to all components of
-    /// the certificate.
-    pub fn direct_key_signature(&self) -> Option<&'a Signature> {
-        self.cert.primary.binding_signature(self.time())
-    }
-
     /// Returns this key's binding.
     pub fn binding(&self) -> &'a KeyBinding<P, key::UnspecifiedRole>
         where &'a KeyBinding<P, key::UnspecifiedRole>:

@@ -212,6 +212,13 @@ pub trait Amalgamation<'a> {
     /// Returns the component's binding signature as of the reference time.
     fn binding_signature(&self) -> &'a Signature;
 
+    /// Returns the Certificate's direct key signature as of the
+    /// reference time, if any.
+    ///
+    /// Subpackets on direct key signatures apply to all components of
+    /// the certificate.
+    fn direct_key_signature(&self) -> Option<&'a Signature>;
+
     /// Returns the component's revocation status as of the amalgamation's
     /// reference time.
     ///
@@ -262,6 +269,15 @@ impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
     /// Returns the component's binding signature as of the reference time.
     fn binding_signature(&self) -> &'a Signature {
         self.binding_signature
+    }
+
+    /// Returns the Certificate's direct key signature as of the
+    /// reference time, if any.
+    ///
+    /// Subpackets on direct key signatures apply to all components of
+    /// the certificate.
+    fn direct_key_signature(&self) -> Option<&'a Signature> {
+        self.cert.primary.binding_signature(self.time())
     }
 
     /// Returns the component's revocation status as of the amalgamation's
