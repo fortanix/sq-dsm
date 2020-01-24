@@ -339,10 +339,7 @@ impl Default for SubpacketArea {
 
 impl Clone for SubpacketArea {
     fn clone(&self) -> Self {
-        Self {
-            packets: self.packets.clone(),
-            parsed: Mutex::new(RefCell::new(None)),
-        }
+        Self::new(self.packets.clone())
     }
 }
 
