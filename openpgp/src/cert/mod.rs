@@ -1895,8 +1895,10 @@ mod test {
         cert1.serialize(&mut buf).unwrap();
         let cert2 = Cert::from_bytes(&buf).unwrap();
 
-        assert_eq!(cert2.primary_key().binding().self_signatures()[0].typ(),
-                   SignatureType::DirectKey);
+        assert_eq!(
+            cert2.primary_key().policy(None).unwrap()
+                .direct_key_signature().unwrap().typ(),
+            SignatureType::DirectKey);
         assert_eq!(cert2.userids().count(), 0);
     }
 
