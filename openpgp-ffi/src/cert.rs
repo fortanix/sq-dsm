@@ -26,6 +26,7 @@ use self::openpgp::{
         CertRevocationBuilder,
         ValidKeyIter,
         components::{
+            Amalgamation,
             UserIDBinding,
             UserIDBindingIter,
         },

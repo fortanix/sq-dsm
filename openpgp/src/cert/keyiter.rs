@@ -12,6 +12,7 @@ use crate::{
     cert::{
         Cert,
         components::{
+            Amalgamation,
             KeyBinding,
             KeyBindingIter,
         },
@@ -749,6 +750,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
     /// use openpgp::RevocationStatus;
+    /// use openpgp::cert::components::Amalgamation;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {

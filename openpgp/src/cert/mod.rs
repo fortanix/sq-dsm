@@ -40,6 +40,7 @@ mod builder;
 mod bindings;
 pub mod components;
 use components::{
+    Amalgamation,
     ComponentBinding,
     PrimaryKeyBinding,
     KeyBindingIter,

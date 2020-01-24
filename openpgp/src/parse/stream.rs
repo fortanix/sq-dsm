@@ -43,6 +43,9 @@ use crate::{
     packet,
     packet::Signature,
     Cert,
+    cert::components::{
+        Amalgamation,
+    },
     cert::ValidKeyAmalgamation,
     crypto::SessionKey,
     serialize::Serialize,
