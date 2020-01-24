@@ -3176,4 +3176,20 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                    .count(), 1);
         Ok(())
     }
+
+    /// Asserts that key expiration times on direct key signatures are
+    /// honored.
+    #[test]
+    fn issue_215() {
+        let p = crate::policy::StandardPolicy::new();
+        let cert = Cert::from_bytes(crate::tests::key(
+            "issue-215-expiration-on-direct-key-sig.pgp")).unwrap();
+        assert_match!(
+            Error::Expired(_)
+                = cert.alive(&p, None).unwrap_err().downcast().unwrap());
+        assert_match!(
+            Error::Expired(_)
+                = cert.primary_key().with_policy(&p, None).unwrap()
+                    .alive().unwrap_err().downcast().unwrap());
+    }
 }
