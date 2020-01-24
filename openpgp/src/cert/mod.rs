@@ -531,8 +531,18 @@ impl Cert {
     {
         let primary = self.primary_key().policy(now)?;
         let mut sigs = Vec::new();
+        let binding = primary.binding_signature();
         for template in [
-            Some(primary.binding_signature()),
+            // The primary key's binding signature might be the direct
+            // key signature.  To avoid generating two new direct key
+            // signatures, check that we do have in fact a userid
+            // binding signature.
+            if binding.typ() != SignatureType::DirectKey {
+                // Userid binding signature.
+                Some(binding)
+            } else {
+                None
+            },
             primary.direct_key_signature(),
         ].iter().filter_map(|&x| x) {
             // Recompute the signature.
@@ -1818,11 +1828,49 @@ mod test {
     fn set_expiry() {
         let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
-
+        assert_eq!(cert.clone().into_packet_pile().children().count(),
+                   1 // primary key
+                   + 1 // direct key signature
+                   + 1 // userid
+                   + 1 // binding signature
+                   + 1 // subkey
+                   + 1 // binding signature
+        );
+        let cert = check_set_expiry(cert);
+        assert_eq!(cert.clone().into_packet_pile().children().count(),
+                   1 // primary key
+                   + 1 // direct key signature
+                   + 2 // two new direct key signatures
+                   + 1 // userid
+                   + 1 // binding signature
+                   + 2 // two new binding signatures
+                   + 1 // subkey
+                   + 1 // binding signature
+        );
+    }
+    #[test]
+    fn set_expiry_uidless() {
+        let (cert, _) = CertBuilder::new()
+            .set_expiration(None) // Just to assert this works.
+            .set_expiration(
+                Some(crate::types::Duration::weeks(52).unwrap().into()))
+            .generate().unwrap();
+        assert_eq!(cert.clone().into_packet_pile().children().count(),
+                   1 // primary key
+                   + 1 // direct key signature
+        );
+        let cert = check_set_expiry(cert);
+        assert_eq!(cert.clone().into_packet_pile().children().count(),
+                   1 // primary key
+                   + 1 // direct key signature
+                   + 2 // two new direct key signatures
+        );
+    }
+    fn check_set_expiry(cert: Cert) -> Cert {
         let now = cert.primary_key().creation_time();
         let a_sec = time::Duration::new(1, 0);
 
-        let expiry_orig = cert.primary_key().policy(None).unwrap()
+        let expiry_orig = cert.primary_key().policy(now).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
 
@@ -1881,6 +1929,7 @@ mod test {
                            .key_expiration_time(),
                        Some(expiry_new));
         }
+        cert
     }
 
     #[test]
