@@ -437,7 +437,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
     /// Returns the Certificate's direct key signature as of the
     /// reference time, if any.
     ///
-    /// Subkeys on direct key signatures apply to all components of
+    /// Subpackets on direct key signatures apply to all components of
     /// the certificate.
     pub fn direct_key_signature(&self) -> Option<&'a Signature> {
         self.cert.primary.binding_signature(self.time())
