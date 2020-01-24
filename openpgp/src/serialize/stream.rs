@@ -1483,7 +1483,8 @@ mod test {
             Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
             Cert::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
-            for key in tsk.keys().policy(None).for_signing().map(|ka| ka.key())
+            for key in tsk.keys().policy(crate::frozen_time())
+                .for_signing().map(|ka| ka.key())
             {
                 keys.insert(key.fingerprint(), key.clone());
             }
@@ -1504,8 +1505,7 @@ mod test {
             let signer = signer.build().unwrap();
             let mut ls = LiteralWriter::new(signer).build().unwrap();
             ls.write_all(b"Tis, tis, tis.  Tis is important.").unwrap();
-            let signer = ls.finalize_one().unwrap().unwrap();
-            let _ = signer.finalize_one().unwrap().unwrap();
+            let _ = ls.finalize().unwrap();
         }
 
         let mut ppr = PacketParser::from_bytes(&o).unwrap();
