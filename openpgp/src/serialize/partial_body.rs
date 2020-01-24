@@ -138,7 +138,7 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
                 // ... from our buffer first...
                 let l = cmp::min(self.buffer.len(), chunk_size);
                 inner.write_all(&self.buffer[..l])?;
-                self.buffer.drain(..l);
+                crate::vec_drain_prefix(&mut self.buffer, l);
 
                 // ... then from other.
                 if chunk_size > l {

@@ -205,7 +205,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
         if self.buffer.len() > 0 {
             let to_copy = cmp::min(self.buffer.len(), plaintext.len());
             &plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
-            self.buffer.drain(..to_copy);
+            crate::vec_drain_prefix(&mut self.buffer, to_copy);
             pos = to_copy;
         }
 
@@ -274,7 +274,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
                                         format!("{}", e)))?;
 
         &plaintext[pos..pos + to_copy].copy_from_slice(&self.buffer[..to_copy]);
-        self.buffer.drain(..to_copy);
+        crate::vec_drain_prefix(&mut self.buffer, to_copy);
 
         pos += to_copy;
 

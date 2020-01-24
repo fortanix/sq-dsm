@@ -895,7 +895,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
             let n = cmp::min(buf.len(), reserve.len());
             &mut buf[..n].copy_from_slice(&reserve[..n]);
-            reserve.drain(..n);
+            crate::vec_drain_prefix(reserve, n);
             return Ok(n);
         }
 
@@ -1091,7 +1091,7 @@ impl<'a> Transformer<'a> {
 
         let n = cmp::min(buf.len(), self.buffer.len());
         &mut buf[..n].copy_from_slice(&self.buffer[..n]);
-        self.buffer.drain(..n);
+        crate::vec_drain_prefix(&mut self.buffer, n);
         Ok(n)
     }
 }
@@ -1809,7 +1809,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
             let n = cmp::min(buf.len(), reserve.len());
             &mut buf[..n].copy_from_slice(&reserve[..n]);
-            reserve.drain(..n);
+            crate::vec_drain_prefix(reserve, n);
             return Ok(n);
         }
 

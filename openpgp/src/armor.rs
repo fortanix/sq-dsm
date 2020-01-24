@@ -1036,7 +1036,7 @@ impl<'a> Read for Reader<'a> {
 
             let amount = cmp::min(buf.len(), self.buffer.len());
             buf[..amount].copy_from_slice(&self.buffer[..amount]);
-            self.buffer.drain(..amount);
+            crate::vec_drain_prefix(&mut self.buffer, amount);
 
             (0, amount)
         } else {
@@ -1111,7 +1111,7 @@ impl<'a> Read for Reader<'a> {
 
                 let copied = cmp::min(buf.len(), self.buffer.len());
                 buf[..copied].copy_from_slice(&self.buffer[..copied]);
-                self.buffer.drain(..copied);
+                crate::vec_drain_prefix(&mut self.buffer, copied);
 
                 copied
             } else {

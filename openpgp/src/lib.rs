@@ -90,6 +90,25 @@ fn vec_truncate(v: &mut Vec<u8>, len: usize) {
     }
 }
 
+/// Like `drop(Vec<u8>::drain(..prefix_len))`, but fast in debug
+/// builds.
+fn vec_drain_prefix(v: &mut Vec<u8>, prefix_len: usize) {
+    if cfg!(debug_assertions) {
+        // Panic like v.drain(..prefix_len).
+        assert!(prefix_len <= v.len(), "prefix len {} > vector len {}",
+                prefix_len, v.len());
+        let new_len = v.len() - prefix_len;
+        unsafe {
+            std::ptr::copy(v[prefix_len..].as_ptr(),
+                           v[..].as_mut_ptr(),
+                           new_len);
+        }
+        vec_truncate(v, new_len);
+    } else {
+        v.drain(..prefix_len);
+    }
+}
+
 // Like assert!, but checks a pattern.
 //
 //   assert_match!(Some(_) = x);
