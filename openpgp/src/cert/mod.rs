@@ -43,7 +43,6 @@ use components::{
     ComponentBinding,
     PrimaryKeyBinding,
     KeyBindingIter,
-    UserIDBinding,
     UnknownBindingIter,
     ValidComponentAmalgamation,
 };
@@ -416,68 +415,6 @@ impl Cert {
     {
         PrimaryKeyAmalgamation::new(
             self.keys().nth(0).expect("primary key"))
-    }
-
-    /// Returns the primary key's current self-signature as of `t`.
-    ///
-    /// If the current self-signature is from a User ID binding (and
-    /// not a direct signature), this also returns the User ID binding
-    /// and its revocation status as of `t`.
-    fn primary_key_signature_full<T>(&self, t: T)
-        -> Option<(&Signature, Option<(&UserIDBinding, RevocationStatus)>)>
-        where T: Into<Option<time::SystemTime>>
-    {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
-
-        // 1. Self-signature from the non-revoked primary UserID.
-        let primary_userid = self.primary_userid(t).map(|ca| {
-            (ca.binding(), ca.binding_signature(), ca.revoked())
-        });
-        if let Some((ref u, ref s, ref r)) = primary_userid {
-            if !destructures_to!(RevocationStatus::Revoked(_) = r) {
-                return Some((s, Some((u, r.clone()))));
-            }
-        }
-
-        // 2. Direct signature.
-        if let Some(s) = self.primary.binding_signature(t) {
-            return Some((s, None));
-        }
-
-        // 3. All User IDs are revoked.
-        if let Some((ref u, ref s, ref r)) = primary_userid {
-            assert!(destructures_to!(RevocationStatus::Revoked(_) = &r));
-            return Some((s, Some((u, r.clone()))));
-        }
-
-        // 4. No user ids and no direct signatures.
-        None
-    }
-
-    /// Returns the primary key's current self-signature.
-    ///
-    /// The primary key's current self-signature as of `t` is, in
-    /// order of preference:
-    ///
-    ///   - The binding signature of the primary User ID at time `t`,
-    ///     if the primary User ID is not revoked at time `t`.
-    ///
-    ///   - The newest, live, direct self signature at time `t`.
-    ///
-    ///   - The binding signature of the primary User ID at time `t`
-    ///     (this can only happen if there are only revoked User IDs
-    ///     at time `t`).
-    ///
-    /// If there are no applicable signatures, `None` is returned.
-    pub fn primary_key_signature<T>(&self, t: T) -> Option<&Signature>
-        where T: Into<Option<time::SystemTime>>
-    {
-        if let Some((sig, _)) = self.primary_key_signature_full(t) {
-            Some(sig)
-        } else {
-            None
-        }
     }
 
     /// Returns the Cert's revocation status at time `t`.
