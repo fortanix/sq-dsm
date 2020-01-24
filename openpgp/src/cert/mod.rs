@@ -2224,10 +2224,11 @@ mod test {
         let f1: f32 = thread_rng().sample(Open01);
         let f2: f32 = thread_rng().sample(Open01);
         let f3: f32 = thread_rng().sample(Open01);
+        let f4: f32 = thread_rng().sample(Open01);
         let te1 = t1 - time::Duration::new((60. * 60. * 24. * 300.0 * f1) as u64, 0);
         let t12 = t1 + time::Duration::new((60. * 60. * 24. * 300.0 * f2) as u64, 0);
         let t23 = t2 + time::Duration::new((60. * 60. * 24. * 300.0 * f3) as u64, 0);
-        let t34 = t3 + time::Duration::new((60. * 60. * 24. * 300.0 * f3) as u64, 0);
+        let t34 = t3 + time::Duration::new((60. * 60. * 24. * 300.0 * f4) as u64, 0);
 
         assert_eq!(cert.revoked(te1), RevocationStatus::NotAsFarAsWeKnow);
         assert_eq!(cert.revoked(t12), RevocationStatus::NotAsFarAsWeKnow);
