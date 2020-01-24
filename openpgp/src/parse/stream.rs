@@ -1029,7 +1029,10 @@ impl<'a> Transformer<'a> {
         })
     }
 
-    fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
+    fn read_helper(&mut self, mut buf: &mut [u8]) -> Result<usize> {
+        // Keep track of the bytes written into `buf`.
+        let mut bytes_read = 0;
+
         if self.buffer.is_empty() {
             self.state = match self.state {
                 TransformationState::Data => {
@@ -1050,28 +1053,43 @@ impl<'a> Transformer<'a> {
 
                     // Try to read that amount into the buffer.
                     let data = self.reader.data_consume(s)?;
-                    let data = &data[..cmp::min(s, data.len())];
+                    let mut data = &data[..cmp::min(s, data.len())];
 
-                    // Short read?
-                    if data.len() < s {
-                        let len = BodyLength::Full(data.len() as u32);
-                        len.serialize(&mut self.buffer)?;
+                    // Short read?  The end is nigh.
+                    let short_read = data.len() < s;
+                    let len = if short_read {
+                        BodyLength::Full(data.len() as u32)
+                    } else {
+                        BodyLength::Partial(data.len() as u32)
+                    };
+                    len.serialize(&mut self.buffer)?;
+                    // Offset into `self.buffer`.
+                    let mut off = self.buffer.len();
 
-                        // XXX: Could avoid the copy here.
-                        let l = self.buffer.len();
-                        self.buffer.resize(l + data.len(), 0);
-                        &mut self.buffer[l..].copy_from_slice(data);
+                    // Try to copy the length directly into the read
+                    // buffer.
+                    if off < buf.len() {
+                        &mut buf[..off].copy_from_slice(&self.buffer[..off]);
+                        buf = &mut buf[off..];
+                        bytes_read += off;
+                        off = 0;
 
+                        // Try to copy as much as possible of `data` into
+                        // the read buffer.
+                        let n = cmp::min(buf.len(), data.len());
+                        &mut buf[..n].copy_from_slice(&data[..n]);
+                        data = &data[n..];
+                        bytes_read += n;
+                    }
+
+                    // Copy the rest.
+                    // XXX: Could avoid the copy here.
+                    self.buffer.resize(off + data.len(), 0);
+                    &mut self.buffer[off..].copy_from_slice(data);
+
+                    if short_read {
                         TransformationState::Sigs
                     } else {
-                        let len = BodyLength::Partial(data.len() as u32);
-                        len.serialize(&mut self.buffer)?;
-
-                        // XXX: Could avoid the copy here.
-                        let l = self.buffer.len();
-                        self.buffer.resize(l + data.len(), 0);
-                        &mut self.buffer[l..].copy_from_slice(data);
-
                         TransformationState::Data
                     }
                 },
@@ -1087,6 +1105,13 @@ impl<'a> Transformer<'a> {
                 TransformationState::Done =>
                     TransformationState::Done,
             };
+        }
+
+        if bytes_read > 0 {
+            // We (partially?) satisfied the read request.  Return
+            // now, and leave `self.buffer` for the next read
+            // invocation.
+            return Ok(bytes_read);
         }
 
         let n = cmp::min(buf.len(), self.buffer.len());
