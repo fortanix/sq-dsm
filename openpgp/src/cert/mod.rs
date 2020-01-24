@@ -499,10 +499,22 @@ impl Cert {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self.primary._revoked(
-            true,
-            self.primary_key().policy(t).ok().map(|ka| ka.binding_signature()),
-            t)
+        // Both a primary key signature and the primary userid's
+        // binding signature can override a soft revocation.  Compute
+        // the most recent one.
+        let vkao = self.primary_key().policy(t).ok();
+        let mut sig = vkao.as_ref().map(|vka| vka.binding_signature());
+        if let Some(direct) = vkao.as_ref()
+            .and_then(|vka| vka.direct_key_signature())
+        {
+            match (direct.signature_creation_time(),
+                   sig.and_then(|s| s.signature_creation_time())) {
+                (Some(ds), Some(bs)) if ds > bs =>
+                    sig = Some(direct),
+                _ => ()
+            }
+        }
+        self.primary_key().binding()._revoked(true, sig, t)
     }
 
     /// Revokes the Cert in place.

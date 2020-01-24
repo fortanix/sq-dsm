@@ -224,8 +224,11 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
             KeyAmalgamation {
                 binding: KeyAmalgamationBinding::Primary(),
                 ..
-            } =>
-                self.cert.primary_key_signature(time),
+            } => {
+                self.cert.primary_userid(time).map(|u| u.binding_signature())
+                    .or_else(|| self.cert.primary_key().binding()
+                             .binding_signature(time))
+            },
             KeyAmalgamation {
                 binding: KeyAmalgamationBinding::Subordinate(ref binding),
                 ..
@@ -445,11 +448,10 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
     /// revoked.
     pub fn revoked(&self) -> RevocationStatus<'a>
     {
-        match self.a {
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Primary(), .. } =>
-                self.cert.primary._revoked(true, Some(self.binding_signature()),
-                                           self.time()),
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Subordinate(ref binding), .. } =>
+        match self.a.binding {
+            KeyAmalgamationBinding::Primary() =>
+                self.cert.revoked(self.time()),
+            KeyAmalgamationBinding::Subordinate(ref binding) =>
                 binding.revoked(self.time()),
         }
     }
