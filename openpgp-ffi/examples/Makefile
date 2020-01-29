@@ -14,6 +14,7 @@ EXAMPLES = \
 	generate-key \
 	type-safety-demo use-after-free-demo immutable-reference-demo \
 	writer-cookie \
+	reader-cookie \
 
 CFLAGS  = -I../include -O0 -g -Wall -Werror
 LDFLAGS = -L$(CARGO_TARGET_DIR)/debug -lsequoia_openpgp_ffi

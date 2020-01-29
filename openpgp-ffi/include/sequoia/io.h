@@ -29,6 +29,18 @@ pgp_reader_t pgp_reader_from_fd (int fd);
 pgp_reader_t pgp_reader_from_bytes (const uint8_t *buf, size_t len);
 
 /*/
+/// The callback type for the generic callback-based reader interface.
+/*/
+typedef ssize_t (*pgp_reader_cb_t) (void *cookie, const void *buf, size_t len);
+
+/*/
+/// Creates an reader from a callback and cookie.
+///
+/// This reader calls the given callback to write data.
+/*/
+pgp_reader_t pgp_reader_from_callback (pgp_reader_cb_t, void *);
+
+/*/
 /// Frees a reader.
 /*/
 void pgp_reader_free (pgp_reader_t reader);

@@ -73,6 +73,42 @@ pub extern "C" fn pgp_reader_from_bytes(buf: *const u8,
     ReaderKind::Generic(Box::new(Cursor::new(buf))).move_into_raw()
 }
 
+/// The callback type for the generic callback-based reader interface.
+type ReaderCallbackFn = fn(*mut c_void, *const c_void, size_t) -> ssize_t;
+
+/// Creates an reader from a callback and cookie.
+///
+/// This reader calls the given callback to write data.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_reader_from_callback(cb: ReaderCallbackFn,
+                            cookie: *mut c_void)
+                            -> *mut Reader {
+    let r: Box<dyn io::Read> = Box::new(ReaderCallback {
+        cb, cookie,
+    });
+    ReaderKind::Generic(r).move_into_raw()
+}
+
+/// A generic callback-based reader implementation.
+struct ReaderCallback {
+    cb: ReaderCallbackFn,
+    cookie: *mut c_void,
+}
+
+impl Read for ReaderCallback {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let r =
+            (self.cb)(self.cookie, buf.as_mut_ptr() as *mut c_void, buf.len());
+        if r < 0 {
+            use std::io as stdio;
+            Err(stdio::Error::new(stdio::ErrorKind::Other,
+                                  "Unknown error in read callback"))
+        } else {
+            Ok(r as usize)
+        }
+    }
+}
+
 /// Reads up to `len` bytes into `buf`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_reader_read(errp: Option<&mut *mut crate::error::Error>,
