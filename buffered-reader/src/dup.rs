@@ -131,7 +131,7 @@ impl<T: BufferedReader<C>, C> BufferedReader<C> for Dup<T, C> {
 
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
             where Self: 'b {
-        Some(Box::new(self.reader))
+        Some(self.reader.as_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
