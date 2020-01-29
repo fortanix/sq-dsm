@@ -1,6 +1,7 @@
 //! Functions for parsing MPIs.
 
 use std::io::Read;
+use buffered_reader::BufferedReader;
 use crate::{
     Result,
     Error,
@@ -30,7 +31,7 @@ impl mpis::PublicKey {
         let cur = Cursor::new(buf);
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
-        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        let mut php = PacketHeaderParser::new_naked(bio);
         Self::_parse(algo, &mut php)
     }
 
@@ -39,8 +40,9 @@ impl mpis::PublicKey {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
-                            php: &mut PacketHeaderParser<'a>)
+    pub(crate) fn _parse<'a, T: 'a + BufferedReader<Cookie>>(
+        algo: PublicKeyAlgorithm,
+        php: &mut PacketHeaderParser<T>)
         -> Result<Self>
     {
         use crate::PublicKeyAlgorithm::*;
@@ -156,7 +158,7 @@ impl mpis::SecretKeyMaterial {
         // read mpis
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
-        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        let mut php = PacketHeaderParser::new_naked(bio);
         let mpis = Self::_parse(algo, &mut php)?;
 
         // read expected sha1 hash of the mpis
@@ -192,7 +194,7 @@ impl mpis::SecretKeyMaterial {
         let cur = Cursor::new(buf);
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
-        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        let mut php = PacketHeaderParser::new_naked(bio);
         Self::_parse(algo, &mut php)
     }
 
@@ -201,9 +203,10 @@ impl mpis::SecretKeyMaterial {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
-                             php: &mut PacketHeaderParser<'a>)
-                             -> Result<Self>
+    pub(crate) fn _parse<'a, T: 'a + BufferedReader<Cookie>>(
+        algo: PublicKeyAlgorithm,
+        php: &mut PacketHeaderParser<T>)
+        -> Result<Self>
     {
         use crate::PublicKeyAlgorithm::*;
 
@@ -292,7 +295,7 @@ impl mpis::Ciphertext {
         let cur = Cursor::new(buf);
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
-        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        let mut php = PacketHeaderParser::new_naked(bio);
         Self::_parse(algo, &mut php)
     }
 
@@ -302,9 +305,10 @@ impl mpis::Ciphertext {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
-                             php: &mut PacketHeaderParser<'a>)
-                             -> Result<Self> {
+    pub(crate) fn _parse<'a, T: 'a + BufferedReader<Cookie>>(
+        algo: PublicKeyAlgorithm,
+        php: &mut PacketHeaderParser<T>)
+        -> Result<Self> {
         use crate::PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
@@ -373,7 +377,7 @@ impl mpis::Signature {
         let cur = Cursor::new(buf);
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
-        let mut php = PacketHeaderParser::new_naked(Box::new(bio));
+        let mut php = PacketHeaderParser::new_naked(bio);
         Self::_parse(algo, &mut php)
     }
 
@@ -383,9 +387,10 @@ impl mpis::Signature {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub(crate) fn _parse<'a>(algo: PublicKeyAlgorithm,
-                             php: &mut PacketHeaderParser<'a>)
-                             -> Result<Self> {
+    pub(crate) fn _parse<'a, T: 'a + BufferedReader<Cookie>>(
+        algo: PublicKeyAlgorithm,
+        php: &mut PacketHeaderParser<T>)
+        -> Result<Self> {
         use crate::PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
