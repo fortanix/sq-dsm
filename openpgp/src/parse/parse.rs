@@ -4056,7 +4056,7 @@ impl<'a> PacketParser<'a> {
                 // An MDC consists of a 1-byte CTB, a 1-byte length
                 // encoding, and a 20-byte hash.
                 let mut reader = buffered_reader::Reserve::with_cookie(
-                    Box::new(reader), 1 + 1 + 20,
+                    reader, 1 + 1 + 20,
                     Cookie::new(self.recursion_depth()));
                 reader.cookie_mut().fake_eof = true;
 
