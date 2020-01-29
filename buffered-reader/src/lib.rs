@@ -1040,7 +1040,7 @@ mod test {
 
         // Try it again with a limitor.
         {
-            let bio = Box::new(Memory::new(data));
+            let bio = Memory::new(data);
             let mut bio2 = Limitor::new(
                 bio, (data.len() / 2) as u64);
             let amount = {

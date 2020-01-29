@@ -966,7 +966,7 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
         = match header.length() {
             &BodyLength::Full(len) =>
                 Box::new(buffered_reader::Limitor::with_cookie(
-                    Box::new(reader), len as u64, Cookie::default())),
+                    reader, len as u64, Cookie::default())),
             &BodyLength::Partial(len) =>
                 Box::new(BufferedReaderPartialBodyFilter::with_cookie(
                     reader, len, true, Cookie::default())),
@@ -1634,7 +1634,7 @@ impl OnePassSig3 {
         // discards any following packets.  To prevent this, we push a
         // Limitor on the reader stack.
         let mut reader = buffered_reader::Limitor::with_cookie(
-            Box::new(reader), 0, Cookie::default());
+            reader, 0, Cookie::default());
         reader.cookie_mut().level = Some(recursion_depth);
 
         pp.reader = Box::new(reader);
