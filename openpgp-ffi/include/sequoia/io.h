@@ -84,6 +84,18 @@ pgp_writer_t pgp_writer_from_bytes (uint8_t *buf, size_t len);
 pgp_writer_t pgp_writer_alloc (void **buf, size_t *len);
 
 /*/
+/// The callback type for the generic callback-based writer interface.
+/*/
+typedef ssize_t (*pgp_writer_cb_t) (void *cookie, const void *buf, size_t len);
+
+/*/
+/// Creates an writer from a callback and cookie.
+///
+/// This writer calls the given callback to write data.
+/*/
+pgp_writer_t pgp_writer_from_callback (pgp_writer_cb_t, void *);
+
+/*/
 /// Frees a writer.
 /*/
 void pgp_writer_free (pgp_writer_t writer);

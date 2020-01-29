@@ -228,6 +228,48 @@ impl Write for WriterAlloc {
     }
 }
 
+/// The callback type for the generic callback-based writer interface.
+type WriterCallbackFn = fn(*mut c_void, *const c_void, size_t) -> ssize_t;
+
+/// Creates an writer from a callback and cookie.
+///
+/// This writer calls the given callback to write data.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_writer_from_callback(cb: WriterCallbackFn,
+                            cookie: *mut c_void)
+                            -> *mut Writer {
+    let w: Box<dyn io::Write> = Box::new(WriterCallback {
+        cb, cookie,
+    });
+    w.move_into_raw()
+}
+
+/// A generic callback-based writer implementation.
+struct WriterCallback {
+    cb: WriterCallbackFn,
+    cookie: *mut c_void,
+}
+
+impl Write for WriterCallback {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let r =
+            (self.cb)(self.cookie, buf.as_ptr() as *const c_void, buf.len());
+        if r < 0 {
+            use std::io as stdio;
+            Err(stdio::Error::new(stdio::ErrorKind::Other,
+                                  "Unknown error in write callback"))
+        } else {
+            Ok(r as usize)
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        // Do nothing.
+        // XXX: Should we add a callback for that?
+        Ok(())
+    }
+}
+
 /// Writes up to `len` bytes of `buf` into `writer`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_writer_write(errp: Option<&mut *mut crate::error::Error>,
