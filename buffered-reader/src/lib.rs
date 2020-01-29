@@ -818,6 +818,13 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
         Ok(at_least_one_byte)
     }
 
+    /// Boxes the reader.
+    fn as_boxed<'a>(self) -> Box<dyn BufferedReader<C> + 'a>
+        where Self: 'a + Sized
+    {
+        Box::new(self)
+    }
+
     /// Returns the underlying reader, if any.
     ///
     /// To allow this to work with `BufferedReader` traits, it is
@@ -961,6 +968,12 @@ impl <'a, C> BufferedReader<C> for Box<dyn BufferedReader<C> + 'a> {
     fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
         // Strip the outer box.
         self.as_ref().get_ref()
+    }
+
+    fn as_boxed<'b>(self) -> Box<dyn BufferedReader<C> + 'b>
+        where Self: 'b
+    {
+        self
     }
 
     fn into_inner<'b>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'b>>
