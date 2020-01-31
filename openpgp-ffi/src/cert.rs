@@ -41,6 +41,7 @@ use super::packet::signature::Signature;
 use super::packet_pile::PacketPile;
 use super::tsk::TSK;
 use super::revocation_status::RevocationStatus;
+use super::policy::Policy;
 
 use crate::Maybe;
 use crate::RefRaw;
@@ -168,10 +169,13 @@ fn pgp_cert_primary_key(cert: *const Cert) -> *const Key {
 /// If `when` is 0, then returns the Cert's revocation status as of the
 /// time of the call.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_revoked(cert: *const Cert, when: time_t)
+fn pgp_cert_revoked(cert: *const Cert, policy: *const Policy, when: time_t)
     -> *mut RevocationStatus<'static>
 {
-    cert.ref_raw().revoked(maybe_time(when)).move_into_raw()
+    let policy = &**policy.ref_raw();
+    cert.ref_raw()
+        .revoked(policy, maybe_time(when))
+        .move_into_raw()
 }
 
 fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
@@ -203,6 +207,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// pgp_key_t primary_key;
 /// pgp_key_pair_t primary_keypair;
 /// pgp_signer_t primary_signer;
+/// pgp_policy_t policy = pgp_standard_policy ();
 ///
 /// builder = pgp_cert_builder_new ();
 /// pgp_cert_builder_set_cipher_suite (&builder, PGP_CERT_CIPHER_SUITE_CV25519);
@@ -227,11 +232,12 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// cert = pgp_cert_merge_packets (NULL, cert, &packet, 1);
 /// assert (cert);
 ///
-/// pgp_revocation_status_t rs = pgp_cert_revoked (cert, 0);
+/// pgp_revocation_status_t rs = pgp_cert_revoked (cert, policy, 0);
 /// assert (pgp_revocation_status_variant (rs) == PGP_REVOCATION_STATUS_REVOKED);
 /// pgp_revocation_status_free (rs);
 ///
 /// pgp_cert_free (cert);
+/// pgp_policy_free (policy);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_revoke(errp: Option<&mut *mut crate::error::Error>,
@@ -273,6 +279,7 @@ fn pgp_cert_revoke(errp: Option<&mut *mut crate::error::Error>,
 /// pgp_key_t primary_key;
 /// pgp_key_pair_t primary_keypair;
 /// pgp_signer_t primary_signer;
+/// pgp_policy_t policy = pgp_standard_policy ();
 ///
 /// builder = pgp_cert_builder_new ();
 /// pgp_cert_builder_set_cipher_suite (&builder, PGP_CERT_CIPHER_SUITE_CV25519);
@@ -293,11 +300,12 @@ fn pgp_cert_revoke(errp: Option<&mut *mut crate::error::Error>,
 /// pgp_signer_free (primary_signer);
 /// pgp_key_pair_free (primary_keypair);
 ///
-/// pgp_revocation_status_t rs = pgp_cert_revoked (cert, 0);
+/// pgp_revocation_status_t rs = pgp_cert_revoked (cert, policy, 0);
 /// assert (pgp_revocation_status_variant (rs) == PGP_REVOCATION_STATUS_REVOKED);
 /// pgp_revocation_status_free (rs);
 ///
 /// pgp_cert_free (cert);
+/// pgp_policy_free (policy);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
@@ -324,9 +332,12 @@ fn pgp_cert_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
 /// If `when` is 0, then the current time is used.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_alive(errp: Option<&mut *mut crate::error::Error>,
-                  cert: *const Cert, when: time_t) -> Status {
+                  cert: *const Cert, policy: *const Policy, when: time_t)
+    -> Status
+{
+    let policy = &**policy.ref_raw();
     ffi_make_fry_from_errp!(errp);
-    ffi_try_status!(cert.ref_raw().alive(maybe_time(when)))
+    ffi_try_status!(cert.ref_raw().alive(policy, maybe_time(when)))
 }
 
 /// Changes the Cert's expiration.
@@ -338,14 +349,17 @@ fn pgp_cert_alive(errp: Option<&mut *mut crate::error::Error>,
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_set_expiry(errp: Option<&mut *mut crate::error::Error>,
                        cert: *mut Cert,
+                       policy: *const Policy,
                        primary_signer: *mut Box<dyn crypto::Signer>,
                        expiry: u32)
-                       -> Maybe<Cert> {
+    -> Maybe<Cert>
+{
+    let policy = &**policy.ref_raw();
     let cert = cert.move_from_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
 
-    cert.set_expiry(signer.as_mut(),
-                   Some(std::time::Duration::new(expiry as u64, 0)))
+    cert.set_expiry(policy, signer.as_mut(),
+                    Some(std::time::Duration::new(expiry as u64, 0)))
         .move_into_raw(errp)
 }
 
@@ -359,11 +373,12 @@ fn pgp_cert_is_tsk(cert: *const Cert)
 
 /// Returns an iterator over the Cert's user id bindings.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_primary_user_id(cert: *const Cert)
+fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy)
                            -> *mut c_char
 {
     let cert = cert.ref_raw();
-    if let Some(binding) = cert.primary_userid(None) {
+    let policy = &**policy.ref_raw();
+    if let Some(binding) = cert.primary_userid(policy, None) {
         ffi_return_string!(binding.userid().value())
     } else {
         ptr::null_mut()
@@ -392,11 +407,13 @@ pub extern "C" fn pgp_user_id_binding_user_id(
 /// Returns a reference to the self-signature, if any.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_user_id_binding_selfsig(
-    binding: *const UserIDBinding)
+    binding: *const UserIDBinding,
+    policy: *const Policy)
     -> Maybe<Signature>
 {
     let binding = ffi_param_ref!(binding);
-    binding.binding_signature(None).move_into_raw()
+    let policy = &**policy.ref_raw();
+    binding.binding_signature(policy, None).move_into_raw()
 }
 
 
@@ -505,9 +522,11 @@ pub extern "C" fn pgp_cert_key_iter_unencrypted_secret<'a>(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_key_iter_policy<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>,
+    policy: *const Policy,
     when: time_t)
     -> *mut ValidKeyIterWrapper<'static>
 {
+    let policy = policy.ref_raw();
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
         panic!("Can't change KeyIter filter after iterating.");
@@ -517,7 +536,9 @@ pub extern "C" fn pgp_cert_key_iter_policy<'a>(
     let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
 
     box_raw!(ValidKeyIterWrapper {
-        iter: unsafe { std::mem::transmute(tmp.policy(maybe_time(when))) },
+        iter: unsafe {
+            std::mem::transmute(tmp.set_policy(&**policy, maybe_time(when)))
+        },
         next_called: false,
     })
 }
@@ -561,7 +582,8 @@ pub struct ValidKeyIterWrapper<'a> {
 /// subkeys that are valid (i.e., have a self-signature at time
 /// `when`).
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_cert_valid_key_iter(cert: *const Cert, when: time_t)
+pub extern "C" fn pgp_cert_valid_key_iter(cert: *const Cert,
+                                          policy: *const Policy, when: time_t)
     -> *mut ValidKeyIterWrapper<'static>
 {
     let cert = cert.ref_raw();
@@ -570,7 +592,7 @@ pub extern "C" fn pgp_cert_valid_key_iter(cert: *const Cert, when: time_t)
         next_called: false,
     });
 
-    pgp_cert_key_iter_policy(iter, when)
+    pgp_cert_key_iter_policy(iter, policy, when)
 }
 
 /// Frees a pgp_cert_key_iter_t.

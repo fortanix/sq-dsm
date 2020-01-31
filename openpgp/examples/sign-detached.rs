@@ -8,8 +8,10 @@ extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::armor;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{Message, Signer};
+use crate::openpgp::policy::StandardPolicy as P;
 
 fn main() {
+    let p = &P::new();
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         panic!("A simple filter creating a detached signature.\n\n\
@@ -25,7 +27,7 @@ fn main() {
         let mut n = 0;
 
         for key in tsk
-            .keys().policy(None).alive().revoked(false).for_signing().secret()
+            .keys().set_policy(p, None).alive().revoked(false).for_signing().secret()
             .map(|ka| ka.key())
         {
             keys.push({

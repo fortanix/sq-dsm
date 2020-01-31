@@ -13,8 +13,10 @@ use crate::openpgp::serialize::stream::{
     Message, LiteralWriter, Encryptor, Recipient,
 };
 use crate::openpgp::serialize::padding::*;
+use crate::openpgp::policy::StandardPolicy as P;
 
 fn main() {
+    let p = &P::new();
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         panic!("A simple encryption filter.\n\n\
@@ -41,7 +43,7 @@ fn main() {
         .iter()
         .flat_map(|cert| {
             cert.keys()
-                .policy(None).alive().revoked(false).key_flags(&mode)
+                .set_policy(p, None).alive().revoked(false).key_flags(&mode)
         })
         .map(|ka| Recipient::new(KeyID::wildcard(), ka.key()))
         .collect::<Vec<_>>();

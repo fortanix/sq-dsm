@@ -6,20 +6,24 @@ extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::serialize::stream::*;
 use crate::openpgp::parse::stream::*;
+use crate::openpgp::policy::Policy;
+use crate::openpgp::policy::StandardPolicy as P;
 
 const MESSAGE: &'static str = "дружба";
 
 fn main() {
+    let p = &P::new();
+
     // Generate a key.
     let key = generate().unwrap();
 
     // Sign the message.
     let mut signed_message = Vec::new();
-    sign(&mut signed_message, MESSAGE, &key).unwrap();
+    sign(p, &mut signed_message, MESSAGE, &key).unwrap();
 
     // Verify the message.
     let mut plaintext = Vec::new();
-    verify(&mut plaintext, &signed_message, &key).unwrap();
+    verify(p, &mut plaintext, &signed_message, &key).unwrap();
 
     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 }
@@ -37,11 +41,11 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 }
 
 /// Signs the given message.
-fn sign(sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
+fn sign(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the Cert.
     let keypair = tsk
-        .keys().policy(None).alive().revoked(false).for_signing()
+        .keys().set_policy(p, None).alive().revoked(false).for_signing()
         .nth(0).unwrap()
         .key().clone().mark_parts_secret().unwrap().into_keypair()?;
 
@@ -65,7 +69,8 @@ fn sign(sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
 }
 
 /// Verifies the given message.
-fn verify(sink: &mut dyn Write, signed_message: &[u8], sender: &openpgp::Cert)
+fn verify(p: &dyn Policy, sink: &mut dyn Write,
+          signed_message: &[u8], sender: &openpgp::Cert)
           -> openpgp::Result<()> {
     // Make a helper that that feeds the sender's public key to the
     // verifier.
@@ -74,7 +79,7 @@ fn verify(sink: &mut dyn Write, signed_message: &[u8], sender: &openpgp::Cert)
     };
 
     // Now, create a verifier with a helper using the given Certs.
-    let mut verifier = Verifier::from_bytes(signed_message, helper, None)?;
+    let mut verifier = Verifier::from_bytes(p, signed_message, helper, None)?;
 
     // Verify the data.
     io::copy(&mut verifier, sink)?;

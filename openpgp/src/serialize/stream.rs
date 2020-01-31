@@ -221,20 +221,25 @@ impl<'a> Signer<'a> {
     /// extern crate sequoia_openpgp as openpgp;
     /// use std::io::{Read, Write};
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
+    /// use openpgp::policy::StandardPolicy;
     /// # use openpgp::{Result, Cert};
     /// # use openpgp::packet::prelude::*;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
-    /// # let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing()
+    /// # let keypair = tsk.keys().set_policy(p, None).alive().revoked(false).for_signing()
     /// #     .nth(0).unwrap()
     /// #     .key().clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
     /// #      -> Result<()> {
+    /// let p = &StandardPolicy::new();
     ///
     /// let mut o = vec![];
     /// {
@@ -265,7 +270,7 @@ impl<'a> Signer<'a> {
     ///     }
     /// }
     ///
-    /// let mut verifier = Verifier::from_bytes(&o, Helper(&cert), None)?;
+    /// let mut verifier = Verifier::from_bytes(p, &o, Helper(&cert), None)?;
     ///
     /// let mut message = String::new();
     /// verifier.read_to_string(&mut message)?;
@@ -326,22 +331,26 @@ impl<'a> Signer<'a> {
     /// extern crate sequoia_openpgp as openpgp;
     /// use std::io::{Read, Write};
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
+    /// use sequoia_openpgp::policy::StandardPolicy;
     /// # use openpgp::{Result, Cert};
     /// # use openpgp::packet::prelude::*;
     /// # use openpgp::crypto::KeyPair;
     /// # use openpgp::parse::Parse;
     /// # use openpgp::parse::stream::*;
+    ///
+    /// # let p = &StandardPolicy::new();
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
     /// # let keypair
-    /// #     = tsk.keys().policy(None).alive().revoked(false).for_signing()
+    /// #     = tsk.keys().set_policy(p, None).alive().revoked(false).for_signing()
     /// #           .nth(0).unwrap()
     /// #           .key().clone().mark_parts_secret().unwrap().into_keypair()
     /// #           .unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
     /// #      -> Result<()> {
+    /// let p = &StandardPolicy::new();
     ///
     /// let mut o = vec![];
     /// {
@@ -374,7 +383,7 @@ impl<'a> Signer<'a> {
     /// }
     ///
     /// let mut verifier =
-    ///     DetachedVerifier::from_bytes(&o, b"Make it so, number one!",
+    ///     DetachedVerifier::from_bytes(p, &o, b"Make it so, number one!",
     ///                                  Helper(&cert), None)?;
     ///
     /// let mut message = String::new();
@@ -955,10 +964,13 @@ impl<'a> Encryptor<'a> {
     /// use openpgp::serialize::stream::{
     ///     Message, Encryptor, LiteralWriter,
     /// };
+    /// use openpgp::policy::StandardPolicy;
     /// # use openpgp::Result;
     /// # use openpgp::parse::Parse;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
     /// let cert = openpgp::Cert::from_bytes(
     /// #   // We do some acrobatics here to abbreviate the Cert.
     ///     "-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -999,7 +1011,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// // Build a vector of recipients to hand to Encryptor.
     /// let recipient =
-    ///     cert.keys().policy(None).alive().revoked(false)
+    ///     cert.keys().set_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
     ///     .map(|ka| ka.key().into())
@@ -1308,6 +1320,8 @@ mod test {
     use crate::parse::{Parse, PacketParserResult, PacketParser};
     use super::*;
     use crate::types::DataFormat::Text as T;
+    use crate::policy::Policy;
+    use crate::policy::StandardPolicy as P;
 
     #[test]
     fn arbitrary() {
@@ -1474,6 +1488,7 @@ mod test {
 
     #[test]
     fn signature() {
+        let p = &P::new();
         use crate::crypto::KeyPair;
         use std::collections::HashMap;
         use crate::Fingerprint;
@@ -1483,7 +1498,7 @@ mod test {
             Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
             Cert::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
-            for key in tsk.keys().policy(crate::frozen_time())
+            for key in tsk.keys().set_policy(p, crate::frozen_time())
                 .for_signing().map(|ka| ka.key())
             {
                 keys.insert(key.fingerprint(), key.clone());
@@ -1670,6 +1685,7 @@ mod test {
             .generate().unwrap();
 
         struct Helper<'a> {
+            policy: &'a dyn Policy,
             tsk: &'a Cert,
         };
         impl<'a> VerificationHelper for Helper<'a> {
@@ -1686,7 +1702,7 @@ mod test {
                           mut decrypt: D) -> Result<Option<crate::Fingerprint>>
                 where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
             {
-                let mut keypair = self.tsk.keys().policy(None)
+                let mut keypair = self.tsk.keys().set_policy(self.policy, None)
                     .for_transport_encryption()
                     .map(|ka| ka.key()).next().unwrap()
                     .clone().mark_parts_secret().unwrap()
@@ -1696,6 +1712,8 @@ mod test {
                     .map(|_| None)
             }
         }
+
+        let p = &P::new();
 
         for chunks in 0..3 {
             for msg_len in
@@ -1713,7 +1731,7 @@ mod test {
                 {
                     let m = Message::new(&mut msg);
                     let recipient = tsk
-                        .keys().policy(None)
+                        .keys().set_policy(p, None)
                         .for_storage_encryption().for_transport_encryption()
                         .nth(0).unwrap().key().into();
                     let encryptor = Encryptor::for_recipient(m, recipient)
@@ -1742,10 +1760,10 @@ mod test {
                             }
                         }
 
-                        let h = Helper { tsk: &tsk };
+                        let h = Helper { policy: p, tsk: &tsk };
                         // Note: a corrupted message is only guaranteed
                         // to error out before it returns EOF.
-                        let mut v = match Decryptor::from_bytes(&msg, h, None) {
+                        let mut v = match Decryptor::from_bytes(p, &msg, h, None) {
                             Ok(v) => v,
                             Err(_) if do_err => continue,
                             Err(err) => panic!("Decrypting message: {}", err),
@@ -1795,13 +1813,15 @@ mod test {
         use crate::serialize::stream::{LiteralWriter, Message};
         use crate::crypto::KeyPair;
 
+        let p = &P::new();
+
         let (cert, _) = CertBuilder::new()
             .add_signing_subkey()
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
 
         // What we're going to sign with.
-        let ka = cert.keys().policy(None).for_signing().nth(0).unwrap();
+        let ka = cert.keys().set_policy(p, None).for_signing().nth(0).unwrap();
 
         // A timestamp later than the key's creation.
         let timestamp = ka.key().creation_time()

@@ -520,4 +520,14 @@ typedef pgp_status_t (*pgp_decryptor_check_cb_t) (void *,
 typedef pgp_status_t (*pgp_decryptor_inspect_cb_t) (void *,
     pgp_packet_parser_t);
 
+/*/
+/// An OpenPGP policy.
+/*/
+typedef struct pgp_policy *pgp_policy_t;
+
+/*/
+/// A standard OpenPGP policy.
+/*/
+typedef struct pgp_standard_policy *pgp_standard_policy_t;
+
 #endif

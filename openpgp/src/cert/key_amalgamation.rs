@@ -16,6 +16,7 @@ use crate::{
     packet::key::SecretKeyMaterial,
     packet::Key,
     packet::Signature,
+    policy::Policy,
     Result,
     RevocationStatus,
     types::KeyFlags,
@@ -218,8 +219,9 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     /// if any.
     ///
     /// Note: this function is not exported.  Users of this interface
-    /// should do: ka.policy(time)?.binding_signature().
-    fn binding_signature<T>(&self, time: T) -> Option<&'a Signature>
+    /// should do: ka.set_policy(time)?.binding_signature().
+    fn binding_signature<T>(&self, policy: &'a dyn Policy, time: T)
+        -> Option<&'a Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
@@ -228,15 +230,16 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
                 binding: KeyAmalgamationBinding::Primary(),
                 ..
             } => {
-                self.cert.primary_userid(time).map(|u| u.binding_signature())
+                self.cert.primary_userid(policy, time)
+                    .map(|u| u.binding_signature())
                     .or_else(|| self.cert.primary_key().binding()
-                             .binding_signature(time))
+                             .binding_signature(policy, time))
             },
             KeyAmalgamation {
                 binding: KeyAmalgamationBinding::Subordinate(ref binding),
                 ..
             } =>
-                binding.binding_signature(time),
+                binding.binding_signature(policy, time),
         }
     }
 
@@ -246,14 +249,15 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     ///
     /// This transforms the `KeyAmalgamation` into a
     /// `ValidKeyAmalgamation`.
-    pub fn policy<T>(self, time: T)
+    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> Result<ValidKeyAmalgamation<'a, P>>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        if let Some(binding_signature) = self.binding_signature(time) {
+        if let Some(binding_signature) = self.binding_signature(policy, time) {
             Ok(ValidKeyAmalgamation {
                 a: self,
+                policy: policy,
                 time: time,
                 binding_signature: binding_signature,
             })
@@ -324,13 +328,13 @@ impl<'a, P: key::KeyParts> PrimaryKeyAmalgamation<'a, P> {
     ///
     /// If `time` is `None`, the current time is used.
     ///
-    /// This transforms the `PrimaryKeyAmalgamation` into a
-    /// `ValidPrimaryKeyAmalgamation`.
-    pub fn policy<T>(self, time: T)
+    /// This transforms the `KeyAmalgamation` into a
+    /// `ValidKeyAmalgamation`.
+    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> Result<ValidPrimaryKeyAmalgamation<'a, P>>
         where T: Into<Option<time::SystemTime>>
     {
-        Ok(ValidPrimaryKeyAmalgamation::new(self.a.policy(time)?))
+        Ok(ValidPrimaryKeyAmalgamation::new(self.a.set_policy(policy, time)?))
     }
 }
 
@@ -343,8 +347,11 @@ impl<'a, P: key::KeyParts> PrimaryKeyAmalgamation<'a, P> {
 pub struct ValidKeyAmalgamation<'a, P: key::KeyParts> {
     a: KeyAmalgamation<'a, P>,
 
+    // The policy.
+    policy: &'a dyn Policy,
     // The reference time.
     time: SystemTime,
+
     // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
 }
@@ -373,6 +380,7 @@ impl<'a> From<ValidKeyAmalgamation<'a, key::PublicParts>>
     fn from(ka: ValidKeyAmalgamation<'a, key::PublicParts>) -> Self {
         ValidKeyAmalgamation {
             a: ka.a.into(),
+            policy: ka.policy,
             time: ka.time,
             binding_signature: ka.binding_signature,
         }
@@ -385,6 +393,7 @@ impl<'a> From<ValidKeyAmalgamation<'a, key::SecretParts>>
     fn from(ka: ValidKeyAmalgamation<'a, key::SecretParts>) -> Self {
         ValidKeyAmalgamation {
             a: ka.a.into(),
+            policy: ka.policy,
             time: ka.time,
             binding_signature: ka.binding_signature,
         }
@@ -399,6 +408,7 @@ impl<'a> TryFrom<ValidKeyAmalgamation<'a, key::PublicParts>>
     fn try_from(ka: ValidKeyAmalgamation<'a, key::PublicParts>) -> Result<Self> {
         Ok(ValidKeyAmalgamation {
             a: ka.a.try_into()?,
+            policy: ka.policy,
             time: ka.time,
             binding_signature: ka.binding_signature,
         })
@@ -424,14 +434,20 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
         self.time
     }
 
+    /// Returns the amalgamation's policy.
+    fn policy(&self) -> &'a dyn Policy
+    {
+        self.policy
+    }
+
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    fn policy<T>(self, time: T) -> Result<Self>
+    fn set_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        self.a.policy(time)
+        self.a.set_policy(policy, time)
     }
 
     /// Returns the key's binding signature as of the reference time,
@@ -446,7 +462,7 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
     /// Subpackets on direct key signatures apply to all components of
     /// the certificate.
     fn direct_key_signature(&self) -> Option<&'a Signature> {
-        self.cert.primary.binding_signature(self.time())
+        self.cert.primary.binding_signature(self.policy, self.time())
     }
 
     /// Returns the key's revocation status as of the amalgamation's
@@ -458,9 +474,9 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
     fn revoked(&self) -> RevocationStatus<'a> {
         match self.a.binding {
             KeyAmalgamationBinding::Primary() =>
-                self.cert.revoked(self.time()),
+                self.cert.revoked(self.policy, self.time()),
             KeyAmalgamationBinding::Subordinate(ref binding) =>
-                binding.revoked(self.time()),
+                binding.revoked(self.policy, self.time()),
         }
     }
 }
@@ -696,9 +712,9 @@ impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    pub fn policy<T>(self, time: T) -> Result<Self>
+    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
-        Ok(Self::new(self.a.policy(time)?))
+        Ok(Self::new(self.a.set_policy(policy, time)?))
     }
 }

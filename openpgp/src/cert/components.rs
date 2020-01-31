@@ -13,6 +13,7 @@ use crate::{
     packet::UserAttribute,
     packet::Unknown,
     Packet,
+    policy::Policy,
 };
 use crate::types::{
     RevocationType,
@@ -110,7 +111,7 @@ impl<C> ComponentBinding<C> {
     ///
     /// This function returns None if there are no active binding
     /// signatures at time `t`.
-    pub fn binding_signature<T>(&self, t: T) -> Option<&Signature>
+    pub fn binding_signature<T>(&self, policy: &dyn Policy, t: T) -> Option<&Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into().unwrap_or_else(|| time::SystemTime::now());
@@ -169,6 +170,7 @@ impl<C> ComponentBinding<C> {
 
         self.self_signatures[i..].iter().filter(|s| {
             s.signature_alive(t, time::Duration::new(0, 0)).is_ok()
+                && policy.signature(s).is_ok()
         }).nth(0)
     }
 
@@ -216,8 +218,9 @@ impl<C> ComponentBinding<C> {
     ///     if there is a newer self-signature).
     ///
     /// selfsig must be the newest live self signature at time `t`.
-    pub(crate) fn _revoked<'a, T>(&'a self, hard_revocations_are_final: bool,
-                                  selfsig: Option<&Signature>, t: T)
+    pub(crate) fn _revoked<'a, T>(&'a self, policy: &dyn Policy, t: T,
+                                  hard_revocations_are_final: bool,
+                                  selfsig: Option<&Signature>)
         -> RevocationStatus<'a>
         where T: Into<Option<time::SystemTime>>
     {
@@ -266,14 +269,16 @@ impl<C> ComponentBinding<C> {
                        .unwrap_or_else(time_zero));
                     None
                 } else if
-                    ! rev.signature_alive(t, time::Duration::new(0, 0))
-                    .is_ok()
+                    ! rev.signature_alive(t, time::Duration::new(0, 0)).is_ok()
                 {
                     t!("  ignoring revocation that is not alive ({:?} - {:?})",
                        rev.signature_creation_time()
                        .unwrap_or_else(time_zero),
                        rev.signature_expiration_time()
                        .unwrap_or_else(|| time::Duration::new(0, 0)));
+                    None
+                } else if let Err(err) = policy.signature(rev) {
+                    t!("  revocation rejected by caller policy: {}", err);
                     None
                 } else {
                     t!("  got a revocation: {:?} ({:?})",
@@ -370,12 +375,12 @@ impl<P: key::KeyParts> ComponentBinding<Key<P, key::SubordinateRole>> {
     ///
     /// Note: this only returns whether this subkey is revoked; it
     /// does not imply anything about the Cert or other components.
-    pub fn revoked<T>(&self, t: T)
+    pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(true, self.binding_signature(t), t)
+        self._revoked(policy, t, true, self.binding_signature(policy, t))
     }
 }
 
@@ -397,12 +402,12 @@ impl ComponentBinding<UserID> {
     ///
     /// Note: this only returns whether this User ID is revoked; it
     /// does not imply anything about the Cert or other components.
-    pub fn revoked<T>(&self, t: T)
+    pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(false, self.binding_signature(t), t)
+        self._revoked(policy, t, false, self.binding_signature(policy, t))
     }
 }
 
@@ -424,12 +429,12 @@ impl ComponentBinding<UserAttribute> {
     ///
     /// Note: this only returns whether this User Attribute is revoked;
     /// it does not imply anything about the Cert or other components.
-    pub fn revoked<T>(&self, t: T)
+    pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(false, self.binding_signature(t), t)
+        self._revoked(policy, t, false, self.binding_signature(policy, t))
     }
 }
 

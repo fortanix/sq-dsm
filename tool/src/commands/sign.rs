@@ -17,24 +17,27 @@ use crate::openpgp::serialize::Serialize;
 use crate::openpgp::serialize::stream::{
     Message, Signer, LiteralWriter,
 };
+use crate::openpgp::policy::Policy;
 use crate::create_or_stdout;
 
-pub fn sign(input: &mut dyn io::Read, output_path: Option<&str>,
+pub fn sign(policy: &dyn Policy,
+            input: &mut dyn io::Read, output_path: Option<&str>,
             secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
             append: bool, notarize: bool, time: Option<SystemTime>,
             force: bool)
             -> Result<()> {
     match (detached, append|notarize) {
         (_, false) | (true, true) =>
-            sign_data(input, output_path, secrets, detached, binary, append,
-                      time, force),
+            sign_data(policy, input, output_path, secrets, detached, binary,
+                      append, time, force),
         (false, true) =>
-            sign_message(input, output_path, secrets, binary, notarize,
+            sign_message(policy, input, output_path, secrets, binary, notarize,
                          time, force),
     }
 }
 
-fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
+fn sign_data(policy: &dyn Policy,
+             input: &mut dyn io::Read, output_path: Option<&str>,
              secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
              append: bool, time: Option<SystemTime>, force: bool)
              -> Result<()> {
@@ -83,7 +86,7 @@ fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
         output
     };
 
-    let mut keypairs = super::get_signing_keys(&secrets, time)?;
+    let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;
     if keypairs.is_empty() {
         return Err(failure::format_err!("No signing keys found"));
     }
@@ -134,7 +137,8 @@ fn sign_data(input: &mut dyn io::Read, output_path: Option<&str>,
     Ok(())
 }
 
-fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
+fn sign_message(policy: &dyn Policy,
+                input: &mut dyn io::Read, output_path: Option<&str>,
                 secrets: Vec<openpgp::Cert>, binary: bool, notarize: bool,
                 time: Option<SystemTime>, force: bool)
              -> Result<()> {
@@ -147,7 +151,7 @@ fn sign_message(input: &mut dyn io::Read, output_path: Option<&str>,
         output
     };
 
-    let mut keypairs = super::get_signing_keys(&secrets, time)?;
+    let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;
     if keypairs.is_empty() {
         return Err(failure::format_err!("No signing keys found"));
     }

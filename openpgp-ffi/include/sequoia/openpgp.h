@@ -590,7 +590,8 @@ char *pgp_user_id_binding_user_id (pgp_user_id_binding_t binding);
 /*/
 /// Returns a reference to the self-signature, if any.
 /*/
-pgp_signature_t pgp_user_id_binding_selfsig(pgp_user_id_binding_t binding);
+pgp_signature_t pgp_user_id_binding_selfsig(pgp_user_id_binding_t binding,
+                                            pgp_policy_t policy);
 
 /* openpgp::cert::UserIDBindingIter.  */
 
@@ -628,7 +629,7 @@ void pgp_cert_key_iter_unencrypted_secret (pgp_cert_key_iter_t iter);
 /// Note: you may not call this function after starting to iterate.
 /*/
 pgp_cert_valid_key_iter_t pgp_cert_key_iter_policy
-    (pgp_cert_key_iter_t iter, time_t when);
+    (pgp_cert_key_iter_t iter, pgp_policy_t policy, time_t when);
 
 /*/
 /// Returns a reference to the next key.  Returns NULL if there are no
@@ -703,15 +704,14 @@ void pgp_cert_valid_key_iter_for_transport_encryption (pgp_cert_valid_key_iter_t
 void pgp_cert_valid_key_iter_alive (pgp_cert_valid_key_iter_t iter);
 
 /*/
-/// Changes the iterator to only return keys whose revocation status
-/// matches `revoked`.
+/// Changes the iterator to only return keys that are revoked.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
 void pgp_cert_valid_key_iter_revoked (pgp_cert_valid_key_iter_t iter, bool revoked);
 
 /*/
-/// Changes the iterator to only return keys that have secret keys.
+/// Changes the iterator to only return keys that are not revoked.
 ///
 /// Note: you may not call this function after starting to iterate.
 /*/
@@ -877,7 +877,8 @@ pgp_key_t pgp_cert_primary_key (pgp_cert_t cert);
 /// If `when` is 0, then returns the Cert's revocation status as of the
 /// time of the call.
 /*/
-pgp_revocation_status_t pgp_cert_revoked (pgp_cert_t cert, time_t when);
+pgp_revocation_status_t pgp_cert_revoked (pgp_cert_t cert,
+                                          pgp_policy_t policy, time_t when);
 
 /*/
 /// Writes a revocation certificate to the writer.
@@ -906,7 +907,8 @@ pgp_cert_t pgp_cert_revoke_in_place (pgp_error_t *errp,
 ///
 /// If `when` is 0, then the current time is used.
 /*/
-pgp_status_t pgp_cert_alive(pgp_error_t *errp, pgp_cert_t cert, time_t when);
+pgp_status_t pgp_cert_alive(pgp_error_t *errp, pgp_cert_t cert,
+                            pgp_policy_t policy, time_t when);
 
 /*/
 /// Changes the Cert's expiration.
@@ -917,9 +919,10 @@ pgp_status_t pgp_cert_alive(pgp_error_t *errp, pgp_cert_t cert, time_t when);
 /// This function consumes `cert` and returns a new `Cert`.
 /*/
 pgp_cert_t pgp_cert_set_expiry(pgp_error_t *errp,
-                             pgp_cert_t cert,
-                             pgp_signer_t signer,
-                             uint32_t expiry);
+                               pgp_cert_t cert,
+                               pgp_policy_t policy,
+                               pgp_signer_t signer,
+                               uint32_t expiry);
 
 /*/
 /// Returns whether the Cert includes any secret key material.
@@ -946,12 +949,13 @@ pgp_cert_key_iter_t pgp_cert_key_iter (pgp_cert_t cert);
 /// subkeys that are valid (i.e., have a self-signature at time
 /// `when`).
 /*/
-pgp_cert_valid_key_iter_t pgp_cert_valid_key_iter (pgp_cert_t cert, time_t when);
+pgp_cert_valid_key_iter_t pgp_cert_valid_key_iter
+    (pgp_cert_t cert, pgp_policy_t policy, time_t when);
 
 /*/
 /// Returns the Cert's primary user id (if any).
 /*/
-char *pgp_cert_primary_user_id(pgp_cert_t cert);
+char *pgp_cert_primary_user_id(pgp_cert_t cert, pgp_policy_t policy);
 
 /*/
 /// Returns a CertParser.
@@ -1740,7 +1744,9 @@ bool pgp_verification_result_error (pgp_verification_result_t,
 ///
 /// Note: all of the parameters are required; none may be NULL.
 /*/
-pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
+pgp_reader_t pgp_decryptor_new (pgp_error_t *errp,
+    pgp_policy_t policy,
+    pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_decrypt_cb_t decrypt,
     pgp_decryptor_check_cb_t check,
@@ -1753,18 +1759,64 @@ pgp_reader_t pgp_decryptor_new (pgp_error_t *errp, pgp_reader_t input,
 /// No attempt is made to decrypt any encryption packets.  These are
 /// treated as opaque containers.
 /*/
-pgp_reader_t pgp_verifier_new (pgp_error_t *errp, pgp_reader_t input,
+pgp_reader_t pgp_verifier_new (pgp_error_t *errp,
+    pgp_policy_t policy,
+    pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_check_cb_t check,
     void *cookie, time_t time);
 
 /*/
-/// Verifies a detached OpenPGP signature.
+/// Verifies a detached OpenPGP signature.///
+/// A Certificate (see [RFC 4880, section 11.1]) can be used to verify
+/// signatures and encrypt data.  It can be stored in a keystore and
+/// uploaded to keyservers.
+///
+/// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+
 /*/
 pgp_reader_t pgp_detached_verifier_new (pgp_error_t *errp,
+    pgp_policy_t policy,
     pgp_reader_t signature_input, pgp_reader_t input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_check_cb_t check,
     void *cookie, time_t time);
+
+/*/
+/// Returns a new standard policy.
+/*/
+pgp_policy_t pgp_standard_policy ();
+
+/*/
+/// Clones the object.
+/*/
+pgp_policy_t pgp_standard_policy_clone (pgp_standard_policy_t);
+
+/*/
+/// Frees this object.
+/*/
+void pgp_standard_policy_free (pgp_standard_policy_t);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_standard_policy_debug (const pgp_standard_policy_t);
+
+/*/
+/// Clones the object.
+/*/
+pgp_policy_t pgp_policy_clone (pgp_policy_t);
+
+/*/
+/// Frees this object.
+/*/
+void pgp_policy_free (pgp_policy_t);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_policy_debug (const pgp_policy_t);
 
 #endif

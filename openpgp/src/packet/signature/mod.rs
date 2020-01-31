@@ -1117,6 +1117,7 @@ mod test {
     use crate::packet::Key;
     use crate::packet::key::Key4;
     use crate::types::Curve;
+    use crate::policy::StandardPolicy as P;
 
     #[cfg(feature = "compression-deflate")]
     #[test]
@@ -1373,9 +1374,11 @@ mod test {
     fn verify_gpg_3rd_party_cert() {
         use crate::Cert;
 
+        let p = &P::new();
+
         let test1 = Cert::from_bytes(
             crate::tests::key("test1-certification-key.pgp")).unwrap();
-        let cert_key1 = test1.keys().policy(None)
+        let cert_key1 = test1.keys().set_policy(p, None)
             .for_certification()
             .nth(0)
             .map(|ka| ka.key())
@@ -1383,7 +1386,7 @@ mod test {
         let test2 = Cert::from_bytes(
             crate::tests::key("test2-signed-by-test1.pgp")).unwrap();
         let uid_binding =
-            test2.userids().policy(None).nth(0).unwrap().binding();
+            test2.userids().set_policy(p, None).nth(0).unwrap().binding();
         let cert = &uid_binding.certifications()[0];
 
         cert.verify_userid_binding(cert_key1,

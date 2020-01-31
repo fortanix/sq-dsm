@@ -8,6 +8,7 @@ use crate::{
     packet::Signature,
     Result,
     RevocationStatus,
+    policy::Policy,
 };
 
 /// A certificate's component and its associated data.
@@ -49,12 +50,13 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// time, if any.
     ///
     /// Note: this function is not exported.  Users of this interface
-    /// should do: ca.policy(time)?.binding_signature().
-    fn binding_signature<T>(&self, time: T) -> Option<&'a Signature>
+    /// should do: ca.set_policy(policy, time)?.binding_signature().
+    fn binding_signature<T>(&self, policy: &dyn Policy, time: T)
+        -> Option<&'a Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        self.binding.binding_signature(time)
+        self.binding.binding_signature(policy, time)
     }
 
     /// Sets the reference time for the amalgamation.
@@ -63,14 +65,15 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     ///
     /// This transforms the `ComponentAmalgamation` into a
     /// `ValidComponentAmalgamation`.
-    pub fn policy<T>(self, time: T)
+    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> Result<ValidComponentAmalgamation<'a, C>>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        if let Some(binding_signature) = self.binding_signature(time) {
+        if let Some(binding_signature) = self.binding_signature(policy, time) {
             Ok(ValidComponentAmalgamation {
                 a: self,
+                policy: policy,
                 time: time,
                 binding_signature: binding_signature,
             })
@@ -98,6 +101,7 @@ impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
 #[derive(Debug, Clone)]
 pub struct ValidComponentAmalgamation<'a, C> {
     a: ComponentAmalgamation<'a, C>,
+    policy: &'a dyn Policy,
     // The reference time.
     time: SystemTime,
     // The binding signature at time `time`.  (This is just a cache.)
@@ -131,25 +135,25 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     /// deterministic, but undefined manner.
     pub(super) fn primary(cert: &'a Cert,
                           iter: std::slice::Iter<'a, ComponentBinding<C>>,
-                          t: SystemTime)
-                          -> Option<ValidComponentAmalgamation<'a, C>>
+                          policy: &'a dyn Policy, t: SystemTime)
+        -> Option<ValidComponentAmalgamation<'a, C>>
     {
         use std::cmp::Ordering;
 
         // Filter out components that are not alive at time `t`.
-            //
-            // While we have the binding signature, extract a few
-            // properties to avoid recomputing the same thing multiple
-            // times.
+        //
+        // While we have the binding signature, extract a few
+        // properties to avoid recomputing the same thing multiple
+        // times.
         iter.filter_map(|c| {
             // No binding signature at time `t` => not alive.
-            let sig = c.binding_signature(t)?;
+            let sig = c.binding_signature(policy, t)?;
 
             if !sig.signature_alive(t, std::time::Duration::new(0, 0)).is_ok() {
                 return None;
             }
 
-            let revoked = c._revoked(false, Some(sig), t);
+            let revoked = c._revoked(policy, t, false, Some(sig));
             let primary = sig.primary_userid().unwrap_or(false);
             let signature_creation_time = sig.signature_creation_time()?;
 
@@ -185,7 +189,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
                 }
             })
             .and_then(|c| ComponentAmalgamation::new(cert, (c.0).0)
-                      .policy(t).ok())
+                      .set_policy(policy, t).ok())
     }
 }
 
@@ -203,10 +207,13 @@ pub trait Amalgamation<'a> {
     /// time is greater than or equal to `t_c` and less than `t_e`.
     fn time(&self) -> SystemTime;
 
+    /// Returns the amalgamation's policy.
+    fn policy(&self) -> &'a dyn Policy;
+
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    fn policy<T>(self, time: T) -> Result<Self>
+    fn set_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where Self: Sized, T: Into<Option<time::SystemTime>>;
 
     /// Returns the component's binding signature as of the reference time.
@@ -228,13 +235,13 @@ pub trait Amalgamation<'a> {
     /// Returns the certificate's revocation status as of the
     /// amalgamtion's reference time.
     fn cert_revoked(&self) -> RevocationStatus<'a> {
-        self.cert().revoked(self.time())
+        self.cert().revoked(self.policy(), self.time())
     }
 
     /// Returns whether the certificateis alive as of the
     /// amalgamtion's reference time.
     fn cert_alive(&self) -> Result<()> {
-        self.cert().alive(self.time())
+        self.cert().alive(self.policy(), self.time())
     }
 }
 
@@ -256,14 +263,20 @@ impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
         self.time
     }
 
+    /// Returns the amalgamation's policy.
+    fn policy(&self) -> &'a dyn Policy
+    {
+        self.policy
+    }
+
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    fn policy<T>(self, time: T) -> Result<Self>
+    fn set_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        self.a.policy(time)
+        self.a.set_policy(policy, time)
     }
 
     /// Returns the component's binding signature as of the reference time.
@@ -277,7 +290,7 @@ impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
     /// Subpackets on direct key signatures apply to all components of
     /// the certificate.
     fn direct_key_signature(&self) -> Option<&'a Signature> {
-        self.cert.primary.binding_signature(self.time())
+        self.cert.primary.binding_signature(self.policy(), self.time())
     }
 
     /// Returns the component's revocation status as of the amalgamation's
@@ -285,7 +298,8 @@ impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
     ///
     /// Note: this does not return whether the certificate is valid.
     fn revoked(&self) -> RevocationStatus<'a> {
-        self.binding._revoked(false, Some(self.binding_signature), self.time)
+        self.binding._revoked(self.policy(), self.time,
+                              false, Some(self.binding_signature))
     }
 }
 

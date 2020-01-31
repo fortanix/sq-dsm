@@ -203,6 +203,7 @@ main (int argc, char **argv)
   pgp_reader_t plaintext;
   uint8_t buf[1024];
   ssize_t nread;
+  pgp_policy_t policy = pgp_standard_policy ();
 
   if (argc != 2)
     error (1, 0, "Usage: %s <keyfile> <cipher >plain", argv[0]);
@@ -218,7 +219,7 @@ main (int argc, char **argv)
     .key = cert,
     .decrypt_called = 0,
   };
-  plaintext = pgp_decryptor_new (&err, source,
+  plaintext = pgp_decryptor_new (&err, policy, source,
                                  get_public_keys_cb, decrypt_cb,
                                  check_cb, NULL, &cookie, 0);
   if (! plaintext)
@@ -233,5 +234,6 @@ main (int argc, char **argv)
   pgp_reader_free (plaintext);
   pgp_reader_free (source);
   pgp_cert_free (cert);
+  pgp_policy_free (policy);
   return 0;
 }

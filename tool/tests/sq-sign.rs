@@ -14,7 +14,7 @@ use crate::openpgp::types::{CompressionAlgorithm, SignatureType};
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
 
-fn p(filename: &str) -> String {
+fn artifact(filename: &str) -> String {
     format!("../openpgp/tests/data/{}", filename)
 }
 
@@ -30,10 +30,10 @@ fn sq_sign() {
               &tmp_dir.path().to_string_lossy(),
               "sign",
               "--secret-key-file",
-              &p("keys/dennis-simon-anton-private.pgp"),
+              &artifact("keys/dennis-simon-anton-private.pgp"),
               "--output",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
 
     // Check that the content is sane.
@@ -67,7 +67,7 @@ fn sq_sign() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/dennis-simon-anton.pgp"),
+              &artifact("keys/dennis-simon-anton.pgp"),
               &sig.to_string_lossy()])
         .unwrap();
 }
@@ -84,10 +84,10 @@ fn sq_sign_append() {
               &tmp_dir.path().to_string_lossy(),
               "sign",
               "--secret-key-file",
-              &p("keys/dennis-simon-anton-private.pgp"),
+              &artifact("keys/dennis-simon-anton-private.pgp"),
               "--output",
               &sig0.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
 
     // Check that the content is sane.
@@ -121,7 +121,7 @@ fn sq_sign_append() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/dennis-simon-anton.pgp"),
+              &artifact("keys/dennis-simon-anton.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
 
@@ -134,7 +134,7 @@ fn sq_sign_append() {
               "sign",
               "--append",
               "--secret-key-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
               "--output",
               &sig1.to_string_lossy(),
               &sig0.to_string_lossy()])
@@ -184,7 +184,7 @@ fn sq_sign_append() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/dennis-simon-anton.pgp"),
+              &artifact("keys/dennis-simon-anton.pgp"),
               &sig1.to_string_lossy()])
         .unwrap();
     Assert::cargo_binary("sq")
@@ -193,7 +193,7 @@ fn sq_sign_append() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig1.to_string_lossy()])
         .unwrap();
 }
@@ -201,14 +201,17 @@ fn sq_sign_append() {
 #[test]
 #[allow(unreachable_code)]
 fn sq_sign_append_on_compress_then_sign() {
+    use crate::openpgp::policy::StandardPolicy as P;
+
+    let p = &P::new();
     let tmp_dir = TempDir::new().unwrap();
     let sig0 = tmp_dir.path().join("sig0");
 
     // This is quite an odd scheme, so we need to create such a
     // message by foot.
-    let tsk = Cert::from_file(&p("keys/dennis-simon-anton-private.pgp"))
+    let tsk = Cert::from_file(&artifact("keys/dennis-simon-anton-private.pgp"))
         .unwrap();
-    let key = tsk.keys().policy(None).for_signing().nth(0).unwrap().key();
+    let key = tsk.keys().set_policy(p, None).for_signing().nth(0).unwrap().key();
     let sec = match key.secret() {
         Some(SecretKeyMaterial::Unencrypted(ref u)) => u.clone(),
         _ => unreachable!(),
@@ -222,7 +225,7 @@ fn sq_sign_append_on_compress_then_sign() {
     let mut literal = LiteralWriter::new(compressor).build()
         .unwrap();
     io::copy(
-        &mut File::open(&p("messages/a-cypherpunks-manifesto.txt")).unwrap(),
+        &mut File::open(&artifact("messages/a-cypherpunks-manifesto.txt")).unwrap(),
         &mut literal)
         .unwrap();
     literal.finalize()
@@ -256,7 +259,7 @@ fn sq_sign_append_on_compress_then_sign() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/dennis-simon-anton.pgp"),
+              &artifact("keys/dennis-simon-anton.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
 
@@ -269,7 +272,7 @@ fn sq_sign_append_on_compress_then_sign() {
               "sign",
               "--append",
               "--secret-key-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
               "--output",
               &sig1.to_string_lossy(),
               &sig0.to_string_lossy()])
@@ -323,7 +326,7 @@ fn sq_sign_append_on_compress_then_sign() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/dennis-simon-anton.pgp"),
+              &artifact("keys/dennis-simon-anton.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
     Assert::cargo_binary("sq")
@@ -332,7 +335,7 @@ fn sq_sign_append_on_compress_then_sign() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
 }
@@ -350,10 +353,10 @@ fn sq_sign_detached() {
               "sign",
               "--detached",
               "--secret-key-file",
-              &p("keys/dennis-simon-anton-private.pgp"),
+              &artifact("keys/dennis-simon-anton-private.pgp"),
               "--output",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
 
     // Check that the content is sane.
@@ -376,10 +379,10 @@ fn sq_sign_detached() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/dennis-simon-anton.pgp"),
+              &artifact("keys/dennis-simon-anton.pgp"),
               "--detached",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
 }
 
@@ -396,10 +399,10 @@ fn sq_sign_detached_append() {
               "sign",
               "--detached",
               "--secret-key-file",
-              &p("keys/dennis-simon-anton-private.pgp"),
+              &artifact("keys/dennis-simon-anton-private.pgp"),
               "--output",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
 
     // Check that the content is sane.
@@ -422,10 +425,10 @@ fn sq_sign_detached_append() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/dennis-simon-anton.pgp"),
+              &artifact("keys/dennis-simon-anton.pgp"),
               "--detached",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
 
     // Check that we don't blindly overwrite signatures.
@@ -436,10 +439,10 @@ fn sq_sign_detached_append() {
               "sign",
               "--detached",
               "--secret-key-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
               "--output",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .fails()
         .unwrap();
 
@@ -452,10 +455,10 @@ fn sq_sign_detached_append() {
               "--detached",
               "--append",
               "--secret-key-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
               "--output",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
 
     // Check that the content is sane.
@@ -483,10 +486,10 @@ fn sq_sign_detached_append() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/dennis-simon-anton.pgp"),
+              &artifact("keys/dennis-simon-anton.pgp"),
               "--detached",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
     Assert::cargo_binary("sq")
         .with_args(
@@ -494,10 +497,10 @@ fn sq_sign_detached_append() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               "--detached",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .unwrap();
 
     // Finally, check that we don't truncate the file if something
@@ -511,10 +514,10 @@ fn sq_sign_detached_append() {
               "--append",
               "--secret-key-file",
               // Not a private key => signing will fail.
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp521.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp521.pgp"),
               "--output",
               &sig.to_string_lossy(),
-              &p("messages/a-cypherpunks-manifesto.txt")])
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
         .fails()
         .unwrap();
 
@@ -549,10 +552,10 @@ fn sq_sign_append_a_notarization() {
               "sign",
               "--append",
               "--secret-key-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
               "--output",
               &sig0.to_string_lossy(),
-              &p("messages/signed-1-notarized-by-ed25519.pgp")])
+              &artifact("messages/signed-1-notarized-by-ed25519.pgp")])
         .unwrap();
 
     // Check that the content is sane.
@@ -611,7 +614,7 @@ fn sq_sign_append_a_notarization() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/neal.pgp"),
+              &artifact("keys/neal.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
     Assert::cargo_binary("sq")
@@ -620,7 +623,7 @@ fn sq_sign_append_a_notarization() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
+              &artifact("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
     Assert::cargo_binary("sq")
@@ -629,7 +632,7 @@ fn sq_sign_append_a_notarization() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
 }
@@ -647,10 +650,10 @@ fn sq_sign_notarize() {
               "sign",
               "--notarize",
               "--secret-key-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
               "--output",
               &sig0.to_string_lossy(),
-              &p("messages/signed-1.gpg")])
+              &artifact("messages/signed-1.gpg")])
         .unwrap();
 
     // Check that the content is sane.
@@ -697,7 +700,7 @@ fn sq_sign_notarize() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/neal.pgp"),
+              &artifact("keys/neal.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
     Assert::cargo_binary("sq")
@@ -706,7 +709,7 @@ fn sq_sign_notarize() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
 }
@@ -724,10 +727,10 @@ fn sq_sign_notarize_a_notarization() {
               "sign",
               "--notarize",
               "--secret-key-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256-private.pgp"),
               "--output",
               &sig0.to_string_lossy(),
-              &p("messages/signed-1-notarized-by-ed25519.pgp")])
+              &artifact("messages/signed-1-notarized-by-ed25519.pgp")])
         .unwrap();
 
     // Check that the content is sane.
@@ -786,7 +789,7 @@ fn sq_sign_notarize_a_notarization() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/neal.pgp"),
+              &artifact("keys/neal.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
     Assert::cargo_binary("sq")
@@ -795,7 +798,7 @@ fn sq_sign_notarize_a_notarization() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
+              &artifact("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
     Assert::cargo_binary("sq")
@@ -804,7 +807,7 @@ fn sq_sign_notarize_a_notarization() {
               &tmp_dir.path().to_string_lossy(),
               "verify",
               "--sender-cert-file",
-              &p("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
+              &artifact("keys/erika-corinna-daniela-simone-antonia-nistp256.pgp"),
               &sig0.to_string_lossy()])
         .unwrap();
 }

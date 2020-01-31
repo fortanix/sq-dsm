@@ -19,6 +19,7 @@ use crate::{
         KeyAmalgamation,
         ValidKeyAmalgamation,
     },
+    policy::Policy,
 };
 
 /// An iterator over all `Key`s (both the primary key and the subkeys)
@@ -272,18 +273,21 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
     /// use openpgp::RevocationStatus;
+    /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
-    /// if let RevocationStatus::Revoked(_) = cert.revoked(None) {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// if let RevocationStatus::Revoked(_) = cert.revoked(p, None) {
     ///     // The certificate is revoked, don't use any keys from it.
-    /// } else if let Err(_) = cert.alive(None) {
+    /// } else if let Err(_) = cert.alive(p, None) {
     ///     // The certificate is not alive, don't use any keys from it.
     /// } else {
-    ///     for key in cert.keys().policy(None).alive().revoked(false).for_signing() {
+    ///     for key in cert.keys().set_policy(p, None).alive().revoked(false).for_signing() {
     ///         // We can sign the message with this key.
     ///     }
     /// }
@@ -307,19 +311,22 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
     /// use openpgp::RevocationStatus;
+    /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
     /// # let timestamp = None;
-    /// if let RevocationStatus::Revoked(_) = cert.revoked(None) {
+    /// if let RevocationStatus::Revoked(_) = cert.revoked(p, None) {
     ///     // The certificate is revoked, don't use any keys from it.
-    /// } else if let Err(_) = cert.alive(None) {
+    /// } else if let Err(_) = cert.alive(p, None) {
     ///     // The certificate is not alive, don't use any keys from it.
     /// } else {
-    ///     for key in cert.keys().policy(timestamp).alive().revoked(false).for_signing() {
+    ///     for key in cert.keys().set_policy(p, timestamp).alive().revoked(false).for_signing() {
     ///         // Verify the message with this keys.
     ///     }
     /// }
@@ -356,13 +363,16 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
-    /// #
+    /// use sequoia_openpgp::policy::StandardPolicy;
+    ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
-    /// let decryption_keys = cert.keys().policy(None)
+    /// let decryption_keys = cert.keys().set_policy(p, None)
     ///     .for_storage_encryption().for_transport_encryption()
     ///     .collect::<Vec<_>>();
     /// #     Ok(())
@@ -371,7 +381,8 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     ///
     /// [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
     /// [this discussion]: https://crypto.stackexchange.com/a/12138 .
-    pub fn policy<T>(self, time: T) -> ValidKeyIter<'a, P>
+    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
+        -> ValidKeyIter<'a, P>
         where T: Into<Option<SystemTime>>
     {
         ValidKeyIter {
@@ -379,11 +390,13 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
             primary: self.primary,
             subkey_iter: self.subkey_iter,
 
+            policy: policy,
+            time: time.into().unwrap_or_else(SystemTime::now),
+
             // The filters.
             secret: self.secret,
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
-            time: time.into().unwrap_or_else(SystemTime::now),
             flags: None,
             alive: None,
             revoked: None,
@@ -459,6 +472,12 @@ pub struct ValidKeyIter<'a, P: key::KeyParts> {
                                 key::PublicParts,
                                 key::SubordinateRole>,
 
+    // The policy.
+    policy: &'a dyn Policy,
+
+    // The time.
+    time: SystemTime,
+
     // If not None, filters by whether a key has a secret.
     secret: Option<bool>,
 
@@ -468,9 +487,6 @@ pub struct ValidKeyIter<'a, P: key::KeyParts> {
 
     // Only return keys in this set.
     key_handles: Vec<KeyHandle>,
-
-    // The time.
-    time: SystemTime,
 
     // If not None, only returns keys with the specified flags.
     flags: Option<KeyFlags>,
@@ -489,10 +505,11 @@ impl<'a, P: key::KeyParts> fmt::Debug for ValidKeyIter<'a, P>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ValidKeyIter")
+            .field("policy", &self.policy)
+            .field("time", &self.time)
             .field("secret", &self.secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
             .field("key_handles", &self.key_handles)
-            .field("time", &self.time)
             .field("flags", &self.flags)
             .field("alive", &self.alive)
             .field("revoked", &self.revoked)
@@ -552,7 +569,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P> {
                 = if ! self.primary {
                     self.primary = true;
                     let ka = KeyAmalgamation::new_primary(cert);
-                    match ka.policy(self.time) {
+                    match ka.set_policy(self.policy, self.time) {
                         Ok(ka) => ka,
                         Err(err) => {
                             // The primary key is bad.  Abort.
@@ -563,7 +580,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P> {
                 } else {
                     let ka = KeyAmalgamation::new_subordinate(
                         cert.into(), self.subkey_iter.next()?);
-                    match ka.policy(self.time) {
+                    match ka.set_policy(self.policy, self.time) {
                         Ok(ka) => ka,
                         Err(err) => {
                             // The subkey is bad, abort.
@@ -751,16 +768,19 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
     /// # use openpgp::cert::CertBuilder;
     /// use openpgp::RevocationStatus;
     /// use openpgp::cert::components::Amalgamation;
+    /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
+    /// let p = &StandardPolicy::new();
+    ///
     /// # let timestamp = None;
     /// let non_revoked_keys = cert
     ///     .keys()
-    ///     .policy(timestamp)
+    ///     .set_policy(p, timestamp)
     ///     .filter(|ka| {
     ///         match ka.revoked() {
     ///             RevocationStatus::Revoked(_) =>
@@ -804,6 +824,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
             subkey_iter: self.subkey_iter,
 
             time: self.time,
+            policy: self.policy,
 
             // The filters.
             secret: Some(true),
@@ -826,6 +847,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
             subkey_iter: self.subkey_iter,
 
             time: self.time,
+            policy: self.policy,
 
             // The filters.
             secret: self.secret,
@@ -1016,6 +1038,7 @@ mod test {
         parse::Parse,
         cert::builder::CertBuilder,
     };
+    use crate::policy::StandardPolicy as P;
 
     #[test]
     fn key_iter_test() {
@@ -1026,36 +1049,40 @@ mod test {
 
     #[test]
     fn select_no_keys() {
+        let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys().policy(None).key_flags(flags).count(), 0);
+        assert_eq!(cert.keys().set_policy(p, None).key_flags(flags).count(), 0);
     }
 
     #[test]
     fn select_valid_and_right_flags() {
+        let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys().policy(None).key_flags(flags).count(), 1);
+        assert_eq!(cert.keys().set_policy(p, None).key_flags(flags).count(), 1);
     }
 
     #[test]
     fn select_valid_and_wrong_flags() {
+        let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
             .add_signing_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_transport_encryption(true);
 
-        assert_eq!(cert.keys().policy(None).key_flags(flags).count(), 1);
+        assert_eq!(cert.keys().set_policy(p, None).key_flags(flags).count(), 1);
     }
 
     #[test]
     fn select_invalid_and_right_flags() {
+        let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
             .generate().unwrap();
@@ -1063,21 +1090,25 @@ mod test {
 
         let now = SystemTime::now()
             - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
-        assert_eq!(cert.keys().policy(now).key_flags(flags).alive().count(), 0);
+        assert_eq!(cert.keys().set_policy(p, now).key_flags(flags).alive().count(),
+                   0);
     }
 
     #[test]
     fn select_primary() {
+        let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .add_certification_subkey()
             .generate().unwrap();
         let flags = KeyFlags::default().set_certification(true);
 
-        assert_eq!(cert.keys().policy(None).key_flags(flags).count(), 2);
+        assert_eq!(cert.keys().set_policy(p, None).key_flags(flags).count(),
+                   2);
     }
 
     #[test]
     fn selectors() {
+        let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .add_signing_subkey()
             .add_certification_subkey()
@@ -1085,20 +1116,20 @@ mod test {
             .add_storage_encryption_subkey()
             .add_authentication_subkey()
             .generate().unwrap();
-        assert_eq!(cert.keys().policy(None).alive().revoked(false)
+        assert_eq!(cert.keys().set_policy(p, None).alive().revoked(false)
                        .for_certification().count(),
                    2);
-        assert_eq!(cert.keys().policy(None).alive().revoked(false)
+        assert_eq!(cert.keys().set_policy(p, None).alive().revoked(false)
                        .for_transport_encryption().count(),
                    1);
-        assert_eq!(cert.keys().policy(None).alive().revoked(false)
+        assert_eq!(cert.keys().set_policy(p, None).alive().revoked(false)
                        .for_storage_encryption().count(),
                    1);
 
-        assert_eq!(cert.keys().policy(None).alive().revoked(false)
+        assert_eq!(cert.keys().set_policy(p, None).alive().revoked(false)
                        .for_signing().count(),
                    1);
-        assert_eq!(cert.keys().policy(None).alive().revoked(false)
+        assert_eq!(cert.keys().set_policy(p, None).alive().revoked(false)
                        .key_flags(KeyFlags::default().set_authentication(true))
                        .count(),
                    1);
@@ -1106,6 +1137,8 @@ mod test {
 
     #[test]
     fn select_key_handle() {
+        let p = &P::new();
+
         let (cert, _) = CertBuilder::new()
             .add_signing_subkey()
             .add_certification_subkey()
@@ -1145,12 +1178,12 @@ mod test {
                         .collect::<Vec<KeyHandle>>(),
                     &keyids);
                 check(
-                    &cert.keys().policy(None).key_handles(keyids.iter())
+                    &cert.keys().set_policy(p, None).key_handles(keyids.iter())
                         .map(|ka| ka.key().key_handle())
                         .collect::<Vec<KeyHandle>>(),
                     &keyids);
                 check(
-                    &cert.keys().key_handles(keyids.iter()).policy(None)
+                    &cert.keys().key_handles(keyids.iter()).set_policy(p, None)
                         .map(|ka| ka.key().key_handle())
                         .collect::<Vec<KeyHandle>>(),
                     &keyids);

@@ -36,6 +36,7 @@ use crate::serialize::stream::{
     Message, LiteralWriter, Encryptor,
 };
 use crate::crypto::Password;
+use crate::policy::Policy;
 
 /// Version of Autocrypt to use. `Autocrypt::default()` always returns the
 /// latest version.
@@ -97,7 +98,8 @@ impl AutocryptHeader {
     }
 
     /// Creates a new "Autocrypt" header.
-    pub fn new_sender<'a, P>(cert: &Cert, addr: &str, prefer_encrypt: P)
+    pub fn new_sender<'a, P>(policy: &dyn Policy,
+                             cert: &Cert, addr: &str, prefer_encrypt: P)
                              -> Result<Self>
         where P: Into<Option<&'a str>>
     {
@@ -128,7 +130,7 @@ impl AutocryptHeader {
         }
 
         // The UserIDs matching ADDR.
-        for uidb in cert.userids().policy(None) {
+        for uidb in cert.userids().set_policy(policy, None) {
             // XXX: Fix match once we have the rfc2822-name-addr.
             if let Ok(Some(a)) = uidb.userid().email() {
                 if &a == addr {
@@ -773,6 +775,7 @@ mod test {
     use super::*;
 
     use crate::Fingerprint;
+    use crate::policy::StandardPolicy as P;
 
     #[test]
     fn decode_test() {
@@ -1067,8 +1070,10 @@ In the light of the Efail vulnerability I am asking myself if it's
 
     #[test]
     fn autocrypt_header_new() {
+        let p = &P::new();
+
         let cert = Cert::from_bytes(crate::tests::key("testy.pgp")).unwrap();
-        let header = AutocryptHeader::new_sender(&cert, "testy@example.org",
+        let header = AutocryptHeader::new_sender(p, &cert, "testy@example.org",
                                                  "mutual").unwrap();
         let mut buf = Vec::new();
         write!(&mut buf, "Autocrypt: ").unwrap();

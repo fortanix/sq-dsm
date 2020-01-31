@@ -21,8 +21,12 @@ use crate::openpgp::parse::{
         MessageLayer,
     },
 };
+use crate::openpgp::policy::Policy;
+use crate::openpgp::policy::StandardPolicy as P;
 
 pub fn main() {
+    let p = &P::new();
+
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         panic!("A simple decryption filter.\n\n\
@@ -38,7 +42,7 @@ pub fn main() {
 
     // Now, create a decryptor with a helper using the given Certs.
     let mut decryptor =
-        Decryptor::from_reader(io::stdin(), Helper::new(certs), None).unwrap();
+        Decryptor::from_reader(p, io::stdin(), Helper::new(p, certs), None).unwrap();
 
     // Finally, stream the decrypted data to stdout.
     io::copy(&mut decryptor, &mut io::stdout())
@@ -54,11 +58,11 @@ struct Helper {
 
 impl Helper {
     /// Creates a Helper for the given Certs with appropriate secrets.
-    fn new(certs: Vec<openpgp::Cert>) -> Self {
+    fn new(p: &dyn Policy, certs: Vec<openpgp::Cert>) -> Self {
         // Map (sub)KeyIDs to secrets.
         let mut keys = HashMap::new();
         for cert in certs {
-            for ka in cert.keys().policy(None)
+            for ka in cert.keys().set_policy(p, None)
                 .for_storage_encryption().for_transport_encryption()
             {
                 // This only works for unencrypted secret keys.

@@ -20,6 +20,7 @@ use crate::openpgp::parse::{
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, Decryptor, MessageStructure,
 };
+use crate::openpgp::policy::Policy;
 extern crate sequoia_store as store;
 
 use super::{dump::PacketDumper, VHelper};
@@ -36,15 +37,17 @@ struct Helper<'a> {
 }
 
 impl<'a> Helper<'a> {
-    fn new(ctx: &'a Context, mapping: &'a mut store::Mapping,
+    fn new(ctx: &'a Context, policy: &'a dyn Policy,
+           mapping: &'a mut store::Mapping,
            signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
            dump_session_key: bool, dump: bool, hex: bool)
-           -> Self {
+           -> Self
+    {
         let mut keys = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
         for tsk in secrets {
-            let hint = match tsk.primary_userid(None) {
+            let hint = match tsk.primary_userid(policy, None) {
                 Some(uid) => format!("{} ({})", uid.userid(),
                                      KeyID::from(tsk.fingerprint())),
                 None => format!("{}", KeyID::from(tsk.fingerprint())),
@@ -52,7 +55,7 @@ impl<'a> Helper<'a> {
 
             for ka in tsk.keys()
             // XXX: Should use the message's creation time that we do not know.
-                .policy(None)
+                .set_policy(policy, None)
                 .for_transport_encryption().for_storage_encryption()
                 .secret()
             {
@@ -279,15 +282,15 @@ impl<'a> DecryptionHelper for Helper<'a> {
     }
 }
 
-pub fn decrypt(ctx: &Context, mapping: &mut store::Mapping,
+pub fn decrypt(ctx: &Context, policy: &dyn Policy, mapping: &mut store::Mapping,
                input: &mut dyn io::Read, output: &mut dyn io::Write,
                signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
                dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
-    let helper = Helper::new(ctx, mapping, signatures, certs, secrets,
+    let helper = Helper::new(ctx, policy, mapping, signatures, certs, secrets,
                              dump_session_key, dump, hex);
-    let mut decryptor = Decryptor::from_reader(input, helper, None)
+    let mut decryptor = Decryptor::from_reader(policy, input, helper, None)
         .context("Decryption failed")?;
 
     io::copy(&mut decryptor, output)
@@ -307,11 +310,13 @@ pub fn decrypt(ctx: &Context, mapping: &mut store::Mapping,
     return Ok(());
 }
 
-pub fn decrypt_unwrap(ctx: &Context, mapping: &mut store::Mapping,
+pub fn decrypt_unwrap(ctx: &Context, policy: &dyn Policy,
+                      mapping: &mut store::Mapping,
                       input: &mut dyn io::Read, output: &mut dyn io::Write,
                       secrets: Vec<Cert>, dump_session_key: bool)
-                      -> Result<()> {
-    let mut helper = Helper::new(ctx, mapping, 0, Vec::new(), secrets,
+                      -> Result<()>
+{
+    let mut helper = Helper::new(ctx, policy, mapping, 0, Vec::new(), secrets,
                                  dump_session_key, false, false);
 
     let mut ppr = PacketParser::from_reader(input)?;

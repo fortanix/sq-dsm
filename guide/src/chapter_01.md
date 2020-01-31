@@ -17,20 +17,24 @@ extern crate sequoia_openpgp as openpgp;
 use openpgp::serialize::stream::*;
 use openpgp::packet::prelude::*;
 use openpgp::parse::stream::*;
+use openpgp::policy::Policy;
+use openpgp::policy::StandardPolicy as P;
 
 const MESSAGE: &'static str = "дружба";
 
 fn main() {
+    let p = &P::new();
+
     // Generate a key.
     let key = generate().unwrap();
 
     // Sign the message.
     let mut signed_message = Vec::new();
-    sign(&mut signed_message, MESSAGE, &key).unwrap();
+    sign(p, &mut signed_message, MESSAGE, &key).unwrap();
 
     // Verify the message.
     let mut plaintext = Vec::new();
-    verify(&mut plaintext, &signed_message, &key).unwrap();
+    verify(p, &mut plaintext, &signed_message, &key).unwrap();
 
     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 }
@@ -48,11 +52,14 @@ fn main() {
 # }
 #
 # /// Signs the given message.
-# fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
-#            -> openpgp::Result<()> {
+# fn sign(policy: &dyn Policy,
+#         sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
+#     -> openpgp::Result<()>
+# {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing().nth(0).unwrap().
-#         key().clone().mark_parts_secret().unwrap().into_keypair()?;
+#     let keypair = tsk.keys().set_policy(policy, None)
+#         .alive().revoked(false).for_signing().nth(0).unwrap()
+#         .key().clone().mark_parts_secret().unwrap().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -74,7 +81,8 @@ fn main() {
 # }
 #
 # /// Verifies the given message.
-# fn verify(sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
+# fn verify(policy: &dyn Policy,
+#           sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
 #           -> openpgp::Result<()> {
 #     // Make a helper that that feeds the sender's public key to the
 #     // verifier.
@@ -83,7 +91,7 @@ fn main() {
 #     };
 #
 #     // Now, create a verifier with a helper using the given Certs.
-#     let mut verifier = Verifier::from_bytes(signed_message, helper, None)?;
+#     let mut verifier = Verifier::from_bytes(policy, signed_message, helper, None)?;
 #
 #     // Verify the data.
 #     io::copy(&mut verifier, sink)?;
@@ -161,22 +169,26 @@ create it:
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::serialize::stream::*;
-# use openpgp::parse::stream::*;
 # use openpgp::packet::prelude::*;
+# use openpgp::parse::stream::*;
+# use openpgp::policy::Policy;
+# use openpgp::policy::StandardPolicy as P;
 #
 # const MESSAGE: &'static str = "дружба";
 #
 # fn main() {
+#     let p = &P::new();
+#
 #     // Generate a key.
 #     let key = generate().unwrap();
 #
 #     // Sign the message.
 #     let mut signed_message = Vec::new();
-#     sign(&mut signed_message, MESSAGE, &key).unwrap();
+#     sign(p, &mut signed_message, MESSAGE, &key).unwrap();
 #
 #     // Verify the message.
 #     let mut plaintext = Vec::new();
-#     verify(&mut plaintext, &signed_message, &key).unwrap();
+#     verify(p, &mut plaintext, &signed_message, &key).unwrap();
 #
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 # }
@@ -194,11 +206,14 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 }
 #
 # /// Signs the given message.
-# fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
-#            -> openpgp::Result<()> {
+# fn sign(policy: &dyn Policy,
+#         sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
+#     -> openpgp::Result<()>
+# {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing().nth(0).unwrap().
-#         key().clone().mark_parts_secret().unwrap().into_keypair()?;
+#     let keypair = tsk.keys().set_policy(policy, None)
+#         .alive().revoked(false).for_signing().nth(0).unwrap()
+#         .key().clone().mark_parts_secret().unwrap().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -220,7 +235,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 # }
 #
 # /// Verifies the given message.
-# fn verify(sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
+# fn verify(policy: &dyn Policy,
+#           sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
 #           -> openpgp::Result<()> {
 #     // Make a helper that that feeds the sender's public key to the
 #     // verifier.
@@ -229,7 +245,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #     };
 #
 #     // Now, create a verifier with a helper using the given Certs.
-#     let mut verifier = Verifier::from_bytes(signed_message, helper, None)?;
+#     let mut verifier = Verifier::from_bytes(policy, signed_message, helper, None)?;
 #
 #     // Verify the data.
 #     io::copy(&mut verifier, sink)?;
@@ -309,20 +325,24 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # use openpgp::serialize::stream::*;
 # use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
+# use openpgp::policy::Policy;
+# use openpgp::policy::StandardPolicy as P;
 #
 # const MESSAGE: &'static str = "дружба";
 #
 # fn main() {
+#     let p = &P::new();
+#
 #     // Generate a key.
 #     let key = generate().unwrap();
 #
 #     // Sign the message.
 #     let mut signed_message = Vec::new();
-#     sign(&mut signed_message, MESSAGE, &key).unwrap();
+#     sign(p, &mut signed_message, MESSAGE, &key).unwrap();
 #
 #     // Verify the message.
 #     let mut plaintext = Vec::new();
-#     verify(&mut plaintext, &signed_message, &key).unwrap();
+#     verify(p, &mut plaintext, &signed_message, &key).unwrap();
 #
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 # }
@@ -340,11 +360,14 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # }
 #
 /// Signs the given message.
-fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
-           -> openpgp::Result<()> {
+fn sign(policy: &dyn Policy,
+        sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
+    -> openpgp::Result<()>
+{
     // Get the keypair to do the signing from the Cert.
-    let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing().nth(0).unwrap().
-        key().clone().mark_parts_secret().unwrap().into_keypair()?;
+    let keypair = tsk.keys().set_policy(policy, None)
+        .alive().revoked(false).for_signing().nth(0).unwrap()
+        .key().clone().mark_parts_secret().unwrap().into_keypair()?;
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
@@ -366,7 +389,8 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 }
 #
 # /// Verifies the given message.
-# fn verify(sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
+# fn verify(policy: &dyn Policy,
+#           sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
 #           -> openpgp::Result<()> {
 #     // Make a helper that that feeds the sender's public key to the
 #     // verifier.
@@ -375,7 +399,7 @@ fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
 #     };
 #
 #     // Now, create a verifier with a helper using the given Certs.
-#     let mut verifier = Verifier::from_bytes(signed_message, helper, None)?;
+#     let mut verifier = Verifier::from_bytes(policy, signed_message, helper, None)?;
 #
 #     // Verify the data.
 #     io::copy(&mut verifier, sink)?;
@@ -466,20 +490,24 @@ Verified data can be read from this using [`io::Read`].
 # use openpgp::serialize::stream::*;
 # use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
+# use openpgp::policy::Policy;
+# use openpgp::policy::StandardPolicy as P;
 # 
 # const MESSAGE: &'static str = "дружба";
 # 
 # fn main() {
+#     let p = &P::new();
+#
 #     // Generate a key.
 #     let key = generate().unwrap();
 # 
 #     // Sign the message.
 #     let mut signed_message = Vec::new();
-#     sign(&mut signed_message, MESSAGE, &key).unwrap();
+#     sign(p, &mut signed_message, MESSAGE, &key).unwrap();
 # 
 #     // Verify the message.
 #     let mut plaintext = Vec::new();
-#     verify(&mut plaintext, &signed_message, &key).unwrap();
+#     verify(p, &mut plaintext, &signed_message, &key).unwrap();
 # 
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 # }
@@ -497,11 +525,14 @@ Verified data can be read from this using [`io::Read`].
 # }
 # 
 # /// Signs the given message.
-# fn sign(sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
-#            -> openpgp::Result<()> {
+# fn sign(policy: &dyn Policy,
+#         sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
+#     -> openpgp::Result<()>
+# {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().policy(None).alive().revoked(false).for_signing().nth(0).unwrap().
-#         key().clone().mark_parts_secret().unwrap().into_keypair()?;
+#     let keypair = tsk.keys().set_policy(policy, None)
+#         .alive().revoked(false).for_signing().nth(0).unwrap()
+#         .key().clone().mark_parts_secret().unwrap().into_keypair()?;
 # 
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -523,7 +554,8 @@ Verified data can be read from this using [`io::Read`].
 # }
 # 
 /// Verifies the given message.
-fn verify(sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
+fn verify(policy: &dyn Policy,
+          sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
           -> openpgp::Result<()> {
     // Make a helper that that feeds the sender's public key to the
     // verifier.
@@ -532,7 +564,7 @@ fn verify(sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
     };
 
     // Now, create a verifier with a helper using the given Certs.
-    let mut verifier = Verifier::from_bytes(signed_message, helper, None)?;
+    let mut verifier = Verifier::from_bytes(policy, signed_message, helper, None)?;
 
     // Verify the data.
     io::copy(&mut verifier, sink)?;

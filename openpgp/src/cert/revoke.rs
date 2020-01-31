@@ -44,15 +44,18 @@ use crate::cert::Cert;
 /// use openpgp::cert::{CipherSuite, CertBuilder, CertRevocationBuilder};
 /// use openpgp::crypto::KeyPair;
 /// use openpgp::parse::Parse;
+/// use sequoia_openpgp::policy::StandardPolicy;
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()>
 /// # {
+/// let p = &StandardPolicy::new();
+///
 /// let (cert, _) = CertBuilder::new()
 ///     .set_cipher_suite(CipherSuite::Cv25519)
 ///     .generate()?;
 /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-///            cert.revoked(None));
+///            cert.revoked(p, None));
 ///
 /// let mut signer = cert.primary_key().key().clone()
 ///     .mark_parts_secret()?.into_keypair()?;
@@ -64,7 +67,7 @@ use crate::cert::Cert;
 ///
 /// let cert = cert.merge_packets(vec![sig.clone().into()])?;
 /// assert_eq!(RevocationStatus::Revoked(vec![&sig]),
-///            cert.revoked(None));
+///            cert.revoked(p, None));
 /// # Ok(())
 /// # }
 pub struct CertRevocationBuilder {
@@ -155,8 +158,12 @@ impl Deref for CertRevocationBuilder {
 ///
 /// ```
 /// # use sequoia_openpgp::{*, packet::*, types::*, cert::*};
+/// use sequoia_openpgp::policy::StandardPolicy;
+///
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
 /// // Generate a Cert, and create a keypair from the primary key.
 /// let (cert, _) = CertBuilder::new()
 ///     .add_transport_encryption_subkey()
@@ -179,7 +186,7 @@ impl Deref for CertRevocationBuilder {
 ///
 /// // Check that it is revoked.
 /// let subkey = cert.keys().subkeys().nth(0).unwrap();
-/// if let RevocationStatus::Revoked(revocations) = subkey.revoked(None) {
+/// if let RevocationStatus::Revoked(revocations) = subkey.revoked(p, None) {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);
 /// } else {
@@ -269,9 +276,12 @@ impl Deref for SubkeyRevocationBuilder {
 /// ```
 /// # use sequoia_openpgp::{*, packet::*, types::*, cert::*};
 /// use sequoia_openpgp::cert::components::Amalgamation;
+/// use sequoia_openpgp::policy::StandardPolicy;
 ///
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
 /// // Generate a Cert, and create a keypair from the primary key.
 /// let (cert, _) = CertBuilder::new()
 ///     .add_userid("some@example.org")
@@ -293,7 +303,7 @@ impl Deref for SubkeyRevocationBuilder {
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
 ///
 /// // Check that it is revoked.
-/// let userid = cert.userids().policy(None).nth(0).unwrap();
+/// let userid = cert.userids().set_policy(p, None).nth(0).unwrap();
 /// if let RevocationStatus::Revoked(revocations) = userid.revoked() {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);
@@ -383,9 +393,12 @@ impl Deref for UserIDRevocationBuilder {
 /// ```
 /// # use sequoia_openpgp::{*, packet::*, types::*, cert::*};
 /// use sequoia_openpgp::cert::components::Amalgamation;
+/// use sequoia_openpgp::policy::StandardPolicy;
 ///
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
 /// # let subpacket
 /// #     = user_attribute::Subpacket::Unknown(1, [ 1 ].to_vec().into_boxed_slice());
 /// # let some_user_attribute = UserAttribute::new(&[ subpacket ])?;
@@ -410,7 +423,7 @@ impl Deref for UserIDRevocationBuilder {
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
 ///
 /// // Check that it is revoked.
-/// let ua = cert.user_attributes().policy(None).nth(0).unwrap();
+/// let ua = cert.user_attributes().set_policy(p, None).nth(0).unwrap();
 /// if let RevocationStatus::Revoked(revocations) = ua.revoked() {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);

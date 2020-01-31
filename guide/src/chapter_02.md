@@ -16,20 +16,24 @@ use openpgp::crypto::SessionKey;
 use openpgp::types::SymmetricAlgorithm;
 use openpgp::serialize::stream::*;
 use openpgp::parse::stream::*;
+use openpgp::policy::Policy;
+use openpgp::policy::StandardPolicy as P;
 
 const MESSAGE: &'static str = "дружба";
 
 fn main() {
+    let p = &P::new();
+
     // Generate a key.
     let key = generate().unwrap();
 
     // Encrypt the message.
     let mut ciphertext = Vec::new();
-    encrypt(&mut ciphertext, MESSAGE, &key).unwrap();
+    encrypt(p, &mut ciphertext, MESSAGE, &key).unwrap();
 
     // Decrypt the message.
     let mut plaintext = Vec::new();
-    decrypt(&mut plaintext, &ciphertext, &key).unwrap();
+    decrypt(p, &mut plaintext, &ciphertext, &key).unwrap();
 
     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 }
@@ -47,11 +51,12 @@ fn main() {
 # }
 #
 # /// Encrypts the given message.
-# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
+# fn encrypt(policy: &dyn Policy,
+#            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
-#        recipient.keys().policy(None).alive().revoked(false)
+#        recipient.keys().set_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
 #        .map(|ka| ka.key().into())
 #        .collect::<Vec<_>>();
@@ -81,16 +86,18 @@ fn main() {
 # }
 #
 # /// Decrypts the given message.
-# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
+# fn decrypt(policy: &dyn Policy,
+#            sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
 #     let helper = Helper {
+#         policy: policy,
 #         secret: recipient,
 #     };
 #
 #     // Now, create a decryptor with a helper using the given Certs.
-#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
+#     let mut decryptor = Decryptor::from_bytes(policy, ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -99,6 +106,7 @@ fn main() {
 # }
 #
 # struct Helper<'a> {
+#     policy: &'a dyn Policy,
 #     secret: &'a openpgp::Cert,
 # }
 #
@@ -125,7 +133,7 @@ fn main() {
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key = self.secret.keys().policy(None)
+#         let key = self.secret.keys().set_policy(self.policy, None)
 #             .for_transport_encryption().nth(0).unwrap().key().clone();
 #
 #         // The secret key is not encrypted.
@@ -156,20 +164,24 @@ create it:
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
+# use openpgp::policy::Policy;
+# use openpgp::policy::StandardPolicy as P;
 #
 # const MESSAGE: &'static str = "дружба";
 #
 # fn main() {
+#     let p = &P::new();
+#
 #     // Generate a key.
 #     let key = generate().unwrap();
 #
 #     // Encrypt the message.
 #     let mut ciphertext = Vec::new();
-#     encrypt(&mut ciphertext, MESSAGE, &key).unwrap();
+#     encrypt(p, &mut ciphertext, MESSAGE, &key).unwrap();
 #
 #     // Decrypt the message.
 #     let mut plaintext = Vec::new();
-#     decrypt(&mut plaintext, &ciphertext, &key).unwrap();
+#     decrypt(p, &mut plaintext, &ciphertext, &key).unwrap();
 #
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 # }
@@ -187,11 +199,12 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 }
 #
 # /// Encrypts the given message.
-# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
+# fn encrypt(policy: &dyn Policy,
+#            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
-#        recipient.keys().policy(None).alive().revoked(false)
+#        recipient.keys().set_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
 #        .map(|ka| ka.key().into())
 #        .collect::<Vec<_>>();
@@ -221,16 +234,18 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 # }
 #
 # /// Decrypts the given message.
-# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
+# fn decrypt(policy: &dyn Policy,
+#            sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
 #     let helper = Helper {
+#         policy: policy,
 #         secret: recipient,
 #     };
 #
 #     // Now, create a decryptor with a helper using the given Certs.
-#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
+#     let mut decryptor = Decryptor::from_bytes(policy, ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -239,6 +254,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 # }
 #
 # struct Helper<'a> {
+#     policy: &'a dyn Policy,
 #     secret: &'a openpgp::Cert,
 # }
 #
@@ -265,7 +281,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key = self.secret.keys().policy(None)
+#         let key = self.secret.keys().set_policy(self.policy, None)
 #             .for_transport_encryption().nth(0).unwrap().key().clone();
 #
 #         // The secret key is not encrypted.
@@ -296,20 +312,24 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
+# use openpgp::policy::Policy;
+# use openpgp::policy::StandardPolicy as P;
 #
 # const MESSAGE: &'static str = "дружба";
 #
 # fn main() {
+#     let p = &P::new();
+#
 #     // Generate a key.
 #     let key = generate().unwrap();
 #
 #     // Encrypt the message.
 #     let mut ciphertext = Vec::new();
-#     encrypt(&mut ciphertext, MESSAGE, &key).unwrap();
+#     encrypt(p, &mut ciphertext, MESSAGE, &key).unwrap();
 #
 #     // Decrypt the message.
 #     let mut plaintext = Vec::new();
-#     decrypt(&mut plaintext, &ciphertext, &key).unwrap();
+#     decrypt(p, &mut plaintext, &ciphertext, &key).unwrap();
 #
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 # }
@@ -327,11 +347,12 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # }
 #
 /// Encrypts the given message.
-fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
+fn encrypt(policy: &dyn Policy,
+           sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Build a vector of recipients to hand to Encryptor.
     let mut recipients =
-        recipient.keys().policy(None).alive().revoked(false)
+        recipient.keys().set_policy(policy, None).alive().revoked(false)
         .for_transport_encryption()
         .map(|ka| ka.key().into())
         .collect::<Vec<_>>();
@@ -361,16 +382,18 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 }
 #
 # /// Decrypts the given message.
-# fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
+# fn decrypt(policy: &dyn Policy,
+#            sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
 #     let helper = Helper {
+#         policy: policy,
 #         secret: recipient,
 #     };
 #
 #     // Now, create a decryptor with a helper using the given Certs.
-#     let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
+#     let mut decryptor = Decryptor::from_bytes(policy, ciphertext, helper, None)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -379,6 +402,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 # }
 #
 # struct Helper<'a> {
+#     policy: &'a dyn Policy,
 #     secret: &'a openpgp::Cert,
 # }
 #
@@ -405,7 +429,7 @@ fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
 #     {
 #         // The encryption key is the first and only subkey.
-#         let key = self.secret.keys().policy(None)
+#         let key = self.secret.keys().set_policy(self.policy, None)
 #             .for_transport_encryption().nth(0).unwrap().key().clone();
 #
 #         // The secret key is not encrypted.
@@ -450,20 +474,24 @@ Decrypted data can be read from this using [`io::Read`].
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
 # use openpgp::parse::stream::*;
+# use openpgp::policy::Policy;
+# use openpgp::policy::StandardPolicy as P;
 #
 # const MESSAGE: &'static str = "дружба";
 #
 # fn main() {
+#     let p = &P::new();
+#
 #     // Generate a key.
 #     let key = generate().unwrap();
 #
 #     // Encrypt the message.
 #     let mut ciphertext = Vec::new();
-#     encrypt(&mut ciphertext, MESSAGE, &key).unwrap();
+#     encrypt(p, &mut ciphertext, MESSAGE, &key).unwrap();
 #
 #     // Decrypt the message.
 #     let mut plaintext = Vec::new();
-#     decrypt(&mut plaintext, &ciphertext, &key).unwrap();
+#     decrypt(p, &mut plaintext, &ciphertext, &key).unwrap();
 #
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 # }
@@ -481,11 +509,12 @@ Decrypted data can be read from this using [`io::Read`].
 # }
 #
 # /// Encrypts the given message.
-# fn encrypt(sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
+# fn encrypt(policy: &dyn Policy,
+#            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
 #    let mut recipients =
-#        recipient.keys().policy(None).alive().revoked(false)
+#        recipient.keys().set_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
 #        .map(|ka| ka.key().into())
 #        .collect::<Vec<_>>();
@@ -515,16 +544,18 @@ Decrypted data can be read from this using [`io::Read`].
 # }
 #
 /// Decrypts the given message.
-fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
+fn decrypt(policy: &dyn Policy,
+           sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Make a helper that that feeds the recipient's secret key to the
     // decryptor.
     let helper = Helper {
+        policy: policy,
         secret: recipient,
     };
 
     // Now, create a decryptor with a helper using the given Certs.
-    let mut decryptor = Decryptor::from_bytes(ciphertext, helper, None)?;
+    let mut decryptor = Decryptor::from_bytes(policy, ciphertext, helper, None)?;
 
     // Decrypt the data.
     io::copy(&mut decryptor, sink)?;
@@ -533,6 +564,7 @@ fn decrypt(sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 }
 
 struct Helper<'a> {
+    policy: &'a dyn Policy,
     secret: &'a openpgp::Cert,
 }
 
@@ -558,7 +590,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
-        let key = self.secret.keys().policy(None)
+        let key = self.secret.keys().set_policy(self.policy, None)
             .for_transport_encryption().nth(0).unwrap().key().clone();
 
         // The secret key is not encrypted.

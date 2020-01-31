@@ -50,6 +50,7 @@ use super::super::{
     packet::signature::Signature,
     packet::key::Key,
     parse::PacketParser,
+    policy::Policy,
     revocation_status::RevocationStatus,
 };
 
@@ -509,6 +510,7 @@ impl VerificationHelper for VHelper {
 ///   pgp_reader_t plaintext;
 ///   uint8_t buf[128];
 ///   ssize_t nread;
+///   pgp_policy_t policy = pgp_standard_policy ();
 ///
 ///   cert = pgp_cert_from_file (NULL, "../openpgp/tests/data/keys/testy.pgp");
 ///   assert(cert);
@@ -520,7 +522,7 @@ impl VerificationHelper for VHelper {
 ///   struct verify_cookie cookie = {
 ///     .key = cert,  /* Move.  */
 ///   };
-///   plaintext = pgp_verifier_new (NULL, source,
+///   plaintext = pgp_verifier_new (NULL, policy, source,
 ///                                 get_public_keys_cb, check_cb,
 ///                                 &cookie, 1554542219);
 ///   assert (source);
@@ -532,11 +534,13 @@ impl VerificationHelper for VHelper {
 ///
 ///   pgp_reader_free (plaintext);
 ///   pgp_reader_free (source);
+///   pgp_policy_free (policy);
 ///   return 0;
 /// }
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
+                        policy: *const Policy,
                         input: *mut io::Reader,
                         get_public_keys: GetPublicKeysCallback,
                         check: CheckCallback,
@@ -544,9 +548,10 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                         time: time_t)
                         -> Maybe<io::Reader>
 {
+    let policy = policy.ref_raw().as_ref();
     let helper = VHelper::new(get_public_keys, check, cookie);
 
-    Verifier::from_reader(input.ref_mut_raw(), helper, maybe_time(time))
+    Verifier::from_reader(policy, input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
         .move_into_raw(errp)
 }
@@ -620,6 +625,7 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 ///   pgp_reader_t plaintext;
 ///   uint8_t buf[128];
 ///   ssize_t nread;
+///   pgp_policy_t policy = pgp_standard_policy ();
 ///
 ///   cert = pgp_cert_from_file (NULL,
 ///     "../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp");
@@ -637,7 +643,7 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 ///   struct verify_cookie cookie = {
 ///     .key = cert,  /* Move.  */
 ///   };
-///   plaintext = pgp_detached_verifier_new (NULL, signature, source,
+///   plaintext = pgp_detached_verifier_new (NULL, policy, signature, source,
 ///     get_public_keys_cb, check_cb,
 ///     &cookie, 1554542219);
 ///   assert (source);
@@ -650,11 +656,13 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 ///   pgp_reader_free (plaintext);
 ///   pgp_reader_free (source);
 ///   pgp_reader_free (signature);
+///   pgp_policy_free (policy);
 ///   return 0;
 /// }
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
+                                 policy: *const Policy,
                                  signature_input: *mut io::Reader,
                                  input: *mut io::Reader,
                                  get_public_keys: GetPublicKeysCallback,
@@ -663,9 +671,11 @@ fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                                  time: time_t)
                                  -> Maybe<io::Reader>
 {
+    let policy = policy.ref_raw().as_ref();
+
     let helper = VHelper::new(get_public_keys, check, cookie);
 
-    DetachedVerifier::from_reader(signature_input.ref_mut_raw(),
+    DetachedVerifier::from_reader(policy, signature_input.ref_mut_raw(),
                                   input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
         .move_into_raw(errp)
@@ -897,6 +907,7 @@ impl DecryptionHelper for DHelper {
 ///   pgp_reader_t plaintext;
 ///   uint8_t buf[128];
 ///   ssize_t nread;
+///   pgp_policy_t policy = pgp_standard_policy ();
 ///
 ///   cert = pgp_cert_from_file (
 ///       NULL, "../openpgp/tests/data/keys/testy-private.pgp");
@@ -910,7 +921,7 @@ impl DecryptionHelper for DHelper {
 ///     .key = cert,
 ///     .decrypt_called = 0,
 ///   };
-///   plaintext = pgp_decryptor_new (NULL, source,
+///   plaintext = pgp_decryptor_new (NULL, policy, source,
 ///                                  get_public_keys_cb, decrypt_cb,
 ///                                  check_cb, NULL, &cookie, 1554542219);
 ///   assert (plaintext);
@@ -923,11 +934,13 @@ impl DecryptionHelper for DHelper {
 ///   pgp_reader_free (plaintext);
 ///   pgp_reader_free (source);
 ///   pgp_cert_free (cert);
+///   pgp_policy_free (policy);
 ///   return 0;
 /// }
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_decryptor_new<'a>(errp: Option<&mut *mut crate::error::Error>,
+                         policy: *const Policy,
                          input: *mut io::Reader,
                          get_public_keys: GetPublicKeysCallback,
                          decrypt: DecryptCallback,
@@ -937,10 +950,11 @@ fn pgp_decryptor_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                          time: time_t)
                          -> Maybe<io::Reader>
 {
+    let policy = policy.ref_raw().as_ref();
     let helper = DHelper::new(
         get_public_keys, decrypt, check, inspect, cookie);
 
-    Decryptor::from_reader(input.ref_mut_raw(), helper, maybe_time(time))
+    Decryptor::from_reader(policy, input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
         .move_into_raw(errp)
 }

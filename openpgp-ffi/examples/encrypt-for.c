@@ -28,6 +28,7 @@ main (int argc, char **argv)
   pgp_cert_t cert;
   pgp_writer_t sink;
   pgp_writer_stack_t writer = NULL;
+  pgp_policy_t policy = pgp_standard_policy ();
 
   if (argc != 2)
     error (1, 0, "Usage: %s <keyfile> <plain >cipher", argv[0]);
@@ -36,7 +37,7 @@ main (int argc, char **argv)
   if (cert == NULL)
     error (1, 0, "pgp_cert_from_file: %s", pgp_error_to_string (err));
 
-  pgp_cert_valid_key_iter_t iter = pgp_cert_valid_key_iter (cert, 0);
+  pgp_cert_valid_key_iter_t iter = pgp_cert_valid_key_iter (cert, policy, 0);
   pgp_cert_valid_key_iter_alive (iter);
   pgp_cert_valid_key_iter_revoked (iter, false);
   pgp_cert_valid_key_iter_for_storage_encryption (iter);
@@ -91,5 +92,6 @@ main (int argc, char **argv)
     pgp_recipient_free (recipients[i]);
   free (recipients);
   pgp_cert_free (cert);
+  pgp_policy_free (policy);
   return 0;
 }

@@ -15,6 +15,7 @@ use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::parse::stream::*;
 use crate::openpgp::serialize::{Serialize, stream::*};
 use crate::openpgp::cert::{CertBuilder, CipherSuite};
+use crate::openpgp::policy::Policy;
 
 extern crate sequoia_ipc as ipc;
 use crate::ipc::gnupg::{Context, Agent, KeyPair};
@@ -80,6 +81,9 @@ fn gpg_import(ctx: &Context, what: &[u8]) {
 #[test]
 fn sign() {
     use self::CipherSuite::*;
+    use openpgp::policy::StandardPolicy as P;
+
+    let p = &P::new();
     let ctx = make_context!();
 
     for cs in &[RSA2k, Cv25519, P521] {
@@ -95,7 +99,7 @@ fn sign() {
 
         let keypair = KeyPair::new(
             &ctx,
-            cert.keys().policy(None).alive().revoked(false)
+            cert.keys().set_policy(p, None).alive().revoked(false)
                 .for_signing().take(1).next().unwrap().key())
             .unwrap();
 
@@ -128,7 +132,7 @@ fn sign() {
 
         // Now, create a verifier with a helper using the given Certs.
         let mut verifier =
-            Verifier::from_bytes(&message, helper, None).unwrap();
+            Verifier::from_bytes(p, &message, helper, None).unwrap();
 
         // Verify the data.
         let mut sink = Vec::new();
@@ -193,6 +197,9 @@ fn sign() {
 #[test]
 fn decrypt() {
     use self::CipherSuite::*;
+    use openpgp::policy::StandardPolicy as P;
+
+    let p = &P::new();
     let ctx = make_context!();
 
     for cs in &[RSA2k, Cv25519, P521] {
@@ -209,7 +216,7 @@ fn decrypt() {
         let mut message = Vec::new();
         {
             let recipient =
-                cert.keys().policy(None).alive().revoked(false)
+                cert.keys().set_policy(p, None).alive().revoked(false)
                 .for_transport_encryption()
                 .map(|ka| ka.key().into())
                 .nth(0).unwrap();
@@ -235,10 +242,10 @@ fn decrypt() {
 
         // Make a helper that that feeds the recipient's secret key to the
         // decryptor.
-        let helper = Helper { ctx: &ctx, cert: &cert, };
+        let helper = Helper { policy: p, ctx: &ctx, cert: &cert, };
 
         // Now, create a decryptor with a helper using the given Certs.
-        let mut decryptor = Decryptor::from_bytes(&message, helper, None)
+        let mut decryptor = Decryptor::from_bytes(p, &message, helper, None)
             .unwrap();
 
         // Decrypt the data.
@@ -247,6 +254,7 @@ fn decrypt() {
         assert_eq!(MESSAGE.as_bytes(), &sink[..]);
 
         struct Helper<'a> {
+            policy: &'a Policy,
             ctx: &'a Context,
             cert: &'a openpgp::Cert,
         }
@@ -276,7 +284,7 @@ fn decrypt() {
             {
                 let mut keypair = KeyPair::new(
                     self.ctx,
-                    self.cert.keys().policy(None)
+                    self.cert.keys().set_policy(self.policy, None)
                         .for_storage_encryption().for_transport_encryption()
                         .take(1).next().unwrap().key())
                     .unwrap();

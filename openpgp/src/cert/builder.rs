@@ -466,9 +466,12 @@ mod tests {
     use crate::cert::components::Amalgamation;
     use crate::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
     use crate::types::PublicKeyAlgorithm;
+    use crate::policy::StandardPolicy as P;
 
     #[test]
     fn all_opts() {
+        let p = &P::new();
+
         let (cert, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_userid("test1@example.com")
@@ -478,7 +481,7 @@ mod tests {
             .add_certification_subkey()
             .generate().unwrap();
 
-        let mut userids = cert.userids().policy(None)
+        let mut userids = cert.userids().set_policy(p, None)
             .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
@@ -492,6 +495,8 @@ mod tests {
 
     #[test]
     fn direct_key_sig() {
+        let p = &P::new();
+
         let (cert, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
@@ -502,7 +507,7 @@ mod tests {
         assert_eq!(cert.userids().count(), 0);
         assert_eq!(cert.subkeys().count(), 3);
         let sig =
-            cert.primary_key().policy(None).unwrap().binding_signature();
+            cert.primary_key().set_policy(p, None).unwrap().binding_signature();
         assert_eq!(sig.typ(), crate::types::SignatureType::DirectKey);
         assert!(sig.features().unwrap().supports_mdc());
     }
@@ -529,13 +534,14 @@ mod tests {
 
     #[test]
     fn defaults() {
+        let p = &P::new();
         let (cert1, _) = CertBuilder::new()
             .add_userid("test2@example.com")
             .generate().unwrap();
         assert_eq!(cert1.primary_key().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert!(cert1.subkeys().next().is_none());
-        assert!(cert1.primary_userid(None).unwrap()
+        assert!(cert1.primary_userid(p, None).unwrap()
                 .binding_signature().features().unwrap().supports_mdc());
     }
 
@@ -569,12 +575,13 @@ mod tests {
 
     #[test]
     fn always_certify() {
+        let p = &P::new();
         let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .primary_key_flags(KeyFlags::default())
             .add_transport_encryption_subkey()
             .generate().unwrap();
-        assert!(cert1.primary_key().policy(None).unwrap().for_certification());
+        assert!(cert1.primary_key().set_policy(p, None).unwrap().for_certification());
         assert_eq!(cert1.keys().subkeys().count(), 1);
     }
 
@@ -597,15 +604,16 @@ mod tests {
 
     #[test]
     fn generate_revocation_certificate() {
+        let p = &P::new();
         use crate::RevocationStatus;
         let (cert, revocation) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(cert.revoked(None),
+        assert_eq!(cert.revoked(p, None),
                    RevocationStatus::NotAsFarAsWeKnow);
 
         let cert = cert.merge_packets(vec![revocation.clone().into()]).unwrap();
-        assert_eq!(cert.revoked(None),
+        assert_eq!(cert.revoked(p, None),
                    RevocationStatus::Revoked(vec![ &revocation ]));
     }
 
@@ -646,6 +654,8 @@ mod tests {
 
     #[test]
     fn expiration_times() {
+        let p = &P::new();
+
         let s = std::time::Duration::new(1, 0);
         let (cert,_) = CertBuilder::new()
             .set_expiration(600 * s)
@@ -663,23 +673,25 @@ mod tests {
         assert!(sig.key_alive(key, now + 590 * s).is_ok());
         assert!(! sig.key_alive(key, now + 610 * s).is_ok());
 
-        let ka = cert.keys().policy(now).alive().revoked(false)
+        let ka = cert.keys().set_policy(p, now).alive().revoked(false)
             .for_signing()
             .nth(0).unwrap();
         assert!(ka.alive().is_ok());
-        assert!(ka.clone().policy(now + 290 * s).unwrap().alive().is_ok());
-        assert!(! ka.clone().policy(now + 310 * s).unwrap().alive().is_ok());
+        assert!(ka.clone().set_policy(p, now + 290 * s).unwrap().alive().is_ok());
+        assert!(! ka.clone().set_policy(p, now + 310 * s).unwrap().alive().is_ok());
 
-        let ka = cert.keys().policy(now).alive().revoked(false)
+        let ka = cert.keys().set_policy(p, now).alive().revoked(false)
             .for_authentication()
             .nth(0).unwrap();
         assert!(ka.alive().is_ok());
-        assert!(ka.clone().policy(now + 590 * s).unwrap().alive().is_ok());
-        assert!(! ka.clone().policy(now + 610 * s).unwrap().alive().is_ok());
+        assert!(ka.clone().set_policy(p, now + 590 * s).unwrap().alive().is_ok());
+        assert!(! ka.clone().set_policy(p, now + 610 * s).unwrap().alive().is_ok());
     }
 
     #[test]
     fn creation_time() {
+        let p = &P::new();
+
         use std::time::UNIX_EPOCH;
         let (cert, rev) = CertBuilder::new()
             .set_creation_time(UNIX_EPOCH)
@@ -689,17 +701,17 @@ mod tests {
             .generate().unwrap();
 
         assert_eq!(cert.primary_key().creation_time(), UNIX_EPOCH);
-        assert_eq!(cert.primary_key().policy(None).unwrap()
+        assert_eq!(cert.primary_key().set_policy(p, None).unwrap()
                    .binding_signature()
                    .signature_creation_time().unwrap(), UNIX_EPOCH);
-        assert_eq!(cert.primary_key().policy(None).unwrap()
+        assert_eq!(cert.primary_key().set_policy(p, None).unwrap()
                    .direct_key_signature().unwrap()
                    .signature_creation_time().unwrap(), UNIX_EPOCH);
         assert_eq!(rev.signature_creation_time().unwrap(), UNIX_EPOCH);
 
         // (Sub)Keys.
-        assert_eq!(cert.keys().policy(None).count(), 2);
-        for ka in cert.keys().policy(None) {
+        assert_eq!(cert.keys().set_policy(p, None).count(), 2);
+        for ka in cert.keys().set_policy(p, None) {
             assert_eq!(ka.key().creation_time(), UNIX_EPOCH);
             assert_eq!(ka.binding_signature()
                        .signature_creation_time().unwrap(), UNIX_EPOCH);
@@ -707,7 +719,7 @@ mod tests {
 
         // UserIDs.
         assert_eq!(cert.userids().count(), 1);
-        for ui in cert.userids().policy(None) {
+        for ui in cert.userids().set_policy(p, None) {
             assert_eq!(ui.binding_signature()
                        .signature_creation_time().unwrap(), UNIX_EPOCH);
         }

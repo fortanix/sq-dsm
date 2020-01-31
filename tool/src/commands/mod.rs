@@ -30,6 +30,7 @@ use crate::openpgp::serialize::padding::{
     Padder,
     padme,
 };
+use crate::openpgp::policy::Policy;
 extern crate sequoia_store as store;
 
 pub mod decrypt;
@@ -44,12 +45,13 @@ pub use self::inspect::inspect;
 pub mod key;
 
 /// Returns suitable signing keys from a given list of Certs.
-fn get_signing_keys(certs: &[openpgp::Cert], timestamp: Option<SystemTime>)
+fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
+                    timestamp: Option<SystemTime>)
     -> Result<Vec<crypto::KeyPair>>
 {
     let mut keys = Vec::new();
     'next_cert: for tsk in certs {
-        for key in tsk.keys().policy(timestamp).alive().revoked(false)
+        for key in tsk.keys().set_policy(p, timestamp).alive().revoked(false)
             .for_signing()
             .map(|ka| ka.key())
         {
@@ -78,7 +80,8 @@ fn get_signing_keys(certs: &[openpgp::Cert], timestamp: Option<SystemTime>)
     Ok(keys)
 }
 
-pub fn encrypt(mapping: &mut store::Mapping,
+pub fn encrypt(policy: &dyn Policy,
+               mapping: &mut store::Mapping,
                input: &mut dyn io::Read, output: &mut dyn io::Write,
                npasswords: usize, recipients: Vec<&str>,
                mut certs: Vec<openpgp::Cert>, signers: Vec<openpgp::Cert>,
@@ -104,7 +107,7 @@ pub fn encrypt(mapping: &mut store::Mapping,
             "Neither recipient nor password given"));
     }
 
-    let mut signers = get_signing_keys(&signers, time)?;
+    let mut signers = get_signing_keys(&signers, policy, time)?;
 
     // Build a vector of references to hand to Signer.
     let recipients: Vec<&openpgp::Cert> = certs.iter().collect();
@@ -113,7 +116,7 @@ pub fn encrypt(mapping: &mut store::Mapping,
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();
     for cert in certs.iter() {
         let mut count = 0;
-        for key in cert.keys().policy(None).alive().revoked(false)
+        for key in cert.keys().set_policy(policy, None).alive().revoked(false)
             .key_flags(&mode).map(|ka| ka.key())
         {
             recipient_subkeys.push(key.into());
@@ -396,7 +399,8 @@ impl<'a> VerificationHelper for VHelper<'a> {
     }
 }
 
-pub fn verify(ctx: &Context, mapping: &mut store::Mapping,
+pub fn verify(ctx: &Context, policy: &dyn Policy,
+              mapping: &mut store::Mapping,
               input: &mut dyn io::Read,
               detached: Option<&mut dyn io::Read>,
               output: &mut dyn io::Write,
@@ -404,9 +408,9 @@ pub fn verify(ctx: &Context, mapping: &mut store::Mapping,
               -> Result<()> {
     let helper = VHelper::new(ctx, mapping, signatures, certs);
     let mut verifier = if let Some(dsig) = detached {
-        DetachedVerifier::from_reader(dsig, input, helper, None)?
+        DetachedVerifier::from_reader(policy, dsig, input, helper, None)?
     } else {
-        Verifier::from_reader(input, helper, None)?
+        Verifier::from_reader(policy, input, helper, None)?
     };
 
     io::copy(&mut verifier, output)

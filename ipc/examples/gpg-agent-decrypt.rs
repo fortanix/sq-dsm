@@ -21,9 +21,13 @@ use crate::openpgp::parse::{
         MessageLayer,
     },
 };
+use crate::openpgp::policy::Policy;
+use crate::openpgp::policy::StandardPolicy as P;
 use crate::ipc::gnupg::{Context, KeyPair};
 
 fn main() {
+    let p = &P::new();
+
     let matches = clap::App::new("gpg-agent-decrypt")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Connects to gpg-agent and decrypts a message.")
@@ -51,7 +55,7 @@ fn main() {
 
     // Now, create a decryptor with a helper using the given Certs.
     let mut decryptor =
-        Decryptor::from_reader(io::stdin(), Helper::new(&ctx, certs), None)
+        Decryptor::from_reader(p, io::stdin(), Helper::new(&ctx, p, certs), None)
         .unwrap();
 
     // Finally, stream the decrypted data to stdout.
@@ -70,11 +74,13 @@ struct Helper<'a> {
 
 impl<'a> Helper<'a> {
     /// Creates a Helper for the given Certs with appropriate secrets.
-    fn new(ctx: &'a Context, certs: Vec<openpgp::Cert>) -> Self {
+    fn new(ctx: &'a Context, policy: &'a dyn Policy, certs: Vec<openpgp::Cert>)
+        -> Self
+    {
         // Map (sub)KeyIDs to secrets.
         let mut keys = HashMap::new();
         for cert in certs {
-            for ka in cert.keys().policy(None)
+            for ka in cert.keys().set_policy(policy, None)
                 .for_storage_encryption().for_transport_encryption()
             {
                 let key = ka.key();

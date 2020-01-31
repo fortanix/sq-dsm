@@ -31,6 +31,7 @@ use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
 use crate::openpgp::cert::CertParser;
+use crate::openpgp::policy::StandardPolicy as P;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::{KeyServer, wkd};
 use store::{Mapping, LogIter};
@@ -139,9 +140,11 @@ fn help_warning(arg: &str) {
 }
 
 fn real_main() -> Result<(), failure::Error> {
+    let policy = &P::new();
+
     let matches = sq_cli::build().get_matches();
 
-    let policy = match matches.value_of("policy") {
+    let network_policy = match matches.value_of("policy") {
         None => NetworkPolicy::Encrypted,
         Some("offline") => NetworkPolicy::Offline,
         Some("anonymized") => NetworkPolicy::Anonymized,
@@ -162,7 +165,7 @@ fn real_main() -> Result<(), failure::Error> {
         }
     };
     let mut builder = Context::configure()
-        .network_policy(policy);
+        .network_policy(network_policy);
     if let Some(dir) = matches.value_of("home") {
         builder = builder.home(dir);
     }
@@ -183,7 +186,7 @@ fn real_main() -> Result<(), failure::Error> {
                 .unwrap_or(Ok(vec![]))?;
             let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
-            commands::decrypt(&ctx, &mut mapping,
+            commands::decrypt(&ctx, policy, &mut mapping,
                               &mut input, &mut output,
                               signatures, certs, secrets,
                               m.is_present("dump-session-key"),
@@ -227,7 +230,7 @@ fn real_main() -> Result<(), failure::Error> {
             } else {
                 None
             };
-            commands::encrypt(&mut mapping, &mut input, &mut output,
+            commands::encrypt(policy, &mut mapping, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
                               recipients, additional_certs, additional_secrets,
                               mode,
@@ -251,7 +254,7 @@ fn real_main() -> Result<(), failure::Error> {
             } else {
                 None
             };
-            commands::sign(&mut input, output, secrets, detached, binary,
+            commands::sign(policy, &mut input, output, secrets, detached, binary,
                            append, notarize, time, force)?;
         },
         ("verify",  Some(m)) => {
@@ -269,7 +272,7 @@ fn real_main() -> Result<(), failure::Error> {
                 .unwrap_or(Ok(vec![]))?;
             let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
-            commands::verify(&ctx, &mut mapping, &mut input,
+            commands::verify(&ctx, policy, &mut mapping, &mut input,
                              detached.as_mut().map(|r| r as &mut dyn io::Read),
                              &mut output, signatures, certs)?;
         },
@@ -308,10 +311,11 @@ fn real_main() -> Result<(), failure::Error> {
                     let cert = Cert::from_reader(input)?;
                     let addr = m.value_of("address").map(|a| a.to_string())
                         .or_else(|| {
-                            cert.primary_userid(None)
+                            cert.primary_userid(policy, None)
                                 .map(|ca| ca.userid().to_string())
                         });
                     let ac = autocrypt::AutocryptHeader::new_sender(
+                        policy,
                         &cert,
                         &addr.ok_or(failure::err_msg(
                             "No well-formed primary userid found, use \
@@ -326,7 +330,7 @@ fn real_main() -> Result<(), failure::Error> {
 
         ("inspect",  Some(m)) => {
             let mut output = create_or_stdout(m.value_of("output"), force)?;
-            commands::inspect(m, &mut output)?;
+            commands::inspect(m, policy, &mut output)?;
         },
 
         ("packet", Some(m)) => match m.subcommand() {
@@ -361,7 +365,7 @@ fn real_main() -> Result<(), failure::Error> {
                 let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                     .context("Failed to open the mapping")?;
                 commands::decrypt::decrypt_unwrap(
-                    &ctx, &mut mapping,
+                    &ctx, policy, &mut mapping,
                     &mut input, &mut output,
                     secrets, m.is_present("dump-session-key"))?;
             },

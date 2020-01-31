@@ -13,6 +13,7 @@ use crate::{
             ValidComponentAmalgamation,
         },
     },
+    policy::Policy,
 };
 
 /// An iterator over all components in a certificate.
@@ -59,13 +60,15 @@ impl<'a, C> ComponentIter<'a, C> {
     /// If `time` is None, then the current time is used.
     ///
     /// See `ValidComponentIter` for the definition of a valid component.
-    pub fn policy<T>(self, time: T) -> ValidComponentIter<'a, C>
+    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
+        -> ValidComponentIter<'a, C>
         where T: Into<Option<SystemTime>>
     {
         ValidComponentIter {
             cert: self.cert,
             iter: self.iter,
             time: time.into().unwrap_or_else(SystemTime::now),
+            policy: policy,
             revoked: None,
         }
     }
@@ -92,8 +95,11 @@ pub struct ValidComponentIter<'a, C> {
     // This is an option to make it easier to create an empty ValidComponentIter.
     cert: &'a Cert,
     iter: ComponentBindingIter<'a, C>,
+
+    policy: &'a dyn Policy,
     // The time.
     time: SystemTime,
+
     // If not None, filters by whether the component is revoked or not
     // at time `t`.
     revoked: Option<bool>,
@@ -122,7 +128,7 @@ impl<'a, C> Iterator for ValidComponentIter<'a, C>
             t!("Considering component: {:?}", ca.binding());
 
             let vca
-                = if let Ok(vca) = ca.policy(self.time) {
+                = if let Ok(vca) = ca.set_policy(self.policy, self.time) {
                     vca
                 } else {
                     t!("No self-signature at time {:?}", self.time);
@@ -177,16 +183,19 @@ impl<'a, C> ValidComponentIter<'a, C> {
     /// # use openpgp::cert::CertBuilder;
     /// use openpgp::RevocationStatus;
     /// use openpgp::cert::components::Amalgamation;
+    /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
     /// # let timestamp = None;
     /// let non_revoked_uas = cert
     ///     .user_attributes()
-    ///     .policy(timestamp)
+    ///     .set_policy(p, timestamp)
     ///     .filter(|ca| {
     ///         match ca.revoked() {
     ///             RevocationStatus::Revoked(_) =>

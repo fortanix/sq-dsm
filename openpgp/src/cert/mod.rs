@@ -9,6 +9,8 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::time;
 
+use failure::ResultExt;
+
 use crate::{
     crypto::{hash::Hash, Signer},
     Error,
@@ -29,6 +31,7 @@ use crate::{
     KeyID,
     Fingerprint,
     KeyHandle,
+    policy::Policy,
 };
 use crate::parse::{Parse, PacketParserResult, PacketParser};
 use crate::types::{
@@ -433,14 +436,14 @@ impl Cert {
     ///
     /// Note: this only returns whether this Cert is revoked; it does
     /// not imply anything about the Cert or other components.
-    pub fn revoked<T>(&self, t: T) -> RevocationStatus
+    pub fn revoked<T>(&self, policy: &dyn Policy, t: T) -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
         // Both a primary key signature and the primary userid's
         // binding signature can override a soft revocation.  Compute
         // the most recent one.
-        let vkao = self.primary_key().policy(t).ok();
+        let vkao = self.primary_key().set_policy(policy, t).ok();
         let mut sig = vkao.as_ref().map(|vka| vka.binding_signature());
         if let Some(direct) = vkao.as_ref()
             .and_then(|vka| vka.direct_key_signature())
@@ -452,7 +455,7 @@ impl Cert {
                 _ => ()
             }
         }
-        self.primary_key().binding()._revoked(true, sig, t)
+        self.primary_key().binding()._revoked(policy, t, true, sig)
     }
 
     /// Revokes the Cert in place.
@@ -474,21 +477,25 @@ impl Cert {
     /// use openpgp::cert::{CipherSuite, CertBuilder};
     /// use openpgp::crypto::KeyPair;
     /// use openpgp::parse::Parse;
+    /// use sequoia_openpgp::policy::StandardPolicy;
+    ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()>
     /// # {
+    /// let p = &StandardPolicy::new();
+    ///
     /// let (mut cert, _) = CertBuilder::new()
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
     /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-    ///            cert.revoked(None));
+    ///            cert.revoked(p, None));
     ///
     /// let mut keypair = cert.primary_key().key().clone()
     ///     .mark_parts_secret()?.into_keypair()?;
     /// let cert = cert.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
     ///                               b"It was the maid :/")?;
-    /// if let RevocationStatus::Revoked(sigs) = cert.revoked(None) {
+    /// if let RevocationStatus::Revoked(sigs) = cert.revoked(p, None) {
     ///     assert_eq!(sigs.len(), 1);
     ///     assert_eq!(sigs[0].typ(), SignatureType::KeyRevocation);
     ///     assert_eq!(sigs[0].reason_for_revocation(),
@@ -511,11 +518,12 @@ impl Cert {
     }
 
     /// Returns whether or not the Cert is alive at `t`.
-    pub fn alive<T>(&self, t: T) -> Result<()>
+    pub fn alive<T>(&self, policy: &dyn Policy, t: T) -> Result<()>
+
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self.primary_key().policy(t)?.alive()
+        self.primary_key().set_policy(policy, t).context("Primary key")?.alive()
     }
 
     /// Sets the key to expire in delta seconds.
@@ -525,12 +533,13 @@ impl Cert {
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
-    fn set_expiry_as_of(self, primary_signer: &mut dyn Signer,
+    fn set_expiry_as_of(self, policy: &dyn Policy,
+                        primary_signer: &mut dyn Signer,
                         expiration: Option<time::Duration>,
                         now: time::SystemTime)
         -> Result<Cert>
     {
-        let primary = self.primary_key().policy(now)?;
+        let primary = self.primary_key().set_policy(policy, now)?;
         let mut sigs = Vec::new();
         let binding = primary.binding_signature();
         for template in [
@@ -558,7 +567,7 @@ impl Cert {
                     | SignatureType::PersonaCertification
                     | SignatureType::CasualCertification
                     | SignatureType::PositiveCertification =>
-                    self.primary_userid(now)
+                    self.primary_userid(policy, now)
                     .expect("this type must be from a userid binding, \
                              hence there must be a userid valid at `now`")
                     .userid().hash(&mut hash),
@@ -579,21 +588,26 @@ impl Cert {
     ///
     /// Note: the time is relative to the primary key's creation time,
     /// not the current time!
-    pub fn set_expiry(self, primary_signer: &mut dyn Signer,
+    ///
+    /// A policy is needed, because the expiration is updated by adding
+    /// a self-signature to the primary user id,
+    pub fn set_expiry(self, policy: &dyn Policy,
+                      primary_signer: &mut dyn Signer,
                       expiration: Option<time::Duration>)
         -> Result<Cert>
     {
-        self.set_expiry_as_of(primary_signer, expiration,
+        self.set_expiry_as_of(policy, primary_signer, expiration,
                               time::SystemTime::now())
     }
 
     /// Returns the amalgamated primary userid at `t`, if any.
-    pub fn primary_userid<T>(&self, t: T)
-        -> Option<ValidComponentAmalgamation<UserID>>
+    pub fn primary_userid<'a, T>(&'a self, policy: &'a dyn Policy, t: T)
+        -> Option<ValidComponentAmalgamation<'a, UserID>>
         where T: Into<Option<std::time::SystemTime>>
     {
         let t = t.into().unwrap_or_else(std::time::SystemTime::now);
-        ValidComponentAmalgamation::primary(self, self.userids.iter(), t)
+        ValidComponentAmalgamation::primary(self, self.userids.iter(),
+                                            policy, t)
     }
 
     /// Returns an iterator over the Cert's userids.
@@ -602,12 +616,13 @@ impl Cert {
     }
 
     /// Returns the amalgamated primary user attribute at `t`, if any.
-    pub fn primary_user_attribute<T>(&self, t: T)
-        -> Option<ValidComponentAmalgamation<UserAttribute>>
+    pub fn primary_user_attribute<'a, T>(&'a self, policy: &'a dyn Policy, t: T)
+        -> Option<ValidComponentAmalgamation<'a, UserAttribute>>
         where T: Into<Option<std::time::SystemTime>>
     {
         let t = t.into().unwrap_or_else(std::time::SystemTime::now);
-        ValidComponentAmalgamation::primary(self, self.user_attributes.iter(), t)
+        ValidComponentAmalgamation::primary(self, self.user_attributes.iter(),
+                                            policy, t)
     }
 
     /// Returns an iterator over the Cert's valid `UserAttributeBinding`s.
@@ -1279,7 +1294,7 @@ impl Cert {
             return true;
         }
         self.subkeys().any(|sk| {
-            sk.binding_signature(None).is_some() && sk.key().secret().is_some()
+            sk.key().secret().is_some()
         })
     }
 }
@@ -1288,6 +1303,7 @@ impl Cert {
 mod test {
     use crate::serialize::Serialize;
     use super::components::Amalgamation;
+    use crate::policy::StandardPolicy as P;
     use super::*;
 
     use crate::{
@@ -1763,15 +1779,17 @@ mod test {
 
     #[test]
     fn merge_with_incomplete_update() {
+        let p = &P::new();
+
         let cert = Cert::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
-        cert.primary_key().policy(None).unwrap().alive().unwrap_err();
+        cert.primary_key().set_policy(p, None).unwrap().alive().unwrap_err();
 
         let update =
             Cert::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let cert = cert.merge(update).unwrap();
-        cert.primary_key().policy(None).unwrap().alive().unwrap();
+        cert.primary_key().set_policy(p, None).unwrap().alive().unwrap();
     }
 
     #[test]
@@ -1828,6 +1846,8 @@ mod test {
 
     #[test]
     fn set_expiry() {
+        let p = &P::new();
+
         let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
         assert_eq!(cert.clone().into_packet_pile().children().count(),
@@ -1838,7 +1858,7 @@ mod test {
                    + 1 // subkey
                    + 1 // binding signature
         );
-        let cert = check_set_expiry(cert);
+        let cert = check_set_expiry(p, cert);
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
                    + 1 // direct key signature
@@ -1852,6 +1872,8 @@ mod test {
     }
     #[test]
     fn set_expiry_uidless() {
+        let p = &P::new();
+
         let (cert, _) = CertBuilder::new()
             .set_expiration(None) // Just to assert this works.
             .set_expiration(
@@ -1861,18 +1883,18 @@ mod test {
                    1 // primary key
                    + 1 // direct key signature
         );
-        let cert = check_set_expiry(cert);
+        let cert = check_set_expiry(p, cert);
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
                    + 1 // direct key signature
                    + 2 // two new direct key signatures
         );
     }
-    fn check_set_expiry(cert: Cert) -> Cert {
+    fn check_set_expiry(policy: &dyn Policy, cert: Cert) -> Cert {
         let now = cert.primary_key().creation_time();
         let a_sec = time::Duration::new(1, 0);
 
-        let expiry_orig = cert.primary_key().policy(now).unwrap()
+        let expiry_orig = cert.primary_key().set_policy(policy, now).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
 
@@ -1882,19 +1904,17 @@ mod test {
         // Clear the expiration.
         let as_of1 = now + time::Duration::new(10, 0);
         let cert = cert.set_expiry_as_of(
-            &mut keypair,
-            None,
-            as_of1).unwrap();
+            policy, &mut keypair, None, as_of1).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
-            assert_eq!(cert.primary_key().policy(now).unwrap()
+            assert_eq!(cert.primary_key().set_policy(policy, now).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
-            assert_eq!(cert.primary_key().policy(as_of1 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().set_policy(policy, as_of1 - a_sec).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
             // If t >= as_of1, we should get the new expiry.
-            assert_eq!(cert.primary_key().policy(as_of1).unwrap()
+            assert_eq!(cert.primary_key().set_policy(policy, as_of1).unwrap()
                            .key_expiration_time(),
                        None);
         }
@@ -1907,27 +1927,25 @@ mod test {
 
         let as_of2 = as_of1 + time::Duration::new(10, 0);
         let cert = cert.set_expiry_as_of(
-            &mut keypair,
-            Some(expiry_new),
-            as_of2).unwrap();
+            policy, &mut keypair, Some(expiry_new), as_of2).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
-            assert_eq!(cert.primary_key().policy(now).unwrap()
+            assert_eq!(cert.primary_key().set_policy(policy, now).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
-            assert_eq!(cert.primary_key().policy(as_of1 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().set_policy(policy, as_of1 - a_sec).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
             // If as_of1 <= t < as_of2, we should get the second
             // expiry (None).
-            assert_eq!(cert.primary_key().policy(as_of1).unwrap()
+            assert_eq!(cert.primary_key().set_policy(policy, as_of1).unwrap()
                            .key_expiration_time(),
                        None);
-            assert_eq!(cert.primary_key().policy(as_of2 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().set_policy(policy, as_of2 - a_sec).unwrap()
                            .key_expiration_time(),
                        None);
             // If t <= as_of2, we should get the new expiry.
-            assert_eq!(cert.primary_key().policy(as_of2).unwrap()
+            assert_eq!(cert.primary_key().set_policy(policy, as_of2).unwrap()
                            .key_expiration_time(),
                        Some(expiry_new));
         }
@@ -1940,6 +1958,8 @@ mod test {
         // XXX: testing sequoia against itself isn't optimal, but I couldn't
         // find a tool to generate direct key signatures :-(
 
+        let p = &P::new();
+
         let (cert1, _) = CertBuilder::new().generate().unwrap();
         let mut buf = Vec::default();
 
@@ -1947,7 +1967,7 @@ mod test {
         let cert2 = Cert::from_bytes(&buf).unwrap();
 
         assert_eq!(
-            cert2.primary_key().policy(None).unwrap()
+            cert2.primary_key().set_policy(p, None).unwrap()
                 .direct_key_signature().unwrap().typ(),
             SignatureType::DirectKey);
         assert_eq!(cert2.userids().count(), 0);
@@ -1957,14 +1977,16 @@ mod test {
     fn revoked() {
         fn check(cert: &Cert, direct_revoked: bool,
                  userid_revoked: bool, subkey_revoked: bool) {
+            let p = &P::new();
+
             // If we have a user id---even if it is revoked---we have
             // a primary key signature.
-            let typ = cert.primary_key().policy(None).unwrap()
+            let typ = cert.primary_key().set_policy(p, None).unwrap()
                 .binding_signature().typ();
             assert_eq!(typ, SignatureType::PositiveCertification,
                        "{:#?}", cert);
 
-            let revoked = cert.revoked(None);
+            let revoked = cert.revoked(p, None);
             if direct_revoked {
                 assert_match!(RevocationStatus::Revoked(_) = revoked,
                               "{:#?}", cert);
@@ -1973,7 +1995,7 @@ mod test {
                            "{:#?}", cert);
             }
 
-            for userid in cert.userids().policy(None) {
+            for userid in cert.userids().set_policy(p, None) {
                 let typ = userid.binding_signature().typ();
                 assert_eq!(typ, SignatureType::PositiveCertification,
                            "{:#?}", cert);
@@ -1988,11 +2010,11 @@ mod test {
             }
 
             for subkey in cert.subkeys() {
-                let typ = subkey.binding_signature(None).unwrap().typ();
+                let typ = subkey.binding_signature(p, None).unwrap().typ();
                 assert_eq!(typ, SignatureType::SubkeyBinding,
                            "{:#?}", cert);
 
-                let revoked = subkey.revoked(None);
+                let revoked = subkey.revoked(p, None);
                 if subkey_revoked {
                     assert_match!(RevocationStatus::Revoked(_) = revoked);
                 } else {
@@ -2048,10 +2070,12 @@ mod test {
 
     #[test]
     fn revoke() {
+        let p = &P::new();
+
         let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
             .generate().unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   cert.revoked(None));
+                   cert.revoked(p, None));
 
         let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
             .unwrap().into_keypair().unwrap();
@@ -2068,7 +2092,7 @@ mod test {
                    Some(&cert.fingerprint()));
 
         let cert = cert.merge_packets(vec![sig.into()]).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(None));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, None));
 
 
         // Have other revoke cert.
@@ -2093,13 +2117,15 @@ mod test {
 
     #[test]
     fn revoke_subkey() {
+        let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
             .generate().unwrap();
 
         let sig = {
             let subkey = cert.subkeys().nth(0).unwrap();
-            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, subkey.revoked(None));
+            assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+                       subkey.revoked(p, None));
 
             let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
                 .unwrap().into_keypair().unwrap();
@@ -2113,21 +2139,23 @@ mod test {
         assert_eq!(sig.typ(), SignatureType::SubkeyRevocation);
         let cert = cert.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   cert.revoked(None));
+                   cert.revoked(p, None));
 
         let subkey = cert.subkeys().nth(0).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = subkey.revoked(None));
+        assert_match!(RevocationStatus::Revoked(_)
+                      = subkey.revoked(p, None));
     }
 
     #[test]
     fn revoke_uid() {
+        let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .add_userid("Test1")
             .add_userid("Test2")
             .generate().unwrap();
 
         let sig = {
-            let uid = cert.userids().policy(None).nth(1).unwrap();
+            let uid = cert.userids().set_policy(p, None).nth(1).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
 
             let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
@@ -2142,9 +2170,9 @@ mod test {
         assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
         let cert = cert.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   cert.revoked(None));
+                   cert.revoked(p, None));
 
-        let uid = cert.userids().policy(None).nth(1).unwrap();
+        let uid = cert.userids().set_policy(p, None).nth(1).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = uid.revoked());
     }
 
@@ -2154,6 +2182,9 @@ mod test {
         use crate::packet::key::Key4;
         use crate::types::Curve;
         use rand::{thread_rng, Rng, distributions::Open01};
+
+        let p = &P::new();
+
         /*
          * t1: 1st binding sig ctime
          * t2: soft rev sig ctime
@@ -2234,41 +2265,43 @@ mod test {
         let t23 = t2 + time::Duration::new((60. * 60. * 24. * 300.0 * f3) as u64, 0);
         let t34 = t3 + time::Duration::new((60. * 60. * 24. * 300.0 * f4) as u64, 0);
 
-        assert_eq!(cert.revoked(te1), RevocationStatus::NotAsFarAsWeKnow);
-        assert_eq!(cert.revoked(t12), RevocationStatus::NotAsFarAsWeKnow);
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t23));
-        assert_eq!(cert.revoked(t34), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(cert.revoked(p, te1), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(cert.revoked(p, t12), RevocationStatus::NotAsFarAsWeKnow);
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t23));
+        assert_eq!(cert.revoked(p, t34), RevocationStatus::NotAsFarAsWeKnow);
 
         // Merge in the hard revocation.
         let cert = cert.merge_packets(vec![ rev2.into() ]).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(te1));
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t12));
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t23));
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t34));
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(t4));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, te1));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t12));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t23));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t34));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t4));
         assert_match!(RevocationStatus::Revoked(_)
-                      = cert.revoked(time::SystemTime::now()));
+                      = cert.revoked(p, time::SystemTime::now()));
     }
 
     #[test]
     fn key_revoked2() {
         tracer!(true, "cert_revoked2", 0);
 
-        fn cert_revoked<T>(cert: &Cert, t: T) -> bool
+        let p = &P::new();
+
+        fn cert_revoked<T>(p: &dyn Policy, cert: &Cert, t: T) -> bool
             where T: Into<Option<time::SystemTime>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = cert.revoked(t))
+                              = cert.revoked(p, t))
         }
 
-        fn subkey_revoked<T>(cert: &Cert, t: T) -> bool
+        fn subkey_revoked<T>(p: &dyn Policy, cert: &Cert, t: T) -> bool
             where T: Into<Option<time::SystemTime>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = cert.subkeys().nth(0).unwrap().revoked(t))
+                              = cert.subkeys().nth(0).unwrap().revoked(p, t))
         }
 
-        let tests : [(&str, Box<dyn Fn(&Cert, _) -> bool>); 2] = [
+        let tests : [(&str, Box<dyn Fn(&dyn Policy, &Cert, _) -> bool>); 2] = [
             ("cert", Box::new(cert_revoked)),
             ("subkey", Box::new(subkey_revoked)),
         ];
@@ -2281,11 +2314,11 @@ mod test {
             let cert = Cert::from_bytes(
                 crate::tests::key(
                     &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
-            let selfsig0 = cert.primary_key().policy(None).unwrap()
+            let selfsig0 = cert.primary_key().set_policy(p, None).unwrap()
                 .binding_signature().signature_creation_time().unwrap();
 
-            assert!(!revoked(&cert, Some(selfsig0)));
-            assert!(!revoked(&cert, None));
+            assert!(!revoked(p, &cert, Some(selfsig0)));
+            assert!(!revoked(p, &cert, None));
 
             t!("Soft revocation");
             let cert = cert.merge(
@@ -2295,8 +2328,8 @@ mod test {
                 ).unwrap()).unwrap();
             // A soft revocation made after `t` is ignored when
             // determining whether the key is revoked at time `t`.
-            assert!(!revoked(&cert, Some(selfsig0)));
-            assert!(revoked(&cert, None));
+            assert!(!revoked(p, &cert, Some(selfsig0)));
+            assert!(revoked(p, &cert, None));
 
             t!("New self signature");
             let cert = cert.merge(
@@ -2304,9 +2337,9 @@ mod test {
                     crate::tests::key(
                         &format!("really-revoked-{}-2-new-self-sig.pgp", f))
                 ).unwrap()).unwrap();
-            assert!(!revoked(&cert, Some(selfsig0)));
+            assert!(!revoked(p, &cert, Some(selfsig0)));
             // Newer self-sig override older soft revocations.
-            assert!(!revoked(&cert, None));
+            assert!(!revoked(p, &cert, None));
 
             t!("Hard revocation");
             let cert = cert.merge(
@@ -2315,8 +2348,8 @@ mod test {
                         &format!("really-revoked-{}-3-hard-revocation.pgp", f))
                 ).unwrap()).unwrap();
             // Hard revocations trump all.
-            assert!(revoked(&cert, Some(selfsig0)));
-            assert!(revoked(&cert, None));
+            assert!(revoked(p, &cert, Some(selfsig0)));
+            assert!(revoked(p, &cert, None));
 
             t!("New self signature");
             let cert = cert.merge(
@@ -2324,22 +2357,22 @@ mod test {
                     crate::tests::key(
                         &format!("really-revoked-{}-4-new-self-sig.pgp", f))
                 ).unwrap()).unwrap();
-            assert!(revoked(&cert, Some(selfsig0)));
-            assert!(revoked(&cert, None));
+            assert!(revoked(p, &cert, Some(selfsig0)));
+            assert!(revoked(p, &cert, None));
         }
     }
 
     #[test]
     fn userid_revoked2() {
-        fn check_userids<T>(cert: &Cert, revoked: bool, t: T)
+        fn check_userids<T>(p: &dyn Policy, cert: &Cert, revoked: bool, t: T)
             where T: Into<Option<time::SystemTime>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                          = cert.revoked(None));
+                          = cert.revoked(p, None));
 
             let mut slim_shady = false;
             let mut eminem = false;
-            for b in cert.userids().policy(t) {
+            for b in cert.userids().set_policy(p, t) {
                 if b.userid().value() == b"Slim Shady" {
                     assert!(!slim_shady);
                     slim_shady = true;
@@ -2364,26 +2397,27 @@ mod test {
             assert!(eminem);
         }
 
-        fn check_uas<T>(cert: &Cert, revoked: bool, t: T)
+        fn check_uas<T>(p: &dyn Policy, cert: &Cert, revoked: bool, t: T)
             where T: Into<Option<time::SystemTime>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                          = cert.revoked(None));
+                          = cert.revoked(p, None));
 
             assert_eq!(cert.user_attributes().count(), 1);
             let ua = cert.user_attributes().bindings().nth(0).unwrap();
             if revoked {
                 assert_match!(RevocationStatus::Revoked(_)
-                              = ua.revoked(t));
+                              = ua.revoked(p, t));
             } else {
                 assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                              = ua.revoked(t));
+                              = ua.revoked(p, t));
             }
         }
 
         tracer!(true, "userid_revoked2", 0);
 
-        let tests : [(&str, Box<dyn Fn(&Cert, bool, _)>); 2] = [
+        let p = &P::new();
+        let tests : [(&str, Box<dyn Fn(&dyn Policy, &Cert, bool, _)>); 2] = [
             ("userid", Box::new(check_userids)),
             ("user-attribute", Box::new(check_uas)),
         ];
@@ -2399,13 +2433,13 @@ mod test {
 
             let now = time::SystemTime::now();
             let selfsig0
-                = cert.userids().policy(now).map(|b| {
+                = cert.userids().set_policy(p, now).map(|b| {
                     b.binding_signature().signature_creation_time().unwrap()
                 })
                 .max().unwrap();
 
-            check(&cert, false, selfsig0);
-            check(&cert, false, now);
+            check(p, &cert, false, selfsig0);
+            check(p, &cert, false, now);
 
             // A soft-revocation.
             let cert = cert.merge(
@@ -2414,8 +2448,8 @@ mod test {
                         &format!("really-revoked-{}-1-soft-revocation.pgp", f))
                 ).unwrap()).unwrap();
 
-            check(&cert, false, selfsig0);
-            check(&cert, true, now);
+            check(p, &cert, false, selfsig0);
+            check(p, &cert, true, now);
 
             // A new self signature.  This should override the soft-revocation.
             let cert = cert.merge(
@@ -2424,8 +2458,8 @@ mod test {
                         &format!("really-revoked-{}-2-new-self-sig.pgp", f))
                 ).unwrap()).unwrap();
 
-            check(&cert, false, selfsig0);
-            check(&cert, false, now);
+            check(p, &cert, false, selfsig0);
+            check(p, &cert, false, now);
 
             // A hard revocation.  Unlike for Certs, this does NOT trumps
             // everything.
@@ -2435,8 +2469,8 @@ mod test {
                         &format!("really-revoked-{}-3-hard-revocation.pgp", f))
                 ).unwrap()).unwrap();
 
-            check(&cert, false, selfsig0);
-            check(&cert, true, now);
+            check(p, &cert, false, selfsig0);
+            check(p, &cert, true, now);
 
             // A newer self siganture.
             let cert = cert.merge(
@@ -2445,17 +2479,18 @@ mod test {
                         &format!("really-revoked-{}-4-new-self-sig.pgp", f))
                 ).unwrap()).unwrap();
 
-            check(&cert, false, selfsig0);
-            check(&cert, false, now);
+            check(p, &cert, false, selfsig0);
+            check(p, &cert, false, now);
         }
     }
 
     #[test]
     fn unrevoked() {
+        let p = &P::new();
         let cert =
             Cert::from_bytes(crate::tests::key("un-revoked-userid.pgp")).unwrap();
 
-        for uid in cert.userids().policy(None) {
+        for uid in cert.userids().set_policy(p, None) {
             assert_eq!(uid.revoked(), RevocationStatus::NotAsFarAsWeKnow);
         }
     }
@@ -2591,6 +2626,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
     #[test]
     fn signature_order() {
+        let p = &P::new();
         let neal = Cert::from_bytes(crate::tests::key("neal.pgp")).unwrap();
 
         // This test is useless if we don't have some lists with more
@@ -2613,7 +2649,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
             // Make sure we return the most recent first.
             assert_eq!(uid.self_signatures().first().unwrap(),
-                       uid.binding_signature(None).unwrap());
+                       uid.binding_signature(p, None).unwrap());
         }
 
         assert!(cmps > 0);
@@ -2643,12 +2679,13 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // unrevoked user ids to revoked user ids, even if the latter
         // have newer self signatures.
 
+        let p = &P::new();
         let cert = Cert::from_bytes(
             crate::tests::key("really-revoked-userid-0-public.pgp")).unwrap();
 
         let now = time::SystemTime::now();
         let selfsig0
-            = cert.userids().policy(now).map(|b| {
+            = cert.userids().set_policy(p, now).map(|b| {
                 b.binding_signature().signature_creation_time().unwrap()
             })
             .max().unwrap();
@@ -2657,8 +2694,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         //
         //   Slim Shady: 2019-09-14T14:21
         //   Eminem:     2019-09-14T14:22
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"Eminem");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"Eminem");
 
         // A soft-revocation for "Slim Shady".
         let cert = cert.merge(
@@ -2666,8 +2705,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("really-revoked-userid-1-soft-revocation.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"Eminem");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"Eminem");
 
         // A new self signature for "Slim Shady".  This should
         // override the soft-revocation.
@@ -2676,8 +2717,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("really-revoked-userid-2-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Slim Shady");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"Eminem");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"Slim Shady");
 
         // A hard revocation for "Slim Shady".
         let cert = cert.merge(
@@ -2685,8 +2728,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("really-revoked-userid-3-hard-revocation.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Eminem");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"Eminem");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"Eminem");
 
         // A newer self siganture for "Slim Shady". Unlike for Certs, this
         // does NOT trump everything.
@@ -2695,22 +2740,26 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("really-revoked-userid-4-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"Eminem");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"Slim Shady");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"Eminem");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"Slim Shady");
 
         // Play with the primary user id flag.
 
         let cert = Cert::from_bytes(
             crate::tests::key("primary-key-0-public.pgp")).unwrap();
         let selfsig0
-            = cert.userids().policy(now).map(|b| {
+            = cert.userids().set_policy(p, now).map(|b| {
                 b.binding_signature().signature_creation_time().unwrap()
             })
             .max().unwrap();
 
         // There is only a single User ID.
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"aaaaa");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"aaaaa");
 
 
         // Add a second user id.  Since neither is marked primary, the
@@ -2720,8 +2769,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-1-add-userid-bbbbb.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"aaaaa");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"bbbbb");
 
         // Mark aaaaa as primary.  It is now primary and the newest one.
         let cert = cert.merge(
@@ -2729,8 +2780,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-2-make-aaaaa-primary.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"aaaaa");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"aaaaa");
 
         // Update the preferences on bbbbb.  It is now the newest, but
         // it is not marked as primary.
@@ -2739,8 +2792,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-3-make-bbbbb-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"aaaaa");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"aaaaa");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"aaaaa");
 
         // Mark bbbbb as primary.  It is now the newest and marked as
         // primary.
@@ -2749,8 +2804,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-4-make-bbbbb-primary.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"aaaaa");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"bbbbb");
 
         // Update the preferences on aaaaa.  It is now has the newest
         // self sig, but that self sig does not say that it is
@@ -2760,8 +2817,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-5-make-aaaaa-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"aaaaa");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"bbbbb");
 
         // Hard revoke aaaaa.  Unlike with Certs, a hard revocation is
         // not treated specially.
@@ -2770,8 +2829,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-6-revoked-aaaaa.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(selfsig0).unwrap().userid().value(), b"aaaaa");
-        assert_eq!(cert.primary_userid(now).unwrap().userid().value(), b"bbbbb");
+        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+                   b"aaaaa");
+        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+                   b"bbbbb");
     }
 
     #[test]
@@ -2782,6 +2843,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         use crate::types::Features;
         use crate::packet::key::Key4;
         use crate::types::Curve;
+
+        let p = &P::new();
 
         let a_sec = time::Duration::new(1, 0);
         let time_zero = time::UNIX_EPOCH;
@@ -2829,22 +2892,22 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 // A time that matches multiple signatures.
                 let direct_signatures =
                     cert.primary_key().binding().self_signatures();
-                assert_eq!(cert.primary_key().policy(*t).unwrap()
+                assert_eq!(cert.primary_key().set_policy(p, *t).unwrap()
                            .direct_key_signature(),
                            direct_signatures.get(*offset));
                 // A time that doesn't match any signature.
-                assert_eq!(cert.primary_key().policy(*t + a_sec).unwrap()
+                assert_eq!(cert.primary_key().set_policy(p, *t + a_sec).unwrap()
                            .direct_key_signature(),
                            direct_signatures.get(*offset));
 
                 // The current time, which should use the first signature.
-                assert_eq!(cert.primary_key().policy(None).unwrap()
+                assert_eq!(cert.primary_key().set_policy(p, None).unwrap()
                            .direct_key_signature(),
                            direct_signatures.get(0));
 
                 // The beginning of time, which should return no
                 // binding signatures.
-                assert!(cert.primary_key().policy(time_zero).is_err());
+                assert!(cert.primary_key().set_policy(p, time_zero).is_err());
             }
         }
     }

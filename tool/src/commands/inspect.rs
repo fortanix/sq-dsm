@@ -7,10 +7,11 @@ use crate::openpgp::{Packet, Result};
 use crate::openpgp::cert::components::Amalgamation;
 use openpgp::packet::key::PublicParts;
 use crate::openpgp::parse::{Parse, PacketParserResult};
+use crate::openpgp::policy::Policy;
 
 use super::dump::Convert;
 
-pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
+pub fn inspect(m: &clap::ArgMatches, policy: &dyn Policy, output: &mut dyn io::Write)
                -> Result<()> {
     let print_keygrips = m.is_present("keygrips");
     let print_certifications = m.is_present("certifications");
@@ -43,8 +44,8 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
                     let pp = openpgp::PacketPile::from(
                         ::std::mem::replace(&mut packets, Vec::new()));
                     let cert = openpgp::Cert::from_packet_pile(pp)?;
-                    inspect_cert(output, &cert, print_keygrips,
-                                print_certifications)?;
+                    inspect_cert(policy, output, &cert, print_keygrips,
+                                 print_certifications)?;
                 }
             },
             Packet::Literal(_) => {
@@ -102,7 +103,8 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
         } else if is_cert.is_ok() || is_keyring.is_ok() {
             let pp = openpgp::PacketPile::from(packets);
             let cert = openpgp::Cert::from_packet_pile(pp)?;
-            inspect_cert(output, &cert, print_keygrips, print_certifications)?;
+            inspect_cert(policy, output, &cert,
+                         print_keygrips, print_certifications)?;
         } else if packets.is_empty() && ! sigs.is_empty() {
             writeln!(output, "Detached signature{}.",
                      if sigs.len() > 1 { "s" } else { "" })?;
@@ -125,8 +127,9 @@ pub fn inspect(m: &clap::ArgMatches, output: &mut dyn io::Write)
     Ok(())
 }
 
-fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
-               print_keygrips: bool, print_certifications: bool) -> Result<()> {
+fn inspect_cert(policy: &dyn Policy,
+                output: &mut dyn io::Write, cert: &openpgp::Cert,
+                print_keygrips: bool, print_certifications: bool) -> Result<()> {
     if cert.is_tsk() {
         writeln!(output, "Transferable Secret Key.")?;
     } else {
@@ -134,22 +137,23 @@ fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
     }
     writeln!(output)?;
     writeln!(output, "    Fingerprint: {}", cert.fingerprint())?;
-    inspect_revocation(output, "", cert.revoked(None))?;
-    inspect_key(output, "", cert.keys().nth(0).unwrap(),
+    inspect_revocation(output, "", cert.revoked(policy, None))?;
+    inspect_key(policy, output, "", cert.keys().nth(0).unwrap(),
                 print_keygrips, print_certifications)?;
     writeln!(output)?;
 
-    for vka in cert.keys().skip_primary().policy(None) {
+    for vka in cert.keys().skip_primary().set_policy(policy, None) {
         writeln!(output, "         Subkey: {}", vka.key().fingerprint())?;
         inspect_revocation(output, "", vka.revoked())?;
-        inspect_key(output, "", vka.into(), print_keygrips, print_certifications)?;
+        inspect_key(policy, output, "", vka.into(),
+                    print_keygrips, print_certifications)?;
         writeln!(output)?;
     }
 
     for uidb in cert.userids().bindings() {
         writeln!(output, "         UserID: {}", uidb.userid())?;
-        inspect_revocation(output, "", uidb.revoked(None))?;
-        if let Some(sig) = uidb.binding_signature(None) {
+        inspect_revocation(output, "", uidb.revoked(policy, None))?;
+        if let Some(sig) = uidb.binding_signature(policy, None) {
             if let Err(e) =
                 sig.signature_alive(None, std::time::Duration::new(0, 0))
             {
@@ -165,7 +169,8 @@ fn inspect_cert(output: &mut dyn io::Write, cert: &openpgp::Cert,
     Ok(())
 }
 
-fn inspect_key(output: &mut dyn io::Write,
+fn inspect_key(policy: &dyn Policy,
+               output: &mut dyn io::Write,
                indent: &str,
                ka: openpgp::cert::KeyAmalgamation<PublicParts>,
                print_keygrips: bool,
@@ -174,7 +179,7 @@ fn inspect_key(output: &mut dyn io::Write,
 {
     let key = ka.key();
     let binding = ka.binding();
-    let vka = match ka.policy(None) {
+    let vka = match ka.set_policy(policy, None) {
         Ok(vka) => {
             if let Err(e) = vka.alive() {
                 writeln!(output, "{}                 Invalid: {}", indent, e)?;

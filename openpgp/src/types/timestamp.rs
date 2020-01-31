@@ -100,8 +100,12 @@ impl Timestamp {
     ///
     /// ```rust
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
+    /// use sequoia_openpgp::policy::StandardPolicy;
+    ///
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
+    /// let policy = &StandardPolicy::new();
+    ///
     /// // Let's fix a time.
     /// let now = Timestamp::from(1583436160);
     ///
@@ -125,13 +129,13 @@ impl Timestamp {
     ///
     ///     /// First, get the certification key.
     ///     let mut keypair =
-    ///         alice.keys().policy(t).secret().for_certification()
+    ///         alice.keys().set_policy(policy, t).secret().for_certification()
     ///         .nth(0).ok_or_else(|| failure::err_msg("no valid key at"))?
     ///         .key().clone().into_keypair()?;
     ///
     ///     // Then, lookup the binding between `bob@example.org` and
     ///     // `bob` at `t`.
-    ///     let ca = bob.userids().policy(t)
+    ///     let ca = bob.userids().set_policy(policy, t)
     ///         .filter(|ca| ca.userid().value() == b"bob@example.org")
     ///         .nth(0).ok_or_else(|| failure::err_msg("no valid userid"))?;
     ///

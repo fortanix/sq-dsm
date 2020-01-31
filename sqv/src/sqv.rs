@@ -27,6 +27,7 @@ use crate::openpgp::parse::stream::{
     VerificationResult,
 };
 use crate::openpgp::cert::CertParser;
+use crate::openpgp::policy::StandardPolicy as P;
 
 mod sqv_cli;
 
@@ -220,6 +221,8 @@ impl<'a> VerificationHelper for VHelper<'a> {
 
 
 fn real_main() -> Result<()> {
+    let p = &P::new();
+
     let matches = sqv_cli::build().get_matches();
 
     let trace = matches.is_present("trace");
@@ -271,7 +274,7 @@ fn real_main() -> Result<()> {
     let h = VHelper::new(good_threshold, not_before, not_after, keyrings);
 
     let mut v = DetachedVerifier::from_file(
-        sig_file, file, h, None)?;
+        p, sig_file, file, h, None)?;
 
     io::copy(&mut v, &mut io::sink())?;
 
