@@ -133,4 +133,116 @@ mod test {
         let p = &NoSubkeySigs {};
         assert_eq!(cert.keys().set_policy(p, None).count(), 1);
     }
+
+    #[test]
+    fn revoke_revocations() -> Result<()> {
+        use crate::cert::UserIDRevocationBuilder;
+        use crate::cert::SubkeyRevocationBuilder;
+        use crate::types::SignatureType;
+        use crate::types::ReasonForRevocation;
+
+        let p = &P::new();
+
+        // A primary and two subkeys.
+        let (cert, _) = CertBuilder::new()
+            .add_userid("Alice")
+            .add_signing_subkey()
+            .add_transport_encryption_subkey()
+            .generate()?;
+
+        // Make sure we have all keys and all user ids.
+        assert_eq!(cert.keys().set_policy(p, None).count(), 3);
+        assert_eq!(cert.userids().set_policy(p, None).count(), 1);
+
+        // Reject all user id signatures.
+        #[derive(Debug)]
+        struct NoPositiveCertifications;
+        impl Policy for NoPositiveCertifications {
+            fn signature(&self, sig: &Signature) -> Result<()> {
+                use crate::types::SignatureType::*;
+                match sig.typ() {
+                    PositiveCertification =>
+                        Err(format_err!("positive certification!")),
+                    _ => Ok(()),
+                }
+            }
+        }
+        let p = &NoPositiveCertifications {};
+        assert_eq!(cert.userids().set_policy(p, None).count(), 0);
+
+
+        // Revoke it.
+        let mut keypair = cert.primary_key().key().clone()
+            .mark_parts_secret()?.into_keypair()?;
+        let ca = cert.userids().nth(0).unwrap();
+
+        // Generate the revocation for the first and only UserID.
+        let revocation =
+            UserIDRevocationBuilder::new()
+            .set_reason_for_revocation(
+                ReasonForRevocation::KeyRetired,
+                b"Left example.org.")?
+            .build(&mut keypair, &cert, ca.userid(), None)?;
+        assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
+
+        // Now merge the revocation signature into the Cert.
+        let cert = cert.merge_packets(vec![revocation.clone().into()])?;
+
+        // Check that it is revoked.
+        assert_eq!(cert.userids().set_policy(p, None).revoked(false).count(), 0);
+
+        // Reject all user id signatures.
+        #[derive(Debug)]
+        struct NoCertificationRevocation;
+        impl Policy for NoCertificationRevocation {
+            fn signature(&self, sig: &Signature) -> Result<()> {
+                use crate::types::SignatureType::*;
+                match sig.typ() {
+                    CertificationRevocation =>
+                        Err(format_err!("certification certification!")),
+                    _ => Ok(()),
+                }
+            }
+        }
+        let p = &NoCertificationRevocation {};
+
+        // Check that the user id is no longer revoked.
+        assert_eq!(cert.userids().set_policy(p, None).revoked(false).count(), 1);
+
+
+        // Generate the revocation for the first subkey.
+        let subkey = cert.keys().subkeys().nth(0).unwrap();
+        let revocation =
+            SubkeyRevocationBuilder::new()
+                .set_reason_for_revocation(
+                    ReasonForRevocation::KeyRetired,
+                    b"Smells funny.").unwrap()
+                .build(&mut keypair, &cert, subkey.key(), None)?;
+        assert_eq!(revocation.typ(), SignatureType::SubkeyRevocation);
+
+        // Now merge the revocation signature into the Cert.
+        assert_eq!(cert.keys().set_policy(p, None).revoked(false).count(), 3);
+        let cert = cert.merge_packets(vec![revocation.clone().into()])?;
+        assert_eq!(cert.keys().set_policy(p, None).revoked(false).count(), 2);
+
+        // Reject all subkey revocations.
+        #[derive(Debug)]
+        struct NoSubkeyRevocation;
+        impl Policy for NoSubkeyRevocation {
+            fn signature(&self, sig: &Signature) -> Result<()> {
+                use crate::types::SignatureType::*;
+                match sig.typ() {
+                    SubkeyRevocation =>
+                        Err(format_err!("subkey revocation!")),
+                    _ => Ok(()),
+                }
+            }
+        }
+        let p = &NoSubkeyRevocation {};
+
+        // Check that the key is no longer revoked.
+        assert_eq!(cert.keys().set_policy(p, None).revoked(false).count(), 3);
+
+        Ok(())
+    }
 }
