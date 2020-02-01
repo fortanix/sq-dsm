@@ -80,3 +80,57 @@ impl StandardPolicy {
 
 impl Policy for StandardPolicy {
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::cert::CertBuilder;
+    use crate::policy::StandardPolicy as P;
+
+    #[test]
+    fn badbadbad() {
+        let p = &P::new();
+
+        // A primary and two subkeys.
+        let (cert, _) = CertBuilder::new()
+            .add_signing_subkey()
+            .add_transport_encryption_subkey()
+            .generate().unwrap();
+
+        assert_eq!(cert.keys().set_policy(p, None).count(), 3);
+
+        // Reject all direct key signatures.
+        #[derive(Debug)]
+        struct NoDirectKeySigs;
+        impl Policy for NoDirectKeySigs {
+            fn signature(&self, sig: &Signature) -> Result<()> {
+                use crate::types::SignatureType::*;
+
+                match sig.typ() {
+                    DirectKey => Err(format_err!("direct key!")),
+                    _ => Ok(()),
+                }
+            }
+        }
+
+        let p = &NoDirectKeySigs {};
+        assert_eq!(cert.keys().set_policy(p, None).count(), 0);
+
+        // Reject all subkey signatures.
+        #[derive(Debug)]
+        struct NoSubkeySigs;
+        impl Policy for NoSubkeySigs {
+            fn signature(&self, sig: &Signature) -> Result<()> {
+                use crate::types::SignatureType::*;
+
+                match sig.typ() {
+                    SubkeyBinding => Err(format_err!("subkey signature!")),
+                    _ => Ok(()),
+                }
+            }
+        }
+
+        let p = &NoSubkeySigs {};
+        assert_eq!(cert.keys().set_policy(p, None).count(), 1);
+    }
+}
