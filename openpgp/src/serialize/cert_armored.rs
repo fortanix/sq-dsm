@@ -124,10 +124,12 @@ impl<'a> Encoder<'a> {
 
         let mut w = armor::Writer::new(o, armor::Kind::PublicKey, &headers)?;
         if export {
-            self.cert.export(&mut w)
+            self.cert.export(&mut w)?;
         } else {
-            self.cert.serialize(&mut w)
+            self.cert.serialize(&mut w)?;
         }
+        w.finalize()?;
+        Ok(())
     }
 }
 
@@ -145,7 +147,7 @@ impl<'a> SerializeInto for Encoder<'a> {
     fn serialized_len(&self) -> usize {
         let h = self.cert.armor_headers();
         let headers_len =
-            "Comment: ".len() * h.len()
+            ("Comment: ".len() + 1 /* NL */) * h.len()
             + h.iter().map(|c| c.len()).sum::<usize>();
         let body_len = (self.cert.serialized_len() + 2) / 3 * 4; // base64
 
@@ -311,5 +313,21 @@ mod tests {
         assert_eq!(headers_iter.next().unwrap(), &userid2_expected);
         assert_eq!(headers_iter.next().unwrap(), &userid3_expected);
         assert_eq!(headers_iter.next().unwrap(), &userid4_expected);
+    }
+
+    #[test]
+    fn serialize_into() {
+        let cert = Cert::from_bytes(crate::tests::key("neal.pgp")).unwrap();
+        let mut v = Vec::new();
+        cert.armored().serialize(&mut v).unwrap();
+        let v_ = cert.armored().to_vec().unwrap();
+        assert_eq!(v, v_);
+
+        // Test truncation.
+        let mut v = vec![0; cert.armored().serialized_len() - 1];
+        let r = cert.armored().serialize_into(&mut v[..]);
+        assert_match!(
+            crate::Error::InvalidArgument(_) =
+                r.unwrap_err().downcast().expect("not an openpgp::Error"));
     }
 }
