@@ -155,21 +155,17 @@ impl<W: Write> Writer<W> {
     /// # Example
     ///
     /// ```
-    /// # use std::io::Write;
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::armor::{Writer, Kind};
-    /// # use std::io::{self, Result};
+    /// use std::io::{Read, Write, Cursor};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::armor::{Writer, Kind};
     /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
-    /// let mut buffer = io::Cursor::new(vec![]);
-    /// {
-    ///     let mut writer = Writer::new(&mut buffer, Kind::File,
-    ///         &[ ("Key", "Value") ][..])?;
-    ///     writer.write_all(b"Hello world!")?;
-    ///     // writer is drop()ed here.
-    /// }
+    /// # fn f() -> std::io::Result<()> {
+    /// let mut writer = Writer::new(Vec::new(), Kind::File,
+    ///     &[ ("Key", "Value") ][..])?;
+    /// writer.write_all(b"Hello world!")?;
+    /// let buffer = writer.finalize()?;
     /// assert_eq!(
-    ///     String::from_utf8_lossy(buffer.get_ref()),
+    ///     String::from_utf8_lossy(&buffer),
     ///     "-----BEGIN PGP ARMORED FILE-----
     /// Key: Value
     ///
@@ -1317,12 +1313,11 @@ mod test {
     #[test]
     fn enarmor() {
         for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
-            let mut buf = Vec::new();
-            {
-                let mut w = Writer::new(&mut buf, Kind::File, &[]).unwrap();
-                w.write(&[]).unwrap();  // Avoid zero-length optimization.
-                w.write_all(bin).unwrap();
-            }
+            let mut w =
+                Writer::new(Vec::new(), Kind::File, &[]).unwrap();
+            w.write(&[]).unwrap();  // Avoid zero-length optimization.
+            w.write_all(bin).unwrap();
+            let buf = w.finalize().unwrap();
             assert_eq!(String::from_utf8_lossy(&buf),
                        String::from_utf8_lossy(asc));
         }
@@ -1331,14 +1326,12 @@ mod test {
     #[test]
     fn enarmor_bytewise() {
         for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
-            let mut buf = Vec::new();
-            {
-                let mut w = Writer::new(&mut buf, Kind::File, &[]).unwrap();
-                w.write(&[]).unwrap();  // Avoid zero-length optimization.
-                for b in bin.iter() {
-                    w.write(&[*b]).unwrap();
-                }
+            let mut w = Writer::new(Vec::new(), Kind::File, &[]).unwrap();
+            w.write(&[]).unwrap();  // Avoid zero-length optimization.
+            for b in bin.iter() {
+                w.write(&[*b]).unwrap();
             }
+            let buf = w.finalize().unwrap();
             assert_eq!(String::from_utf8_lossy(&buf),
                        String::from_utf8_lossy(asc));
         }
@@ -1348,19 +1341,14 @@ mod test {
     fn drop_writer() {
         // No ASCII frame shall be emitted if the writer is dropped
         // unused.
-        let mut buf = Vec::new();
-        {
-            drop(Writer::new(&mut buf, Kind::File, &[]).unwrap());
-        }
-        assert!(buf.is_empty());
+        assert!(Writer::new(Vec::new(), Kind::File, &[]).unwrap()
+                .finalize().unwrap().is_empty());
 
         // However, if the user insists, we will encode a zero-byte
         // string.
-        let mut buf = Vec::new();
-        {
-            let mut w = Writer::new(&mut buf, Kind::File, &[]).unwrap();
-            w.write(&[]).unwrap();
-        }
+        let mut w = Writer::new(Vec::new(), Kind::File, &[]).unwrap();
+        w.write(&[]).unwrap();
+        let buf = w.finalize().unwrap();
         assert_eq!(
             &buf[..],
             &b"-----BEGIN PGP ARMORED FILE-----\n\
@@ -1599,10 +1587,9 @@ mod test {
                 return true;
             }
 
-            let mut encoded = Vec::new();
-            Writer::new(&mut encoded, kind, &[]).unwrap()
-                .write_all(&payload)
-                .unwrap();
+            let mut w = Writer::new(Vec::new(), kind, &[]).unwrap();
+            w.write_all(&payload).unwrap();
+            let encoded = w.finalize().unwrap();
 
             let mut recovered = Vec::new();
             Reader::new(Cursor::new(&encoded),

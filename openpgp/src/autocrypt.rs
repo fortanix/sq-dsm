@@ -467,23 +467,27 @@ impl AutocryptSetupMessage {
                 (&"Passphrase-Begin"[..], &begin[..]));
         }
 
-        let w = armor::Writer::new(w, armor::Kind::Message, &headers[..])?;
+        let mut armor_writer =
+            armor::Writer::new(w, armor::Kind::Message, &headers[..])?;
 
-        // Passphrase-Format header with value numeric9x4
-        let m = Message::new(w);
-        let w = Encryptor::with_password(m, self.passcode.clone().unwrap())
-            .build()?;
+        {
+            // Passphrase-Format header with value numeric9x4
+            let m = Message::new(&mut armor_writer);
+            let w = Encryptor::with_password(m, self.passcode.clone().unwrap())
+                .build()?;
 
-        let mut w = LiteralWriter::new(w).build()?;
+            let mut w = LiteralWriter::new(w).build()?;
 
-        // The inner message is an ASCII-armored encoded Cert.
-        let mut w = armor::Writer::new(
-            &mut w, armor::Kind::SecretKey,
-            &[ (&"Autocrypt-Prefer-Encrypt"[..],
-                self.prefer_encrypt().unwrap_or(&"nopreference"[..])) ])?;
+            // The inner message is an ASCII-armored encoded Cert.
+            let mut w = armor::Writer::new(
+                &mut w, armor::Kind::SecretKey,
+                &[ (&"Autocrypt-Prefer-Encrypt"[..],
+                    self.prefer_encrypt().unwrap_or(&"nopreference"[..])) ])?;
 
-        self.cert.as_tsk().serialize(&mut w)?;
-        w.finalize()?;
+            self.cert.as_tsk().serialize(&mut w)?;
+            w.finalize()?;
+        }
+        armor_writer.finalize()?;
         Ok(())
     }
 

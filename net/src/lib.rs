@@ -217,18 +217,20 @@ impl KeyServer {
                 Ok(u) => u,
             };
 
-        let mut armored_blob = vec![];
-        {
-            let mut w = match Writer::new(&mut armored_blob,
-                                          Kind::PublicKey, &[]) {
-                Err(e) => return Box::new(future::err(e.into())),
-                Ok(w) => w,
-            };
+        let mut w = match Writer::new(Vec::new(),
+                                      Kind::PublicKey, &[]) {
+            Ok(v) => v,
+            Err(e) => return Box::new(future::err(e.into())),
+        };
 
-            if let Err(e) = key.serialize(&mut w) {
-                return Box::new(future::err(e));
-            }
+        if let Err(e) = key.serialize(&mut w) {
+            return Box::new(future::err(e));
         }
+
+        let armored_blob = match w.finalize() {
+            Ok(v) => v,
+            Err(e) => return Box::new(future::err(e.into())),
+        };
 
         // Prepare to send url-encoded data.
         let mut post_data = b"keytext=".to_vec();
