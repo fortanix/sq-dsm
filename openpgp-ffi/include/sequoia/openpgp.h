@@ -197,11 +197,21 @@ pgp_armor_header_t pgp_armor_reader_headers (pgp_error_t *errp,
 /// Constructs a new filter for the given type of data.
 ///
 /// A filter that applies ASCII Armor to the data written to it.
+///
+/// Note: You must call `pgp_armor_writer_finalize` to deallocate this
+/// writer.
 /*/
 pgp_writer_t pgp_armor_writer_new (pgp_error_t *errp, pgp_writer_t inner,
 				 pgp_armor_kind_t kind,
 				 pgp_armor_header_t header, size_t header_len);
 
+/*/
+/// Finalizes the armor writer.
+///
+/// Consumes the writer.  No further deallocation of the writer is
+/// required.
+/*/
+pgp_status_t pgp_armor_writer_finalize (pgp_error_t *errp, pgp_writer_t writer);
 
 /* openpgp::PacketPile.  */
 

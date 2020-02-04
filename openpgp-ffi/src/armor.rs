@@ -14,6 +14,7 @@ use self::sequoia_openpgp::armor;
 
 use super::io::{Reader, ReaderKind, WriterKind};
 use crate::Maybe;
+use crate::MoveFromRaw;
 use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
 use crate::RefRaw;
@@ -302,6 +303,9 @@ pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut crate::error::
 ///
 /// A filter that applies ASCII Armor to the data written to it.
 ///
+/// Note: You must call `pgp_armor_writer_finalize` to deallocate this
+/// writer.
+///
 /// # Example
 ///
 /// ```c
@@ -321,7 +325,7 @@ pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut crate::error::
 ///   size_t len = 0;
 ///   pgp_writer_t alloc;
 ///   pgp_writer_t armor;
-///   pgp_error_t err;
+///   pgp_error_t err = NULL;
 ///
 ///   char *message = "Hello world!";
 ///   struct pgp_armor_header header[] = {
@@ -336,8 +340,9 @@ pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut crate::error::
 ///
 ///   if (pgp_writer_write (&err, armor, (uint8_t *) message, strlen (message)) < 0)
 ///     error (1, 0, "Writing failed: %s", pgp_error_to_string (err));
-//
-///   pgp_writer_free (armor);
+///
+///   pgp_armor_writer_finalize (&err, armor);
+///   assert (err == NULL);
 ///   pgp_writer_free (alloc);
 ///
 ///   assert (len == 114);
@@ -388,4 +393,25 @@ pub extern "C" fn pgp_armor_writer_new
         .map(|w| WriterKind::Armored(w))
         .map_err(|e| ::failure::Error::from(e))
         .move_into_raw(errp)
+}
+
+/// Finalizes the armor writer.
+///
+/// Consumes the writer.  No further deallocation of the writer is
+/// required.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C" fn pgp_armor_writer_finalize
+    (errp: Option<&mut *mut crate::error::Error>,
+     writer: *mut super::io::Writer)
+     -> crate::error::Status
+{
+    ffi_make_fry_from_errp!(errp);
+    let writer = if let WriterKind::Armored(writer) = writer.move_from_raw() {
+        writer
+    } else {
+        panic!("FFI contract violation: Wrong parameter type: \
+                expected armor writer");
+    };
+
+    ffi_try_status!(writer.finalize().map_err(|e| e.into()))
 }
