@@ -279,6 +279,7 @@ impl<W: Write> Writer<W> {
                    base64::encode_config(&bytes, base64::STANDARD_NO_PAD),
                    LINE_ENDING, self.kind.end(), LINE_ENDING)?;
 
+            self.dirty = false;
             Ok(())
         } else {
             Err(Self::e_finalized())
