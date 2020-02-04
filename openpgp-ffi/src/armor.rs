@@ -7,13 +7,12 @@
 use std::mem::size_of;
 use std::ptr;
 use std::slice;
-use std::io;
 use libc::{self, c_char, c_int, size_t};
 
 extern crate sequoia_openpgp;
 use self::sequoia_openpgp::armor;
 
-use super::io::{Reader, ReaderKind};
+use super::io::{Reader, ReaderKind, WriterKind};
 use crate::Maybe;
 use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
@@ -386,7 +385,7 @@ pub extern "C" fn pgp_armor_writer_new
         header_.iter().map(|h| (h.0.as_ref(), h.1.as_ref())).collect();
 
     armor::Writer::new(inner, kind, &header)
-        .map(|w| -> Box<dyn io::Write> { Box::new(w) })
+        .map(|w| WriterKind::Armored(w))
         .map_err(|e| ::failure::Error::from(e))
         .move_into_raw(errp)
 }

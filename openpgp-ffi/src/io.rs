@@ -174,7 +174,35 @@ pub extern "C" fn pgp_reader_discard(errp: Option<&mut *mut crate::error::Error>
 
 /// Wraps a generic writer.
 #[crate::ffi_wrapper_type(prefix = "pgp_")]
-pub struct Writer(Box<dyn io::Write>);
+pub struct Writer(WriterKind);
+
+/// Specializes writers.
+///
+/// In some cases, we want to call functions on concrete types.  To
+/// avoid nasty hacks, we have specialized variants for that.
+pub(crate) enum WriterKind {
+    Generic(Box<dyn io::Write>),
+    Armored(openpgp::armor::Writer<&'static mut WriterKind>),
+}
+
+impl Write for WriterKind {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        use self::WriterKind::*;
+        match self {
+            Generic(w) => w.write(buf),
+            Armored(w) => w.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        use self::WriterKind::*;
+        match self {
+            Generic(ref mut w) => w.flush(),
+            Armored(ref mut w) => w.flush(),
+        }
+    }
+}
+
 
 /// Opens a file returning a writer.
 ///
@@ -186,7 +214,7 @@ fn pgp_writer_from_file(errp: Option<&mut *mut crate::error::Error>,
                         -> Maybe<Writer> {
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     File::create(Path::new(&filename))
-        .map(|w| -> Box<dyn io::Write> { Box::new(w) })
+        .map(|w| WriterKind::Generic(Box::new(w)))
         .map_err(|e| ::failure::Error::from(e))
         .move_into_raw(errp)
 }
@@ -195,8 +223,9 @@ fn pgp_writer_from_file(errp: Option<&mut *mut crate::error::Error>,
 #[cfg(unix)]
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_writer_from_fd(fd: c_int) -> *mut Writer {
-    let w: Box<dyn io::Write> = Box::new(unsafe { File::from_raw_fd(fd) });
-    w.move_into_raw()
+    WriterKind::Generic(Box::new(unsafe {
+        File::from_raw_fd(fd)
+    })).move_into_raw()
 }
 
 /// Creates a writer from a buffer.
@@ -206,8 +235,7 @@ fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
     let buf = unsafe {
         slice::from_raw_parts_mut(buf, len as usize)
     };
-    let w: Box<dyn io::Write> = Box::new(Cursor::new(buf));
-    w.move_into_raw()
+    WriterKind::Generic(Box::new(Cursor::new(buf))).move_into_raw()
 }
 
 /// Creates an allocating writer.
@@ -224,10 +252,10 @@ fn pgp_writer_alloc(buf: *mut *mut c_void, len: *mut size_t)
     let buf = ffi_param_ref_mut!(buf);
     let len = ffi_param_ref_mut!(len);
 
-    let w: Box<dyn io::Write> = Box::new(WriterAlloc {
+    let w = WriterKind::Generic(Box::new(WriterAlloc {
         buf: buf,
         len: len,
-    });
+    }));
     w.move_into_raw()
 }
 
@@ -274,9 +302,9 @@ type WriterCallbackFn = fn(*mut c_void, *const c_void, size_t) -> ssize_t;
 fn pgp_writer_from_callback(cb: WriterCallbackFn,
                             cookie: *mut c_void)
                             -> *mut Writer {
-    let w: Box<dyn io::Write> = Box::new(WriterCallback {
+    let w = WriterKind::Generic(Box::new(WriterCallback {
         cb, cookie,
-    });
+    }));
     w.move_into_raw()
 }
 
