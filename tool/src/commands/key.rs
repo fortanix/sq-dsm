@@ -220,6 +220,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
             let w = create_or_stdout(Some(&key_path), force)?;
             let mut w = Writer::new(w, Kind::SecretKey, &headers)?;
             cert.as_tsk().serialize(&mut w)?;
+            w.finalize()?;
         }
 
         // write out rev cert
@@ -232,6 +233,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
             let w = create_or_stdout(Some(&rev_path), force)?;
             let mut w = Writer::new(w, Kind::Signature, &headers)?;
             Packet::Signature(rev).serialize(&mut w)?;
+            w.finalize()?;
         }
     } else {
         return Err(

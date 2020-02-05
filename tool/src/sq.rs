@@ -15,7 +15,7 @@ use crossterm::terminal;
 use failure::ResultExt;
 use prettytable::{Table, Cell, Row};
 use std::fs::{File, OpenOptions};
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use chrono::{DateTime, offset::Utc};
@@ -70,6 +70,77 @@ fn create_or_stdout(f: Option<&str>, force: bool)
     }
 }
 
+// XXX: This is a candidate for inclusion in the library.
+enum Writer<T: Write> {
+    Binary {
+        inner: T,
+    },
+    Armored {
+        inner: openpgp::armor::Writer<T>,
+    },
+}
+
+impl<T: Write> From<T> for Writer<T> {
+    fn from(inner: T) -> Self {
+        Writer::Binary { inner }
+    }
+}
+
+impl<T: Write> From<openpgp::armor::Writer<T>> for Writer<T> {
+    fn from(inner: openpgp::armor::Writer<T>) -> Self {
+        Writer::Armored { inner }
+    }
+}
+
+impl<T: Write> Writer<T> {
+    pub fn armor(self, kind: openpgp::armor::Kind, headers: &[(&str, &str)])
+                 -> openpgp::Result<Self>
+    {
+        match self {
+            Writer::Binary { inner } =>
+                Ok(openpgp::armor::Writer::new(inner, kind, headers)?
+                   .into()),
+            Writer::Armored { .. } =>
+                Err(openpgp::Error::InvalidOperation("already armored".into())
+                    .into()),
+        }
+    }
+
+    pub fn finalize(self) -> std::io::Result<T> {
+        match self {
+            Writer::Binary { inner } => Ok(inner),
+            Writer::Armored { inner } => inner.finalize(),
+        }
+    }
+}
+
+impl<T: Write> Write for Writer<T> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match self {
+            Writer::Binary { inner } => inner.write(buf),
+            Writer::Armored { inner } => inner.write(buf),
+        }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        match self {
+            Writer::Binary { inner } => inner.flush(),
+            Writer::Armored { inner } => inner.flush(),
+        }
+    }
+}
+
+fn create_or_stdout_pgp(f: Option<&str>, force: bool,
+                        binary: bool, kind: armor::Kind)
+    -> Result<Writer<Box<dyn Write>>, failure::Error>
+{
+    let sink = create_or_stdout(f, force)?;
+    let mut sink = Writer::from(sink);
+    if ! binary {
+        sink = sink.armor(kind, &[])?;
+    }
+    Ok(sink)
+}
+
 fn load_certs<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
     where I: Iterator<Item=&'a str>
 {
@@ -113,6 +184,7 @@ fn serialize_keyring(mut output: &mut dyn io::Write, certs: &[Cert], binary: boo
     for cert in certs {
         cert.serialize(&mut output)?;
     }
+    output.finalize()?;
     Ok(())
 }
 
@@ -194,14 +266,10 @@ fn real_main() -> Result<(), failure::Error> {
         },
         ("encrypt",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"), force)?;
-            let mut output = if ! m.is_present("binary") {
-                Box::new(armor::Writer::new(&mut output,
-                                            armor::Kind::Message,
-                                            &[])?)
-            } else {
-                output
-            };
+            let mut output =
+                create_or_stdout_pgp(m.value_of("output"), force,
+                                     m.is_present("binary"),
+                                     armor::Kind::Message)?;
             let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
             let recipients = m.values_of("recipient")
@@ -236,6 +304,7 @@ fn real_main() -> Result<(), failure::Error> {
                               mode,
                               m.value_of("compression").expect("has default"),
                               time.into())?;
+            output.finalize()?;
         },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
@@ -279,10 +348,12 @@ fn real_main() -> Result<(), failure::Error> {
 
         ("enarmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"), force)?;
-            let kind = parse_armor_kind(m.value_of("kind"));
-            let mut filter = armor::Writer::new(&mut output, kind, &[])?;
-            io::copy(&mut input, &mut filter)?;
+            let mut output =
+                create_or_stdout_pgp(m.value_of("output"), force,
+                                     false,
+                                     parse_armor_kind(m.value_of("kind")))?;
+            io::copy(&mut input, &mut output)?;
+            output.finalize()?;
         },
         ("dearmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
@@ -294,15 +365,17 @@ fn real_main() -> Result<(), failure::Error> {
             match m.subcommand() {
                 ("decode",  Some(m)) => {
                     let input = open_or_stdin(m.value_of("input"))?;
-                    let mut output = create_or_stdout(m.value_of("output"), force)?;
+                    let mut output =
+                        create_or_stdout_pgp(m.value_of("output"), force,
+                                             true,
+                                             armor::Kind::PublicKey)?;
                     let ac = autocrypt::AutocryptHeaders::from_reader(input)?;
                     for h in &ac.headers {
                         if let Some(ref cert) = h.key {
-                            let mut filter = armor::Writer::new(
-                                &mut output, armor::Kind::PublicKey, &[])?;
-                            cert.serialize(&mut filter)?;
+                            cert.serialize(&mut output)?;
                         }
                     }
+                    output.finalize()?;
                 },
                 ("encode-sender",  Some(m)) => {
                     let input = open_or_stdin(m.value_of("input"))?;
@@ -351,14 +424,10 @@ fn real_main() -> Result<(), failure::Error> {
 
             ("decrypt",  Some(m)) => {
                 let mut input = open_or_stdin(m.value_of("input"))?;
-                let output = create_or_stdout(m.value_of("output"), force)?;
-                let mut output = if ! m.is_present("binary") {
-                    Box::new(armor::Writer::new(output,
-                                                armor::Kind::Message,
-                                                &[])?)
-                } else {
-                    output
-                };
+                let mut output =
+                    create_or_stdout_pgp(m.value_of("output"), force,
+                                         m.is_present("binary"),
+                                         armor::Kind::Message)?;
                 let secrets = m.values_of("secret-key-file")
                     .map(load_certs)
                     .unwrap_or(Ok(vec![]))?;
@@ -368,6 +437,7 @@ fn real_main() -> Result<(), failure::Error> {
                     &ctx, policy, &mut mapping,
                     &mut input, &mut output,
                     secrets, m.is_present("dump-session-key"))?;
+                output.finalize()?;
             },
 
             ("split",  Some(m)) => {
@@ -389,14 +459,12 @@ fn real_main() -> Result<(), failure::Error> {
                 commands::split(&mut input, &prefix)?;
             },
             ("join",  Some(m)) => {
-                let output = create_or_stdout(m.value_of("output"), force)?;
-                let mut output = if ! m.is_present("binary") {
-                    let kind = parse_armor_kind(m.value_of("kind"));
-                    Box::new(armor::Writer::new(output, kind, &[])?)
-                } else {
-                    output
-                };
+                let mut output =
+                    create_or_stdout_pgp(m.value_of("output"), force,
+                                         m.is_present("binary"),
+                                         parse_armor_kind(m.value_of("kind")))?;
                 commands::join(m.values_of("input"), &mut output)?;
+                output.finalize()?;
             },
             _ => unreachable!(),
         },
