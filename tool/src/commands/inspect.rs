@@ -166,6 +166,41 @@ fn inspect_cert(policy: &dyn Policy,
         writeln!(output)?;
     }
 
+    for uab in cert.user_attributes().bindings() {
+        writeln!(output, "         UserID: {:?}", uab.user_attribute())?;
+        inspect_revocation(output, "", uab.revoked(policy, None))?;
+        if let Some(sig) = uab.binding_signature(policy, None) {
+            if let Err(e) =
+                sig.signature_alive(None, std::time::Duration::new(0, 0))
+            {
+                writeln!(output, "                 Invalid: {}", e)?;
+            }
+        }
+        inspect_certifications(output,
+                               uab.certifications(),
+                               print_certifications)?;
+        writeln!(output)?;
+    }
+
+    for ub in cert.unknowns() {
+        writeln!(output, "         Unknown component: {:?}", ub.unknown())?;
+        if let Some(sig) = ub.binding_signature(policy, None) {
+            if let Err(e) =
+                sig.signature_alive(None, std::time::Duration::new(0, 0))
+            {
+                writeln!(output, "                 Invalid: {}", e)?;
+            }
+        }
+        inspect_certifications(output,
+                               ub.certifications(),
+                               print_certifications)?;
+        writeln!(output)?;
+    }
+
+    for bad in cert.bad_signatures() {
+        writeln!(output, "             Bad Signature: {:?}", bad)?;
+    }
+
     Ok(())
 }
 
