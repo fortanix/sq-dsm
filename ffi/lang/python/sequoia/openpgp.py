@@ -160,7 +160,8 @@ class ArmorWriter(AbstractWriter):
         return aw
 
     def close(self):
-        super(ArmorWriter, self)._delete()
+        invoke(lib.pgp_armor_writer_finalize, self.ref())
+        super(ArmorWriter, self)._delete(skip_free=True)
         self.inner.close()
 
 class Tag(Enum):
