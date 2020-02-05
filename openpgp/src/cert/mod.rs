@@ -1192,6 +1192,8 @@ impl Cert {
             .chain(self.userids.into_iter().flat_map(|b| b.into_packets()))
             .chain(self.user_attributes.into_iter().flat_map(|b| b.into_packets()))
             .chain(self.subkeys.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.unknowns.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.bad.into_iter().map(|s| s.into()))
     }
 
     /// Converts the Cert into a `PacketPile`.
