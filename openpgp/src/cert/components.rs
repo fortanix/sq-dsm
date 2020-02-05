@@ -306,16 +306,29 @@ impl<C> ComponentBinding<C> {
         }
     }
 
-    // Converts the component into an iterator over the contained
-    // packets.
+    /// Converts the component into an iterator over the contained
+    /// packets.
+    ///
+    /// The signatures are ordered from authenticated and most
+    /// important to not authenticated and most likely to be abused.
+    /// The order is:
+    ///
+    ///   - Self revocations first.  They are authenticated and the
+    ///     most important information.
+    ///   - Self signatures.  They are authenticated.
+    ///   - Other signatures.  They are not authenticated at this point.
+    ///   - Other revocations.  They are not authenticated, and likely
+    ///     not well supported in other implementations, hence the
+    ///     least reliable way of revoking keys and therefore least
+    ///     useful and most likely to be abused.
     pub(crate) fn into_packets<'a>(self) -> impl Iterator<Item=Packet>
         where Packet: From<C>
     {
         let p : Packet = self.component.into();
         std::iter::once(p)
+            .chain(self.self_revocations.into_iter().map(|s| s.into()))
             .chain(self.self_signatures.into_iter().map(|s| s.into()))
             .chain(self.certifications.into_iter().map(|s| s.into()))
-            .chain(self.self_revocations.into_iter().map(|s| s.into()))
             .chain(self.other_revocations.into_iter().map(|s| s.into()))
     }
 

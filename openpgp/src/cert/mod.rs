@@ -2999,6 +2999,25 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.keys().unencrypted_secret().count(), 1);
     }
 
+    /// Tests that Cert::into_packets() and Cert::serialize(..) agree.
+    #[test]
+    fn test_into_packets() -> Result<()> {
+        use crate::serialize::SerializeInto;
+
+        let dkg = Cert::from_bytes(crate::tests::key("dkg.gpg"))?;
+        let mut buf = Vec::new();
+        for p in dkg.clone().into_packets() {
+            p.serialize(&mut buf)?;
+        }
+        let dkg = dkg.to_vec()?;
+        if false && buf != dkg {
+            std::fs::write("/tmp/buf", &buf)?;
+            std::fs::write("/tmp/dkg", &dkg)?;
+        }
+        assert_eq!(buf, dkg);
+        Ok(())
+    }
+
     #[test]
     fn test_canonicalization() -> Result<()> {
         use crate::types::Curve;

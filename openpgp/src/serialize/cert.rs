@@ -22,6 +22,19 @@ impl Cert {
     /// If `export` is true, then non-exportable signatures are not
     /// written, and components without any exportable binding
     /// signature or revocation are not exported.
+    ///
+    /// The signatures are ordered from authenticated and most
+    /// important to not authenticated and most likely to be abused.
+    /// The order is:
+    ///
+    ///   - Self revocations first.  They are authenticated and the
+    ///     most important information.
+    ///   - Self signatures.  They are authenticated.
+    ///   - Other signatures.  They are not authenticated at this point.
+    ///   - Other revocations.  They are not authenticated, and likely
+    ///     not well supported in other implementations, hence the
+    ///     least reliable way of revoking keys and therefore least
+    ///     useful and most likely to be abused.
     fn serialize_common(&self, o: &mut dyn std::io::Write, export: bool)
                         -> Result<()>
     {
@@ -43,16 +56,16 @@ impl Cert {
             Ok(())
         };
 
-        for s in primary.self_signatures() {
-            serialize_sig(o, s)?;
-        }
         for s in primary.self_revocations() {
             serialize_sig(o, s)?;
         }
-        for s in primary.other_revocations() {
+        for s in primary.self_signatures() {
             serialize_sig(o, s)?;
         }
         for s in primary.certifications() {
+            serialize_sig(o, s)?;
+        }
+        for s in primary.other_revocations() {
             serialize_sig(o, s)?;
         }
 
@@ -71,10 +84,10 @@ impl Cert {
             for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 serialize_sig(o, s)?;
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 serialize_sig(o, s)?;
             }
         }
@@ -94,10 +107,10 @@ impl Cert {
             for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 serialize_sig(o, s)?;
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 serialize_sig(o, s)?;
             }
         }
@@ -117,10 +130,10 @@ impl Cert {
             for s in k.self_signatures() {
                 serialize_sig(o, s)?;
             }
-            for s in k.other_revocations() {
+            for s in k.certifications() {
                 serialize_sig(o, s)?;
             }
-            for s in k.certifications() {
+            for s in k.other_revocations() {
                 serialize_sig(o, s)?;
             }
         }
@@ -141,10 +154,10 @@ impl Cert {
             for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 serialize_sig(o, s)?;
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 serialize_sig(o, s)?;
             }
         }
@@ -164,16 +177,16 @@ impl SerializeInto for Cert {
         l += PacketRef::PublicKey(primary.key().mark_role_primary_ref())
             .serialized_len();
 
-        for s in primary.self_signatures() {
-            l += PacketRef::Signature(s).serialized_len();
-        }
         for s in primary.self_revocations() {
             l += PacketRef::Signature(s).serialized_len();
         }
-        for s in primary.other_revocations() {
+        for s in primary.self_signatures() {
             l += PacketRef::Signature(s).serialized_len();
         }
         for s in primary.certifications() {
+            l += PacketRef::Signature(s).serialized_len();
+        }
+        for s in primary.other_revocations() {
             l += PacketRef::Signature(s).serialized_len();
         }
 
@@ -186,10 +199,10 @@ impl SerializeInto for Cert {
             for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -203,10 +216,10 @@ impl SerializeInto for Cert {
             for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -220,10 +233,10 @@ impl SerializeInto for Cert {
             for s in k.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in k.other_revocations() {
+            for s in k.certifications() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in k.certifications() {
+            for s in k.other_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -237,10 +250,10 @@ impl SerializeInto for Cert {
             for s in u.self_signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 l += PacketRef::Signature(s).serialized_len();
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
