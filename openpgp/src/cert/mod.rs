@@ -237,6 +237,11 @@ type UserAttributeBindings = ComponentBindings<UserAttribute>;
 type UnknownBindings = ComponentBindings<Unknown>;
 
 
+// DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
+// it in a submodule `def`.
+pub use def::Cert;
+mod def {
+use super::*;
 /// A OpenPGP Certificate.
 ///
 /// A Certificate (see [RFC 4880, section 11.1]) can be used to verify
@@ -373,18 +378,25 @@ type UnknownBindings = ComponentBindings<Unknown>;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cert {
+    pub(super) // doc-hack, see above
     primary: PrimaryKeyBinding<key::PublicParts>,
 
+    pub(super) // doc-hack, see above
     userids: UserIDBindings,
+    pub(super) // doc-hack, see above
     user_attributes: UserAttributeBindings,
+    pub(super) // doc-hack, see above
     subkeys: SubkeyBindings<key::PublicParts>,
 
     // Unknown components, e.g., some UserAttribute++ packet from the
     // future.
+    pub(super) // doc-hack, see above
     unknowns: UnknownBindings,
     // Signatures that we couldn't find a place for.
+    pub(super) // doc-hack, see above
     bad: Vec<packet::Signature>,
 }
+} // doc-hack, see above
 
 impl std::str::FromStr for Cert {
     type Err = failure::Error;
