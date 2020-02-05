@@ -1123,24 +1123,6 @@ impl Cert {
                self.keyid(), self.bad.len());
         }
 
-        // Only keep user ids / user attributes / subkeys with at
-        // least one valid self-signature or self-revocation.
-        self.userids.retain(|userid| {
-            userid.self_signatures.len() > 0 || userid.self_revocations.len() > 0
-        });
-        t!("Retained {} userids", self.userids.len());
-
-        self.user_attributes.retain(|ua| {
-            ua.self_signatures.len() > 0 || ua.self_revocations.len() > 0
-        });
-        t!("Retained {} user_attributes", self.user_attributes.len());
-
-        self.subkeys.retain(|subkey| {
-            subkey.self_signatures.len() > 0 || subkey.self_revocations.len() > 0
-        });
-        t!("Retained {} subkeys", self.subkeys.len());
-
-
         self.primary.sort_and_dedup();
 
         self.bad.sort_by(sig_cmp);
@@ -1364,7 +1346,7 @@ mod test {
             assert_eq!(cert.userids[0].self_signatures[0].digest_prefix(),
                        &[ 0xc6, 0x8f ]);
             assert_eq!(cert.user_attributes.len(), 0);
-            assert_eq!(cert.subkeys.len(), 0);
+            assert_eq!(cert.subkeys.len(), 1);
         }
     }
 
@@ -3013,5 +2995,47 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         assert_eq!(cert.keys().secret().count(), 2);
         assert_eq!(cert.keys().unencrypted_secret().count(), 1);
+    }
+
+    #[test]
+    fn test_canonicalization() -> Result<()> {
+        use crate::types::Curve;
+
+        let p = crate::policy::StandardPolicy::new();
+
+        let primary: Key<_, key::PrimaryRole> =
+            key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
+        let _primary_pair = primary.clone().into_keypair()?;
+        let cert = Cert::from_packet_pile(vec![primary.into()].into())?;
+
+        // We now add components without binding signatures.  They
+        // should be kept, be enumerable, but ignored if a policy is
+        // applied.
+
+        // Add a bare userid.
+        let uid = UserID::from("foo@example.org");
+        let cert = cert.merge_packets(vec![uid.into()])?;
+        assert_eq!(cert.userids().count(), 1);
+        assert_eq!(cert.userids().set_policy(&p, None).count(), 0);
+
+        // Add a bare user attribute.
+        use packet::user_attribute::{Subpacket, Image};
+        let ua = UserAttribute::new(&[
+            Subpacket::Image(
+                Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
+        ])?;
+        let cert = cert.merge_packets(vec![ua.into()])?;
+        assert_eq!(cert.user_attributes().count(), 1);
+        assert_eq!(cert.user_attributes().set_policy(&p, None).count(), 0);
+
+        // Add a bare signing subkey.
+        let signing_subkey: Key<_, key::SubordinateRole> =
+            key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
+        let _signing_subkey_pair = signing_subkey.clone().into_keypair()?;
+        let cert = cert.merge_packets(vec![signing_subkey.into()])?;
+        assert_eq!(cert.keys().skip_primary().count(), 1);
+        assert_eq!(cert.keys().skip_primary().set_policy(&p, None).count(), 0);
+
+        Ok(())
     }
 }
