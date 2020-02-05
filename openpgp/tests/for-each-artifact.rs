@@ -47,17 +47,22 @@ mod for_each_artifact {
             if p != q {
                 eprintln!("roundtripping {:?} failed", src);
 
-                let p : Vec<openpgp::Packet> = p.clone().into_packets().collect();
-                let q : Vec<openpgp::Packet> = q.clone().into_packets().collect();
+                let p_: Vec<_> = p.clone().into_packets().collect();
+                let q_: Vec<_> = q.clone().into_packets().collect();
                 eprintln!("original: {} packets; roundtripped: {} packets",
-                          p.len(), q.len());
-                for (i, (p, q)) in p.iter().zip(q.iter()).enumerate() {
+                          p_.len(), q_.len());
+
+                for (i, (p, q)) in p_.iter().zip(q_.iter()).enumerate() {
                     if p != q {
                         eprintln!("First difference at packet {}:\nOriginal: {:?}\nNew: {:?}",
                                   i, p, q);
                         break;
                     }
                 }
+
+                eprintln!("This is the recovered cert:\n{}",
+                          String::from_utf8_lossy(
+                              &q.armored().to_vec().unwrap()));
             }
             assert_eq!(p, q, "roundtripping {:?} failed", src);
 
