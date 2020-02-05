@@ -621,48 +621,6 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
 
             Some(cert)
         }).and_then(|mut cert| {
-            fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
-                             b: &mut ComponentBinding<C>)
-            {
-                let mut self_signatures = vec![];
-                let mut certifications = vec![];
-                let mut self_revs = vec![];
-                let mut other_revs = vec![];
-
-                for sig in mem::replace(&mut b.certifications, vec![]) {
-                    let typ = sig.typ();
-
-                    let issuers =
-                        sig.get_issuers();
-                    let is_selfsig =
-                        issuers.contains(primary)
-                        || issuers.contains(primary_keyid);
-
-                    use crate::SignatureType::*;
-                    if typ == KeyRevocation
-                        || typ == SubkeyRevocation
-                        || typ == CertificationRevocation
-                    {
-                        if is_selfsig {
-                            self_revs.push(sig.into());
-                        } else {
-                            other_revs.push(sig.into());
-                        }
-                    } else {
-                        if is_selfsig {
-                            self_signatures.push(sig.into());
-                        } else {
-                            certifications.push(sig.into());
-                        }
-                    }
-                }
-
-                b.self_signatures = self_signatures;
-                b.certifications = certifications;
-                b.self_revocations = self_revs;
-                b.other_revocations = other_revs;
-            }
-
             let primary_fp: KeyHandle = cert.key_handle();
             let primary_keyid = KeyHandle::KeyID(primary_fp.clone().into());
 
@@ -695,6 +653,50 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
 
         Ok(certo)
     }
+}
+
+/// Splits the signatures in b.certifications into the correct
+/// vectors.
+pub fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
+                     b: &mut ComponentBinding<C>)
+{
+    let mut self_signatures = vec![];
+    let mut certifications = vec![];
+    let mut self_revs = vec![];
+    let mut other_revs = vec![];
+
+    for sig in mem::replace(&mut b.certifications, vec![]) {
+        let typ = sig.typ();
+
+        let issuers =
+            sig.get_issuers();
+        let is_selfsig =
+            issuers.contains(primary)
+            || issuers.contains(primary_keyid);
+
+        use crate::SignatureType::*;
+        if typ == KeyRevocation
+            || typ == SubkeyRevocation
+            || typ == CertificationRevocation
+        {
+            if is_selfsig {
+                self_revs.push(sig.into());
+            } else {
+                other_revs.push(sig.into());
+            }
+        } else {
+            if is_selfsig {
+                self_signatures.push(sig.into());
+            } else {
+                certifications.push(sig.into());
+            }
+        }
+    }
+
+    b.self_signatures = self_signatures;
+    b.certifications = certifications;
+    b.self_revocations = self_revs;
+    b.other_revocations = other_revs;
 }
 
 impl<'a, I: Iterator<Item=Packet>> Iterator for CertParser<'a, I> {

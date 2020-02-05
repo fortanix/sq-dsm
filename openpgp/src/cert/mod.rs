@@ -898,8 +898,19 @@ impl Cert {
 
         // See if the signatures that didn't validate are just out of
         // place.
+        let mut bad_sigs: Vec<(Option<usize>, Signature)> =
+            mem::replace(&mut self.bad, Vec::new()).into_iter()
+            .map(|sig| (None, sig)).collect();
 
-        'outer: for sig in mem::replace(&mut self.bad, Vec::new()) {
+        // Do the same for signatures on unknown components, but
+        // remember where we took them from.
+        for (i, c) in self.unknowns.iter_mut().enumerate() {
+            for sig in mem::replace(&mut c.certifications, Vec::new()) {
+                bad_sigs.push((Some(i), sig));
+            }
+        }
+
+        'outer: for (unknown_idx, sig) in bad_sigs {
             // Did we find a new place for sig?
             let mut found_component = false;
 
@@ -1115,7 +1126,12 @@ impl Cert {
                 to any known component or is bad.",
                sig.digest_prefix()[0], sig.digest_prefix()[1],
                sig.typ());
-            self.bad.push(sig);
+
+            if let Some(i) = unknown_idx {
+                self.unknowns[i].certifications.push(sig);
+            } else {
+                self.bad.push(sig);
+            }
         }
 
         if self.bad.len() > 0 {
@@ -1145,6 +1161,12 @@ impl Cert {
                     b.set_secret(a.set_secret(None));
                 }
             });
+
+        let primary_fp: KeyHandle = self.key_handle();
+        let primary_keyid = KeyHandle::KeyID(primary_fp.clone().into());
+        for c in self.unknowns.iter_mut() {
+            parser::split_sigs(&primary_fp, &primary_keyid, c);
+        }
         self.unknowns.sort_and_dedup(Unknown::best_effort_cmp, |_, _| {});
 
         // XXX: Check if the sigs in other_sigs issuer are actually
@@ -3026,7 +3048,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         let primary: Key<_, key::PrimaryRole> =
             key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
-        let _primary_pair = primary.clone().into_keypair()?;
+        let mut primary_pair = primary.clone().into_keypair()?;
         let cert = Cert::from_packet_pile(vec![primary.into()].into())?;
 
         // We now add components without binding signatures.  They
@@ -3057,6 +3079,33 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.keys().skip_primary().count(), 1);
         assert_eq!(cert.keys().skip_primary().set_policy(&p, None).count(), 0);
 
+        // Add a component that Sequoia doesn't understand.
+        let mut fake_key = packet::Unknown::new(
+            packet::Tag::PublicSubkey, failure::err_msg("fake key"));
+        fake_key.set_body("fake key".into());
+        let fake_binding = signature::Builder::new(SignatureType::SubkeyBinding)
+            .set_issuer(primary_pair.public().keyid())?
+            .set_issuer_fingerprint(primary_pair.public().fingerprint())?
+            .sign_standalone(&mut primary_pair)?;
+        let cert = cert.merge_packets(vec![fake_key.into(),
+                                           fake_binding.clone().into()])?;
+        assert_eq!(cert.unknowns().count(), 1);
+        assert_eq!(cert.unknowns().nth(0).unwrap().unknown().tag(),
+                   packet::Tag::PublicSubkey);
+        assert_eq!(cert.unknowns().nth(0).unwrap().self_signatures(),
+                   &[fake_binding]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn canonicalize_with_v3_sig() -> Result<()> {
+        let cert = Cert::from_bytes(
+            crate::tests::key("eike-v3-v4.pgp"))?;
+        dbg!(&cert);
+        assert_eq!(cert.userids()
+                   .set_policy(&crate::policy::StandardPolicy::new(), None)
+                   .count(), 1);
         Ok(())
     }
 }
