@@ -900,6 +900,9 @@ impl Cert {
         // place.
 
         'outer: for sig in mem::replace(&mut self.bad, Vec::new()) {
+            // Did we find a new place for sig?
+            let mut found_component = false;
+
             macro_rules! check_one {
                 ($desc:expr, $sigs:expr, $sig:expr,
                  $verify_method:ident, $($verify_args:expr),*) => ({
@@ -968,8 +971,16 @@ impl Cert {
                                    $sig.digest_prefix()[1],
                                    $sig.typ(), $desc);
 
-                                $sigs.push($sig);
-                                continue 'outer;
+                                $sigs.push($sig.clone());
+                                // The cost of missing a revocation
+                                // certificate merely because we put
+                                // it into the wrong place seem to
+                                // outweigh the cost of duplicating
+                                // it.
+                                t!("Will keep trying to match this sig to \
+                                    other components (found before? {:?})...",
+                                   found_component);
+                                found_component = true;
                             }
                         }
                     }
@@ -1093,6 +1104,10 @@ impl Cert {
                 typ => {
                     t!("Odd signature type: {:?}", typ);
                 },
+            }
+
+            if found_component {
+                continue;
             }
 
             // Keep them for later.
