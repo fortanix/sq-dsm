@@ -225,7 +225,7 @@ fn real_main() -> Result<()> {
 
     let matches = sqv_cli::build().get_matches();
 
-    let trace = matches.is_present("trace");
+    let verbose = matches.is_present("verbose");
 
     let good_threshold
         = if let Some(good_threshold) = matches.value_of("signatures") {
@@ -280,7 +280,7 @@ fn real_main() -> Result<()> {
 
     let h = v.into_helper();
 
-    if trace {
+    if verbose {
         eprintln!("{} of {} signatures are valid (threshold is: {}).",
                   h.good, h.total, good_threshold);
     }

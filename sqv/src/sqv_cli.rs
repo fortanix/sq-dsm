@@ -42,9 +42,10 @@ pub fn build() -> App<'static, 'static> {
         .arg(Arg::with_name("file").value_name("FILE")
              .help("File to verify.")
              .required(true))
-        .arg(Arg::with_name("trace")
-             .help("Trace execution.")
-             .long("trace"))
+        .arg(Arg::with_name("verbose")
+             .help("Be verbose.")
+             .long("verbose")
+             .short("v"))
         .after_help(
             "TIMESTAMPs must be given in ISO 8601 format \
              (e.g. '2017-03-04T13:25:35Z', '2017-03-04T13:25', \

@@ -49,8 +49,7 @@ mod integration {
         Assert::cargo_binary("sqv")
             .current_dir(path::Path::new("tests").join("data"))
             .with_args(
-                &["--trace",
-                  "--keyring",
+                &["--keyring",
                   &format!("revoked-key-cert-{}.pgp", keyring),
                   &format!("revoked-key-sig-{}.pgp", sig),
                   "msg.txt"])

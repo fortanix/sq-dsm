@@ -10,8 +10,8 @@
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information
-//!         --trace      Trace execution.
 //!     -V, --version    Prints version information
+//!     -v, --verbose    Be verbose.
 //!
 //! OPTIONS:
 //!         --keyring <FILE>...         A keyring.  Can be given multiple times.
