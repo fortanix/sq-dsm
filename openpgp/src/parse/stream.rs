@@ -543,7 +543,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub fn from_reader<R, T>(policy: &'a Policy, reader: R, helper: H, t: T)
+    pub fn from_reader<R, T>(policy: &'a dyn Policy, reader: R, helper: H, t: T)
         -> Result<Verifier<'a, H>>
         where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
     {
@@ -560,7 +560,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub fn from_file<P, T>(policy: &'a Policy, path: P, helper: H, t: T)
+    pub fn from_file<P, T>(policy: &'a dyn Policy, path: P, helper: H, t: T)
         -> Result<Verifier<'a, H>>
         where P: AsRef<Path>,
               T: Into<Option<time::SystemTime>>

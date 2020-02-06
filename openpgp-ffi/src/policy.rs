@@ -18,7 +18,7 @@ use self::openpgp::policy;
 #[crate::ffi_wrapper_type(
     prefix = "pgp_",
     derive = "Clone, Debug")]
-pub struct Policy(Box<policy::Policy>);
+pub struct Policy(Box<dyn policy::Policy>);
 
 /// A StandardPolicy object.
 #[crate::ffi_wrapper_type(
@@ -31,6 +31,6 @@ pub struct StandardPolicy(policy::StandardPolicy);
 pub extern "C" fn pgp_standard_policy()
     -> *mut Policy
 {
-    let p : Box<policy::Policy> = Box::new(policy::StandardPolicy::new());
+    let p : Box<dyn policy::Policy> = Box::new(policy::StandardPolicy::new());
     p.move_into_raw()
 }

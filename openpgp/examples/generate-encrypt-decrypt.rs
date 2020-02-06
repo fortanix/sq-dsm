@@ -99,7 +99,7 @@ fn decrypt(p: &dyn Policy,
 
 struct Helper<'a> {
     secret: &'a openpgp::Cert,
-    policy: &'a Policy,
+    policy: &'a dyn Policy,
 }
 
 impl<'a> VerificationHelper for Helper<'a> {

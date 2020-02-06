@@ -254,7 +254,7 @@ fn decrypt() {
         assert_eq!(MESSAGE.as_bytes(), &sink[..]);
 
         struct Helper<'a> {
-            policy: &'a Policy,
+            policy: &'a dyn Policy,
             ctx: &'a Context,
             cert: &'a openpgp::Cert,
         }
