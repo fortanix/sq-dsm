@@ -293,7 +293,7 @@ impl CertBuilder {
 
     /// Sets the capabilities of the primary key. The function automatically
     /// makes the primary key certification capable if subkeys are added.
-    pub fn primary_key_flags(mut self, flags: KeyFlags) -> Self {
+    pub fn set_primary_key_flags(mut self, flags: KeyFlags) -> Self {
         self.primary.flags = flags;
         self
     }
@@ -578,7 +578,7 @@ mod tests {
         let p = &P::new();
         let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
-            .primary_key_flags(KeyFlags::default())
+            .set_primary_key_flags(KeyFlags::default())
             .add_transport_encryption_subkey()
             .generate().unwrap();
         assert!(cert1.primary_key().with_policy(p, None).unwrap().for_certification());
@@ -589,7 +589,7 @@ mod tests {
     fn gen_wired_subkeys() {
         let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
-            .primary_key_flags(KeyFlags::default())
+            .set_primary_key_flags(KeyFlags::default())
             .add_subkey(KeyFlags::default().set_certification(true), None)
             .generate().unwrap();
         let sig_pkts = cert1.subkeys().next().unwrap().self_signatures[0].hashed_area();

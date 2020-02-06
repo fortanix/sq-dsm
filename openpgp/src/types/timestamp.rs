@@ -112,14 +112,14 @@ impl Timestamp {
     /// // Generate a Cert for Alice.
     /// let (alice, _) = CertBuilder::new()
     ///     .set_creation_time(now.checked_sub(Duration::weeks(2)?).unwrap())
-    ///     .primary_key_flags(KeyFlags::default().set_certification(true))
+    ///     .set_primary_key_flags(KeyFlags::default().set_certification(true))
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     ///
     /// // Generate a Cert for Bob.
     /// let (bob, _) = CertBuilder::new()
     ///     .set_creation_time(now.checked_sub(Duration::weeks(1)?).unwrap())
-    ///     .primary_key_flags(KeyFlags::default().set_certification(true))
+    ///     .set_primary_key_flags(KeyFlags::default().set_certification(true))
     ///     .add_userid("bob@example.org")
     ///     .generate()?;
     ///
