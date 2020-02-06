@@ -8,7 +8,7 @@ use crate::Result;
 
 impl fmt::Display for KeyID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self.convert_to_string(true))
     }
 }
 
@@ -144,13 +144,6 @@ impl KeyID {
     /// Returns true if this is a wild card ID.
     pub fn is_wildcard(&self) -> bool {
         self.as_slice().iter().all(|b| *b == 0)
-    }
-
-    /// Converts the key ID to its standard representation.
-    ///
-    /// Returns the fingerprint suitable for human consumption.
-    pub fn to_string(&self) -> String {
-        self.convert_to_string(true)
     }
 
     /// Converts the key ID to a hexadecimal number.

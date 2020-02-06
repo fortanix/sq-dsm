@@ -5,7 +5,7 @@ use crate::Result;
 
 impl fmt::Display for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self.convert_to_string(true))
     }
 }
 
@@ -61,13 +61,6 @@ impl Fingerprint {
             &Fingerprint::V4(ref fp) => fp,
             &Fingerprint::Invalid(ref fp) => fp,
         }
-    }
-
-    /// Converts the fingerprint to its standard representation.
-    ///
-    /// Returns the fingerprint suitable for human consumption.
-    pub fn to_string(&self) -> String {
-        self.convert_to_string(true)
     }
 
     /// Converts the fingerprint to a hexadecimal number.
