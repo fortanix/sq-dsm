@@ -1542,6 +1542,7 @@ name = "sequoia"
 version = "0.13.0"
 dependencies = [
  "buffered-reader 0.13.0",
+ "sequoia-autocrypt 0.13.0",
  "sequoia-core 0.13.0",
  "sequoia-ffi 0.13.0",
  "sequoia-ffi-macros 0.13.0",
@@ -1553,6 +1554,14 @@ dependencies = [
  "sequoia-sqv 0.13.0",
  "sequoia-store 0.13.0",
  "sequoia-tool 0.13.0",
+]
+
+[[package]]
+name = "sequoia-autocrypt"
+version = "0.13.0"
+dependencies = [
+ "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sequoia-openpgp 0.13.0",
 ]
 
 [[package]]
@@ -1722,6 +1731,7 @@ dependencies = [
  "itertools 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "prettytable-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rpassword 4.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sequoia-autocrypt 0.13.0",
  "sequoia-core 0.13.0",
  "sequoia-net 0.13.0",
  "sequoia-openpgp 0.13.0",

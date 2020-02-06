@@ -13,7 +13,6 @@ use crate::Cert;
 use crate::cert::CertRevocationBuilder;
 use crate::Error;
 use crate::crypto::Password;
-use crate::autocrypt::Autocrypt;
 use crate::types::{
     Features,
     HashAlgorithm,
@@ -171,52 +170,6 @@ impl CertBuilder {
             userids: userids.into_iter().map(|x| x.into()).collect(),
             user_attributes: vec![],
             password: None,
-        }
-    }
-
-    /// Generates a key compliant to
-    /// [Autocrypt](https://autocrypt.org/).
-    ///
-    /// If no version is given the latest one is used.
-    ///
-    /// The autocrypt specification requires a UserID.  However,
-    /// because it can be useful to add the UserID later, it is
-    /// permitted to be none.
-    pub fn autocrypt<'a, V, U>(version: V, userid: Option<U>)
-        -> Self
-        where V: Into<Option<Autocrypt>>,
-              U: Into<packet::UserID>
-    {
-        let builder = CertBuilder{
-            creation_time: None,
-            ciphersuite: match version.into().unwrap_or(Default::default()) {
-                Autocrypt::V1 => CipherSuite::RSA3k,
-                Autocrypt::V1_1 => CipherSuite::Cv25519,
-            },
-            primary: KeyBlueprint {
-                flags: KeyFlags::default()
-                    .set_certification(true)
-                    .set_signing(true),
-                expiration: Some(
-                    time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
-            },
-            subkeys: vec![
-                KeyBlueprint {
-                    flags: KeyFlags::default()
-                        .set_transport_encryption(true)
-                        .set_storage_encryption(true),
-                    expiration: None,
-                }
-            ],
-            userids: vec![],
-            user_attributes: vec![],
-            password: None,
-        };
-
-        if let Some(userid) = userid {
-            builder.add_userid(userid.into())
-        } else {
-            builder
         }
     }
 
@@ -543,34 +496,6 @@ mod tests {
         assert!(cert1.subkeys().next().is_none());
         assert!(cert1.primary_userid(p, None).unwrap()
                 .binding_signature().features().unwrap().supports_mdc());
-    }
-
-    #[test]
-    fn autocrypt_v1() {
-        let (cert1, _) = CertBuilder::autocrypt(Autocrypt::V1,
-                                              Some("Foo"))
-            .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(),
-                   PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(cert1.subkeys().next().unwrap().key().pk_algo(),
-                   PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(cert1.userids().count(), 1);
-    }
-
-    #[test]
-    fn autocrypt_v1_1() {
-        let (cert1, _) = CertBuilder::autocrypt(Autocrypt::V1_1,
-                                              Some("Foo"))
-            .generate().unwrap();
-        assert_eq!(cert1.primary_key().pk_algo(),
-                   PublicKeyAlgorithm::EdDSA);
-        assert_eq!(cert1.subkeys().next().unwrap().key().pk_algo(),
-                   PublicKeyAlgorithm::ECDH);
-        assert_match!(
-            crate::crypto::mpis::PublicKey::ECDH {
-                curve: crate::types::Curve::Cv25519, ..
-            } = cert1.subkeys().next().unwrap().key().mpis());
-        assert_eq!(cert1.userids().count(), 1);
     }
 
     #[test]

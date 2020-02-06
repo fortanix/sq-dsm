@@ -11,7 +11,6 @@ use libc::{c_char, c_int, size_t, time_t};
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
-    autocrypt::Autocrypt,
     crypto,
     types::ReasonForRevocation,
     parse::{
@@ -918,29 +917,6 @@ pub extern "C" fn pgp_cert_builder_general_purpose(cs: c_int,
     };
     box_raw!(CertBuilder::general_purpose(
         Some(int_to_cipher_suite(cs)), uid))
-}
-
-/// Generates a key compliant to [Autocrypt Level 1].
-///
-/// Autocrypt requires a user id, however, if `uid` is NULL, a Cert is
-/// created without any user ids.  It is then the caller's
-/// responsibility to ensure that a user id is added later.
-///
-/// `uid` must contain valid UTF-8.  If it does not contain valid
-/// UTF-8, then the invalid code points are silently replaced with
-/// `U+FFFD REPLACEMENT CHARACTER`.
-///
-///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_cert_builder_autocrypt(uid: *const c_char)
-    -> *mut CertBuilder
-{
-    let uid = if uid.is_null() {
-        None
-    } else {
-        Some(ffi_param_cstr!(uid).to_string_lossy())
-    };
-    box_raw!(CertBuilder::autocrypt(Autocrypt::V1, uid))
 }
 
 /// Frees an `pgp_cert_builder_t`.

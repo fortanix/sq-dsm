@@ -26,6 +26,7 @@ maintenance = { status = "actively-developed" }
 buffered-reader = { path = "buffered-reader", version = "0.13" }
 sequoia-openpgp = { path = "openpgp", version = "0.13" }
 sequoia-openpgp-ffi = { path = "openpgp-ffi", version = "0.13" }
+sequoia-autocrypt = { path = "autocrypt", version = "0.13" }
 sequoia-core = { path = "core", version = "0.13" }
 sequoia-ffi = { path = "ffi", version = "0.13" }
 sequoia-ffi-macros = { path = "ffi-macros", version = "0.13" }

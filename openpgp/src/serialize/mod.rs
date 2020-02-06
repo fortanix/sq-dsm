@@ -17,7 +17,6 @@ use std::io::{self, Write};
 use std::cmp;
 use std::convert::TryFrom;
 
-use crate::autocrypt;
 use super::*;
 
 mod partial_body;
@@ -2492,23 +2491,6 @@ impl SerializeInto for Message {
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         use std::ops::Deref;
         self.deref().export_into(buf)
-    }
-}
-
-impl Serialize for autocrypt::AutocryptHeader {
-    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        if self.key.is_none() {
-            return Err(Error::InvalidOperation("No key".into()).into());
-        }
-
-        for attr in self.attributes.iter() {
-            write!(o, "{}={}; ", attr.key, attr.value)?;
-        }
-
-        let mut buf = Vec::new();
-        self.key.as_ref().unwrap().serialize(&mut buf)?;
-        write!(o, "keydata={} ", base64::encode(&buf))?;
-        Ok(())
     }
 }
 

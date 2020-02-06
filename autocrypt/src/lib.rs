@@ -1,16 +1,17 @@
 //! Autocrypt.
 //!
-//! This module deals with Autocrypt encoded (see the [Autocrypt Spec]).
+//! This module deals with Autocrypt encoded data (see the [Autocrypt
+//! Spec]).
 //!
-//! [Autocrypt Spec]: https://autocrypt.org/level1.html#openpgp-based-key-data
+//!   [Autocrypt Spec]: https://autocrypt.org/level1.html#openpgp-based-key-data
 //!
 //! # Scope
 //!
-//! This implements encoding and decoding of Autocrypt headers.  Note:
-//! Autocrypt is more than just headers; it requires tight integration
-//! with the MUA.
+//! This implements low-level functionality like encoding and decoding
+//! of Autocrypt headers and setup messages.  Note: Autocrypt is more
+//! than just headers; it requires tight integration with the MUA.
 
-extern crate base64;
+use base64;
 
 use std::io;
 use std::io::prelude::*;
@@ -19,24 +20,28 @@ use std::path::Path;
 use std::fs::File;
 use std::str;
 
-use crate::armor;
-
-use crate::Error;
-use crate::Result;
-use crate::Packet;
-use crate::packet::SKESK;
-use crate::Cert;
-use crate::cert::components::Amalgamation;
-use crate::parse::{
+use sequoia_openpgp as openpgp;
+use openpgp::armor;
+use openpgp::Error;
+pub use openpgp::Result;
+use openpgp::Packet;
+use openpgp::packet::SKESK;
+use openpgp::Cert;
+use openpgp::cert::components::Amalgamation;
+use openpgp::parse::{
     Parse,
     PacketParserResult, PacketParser,
 };
-use crate::serialize::Serialize;
-use crate::serialize::stream::{
+use openpgp::serialize::Serialize;
+use openpgp::serialize::stream::{
     Message, LiteralWriter, Encryptor,
 };
-use crate::crypto::Password;
-use crate::policy::Policy;
+use openpgp::crypto::Password;
+use openpgp::policy::Policy;
+
+mod cert;
+pub use cert::cert_builder;
+mod serialize;
 
 /// Version of Autocrypt to use. `Autocrypt::default()` always returns the
 /// latest version.
@@ -103,8 +108,6 @@ impl AutocryptHeader {
                              -> Result<Self>
         where P: Into<Option<&'a str>>
     {
-        use crate::packet::key;
-
         // Minimize Cert.
         let mut acc = Vec::new();
 
@@ -115,7 +118,7 @@ impl AutocryptHeader {
             .for_each(|s| acc.push(s.clone().into()));
 
         // The subkeys and the most recent selfsig.
-        for skb in cert.subkeys() {
+        for skb in cert.keys().subkeys() {
             // Skip if revoked.
             if ! skb.self_revocations().is_empty()
                 || ! skb.other_revocations().is_empty()
@@ -123,7 +126,7 @@ impl AutocryptHeader {
                 continue;
             }
 
-            let k : key::PublicSubkey = skb.key().clone();
+            let k = skb.key().clone();
             acc.push(k.into());
             skb.self_signatures().iter().take(1)
                 .for_each(|s| acc.push(s.clone().into()));
@@ -403,14 +406,14 @@ impl AutocryptSetupMessage {
 
     // Generates a new passcode in "numeric9x4" format.
     fn passcode_gen() -> Password {
-        use crate::crypto::mem;
+        use openpgp::crypto::mem;
         // Generate a random passcode.
 
         // The passcode consists of 36 digits, which encode
         // approximately 119 bits of information.  120 bits = 15
         // bytes.
         let mut p_as_vec = mem::Protected::from(vec![0; 15]);
-        crate::crypto::random(&mut p_as_vec[..]);
+        openpgp::crypto::random(&mut p_as_vec[..]);
 
         // Turn it into a 128-bit number.
         let mut p_as_u128 = 0u128;
@@ -778,8 +781,8 @@ impl<'a> AutocryptSetupMessageParser<'a> {
 mod test {
     use super::*;
 
-    use crate::Fingerprint;
-    use crate::policy::StandardPolicy as P;
+    use openpgp::Fingerprint;
+    use openpgp::policy::StandardPolicy as P;
 
     #[test]
     fn decode_test() {
@@ -1039,7 +1042,7 @@ In the light of the Efail vulnerability I am asking myself if it's
     fn autocrypt_setup_message() {
         // Try the example autocrypt setup message.
         let mut asm = AutocryptSetupMessage::from_bytes(
-            crate::tests::file("autocrypt/setup-message.txt")).unwrap();
+            &include_bytes!("../tests/data/setup-message.txt")[..]).unwrap();
 
         // A bad passcode.
         assert!(asm.decrypt(&"123".into()).is_err());
@@ -1059,7 +1062,8 @@ In the light of the Efail vulnerability I am asking myself if it's
         // Create an ASM for testy-private.  Then decrypt it and make
         // sure the Cert, etc. survived the round trip.
         let cert =
-            Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap();
+            Cert::from_bytes(&include_bytes!("../tests/data/testy-private.pgp")[..])
+            .unwrap();
 
         let mut asm = AutocryptSetupMessage::new(cert)
             .set_prefer_encrypt("mutual");
@@ -1076,7 +1080,8 @@ In the light of the Efail vulnerability I am asking myself if it's
     fn autocrypt_header_new() {
         let p = &P::new();
 
-        let cert = Cert::from_bytes(crate::tests::key("testy.pgp")).unwrap();
+        let cert = Cert::from_bytes(&include_bytes!("../tests/data/testy.pgp")[..])
+            .unwrap();
         let header = AutocryptHeader::new_sender(p, &cert, "testy@example.org",
                                                  "mutual").unwrap();
         let mut buf = Vec::new();
@@ -1098,9 +1103,9 @@ In the light of the Efail vulnerability I am asking myself if it's
             .expect("Failed to parse key material.");
         assert_eq!(&cert.fingerprint().to_string(),
                    "3E88 77C8 7727 4692 9751  89F5 D03F 6F86 5226 FE8B");
-        assert_eq!(cert.userids().len(), 1);
-        assert_eq!(cert.subkeys().len(), 1);
-        assert_eq!(cert.userids().next().unwrap().value(),
+        assert_eq!(cert.userids().bundles().len(), 1);
+        assert_eq!(cert.keys().subkeys().count(), 1);
+        assert_eq!(cert.userids().bundles().next().unwrap().userid().value(),
                    &b"Testy McTestface <testy@example.org>"[..]);
     }
 }

@@ -25,7 +25,8 @@ extern crate sequoia_core;
 extern crate sequoia_net;
 extern crate sequoia_store as store;
 
-use crate::openpgp::{armor, autocrypt, Fingerprint, Cert};
+use crate::openpgp::{armor, Fingerprint, Cert};
+use sequoia_autocrypt as autocrypt;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::Parse;

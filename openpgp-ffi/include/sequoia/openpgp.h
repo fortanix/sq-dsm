@@ -1020,13 +1020,6 @@ pgp_cert_builder_t pgp_cert_builder_general_purpose(pgp_cert_cipher_suite_t cs,
                                                   const char *uid);
 
 /*/
-/// Generates a key compliant to [Autocrypt Level 1].
-///
-///   [Autocrypt Level 1]: https://autocrypt.org/level1.html
-/*/
-pgp_cert_builder_t pgp_cert_builder_autocrypt(const char *uid);
-
-/*/
 /// Frees an `pgp_cert_builder_t`.
 /*/
 void pgp_cert_builder_free(pgp_cert_builder_t certb);

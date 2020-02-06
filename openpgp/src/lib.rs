@@ -138,7 +138,6 @@ macro_rules! assert_match {
 
 #[macro_use]
 pub mod armor;
-pub mod autocrypt;
 pub mod fmt;
 pub mod crypto;
 
