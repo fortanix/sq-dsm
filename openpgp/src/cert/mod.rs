@@ -51,7 +51,7 @@ use components::{
     ValidComponentAmalgamation,
 };
 mod component_iter;
-pub use component_iter::{
+use component_iter::{
     ComponentIter,
 };
 mod keyiter;
@@ -61,8 +61,8 @@ mod revoke;
 
 pub use self::builder::{CertBuilder, CipherSuite};
 
-pub use keyiter::{KeyIter, ValidKeyIter};
-pub use key_amalgamation::{
+use keyiter::KeyIter;
+use key_amalgamation::{
     KeyAmalgamation,
     PrimaryKeyAmalgamation,
     ValidKeyAmalgamation,

@@ -28,6 +28,19 @@ pub use super::amalgamation::{
     ComponentAmalgamation,
     ValidComponentAmalgamation,
 };
+pub use super::key_amalgamation::{
+    KeyAmalgamation,
+    PrimaryKeyAmalgamation,
+    ValidKeyAmalgamation,
+};
+pub use super::component_iter::{
+    ComponentIter,
+};
+pub use super::keyiter::{
+    KeyIter,
+    ValidKeyIter,
+};
+
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.

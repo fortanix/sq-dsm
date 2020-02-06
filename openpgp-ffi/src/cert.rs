@@ -20,15 +20,15 @@ use self::openpgp::{
     },
     cert::{
         CipherSuite,
-        KeyIter,
         CertBuilder,
         CertParser,
         CertRevocationBuilder,
-        ValidKeyIter,
         components::{
             Amalgamation,
+            KeyIter,
             UserIDBundle,
             UserIDBundleIter,
+            ValidKeyIter,
         },
     },
 };
