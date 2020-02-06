@@ -16,7 +16,7 @@ mod integration {
                   &p("keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp"),
                   &p("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
                   &p("messages/a-cypherpunks-manifesto.txt")])
-            .stdout().is("8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19")
+            .stdout().is("8E8C33FA4626337976D97978069C0C348DD82C19")
             .unwrap();
     }
 
@@ -30,7 +30,7 @@ mod integration {
                   "--not-after", "2018-08-15",
                   &p("messages/a-cypherpunks-manifesto.txt.ed25519.sig"),
                   &p("messages/a-cypherpunks-manifesto.txt")])
-            .stdout().is("8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19")
+            .stdout().is("8E8C33FA4626337976D97978069C0C348DD82C19")
             .unwrap();
     }
 

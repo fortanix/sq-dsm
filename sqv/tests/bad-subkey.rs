@@ -12,7 +12,7 @@ mod integration {
             .current_dir(path::Path::new("tests").join("data"))
             .with_args(&["--keyring", "bad-subkey-keyring.pgp",
                          "bad-subkey.txt.sig", "bad-subkey.txt"])
-            .stdout().is("8F17 7771 18A3 3DDA 9BA4  8E62 AACB 3243 6300 52D9")
+            .stdout().is("8F17777118A33DDA9BA48E62AACB3243630052D9")
             .unwrap();
     }
 }
