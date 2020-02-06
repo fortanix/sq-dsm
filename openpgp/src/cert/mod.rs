@@ -1881,7 +1881,7 @@ mod test {
     fn set_expiry() {
         let p = &P::new();
 
-        let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
+        let (cert, _) = CertBuilder::general_purpose(None, Some("Test"))
             .generate().unwrap();
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
@@ -2105,7 +2105,7 @@ mod test {
     fn revoke() {
         let p = &P::new();
 
-        let (cert, _) = CertBuilder::autocrypt(None, Some("Test"))
+        let (cert, _) = CertBuilder::general_purpose(None, Some("Test"))
             .generate().unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    cert.revoked(p, None));
@@ -2129,7 +2129,7 @@ mod test {
 
 
         // Have other revoke cert.
-        let (other, _) = CertBuilder::autocrypt(None, Some("Test 2"))
+        let (other, _) = CertBuilder::general_purpose(None, Some("Test 2"))
             .generate().unwrap();
 
         let mut keypair = other.primary_key().key().clone().mark_parts_secret()
@@ -2555,7 +2555,7 @@ mod test {
     // subkeys with and without a private key are merged.
     #[test]
     fn public_private_merge() {
-        let (tsk, _) = CertBuilder::autocrypt(None, Some("foo@example.com"))
+        let (tsk, _) = CertBuilder::general_purpose(None, Some("foo@example.com"))
             .generate().unwrap();
         // tsk is now a cert, but it still has its private bits.
         assert!(tsk.primary.key().secret().is_some());

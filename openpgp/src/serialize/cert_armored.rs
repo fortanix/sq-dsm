@@ -275,7 +275,7 @@ mod tests {
         let userid5: String = userid5.into_iter().collect();
 
         // Create a Cert with the userids.
-        let (cert, _) = CertBuilder::autocrypt(None, Some(&userid1[..]))
+        let (cert, _) = CertBuilder::general_purpose(None, Some(&userid1[..]))
             .add_userid(&userid2[..])
             .add_userid(&userid3[..])
             .add_userid(&userid4[..])
