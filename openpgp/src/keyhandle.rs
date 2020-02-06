@@ -128,6 +128,14 @@ impl PartialEq for KeyHandle {
 }
 
 impl KeyHandle {
+    /// Converts the key handle to a hexadecimal number.
+    pub fn to_hex(&self) -> String {
+        match self {
+            KeyHandle::Fingerprint(i) => i.to_hex(),
+            KeyHandle::KeyID(i) => i.to_hex(),
+        }
+    }
+
     /// Returns a reference to the raw identifier.
     pub fn as_slice(&self) -> &[u8] {
         match self {
