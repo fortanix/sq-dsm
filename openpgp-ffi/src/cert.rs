@@ -27,8 +27,8 @@ use self::openpgp::{
         ValidKeyIter,
         components::{
             Amalgamation,
-            UserIDBinding,
-            UserIDBindingIter,
+            UserIDBundle,
+            UserIDBundleIter,
         },
     },
 };
@@ -385,7 +385,7 @@ fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy)
     }
 }
 
-/* UserIDBinding */
+/* UserIDBundle */
 
 /// Returns the user id.
 ///
@@ -395,8 +395,8 @@ fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy)
 ///
 /// The caller must free the returned value.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_user_id_binding_user_id(
-    binding: *const UserIDBinding)
+pub extern "C" fn pgp_user_id_bundle_user_id(
+    binding: *const UserIDBundle)
     -> *mut c_char
 {
     let binding = ffi_param_ref!(binding);
@@ -406,8 +406,8 @@ pub extern "C" fn pgp_user_id_binding_user_id(
 
 /// Returns a reference to the self-signature, if any.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_user_id_binding_selfsig(
-    binding: *const UserIDBinding,
+pub extern "C" fn pgp_user_id_bundle_selfsig(
+    binding: *const UserIDBundle,
     policy: *const Policy)
     -> Maybe<Signature>
 {
@@ -417,30 +417,30 @@ pub extern "C" fn pgp_user_id_binding_selfsig(
 }
 
 
-/* UserIDBindingIter */
+/* UserIDBundleIter */
 
 /// Returns an iterator over the Cert's user id bindings.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_user_id_binding_iter(cert: *const Cert)
-    -> *mut UserIDBindingIter<'static>
+    -> *mut UserIDBundleIter<'static>
 {
     let cert = cert.ref_raw();
-    box_raw!(cert.userids().bindings())
+    box_raw!(cert.userids().bundles())
 }
 
-/// Frees a pgp_user_id_binding_iter_t.
+/// Frees a pgp_user_id_bundle_iter_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_user_id_binding_iter_free(
-    iter: Option<&mut UserIDBindingIter>)
+pub extern "C" fn pgp_user_id_bundle_iter_free(
+    iter: Option<&mut UserIDBundleIter>)
 {
     ffi_free!(iter)
 }
 
-/// Returns the next `UserIDBinding`.
+/// Returns the next `UserIDBundle`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_user_id_binding_iter_next<'a>(
-    iter: *mut UserIDBindingIter<'a>)
-    -> Option<&'a UserIDBinding>
+pub extern "C" fn pgp_user_id_bundle_iter_next<'a>(
+    iter: *mut UserIDBundleIter<'a>)
+    -> Option<&'a UserIDBundle>
 {
     let iter = ffi_param_ref_mut!(iter);
     iter.next()

@@ -32,7 +32,7 @@ impl Cert {
 
         let length_value = armor::LINE_LENGTH - "Comment: ".len();
         // Create a header per userid.
-        let mut headers: Vec<String> = self.userids().bindings()
+        let mut headers: Vec<String> = self.userids().bundles()
             // Ignore revoked userids.
             .filter_map(|uidb| {
                 if let RevocationStatus::Revoked(_) = uidb.revoked(&p, None) {

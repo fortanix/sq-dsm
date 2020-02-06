@@ -29,7 +29,7 @@ use std::ptr;
 extern crate sequoia_openpgp as openpgp;
 
 use sequoia_store::{
-    self, Mapping, MappingIter, Binding, BindingIter, Key, KeyIter, LogIter, Store,
+    self, Mapping, MappingIter, Binding, BundleIter, Key, KeyIter, LogIter, Store,
 };
 
 use super::error::Status;
@@ -295,7 +295,7 @@ fn sq_mapping_delete(ctx: *mut Context, mapping: *mut Mapping)
 /// Lists all bindings.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_mapping_iter(ctx: *mut Context, mapping: *const Mapping)
-                 -> *mut BindingIter {
+                 -> *mut BundleIter {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let mapping = ffi_param_ref!(mapping);
@@ -309,7 +309,7 @@ fn sq_mapping_iter(ctx: *mut Context, mapping: *const Mapping)
 /// bindings label is mappingd there.  If `fpp` is not `NULL`, the
 /// bindings fingerprint is mappingd there.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_binding_iter_next(iter: *mut BindingIter,
+fn sq_binding_iter_next(iter: *mut BundleIter,
                         labelp: Option<&mut *mut c_char>,
                         fpp: Option<&mut Maybe<Fingerprint>>)
                         -> *mut Binding {
@@ -337,7 +337,7 @@ fn sq_binding_iter_next(iter: *mut BindingIter,
 
 /// Frees a sq_binding_iter_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_binding_iter_free(iter: Option<&mut BindingIter>) {
+fn sq_binding_iter_free(iter: Option<&mut BundleIter>) {
     ffi_free!(iter)
 }
 

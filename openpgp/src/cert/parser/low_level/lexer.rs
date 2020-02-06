@@ -4,10 +4,10 @@ use crate::Error;
 use crate::Packet;
 use crate::packet::Tag;
 use crate::cert::components::{
-    SubkeyBinding,
-    UserIDBinding,
-    UserAttributeBinding,
-    UnknownBinding,
+    SubkeyBundle,
+    UserIDBundle,
+    UserAttributeBundle,
+    UnknownBundle,
 };
 
 use crate::packet::key;
@@ -53,10 +53,10 @@ pub enum Token {
 /// public.  But, since this module is not public, it will not
 /// actually be exported to used of the library.
 pub enum Component {
-    SubkeyBinding(SubkeyBinding<key::PublicParts>),
-    UserIDBinding(UserIDBinding),
-    UserAttributeBinding(UserAttributeBinding),
-    UnknownBinding(UnknownBinding),
+    SubkeyBundle(SubkeyBundle<key::PublicParts>),
+    UserIDBundle(UserIDBundle),
+    UserAttributeBundle(UserAttributeBundle),
+    UnknownBundle(UnknownBundle),
 }
 
 impl<'a> From<&'a Token> for Tag {

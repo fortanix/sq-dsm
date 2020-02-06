@@ -13,8 +13,8 @@ use crate::{
         Cert,
         components::{
             Amalgamation,
-            KeyBinding,
-            KeyBindingIter,
+            KeyBundle,
+            UnfilteredKeyBundleIter,
         },
         KeyAmalgamation,
         ValidKeyAmalgamation,
@@ -41,7 +41,7 @@ pub struct KeyIter<'a, P: key::KeyParts> {
     // This is an option to make it easier to create an empty KeyIter.
     cert: Option<&'a Cert>,
     primary: bool,
-    subkey_iter: KeyBindingIter<'a,
+    subkey_iter: UnfilteredKeyBundleIter<'a,
                                 key::PublicParts,
                                 key::SubordinateRole>,
 
@@ -405,16 +405,16 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
         }
     }
 
-    /// Changes the iterator to return key components.
+    /// Changes the iterator to return key bundles.
     ///
-    /// A key component is similar to a key amalgamation, but is not
+    /// A key bundle is similar to a key amalgamation, but is not
     /// bound to a specific time.  It contains the key and all
     /// relevant signatures.
     ///
     /// If the primary key satisfies the current filter on this
     /// iterator, it is returned first.
-    pub fn components(self) -> KeyComponentIter<'a, P, key::UnspecifiedRole> {
-        KeyComponentIter {
+    pub fn bundles(self) -> KeyBundleIter<'a, P, key::UnspecifiedRole> {
+        KeyBundleIter {
             cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
@@ -429,15 +429,15 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
         }
     }
 
-    /// Changes the iterator to return subkey components.
+    /// Changes the iterator to return subkey bundles.
     ///
-    /// A key component is similar to a key amalgamation, but is not
+    /// A key bundle is similar to a key amalgamation, but is not
     /// bound to a specific time.  It contains the key and all
     /// relevant signatures.
     ///
     /// The primary key is never returned from this iterator.
-    pub fn subkeys(self) -> KeyComponentIter<'a, P, key::SubordinateRole> {
-        KeyComponentIter {
+    pub fn subkeys(self) -> KeyBundleIter<'a, P, key::SubordinateRole> {
+        KeyBundleIter {
             cert: self.cert,
             primary: true,
             subkey_iter: self.subkey_iter,
@@ -468,7 +468,7 @@ pub struct ValidKeyIter<'a, P: key::KeyParts> {
     // This is an option to make it easier to create an empty ValidKeyIter.
     cert: Option<&'a Cert>,
     primary: bool,
-    subkey_iter: KeyBindingIter<'a,
+    subkey_iter: UnfilteredKeyBundleIter<'a,
                                 key::PublicParts,
                                 key::SubordinateRole>,
 
@@ -887,11 +887,11 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
     }
 }
 
-pub struct KeyComponentIter<'a, P: key::KeyParts, R: key::KeyRole> {
+pub struct KeyBundleIter<'a, P: key::KeyParts, R: key::KeyRole> {
     // This is an option to make it easier to create an empty KeyIter.
     cert: Option<&'a Cert>,
     primary: bool,
-    subkey_iter: KeyBindingIter<'a,
+    subkey_iter: UnfilteredKeyBundleIter<'a,
                                 key::PublicParts,
                                 key::SubordinateRole>,
     // If not None, filters by whether a key has a secret.
@@ -909,10 +909,10 @@ pub struct KeyComponentIter<'a, P: key::KeyParts, R: key::KeyRole> {
 }
 
 impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
-    for KeyComponentIter<'a, P, R>
+    for KeyBundleIter<'a, P, R>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("KeyComponentIter")
+        f.debug_struct("KeyBundleIter")
             .field("primary", &self.primary)
             .field("secret", &self.secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
@@ -927,11 +927,11 @@ impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
 // implementation for Key<SecretParts, _> below.
 macro_rules! impl_key_component_iterator {
     ($parts:path) => {
-        impl<'a, R: 'a + key::KeyRole> Iterator for KeyComponentIter<'a, $parts, R>
-            where &'a KeyBinding<$parts, R>:
-                      From<&'a KeyBinding<key::PublicParts, key::UnspecifiedRole>>
+        impl<'a, R: 'a + key::KeyRole> Iterator for KeyBundleIter<'a, $parts, R>
+            where &'a KeyBundle<$parts, R>:
+                      From<&'a KeyBundle<key::PublicParts, key::UnspecifiedRole>>
         {
-            type Item = &'a KeyBinding<$parts, R>;
+            type Item = &'a KeyBundle<$parts, R>;
 
             fn next(&mut self) -> Option<Self::Item> {
                 self.next_common().map(|b| b.into())
@@ -942,25 +942,25 @@ macro_rules! impl_key_component_iterator {
 impl_key_component_iterator!(key::PublicParts);
 impl_key_component_iterator!(key::UnspecifiedParts);
 
-impl<'a, R: 'a + key::KeyRole, E> Iterator for KeyComponentIter<'a, key::SecretParts, R>
-    where &'a KeyBinding<key::SecretParts, R>:
-              TryFrom<&'a KeyBinding<key::PublicParts, key::UnspecifiedRole>,
+impl<'a, R: 'a + key::KeyRole, E> Iterator for KeyBundleIter<'a, key::SecretParts, R>
+    where &'a KeyBundle<key::SecretParts, R>:
+              TryFrom<&'a KeyBundle<key::PublicParts, key::UnspecifiedRole>,
                       Error = E>,
           E: std::fmt::Debug,
 {
-    type Item = &'a KeyBinding<key::SecretParts, R>;
+    type Item = &'a KeyBundle<key::SecretParts, R>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.next_common().map(|ka| ka.try_into().expect("has secret parts"))
     }
 }
 
-impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyComponentIter<'a, P, R>
+impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyBundleIter<'a, P, R>
 {
-    fn next_common(&mut self) -> Option<&'a KeyBinding<key::PublicParts, key::UnspecifiedRole>>
+    fn next_common(&mut self) -> Option<&'a KeyBundle<key::PublicParts, key::UnspecifiedRole>>
     {
-        tracer!(false, "KeyComponentIter::next", 0);
-        t!("KeyComponentIter: {:?}", self);
+        tracer!(false, "KeyBundleIter::next", 0);
+        t!("KeyBundleIter: {:?}", self);
 
         if self.cert.is_none() {
             return None;

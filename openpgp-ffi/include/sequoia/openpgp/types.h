@@ -366,12 +366,12 @@ typedef struct pgp_packet_pile *pgp_packet_pile_t;
 /*/
 /// A `UserIDBinding`.
 /*/
-typedef struct pgp_user_id_binding *pgp_user_id_binding_t;
+typedef struct pgp_user_id_bundle *pgp_user_id_bundle_t;
 
 /*/
 /// An iterator over `UserIDBinding`s.
 /*/
-typedef struct pgp_user_id_binding_iter *pgp_user_id_binding_iter_t;
+typedef struct pgp_user_id_bundle_iter *pgp_user_id_bundle_iter_t;
 
 /*/
 /// An iterator over keys in a Cert.

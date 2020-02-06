@@ -3,7 +3,7 @@ use std::time::SystemTime;
 
 use crate::{
     Cert,
-    cert::components::ComponentBinding,
+    cert::components::ComponentBundle,
     Error,
     packet::Signature,
     Result,
@@ -15,24 +15,24 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct ComponentAmalgamation<'a, C>{
     cert: &'a Cert,
-    binding: &'a ComponentBinding<C>,
+    bundle: &'a ComponentBundle<C>,
 }
 
 impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
-        self.binding.component()
+        self.bundle.component()
     }
 }
 
 impl<'a, C> ComponentAmalgamation<'a, C> {
     /// Creates a new amalgamation.
-    pub(crate) fn new(cert: &'a Cert, binding: &'a ComponentBinding<C>) -> Self
+    pub(crate) fn new(cert: &'a Cert, bundle: &'a ComponentBundle<C>) -> Self
     {
         Self {
             cert,
-            binding,
+            bundle,
         }
     }
 
@@ -41,9 +41,9 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
         self.cert
     }
 
-    /// Returns this component's component binding.
-    pub fn binding(&self) -> &'a ComponentBinding<C> {
-        &self.binding
+    /// Returns this component's bundle.
+    pub fn bundle(&self) -> &'a ComponentBundle<C> {
+        &self.bundle
     }
 
     /// Returns the components's binding signature as of the reference
@@ -56,7 +56,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        self.binding.binding_signature(policy, time)
+        self.bundle.binding_signature(policy, time)
     }
 
     /// Sets the reference time for the amalgamation.
@@ -86,14 +86,14 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
 impl<'a> ComponentAmalgamation<'a, crate::packet::UserID> {
     /// Returns a reference to the User ID.
     pub fn userid(&self) -> &crate::packet::UserID {
-        self.binding().userid()
+        self.bundle().userid()
     }
 }
 
 impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
     /// Returns a reference to the User Attribute.
     pub fn user_attribute(&self) -> &crate::packet::UserAttribute {
-        self.binding().user_attribute()
+        self.bundle().user_attribute()
     }
 }
 
@@ -134,7 +134,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     /// If there is more than one, than one is selected in a
     /// deterministic, but undefined manner.
     pub(super) fn primary(cert: &'a Cert,
-                          iter: std::slice::Iter<'a, ComponentBinding<C>>,
+                          iter: std::slice::Iter<'a, ComponentBundle<C>>,
                           policy: &'a dyn Policy, t: SystemTime)
         -> Option<ValidComponentAmalgamation<'a, C>>
     {
@@ -298,7 +298,7 @@ impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
     ///
     /// Note: this does not return whether the certificate is valid.
     fn revoked(&self) -> RevocationStatus<'a> {
-        self.binding._revoked(self.policy(), self.time,
+        self.bundle._revoked(self.policy(), self.time,
                               false, Some(self.binding_signature))
     }
 }

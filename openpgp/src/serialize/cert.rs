@@ -38,7 +38,7 @@ impl Cert {
     fn serialize_common(&self, o: &mut dyn std::io::Write, export: bool)
                         -> Result<()>
     {
-        let primary = self.primary_key().binding();
+        let primary = self.primary_key().bundle();
         PacketRef::PublicKey(primary.key().mark_role_primary_ref())
             .serialize(o)?;
 
@@ -69,7 +69,7 @@ impl Cert {
             serialize_sig(o, s)?;
         }
 
-        for u in self.userids().bindings() {
+        for u in self.userids().bundles() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
@@ -92,7 +92,7 @@ impl Cert {
             }
         }
 
-        for u in self.user_attributes().bindings() {
+        for u in self.user_attributes().bundles() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
@@ -173,7 +173,7 @@ impl Cert {
 impl SerializeInto for Cert {
     fn serialized_len(&self) -> usize {
         let mut l = 0;
-        let primary = self.primary_key().binding();
+        let primary = self.primary_key().bundle();
         l += PacketRef::PublicKey(primary.key().mark_role_primary_ref())
             .serialized_len();
 
@@ -190,7 +190,7 @@ impl SerializeInto for Cert {
             l += PacketRef::Signature(s).serialized_len();
         }
 
-        for u in self.userids().bindings() {
+        for u in self.userids().bundles() {
             l += PacketRef::UserID(u.userid()).serialized_len();
 
             for s in u.self_revocations() {
@@ -207,7 +207,7 @@ impl SerializeInto for Cert {
             }
         }
 
-        for u in self.user_attributes().bindings() {
+        for u in self.user_attributes().bundles() {
             l += PacketRef::UserAttribute(u.user_attribute()).serialized_len();
 
             for s in u.self_revocations() {
@@ -403,7 +403,7 @@ impl<'a> TSK<'a> {
             }
         };
 
-        let primary = self.cert.primary_key().binding();
+        let primary = self.cert.primary_key().bundle();
         serialize_key(o, primary.key().mark_role_primary_ref().into(),
                       Tag::PublicKey, Tag::SecretKey)?;
 
@@ -420,7 +420,7 @@ impl<'a> TSK<'a> {
             serialize_sig(o, s)?;
         }
 
-        for u in self.cert.userids().bindings() {
+        for u in self.cert.userids().bundles() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
@@ -443,7 +443,7 @@ impl<'a> TSK<'a> {
             }
         }
 
-        for u in self.cert.user_attributes().bindings() {
+        for u in self.cert.user_attributes().bundles() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
                 |s| s.exportable_certification().unwrap_or(true))
             {
@@ -558,7 +558,7 @@ impl<'a> SerializeInto for TSK<'a> {
             packet.serialized_len()
         };
 
-        let primary = self.cert.primary_key().binding();
+        let primary = self.cert.primary_key().bundle();
         l += serialized_len_key(primary.key().mark_role_primary_ref().into(),
                                 Tag::PublicKey, Tag::SecretKey);
 
@@ -575,7 +575,7 @@ impl<'a> SerializeInto for TSK<'a> {
             l += PacketRef::Signature(s).serialized_len();
         }
 
-        for u in self.cert.userids().bindings() {
+        for u in self.cert.userids().bundles() {
             l += PacketRef::UserID(u.userid()).serialized_len();
 
             for s in u.self_revocations() {
@@ -592,7 +592,7 @@ impl<'a> SerializeInto for TSK<'a> {
             }
         }
 
-        for u in self.cert.user_attributes().bindings() {
+        for u in self.cert.user_attributes().bundles() {
             l += PacketRef::UserAttribute(u.user_attribute()).serialized_len();
 
             for s in u.self_revocations() {

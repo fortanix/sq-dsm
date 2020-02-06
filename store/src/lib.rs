@@ -542,10 +542,10 @@ impl Mapping {
     }
 
     /// Lists all bindings.
-    pub fn iter(&self) -> Result<BindingIter> {
+    pub fn iter(&self) -> Result<BundleIter> {
         let request = self.mapping.iter_request();
         let iter = make_request!(self.core.borrow_mut(), request)?;
-        Ok(BindingIter{core: self.core.clone(), iter: iter})
+        Ok(BundleIter{core: self.core.clone(), iter: iter})
     }
 
     /// Lists all log entries related to this mapping.
@@ -1072,12 +1072,12 @@ impl Iterator for MappingIter {
 }
 
 /// Iterates over bindings in a mapping.
-pub struct BindingIter {
+pub struct BundleIter {
     core: Rc<RefCell<Core>>,
     iter: node::binding_iter::Client,
 }
 
-impl Iterator for BindingIter {
+impl Iterator for BundleIter {
     type Item = (String, openpgp::Fingerprint, Binding);
 
     fn next(&mut self) -> Option<Self::Item> {

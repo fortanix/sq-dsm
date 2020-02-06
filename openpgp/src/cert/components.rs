@@ -31,14 +31,14 @@ pub use super::amalgamation::{
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.
-pub type KeyBinding<KeyPart, KeyRole> = ComponentBinding<Key<KeyPart, KeyRole>>;
+pub type KeyBundle<KeyPart, KeyRole> = ComponentBundle<Key<KeyPart, KeyRole>>;
 
-impl<K: key::KeyParts, R: key::KeyRole> KeyBinding<K, R>
+impl<K: key::KeyParts, R: key::KeyRole> KeyBundle<K, R>
 {
     /// Gets the key packet's `SecretKeyMaterial`.
     ///
     /// Note: The key module installs conversion functions on
-    /// KeyBinding.  They need to access the key's secret.
+    /// KeyBundle.  They need to access the key's secret.
     pub(crate) fn secret(&self)
                          -> Option<&crate::packet::key::SecretKeyMaterial> {
         self.key().secret()
@@ -46,28 +46,28 @@ impl<K: key::KeyParts, R: key::KeyRole> KeyBinding<K, R>
 }
 
 /// A primary key and any associated signatures.
-pub(crate) type PrimaryKeyBinding<KeyPart> =
-    KeyBinding<KeyPart, key::PrimaryRole>;
+pub(crate) type PrimaryKeyBundle<KeyPart> =
+    KeyBundle<KeyPart, key::PrimaryRole>;
 
 /// A subkey and any associated signatures.
-pub type SubkeyBinding<KeyPart> = KeyBinding<KeyPart, key::SubordinateRole>;
+pub type SubkeyBundle<KeyPart> = KeyBundle<KeyPart, key::SubordinateRole>;
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.
 #[allow(dead_code)]
 type GenericKeyBinding
-    = ComponentBinding<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
+    = ComponentBundle<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
 
 /// A User ID and any associated signatures.
-pub type UserIDBinding = ComponentBinding<UserID>;
+pub type UserIDBundle = ComponentBundle<UserID>;
 
 /// A User Attribute and any associated signatures.
-pub type UserAttributeBinding = ComponentBinding<UserAttribute>;
+pub type UserAttributeBundle = ComponentBundle<UserAttribute>;
 
 /// An unknown component and any associated signatures.
 ///
 /// Note: all signatures are stored as certifications.
-pub type UnknownBinding = ComponentBinding<Unknown>;
+pub type UnknownBundle = ComponentBundle<Unknown>;
 
 /// A Cert component binding.
 ///
@@ -75,7 +75,7 @@ pub type UnknownBinding = ComponentBinding<Unknown>;
 /// attribute.  A binding is a Cert component and any related
 /// signatures.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ComponentBinding<C> {
+pub struct ComponentBundle<C> {
     pub(crate) component: C,
 
     // Self signatures.
@@ -92,7 +92,7 @@ pub struct ComponentBinding<C> {
     pub(crate) other_revocations: Vec<Signature>,
 }
 
-impl<C> ComponentBinding<C> {
+impl<C> ComponentBundle<C> {
     /// Returns a reference to the component.
     pub fn component(&self) -> &C {
         &self.component
@@ -232,7 +232,7 @@ impl<C> ComponentBinding<C> {
             = selfsig.and_then(|s| s.signature_creation_time())
                      .unwrap_or_else(time_zero);
 
-        tracer!(super::TRACE, "ComponentBinding::_revoked", 0);
+        tracer!(super::TRACE, "ComponentBundle::_revoked", 0);
         t!("hard_revocations_are_final: {}, selfsig: {:?}, t: {:?}",
            hard_revocations_are_final,
            selfsig_creation_time,
@@ -360,7 +360,7 @@ impl<C> ComponentBinding<C> {
     }
 }
 
-impl<P: key::KeyParts, R: key::KeyRole> ComponentBinding<Key<P, R>> {
+impl<P: key::KeyParts, R: key::KeyRole> ComponentBundle<Key<P, R>> {
     /// Returns a reference to the key.
     pub fn key(&self) -> &Key<P, R> {
         self.component()
@@ -372,7 +372,7 @@ impl<P: key::KeyParts, R: key::KeyRole> ComponentBinding<Key<P, R>> {
     }
 }
 
-impl<P: key::KeyParts> ComponentBinding<Key<P, key::SubordinateRole>> {
+impl<P: key::KeyParts> ComponentBundle<Key<P, key::SubordinateRole>> {
     /// Returns the subkey's revocation status at time `t`.
     ///
     /// A subkey is revoked at time `t` if:
@@ -397,7 +397,7 @@ impl<P: key::KeyParts> ComponentBinding<Key<P, key::SubordinateRole>> {
     }
 }
 
-impl ComponentBinding<UserID> {
+impl ComponentBundle<UserID> {
     /// Returns a reference to the User ID.
     pub fn userid(&self) -> &UserID {
         self.component()
@@ -424,7 +424,7 @@ impl ComponentBinding<UserID> {
     }
 }
 
-impl ComponentBinding<UserAttribute> {
+impl ComponentBundle<UserAttribute> {
     /// Returns a reference to the User Attribute.
     pub fn user_attribute(&self) -> &UserAttribute {
         self.component()
@@ -451,30 +451,30 @@ impl ComponentBinding<UserAttribute> {
     }
 }
 
-impl ComponentBinding<Unknown> {
+impl ComponentBundle<Unknown> {
     /// Returns a reference to the unknown component.
     pub fn unknown(&self) -> &Unknown {
         self.component()
     }
 }
 
-/// An iterator over `ComponentBinding`s.
-pub struct ComponentBindingIter<'a, C> {
-    pub(crate) iter: Option<slice::Iter<'a, ComponentBinding<C>>>,
+/// An iterator over `ComponentBundle`s.
+pub struct ComponentBundleIter<'a, C> {
+    pub(crate) iter: Option<slice::Iter<'a, ComponentBundle<C>>>,
 }
 
-/// An iterator over `KeyBinding`s.
-pub type KeyBindingIter<'a, P, R> = ComponentBindingIter<'a, Key<P, R>>;
-/// An iterator over `UserIDBinding`s.
-pub type UserIDBindingIter<'a> = ComponentBindingIter<'a, UserID>;
-/// An iterator over `UserAttributeBinding`s.
-pub type UserAttributeBindingIter<'a> = ComponentBindingIter<'a, UserAttribute>;
-/// An iterator over `UnknownBinding`s.
-pub type UnknownBindingIter<'a> = ComponentBindingIter<'a, Unknown>;
+/// An iterator over `KeyBundle`s.
+pub type UnfilteredKeyBundleIter<'a, P, R> = ComponentBundleIter<'a, Key<P, R>>;
+/// An iterator over `UserIDBundle`s.
+pub type UserIDBundleIter<'a> = ComponentBundleIter<'a, UserID>;
+/// An iterator over `UserAttributeBundle`s.
+pub type UserAttributeBundleIter<'a> = ComponentBundleIter<'a, UserAttribute>;
+/// An iterator over `UnknownBundle`s.
+pub type UnknownBundleIter<'a> = ComponentBundleIter<'a, Unknown>;
 
-impl<'a, C> Iterator for ComponentBindingIter<'a, C>
+impl<'a, C> Iterator for ComponentBundleIter<'a, C>
 {
-    type Item = &'a ComponentBinding<C>;
+    type Item = &'a ComponentBundle<C>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.iter {
@@ -484,7 +484,7 @@ impl<'a, C> Iterator for ComponentBindingIter<'a, C>
     }
 }
 
-impl<'a, C> ExactSizeIterator for ComponentBindingIter<'a, C>
+impl<'a, C> ExactSizeIterator for ComponentBundleIter<'a, C>
 {
     fn len(&self) -> usize {
         match self.iter {

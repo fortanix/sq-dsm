@@ -9,7 +9,7 @@ use crate::{
     Cert,
     cert::components::{
         Amalgamation,
-        KeyBinding,
+        KeyBundle,
     },
     Error,
     packet::key,
@@ -28,16 +28,16 @@ use crate::{
 /// must also all be public, and we don't want that here.  Wrapping
 /// this in a struct means that we can hide that.
 #[derive(Debug, Clone)]
-enum KeyAmalgamationBinding<'a, P: key::KeyParts> {
+enum KeyAmalgamationBundle<'a, P: key::KeyParts> {
     Primary(),
-    Subordinate(&'a KeyBinding<P, key::SubordinateRole>),
+    Subordinate(&'a KeyBundle<P, key::SubordinateRole>),
 }
 
 /// A `Key` and its associated data.
 #[derive(Debug, Clone)]
 pub struct KeyAmalgamation<'a, P: key::KeyParts> {
     cert: &'a Cert,
-    binding: KeyAmalgamationBinding<'a, P>,
+    bundle: KeyAmalgamationBundle<'a, P>,
 }
 
 impl<'a, P: key::KeyParts> Deref for KeyAmalgamation<'a, P>
@@ -59,19 +59,19 @@ impl<'a> From<KeyAmalgamation<'a, key::PublicParts>>
         match ka {
             KeyAmalgamation {
                 cert,
-                binding: KeyAmalgamationBinding::Primary(),
+                bundle: KeyAmalgamationBundle::Primary(),
             } =>
                 KeyAmalgamation {
                     cert,
-                    binding: KeyAmalgamationBinding::Primary(),
+                    bundle: KeyAmalgamationBundle::Primary(),
                 },
             KeyAmalgamation {
                 cert,
-                binding: KeyAmalgamationBinding::Subordinate(binding),
+                bundle: KeyAmalgamationBundle::Subordinate(bundle),
             } =>
                 KeyAmalgamation {
                     cert,
-                    binding: KeyAmalgamationBinding::Subordinate(binding.into()),
+                    bundle: KeyAmalgamationBundle::Subordinate(bundle.into()),
                 },
         }
     }
@@ -84,19 +84,19 @@ impl<'a> From<KeyAmalgamation<'a, key::SecretParts>>
         match ka {
             KeyAmalgamation {
                 cert,
-                binding: KeyAmalgamationBinding::Primary(),
+                bundle: KeyAmalgamationBundle::Primary(),
             } =>
                 KeyAmalgamation {
                     cert,
-                    binding: KeyAmalgamationBinding::Primary(),
+                    bundle: KeyAmalgamationBundle::Primary(),
                 },
             KeyAmalgamation {
                 cert,
-                binding: KeyAmalgamationBinding::Subordinate(binding),
+                bundle: KeyAmalgamationBundle::Subordinate(bundle),
             } =>
                 KeyAmalgamation {
                     cert,
-                    binding: KeyAmalgamationBinding::Subordinate(binding.into()),
+                    bundle: KeyAmalgamationBundle::Subordinate(bundle.into()),
                 },
         }
     }
@@ -111,24 +111,24 @@ impl<'a> TryFrom<KeyAmalgamation<'a, key::PublicParts>>
         Ok(match ka {
             KeyAmalgamation {
                 cert,
-                binding: KeyAmalgamationBinding::Primary(),
+                bundle: KeyAmalgamationBundle::Primary(),
             } => {
                 // Error out if the primary key does not have secret
                 // key material.
-                let _ : &KeyBinding<key::SecretParts, key::PrimaryRole>
+                let _ : &KeyBundle<key::SecretParts, key::PrimaryRole>
                     = (&cert.primary).try_into()?;
                 KeyAmalgamation {
                     cert,
-                    binding: KeyAmalgamationBinding::Primary(),
+                    bundle: KeyAmalgamationBundle::Primary(),
                 }
             }
             KeyAmalgamation {
                 cert,
-                binding: KeyAmalgamationBinding::Subordinate(binding),
+                bundle: KeyAmalgamationBundle::Subordinate(bundle),
             } =>
                 KeyAmalgamation {
                     cert,
-                    binding: KeyAmalgamationBinding::Subordinate(binding.try_into()?),
+                    bundle: KeyAmalgamationBundle::Subordinate(bundle.try_into()?),
                 },
         })
     }
@@ -138,17 +138,17 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     pub(crate) fn new_primary(cert: &'a Cert) -> Self {
         KeyAmalgamation {
             cert: cert,
-            binding: KeyAmalgamationBinding::Primary(),
+            bundle: KeyAmalgamationBundle::Primary(),
         }
     }
 
     pub(crate) fn new_subordinate(
-        cert: &'a Cert, binding: &'a KeyBinding<P, key::SubordinateRole>)
+        cert: &'a Cert, bundle: &'a KeyBundle<P, key::SubordinateRole>)
         -> Self
     {
         KeyAmalgamation {
             cert: cert,
-            binding: KeyAmalgamationBinding::Subordinate(binding),
+            bundle: KeyAmalgamationBundle::Subordinate(bundle),
         }
     }
 
@@ -157,10 +157,10 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         where &'a Key<P, key::UnspecifiedRole>: From<&'a key::PublicKey>
     {
         match self {
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Primary(), .. } =>
+            KeyAmalgamation { bundle: KeyAmalgamationBundle::Primary(), .. } =>
                 self.cert.primary.key().into(),
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Subordinate(ref binding), .. } =>
-                binding.key().into(),
+            KeyAmalgamation { bundle: KeyAmalgamationBundle::Subordinate(bundle), .. } =>
+                bundle.key().into(),
         }
     }
 
@@ -168,10 +168,10 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     fn generic_key(&self)
                    -> &'a Key<key::UnspecifiedParts, key::UnspecifiedRole> {
         match self {
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Primary(), .. } =>
+            KeyAmalgamation { bundle: KeyAmalgamationBundle::Primary(), .. } =>
                 self.cert.primary.key().into(),
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Subordinate(ref binding), .. } =>
-                binding.key().mark_parts_unspecified_ref().into(),
+            KeyAmalgamation { bundle: KeyAmalgamationBundle::Subordinate(bundle), .. } =>
+                bundle.key().mark_parts_unspecified_ref().into(),
         }
     }
 
@@ -202,16 +202,16 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         }
     }
 
-    /// Returns this key's binding.
-    pub fn binding(&self) -> &'a KeyBinding<P, key::UnspecifiedRole>
-        where &'a KeyBinding<P, key::UnspecifiedRole>:
-            From<&'a KeyBinding<key::PublicParts, key::PrimaryRole>>
+    /// Returns this key's bundle.
+    pub fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole>
+        where &'a KeyBundle<P, key::UnspecifiedRole>:
+            From<&'a KeyBundle<key::PublicParts, key::PrimaryRole>>
     {
         match self {
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Primary(), .. } =>
+            KeyAmalgamation { bundle: KeyAmalgamationBundle::Primary(), .. } =>
                 (&self.cert.primary).into(),
-            KeyAmalgamation { binding: KeyAmalgamationBinding::Subordinate(binding), .. } =>
-                (*binding).into(),
+            KeyAmalgamation { bundle: KeyAmalgamationBundle::Subordinate(bundle), .. } =>
+                (*bundle).into(),
         }
     }
 
@@ -227,19 +227,19 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         let time = time.into().unwrap_or_else(SystemTime::now);
         match self {
             KeyAmalgamation {
-                binding: KeyAmalgamationBinding::Primary(),
+                bundle: KeyAmalgamationBundle::Primary(),
                 ..
             } => {
                 self.cert.primary_userid(policy, time)
                     .map(|u| u.binding_signature())
-                    .or_else(|| self.cert.primary_key().binding()
+                    .or_else(|| self.cert.primary_key().bundle()
                              .binding_signature(policy, time))
             },
             KeyAmalgamation {
-                binding: KeyAmalgamationBinding::Subordinate(ref binding),
+                bundle: KeyAmalgamationBundle::Subordinate(bundle),
                 ..
             } =>
-                binding.binding_signature(policy, time),
+                bundle.binding_signature(policy, time),
         }
     }
 
@@ -307,7 +307,7 @@ impl<'a, P: key::KeyParts> PrimaryKeyAmalgamation<'a, P> {
     pub(super) fn new(a: KeyAmalgamation<'a, P>) -> Self {
         assert_match!(
             &KeyAmalgamation {
-                binding: KeyAmalgamationBinding::Primary(),
+                bundle: KeyAmalgamationBundle::Primary(),
                 ..
             } = &a);
 
@@ -472,37 +472,37 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
     /// revoked, it does not return whether the certificate has been
     /// revoked.
     fn revoked(&self) -> RevocationStatus<'a> {
-        match self.a.binding {
-            KeyAmalgamationBinding::Primary() =>
+        match self.a.bundle {
+            KeyAmalgamationBundle::Primary() =>
                 self.cert.revoked(self.policy, self.time()),
-            KeyAmalgamationBinding::Subordinate(ref binding) =>
-                binding.revoked(self.policy, self.time()),
+            KeyAmalgamationBundle::Subordinate(bundle) =>
+                bundle.revoked(self.policy, self.time()),
         }
     }
 }
 
 impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
-    /// Returns this key's binding.
-    pub fn binding(&self) -> &'a KeyBinding<P, key::UnspecifiedRole>
-        where &'a KeyBinding<P, key::UnspecifiedRole>:
-            From<&'a KeyBinding<key::PublicParts, key::PrimaryRole>>
+    /// Returns this key's bundle.
+    pub fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole>
+        where &'a KeyBundle<P, key::UnspecifiedRole>:
+            From<&'a KeyBundle<key::PublicParts, key::PrimaryRole>>
     {
         match self {
             ValidKeyAmalgamation {
                 a: KeyAmalgamation {
-                    binding: KeyAmalgamationBinding::Primary(), ..
+                    bundle: KeyAmalgamationBundle::Primary(), ..
                 },
                 ..
             } =>
                 (&self.cert.primary).into(),
             ValidKeyAmalgamation {
                 a: KeyAmalgamation {
-                    binding: KeyAmalgamationBinding::Subordinate(binding),
+                    bundle: KeyAmalgamationBundle::Subordinate(bundle),
                     ..
                 },
                 ..
             } =>
-                (*binding).into(),
+                (*bundle).into(),
         }
     }
 
@@ -690,7 +690,7 @@ impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
         assert_match!(
             &ValidKeyAmalgamation {
                 a: KeyAmalgamation {
-                    binding: KeyAmalgamationBinding::Primary(),
+                    bundle: KeyAmalgamationBundle::Primary(),
                     ..
                 },
                 ..

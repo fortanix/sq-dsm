@@ -150,7 +150,7 @@ fn inspect_cert(policy: &dyn Policy,
         writeln!(output)?;
     }
 
-    for uidb in cert.userids().bindings() {
+    for uidb in cert.userids().bundles() {
         writeln!(output, "         UserID: {}", uidb.userid())?;
         inspect_revocation(output, "", uidb.revoked(policy, None))?;
         if let Some(sig) = uidb.binding_signature(policy, None) {
@@ -166,7 +166,7 @@ fn inspect_cert(policy: &dyn Policy,
         writeln!(output)?;
     }
 
-    for uab in cert.user_attributes().bindings() {
+    for uab in cert.user_attributes().bundles() {
         writeln!(output, "         UserID: {:?}", uab.user_attribute())?;
         inspect_revocation(output, "", uab.revoked(policy, None))?;
         if let Some(sig) = uab.binding_signature(policy, None) {
@@ -213,7 +213,7 @@ fn inspect_key(policy: &dyn Policy,
         -> Result<()>
 {
     let key = ka.key();
-    let binding = ka.binding();
+    let binding = ka.bundle();
     let vka = match ka.set_policy(policy, None) {
         Ok(vka) => {
             if let Err(e) = vka.alive() {

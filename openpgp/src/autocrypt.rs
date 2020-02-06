@@ -109,7 +109,7 @@ impl AutocryptHeader {
         let mut acc = Vec::new();
 
         // The primary key and the most recent selfsig.
-        let primary = cert.primary_key().binding();
+        let primary = cert.primary_key().bundle();
         acc.push(primary.key().clone().mark_role_primary().into());
         primary.self_signatures().iter().take(1)
             .for_each(|s| acc.push(s.clone().into()));

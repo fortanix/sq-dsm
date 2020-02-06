@@ -11,13 +11,13 @@ use crate::Cert;
 
 use crate::cert::parser::low_level::lexer;
 use crate::cert::parser::low_level::lexer::{Token, Component};
-use crate::cert::ComponentBindings;
+use crate::cert::ComponentBundles;
 use crate::cert::components::{
-    PrimaryKeyBinding,
-    SubkeyBinding,
-    UserIDBinding,
-    UserAttributeBinding,
-    UnknownBinding,
+    PrimaryKeyBundle,
+    SubkeyBundle,
+    UserIDBundle,
+    UserAttributeBundle,
+    UnknownBundle,
 };
 
 use lalrpop_util::ParseError;
@@ -46,29 +46,29 @@ pub Cert: Option<Cert> = {
                 let c = c.unwrap();
 
                 let mut cert = Cert {
-                    primary: PrimaryKeyBinding {
+                    primary: PrimaryKeyBundle {
                         component: key,
                         self_signatures: vec![],
                         certifications: sigs,
                         self_revocations: vec![],
                         other_revocations: vec![],
                     },
-                    subkeys: ComponentBindings::new(),
-                    userids: ComponentBindings::new(),
-                    user_attributes: ComponentBindings::new(),
-                    unknowns: ComponentBindings::new(),
+                    subkeys: ComponentBundles::new(),
+                    userids: ComponentBundles::new(),
+                    user_attributes: ComponentBundles::new(),
+                    unknowns: ComponentBundles::new(),
                     bad: vec![],
                 };
 
                 for c in c.into_iter() {
                     match c {
-                        Component::SubkeyBinding(b) =>
+                        Component::SubkeyBundle(b) =>
                             cert.subkeys.push(b),
-                        Component::UserIDBinding(b) =>
+                        Component::UserIDBundle(b) =>
                             cert.userids.push(b),
-                        Component::UserAttributeBinding(b) =>
+                        Component::UserAttributeBundle(b) =>
                             cert.user_attributes.push(b),
-                        Component::UnknownBinding(b) =>
+                        Component::UnknownBundle(b) =>
                             cert.unknowns.push(b),
                     }
                 }
@@ -157,7 +157,7 @@ Component: Option<Component> = {
             Some(key) => {
                 let sigs = sigs.unwrap();
 
-                Some(Component::SubkeyBinding(SubkeyBinding {
+                Some(Component::SubkeyBundle(SubkeyBundle {
                     component: key,
                     self_signatures: vec![],
                     certifications: sigs,
@@ -174,7 +174,7 @@ Component: Option<Component> = {
             Some(u) => {
                 let sigs = sigs.unwrap();
 
-                Some(Component::UserIDBinding(UserIDBinding {
+                Some(Component::UserIDBundle(UserIDBundle {
                     component: u,
                     self_signatures: vec![],
                     certifications: sigs,
@@ -191,7 +191,7 @@ Component: Option<Component> = {
             Some(u) => {
                 let sigs = sigs.unwrap();
 
-                Some(Component::UserAttributeBinding(UserAttributeBinding {
+                Some(Component::UserAttributeBundle(UserAttributeBundle {
                     component: u,
                     self_signatures: vec![],
                     certifications: sigs,
@@ -208,7 +208,7 @@ Component: Option<Component> = {
             Some(u) => {
                 let sigs = sigs.unwrap();
 
-                Some(Component::UnknownBinding(UnknownBinding {
+                Some(Component::UnknownBundle(UnknownBundle {
                     component: u,
                     self_signatures: vec![],
                     certifications: sigs,

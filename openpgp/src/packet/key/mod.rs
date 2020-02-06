@@ -544,8 +544,8 @@ macro_rules! create_conversions {
 create_conversions!(Key);
 create_conversions!(Key4);
 
-use crate::cert::components::KeyBinding;
-create_conversions!(KeyBinding);
+use crate::cert::components::KeyBundle;
+create_conversions!(KeyBundle);
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///

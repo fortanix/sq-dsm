@@ -44,10 +44,10 @@ mod bindings;
 pub mod components;
 use components::{
     Amalgamation,
-    ComponentBinding,
-    PrimaryKeyBinding,
-    KeyBindingIter,
-    UnknownBindingIter,
+    ComponentBundle,
+    PrimaryKeyBundle,
+    UnfilteredKeyBundleIter,
+    UnknownBundleIter,
     ValidComponentAmalgamation,
 };
 mod component_iter;
@@ -114,46 +114,46 @@ impl fmt::Display for Cert {
     }
 }
 
-/// A collection of `ComponentBindings`.
+/// A collection of `ComponentBundles`.
 ///
-/// Note: we need this, because we can't `impl Vec<ComponentBindings>`.
+/// Note: we need this, because we can't `impl Vec<ComponentBundles>`.
 #[derive(Debug, Clone, PartialEq)]
-struct ComponentBindings<C>
-    where ComponentBinding<C>: cmp::PartialEq
+struct ComponentBundles<C>
+    where ComponentBundle<C>: cmp::PartialEq
 {
-    bindings: Vec<ComponentBinding<C>>,
+    bindings: Vec<ComponentBundle<C>>,
 }
 
-impl<C> Deref for ComponentBindings<C>
-    where ComponentBinding<C>: cmp::PartialEq
+impl<C> Deref for ComponentBundles<C>
+    where ComponentBundle<C>: cmp::PartialEq
 {
-    type Target = Vec<ComponentBinding<C>>;
+    type Target = Vec<ComponentBundle<C>>;
 
     fn deref(&self) -> &Self::Target {
         &self.bindings
     }
 }
 
-impl<C> DerefMut for ComponentBindings<C>
-    where ComponentBinding<C>: cmp::PartialEq
+impl<C> DerefMut for ComponentBundles<C>
+    where ComponentBundle<C>: cmp::PartialEq
 {
-    fn deref_mut(&mut self) -> &mut Vec<ComponentBinding<C>> {
+    fn deref_mut(&mut self) -> &mut Vec<ComponentBundle<C>> {
         &mut self.bindings
     }
 }
 
-impl<C> Into<Vec<ComponentBinding<C>>> for ComponentBindings<C>
-    where ComponentBinding<C>: cmp::PartialEq
+impl<C> Into<Vec<ComponentBundle<C>>> for ComponentBundles<C>
+    where ComponentBundle<C>: cmp::PartialEq
 {
-    fn into(self) -> Vec<ComponentBinding<C>> {
+    fn into(self) -> Vec<ComponentBundle<C>> {
         self.bindings
     }
 }
 
-impl<C> IntoIterator for ComponentBindings<C>
-    where ComponentBinding<C>: cmp::PartialEq
+impl<C> IntoIterator for ComponentBundles<C>
+    where ComponentBundle<C>: cmp::PartialEq
 {
-    type Item = ComponentBinding<C>;
+    type Item = ComponentBundle<C>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -161,16 +161,16 @@ impl<C> IntoIterator for ComponentBindings<C>
     }
 }
 
-impl<C> ComponentBindings<C>
-    where ComponentBinding<C>: cmp::PartialEq
+impl<C> ComponentBundles<C>
+    where ComponentBundle<C>: cmp::PartialEq
 {
     fn new() -> Self {
         Self { bindings: vec![] }
     }
 }
 
-impl<C> ComponentBindings<C>
-    where ComponentBinding<C>: cmp::PartialEq
+impl<C> ComponentBundles<C>
+    where ComponentBundle<C>: cmp::PartialEq
 {
     // Sort and dedup the components.
     //
@@ -214,27 +214,27 @@ impl<C> ComponentBindings<C>
 
 /// A vecor of key (primary or subkey, public or private) and any
 /// associated signatures.
-type KeyBindings<KeyPart, KeyRole> = ComponentBindings<Key<KeyPart, KeyRole>>;
+type KeyBundles<KeyPart, KeyRole> = ComponentBundles<Key<KeyPart, KeyRole>>;
 
 /// A vector of subkeys and any associated signatures.
-type SubkeyBindings<KeyPart> = KeyBindings<KeyPart, key::SubordinateRole>;
+type SubkeyBindings<KeyPart> = KeyBundles<KeyPart, key::SubordinateRole>;
 
 /// A vector of key (primary or subkey, public or private) and any
 /// associated signatures.
 #[allow(dead_code)]
 type GenericKeyBindings
-    = ComponentBindings<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
+    = ComponentBundles<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
 
 /// A vector of User ID bindings and any associated signatures.
-type UserIDBindings = ComponentBindings<UserID>;
+type UserIDBindings = ComponentBundles<UserID>;
 
 /// A vector of User Attribute bindings and any associated signatures.
-type UserAttributeBindings = ComponentBindings<UserAttribute>;
+type UserAttributeBindings = ComponentBundles<UserAttribute>;
 
 /// A vector of unknown components and any associated signatures.
 ///
 /// Note: all signatures are stored as certifications.
-type UnknownBindings = ComponentBindings<Unknown>;
+type UnknownBindings = ComponentBundles<Unknown>;
 
 
 // DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
@@ -292,7 +292,7 @@ use super::*;
 ///     let mut acc = Vec::new();
 ///
 ///     // Primary key and related signatures.
-///     let c = cert.primary_key().binding();
+///     let c = cert.primary_key().bundle();
 ///     acc.push(c.key().clone().mark_role_primary().into());
 ///     for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///     for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -300,7 +300,7 @@ use super::*;
 ///     for s in c.other_revocations() { acc.push(s.clone().into()) }
 ///
 ///     // UserIDs and related signatures.
-///     for c in cert.userids().bindings() {
+///     for c in cert.userids().bundles() {
 ///         acc.push(c.userid().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -309,7 +309,7 @@ use super::*;
 ///     }
 ///
 ///     // UserAttributes and related signatures.
-///     for c in cert.user_attributes().bindings() {
+///     for c in cert.user_attributes().bundles() {
 ///         acc.push(c.user_attribute().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -364,7 +364,7 @@ use super::*;
 /// match Cert::from_packet_parser(ppr) {
 ///     Ok(cert) => {
 ///         println!("Key: {}", cert.fingerprint());
-///         for binding in cert.userids().bindings() {
+///         for binding in cert.userids().bundles() {
 ///             println!("User ID: {}", binding.userid());
 ///         }
 ///     }
@@ -379,7 +379,7 @@ use super::*;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cert {
     pub(super) // doc-hack, see above
-    primary: PrimaryKeyBinding<key::PublicParts>,
+    primary: PrimaryKeyBundle<key::PublicParts>,
 
     pub(super) // doc-hack, see above
     userids: UserIDBindings,
@@ -467,7 +467,7 @@ impl Cert {
                 _ => ()
             }
         }
-        self.primary_key().binding()._revoked(policy, t, true, sig)
+        self.primary_key().bundle()._revoked(policy, t, true, sig)
     }
 
     /// Revokes the Cert in place.
@@ -637,7 +637,7 @@ impl Cert {
                                             policy, t)
     }
 
-    /// Returns an iterator over the Cert's valid `UserAttributeBinding`s.
+    /// Returns an iterator over the Cert's valid `UserAttributeBundle`s.
     ///
     /// A valid `UserIDAttributeBinding` has at least one good
     /// self-signature.
@@ -647,18 +647,18 @@ impl Cert {
 
     /// Returns an iterator over the Cert's valid subkeys.
     ///
-    /// A valid `KeyBinding` has at least one good self-signature.
-    pub(crate) fn subkeys(&self) -> KeyBindingIter<key::PublicParts,
+    /// A valid `KeyBundle` has at least one good self-signature.
+    pub(crate) fn subkeys(&self) -> UnfilteredKeyBundleIter<key::PublicParts,
                                             key::SubordinateRole>
     {
-        KeyBindingIter { iter: Some(self.subkeys.iter()) }
+        UnfilteredKeyBundleIter { iter: Some(self.subkeys.iter()) }
     }
 
     /// Returns an iterator over the Cert's valid unknown components.
     ///
-    /// A valid `UnknownBinding` has at least one good self-signature.
-    pub fn unknowns(&self) -> UnknownBindingIter {
-        UnknownBindingIter { iter: Some(self.unknowns.iter()) }
+    /// A valid `UnknownBundle` has at least one good self-signature.
+    pub fn unknowns(&self) -> UnknownBundleIter {
+        UnknownBundleIter { iter: Some(self.unknowns.iter()) }
     }
 
     /// Returns a slice containing all bad signatures.
@@ -2437,7 +2437,7 @@ mod test {
                           = cert.revoked(p, None));
 
             assert_eq!(cert.user_attributes().count(), 1);
-            let ua = cert.user_attributes().bindings().nth(0).unwrap();
+            let ua = cert.user_attributes().bundles().nth(0).unwrap();
             if revoked {
                 assert_match!(RevocationStatus::Revoked(_)
                               = ua.revoked(p, t));
@@ -2666,7 +2666,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // than one signature.
         let mut cmps = 0;
 
-        for uid in neal.userids().bindings() {
+        for uid in neal.userids().bundles() {
             for sigs in [
                 uid.self_signatures(),
                     uid.certifications(),
@@ -2924,7 +2924,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 cert = cert.merge_packets(vec![ binding ]).unwrap();
                 // A time that matches multiple signatures.
                 let direct_signatures =
-                    cert.primary_key().binding().self_signatures();
+                    cert.primary_key().bundle().self_signatures();
                 assert_eq!(cert.primary_key().set_policy(p, *t).unwrap()
                            .direct_key_signature(),
                            direct_signatures.get(*offset));
@@ -2969,7 +2969,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 .generate().unwrap();
 
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().bindings().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().bundles().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             let sig_template
@@ -2992,7 +2992,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // Make sure the certification is merged, and put in the right
             // place.
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().bindings().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().bundles().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             // Canonicalizing Bob's cert without having Alice's key

@@ -584,7 +584,7 @@ pgp_packet_t pgp_literal_into_packet (pgp_literal_t literal);
 /*/
 void pgp_literal_free (pgp_literal_t literal);
 
-/* openpgp::cert::UserIDBinding.  */
+/* openpgp::cert::UserIDBundle.  */
 
 /*/
 /// Returns the user id.
@@ -595,25 +595,25 @@ void pgp_literal_free (pgp_literal_t literal);
 ///
 /// The caller must free the returned value.
 /*/
-char *pgp_user_id_binding_user_id (pgp_user_id_binding_t binding);
+char *pgp_user_id_bundle_user_id (pgp_user_id_bundle_t binding);
 
 /*/
 /// Returns a reference to the self-signature, if any.
 /*/
-pgp_signature_t pgp_user_id_binding_selfsig(pgp_user_id_binding_t binding,
+pgp_signature_t pgp_user_id_bundle_selfsig(pgp_user_id_bundle_t binding,
                                             pgp_policy_t policy);
 
-/* openpgp::cert::UserIDBindingIter.  */
+/* openpgp::cert::UserIDBundleIter.  */
 
 /*/
 /// Returns the next element in the iterator.
 /*/
-pgp_user_id_binding_t pgp_user_id_binding_iter_next (pgp_user_id_binding_iter_t iter);
+pgp_user_id_bundle_t pgp_user_id_bundle_iter_next (pgp_user_id_bundle_iter_t iter);
 
 /*/
-/// Frees an pgp_user_id_binding_iter_t.
+/// Frees an pgp_user_id_bundle_iter_t.
 /*/
-void pgp_user_id_binding_iter_free (pgp_user_id_binding_iter_t iter);
+void pgp_user_id_bundle_iter_free (pgp_user_id_bundle_iter_t iter);
 
 /* openpgp::cert::KeyIter.  */
 
@@ -940,9 +940,9 @@ pgp_cert_t pgp_cert_set_expiry(pgp_error_t *errp,
 int pgp_cert_is_tsk(pgp_cert_t cert);
 
 /*/
-/// Returns an iterator over the `UserIDBinding`s.
+/// Returns an iterator over the `UserIDBundle`s.
 /*/
-pgp_user_id_binding_iter_t pgp_cert_user_id_binding_iter (pgp_cert_t cert);
+pgp_user_id_bundle_iter_t pgp_cert_user_id_binding_iter (pgp_cert_t cert);
 
 /*/
 /// Returns an iterator over all `Key`s in a Cert.

@@ -414,7 +414,7 @@ impl node::mapping::Server for MappingServer {
             mut results: node::mapping::IterResults)
             -> Promise<(), capnp::Error> {
         bind_results!(results);
-        let iter = BindingIterServer::new(self.c.clone(), self.id);
+        let iter = BundleIterServer::new(self.c.clone(), self.id);
         pry!(pry!(results.get().get_result()).set_ok(
             node::binding_iter::ToClient::new(iter).into_client::<capnp_rpc::Server>()));
         Promise::ok(())
@@ -1167,19 +1167,19 @@ impl node::mapping_iter::Server for MappingIterServer {
     }
 }
 
-struct BindingIterServer {
+struct BundleIterServer {
     c: Rc<Connection>,
     mapping_id: ID,
     n: ID,
 }
 
-impl BindingIterServer {
+impl BundleIterServer {
     fn new(c: Rc<Connection>, mapping_id: ID) -> Self {
-        BindingIterServer{c: c, mapping_id: mapping_id, n: ID::null()}
+        BundleIterServer{c: c, mapping_id: mapping_id, n: ID::null()}
     }
 }
 
-impl node::binding_iter::Server for BindingIterServer {
+impl node::binding_iter::Server for BundleIterServer {
     fn next(&mut self,
             _: node::binding_iter::NextParams,
             mut results: node::binding_iter::NextResults)

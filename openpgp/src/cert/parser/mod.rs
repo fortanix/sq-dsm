@@ -16,7 +16,7 @@ use crate::{
         PacketParser
     },
     Result,
-    cert::components::ComponentBinding,
+    cert::components::ComponentBundle,
     Cert,
 };
 
@@ -522,7 +522,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
     /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
     /// for certr in CertParser::from_packet_parser(ppr)
     ///     .unvalidated_cert_filter(|cert, _| {
-    ///         for component in cert.keys().components() {
+    ///         for component in cert.keys().bundles() {
     ///             if component.key().keyid() == some_keyid {
     ///                 return true;
     ///             }
@@ -658,7 +658,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
 /// Splits the signatures in b.certifications into the correct
 /// vectors.
 pub fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
-                     b: &mut ComponentBinding<C>)
+                     b: &mut ComponentBundle<C>)
 {
     let mut self_signatures = vec![];
     let mut certifications = vec![];

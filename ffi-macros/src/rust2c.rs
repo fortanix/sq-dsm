@@ -16,9 +16,9 @@ fn ident2c(ident: &syn::Ident) -> (String, bool) {
         "KeyID" => return ("pgp_keyid_t".into(), true),
         "CertBuilder" => return ("pgp_cert_builder_t".into(), true),
         "UserID" => return ("pgp_userid_t".into(), true),
-        "UserIDBinding" => return ("pgp_user_id_binding_t".into(), true),
-        "UserIDBindingIter" =>
-            return ("pgp_user_id_binding_iter_t".into(), true),
+        "UserIDBundle" => return ("pgp_user_id_bundle_t".into(), true),
+        "UserIDBundleIter" =>
+            return ("pgp_user_id_bundle_iter_t".into(), true),
 
         // Types from the libc crate.
         "c_void" => return ("void".into(), false),
