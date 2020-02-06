@@ -337,7 +337,7 @@ impl<'a> TSK<'a> {
     /// let p = &StandardPolicy::new();
     ///
     /// let (cert, _) = CertBuilder::new().add_signing_subkey().generate()?;
-    /// assert_eq!(cert.keys().set_policy(p, None).alive().revoked(false).secret().count(), 2);
+    /// assert_eq!(cert.keys().with_policy(p, None).alive().revoked(false).secret().count(), 2);
     ///
     /// // Only write out the primary key's secret.
     /// let mut buf = Vec::new();
@@ -346,7 +346,7 @@ impl<'a> TSK<'a> {
     ///     .serialize(&mut buf)?;
     ///
     /// let cert_ = Cert::from_bytes(&buf)?;
-    /// assert_eq!(cert_.keys().set_policy(p, None).alive().revoked(false).secret().count(), 1);
+    /// assert_eq!(cert_.keys().with_policy(p, None).alive().revoked(false).secret().count(), 1);
     /// assert!(cert_.primary_key().secret().is_some());
     /// # Ok(()) }
     pub fn set_filter<P>(mut self, predicate: P) -> Self
@@ -771,7 +771,7 @@ mod test {
         let uid_binding = uid.bind(
             &mut keypair, &cert,
             signature::Builder::from(
-                cert.primary_key().set_policy(p, None).unwrap()
+                cert.primary_key().with_policy(p, None).unwrap()
                     .direct_key_signature().unwrap().clone())
                     .set_type(SignatureType::PositiveCertification)
                     .set_exportable_certification(false).unwrap()).unwrap();
@@ -782,7 +782,7 @@ mod test {
         let ua_binding = ua.bind(
             &mut keypair, &cert,
             signature::Builder::from(
-                cert.primary_key().set_policy(p, None).unwrap()
+                cert.primary_key().with_policy(p, None).unwrap()
                     .direct_key_signature().unwrap().clone())
                 .set_type(SignatureType::PositiveCertification)
                 .set_exportable_certification(false).unwrap()).unwrap();
@@ -797,9 +797,9 @@ mod test {
         assert!(cert.subkeys().nth(0).unwrap().binding_signature(p, None)
                 .is_some());
         assert_eq!(cert.userids().count(), 1);
-        assert!(cert.userids().set_policy(p, None).nth(0).is_some());
+        assert!(cert.userids().with_policy(p, None).nth(0).is_some());
         assert_eq!(cert.user_attributes().count(), 1);
-        assert!(cert.user_attributes().set_policy(p, None).nth(0).is_some());
+        assert!(cert.user_attributes().with_policy(p, None).nth(0).is_some());
 
         // The binding signature is not exportable, so when we export
         // and re-parse, we expect the userid to be gone.

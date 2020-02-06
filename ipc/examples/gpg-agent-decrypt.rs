@@ -80,7 +80,7 @@ impl<'a> Helper<'a> {
         // Map (sub)KeyIDs to secrets.
         let mut keys = HashMap::new();
         for cert in certs {
-            for ka in cert.keys().set_policy(policy, None)
+            for ka in cert.keys().with_policy(policy, None)
                 .for_storage_encryption().for_transport_encryption()
             {
                 let key = ka.key();

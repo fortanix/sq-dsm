@@ -42,7 +42,7 @@ fn main() {
 
     // Construct a KeyPair for every signing-capable (sub)key.
     let mut signers = certs.iter().flat_map(|cert| {
-        cert.keys().set_policy(p, None).alive().revoked(false).for_signing()
+        cert.keys().with_policy(p, None).alive().revoked(false).for_signing()
             .filter_map(|ka| {
                 KeyPair::new(&ctx, ka.key()).ok()
             })

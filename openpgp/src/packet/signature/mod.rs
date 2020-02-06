@@ -1378,7 +1378,7 @@ mod test {
 
         let test1 = Cert::from_bytes(
             crate::tests::key("test1-certification-key.pgp")).unwrap();
-        let cert_key1 = test1.keys().set_policy(p, None)
+        let cert_key1 = test1.keys().with_policy(p, None)
             .for_certification()
             .nth(0)
             .map(|ka| ka.key())
@@ -1386,7 +1386,7 @@ mod test {
         let test2 = Cert::from_bytes(
             crate::tests::key("test2-signed-by-test1.pgp")).unwrap();
         let uid_binding =
-            test2.userids().set_policy(p, None).nth(0).unwrap().bundle();
+            test2.userids().with_policy(p, None).nth(0).unwrap().bundle();
         let cert = &uid_binding.certifications()[0];
 
         cert.verify_userid_binding(cert_key1,

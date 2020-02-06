@@ -99,7 +99,7 @@ fn sign() {
 
         let keypair = KeyPair::new(
             &ctx,
-            cert.keys().set_policy(p, None).alive().revoked(false)
+            cert.keys().with_policy(p, None).alive().revoked(false)
                 .for_signing().take(1).next().unwrap().key())
             .unwrap();
 
@@ -216,7 +216,7 @@ fn decrypt() {
         let mut message = Vec::new();
         {
             let recipient =
-                cert.keys().set_policy(p, None).alive().revoked(false)
+                cert.keys().with_policy(p, None).alive().revoked(false)
                 .for_transport_encryption()
                 .map(|ka| ka.key().into())
                 .nth(0).unwrap();
@@ -284,7 +284,7 @@ fn decrypt() {
             {
                 let mut keypair = KeyPair::new(
                     self.ctx,
-                    self.cert.keys().set_policy(self.policy, None)
+                    self.cert.keys().with_policy(self.policy, None)
                         .for_storage_encryption().for_transport_encryption()
                         .take(1).next().unwrap().key())
                     .unwrap();

@@ -55,7 +55,7 @@ fn main() {
     println!("Fingerprint: {}", cert.fingerprint());
 
     // List userids.
-    for (i, ca) in cert.userids().set_policy(p, None).enumerate() {
+    for (i, ca) in cert.userids().with_policy(p, None).enumerate() {
         println!("{}: UID: {}, {} self-signature(s), {} certification(s)",
                  i, ca.userid(),
                  ca.bundle().self_signatures().len(),
@@ -63,7 +63,7 @@ fn main() {
     }
 
     // List subkeys.
-    for (i, ka) in cert.keys().set_policy(p, None).skip(1).enumerate() {
+    for (i, ka) in cert.keys().with_policy(p, None).skip(1).enumerate() {
         println!("{}: Fingerprint: {}, {} self-signature(s), {} certification(s)",
                  i, ka.key().fingerprint(),
                  ka.bundle().self_signatures().len(),

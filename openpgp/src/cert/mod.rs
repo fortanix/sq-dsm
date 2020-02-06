@@ -455,7 +455,7 @@ impl Cert {
         // Both a primary key signature and the primary userid's
         // binding signature can override a soft revocation.  Compute
         // the most recent one.
-        let vkao = self.primary_key().set_policy(policy, t).ok();
+        let vkao = self.primary_key().with_policy(policy, t).ok();
         let mut sig = vkao.as_ref().map(|vka| vka.binding_signature());
         if let Some(direct) = vkao.as_ref()
             .and_then(|vka| vka.direct_key_signature())
@@ -535,7 +535,7 @@ impl Cert {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self.primary_key().set_policy(policy, t).context("Primary key")?.alive()
+        self.primary_key().with_policy(policy, t).context("Primary key")?.alive()
     }
 
     /// Sets the key to expire in delta seconds.
@@ -551,7 +551,7 @@ impl Cert {
                         now: time::SystemTime)
         -> Result<Cert>
     {
-        let primary = self.primary_key().set_policy(policy, now)?;
+        let primary = self.primary_key().with_policy(policy, now)?;
         let mut sigs = Vec::new();
         let binding = primary.binding_signature();
         for template in [
@@ -1816,13 +1816,13 @@ mod test {
 
         let cert = Cert::from_bytes(crate::tests::key("about-to-expire.expired.pgp"))
             .unwrap();
-        cert.primary_key().set_policy(p, None).unwrap().alive().unwrap_err();
+        cert.primary_key().with_policy(p, None).unwrap().alive().unwrap_err();
 
         let update =
             Cert::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
         let cert = cert.merge(update).unwrap();
-        cert.primary_key().set_policy(p, None).unwrap().alive().unwrap();
+        cert.primary_key().with_policy(p, None).unwrap().alive().unwrap();
     }
 
     #[test]
@@ -1927,7 +1927,7 @@ mod test {
         let now = cert.primary_key().creation_time();
         let a_sec = time::Duration::new(1, 0);
 
-        let expiry_orig = cert.primary_key().set_policy(policy, now).unwrap()
+        let expiry_orig = cert.primary_key().with_policy(policy, now).unwrap()
             .key_expiration_time()
             .expect("Keys expire by default.");
 
@@ -1940,14 +1940,14 @@ mod test {
             policy, &mut keypair, None, as_of1).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
-            assert_eq!(cert.primary_key().set_policy(policy, now).unwrap()
+            assert_eq!(cert.primary_key().with_policy(policy, now).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
-            assert_eq!(cert.primary_key().set_policy(policy, as_of1 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().with_policy(policy, as_of1 - a_sec).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
             // If t >= as_of1, we should get the new expiry.
-            assert_eq!(cert.primary_key().set_policy(policy, as_of1).unwrap()
+            assert_eq!(cert.primary_key().with_policy(policy, as_of1).unwrap()
                            .key_expiration_time(),
                        None);
         }
@@ -1963,22 +1963,22 @@ mod test {
             policy, &mut keypair, Some(expiry_new), as_of2).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
-            assert_eq!(cert.primary_key().set_policy(policy, now).unwrap()
+            assert_eq!(cert.primary_key().with_policy(policy, now).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
-            assert_eq!(cert.primary_key().set_policy(policy, as_of1 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().with_policy(policy, as_of1 - a_sec).unwrap()
                            .key_expiration_time(),
                        Some(expiry_orig));
             // If as_of1 <= t < as_of2, we should get the second
             // expiry (None).
-            assert_eq!(cert.primary_key().set_policy(policy, as_of1).unwrap()
+            assert_eq!(cert.primary_key().with_policy(policy, as_of1).unwrap()
                            .key_expiration_time(),
                        None);
-            assert_eq!(cert.primary_key().set_policy(policy, as_of2 - a_sec).unwrap()
+            assert_eq!(cert.primary_key().with_policy(policy, as_of2 - a_sec).unwrap()
                            .key_expiration_time(),
                        None);
             // If t <= as_of2, we should get the new expiry.
-            assert_eq!(cert.primary_key().set_policy(policy, as_of2).unwrap()
+            assert_eq!(cert.primary_key().with_policy(policy, as_of2).unwrap()
                            .key_expiration_time(),
                        Some(expiry_new));
         }
@@ -2000,7 +2000,7 @@ mod test {
         let cert2 = Cert::from_bytes(&buf).unwrap();
 
         assert_eq!(
-            cert2.primary_key().set_policy(p, None).unwrap()
+            cert2.primary_key().with_policy(p, None).unwrap()
                 .direct_key_signature().unwrap().typ(),
             SignatureType::DirectKey);
         assert_eq!(cert2.userids().count(), 0);
@@ -2014,7 +2014,7 @@ mod test {
 
             // If we have a user id---even if it is revoked---we have
             // a primary key signature.
-            let typ = cert.primary_key().set_policy(p, None).unwrap()
+            let typ = cert.primary_key().with_policy(p, None).unwrap()
                 .binding_signature().typ();
             assert_eq!(typ, SignatureType::PositiveCertification,
                        "{:#?}", cert);
@@ -2028,7 +2028,7 @@ mod test {
                            "{:#?}", cert);
             }
 
-            for userid in cert.userids().set_policy(p, None) {
+            for userid in cert.userids().with_policy(p, None) {
                 let typ = userid.binding_signature().typ();
                 assert_eq!(typ, SignatureType::PositiveCertification,
                            "{:#?}", cert);
@@ -2188,7 +2188,7 @@ mod test {
             .generate().unwrap();
 
         let sig = {
-            let uid = cert.userids().set_policy(p, None).nth(1).unwrap();
+            let uid = cert.userids().with_policy(p, None).nth(1).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
 
             let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
@@ -2205,7 +2205,7 @@ mod test {
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    cert.revoked(p, None));
 
-        let uid = cert.userids().set_policy(p, None).nth(1).unwrap();
+        let uid = cert.userids().with_policy(p, None).nth(1).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = uid.revoked());
     }
 
@@ -2347,7 +2347,7 @@ mod test {
             let cert = Cert::from_bytes(
                 crate::tests::key(
                     &format!("really-revoked-{}-0-public.pgp", f))).unwrap();
-            let selfsig0 = cert.primary_key().set_policy(p, None).unwrap()
+            let selfsig0 = cert.primary_key().with_policy(p, None).unwrap()
                 .binding_signature().signature_creation_time().unwrap();
 
             assert!(!revoked(p, &cert, Some(selfsig0)));
@@ -2405,7 +2405,7 @@ mod test {
 
             let mut slim_shady = false;
             let mut eminem = false;
-            for b in cert.userids().set_policy(p, t) {
+            for b in cert.userids().with_policy(p, t) {
                 if b.userid().value() == b"Slim Shady" {
                     assert!(!slim_shady);
                     slim_shady = true;
@@ -2466,7 +2466,7 @@ mod test {
 
             let now = time::SystemTime::now();
             let selfsig0
-                = cert.userids().set_policy(p, now).map(|b| {
+                = cert.userids().with_policy(p, now).map(|b| {
                     b.binding_signature().signature_creation_time().unwrap()
                 })
                 .max().unwrap();
@@ -2523,7 +2523,7 @@ mod test {
         let cert =
             Cert::from_bytes(crate::tests::key("un-revoked-userid.pgp")).unwrap();
 
-        for uid in cert.userids().set_policy(p, None) {
+        for uid in cert.userids().with_policy(p, None) {
             assert_eq!(uid.revoked(), RevocationStatus::NotAsFarAsWeKnow);
         }
     }
@@ -2718,7 +2718,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         let now = time::SystemTime::now();
         let selfsig0
-            = cert.userids().set_policy(p, now).map(|b| {
+            = cert.userids().with_policy(p, now).map(|b| {
                 b.binding_signature().signature_creation_time().unwrap()
             })
             .max().unwrap();
@@ -2783,7 +2783,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let cert = Cert::from_bytes(
             crate::tests::key("primary-key-0-public.pgp")).unwrap();
         let selfsig0
-            = cert.userids().set_policy(p, now).map(|b| {
+            = cert.userids().with_policy(p, now).map(|b| {
                 b.binding_signature().signature_creation_time().unwrap()
             })
             .max().unwrap();
@@ -2925,22 +2925,22 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 // A time that matches multiple signatures.
                 let direct_signatures =
                     cert.primary_key().bundle().self_signatures();
-                assert_eq!(cert.primary_key().set_policy(p, *t).unwrap()
+                assert_eq!(cert.primary_key().with_policy(p, *t).unwrap()
                            .direct_key_signature(),
                            direct_signatures.get(*offset));
                 // A time that doesn't match any signature.
-                assert_eq!(cert.primary_key().set_policy(p, *t + a_sec).unwrap()
+                assert_eq!(cert.primary_key().with_policy(p, *t + a_sec).unwrap()
                            .direct_key_signature(),
                            direct_signatures.get(*offset));
 
                 // The current time, which should use the first signature.
-                assert_eq!(cert.primary_key().set_policy(p, None).unwrap()
+                assert_eq!(cert.primary_key().with_policy(p, None).unwrap()
                            .direct_key_signature(),
                            direct_signatures.get(0));
 
                 // The beginning of time, which should return no
                 // binding signatures.
-                assert!(cert.primary_key().set_policy(p, time_zero).is_err());
+                assert!(cert.primary_key().with_policy(p, time_zero).is_err());
             }
         }
     }
@@ -3071,7 +3071,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let uid = UserID::from("foo@example.org");
         let cert = cert.merge_packets(vec![uid.into()])?;
         assert_eq!(cert.userids().count(), 1);
-        assert_eq!(cert.userids().set_policy(&p, None).count(), 0);
+        assert_eq!(cert.userids().with_policy(&p, None).count(), 0);
 
         // Add a bare user attribute.
         use packet::user_attribute::{Subpacket, Image};
@@ -3081,7 +3081,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         ])?;
         let cert = cert.merge_packets(vec![ua.into()])?;
         assert_eq!(cert.user_attributes().count(), 1);
-        assert_eq!(cert.user_attributes().set_policy(&p, None).count(), 0);
+        assert_eq!(cert.user_attributes().with_policy(&p, None).count(), 0);
 
         // Add a bare signing subkey.
         let signing_subkey: Key<_, key::SubordinateRole> =
@@ -3089,7 +3089,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let _signing_subkey_pair = signing_subkey.clone().into_keypair()?;
         let cert = cert.merge_packets(vec![signing_subkey.into()])?;
         assert_eq!(cert.keys().skip_primary().count(), 1);
-        assert_eq!(cert.keys().skip_primary().set_policy(&p, None).count(), 0);
+        assert_eq!(cert.keys().skip_primary().with_policy(&p, None).count(), 0);
 
         // Add a component that Sequoia doesn't understand.
         let mut fake_key = packet::Unknown::new(
@@ -3116,7 +3116,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             crate::tests::key("eike-v3-v4.pgp"))?;
         dbg!(&cert);
         assert_eq!(cert.userids()
-                   .set_policy(&crate::policy::StandardPolicy::new(), None)
+                   .with_policy(&crate::policy::StandardPolicy::new(), None)
                    .count(), 1);
         Ok(())
     }

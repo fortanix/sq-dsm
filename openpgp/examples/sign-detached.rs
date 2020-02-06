@@ -27,7 +27,7 @@ fn main() {
         let mut n = 0;
 
         for key in tsk
-            .keys().set_policy(p, None).alive().revoked(false).for_signing().secret()
+            .keys().with_policy(p, None).alive().revoked(false).for_signing().secret()
             .map(|ka| ka.key())
         {
             keys.push({

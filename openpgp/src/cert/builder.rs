@@ -481,7 +481,7 @@ mod tests {
             .add_certification_subkey()
             .generate().unwrap();
 
-        let mut userids = cert.userids().set_policy(p, None)
+        let mut userids = cert.userids().with_policy(p, None)
             .map(|u| String::from_utf8_lossy(u.userid().value()).into_owned())
             .collect::<Vec<String>>();
         userids.sort();
@@ -507,7 +507,7 @@ mod tests {
         assert_eq!(cert.userids().count(), 0);
         assert_eq!(cert.subkeys().count(), 3);
         let sig =
-            cert.primary_key().set_policy(p, None).unwrap().binding_signature();
+            cert.primary_key().with_policy(p, None).unwrap().binding_signature();
         assert_eq!(sig.typ(), crate::types::SignatureType::DirectKey);
         assert!(sig.features().unwrap().supports_mdc());
     }
@@ -581,7 +581,7 @@ mod tests {
             .primary_key_flags(KeyFlags::default())
             .add_transport_encryption_subkey()
             .generate().unwrap();
-        assert!(cert1.primary_key().set_policy(p, None).unwrap().for_certification());
+        assert!(cert1.primary_key().with_policy(p, None).unwrap().for_certification());
         assert_eq!(cert1.keys().subkeys().count(), 1);
     }
 
@@ -673,19 +673,19 @@ mod tests {
         assert!(sig.key_alive(key, now + 590 * s).is_ok());
         assert!(! sig.key_alive(key, now + 610 * s).is_ok());
 
-        let ka = cert.keys().set_policy(p, now).alive().revoked(false)
+        let ka = cert.keys().with_policy(p, now).alive().revoked(false)
             .for_signing()
             .nth(0).unwrap();
         assert!(ka.alive().is_ok());
-        assert!(ka.clone().set_policy(p, now + 290 * s).unwrap().alive().is_ok());
-        assert!(! ka.clone().set_policy(p, now + 310 * s).unwrap().alive().is_ok());
+        assert!(ka.clone().with_policy(p, now + 290 * s).unwrap().alive().is_ok());
+        assert!(! ka.clone().with_policy(p, now + 310 * s).unwrap().alive().is_ok());
 
-        let ka = cert.keys().set_policy(p, now).alive().revoked(false)
+        let ka = cert.keys().with_policy(p, now).alive().revoked(false)
             .for_authentication()
             .nth(0).unwrap();
         assert!(ka.alive().is_ok());
-        assert!(ka.clone().set_policy(p, now + 590 * s).unwrap().alive().is_ok());
-        assert!(! ka.clone().set_policy(p, now + 610 * s).unwrap().alive().is_ok());
+        assert!(ka.clone().with_policy(p, now + 590 * s).unwrap().alive().is_ok());
+        assert!(! ka.clone().with_policy(p, now + 610 * s).unwrap().alive().is_ok());
     }
 
     #[test]
@@ -701,17 +701,17 @@ mod tests {
             .generate().unwrap();
 
         assert_eq!(cert.primary_key().creation_time(), UNIX_EPOCH);
-        assert_eq!(cert.primary_key().set_policy(p, None).unwrap()
+        assert_eq!(cert.primary_key().with_policy(p, None).unwrap()
                    .binding_signature()
                    .signature_creation_time().unwrap(), UNIX_EPOCH);
-        assert_eq!(cert.primary_key().set_policy(p, None).unwrap()
+        assert_eq!(cert.primary_key().with_policy(p, None).unwrap()
                    .direct_key_signature().unwrap()
                    .signature_creation_time().unwrap(), UNIX_EPOCH);
         assert_eq!(rev.signature_creation_time().unwrap(), UNIX_EPOCH);
 
         // (Sub)Keys.
-        assert_eq!(cert.keys().set_policy(p, None).count(), 2);
-        for ka in cert.keys().set_policy(p, None) {
+        assert_eq!(cert.keys().with_policy(p, None).count(), 2);
+        for ka in cert.keys().with_policy(p, None) {
             assert_eq!(ka.key().creation_time(), UNIX_EPOCH);
             assert_eq!(ka.binding_signature()
                        .signature_creation_time().unwrap(), UNIX_EPOCH);
@@ -719,7 +719,7 @@ mod tests {
 
         // UserIDs.
         assert_eq!(cert.userids().count(), 1);
-        for ui in cert.userids().set_policy(p, None) {
+        for ui in cert.userids().with_policy(p, None) {
             assert_eq!(ui.binding_signature()
                        .signature_creation_time().unwrap(), UNIX_EPOCH);
         }

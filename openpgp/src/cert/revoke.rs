@@ -303,7 +303,7 @@ impl Deref for SubkeyRevocationBuilder {
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
 ///
 /// // Check that it is revoked.
-/// let userid = cert.userids().set_policy(p, None).nth(0).unwrap();
+/// let userid = cert.userids().with_policy(p, None).nth(0).unwrap();
 /// if let RevocationStatus::Revoked(revocations) = userid.revoked() {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);
@@ -423,7 +423,7 @@ impl Deref for UserIDRevocationBuilder {
 /// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
 ///
 /// // Check that it is revoked.
-/// let ua = cert.user_attributes().set_policy(p, None).nth(0).unwrap();
+/// let ua = cert.user_attributes().with_policy(p, None).nth(0).unwrap();
 /// if let RevocationStatus::Revoked(revocations) = ua.revoked() {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);

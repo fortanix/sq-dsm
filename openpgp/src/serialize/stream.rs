@@ -233,7 +233,7 @@ impl<'a> Signer<'a> {
     /// # let tsk = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
-    /// # let keypair = tsk.keys().set_policy(p, None).alive().revoked(false).for_signing()
+    /// # let keypair = tsk.keys().with_policy(p, None).alive().revoked(false).for_signing()
     /// #     .nth(0).unwrap()
     /// #     .key().clone().mark_parts_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
@@ -343,7 +343,7 @@ impl<'a> Signer<'a> {
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])
     /// #     .unwrap();
     /// # let keypair
-    /// #     = tsk.keys().set_policy(p, None).alive().revoked(false).for_signing()
+    /// #     = tsk.keys().with_policy(p, None).alive().revoked(false).for_signing()
     /// #           .nth(0).unwrap()
     /// #           .key().clone().mark_parts_secret().unwrap().into_keypair()
     /// #           .unwrap();
@@ -1011,7 +1011,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// // Build a vector of recipients to hand to Encryptor.
     /// let recipient =
-    ///     cert.keys().set_policy(p, None).alive().revoked(false)
+    ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
     ///     .map(|ka| ka.key().into())
@@ -1498,7 +1498,7 @@ mod test {
             Cert::from_bytes(crate::tests::key("testy-private.pgp")).unwrap(),
             Cert::from_bytes(crate::tests::key("testy-new-private.pgp")).unwrap(),
         ] {
-            for key in tsk.keys().set_policy(p, crate::frozen_time())
+            for key in tsk.keys().with_policy(p, crate::frozen_time())
                 .for_signing().map(|ka| ka.key())
             {
                 keys.insert(key.fingerprint(), key.clone());
@@ -1702,7 +1702,7 @@ mod test {
                           mut decrypt: D) -> Result<Option<crate::Fingerprint>>
                 where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
             {
-                let mut keypair = self.tsk.keys().set_policy(self.policy, None)
+                let mut keypair = self.tsk.keys().with_policy(self.policy, None)
                     .for_transport_encryption()
                     .map(|ka| ka.key()).next().unwrap()
                     .clone().mark_parts_secret().unwrap()
@@ -1731,7 +1731,7 @@ mod test {
                 {
                     let m = Message::new(&mut msg);
                     let recipient = tsk
-                        .keys().set_policy(p, None)
+                        .keys().with_policy(p, None)
                         .for_storage_encryption().for_transport_encryption()
                         .nth(0).unwrap().key().into();
                     let encryptor = Encryptor::for_recipient(m, recipient)
@@ -1821,7 +1821,7 @@ mod test {
             .generate().unwrap();
 
         // What we're going to sign with.
-        let ka = cert.keys().set_policy(p, None).for_signing().nth(0).unwrap();
+        let ka = cert.keys().with_policy(p, None).for_signing().nth(0).unwrap();
 
         // A timestamp later than the key's creation.
         let timestamp = ka.key().creation_time()

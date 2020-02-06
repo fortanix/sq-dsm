@@ -537,7 +537,7 @@ pub extern "C" fn pgp_cert_key_iter_policy<'a>(
 
     box_raw!(ValidKeyIterWrapper {
         iter: unsafe {
-            std::mem::transmute(tmp.set_policy(&**policy, maybe_time(when)))
+            std::mem::transmute(tmp.with_policy(&**policy, maybe_time(when)))
         },
         next_called: false,
     })

@@ -142,7 +142,7 @@ fn inspect_cert(policy: &dyn Policy,
                 print_keygrips, print_certifications)?;
     writeln!(output)?;
 
-    for vka in cert.keys().skip_primary().set_policy(policy, None) {
+    for vka in cert.keys().skip_primary().with_policy(policy, None) {
         writeln!(output, "         Subkey: {}", vka.key().fingerprint())?;
         inspect_revocation(output, "", vka.revoked())?;
         inspect_key(policy, output, "", vka.into(),
@@ -214,7 +214,7 @@ fn inspect_key(policy: &dyn Policy,
 {
     let key = ka.key();
     let binding = ka.bundle();
-    let vka = match ka.set_policy(policy, None) {
+    let vka = match ka.with_policy(policy, None) {
         Ok(vka) => {
             if let Err(e) = vka.alive() {
                 writeln!(output, "{}                 Invalid: {}", indent, e)?;

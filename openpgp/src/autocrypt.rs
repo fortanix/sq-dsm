@@ -130,7 +130,7 @@ impl AutocryptHeader {
         }
 
         // The UserIDs matching ADDR.
-        for uidb in cert.userids().set_policy(policy, None) {
+        for uidb in cert.userids().with_policy(policy, None) {
             // XXX: Fix match once we have the rfc2822-name-addr.
             if let Ok(Some(a)) = uidb.userid().email() {
                 if &a == addr {

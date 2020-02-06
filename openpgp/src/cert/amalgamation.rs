@@ -50,7 +50,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// time, if any.
     ///
     /// Note: this function is not exported.  Users of this interface
-    /// should do: ca.set_policy(policy, time)?.binding_signature().
+    /// should do: ca.with_policy(policy, time)?.binding_signature().
     fn binding_signature<T>(&self, policy: &dyn Policy, time: T)
         -> Option<&'a Signature>
         where T: Into<Option<time::SystemTime>>
@@ -65,7 +65,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     ///
     /// This transforms the `ComponentAmalgamation` into a
     /// `ValidComponentAmalgamation`.
-    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
+    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> Result<ValidComponentAmalgamation<'a, C>>
         where T: Into<Option<time::SystemTime>>
     {
@@ -189,7 +189,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
                 }
             })
             .and_then(|c| ComponentAmalgamation::new(cert, (c.0).0)
-                      .set_policy(policy, t).ok())
+                      .with_policy(policy, t).ok())
     }
 }
 
@@ -213,7 +213,7 @@ pub trait Amalgamation<'a> {
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    fn set_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where Self: Sized, T: Into<Option<time::SystemTime>>;
 
     /// Returns the component's binding signature as of the reference time.
@@ -272,11 +272,11 @@ impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    fn set_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        self.a.set_policy(policy, time)
+        self.a.with_policy(policy, time)
     }
 
     /// Returns the component's binding signature as of the reference time.

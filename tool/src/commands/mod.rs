@@ -51,7 +51,7 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
 {
     let mut keys = Vec::new();
     'next_cert: for tsk in certs {
-        for key in tsk.keys().set_policy(p, timestamp).alive().revoked(false)
+        for key in tsk.keys().with_policy(p, timestamp).alive().revoked(false)
             .for_signing()
             .map(|ka| ka.key())
         {
@@ -116,7 +116,7 @@ pub fn encrypt(policy: &dyn Policy,
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();
     for cert in certs.iter() {
         let mut count = 0;
-        for key in cert.keys().set_policy(policy, None).alive().revoked(false)
+        for key in cert.keys().with_policy(policy, None).alive().revoked(false)
             .key_flags(&mode).map(|ka| ka.key())
         {
             recipient_subkeys.push(key.into());

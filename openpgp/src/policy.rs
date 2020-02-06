@@ -97,7 +97,7 @@ mod test {
             .add_transport_encryption_subkey()
             .generate().unwrap();
 
-        assert_eq!(cert.keys().set_policy(p, None).count(), 3);
+        assert_eq!(cert.keys().with_policy(p, None).count(), 3);
 
         // Reject all direct key signatures.
         #[derive(Debug)]
@@ -114,7 +114,7 @@ mod test {
         }
 
         let p = &NoDirectKeySigs {};
-        assert_eq!(cert.keys().set_policy(p, None).count(), 0);
+        assert_eq!(cert.keys().with_policy(p, None).count(), 0);
 
         // Reject all subkey signatures.
         #[derive(Debug)]
@@ -131,7 +131,7 @@ mod test {
         }
 
         let p = &NoSubkeySigs {};
-        assert_eq!(cert.keys().set_policy(p, None).count(), 1);
+        assert_eq!(cert.keys().with_policy(p, None).count(), 1);
     }
 
     #[test]
@@ -151,8 +151,8 @@ mod test {
             .generate()?;
 
         // Make sure we have all keys and all user ids.
-        assert_eq!(cert.keys().set_policy(p, None).count(), 3);
-        assert_eq!(cert.userids().set_policy(p, None).count(), 1);
+        assert_eq!(cert.keys().with_policy(p, None).count(), 3);
+        assert_eq!(cert.userids().with_policy(p, None).count(), 1);
 
         // Reject all user id signatures.
         #[derive(Debug)]
@@ -168,7 +168,7 @@ mod test {
             }
         }
         let p = &NoPositiveCertifications {};
-        assert_eq!(cert.userids().set_policy(p, None).count(), 0);
+        assert_eq!(cert.userids().with_policy(p, None).count(), 0);
 
 
         // Revoke it.
@@ -189,7 +189,7 @@ mod test {
         let cert = cert.merge_packets(vec![revocation.clone().into()])?;
 
         // Check that it is revoked.
-        assert_eq!(cert.userids().set_policy(p, None).revoked(false).count(), 0);
+        assert_eq!(cert.userids().with_policy(p, None).revoked(false).count(), 0);
 
         // Reject all user id signatures.
         #[derive(Debug)]
@@ -207,7 +207,7 @@ mod test {
         let p = &NoCertificationRevocation {};
 
         // Check that the user id is no longer revoked.
-        assert_eq!(cert.userids().set_policy(p, None).revoked(false).count(), 1);
+        assert_eq!(cert.userids().with_policy(p, None).revoked(false).count(), 1);
 
 
         // Generate the revocation for the first subkey.
@@ -221,9 +221,9 @@ mod test {
         assert_eq!(revocation.typ(), SignatureType::SubkeyRevocation);
 
         // Now merge the revocation signature into the Cert.
-        assert_eq!(cert.keys().set_policy(p, None).revoked(false).count(), 3);
+        assert_eq!(cert.keys().with_policy(p, None).revoked(false).count(), 3);
         let cert = cert.merge_packets(vec![revocation.clone().into()])?;
-        assert_eq!(cert.keys().set_policy(p, None).revoked(false).count(), 2);
+        assert_eq!(cert.keys().with_policy(p, None).revoked(false).count(), 2);
 
         // Reject all subkey revocations.
         #[derive(Debug)]
@@ -241,7 +241,7 @@ mod test {
         let p = &NoSubkeyRevocation {};
 
         // Check that the key is no longer revoked.
-        assert_eq!(cert.keys().set_policy(p, None).revoked(false).count(), 3);
+        assert_eq!(cert.keys().with_policy(p, None).revoked(false).count(), 3);
 
         Ok(())
     }

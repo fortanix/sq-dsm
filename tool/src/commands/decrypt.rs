@@ -55,7 +55,7 @@ impl<'a> Helper<'a> {
 
             for ka in tsk.keys()
             // XXX: Should use the message's creation time that we do not know.
-                .set_policy(policy, None)
+                .with_policy(policy, None)
                 .for_transport_encryption().for_storage_encryption()
                 .secret()
             {

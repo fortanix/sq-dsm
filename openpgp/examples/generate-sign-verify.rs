@@ -45,7 +45,7 @@ fn sign(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Ce
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the Cert.
     let keypair = tsk
-        .keys().set_policy(p, None).alive().revoked(false).for_signing()
+        .keys().with_policy(p, None).alive().revoked(false).for_signing()
         .nth(0).unwrap()
         .key().clone().mark_parts_secret().unwrap().into_keypair()?;
 

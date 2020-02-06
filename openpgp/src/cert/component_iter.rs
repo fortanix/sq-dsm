@@ -60,7 +60,7 @@ impl<'a, C> ComponentIter<'a, C> {
     /// If `time` is None, then the current time is used.
     ///
     /// See `ValidComponentIter` for the definition of a valid component.
-    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
+    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> ValidComponentIter<'a, C>
         where T: Into<Option<SystemTime>>
     {
@@ -128,7 +128,7 @@ impl<'a, C> Iterator for ValidComponentIter<'a, C>
             t!("Considering component: {:?}", ca.bundle());
 
             let vca
-                = if let Ok(vca) = ca.set_policy(self.policy, self.time) {
+                = if let Ok(vca) = ca.with_policy(self.policy, self.time) {
                     vca
                 } else {
                     t!("No self-signature at time {:?}", self.time);
@@ -195,7 +195,7 @@ impl<'a, C> ValidComponentIter<'a, C> {
     /// # let timestamp = None;
     /// let non_revoked_uas = cert
     ///     .user_attributes()
-    ///     .set_policy(p, timestamp)
+    ///     .with_policy(p, timestamp)
     ///     .filter(|ca| {
     ///         match ca.revoked() {
     ///             RevocationStatus::Revoked(_) =>

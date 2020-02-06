@@ -219,7 +219,7 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     /// if any.
     ///
     /// Note: this function is not exported.  Users of this interface
-    /// should do: ka.set_policy(time)?.binding_signature().
+    /// should do: ka.with_policy(time)?.binding_signature().
     fn binding_signature<T>(&self, policy: &'a dyn Policy, time: T)
         -> Option<&'a Signature>
         where T: Into<Option<time::SystemTime>>
@@ -249,7 +249,7 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     ///
     /// This transforms the `KeyAmalgamation` into a
     /// `ValidKeyAmalgamation`.
-    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
+    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> Result<ValidKeyAmalgamation<'a, P>>
         where T: Into<Option<time::SystemTime>>
     {
@@ -330,11 +330,11 @@ impl<'a, P: key::KeyParts> PrimaryKeyAmalgamation<'a, P> {
     ///
     /// This transforms the `KeyAmalgamation` into a
     /// `ValidKeyAmalgamation`.
-    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T)
+    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> Result<ValidPrimaryKeyAmalgamation<'a, P>>
         where T: Into<Option<time::SystemTime>>
     {
-        Ok(ValidPrimaryKeyAmalgamation::new(self.a.set_policy(policy, time)?))
+        Ok(ValidPrimaryKeyAmalgamation::new(self.a.with_policy(policy, time)?))
     }
 }
 
@@ -443,11 +443,11 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    fn set_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        self.a.set_policy(policy, time)
+        self.a.with_policy(policy, time)
     }
 
     /// Returns the key's binding signature as of the reference time,
@@ -712,9 +712,9 @@ impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    pub fn set_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
+    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
-        Ok(Self::new(self.a.set_policy(policy, time)?))
+        Ok(Self::new(self.a.with_policy(policy, time)?))
     }
 }

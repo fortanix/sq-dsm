@@ -129,13 +129,13 @@ impl Timestamp {
     ///
     ///     /// First, get the certification key.
     ///     let mut keypair =
-    ///         alice.keys().set_policy(policy, t).secret().for_certification()
+    ///         alice.keys().with_policy(policy, t).secret().for_certification()
     ///         .nth(0).ok_or_else(|| failure::err_msg("no valid key at"))?
     ///         .key().clone().into_keypair()?;
     ///
     ///     // Then, lookup the binding between `bob@example.org` and
     ///     // `bob` at `t`.
-    ///     let ca = bob.userids().set_policy(policy, t)
+    ///     let ca = bob.userids().with_policy(policy, t)
     ///         .filter(|ca| ca.userid().value() == b"bob@example.org")
     ///         .nth(0).ok_or_else(|| failure::err_msg("no valid userid"))?;
     ///

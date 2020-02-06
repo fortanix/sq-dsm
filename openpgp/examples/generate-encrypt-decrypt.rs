@@ -48,7 +48,7 @@ fn encrypt(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str,
 {
     // Build a vector of recipients to hand to Encryptor.
     let mut recipients =
-        recipient.keys().set_policy(p, None).alive().revoked(false)
+        recipient.keys().with_policy(p, None).alive().revoked(false)
         .for_transport_encryption()
         .map(|ka| ka.key().into())
         .collect::<Vec<_>>();
@@ -124,7 +124,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
-        let key = self.secret.keys().set_policy(self.policy, None)
+        let key = self.secret.keys().with_policy(self.policy, None)
             .for_transport_encryption().nth(0).unwrap().key().clone();
 
         // The secret key is not encrypted.
