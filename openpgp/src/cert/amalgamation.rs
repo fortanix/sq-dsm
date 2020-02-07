@@ -322,6 +322,21 @@ pub trait Amalgamation<'a> {
     {
         self.has_any_key_flag(KeyFlags::default().set_transport_encryption(true))
     }
+
+    /// Returns the key's expiration time as of the amalgamtion's
+    /// reference time.
+    ///
+    /// Considers both the binding signature and the direct key
+    /// signature.  Information in the binding signature takes
+    /// precedence over the direct key signature.  See also [Section
+    /// 5.2.3.3 of RFC 4880].
+    ///
+    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+    fn key_expiration_time(&self) -> Option<std::time::Duration> {
+        self.binding_signature().key_expiration_time()
+            .or_else(|| self.direct_key_signature()
+                     .and_then(|sig| sig.key_expiration_time()))
+    }
 }
 
 impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
