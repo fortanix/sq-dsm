@@ -547,7 +547,7 @@ impl Cert {
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
-    fn set_expiry_as_of(self, policy: &dyn Policy,
+    fn set_expiration_time_as_of(self, policy: &dyn Policy,
                         primary_signer: &mut dyn Signer,
                         expiration: Option<time::Duration>,
                         now: time::SystemTime)
@@ -604,13 +604,13 @@ impl Cert {
     /// not the current time!
     ///
     /// A policy is needed, because the expiration is updated by adding
-    /// a self-signature to the primary user id,
-    pub fn set_expiry(self, policy: &dyn Policy,
+    /// a self-signature to the primary user id.
+    pub fn set_expiration_time(self, policy: &dyn Policy,
                       primary_signer: &mut dyn Signer,
                       expiration: Option<time::Duration>)
         -> Result<Cert>
     {
-        self.set_expiry_as_of(policy, primary_signer, expiration,
+        self.set_expiration_time_as_of(policy, primary_signer, expiration,
                               time::SystemTime::now())
     }
 
@@ -1873,7 +1873,7 @@ mod test {
     }
 
     #[test]
-    fn set_expiry() {
+    fn set_expiration_time() {
         let p = &P::new();
 
         let (cert, _) = CertBuilder::general_purpose(None, Some("Test"))
@@ -1886,7 +1886,7 @@ mod test {
                    + 1 // subkey
                    + 1 // binding signature
         );
-        let cert = check_set_expiry(p, cert);
+        let cert = check_set_expiration_time(p, cert);
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
                    + 1 // direct key signature
@@ -1899,7 +1899,7 @@ mod test {
         );
     }
     #[test]
-    fn set_expiry_uidless() {
+    fn set_expiration_time_uidless() {
         let p = &P::new();
 
         let (cert, _) = CertBuilder::new()
@@ -1911,14 +1911,14 @@ mod test {
                    1 // primary key
                    + 1 // direct key signature
         );
-        let cert = check_set_expiry(p, cert);
+        let cert = check_set_expiration_time(p, cert);
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
                    + 1 // direct key signature
                    + 2 // two new direct key signatures
         );
     }
-    fn check_set_expiry(policy: &dyn Policy, cert: Cert) -> Cert {
+    fn check_set_expiration_time(policy: &dyn Policy, cert: Cert) -> Cert {
         let now = cert.primary_key().creation_time();
         let a_sec = time::Duration::new(1, 0);
 
@@ -1931,7 +1931,7 @@ mod test {
 
         // Clear the expiration.
         let as_of1 = now + time::Duration::new(10, 0);
-        let cert = cert.set_expiry_as_of(
+        let cert = cert.set_expiration_time_as_of(
             policy, &mut keypair, None, as_of1).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
@@ -1954,7 +1954,7 @@ mod test {
         assert!(expiry_new > time::Duration::new(0, 0));
 
         let as_of2 = as_of1 + time::Duration::new(10, 0);
-        let cert = cert.set_expiry_as_of(
+        let cert = cert.set_expiration_time_as_of(
             policy, &mut keypair, Some(expiry_new), as_of2).unwrap();
         {
             // If t < as_of1, we should get the original expiry.

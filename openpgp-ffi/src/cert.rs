@@ -346,7 +346,7 @@ fn pgp_cert_alive(errp: Option<&mut *mut crate::error::Error>,
 ///
 /// This function consumes `cert` and returns a new `Cert`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_set_expiry(errp: Option<&mut *mut crate::error::Error>,
+fn pgp_cert_set_expiration_time(errp: Option<&mut *mut crate::error::Error>,
                        cert: *mut Cert,
                        policy: *const Policy,
                        primary_signer: *mut Box<dyn crypto::Signer>,
@@ -357,7 +357,7 @@ fn pgp_cert_set_expiry(errp: Option<&mut *mut crate::error::Error>,
     let cert = cert.move_from_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
 
-    cert.set_expiry(policy, signer.as_mut(),
+    cert.set_expiration_time(policy, signer.as_mut(),
                     Some(std::time::Duration::new(expiry as u64, 0)))
         .move_into_raw(errp)
 }

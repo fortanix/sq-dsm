@@ -928,7 +928,7 @@ pgp_status_t pgp_cert_alive(pgp_error_t *errp, pgp_cert_t cert,
 ///
 /// This function consumes `cert` and returns a new `Cert`.
 /*/
-pgp_cert_t pgp_cert_set_expiry(pgp_error_t *errp,
+pgp_cert_t pgp_cert_set_expiration_time(pgp_error_t *errp,
                                pgp_cert_t cert,
                                pgp_policy_t policy,
                                pgp_signer_t signer,
