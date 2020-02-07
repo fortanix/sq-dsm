@@ -250,6 +250,19 @@ pub trait Amalgamation<'a> {
         self.cert().alive(self.policy(), self.time())
     }
 
+    /// Maps the given function over binding and direct key signature.
+    ///
+    /// Makes `f` consider both the binding signature and the direct
+    /// key signature.  Information in the binding signature takes
+    /// precedence over the direct key signature.  See also [Section
+    /// 5.2.3.3 of RFC 4880].
+    ///
+    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+    fn map<F: Fn(&'a Signature) -> Option<T>, T>(&self, f: F) -> Option<T> {
+        f(self.binding_signature())
+            .or_else(|| self.direct_key_signature().and_then(f))
+    }
+
     /// Returns the key's key flags as of the amalgamtion's
     /// reference time.
     ///
@@ -260,9 +273,7 @@ pub trait Amalgamation<'a> {
     ///
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     fn key_flags(&self) -> Option<KeyFlags> {
-        self.binding_signature().key_flags()
-            .or_else(|| self.direct_key_signature()
-                     .and_then(|sig| sig.key_flags()))
+        self.map(|s| s.key_flags())
     }
 
     /// Returns whether the key has at least one of the specified key
@@ -335,9 +346,7 @@ pub trait Amalgamation<'a> {
     ///
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     fn key_expiration_time(&self) -> Option<std::time::Duration> {
-        self.binding_signature().key_expiration_time()
-            .or_else(|| self.direct_key_signature()
-                     .and_then(|sig| sig.key_expiration_time()))
+        self.map(|s| s.key_expiration_time())
     }
 
     /// Returns the value of the Revocation Key subpacket, which
@@ -352,9 +361,7 @@ pub trait Amalgamation<'a> {
     fn revocation_key(&self) -> Option<(u8,
                                         PublicKeyAlgorithm,
                                         Fingerprint)> {
-        self.binding_signature().revocation_key()
-            .or_else(|| self.direct_key_signature()
-                     .and_then(|sig| sig.revocation_key()))
+        self.map(|s| s.revocation_key())
     }
 }
 
