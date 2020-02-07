@@ -41,7 +41,7 @@ unicode-normalization = "=0.1.9"
 lalrpop = "0.17"
 
 [dev-dependencies]
-rpassword = "4.0"
+rpassword = "=4.0.3"
 
 [features]
 default = ["compression"]
