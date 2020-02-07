@@ -2,7 +2,6 @@ use std::time;
 use std::time::SystemTime;
 use std::convert::TryInto;
 use std::convert::TryFrom;
-use std::borrow::Borrow;
 use std::ops::Deref;
 
 use crate::{
@@ -19,7 +18,6 @@ use crate::{
     policy::Policy,
     Result,
     RevocationStatus,
-    types::KeyFlags,
 };
 
 /// The underlying `KeyAmalgamation` type.
@@ -504,81 +502,6 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
             } =>
                 (*bundle).into(),
         }
-    }
-
-    /// Returns the key's key flags as of the amalgamtion's
-    /// reference time.
-    ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
-    /// 5.2.3.3 of RFC 4880].
-    ///
-    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    pub fn key_flags(&self) -> Option<KeyFlags> {
-        self.binding_signature().key_flags()
-            .or_else(|| self.direct_key_signature()
-                     .and_then(|sig| sig.key_flags()))
-    }
-
-    /// Returns whether the key has at least one of the specified key
-    /// flags as of the amalgamtion's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    pub fn has_any_key_flag<F>(&self, flags: F) -> bool
-        where F: Borrow<KeyFlags>
-    {
-        let our_flags = self.key_flags().unwrap_or_default();
-        !(&our_flags & flags.borrow()).is_empty()
-    }
-
-    /// Returns whether key is certification capable as of the
-    /// amalgamtion's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    pub fn for_certification(&self) -> bool {
-        self.has_any_key_flag(KeyFlags::empty().set_certification(true))
-    }
-
-    /// Returns whether key is signing capable as of the amalgamtion's
-    /// reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    pub fn for_signing(&self) -> bool {
-        self.has_any_key_flag(KeyFlags::empty().set_signing(true))
-    }
-
-    /// Returns whether key is authentication capable as of the
-    /// amalgamtion's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    pub fn for_authentication(&self) -> bool
-    {
-        self.has_any_key_flag(KeyFlags::empty().set_authentication(true))
-    }
-
-    /// Returns whether key is intended for storage encryption as of
-    /// the amalgamtion's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    pub fn for_storage_encryption(&self) -> bool
-    {
-        self.has_any_key_flag(KeyFlags::empty().set_storage_encryption(true))
-    }
-
-    /// Returns whether key is intended for transport encryption as of the
-    /// amalgamtion's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    pub fn for_transport_encryption(&self) -> bool
-    {
-        self.has_any_key_flag(KeyFlags::empty().set_transport_encryption(true))
     }
 
     /// Returns whether the key is alive as of the amalgamtion's
