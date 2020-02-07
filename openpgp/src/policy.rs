@@ -83,12 +83,16 @@ impl Policy for StandardPolicy {
 
 #[cfg(test)]
 mod test {
+    use std::io::Read;
+
     use super::*;
-    use crate::cert::CertBuilder;
+    use crate::Fingerprint;
+    use crate::cert::{Cert, CertBuilder};
+    use crate::parse::Parse;
     use crate::policy::StandardPolicy as P;
 
     #[test]
-    fn badbadbad() {
+    fn binding_signature() {
         let p = &P::new();
 
         // A primary and two subkeys.
@@ -135,7 +139,7 @@ mod test {
     }
 
     #[test]
-    fn revoke_revocations() -> Result<()> {
+    fn revocation() -> Result<()> {
         use crate::cert::UserIDRevocationBuilder;
         use crate::cert::SubkeyRevocationBuilder;
         use crate::types::SignatureType;
@@ -244,5 +248,233 @@ mod test {
         assert_eq!(cert.keys().with_policy(p, None).revoked(false).count(), 3);
 
         Ok(())
+    }
+
+
+    #[test]
+    fn binary_signature() {
+        use crate::crypto::SessionKey;
+        use crate::types::SymmetricAlgorithm;
+        use crate::packet::{PKESK, SKESK};
+        use crate::parse::stream::MessageLayer;
+        use crate::parse::stream::MessageStructure;
+        use crate::parse::stream::Verifier;
+        use crate::parse::stream::Decryptor;
+        use crate::parse::stream::VerificationHelper;
+        use crate::parse::stream::DecryptionHelper;
+
+        #[derive(PartialEq, Debug)]
+        struct VHelper {
+            good: usize,
+            errors: usize,
+            keys: Vec<Cert>,
+        }
+
+        impl VHelper {
+            fn new(keys: Vec<Cert>) -> Self {
+                VHelper {
+                    good: 0,
+                    errors: 0,
+                    keys: keys,
+                }
+            }
+        }
+
+        impl VerificationHelper for VHelper {
+            fn get_public_keys(&mut self, _ids: &[crate::KeyHandle])
+                -> Result<Vec<Cert>>
+            {
+                Ok(self.keys.clone())
+            }
+
+            fn check(&mut self, structure: MessageStructure) -> Result<()>
+            {
+                use crate::parse::stream::VerificationResult::*;
+                for layer in structure.iter() {
+                    match layer {
+                        MessageLayer::SignatureGroup { ref results } =>
+                            for result in results {
+                                eprintln!("result: {:?}", result);
+                                match result {
+                                    GoodChecksum { .. } => self.good += 1,
+                                    Error { .. } => self.errors += 1,
+                                    _ => (),
+                                }
+                            }
+                        MessageLayer::Compression { .. } => (),
+                        _ => unreachable!(),
+                    }
+                }
+
+                Ok(())
+            }
+        }
+
+        impl DecryptionHelper for VHelper {
+            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK], _: D)
+                          -> Result<Option<Fingerprint>>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+            {
+                unreachable!();
+            }
+        }
+
+        // Reject all data (binary) signatures.
+        #[derive(Debug)]
+        struct NoBinarySigantures;
+        impl Policy for NoBinarySigantures {
+            fn signature(&self, sig: &Signature) -> Result<()> {
+                use crate::types::SignatureType::*;
+                eprintln!("{:?}", sig.typ());
+                match sig.typ() {
+                    Binary =>
+                        Err(format_err!("binary!")),
+                    _ => Ok(()),
+                }
+            }
+        }
+        let no_binary_signatures = &NoBinarySigantures {};
+
+        // Reject all subkey signatures.
+        #[derive(Debug)]
+        struct NoSubkeySigs;
+        impl Policy for NoSubkeySigs {
+            fn signature(&self, sig: &Signature) -> Result<()> {
+                use crate::types::SignatureType::*;
+
+                match sig.typ() {
+                    SubkeyBinding => Err(format_err!("subkey signature!")),
+                    _ => Ok(()),
+                }
+            }
+        }
+        let no_subkey_signatures = &NoSubkeySigs {};
+
+        let standard = &P::new();
+
+        let keys = [
+            "neal.pgp",
+        ].iter()
+            .map(|f| Cert::from_bytes(crate::tests::key(f)).unwrap())
+            .collect::<Vec<_>>();
+        let data = "messages/signed-1.gpg";
+
+        let reference = crate::tests::manifesto();
+
+
+
+        // Test Verifier.
+
+        // Standard policy => ok.
+        let h = VHelper::new(keys.clone());
+        let mut v =
+            match Verifier::from_bytes(standard, crate::tests::file(data), h,
+                                       crate::frozen_time()) {
+                Ok(v) => v,
+                Err(e) => panic!("{}", e),
+            };
+        assert!(v.message_processed());
+        assert_eq!(v.helper_ref().good, 1);
+        assert_eq!(v.helper_ref().errors, 0);
+
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(reference.len(), content.len());
+        assert_eq!(reference, &content[..]);
+
+
+        // Kill the subkey.
+        let h = VHelper::new(keys.clone());
+        let mut v = match Verifier::from_bytes(no_subkey_signatures,
+                                   crate::tests::file(data), h,
+                                   crate::frozen_time()) {
+            Ok(v) => v,
+            Err(e) => panic!("{}", e),
+        };
+        assert!(v.message_processed());
+        assert_eq!(v.helper_ref().good, 0);
+        assert_eq!(v.helper_ref().errors, 1);
+
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(reference.len(), content.len());
+        assert_eq!(reference, &content[..]);
+
+
+        // Kill the data signature.
+        let h = VHelper::new(keys.clone());
+        let mut v =
+            match Verifier::from_bytes(no_binary_signatures,
+                                       crate::tests::file(data), h,
+                                       crate::frozen_time()) {
+                Ok(v) => v,
+                Err(e) => panic!("{}", e),
+            };
+        assert!(v.message_processed());
+        assert_eq!(v.helper_ref().good, 0);
+        assert_eq!(v.helper_ref().errors, 1);
+
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(reference.len(), content.len());
+        assert_eq!(reference, &content[..]);
+
+
+
+        // Test Decryptor.
+
+        // Standard policy.
+        let h = VHelper::new(keys.clone());
+        let mut v =
+            match Decryptor::from_bytes(standard, crate::tests::file(data), h,
+                                        crate::frozen_time()) {
+                Ok(v) => v,
+                Err(e) => panic!("{}", e),
+            };
+        assert!(v.message_processed());
+        assert_eq!(v.helper_ref().good, 1);
+        assert_eq!(v.helper_ref().errors, 0);
+
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(reference.len(), content.len());
+        assert_eq!(reference, &content[..]);
+
+
+        // Kill the subkey.
+        let h = VHelper::new(keys.clone());
+        let mut v = match Decryptor::from_bytes(no_subkey_signatures,
+                                                crate::tests::file(data), h,
+                                                crate::frozen_time()) {
+            Ok(v) => v,
+            Err(e) => panic!("{}", e),
+        };
+        assert!(v.message_processed());
+        assert_eq!(v.helper_ref().good, 0);
+        assert_eq!(v.helper_ref().errors, 1);
+
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(reference.len(), content.len());
+        assert_eq!(reference, &content[..]);
+
+
+        // Kill the data signature.
+        let h = VHelper::new(keys.clone());
+        let mut v =
+            match Decryptor::from_bytes(no_binary_signatures,
+                                        crate::tests::file(data), h,
+                                        crate::frozen_time()) {
+                Ok(v) => v,
+                Err(e) => panic!("{}", e),
+            };
+        assert!(v.message_processed());
+        assert_eq!(v.helper_ref().good, 0);
+        assert_eq!(v.helper_ref().errors, 1);
+
+        let mut content = Vec::new();
+        v.read_to_end(&mut content).unwrap();
+        assert_eq!(reference.len(), content.len());
+        assert_eq!(reference, &content[..]);
     }
 }
