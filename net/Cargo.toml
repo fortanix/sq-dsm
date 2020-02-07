@@ -1,13 +1,13 @@
 [package]
 name = "sequoia-net"
 description = "Network services for OpenPGP"
-version = "0.13.0"
+version = "0.14.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.13.0/sequoia_net"
+documentation = "https://docs.sequoia-pgp.org/0.14.0/sequoia_net"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
@@ -21,8 +21,8 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.13", default-features = false }
-sequoia-core = { path = "../core", version = "0.13" }
+sequoia-openpgp = { path = "../openpgp", version = "0.14", default-features = false }
+sequoia-core = { path = "../core", version = "0.14" }
 
 failure = "0.1.2"
 futures = "0.1"

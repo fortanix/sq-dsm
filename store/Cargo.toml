@@ -1,14 +1,14 @@
 [package]
 name = "sequoia-store"
 description = "Public-Key store for Sequoia"
-version = "0.13.0"
+version = "0.14.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
 build = "build.rs"
-documentation = "https://docs.sequoia-pgp.org/0.13.0/sequoia_store"
+documentation = "https://docs.sequoia-pgp.org/0.14.0/sequoia_store"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
@@ -26,10 +26,10 @@ default = ["background-services"]
 background-services = []
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.13" }
-sequoia-core = { path = "../core", version = "0.13" }
-sequoia-ipc = { path = "../ipc", version = "0.13" }
-sequoia-net = { path = "../net", version = "0.13" }
+sequoia-openpgp = { path = "../openpgp", version = "0.14" }
+sequoia-core = { path = "../core", version = "0.14" }
+sequoia-ipc = { path = "../ipc", version = "0.14" }
+sequoia-net = { path = "../net", version = "0.14" }
 capnp = "0.10"
 capnp-rpc = "0.10"
 failure = "0.1.2"
