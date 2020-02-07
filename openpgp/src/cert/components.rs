@@ -32,6 +32,7 @@ pub use super::key_amalgamation::{
     KeyAmalgamation,
     PrimaryKeyAmalgamation,
     ValidKeyAmalgamation,
+    ValidPrimaryKeyAmalgamation,
 };
 pub use super::component_iter::{
     ComponentIter,
