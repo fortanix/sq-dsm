@@ -260,7 +260,7 @@ impl CertBuilder {
     /// Sets the expiration time.
     ///
     /// A value of None means never.
-    pub fn set_expiration<T>(mut self, expiration: T) -> Self
+    pub fn set_expiration_time<T>(mut self, expiration: T) -> Self
         where T: Into<Option<time::Duration>>
     {
         self.primary.expiration = expiration.into();
@@ -583,7 +583,7 @@ mod tests {
 
         let s = std::time::Duration::new(1, 0);
         let (cert,_) = CertBuilder::new()
-            .set_expiration(600 * s)
+            .set_expiration_time(600 * s)
             .add_subkey(KeyFlags::default().set_signing(true),
                         300 * s)
             .add_subkey(KeyFlags::default().set_authentication(true),

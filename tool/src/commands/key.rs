@@ -41,7 +41,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
 
     match m.value_of("expiry") {
         Some(expiry) if expiry == "never" =>
-            builder = builder.set_expiration(None),
+            builder = builder.set_expiration_time(None),
 
         Some(expiry) => {
             let mut expiry = expiry.chars().peekable();
@@ -102,13 +102,13 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
                     junk, count, factor));
             }
 
-            builder = builder.set_expiration(
+            builder = builder.set_expiration_time(
                 Some(std::time::Duration::new(even_off(count * factor), 0)));
         }
 
         // Not specified.  Use the default.
         None => {
-            builder = builder.set_expiration(
+            builder = builder.set_expiration_time(
                 Some(std::time::Duration::new(even_off(3 * SECONDS_IN_YEAR), 0))
             );
         }

@@ -1903,8 +1903,8 @@ mod test {
         let p = &P::new();
 
         let (cert, _) = CertBuilder::new()
-            .set_expiration(None) // Just to assert this works.
-            .set_expiration(
+            .set_expiration_time(None) // Just to assert this works.
+            .set_expiration_time(
                 Some(crate::types::Duration::weeks(52).unwrap().into()))
             .generate().unwrap();
         assert_eq!(cert.clone().into_packet_pile().children().count(),
