@@ -408,6 +408,12 @@ impl SubpacketArea {
     }
 
     /// Returns the last subpacket, if any, with the specified tag.
+    ///
+    /// This is the recommended strategy of dealing with multiple,
+    /// possibly conflicting, subpackets.  See [Section 5.2.4.1 of RFC
+    /// 4880].
+    ///
+    ///   [Section 5.2.4.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.4.1
     pub fn lookup(&self, tag: SubpacketTag) -> Option<&Subpacket> {
         self.cache_init();
 
