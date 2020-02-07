@@ -23,7 +23,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 buffered-reader = { path = "../buffered-reader", version = "0.13", default-features = false }
-base64 = "0.10.1"
+base64 = "0.11"
 bzip2 = { version = "0.3.2", optional = true }
 failure = "0.1.2"
 flate2 = { version = "1.0.1", optional = true }
