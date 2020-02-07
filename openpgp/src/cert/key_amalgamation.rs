@@ -626,3 +626,66 @@ impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
         Ok(Self::new(self.a.with_policy(policy, time)?))
     }
 }
+
+impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
+    for ValidPrimaryKeyAmalgamation<'a, P>
+{
+    // NOTE: No docstring, because KeyAmalgamation has the same method.
+    // Returns the certificate that the component came from.
+    fn cert(&self) -> &'a Cert {
+        self.a.cert()
+    }
+
+    /// Returns the amalgamation's reference time.
+    ///
+    /// For queries that are with respect to a point in time, this
+    /// determines that point in time.  For instance, if a key is
+    /// created at `t_c` and expires at `t_e`, then
+    /// `ValidKeyAmalgamation::alive` will return true if the reference
+    /// time is greater than or equal to `t_c` and less than `t_e`.
+    fn time(&self) -> SystemTime {
+        self.a.time()
+    }
+
+    /// Returns the amalgamation's policy.
+    fn policy(&self) -> &'a dyn Policy {
+        self.a.policy()
+    }
+
+    /// Changes the amalgamation's policy.
+    ///
+    /// If `time` is `None`, the current time is used.
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
+        where T: Into<Option<time::SystemTime>>
+    {
+        let time = time.into().unwrap_or_else(SystemTime::now);
+        Ok(ValidPrimaryKeyAmalgamation {
+            a: self.a.with_policy(policy, time)?,
+        })
+    }
+
+    /// Returns the key's binding signature as of the reference time,
+    /// if any.
+    fn binding_signature(&self) -> &'a Signature {
+        self.a.binding_signature()
+    }
+
+    /// Returns the Certificate's direct key signature as of the
+    /// reference time, if any.
+    ///
+    /// Subpackets on direct key signatures apply to all components of
+    /// the certificate.
+    fn direct_key_signature(&self) -> Option<&'a Signature> {
+        self.a.direct_key_signature()
+    }
+
+    /// Returns the key's revocation status as of the amalgamation's
+    /// reference time.
+    ///
+    /// Note: this function only returns whether the key has been
+    /// revoked, it does not return whether the certificate has been
+    /// revoked.
+    fn revoked(&self) -> RevocationStatus<'a> {
+        self.a.revoked()
+    }
+}
