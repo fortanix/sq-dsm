@@ -250,8 +250,10 @@ use super::*;
 ///
 /// Certs are always canonicalized in the sense that only elements
 /// (user id, user attribute, subkey) with at least one valid
-/// self-signature are preserved.  Also, invalid self-signatures are
-/// dropped.  The self-signatures are sorted so that the newest
+/// self-signature at a given time under a given policy are used.
+/// However, we keep all packets around for re-serialization.  It
+/// could be an component that we simply do not understand.
+/// The self-signatures are sorted so that the newest
 /// self-signature comes first.  Components are sorted, but in an
 /// undefined manner (i.e., when parsing the same Cert multiple times,
 /// the components will be in the same order, but we reserve the right
@@ -275,7 +277,7 @@ use super::*;
 ///
 /// To filter certificates, iterate over all components, clone what
 /// you want to keep, and reassemble the certificate.  The following
-/// example simply copies all the packets, and can be adopted to
+/// example simply copies all the packets, and can be adapted to
 /// suit your policy:
 ///
 /// ```rust
@@ -637,26 +639,19 @@ impl Cert {
                                             policy, t)
     }
 
-    /// Returns an iterator over the Cert's valid `UserAttributeBundle`s.
-    ///
-    /// A valid `UserIDAttributeBinding` has at least one good
-    /// self-signature.
+    /// Returns an iterator over the Cert's `UserAttributeBundle`s.
     pub fn user_attributes(&self) -> ComponentIter<UserAttribute> {
         ComponentIter::new(self, self.user_attributes.iter())
     }
 
-    /// Returns an iterator over the Cert's valid subkeys.
-    ///
-    /// A valid `KeyBundle` has at least one good self-signature.
+    /// Returns an iterator over the Cert's subkeys.
     pub(crate) fn subkeys(&self) -> UnfilteredKeyBundleIter<key::PublicParts,
                                             key::SubordinateRole>
     {
         UnfilteredKeyBundleIter { iter: Some(self.subkeys.iter()) }
     }
 
-    /// Returns an iterator over the Cert's valid unknown components.
-    ///
-    /// A valid `UnknownBundle` has at least one good self-signature.
+    /// Returns an iterator over the Cert's unknown components.
     pub fn unknowns(&self) -> UnknownBundleIter {
         UnknownBundleIter { iter: Some(self.unknowns.iter()) }
     }
