@@ -17,7 +17,6 @@ use crate::{
     Result,
     RevocationStatus,
     SignatureType,
-    HashAlgorithm,
     packet,
     packet::Signature,
     packet::signature,
@@ -35,7 +34,13 @@ use crate::{
 };
 use crate::parse::{Parse, PacketParserResult, PacketParser};
 use crate::types::{
+    AEADAlgorithm,
+    CompressionAlgorithm,
+    Features,
+    HashAlgorithm,
+    KeyServerPreferences,
     ReasonForRevocation,
+    SymmetricAlgorithm,
 };
 
 mod amalgamation;
@@ -236,6 +241,62 @@ type UserAttributeBindings = ComponentBundles<UserAttribute>;
 /// Note: all signatures are stored as certifications.
 type UnknownBindings = ComponentBundles<Unknown>;
 
+/// Queries certificate holder's preferences.
+///
+/// A certificate's key holder controls the primary key.  Subpackets
+/// on self signatures can be used to express preferences for
+/// algorithms and key management.  Furthermore, the key holder's
+/// OpenPGP implementation can express its feature set.
+pub trait Preferences<'a>: components::Amalgamation<'a> {
+    /// Returns symmetric algorithms that the key holder prefers.
+    ///
+    /// The algorithms are ordered according by the key holder's
+    /// preference.
+    fn preferred_symmetric_algorithms(&self)
+                                      -> Option<&'a [SymmetricAlgorithm]> {
+        self.map(|s| s.preferred_symmetric_algorithms())
+    }
+
+    /// Returns hash algorithms that the key holder prefers.
+    ///
+    /// The algorithms are ordered according by the key holder's
+    /// preference.
+    fn preferred_hash_algorithms(&self) -> Option<&'a [HashAlgorithm]> {
+        self.map(|s| s.preferred_hash_algorithms())
+    }
+
+    /// Returns compression algorithms that the key holder prefers.
+    ///
+    /// The algorithms are ordered according by the key holder's
+    /// preference.
+    fn preferred_compression_algorithms(&self)
+                                        -> Option<&'a [CompressionAlgorithm]> {
+        self.map(|s| s.preferred_compression_algorithms())
+    }
+
+    /// Returns AEAD algorithms that the key holder prefers.
+    ///
+    /// The algorithms are ordered according by the key holder's
+    /// preference.
+    fn preferred_aead_algorithms(&self) -> Option<&'a [AEADAlgorithm]> {
+        self.map(|s| s.preferred_aead_algorithms())
+    }
+
+    /// Returns the key holder's keyserver preferences.
+    fn key_server_preferences(&self) -> Option<KeyServerPreferences> {
+        self.map(|s| s.key_server_preferences())
+    }
+
+    /// Returns the key holder's preferred keyserver for updates.
+    fn preferred_key_server(&self) -> Option<&'a [u8]> {
+        self.map(|s| s.preferred_key_server())
+    }
+
+    /// Returns the key holder's feature set.
+    fn features(&self) -> Option<Features> {
+        self.map(|s| s.features())
+    }
+}
 
 // DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
 // it in a submodule `def`.

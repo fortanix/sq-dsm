@@ -423,3 +423,5 @@ impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
     }
 }
 
+impl<'a, C> crate::cert::Preferences<'a>
+    for ValidComponentAmalgamation<'a, C> {}

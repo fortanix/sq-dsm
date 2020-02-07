@@ -689,3 +689,6 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
         self.a.revoked()
     }
 }
+
+impl<'a, P: key::KeyParts> crate::cert::Preferences<'a>
+    for ValidPrimaryKeyAmalgamation<'a, P> {}
