@@ -73,8 +73,9 @@ impl<'a> From<&'a StandardPolicy> for Option<&'a dyn Policy> {
 
 impl StandardPolicy {
     /// Instantiates a new `StandardPolicy` with the default parameters.
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        Self {
+        }
     }
 }
 
