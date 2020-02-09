@@ -258,7 +258,10 @@ impl<C> ComponentBundle<C> {
 
         let check = |revs: &'a [Signature]| -> Option<Vec<&'a Signature>> {
             let revs = revs.iter().filter_map(|rev| {
-                if hard_revocations_are_final
+                if let Err(err) = policy.signature(rev) {
+                    t!("  revocation rejected by caller policy: {}", err);
+                    None
+                } else if hard_revocations_are_final
                     && rev.reason_for_revocation()
                     .map(|(r, _)| {
                         r.revocation_type() == RevocationType::Hard
@@ -290,9 +293,6 @@ impl<C> ComponentBundle<C> {
                        .unwrap_or_else(time_zero),
                        rev.signature_expiration_time()
                        .unwrap_or_else(|| time::Duration::new(0, 0)));
-                    None
-                } else if let Err(err) = policy.signature(rev) {
-                    t!("  revocation rejected by caller policy: {}", err);
                     None
                 } else {
                     t!("  got a revocation: {:?} ({:?})",
