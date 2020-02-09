@@ -78,6 +78,8 @@ impl<'a> FromSequoiaError<'a> for Status {
                     Status::NoBindingSignature,
                 &openpgp::Error::InvalidKey(_) =>
                     Status::InvalidKey,
+                &openpgp::Error::PolicyViolation(_, _) =>
+                    Status::PolicyViolation,
                 openpgp::Error::__Nonexhaustive => unreachable!(),
             }
         }

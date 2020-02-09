@@ -159,6 +159,9 @@ pub enum Status {
 
     /// Invalid key.
     InvalidKey = -33,
+
+    /// Policy violation.
+    PolicyViolation = -34,
 }
 
 /// Returns the error message.
@@ -203,6 +206,7 @@ pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
         NotYetLive => "Not yet live\x00",
         NoBindingSignature => "No binding signature\x00",
         InvalidKey => "Invalid key\x00",
+        PolicyViolation => "Policy violation\x00",
     }.as_bytes().as_ptr() as *const c_char
 }
 
@@ -262,6 +266,8 @@ impl<'a> From<&'a failure::Error> for Status {
                     Status::NoBindingSignature,
                 &openpgp::Error::InvalidKey(_) =>
                     Status::InvalidKey,
+                &openpgp::Error::PolicyViolation(_, _) =>
+                    Status::PolicyViolation,
                 openpgp::Error::__Nonexhaustive => unreachable!(),
             }
         }

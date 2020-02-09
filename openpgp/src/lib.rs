@@ -299,6 +299,13 @@ pub enum Error {
     #[fail(display = "Invalid key: {:?}", _0)]
     InvalidKey(String),
 
+    /// The operation is not allowed, because it violates the policy.
+    ///
+    /// The optional time is the time at which the operation was
+    /// determined to no longer be secure.
+    #[fail(display = "Not secure as of: {:?}: {}", _1, _0)]
+    PolicyViolation(String, Option<std::time::SystemTime>),
+
     /// This marks this enum as non-exhaustive.  Do not use this
     /// variant.
     #[doc(hidden)] #[fail(display = "__Nonexhaustive")] __Nonexhaustive,
