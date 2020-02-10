@@ -911,7 +911,9 @@ impl SubpacketArea {
     /// which contains when the signature expires as the number of
     /// seconds after its creation.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// If the subpacket is not present, this returns `None`.  If this
+    /// function returns `None`, or the returned period is `0`, the
+    /// signature does not expire.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
@@ -1041,7 +1043,9 @@ impl SubpacketArea {
     /// contains when the referenced key expires as the number of
     /// seconds after the key's creation.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// If the subpacket is not present, this returns `None`.  If this
+    /// function returns `None`, or the returned period is `0`, the
+    /// key does not expire.
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
