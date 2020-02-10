@@ -1241,11 +1241,7 @@ impl Serialize for Signature4 {
     }
 
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        if ! self.exportable_certification().unwrap_or(true) {
-            return Err(Error::InvalidOperation(
-                "Cannot export non-exportable certification".into()).into());
-        }
-
+        self.exportable()?;
         self.serialize(o)
     }
 }

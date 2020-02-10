@@ -47,7 +47,7 @@ impl Cert {
             |o: &mut dyn std::io::Write, sig: &Signature| -> Result<()>
         {
             if export {
-                if sig.exportable_certification().unwrap_or(true) {
+                if sig.exportable().is_ok() {
                     PacketRef::Signature(sig).export(o)?;
                 }
             } else {
@@ -71,7 +71,7 @@ impl Cert {
 
         for u in self.userids().bundles() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
-                |s| s.exportable_certification().unwrap_or(true))
+                |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
@@ -94,7 +94,7 @@ impl Cert {
 
         for u in self.user_attributes().bundles() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
-                |s| s.exportable_certification().unwrap_or(true))
+                |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
@@ -117,7 +117,7 @@ impl Cert {
 
         for k in self.subkeys() {
             if export && ! k.self_signatures().iter().chain(k.self_revocations()).any(
-                |s| s.exportable_certification().unwrap_or(true))
+                |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
@@ -140,7 +140,7 @@ impl Cert {
 
         for u in self.unknowns() {
             if export && ! u.certifications().iter().any(
-                |s| s.exportable_certification().unwrap_or(true))
+                |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
@@ -369,7 +369,7 @@ impl<'a> TSK<'a> {
             |o: &mut dyn std::io::Write, sig: &Signature| -> Result<()>
         {
             if export {
-                if sig.exportable_certification().unwrap_or(true) {
+                if sig.exportable().is_ok() {
                     PacketRef::Signature(sig).export(o)?;
                 }
             } else {
@@ -422,7 +422,7 @@ impl<'a> TSK<'a> {
 
         for u in self.cert.userids().bundles() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
-                |s| s.exportable_certification().unwrap_or(true))
+                |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
@@ -445,7 +445,7 @@ impl<'a> TSK<'a> {
 
         for u in self.cert.user_attributes().bundles() {
             if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
-                |s| s.exportable_certification().unwrap_or(true))
+                |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
@@ -468,7 +468,7 @@ impl<'a> TSK<'a> {
 
         for k in self.cert.subkeys() {
             if export && ! k.self_signatures().iter().chain(k.self_revocations()).any(
-                |s| s.exportable_certification().unwrap_or(true))
+                |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
@@ -492,7 +492,7 @@ impl<'a> TSK<'a> {
 
         for u in self.cert.unknowns() {
             if export && ! u.certifications().iter().any(
-                |s| s.exportable_certification().unwrap_or(true))
+                |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
                 continue;
