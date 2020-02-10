@@ -39,6 +39,7 @@ use crate::types::{
     KeyFlags,
     KeyServerPreferences,
     PublicKeyAlgorithm,
+    RevocationKey,
     SignatureType,
     SymmetricAlgorithm,
     Timestamp,
@@ -1280,12 +1281,12 @@ impl Subpacket {
                         "Short revocation key subpacket".into())
                                .into());
                 }
-                SubpacketValue::RevocationKey {
-                    class: php.parse_u8("class")?,
-                    pk_algo: php.parse_u8("pk algo")?.into(),
-                    fp: Fingerprint::from_bytes(&php.parse_bytes("fingerprint",
-                                                                 len - 2)?),
-                }
+                let class = php.parse_u8("class")?;
+                let pk_algo = php.parse_u8("pk algo")?.into();
+                let fp = Fingerprint::from_bytes(
+                    &php.parse_bytes("fingerprint", len - 2)?);
+                SubpacketValue::RevocationKey(
+                    RevocationKey::from_bits(pk_algo, fp, class)?)
             },
             SubpacketTag::Issuer =>
                 SubpacketValue::Issuer(

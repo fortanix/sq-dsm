@@ -89,6 +89,7 @@ use crate::types::{
     KeyServerPreferences,
     PublicKeyAlgorithm,
     ReasonForRevocation,
+    RevocationKey,
     SymmetricAlgorithm,
     Timestamp,
 };
@@ -633,19 +634,7 @@ pub enum SubpacketValue {
     PreferredSymmetricAlgorithms(Vec<SymmetricAlgorithm>),
     /// 1 octet of class, 1 octet of public-key algorithm ID, 20 octets of
     /// fingerprint
-    RevocationKey {
-        /// Class octet must have bit 0x80 set.  If the bit 0x40 is
-        /// set, then this means that the revocation information is
-        /// sensitive.  Other bits are for future expansion to other
-        /// kinds of authorizations.
-        class: u8,
-
-        /// XXX: RFC4880 says nothing about this.
-        pk_algo: PublicKeyAlgorithm,
-
-        /// Fingerprint of authorized key.
-        fp: Fingerprint,
-    },
+    RevocationKey(RevocationKey),
     /// 8-octet Key ID
     Issuer(KeyID),
     /// The notation has a name and a value, each of
@@ -1103,16 +1092,10 @@ impl SubpacketArea {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn revocation_key(&self) -> Option<(u8,
-                                            PublicKeyAlgorithm,
-                                            Fingerprint)> {
-        // 1 octet of class, 1 octet of public-key algorithm ID, 20 or
-        // 32 octets of fingerprint.
+    pub fn revocation_key(&self) -> Option<&RevocationKey> {
         if let Some(sb) = self.subpacket(SubpacketTag::RevocationKey) {
-            if let SubpacketValue::RevocationKey {
-                class, pk_algo, fp,
-            } = &sb.value {
-                Some((*class, *pk_algo, fp.clone()))
+            if let SubpacketValue::RevocationKey(rk) = &sb.value {
+                Some(rk)
             } else {
                 None
             }
@@ -1962,14 +1945,9 @@ impl signature::Builder {
 
     /// Sets the value of the Revocation Key subpacket, which contains
     /// a designated revoker.
-    pub fn set_revocation_key(mut self, class: u8, pk_algo: PublicKeyAlgorithm,
-                              fp: Fingerprint) -> Result<Self> {
+    pub fn set_revocation_key(mut self, rk: RevocationKey) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::RevocationKey {
-                class: class,
-                pk_algo: pk_algo,
-                fp: fp,
-            },
+            SubpacketValue::RevocationKey(rk),
             true)?)?;
 
         Ok(self)
@@ -2327,11 +2305,11 @@ fn accessors() {
     assert_eq!(sig_.preferred_symmetric_algorithms(), Some(&pref[..]));
 
     let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
-    sig = sig.set_revocation_key(2, pk_algo, fp.clone()).unwrap();
+    let rk = RevocationKey::new(pk_algo, fp.clone(), true);
+    sig = sig.set_revocation_key(rk.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.revocation_key(),
-               Some((2, pk_algo.into(), fp.clone())));
+    assert_eq!(sig_.revocation_key(), Some(&rk));
 
     sig = sig.set_issuer(fp.clone().into()).unwrap();
     let sig_ =
@@ -2797,17 +2775,14 @@ fn subpacket_test_2() {
 
         let fp = Fingerprint::from_hex(
             "361A96BDE1A65B6D6C25AE9FF004B9A45C586126").unwrap();
-        assert_eq!(sig.revocation_key(),
-                   Some((128, PublicKeyAlgorithm::RSAEncryptSign, fp.clone())));
+        let rk = RevocationKey::new(PublicKeyAlgorithm::RSAEncryptSign,
+                                    fp.clone(), false);
+        assert_eq!(sig.revocation_key(), Some(&rk));
         assert_eq!(sig.subpacket(SubpacketTag::RevocationKey),
                    Some(&Subpacket {
                        length: 23.into(),
                        critical: false,
-                       value: SubpacketValue::RevocationKey {
-                           class: 0x80,
-                           pk_algo: PublicKeyAlgorithm::RSAEncryptSign,
-                           fp: fp,
-                       },
+                       value: SubpacketValue::RevocationKey(rk),
                    }));
 
 

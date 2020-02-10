@@ -16,6 +16,8 @@ mod features;
 pub use self::features::Features;
 mod key_flags;
 pub use self::key_flags::KeyFlags;
+mod revocation_key;
+pub use revocation_key::RevocationKey;
 mod server_preferences;
 pub use self::server_preferences::KeyServerPreferences;
 mod timestamp;

@@ -760,10 +760,15 @@ impl PacketDumper {
                 write!(output, "{}    Symmetric algo preferences: {}", i,
                        c.iter().map(|c| format!("{:?}", c))
                        .collect::<Vec<String>>().join(", "))?,
-            RevocationKey{class, pk_algo, ref fp} =>
+            RevocationKey(rk) => {
+                let (pk_algo, fp) = rk.revoker();
                 write!(output,
-                       "{}    Revocation key: class {} algo {} fingerprint {}", i,
-                       class, pk_algo, fp)?,
+                       "{}    Revocation key: {}/{}", i,
+                       fp, pk_algo)?;
+                if rk.sensitive() {
+                    write!(output, ", sensitive")?;
+                }
+            },
             Issuer(ref is) =>
                 write!(output, "{}    Issuer: {}", i, is)?,
             NotationData(ref n) =>

@@ -6,14 +6,13 @@ use crate::{
     Cert,
     cert::components::ComponentBundle,
     Error,
-    Fingerprint,
     packet::Signature,
     Result,
     RevocationStatus,
     policy::Policy,
     types::{
+        RevocationKey,
         KeyFlags,
-        PublicKeyAlgorithm,
     },
 };
 
@@ -358,9 +357,7 @@ pub trait Amalgamation<'a> {
     /// 5.2.3.3 of RFC 4880].
     ///
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    fn revocation_key(&self) -> Option<(u8,
-                                        PublicKeyAlgorithm,
-                                        Fingerprint)> {
+    fn revocation_key(&self) -> Option<&'a RevocationKey> {
         self.map(|s| s.revocation_key())
     }
 }
