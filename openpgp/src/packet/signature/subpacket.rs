@@ -1597,6 +1597,23 @@ impl SubpacketAreas {
         self.unhashed_area().lookup(tag)
     }
 
+
+    /// Returns the time when the signature expires.
+    ///
+    /// If the signature expiration time subpacket is not present,
+    /// this returns `None`.
+    ///
+    /// Note: if the signature contains multiple instances of the
+    /// signature expiration time subpacket, only the last one is
+    /// considered.
+    pub fn signature_expiration_time(&self) -> Option<time::SystemTime> {
+        match (self.signature_creation_time(), self.signature_validity_period())
+        {
+            (Some(ct), Some(vp)) if vp.as_secs() > 0 => Some(ct + vp),
+            _ => None,
+        }
+    }
+
     /// Returns whether or not the signature is alive at the specified
     /// time.
     ///
@@ -1680,6 +1697,24 @@ impl SubpacketAreas {
                 Err(Error::NotYetLive(cmp::max(c, time::UNIX_EPOCH + tolerance)
                                       - tolerance).into()),
             _ => Ok(()),
+        }
+    }
+
+    /// Returns the time when the key expires.
+    ///
+    /// If the key expiration time subpacket is not present, this
+    /// returns `None`.
+    ///
+    /// Note: if the key contains multiple instances of the key
+    /// expiration time subpacket, only the last one is considered.
+    pub fn key_expiration_time<P, R>(&self, key: &Key<P, R>)
+                                     -> Option<time::SystemTime>
+        where P: key::KeyParts,
+              R: key::KeyRole,
+    {
+        match self.key_validity_period() {
+            Some(vp) if vp.as_secs() > 0 => Some(key.creation_time() + vp),
+            _ => None,
         }
     }
 
@@ -1863,6 +1898,31 @@ impl signature::Builder {
         Ok(self)
     }
 
+    /// Sets the value of the Signature Expiration Time subpacket.
+    ///
+    /// If `None` is given, any expiration subpacket is removed.
+    pub fn set_signature_expiration_time(self,
+                                         expiration: Option<time::SystemTime>)
+                                         -> Result<Self> {
+        if let Some(e) = expiration.map(crate::types::normalize_systemtime) {
+            let vp = if let Some(ct) = self.signature_creation_time() {
+                match e.duration_since(ct) {
+                    Ok(v) => v,
+                    Err(_) => return Err(Error::InvalidArgument(
+                        format!("Expiration time {:?} predates creation time \
+                                 {:?}", e, ct)).into()),
+                }
+            } else {
+                return Err(Error::MalformedPacket(
+                    "No creation time subpacket".into()).into());
+            };
+
+            self.set_signature_validity_period(Some(vp))
+        } else {
+            self.set_signature_validity_period(None)
+        }
+    }
+
     /// Sets the value of the Exportable Certification subpacket,
     /// which contains whether the certification should be exported
     /// (i.e., whether the packet is *not* a local signature).
@@ -1931,6 +1991,32 @@ impl signature::Builder {
         }
 
         Ok(self)
+    }
+
+    /// Sets the value of the Key Expiration Time subpacket.
+    ///
+    /// If `None` is given, any expiration subpacket is removed.
+    pub fn set_key_expiration_time<P, R>(
+        self,
+        key: &Key<P, R>,
+        expiration: Option<time::SystemTime>)
+        -> Result<Self>
+        where P: key::KeyParts,
+              R: key::KeyRole,
+    {
+        if let Some(e) = expiration.map(crate::types::normalize_systemtime) {
+            let ct = key.creation_time();
+            let vp = match e.duration_since(ct) {
+                Ok(v) => v,
+                Err(_) => return Err(Error::InvalidArgument(
+                    format!("Expiration time {:?} predates creation time \
+                             {:?}", e, ct)).into()),
+            };
+
+            self.set_key_validity_period(Some(vp))
+        } else {
+            self.set_key_validity_period(None)
+        }
     }
 
     /// Sets the value of the Preferred Symmetric Algorithms
