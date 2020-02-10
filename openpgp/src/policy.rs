@@ -176,12 +176,28 @@ impl StandardPolicy {
         }
     }
 
-    /// Instantiates a new `StandardPolicy` with the default
-    /// parameters appropriate for `time`.
+    /// Instantiates a new `StandardPolicy` with parameters
+    /// appropriate for `time`.
     ///
-    /// This should only be used if you have an object that you know
-    /// hasn't been tampered with since `time`, because in that case,
-    /// attacks developed since `time` don't affect you.
+    /// `time` is a meta-parameter that selects a security profile
+    /// that is appropriate for the given point in time.  When
+    /// evaluating an object, the reference time should be set to the
+    /// time that the object was stored to non-tamperable storage.
+    /// Since most applications don't record when they received an
+    /// object, they should conservatively use the current time.
+    ///
+    /// Note that the reference time is a security parameter and is
+    /// different from the time that the object was allegedly created.
+    /// Consider evaluating a signature whose `Signature Creation
+    /// Time` subpacket indicates that it was created in 2007.  Since
+    /// the subpacket is under the control of the sender, setting the
+    /// reference time according to the subpacket means that the
+    /// sender chooses the security profile.  If the sender were an
+    /// attacker, she could have forged this to take advantage of
+    /// security weaknesses found since 2007.  This is why the
+    /// reference time must be set---at the earliest---to the time
+    /// that the message was stored to non-tamperable storage.  When
+    /// that is not available, the current time should be used.
     pub fn at(time: SystemTime) -> Self {
         let mut p = Self::new();
         p.time = Some(system_time_cutoff_to_timestamp(time)
@@ -189,6 +205,15 @@ impl StandardPolicy {
                           // here means the current time).
                           .unwrap_or(Timestamp::MAX));
         p
+    }
+
+    /// Returns the policy's reference time.
+    ///
+    /// The current time is None.
+    ///
+    /// See `StandardPolicy::at` for details.
+    pub fn time(&self) -> Option<SystemTime> {
+        self.time.map(Into::into)
     }
 
     /// Always considers `h` to be secure.
