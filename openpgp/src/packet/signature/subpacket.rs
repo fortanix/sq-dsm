@@ -1092,16 +1092,16 @@ impl SubpacketArea {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn revocation_key(&self) -> Option<&RevocationKey> {
-        if let Some(sb) = self.subpacket(SubpacketTag::RevocationKey) {
+    pub fn revocation_keys(&self)
+                           -> impl Iterator<Item = &RevocationKey>
+    {
+        self.subpackets(SubpacketTag::RevocationKey).filter_map(|sb| {
             if let SubpacketValue::RevocationKey(rk) = &sb.value {
                 Some(rk)
             } else {
                 None
             }
-        } else {
-            None
-        }
+        })
     }
 
     /// Returns the value of the Issuer subpacket, which contains the
@@ -2309,7 +2309,7 @@ fn accessors() {
     sig = sig.set_revocation_key(rk.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.revocation_key(), Some(&rk));
+    assert_eq!(sig_.revocation_keys().nth(0).unwrap(), &rk);
 
     sig = sig.set_issuer(fp.clone().into()).unwrap();
     let sig_ =
@@ -2777,7 +2777,7 @@ fn subpacket_test_2() {
             "361A96BDE1A65B6D6C25AE9FF004B9A45C586126").unwrap();
         let rk = RevocationKey::new(PublicKeyAlgorithm::RSAEncryptSign,
                                     fp.clone(), false);
-        assert_eq!(sig.revocation_key(), Some(&rk));
+        assert_eq!(sig.revocation_keys().nth(0).unwrap(), &rk);
         assert_eq!(sig.subpacket(SubpacketTag::RevocationKey),
                    Some(&Subpacket {
                        length: 23.into(),

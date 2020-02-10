@@ -352,13 +352,14 @@ pub trait Amalgamation<'a> {
     /// contains a designated revoker.
     ///
     /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
-    /// 5.2.3.3 of RFC 4880].
-    ///
-    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    fn revocation_key(&self) -> Option<&'a RevocationKey> {
-        self.map(|s| s.revocation_key())
+    /// signature.
+    fn revocation_keys(&self) -> Box<Iterator<Item = &'a RevocationKey> + 'a> {
+        if let Some(dk) = self.direct_key_signature() {
+            Box::new(self.binding_signature().revocation_keys().chain(
+                dk.revocation_keys()))
+        } else {
+            Box::new(self.binding_signature().revocation_keys())
+        }
     }
 }
 
