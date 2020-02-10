@@ -3168,11 +3168,18 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
     #[test]
     fn canonicalize_with_v3_sig() -> Result<()> {
+        // This test relies on being able to validate SHA-1
+        // signatures.  The standard policy reject SHA-1.  So, use a
+        // custom policy.
+        let p = &P::new();
+        let sha1 = p.hash_cutoffs(HashAlgorithm::SHA1).0.unwrap();
+        let p = &P::at(sha1 - std::time::Duration::from_secs(1));
+
         let cert = Cert::from_bytes(
             crate::tests::key("eike-v3-v4.pgp"))?;
         dbg!(&cert);
         assert_eq!(cert.userids()
-                   .with_policy(&crate::policy::StandardPolicy::new(), None)
+                   .with_policy(p, None)
                    .count(), 1);
         Ok(())
     }
@@ -3181,15 +3188,15 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     /// honored.
     #[test]
     fn issue_215() {
-        let p = crate::policy::StandardPolicy::new();
-        let cert = Cert::from_bytes(crate::tests::key(
+        let p = &P::new();
+         let cert = Cert::from_bytes(crate::tests::key(
             "issue-215-expiration-on-direct-key-sig.pgp")).unwrap();
         assert_match!(
             Error::Expired(_)
-                = cert.alive(&p, None).unwrap_err().downcast().unwrap());
+                = cert.alive(p, None).unwrap_err().downcast().unwrap());
         assert_match!(
             Error::Expired(_)
-                = cert.primary_key().with_policy(&p, None).unwrap()
+                = cert.primary_key().with_policy(p, None).unwrap()
                     .alive().unwrap_err().downcast().unwrap());
     }
 }

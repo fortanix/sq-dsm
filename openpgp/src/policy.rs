@@ -26,10 +26,24 @@
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
 //! [pure]: https://en.wikipedia.org/wiki/Pure_function
 use std::fmt;
+use std::time::{SystemTime, Duration};
+use std::u32;
+
+use failure::ResultExt;
 
 use crate::{
     packet::Signature,
     Result,
+    types::HashAlgorithm,
+    types::SignatureType,
+    types::Timestamp,
+};
+
+#[macro_use] mod cutofflist;
+use cutofflist::{
+    CutoffList,
+    REJECT,
+    ACCEPT,
 };
 
 /// A policy for cryptographic operations.
@@ -54,14 +68,39 @@ pub trait Policy : fmt::Debug {
 }
 
 /// The standard policy.
+///
+/// The standard policy stores when each algorithm in a family of
+/// algorithms is no longer considered safe.  Attempts to use an
+/// algorithm after its cutoff time should fail.
+///
+/// When validating a signature, we normally want to know whether the
+/// algorithms used are safe *now*.  That is, we don't use the
+/// signature's alleged creation time when considering whether an
+/// algorithm is safe, because if an algorithm is discovered to be
+/// compromised at time X, then an attacker could forge a message
+/// after time X with a signature creation time that is prior to X,
+/// which would be incorrectly accepted.
+///
+/// Occasionally, we know that a signature has not been tampered with
+/// since some time in the past.  We might know this if the signature
+/// was stored on some tamper-proof medium.  In those cases, it is
+/// reasonable to use the time that the signature was saved, since an
+/// attacker could not have taken advantage of any weaknesses found
+/// after that time.
 #[derive(Debug, Clone)]
 pub struct StandardPolicy {
+    // The time.  If None, the current time is used.
+    time: Option<Timestamp>,
+
+    // Hash algorithms.
+    hash_algos_normal: NormalHashCutoffList,
+    hash_algos_revocation: RevocationHashCutoffList,
+
 }
 
 impl Default for StandardPolicy {
     fn default() -> Self {
-        Self {
-        }
+        Self::new()
     }
 }
 
@@ -71,20 +110,205 @@ impl<'a> From<&'a StandardPolicy> for Option<&'a dyn Policy> {
     }
 }
 
+a_cutoff_list!(NormalHashCutoffList, HashAlgorithm, 12,
+               [
+                   REJECT,                 // 0. Not assigned.
+                   Some(Timestamp::Y1997), // 1. MD5
+                   Some(Timestamp::Y2013), // 2. SHA-1
+                   Some(Timestamp::Y2013), // 3. RIPE-MD/160
+                   REJECT,                 // 4. Reserved.
+                   REJECT,                 // 5. Reserved.
+                   REJECT,                 // 6. Reserved.
+                   REJECT,                 // 7. Reserved.
+                   ACCEPT,                 // 8. SHA256
+                   ACCEPT,                 // 9. SHA384
+                   ACCEPT,                 // 10. SHA512
+                   ACCEPT,                 // 11. SHA224
+               ]);
+a_cutoff_list!(RevocationHashCutoffList, HashAlgorithm, 12,
+               [
+                   REJECT,                 // 0. Not assigned.
+                   Some(Timestamp::Y2004), // 1. MD5
+                   Some(Timestamp::Y2020), // 2. SHA-1
+                   Some(Timestamp::Y2020), // 3. RIPE-MD/160
+                   REJECT,                 // 4. Reserved.
+                   REJECT,                 // 5. Reserved.
+                   REJECT,                 // 6. Reserved.
+                   REJECT,                 // 7. Reserved.
+                   ACCEPT,                 // 8. SHA256
+                   ACCEPT,                 // 9. SHA384
+                   ACCEPT,                 // 10. SHA512
+                   ACCEPT,                 // 11. SHA224
+               ]);
+
+// We need to convert a `SystemTime` to a `Timestamp` in
+// `StandardPolicy::reject_hash_at`.  Unfortunately, a `SystemTime`
+// can represent a larger range of time than a `Timestamp` can.  Since
+// the times passed to this function are cutoff points, and we only
+// compare them to OpenPGP timestamps, any `SystemTime` that is prior
+// to the Unix Epoch is equivalent to the Unix Epoch: it will reject
+// all timestamps.  Similarly, any `SystemTime` that is later than the
+// latest time representable by a `Timestamp` is equivalent to
+// accepting all time stamps, which is equivalent to passing None.
+fn system_time_cutoff_to_timestamp(t: SystemTime) -> Option<Timestamp> {
+    let t = t
+        .duration_since(SystemTime::UNIX_EPOCH)
+        // An error can only occur if the SystemTime is less than the
+        // reference time (SystemTime::UNIX_EPOCH).  Map that to
+        // SystemTime::UNIX_EPOCH, as above.
+        .unwrap_or(Duration::new(0, 0));
+    let t = t.as_secs();
+    if t > u32::MAX as u64 {
+        // Map to None, as above.
+        None
+    } else {
+        Some((t as u32).into())
+    }
+}
+
 impl StandardPolicy {
     /// Instantiates a new `StandardPolicy` with the default parameters.
     pub const fn new() -> Self {
         Self {
+            time: None,
+            hash_algos_normal: NormalHashCutoffList::Default(),
+            hash_algos_revocation: RevocationHashCutoffList::Default(),
         }
+    }
+
+    /// Instantiates a new `StandardPolicy` with the default
+    /// parameters appropriate for `time`.
+    ///
+    /// This should only be used if you have an object that you know
+    /// hasn't been tampered with since `time`, because in that case,
+    /// attacks developed since `time` don't affect you.
+    pub fn at(time: SystemTime) -> Self {
+        let mut p = Self::new();
+        p.time = Some(system_time_cutoff_to_timestamp(time)
+                          // Map "ACCEPT" to the end of time (None
+                          // here means the current time).
+                          .unwrap_or(Timestamp::MAX));
+        p
+    }
+
+    /// Always considers `h` to be secure.
+    pub fn accept_hash(&mut self, h: HashAlgorithm) {
+        self.hash_algos_normal.set(h, ACCEPT);
+        self.hash_algos_revocation.set(h, ACCEPT);
+    }
+
+    /// Always considers `h` to be insecure.
+    pub fn reject_hash(&mut self, h: HashAlgorithm) {
+        self.hash_algos_normal.set(h, REJECT);
+        self.hash_algos_revocation.set(h, REJECT);
+    }
+
+    /// Considers `h` to be insecure starting at `normal` for normal
+    /// signatures and at `revocation` for revocation certificates.
+    ///
+    /// For each algorithm, there are two different cutoffs: when the
+    /// algorithm is no longer safe for normal use (e.g., binding
+    /// signatures, document signatures), and when the algorithm is no
+    /// longer safe for revocations.  Normally, an algorithm should be
+    /// allowed for use in a revocation longer than it should be
+    /// allowed for normal use, because once we consider a revocation
+    /// certificate to be invalid, it may cause something else to be
+    /// considered valid!
+    ///
+    /// A cutoff of `None` means that there is no cutoff and the
+    /// algorithm has no known vulnerabilities.
+    ///
+    /// As a rule of thumb, we want to stop accepting a Hash algorithm
+    /// for normal signature when there is evidence that it is broken,
+    /// and we want to stop accepting it for revocations shortly
+    /// before collisions become practical.
+    ///
+    /// As such, we start rejecting [MD5] in 1997 and completely
+    /// reject it starting in 2004:
+    ///
+    /// >  In 1996, Dobbertin announced a collision of the
+    /// >  compression function of MD5 (Dobbertin, 1996). While this
+    /// >  was not an attack on the full MD5 hash function, it was
+    /// >  close enough for cryptographers to recommend switching to
+    /// >  a replacement, such as SHA-1 or RIPEMD-160.
+    /// >
+    /// >  MD5CRK ended shortly after 17 August 2004, when collisions
+    /// >  for the full MD5 were announced by Xiaoyun Wang, Dengguo
+    /// >  Feng, Xuejia Lai, and Hongbo Yu. Their analytical attack
+    /// >  was reported to take only one hour on an IBM p690 cluster.
+    /// >
+    /// > (Accessed Feb. 2020.)
+    ///
+    /// [MD5]: https://en.wikipedia.org/wiki/MD5
+    ///
+    /// And we start rejecting [SHA-1] in 2013 and completely reject
+    /// it in 2020:
+    ///
+    /// > Since 2005 SHA-1 has not been considered secure against
+    /// > well-funded opponents, as of 2010 many organizations have
+    /// > recommended its replacement. NIST formally deprecated use
+    /// > of SHA-1 in 2011 and disallowed its use for digital
+    /// > signatures in 2013. As of 2020, attacks against SHA-1 are
+    /// > as practical as against MD5; as such, it is recommended to
+    /// > remove SHA-1 from products as soon as possible and use
+    /// > instead SHA-256 or SHA-3. Replacing SHA-1 is urgent where
+    /// > it's used for signatures.
+    /// >
+    /// > (Accessed Feb. 2020.)
+    ///
+    /// [SHA-1]: https://en.wikipedia.org/wiki/SHA-1
+    ///
+    /// Since RIPE-MD is structured similarly to SHA-1, we
+    /// conservatively consider it to be broken as well.
+    pub fn reject_hash_at<N, R>(&mut self, h: HashAlgorithm,
+                                normal: N, revocation: R)
+        where N: Into<Option<SystemTime>>,
+              R: Into<Option<SystemTime>>,
+    {
+        self.hash_algos_normal.set(
+            h,
+            normal.into().and_then(system_time_cutoff_to_timestamp));
+        self.hash_algos_revocation.set(
+            h,
+            revocation.into().and_then(system_time_cutoff_to_timestamp));
+    }
+
+    /// Returns the cutoff times for the specified hash algorithm.
+    pub fn hash_cutoffs(&self, h: HashAlgorithm)
+        -> (Option<SystemTime>, Option<SystemTime>)
+    {
+        (self.hash_algos_normal.cutoff(h).map(|t| t.into()),
+         self.hash_algos_revocation.cutoff(h).map(|t| t.into()))
     }
 }
 
 impl Policy for StandardPolicy {
+    fn signature(&self, sig: &Signature) -> Result<()> {
+        let time = self.time.unwrap_or_else(Timestamp::now);
+
+        match sig.typ() {
+            t @ SignatureType::KeyRevocation
+                | t @ SignatureType::SubkeyRevocation
+                | t @ SignatureType::CertificationRevocation =>
+            {
+                self.hash_algos_revocation.check(sig.hash_algo(), time)
+                    .context(format!("revocation signature ({})", t))?
+            }
+            t =>
+            {
+                self.hash_algos_normal.check(sig.hash_algo(), time)
+                    .context(format!("non-revocation signature ({})", t))?
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod test {
     use std::io::Read;
+    use std::time::Duration;
 
     use super::*;
     use crate::Fingerprint;
@@ -477,5 +701,131 @@ mod test {
         v.read_to_end(&mut content).unwrap();
         assert_eq!(reference.len(), content.len());
         assert_eq!(reference, &content[..]);
+    }
+
+    #[test]
+    fn hash_algo() -> Result<()> {
+        use crate::RevocationStatus;
+        use crate::types::ReasonForRevocation;
+
+        const SECS_IN_YEAR : u64 = 365 * 24 * 60 * 60;
+
+        // A `const fn` is only guaranteed to be evaluated at compile
+        // time if the result is assigned to a `const` variable.  Make
+        // sure that works.
+        const DEFAULT : StandardPolicy = StandardPolicy::new();
+
+        let (cert, _) = CertBuilder::new()
+            .add_userid("Alice")
+            .generate()?;
+
+        let algo = cert.primary_key().bundle()
+            .binding_signature(&DEFAULT, None).unwrap().hash_algo();
+
+        eprintln!("{:?}", algo);
+
+        // Create a revoked version.
+        let mut keypair = cert.primary_key().key().clone()
+            .mark_parts_secret()?.into_keypair()?;
+        let cert_revoked = cert.clone().revoke_in_place(
+            &mut keypair,
+            ReasonForRevocation::KeyCompromised,
+            b"It was the maid :/")?;
+
+        match cert_revoked.revoked(&DEFAULT, None) {
+            RevocationStatus::Revoked(sigs) => {
+                assert_eq!(sigs.len(), 1);
+                assert_eq!(sigs[0].hash_algo(), algo);
+            }
+            _ => panic!("not revoked"),
+        }
+
+
+        // Reject the hash algorithm unconditionally.
+        let mut reject : StandardPolicy = StandardPolicy::new();
+        reject.reject_hash(algo);
+        assert!(cert.primary_key().bundle()
+                    .binding_signature(&reject, None).is_none());
+        assert_match!(RevocationStatus::NotAsFarAsWeKnow
+                      = cert_revoked.revoked(&reject, None));
+
+        // Reject the hash algorith next year.
+        let mut reject : StandardPolicy = StandardPolicy::new();
+        reject.reject_hash_at(
+            algo,
+            SystemTime::now() + Duration::from_secs(SECS_IN_YEAR),
+            SystemTime::now() + Duration::from_secs(SECS_IN_YEAR));
+        assert!(cert.primary_key().bundle()
+                    .binding_signature(&reject, None).is_some());
+        assert_match!(RevocationStatus::Revoked(_)
+                      = cert_revoked.revoked(&reject, None));
+
+        // Reject the hash algorith last year.
+        let mut reject : StandardPolicy = StandardPolicy::new();
+        reject.reject_hash_at(
+            algo,
+            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
+            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
+        assert!(cert.primary_key().bundle()
+                    .binding_signature(&reject, None).is_none());
+        assert_match!(RevocationStatus::NotAsFarAsWeKnow
+                      = cert_revoked.revoked(&reject, None));
+
+        // Reject the hash algorithm for normal signatures last year,
+        // and revocations next year.
+        let mut reject : StandardPolicy = StandardPolicy::new();
+        reject.reject_hash_at(
+            algo,
+            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
+            SystemTime::now() + Duration::from_secs(SECS_IN_YEAR));
+        assert!(cert.primary_key().bundle()
+                    .binding_signature(&reject, None).is_none());
+        assert_match!(RevocationStatus::Revoked(_)
+                      = cert_revoked.revoked(&reject, None));
+
+        // Accept algo, but reject the algos with id - 1 and id + 1.
+        let mut reject : StandardPolicy = StandardPolicy::new();
+        let algo_u8 : u8 = algo.into();
+        assert!(algo_u8 != 0u8);
+        reject.reject_hash_at(
+            (algo_u8 - 1).into(),
+            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
+            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
+        reject.reject_hash_at(
+            (algo_u8 + 1).into(),
+            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
+            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
+        assert!(cert.primary_key().bundle()
+                    .binding_signature(&reject, None).is_some());
+        assert_match!(RevocationStatus::Revoked(_)
+                      = cert_revoked.revoked(&reject, None));
+
+        // Reject the hash algorithm since before the Unix epoch.
+        // Since the earliest representable time using a Timestamp is
+        // the Unix epoch, this is equivalent to rejecting everything.
+        let mut reject : StandardPolicy = StandardPolicy::new();
+        reject.reject_hash_at(
+            algo,
+            SystemTime::UNIX_EPOCH - Duration::from_secs(SECS_IN_YEAR),
+            SystemTime::UNIX_EPOCH - Duration::from_secs(SECS_IN_YEAR));
+        assert!(cert.primary_key().bundle()
+                    .binding_signature(&reject, None).is_none());
+        assert_match!(RevocationStatus::NotAsFarAsWeKnow
+                      = cert_revoked.revoked(&reject, None));
+
+        // Reject the hash algorithm after the end of time that is
+        // representable by a Timestamp (2106).  This should accept
+        // everything.
+        let mut reject : StandardPolicy = StandardPolicy::new();
+        reject.reject_hash_at(
+            algo,
+            SystemTime::UNIX_EPOCH + Duration::from_secs(500 * SECS_IN_YEAR),
+            SystemTime::UNIX_EPOCH + Duration::from_secs(500 * SECS_IN_YEAR));
+        assert!(cert.primary_key().bundle()
+                    .binding_signature(&reject, None).is_some());
+        assert_match!(RevocationStatus::Revoked(_)
+                      = cert_revoked.revoked(&reject, None));
+
+        Ok(())
     }
 }
