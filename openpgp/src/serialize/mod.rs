@@ -1117,12 +1117,14 @@ impl SerializeInto for SubpacketValue {
             EmbeddedSignature(sig) => sig.serialized_len(),
             IssuerFingerprint(ref fp) => match fp {
                 Fingerprint::V4(_) => 1 + fp.serialized_len(),
-                _ => 0,
+                // Educated guess for unknown versions.
+                Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
             PreferredAEADAlgorithms(ref p) => p.len(),
             IntendedRecipient(ref fp) => match fp {
                 Fingerprint::V4(_) => 1 + fp.serialized_len(),
-                _ => 0,
+                // Educated guess for unknown versions.
+                Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
             Unknown { body, .. } => body.len(),
             __Nonexhaustive => unreachable!(),

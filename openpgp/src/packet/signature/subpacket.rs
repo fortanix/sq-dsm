@@ -701,49 +701,6 @@ pub enum SubpacketValue {
 }
 
 impl SubpacketValue {
-    /// Returns the length of the serialized value.
-    pub fn len(&self) -> usize {
-        use self::SubpacketValue::*;
-        match self {
-            SignatureCreationTime(_) => 4,
-            SignatureExpirationTime(_) => 4,
-            ExportableCertification(_) => 1,
-            TrustSignature { .. } => 2,
-            RegularExpression(re) => re.len() + 1 /* terminator */,
-            Revocable(_) => 1,
-            KeyExpirationTime(_) => 4,
-            PreferredSymmetricAlgorithms(p) => p.len(),
-            RevocationKey { ref fp, .. } => 1 + 1 + fp.as_slice().len(),
-            Issuer(_) => 8,
-            NotationData(nd) => 4 + 2 + 2 + nd.name.len() + nd.value.len(),
-            PreferredHashAlgorithms(p) => p.len(),
-            PreferredCompressionAlgorithms(p) => p.len(),
-            KeyServerPreferences(p) => p.to_vec().len(),
-            PreferredKeyServer(p) => p.len(),
-            PrimaryUserID(_) => 1,
-            PolicyURI(p) => p.len(),
-            KeyFlags(f) => f.to_vec().len(),
-            SignersUserID(u) => u.len(),
-            ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
-            Features(f) => f.to_vec().len(),
-            SignatureTarget { ref digest, .. } => 1 + 1 + digest.len(),
-            EmbeddedSignature(s) => s.serialized_len(),
-            IssuerFingerprint(ref fp) => match fp {
-                Fingerprint::V4(_) => 1 + 20,
-                // Educated guess for unknown versions.
-                Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
-            },
-            PreferredAEADAlgorithms(ref p) => p.len(),
-            IntendedRecipient(ref fp) => match fp {
-                Fingerprint::V4(_) => 1 + 20,
-                // Educated guess for unknown versions.
-                Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
-            },
-            Unknown { body, .. } => body.len(),
-            __Nonexhaustive => unreachable!(),
-        }
-    }
-
     /// Returns the subpacket tag for this value.
     pub fn tag(&self) -> SubpacketTag {
         use self::SubpacketValue::*;
@@ -824,7 +781,7 @@ impl Subpacket {
     pub fn new(value: SubpacketValue, critical: bool)
                -> Result<Subpacket> {
         Ok(Self::with_length(
-            SubpacketLength::from(1 /* Tag */ + value.len() as u32),
+            SubpacketLength::from(1 /* Tag */ + value.serialized_len() as u32),
             value, critical))
     }
 
