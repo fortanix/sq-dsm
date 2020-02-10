@@ -344,8 +344,8 @@ pub trait Amalgamation<'a> {
     /// 5.2.3.3 of RFC 4880].
     ///
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    fn key_expiration_time(&self) -> Option<std::time::Duration> {
-        self.map(|s| s.key_expiration_time())
+    fn key_validity_period(&self) -> Option<std::time::Duration> {
+        self.map(|s| s.key_validity_period())
     }
 
     /// Returns the value of the Revocation Key subpacket, which

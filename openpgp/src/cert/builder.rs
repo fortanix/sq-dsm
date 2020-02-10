@@ -260,7 +260,7 @@ impl CertBuilder {
     /// Sets the expiration time.
     ///
     /// A value of None means never.
-    pub fn set_expiration_time<T>(mut self, expiration: T) -> Self
+    pub fn set_validity_period<T>(mut self, expiration: T) -> Self
         where T: Into<Option<time::Duration>>
     {
         self.primary.expiration = expiration.into();
@@ -334,7 +334,7 @@ impl CertBuilder {
                 .set_hash_algo(HashAlgorithm::SHA512)
                 .set_features(&Features::sequoia())?
                 .set_key_flags(flags)?
-                .set_key_expiration_time(
+                .set_key_validity_period(
                     blueprint.expiration.or(self.primary.expiration))?;
 
             if flags.for_transport_encryption() || flags.for_storage_encryption()
@@ -400,7 +400,7 @@ impl CertBuilder {
             .set_features(&Features::sequoia())?
             .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(creation_time)?
-            .set_key_expiration_time(self.primary.expiration)?
+            .set_key_validity_period(self.primary.expiration)?
             .set_issuer_fingerprint(key.fingerprint())?
             .set_issuer(key.keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
@@ -578,12 +578,12 @@ mod tests {
     }
 
     #[test]
-    fn expiration_times() {
+    fn validity_periods() {
         let p = &P::new();
 
         let s = std::time::Duration::new(1, 0);
         let (cert,_) = CertBuilder::new()
-            .set_expiration_time(600 * s)
+            .set_validity_period(600 * s)
             .add_subkey(KeyFlags::default().set_signing(true),
                         300 * s)
             .add_subkey(KeyFlags::default().set_authentication(true),

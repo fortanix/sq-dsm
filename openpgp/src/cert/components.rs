@@ -293,7 +293,7 @@ impl<C> ComponentBundle<C> {
                     // because a hard revocation is always valid.
                     t!("  revocation not alive ({:?} - {:?}): {}",
                        rev.signature_creation_time().unwrap_or_else(time_zero),
-                       rev.signature_expiration_time()
+                       rev.signature_validity_period()
                            .unwrap_or_else(|| time::Duration::new(0, 0)),
                        err);
                     None

@@ -238,7 +238,7 @@ fn inspect_key(policy: &dyn Policy,
     writeln!(output, "{}  Creation time: {}", indent,
              key.creation_time().convert())?;
     if let Some(vka) = vka {
-        if let Some(expires) = vka.key_expiration_time() {
+        if let Some(expires) = vka.key_validity_period() {
             let expiration_time = key.creation_time() + expires;
             writeln!(output, "{}Expiration time: {} (creation time + {})",
                      indent,

@@ -915,7 +915,7 @@ impl SubpacketArea {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn signature_expiration_time(&self) -> Option<time::Duration> {
+    pub fn signature_validity_period(&self) -> Option<time::Duration> {
         // 4-octet time field
         if let Some(sb)
                 = self.subpacket(SubpacketTag::SignatureExpirationTime) {
@@ -1045,7 +1045,7 @@ impl SubpacketArea {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn key_expiration_time(&self) -> Option<time::Duration> {
+    pub fn key_validity_period(&self) -> Option<time::Duration> {
         // 4-octet time field
         if let Some(sb)
                 = self.subpacket(SubpacketTag::KeyExpirationTime) {
@@ -1663,7 +1663,7 @@ impl SubpacketAreas {
                     (time, tolerance)
             };
 
-        match (self.signature_creation_time(), self.signature_expiration_time())
+        match (self.signature_creation_time(), self.signature_validity_period())
         {
             (None, _) =>
                 Err(Error::MalformedPacket("no signature creation time".into())
@@ -1697,7 +1697,7 @@ impl SubpacketAreas {
         let t = t.into()
             .unwrap_or_else(|| time::SystemTime::now());
 
-        match self.key_expiration_time() {
+        match self.key_validity_period() {
             Some(e) if e.as_secs() > 0 && key.creation_time() + e <= t =>
                 Err(Error::Expired(key.creation_time() + e).into()),
             _ if key.creation_time() > t =>
@@ -1845,7 +1845,7 @@ impl signature::Builder {
     /// Sets the value of the Signature Expiration Time subpacket.
     ///
     /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_signature_expiration_time(mut self,
+    pub fn set_signature_validity_period(mut self,
                                          expiration: Option<time::Duration>)
                                          -> Result<Self> {
         if let Some(e) = expiration {
@@ -1915,7 +1915,7 @@ impl signature::Builder {
     /// seconds after the key's creation.
     ///
     /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_key_expiration_time(mut self,
+    pub fn set_key_validity_period(mut self,
                                    expiration: Option<time::Duration>)
                                    -> Result<Self> {
         if let Some(e) = expiration {
@@ -2227,20 +2227,20 @@ fn accessors() {
     let minute = time::Duration::new(60, 0);
     let five_minutes = 5 * minute;
     let ten_minutes = 10 * minute;
-    sig = sig.set_signature_expiration_time(Some(five_minutes)).unwrap();
+    sig = sig.set_signature_validity_period(Some(five_minutes)).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.signature_expiration_time(), Some(five_minutes));
+    assert_eq!(sig_.signature_validity_period(), Some(five_minutes));
 
     assert!(sig_.signature_alive(None, zero_s).is_ok());
     assert!(sig_.signature_alive(now, zero_s).is_ok());
     assert!(!sig_.signature_alive(now - five_minutes, zero_s).is_ok());
     assert!(!sig_.signature_alive(now + ten_minutes, zero_s).is_ok());
 
-    sig = sig.set_signature_expiration_time(None).unwrap();
+    sig = sig.set_signature_validity_period(None).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.signature_expiration_time(), None);
+    assert_eq!(sig_.signature_validity_period(), None);
 
     assert!(sig_.signature_alive(None, zero_s).is_ok());
     assert!(sig_.signature_alive(now, zero_s).is_ok());
@@ -2276,20 +2276,20 @@ fn accessors() {
     assert_eq!(sig_.revocable(), Some(false));
 
     key.set_creation_time(now).unwrap();
-    sig = sig.set_key_expiration_time(Some(five_minutes)).unwrap();
+    sig = sig.set_key_validity_period(Some(five_minutes)).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.key_expiration_time(), Some(five_minutes));
+    assert_eq!(sig_.key_validity_period(), Some(five_minutes));
 
     assert!(sig_.key_alive(&key, None).is_ok());
     assert!(sig_.key_alive(&key, now).is_ok());
     assert!(!sig_.key_alive(&key, now - five_minutes).is_ok());
     assert!(!sig_.key_alive(&key, now + ten_minutes).is_ok());
 
-    sig = sig.set_key_expiration_time(None).unwrap();
+    sig = sig.set_key_validity_period(None).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.key_expiration_time(), None);
+    assert_eq!(sig_.key_validity_period(), None);
 
     assert!(sig_.key_alive(&key, None).is_ok());
     assert!(sig_.key_alive(&key, now).is_ok());
@@ -2567,7 +2567,7 @@ fn subpacket_test_2() {
         // The signature does not expire.
         assert!(sig.signature_alive(None, None).is_ok());
 
-        assert_eq!(sig.key_expiration_time(),
+        assert_eq!(sig.key_validity_period(),
                    Some(Duration::from(63072000).into()));
         assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime),
                    Some(&Subpacket {
@@ -2980,7 +2980,7 @@ fn subpacket_test_2() {
         //     }
         // }
 
-        assert_eq!(sig.key_expiration_time(),
+        assert_eq!(sig.key_validity_period(),
                    Some(Duration::from(63072000).into()));
         assert_eq!(sig.subpacket(SubpacketTag::KeyExpirationTime),
                    Some(&Subpacket {

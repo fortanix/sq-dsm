@@ -608,7 +608,7 @@ impl Cert {
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
-    fn set_expiration_time_as_of(self, policy: &dyn Policy,
+    fn set_validity_period_as_of(self, policy: &dyn Policy,
                         primary_signer: &mut dyn Signer,
                         expiration: Option<time::Duration>,
                         now: time::SystemTime)
@@ -651,7 +651,7 @@ impl Cert {
 
             // Generate the signature.
             sigs.push(signature::Builder::from(template.clone())
-                      .set_key_expiration_time(expiration)?
+                      .set_key_validity_period(expiration)?
                       .set_signature_creation_time(now)?
                       .sign_hash(primary_signer, hash)?.into());
         }
@@ -666,12 +666,12 @@ impl Cert {
     ///
     /// A policy is needed, because the expiration is updated by adding
     /// a self-signature to the primary user id.
-    pub fn set_expiration_time(self, policy: &dyn Policy,
+    pub fn set_validity_period(self, policy: &dyn Policy,
                       primary_signer: &mut dyn Signer,
                       expiration: Option<time::Duration>)
         -> Result<Cert>
     {
-        self.set_expiration_time_as_of(policy, primary_signer, expiration,
+        self.set_validity_period_as_of(policy, primary_signer, expiration,
                               time::SystemTime::now())
     }
 
@@ -1934,7 +1934,7 @@ mod test {
     }
 
     #[test]
-    fn set_expiration_time() {
+    fn set_validity_period() {
         let p = &P::new();
 
         let (cert, _) = CertBuilder::general_purpose(None, Some("Test"))
@@ -1947,7 +1947,7 @@ mod test {
                    + 1 // subkey
                    + 1 // binding signature
         );
-        let cert = check_set_expiration_time(p, cert);
+        let cert = check_set_validity_period(p, cert);
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
                    + 1 // direct key signature
@@ -1960,31 +1960,31 @@ mod test {
         );
     }
     #[test]
-    fn set_expiration_time_uidless() {
+    fn set_validity_period_uidless() {
         let p = &P::new();
 
         let (cert, _) = CertBuilder::new()
-            .set_expiration_time(None) // Just to assert this works.
-            .set_expiration_time(
+            .set_validity_period(None) // Just to assert this works.
+            .set_validity_period(
                 Some(crate::types::Duration::weeks(52).unwrap().into()))
             .generate().unwrap();
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
                    + 1 // direct key signature
         );
-        let cert = check_set_expiration_time(p, cert);
+        let cert = check_set_validity_period(p, cert);
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
                    + 1 // direct key signature
                    + 2 // two new direct key signatures
         );
     }
-    fn check_set_expiration_time(policy: &dyn Policy, cert: Cert) -> Cert {
+    fn check_set_validity_period(policy: &dyn Policy, cert: Cert) -> Cert {
         let now = cert.primary_key().creation_time();
         let a_sec = time::Duration::new(1, 0);
 
         let expiry_orig = cert.primary_key().with_policy(policy, now).unwrap()
-            .key_expiration_time()
+            .key_validity_period()
             .expect("Keys expire by default.");
 
         let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
@@ -1992,19 +1992,19 @@ mod test {
 
         // Clear the expiration.
         let as_of1 = now + time::Duration::new(10, 0);
-        let cert = cert.set_expiration_time_as_of(
+        let cert = cert.set_validity_period_as_of(
             policy, &mut keypair, None, as_of1).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
             assert_eq!(cert.primary_key().with_policy(policy, now).unwrap()
-                           .key_expiration_time(),
+                           .key_validity_period(),
                        Some(expiry_orig));
             assert_eq!(cert.primary_key().with_policy(policy, as_of1 - a_sec).unwrap()
-                           .key_expiration_time(),
+                           .key_validity_period(),
                        Some(expiry_orig));
             // If t >= as_of1, we should get the new expiry.
             assert_eq!(cert.primary_key().with_policy(policy, as_of1).unwrap()
-                           .key_expiration_time(),
+                           .key_validity_period(),
                        None);
         }
 
@@ -2015,27 +2015,27 @@ mod test {
         assert!(expiry_new > time::Duration::new(0, 0));
 
         let as_of2 = as_of1 + time::Duration::new(10, 0);
-        let cert = cert.set_expiration_time_as_of(
+        let cert = cert.set_validity_period_as_of(
             policy, &mut keypair, Some(expiry_new), as_of2).unwrap();
         {
             // If t < as_of1, we should get the original expiry.
             assert_eq!(cert.primary_key().with_policy(policy, now).unwrap()
-                           .key_expiration_time(),
+                           .key_validity_period(),
                        Some(expiry_orig));
             assert_eq!(cert.primary_key().with_policy(policy, as_of1 - a_sec).unwrap()
-                           .key_expiration_time(),
+                           .key_validity_period(),
                        Some(expiry_orig));
             // If as_of1 <= t < as_of2, we should get the second
             // expiry (None).
             assert_eq!(cert.primary_key().with_policy(policy, as_of1).unwrap()
-                           .key_expiration_time(),
+                           .key_validity_period(),
                        None);
             assert_eq!(cert.primary_key().with_policy(policy, as_of2 - a_sec).unwrap()
-                           .key_expiration_time(),
+                           .key_validity_period(),
                        None);
             // If t <= as_of2, we should get the new expiry.
             assert_eq!(cert.primary_key().with_policy(policy, as_of2).unwrap()
-                           .key_expiration_time(),
+                           .key_validity_period(),
                        Some(expiry_new));
         }
         cert
@@ -2303,7 +2303,7 @@ mod test {
                 .set_features(&Features::sequoia()).unwrap()
                 .set_key_flags(&KeyFlags::default()).unwrap()
                 .set_signature_creation_time(t1).unwrap()
-                .set_key_expiration_time(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
+                .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
@@ -2321,7 +2321,7 @@ mod test {
                 .set_features(&Features::sequoia()).unwrap()
                 .set_key_flags(&KeyFlags::default()).unwrap()
                 .set_signature_creation_time(t3).unwrap()
-                .set_key_expiration_time(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
+                .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()
                 .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
@@ -2966,7 +2966,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                     .set_key_flags(&KeyFlags::default()).unwrap()
                     .set_signature_creation_time(t1).unwrap()
                     // Vary this...
-                    .set_key_expiration_time(Some(
+                    .set_key_validity_period(Some(
                         time::Duration::new((1 + i as u64) * 24 * 60 * 60, 0)))
                     .unwrap()
                     .set_issuer_fingerprint(key.fingerprint()).unwrap()

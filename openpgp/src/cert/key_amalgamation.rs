@@ -439,7 +439,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
     {
         let sig = {
             let binding = self.binding_signature();
-            if binding.key_expiration_time().is_some() {
+            if binding.key_validity_period().is_some() {
                 Some(binding)
             } else {
                 self.direct_key_signature()
