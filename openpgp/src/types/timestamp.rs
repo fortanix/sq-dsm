@@ -1,6 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::time::{SystemTime, Duration as SystemDuration, UNIX_EPOCH};
+use std::u32;
 use quickcheck::{Arbitrary, Gen};
 
 use crate::{
@@ -306,6 +307,7 @@ impl Duration {
 #[allow(unused)]
 impl Timestamp {
     pub(crate) const UNIX_EPOCH : Timestamp = Timestamp(0);
+    pub(crate) const MAX : Timestamp = Timestamp(u32::MAX);
 
     // for y in $(seq 1970 2106); do echo "    const Y$y : Timestamp = Timestamp($(date -u --date="Jan. 1, $y" '+%s'));"; done
     pub(crate) const Y1970 : Timestamp = Timestamp(0);
