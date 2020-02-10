@@ -515,6 +515,22 @@ impl Signature4 {
     pub(crate) fn set_level(&mut self, level: usize) -> usize {
         ::std::mem::replace(&mut self.level, level)
     }
+
+    /// Tests whether or not this signature is exportable.
+    pub fn exportable(&self) -> Result<()> {
+        if ! self.exportable_certification().unwrap_or(true) {
+            return Err(Error::InvalidOperation(
+                "Cannot export non-exportable certification".into()).into());
+        }
+
+        if self.revocation_keys().any(|r| r.sensitive()) {
+            return Err(Error::InvalidOperation(
+                "Cannot export signature with sensitive designated revoker"
+                    .into()).into());
+        }
+
+        Ok(())
+    }
 }
 
 impl crate::packet::Signature {
