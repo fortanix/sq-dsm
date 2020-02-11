@@ -190,15 +190,16 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     }
 
     /// Returns this key's bundle.
-    pub fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole>
-        where &'a KeyBundle<P, key::UnspecifiedRole>:
-            From<&'a KeyBundle<key::PublicParts, key::PrimaryRole>>
-    {
+    pub fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
         match self {
             KeyAmalgamation { bundle: KeyAmalgamationBundle::Primary(), .. } =>
-                (&self.cert.primary).into(),
+                P::convert_bundle_ref((&self.cert.primary).into())
+                .expect("secret key amalgamations contain secret keys"),
             KeyAmalgamation { bundle: KeyAmalgamationBundle::Subordinate(bundle), .. } =>
-                (*bundle).into(),
+                P::convert_bundle_ref((*bundle)
+                                      .mark_parts_unspecified_ref()
+                                      .mark_role_unspecified_ref())
+                .expect("secret key amalgamations contain secret keys"),
         }
     }
 
@@ -465,27 +466,8 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
 
 impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
     /// Returns this key's bundle.
-    pub fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole>
-        where &'a KeyBundle<P, key::UnspecifiedRole>:
-            From<&'a KeyBundle<key::PublicParts, key::PrimaryRole>>
-    {
-        match self {
-            ValidKeyAmalgamation {
-                a: KeyAmalgamation {
-                    bundle: KeyAmalgamationBundle::Primary(), ..
-                },
-                ..
-            } =>
-                (&self.cert.primary).into(),
-            ValidKeyAmalgamation {
-                a: KeyAmalgamation {
-                    bundle: KeyAmalgamationBundle::Subordinate(bundle),
-                    ..
-                },
-                ..
-            } =>
-                (*bundle).into(),
-        }
+    pub fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
+        self.a.bundle()
     }
 
     /// Returns whether the key is alive as of the amalgamtion's
