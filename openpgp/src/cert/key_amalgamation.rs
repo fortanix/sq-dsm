@@ -416,6 +416,24 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
                 bundle.revoked(self.policy, self.time()),
         }
     }
+
+    /// Returns the key's expiration time as of the amalgamtion's
+    /// reference time.
+    ///
+    /// If this function returns `None`, the key does not expire.
+    ///
+    /// Considers both the binding signature and the direct key
+    /// signature.  Information in the binding signature takes
+    /// precedence over the direct key signature.  See also [Section
+    /// 5.2.3.3 of RFC 4880].
+    ///
+    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+    fn key_expiration_time(&self) -> Option<time::SystemTime> {
+        match self.key_validity_period() {
+            Some(vp) if vp.as_secs() > 0 => Some(self.creation_time() + vp),
+            _ => None,
+        }
+    }
 }
 
 impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
@@ -602,6 +620,23 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
     /// revoked.
     fn revoked(&self) -> RevocationStatus<'a> {
         self.a.revoked()
+    }
+
+    /// Returns the key's expiration time as of the amalgamtion's
+    /// reference time.
+    ///
+    /// Considers both the binding signature and the direct key
+    /// signature.  Information in the binding signature takes
+    /// precedence over the direct key signature.  See also [Section
+    /// 5.2.3.3 of RFC 4880].
+    ///
+    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+    fn key_expiration_time(&self) -> Option<time::SystemTime> {
+        let key = self.cert().primary_key().key();
+        match self.key_validity_period() {
+            Some(vp) if vp.as_secs() > 0 => Some(key.creation_time() + vp),
+            _ => None,
+        }
     }
 }
 
