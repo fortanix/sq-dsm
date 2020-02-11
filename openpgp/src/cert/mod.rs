@@ -1961,12 +1961,14 @@ mod test {
     }
     #[test]
     fn set_validity_period_uidless() {
+        use crate::types::{Duration, Timestamp};
         let p = &P::new();
 
         let (cert, _) = CertBuilder::new()
-            .set_validity_period(None) // Just to assert this works.
-            .set_validity_period(
-                Some(crate::types::Duration::weeks(52).unwrap().into()))
+            .set_expiration_time(None) // Just to assert this works.
+            .set_expiration_time(
+                Some(Timestamp::now().checked_add(
+                    Duration::weeks(52).unwrap()).unwrap().into()))
             .generate().unwrap();
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key

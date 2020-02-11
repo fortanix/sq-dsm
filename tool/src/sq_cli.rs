@@ -393,12 +393,21 @@ pub fn build() -> App<'static, 'static> {
                              .long("with-password")
                              .help("Prompt for a password to protect the \
                                     generated key with."))
-                        .arg(Arg::with_name("expiry")
-                             .value_name("EXPIRY")
-                             .long("expiry")
+
+                        .group(ArgGroup::with_name("expiration-group")
+                               .args(&["expires", "expires-in"]))
+
+                        .arg(Arg::with_name("expires")
+                             .value_name("TIME")
+                             .long("expires")
+                             .help("Absolute time When the key should expire, \
+                                    or 'never'."))
+                        .arg(Arg::with_name("expires-in")
+                             .value_name("DURATION")
+                             .long("expires-in")
                              // Catch negative numbers.
                              .allow_hyphen_values(true)
-                             .help("When the key should expire.  \
+                             .help("Relative time when the key should expire.  \
                                     Either 'N[ymwd]', for N years, months, \
                                     weeks, or days, or 'never'."))
 

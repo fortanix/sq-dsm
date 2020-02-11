@@ -100,7 +100,7 @@ impl CipherSuite {
 #[derive(Clone, Debug)]
 pub struct KeyBlueprint {
     flags: KeyFlags,
-    expiration: Option<time::Duration>,
+    expiration: Option<time::SystemTime>,
 }
 
 /// Simplifies generation of Keys.
@@ -157,7 +157,8 @@ impl CertBuilder {
                     .set_certification(true)
                     .set_signing(true),
                 expiration: Some(
-                    time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
+                    time::SystemTime::now()
+                        + time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
             },
             subkeys: vec![
                 KeyBlueprint {
@@ -235,7 +236,7 @@ impl CertBuilder {
     /// If `expiration` is `None`, the subkey uses the same expiration
     /// time as the primary key.
     pub fn add_subkey<T>(mut self, flags: KeyFlags, expiration: T) -> Self
-        where T: Into<Option<time::Duration>>
+        where T: Into<Option<time::SystemTime>>
     {
         self.subkeys.push(KeyBlueprint {
             flags: flags,
@@ -260,8 +261,8 @@ impl CertBuilder {
     /// Sets the expiration time.
     ///
     /// A value of None means never.
-    pub fn set_validity_period<T>(mut self, expiration: T) -> Self
-        where T: Into<Option<time::Duration>>
+    pub fn set_expiration_time<T>(mut self, expiration: T) -> Self
+        where T: Into<Option<time::SystemTime>>
     {
         self.primary.expiration = expiration.into();
         self
@@ -334,7 +335,8 @@ impl CertBuilder {
                 .set_hash_algo(HashAlgorithm::SHA512)
                 .set_features(&Features::sequoia())?
                 .set_key_flags(flags)?
-                .set_key_validity_period(
+                .set_key_expiration_time(
+                    &subkey,
                     blueprint.expiration.or(self.primary.expiration))?;
 
             if flags.for_transport_encryption() || flags.for_storage_encryption()
@@ -400,7 +402,7 @@ impl CertBuilder {
             .set_features(&Features::sequoia())?
             .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(creation_time)?
-            .set_key_validity_period(self.primary.expiration)?
+            .set_key_expiration_time(&key, self.primary.expiration)?
             .set_issuer_fingerprint(key.fingerprint())?
             .set_issuer(key.keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
@@ -581,17 +583,18 @@ mod tests {
     fn validity_periods() {
         let p = &P::new();
 
+        let now = std::time::SystemTime::now();
         let s = std::time::Duration::new(1, 0);
+
         let (cert,_) = CertBuilder::new()
-            .set_validity_period(600 * s)
+            .set_creation_time(now)
+            .set_expiration_time(now + 600 * s)
             .add_subkey(KeyFlags::default().set_signing(true),
-                        300 * s)
+                        now + 300 * s)
             .add_subkey(KeyFlags::default().set_authentication(true),
                         None)
             .generate().unwrap();
 
-        let now = cert.primary_key().creation_time()
-            + 5 * s; // The subkeys may be created a tad later.
         let key = cert.primary_key().key();
         let sig = &cert.primary_key().bundle().self_signatures()[0];
         assert!(sig.key_alive(key, now).is_ok());

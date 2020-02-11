@@ -494,8 +494,9 @@
 //!                                          transport, storage, universal]
 //!     -c, --cipher-suite <CIPHER-SUITE>    Cryptographic algorithms used for the key. [default: cv25519]  [possible
 //!                                          values: rsa3k, rsa4k, cv25519]
-//!         --expiry <EXPIRY>                When the key should expire.  Either 'N[ymwd]', for N years, months, weeks, or
-//!                                          days, or 'never'.
+//!         --expires <TIME>                 Absolute time When the key should expire, or 'never'.
+//!         --expires-in <DURATION>          Relative time when the key should expire.  Either 'N[ymwd]', for N years,
+//!                                          months, weeks, or days, or 'never'.
 //!     -e, --export <OUTFILE>               Exports the key instead of saving it in the store
 //!         --rev-cert <FILE or ->           Sets the output file for the revocation certificate. Default is <OUTFILE>.rev,
 //!                                          mandatory if OUTFILE is '-'.
