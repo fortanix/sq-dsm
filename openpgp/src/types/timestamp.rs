@@ -455,6 +455,13 @@ impl Arbitrary for Duration {
     }
 }
 
+/// Normalizes the given SystemTime to the resolution OpenPGP
+/// supports.
+pub(crate) fn normalize_systemtime(t: SystemTime) -> SystemTime {
+    UNIX_EPOCH + SystemDuration::new(
+        t.duration_since(UNIX_EPOCH).unwrap().as_secs(), 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

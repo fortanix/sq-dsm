@@ -22,6 +22,7 @@ mod server_preferences;
 pub use self::server_preferences::KeyServerPreferences;
 mod timestamp;
 pub use timestamp::{Timestamp, Duration};
+pub(crate) use timestamp::normalize_systemtime;
 
 /// Removes padding bytes from bitfields.
 ///
