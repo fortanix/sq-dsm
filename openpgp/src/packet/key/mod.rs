@@ -85,6 +85,18 @@ pub trait KeyParts: fmt::Debug {
     fn convert_key_ref<R: KeyRole>(key: &Key<UnspecifiedParts, R>)
                                    -> Result<&Key<Self, R>>
         where Self: Sized;
+
+    /// Converts a key bundle with unspecified parts into this kind of
+    /// key bundle.
+    fn convert_bundle<R: KeyRole>(bundle: KeyBundle<UnspecifiedParts, R>)
+                                  -> Result<KeyBundle<Self, R>>
+        where Self: Sized;
+
+    /// Converts a reference to a key bundle with unspecified parts
+    /// into this kind of key bundle reference.
+    fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
+                                      -> Result<&KeyBundle<Self, R>>
+        where Self: Sized;
 }
 
 /// A marker trait that indicates whether a `Key` is a primary key or
@@ -99,6 +111,18 @@ pub trait KeyRole: fmt::Debug {
     /// kind of key reference.
     fn convert_key_ref<P: KeyParts>(key: &Key<P, UnspecifiedRole>)
                                     -> &Key<P, Self>
+        where Self: Sized;
+
+    /// Converts a key bundle with unspecified role into this kind of
+    /// key bundle.
+    fn convert_bundle<P: KeyParts>(bundle: KeyBundle<P, UnspecifiedRole>)
+                                   -> KeyBundle<P, Self>
+        where Self: Sized;
+
+    /// Converts a reference to a key bundle with unspecified role
+    /// into this kind of key bundle reference.
+    fn convert_bundle_ref<P: KeyParts>(bundle: &KeyBundle<P, UnspecifiedRole>)
+                                       -> &KeyBundle<P, Self>
         where Self: Sized;
 }
 
@@ -120,6 +144,16 @@ impl KeyParts for PublicParts {
                                    -> Result<&Key<Self, R>> {
         Ok(key.into())
     }
+
+    fn convert_bundle<R: KeyRole>(bundle: KeyBundle<UnspecifiedParts, R>)
+                                  -> Result<KeyBundle<Self, R>> {
+        Ok(bundle.into())
+    }
+
+    fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
+                                      -> Result<&KeyBundle<Self, R>> {
+        Ok(bundle.into())
+    }
 }
 
 /// Indicates that a `Key` should be treated like a secret key.
@@ -139,6 +173,16 @@ impl KeyParts for SecretParts {
     fn convert_key_ref<R: KeyRole>(key: &Key<UnspecifiedParts, R>)
                                    -> Result<&Key<Self, R>> {
         key.try_into()
+    }
+
+    fn convert_bundle<R: KeyRole>(bundle: KeyBundle<UnspecifiedParts, R>)
+                                  -> Result<KeyBundle<Self, R>> {
+        bundle.try_into()
+    }
+
+    fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
+                                      -> Result<&KeyBundle<Self, R>> {
+        bundle.try_into()
     }
 }
 
@@ -163,6 +207,16 @@ impl KeyParts for UnspecifiedParts {
                                    -> Result<&Key<Self, R>> {
         Ok(key)
     }
+
+    fn convert_bundle<R: KeyRole>(bundle: KeyBundle<UnspecifiedParts, R>)
+                                  -> Result<KeyBundle<Self, R>> {
+        Ok(bundle)
+    }
+
+    fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
+                                      -> Result<&KeyBundle<Self, R>> {
+        Ok(bundle)
+    }
 }
 
 /// Indicates that a `Key` should treated like a primary key.
@@ -178,6 +232,16 @@ impl KeyRole for PrimaryRole {
                                     -> &Key<P, Self> {
         key.into()
     }
+
+    fn convert_bundle<P: KeyParts>(bundle: KeyBundle<P, UnspecifiedRole>)
+                                   -> KeyBundle<P, Self> {
+        bundle.into()
+    }
+
+    fn convert_bundle_ref<P: KeyParts>(bundle: &KeyBundle<P, UnspecifiedRole>)
+                                       -> &KeyBundle<P, Self> {
+        bundle.into()
+    }
 }
 
 /// Indicates that a `Key` should treated like a subkey key.
@@ -192,6 +256,16 @@ impl KeyRole for SubordinateRole {
     fn convert_key_ref<P: KeyParts>(key: &Key<P, UnspecifiedRole>)
                                     -> &Key<P, Self> {
         key.into()
+    }
+
+    fn convert_bundle<P: KeyParts>(bundle: KeyBundle<P, UnspecifiedRole>)
+                                   -> KeyBundle<P, Self> {
+        bundle.into()
+    }
+
+    fn convert_bundle_ref<P: KeyParts>(bundle: &KeyBundle<P, UnspecifiedRole>)
+                                       -> &KeyBundle<P, Self> {
+        bundle.into()
     }
 }
 
@@ -210,6 +284,16 @@ impl KeyRole for UnspecifiedRole {
     fn convert_key_ref<P: KeyParts>(key: &Key<P, UnspecifiedRole>)
                                     -> &Key<P, Self> {
         key
+    }
+
+    fn convert_bundle<P: KeyParts>(bundle: KeyBundle<P, UnspecifiedRole>)
+                                   -> KeyBundle<P, Self> {
+        bundle
+    }
+
+    fn convert_bundle_ref<P: KeyParts>(bundle: &KeyBundle<P, UnspecifiedRole>)
+                                       -> &KeyBundle<P, Self> {
+        bundle
     }
 }
 
