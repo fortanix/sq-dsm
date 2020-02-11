@@ -74,11 +74,33 @@ use crate::KeyHandle;
 /// A marker trait that indicates whether a `Key` only contains
 /// public key material or *may* also contains secret key
 /// material.
-pub trait KeyParts: fmt::Debug {}
+pub trait KeyParts: fmt::Debug {
+    /// Converts a key with unspecified parts into this kind of key.
+    fn convert_key<R: KeyRole>(key: Key<UnspecifiedParts, R>)
+                               -> Result<Key<Self, R>>
+        where Self: Sized;
+
+    /// Converts a reference to a key with unspecified parts into this
+    /// kind of key reference.
+    fn convert_key_ref<R: KeyRole>(key: &Key<UnspecifiedParts, R>)
+                                   -> Result<&Key<Self, R>>
+        where Self: Sized;
+}
 
 /// A marker trait that indicates whether a `Key` is a primary key or
 /// subordinate key (i.e., a subkey).
-pub trait KeyRole: fmt::Debug {}
+pub trait KeyRole: fmt::Debug {
+    /// Converts a key with unspecified role into this kind of key.
+    fn convert_key<P: KeyParts>(key: Key<P, UnspecifiedRole>)
+                                -> Key<P, Self>
+        where Self: Sized;
+
+    /// Converts a reference to a key with unspecified role into this
+    /// kind of key reference.
+    fn convert_key_ref<P: KeyParts>(key: &Key<P, UnspecifiedRole>)
+                                    -> &Key<P, Self>
+        where Self: Sized;
+}
 
 /// Indicates that a `Key` should be treated like a public key.
 ///
@@ -88,7 +110,17 @@ pub trait KeyRole: fmt::Debug {}
 /// `PublicParts` marker, secret key material will *not* be exported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PublicParts;
-impl KeyParts for PublicParts {}
+impl KeyParts for PublicParts {
+    fn convert_key<R: KeyRole>(key: Key<UnspecifiedParts, R>)
+                               -> Result<Key<Self, R>> {
+        Ok(key.into())
+    }
+
+    fn convert_key_ref<R: KeyRole>(key: &Key<UnspecifiedParts, R>)
+                                   -> Result<&Key<Self, R>> {
+        Ok(key.into())
+    }
+}
 
 /// Indicates that a `Key` should be treated like a secret key.
 ///
@@ -98,7 +130,17 @@ impl KeyParts for PublicParts {}
 /// `SecretParts` marker, secret key material will be exported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SecretParts;
-impl KeyParts for SecretParts {}
+impl KeyParts for SecretParts {
+    fn convert_key<R: KeyRole>(key: Key<UnspecifiedParts, R>)
+                               -> Result<Key<Self, R>>{
+        key.try_into()
+    }
+
+    fn convert_key_ref<R: KeyRole>(key: &Key<UnspecifiedParts, R>)
+                                   -> Result<&Key<Self, R>> {
+        key.try_into()
+    }
+}
 
 /// Indicates that a `Key`'s parts are unspecified.
 ///
@@ -111,17 +153,47 @@ impl KeyParts for SecretParts {}
 /// different `KeyParts` marker.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedParts;
-impl KeyParts for UnspecifiedParts {}
+impl KeyParts for UnspecifiedParts {
+    fn convert_key<R: KeyRole>(key: Key<UnspecifiedParts, R>)
+                               -> Result<Key<Self, R>> {
+        Ok(key)
+    }
+
+    fn convert_key_ref<R: KeyRole>(key: &Key<UnspecifiedParts, R>)
+                                   -> Result<&Key<Self, R>> {
+        Ok(key)
+    }
+}
 
 /// Indicates that a `Key` should treated like a primary key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PrimaryRole;
-impl KeyRole for PrimaryRole {}
+impl KeyRole for PrimaryRole {
+    fn convert_key<P: KeyParts>(key: Key<P, UnspecifiedRole>)
+                                -> Key<P, Self> {
+        key.into()
+    }
+
+    fn convert_key_ref<P: KeyParts>(key: &Key<P, UnspecifiedRole>)
+                                    -> &Key<P, Self> {
+        key.into()
+    }
+}
 
 /// Indicates that a `Key` should treated like a subkey key.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SubordinateRole;
-impl KeyRole for SubordinateRole {}
+impl KeyRole for SubordinateRole {
+    fn convert_key<P: KeyParts>(key: Key<P, UnspecifiedRole>)
+                                -> Key<P, Self> {
+        key.into()
+    }
+
+    fn convert_key_ref<P: KeyParts>(key: &Key<P, UnspecifiedRole>)
+                                    -> &Key<P, Self> {
+        key.into()
+    }
+}
 
 /// Indicates that a `Key`'s role is unknown.
 ///
@@ -129,7 +201,17 @@ impl KeyRole for SubordinateRole {}
 /// are allowed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedRole;
-impl KeyRole for UnspecifiedRole {}
+impl KeyRole for UnspecifiedRole {
+    fn convert_key<P: KeyParts>(key: Key<P, UnspecifiedRole>)
+                                -> Key<P, Self> {
+        key
+    }
+
+    fn convert_key_ref<P: KeyParts>(key: &Key<P, UnspecifiedRole>)
+                                    -> &Key<P, Self> {
+        key
+    }
+}
 
 /// A Public Key.
 pub(crate) type PublicKey = Key<PublicParts, PrimaryRole>;
