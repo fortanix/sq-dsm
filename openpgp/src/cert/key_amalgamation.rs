@@ -1,6 +1,5 @@
 use std::time;
 use std::time::SystemTime;
-use std::convert::TryInto;
 use std::convert::TryFrom;
 use std::ops::Deref;
 
@@ -46,89 +45,87 @@ impl<'a, P: key::KeyParts> Deref for KeyAmalgamation<'a, P> {
     }
 }
 
-// We can't make the key parts generic, because then the impl would
-// conflict with 'impl<T> std::convert::From<T> for T'.
-impl<'a> From<KeyAmalgamation<'a, key::PublicParts>>
-    for KeyAmalgamation<'a, key::UnspecifiedParts>
-{
-    fn from(ka: KeyAmalgamation<'a, key::PublicParts>) -> Self {
-        match ka {
-            KeyAmalgamation {
-                cert,
-                bundle: KeyAmalgamationBundle::Primary(),
-            } =>
-                KeyAmalgamation {
-                    cert,
-                    bundle: KeyAmalgamationBundle::Primary(),
-                },
-            KeyAmalgamation {
-                cert,
-                bundle: KeyAmalgamationBundle::Subordinate(bundle),
-            } =>
-                KeyAmalgamation {
-                    cert,
-                    bundle: KeyAmalgamationBundle::Subordinate(bundle.into()),
-                },
+macro_rules! create_p_conversions {
+    ( $Key:ident ) => {
+        macro_rules! convert {
+            ( $x:ident ) => {
+                // XXX: This is ugly, but how can we do better?
+                unsafe { std::mem::transmute($x) }
+            }
         }
-    }
-}
 
-impl<'a> From<KeyAmalgamation<'a, key::SecretParts>>
-    for KeyAmalgamation<'a, key::PublicParts>
-{
-    fn from(ka: KeyAmalgamation<'a, key::SecretParts>) -> Self {
-        match ka {
-            KeyAmalgamation {
-                cert,
-                bundle: KeyAmalgamationBundle::Primary(),
-            } =>
-                KeyAmalgamation {
-                    cert,
-                    bundle: KeyAmalgamationBundle::Primary(),
-                },
-            KeyAmalgamation {
-                cert,
-                bundle: KeyAmalgamationBundle::Subordinate(bundle),
-            } =>
-                KeyAmalgamation {
-                    cert,
-                    bundle: KeyAmalgamationBundle::Subordinate(bundle.into()),
-                },
+        macro_rules! convert_ref {
+            ( $x:ident ) => {
+                // XXX: This is ugly, but how can we do better?
+                unsafe { std::mem::transmute($x) }
+            }
         }
-    }
-}
 
-impl<'a> TryFrom<KeyAmalgamation<'a, key::PublicParts>>
-    for KeyAmalgamation<'a, key::SecretParts>
-{
-    type Error = failure::Error;
+        // Convert between two KeyParts for a constant KeyRole.
+        // Unfortunately, we can't let the KeyRole vary as otherwise we
+        // get conflicting types when we do the same to convert between
+        // two KeyRoles for a constant KeyParts. :(
+        macro_rules! p {
+            ( <$from_parts:ty> -> <$to_parts:ty>) => {
+                impl<'a> From<$Key<'a, $from_parts>> for $Key<'a, $to_parts> {
+                    fn from(p: $Key<'a, $from_parts>) -> Self {
+                        convert!(p)
+                    }
+                }
 
-    fn try_from(ka: KeyAmalgamation<'a, key::PublicParts>) -> Result<Self> {
-        Ok(match ka {
-            KeyAmalgamation {
-                cert,
-                bundle: KeyAmalgamationBundle::Primary(),
-            } => {
-                // Error out if the primary key does not have secret
-                // key material.
-                let _ : &KeyBundle<key::SecretParts, key::PrimaryRole>
-                    = (&cert.primary).try_into()?;
-                KeyAmalgamation {
-                    cert,
-                    bundle: KeyAmalgamationBundle::Primary(),
+                impl<'a> From<&$Key<'a, $from_parts>> for &$Key<'a, $to_parts> {
+                    fn from(p: &$Key<'a, $from_parts>) -> Self {
+                        convert_ref!(p)
+                    }
                 }
             }
-            KeyAmalgamation {
-                cert,
-                bundle: KeyAmalgamationBundle::Subordinate(bundle),
-            } =>
-                KeyAmalgamation {
-                    cert,
-                    bundle: KeyAmalgamationBundle::Subordinate(bundle.try_into()?),
-                },
-        })
+        }
+
+        // Likewise, but using TryFrom.
+        macro_rules! p_try {
+            ( <$from_parts:ty> -> <$to_parts:ty>) => {
+                impl<'a> TryFrom<$Key<'a, $from_parts>> for $Key<'a, $to_parts> {
+                    type Error = failure::Error;
+                    fn try_from(p: $Key<'a, $from_parts>) -> Result<Self> {
+                        if p.secret().is_some() {
+                            Ok(convert!(p))
+                        } else {
+                            Err(Error::InvalidArgument("No secret key".into())
+                                .into())
+                        }
+                    }
+                }
+
+                impl<'a> TryFrom<&$Key<'a, $from_parts>> for &$Key<'a, $to_parts> {
+                    type Error = failure::Error;
+                    fn try_from(p: &$Key<'a, $from_parts>) -> Result<Self> {
+                        if p.secret().is_some() {
+                            Ok(convert_ref!(p))
+                        } else {
+                            Err(Error::InvalidArgument("No secret key".into())
+                                .into())
+                        }
+                    }
+                }
+            }
+        }
+
+
+        p_try!(<key::PublicParts> -> <key::SecretParts>);
+        p!(<key::PublicParts> -> <key::UnspecifiedParts>);
+
+        p!(<key::SecretParts> -> <key::PublicParts>);
+        p!(<key::SecretParts> -> <key::UnspecifiedParts>);
+
+        p!(<key::UnspecifiedParts> -> <key::PublicParts>);
+        p_try!(<key::UnspecifiedParts> -> <key::SecretParts>);
     }
 }
+
+create_p_conversions!(KeyAmalgamation);
+create_p_conversions!(PrimaryKeyAmalgamation);
+create_p_conversions!(ValidKeyAmalgamation);
+create_p_conversions!(ValidPrimaryKeyAmalgamation);
 
 impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     pub(crate) fn new_primary(cert: &'a Cert) -> Self {
@@ -352,49 +349,6 @@ impl<'a, P: key::KeyParts> From<ValidKeyAmalgamation<'a, P>>
 {
     fn from(vka: ValidKeyAmalgamation<'a, P>) -> Self {
         vka.a
-    }
-}
-
-// We can't make the key parts generic, because then the impl would
-// conflict with 'impl<T> std::convert::From<T> for T'.
-impl<'a> From<ValidKeyAmalgamation<'a, key::PublicParts>>
-    for ValidKeyAmalgamation<'a, key::UnspecifiedParts>
-{
-    fn from(ka: ValidKeyAmalgamation<'a, key::PublicParts>) -> Self {
-        ValidKeyAmalgamation {
-            a: ka.a.into(),
-            policy: ka.policy,
-            time: ka.time,
-            binding_signature: ka.binding_signature,
-        }
-    }
-}
-
-impl<'a> From<ValidKeyAmalgamation<'a, key::SecretParts>>
-    for ValidKeyAmalgamation<'a, key::PublicParts>
-{
-    fn from(ka: ValidKeyAmalgamation<'a, key::SecretParts>) -> Self {
-        ValidKeyAmalgamation {
-            a: ka.a.into(),
-            policy: ka.policy,
-            time: ka.time,
-            binding_signature: ka.binding_signature,
-        }
-    }
-}
-
-impl<'a> TryFrom<ValidKeyAmalgamation<'a, key::PublicParts>>
-    for ValidKeyAmalgamation<'a, key::SecretParts>
-{
-    type Error = failure::Error;
-
-    fn try_from(ka: ValidKeyAmalgamation<'a, key::PublicParts>) -> Result<Self> {
-        Ok(ValidKeyAmalgamation {
-            a: ka.a.try_into()?,
-            policy: ka.policy,
-            time: ka.time,
-            binding_signature: ka.binding_signature,
-        })
     }
 }
 
