@@ -659,20 +659,31 @@ impl Cert {
         self.merge_packets(sigs)
     }
 
-    /// Sets the key to expire in delta.
-    ///
-    /// Note: the time is relative to the primary key's creation time,
-    /// not the current time!
+    /// Sets the key to expire at the given time.
     ///
     /// A policy is needed, because the expiration is updated by adding
     /// a self-signature to the primary user id.
-    pub fn set_validity_period(self, policy: &dyn Policy,
+    pub fn set_expiration_time(self, policy: &dyn Policy,
                       primary_signer: &mut dyn Signer,
-                      expiration: Option<time::Duration>)
+                      expiration: Option<time::SystemTime>)
         -> Result<Cert>
     {
+        let expiration =
+            if let Some(e) = expiration.map(crate::types::normalize_systemtime)
+        {
+            let ct = self.primary_key().creation_time();
+            match e.duration_since(ct) {
+                Ok(v) => Some(v),
+                Err(_) => return Err(Error::InvalidArgument(
+                    format!("Expiration time {:?} predates creation time \
+                             {:?}", e, ct)).into()),
+            }
+        } else {
+            None
+        };
+
         self.set_validity_period_as_of(policy, primary_signer, expiration,
-                              time::SystemTime::now())
+                                       time::SystemTime::now())
     }
 
     /// Returns the amalgamated primary userid at `t`, if any.

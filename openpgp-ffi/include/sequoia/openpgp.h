@@ -921,18 +921,15 @@ pgp_status_t pgp_cert_alive(pgp_error_t *errp, pgp_cert_t cert,
                             pgp_policy_t policy, time_t when);
 
 /*/
-/// Changes the Cert's expiration.
-///
-/// Expiry is when the key should expire in seconds relative to the
-/// key's creation (not the current time).
+/// Sets the key to expire at the given time.
 ///
 /// This function consumes `cert` and returns a new `Cert`.
 /*/
-pgp_cert_t pgp_cert_set_validity_period(pgp_error_t *errp,
+pgp_cert_t pgp_cert_set_expiration_time(pgp_error_t *errp,
                                pgp_cert_t cert,
                                pgp_policy_t policy,
                                pgp_signer_t signer,
-                               uint32_t expiry);
+                               time_t expiry);
 
 /*/
 /// Returns whether the Cert includes any secret key material.
