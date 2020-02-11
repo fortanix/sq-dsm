@@ -76,8 +76,8 @@ impl HashAlgorithm {
             HashAlgorithm::SHA256 => true,
             HashAlgorithm::SHA384 => true,
             HashAlgorithm::SHA512 => true,
-            HashAlgorithm::RipeMD => false,
-            HashAlgorithm::MD5 => false,
+            HashAlgorithm::RipeMD => true,
+            HashAlgorithm::MD5 => true,
             HashAlgorithm::Private(_) => false,
             HashAlgorithm::Unknown(_) => false,
         }
@@ -94,7 +94,11 @@ impl HashAlgorithm {
     ///   [`HashAlgorithm::is_supported`]: #method.is_supported
     pub fn context(self) -> Result<Context> {
         use nettle::hash::{Sha224, Sha256, Sha384, Sha512};
-        use nettle::hash::insecure_do_not_use::Sha1;
+        use nettle::hash::insecure_do_not_use::{
+            Sha1,
+            Md5,
+            Ripemd160,
+        };
 
         let c: Result<Box<dyn nettle::Hash>> = match self {
             HashAlgorithm::SHA1 => Ok(Box::new(Sha1::default())),
@@ -102,8 +106,8 @@ impl HashAlgorithm {
             HashAlgorithm::SHA256 => Ok(Box::new(Sha256::default())),
             HashAlgorithm::SHA384 => Ok(Box::new(Sha384::default())),
             HashAlgorithm::SHA512 => Ok(Box::new(Sha512::default())),
-            HashAlgorithm::MD5 | HashAlgorithm::RipeMD =>
-                Err(Error::UnsupportedHashAlgorithm(self).into()),
+            HashAlgorithm::MD5 => Ok(Box::new(Md5::default())),
+            HashAlgorithm::RipeMD => Ok(Box::new(Ripemd160::default())),
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
                 Err(Error::UnsupportedHashAlgorithm(self).into()),
         };
@@ -130,8 +134,11 @@ impl HashAlgorithm {
             HashAlgorithm::SHA256 => Ok(rsa::ASN1_OID_SHA256),
             HashAlgorithm::SHA384 => Ok(rsa::ASN1_OID_SHA384),
             HashAlgorithm::SHA512 => Ok(rsa::ASN1_OID_SHA512),
-            HashAlgorithm::MD5 | HashAlgorithm::RipeMD =>
-                Err(Error::UnsupportedHashAlgorithm(self.into()).into()),
+            HashAlgorithm::MD5 => Ok(rsa::ASN1_OID_MD5),
+            HashAlgorithm::RipeMD =>
+                // XXX: Use the constant from nettle-rs 6.
+                Ok(&[0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2B, 0x24,
+                     0x03, 0x02, 0x01, 0x05, 0x00, 0x04, 0x14][..]),
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
                 Err(Error::UnsupportedHashAlgorithm(self).into()),
         }
@@ -540,6 +547,9 @@ mod test {
             (userid_sigs, ua_sigs, subkey_sigs)
         }
 
+        check(Cert::from_bytes(crate::tests::key("hash-algos/MD5.gpg")).unwrap());
+        check(Cert::from_bytes(crate::tests::key("hash-algos/RipeMD160.gpg")).unwrap());
+        check(Cert::from_bytes(crate::tests::key("hash-algos/SHA1.gpg")).unwrap());
         check(Cert::from_bytes(crate::tests::key("hash-algos/SHA224.gpg")).unwrap());
         check(Cert::from_bytes(crate::tests::key("hash-algos/SHA256.gpg")).unwrap());
         check(Cert::from_bytes(crate::tests::key("hash-algos/SHA384.gpg")).unwrap());
