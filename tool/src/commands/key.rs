@@ -184,15 +184,6 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
 }
 
 fn parse_duration(expiry: &str) -> failure::Fallible<Duration> {
-    let even_off = |s| {
-        if s < 7 * SECONDS_IN_DAY {
-            // Don't round down, too small.
-            s
-        } else {
-            s - (s % SECONDS_IN_DAY)
-        }
-    };
-
     let mut expiry = expiry.chars().peekable();
 
     let _ = expiry.by_ref()
@@ -251,5 +242,5 @@ fn parse_duration(expiry: &str) -> failure::Fallible<Duration> {
             junk, count, factor));
     }
 
-    Ok(Duration::new(even_off(count * factor), 0))
+    Ok(Duration::new(count * factor, 0))
 }
