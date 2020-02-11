@@ -57,6 +57,10 @@ use std::convert::{TryFrom, TryInto};
 use std::time;
 
 use crate::Error;
+use crate::cert::components::{
+    KeyBundle,
+    ValidKeyAmalgamation,
+};
 use crate::crypto::{self, mem::{self, Protected}, mpis, hash::Hash};
 use crate::packet;
 use crate::packet::prelude::*;
@@ -96,6 +100,20 @@ pub trait KeyParts: fmt::Debug {
     /// into this kind of key bundle reference.
     fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
                                       -> Result<&KeyBundle<Self, R>>
+        where Self: Sized;
+
+    /// Converts a key amalgamation with unspecified parts into this
+    /// kind of key amalgamation.
+    fn convert_valid_amalgamation<'a>(
+        amalgamation: ValidKeyAmalgamation<'a, UnspecifiedParts>)
+        -> Result<ValidKeyAmalgamation<'a, Self>>
+        where Self: Sized;
+
+    /// Converts a reference to a key amalgamation with unspecified
+    /// parts into this kind of key amalgamation reference.
+    fn convert_valid_amalgamation_ref<'a>(
+        amalgamation: &'a ValidKeyAmalgamation<'a, UnspecifiedParts>)
+        -> Result<&'a ValidKeyAmalgamation<'a, Self>>
         where Self: Sized;
 }
 
@@ -154,6 +172,18 @@ impl KeyParts for PublicParts {
                                       -> Result<&KeyBundle<Self, R>> {
         Ok(bundle.into())
     }
+
+    fn convert_valid_amalgamation<'a>(
+        amalgamation: ValidKeyAmalgamation<'a, UnspecifiedParts>)
+        -> Result<ValidKeyAmalgamation<'a, Self>> {
+        Ok(amalgamation.into())
+    }
+
+    fn convert_valid_amalgamation_ref<'a>(
+        amalgamation: &'a ValidKeyAmalgamation<'a, UnspecifiedParts>)
+        -> Result<&'a ValidKeyAmalgamation<'a, Self>> {
+        Ok(amalgamation.into())
+    }
 }
 
 /// Indicates that a `Key` should be treated like a secret key.
@@ -183,6 +213,18 @@ impl KeyParts for SecretParts {
     fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
                                       -> Result<&KeyBundle<Self, R>> {
         bundle.try_into()
+    }
+
+    fn convert_valid_amalgamation<'a>(
+        amalgamation: ValidKeyAmalgamation<'a, UnspecifiedParts>)
+        -> Result<ValidKeyAmalgamation<'a, Self>> {
+        amalgamation.try_into()
+    }
+
+    fn convert_valid_amalgamation_ref<'a>(
+        amalgamation: &'a ValidKeyAmalgamation<'a, UnspecifiedParts>)
+        -> Result<&'a ValidKeyAmalgamation<'a, Self>> {
+        amalgamation.try_into()
     }
 }
 
@@ -216,6 +258,18 @@ impl KeyParts for UnspecifiedParts {
     fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
                                       -> Result<&KeyBundle<Self, R>> {
         Ok(bundle)
+    }
+
+    fn convert_valid_amalgamation<'a>(
+        amalgamation: ValidKeyAmalgamation<'a, UnspecifiedParts>)
+        -> Result<ValidKeyAmalgamation<'a, Self>> {
+        Ok(amalgamation)
+    }
+
+    fn convert_valid_amalgamation_ref<'a>(
+        amalgamation: &'a ValidKeyAmalgamation<'a, UnspecifiedParts>)
+        -> Result<&'a ValidKeyAmalgamation<'a, Self>> {
+        Ok(amalgamation)
     }
 }
 
@@ -709,8 +763,6 @@ macro_rules! create_conversions {
 
 create_conversions!(Key);
 create_conversions!(Key4);
-
-use crate::cert::components::KeyBundle;
 create_conversions!(KeyBundle);
 
 /// Holds a public key, public subkey, private key or private subkey packet.
