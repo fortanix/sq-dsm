@@ -1658,7 +1658,13 @@ mod tests {
             let pkesk =
                 PKESK3::for_recipient(cipher, &sk, &key.mark_parts_public())
                 .unwrap();
-            let (cipher_, sk_) = pkesk.decrypt(&mut keypair).unwrap();
+            let (cipher_, sk_) = pkesk.decrypt(&mut keypair, None).unwrap();
+
+            assert_eq!(cipher, cipher_);
+            assert_eq!(sk, sk_);
+
+            let (cipher_, sk_) =
+                pkesk.decrypt(&mut keypair, Some(cipher)).unwrap();
 
             assert_eq!(cipher, cipher_);
             assert_eq!(sk, sk_);
@@ -1802,8 +1808,7 @@ mod tests {
 
         // Expected
         let mut decryptor = key.into_keypair().unwrap();
-        let got_sk = pkesk.decrypt(&mut decryptor).unwrap();
-
+        let got_sk = pkesk.decrypt(&mut decryptor, None).unwrap();
         assert_eq!(got_sk.1, sk);
     }
 

@@ -1707,7 +1707,7 @@ mod test {
                     .map(|ka| ka.key()).next().unwrap()
                     .clone().mark_parts_secret().unwrap()
                     .into_keypair().unwrap();
-                pkesks[0].decrypt(&mut keypair)
+                pkesks[0].decrypt(&mut keypair, None)
                     .and_then(|(algo, session_key)| decrypt(algo, &session_key))
                     .map(|_| None)
             }

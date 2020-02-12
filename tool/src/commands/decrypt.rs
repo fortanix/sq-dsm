@@ -92,7 +92,7 @@ impl<'a> Helper<'a> {
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
         let keyid = keypair.public().fingerprint().into();
-        match pkesk.decrypt(keypair)
+        match pkesk.decrypt(keypair, None)
             .and_then(|(algo, sk)| {
                 decrypt(algo, &sk)?; Ok(sk)
             })

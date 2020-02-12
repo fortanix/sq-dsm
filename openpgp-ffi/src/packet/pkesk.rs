@@ -48,7 +48,7 @@ pub extern "C" fn pgp_pkesk_decrypt(errp: Option<&mut *mut crate::error::Error>,
         .into_keypair()
     {
         Ok(mut keypair) => {
-            match pkesk.decrypt(&mut keypair) {
+            match pkesk.decrypt(&mut keypair, None /* XXX */) {
                 Ok((a, k)) => {
                     *algo = a.into();
                     if !key.is_null() && *key_len >= k.len() {

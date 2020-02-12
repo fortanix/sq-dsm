@@ -130,12 +130,25 @@ impl PKESK3 {
         ::std::mem::replace(&mut self.esk, esk)
     }
 
-    /// Decrypts the ESK and returns the session key and symmetric algorithm
-    /// used to encrypt the following payload.
-    pub fn decrypt(&self, decryptor: &mut dyn Decryptor)
+    /// Decrypts the encrypted session key.
+    ///
+    /// If the symmetric algorithm used to encrypt the message is
+    /// known in advance, it should be given as argument.  This allows
+    /// us to reduce the side-channel leakage of the decryption
+    /// operation for RSA.
+    ///
+    /// Returns the session key and symmetric algorithm used to
+    /// encrypt the following payload.
+    pub fn decrypt(&self, decryptor: &mut dyn Decryptor,
+                   sym_algo_hint: Option<SymmetricAlgorithm>)
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
-        let plain = decryptor.decrypt(&self.esk, None)?;
+        let plaintext_len = if let Some(s) = sym_algo_hint {
+            Some(1 /* cipher octet */ + s.key_size()? + 2 /* chksum */)
+        } else {
+            None
+        };
+        let plain = decryptor.decrypt(&self.esk, plaintext_len)?;
         let key_rgn = 1..(plain.len() - 2);
         let sym_algo: SymmetricAlgorithm = plain[0].into();
         let mut key: SessionKey = vec![0u8; sym_algo.key_size()?].into();
@@ -216,7 +229,11 @@ mod tests {
         let pkg = pile.descendants().skip(0).next().clone();
 
         if let Some(Packet::PKESK(ref pkesk)) = pkg {
-            let plain = pkesk.decrypt(&mut keypair).unwrap();
+            let plain = pkesk.decrypt(&mut keypair, None).unwrap();
+            let plain_ =
+                pkesk.decrypt(&mut keypair, Some(SymmetricAlgorithm::AES256))
+                .unwrap();
+            assert_eq!(plain, plain_);
 
             eprintln!("plain: {:?}", plain);
         } else {
@@ -237,7 +254,11 @@ mod tests {
         let pkg = pile.descendants().skip(0).next().clone();
 
         if let Some(Packet::PKESK(ref pkesk)) = pkg {
-            let plain = pkesk.decrypt(&mut keypair).unwrap();
+            let plain = pkesk.decrypt(&mut keypair, None).unwrap();
+            let plain_ =
+                pkesk.decrypt(&mut keypair, Some(SymmetricAlgorithm::AES256))
+                .unwrap();
+            assert_eq!(plain, plain_);
 
             eprintln!("plain: {:?}", plain);
         } else {
@@ -258,7 +279,11 @@ mod tests {
         let pkg = pile.descendants().skip(0).next().clone();
 
         if let Some(Packet::PKESK(ref pkesk)) = pkg {
-            let plain = pkesk.decrypt(&mut keypair).unwrap();
+            let plain = pkesk.decrypt(&mut keypair, None).unwrap();
+            let plain_ =
+                pkesk.decrypt(&mut keypair, Some(SymmetricAlgorithm::AES256))
+                .unwrap();
+            assert_eq!(plain, plain_);
 
             eprintln!("plain: {:?}", plain);
         } else {
@@ -279,7 +304,11 @@ mod tests {
         let pkg = pile.descendants().skip(0).next().clone();
 
         if let Some(Packet::PKESK(ref pkesk)) = pkg {
-            let plain = pkesk.decrypt(&mut keypair).unwrap();
+            let plain = pkesk.decrypt(&mut keypair, None).unwrap();
+            let plain_ =
+                pkesk.decrypt(&mut keypair, Some(SymmetricAlgorithm::AES256))
+                .unwrap();
+            assert_eq!(plain, plain_);
 
             eprintln!("plain: {:?}", plain);
         } else {
@@ -300,7 +329,11 @@ mod tests {
         let pkg = pile.descendants().skip(0).next().clone();
 
         if let Some(Packet::PKESK(ref pkesk)) = pkg {
-            let plain = pkesk.decrypt(&mut keypair).unwrap();
+            let plain = pkesk.decrypt(&mut keypair, None).unwrap();
+            let plain_ =
+                pkesk.decrypt(&mut keypair, Some(SymmetricAlgorithm::AES256))
+                .unwrap();
+            assert_eq!(plain, plain_);
 
             eprintln!("plain: {:?}", plain);
         } else {
@@ -353,6 +386,6 @@ mod tests {
                                           &key).unwrap();
         let mut keypair =
             key.mark_parts_secret().unwrap().into_keypair().unwrap();
-        pkesk.decrypt(&mut keypair).unwrap();
+        pkesk.decrypt(&mut keypair, None).unwrap();
     }
 }

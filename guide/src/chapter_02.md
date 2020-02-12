@@ -139,7 +139,7 @@ fn main() {
 #         // The secret key is not encrypted.
 #         let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 #
-#         pkesks[0].decrypt(&mut pair)
+#         pkesks[0].decrypt(&mut pair, None)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
@@ -287,7 +287,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #         // The secret key is not encrypted.
 #         let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 #
-#         pkesks[0].decrypt(&mut pair)
+#         pkesks[0].decrypt(&mut pair, None)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
@@ -435,7 +435,7 @@ fn encrypt(policy: &dyn Policy,
 #         // The secret key is not encrypted.
 #         let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 #
-#         pkesks[0].decrypt(&mut pair)
+#         pkesks[0].decrypt(&mut pair, None)
 #             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
 #             .map(|_| None)
 #         // XXX: In production code, return the Fingerprint of the
@@ -596,7 +596,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         // The secret key is not encrypted.
         let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 
-        pkesks[0].decrypt(&mut pair)
+        pkesks[0].decrypt(&mut pair, None)
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
             .map(|_| None)
         // XXX: In production code, return the Fingerprint of the

@@ -289,7 +289,7 @@ fn decrypt() {
                         .take(1).next().unwrap().key())
                     .unwrap();
 
-                pkesks[0].decrypt(&mut keypair)
+                pkesks[0].decrypt(&mut keypair, None)
                     .and_then(|(algo, session_key)| decrypt(algo, &session_key))
                     .map(|_| None)
                 // XXX: In production code, return the Fingerprint of the
