@@ -64,112 +64,6 @@ const TRACE : bool = false;
 /// How much data to buffer before giving it to the caller.
 const BUFFER_SIZE: usize = 25 * 1024 * 1024;
 
-/// Verifies a signed OpenPGP message.
-///
-/// Signature verification requires processing the whole message
-/// first.  Therefore, OpenPGP implementations supporting streaming
-/// operations necessarily must output unverified data.  This has been
-/// a source of problems in the past.  To alleviate this, we buffer up
-/// to 25 megabytes of net message data first, and verify the
-/// signatures if the message fits into our buffer.  Nevertheless it
-/// is important to treat the data as unverified and untrustworthy
-/// until you have seen a positive verification.
-///
-/// For a signature to be considered valid: The signature must have a
-/// `Signature Creation Time` subpacket.  The signature must be alive
-/// at the signature verification time (the time passed to
-/// `Verifier::from_reader`).  The key used to verify the signature
-/// must be alive at the signature creation time, not have been soft
-/// revoked at the signature creation time, not have ever been hard
-/// revoked, and be signing capable at the signature creation time.
-///
-/// # Example
-///
-/// ```
-/// extern crate sequoia_openpgp as openpgp;
-/// extern crate failure;
-/// use std::io::Read;
-/// use openpgp::{KeyID, Cert, Result};
-/// use openpgp::parse::stream::*;
-/// use openpgp::policy::StandardPolicy;
-///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
-/// let p = &StandardPolicy::new();
-///
-/// // This fetches keys and computes the validity of the verification.
-/// struct Helper {};
-/// impl VerificationHelper for Helper {
-///     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
-///         Ok(Vec::new()) // Feed the Certs to the verifier here...
-///     }
-///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
-///         Ok(()) // Implement your verification policy here.
-///     }
-/// }
-///
-/// let message =
-///    b"-----BEGIN PGP MESSAGE-----
-///
-///      xA0DAAoWBpwMNI3YLBkByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoAJwWCW37P
-///      8RahBI6MM/pGJjN5dtl5eAacDDSN2CwZCZAGnAw0jdgsGQAAeZQA/2amPbBXT96Q
-///      O7PFms9DRuehsVVrFkaDtjN2WSxI4RGvAQDq/pzNdCMpy/Yo7AZNqZv5qNMtDdhE
-///      b2WH5lghfKe/AQ==
-///      =DjuO
-///      -----END PGP MESSAGE-----";
-///
-/// let h = Helper {};
-/// let mut v = Verifier::from_bytes(p, message, h, None)?;
-///
-/// let mut content = Vec::new();
-/// v.read_to_end(&mut content)
-///     .map_err(|e| if e.get_ref().is_some() {
-///         // Wrapped failure::Error.  Recover it.
-///         failure::Error::from_boxed_compat(e.into_inner().unwrap())
-///     } else {
-///         // Plain io::Error.
-///         e.into()
-///     })?;
-///
-/// assert_eq!(content, b"Hello World!");
-/// # Ok(())
-/// # }
-pub struct Verifier<'a, H: VerificationHelper> {
-    helper: H,
-    certs: Vec<Cert>,
-    oppr: Option<PacketParserResult<'a>>,
-    structure: IMessageStructure,
-
-    // The reserve data.
-    reserve: Option<Vec<u8>>,
-
-    /// Perform the signature verification relative to this time.
-    ///
-    /// This is needed for checking the signature's liveness.
-    ///
-    /// We want the same semantics as `Subpacket::signature_alive`.
-    /// Specifically, when using the current time, we want to tolerate
-    /// some clock skew, but when using some specific time, we don't.
-    /// (See `Subpacket::signature_alive` for an explanation.)
-    ///
-    /// These semantics can be realized by making `time` an
-    /// `Option<time::SystemTime>` and passing that as is to
-    /// `Subpacket::signature_alive`.  But that approach has two new
-    /// problems.  First, if we are told to use the current time, then
-    /// we want to use the time at which the Verifier was
-    /// instantiated, not the time at which we call
-    /// `Subpacket::signature_alive`.  Second, if we call
-    /// `Subpacket::signature_alive` multiple times, they should all
-    /// use the same time.  To work around these issues, when a
-    /// Verifier is instantiated, we evaluate `time` and we record how
-    /// much we want to tolerate clock skew in the same way as
-    /// `Subpacket::signature_alive`.
-    time: time::SystemTime,
-    clock_skew_tolerance: time::Duration,
-
-    policy: &'a dyn Policy,
-}
-
 /// Contains the result of a signature verification.
 #[derive(Debug)]
 pub enum VerificationResult<'a> {
@@ -538,6 +432,107 @@ pub trait VerificationHelper {
     fn check(&mut self, structure: MessageStructure) -> Result<()>;
 }
 
+/// Wraps a VerificationHelper and adds a non-functional
+/// DecryptionHelper implementation.
+struct NoDecryptionHelper<V: VerificationHelper> {
+    v: V,
+}
+
+impl<V: VerificationHelper> VerificationHelper for NoDecryptionHelper<V> {
+    fn get_public_keys(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>>
+    {
+        self.v.get_public_keys(ids)
+    }
+    fn check(&mut self, structure: MessageStructure) -> Result<()>
+    {
+        self.v.check(structure)
+    }
+}
+
+impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
+    fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
+                  _: Option<SymmetricAlgorithm>,
+                  _: D) -> Result<Option<Fingerprint>>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+    {
+        unreachable!("This is not used for verifications")
+    }
+}
+
+/// Verifies a signed OpenPGP message.
+///
+/// Signature verification requires processing the whole message
+/// first.  Therefore, OpenPGP implementations supporting streaming
+/// operations necessarily must output unverified data.  This has been
+/// a source of problems in the past.  To alleviate this, we buffer up
+/// to 25 megabytes of net message data first, and verify the
+/// signatures if the message fits into our buffer.  Nevertheless it
+/// is important to treat the data as unverified and untrustworthy
+/// until you have seen a positive verification.
+///
+/// For a signature to be considered valid: The signature must have a
+/// `Signature Creation Time` subpacket.  The signature must be alive
+/// at the signature verification time (the time passed to
+/// `Verifier::from_reader`).  The key used to verify the signature
+/// must be alive at the signature creation time, not have been soft
+/// revoked at the signature creation time, not have ever been hard
+/// revoked, and be signing capable at the signature creation time.
+///
+/// # Example
+///
+/// ```
+/// extern crate sequoia_openpgp as openpgp;
+/// extern crate failure;
+/// use std::io::Read;
+/// use openpgp::{KeyID, Cert, Result};
+/// use openpgp::parse::stream::*;
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// // This fetches keys and computes the validity of the verification.
+/// struct Helper {};
+/// impl VerificationHelper for Helper {
+///     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+///         Ok(Vec::new()) // Feed the Certs to the verifier here...
+///     }
+///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
+///         Ok(()) // Implement your verification policy here.
+///     }
+/// }
+///
+/// let message =
+///    b"-----BEGIN PGP MESSAGE-----
+///
+///      xA0DAAoWBpwMNI3YLBkByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoAJwWCW37P
+///      8RahBI6MM/pGJjN5dtl5eAacDDSN2CwZCZAGnAw0jdgsGQAAeZQA/2amPbBXT96Q
+///      O7PFms9DRuehsVVrFkaDtjN2WSxI4RGvAQDq/pzNdCMpy/Yo7AZNqZv5qNMtDdhE
+///      b2WH5lghfKe/AQ==
+///      =DjuO
+///      -----END PGP MESSAGE-----";
+///
+/// let h = Helper {};
+/// let mut v = Verifier::from_bytes(p, message, h, None)?;
+///
+/// let mut content = Vec::new();
+/// v.read_to_end(&mut content)
+///     .map_err(|e| if e.get_ref().is_some() {
+///         // Wrapped failure::Error.  Recover it.
+///         failure::Error::from_boxed_compat(e.into_inner().unwrap())
+///     } else {
+///         // Plain io::Error.
+///         e.into()
+///     })?;
+///
+/// assert_eq!(content, b"Hello World!");
+/// # Ok(())
+/// # }
+pub struct Verifier<'a, H: VerificationHelper> {
+    decryptor: Decryptor<'a, NoDecryptionHelper<H>>,
+}
+
 impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// Creates a `Verifier` from the given reader.
     ///
@@ -594,17 +589,17 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 
     /// Returns a reference to the helper.
     pub fn helper_ref(&self) -> &H {
-        &self.helper
+        &self.decryptor.helper_ref().v
     }
 
     /// Returns a mutable reference to the helper.
     pub fn helper_mut(&mut self) -> &mut H {
-        &mut self.helper
+        &mut self.decryptor.helper_mut().v
     }
 
     /// Recovers the helper.
     pub fn into_helper(self) -> H {
-        self.helper
+        self.decryptor.into_helper().v
     }
 
     /// Returns true if the whole message has been processed and the verification result is ready.
@@ -612,7 +607,7 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// **unverified** data must be `read()` from the instance until EOF.
     pub fn message_processed(&self) -> bool {
         // oppr is only None after we've processed the packet sequence.
-        self.oppr.is_none()
+        self.decryptor.message_processed()
     }
 
     /// Creates the `Verifier`, and buffers the data up to `BUFFER_SIZE`.
@@ -625,336 +620,16 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         -> Result<Verifier<'a, H>>
         where T: Into<Option<time::SystemTime>>
     {
-        let time = time.into();
-        let tolerance = time
-            .map(|_| time::Duration::new(0, 0))
-            .unwrap_or(
-                *crate::packet::signature::subpacket::CLOCK_SKEW_TOLERANCE);
-        let time = time
-            .unwrap_or_else(|| time::SystemTime::now());
-
-        let mut ppr = PacketParser::from_buffered_reader(bio)?;
-
-        let mut v = Verifier {
-            helper: helper,
-            certs: Vec::new(),
-            oppr: None,
-            structure: IMessageStructure::new(),
-            reserve: None,
-            time: time,
-            clock_skew_tolerance: tolerance,
-            policy: policy,
-        };
-
-        let mut issuers = Vec::new();
-
-        while let PacketParserResult::Some(pp) = ppr {
-            if let Err(err) = pp.possible_message() {
-                return Err(err.context("Malformed OpenPGP message").into());
-            }
-
-            match pp.packet {
-                Packet::CompressedData(ref p) =>
-                    v.structure.new_compression_layer(p.algo()),
-                Packet::OnePassSig(ref ops) => {
-                    v.structure.push_ops(ops);
-                    issuers.push(ops.issuer().clone().into());
-                },
-                Packet::Literal(_) => {
-                    v.structure.insert_missing_signature_group();
-                    v.certs = v.helper.get_public_keys(&issuers)?;
-                    v.oppr = Some(PacketParserResult::Some(pp));
-                    v.finish_maybe()?;
-                    return Ok(v);
-                },
-                _ => (),
-            }
-
-            let (p, ppr_tmp) = pp.recurse()?;
-            if let Packet::Signature(sig) = p {
-                // The following structure is allowed:
-                //
-                //   SIG LITERAL
-                //
-                // In this case, we get the issuer from the
-                // signature itself.
-                let sig_issuers = sig.get_issuers();
-                if sig_issuers.is_empty() {
-                    issuers.push(KeyID::wildcard().into());
-                } else {
-                    for issuer in sig_issuers {
-                        issuers.push(issuer);
-                    }
-                }
-
-                v.structure.push_bare_signature(sig);
-            }
-
-            ppr = ppr_tmp;
-        }
-
-        // We can only get here if we didn't encounter a literal data
-        // packet.
-        Err(Error::MalformedMessage(
-            "Malformed OpenPGP message".into()).into())
-    }
-
-
-    /// Stashes the given Signature (if it is one) for later
-    /// verification.
-    fn push_sig(&mut self, p: Packet) -> Result<()> {
-        match p {
-            Packet::Signature(sig) => {
-                self.structure.push_signature(sig);
-            },
-            _ => (),
-        }
-        Ok(())
-    }
-
-    // Verify the signatures.  This can only be called once the
-    // message has been fully processed.
-    fn check_signatures(&mut self) -> Result<()> {
-        assert!(self.oppr.is_none());
-
-        // Verify the signatures.
-        let mut results = MessageStructure::new();
-        for layer in ::std::mem::replace(&mut self.structure,
-                                         IMessageStructure::new())
-            .layers.into_iter()
-        {
-            match layer {
-                IMessageLayer::Compression { algo } =>
-                    results.new_compression_layer(algo),
-                IMessageLayer::Encryption { .. } =>
-                    unreachable!("not decrypting messages"),
-                IMessageLayer::SignatureGroup { sigs, .. } => {
-                    results.new_signature_group();
-                    'sigs: for sig in sigs.into_iter() {
-                        let sig_time = if let Some(t) = sig.signature_creation_time() {
-                            t
-                        } else {
-                            // Invalid signature.
-                            results.push_verification_result(
-                                VerificationResult::Error {
-                                    sig,
-                                    error: Error::MalformedPacket(
-                                        "missing a Signature Creation Time \
-                                         subpacket"
-                                            .into()).into()
-                                });
-                            continue;
-                        };
-
-                        if let Err(_err) = sig.signature_alive(
-                            self.time, self.clock_skew_tolerance)
-                        {
-                            // Invalid signature.
-                            results.push_verification_result(
-                                VerificationResult::NotAlive {
-                                    sig: sig.clone(),
-                                });
-                            continue;
-                        }
-
-                        let mut err = VerificationResult::MissingKey {
-                            sig: sig.clone(),
-                        };
-
-                        let issuers = sig.get_issuers();
-                        for ka in self.certs.iter()
-                            .flat_map(|cert| {
-                                cert.keys().with_policy(self.policy, sig_time)
-                                    .key_handles(issuers.iter())
-                            })
-                        {
-                            err = if let Err(err) = ka.cert_alive() {
-                                VerificationResult::Error {
-                                    sig: sig.clone(),
-                                    error: err,
-                                }
-                            } else if let Err(err) = ka.alive() {
-                                VerificationResult::Error {
-                                    sig: sig.clone(),
-                                    error: err,
-                                }
-                            } else if destructures_to!(
-                                RevocationStatus::Revoked(_) = ka.cert_revoked())
-                            {
-                                VerificationResult::Error {
-                                    sig: sig.clone(),
-                                    error: Error::InvalidKey(
-                                        "certificate is revoked".into())
-                                        .into(),
-                                }
-                            } else if destructures_to!(
-                                RevocationStatus::Revoked(_) = ka.revoked())
-                            {
-                                VerificationResult::Error {
-                                    sig: sig.clone(),
-                                    error: Error::InvalidKey(
-                                        "signing key is revoked".into())
-                                        .into(),
-                                }
-                            } else if ! ka.for_signing() {
-                                VerificationResult::Error {
-                                    sig: sig.clone(),
-                                    error: Error::InvalidKey(
-                                        "key is not signing capable".into())
-                                        .into(),
-                                }
-                            } else {
-                                match sig.verify(ka.key()) {
-                                    Ok(()) => {
-                                        if let Err(err) = self.policy.signature(&sig) {
-                                            VerificationResult::Error {
-                                                sig: sig.clone(),
-                                                error: err,
-                                            }
-                                        } else {
-                                            results.push_verification_result(
-                                                VerificationResult::GoodChecksum {
-                                                    sig: sig,
-                                                    cert: ka.cert(),
-                                                    ka,
-                                                });
-                                            // Continue to the next sig.
-                                            continue 'sigs;
-                                        }
-                                    }
-                                    Err(err) => {
-                                        VerificationResult::Error {
-                                            sig: sig.clone(),
-                                            error: err,
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Hmm, we didn't consider any keys.  Iterate
-                        // over the keys again, but this time, don't
-                        // use a policy.  If we find something now,
-                        // the policy must have rejected it.  Turn
-                        // that information into a more useful (and
-                        // less misleading) error message than
-                        // `VerificationResult::MissingKey`.
-                        if let VerificationResult::MissingKey { .. } = err {
-                            if let Some(ka) = self.certs.iter()
-                                .flat_map(|cert| {
-                                    cert.keys().key_handles(issuers.iter())
-                                })
-                                .next()
-                            {
-                                err = VerificationResult::Error {
-                                    sig: sig.clone(),
-                                    error: Error::InvalidKey(
-                                        format!(
-                                            "Signing key ({}) not valid \
-                                             when signature was created",
-                                            ka.key().fingerprint()))
-                                        .into(),
-                                }
-                            }
-                        }
-
-                        results.push_verification_result(err);
-                    }
-                }
-            }
-        }
-
-        self.helper.check(results)
-    }
-
-    // If the amount of remaining data does not exceed the reserve,
-    // finish processing the OpenPGP packet sequence.
-    //
-    // Note: once this call succeeds, you may not call it again.
-    fn finish_maybe(&mut self) -> Result<()> {
-        if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
-            // Check if we hit EOF.
-            let data_len = pp.data(BUFFER_SIZE + 1)?.len();
-            if data_len <= BUFFER_SIZE {
-                let data_len = pp.data(BUFFER_SIZE + 1)?.len();
-                assert!(data_len <= BUFFER_SIZE);
-
-                // Stash the reserve.
-                self.reserve = Some(pp.steal_eof()?);
-
-                // Process the rest of the packets.
-                let mut ppr = PacketParserResult::Some(pp);
-                while let PacketParserResult::Some(pp) = ppr {
-                    if let Err(err) = pp.possible_message() {
-                        return Err(err.context(
-                            "Malformed OpenPGP message").into());
-                    }
-
-                    let (p, ppr_tmp) = pp.recurse()?;
-                    self.push_sig(p)?;
-                    ppr = ppr_tmp;
-                }
-
-                self.check_signatures()
-            } else {
-                self.oppr = Some(PacketParserResult::Some(pp));
-                Ok(())
-            }
-        } else {
-            panic!("No ppr.");
-        }
-    }
-
-    /// Like `io::Read::read()`, but returns our `Result`.
-    fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
-        if buf.len() == 0 {
-            return Ok(0);
-        }
-
-        if let Some(ref mut reserve) = self.reserve {
-            // The message has been verified.  We can now drain the
-            // reserve.
-            assert!(self.oppr.is_none());
-
-            let n = cmp::min(buf.len(), reserve.len());
-            &mut buf[..n].copy_from_slice(&reserve[..n]);
-            crate::vec_drain_prefix(reserve, n);
-            return Ok(n);
-        }
-
-        // Read the data from the Literal data packet.
-        if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
-            // Be careful to not read from the reserve.
-            let data_len = pp.data(BUFFER_SIZE + buf.len())?.len();
-            if data_len <= BUFFER_SIZE {
-                self.oppr = Some(PacketParserResult::Some(pp));
-                self.finish_maybe()?;
-                self.read_helper(buf)
-            } else {
-                let n = cmp::min(buf.len(), data_len - BUFFER_SIZE);
-                let buf = &mut buf[..n];
-                let result = pp.read(buf);
-                self.oppr = Some(PacketParserResult::Some(pp));
-                Ok(result?)
-            }
-        } else {
-            panic!("No ppr.");
-        }
+        Ok(Verifier {
+            decryptor: Decryptor::from_buffered_reader(
+                policy, bio, NoDecryptionHelper { v: helper, }, time, false)?,
+        })
     }
 }
 
 impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self.read_helper(buf) {
-            Ok(n) => Ok(n),
-            Err(e) => match e.downcast::<io::Error>() {
-                // An io::Error.  Pass as-is.
-                Ok(e) => Err(e),
-                // A failure.  Create a compat object and wrap it.
-                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
-                                             e.compat())),
-            },
-        }
+        self.decryptor.read(buf)
     }
 }
 
@@ -1395,7 +1070,31 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     structure: IMessageStructure,
     reserve: Option<Vec<u8>>,
 
+    /// Whether or not we shall decrypt (note: Verifier is implemented
+    /// using Decryptor).
+    decrypt: bool,
+
     /// Signature verification relative to this time.
+    ///
+    /// This is needed for checking the signature's liveness.
+    ///
+    /// We want the same semantics as `Subpacket::signature_alive`.
+    /// Specifically, when using the current time, we want to tolerate
+    /// some clock skew, but when using some specific time, we don't.
+    /// (See `Subpacket::signature_alive` for an explanation.)
+    ///
+    /// These semantics can be realized by making `time` an
+    /// `Option<time::SystemTime>` and passing that as is to
+    /// `Subpacket::signature_alive`.  But that approach has two new
+    /// problems.  First, if we are told to use the current time, then
+    /// we want to use the time at which the Verifier was
+    /// instantiated, not the time at which we call
+    /// `Subpacket::signature_alive`.  Second, if we call
+    /// `Subpacket::signature_alive` multiple times, they should all
+    /// use the same time.  To work around these issues, when a
+    /// Verifier is instantiated, we evaluate `time` and we record how
+    /// much we want to tolerate clock skew in the same way as
+    /// `Subpacket::signature_alive`.
     time: time::SystemTime,
     clock_skew_tolerance: time::Duration,
 
@@ -1456,7 +1155,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             policy,
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
-            helper, t)
+            helper, t, true)
     }
 
     /// Creates a `Decryptor` from the given file.
@@ -1474,7 +1173,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             policy,
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
-            helper, t)
+            helper, t, true)
     }
 
     /// Creates a `Decryptor` from the given buffer.
@@ -1491,7 +1190,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             policy,
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
-            helper, t)
+            helper, t, true)
     }
 
     /// Returns a reference to the helper.
@@ -1521,7 +1220,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     pub(crate) fn from_buffered_reader<T>(
         policy: &'a dyn Policy,
         bio: Box<dyn BufferedReader<Cookie> + 'a>,
-        helper: H, time: T)
+        helper: H, time: T,
+        decrypt: bool)
         -> Result<Decryptor<'a, H>>
         where T: Into<Option<time::SystemTime>>
     {
@@ -1545,6 +1245,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             identity: None,
             structure: IMessageStructure::new(),
             reserve: None,
+            decrypt,
             time: time,
             clock_skew_tolerance: tolerance,
             policy: policy,
@@ -1571,7 +1272,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             match pp.packet {
                 Packet::CompressedData(ref p) =>
                     v.structure.new_compression_layer(p.algo()),
-                Packet::SEIP(_) | Packet::AED(_) => {
+                Packet::SEIP(_) | Packet::AED(_) if v.decrypt => {
                     saw_content = true;
 
                     // Get the symmetric algorithm from the decryption
