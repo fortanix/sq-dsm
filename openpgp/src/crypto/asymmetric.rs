@@ -47,7 +47,8 @@ pub trait Decryptor {
     fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole>;
 
     /// Decrypts `ciphertext`, returning the plain session key.
-    fn decrypt(&mut self, ciphertext: &mpis::Ciphertext)
+    fn decrypt(&mut self, ciphertext: &mpis::Ciphertext,
+               plaintext_len: Option<usize>)
                -> Result<SessionKey>;
 }
 
@@ -222,7 +223,8 @@ impl Decryptor for KeyPair {
     }
 
     /// Creates a signature over the `digest` produced by `hash_algo`.
-    fn decrypt(&mut self, ciphertext: &mpis::Ciphertext)
+    fn decrypt(&mut self, ciphertext: &mpis::Ciphertext,
+               plaintext_len: Option<usize>)
                -> Result<SessionKey>
     {
         use crate::PublicKeyAlgorithm::*;
@@ -238,9 +240,16 @@ impl Decryptor for KeyPair {
                 let secret = rsa::PrivateKey::new(d.value(), p.value(),
                                                   q.value(), Option::None)?;
                 let mut rand = Yarrow::default();
-                rsa::decrypt_pkcs1_insecure(&public, &secret, &mut rand,
-                                            c.value())?
+                if let Some(l) = plaintext_len {
+                    let mut plaintext: SessionKey = vec![0; l].into();
+                    rsa::decrypt_pkcs1(&public, &secret, &mut rand,
+                                       c.value(), plaintext.as_mut())?;
+                    plaintext
+                } else {
+                    rsa::decrypt_pkcs1_insecure(&public, &secret,
+                                                &mut rand, c.value())?
                     .into()
+                }
             }
 
             (PublicKey::Elgamal{ .. },

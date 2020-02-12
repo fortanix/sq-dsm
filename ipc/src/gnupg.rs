@@ -743,7 +743,8 @@ impl<'a> crypto::Decryptor for KeyPair<'a> {
         self.public
     }
 
-    fn decrypt(&mut self, ciphertext: &crypto::mpis::Ciphertext)
+    fn decrypt(&mut self, ciphertext: &crypto::mpis::Ciphertext,
+               _plaintext_len: Option<usize>)
                -> Result<crypto::SessionKey>
     {
         use crate::openpgp::crypto::mpis::{PublicKey, Ciphertext};

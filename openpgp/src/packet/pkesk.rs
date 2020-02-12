@@ -135,7 +135,7 @@ impl PKESK3 {
     pub fn decrypt(&self, decryptor: &mut dyn Decryptor)
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
-        let plain = decryptor.decrypt(&self.esk)?;
+        let plain = decryptor.decrypt(&self.esk, None)?;
         let key_rgn = 1..(plain.len() - 2);
         let sym_algo: SymmetricAlgorithm = plain[0].into();
         let mut key: SessionKey = vec![0u8; sym_algo.key_size()?].into();
