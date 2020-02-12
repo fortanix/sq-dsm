@@ -120,6 +120,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
     fn decrypt<D>(&mut self,
                   pkesks: &[openpgp::packet::PKESK],
                   _skesks: &[openpgp::packet::SKESK],
+                  sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D)
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
@@ -130,7 +131,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         // The secret key is not encrypted.
         let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
 
-        pkesks[0].decrypt(&mut pair, None)
+        pkesks[0].decrypt(&mut pair, sym_algo)
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
             .map(|_| None)
         // XXX: In production code, return the Fingerprint of the

@@ -335,6 +335,7 @@ type InspectCallback = fn(*mut HelperCookie, *const PacketParser) -> Status;
 type DecryptCallback = fn(*mut HelperCookie,
                           *const *const PKESK, usize,
                           *const *const SKESK, usize,
+                          u8, // XXX SymmetricAlgorithm
                           extern "C" fn (*mut c_void, u8,
                                               *const crypto::SessionKey)
                                               -> Status,
@@ -733,6 +734,7 @@ impl DecryptionHelper for DHelper {
     }
 
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
+                  sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D)
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
@@ -769,6 +771,7 @@ impl DecryptionHelper for DHelper {
         let result = (self.decrypt_cb)(
             self.vhelper.cookie,
             pkesks.as_ptr(), pkesks.len(), skesks.as_ptr(), skesks.len(),
+            sym_algo.map(|s| u8::from(s)).unwrap_or(0),
             trampoline::<D>,
             &mut decrypt as *mut _ as *mut c_void,
             &mut identity);
@@ -847,6 +850,7 @@ impl DecryptionHelper for DHelper {
 /// decrypt_cb (void *cookie_opaque,
 ///             pgp_pkesk_t *pkesks, size_t pkesk_count,
 ///             pgp_skesk_t *skesks, size_t skesk_count,
+///             uint8_t sym_algo_hint,
 ///             pgp_decryptor_do_decrypt_cb_t *decrypt,
 ///             void *decrypt_cookie,
 ///             pgp_fingerprint_t *identity_out)

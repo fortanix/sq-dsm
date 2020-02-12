@@ -510,6 +510,7 @@ typedef pgp_status_t (pgp_decryptor_do_decrypt_cb_t) (
 typedef pgp_status_t (*pgp_decryptor_decrypt_cb_t) (void *,
     pgp_pkesk_t *, size_t,
     pgp_skesk_t *, size_t,
+    uint8_t, /* XXX: SymmetricAlgorithm */
     pgp_decryptor_do_decrypt_cb_t *,
     void *,
     pgp_fingerprint_t *);

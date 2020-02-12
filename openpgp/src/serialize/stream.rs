@@ -1699,6 +1699,7 @@ mod test {
         }
         impl<'a> DecryptionHelper for Helper<'a> {
             fn decrypt<D>(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
+                          sym_algo: Option<SymmetricAlgorithm>,
                           mut decrypt: D) -> Result<Option<crate::Fingerprint>>
                 where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
             {
@@ -1707,7 +1708,7 @@ mod test {
                     .map(|ka| ka.key()).next().unwrap()
                     .clone().mark_parts_secret().unwrap()
                     .into_keypair().unwrap();
-                pkesks[0].decrypt(&mut keypair, None)
+                pkesks[0].decrypt(&mut keypair, sym_algo)
                     .and_then(|(algo, session_key)| decrypt(algo, &session_key))
                     .map(|_| None)
             }

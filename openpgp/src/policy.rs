@@ -561,7 +561,8 @@ mod test {
         }
 
         impl DecryptionHelper for VHelper {
-            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK], _: D)
+            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
+                          _: Option<SymmetricAlgorithm>,_: D)
                           -> Result<Option<Fingerprint>>
                 where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
             {

@@ -1352,6 +1352,7 @@ impl DetachedVerifier {
 /// }
 /// impl DecryptionHelper for Helper {
 ///     fn decrypt<D>(&mut self, _: &[PKESK], skesks: &[SKESK],
+///                   _sym_algo: Option<SymmetricAlgorithm>,
 ///                   mut decrypt: D) -> Result<Option<openpgp::Fingerprint>>
 ///         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
 ///     {
@@ -1430,7 +1431,11 @@ pub trait DecryptionHelper {
     /// algorithm and session key from one of the PKESK packets, the
     /// SKESKs, or retrieve it from a cache, and then call `decrypt`
     /// with the symmetric algorithm and session key.
+    ///
+    /// If a symmetric algorithm is given, it should be passed on to
+    /// PKESK::decrypt.
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
+                  sym_algo: Option<SymmetricAlgorithm>,
                   decrypt: D) -> Result<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>;
 }
@@ -1557,6 +1562,12 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 return Err(err.context("Malformed OpenPGP message").into());
             }
 
+            let sym_algo_hint = if let Packet::AED(ref aed) = pp.packet {
+                Some(aed.symmetric_algo())
+            } else {
+                None
+            };
+
             match pp.packet {
                 Packet::CompressedData(ref p) =>
                     v.structure.new_compression_layer(p.algo()),
@@ -1578,6 +1589,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                         v.identity =
                             v.helper.decrypt(&pkesks[..], &skesks[..],
+                                             sym_algo_hint,
                                              decryption_proxy)?;
                     }
                     if ! pp.decrypted() {
@@ -2015,7 +2027,8 @@ mod test {
     }
 
     impl DecryptionHelper for VHelper {
-        fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK], _: D)
+        fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
+                      _: Option<SymmetricAlgorithm>, _: D)
                       -> Result<Option<Fingerprint>>
             where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
         {
@@ -2143,7 +2156,8 @@ mod test {
             }
         }
         impl DecryptionHelper for VHelper {
-            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK], _: D)
+            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
+                          _: Option<SymmetricAlgorithm>, _: D)
                           -> Result<Option<Fingerprint>>
                 where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
             {

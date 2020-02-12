@@ -277,6 +277,7 @@ fn decrypt() {
             fn decrypt<D>(&mut self,
                           pkesks: &[openpgp::packet::PKESK],
                           _skesks: &[openpgp::packet::SKESK],
+                          sym_algo: Option<SymmetricAlgorithm>,
                           mut decrypt: D)
                           -> openpgp::Result<Option<openpgp::Fingerprint>>
                 where D: FnMut(SymmetricAlgorithm, &SessionKey) ->
@@ -289,7 +290,7 @@ fn decrypt() {
                         .take(1).next().unwrap().key())
                     .unwrap();
 
-                pkesks[0].decrypt(&mut keypair, None)
+                pkesks[0].decrypt(&mut keypair, sym_algo)
                     .and_then(|(algo, session_key)| decrypt(algo, &session_key))
                     .map(|_| None)
                 // XXX: In production code, return the Fingerprint of the

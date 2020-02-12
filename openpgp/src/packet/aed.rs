@@ -88,8 +88,8 @@ impl AED1 {
     }
 
     /// Sets the sym_algo algorithm.
-    pub fn set_sym_algo(&mut self, sym_algo: SymmetricAlgorithm)
-                        -> SymmetricAlgorithm {
+    pub fn set_symmetric_algo(&mut self, sym_algo: SymmetricAlgorithm)
+                              -> SymmetricAlgorithm {
         ::std::mem::replace(&mut self.sym_algo, sym_algo)
     }
 
