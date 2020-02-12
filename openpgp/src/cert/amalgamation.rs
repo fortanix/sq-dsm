@@ -64,12 +64,13 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
         self.bundle.binding_signature(policy, time)
     }
 
-    /// Sets the reference time for the amalgamation.
+    /// Sets the policy and the reference time for the amalgamation.
     ///
     /// If `time` is `None`, the current time is used.
     ///
     /// This transforms the `ComponentAmalgamation` into a
-    /// `ValidComponentAmalgamation`.
+    /// `ValidComponentAmalgamation`, which exposes additional
+    /// methods.
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> Result<ValidComponentAmalgamation<'a, C>>
         where T: Into<Option<time::SystemTime>>
