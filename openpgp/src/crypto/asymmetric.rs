@@ -238,7 +238,8 @@ impl Decryptor for KeyPair {
                 let secret = rsa::PrivateKey::new(d.value(), p.value(),
                                                   q.value(), Option::None)?;
                 let mut rand = Yarrow::default();
-                rsa::decrypt_pkcs1(&public, &secret, &mut rand, c.value())?
+                rsa::decrypt_pkcs1_insecure(&public, &secret, &mut rand,
+                                            c.value())?
                     .into()
             }
 
