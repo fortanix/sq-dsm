@@ -135,10 +135,7 @@ impl HashAlgorithm {
             HashAlgorithm::SHA384 => Ok(rsa::ASN1_OID_SHA384),
             HashAlgorithm::SHA512 => Ok(rsa::ASN1_OID_SHA512),
             HashAlgorithm::MD5 => Ok(rsa::ASN1_OID_MD5),
-            HashAlgorithm::RipeMD =>
-                // XXX: Use the constant from nettle-rs 6.
-                Ok(&[0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2B, 0x24,
-                     0x03, 0x02, 0x01, 0x05, 0x00, 0x04, 0x14][..]),
+            HashAlgorithm::RipeMD => Ok(rsa::ASN1_OID_RIPEMD160),
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
                 Err(Error::UnsupportedHashAlgorithm(self).into()),
         }
