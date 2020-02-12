@@ -549,15 +549,6 @@ impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
     pub fn key(&self) -> &'a Key<P, key::PrimaryRole> {
         self.a.key().into()
     }
-
-    /// Changes the amalgamation's policy.
-    ///
-    /// If `time` is `None`, the current time is used.
-    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
-        where T: Into<Option<time::SystemTime>>
-    {
-        Ok(Self::new(self.a.with_policy(policy, time)?))
-    }
 }
 
 impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
@@ -585,16 +576,16 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
         self.a.policy()
     }
 
-    /// Changes the amalgamation's policy.
+    /// Sets the policy and the reference time for the amalgamation.
     ///
     /// If `time` is `None`, the current time is used.
+    ///
+    /// This transforms the `KeyAmalgamation` into a
+    /// `ValidKeyAmalgamation`, which exposes additional methods.
     fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
         where T: Into<Option<time::SystemTime>>
     {
-        let time = time.into().unwrap_or_else(SystemTime::now);
-        Ok(ValidPrimaryKeyAmalgamation {
-            a: self.a.with_policy(policy, time)?,
-        })
+        Ok(Self::new(self.a.with_policy(policy, time)?))
     }
 
     /// Returns the key's binding signature as of the reference time,
