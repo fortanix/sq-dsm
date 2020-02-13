@@ -141,6 +141,7 @@ static pgp_status_t
 decrypt_cb (void *cookie_opaque,
             pgp_pkesk_t *pkesks, size_t pkesk_count,
             pgp_skesk_t *skesks, size_t skesk_count,
+            uint8_t sym_algo_hint,
             pgp_decryptor_do_decrypt_cb_t *decrypt,
             void *decrypt_cookie,
             pgp_fingerprint_t *identity_out)
