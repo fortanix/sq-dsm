@@ -53,7 +53,7 @@ test check:
 
 .PHONY: examples
 examples:
-	$(MAKE) -Cexamples
+	$(MAKE) -Cexamples --always-make
 
 # Installation.
 .PHONY: build-release
