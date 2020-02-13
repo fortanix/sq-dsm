@@ -10,8 +10,9 @@ use crate::{
     },
     Error,
     packet::key,
-    packet::key::SecretKeyMaterial,
     packet::Key,
+    packet::key::SecretKeyMaterial,
+    packet::key::KeyParts,
     packet::Signature,
     policy::Policy,
     Result,
@@ -157,12 +158,17 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
         if let Some(binding_signature) = self.binding_signature(policy, time) {
-            Ok(ValidKeyAmalgamation {
+            let ka = ValidKeyAmalgamation {
                 a: self,
                 policy: policy,
                 time: time,
                 binding_signature: binding_signature,
-            })
+            };
+            policy.key(
+                key::PublicParts::convert_valid_amalgamation_ref(
+                    (&ka).mark_parts_unspecified_ref())
+                    .expect("secret key amalgamations contain secret keys"))?;
+            Ok(ka)
         } else {
             Err(Error::NoBindingSignature(time).into())
         }

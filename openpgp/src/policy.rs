@@ -32,6 +32,8 @@ use std::u32;
 use failure::ResultExt;
 
 use crate::{
+    cert::components::ValidKeyAmalgamation,
+    packet::key,
     packet::Signature,
     Result,
     types::HashAlgorithm,
@@ -63,6 +65,27 @@ pub trait Policy : fmt::Debug {
     /// revocations: if you reject a revocation certificate, it may
     /// inadvertently make something else valid!
     fn signature(&self, _sig: &Signature) -> Result<()> {
+        Ok(())
+    }
+
+    /// Returns an error if the key violates the policy.
+    ///
+    /// This function performs one of the last checks before a
+    /// `KeyAmalgamation` or a related data structures is turned into
+    /// a `ValidKeyAmalgamation`, or similar.
+    ///
+    /// Internally, the library always does this before using a key.
+    /// The sole exception is when creating a key using `CertBuilder`.
+    /// In that case, the primary key is not validated before it is
+    /// used to create any binding signatures.
+    ///
+    /// Thus, you can prevent keys that make use of insecure
+    /// algoriths, don't have a sufficiently high security margin
+    /// (e.g., 1024-bit RSA keys), are on a bad list, etc. from being
+    /// used here.
+    fn key(&self, _ka: &ValidKeyAmalgamation<key::PublicParts>)
+        -> Result<()>
+    {
         Ok(())
     }
 }
@@ -851,6 +874,110 @@ mod test {
                     .binding_signature(&reject, None).is_some());
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revoked(&reject, None));
+
+        Ok(())
+    }
+
+    #[test]
+    fn key() -> Result<()> {
+        use crate::cert::CipherSuite;
+        use crate::types::Curve;
+
+        let p = &P::new();
+
+        #[derive(Debug)]
+        struct NoRsa;
+        impl Policy for NoRsa {
+            fn key(&self, ka: &ValidKeyAmalgamation<key::PublicParts>)
+                   -> Result<()>
+            {
+                use crate::types::PublicKeyAlgorithm::*;
+
+                eprintln!("algo: {}", ka.key().pk_algo());
+                if ka.key().pk_algo() == RSAEncryptSign {
+                    Err(format_err!("RSA!"))
+                } else {
+                    Ok(())
+                }
+            }
+        }
+        let norsa = &NoRsa {};
+
+        // Generate a certificate with an RSA primary and two RSA
+        // subkeys.
+        let (cert,_) = CertBuilder::new()
+            .set_cipher_suite(CipherSuite::RSA4k)
+            .add_signing_subkey()
+            .add_signing_subkey()
+            .generate()?;
+        assert_eq!(cert.keys().with_policy(p, None).count(), 3);
+        assert_eq!(cert.keys().with_policy(norsa, None).count(), 0);
+        assert!(cert.primary_key().with_policy(p, None).is_ok());
+        assert!(cert.primary_key().with_policy(norsa, None).is_err());
+
+        use crate::packet::key::Key4;
+        use crate::packet::signature;
+        use crate::types::KeyFlags;
+
+        // Generate a certificate with an ECC primary, an ECC subkey,
+        // and an RSA subkey.
+        let (cert,_) = CertBuilder::new()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .add_signing_subkey()
+            .generate()?;
+
+        let pk = cert.primary_key().key().mark_parts_secret_ref()?;
+        let subkey: key::SecretSubkey
+            = Key4::generate_rsa(4096)?.into();
+        let binding = signature::Builder::new(SignatureType::SubkeyBinding)
+            .set_key_flags(&KeyFlags::default().set_transport_encryption(true))?
+            .set_issuer_fingerprint(cert.fingerprint())?
+            .set_issuer(cert.keyid())?
+            .sign_subkey_binding(&mut pk.clone().into_keypair()?,
+                                 &pk, &subkey)?;
+
+        let cert = cert.merge_packets(vec![ subkey.into(), binding.into() ])?;
+
+        assert_eq!(cert.keys().with_policy(p, None).count(), 3);
+        assert_eq!(cert.keys().with_policy(norsa, None).count(), 2);
+        assert!(cert.primary_key().with_policy(p, None).is_ok());
+        assert!(cert.primary_key().with_policy(norsa, None).is_ok());
+
+        // Generate a certificate with an RSA primary, an RSA subkey,
+        // and an ECC subkey.
+        let (cert,_) = CertBuilder::new()
+            .set_cipher_suite(CipherSuite::RSA4k)
+            .add_signing_subkey()
+            .generate()?;
+
+        let pk = cert.primary_key().key().mark_parts_secret_ref()?;
+        let subkey: key::SecretSubkey
+            = key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
+        let binding = signature::Builder::new(SignatureType::SubkeyBinding)
+            .set_key_flags(&KeyFlags::default().set_transport_encryption(true))?
+            .set_issuer_fingerprint(cert.fingerprint())?
+            .set_issuer(cert.keyid())?
+            .sign_subkey_binding(&mut pk.clone().into_keypair()?,
+                                 &pk, &subkey)?;
+
+        let cert = cert.merge_packets(vec![ subkey.into(), binding.into() ])?;
+
+        assert_eq!(cert.keys().with_policy(p, None).count(), 3);
+        assert_eq!(cert.keys().with_policy(norsa, None).count(), 0);
+        assert!(cert.primary_key().with_policy(p, None).is_ok());
+        assert!(cert.primary_key().with_policy(norsa, None).is_err());
+
+        // Generate a certificate with an ECC primary and two ECC
+        // subkeys.
+        let (cert,_) = CertBuilder::new()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .add_signing_subkey()
+            .add_signing_subkey()
+            .generate()?;
+        assert_eq!(cert.keys().with_policy(p, None).count(), 3);
+        assert_eq!(cert.keys().with_policy(norsa, None).count(), 3);
+        assert!(cert.primary_key().with_policy(p, None).is_ok());
+        assert!(cert.primary_key().with_policy(norsa, None).is_ok());
 
         Ok(())
     }
