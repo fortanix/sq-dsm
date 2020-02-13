@@ -59,7 +59,10 @@ use std::time;
 use crate::Error;
 use crate::cert::components::{
     KeyBundle,
+    KeyAmalgamation,
     ValidKeyAmalgamation,
+    PrimaryKeyAmalgamation,
+    ValidPrimaryKeyAmalgamation,
 };
 use crate::crypto::{self, mem::{self, Protected}, mpis, hash::Hash};
 use crate::packet;
@@ -449,26 +452,26 @@ macro_rules! convert_ref {
 // To solve this, we need at least one generic variable to be
 // concrete on both sides of the `From`.
 
-macro_rules! create_conversions {
-    ( $Key:ident ) => {
+macro_rules! create_part_conversions {
+    ( $Key:ident<$( $l:lifetime ),*; $( $g:ident ),*> where $( $w:ident: $c:ident ),* ) => {
         // Convert between two KeyParts for a constant KeyRole.
         // Unfortunately, we can't let the KeyRole vary as otherwise we
         // get conflicting types when we do the same to convert between
         // two KeyRoles for a constant KeyParts. :(
         macro_rules! p {
-            ( <$from_parts:ty> -> <$to_parts:ty>) => {
-                impl<R> From<$Key<$from_parts, R>> for $Key<$to_parts, R>
-                    where R: KeyRole
+            ( <$from_parts:ty> -> <$to_parts:ty> ) => {
+                impl<$($l, )* $($g, )* > From<$Key<$($l, )* $from_parts, $($g, )* >> for $Key<$($l, )* $to_parts, $($g, )* >
+                    where $($w: $c ),*
                 {
-                    fn from(p: $Key<$from_parts, R>) -> Self {
+                    fn from(p: $Key<$($l, )* $from_parts, $($g, )* >) -> Self {
                         convert!(p)
                     }
                 }
 
-                impl<R> From<&$Key<$from_parts, R>> for &$Key<$to_parts, R>
-                    where R: KeyRole
+                impl<$($l, )* $($g, )* > From<&$Key<$($l, )* $from_parts, $($g, )* >> for &$Key<$($l, )* $to_parts, $($g, )* >
+                    where $($w: $c ),*
                 {
-                    fn from(p: &$Key<$from_parts, R>) -> Self {
+                    fn from(p: &$Key<$($l, )* $from_parts, $($g, )* >) -> Self {
                         convert_ref!(p)
                     }
                 }
@@ -478,20 +481,20 @@ macro_rules! create_conversions {
         // Likewise, but using TryFrom.
         macro_rules! p_try {
             ( <$from_parts:ty> -> <$to_parts:ty>) => {
-                impl<R> TryFrom<$Key<$from_parts, R>> for $Key<$to_parts, R>
-                    where R: KeyRole
+                impl<$($l, )* $($g, )* > TryFrom<$Key<$($l, )* $from_parts, $($g, )* >> for $Key<$($l, )* $to_parts, $($g, )* >
+                    where $($w: $c ),*
                 {
                     type Error = failure::Error;
-                    fn try_from(p: $Key<$from_parts, R>) -> Result<Self> {
+                    fn try_from(p: $Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
                         p.mark_parts_secret()
                     }
                 }
 
-                impl<R> TryFrom<&$Key<$from_parts, R>> for &$Key<$to_parts, R>
-                    where R: KeyRole
+                impl<$($l, )* $($g, )* > TryFrom<&$Key<$($l, )* $from_parts, $($g, )* >> for &$Key<$($l, )* $to_parts, $($g, )* >
+                    where $($w: $c ),*
                 {
                     type Error = failure::Error;
-                    fn try_from(p: &$Key<$from_parts, R>) -> Result<Self> {
+                    fn try_from(p: &$Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
                         if p.secret().is_some() {
                             Ok(convert_ref!(p))
                         } else {
@@ -512,6 +515,75 @@ macro_rules! create_conversions {
 
         p!(<UnspecifiedParts> -> <PublicParts>);
         p_try!(<UnspecifiedParts> -> <SecretParts>);
+
+
+        impl<$($l, )* P, $($g, )*> $Key<$($l, )* P, $($g, )*> where P: KeyParts, $($w: $c ),*
+        {
+            /// Changes the key's parts tag to `PublicParts`.
+            pub fn mark_parts_public(self) -> $Key<$($l, )* PublicParts, $($g, )*> {
+                // Ideally, we'd use self.into() to do the actually
+                // conversion.  But, because P is not concrete, we get the
+                // following error:
+                //
+                //     error[E0277]: the trait bound `packet::Key<packet::key::PublicParts, R>: std::convert::From<packet::Key<P, R>>` is not satisfied
+                //        --> openpgp/src/packet/key.rs:401:18
+                //         |
+                //     401 |             self.into()
+                //         |                  ^^^^ the trait `std::convert::From<packet::Key<P, R>>` is not implemented for `packet::Key<packet::key::PublicParts, R>`
+                //         |
+                //         = help: consider adding a `where packet::Key<packet::key::PublicParts, R>: std::convert::From<packet::Key<P, R>>` bound
+                //         = note: required because of the requirements on the impl of `std::convert::Into<packet::Key<packet::key::PublicParts, R>>` for `packet::Key<P, R>`
+                //
+                // But we can't implement implement `From<Key<P, R>>` for
+                // `Key<PublicParts, R>`, because that conflicts with a
+                // standard conversion!  (See the comment for the `p`
+                // macro above.)
+                //
+                // Adding the trait bound is annoying, because then we'd
+                // have to add it everywhere that we use into.
+                convert!(self)
+            }
+
+            /// Changes the key's parts tag to `PublicParts`.
+            pub fn mark_parts_public_ref(&self) -> &$Key<$($l, )* PublicParts, $($g, )*> {
+                convert_ref!(self)
+            }
+
+            /// Changes the key's parts tag to `SecretParts`.
+            pub fn mark_parts_secret(self) -> Result<$Key<$($l, )* SecretParts, $($g, )*>> {
+                if self.secret().is_some() {
+                    Ok(convert!(self))
+                } else {
+                    Err(Error::InvalidArgument("No secret key".into()).into())
+                }
+            }
+
+            /// Changes the key's parts tag to `SecretParts`.
+            pub fn mark_parts_secret_ref(&self) -> Result<&$Key<$($l, )* SecretParts, $($g, )*>>
+            {
+                if self.secret().is_some() {
+                    Ok(convert_ref!(self))
+                } else {
+                    Err(Error::InvalidArgument("No secret key".into()).into())
+                }
+            }
+
+            /// Changes the key's parts tag to `UnspecifiedParts`.
+            pub fn mark_parts_unspecified(self) -> $Key<$($l, )* UnspecifiedParts, $($g, )*> {
+                convert!(self)
+            }
+
+            /// Changes the key's parts tag to `UnspecifiedParts`.
+            pub fn mark_parts_unspecified_ref(&self) -> &$Key<$($l, )* UnspecifiedParts, $($g, )*> {
+                convert_ref!(self)
+            }
+        }
+    };
+}
+
+macro_rules! create_conversions {
+    ( $Key:ident ) => {
+        create_part_conversions!($Key<; R> where R: KeyRole);
 
         // Convert between two KeyRoles for a constant KeyParts.  See
         // the comment for the p macro above.
@@ -662,68 +734,6 @@ macro_rules! create_conversions {
 
         impl<P, R> $Key<P, R> where P: KeyParts, R: KeyRole
         {
-            /// Changes the key's parts tag to `PublicParts`.
-            pub fn mark_parts_public(self) -> $Key<PublicParts, R> {
-                // Ideally, we'd use self.into() to do the actually
-                // conversion.  But, because P is not concrete, we get the
-                // following error:
-                //
-                //     error[E0277]: the trait bound `packet::Key<packet::key::PublicParts, R>: std::convert::From<packet::Key<P, R>>` is not satisfied
-                //        --> openpgp/src/packet/key.rs:401:18
-                //         |
-                //     401 |             self.into()
-                //         |                  ^^^^ the trait `std::convert::From<packet::Key<P, R>>` is not implemented for `packet::Key<packet::key::PublicParts, R>`
-                //         |
-                //         = help: consider adding a `where packet::Key<packet::key::PublicParts, R>: std::convert::From<packet::Key<P, R>>` bound
-                //         = note: required because of the requirements on the impl of `std::convert::Into<packet::Key<packet::key::PublicParts, R>>` for `packet::Key<P, R>`
-                //
-                // But we can't implement implement `From<Key<P, R>>` for
-                // `Key<PublicParts, R>`, because that conflicts with a
-                // standard conversion!  (See the comment for the `p`
-                // macro above.)
-                //
-                // Adding the trait bound is annoying, because then we'd
-                // have to add it everywhere that we use into.
-                convert!(self)
-            }
-
-            /// Changes the key's parts tag to `PublicParts`.
-            pub fn mark_parts_public_ref(&self) -> &$Key<PublicParts, R> {
-                convert_ref!(self)
-            }
-
-            /// Changes the key's parts tag to `SecretParts`.
-            pub fn mark_parts_secret(self) -> Result<$Key<SecretParts, R>> {
-                if self.secret().is_some() {
-                    Ok(convert!(self))
-                } else {
-                    Err(Error::InvalidArgument("No secret key".into()).into())
-                }
-            }
-
-            /// Changes the key's parts tag to `SecretParts`.
-            pub fn mark_parts_secret_ref(&self) -> Result<&$Key<SecretParts, R>>
-            {
-                if self.secret().is_some() {
-                    Ok(convert_ref!(self))
-                } else {
-                    Err(Error::InvalidArgument("No secret key".into()).into())
-                }
-            }
-
-            /// Changes the key's parts tag to `UnspecifiedParts`.
-            pub fn mark_parts_unspecified(self) -> $Key<UnspecifiedParts, R> {
-                convert!(self)
-            }
-
-            /// Changes the key's parts tag to `UnspecifiedParts`.
-            pub fn mark_parts_unspecified_ref(&self) -> &$Key<UnspecifiedParts, R> {
-                convert_ref!(self)
-            }
-        }
-
-        impl<P, R> $Key<P, R> where P: KeyParts, R: KeyRole
-        {
             /// Changes the key's role tag to `PrimaryRole`.
             pub fn mark_role_primary(self) -> $Key<P, PrimaryRole> {
                 convert!(self)
@@ -764,6 +774,11 @@ macro_rules! create_conversions {
 create_conversions!(Key);
 create_conversions!(Key4);
 create_conversions!(KeyBundle);
+
+create_part_conversions!(KeyAmalgamation<'a;> where);
+create_part_conversions!(PrimaryKeyAmalgamation<'a;> where);
+create_part_conversions!(ValidKeyAmalgamation<'a;> where);
+create_part_conversions!(ValidPrimaryKeyAmalgamation<'a;> where);
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///

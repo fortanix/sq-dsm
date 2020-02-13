@@ -1,6 +1,5 @@
 use std::time;
 use std::time::SystemTime;
-use std::convert::TryFrom;
 use std::ops::Deref;
 
 use crate::{
@@ -44,88 +43,6 @@ impl<'a, P: key::KeyParts> Deref for KeyAmalgamation<'a, P> {
         self.key()
     }
 }
-
-macro_rules! create_p_conversions {
-    ( $Key:ident ) => {
-        macro_rules! convert {
-            ( $x:ident ) => {
-                // XXX: This is ugly, but how can we do better?
-                unsafe { std::mem::transmute($x) }
-            }
-        }
-
-        macro_rules! convert_ref {
-            ( $x:ident ) => {
-                // XXX: This is ugly, but how can we do better?
-                unsafe { std::mem::transmute($x) }
-            }
-        }
-
-        // Convert between two KeyParts for a constant KeyRole.
-        // Unfortunately, we can't let the KeyRole vary as otherwise we
-        // get conflicting types when we do the same to convert between
-        // two KeyRoles for a constant KeyParts. :(
-        macro_rules! p {
-            ( <$from_parts:ty> -> <$to_parts:ty>) => {
-                impl<'a> From<$Key<'a, $from_parts>> for $Key<'a, $to_parts> {
-                    fn from(p: $Key<'a, $from_parts>) -> Self {
-                        convert!(p)
-                    }
-                }
-
-                impl<'a> From<&$Key<'a, $from_parts>> for &$Key<'a, $to_parts> {
-                    fn from(p: &$Key<'a, $from_parts>) -> Self {
-                        convert_ref!(p)
-                    }
-                }
-            }
-        }
-
-        // Likewise, but using TryFrom.
-        macro_rules! p_try {
-            ( <$from_parts:ty> -> <$to_parts:ty>) => {
-                impl<'a> TryFrom<$Key<'a, $from_parts>> for $Key<'a, $to_parts> {
-                    type Error = failure::Error;
-                    fn try_from(p: $Key<'a, $from_parts>) -> Result<Self> {
-                        if p.secret().is_some() {
-                            Ok(convert!(p))
-                        } else {
-                            Err(Error::InvalidArgument("No secret key".into())
-                                .into())
-                        }
-                    }
-                }
-
-                impl<'a> TryFrom<&$Key<'a, $from_parts>> for &$Key<'a, $to_parts> {
-                    type Error = failure::Error;
-                    fn try_from(p: &$Key<'a, $from_parts>) -> Result<Self> {
-                        if p.secret().is_some() {
-                            Ok(convert_ref!(p))
-                        } else {
-                            Err(Error::InvalidArgument("No secret key".into())
-                                .into())
-                        }
-                    }
-                }
-            }
-        }
-
-
-        p_try!(<key::PublicParts> -> <key::SecretParts>);
-        p!(<key::PublicParts> -> <key::UnspecifiedParts>);
-
-        p!(<key::SecretParts> -> <key::PublicParts>);
-        p!(<key::SecretParts> -> <key::UnspecifiedParts>);
-
-        p!(<key::UnspecifiedParts> -> <key::PublicParts>);
-        p_try!(<key::UnspecifiedParts> -> <key::SecretParts>);
-    }
-}
-
-create_p_conversions!(KeyAmalgamation);
-create_p_conversions!(PrimaryKeyAmalgamation);
-create_p_conversions!(ValidKeyAmalgamation);
-create_p_conversions!(ValidPrimaryKeyAmalgamation);
 
 impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     pub(crate) fn new_primary(cert: &'a Cert) -> Self {
