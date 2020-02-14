@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 use std::slice;
 use std::time;
+use std::ops::Deref;
 
 use crate::{
     RevocationStatus,
@@ -92,6 +93,15 @@ pub struct ComponentBundle<C> {
 
     // Third-party revocations (e.g., designated revokers).
     pub(crate) other_revocations: Vec<Signature>,
+}
+
+impl<C> Deref for ComponentBundle<C>
+{
+    type Target = C;
+
+    fn deref(&self) -> &Self::Target {
+        &self.component
+    }
 }
 
 impl<C> ComponentBundle<C> {
