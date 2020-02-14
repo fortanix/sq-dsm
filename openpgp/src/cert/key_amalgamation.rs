@@ -2,6 +2,8 @@ use std::time;
 use std::time::SystemTime;
 use std::ops::Deref;
 
+use failure::ResultExt;
+
 use crate::{
     Cert,
     cert::components::{
@@ -166,6 +168,15 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
+
+        // First, we need to make sure the certificate is okay.  Only
+        // do this if we're using a subkey.
+        if ! self.primary() {
+            let pka : Self = KeyAmalgamation::new_primary(self.cert());
+            pka.with_policy(policy, time)
+                .context("primary key")?;
+        }
+
         if let Some(binding_signature) = self.binding_signature(policy, time) {
             let ka = ValidKeyAmalgamation {
                 a: self,
