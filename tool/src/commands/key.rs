@@ -88,6 +88,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
             builder = builder.add_subkey(KeyFlags::default()
                                          .set_transport_encryption(true)
                                          .set_storage_encryption(true),
+                                         None,
                                          None);
         }
         (Some("storage"), false) => {

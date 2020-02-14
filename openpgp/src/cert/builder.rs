@@ -101,6 +101,9 @@ impl CipherSuite {
 pub struct KeyBlueprint {
     flags: KeyFlags,
     expiration: Option<time::SystemTime>,
+    // If not None, uses the specified ciphersuite.  Otherwise, uses
+    // CertBuilder::ciphersuite.
+    ciphersuite: Option<CipherSuite>,
 }
 
 /// Simplifies generation of Keys.
@@ -133,6 +136,7 @@ impl CertBuilder {
             primary: KeyBlueprint{
                 flags: KeyFlags::default().set_certification(true),
                 expiration: None,
+                ciphersuite: None,
             },
             subkeys: vec![],
             userids: vec![],
@@ -159,6 +163,7 @@ impl CertBuilder {
                 expiration: Some(
                     time::SystemTime::now()
                         + time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
+                ciphersuite: None,
             },
             subkeys: vec![
                 KeyBlueprint {
@@ -166,6 +171,7 @@ impl CertBuilder {
                         .set_transport_encryption(true)
                         .set_storage_encryption(true),
                     expiration: None,
+                    ciphersuite: None,
                 }
             ],
             userids: userids.into_iter().map(|x| x.into()).collect(),
@@ -206,41 +212,44 @@ impl CertBuilder {
 
     /// Adds a signing capable subkey.
     pub fn add_signing_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_signing(true), None)
+        self.add_subkey(KeyFlags::default().set_signing(true), None, None)
     }
 
     /// Adds a subkey suitable for transport encryption.
     pub fn add_transport_encryption_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default().set_transport_encryption(true),
-                        None)
+                        None, None)
     }
 
     /// Adds a subkey suitable for storage encryption.
     pub fn add_storage_encryption_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default().set_storage_encryption(true),
-                        None)
+                        None, None)
     }
 
     /// Adds an certification capable subkey.
     pub fn add_certification_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_certification(true), None)
+        self.add_subkey(KeyFlags::default().set_certification(true), None, None)
     }
 
     /// Adds an authentication capable subkey.
     pub fn add_authentication_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_authentication(true), None)
+        self.add_subkey(KeyFlags::default().set_authentication(true), None, None)
     }
 
     /// Adds a custom subkey.
     ///
     /// If `expiration` is `None`, the subkey uses the same expiration
     /// time as the primary key.
-    pub fn add_subkey<T>(mut self, flags: KeyFlags, expiration: T) -> Self
-        where T: Into<Option<time::SystemTime>>
+    pub fn add_subkey<T, C>(mut self, flags: KeyFlags, expiration: T, cs: C)
+        -> Self
+        where T: Into<Option<time::SystemTime>>,
+              C: Into<Option<CipherSuite>>,
     {
         self.subkeys.push(KeyBlueprint {
             flags: flags,
             expiration: expiration.into(),
+            ciphersuite: cs.into(),
         });
         self
     }
@@ -325,7 +334,9 @@ impl CertBuilder {
         // sign subkeys
         for blueprint in self.subkeys {
             let flags = &blueprint.flags;
-            let mut subkey = self.ciphersuite.generate_key(flags)?;
+            let mut subkey = blueprint.ciphersuite
+                .unwrap_or(self.ciphersuite)
+                .generate_key(flags)?;
             subkey.set_creation_time(creation_time)?;
 
             let mut builder =
@@ -393,8 +404,9 @@ impl CertBuilder {
     fn primary_key(&self, creation_time: std::time::SystemTime)
         -> Result<(key::PublicKey, Signature)>
     {
-        let mut key = self.ciphersuite.generate_key(
-            &KeyFlags::default().set_certification(true))?;
+        let mut key = self.primary.ciphersuite
+            .unwrap_or(self.ciphersuite)
+            .generate_key(&KeyFlags::default().set_certification(true))?;
         key.set_creation_time(creation_time)?;
         let sig = signature::Builder::new(SignatureType::DirectKey)
             // GnuPG wants at least a 512-bit hash for P521 keys.
@@ -517,7 +529,7 @@ mod tests {
         let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_primary_key_flags(KeyFlags::default())
-            .add_subkey(KeyFlags::default().set_certification(true), None)
+            .add_subkey(KeyFlags::default().set_certification(true), None, None)
             .generate().unwrap();
         let sig_pkts = cert1.subkeys().next().unwrap().self_signatures[0].hashed_area();
 
@@ -590,9 +602,9 @@ mod tests {
             .set_creation_time(now)
             .set_expiration_time(now + 600 * s)
             .add_subkey(KeyFlags::default().set_signing(true),
-                        now + 300 * s)
+                        now + 300 * s, None)
             .add_subkey(KeyFlags::default().set_authentication(true),
-                        None)
+                        None, None)
             .generate().unwrap();
 
         let key = cert.primary_key().key();

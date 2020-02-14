@@ -38,6 +38,7 @@ pub fn cert_builder<'a, V, U>(version: V, userid: Option<U>)
             KeyFlags::default()
                 .set_transport_encryption(true)
                 .set_storage_encryption(true),
+            None,
             None);
 
     if let Some(userid) = userid {
