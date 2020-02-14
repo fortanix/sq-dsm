@@ -1426,6 +1426,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
     /// Verifies the signatures.
     fn verify_signatures(&mut self) -> Result<()> {
+        tracer!(TRACE, "Decryptor::verify_signatures", 0);
+        t!("called");
+
         let mut results = MessageStructure::new();
         for layer in ::std::mem::replace(&mut self.structure,
                                          IMessageStructure::new())
@@ -1439,6 +1442,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     'sigs: for sig in sigs.into_iter() {
+                        let sigid = sig.digest_prefix().clone();
+
                         let sig_time = if let Some(t) = sig.signature_creation_time() {
                             t
                         } else {
@@ -1451,10 +1456,12 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                          subpacket"
                                             .into()).into()
                                 });
+                            t!("{:02X}{:02X}: Missing a signature creation time subpacket",
+                               sigid[0], sigid[1]);
                             continue;
                         };
 
-                        if let Err(_err) = sig.signature_alive(
+                        if let Err(err) = sig.signature_alive(
                             self.time, self.clock_skew_tolerance)
                         {
                             // Invalid signature.
@@ -1462,6 +1469,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 VerificationResult::NotAlive {
                                     sig: sig.clone(),
                                 });
+                            t!("{:02X}{:02X}: Signature not alive: {}",
+                               sigid[0], sigid[1], err);
                             continue;
                         }
 
@@ -1477,27 +1486,35 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             })
                         {
                             err = if let Err(err) = ka.cert_alive() {
+                                t!("{:02X}{:02X}: cert {} not alive: {}",
+                                   sigid[0], sigid[1], ka.cert().fingerprint(), err);
                                 VerificationResult::Error {
                                     sig: sig.clone(),
                                     error: err,
                                 }
                             } else if let Err(err) = ka.alive() {
+                                t!("{:02X}{:02X}: key {} not alive: {}",
+                                   sigid[0], sigid[1], ka.fingerprint(), err);
                                 VerificationResult::Error {
                                     sig: sig.clone(),
                                     error: err,
                                 }
-                            } else if destructures_to!(
-                                RevocationStatus::Revoked(_) = ka.cert_revoked())
+                            } else if let
+                                RevocationStatus::Revoked(rev) = ka.cert_revoked()
                             {
+                                t!("{:02X}{:02X}: cert {} revoked: {:?}",
+                                   sigid[0], sigid[1], ka.cert().fingerprint(), rev);
                                 VerificationResult::Error {
                                     sig: sig.clone(),
                                     error: Error::InvalidKey(
                                         "certificate is revoked".into())
                                         .into(),
                                 }
-                            } else if destructures_to!(
-                                RevocationStatus::Revoked(_) = ka.revoked())
+                            } else if let
+                                RevocationStatus::Revoked(rev) = ka.revoked()
                             {
+                                t!("{:02X}{:02X}: key {} revoked: {:?}",
+                                   sigid[0], sigid[1], ka.fingerprint(), rev);
                                 VerificationResult::Error {
                                     sig: sig.clone(),
                                     error: Error::InvalidKey(
@@ -1505,6 +1522,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         .into(),
                                 }
                             } else if ! ka.for_signing() {
+                                t!("{:02X}{:02X}: key {} not signing capable",
+                                   sigid[0], sigid[1], ka.fingerprint());
                                 VerificationResult::Error {
                                     sig: sig.clone(),
                                     error: Error::InvalidKey(
@@ -1518,6 +1537,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 // The signature contains intended
                                 // recipients, but we are not one.
                                 // Treat the signature as bad.
+                                t!("{:02X}{:02X}: not an intended recipient",
+                                   sigid[0], sigid[1]);
                                 VerificationResult::Error {
                                     sig: sig.clone(),
                                     error: Error::BadSignature(
@@ -1528,11 +1549,15 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 match sig.verify(ka.key()) {
                                     Ok(()) => {
                                         if let Err(err) = self.policy.signature(&sig) {
+                                            t!("{:02X}{:02X}: signature rejected by policy: {}",
+                                               sigid[0], sigid[1], err);
                                             VerificationResult::Error {
                                                 sig: sig.clone(),
                                                 error: err,
                                             }
                                         } else {
+                                            t!("{:02X}{:02X}: good checksum using {}",
+                                               sigid[0], sigid[1], ka.fingerprint());
                                             results.push_verification_result(
                                                 VerificationResult::GoodChecksum {
                                                     sig: sig,
@@ -1544,6 +1569,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         }
                                     }
                                     Err(err) => {
+                                        t!("{:02X}{:02X} using {}: error: {}",
+                                           sigid[0], sigid[1], ka.fingerprint(), err);
                                         VerificationResult::Error {
                                             sig: sig.clone(),
                                             error: err,
@@ -1579,13 +1606,16 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             }
                         }
 
+                        t!("{:02X}{:02X}: returning: {:?}", sigid[0], sigid[1], err);
                         results.push_verification_result(err);
                     }
                 }
             }
         }
 
-        self.helper.check(results)
+        let r = self.helper.check(results);
+        t!("-> {:?}", r);
+        r
     }
 
     /// Like `io::Read::read()`, but returns our `Result`.
