@@ -360,9 +360,23 @@ mod test {
 
     use super::*;
     use crate::Fingerprint;
-    use crate::cert::{Cert, CertBuilder};
+    use crate::cert::{Cert, CertBuilder, CipherSuite};
+    use crate::crypto::SessionKey;
+    use crate::packet::key::Key4;
+    use crate::packet::signature;
+    use crate::packet::{PKESK, SKESK};
     use crate::parse::Parse;
+    use crate::parse::stream::DecryptionHelper;
+    use crate::parse::stream::Decryptor;
+    use crate::parse::stream::DetachedVerifier;
+    use crate::parse::stream::MessageLayer;
+    use crate::parse::stream::MessageStructure;
+    use crate::parse::stream::VerificationHelper;
+    use crate::parse::stream::Verifier;
     use crate::policy::StandardPolicy as P;
+    use crate::types::Curve;
+    use crate::types::KeyFlags;
+    use crate::types::SymmetricAlgorithm;
 
     #[test]
     fn binding_signature() {
@@ -526,16 +540,6 @@ mod test {
 
     #[test]
     fn binary_signature() {
-        use crate::crypto::SessionKey;
-        use crate::types::SymmetricAlgorithm;
-        use crate::packet::{PKESK, SKESK};
-        use crate::parse::stream::MessageLayer;
-        use crate::parse::stream::MessageStructure;
-        use crate::parse::stream::Verifier;
-        use crate::parse::stream::Decryptor;
-        use crate::parse::stream::VerificationHelper;
-        use crate::parse::stream::DecryptionHelper;
-
         #[derive(PartialEq, Debug)]
         struct VHelper {
             good: usize,
@@ -879,10 +883,7 @@ mod test {
     }
 
     #[test]
-    fn key() -> Result<()> {
-        use crate::cert::CipherSuite;
-        use crate::types::Curve;
-
+    fn key_verify_self_signature() -> Result<()> {
         let p = &P::new();
 
         #[derive(Debug)]
@@ -914,10 +915,6 @@ mod test {
         assert_eq!(cert.keys().with_policy(norsa, None).count(), 0);
         assert!(cert.primary_key().with_policy(p, None).is_ok());
         assert!(cert.primary_key().with_policy(norsa, None).is_err());
-
-        use crate::packet::key::Key4;
-        use crate::packet::signature;
-        use crate::types::KeyFlags;
 
         // Generate a certificate with an ECC primary, an ECC subkey,
         // and an RSA subkey.
@@ -978,6 +975,196 @@ mod test {
         assert_eq!(cert.keys().with_policy(norsa, None).count(), 3);
         assert!(cert.primary_key().with_policy(p, None).is_ok());
         assert!(cert.primary_key().with_policy(norsa, None).is_ok());
+
+        Ok(())
+    }
+
+    #[test]
+    fn key_verify_binary_signature() -> Result<()> {
+        use crate::packet::signature;
+        use crate::serialize::Serialize;
+        use crate::Packet;
+        use crate::types::KeyFlags;
+
+        let p = &P::new();
+
+        #[derive(Debug)]
+        struct NoRsa;
+        impl Policy for NoRsa {
+            fn key(&self, ka: &ValidKeyAmalgamation<key::PublicParts>)
+                   -> Result<()>
+            {
+                use crate::types::PublicKeyAlgorithm::*;
+
+                eprintln!("algo: {} is {}",
+                          ka.fingerprint(), ka.key().pk_algo());
+                if ka.key().pk_algo() == RSAEncryptSign {
+                    Err(format_err!("RSA!"))
+                } else {
+                    Ok(())
+                }
+            }
+        }
+        let norsa = &NoRsa {};
+
+        #[derive(PartialEq, Debug)]
+        struct VHelper {
+            good: usize,
+            errors: usize,
+            keys: Vec<Cert>,
+        }
+
+        impl VHelper {
+            fn new(keys: Vec<Cert>) -> Self {
+                VHelper {
+                    good: 0,
+                    errors: 0,
+                    keys: keys,
+                }
+            }
+        }
+
+        impl VerificationHelper for VHelper {
+            fn get_public_keys(&mut self, _ids: &[crate::KeyHandle])
+                -> Result<Vec<Cert>>
+            {
+                Ok(self.keys.clone())
+            }
+
+            fn check(&mut self, structure: MessageStructure) -> Result<()>
+            {
+                use crate::parse::stream::VerificationResult::*;
+                for layer in structure.iter() {
+                    match layer {
+                        MessageLayer::SignatureGroup { ref results } =>
+                            for result in results {
+                                match result {
+                                    GoodChecksum { .. } => self.good += 1,
+                                    Error { .. } => self.errors += 1,
+                                    _ => (),
+                                }
+                            }
+                        MessageLayer::Compression { .. } => (),
+                        _ => unreachable!(),
+                    }
+                }
+
+                Ok(())
+            }
+        }
+
+        impl DecryptionHelper for VHelper {
+            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
+                          _: Option<SymmetricAlgorithm>,_: D)
+                          -> Result<Option<Fingerprint>>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+            {
+                unreachable!();
+            }
+        }
+
+        // Sign msg using cert's first subkey, return the signature.
+        fn sign_and_verify(p: &dyn Policy, cert: &Cert, good: bool) {
+            eprintln!("Expect verification to be {}",
+                      if good { "good" } else { "bad" });
+            for (i, k) in cert.keys().enumerate() {
+                eprintln!("  {}. {}", i, k.fingerprint());
+            }
+
+            let msg = b"Hello, World";
+
+            // We always use the first subkey.
+            let key = cert.keys().nth(1).unwrap().key();
+            let mut keypair = key.clone()
+                .mark_parts_secret().unwrap()
+                .into_keypair().unwrap();
+
+            // Create a signature.
+            let sig = signature::Builder::new(SignatureType::Binary)
+                .set_signature_creation_time(
+                    std::time::SystemTime::now()).unwrap()
+                .set_issuer_fingerprint(key.fingerprint()).unwrap()
+                .set_issuer(key.keyid()).unwrap()
+                .sign_message(&mut keypair, msg).unwrap();
+
+            // Make sure the signature is ok.
+            sig.verify_message(key, msg).unwrap();
+
+            // Turn it into a detached signature.
+            let sig = {
+                let mut v = Vec::new();
+                let sig : Packet = sig.into();
+                sig.serialize(&mut v).unwrap();
+                v
+            };
+
+            let h = VHelper::new(vec![ cert.clone() ]);
+            let mut v =
+                match DetachedVerifier::from_bytes(p, &sig, msg, h, None) {
+                    Ok(v) => v,
+                    Err(e) => panic!("{}", e),
+                };
+            assert!(v.message_processed());
+            assert_eq!(v.helper_ref().good, if good { 1 } else { 0 });
+            assert_eq!(v.helper_ref().errors, if good { 0 } else { 1 });
+
+            let mut content = Vec::new();
+            v.read_to_end(&mut content).unwrap();
+            assert_eq!(msg.len(), content.len());
+            assert_eq!(msg, &content[..]);
+        }
+
+
+        // A certificate with an ECC primary and an ECC signing
+        // subkey.
+        eprintln!("Trying ECC primary, ECC sub:");
+        let (cert,_) = CertBuilder::new()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .add_subkey(KeyFlags::default().set_signing(true), None,
+                        None)
+            .generate()?;
+
+        assert_eq!(cert.keys().with_policy(p, None).count(), 2);
+        assert_eq!(cert.keys().with_policy(norsa, None).count(), 2);
+        assert!(cert.primary_key().with_policy(p, None).is_ok());
+        assert!(cert.primary_key().with_policy(norsa, None).is_ok());
+
+        sign_and_verify(p, &cert, true);
+        sign_and_verify(norsa, &cert, true);
+
+        // A certificate with an RSA primary and an RCC signing
+        // subkey.
+        eprintln!("Trying RSA primary, ECC sub:");
+        let (cert,_) = CertBuilder::new()
+            .set_cipher_suite(CipherSuite::RSA4k)
+            .add_subkey(KeyFlags::default().set_signing(true), None,
+                        CipherSuite::Cv25519)
+            .generate()?;
+
+        assert_eq!(cert.keys().with_policy(p, None).count(), 2);
+        assert_eq!(cert.keys().with_policy(norsa, None).count(), 0);
+        assert!(cert.primary_key().with_policy(p, None).is_ok());
+        assert!(cert.primary_key().with_policy(norsa, None).is_err());
+
+        sign_and_verify(p, &cert, true);
+        sign_and_verify(norsa, &cert, false);
+
+        // A certificate with an ECC primary and an RSA signing
+        // subkey.
+        eprintln!("Trying ECC primary, RSA sub:");
+        let (cert,_) = CertBuilder::new()
+            .set_cipher_suite(CipherSuite::Cv25519)
+            .add_subkey(KeyFlags::default().set_signing(true), None,
+                        CipherSuite::RSA4k)
+            .generate()?;
+
+        assert_eq!(cert.keys().with_policy(p, None).count(), 2);
+        assert_eq!(cert.keys().with_policy(norsa, None).count(), 1);
+        assert!(cert.primary_key().with_policy(p, None).is_ok());
+        assert!(cert.primary_key().with_policy(norsa, None).is_ok());
+
+        sign_and_verify(p, &cert, true);
+        sign_and_verify(norsa, &cert, false);
 
         Ok(())
     }
