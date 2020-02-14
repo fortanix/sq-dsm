@@ -598,7 +598,10 @@ impl Cert {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self.primary_key().with_policy(policy, t).context("Primary key")?.alive()
+        self.primary_key()
+            .with_policy(policy, t).context(
+                "primary key rejected by policy")?
+            .alive()
     }
 
     /// Sets the key to expire in delta seconds.

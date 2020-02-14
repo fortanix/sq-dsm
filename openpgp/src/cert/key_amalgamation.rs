@@ -176,7 +176,7 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
             policy.key(
                 key::PublicParts::convert_valid_amalgamation_ref(
                     (&ka).mark_parts_unspecified_ref())
-                    .expect("secret key amalgamations contain secret keys"))?;
+                    .expect("unspecified parts"))?;
             Ok(ka)
         } else {
             Err(Error::NoBindingSignature(time).into())
