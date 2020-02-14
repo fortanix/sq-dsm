@@ -63,6 +63,15 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
         }
     }
 
+    /// Returns whether the key is a primary key.
+    pub fn primary(&self) -> bool {
+        if let KeyAmalgamationBundle::Primary() = self.bundle {
+            true
+        } else {
+            false
+        }
+    }
+
     /// Returns the key.
     pub fn key(&self) -> &'a Key<P, key::UnspecifiedRole> {
         match self {
