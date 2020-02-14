@@ -1481,10 +1481,27 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         let issuers = sig.get_issuers();
                         for ka in self.certs.iter()
                             .flat_map(|cert| {
-                                cert.keys().with_policy(self.policy, sig_time)
-                                    .key_handles(issuers.iter())
+                                cert.keys().key_handles(issuers.iter())
                             })
                         {
+                            let fingerprint = ka.fingerprint();
+                            let ka = match ka.with_policy(self.policy, sig_time) {
+                                Err(policy_err) => {
+                                    t!("{:02X}{:02X}: key {} rejected by policy: {}",
+                                       sigid[0], sigid[1], fingerprint, policy_err);
+                                    err = VerificationResult::Error {
+                                        sig: sig.clone(),
+                                        error: policy_err,
+                                    };
+                                    continue;
+                                }
+                                Ok(ka) => {
+                                    t!("{:02X}{:02X}: key {} accepted by policy",
+                                       sigid[0], sigid[1], fingerprint);
+                                    ka
+                                }
+                            };
+
                             err = if let Err(err) = ka.cert_alive() {
                                 t!("{:02X}{:02X}: cert {} not alive: {}",
                                    sigid[0], sigid[1], ka.cert().fingerprint(), err);
@@ -1600,7 +1617,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         format!(
                                             "Signing key ({}) not valid \
                                              when signature was created",
-                                            ka.key().fingerprint()))
+                                            ka.fingerprint()))
                                         .into(),
                                 }
                             }
