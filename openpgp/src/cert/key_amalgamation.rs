@@ -39,10 +39,10 @@ pub struct KeyAmalgamation<'a, P: key::KeyParts> {
 }
 
 impl<'a, P: key::KeyParts> Deref for KeyAmalgamation<'a, P> {
-    type Target = Key<P, key::UnspecifiedRole>;
+    type Target = KeyBundle<P, key::UnspecifiedRole>;
 
     fn deref(&self) -> &Self::Target {
-        self.key()
+        self.bundle()
     }
 }
 
