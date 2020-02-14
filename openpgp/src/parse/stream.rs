@@ -120,7 +120,7 @@ pub enum VerificationResult<'a> {
         sig: Signature,
     },
 
-    /// An error occured while verifying the signature.
+    /// An error occurred while verifying the signature.
     ///
     /// This could occur if the signature is invalid (e.g., no
     /// Signature Creation Time packet), the key is invalid (e.g., the

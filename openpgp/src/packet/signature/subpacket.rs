@@ -741,7 +741,7 @@ pub struct Subpacket {
     ///
     /// In order not to break signatures, we need to be able to
     /// roundtrip the subpackets, perfectly reproducing all the bits.
-    /// To allow for suboptimal encoding of lenghts, we store the
+    /// To allow for suboptimal encoding of lengths, we store the
     /// length when we parse subpackets.
     pub(crate) // For serialize/mod.rs, parse/parse.rs.
     length: SubpacketLength,
