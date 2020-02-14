@@ -163,3 +163,9 @@ sanity-check-versions:
 	  done ;\
 	  echo good. ;\
 	done
+
+.PHONY: codespell
+codespell:
+	codespell --disable-colors --write-changes \
+	  -L "ede,iff,mut,nd,te,uint" \
+	  -S "*.bin,*.gpg,*.pgp,./.git,./target,data,highlight.js"
