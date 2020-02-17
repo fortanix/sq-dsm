@@ -495,7 +495,7 @@ macro_rules! create_part_conversions {
                 {
                     type Error = failure::Error;
                     fn try_from(p: &$Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
-                        if p.secret().is_some() {
+                        if p.has_secret() {
                             Ok(convert_ref!(p))
                         } else {
                             Err(Error::InvalidArgument("No secret key".into())
@@ -551,7 +551,7 @@ macro_rules! create_part_conversions {
 
             /// Changes the key's parts tag to `SecretParts`.
             pub fn mark_parts_secret(self) -> Result<$Key<$($l, )* SecretParts, $($g, )*>> {
-                if self.secret().is_some() {
+                if self.has_secret() {
                     Ok(convert!(self))
                 } else {
                     Err(Error::InvalidArgument("No secret key".into()).into())
@@ -561,7 +561,7 @@ macro_rules! create_part_conversions {
             /// Changes the key's parts tag to `SecretParts`.
             pub fn mark_parts_secret_ref(&self) -> Result<&$Key<$($l, )* SecretParts, $($g, )*>>
             {
-                if self.secret().is_some() {
+                if self.has_secret() {
                     Ok(convert_ref!(self))
                 } else {
                     Err(Error::InvalidArgument("No secret key".into()).into())
@@ -773,6 +773,13 @@ macro_rules! create_conversions {
 
 create_conversions!(Key);
 create_conversions!(Key4);
+
+impl<K: key::KeyParts, R: key::KeyRole> KeyBundle<K, R>
+{
+    fn has_secret(&self) -> bool {
+        self.key().secret.is_some()
+    }
+}
 create_conversions!(KeyBundle);
 
 create_part_conversions!(KeyAmalgamation<'a;> where);
@@ -1297,6 +1304,26 @@ impl<P, R> Key4<P, R>
     /// Sets the key packet's MPIs.
     pub fn set_mpis(&mut self, mpis: mpis::PublicKey) -> mpis::PublicKey {
         ::std::mem::replace(&mut self.mpis, mpis)
+    }
+
+    /// Returns whether the key contains secret key material.
+    pub fn has_secret(&self) -> bool {
+        self.secret.is_some()
+    }
+
+    /// Returns whether the key contains unencrypted secret key
+    /// material.
+    pub fn has_unencrypted_secret(&self) -> bool
+    {
+        if let Some(secret) = &self.secret {
+            if let SecretKeyMaterial::Unencrypted { .. } = secret {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 
     /// Gets the key packet's `SecretKeyMaterial`.

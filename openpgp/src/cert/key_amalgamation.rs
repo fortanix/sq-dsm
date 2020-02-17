@@ -13,7 +13,6 @@ use crate::{
     Error,
     packet::key,
     packet::Key,
-    packet::key::SecretKeyMaterial,
     packet::key::KeyParts,
     packet::Signature,
     policy::Policy,
@@ -92,27 +91,6 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
     pub fn cert(&self) -> &'a Cert
     {
         self.cert
-    }
-
-    /// Returns whether the key contains secret key material.
-    pub fn has_secret(&self) -> bool
-    {
-        self.key().secret().is_some()
-    }
-
-    /// Returns whether the key contains unencrypted secret key
-    /// material.
-    pub fn has_unencrypted_secret(&self) -> bool
-    {
-        if let Some(secret) = self.key().secret() {
-            if let SecretKeyMaterial::Unencrypted { .. } = secret {
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        }
     }
 
     /// Returns this key's bundle.
@@ -412,27 +390,6 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
             // There is no key expiration time on the binding
             // signature.  This key does not expire.
             Ok(())
-        }
-    }
-
-    /// Returns whether the key contains secret key material.
-    pub fn has_secret(&self) -> bool
-    {
-        self.key().secret().is_some()
-    }
-
-    /// Returns whether the key contains unencrypted secret key
-    /// material.
-    pub fn has_unencrypted_secret(&self) -> bool
-    {
-        if let Some(secret) = self.key().secret() {
-            if let SecretKeyMaterial::Unencrypted { .. } = secret {
-                true
-            } else {
-                false
-            }
-        } else {
-            false
         }
     }
 

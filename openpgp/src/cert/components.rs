@@ -47,18 +47,6 @@ pub use super::keyiter::{
 /// signatures.
 pub type KeyBundle<KeyPart, KeyRole> = ComponentBundle<Key<KeyPart, KeyRole>>;
 
-impl<K: key::KeyParts, R: key::KeyRole> KeyBundle<K, R>
-{
-    /// Gets the key packet's `SecretKeyMaterial`.
-    ///
-    /// Note: The key module installs conversion functions on
-    /// KeyBundle.  They need to access the key's secret.
-    pub(crate) fn secret(&self)
-                         -> Option<&crate::packet::key::SecretKeyMaterial> {
-        self.key().secret()
-    }
-}
-
 /// A primary key and any associated signatures.
 pub(crate) type PrimaryKeyBundle<KeyPart> =
     KeyBundle<KeyPart, key::PrimaryRole>;

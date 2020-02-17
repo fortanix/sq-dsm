@@ -1398,7 +1398,7 @@ impl<P, R> Key4<P, R>
     pub(crate) // For tests in key.
     fn serialize_key(&self, o: &mut dyn io::Write, serialize_secrets: bool)
                      -> Result<()> {
-        let have_secret_key = self.secret().is_some() && serialize_secrets;
+        let have_secret_key = self.has_secret() && serialize_secrets;
 
         write_byte(o, 4)?; // Version.
         write_be_u32(o, Timestamp::try_from(self.creation_time())?.into())?;
@@ -1436,7 +1436,7 @@ impl<P, R> Key4<P, R>
     }
 
     fn net_len_key(&self, serialize_secrets: bool) -> usize {
-        let have_secret_key = self.secret().is_some() && serialize_secrets;
+        let have_secret_key = self.has_secret() && serialize_secrets;
 
         1 // Version.
             + 4 // Creation time.
