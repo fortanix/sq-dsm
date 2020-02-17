@@ -1237,10 +1237,10 @@ impl Cert {
         //   - One is corrupted
         //   - There are two versions that are encrypted differently
         self.subkeys.sort_and_dedup(Key::public_cmp,
-            |ref mut a, ref mut b| {
+            |a, b| {
                 // Recall: if a and b are equal, a will be dropped.
                 if b.secret().is_none() && a.secret().is_some() {
-                    b.set_secret(a.set_secret(None));
+                    std::mem::swap(a, b);
                 }
             });
 
@@ -1319,8 +1319,10 @@ impl Cert {
                 "Primary key mismatch".into()).into());
         }
 
-        if self.primary.key().secret().is_none() && other.primary.key().secret().is_some() {
-            self.primary.key_mut().set_secret(other.primary.key_mut().set_secret(None));
+        if self.primary.key().secret().is_none()
+            && other.primary.key().secret().is_some()
+        {
+            std::mem::swap(self.primary.key_mut(), other.primary.key_mut());
         }
 
         self.primary.self_signatures.append(
