@@ -1670,9 +1670,7 @@ mod tests {
             let cipher = SymmetricAlgorithm::AES256;
             let sk = SessionKey::new(cipher.key_size().unwrap());
 
-            let pkesk =
-                PKESK3::for_recipient(cipher, &sk, &key.mark_parts_public())
-                .unwrap();
+            let pkesk = PKESK3::for_recipient(cipher, &sk, &key).unwrap();
             let (cipher_, sk_) = pkesk.decrypt(&mut keypair, None).unwrap();
 
             assert_eq!(cipher, cipher_);

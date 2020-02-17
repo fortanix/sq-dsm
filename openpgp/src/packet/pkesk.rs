@@ -73,11 +73,12 @@ impl PKESK3 {
     ///
     /// The given symmetric algorithm must match the algorithm that is
     /// used to encrypt the payload.
-    pub fn for_recipient<R>(algo: SymmetricAlgorithm,
-                            session_key: &SessionKey,
-                            recipient: &Key<key::PublicParts, R>)
+    pub fn for_recipient<P, R>(algo: SymmetricAlgorithm,
+                               session_key: &SessionKey,
+                               recipient: &Key<P, R>)
         -> Result<PKESK3>
-        where R: key::KeyRole
+        where P: key::KeyParts,
+              R: key::KeyRole,
     {
         // We need to prefix the cipher specifier to the session key,
         // and a two-octet checksum.
