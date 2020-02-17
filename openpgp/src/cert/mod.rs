@@ -1407,6 +1407,7 @@ mod test {
     use crate::serialize::Serialize;
     use super::components::Amalgamation;
     use crate::policy::StandardPolicy as P;
+    use crate::types::Curve;
     use super::*;
 
     use crate::{
@@ -2285,7 +2286,6 @@ mod test {
     fn key_revoked() {
         use crate::types::Features;
         use crate::packet::key::Key4;
-        use crate::types::Curve;
         use rand::{thread_rng, Rng, distributions::Open01};
 
         let p = &P::new();
@@ -2947,7 +2947,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         use crate::types::Features;
         use crate::packet::key::Key4;
-        use crate::types::Curve;
 
         let p = &P::new();
 
@@ -3126,8 +3125,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
     #[test]
     fn test_canonicalization() -> Result<()> {
-        use crate::types::Curve;
-
         let p = crate::policy::StandardPolicy::new();
 
         let primary: Key<_, key::PrimaryRole> =
@@ -3214,5 +3211,74 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             Error::Expired(_)
                 = cert.primary_key().with_policy(p, None).unwrap()
                     .alive().unwrap_err().downcast().unwrap());
+    }
+
+    /// Tests that secrets are kept when merging.
+    #[test]
+    fn merge_keeps_secrets() -> Result<()> {
+        let primary_sec: Key<_, key::PrimaryRole> =
+            key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
+        let primary_pub: Key<key::PublicParts, key::PrimaryRole> = {
+            let mut k = primary_sec.clone();
+            k.set_secret(None);
+            k.into()
+        };
+
+        let cert_p =
+            Cert::from_packet_pile(vec![primary_pub.clone().into()].into())?;
+        let cert_s =
+            Cert::from_packet_pile(vec![primary_sec.clone().into()].into())?;
+        let cert = cert_p.merge(cert_s)?;
+        assert!(cert.primary_key().secret().is_some());
+
+        let cert_p =
+            Cert::from_packet_pile(vec![primary_pub.clone().into()].into())?;
+        let cert_s =
+            Cert::from_packet_pile(vec![primary_sec.clone().into()].into())?;
+        let cert = cert_s.merge(cert_p)?;
+        assert!(cert.primary_key().secret().is_some());
+        Ok(())
+    }
+
+    /// Tests that secrets are kept when canonicalizing.
+    #[test]
+    fn canonicalizing_keeps_secrets() -> Result<()> {
+        let primary: Key<_, key::PrimaryRole> =
+            key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
+        let mut primary_pair = primary.clone().into_keypair()?;
+        let cert = Cert::from_packet_pile(vec![primary.clone().into()].into())?;
+
+        let subkey_sec: Key<_, key::SubordinateRole> =
+            key::Key4::generate_ecc(false, Curve::Cv25519)?.into();
+        let subkey_pub: Key<key::PublicParts, key::SubordinateRole> = {
+            let mut k = subkey_sec.clone();
+            k.set_secret(None);
+            k.into()
+        };
+        let builder = signature::Builder::new(SignatureType::SubkeyBinding)
+            .set_key_flags(&KeyFlags::default()
+                           .set_transport_encryption(true))?;
+        let binding = subkey_sec.bind(&mut primary_pair, &cert, builder)?;
+
+        let cert = Cert::from_packet_pile(vec![
+            primary.clone().into(),
+            subkey_pub.clone().into(),
+            binding.clone().into(),
+            subkey_sec.clone().into(),
+            binding.clone().into(),
+        ].into())?;
+        assert_eq!(cert.keys().skip_primary().count(), 1);
+        assert_eq!(cert.keys().unencrypted_secret().skip_primary().count(), 1);
+
+        let cert = Cert::from_packet_pile(vec![
+            primary.clone().into(),
+            subkey_sec.clone().into(),
+            binding.clone().into(),
+            subkey_pub.clone().into(),
+            binding.clone().into(),
+        ].into())?;
+        assert_eq!(cert.keys().skip_primary().count(), 1);
+        assert_eq!(cert.keys().unencrypted_secret().skip_primary().count(), 1);
+        Ok(())
     }
 }
