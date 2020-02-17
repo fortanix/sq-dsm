@@ -7,6 +7,7 @@ test:
     - rustc --version
     - cargo --version
     - clang --version
+    - make codespell CODESPELL_FLAGS=--summary
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
     - make
     - make -C tool update-usage
