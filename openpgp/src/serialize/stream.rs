@@ -915,9 +915,14 @@ impl<'a> From<&'a Key<PublicParts, UnspecifiedRole>> for Recipient<'a> {
 
 impl<'a> Recipient<'a> {
     /// Creates a new recipient with an explicit recipient keyid.
-    pub fn new(keyid: KeyID, key: &'a Key<PublicParts, UnspecifiedRole>)
-               -> Recipient<'a> {
-        Recipient { keyid, key }
+    pub fn new<P, R>(keyid: KeyID, key: &'a Key<P, R>) -> Recipient<'a>
+        where P: key::KeyParts,
+              R: key::KeyRole,
+    {
+        Recipient {
+            keyid,
+            key: key.mark_parts_public_ref().mark_role_unspecified_ref(),
+        }
     }
 
     /// Gets the KeyID.

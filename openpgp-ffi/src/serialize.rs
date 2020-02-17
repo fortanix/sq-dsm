@@ -251,7 +251,7 @@ fn pgp_recipient_new<'a>(keyid: *mut KeyID,
 {
     openpgp::serialize::stream::Recipient::new(
         keyid.move_from_raw(),
-        key.ref_raw().mark_parts_public_ref(),
+        key.ref_raw(),
     ).move_into_raw()
 }
 
