@@ -25,6 +25,8 @@ GIT		?= git
 TAR		?= tar
 XZ		?= xz
 GPG		?= gpg
+CODESPELL	?= codespell
+CODESPELL_FLAGS ?= --disable-colors --write-changes
 
 ifeq ($(shell uname -s), Darwin)
 	INSTALL	?= ginstall
@@ -166,6 +168,6 @@ sanity-check-versions:
 
 .PHONY: codespell
 codespell:
-	codespell --disable-colors --write-changes \
+	$(CODESPELL) $(CODESPELL_FLAGS) \
 	  -L "ede,iff,mut,nd,te,uint" \
 	  -S "*.bin,*.gpg,*.pgp,./.git,./target,data,highlight.js"
