@@ -125,11 +125,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
-        let key = self.secret.keys().with_policy(self.policy, None)
+        let key = self.secret.keys().unencrypted_secret()
+            .with_policy(self.policy, None)
             .for_transport_encryption().nth(0).unwrap().key().clone();
 
         // The secret key is not encrypted.
-        let mut pair = key.mark_parts_secret().unwrap().into_keypair().unwrap();
+        let mut pair = key.into_keypair().unwrap();
 
         pkesks[0].decrypt(&mut pair, sym_algo)
             .and_then(|(algo, session_key)| decrypt(algo, &session_key))

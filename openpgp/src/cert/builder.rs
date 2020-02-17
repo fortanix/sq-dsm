@@ -296,10 +296,9 @@ impl CertBuilder {
 
         // Generate & and self-sign primary key.
         let (primary, sig) = self.primary_key(creation_time)?;
-        let mut signer = primary.clone().mark_parts_secret().unwrap()
-            .into_keypair().unwrap();
+        let mut signer = primary.clone().into_keypair().unwrap();
 
-        packets.push(Packet::PublicKey({
+        packets.push(Packet::SecretKey({
             let mut primary = primary.clone();
             if let Some(ref password) = self.password {
                 primary.secret_mut().unwrap().encrypt_in_place(password)?;
@@ -378,8 +377,7 @@ impl CertBuilder {
                 builder = builder.set_embedded_signature(backsig)?;
             }
 
-            let signature = subkey.mark_parts_public_ref()
-                .bind(&mut signer, &cert, builder)?;
+            let signature = subkey.bind(&mut signer, &cert, builder)?;
 
             if let Some(ref password) = self.password {
                 subkey.secret_mut().unwrap().encrypt_in_place(password)?;
@@ -402,7 +400,7 @@ impl CertBuilder {
     }
 
     fn primary_key(&self, creation_time: std::time::SystemTime)
-        -> Result<(key::PublicKey, Signature)>
+        -> Result<(key::SecretKey, Signature)>
     {
         let mut key = self.primary.ciphersuite
             .unwrap_or(self.ciphersuite)
@@ -423,7 +421,7 @@ impl CertBuilder {
             .expect("key generated above has a secret");
         let sig = sig.sign_direct_key(&mut signer)?;
 
-        Ok((key.mark_parts_public(), sig.into()))
+        Ok((key, sig.into()))
     }
 }
 

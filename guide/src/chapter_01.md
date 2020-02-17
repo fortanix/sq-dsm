@@ -57,9 +57,10 @@ fn main() {
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().with_policy(policy, None)
-#         .alive().revoked(false).for_signing().nth(0).unwrap()
-#         .key().clone().mark_parts_secret().unwrap().into_keypair()?;
+#     let keypair = tsk
+#         .keys().unencrypted_secret()
+#         .with_policy(policy, None).alive().revoked(false).for_signing()
+#         .nth(0).unwrap().key().clone().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -211,9 +212,10 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().with_policy(policy, None)
-#         .alive().revoked(false).for_signing().nth(0).unwrap()
-#         .key().clone().mark_parts_secret().unwrap().into_keypair()?;
+#     let keypair = tsk
+#         .keys().unencrypted_secret()
+#         .with_policy(policy, None).alive().revoked(false).for_signing()
+#         .nth(0).unwrap().key().clone().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -365,9 +367,10 @@ fn sign(policy: &dyn Policy,
     -> openpgp::Result<()>
 {
     // Get the keypair to do the signing from the Cert.
-    let keypair = tsk.keys().with_policy(policy, None)
-        .alive().revoked(false).for_signing().nth(0).unwrap()
-        .key().clone().mark_parts_secret().unwrap().into_keypair()?;
+    let keypair = tsk
+        .keys().unencrypted_secret()
+        .with_policy(policy, None).alive().revoked(false).for_signing()
+        .nth(0).unwrap().key().clone().into_keypair()?;
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
@@ -530,9 +533,10 @@ Verified data can be read from this using [`io::Read`].
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
-#     let keypair = tsk.keys().with_policy(policy, None)
-#         .alive().revoked(false).for_signing().nth(0).unwrap()
-#         .key().clone().mark_parts_secret().unwrap().into_keypair()?;
+#     let keypair = tsk
+#         .keys().unencrypted_secret()
+#         .with_policy(policy, None).alive().revoked(false).for_signing()
+#         .nth(0).unwrap().key().clone().into_keypair()?;
 # 
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);

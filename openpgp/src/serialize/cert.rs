@@ -759,7 +759,7 @@ mod test {
 
         let key: key::SecretSubkey =
             Key4::generate_ecc(false, Curve::Cv25519).unwrap().into();
-        let key_binding = key.mark_parts_public_ref().bind(
+        let key_binding = key.bind(
             &mut keypair, &cert,
             signature::Builder::new(SignatureType::SubkeyBinding)
                 .set_key_flags(
