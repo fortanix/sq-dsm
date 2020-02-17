@@ -802,7 +802,7 @@ mod test {
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
                       = cert_revoked.revoked(&reject, None));
 
-        // Reject the hash algorith next year.
+        // Reject the hash algorithm next year.
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
@@ -813,7 +813,7 @@ mod test {
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revoked(&reject, None));
 
-        // Reject the hash algorith last year.
+        // Reject the hash algorithm last year.
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
