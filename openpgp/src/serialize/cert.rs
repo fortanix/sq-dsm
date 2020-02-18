@@ -347,7 +347,7 @@ impl<'a> TSK<'a> {
     ///
     /// let cert_ = Cert::from_bytes(&buf)?;
     /// assert_eq!(cert_.keys().with_policy(p, None).alive().revoked(false).secret().count(), 1);
-    /// assert!(cert_.primary_key().secret().is_some());
+    /// assert!(cert_.primary_key().has_secret());
     /// # Ok(()) }
     pub fn set_filter<P>(mut self, predicate: P) -> Self
         where P: 'a + Fn(&'a key::UnspecifiedSecret) -> bool

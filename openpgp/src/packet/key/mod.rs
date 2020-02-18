@@ -1678,7 +1678,7 @@ mod tests {
             if let Some(Packet::PublicKey(Key::V4(ref parsed_key))) =
                 pp.path_ref(&[0])
             {
-                assert!(parsed_key.secret().is_none());
+                assert!(! parsed_key.has_secret());
 
                 key.set_secret(None);
                 assert_eq!(&key.mark_parts_public(), parsed_key);
