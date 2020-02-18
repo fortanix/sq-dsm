@@ -147,7 +147,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         for pkesk in pkesks {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
-                if key.secret().map(|s| ! s.is_encrypted()).unwrap_or(false) {
+                if ! key.secret().is_encrypted() {
                     if let Ok(fp) = key.clone().into_keypair()
                         .and_then(|mut k|
                                   self.try_decrypt(pkesk, sym_algo, &mut k, &mut decrypt))
@@ -169,8 +169,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get_mut(&keyid) {
                 let mut keypair = loop {
-                    if key.secret().map(|s| ! s.is_encrypted()).unwrap_or(false)
-                    {
+                    if ! key.secret().is_encrypted() {
                         break key.clone().into_keypair().unwrap();
                     }
 
@@ -181,9 +180,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
                     let algo = key.pk_algo();
                     if let Some(()) =
-                        key.secret_mut()
-                        .and_then(|s| s.decrypt_in_place(algo, &p).ok())
-                    {
+                        key.secret_mut().decrypt_in_place(algo, &p).ok() {
                         break key.clone().into_keypair().unwrap()
                     } else {
                         eprintln!("Bad password.");
@@ -202,7 +199,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         // prompting for a password.
         for pkesk in pkesks.iter().filter(|p| p.recipient().is_wildcard()) {
             for key in self.secret_keys.values() {
-                if key.secret().map(|s| ! s.is_encrypted()).unwrap_or(false) {
+                if ! key.secret().is_encrypted() {
                     if let Ok(fp) = key.clone().into_keypair()
                         .and_then(|mut k|
                                   self.try_decrypt(pkesk, sym_algo, &mut k, &mut decrypt))
@@ -229,8 +226,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                 let mut keypair = loop {
                     let key = self.secret_keys.get_mut(&keyid).unwrap(); // Yuck
 
-                    if key.secret().map(|s| ! s.is_encrypted()).unwrap_or(false)
-                    {
+                    if ! key.secret().is_encrypted() {
                         break key.clone().into_keypair().unwrap();
                     }
 
@@ -241,9 +237,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
                     let algo = key.pk_algo();
                     if let Some(()) =
-                        key.secret_mut()
-                        .and_then(|s| s.decrypt_in_place(algo, &p).ok())
-                    {
+                        key.secret_mut().decrypt_in_place(algo, &p).ok() {
                         break key.clone().into_keypair().unwrap()
                     } else {
                         eprintln!("Bad password.");

@@ -301,7 +301,7 @@ impl CertBuilder {
         packets.push(Packet::SecretKey({
             let mut primary = primary.clone();
             if let Some(ref password) = self.password {
-                primary.secret_mut().unwrap().encrypt_in_place(password)?;
+                primary.secret_mut().encrypt_in_place(password)?;
             }
             primary
         }));
@@ -380,7 +380,7 @@ impl CertBuilder {
             let signature = subkey.bind(&mut signer, &cert, builder)?;
 
             if let Some(ref password) = self.password {
-                subkey.secret_mut().unwrap().encrypt_in_place(password)?;
+                subkey.secret_mut().encrypt_in_place(password)?;
             }
             cert = cert.merge_packets(vec![Packet::SecretSubkey(subkey),
                                          signature.into()])?;
@@ -575,7 +575,7 @@ mod tests {
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_password(Some(String::from("streng geheim").into()))
             .generate().unwrap();
-        assert!(cert.primary_key().secret().unwrap().is_encrypted());
+        assert!(cert.primary_key().optional_secret().unwrap().is_encrypted());
     }
 
     #[test]

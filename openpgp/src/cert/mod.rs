@@ -3094,9 +3094,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.keys().secret().count(), 2);
         assert_eq!(cert.keys().unencrypted_secret().count(), 0);
 
-        let mut primary = cert.primary_key().key().clone();
+        let mut primary = cert.primary_key().key().clone()
+            .mark_parts_secret().unwrap();
         let algo = primary.pk_algo();
-        primary.secret_mut().unwrap()
+        primary.secret_mut()
             .decrypt_in_place(algo, &"streng geheim".into()).unwrap();
         let cert = cert.merge_packets(vec![
             primary.mark_parts_secret().unwrap().mark_role_primary().into()
@@ -3220,11 +3221,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     fn merge_keeps_secrets() -> Result<()> {
         let primary_sec: Key<_, key::PrimaryRole> =
             key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
-        let primary_pub: Key<key::PublicParts, key::PrimaryRole> = {
-            let mut k = primary_sec.clone();
-            k.set_secret(None);
-            k.into()
-        };
+        let primary_pub = primary_sec.clone().take_secret().0;
 
         let cert_p =
             Cert::from_packet_pile(vec![primary_pub.clone().into()].into())?;
@@ -3252,11 +3249,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         let subkey_sec: Key<_, key::SubordinateRole> =
             key::Key4::generate_ecc(false, Curve::Cv25519)?.into();
-        let subkey_pub: Key<key::PublicParts, key::SubordinateRole> = {
-            let mut k = subkey_sec.clone();
-            k.set_secret(None);
-            k.into()
-        };
+        let subkey_pub = subkey_sec.clone().take_secret().0;
         let builder = signature::Builder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::default()
                            .set_transport_encryption(true))?;

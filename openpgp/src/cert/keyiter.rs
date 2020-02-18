@@ -146,7 +146,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P> {
             }
 
             if let Some(want_unencrypted_secret) = self.unencrypted_secret {
-                if let Some(secret) = ka.key().secret() {
+                if let Some(secret) = ka.key().optional_secret() {
                     if let SecretKeyMaterial::Unencrypted { .. } = secret {
                         if ! want_unencrypted_secret {
                             t!("Unencrypted secret... skipping.");
@@ -651,7 +651,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P> {
             }
 
             if let Some(want_unencrypted_secret) = self.unencrypted_secret {
-                if let Some(secret) = key.secret() {
+                if let Some(secret) = key.optional_secret() {
                     if let SecretKeyMaterial::Unencrypted { .. } = secret {
                         if ! want_unencrypted_secret {
                             t!("Unencrypted secret... skipping.");
@@ -1007,7 +1007,7 @@ impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyBundleIter<'a, P, R>
             }
 
             if let Some(want_unencrypted_secret) = self.unencrypted_secret {
-                if let Some(secret) = key.secret() {
+                if let Some(secret) = key.optional_secret() {
                     if let SecretKeyMaterial::Unencrypted { .. } = secret {
                         if ! want_unencrypted_secret {
                             t!("Unencrypted secret... skipping.");

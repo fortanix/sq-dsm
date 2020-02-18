@@ -32,12 +32,12 @@ fn main() {
         {
             keys.push({
                 let mut key = key.clone();
-                if key.secret().expect("filtered").is_encrypted() {
+                if key.secret().is_encrypted() {
                     let password = rpassword::read_password_from_tty(
                         Some(&format!("Please enter password to decrypt \
                                        {}/{}: ",tsk, key))).unwrap();
                     let algo = key.pk_algo();
-                    key.secret_mut().expect("filtered")
+                    key.secret_mut()
                         .decrypt_in_place(algo, &password.into())
                         .expect("decryption failed");
                 }

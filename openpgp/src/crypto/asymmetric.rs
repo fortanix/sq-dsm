@@ -274,9 +274,8 @@ impl Decryptor for KeyPair {
 
 impl From<KeyPair> for Key<key::SecretParts, key::UnspecifiedRole> {
     fn from(p: KeyPair) -> Self {
-        let (mut key, secret) = (p.public, p.secret);
-        key.set_secret(Some(secret.into()));
-        key.mark_parts_secret().expect("XXX")
+        let (key, secret) = (p.public, p.secret);
+        key.add_secret(secret.into()).0
     }
 }
 

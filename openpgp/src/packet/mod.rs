@@ -598,19 +598,17 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     /// # Errors
     ///
     /// Fails if the secret key is missing, or encrypted.
-    pub fn into_keypair(mut self) -> Result<KeyPair> {
+    pub fn into_keypair(self) -> Result<KeyPair> {
         use crate::packet::key::SecretKeyMaterial;
-        let secret = match self.set_secret(None) {
-            Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
-            Some(SecretKeyMaterial::Encrypted(_)) =>
+        let (key, secret) = self.take_secret();
+        let secret = match secret {
+            SecretKeyMaterial::Unencrypted(secret) => secret,
+            SecretKeyMaterial::Encrypted(_) =>
                 return Err(Error::InvalidArgument(
                     "secret key is encrypted".into()).into()),
-            None =>
-                return Err(Error::InvalidArgument(
-                    "no secret key".into()).into()),
         };
 
-        KeyPair::new(self.mark_role_unspecified().into(), secret)
+        KeyPair::new(key.mark_role_unspecified(), secret)
     }
 }
 
@@ -621,22 +619,87 @@ impl<R: key::KeyRole> key::Key4<key::SecretParts, R> {
     /// # Errors
     ///
     /// Fails if the secret key is missing, or encrypted.
-    pub fn into_keypair(mut self) -> Result<KeyPair> {
+    pub fn into_keypair(self) -> Result<KeyPair> {
         use crate::packet::key::SecretKeyMaterial;
-        let secret = match self.set_secret(None) {
-            Some(SecretKeyMaterial::Unencrypted(secret)) => secret,
-            Some(SecretKeyMaterial::Encrypted(_)) =>
+        let (key, secret) = self.take_secret();
+        let secret = match secret {
+            SecretKeyMaterial::Unencrypted(secret) => secret,
+            SecretKeyMaterial::Encrypted(_) =>
                 return Err(Error::InvalidArgument(
                     "secret key is encrypted".into()).into()),
-            None =>
-                return Err(Error::InvalidArgument(
-                    "no secret key".into()).into()),
         };
 
-        KeyPair::new(self.mark_role_unspecified().mark_parts_public().into(),
-                     secret)
+        KeyPair::new(key.mark_role_unspecified().into(), secret)
     }
 }
+
+macro_rules! impl_common_secret_functions {
+    ($t: path) => {
+        /// Secret key handling.
+        impl<R: key::KeyRole> Key<$t, R> {
+            /// Takes the key packet's `SecretKeyMaterial`, if any.
+            pub fn take_secret(self)
+                               -> (Key<key::PublicParts, R>,
+                                   Option<key::SecretKeyMaterial>)
+            {
+                match self {
+                    Key::V4(k) => {
+                        let (k, s) = k.take_secret();
+                        (k.into(), s)
+                    },
+                    Key::__Nonexhaustive => unreachable!(),
+                }
+            }
+
+            /// Adds `SecretKeyMaterial` to the packet, returning the old if
+            /// any.
+            pub fn add_secret(self, secret: key::SecretKeyMaterial)
+                              -> (Key<key::SecretParts, R>,
+                                  Option<key::SecretKeyMaterial>)
+            {
+                match self {
+                    Key::V4(k) => {
+                        let (k, s) = k.add_secret(secret);
+                        (k.into(), s)
+                    },
+                    Key::__Nonexhaustive => unreachable!(),
+                }
+            }
+        }
+    }
+}
+impl_common_secret_functions!(key::PublicParts);
+impl_common_secret_functions!(key::UnspecifiedParts);
+
+/// Secret key handling.
+impl<R: key::KeyRole> Key<key::SecretParts, R> {
+    /// Takes the key packet's `SecretKeyMaterial`.
+    pub fn take_secret(self)
+                       -> (Key<key::PublicParts, R>, key::SecretKeyMaterial)
+    {
+        match self {
+            Key::V4(k) => {
+                let (k, s) = k.take_secret();
+                (k.into(), s)
+            },
+            Key::__Nonexhaustive => unreachable!(),
+        }
+    }
+
+    /// Adds `SecretKeyMaterial` to the packet, returning the old.
+    pub fn add_secret(self, secret: key::SecretKeyMaterial)
+                      -> (Key<key::SecretParts, R>, key::SecretKeyMaterial)
+    {
+        match self {
+            Key::V4(k) => {
+                let (k, s) = k.add_secret(secret);
+                (k.into(), s)
+            },
+            Key::__Nonexhaustive => unreachable!(),
+        }
+    }
+}
+
 
 // Trivial forwarder for singleton enum.
 impl<P: key::KeyParts, R: key::KeyRole> Deref for Key<P, R> {

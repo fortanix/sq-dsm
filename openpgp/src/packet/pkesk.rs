@@ -376,12 +376,12 @@ mod tests {
         let private_mpis = mpis::SecretKeyMaterial::ECDH {
             scalar: MPI::new(&sec[..]).into(),
         };
-        let mut key: key::UnspecifiedPublic
+        let key: key::UnspecifiedPublic
             = Key4::new(std::time::SystemTime::now(),
                         PublicKeyAlgorithm::ECDH,
                         public_mpis)
                 .unwrap().into();
-        key.set_secret(Some(private_mpis.into()));
+        let key = key.add_secret(private_mpis.into()).0;
         let sess_key = SessionKey::new(32);
         let pkesk = PKESK3::for_recipient(SymmetricAlgorithm::AES256, &sess_key,
                                           &key).unwrap();

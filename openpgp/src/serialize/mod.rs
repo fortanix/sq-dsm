@@ -1406,7 +1406,7 @@ impl<P, R> Key4<P, R>
         self.mpis().serialize(o)?;
 
         if have_secret_key {
-            match self.secret().unwrap() {
+            match self.optional_secret().unwrap() {
                 SecretKeyMaterial::Unencrypted(ref u) => u.map(|mpis| -> Result<()> {
                     // S2K usage.
                     write_byte(o, 0)?;
@@ -1443,7 +1443,7 @@ impl<P, R> Key4<P, R>
             + 1 // PK algo.
             + self.mpis().serialized_len()
             + if have_secret_key {
-                1 + match self.secret().as_ref().unwrap() {
+                1 + match self.optional_secret().unwrap() {
                     SecretKeyMaterial::Unencrypted(ref u) =>
                         u.map(|mpis| mpis.serialized_len())
                         + 2, // Two octet checksum.

@@ -352,7 +352,7 @@ impl PacketDumper {
                     },
                 }
 
-                if let Some(secrets) = k.secret() {
+                if let Some(secrets) = k.optional_secret() {
                     use self::openpgp::packet::key::SecretKeyMaterial;
                     writeln!(output, "{}", i)?;
                     writeln!(output, "{}  Secret Key:", i)?;

@@ -1334,23 +1334,9 @@ impl<P, R> Key4<P, R>
         }
     }
 
-    /// Gets the key packet's `SecretKeyMaterial`.
-    pub fn secret(&self) -> Option<&SecretKeyMaterial> {
+    /// Gets the key packet's `SecretKeyMaterial`, if any.
+    pub fn optional_secret(&self) -> Option<&SecretKeyMaterial> {
         self.secret.as_ref()
-    }
-
-    /// Gets a mutable reference to the key packet's `SecretKeyMaterial`.
-    pub fn secret_mut(&mut self) -> Option<&mut SecretKeyMaterial> {
-        self.secret.as_mut()
-    }
-
-    /// Sets the key packet's `SecretKeyMaterial`.
-    ///
-    /// Returns the old value.
-    pub fn set_secret(&mut self, secret: Option<SecretKeyMaterial>)
-        -> Option<SecretKeyMaterial>
-    {
-        std::mem::replace(&mut self.secret, secret)
     }
 
     /// Computes and returns the key's fingerprint as per Section 12.2
@@ -1375,6 +1361,69 @@ impl<P, R> Key4<P, R>
     /// RFC 4880.
     pub fn keyid(&self) -> KeyID {
         self.fingerprint().into()
+    }
+}
+
+macro_rules! impl_common_secret_functions {
+    ($t: ident) => {
+        /// Secret key handling.
+        impl<R> Key4<$t, R>
+            where R: key::KeyRole,
+        {
+            /// Takes the key packet's `SecretKeyMaterial`, if any.
+            pub fn take_secret(mut self)
+                               -> (Key4<PublicParts, R>, Option<SecretKeyMaterial>)
+            {
+                let old = std::mem::replace(&mut self.secret, None);
+                (self.mark_parts_public(), old)
+            }
+
+            /// Adds `SecretKeyMaterial` to the packet, returning the old if
+            /// any.
+            pub fn add_secret(mut self, secret: SecretKeyMaterial)
+                              -> (Key4<SecretParts, R>, Option<SecretKeyMaterial>)
+            {
+                let old = std::mem::replace(&mut self.secret, Some(secret));
+                (self.mark_parts_secret().expect("secret just set"), old)
+            }
+        }
+    }
+}
+impl_common_secret_functions!(PublicParts);
+impl_common_secret_functions!(UnspecifiedParts);
+
+/// Secret key handling.
+impl<R> Key4<SecretParts, R>
+    where R: key::KeyRole,
+{
+    /// Gets the key packet's `SecretKeyMaterial`.
+    pub fn secret(&self) -> &SecretKeyMaterial {
+        self.secret.as_ref().expect("has secret")
+    }
+
+    /// Gets a mutable reference to the key packet's
+    /// `SecretKeyMaterial`.
+    pub fn secret_mut(&mut self) -> &mut SecretKeyMaterial {
+        self.secret.as_mut().expect("has secret")
+    }
+
+    /// Takes the key packet's `SecretKeyMaterial`.
+    pub fn take_secret(mut self)
+                       -> (Key4<PublicParts, R>, SecretKeyMaterial)
+    {
+        let old = std::mem::replace(&mut self.secret, None);
+        (self.mark_parts_public(),
+         old.expect("Key<SecretParts, _> has a secret key material"))
+    }
+
+    /// Adds `SecretKeyMaterial` to the packet, returning the old if
+    /// any.
+    pub fn add_secret(mut self, secret: SecretKeyMaterial)
+                      -> (Key4<SecretParts, R>, SecretKeyMaterial)
+    {
+        let old = std::mem::replace(&mut self.secret, Some(secret));
+        (self.mark_parts_secret().expect("secret just set"),
+         old.expect("Key<SecretParts, _> has a secret key material"))
     }
 }
 
@@ -1652,7 +1701,7 @@ mod tests {
             Key4::generate_rsa(b).unwrap()
         }));
 
-        for mut key in keys {
+        for key in keys {
             let mut b = Vec::new();
             Packet::SecretKey(key.clone().into()).serialize(&mut b).unwrap();
 
@@ -1680,8 +1729,8 @@ mod tests {
             {
                 assert!(! parsed_key.has_secret());
 
-                key.set_secret(None);
-                assert_eq!(&key.mark_parts_public(), parsed_key);
+                let key = key.take_secret().0;
+                assert_eq!(&key, parsed_key);
             } else {
                 panic!("bad packet: {:?}", pp.path_ref(&[0]));
             }
@@ -1732,18 +1781,17 @@ mod tests {
         }));
 
         for key in keys {
-            assert!(! key.secret().unwrap().is_encrypted());
+            assert!(! key.secret().is_encrypted());
 
             let password = Password::from("foobarbaz");
             let mut encrypted_key = key.clone();
 
-            encrypted_key.secret_mut().unwrap()
-                .encrypt_in_place(&password).unwrap();
-            assert!(encrypted_key.secret().unwrap().is_encrypted());
+            encrypted_key.secret_mut().encrypt_in_place(&password).unwrap();
+            assert!(encrypted_key.secret().is_encrypted());
 
-            encrypted_key.secret_mut().unwrap()
+            encrypted_key.secret_mut()
                 .decrypt_in_place(key.pk_algo, &password).unwrap();
-            assert!(! key.secret().unwrap().is_encrypted());
+            assert!(! key.secret().is_encrypted());
             assert_eq!(key, encrypted_key);
             assert_eq!(key.secret(), encrypted_key.secret());
         }
@@ -1816,7 +1864,7 @@ mod tests {
         let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
 
         let key = key.mark_parts_public();
-        let got_dek = match key.secret() {
+        let got_dek = match key.optional_secret() {
             Some(SecretKeyMaterial::Unencrypted(ref u)) => u.map(|mpis| {
                 ecdh::decrypt(&key, mpis, &ciphertext)
                     .unwrap()

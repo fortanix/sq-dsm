@@ -55,7 +55,7 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
             .for_signing()
             .map(|ka| ka.key())
         {
-            if let Some(secret) = key.secret() {
+            if let Some(secret) = key.optional_secret() {
                 let unencrypted = match secret {
                     SecretKeyMaterial::Encrypted(ref e) => {
                         let password = rpassword::read_password_from_tty(Some(
