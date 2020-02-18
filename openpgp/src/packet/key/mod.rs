@@ -453,7 +453,10 @@ macro_rules! convert_ref {
 // concrete on both sides of the `From`.
 
 macro_rules! create_part_conversions {
-    ( $Key:ident<$( $l:lifetime ),*; $( $g:ident ),*> where $( $w:ident: $c:ident ),* ) => {
+    ( $Key:ident<$( $l:lifetime ),*; $( $g:ident ),*>) => {
+        create_part_conversions!($Key<$($l,)*; $($g,)*> where );
+    };
+    ( $Key:ident<$( $l:lifetime ),*; $( $g:ident ),*> where $( $w:ident: $c:path ),* ) => {
         // Convert between two KeyParts for a constant KeyRole.
         // Unfortunately, we can't let the KeyRole vary as otherwise we
         // get conflicting types when we do the same to convert between
@@ -468,10 +471,10 @@ macro_rules! create_part_conversions {
                     }
                 }
 
-                impl<$($l, )* $($g, )* > From<&$Key<$($l, )* $from_parts, $($g, )* >> for &$Key<$($l, )* $to_parts, $($g, )* >
+                impl<$($l, )* $($g, )* > From<&$($l)* $Key<$($l, )* $from_parts, $($g, )* >> for &$($l)* $Key<$($l, )* $to_parts, $($g, )* >
                     where $($w: $c ),*
                 {
-                    fn from(p: &$Key<$($l, )* $from_parts, $($g, )* >) -> Self {
+                    fn from(p: &$($l)* $Key<$($l, )* $from_parts, $($g, )* >) -> Self {
                         convert_ref!(p)
                     }
                 }
@@ -490,11 +493,11 @@ macro_rules! create_part_conversions {
                     }
                 }
 
-                impl<$($l, )* $($g, )* > TryFrom<&$Key<$($l, )* $from_parts, $($g, )* >> for &$Key<$($l, )* $to_parts, $($g, )* >
+                impl<$($l, )* $($g, )* > TryFrom<&$($l)* $Key<$($l, )* $from_parts, $($g, )* >> for &$($l)* $Key<$($l, )* $to_parts, $($g, )* >
                     where $($w: $c ),*
                 {
                     type Error = failure::Error;
-                    fn try_from(p: &$Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
+                    fn try_from(p: &$($l)* $Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
                         if p.has_secret() {
                             Ok(convert_ref!(p))
                         } else {
@@ -545,7 +548,7 @@ macro_rules! create_part_conversions {
             }
 
             /// Changes the key's parts tag to `PublicParts`.
-            pub fn mark_parts_public_ref(&self) -> &$Key<$($l, )* PublicParts, $($g, )*> {
+            pub fn mark_parts_public_ref(&$($l)* self) -> &$($l)* $Key<$($l, )* PublicParts, $($g, )*> {
                 convert_ref!(self)
             }
 
@@ -559,7 +562,7 @@ macro_rules! create_part_conversions {
             }
 
             /// Changes the key's parts tag to `SecretParts`.
-            pub fn mark_parts_secret_ref(&self) -> Result<&$Key<$($l, )* SecretParts, $($g, )*>>
+            pub fn mark_parts_secret_ref(&$($l)* self) -> Result<&$($l)* $Key<$($l, )* SecretParts, $($g, )*>>
             {
                 if self.has_secret() {
                     Ok(convert_ref!(self))
@@ -574,33 +577,31 @@ macro_rules! create_part_conversions {
             }
 
             /// Changes the key's parts tag to `UnspecifiedParts`.
-            pub fn mark_parts_unspecified_ref(&self) -> &$Key<$($l, )* UnspecifiedParts, $($g, )*> {
+            pub fn mark_parts_unspecified_ref(&$($l)* self) -> &$Key<$($l, )* UnspecifiedParts, $($g, )*> {
                 convert_ref!(self)
             }
         }
-    };
+    }
 }
 
-macro_rules! create_conversions {
-    ( $Key:ident ) => {
-        create_part_conversions!($Key<; R> where R: KeyRole);
-
+macro_rules! create_role_conversions {
+    ( $Key:ident<$( $l:lifetime ),*> ) => {
         // Convert between two KeyRoles for a constant KeyParts.  See
         // the comment for the p macro above.
         macro_rules! r {
             ( <$from_role:ty> -> <$to_role:ty>) => {
-                impl<P> From<$Key<P, $from_role>> for $Key<P, $to_role>
+                impl<$($l, )* P> From<$Key<$($l, )* P, $from_role>> for $Key<$($l, )* P, $to_role>
                     where P: KeyParts
                 {
-                    fn from(p: $Key<P, $from_role>) -> Self {
+                    fn from(p: $Key<$($l, )* P, $from_role>) -> Self {
                         convert!(p)
                     }
                 }
 
-                impl<P> From<&$Key<P, $from_role>> for &$Key<P, $to_role>
+                impl<$($l, )* P> From<&$($l)* $Key<$($l, )* P, $from_role>> for &$($l)* $Key<$($l, )* P, $to_role>
                     where P: KeyParts
                 {
-                    fn from(p: &$Key<P, $from_role>) -> Self {
+                    fn from(p: &$($l)* $Key<$($l, )* P, $from_role>) -> Self {
                         convert_ref!(p)
                     }
                 }
@@ -615,22 +616,29 @@ macro_rules! create_conversions {
 
         r!(<UnspecifiedRole> -> <PrimaryRole>);
         r!(<UnspecifiedRole> -> <SubordinateRole>);
+    }
+}
+
+macro_rules! create_conversions {
+    ( $Key:ident<$( $l:lifetime ),*> ) => {
+        create_part_conversions!($Key<$($l ),* ; R> where R: KeyRole);
+        create_role_conversions!($Key<$($l ),* >);
 
         // We now handle converting both the part and the role at the same
         // time.
 
         macro_rules! f {
             ( <$from_parts:ty, $from_role:ty> -> <$to_parts:ty, $to_role:ty> ) => {
-                impl From<$Key<$from_parts, $from_role>> for $Key<$to_parts, $to_role>
+                impl<$($l ),*> From<$Key<$($l, )* $from_parts, $from_role>> for $Key<$($l, )* $to_parts, $to_role>
                 {
-                    fn from(p: $Key<$from_parts, $from_role>) -> Self {
+                    fn from(p: $Key<$($l, )* $from_parts, $from_role>) -> Self {
                         convert!(p)
                     }
                 }
 
-                impl From<&$Key<$from_parts, $from_role>> for &$Key<$to_parts, $to_role>
+                impl<$($l ),*> From<&$($l)* $Key<$($l, )* $from_parts, $from_role>> for &$($l)* $Key<$($l, )* $to_parts, $to_role>
                 {
-                    fn from(p: &$Key<$from_parts, $from_role>) -> Self {
+                    fn from(p: &$($l)* $Key<$from_parts, $from_role>) -> Self {
                         convert_ref!(p)
                     }
                 }
@@ -732,38 +740,38 @@ macro_rules! create_conversions {
         //f!(<UnspecifiedParts, UnspecifiedRole> -> <UnspecifiedParts, UnspecifiedRole>);
 
 
-        impl<P, R> $Key<P, R> where P: KeyParts, R: KeyRole
+        impl<$($l, )* P, R> $Key<$($l, )* P, R> where P: KeyParts, R: KeyRole
         {
             /// Changes the key's role tag to `PrimaryRole`.
-            pub fn mark_role_primary(self) -> $Key<P, PrimaryRole> {
+            pub fn mark_role_primary(self) -> $Key<$($l, )* P, PrimaryRole> {
                 convert!(self)
             }
 
             /// Changes the key's role tag to `PrimaryRole`.
-            pub fn mark_role_primary_ref(&self) -> &$Key<P, PrimaryRole> {
+            pub fn mark_role_primary_ref(&$($l)* self) -> &$($l)* $Key<$($l, )* P, PrimaryRole> {
                 convert_ref!(self)
             }
 
             /// Changes the key's role tag to `SubordinateRole`.
-            pub fn mark_role_subordinate(self) -> $Key<P, SubordinateRole>
+            pub fn mark_role_subordinate(self) -> $Key<$($l, )* P, SubordinateRole>
             {
                 convert!(self)
             }
 
             /// Changes the key's role tag to `SubordinateRole`.
-            pub fn mark_role_subordinate_ref(&self) -> &$Key<P, SubordinateRole>
+            pub fn mark_role_subordinate_ref(&$($l)* self) -> &$($l)* $Key<$($l, )* P, SubordinateRole>
             {
                 convert_ref!(self)
             }
 
             /// Changes the key's role tag to `UnspecifiedRole`.
-            pub fn mark_role_unspecified(self) -> $Key<P, UnspecifiedRole>
+            pub fn mark_role_unspecified(self) -> $Key<$($l, )* P, UnspecifiedRole>
             {
                 convert!(self)
             }
 
             /// Changes the key's role tag to `UnspecifiedRole`.
-            pub fn mark_role_unspecified_ref(&self) -> &$Key<P, UnspecifiedRole>
+            pub fn mark_role_unspecified_ref(&$($l)* self) -> &$($l)* $Key<$($l, )* P, UnspecifiedRole>
             {
                 convert_ref!(self)
             }
@@ -771,16 +779,16 @@ macro_rules! create_conversions {
     }
 }
 
-create_conversions!(Key);
-create_conversions!(Key4);
-
 impl<K: key::KeyParts, R: key::KeyRole> KeyBundle<K, R>
 {
     fn has_secret(&self) -> bool {
         self.key().secret.is_some()
     }
 }
-create_conversions!(KeyBundle);
+
+create_conversions!(Key<>);
+create_conversions!(Key4<>);
+create_conversions!(KeyBundle<>);
 
 create_part_conversions!(KeyAmalgamation<'a;> where);
 create_part_conversions!(PrimaryKeyAmalgamation<'a;> where);
