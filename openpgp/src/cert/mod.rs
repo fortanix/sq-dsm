@@ -3410,8 +3410,12 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let (cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
             .generate()?;
-        assert_eq!(cert.userids().count(), 0);
-        assert_eq!(cert.keys().count(), 2);
+        let p = &P::new();
+        let cert_at = cert.with_policy(p,
+                                       cert.primary_key().creation_time()
+                                       + time::Duration::new(60, 0));
+        assert_eq!(cert_at.userids().count(), 0);
+        assert_eq!(cert_at.keys().count(), 2);
 
         let mut primary_pair = cert.primary_key().key().clone()
             .mark_parts_secret()?.into_keypair()?;
@@ -3424,8 +3428,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             sig.into(),
         ])?;
 
-        assert_eq!(cert.userids().count(), 1);
-        assert_eq!(cert.keys().count(), 2);
+        let cert_at = cert.with_policy(p,
+                                       cert.primary_key().creation_time()
+                                       + time::Duration::new(60, 0));
+        assert_eq!(cert_at.userids().count(), 1);
+        assert_eq!(cert_at.keys().count(), 2);
         Ok(())
     }
 }
