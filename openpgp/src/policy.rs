@@ -566,16 +566,14 @@ mod test {
 
             fn check(&mut self, structure: MessageStructure) -> Result<()>
             {
-                use crate::parse::stream::VerificationResult::*;
                 for layer in structure.iter() {
                     match layer {
                         MessageLayer::SignatureGroup { ref results } =>
                             for result in results {
                                 eprintln!("result: {:?}", result);
                                 match result {
-                                    GoodChecksum { .. } => self.good += 1,
-                                    Error { .. } => self.errors += 1,
-                                    _ => (),
+                                    Ok(_) => self.good += 1,
+                                    Err(_) => self.errors += 1,
                                 }
                             }
                         MessageLayer::Compression { .. } => (),
@@ -1033,15 +1031,13 @@ mod test {
 
             fn check(&mut self, structure: MessageStructure) -> Result<()>
             {
-                use crate::parse::stream::VerificationResult::*;
                 for layer in structure.iter() {
                     match layer {
                         MessageLayer::SignatureGroup { ref results } =>
                             for result in results {
                                 match result {
-                                    GoodChecksum { .. } => self.good += 1,
-                                    Error { .. } => self.errors += 1,
-                                    _ => (),
+                                    Ok(_) => self.good += 1,
+                                    Err(_) => self.errors += 1,
                                 }
                             }
                         MessageLayer::Compression { .. } => (),

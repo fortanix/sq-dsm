@@ -76,6 +76,8 @@ check_cb (void *cookie_opaque, pgp_message_structure_t structure)
         pgp_key_t key = NULL;
         pgp_keyid_t keyid;
         char *keyid_str = NULL;
+        pgp_error_t err = NULL;
+        char *err_str = NULL;
 
         switch (pgp_verification_result_variant (result)) {
         case PGP_VERIFICATION_RESULT_GOOD_CHECKSUM:
@@ -86,13 +88,10 @@ check_cb (void *cookie_opaque, pgp_message_structure_t structure)
           fprintf (stderr, "Good signature from %s\n", keyid_str);
           break;
 
-        case PGP_VERIFICATION_RESULT_NOT_ALIVE:
-          pgp_verification_result_not_alive (result, NULL, NULL,
-                                             &key, NULL, NULL);
-          keyid = pgp_key_keyid (key);
-          keyid_str = pgp_keyid_to_string (keyid);
-          fprintf (stderr, "Good checksum, but not alive signature from %s\n",
-                   keyid_str);
+        case PGP_VERIFICATION_RESULT_MALFORMED_SIGNATURE:
+          pgp_verification_result_malformed_signature (result, NULL, &err);
+          err_str = pgp_error_to_string (err);
+          fprintf (stderr, "Malformed signature: %s\n", err_str);
           break;
 
         case PGP_VERIFICATION_RESULT_MISSING_KEY:
@@ -102,20 +101,32 @@ check_cb (void *cookie_opaque, pgp_message_structure_t structure)
           fprintf (stderr, "No key to check signature from %s\n", keyid_str);
           break;
 
-        case PGP_VERIFICATION_RESULT_ERROR: {
-          pgp_error_t err;
-          pgp_verification_result_error (result, NULL, &err);
-          char *err_str = pgp_error_to_string (err);
-          fprintf (stderr, "Bad signature: %s\n", err_str);
-          free (err_str);
-          pgp_error_free (err);
+        case PGP_VERIFICATION_RESULT_UNBOUND_KEY:
+          pgp_verification_result_unbound_key (result, NULL, NULL, &err);
+          err_str = pgp_error_to_string (err);
+          fprintf (stderr, "Signing key not bound: %s\n", err_str);
           break;
-        }
+
+        case PGP_VERIFICATION_RESULT_BAD_KEY:
+          pgp_verification_result_bad_key (result, NULL, NULL, NULL,
+                                           NULL, NULL, &err);
+          err_str = pgp_error_to_string (err);
+          fprintf (stderr, "Bad signing key: %s\n", err_str);
+          break;
+
+        case PGP_VERIFICATION_RESULT_BAD_SIGNATURE:
+          pgp_verification_result_bad_signature (result, NULL, NULL, NULL,
+                                                 NULL, NULL, &err);
+          err_str = pgp_error_to_string (err);
+          fprintf (stderr, "Bad signature: %s\n", err_str);
+          break;
 
         default:
           assert (! "reachable");
         }
         free (keyid_str);
+        free (err_str);
+        pgp_error_free (err);
         pgp_signature_free (sig);
         pgp_key_free (key);
         pgp_verification_result_free (result);

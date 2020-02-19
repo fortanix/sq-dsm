@@ -42,7 +42,7 @@ use crate::RefMutRaw;
 use crate::maybe_time;
 
 use super::super::{
-    error::Status,
+    error::{Error, Status},
     crypto,
     io,
     keyid,
@@ -169,19 +169,24 @@ pub struct VerificationResult<'a>(stream::VerificationResult<'a>);
 fn pgp_verification_result_variant(result: *const VerificationResult)
     -> c_int
 {
-    use self::stream::VerificationResult::*;
+    use self::stream::VerificationError::*;
     match result.ref_raw() {
-        GoodChecksum { .. } => 1,
-        MissingKey { .. } => 2,
-        NotAlive { .. } => 3,
-        Error { .. } => 4,
+        Ok(_) => 0,
+        Err(MalformedSignature { .. }) => 1,
+        Err(MissingKey { .. }) => 2,
+        Err(UnboundKey { .. }) => 3,
+        Err(BadKey { .. }) => 4,
+        Err(BadSignature { .. }) => 5,
     }
 }
 
-macro_rules! make_decomposition_fn {
-    ($fn_name:ident, $variant:path) => {
+/// Decomposes a `VerificationResult::Ok(GoodChecksum)`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::Ok(GoodChecksum)`, and returns the variants
+/// members in `sig_r` and the like iff `sig_r != NULL`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn $fn_name<'a>(
+fn pgp_verification_result_good_checksum<'a>(
     result: *const VerificationResult<'a>,
     sig_r: Maybe<*mut Signature>,
     cert_r: Maybe<*mut Cert>,
@@ -191,13 +196,13 @@ fn $fn_name<'a>(
     Maybe<*mut RevocationStatus<'a>>)
     -> bool
 {
-    use self::stream::VerificationResult::*;
-    if let $variant { sig, cert, ka } = result.ref_raw() {
+    use self::stream::GoodChecksum;
+    if let Ok(GoodChecksum { sig, ka }) = result.ref_raw() {
         if let Some(mut p) = sig_r {
             *unsafe { p.as_mut() } = sig.move_into_raw();
         }
         if let Some(mut p) = cert_r {
-            *unsafe { p.as_mut() } = cert.move_into_raw();
+            *unsafe { p.as_mut() } = ka.cert().move_into_raw();
         }
         if let Some(mut p) = key_r {
             *unsafe { p.as_mut() } = {
@@ -219,78 +224,28 @@ fn $fn_name<'a>(
         false
     }
 }
-    }
-}
 
-/// Decomposes a `VerificationResult::GoodChecksum`.
+/// Decomposes a
+/// `VerificationResult::Err(VerificationError::MalformedSignature {
+/// .. })`.
 ///
 /// Returns `true` iff the given value is a
-/// `VerificationResult::GoodChecksum`, and returns the variants members
-/// in `sig_r` and the like iff `sig_r != NULL`.
-make_decomposition_fn!(pgp_verification_result_good_checksum, GoodChecksum);
-
-/// Decomposes a `VerificationResult::NotAlive`.
-///
-/// Returns `true` iff the given value is a
-/// `VerificationResult::NotAlive`, and returns the variant's members
-/// in `sig_r` and the like iff `sig_r != NULL`.
+/// `VerificationResult::Err(VerificationError::MalformedSignature {
+/// .. })`, and returns the variants members in `sig_r` and the like
+/// iff `sig_r != NULL`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_not_alive<'a>(
-    result: *const VerificationResult<'a>,
-    sig_r: Maybe<*mut Signature>)
-    -> bool
-{
-    use self::stream::VerificationResult::*;
-    if let NotAlive { sig, .. } = result.ref_raw() {
-        if let Some(mut p) = sig_r {
-            *unsafe { p.as_mut() } = sig.move_into_raw();
-        }
-        true
-    } else {
-        false
-    }
-}
-
-/// Decomposes a `VerificationResult::MissingKey`.
-///
-/// Returns `true` iff the given value is a
-/// `VerificationResult::MissingKey`, and returns the variants members
-/// in `sig_r` and the like iff `sig_r != NULL`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_missing_key<'a>(
-    result: *const VerificationResult<'a>,
-    sig_r: Maybe<*mut Signature>)
-    -> bool
-{
-    use self::stream::VerificationResult::*;
-    if let MissingKey { sig, .. } = result.ref_raw() {
-        if let Some(mut p) = sig_r {
-            *unsafe { p.as_mut() } = sig.move_into_raw();
-        }
-        true
-    } else {
-        false
-    }
-}
-
-/// Decomposes a `VerificationResult::Error`.
-///
-/// Returns `true` iff the given value is a
-/// `VerificationResult::Error`, and returns the variants members
-/// in `sig_r` and the like iff `sig_r != NULL`.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_verification_result_error<'a>(
+fn pgp_verification_result_malformed_signature<'a>(
     result: *const VerificationResult<'a>,
     sig_r: Maybe<*mut Signature>,
-    err_r: Maybe<*mut crate::error::Error>)
+    error_r: Maybe<*mut Error>)
     -> bool
 {
-    use self::stream::VerificationResult::*;
-    if let Error { sig, error, .. } = result.ref_raw() {
+    use self::stream::VerificationError::*;
+    if let Err(MalformedSignature { sig, error }) = result.ref_raw() {
         if let Some(mut p) = sig_r {
             *unsafe { p.as_mut() } = sig.move_into_raw();
         }
-        if let Some(mut p) = err_r {
+        if let Some(mut p) = error_r {
             *unsafe { p.as_mut() } = error.move_into_raw();
         }
         true
@@ -298,6 +253,128 @@ fn pgp_verification_result_error<'a>(
         false
     }
 }
+
+/// Decomposes a
+/// `VerificationResult::Err(VerificationError::MissingKey { .. })`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::Err(VerificationError::MissingKey { .. })`,
+/// and returns the variants members in `sig_r` and the like iff
+/// `sig_r != NULL`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_missing_key<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>)
+    -> bool
+{
+    use self::stream::VerificationError::*;
+    if let Err(MissingKey { sig }) = result.ref_raw() {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
+
+/// Decomposes a
+/// `VerificationResult::Err(VerificationError::UnboundKey { .. })`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::Err(VerificationError::UnboundKey { .. })`,
+/// and returns the variants members in `sig_r` and the like iff
+/// `sig_r != NULL`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_verification_result_unbound_key<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>,
+    cert_r: Maybe<*mut Cert>,
+    error_r: Maybe<*mut Error>)
+    -> bool
+{
+    use self::stream::VerificationError::*;
+    if let Err(UnboundKey { sig, cert, error }) = result.ref_raw() {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
+        }
+        if let Some(mut p) = cert_r {
+            *unsafe { p.as_mut() } = cert.move_into_raw();
+        }
+        if let Some(mut p) = error_r {
+            *unsafe { p.as_mut() } = error.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
+
+macro_rules! make_decomposition_fn {
+    ($fn_name:ident, $variant:path) => {
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn $fn_name<'a>(
+    result: *const VerificationResult<'a>,
+    sig_r: Maybe<*mut Signature>,
+    cert_r: Maybe<*mut Cert>,
+    key_r: Maybe<*mut Key>,
+    binding_r: Maybe<*mut Signature>,
+    revocation_status_r:
+    Maybe<*mut RevocationStatus<'a>>,
+    error_r: Maybe<*mut Error>)
+    -> bool
+{
+    use self::stream::VerificationError::*;
+    if let Err($variant { sig, ka, error }) = result.ref_raw() {
+        if let Some(mut p) = sig_r {
+            *unsafe { p.as_mut() } = sig.move_into_raw();
+        }
+        if let Some(mut p) = cert_r {
+            *unsafe { p.as_mut() } = ka.cert().move_into_raw();
+        }
+        if let Some(mut p) = key_r {
+            *unsafe { p.as_mut() } = {
+                let key = ka.key()
+                    .mark_parts_unspecified_ref()
+                    .mark_role_unspecified_ref();
+                key.move_into_raw()
+            };
+        }
+        if let Some(mut p) = binding_r {
+            *unsafe { p.as_mut() } =
+                ka.binding_signature().move_into_raw();
+        }
+        if let Some(mut p) = revocation_status_r {
+            *unsafe { p.as_mut() } = ka.revoked().move_into_raw();
+        }
+        if let Some(mut p) = error_r {
+            *unsafe { p.as_mut() } = error.move_into_raw();
+        }
+        true
+    } else {
+        false
+    }
+}
+    }
+}
+
+/// Decomposes a
+/// `VerificationResult::Err(VerificationError::BadKey { .. })`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::Err(VerificationError::BadKey { .. })`,
+/// and returns the variants members in `sig_r` and the like iff
+/// `sig_r != NULL`.
+make_decomposition_fn!(pgp_verification_result_bad_key, BadKey);
+
+/// Decomposes a
+/// `VerificationResult::Err(VerificationError::BadSignature { .. })`.
+///
+/// Returns `true` iff the given value is a
+/// `VerificationResult::Err(VerificationError::BadSignature { .. })`,
+/// and returns the variants members in `sig_r` and the like iff
+/// `sig_r != NULL`.
+make_decomposition_fn!(pgp_verification_result_bad_signature, BadSignature);
 
 /// Passed as the first argument to the callbacks used by pgp_verify
 /// and pgp_decrypt.

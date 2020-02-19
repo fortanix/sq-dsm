@@ -113,16 +113,10 @@ impl<'a> VerificationHelper for Helper<'a> {
                     // whether the signature checks out mathematically, we apply
                     // our policy.
                     match results.into_iter().next() {
-                        Some(VerificationResult::GoodChecksum { .. }) =>
+                        Some(Ok(_)) =>
                             good = true,
-                        Some(VerificationResult::NotAlive { .. }) =>
-                            return Err(failure::err_msg(
-                                "Signature good, but not alive")),
-                        Some(VerificationResult::MissingKey { .. }) =>
-                            return Err(failure::err_msg(
-                                "Missing key to verify signature")),
-                        Some(VerificationResult::Error { error, .. }) =>
-                            return Err(error),
+                        Some(Err(e)) =>
+                            return Err(openpgp::Error::from(e).into()),
                         None =>
                             return Err(failure::err_msg("No signature")),
                     }

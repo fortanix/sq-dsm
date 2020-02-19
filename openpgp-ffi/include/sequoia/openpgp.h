@@ -1718,17 +1718,29 @@ bool pgp_verification_result_good_checksum (pgp_verification_result_t,
 					    pgp_key_t *,
 					    pgp_signature_t *,
 					    pgp_revocation_status_t *);
-bool pgp_verification_result_not_alive (pgp_verification_result_t,
-                                        pgp_signature_t *,
-					pgp_cert_t *,
-					pgp_key_t *,
-					pgp_signature_t *,
-					pgp_revocation_status_t *);
+bool pgp_verification_result_malformed_signature (pgp_verification_result_t,
+                                                  pgp_signature_t *,
+                                                  pgp_error_t *);
 bool pgp_verification_result_missing_key (pgp_verification_result_t,
-					  pgp_signature_t *);
-bool pgp_verification_result_error (pgp_verification_result_t,
-                                    pgp_signature_t *,
-                                    pgp_error_t *);
+                                          pgp_signature_t *);
+bool pgp_verification_result_unbound_key (pgp_verification_result_t,
+                                          pgp_signature_t *,
+                                          pgp_cert_t *,
+                                          pgp_error_t *);
+bool pgp_verification_result_bad_key (pgp_verification_result_t,
+                                      pgp_signature_t *,
+                                      pgp_cert_t *,
+                                      pgp_key_t *,
+                                      pgp_signature_t *,
+                                      pgp_revocation_status_t *,
+                                      pgp_error_t *);
+bool pgp_verification_result_bad_signature (pgp_verification_result_t,
+                                            pgp_signature_t *,
+                                            pgp_cert_t *,
+                                            pgp_key_t *,
+                                            pgp_signature_t *,
+                                            pgp_revocation_status_t *,
+                                            pgp_error_t *);
 
 /*/
 /// Decrypts an OpenPGP message.

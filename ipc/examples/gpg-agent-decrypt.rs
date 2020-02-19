@@ -16,7 +16,8 @@ use crate::openpgp::parse::{
         DecryptionHelper,
         Decryptor,
         VerificationHelper,
-        VerificationResult,
+        GoodChecksum,
+        VerificationError,
         MessageStructure,
         MessageLayer,
     },
@@ -125,7 +126,7 @@ impl<'a> VerificationHelper for Helper<'a> {
     }
     fn check(&mut self, structure: MessageStructure)
              -> failure::Fallible<()> {
-        use self::VerificationResult::*;
+        use self::VerificationError::*;
         for layer in structure.iter() {
             match layer {
                 MessageLayer::Compression { algo } =>
@@ -140,19 +141,29 @@ impl<'a> VerificationHelper for Helper<'a> {
                 MessageLayer::SignatureGroup { ref results } =>
                     for result in results {
                         match result {
-                            GoodChecksum { cert, .. } => {
-                                eprintln!("Good signature from {}", cert);
+                            Ok(GoodChecksum { ka, .. }) => {
+                                eprintln!("Good signature from {}", ka.cert());
                             },
-                            NotAlive { sig, .. } => {
-                                eprintln!("Good, but not alive signature from {:?}",
-                                          sig.get_issuers());
+                            Err(MalformedSignature { error, .. }) => {
+                                eprintln!("Signature is malformed: {}", error);
                             },
-                            MissingKey { .. } => {
-                                eprintln!("No key to check signature");
+                            Err(MissingKey { sig, .. }) => {
+                                let issuers = sig.get_issuers();
+                                eprintln!("Missing key {}, which is needed to \
+                                           verify signature.",
+                                          issuers.first().unwrap().to_hex());
                             },
-                            Error { error, .. } => {
-                                eprintln!("Error verifying signature: {}",
+                            Err(UnboundKey { cert, error, .. }) => {
+                                eprintln!("Signing key on {} is not bound: {}",
+                                          cert.fingerprint().to_hex(), error);
+                            },
+                            Err(BadKey { ka, error, .. }) => {
+                                eprintln!("Signing key on {} is bad: {}",
+                                          ka.cert().fingerprint().to_hex(),
                                           error);
+                            },
+                            Err(BadSignature { error, .. }) => {
+                                eprintln!("Verifying signature: {}.", error);
                             },
                         }
                     }

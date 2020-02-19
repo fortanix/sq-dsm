@@ -126,17 +126,10 @@ fn main() {
 #                     // whether the signature checks out mathematically, we apply
 #                     // our policy.
 #                     match results.into_iter().next() {
-#                         Some(VerificationResult::GoodChecksum { .. }) =>
+#                         Some(Ok(_)) =>
 #                             good = true,
-#                         Some(VerificationResult::NotAlive { .. }) =>
-#                             return Err(failure::err_msg(
-#                                 "Good, but not alive signature")),
-#                         Some(VerificationResult::MissingKey { .. }) =>
-#                             return Err(failure::err_msg(
-#                                 "Missing key to verify signature")),
-#                         Some(VerificationResult::Error { error, .. }) =>
-#                             return Err(failure::err_msg(
-#                                 format!("Bad signature: {:?}", error))),
+#                         Some(Err(e)) =>
+#                             return Err(openpgp::Error::from(e).into()),
 #                         None =>
 #                             return Err(failure::err_msg("No signature")),
 #                     }
@@ -281,17 +274,10 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #                     // whether the signature checks out mathematically, we apply
 #                     // our policy.
 #                     match results.into_iter().next() {
-#                         Some(VerificationResult::GoodChecksum { .. }) =>
+#                         Some(Ok(_)) =>
 #                             good = true,
-#                         Some(VerificationResult::NotAlive { .. }) =>
-#                             return Err(failure::err_msg(
-#                                 "Good, but not alive signature")),
-#                         Some(VerificationResult::MissingKey { .. }) =>
-#                             return Err(failure::err_msg(
-#                                 "Missing key to verify signature")),
-#                         Some(VerificationResult::Error { error, .. }) =>
-#                             return Err(failure::err_msg(
-#                                 format!("Bad signature: {:?}", error))),
+#                         Some(Err(e)) =>
+#                             return Err(openpgp::Error::from(e).into()),
 #                         None =>
 #                             return Err(failure::err_msg("No signature")),
 #                     }
@@ -436,17 +422,10 @@ fn sign(policy: &dyn Policy,
 #                     // whether the signature checks out mathematically, we apply
 #                     // our policy.
 #                     match results.into_iter().next() {
-#                         Some(VerificationResult::GoodChecksum { .. }) =>
+#                         Some(Ok(_)) =>
 #                             good = true,
-#                         Some(VerificationResult::NotAlive { .. }) =>
-#                             return Err(failure::err_msg(
-#                                 "Good, but not alive signature")),
-#                         Some(VerificationResult::MissingKey { .. }) =>
-#                             return Err(failure::err_msg(
-#                                 "Missing key to verify signature")),
-#                         Some(VerificationResult::Error { error, .. }) =>
-#                             return Err(failure::err_msg(
-#                                 format!("Bad signature: {:?}", error))),
+#                         Some(Err(e)) =>
+#                             return Err(openpgp::Error::from(e).into()),
 #                         None =>
 #                             return Err(failure::err_msg("No signature")),
 #                     }
@@ -602,17 +581,10 @@ impl<'a> VerificationHelper for Helper<'a> {
                     // whether the signature checks out mathematically, we apply
                     // our policy.
                     match results.into_iter().next() {
-                        Some(VerificationResult::GoodChecksum { .. }) =>
+                        Some(Ok(_)) =>
                             good = true,
-                        Some(VerificationResult::NotAlive { .. }) =>
-                            return Err(failure::err_msg(
-                                "Good, but not alive signature")),
-                        Some(VerificationResult::MissingKey { .. }) =>
-                            return Err(failure::err_msg(
-                                "Missing key to verify signature")),
-                        Some(VerificationResult::Error { error, .. }) =>
-                            return Err(failure::err_msg(
-                                format!("Bad signature: {:?}", error))),
+                        Some(Err(e)) =>
+                            return Err(openpgp::Error::from(e).into()),
                         None =>
                             return Err(failure::err_msg("No signature")),
                     }

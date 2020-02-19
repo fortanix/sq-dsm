@@ -487,10 +487,12 @@ typedef struct pgp_verification_result *pgp_verification_result_t;
 typedef struct pgp_verification_result_iter *pgp_verification_result_iter_t;
 
 typedef enum pgp_verification_result_variant {
-  PGP_VERIFICATION_RESULT_GOOD_CHECKSUM = 1,
+  PGP_VERIFICATION_RESULT_GOOD_CHECKSUM = 0,
+  PGP_VERIFICATION_RESULT_MALFORMED_SIGNATURE = 1,
   PGP_VERIFICATION_RESULT_MISSING_KEY = 2,
-  PGP_VERIFICATION_RESULT_NOT_ALIVE = 3,
-  PGP_VERIFICATION_RESULT_ERROR = 4,
+  PGP_VERIFICATION_RESULT_UNBOUND_KEY = 3,
+  PGP_VERIFICATION_RESULT_BAD_KEY = 4,
+  PGP_VERIFICATION_RESULT_BAD_SIGNATURE = 5,
 
   /* Dummy value to make sure the enumeration has a defined size.  Do
      not use this value.  */

@@ -24,7 +24,8 @@ use crate::openpgp::parse::stream::{
     MessageLayer,
     MessageStructure,
     VerificationHelper,
-    VerificationResult,
+    GoodChecksum,
+    VerificationError,
 };
 use crate::openpgp::cert::CertParser;
 use crate::openpgp::policy::StandardPolicy as P;
@@ -130,7 +131,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
     }
 
     fn check(&mut self, structure: MessageStructure) -> Result<()> {
-        use self::VerificationResult::*;
+        use self::VerificationError::*;
 
         let mut signers = Vec::with_capacity(2);
         let mut verification_err = None;
@@ -141,7 +142,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
                     for result in results {
                         self.total += 1;
                         match result {
-                            GoodChecksum { sig, ka, .. } => {
+                            Ok(GoodChecksum { sig, ka, .. }) => {
                                 match (sig.signature_creation_time(),
                                                 self.not_before,
                                                 self.not_after)
@@ -176,22 +177,25 @@ impl<'a> VerificationHelper for VHelper<'a> {
                                     }
                                 };
                             }
-                            NotAlive { .. } => {
-                                eprintln!("Signature is not alive.");
+                            Err(MalformedSignature { error, .. }) => {
+                                eprintln!("Signature is malformed: {}", error);
                             }
-                            MissingKey { sig, .. } => {
-                                if let Some(issuer) = sig.get_issuers().first() {
-                                    eprintln!("Missing {}, which is needed to \
-                                               verify signature.",
-                                              issuer.to_hex());
-                                } else {
-                                    eprintln!("Signature has no Issuer or \
-                                               Issuer Fingerprint subpacket. \
-                                               Don't know what key to use to \
-                                               verify signature.");
-                                }
+                            Err(MissingKey { sig, .. }) => {
+                                let issuers = sig.get_issuers();
+                                eprintln!("Missing key {}, which is needed to \
+                                           verify signature.",
+                                          issuers.first().unwrap().to_hex());
                             }
-                            Error { error, .. } => {
+                            Err(UnboundKey { cert, error, .. }) => {
+                                eprintln!("Signing key on {} is not bound: {}",
+                                          cert.fingerprint().to_hex(), error);
+                            }
+                            Err(BadKey { ka, error, .. }) => {
+                                eprintln!("Signing key on {} is bad: {}",
+                                          ka.cert().fingerprint().to_hex(),
+                                          error);
+                            }
+                            Err(BadSignature { error, .. }) => {
                                 eprintln!("Verifying signature: {}.", error);
                                 if verification_err.is_none() {
                                     verification_err = Some(error)

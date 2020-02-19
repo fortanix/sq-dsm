@@ -19,7 +19,11 @@ use crate::openpgp::parse::{
     PacketParserResult,
 };
 use crate::openpgp::parse::stream::{
-    Verifier, DetachedVerifier, VerificationResult, VerificationHelper,
+    Verifier, DetachedVerifier,
+    GoodChecksum,
+    VerificationResult,
+    VerificationError,
+    VerificationHelper,
     MessageStructure, MessageLayer,
 };
 use crate::openpgp::serialize::stream::{
@@ -246,17 +250,17 @@ impl<'a> VHelper<'a> {
     }
 
     fn print_sigs(&mut self, results: &[VerificationResult]) {
-        use self::VerificationResult::*;
+        use self::VerificationError::*;
         for result in results {
             let (issuer, level) = match result {
-                GoodChecksum { sig, ka, .. } =>
+                Ok(GoodChecksum { sig, ka, .. }) =>
                     (ka.key().keyid(), sig.level()),
-                NotAlive { sig, .. } =>
-                    (sig.get_issuers().get(0)
-                         .map(|i| i.into())
-                         .unwrap_or(KeyID::wildcard()),
-                     sig.level()),
-                MissingKey { sig } => {
+                Err(MalformedSignature { error, .. }) => {
+                    eprintln!("Malformed signature: {}", error);
+                    self.broken_signatures += 1;
+                    continue;
+                },
+                Err(MissingKey { sig, .. }) => {
                     let issuer = sig.get_issuers().get(0)
                         .expect("missing key checksum has an issuer")
                         .to_string();
@@ -267,18 +271,28 @@ impl<'a> VHelper<'a> {
                     eprintln!("No key to check {} from {}", what, issuer);
                     self.unknown_checksums += 1;
                     continue;
-                }
-                Error { sig, error } => {
-                    let issuer = sig.get_issuers().get(0)
-                        .expect("key has an issuer")
-                        .to_string();
+                },
+                Err(UnboundKey { cert, error, .. }) => {
+                    eprintln!("Signing key on {} is not bound: {}",
+                              cert.fingerprint(), error);
+                    self.bad_checksums += 1;
+                    continue;
+                },
+                Err(BadKey { ka, error, .. }) => {
+                    eprintln!("Signing key on {} is bad: {}",
+                              ka.cert().fingerprint(), error);
+                    self.bad_checksums += 1;
+                    continue;
+                },
+                Err(BadSignature { sig, ka, error }) => {
+                    let issuer = ka.fingerprint().to_string();
                     let what = match sig.level() {
                         0 => "checksum".into(),
                         n => format!("level {} notarizing checksum", n),
                     };
                     eprintln!("Error verifying {} from {}: {}",
                               what, issuer, error);
-                    self.broken_signatures += 1;
+                    self.bad_checksums += 1;
                     continue;
                 }
             };
@@ -294,26 +308,11 @@ impl<'a> VHelper<'a> {
 
             let issuer_str = issuer.to_string();
             let label = self.labels.get(&issuer).unwrap_or(&issuer_str);
-            match result {
-                GoodChecksum { .. } => {
-                    eprintln!("Good {} from {}", what, label);
-                    if trusted {
-                        self.good_signatures += 1;
-                    } else {
-                        self.good_checksums += 1;
-                    }
-                },
-                NotAlive { .. } => {
-                    eprintln!("Good checksum, but not alive: {} from {}",
-                              what, label);
-                    if trusted {
-                        self.bad_signatures += 1;
-                    } else {
-                        self.bad_checksums += 1;
-                    }
-                },
-                MissingKey { .. } => unreachable!("handled above"),
-                Error { .. } => unreachable!("handled above"),
+            eprintln!("Good {} from {}", what, label);
+            if trusted {
+                self.good_signatures += 1;
+            } else {
+                self.good_checksums += 1;
             }
         }
     }

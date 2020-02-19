@@ -16,7 +16,7 @@ use crate::openpgp::parse::{
         DecryptionHelper,
         Decryptor,
         VerificationHelper,
-        VerificationResult,
+        GoodChecksum,
         MessageStructure,
         MessageLayer,
     },
@@ -108,7 +108,6 @@ impl VerificationHelper for Helper {
     }
     fn check(&mut self, structure: MessageStructure)
              -> failure::Fallible<()> {
-        use self::VerificationResult::*;
         for layer in structure.iter() {
             match layer {
                 MessageLayer::Compression { algo } =>
@@ -123,19 +122,11 @@ impl VerificationHelper for Helper {
                 MessageLayer::SignatureGroup { ref results } =>
                     for result in results {
                         match result {
-                            GoodChecksum { cert, .. } => {
-                                eprintln!("Good signature from {}", cert);
+                            Ok(GoodChecksum { ka, .. }) => {
+                                eprintln!("Good signature from {}", ka.cert());
                             },
-                            NotAlive { sig, .. } => {
-                                eprintln!("Good, but not alive signature from {:?}",
-                                          sig.get_issuers());
-                            },
-                            MissingKey { .. } => {
-                                eprintln!("No key to check signature");
-                            },
-                            Error { error, .. } => {
-                                eprintln!("Error: {}", error);
-                            },
+                            Err(e) =>
+                                eprintln!("Error: {:?}", e),
                         }
                     }
             }
