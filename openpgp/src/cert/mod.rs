@@ -3402,4 +3402,30 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.keys().unencrypted_secret().skip_primary().count(), 1);
         Ok(())
     }
+
+    /// Demonstrates that subkeys are kept if a userid is later added
+    /// without any keyflags.
+    #[test]
+    fn issue_361() -> Result<()> {
+        let (cert, _) = CertBuilder::new()
+            .add_transport_encryption_subkey()
+            .generate()?;
+        assert_eq!(cert.userids().count(), 0);
+        assert_eq!(cert.keys().count(), 2);
+
+        let mut primary_pair = cert.primary_key().key().clone()
+            .mark_parts_secret()?.into_keypair()?;
+        let uid: UserID = "foo@example.org".into();
+        let sig = uid.bind(
+            &mut primary_pair, &cert,
+            signature::Builder::new(SignatureType::PositiveCertification))?;
+        let cert = cert.merge_packets(vec![
+            uid.into(),
+            sig.into(),
+        ])?;
+
+        assert_eq!(cert.userids().count(), 1);
+        assert_eq!(cert.keys().count(), 2);
+        Ok(())
+    }
 }
