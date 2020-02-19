@@ -2,7 +2,7 @@ use std::fmt;
 use std::time::SystemTime;
 
 use crate::{
-    RevocationStatus,
+    types::RevocationStatus,
     cert::{
         Cert,
         components::{
@@ -181,7 +181,7 @@ impl<'a, C> ValidComponentIter<'a, C> {
     /// extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
-    /// use openpgp::RevocationStatus;
+    /// use openpgp::types::RevocationStatus;
     /// use openpgp::cert::components::Amalgamation;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///

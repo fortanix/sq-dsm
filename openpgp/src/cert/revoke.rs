@@ -39,8 +39,7 @@ use crate::cert::Cert;
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// use openpgp::RevocationStatus;
-/// use openpgp::types::{ReasonForRevocation, SignatureType};
+/// use openpgp::types::{ReasonForRevocation, RevocationStatus, SignatureType};
 /// use openpgp::cert::{CipherSuite, CertBuilder, CertRevocationBuilder};
 /// use openpgp::crypto::KeyPair;
 /// use openpgp::parse::Parse;

@@ -23,6 +23,7 @@ use crate::{
         AEADAlgorithm,
         CompressionAlgorithm,
         DataFormat,
+        RevocationStatus,
         SymmetricAlgorithm,
     },
     packet::{
@@ -39,7 +40,6 @@ use crate::{
     KeyID,
     Packet,
     Result,
-    RevocationStatus,
     packet,
     packet::Signature,
     Cert,

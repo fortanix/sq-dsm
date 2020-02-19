@@ -5,7 +5,7 @@ use std::borrow::Borrow;
 
 use crate::{
     KeyHandle,
-    RevocationStatus,
+    types::RevocationStatus,
     packet::key,
     packet::key::SecretKeyMaterial,
     types::KeyFlags,
@@ -272,7 +272,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
-    /// use openpgp::RevocationStatus;
+    /// use openpgp::types::RevocationStatus;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
@@ -310,7 +310,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
-    /// use openpgp::RevocationStatus;
+    /// use openpgp::types::RevocationStatus;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
@@ -766,7 +766,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
     /// extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
-    /// use openpgp::RevocationStatus;
+    /// use openpgp::types::RevocationStatus;
     /// use openpgp::cert::components::Amalgamation;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///

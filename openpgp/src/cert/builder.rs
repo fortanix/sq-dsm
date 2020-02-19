@@ -542,7 +542,7 @@ mod tests {
     #[test]
     fn generate_revocation_certificate() {
         let p = &P::new();
-        use crate::RevocationStatus;
+        use crate::types::RevocationStatus;
         let (cert, revocation) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();

@@ -504,20 +504,3 @@ pub enum KeyID {
     /// that the Issuer subpacket contains the wrong number of bytes.
     Invalid(Box<[u8]>)
 }
-
-/// The revocation status.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RevocationStatus<'a> {
-    /// The key is definitely revoked.
-    ///
-    /// The relevant self-revocations are returned.
-    Revoked(Vec<&'a packet::Signature>),
-    /// There is a revocation certificate from a possible designated
-    /// revoker.
-    CouldBe(Vec<&'a packet::Signature>),
-    /// The key does not appear to be revoked.
-    ///
-    /// An attacker could still have performed a DoS, which prevents
-    /// us from seeing the revocation certificate.
-    NotAsFarAsWeKnow,
-}

@@ -8,10 +8,10 @@ use crate::{
     Error,
     packet::Signature,
     Result,
-    RevocationStatus,
     policy::Policy,
     types::{
         RevocationKey,
+        RevocationStatus,
         KeyFlags,
     },
 };

@@ -1153,6 +1153,23 @@ impl Arbitrary for DataFormat {
     }
 }
 
+/// The revocation status.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RevocationStatus<'a> {
+    /// The key is definitely revoked.
+    ///
+    /// The relevant self-revocations are returned.
+    Revoked(Vec<&'a crate::packet::Signature>),
+    /// There is a revocation certificate from a possible designated
+    /// revoker.
+    CouldBe(Vec<&'a crate::packet::Signature>),
+    /// The key does not appear to be revoked.
+    ///
+    /// An attacker could still have performed a DoS, which prevents
+    /// us from seeing the revocation certificate.
+    NotAsFarAsWeKnow,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

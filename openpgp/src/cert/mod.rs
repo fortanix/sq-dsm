@@ -15,7 +15,6 @@ use crate::{
     crypto::{hash::Hash, Signer},
     Error,
     Result,
-    RevocationStatus,
     SignatureType,
     packet,
     packet::Signature,
@@ -40,6 +39,7 @@ use crate::types::{
     HashAlgorithm,
     KeyServerPreferences,
     ReasonForRevocation,
+    RevocationStatus,
     SymmetricAlgorithm,
 };
 
@@ -552,7 +552,7 @@ impl Cert {
     /// ```rust
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// use openpgp::RevocationStatus;
+    /// use openpgp::types::RevocationStatus;
     /// use openpgp::types::{ReasonForRevocation, SignatureType};
     /// use openpgp::cert::{CipherSuite, CertBuilder};
     /// use openpgp::crypto::KeyPair;

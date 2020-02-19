@@ -258,9 +258,9 @@ fn inspect_key(policy: &dyn Policy,
 
 fn inspect_revocation(output: &mut dyn io::Write,
                       indent: &str,
-                      revoked: openpgp::RevocationStatus)
+                      revoked: openpgp::types::RevocationStatus)
                       -> Result<()> {
-    use crate::openpgp::RevocationStatus::*;
+    use crate::openpgp::types::RevocationStatus::*;
     match revoked {
         Revoked(_) =>
             writeln!(output, "{}                 Revoked", indent)?,

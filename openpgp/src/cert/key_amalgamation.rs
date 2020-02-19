@@ -17,7 +17,7 @@ use crate::{
     packet::Signature,
     policy::Policy,
     Result,
-    RevocationStatus,
+    types::RevocationStatus,
 };
 
 /// The underlying `KeyAmalgamation` type.

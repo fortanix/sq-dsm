@@ -6,7 +6,6 @@ use std::time;
 use std::ops::Deref;
 
 use crate::{
-    RevocationStatus,
     packet::Signature,
     packet::Key,
     packet::key,
@@ -18,6 +17,7 @@ use crate::{
 };
 use crate::types::{
     RevocationType,
+    RevocationStatus,
 };
 
 use super::{

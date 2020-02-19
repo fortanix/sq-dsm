@@ -756,7 +756,7 @@ mod test {
 
     #[test]
     fn hash_algo() -> Result<()> {
-        use crate::RevocationStatus;
+        use crate::types::RevocationStatus;
         use crate::types::ReasonForRevocation;
 
         const SECS_IN_YEAR : u64 = 365 * 24 * 60 * 60;

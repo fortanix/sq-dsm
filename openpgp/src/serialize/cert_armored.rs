@@ -4,7 +4,7 @@ use std::str;
 
 use crate::armor;
 use crate::Result;
-use crate::RevocationStatus;
+use crate::types::RevocationStatus;
 use crate::serialize::{
     Serialize, SerializeInto, generic_serialize_into, generic_export_into,
 };

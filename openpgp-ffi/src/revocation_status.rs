@@ -8,10 +8,10 @@ use crate::RefRaw;
 
 /// The revocation status.
 #[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
-pub struct RevocationStatus<'a>(openpgp::RevocationStatus<'a>);
+pub struct RevocationStatus<'a>(openpgp::types::RevocationStatus<'a>);
 
-fn revocation_status_to_int(rs: &openpgp::RevocationStatus) -> c_int {
-    use self::openpgp::RevocationStatus::*;
+fn revocation_status_to_int(rs: &openpgp::types::RevocationStatus) -> c_int {
+    use self::openpgp::types::RevocationStatus::*;
     match rs {
         Revoked(_) => 0,
         CouldBe(_) => 1,
