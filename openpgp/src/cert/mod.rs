@@ -58,6 +58,7 @@ use components::{
 mod component_iter;
 use component_iter::{
     ComponentIter,
+    ValidComponentIter,
 };
 mod keyiter;
 mod key_amalgamation;
@@ -66,11 +67,15 @@ mod revoke;
 
 pub use self::builder::{CertBuilder, CipherSuite};
 
-use keyiter::KeyIter;
+use keyiter::{
+    KeyIter,
+    ValidKeyIter,
+};
 use key_amalgamation::{
     KeyAmalgamation,
     PrimaryKeyAmalgamation,
     ValidKeyAmalgamation,
+    ValidPrimaryKeyAmalgamation,
 };
 
 pub use parser::{
@@ -1401,6 +1406,127 @@ impl Cert {
         self.subkeys().any(|sk| {
             sk.key().has_secret()
         })
+    }
+
+    /// Fixes a time and policy for use with this certificate.
+    ///
+    /// If `time` is `None`, the current time is used.
+    pub fn with_policy<'a, T>(&'a self, policy: &'a dyn Policy, time: T)
+                              -> CertAmalgamation<'a>
+        where T: Into<Option<time::SystemTime>>,
+    {
+        CertAmalgamation {
+            cert: self,
+            policy,
+            time: time.into().unwrap_or_else(time::SystemTime::now),
+        }
+    }
+}
+
+/// A certificate under a given policy at a given time.
+pub struct CertAmalgamation<'a> {
+    cert: &'a Cert,
+    policy: &'a dyn Policy,
+    // The reference time.
+    time: time::SystemTime,
+}
+
+impl<'a> std::ops::Deref for CertAmalgamation<'a> {
+    type Target = Cert;
+
+    fn deref(&self) -> &Self::Target {
+        self.cert
+    }
+}
+
+impl<'a> CertAmalgamation<'a> {
+    /// Returns the amalgamation's reference time.
+    ///
+    /// For queries that are with respect to a point in time, this
+    /// determines that point in time.
+    pub fn time(&self) -> time::SystemTime {
+        self.time
+    }
+
+    /// Returns the amalgamation's policy.
+    pub fn policy(&self) -> &'a dyn Policy {
+        self.policy
+    }
+
+    /// Changes the amalgamation's policy.
+    ///
+    /// If `time` is `None`, the current time is used.
+    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Self
+        where T: Into<Option<time::SystemTime>>,
+    {
+        CertAmalgamation {
+            cert: self.cert,
+            policy,
+            time: time.into().unwrap_or_else(time::SystemTime::now),
+        }
+    }
+
+    /// Returns the Cert's revocation status.
+    ///
+    /// A Cert is revoked if:
+    ///
+    ///   - There is a live revocation that is newer than all live
+    ///     self signatures, or
+    ///
+    ///   - There is a hard revocation (even if it is not live at time
+    ///     `t`, and even if there is a newer self-signature).
+    ///
+    /// Note: Certs and subkeys have different criteria from User IDs
+    /// and User Attributes.
+    ///
+    /// Note: this only returns whether this Cert is revoked; it does
+    /// not imply anything about the Cert or other components.
+    pub fn revoked(&self) -> RevocationStatus {
+        self.cert.revoked(self.policy, self.time)
+    }
+
+    /// Returns whether or not the Cert is alive.
+    pub fn alive(&self) -> Result<()> {
+        self.cert.alive(self.policy, self.time)
+    }
+
+    /// Returns the amalgamated primary key.
+    pub fn primary_key(&self)
+                       -> Result<ValidPrimaryKeyAmalgamation<key::PublicParts>>
+    {
+        self.cert.primary_key().with_policy(self.policy, self.time)
+    }
+
+    /// Returns an iterator over the certificate's keys.
+    ///
+    /// That is, this returns an iterator over the primary key and any
+    /// subkeys.
+    pub fn keys(&self) -> ValidKeyIter<key::PublicParts> {
+        self.cert.keys().with_policy(self.policy, self.time)
+    }
+
+    /// Returns the amalgamated primary userid, if any.
+    pub fn primary_userid(&self)
+        -> Option<ValidComponentAmalgamation<'a, UserID>>
+    {
+        self.cert.primary_userid(self.policy, self.time)
+    }
+
+    /// Returns an iterator over the Cert's userids.
+    pub fn userids(&self) -> ValidComponentIter<UserID> {
+        self.cert.userids().with_policy(self.policy, self.time)
+    }
+
+    /// Returns the amalgamated primary user attribute, if any.
+    pub fn primary_user_attribute(&self)
+        -> Option<ValidComponentAmalgamation<'a, UserAttribute>>
+    {
+        self.cert.primary_user_attribute(self.policy, self.time)
+    }
+
+    /// Returns an iterator over the Cert's `UserAttributeBundle`s.
+    pub fn user_attributes(&self) -> ValidComponentIter<UserAttribute> {
+        self.cert.user_attributes().with_policy(self.policy, self.time)
     }
 }
 
