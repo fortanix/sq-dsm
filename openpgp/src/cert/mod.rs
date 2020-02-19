@@ -3435,4 +3435,21 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert_at.keys().count(), 2);
         Ok(())
     }
+
+    /// Demonstrates that binding signatures are considered valid even
+    /// if the primary key is not marked as certification-capable.
+    #[test]
+    fn issue_321() -> Result<()> {
+        let cert = Cert::from_bytes(
+            crate::tests::file("contrib/pep/pEpkey-netpgp.asc"))?;
+        assert_eq!(cert.userids().count(), 1);
+        assert_eq!(cert.keys().count(), 1);
+
+        let mut p = P::new();
+        p.accept_hash(HashAlgorithm::SHA1);
+        let cert_at = cert.with_policy(&p, cert.primary_key().creation_time());
+        assert_eq!(cert_at.userids().count(), 1);
+        assert_eq!(cert_at.keys().count(), 1);
+        Ok(())
+    }
 }
