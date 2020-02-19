@@ -127,13 +127,13 @@ impl<'a, C> Iterator for ValidComponentIter<'a, C>
             let ca = ComponentAmalgamation::new(self.cert, self.iter.next()?);
             t!("Considering component: {:?}", ca.bundle());
 
-            let vca
-                = if let Ok(vca) = ca.with_policy(self.policy, self.time) {
-                    vca
-                } else {
-                    t!("No self-signature at time {:?}", self.time);
+            let vca = match ca.with_policy(self.policy, self.time) {
+                Ok(vca) => vca,
+                Err(e) => {
+                    t!("Rejected: {}", e);
                     continue;
-                };
+                },
+            };
 
             if let Some(want_revoked) = self.revoked {
                 if let RevocationStatus::Revoked(_) = vca.revoked() {
