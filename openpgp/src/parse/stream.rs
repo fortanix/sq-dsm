@@ -97,7 +97,7 @@ pub type VerificationResult<'a> =
 #[derive(Debug)]
 pub struct GoodChecksum<'a> {
     /// The signature.
-    pub sig: Signature,
+    pub sig: &'a Signature,
 
     /// The signing key that made the signature.
     pub ka: ValidKeyAmalgamation<'a, key::PublicParts>,
@@ -109,7 +109,7 @@ pub enum VerificationError<'a> {
     /// Malformed signature (no signature creation subpacket, etc.)
     MalformedSignature {
         /// The signature.
-        sig: Signature,
+        sig: &'a Signature,
 
         /// The reason why the signature is malformed.
         error: failure::Error,
@@ -117,7 +117,7 @@ pub enum VerificationError<'a> {
     /// Missing Key
     MissingKey {
         /// The signature.
-        sig: Signature,
+        sig: &'a Signature,
     },
     /// Unbound key.
     ///
@@ -125,7 +125,7 @@ pub enum VerificationError<'a> {
     /// was created under the given policy.
     UnboundKey {
         /// The signature.
-        sig: Signature,
+        sig: &'a Signature,
 
         /// The certificate that made the signature.
         cert: &'a Cert,
@@ -136,7 +136,7 @@ pub enum VerificationError<'a> {
     /// Bad key (have a key, but it is not alive, etc.)
     BadKey {
         /// The signature.
-        sig: Signature,
+        sig: &'a Signature,
 
         /// The signing key that made the signature.
         ka: ValidKeyAmalgamation<'a, key::PublicParts>,
@@ -147,7 +147,7 @@ pub enum VerificationError<'a> {
     /// Bad signature (have a valid key, but the signature didn't check out)
     BadSignature {
         /// The signature.
-        sig: Signature,
+        sig: &'a Signature,
 
         /// The signing key that made the signature.
         ka: ValidKeyAmalgamation<'a, key::PublicParts>,
@@ -1453,18 +1453,15 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         t!("called");
 
         let mut results = MessageStructure::new();
-        for layer in ::std::mem::replace(&mut self.structure,
-                                         IMessageStructure::new())
-            .layers.into_iter()
-        {
+        for layer in self.structure.layers.iter() {
             match layer {
                 IMessageLayer::Compression { algo } =>
-                    results.new_compression_layer(algo),
+                    results.new_compression_layer(*algo),
                 IMessageLayer::Encryption { sym_algo, aead_algo } =>
-                    results.new_encryption_layer(sym_algo, aead_algo),
+                    results.new_encryption_layer(*sym_algo, *aead_algo),
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
-                    'sigs: for sig in sigs.into_iter() {
+                    'sigs: for sig in sigs.iter() {
                         let sigid = sig.digest_prefix().clone();
 
                         let sig_time = if let Some(t) = sig.signature_creation_time() {
@@ -1485,7 +1482,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         };
 
                         let mut err = VerificationError::MissingKey {
-                            sig: sig.clone(),
+                            sig,
                         };
 
                         let issuers = sig.get_issuers();
@@ -1501,7 +1498,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     t!("{:02X}{:02X}: key {} rejected by policy: {}",
                                        sigid[0], sigid[1], fingerprint, policy_err);
                                     err = VerificationError::UnboundKey {
-                                        sig: sig.clone(),
+                                        sig,
                                         cert,
                                         error: policy_err,
                                     };
@@ -1518,7 +1515,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 t!("{:02X}{:02X}: cert {} not alive: {}",
                                    sigid[0], sigid[1], ka.cert().fingerprint(), err);
                                 VerificationError::BadKey {
-                                    sig: sig.clone(),
+                                    sig,
                                     ka,
                                     error: err,
                                 }
@@ -1526,7 +1523,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 t!("{:02X}{:02X}: key {} not alive: {}",
                                    sigid[0], sigid[1], ka.fingerprint(), err);
                                 VerificationError::BadKey {
-                                    sig: sig.clone(),
+                                    sig,
                                     ka,
                                     error: err,
                                 }
@@ -1536,7 +1533,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 t!("{:02X}{:02X}: cert {} revoked: {:?}",
                                    sigid[0], sigid[1], ka.cert().fingerprint(), rev);
                                 VerificationError::BadKey {
-                                    sig: sig.clone(),
+                                    sig,
                                     ka,
                                     error: Error::InvalidKey(
                                         "certificate is revoked".into())
@@ -1548,7 +1545,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 t!("{:02X}{:02X}: key {} revoked: {:?}",
                                    sigid[0], sigid[1], ka.fingerprint(), rev);
                                 VerificationError::BadKey {
-                                    sig: sig.clone(),
+                                    sig,
                                     ka,
                                     error: Error::InvalidKey(
                                         "signing key is revoked".into())
@@ -1558,7 +1555,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 t!("{:02X}{:02X}: key {} not signing capable",
                                    sigid[0], sigid[1], ka.fingerprint());
                                 VerificationError::BadKey {
-                                    sig: sig.clone(),
+                                    sig,
                                     ka,
                                     error: Error::InvalidKey(
                                         "key is not signing capable".into())
@@ -1570,7 +1567,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 t!("{:02X}{:02X}: Signature not alive: {}",
                                    sigid[0], sigid[1], err);
                                 VerificationError::BadSignature {
-                                    sig: sig.clone(),
+                                    sig,
                                     ka,
                                     error: err,
                                 }
@@ -1584,7 +1581,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 t!("{:02X}{:02X}: not an intended recipient",
                                    sigid[0], sigid[1]);
                                 VerificationError::BadSignature {
-                                    sig: sig.clone(),
+                                    sig,
                                     ka,
                                     error: Error::BadSignature(
                                         "Not an intended recipient".into())
@@ -1597,7 +1594,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                             t!("{:02X}{:02X}: signature rejected by policy: {}",
                                                sigid[0], sigid[1], err);
                                             VerificationError::BadSignature {
-                                                sig: sig.clone(),
+                                                sig,
                                                 ka,
                                                 error: err,
                                             }
@@ -1617,7 +1614,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         t!("{:02X}{:02X} using {}: error: {}",
                                            sigid[0], sigid[1], ka.fingerprint(), err);
                                         VerificationError::BadSignature {
-                                            sig: sig.clone(),
+                                            sig,
                                             ka,
                                             error: err,
                                         }
