@@ -195,7 +195,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
 }
 
 /// Represents a component.
-pub trait Amalgamation<'a, C> {
+pub trait Amalgamation<'a, C: 'a> {
     /// The type returned by `with_policy`.
     type V;
 
@@ -215,7 +215,7 @@ pub trait Amalgamation<'a, C> {
 }
 
 /// Represents a component under a given policy.
-pub trait ValidAmalgamation<'a, C> : Amalgamation<'a, C>{
+pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this

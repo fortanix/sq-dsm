@@ -253,7 +253,7 @@ type UnknownBindings = ComponentBundles<Unknown>;
 /// on self signatures can be used to express preferences for
 /// algorithms and key management.  Furthermore, the key holder's
 /// OpenPGP implementation can express its feature set.
-pub trait Preferences<'a, C>: components::ValidAmalgamation<'a, C> {
+pub trait Preferences<'a, C: 'a>: components::ValidAmalgamation<'a, C> {
     /// Returns symmetric algorithms that the key holder prefers.
     ///
     /// The algorithms are ordered according by the key holder's
