@@ -155,6 +155,9 @@ pub struct StandardPolicy {
 
     // Symmetric algorithms.
     symmetric_algos: SymmetricAlgorithmCutoffList,
+
+    // Asymmetric algorithms.
+    asymmetric_algos: AsymmetricAlgorithmCutoffList,
 }
 
 impl Default for StandardPolicy {
@@ -198,6 +201,28 @@ a_cutoff_list!(RevocationHashCutoffList, HashAlgorithm, 12,
                    ACCEPT,                 // 9. SHA384
                    ACCEPT,                 // 10. SHA512
                    ACCEPT,                 // 11. SHA224
+               ]);
+
+a_cutoff_list!(AsymmetricAlgorithmCutoffList, AsymmetricAlgorithm, 18,
+               [
+                   Some(Timestamp::Y2014), // 0. RSA1024.
+                   ACCEPT,                 // 1. RSA2048.
+                   ACCEPT,                 // 2. RSA3072.
+                   ACCEPT,                 // 3. RSA4096.
+                   Some(Timestamp::Y2014), // 4. ElGamal1024.
+                   ACCEPT,                 // 5. ElGamal2048.
+                   ACCEPT,                 // 6. ElGamal3072.
+                   ACCEPT,                 // 7. ElGamal4096.
+                   Some(Timestamp::Y2014), // 8. DSA1024.
+                   ACCEPT,                 // 9. DSA2048.
+                   ACCEPT,                 // 10. DSA3072.
+                   ACCEPT,                 // 11. DSA4096.
+                   ACCEPT,                 // 12. NistP256.
+                   ACCEPT,                 // 13. NistP384.
+                   ACCEPT,                 // 14. NistP521.
+                   ACCEPT,                 // 15. BrainpoolP256.
+                   ACCEPT,                 // 16. BrainpoolP512.
+                   ACCEPT,                 // 17. Cv25519.
                ]);
 
 a_cutoff_list!(SymmetricAlgorithmCutoffList, SymmetricAlgorithm, 14,
@@ -275,6 +300,7 @@ impl StandardPolicy {
             time: None,
             hash_algos_normal: NormalHashCutoffList::Default(),
             hash_algos_revocation: RevocationHashCutoffList::Default(),
+            asymmetric_algos: AsymmetricAlgorithmCutoffList::Default(),
             symmetric_algos: SymmetricAlgorithmCutoffList::Default(),
             packet_tags: PacketTagCutoffList::Default(),
         }
@@ -411,6 +437,41 @@ impl StandardPolicy {
     }
 
     /// Always considers `s` to be secure.
+    pub fn accept_asymmetric_algo(&mut self, a: AsymmetricAlgorithm) {
+        self.asymmetric_algos.set(a, ACCEPT);
+    }
+
+    /// Always considers `s` to be insecure.
+    pub fn reject_asymmetric_algo(&mut self, a: AsymmetricAlgorithm) {
+        self.asymmetric_algos.set(a, REJECT);
+    }
+
+    /// Considers `a` to be insecure starting at `cutoff`.
+    ///
+    /// A cutoff of `None` means that there is no cutoff and the
+    /// algorithm has no known vulnerabilities.
+    ///
+    /// By default, we reject the use of asymmetric key sizes lower
+    /// than 2048 bits starting in 2014 following [NIST Special
+    /// Publication 800-131A].
+    ///
+    ///   [NIST Special Publication 800-131A]: https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-131Ar2.pdf
+    pub fn reject_asymmetric_algo_at<C>(&mut self, a: AsymmetricAlgorithm,
+                                       cutoff: C)
+        where C: Into<Option<SystemTime>>,
+    {
+        self.asymmetric_algos.set(
+            a,
+            cutoff.into().and_then(system_time_cutoff_to_timestamp));
+    }
+
+    /// Returns the cutoff times for the specified hash algorithm.
+    pub fn asymmetric_algo_cutoff(&self, a: AsymmetricAlgorithm)
+                                 -> Option<SystemTime> {
+        self.asymmetric_algos.cutoff(a).map(|t| t.into())
+    }
+
+    /// Always considers `s` to be secure.
     pub fn accept_symmetric_algo(&mut self, s: SymmetricAlgorithm) {
         self.symmetric_algos.set(s, ACCEPT);
     }
@@ -520,6 +581,80 @@ impl Policy for StandardPolicy {
         Ok(())
     }
 
+    fn key(&self, ka: &ValidKeyAmalgamation<key::PublicParts>)
+        -> Result<()>
+    {
+        use self::AsymmetricAlgorithm::{*, Unknown};
+        use crate::types::PublicKeyAlgorithm::*;
+        use crate::crypto::mpis::PublicKey;
+
+        #[allow(deprecated)]
+        let a = match (ka.pk_algo(), ka.mpis().bits()) {
+            // RSA.
+            (RSAEncryptSign, Some(b))
+                | (RSAEncrypt, Some(b))
+                | (RSASign, Some(b)) if b < 2048 => RSA1024,
+            (RSAEncryptSign, Some(b))
+                | (RSAEncrypt, Some(b))
+                | (RSASign, Some(b)) if b < 3072 => RSA2048,
+            (RSAEncryptSign, Some(b))
+                | (RSAEncrypt, Some(b))
+                | (RSASign, Some(b)) if b < 4096 => RSA3072,
+            (RSAEncryptSign, Some(_))
+                | (RSAEncrypt, Some(_))
+                | (RSASign, Some(_)) => RSA4096,
+            (RSAEncryptSign, None)
+                | (RSAEncrypt, None)
+                | (RSASign, None) => unreachable!(),
+
+            // ElGamal.
+            (ElGamalEncryptSign, Some(b))
+                | (ElGamalEncrypt, Some(b)) if b < 2048 => ElGamal1024,
+            (ElGamalEncryptSign, Some(b))
+                | (ElGamalEncrypt, Some(b)) if b < 3072 => ElGamal2048,
+            (ElGamalEncryptSign, Some(b))
+                | (ElGamalEncrypt, Some(b)) if b < 4096 => ElGamal3072,
+            (ElGamalEncryptSign, Some(_))
+                | (ElGamalEncrypt, Some(_)) => ElGamal4096,
+            (ElGamalEncryptSign, None)
+                | (ElGamalEncrypt, None) => unreachable!(),
+
+            // DSA.
+            (DSA, Some(b)) if b < 2048 => DSA1024,
+            (DSA, Some(b)) if b < 3072 => DSA2048,
+            (DSA, Some(b)) if b < 4096 => DSA3072,
+            (DSA, Some(_)) => DSA4096,
+            (DSA, None) => unreachable!(),
+
+            // ECC.
+            (ECDH, _) | (ECDSA, _) | (EdDSA, _) => {
+                let curve = match ka.mpis() {
+                    PublicKey::EdDSA { curve, .. } => curve,
+                    PublicKey::ECDSA { curve, .. } => curve,
+                    PublicKey::ECDH { curve, .. } => curve,
+                    _ => unreachable!(),
+                };
+                use crate::types::Curve;
+                match curve {
+                    Curve::NistP256 => NistP256,
+                    Curve::NistP384 => NistP384,
+                    Curve::NistP521 => NistP521,
+                    Curve::BrainpoolP256 => BrainpoolP256,
+                    Curve::BrainpoolP512 => BrainpoolP512,
+                    Curve::Ed25519 => Cv25519,
+                    Curve::Cv25519 => Cv25519,
+                    Curve::Unknown(_) => Unknown,
+                    Curve::__Nonexhaustive => unreachable!(),
+                }
+            },
+
+            _ => Unknown,
+        };
+
+        let time = self.time.unwrap_or_else(Timestamp::now);
+        self.asymmetric_algos.check(a, time)
+    }
+
     fn packet(&self, packet: &Packet) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.packet_tags.check(packet.tag(), time)
@@ -528,6 +663,99 @@ impl Policy for StandardPolicy {
     fn symmetric_algorithm(&self, algo: SymmetricAlgorithm) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.symmetric_algos.check(algo, time)
+    }
+}
+
+/// Asymmetric encryption algorithms.
+///
+/// This type is for refining the [`StandardPolicy`] with respect to
+/// asymmetric algorithms.  In contrast to [`PublicKeyAlgorithm`], it
+/// does not concern itself with the use (encryption or signing), and
+/// it does include key sizes (if applicable) and elliptic curves.
+///
+///   [`StandardPolicy`]: struct.StandardPolicy.html
+///   [`PublicKeyAlgorithm`]: ../types/enum.PublicKeyAlgorithm.html
+///
+/// Key sizes put into are buckets, rounding down to the nearest
+/// bucket.  For example, a 3253-bit RSA key is categorized as
+/// `RSA3072`.
+#[derive(Clone, Debug)]
+pub enum AsymmetricAlgorithm {
+    /// RSA with key sizes up to 2048-1 bit.
+    RSA1024,
+    /// RSA with key sizes up to 3072-1 bit.
+    RSA2048,
+    /// RSA with key sizes up to 4096-1 bit.
+    RSA3072,
+    /// RSA with key sizes larger or equal to 4096 bit.
+    RSA4096,
+    /// ElGamal with key sizes up to 2048-1 bit.
+    ElGamal1024,
+    /// ElGamal with key sizes up to 3072-1 bit.
+    ElGamal2048,
+    /// ElGamal with key sizes up to 4096-1 bit.
+    ElGamal3072,
+    /// ElGamal with key sizes larger or equal to 4096 bit.
+    ElGamal4096,
+    /// DSA with key sizes up to 2048-1 bit.
+    DSA1024,
+    /// DSA with key sizes up to 3072-1 bit.
+    DSA2048,
+    /// DSA with key sizes up to 4096-1 bit.
+    DSA3072,
+    /// DSA with key sizes larger or equal to 4096 bit.
+    DSA4096,
+    /// NIST curve P-256.
+    NistP256,
+    /// NIST curve P-384.
+    NistP384,
+    /// NIST curve P-521.
+    NistP521,
+    /// brainpoolP256r1.
+    BrainpoolP256,
+    /// brainpoolP512r1.
+    BrainpoolP512,
+    /// D.J. Bernstein's Curve25519.
+    Cv25519,
+    /// Unknown algorithm.
+    Unknown,
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
+}
+
+impl std::fmt::Display for AsymmetricAlgorithm {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<AsymmetricAlgorithm> for u8 {
+    fn from(a: AsymmetricAlgorithm) -> Self {
+        use self::AsymmetricAlgorithm::*;
+        match a {
+            RSA1024 => 0,
+            RSA2048 => 1,
+            RSA3072 => 2,
+            RSA4096 => 3,
+            ElGamal1024 => 4,
+            ElGamal2048 => 5,
+            ElGamal3072 => 6,
+            ElGamal4096 => 7,
+            DSA1024 => 8,
+            DSA2048 => 9,
+            DSA3072 => 10,
+            DSA4096 => 11,
+            NistP256 => 12,
+            NistP384 => 13,
+            NistP521 => 14,
+            BrainpoolP256 => 15,
+            BrainpoolP512 => 16,
+            Cv25519 => 17,
+            Unknown => 255,
+            __Nonexhaustive => unreachable!(),
+        }
     }
 }
 
@@ -1440,5 +1668,19 @@ mod test {
             Err(e) => assert_match!(Error::PolicyViolation(_, _)
                                     = e.downcast().unwrap()),
         }
+    }
+
+    #[test]
+    fn reject_asymmetric_algos() -> Result<()> {
+        let cert = Cert::from_bytes(crate::tests::key("neal.pgp"))?;
+        let p = &mut P::new();
+        let t = crate::frozen_time();
+
+        assert_eq!(cert.with_policy(p, t).keys().count(), 4);
+        p.reject_asymmetric_algo(AsymmetricAlgorithm::RSA1024);
+        assert_eq!(cert.with_policy(p, t).keys().count(), 4);
+        p.reject_asymmetric_algo(AsymmetricAlgorithm::RSA2048);
+        assert_eq!(cert.with_policy(p, t).keys().count(), 1);
+        Ok(())
     }
 }
