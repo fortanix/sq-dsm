@@ -4,7 +4,7 @@ use clap;
 
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, Result};
-use crate::openpgp::cert::components::Amalgamation;
+use crate::openpgp::cert::components::ValidAmalgamation;
 use openpgp::packet::key::PublicParts;
 use crate::openpgp::parse::{Parse, PacketParserResult};
 use crate::openpgp::policy::Policy;

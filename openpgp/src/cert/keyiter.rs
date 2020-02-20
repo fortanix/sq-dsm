@@ -12,9 +12,9 @@ use crate::{
     cert::{
         Cert,
         components::{
-            Amalgamation,
             KeyBundle,
             UnfilteredKeyBundleIter,
+            ValidAmalgamation,
         },
         KeyAmalgamation,
         ValidKeyAmalgamation,
@@ -767,7 +767,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
     /// use openpgp::types::RevocationStatus;
-    /// use openpgp::cert::components::Amalgamation;
+    /// use openpgp::cert::components::ValidAmalgamation;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }

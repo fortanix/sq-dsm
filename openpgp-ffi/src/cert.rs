@@ -23,10 +23,10 @@ use self::openpgp::{
         CertParser,
         CertRevocationBuilder,
         components::{
-            Amalgamation,
             KeyIter,
             UserIDBundle,
             UserIDBundleIter,
+            ValidAmalgamation,
             ValidKeyIter,
         },
     },

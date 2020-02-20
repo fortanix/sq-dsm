@@ -7,8 +7,8 @@ use failure::ResultExt;
 use crate::{
     Cert,
     cert::components::{
-        Amalgamation,
         KeyBundle,
+        ValidAmalgamation,
     },
     Error,
     packet::key,
@@ -273,7 +273,8 @@ impl<'a, P: key::KeyParts> From<ValidKeyAmalgamation<'a, P>>
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for ValidKeyAmalgamation<'a, P>
+impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a>
+    for ValidKeyAmalgamation<'a, P>
 {
     // NOTE: No docstring, because KeyAmalgamation has the same method.
     // Returns the certificate that the component came from.
@@ -451,7 +452,7 @@ impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
+impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a>
     for ValidPrimaryKeyAmalgamation<'a, P>
 {
     // NOTE: No docstring, because KeyAmalgamation has the same method.

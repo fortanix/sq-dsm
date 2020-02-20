@@ -25,8 +25,8 @@ use super::{
     canonical_signature_order,
 };
 pub use super::amalgamation::{
-    Amalgamation,
     ComponentAmalgamation,
+    ValidAmalgamation,
     ValidComponentAmalgamation,
 };
 pub use super::key_amalgamation::{

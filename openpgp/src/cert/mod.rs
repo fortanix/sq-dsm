@@ -48,11 +48,11 @@ mod builder;
 mod bindings;
 pub mod components;
 use components::{
-    Amalgamation,
     ComponentBundle,
     PrimaryKeyBundle,
     UnfilteredKeyBundleIter,
     UnknownBundleIter,
+    ValidAmalgamation,
     ValidComponentAmalgamation,
 };
 mod component_iter;
@@ -252,7 +252,7 @@ type UnknownBindings = ComponentBundles<Unknown>;
 /// on self signatures can be used to express preferences for
 /// algorithms and key management.  Furthermore, the key holder's
 /// OpenPGP implementation can express its feature set.
-pub trait Preferences<'a>: components::Amalgamation<'a> {
+pub trait Preferences<'a>: components::ValidAmalgamation<'a> {
     /// Returns symmetric algorithms that the key holder prefers.
     ///
     /// The algorithms are ordered according by the key holder's
@@ -1533,7 +1533,7 @@ impl<'a> CertAmalgamation<'a> {
 #[cfg(test)]
 mod test {
     use crate::serialize::Serialize;
-    use super::components::Amalgamation;
+    use super::components::ValidAmalgamation;
     use crate::policy::StandardPolicy as P;
     use crate::types::Curve;
     use super::*;

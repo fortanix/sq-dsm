@@ -200,7 +200,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
 }
 
 /// Represents a component under a given policy.
-pub trait Amalgamation<'a> {
+pub trait ValidAmalgamation<'a> {
     /// Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert;
 
@@ -377,7 +377,7 @@ pub trait Amalgamation<'a> {
     }
 }
 
-impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
+impl<'a, C> ValidAmalgamation<'a> for ValidComponentAmalgamation<'a, C> {
     // NOTE: No docstring, because ComponentAmalgamation has the same method.
     // Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert {

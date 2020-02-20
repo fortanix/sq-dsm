@@ -664,7 +664,7 @@ impl<'a> SerializeInto for TSK<'a> {
 mod test {
     use super::*;
     use crate::vec_truncate;
-    use crate::cert::components::Amalgamation;
+    use crate::cert::components::ValidAmalgamation;
     use crate::parse::Parse;
     use crate::serialize::Serialize;
     use crate::packet::key;

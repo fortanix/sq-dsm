@@ -27,7 +27,7 @@ pub use openpgp::Result;
 use openpgp::Packet;
 use openpgp::packet::SKESK;
 use openpgp::Cert;
-use openpgp::cert::components::Amalgamation;
+use openpgp::cert::components::ValidAmalgamation;
 use openpgp::parse::{
     Parse,
     PacketParserResult, PacketParser,

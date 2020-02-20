@@ -8,8 +8,8 @@ use crate::{
         components::{
             ComponentBundle,
             ComponentBundleIter,
-            Amalgamation,
             ComponentAmalgamation,
+            ValidAmalgamation,
             ValidComponentAmalgamation,
         },
     },
@@ -182,7 +182,7 @@ impl<'a, C> ValidComponentIter<'a, C> {
     /// # use openpgp::Result;
     /// # use openpgp::cert::CertBuilder;
     /// use openpgp::types::RevocationStatus;
-    /// use openpgp::cert::components::Amalgamation;
+    /// use openpgp::cert::components::ValidAmalgamation;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
