@@ -48,6 +48,7 @@ mod builder;
 mod bindings;
 pub mod components;
 use components::{
+    Amalgamation,
     ComponentBundle,
     PrimaryKeyBundle,
     UnfilteredKeyBundleIter,
@@ -252,7 +253,7 @@ type UnknownBindings = ComponentBundles<Unknown>;
 /// on self signatures can be used to express preferences for
 /// algorithms and key management.  Furthermore, the key holder's
 /// OpenPGP implementation can express its feature set.
-pub trait Preferences<'a>: components::ValidAmalgamation<'a> {
+pub trait Preferences<'a, C>: components::ValidAmalgamation<'a, C> {
     /// Returns symmetric algorithms that the key holder prefers.
     ///
     /// The algorithms are ordered according by the key holder's
@@ -349,6 +350,7 @@ use super::*;
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
+/// # use openpgp::cert::components::Amalgamation;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 /// use openpgp::{Cert, cert::CertBuilder};
 ///

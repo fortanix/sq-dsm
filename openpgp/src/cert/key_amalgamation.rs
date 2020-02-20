@@ -47,9 +47,24 @@ impl<'a, P: key::KeyParts> Deref for KeyAmalgamation<'a, P> {
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> Amalgamation<'a> for KeyAmalgamation<'a, P> {
+impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
+    for KeyAmalgamation<'a, P>
+{
     fn cert(&self) -> &'a Cert {
         self.cert
+    }
+
+    fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
+        match self {
+            KeyAmalgamation { bundle: KeyAmalgamationBundle::Primary(), .. } =>
+                P::convert_bundle_ref((&self.cert.primary).into())
+                .expect("secret key amalgamations contain secret keys"),
+            KeyAmalgamation { bundle: KeyAmalgamationBundle::Subordinate(bundle), .. } =>
+                P::convert_bundle_ref((*bundle)
+                                      .mark_parts_unspecified_ref()
+                                      .mark_role_unspecified_ref())
+                .expect("secret key amalgamations contain secret keys"),
+        }
     }
 }
 
@@ -90,20 +105,6 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
                 P::convert_key_ref(bundle.key()
                                    .mark_parts_unspecified_ref()
                                    .mark_role_unspecified_ref())
-                .expect("secret key amalgamations contain secret keys"),
-        }
-    }
-
-    /// Returns this key's bundle.
-    pub fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
-        match self {
-            KeyAmalgamation { bundle: KeyAmalgamationBundle::Primary(), .. } =>
-                P::convert_bundle_ref((&self.cert.primary).into())
-                .expect("secret key amalgamations contain secret keys"),
-            KeyAmalgamation { bundle: KeyAmalgamationBundle::Subordinate(bundle), .. } =>
-                P::convert_bundle_ref((*bundle)
-                                      .mark_parts_unspecified_ref()
-                                      .mark_role_unspecified_ref())
                 .expect("secret key amalgamations contain secret keys"),
         }
     }
@@ -274,17 +275,21 @@ impl<'a, P: key::KeyParts> From<ValidKeyAmalgamation<'a, P>>
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
+impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
     for ValidKeyAmalgamation<'a, P>
 {
     // NOTE: No docstring, because KeyAmalgamation has the same method.
     // Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert {
-        self.cert
+        self.a.cert
+    }
+
+    fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
+        self.a.bundle()
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a>
+impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a, Key<P, key::UnspecifiedRole>>
     for ValidKeyAmalgamation<'a, P>
 {
     /// Returns the amalgamation's reference time.
@@ -364,11 +369,6 @@ impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a>
 }
 
 impl<'a, P: 'a + key::KeyParts> ValidKeyAmalgamation<'a, P> {
-    /// Returns this key's bundle.
-    pub fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
-        self.a.bundle()
-    }
-
     /// Returns whether the key is alive as of the amalgamtion's
     /// reference time.
     ///
@@ -457,7 +457,7 @@ impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
+impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
     for ValidPrimaryKeyAmalgamation<'a, P>
 {
     // NOTE: No docstring, because KeyAmalgamation has the same method.
@@ -465,9 +465,13 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a>
     fn cert(&self) -> &'a Cert {
         self.a.cert()
     }
+
+    fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
+        &self.a.bundle()
+    }
 }
 
-impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a>
+impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a, Key<P, key::UnspecifiedRole>>
     for ValidPrimaryKeyAmalgamation<'a, P>
 {
     /// Returns the amalgamation's reference time.
@@ -541,5 +545,5 @@ impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a>
     }
 }
 
-impl<'a, P: key::KeyParts> crate::cert::Preferences<'a>
+impl<'a, P: key::KeyParts> crate::cert::Preferences<'a, Key<P, key::UnspecifiedRole>>
     for ValidPrimaryKeyAmalgamation<'a, P> {}

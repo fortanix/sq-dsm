@@ -31,10 +31,13 @@ impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
     }
 }
 
-impl<'a, C> Amalgamation<'a> for ComponentAmalgamation<'a, C> {
-    /// Returns the certificate that the component came from.
+impl<'a, C> Amalgamation<'a, C> for ComponentAmalgamation<'a, C> {
     fn cert(&self) -> &'a Cert {
         self.cert
+    }
+
+    fn bundle(&self) -> &'a ComponentBundle<C> {
+        &self.bundle
     }
 }
 
@@ -46,11 +49,6 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
             cert,
             bundle,
         }
-    }
-
-    /// Returns this component's bundle.
-    pub fn bundle(&self) -> &'a ComponentBundle<C> {
-        &self.bundle
     }
 
     /// Returns the components's binding signature as of the reference
@@ -202,13 +200,17 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
 }
 
 /// Represents a component.
-pub trait Amalgamation<'a> {
+pub trait Amalgamation<'a, C> {
     /// Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert;
+
+
+    /// Returns this component's bundle.
+    fn bundle(&self) -> &'a ComponentBundle<C>;
 }
 
 /// Represents a component under a given policy.
-pub trait ValidAmalgamation<'a> : Amalgamation<'a>{
+pub trait ValidAmalgamation<'a, C> : Amalgamation<'a, C>{
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this
@@ -382,15 +384,19 @@ pub trait ValidAmalgamation<'a> : Amalgamation<'a>{
     }
 }
 
-impl<'a, C> Amalgamation<'a> for ValidComponentAmalgamation<'a, C> {
+impl<'a, C> Amalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     // NOTE: No docstring, because ComponentAmalgamation has the same method.
     // Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert {
         self.cert
     }
+
+    fn bundle(&self) -> &'a ComponentBundle<C> {
+        self.bundle
+    }
 }
 
-impl<'a, C> ValidAmalgamation<'a> for ValidComponentAmalgamation<'a, C> {
+impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this
@@ -461,5 +467,5 @@ impl<'a, C> ValidAmalgamation<'a> for ValidComponentAmalgamation<'a, C> {
     }
 }
 
-impl<'a, C> crate::cert::Preferences<'a>
+impl<'a, C> crate::cert::Preferences<'a, C>
     for ValidComponentAmalgamation<'a, C> {}

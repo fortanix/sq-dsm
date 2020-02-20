@@ -428,6 +428,7 @@ impl CertBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cert::components::Amalgamation;
     use crate::cert::components::ValidAmalgamation;
     use crate::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
     use crate::types::PublicKeyAlgorithm;

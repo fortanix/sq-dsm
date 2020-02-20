@@ -1,5 +1,6 @@
 use crate::Result;
 use crate::Cert;
+use crate::cert::components::Amalgamation;
 use crate::packet::{key, Signature, Tag};
 use crate::serialize::{
     PacketRef, Serialize, SerializeInto,

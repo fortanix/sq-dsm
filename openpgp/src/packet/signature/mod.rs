@@ -1126,6 +1126,7 @@ impl From<Signature4> for super::Signature {
 mod test {
     use super::*;
     use crate::KeyID;
+    use crate::cert::components::Amalgamation;
     use crate::crypto;
     use crate::crypto::mpis::MPI;
     use crate::Cert;

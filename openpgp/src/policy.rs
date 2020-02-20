@@ -540,6 +540,7 @@ mod test {
     use crate::Error;
     use crate::Fingerprint;
     use crate::cert::{Cert, CertBuilder, CipherSuite};
+    use crate::cert::components::Amalgamation;
     use crate::crypto::SessionKey;
     use crate::packet::key::Key4;
     use crate::packet::signature;
