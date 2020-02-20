@@ -1325,8 +1325,12 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 .into());
                     }
 
+                    let sym_algo =
+                        sym_algo.expect("if we got here, sym_algo is set");
+                    v.policy.symmetric_algorithm(sym_algo)?;
+
                     v.structure.new_encryption_layer(
-                        sym_algo.expect("if we got here, sym_algo is set"),
+                        sym_algo,
                         if let Packet::AED(ref p) = pp.packet {
                             Some(p.aead())
                         } else {

@@ -40,9 +40,12 @@ use crate::{
         Tag,
     },
     Result,
-    types::HashAlgorithm,
-    types::SignatureType,
-    types::Timestamp,
+    types::{
+        HashAlgorithm,
+        SignatureType,
+        SymmetricAlgorithm,
+        Timestamp,
+    },
 };
 
 #[macro_use] mod cutofflist;
@@ -93,6 +96,18 @@ pub trait Policy : fmt::Debug {
         Ok(())
     }
 
+    /// Returns an error if the symmetric encryption algorithm
+    /// violates the policy.
+    ///
+    /// This function performs the last check before an encryption
+    /// container is decrypted by the streaming decryptor.
+    ///
+    /// With this function, you can prevent the use of insecure
+    /// symmetric encryption algorithms.
+    fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+        Ok(())
+    }
+
     /// Returns an error if the packet violates the policy.
     ///
     /// This function performs the last check before a packet is
@@ -137,6 +152,9 @@ pub struct StandardPolicy {
 
     // Packet types.
     packet_tags: PacketTagCutoffList,
+
+    // Symmetric algorithms.
+    symmetric_algos: SymmetricAlgorithmCutoffList,
 }
 
 impl Default for StandardPolicy {
@@ -180,6 +198,24 @@ a_cutoff_list!(RevocationHashCutoffList, HashAlgorithm, 12,
                    ACCEPT,                 // 9. SHA384
                    ACCEPT,                 // 10. SHA512
                    ACCEPT,                 // 11. SHA224
+               ]);
+
+a_cutoff_list!(SymmetricAlgorithmCutoffList, SymmetricAlgorithm, 14,
+               [
+                   REJECT,                 // 0. Unencrypted.
+                   ACCEPT,                 // 1. IDEA.
+                   Some(Timestamp::Y2017), // 2. TripleDES.
+                   ACCEPT,                 // 3. CAST5.
+                   ACCEPT,                 // 4. Blowfish.
+                   REJECT,                 // 5. Reserved.
+                   REJECT,                 // 6. Reserved.
+                   ACCEPT,                 // 7. AES128.
+                   ACCEPT,                 // 8. AES192.
+                   ACCEPT,                 // 9. AES256.
+                   ACCEPT,                 // 10. Twofish.
+                   ACCEPT,                 // 11. Camellia128.
+                   ACCEPT,                 // 12. Camellia192.
+                   ACCEPT,                 // 13. Camellia256.
                ]);
 
 a_cutoff_list!(PacketTagCutoffList, Tag, 21,
@@ -239,6 +275,7 @@ impl StandardPolicy {
             time: None,
             hash_algos_normal: NormalHashCutoffList::Default(),
             hash_algos_revocation: RevocationHashCutoffList::Default(),
+            symmetric_algos: SymmetricAlgorithmCutoffList::Default(),
             packet_tags: PacketTagCutoffList::Default(),
         }
     }
@@ -373,6 +410,47 @@ impl StandardPolicy {
          self.hash_algos_revocation.cutoff(h).map(|t| t.into()))
     }
 
+    /// Always considers `s` to be secure.
+    pub fn accept_symmetric_algo(&mut self, s: SymmetricAlgorithm) {
+        self.symmetric_algos.set(s, ACCEPT);
+    }
+
+    /// Always considers `s` to be insecure.
+    pub fn reject_symmetric_algo(&mut self, s: SymmetricAlgorithm) {
+        self.symmetric_algos.set(s, REJECT);
+    }
+
+    /// Considers `s` to be insecure starting at `cutoff`.
+    ///
+    /// A cutoff of `None` means that there is no cutoff and the
+    /// algorithm has no known vulnerabilities.
+    ///
+    /// By default, we reject the use of TripleDES (3DES) starting in
+    /// 2017.  While 3DES is still a ["MUST implement"] algorithm in
+    /// RFC4880, released in 2007, there are plenty of other symmetric
+    /// algorithms defined in RFC4880, and it says AES-128 SHOULD be
+    /// implemented.  Support for other algorithms in OpenPGP
+    /// implementations is [excellent].  We chose 2017 as the cutoff
+    /// year because [NIST deprecated 3DES] that year.
+    ///
+    ///   ["MUST implement"]: https://tools.ietf.org/html/rfc4880#section-9.2
+    ///   [excellent]: https://tests.sequoia-pgp.org/#Symmetric_Encryption_Algorithm_support
+    ///   [NIST deprecated 3DES]: https://csrc.nist.gov/News/2017/Update-to-Current-Use-and-Deprecation-of-TDEA
+    pub fn reject_symmetric_algo_at<C>(&mut self, s: SymmetricAlgorithm,
+                                       cutoff: C)
+        where C: Into<Option<SystemTime>>,
+    {
+        self.symmetric_algos.set(
+            s,
+            cutoff.into().and_then(system_time_cutoff_to_timestamp));
+    }
+
+    /// Returns the cutoff times for the specified hash algorithm.
+    pub fn symmetric_algo_cutoff(&self, s: SymmetricAlgorithm)
+                                 -> Option<SystemTime> {
+        self.symmetric_algos.cutoff(s).map(|t| t.into())
+    }
+
     /// Always accept packets with the given tag.
     pub fn accept_packet_tag(&mut self, tag: Tag) {
         self.packet_tags.set(tag, ACCEPT);
@@ -445,6 +523,11 @@ impl Policy for StandardPolicy {
     fn packet(&self, packet: &Packet) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.packet_tags.check(packet.tag(), time)
+    }
+
+    fn symmetric_algorithm(&self, algo: SymmetricAlgorithm) -> Result<()> {
+        let time = self.time.unwrap_or_else(Timestamp::now);
+        self.symmetric_algos.check(algo, time)
     }
 }
 
@@ -1298,6 +1381,56 @@ mod test {
         // Reject the SEIP packet.
         let p = &mut P::new();
         p.reject_packet_tag(Tag::SEIP);
+        let r = Decryptor::from_bytes(
+            p, crate::tests::message("encrypted-to-testy.gpg"),
+            Helper {}, crate::frozen_time());
+        match r {
+            Ok(_) => panic!(),
+            Err(e) => assert_match!(Error::PolicyViolation(_, _)
+                                    = e.downcast().unwrap()),
+        }
+    }
+
+    #[test]
+    fn reject_cipher() {
+        struct Helper {}
+        impl VerificationHelper for Helper {
+            fn get_public_keys(&mut self, _: &[crate::KeyHandle])
+                -> Result<Vec<Cert>> {
+                Ok(Default::default())
+            }
+
+            fn check(&mut self, _: MessageStructure) -> Result<()> {
+                Ok(())
+            }
+        }
+
+        impl DecryptionHelper for Helper {
+            fn decrypt<D>(&mut self, pkesks: &[PKESK], _: &[SKESK],
+                          algo: Option<SymmetricAlgorithm>, mut decrypt: D)
+                          -> Result<Option<Fingerprint>>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+            {
+                let p = &P::new();
+                let mut pair = Cert::from_bytes(
+                    crate::tests::key("testy-private.pgp"))?
+                    .keys().with_policy(p, None)
+                    .for_transport_encryption().secret().nth(0).unwrap()
+                    .key().clone().into_keypair()?;
+                pkesks[0].decrypt(&mut pair, algo)
+                    .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+                    .map(|_| None)
+            }
+        }
+
+        let p = &P::new();
+        Decryptor::from_bytes(
+            p, crate::tests::message("encrypted-to-testy.gpg"),
+            Helper {}, crate::frozen_time()).unwrap();
+
+        // Reject the AES256.
+        let p = &mut P::new();
+        p.reject_symmetric_algo(SymmetricAlgorithm::AES256);
         let r = Decryptor::from_bytes(
             p, crate::tests::message("encrypted-to-testy.gpg"),
             Helper {}, crate::frozen_time());
