@@ -1280,6 +1280,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         let mut saw_content = false;
 
         while let PacketParserResult::Some(mut pp) = ppr {
+            v.policy.packet(&pp.packet)?;
             v.helper.inspect(&pp)?;
             if let Err(err) = pp.possible_message() {
                 t!("Malformed message: {}", err);

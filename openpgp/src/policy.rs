@@ -33,8 +33,12 @@ use failure::ResultExt;
 
 use crate::{
     cert::components::ValidKeyAmalgamation,
-    packet::key,
-    packet::Signature,
+    Packet,
+    packet::{
+        key,
+        Signature,
+        Tag,
+    },
     Result,
     types::HashAlgorithm,
     types::SignatureType,
@@ -88,6 +92,18 @@ pub trait Policy : fmt::Debug {
     {
         Ok(())
     }
+
+    /// Returns an error if the packet violates the policy.
+    ///
+    /// This function performs the last check before a packet is
+    /// considered by the streaming verifier and decryptor.
+    ///
+    /// With this function, you can prevent the use of insecure
+    /// encryption containers, notably the *Symmetrically Encrypted
+    /// Data Packet*.
+    fn packet(&self, _packet: &Packet) -> Result<()> {
+        Ok(())
+    }
 }
 
 /// The standard policy.
@@ -119,6 +135,8 @@ pub struct StandardPolicy {
     hash_algos_normal: NormalHashCutoffList,
     hash_algos_revocation: RevocationHashCutoffList,
 
+    // Packet types.
+    packet_tags: PacketTagCutoffList,
 }
 
 impl Default for StandardPolicy {
@@ -164,6 +182,31 @@ a_cutoff_list!(RevocationHashCutoffList, HashAlgorithm, 12,
                    ACCEPT,                 // 11. SHA224
                ]);
 
+a_cutoff_list!(PacketTagCutoffList, Tag, 21,
+               [
+                   REJECT,                 // 0. Reserved.
+                   ACCEPT,                 // 1. PKESK.
+                   ACCEPT,                 // 2. Signature.
+                   ACCEPT,                 // 3. SKESK.
+                   ACCEPT,                 // 4. OnePassSig.
+                   ACCEPT,                 // 5. SecretKey.
+                   ACCEPT,                 // 6. PublicKey.
+                   ACCEPT,                 // 7. SecretSubkey.
+                   ACCEPT,                 // 8. CompressedData.
+                   Some(Timestamp::Y2004), // 9. SED.
+                   ACCEPT,                 // 10. Marker.
+                   ACCEPT,                 // 11. Literal.
+                   ACCEPT,                 // 12. Trust.
+                   ACCEPT,                 // 13. UserID.
+                   ACCEPT,                 // 14. PublicSubkey.
+                   REJECT,                 // 15. Not assigned.
+                   REJECT,                 // 16. Not assigned.
+                   ACCEPT,                 // 17. UserAttribute.
+                   ACCEPT,                 // 18. SEIP.
+                   ACCEPT,                 // 19. MDC.
+                   ACCEPT,                 // 20. AED.
+               ]);
+
 // We need to convert a `SystemTime` to a `Timestamp` in
 // `StandardPolicy::reject_hash_at`.  Unfortunately, a `SystemTime`
 // can represent a larger range of time than a `Timestamp` can.  Since
@@ -196,6 +239,7 @@ impl StandardPolicy {
             time: None,
             hash_algos_normal: NormalHashCutoffList::Default(),
             hash_algos_revocation: RevocationHashCutoffList::Default(),
+            packet_tags: PacketTagCutoffList::Default(),
         }
     }
 
@@ -328,6 +372,52 @@ impl StandardPolicy {
         (self.hash_algos_normal.cutoff(h).map(|t| t.into()),
          self.hash_algos_revocation.cutoff(h).map(|t| t.into()))
     }
+
+    /// Always accept packets with the given tag.
+    pub fn accept_packet_tag(&mut self, tag: Tag) {
+        self.packet_tags.set(tag, ACCEPT);
+    }
+
+    /// Always reject packets with the given tag.
+    pub fn reject_packet_tag(&mut self, tag: Tag) {
+        self.packet_tags.set(tag, REJECT);
+    }
+
+    /// Start rejecting packets with the given tag at `t`.
+    ///
+    /// A cutoff of `None` means that there is no cutoff and the
+    /// packet has no known vulnerabilities.
+    ///
+    /// By default, we consider the *Symmetrically Encrypted Data
+    /// Packet* (SED) insecure in messages created in the year 2004 or
+    /// later.  The rationale here is that *Symmetrically Encrypted
+    /// Integrity Protected Data Packet* (SEIP) can be downgraded to
+    /// SED packets, enabling attacks exploiting the malleability of
+    /// the CFB stream (see [EFAIL]).
+    ///
+    ///   [EFAIL]: https://en.wikipedia.org/wiki/EFAIL
+    ///
+    /// We chose 2004 as a cutoff-date because [Debian 3.0] (Woody),
+    /// released on 2002-07-19, was the first release of Debian to
+    /// ship a version of GnuPG that emitted SEIP packets by default.
+    /// The first version that emitted SEIP packets was [GnuPG 1.0.3],
+    /// released on 2000-09-18.  Mid 2002 plus a 18 months grace
+    /// period of people still using older versions is 2004.
+    ///
+    ///   [Debian 3.0]: https://www.debian.org/News/2002/20020719
+    ///   [GnuPG 1.0.3]: https://lists.gnupg.org/pipermail/gnupg-announce/2000q3/000075.html
+    pub fn reject_packet_tag_at<C>(&mut self, tag: Tag, cutoff: C)
+        where C: Into<Option<SystemTime>>,
+    {
+        self.packet_tags.set(
+            tag,
+            cutoff.into().and_then(system_time_cutoff_to_timestamp));
+    }
+
+    /// Returns the cutoff times for the specified hash algorithm.
+    pub fn packet_tag_cutoff(&self, tag: Tag) -> Option<SystemTime> {
+        self.packet_tags.cutoff(tag).map(|t| t.into())
+    }
 }
 
 impl Policy for StandardPolicy {
@@ -351,6 +441,11 @@ impl Policy for StandardPolicy {
 
         Ok(())
     }
+
+    fn packet(&self, packet: &Packet) -> Result<()> {
+        let time = self.time.unwrap_or_else(Timestamp::now);
+        self.packet_tags.check(packet.tag(), time)
+    }
 }
 
 #[cfg(test)]
@@ -359,6 +454,7 @@ mod test {
     use std::time::Duration;
 
     use super::*;
+    use crate::Error;
     use crate::Fingerprint;
     use crate::cert::{Cert, CertBuilder, CipherSuite};
     use crate::crypto::SessionKey;
@@ -1163,5 +1259,52 @@ mod test {
         sign_and_verify(norsa, &cert, false);
 
         Ok(())
+    }
+
+    #[test]
+    fn reject_seip_packet() {
+        #[derive(PartialEq, Debug)]
+        struct Helper {}
+        impl VerificationHelper for Helper {
+            fn get_public_keys(&mut self, _: &[crate::KeyHandle])
+                -> Result<Vec<Cert>> {
+                unreachable!()
+            }
+
+            fn check(&mut self, _: MessageStructure) -> Result<()> {
+                unreachable!()
+            }
+        }
+
+        impl DecryptionHelper for Helper {
+            fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
+                          _: Option<SymmetricAlgorithm>, _: D)
+                          -> Result<Option<Fingerprint>>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()> {
+                Ok(None)
+            }
+        }
+
+        let p = &P::new();
+        let r = Decryptor::from_bytes(
+            p, crate::tests::message("encrypted-to-testy.gpg"),
+            Helper {}, crate::frozen_time());
+        match r {
+            Ok(_) => panic!(),
+            Err(e) => assert_match!(Error::InvalidSessionKey(_)
+                                    = e.downcast().unwrap()),
+        }
+
+        // Reject the SEIP packet.
+        let p = &mut P::new();
+        p.reject_packet_tag(Tag::SEIP);
+        let r = Decryptor::from_bytes(
+            p, crate::tests::message("encrypted-to-testy.gpg"),
+            Helper {}, crate::frozen_time());
+        match r {
+            Ok(_) => panic!(),
+            Err(e) => assert_match!(Error::PolicyViolation(_, _)
+                                    = e.downcast().unwrap()),
+        }
     }
 }
