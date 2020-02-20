@@ -1,7 +1,8 @@
+use std::fmt;
 use std::hash::{Hash, Hasher};
 
 /// Describes features supported by an OpenPGP implementation.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Features{
     mdc: bool,
     aead: bool,
@@ -18,6 +19,34 @@ impl Default for Features {
             unknown: Default::default(),
             pad_to: 0,
         }
+    }
+}
+
+impl fmt::Debug for Features {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut dirty = false;
+        if self.supports_mdc() {
+            f.write_str("MDC")?;
+            dirty = true;
+        }
+        if self.supports_aead() {
+            if dirty { f.write_str(", ")?; }
+            f.write_str("AEAD")?;
+            dirty = true;
+        }
+        if ! self.unknown.is_empty() {
+            if dirty { f.write_str(", ")?; }
+            f.write_str("+0x")?;
+            f.write_str(
+                &crate::fmt::hex::encode_pretty(&self.unknown))?;
+            dirty = true;
+        }
+        if self.pad_to > FEATURE_FLAGS_N_KNOWN_BYTES + self.unknown.len() {
+            if dirty { f.write_str(", ")?; }
+            write!(f, "+padding({} bytes)", self.pad_to - self.unknown.len())?;
+        }
+
+        Ok(())
     }
 }
 
@@ -130,6 +159,9 @@ const FEATURE_FLAG_MDC: u8 = 0x01;
 /// AEAD Encrypted Data Packet (packet 20) and version 5 Symmetric-Key
 /// Encrypted Session Key Packets (packet 3).
 const FEATURE_FLAG_AEAD: u8 = 0x02;
+
+/// Number of bytes with known flags.
+const FEATURE_FLAGS_N_KNOWN_BYTES: usize = 1;
 
 #[cfg(test)]
 mod tests {

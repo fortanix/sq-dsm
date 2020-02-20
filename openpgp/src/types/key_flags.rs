@@ -53,7 +53,7 @@ impl fmt::Debug for KeyFlags {
             f.write_str(
                 &crate::fmt::hex::encode_pretty(&self.unknown))?;
         }
-        if self.pad_to > self.unknown.len() {
+        if self.pad_to > KEY_FLAGS_N_KNOWN_BYTES + self.unknown.len() {
             write!(f, "+padding({} bytes)", self.pad_to - self.unknown.len())?;
         }
 
@@ -326,6 +326,9 @@ const KEY_FLAG_AUTHENTICATE: u8 = 0x20;
 /// The private component of this key may be in the possession of more
 /// than one person.
 const KEY_FLAG_GROUP_KEY: u8 = 0x80;
+
+/// Number of bytes with known flags.
+const KEY_FLAGS_N_KNOWN_BYTES: usize = 1;
 
 #[cfg(test)]
 mod tests {

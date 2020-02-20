@@ -18,8 +18,23 @@ impl Default for KeyServerPreferences {
 
 impl fmt::Debug for KeyServerPreferences {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut dirty = false;
         if self.no_modify() {
             f.write_str("no modify")?;
+            dirty = true;
+        }
+        if ! self.unknown.is_empty() {
+            if dirty { f.write_str(", ")?; }
+            f.write_str("+0x")?;
+            f.write_str(
+                &crate::fmt::hex::encode_pretty(&self.unknown))?;
+            dirty = true;
+        }
+        if self.pad_to >
+            KEYSERVER_PREFERENCES_N_KNOWN_BYTES + self.unknown.len()
+        {
+            if dirty { f.write_str(", ")?; }
+            write!(f, "+padding({} bytes)", self.pad_to - self.unknown.len())?;
         }
 
         Ok(())
@@ -104,6 +119,9 @@ impl KeyServerPreferences {
 /// The private component of this key may be in the possession of more
 /// than one person.
 const KEYSERVER_PREFERENCE_NO_MODIFY: u8 = 0x80;
+
+/// Number of bytes with known flags.
+const KEYSERVER_PREFERENCES_N_KNOWN_BYTES: usize = 1;
 
 #[cfg(test)]
 mod tests {
