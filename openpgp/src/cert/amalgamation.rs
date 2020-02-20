@@ -32,12 +32,31 @@ impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
 }
 
 impl<'a, C> Amalgamation<'a, C> for ComponentAmalgamation<'a, C> {
+    type V = ValidComponentAmalgamation<'a, C>;
+
     fn cert(&self) -> &'a Cert {
         self.cert
     }
 
     fn bundle(&self) -> &'a ComponentBundle<C> {
         &self.bundle
+    }
+
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+        where T: Into<Option<time::SystemTime>>,
+              Self: Sized
+    {
+        let time = time.into().unwrap_or_else(SystemTime::now);
+        if let Some(binding_signature) = self.binding_signature(policy, time) {
+            Ok(ValidComponentAmalgamation {
+                a: self,
+                policy: policy,
+                time: time,
+                binding_signature: binding_signature,
+            })
+        } else {
+            Err(Error::NoBindingSignature(time).into())
+        }
     }
 }
 
@@ -62,30 +81,6 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
         self.bundle.binding_signature(policy, time)
-    }
-
-    /// Sets the policy and the reference time for the amalgamation.
-    ///
-    /// If `time` is `None`, the current time is used.
-    ///
-    /// This transforms the `ComponentAmalgamation` into a
-    /// `ValidComponentAmalgamation`, which exposes additional
-    /// methods.
-    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
-        -> Result<ValidComponentAmalgamation<'a, C>>
-        where T: Into<Option<time::SystemTime>>
-    {
-        let time = time.into().unwrap_or_else(SystemTime::now);
-        if let Some(binding_signature) = self.binding_signature(policy, time) {
-            Ok(ValidComponentAmalgamation {
-                a: self,
-                policy: policy,
-                time: time,
-                binding_signature: binding_signature,
-            })
-        } else {
-            Err(Error::NoBindingSignature(time).into())
-        }
     }
 }
 
@@ -201,12 +196,22 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
 
 /// Represents a component.
 pub trait Amalgamation<'a, C> {
+    /// The type returned by `with_policy`.
+    type V;
+
     /// Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert;
 
 
     /// Returns this component's bundle.
     fn bundle(&self) -> &'a ComponentBundle<C>;
+
+    /// Changes the amalgamation's policy.
+    ///
+    /// If `time` is `None`, the current time is used.
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+        where T: Into<Option<time::SystemTime>>,
+              Self: Sized;
 }
 
 /// Represents a component under a given policy.
@@ -222,12 +227,6 @@ pub trait ValidAmalgamation<'a, C> : Amalgamation<'a, C>{
 
     /// Returns the amalgamation's policy.
     fn policy(&self) -> &'a dyn Policy;
-
-    /// Changes the amalgamation's policy.
-    ///
-    /// If `time` is `None`, the current time is used.
-    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
-        where Self: Sized, T: Into<Option<time::SystemTime>>;
 
     /// Returns the component's binding signature as of the reference time.
     fn binding_signature(&self) -> &'a Signature;
@@ -385,6 +384,8 @@ pub trait ValidAmalgamation<'a, C> : Amalgamation<'a, C>{
 }
 
 impl<'a, C> Amalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
+    type V = Self;
+
     // NOTE: No docstring, because ComponentAmalgamation has the same method.
     // Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert {
@@ -393,6 +394,14 @@ impl<'a, C> Amalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
 
     fn bundle(&self) -> &'a ComponentBundle<C> {
         self.bundle
+    }
+
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+        where T: Into<Option<time::SystemTime>>,
+              Self: Sized,
+    {
+        let time = time.into().unwrap_or_else(SystemTime::now);
+        self.a.with_policy(policy, time)
     }
 }
 
@@ -412,16 +421,6 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     fn policy(&self) -> &'a dyn Policy
     {
         self.policy
-    }
-
-    /// Changes the amalgamation's policy.
-    ///
-    /// If `time` is `None`, the current time is used.
-    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
-        where T: Into<Option<time::SystemTime>>
-    {
-        let time = time.into().unwrap_or_else(SystemTime::now);
-        self.a.with_policy(policy, time)
     }
 
     /// Returns the component's binding signature as of the reference time.

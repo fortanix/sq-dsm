@@ -12,6 +12,7 @@ use crate::{
     cert::{
         Cert,
         components::{
+            Amalgamation,
             KeyBundle,
             UnfilteredKeyBundleIter,
             ValidAmalgamation,

@@ -50,6 +50,8 @@ impl<'a, P: key::KeyParts> Deref for KeyAmalgamation<'a, P> {
 impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
     for KeyAmalgamation<'a, P>
 {
+    type V = ValidKeyAmalgamation<'a, P>;
+
     fn cert(&self) -> &'a Cert {
         self.cert
     }
@@ -64,6 +66,36 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
                                       .mark_parts_unspecified_ref()
                                       .mark_role_unspecified_ref())
                 .expect("secret key amalgamations contain secret keys"),
+        }
+    }
+
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+        where T: Into<Option<time::SystemTime>>
+    {
+        let time = time.into().unwrap_or_else(SystemTime::now);
+
+        // First, we need to make sure the certificate is okay.  Only
+        // do this if we're using a subkey.
+        if ! self.primary() {
+            let pka : Self = KeyAmalgamation::new_primary(self.cert());
+            pka.with_policy(policy, time)
+                .context("primary key")?;
+        }
+
+        if let Some(binding_signature) = self.binding_signature(policy, time) {
+            let ka = ValidKeyAmalgamation {
+                a: self,
+                policy: policy,
+                time: time,
+                binding_signature: binding_signature,
+            };
+            policy.key(
+                key::PublicParts::convert_valid_amalgamation_ref(
+                    (&ka).mark_parts_unspecified_ref())
+                    .expect("unspecified parts"))?;
+            Ok(ka)
+        } else {
+            Err(Error::NoBindingSignature(time).into())
         }
     }
 }
@@ -134,43 +166,6 @@ impl<'a, P: 'a + key::KeyParts> KeyAmalgamation<'a, P> {
                 ..
             } =>
                 bundle.binding_signature(policy, time),
-        }
-    }
-
-    /// Sets the reference time for the amalgamation.
-    ///
-    /// If `time` is `None`, the current time is used.
-    ///
-    /// This transforms the `KeyAmalgamation` into a
-    /// `ValidKeyAmalgamation`.
-    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
-        -> Result<ValidKeyAmalgamation<'a, P>>
-        where T: Into<Option<time::SystemTime>>
-    {
-        let time = time.into().unwrap_or_else(SystemTime::now);
-
-        // First, we need to make sure the certificate is okay.  Only
-        // do this if we're using a subkey.
-        if ! self.primary() {
-            let pka : Self = KeyAmalgamation::new_primary(self.cert());
-            pka.with_policy(policy, time)
-                .context("primary key")?;
-        }
-
-        if let Some(binding_signature) = self.binding_signature(policy, time) {
-            let ka = ValidKeyAmalgamation {
-                a: self,
-                policy: policy,
-                time: time,
-                binding_signature: binding_signature,
-            };
-            policy.key(
-                key::PublicParts::convert_valid_amalgamation_ref(
-                    (&ka).mark_parts_unspecified_ref())
-                    .expect("unspecified parts"))?;
-            Ok(ka)
-        } else {
-            Err(Error::NoBindingSignature(time).into())
         }
     }
 
@@ -278,6 +273,8 @@ impl<'a, P: key::KeyParts> From<ValidKeyAmalgamation<'a, P>>
 impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
     for ValidKeyAmalgamation<'a, P>
 {
+    type V = Self;
+
     // NOTE: No docstring, because KeyAmalgamation has the same method.
     // Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert {
@@ -286,6 +283,17 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
 
     fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
         self.a.bundle()
+    }
+
+    /// Changes the amalgamation's policy.
+    ///
+    /// If `time` is `None`, the current time is used.
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+        where T: Into<Option<time::SystemTime>>,
+              Self: Sized,
+    {
+        let time = time.into().unwrap_or_else(SystemTime::now);
+        self.a.with_policy(policy, time)
     }
 }
 
@@ -307,16 +315,6 @@ impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a, Key<P, key::UnspecifiedRol
     fn policy(&self) -> &'a dyn Policy
     {
         self.policy
-    }
-
-    /// Changes the amalgamation's policy.
-    ///
-    /// If `time` is `None`, the current time is used.
-    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
-        where T: Into<Option<time::SystemTime>>
-    {
-        let time = time.into().unwrap_or_else(SystemTime::now);
-        self.a.with_policy(policy, time)
     }
 
     /// Returns the key's binding signature as of the reference time,
@@ -460,6 +458,8 @@ impl<'a, P: key::KeyParts> ValidPrimaryKeyAmalgamation<'a, P> {
 impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
     for ValidPrimaryKeyAmalgamation<'a, P>
 {
+    type V = Self;
+
     // NOTE: No docstring, because KeyAmalgamation has the same method.
     // Returns the certificate that the component came from.
     fn cert(&self) -> &'a Cert {
@@ -469,6 +469,14 @@ impl<'a, P: 'a + key::KeyParts> Amalgamation<'a, Key<P, key::UnspecifiedRole>>
     fn bundle(&self) -> &'a KeyBundle<P, key::UnspecifiedRole> {
         &self.a.bundle()
     }
+
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+        where T: Into<Option<time::SystemTime>>,
+              Self: Sized,
+    {
+        Ok(Self::new(self.a.with_policy(policy, time)?))
+    }
+
 }
 
 impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a, Key<P, key::UnspecifiedRole>>
@@ -488,18 +496,6 @@ impl<'a, P: 'a + key::KeyParts> ValidAmalgamation<'a, Key<P, key::UnspecifiedRol
     /// Returns the amalgamation's policy.
     fn policy(&self) -> &'a dyn Policy {
         self.a.policy()
-    }
-
-    /// Sets the policy and the reference time for the amalgamation.
-    ///
-    /// If `time` is `None`, the current time is used.
-    ///
-    /// This transforms the `KeyAmalgamation` into a
-    /// `ValidKeyAmalgamation`, which exposes additional methods.
-    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self>
-        where T: Into<Option<time::SystemTime>>
-    {
-        Ok(Self::new(self.a.with_policy(policy, time)?))
     }
 
     /// Returns the key's binding signature as of the reference time,
