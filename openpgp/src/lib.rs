@@ -117,7 +117,7 @@ fn vec_drain_prefix(v: &mut Vec<u8>, prefix_len: usize) {
 // declare the modules.
 #[allow(unused_macros)]
 macro_rules! assert_match {
-    ( $error: pat = $expr:expr, $fmt:expr, $($pargs:expr),* ) => {
+    ( $error: pat = $expr:expr, $fmt:expr, $($pargs:expr),* ) => {{
         let x = $expr;
         if let $error = x {
             /* Pass.  */
@@ -127,7 +127,7 @@ macro_rules! assert_match {
                    stringify!($error), x,
                    if $fmt.len() > 0 { ": " } else { "." }, extra);
         }
-    };
+    }};
     ( $error: pat = $expr: expr, $fmt:expr ) => {
         assert_match!($error = $expr, $fmt, );
     };
