@@ -15,6 +15,7 @@ extern crate sequoia_openpgp as openpgp;
 
 use crate::openpgp::{
     Cert,
+    cert::components::Amalgamation,
     KeyHandle,
     Result,
     parse::Parse,

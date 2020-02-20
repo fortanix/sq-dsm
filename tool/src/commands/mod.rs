@@ -13,6 +13,7 @@ use crate::openpgp::types::{
 };
 use crate::openpgp::crypto;
 use crate::openpgp::{Cert, KeyID, Result};
+use crate::openpgp::cert::components::Amalgamation;
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::{
     Parse,

@@ -16,7 +16,10 @@ use libc::{c_int, c_void, time_t};
 extern crate sequoia_openpgp as openpgp;
 
 use self::openpgp::{
-    cert::components::ValidAmalgamation,
+    cert::components::{
+        Amalgamation,
+        ValidAmalgamation,
+    },
     crypto::SessionKey,
     types::SymmetricAlgorithm,
     packet::{

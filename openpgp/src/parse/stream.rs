@@ -44,6 +44,7 @@ use crate::{
     packet::Signature,
     Cert,
     cert::components::{
+        Amalgamation,
         ValidAmalgamation,
         ValidKeyAmalgamation,
     },
