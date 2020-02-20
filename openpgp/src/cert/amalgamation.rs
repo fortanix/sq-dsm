@@ -24,10 +24,10 @@ pub struct ComponentAmalgamation<'a, C>{
 }
 
 impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
-    type Target = C;
+    type Target = ComponentBundle<C>;
 
     fn deref(&self) -> &Self::Target {
-        self.bundle.component()
+        self.bundle
     }
 }
 
