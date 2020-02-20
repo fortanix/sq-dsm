@@ -309,8 +309,8 @@ pub enum PublicKey {
         y: MPI,
     },
 
-    /// Elgamal public key.
-    Elgamal {
+    /// ElGamal public key.
+    ElGamal {
         /// Prime of the ring Zp.
         p: MPI,
         /// Generator of Zp.
@@ -335,7 +335,7 @@ pub enum PublicKey {
         q: MPI,
     },
 
-    /// Elliptic curve Elgamal public key.
+    /// Elliptic curve ElGamal public key.
     ECDH {
         /// Curve we're using.
         curve: Curve,
@@ -372,7 +372,7 @@ impl PublicKey {
                 2 + p.value.len() + 2 + q.value.len() +
                 2 + g.value.len() + 2 + y.value.len(),
 
-            &Elgamal { ref p, ref g, ref y } =>
+            &ElGamal { ref p, ref g, ref y } =>
                 2 + p.value.len() +
                 2 + g.value.len() + 2 + y.value.len(),
 
@@ -414,7 +414,7 @@ impl PublicKey {
         match self {
             &RSA { ref n,.. } => Some(n.bits()),
             &DSA { ref p,.. } => Some(p.bits()),
-            &Elgamal { ref p,.. } => Some(p.bits()),
+            &ElGamal { ref p,.. } => Some(p.bits()),
             &EdDSA { ref curve,.. } => curve.bits(),
             &ECDSA { ref curve,.. } => curve.bits(),
             &ECDH { ref curve,.. } => curve.bits(),
@@ -429,7 +429,7 @@ impl PublicKey {
         match self {
             RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
             DSA { .. } => Some(PublicKeyAlgorithm::DSA),
-            Elgamal { .. } => Some(PublicKeyAlgorithm::ElgamalEncrypt),
+            ElGamal { .. } => Some(PublicKeyAlgorithm::ElGamalEncrypt),
             EdDSA { .. } => Some(PublicKeyAlgorithm::EdDSA),
             ECDSA { .. } => Some(PublicKeyAlgorithm::ECDSA),
             ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
@@ -461,7 +461,7 @@ impl Arbitrary for PublicKey {
                 y: MPI::arbitrary(g),
             },
 
-            2 => Elgamal {
+            2 => ElGamal {
                 p: MPI::arbitrary(g),
                 g: MPI::arbitrary(g),
                 y: MPI::arbitrary(g),
@@ -515,8 +515,8 @@ pub enum SecretKeyMaterial {
         x: ProtectedMPI,
     },
 
-    /// Elgamal secret key.
-    Elgamal {
+    /// ElGamal secret key.
+    ElGamal {
         /// Secret key log_g(y) in Zp.
         x: ProtectedMPI,
     },
@@ -533,7 +533,7 @@ pub enum SecretKeyMaterial {
         scalar: ProtectedMPI,
     },
 
-    /// Elliptic curve Elgamal secret key.
+    /// Elliptic curve ElGamal secret key.
     ECDH {
         /// Secret scalar.
         scalar: ProtectedMPI,
@@ -556,8 +556,8 @@ impl fmt::Debug for SecretKeyMaterial {
                     write!(f, "RSA {{ d: {:?}, p: {:?}, q: {:?}, u: {:?} }}", d, p, q, u),
                 &SecretKeyMaterial::DSA{ ref x } =>
                     write!(f, "DSA {{ x: {:?} }}", x),
-                &SecretKeyMaterial::Elgamal{ ref x } =>
-                    write!(f, "Elgamal {{ x: {:?} }}", x),
+                &SecretKeyMaterial::ElGamal{ ref x } =>
+                    write!(f, "ElGamal {{ x: {:?} }}", x),
                 &SecretKeyMaterial::EdDSA{ ref scalar } =>
                     write!(f, "EdDSA {{ scalar: {:?} }}", scalar),
                 &SecretKeyMaterial::ECDSA{ ref scalar } =>
@@ -573,8 +573,8 @@ impl fmt::Debug for SecretKeyMaterial {
                     f.write_str("RSA { <Redacted> }"),
                 &SecretKeyMaterial::DSA{ .. } =>
                     f.write_str("DSA { <Redacted> }"),
-                &SecretKeyMaterial::Elgamal{ .. } =>
-                    f.write_str("Elgamal { <Redacted> }"),
+                &SecretKeyMaterial::ElGamal{ .. } =>
+                    f.write_str("ElGamal { <Redacted> }"),
                 &SecretKeyMaterial::EdDSA{ .. } =>
                     f.write_str("EdDSA { <Redacted> }"),
                 &SecretKeyMaterial::ECDSA{ .. } =>
@@ -603,7 +603,7 @@ impl PartialOrd for SecretKeyMaterial {
             match sk {
                 &SecretKeyMaterial::RSA{ .. } => 0,
                 &SecretKeyMaterial::DSA{ .. } => 1,
-                &SecretKeyMaterial::Elgamal{ .. } => 2,
+                &SecretKeyMaterial::ElGamal{ .. } => 2,
                 &SecretKeyMaterial::EdDSA{ .. } => 3,
                 &SecretKeyMaterial::ECDSA{ .. } => 4,
                 &SecretKeyMaterial::ECDH{ .. } => 5,
@@ -628,8 +628,8 @@ impl PartialOrd for SecretKeyMaterial {
             ,&SecretKeyMaterial::DSA{ x: ref x2 }) => {
                 secure_mpi_cmp(x1, x2)
             }
-            (&SecretKeyMaterial::Elgamal{ x: ref x1 }
-            ,&SecretKeyMaterial::Elgamal{ x: ref x2 }) => {
+            (&SecretKeyMaterial::ElGamal{ x: ref x1 }
+            ,&SecretKeyMaterial::ElGamal{ x: ref x2 }) => {
                 secure_mpi_cmp(x1, x2)
             }
             (&SecretKeyMaterial::EdDSA{ scalar: ref scalar1 }
@@ -697,7 +697,7 @@ impl SecretKeyMaterial {
 
             &DSA { ref x } => 2 + x.value.len(),
 
-            &Elgamal { ref x } => 2 + x.value.len(),
+            &ElGamal { ref x } => 2 + x.value.len(),
 
             &EdDSA { ref scalar } => 2 + scalar.value.len(),
 
@@ -718,7 +718,7 @@ impl SecretKeyMaterial {
         match self {
             RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
             DSA { .. } => Some(PublicKeyAlgorithm::DSA),
-            Elgamal { .. } => Some(PublicKeyAlgorithm::ElgamalEncrypt),
+            ElGamal { .. } => Some(PublicKeyAlgorithm::ElGamalEncrypt),
             EdDSA { .. } => Some(PublicKeyAlgorithm::EdDSA),
             ECDSA { .. } => Some(PublicKeyAlgorithm::ECDSA),
             ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
@@ -748,7 +748,7 @@ impl Arbitrary for SecretKeyMaterial {
                 x: MPI::arbitrary(g).into(),
             },
 
-            2 => SecretKeyMaterial::Elgamal {
+            2 => SecretKeyMaterial::ElGamal {
                 x: MPI::arbitrary(g).into(),
             },
 
@@ -781,15 +781,15 @@ pub enum Ciphertext {
         c: MPI,
     },
 
-    /// Elgamal ciphertext
-    Elgamal {
+    /// ElGamal ciphertext
+    ElGamal {
         /// Ephemeral key.
         e: MPI,
         /// .
         c: MPI,
     },
 
-    /// Elliptic curve Elgamal public key.
+    /// Elliptic curve ElGamal public key.
     ECDH {
         /// Ephemeral key.
         e: MPI,
@@ -818,7 +818,7 @@ impl Ciphertext {
             &RSA { ref c } =>
                 2 + c.value.len(),
 
-            &Elgamal { ref e, ref c } =>
+            &ElGamal { ref e, ref c } =>
                 2 + e.value.len() + 2 + c.value.len(),
 
             &ECDH { ref e, ref key } =>
@@ -842,7 +842,7 @@ impl Ciphertext {
         // commented.
         match self {
             &RSA { .. } => Some(PublicKeyAlgorithm::RSAEncryptSign),
-            &Elgamal { .. } => Some(PublicKeyAlgorithm::ElgamalEncrypt),
+            &ElGamal { .. } => Some(PublicKeyAlgorithm::ElGamalEncrypt),
             &ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
             &Unknown { .. } => None,
         }
@@ -863,7 +863,7 @@ impl Arbitrary for Ciphertext {
                 c: MPI::arbitrary(g),
             },
 
-            1 => Ciphertext::Elgamal {
+            1 => Ciphertext::ElGamal {
                 e: MPI::arbitrary(g),
                 c: MPI::arbitrary(g)
             },
@@ -897,8 +897,8 @@ pub enum Signature {
         s: MPI,
     },
 
-    /// Elgamal signature.
-    Elgamal {
+    /// ElGamal signature.
+    ElGamal {
         /// `r` value.
         r: MPI,
         /// `s` value.
@@ -945,7 +945,7 @@ impl Signature {
             &DSA { ref r, ref s } =>
                 2 + r.value.len() + 2 + s.value.len(),
 
-            &Elgamal { ref r, ref s } =>
+            &ElGamal { ref r, ref s } =>
                 2 + r.value.len() + 2 + s.value.len(),
 
             &EdDSA { ref r, ref s } =>
@@ -1028,9 +1028,9 @@ mod tests {
                 PublicKey::DSA { .. } =>
                     PublicKey::parse(
                         DSA, cur.into_inner()).unwrap(),
-                PublicKey::Elgamal { .. } =>
+                PublicKey::ElGamal { .. } =>
                     PublicKey::parse(
-                        ElgamalEncrypt, cur.into_inner()).unwrap(),
+                        ElGamalEncrypt, cur.into_inner()).unwrap(),
                 PublicKey::EdDSA { .. } =>
                     PublicKey::parse(
                         EdDSA, cur.into_inner()).unwrap(),
@@ -1095,9 +1095,9 @@ mod tests {
                 SecretKeyMaterial::ECDH { .. } =>
                     SecretKeyMaterial::parse(
                         ECDH, cur.into_inner()).unwrap(),
-                SecretKeyMaterial::Elgamal { .. } =>
+                SecretKeyMaterial::ElGamal { .. } =>
                     SecretKeyMaterial::parse(
-                        ElgamalEncrypt, cur.into_inner()).unwrap(),
+                        ElGamalEncrypt, cur.into_inner()).unwrap(),
 
                 SecretKeyMaterial::Unknown { .. } => unreachable!(),
             };
@@ -1122,9 +1122,9 @@ mod tests {
                 Ciphertext::RSA { .. } =>
                     Ciphertext::parse(
                         RSAEncryptSign, cur.into_inner()).unwrap(),
-                Ciphertext::Elgamal { .. } =>
+                Ciphertext::ElGamal { .. } =>
                     Ciphertext::parse(
-                        ElgamalEncrypt, cur.into_inner()).unwrap(),
+                        ElGamalEncrypt, cur.into_inner()).unwrap(),
                 Ciphertext::ECDH { .. } =>
                     Ciphertext::parse(
                         ECDH, cur.into_inner()).unwrap(),
@@ -1155,9 +1155,9 @@ mod tests {
                 Signature::DSA { .. } =>
                     Signature::parse(
                         DSA, cur.into_inner()).unwrap(),
-                Signature::Elgamal { .. } =>
+                Signature::ElGamal { .. } =>
                     Signature::parse(
-                        ElgamalEncryptSign, cur.into_inner()).unwrap(),
+                        ElGamalEncryptSign, cur.into_inner()).unwrap(),
                 Signature::EdDSA { .. } =>
                     Signature::parse(
                         EdDSA, cur.into_inner()).unwrap(),

@@ -252,11 +252,11 @@ impl Decryptor for KeyPair {
                 }
             }
 
-            (PublicKey::Elgamal{ .. },
-             mpis::SecretKeyMaterial::Elgamal{ .. },
-             mpis::Ciphertext::Elgamal{ .. }) =>
+            (PublicKey::ElGamal{ .. },
+             mpis::SecretKeyMaterial::ElGamal{ .. },
+             mpis::Ciphertext::ElGamal{ .. }) =>
                 return Err(
-                    Error::UnsupportedPublicKeyAlgorithm(ElgamalEncrypt).into()),
+                    Error::UnsupportedPublicKeyAlgorithm(ElGamalEncrypt).into()),
 
             (PublicKey::ECDH{ .. },
              mpis::SecretKeyMaterial::ECDH { .. },

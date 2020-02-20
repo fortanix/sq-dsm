@@ -316,7 +316,7 @@ impl PacketDumper {
                                        &[p.value(), q.value(), g.value(),
                                          y.value()],
                                        &["p", "q", "g", "y"])?,
-                    mpis::PublicKey::Elgamal { p, g, y } =>
+                    mpis::PublicKey::ElGamal { p, g, y } =>
                         pd.dump_mpis(output, &ii,
                                        &[p.value(), g.value(), y.value()],
                                        &["p", "g", "y"])?,
@@ -371,7 +371,7 @@ impl PacketDumper {
                                     mpis::SecretKeyMaterial::DSA { x } =>
                                         pd.dump_mpis(output, &ii, &[x.value()],
                                                        &["x"])?,
-                                    mpis::SecretKeyMaterial::Elgamal { x } =>
+                                    mpis::SecretKeyMaterial::ElGamal { x } =>
                                         pd.dump_mpis(output, &ii, &[x.value()],
                                                        &["x"])?,
                                     mpis::SecretKeyMaterial::EdDSA { scalar } =>
@@ -471,7 +471,7 @@ impl PacketDumper {
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        mpis::Signature::Elgamal { r, s } =>
+                        mpis::Signature::ElGamal { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
@@ -583,7 +583,7 @@ impl PacketDumper {
                             self.dump_mpis(output, &ii,
                                            &[c.value()],
                                            &["c"])?,
-                        mpis::Ciphertext::Elgamal { e, c } =>
+                        mpis::Ciphertext::ElGamal { e, c } =>
                             self.dump_mpis(output, &ii,
                                            &[e.value(), c.value()],
                                            &["e", "c"])?,

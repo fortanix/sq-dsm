@@ -576,7 +576,7 @@ impl Serialize for crypto::mpis::PublicKey {
                 y.serialize(w)?;
             }
 
-            &Elgamal { ref p, ref g, ref y } => {
+            &ElGamal { ref p, ref g, ref y } => {
                 p.serialize(w)?;
                 g.serialize(w)?;
                 y.serialize(w)?;
@@ -626,7 +626,7 @@ impl SerializeInto for crypto::mpis::PublicKey {
                     + y.serialized_len()
             }
 
-            &Elgamal { ref p, ref g, ref y } => {
+            &ElGamal { ref p, ref g, ref y } => {
                 p.serialized_len() + g.serialized_len() + y.serialized_len()
             }
 
@@ -670,7 +670,7 @@ impl Serialize for crypto::mpis::SecretKeyMaterial {
                 x.serialize(w)?;
             }
 
-            &Elgamal{ ref x } => {
+            &ElGamal{ ref x } => {
                 x.serialize(w)?;
             }
 
@@ -711,7 +711,7 @@ impl SerializeInto for crypto::mpis::SecretKeyMaterial {
                 x.serialized_len()
             }
 
-            &Elgamal{ ref x } => {
+            &ElGamal{ ref x } => {
                 x.serialized_len()
             }
 
@@ -765,7 +765,7 @@ impl Serialize for crypto::mpis::Ciphertext {
                 c.serialize(w)?;
             }
 
-            &Elgamal{ ref e, ref c } => {
+            &ElGamal{ ref e, ref c } => {
                 e.serialize(w)?;
                 c.serialize(w)?;
             }
@@ -797,7 +797,7 @@ impl SerializeInto for crypto::mpis::Ciphertext {
                 c.serialized_len()
             }
 
-            &Elgamal{ ref e, ref c } => {
+            &ElGamal{ ref e, ref c } => {
                 e.serialized_len() + c.serialized_len()
             }
 
@@ -829,7 +829,7 @@ impl Serialize for crypto::mpis::Signature {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
-            &Elgamal { ref r, ref s } => {
+            &ElGamal { ref r, ref s } => {
                 r.serialize(w)?;
                 s.serialize(w)?;
             }
@@ -864,7 +864,7 @@ impl SerializeInto for crypto::mpis::Signature {
             &DSA { ref r, ref s } => {
                 r.serialized_len() + s.serialized_len()
             }
-            &Elgamal { ref r, ref s } => {
+            &ElGamal { ref r, ref s } => {
                 r.serialized_len() + s.serialized_len()
             }
             &EdDSA { ref r, ref s } => {

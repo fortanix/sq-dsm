@@ -117,7 +117,7 @@ impl PublicKey {
                 hash_sexp_mpi(&mut hash, 'y', b"", y);
             },
 
-            &Elgamal { ref p, ref g, ref y } => {
+            &ElGamal { ref p, ref g, ref y } => {
                 hash_sexp_mpi(&mut hash, 'p', b"\x00", p);
                 hash_sexp_mpi(&mut hash, 'g', b"", g);
                 hash_sexp_mpi(&mut hash, 'y', b"", y);
@@ -257,7 +257,7 @@ mod tests {
                      ", false).unwrap().into(),
             }, Keygrip(*b"\xc6\x39\x83\x1a\x43\xe5\x05\x5d\xc6\xd8\
                           \x4a\xa6\xf9\xeb\x23\xbf\xa9\x12\x2d\x5b")),
-            (PublicKey::Elgamal {
+            (PublicKey::ElGamal {
                 p: from_hex(
                     "00B93B93386375F06C2D38560F3B9C6D6D7B7506B20C1773F73F8DE56E6CD65D\
                      F48DFAAA1E93F57A2789B168362A0F787320499F0B2461D3A4268757A7B27517\

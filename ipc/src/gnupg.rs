@@ -751,7 +751,7 @@ impl<'a> crypto::Decryptor for KeyPair<'a> {
 
         match (self.public.mpis(), ciphertext) {
             (PublicKey::RSA { .. }, Ciphertext::RSA { .. })
-                | (PublicKey::Elgamal { .. }, Ciphertext::Elgamal { .. })
+                | (PublicKey::ElGamal { .. }, Ciphertext::ElGamal { .. })
                 | (PublicKey::ECDH { .. }, Ciphertext::ECDH { .. }) => {
                     let mut a = Agent::connect_to(&self.agent_socket).wait()?;
                     let sk = a.decrypt(self.public, ciphertext).wait()?;

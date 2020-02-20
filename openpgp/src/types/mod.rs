@@ -53,19 +53,19 @@ pub enum PublicKeyAlgorithm {
     #[deprecated(since = "rfc4880",
                  note = "Use `PublicKeyAlgorithm::RSAEncryptSign`.")]
     RSASign,
-    /// Elgamal (Encrypt-Only)
-    ElgamalEncrypt,
+    /// ElGamal (Encrypt-Only)
+    ElGamalEncrypt,
     /// DSA (Digital Signature Algorithm)
     DSA,
     /// Elliptic curve DH
     ECDH,
     /// Elliptic curve DSA
     ECDSA,
-    /// Elgamal (Encrypt or Sign)
+    /// ElGamal (Encrypt or Sign)
     #[deprecated(since = "rfc4880",
                  note = "If you really must, use \
-                         `PublicKeyAlgorithm::ElgamalEncrypt`.")]
-    ElgamalEncryptSign,
+                         `PublicKeyAlgorithm::ElGamalEncrypt`.")]
+    ElGamalEncryptSign,
     /// "Twisted" Edwards curve DSA
     EdDSA,
     /// Private algorithm identifier.
@@ -80,7 +80,7 @@ impl PublicKeyAlgorithm {
         use self::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
         match &self {
-            RSAEncryptSign | RSASign | DSA | ECDSA | ElgamalEncryptSign
+            RSAEncryptSign | RSASign | DSA | ECDSA | ElGamalEncryptSign
                 | EdDSA => true,
             _ => false,
         }
@@ -91,8 +91,8 @@ impl PublicKeyAlgorithm {
         use self::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
         match &self {
-            RSAEncryptSign | RSAEncrypt | ElgamalEncrypt | ECDH
-                | ElgamalEncryptSign => true,
+            RSAEncryptSign | RSAEncrypt | ElGamalEncrypt | ECDH
+                | ElGamalEncryptSign => true,
             _ => false,
         }
     }
@@ -104,7 +104,7 @@ impl PublicKeyAlgorithm {
         match &self {
             RSAEncryptSign | RSAEncrypt | RSASign | DSA | ECDH | ECDSA | EdDSA
                 => true,
-            ElgamalEncrypt | ElgamalEncryptSign | Private(_) | Unknown(_)
+            ElGamalEncrypt | ElGamalEncryptSign | Private(_) | Unknown(_)
                 => false,
         }
     }
@@ -118,11 +118,11 @@ impl From<u8> for PublicKeyAlgorithm {
             1 => RSAEncryptSign,
             2 => RSAEncrypt,
             3 => RSASign,
-            16 => ElgamalEncrypt,
+            16 => ElGamalEncrypt,
             17 => DSA,
             18 => ECDH,
             19 => ECDSA,
-            20 => ElgamalEncryptSign,
+            20 => ElGamalEncryptSign,
             22 => EdDSA,
             100..=110 => Private(u),
             u => Unknown(u),
@@ -138,11 +138,11 @@ impl From<PublicKeyAlgorithm> for u8 {
             RSAEncryptSign => 1,
             RSAEncrypt => 2,
             RSASign => 3,
-            ElgamalEncrypt => 16,
+            ElGamalEncrypt => 16,
             DSA => 17,
             ECDH => 18,
             ECDSA => 19,
-            ElgamalEncryptSign => 20,
+            ElGamalEncryptSign => 20,
             EdDSA => 22,
             Private(u) => u,
             Unknown(u) => u,
@@ -158,10 +158,10 @@ impl fmt::Display for PublicKeyAlgorithm {
             RSAEncryptSign => f.write_str("RSA (Encrypt or Sign)"),
             RSAEncrypt => f.write_str("RSA Encrypt-Only"),
             RSASign => f.write_str("RSA Sign-Only"),
-            ElgamalEncrypt => f.write_str("Elgamal (Encrypt-Only)"),
+            ElGamalEncrypt => f.write_str("ElGamal (Encrypt-Only)"),
             DSA => f.write_str("DSA (Digital Signature Algorithm)"),
             ECDSA => f.write_str("ECDSA public key algorithm"),
-            ElgamalEncryptSign => f.write_str("Elgamal (Encrypt or Sign)"),
+            ElGamalEncryptSign => f.write_str("ElGamal (Encrypt or Sign)"),
             ECDH => f.write_str("ECDH public key algorithm"),
             EdDSA => f.write_str("EdDSA Edwards-curve Digital Signature Algorithm"),
             Private(u) =>

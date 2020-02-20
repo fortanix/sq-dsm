@@ -53,7 +53,7 @@ impl Sexp {
                             Sexp::String("a".into()),
                             Sexp::String(c.value().into())])])])),
 
-            &Elgamal { ref e, ref c } =>
+            &ElGamal { ref e, ref c } =>
                 Ok(Sexp::List(vec![
                     Sexp::String("enc-val".into()),
                     Sexp::List(vec![
@@ -109,7 +109,7 @@ impl Sexp {
 
         match value {
             Sexp::String(ref s) => match recipient.mpis() {
-                PublicKey::RSA { .. } | PublicKey::Elgamal { .. } if padding =>
+                PublicKey::RSA { .. } | PublicKey::ElGamal { .. } if padding =>
                 {
                     // The session key is padded.  The format is
                     // described in g10/pubkey-enc.c (note that we,
@@ -154,7 +154,7 @@ impl Sexp {
                     Ok(s.to_vec().into())
                 },
 
-                PublicKey::RSA { .. } | PublicKey::Elgamal { .. } => {
+                PublicKey::RSA { .. } | PublicKey::ElGamal { .. } => {
                     // The session key is not padded.  Currently, this
                     // happens if the session key is decrypted using
                     // scdaemon.

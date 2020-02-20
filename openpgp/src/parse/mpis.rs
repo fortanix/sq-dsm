@@ -70,7 +70,7 @@ impl mpis::PublicKey {
                 })
             }
 
-            ElgamalEncrypt | ElgamalEncryptSign => {
+            ElGamalEncrypt | ElGamalEncryptSign => {
                 let p = MPI::parse("elgamal_public_p_len", "elgamal_public_p",
                                    php)?;
                 let g = MPI::parse("elgamal_public_g_len", "elgamal_public_g",
@@ -78,7 +78,7 @@ impl mpis::PublicKey {
                 let y = MPI::parse("elgamal_public_y_len", "elgamal_public_y",
                                    php)?;
 
-                Ok(mpis::PublicKey::Elgamal {
+                Ok(mpis::PublicKey::ElGamal {
                     p: p,
                     g: g,
                     y: y,
@@ -234,11 +234,11 @@ impl mpis::SecretKeyMaterial {
                 })
             }
 
-            ElgamalEncrypt | ElgamalEncryptSign => {
+            ElGamalEncrypt | ElGamalEncryptSign => {
                 let x = MPI::parse("elgamal_secret_len", "elgamal_secret",
                                    php)?;
 
-                Ok(mpis::SecretKeyMaterial::Elgamal {
+                Ok(mpis::SecretKeyMaterial::ElGamal {
                     x: x.into(),
                 })
             }
@@ -322,11 +322,11 @@ impl mpis::Ciphertext {
                 })
             }
 
-            ElgamalEncrypt | ElgamalEncryptSign => {
+            ElGamalEncrypt | ElGamalEncryptSign => {
                 let e = MPI::parse("elgamal_e_len", "elgamal_e", php)?;
                 let c = MPI::parse("elgamal_c_len", "elgamal_c", php)?;
 
-                Ok(mpis::Ciphertext::Elgamal {
+                Ok(mpis::Ciphertext::ElGamal {
                     e: e,
                     c: c,
                 })
@@ -415,13 +415,13 @@ impl mpis::Signature {
                 })
             }
 
-            ElgamalEncryptSign => {
+            ElGamalEncryptSign => {
                 let r = MPI::parse("elgamal_sig_r_len",
                                    "elgamal_sig_r", php)?;
                 let s = MPI::parse("elgamal_sig_s_len",
                                    "elgamal_sig_s", php)?;
 
-                Ok(mpis::Signature::Elgamal {
+                Ok(mpis::Signature::ElGamal {
                     r: r,
                     s: s,
                 })
@@ -465,7 +465,7 @@ impl mpis::Signature {
                 })
             }
 
-            RSAEncrypt | ElgamalEncrypt | ECDH => Err(Error::InvalidArgument(
+            RSAEncrypt | ElGamalEncrypt | ECDH => Err(Error::InvalidArgument(
                 format!("not a signature algorithm: {:?}", algo)).into()),
         }
     }
