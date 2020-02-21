@@ -731,6 +731,10 @@ pub enum HashAlgorithm {
     Private(u8),
     /// Unknown hash algorithm identifier.
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for HashAlgorithm {
@@ -767,6 +771,7 @@ impl From<HashAlgorithm> for u8 {
             HashAlgorithm::SHA224 => 11,
             HashAlgorithm::Private(u) => u,
             HashAlgorithm::Unknown(u) => u,
+            HashAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -809,6 +814,7 @@ impl fmt::Display for HashAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental hash algorithm {}", u)),
             HashAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown hash algorithm {}", u)),
+            HashAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
