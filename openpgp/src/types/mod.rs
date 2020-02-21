@@ -867,6 +867,10 @@ pub enum SignatureType {
 
     /// Catchall.
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl From<u8> for SignatureType {
@@ -911,6 +915,7 @@ impl From<SignatureType> for u8 {
             SignatureType::Timestamp => 0x40,
             SignatureType::Confirmation => 0x50,
             SignatureType::Unknown(u) => u,
+            SignatureType::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -950,6 +955,7 @@ impl fmt::Display for SignatureType {
                 f.write_str("Confirmation"),
             SignatureType::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown signature type 0x{:x}", u)),
+            SignatureType::__Nonexhaustive => unreachable!(),
         }
     }
 }
