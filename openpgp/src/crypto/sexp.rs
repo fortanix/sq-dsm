@@ -81,6 +81,8 @@ impl Sexp {
                 Err(Error::InvalidArgument(
                     format!("Don't know how to convert {:?}", ciphertext))
                     .into()),
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 

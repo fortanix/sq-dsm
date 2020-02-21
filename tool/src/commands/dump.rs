@@ -609,6 +609,7 @@ impl PacketDumper {
 
                             self.dump_mpis(output, &ii, &[rest], &["rest"])?;
                         },
+                        mpis::Ciphertext::__Nonexhaustive => unreachable!(),
                     }
                 }
             },

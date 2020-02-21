@@ -791,6 +791,8 @@ impl Serialize for crypto::mpis::Ciphertext {
                 }
                 w.write_all(rest)?;
             }
+
+            __Nonexhaustive => unreachable!(),
         }
 
         Ok(())
@@ -817,6 +819,8 @@ impl SerializeInto for crypto::mpis::Ciphertext {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 
