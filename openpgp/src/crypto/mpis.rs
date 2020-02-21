@@ -361,50 +361,6 @@ pub enum PublicKey {
 }
 
 impl PublicKey {
-    /// Number of octets all MPIs of this instance occupy when serialized.
-    pub fn serialized_len(&self) -> usize {
-        use self::PublicKey::*;
-
-        // Fields are mostly MPIs that consist of two octets length
-        // plus the big endian value itself. All other field types are
-        // commented.
-        match self {
-            &RSA { ref e, ref n } =>
-                2 + e.value.len() + 2 + n.value.len(),
-
-            &DSA { ref p, ref q, ref g, ref y } =>
-                2 + p.value.len() + 2 + q.value.len() +
-                2 + g.value.len() + 2 + y.value.len(),
-
-            &ElGamal { ref p, ref g, ref y } =>
-                2 + p.value.len() +
-                2 + g.value.len() + 2 + y.value.len(),
-
-            &EdDSA { ref curve, ref q } =>
-                2 + q.value.len() +
-                // one length octet plus the ASN.1 OID
-                1 + curve.oid().len(),
-
-            &ECDSA { ref curve, ref q } =>
-                2 + q.value.len() +
-                // one length octet plus the ASN.1 OID
-                1 + curve.oid().len(),
-
-            &ECDH { ref curve, ref q, .. } =>
-                // one length octet plus the ASN.1 OID
-                1 + curve.oid().len() +
-                2 + q.value.len() +
-                // one octet length, one reserved and two algorithm identifier.
-                4,
-
-            &Unknown { ref mpis, ref rest } =>
-                mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
-                + rest.len(),
-
-            __Nonexhaustive => unreachable!(),
-        }
-    }
-
     /// Returns the length of the public key in bits.
     ///
     /// For finite field crypto this returns the size of the field we
@@ -698,36 +654,6 @@ impl PartialEq for SecretKeyMaterial {
 impl Eq for SecretKeyMaterial {}
 
 impl SecretKeyMaterial {
-    /// Number of octets all MPIs of this instance occupy when serialized.
-    pub fn serialized_len(&self) -> usize {
-        use self::SecretKeyMaterial::*;
-
-        // Fields are mostly MPIs that consist of two octets length
-        // plus the big endian value itself. All other field types are
-        // commented.
-        match self {
-            &RSA { ref d, ref p, ref q, ref u } =>
-                2 + d.value.len() + 2 + q.value.len() +
-                2 + p.value.len() + 2 + u.value.len(),
-
-            &DSA { ref x } => 2 + x.value.len(),
-
-            &ElGamal { ref x } => 2 + x.value.len(),
-
-            &EdDSA { ref scalar } => 2 + scalar.value.len(),
-
-            &ECDSA { ref scalar } => 2 + scalar.value.len(),
-
-            &ECDH { ref scalar } => 2 + scalar.value.len(),
-
-            &Unknown { ref mpis, ref rest } =>
-                mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
-                + rest.len(),
-
-            __Nonexhaustive => unreachable!(),
-        }
-    }
-
     /// Returns, if known, the public-key algorithm for this secret
     /// key.
     pub fn algo(&self) -> Option<PublicKeyAlgorithm> {
@@ -829,33 +755,6 @@ pub enum Ciphertext {
 }
 
 impl Ciphertext {
-    /// Number of octets all MPIs of this instance occupy when serialized.
-    pub fn serialized_len(&self) -> usize {
-        use self::Ciphertext::*;
-
-        // Fields are mostly MPIs that consist of two octets length
-        // plus the big endian value itself. All other field types are
-        // commented.
-        match self {
-            &RSA { ref c } =>
-                2 + c.value.len(),
-
-            &ElGamal { ref e, ref c } =>
-                2 + e.value.len() + 2 + c.value.len(),
-
-            &ECDH { ref e, ref key } =>
-                2 + e.value.len() +
-                // one length octet plus ephemeral key
-                1 + key.len(),
-
-            &Unknown { ref mpis, ref rest } =>
-                mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
-                + rest.len(),
-
-            __Nonexhaustive => unreachable!(),
-        }
-    }
-
     /// Returns, if known, the public-key algorithm for this
     /// ciphertext.
     pub fn pk_algo(&self) -> Option<PublicKeyAlgorithm> {
@@ -957,39 +856,6 @@ pub enum Signature {
     /// This marks this enum as non-exhaustive.  Do not use this
     /// variant.
     #[doc(hidden)] __Nonexhaustive,
-}
-
-impl Signature {
-    /// Number of octets all MPIs of this instance occupy when serialized.
-    pub fn serialized_len(&self) -> usize {
-        use self::Signature::*;
-
-        // Fields are mostly MPIs that consist of two octets length
-        // plus the big endian value itself. All other field types are
-        // commented.
-        match self {
-            &RSA { ref s } =>
-                2 + s.value.len(),
-
-            &DSA { ref r, ref s } =>
-                2 + r.value.len() + 2 + s.value.len(),
-
-            &ElGamal { ref r, ref s } =>
-                2 + r.value.len() + 2 + s.value.len(),
-
-            &EdDSA { ref r, ref s } =>
-                2 + r.value.len() + 2 + s.value.len(),
-
-            &ECDSA { ref r, ref s } =>
-                2 + r.value.len() + 2 + s.value.len(),
-
-            &Unknown { ref mpis, ref rest } =>
-                mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
-                + rest.len(),
-
-            __Nonexhaustive => unreachable!(),
-        }
-    }
 }
 
 impl Hash for Signature {

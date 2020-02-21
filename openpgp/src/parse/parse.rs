@@ -1171,6 +1171,7 @@ impl_parse_generic_packet!(Signature);
 
 #[test]
 fn signature_parser_test () {
+    use crate::serialize::SerializeInto;
     let data = crate::tests::message("sig.gpg");
 
     {

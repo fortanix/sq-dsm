@@ -483,6 +483,7 @@ impl mpis::Signature {
 fn mpis_parse_test() {
     use super::Parse;
     use crate::PublicKeyAlgorithm::*;
+    use crate::serialize::SerializeInto;
 
     // Dummy RSA public key.
     {

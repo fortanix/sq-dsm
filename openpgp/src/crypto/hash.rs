@@ -245,6 +245,8 @@ impl<P, R> Hash for Key4<P, R>
 {
     /// Update the Hash with a hash of the key.
     fn hash(&self, hash: &mut Context) {
+        use crate::serialize::SerializeInto;
+
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
         let len = (9 - 3) + self.mpis().serialized_len();

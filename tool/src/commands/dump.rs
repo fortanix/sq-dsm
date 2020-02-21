@@ -501,6 +501,8 @@ impl PacketDumper {
 
                             self.dump_mpis(output, &ii, &[&rest[..]], &["rest"])?;
                         },
+                        mpis::Signature::__Nonexhaustive => unreachable!(),
+
                     }
                 }
             },
