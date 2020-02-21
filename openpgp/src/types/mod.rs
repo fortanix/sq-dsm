@@ -993,6 +993,10 @@ pub enum ReasonForRevocation {
 
     /// Unknown reason identifier.
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl From<u8> for ReasonForRevocation {
@@ -1021,6 +1025,7 @@ impl From<ReasonForRevocation> for u8 {
             UIDRetired => 32,
             Private(u) => u,
             Unknown(u) => u,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1045,6 +1050,7 @@ impl fmt::Display for ReasonForRevocation {
             Unknown(u) =>
                 f.write_fmt(format_args!(
                     "Unknown revocation reason {}", u)),
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1097,6 +1103,7 @@ impl ReasonForRevocation {
             ReasonForRevocation::UIDRetired => RevocationType::Soft,
             ReasonForRevocation::Private(_) => RevocationType::Hard,
             ReasonForRevocation::Unknown(_) => RevocationType::Hard,
+            ReasonForRevocation::__Nonexhaustive => unreachable!(),
         }
     }
 }
