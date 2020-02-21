@@ -403,6 +403,8 @@ impl PacketDumper {
                                         pd.dump_mpis(output, &ii, &[rest],
                                                        &["rest"])?;
                                     },
+                                    mpis::SecretKeyMaterial::__Nonexhaustive =>
+                                        unreachable!(),
                                 } Ok(()) })?,
                         SecretKeyMaterial::Encrypted(ref e) => {
                             writeln!(output, "{}", i)?;

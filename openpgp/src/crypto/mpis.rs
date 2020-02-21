@@ -554,6 +554,10 @@ pub enum SecretKeyMaterial {
         /// Any data that failed to parse.
         rest: Protected,
     },
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl fmt::Debug for SecretKeyMaterial {
@@ -574,6 +578,7 @@ impl fmt::Debug for SecretKeyMaterial {
                     write!(f, "ECDH {{ scalar: {:?} }}", scalar),
                 &SecretKeyMaterial::Unknown{ ref mpis, ref rest } =>
                     write!(f, "Unknown {{ mips: {:?}, rest: {:?} }}", mpis, rest),
+                SecretKeyMaterial::__Nonexhaustive => unreachable!(),
             }
         } else {
             match self {
@@ -591,6 +596,7 @@ impl fmt::Debug for SecretKeyMaterial {
                     f.write_str("ECDH { <Redacted> }"),
                 &SecretKeyMaterial::Unknown{ .. } =>
                     f.write_str("Unknown { <Redacted> }"),
+                SecretKeyMaterial::__Nonexhaustive => unreachable!(),
             }
         }
     }
@@ -616,6 +622,7 @@ impl PartialOrd for SecretKeyMaterial {
                 &SecretKeyMaterial::ECDSA{ .. } => 4,
                 &SecretKeyMaterial::ECDH{ .. } => 5,
                 &SecretKeyMaterial::Unknown{ .. } => 6,
+                SecretKeyMaterial::__Nonexhaustive => unreachable!(),
             }
         }
 
@@ -716,6 +723,8 @@ impl SecretKeyMaterial {
             &Unknown { ref mpis, ref rest } =>
                 mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
                 + rest.len(),
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -731,6 +740,7 @@ impl SecretKeyMaterial {
             ECDSA { .. } => Some(PublicKeyAlgorithm::ECDSA),
             ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
             Unknown { .. } => None,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1050,6 +1060,7 @@ mod tests {
                         ECDH, cur.into_inner()).unwrap(),
 
                 PublicKey::Unknown { .. } => unreachable!(),
+                PublicKey::__Nonexhaustive => unreachable!(),
             };
 
             pk == pk_
@@ -1108,6 +1119,7 @@ mod tests {
                         ElGamalEncrypt, cur.into_inner()).unwrap(),
 
                 SecretKeyMaterial::Unknown { .. } => unreachable!(),
+                SecretKeyMaterial::__Nonexhaustive => unreachable!(),
             };
 
             sk == sk_
