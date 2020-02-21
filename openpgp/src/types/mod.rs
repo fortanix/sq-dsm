@@ -1140,6 +1140,10 @@ pub enum DataFormat {
 
     /// Unknown format specifier.
     Unknown(char),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for DataFormat {
@@ -1182,6 +1186,7 @@ impl From<DataFormat> for char {
             Unicode => 'u',
             MIME => 'm',
             Unknown(c) => c,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1201,6 +1206,7 @@ impl fmt::Display for DataFormat {
             Unknown(c) =>
                 f.write_fmt(format_args!(
                     "Unknown data format identifier {:?}", c)),
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
