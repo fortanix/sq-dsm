@@ -739,7 +739,9 @@ pub enum HashAlgorithm {
 
 impl Default for HashAlgorithm {
     fn default() -> Self {
-        HashAlgorithm::SHA256
+        // SHA512 is almost twice as fast as SHA256 on 64-bit
+        // architectures because it operates on 64-bit words.
+        HashAlgorithm::SHA512
     }
 }
 
