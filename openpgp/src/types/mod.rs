@@ -531,6 +531,10 @@ pub enum AEADAlgorithm {
     Private(u8),
     /// Unknown algorithm identifier.
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl AEADAlgorithm {
@@ -542,6 +546,7 @@ impl AEADAlgorithm {
                 => true,
             OCB | Private(_) | Unknown(_)
                 => false,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -564,6 +569,7 @@ impl From<AEADAlgorithm> for u8 {
             AEADAlgorithm::OCB => 2,
             AEADAlgorithm::Private(u) => u,
             AEADAlgorithm::Unknown(u) => u,
+            AEADAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -579,6 +585,7 @@ impl fmt::Display for AEADAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental AEAD algorithm {}", u)),
             AEADAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown AEAD algorithm {}", u)),
+            AEADAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
