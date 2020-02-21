@@ -72,6 +72,10 @@ pub enum PublicKeyAlgorithm {
     Private(u8),
     /// Unknown algorithm identifier.
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl PublicKeyAlgorithm {
@@ -82,6 +86,7 @@ impl PublicKeyAlgorithm {
         match &self {
             RSAEncryptSign | RSASign | DSA | ECDSA | ElGamalEncryptSign
                 | EdDSA => true,
+            __Nonexhaustive => unreachable!(),
             _ => false,
         }
     }
@@ -93,6 +98,7 @@ impl PublicKeyAlgorithm {
         match &self {
             RSAEncryptSign | RSAEncrypt | ElGamalEncrypt | ECDH
                 | ElGamalEncryptSign => true,
+            __Nonexhaustive => unreachable!(),
             _ => false,
         }
     }
@@ -106,6 +112,7 @@ impl PublicKeyAlgorithm {
                 => true,
             ElGamalEncrypt | ElGamalEncryptSign | Private(_) | Unknown(_)
                 => false,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -146,6 +153,7 @@ impl From<PublicKeyAlgorithm> for u8 {
             EdDSA => 22,
             Private(u) => u,
             Unknown(u) => u,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -168,6 +176,7 @@ impl fmt::Display for PublicKeyAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental public key algorithm {}", u)),
             Unknown(u) =>
                 f.write_fmt(format_args!("Unknown public key algorithm {}", u)),
+            __Nonexhaustive => unreachable!(),
         }
     }
 }

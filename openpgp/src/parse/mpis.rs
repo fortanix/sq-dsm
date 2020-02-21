@@ -143,6 +143,8 @@ impl mpis::PublicKey {
                     rest: rest.into_boxed_slice(),
                 })
             }
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -277,6 +279,8 @@ impl mpis::SecretKeyMaterial {
                     rest: rest.into(),
                 })
             }
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -359,6 +363,8 @@ impl mpis::Ciphertext {
 
             RSASign | DSA | EdDSA | ECDSA => Err(Error::InvalidArgument(
                 format!("not an encryption algorithm: {:?}", algo)).into()),
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -467,6 +473,8 @@ impl mpis::Signature {
 
             RSAEncrypt | ElGamalEncrypt | ECDH => Err(Error::InvalidArgument(
                 format!("not a signature algorithm: {:?}", algo)).into()),
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
