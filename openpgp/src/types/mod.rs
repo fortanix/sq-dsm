@@ -399,6 +399,10 @@ pub enum SymmetricAlgorithm {
     Private(u8),
     /// Unknown algorithm identifier.
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for SymmetricAlgorithm {
@@ -417,6 +421,7 @@ impl SymmetricAlgorithm {
                 => true,
             Unencrypted | IDEA | Private(_) | Unknown(_)
                 => false,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -459,6 +464,7 @@ impl From<SymmetricAlgorithm> for u8 {
             SymmetricAlgorithm::Camellia256 => 13,
             SymmetricAlgorithm::Private(u) => u,
             SymmetricAlgorithm::Unknown(u) => u,
+            SymmetricAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -494,6 +500,7 @@ impl fmt::Display for SymmetricAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental symmetric key algorithm {}", u)),
             SymmetricAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown symmetric key algorithm {}", u)),
+            SymmetricAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
