@@ -953,6 +953,10 @@ pub enum Signature {
         /// Any data that failed to parse.
         rest: Box<[u8]>,
     },
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Signature {
@@ -982,6 +986,8 @@ impl Signature {
             &Unknown { ref mpis, ref rest } =>
                 mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
                 + rest.len(),
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1194,6 +1200,7 @@ mod tests {
                         ECDSA, cur.into_inner()).unwrap(),
 
                 Signature::Unknown { .. } => unreachable!(),
+                Signature::__Nonexhaustive => unreachable!(),
             };
 
             sig == sig_
