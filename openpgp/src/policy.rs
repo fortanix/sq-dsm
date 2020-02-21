@@ -487,12 +487,12 @@ impl StandardPolicy {
     /// algorithm has no known vulnerabilities.
     ///
     /// By default, we reject the use of TripleDES (3DES) starting in
-    /// 2017.  While 3DES is still a ["MUST implement"] algorithm in
-    /// RFC4880, released in 2007, there are plenty of other symmetric
-    /// algorithms defined in RFC4880, and it says AES-128 SHOULD be
-    /// implemented.  Support for other algorithms in OpenPGP
-    /// implementations is [excellent].  We chose 2017 as the cutoff
-    /// year because [NIST deprecated 3DES] that year.
+    /// the year 2017.  While 3DES is still a ["MUST implement"]
+    /// algorithm in RFC4880, released in 2007, there are plenty of
+    /// other symmetric algorithms defined in RFC4880, and it says
+    /// AES-128 SHOULD be implemented.  Support for other algorithms
+    /// in OpenPGP implementations is [excellent].  We chose 2017 as
+    /// the cutoff year because [NIST deprecated 3DES] that year.
     ///
     ///   ["MUST implement"]: https://tools.ietf.org/html/rfc4880#section-9.2
     ///   [excellent]: https://tests.sequoia-pgp.org/#Symmetric_Encryption_Algorithm_support
