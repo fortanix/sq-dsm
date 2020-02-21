@@ -623,6 +623,10 @@ pub enum CompressionAlgorithm {
     Private(u8),
     /// Unknown compression algorithm identifier.
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for CompressionAlgorithm {
@@ -649,6 +653,7 @@ impl CompressionAlgorithm {
             Zip | Zlib => true,
             #[cfg(feature = "compression-bzip2")]
             BZip2 => true,
+            __Nonexhaustive => unreachable!(),
             _ => false,
         }
     }
@@ -676,6 +681,7 @@ impl From<CompressionAlgorithm> for u8 {
             CompressionAlgorithm::BZip2 => 3,
             CompressionAlgorithm::Private(u) => u,
             CompressionAlgorithm::Unknown(u) => u,
+            CompressionAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -691,6 +697,7 @@ impl fmt::Display for CompressionAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental compression algorithm {}", u)),
             CompressionAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown comppression algorithm {}", u)),
+            CompressionAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
