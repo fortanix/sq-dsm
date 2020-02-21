@@ -354,6 +354,10 @@ pub enum PublicKey {
         /// Any data that failed to parse.
         rest: Box<[u8]>,
     },
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl PublicKey {
@@ -396,6 +400,8 @@ impl PublicKey {
             &Unknown { ref mpis, ref rest } =>
                 mpis.iter().map(|m| 2 + m.value.len()).sum::<usize>()
                 + rest.len(),
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -419,6 +425,7 @@ impl PublicKey {
             &ECDSA { ref curve,.. } => curve.bits(),
             &ECDH { ref curve,.. } => curve.bits(),
             &Unknown { .. } => None,
+            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -434,6 +441,7 @@ impl PublicKey {
             ECDSA { .. } => Some(PublicKeyAlgorithm::ECDSA),
             ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
             Unknown { .. } => None,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }

@@ -607,6 +607,8 @@ impl Serialize for crypto::mpis::PublicKey {
                 }
                 w.write_all(rest)?;
             }
+
+            __Nonexhaustive => unreachable!(),
         }
 
         Ok(())
@@ -646,6 +648,8 @@ impl SerializeInto for crypto::mpis::PublicKey {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 

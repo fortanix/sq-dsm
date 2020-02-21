@@ -131,6 +131,8 @@ impl PublicKey {
                 return Err(Error::InvalidOperation(
                     "Keygrip not defined for this kind of public key".into())
                            .into()),
+
+            __Nonexhaustive => unreachable!(),
         }
 
         let mut digest = [0; 20];

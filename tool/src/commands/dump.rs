@@ -350,6 +350,7 @@ impl PacketDumper {
 
                         pd.dump_mpis(output, &ii, &[&rest[..]], &["rest"])?;
                     },
+                    mpis::PublicKey::__Nonexhaustive => unreachable!(),
                 }
 
                 if let Some(secrets) = k.optional_secret() {
