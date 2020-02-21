@@ -211,6 +211,10 @@ pub enum Curve {
     Cv25519,
     /// Unknown curve.
     Unknown(Box<[u8]>),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Curve {
@@ -236,6 +240,7 @@ impl Curve {
             Ed25519 => Some(256),
             Cv25519 => Some(256),
             Unknown(_) => None,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -255,6 +260,7 @@ impl fmt::Display for Curve {
                 => f.write_str("Elliptic curve Diffie-Hellman using D.J. Bernstein's Curve25519"),
             Unknown(ref oid)
              => write!(f, "Unknown curve (OID: {:?})", oid),
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -298,6 +304,7 @@ impl Curve {
             &Curve::Ed25519 => ED25519_OID,
             &Curve::Cv25519 => CV25519_OID,
             &Curve::Unknown(ref oid) => oid,
+            Curve::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -319,6 +326,7 @@ impl Curve {
             &Curve::Unknown(_) =>
                 Err(Error::UnsupportedEllipticCurve(self.clone())
                     .into()),
+            Curve::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -330,6 +338,7 @@ impl Curve {
                 => true,
             BrainpoolP256 | BrainpoolP512 | Unknown(_)
                 => false,
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
