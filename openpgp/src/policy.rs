@@ -41,6 +41,7 @@ use crate::{
     },
     Result,
     types::{
+        AEADAlgorithm,
         HashAlgorithm,
         SignatureType,
         SymmetricAlgorithm,
@@ -108,6 +109,17 @@ pub trait Policy : fmt::Debug {
         Ok(())
     }
 
+    /// Returns an error if the AEAD mode violates the policy.
+    ///
+    /// This function performs the last check before an encryption
+    /// container is decrypted by the streaming decryptor.
+    ///
+    /// With this function, you can prevent the use of insecure AEAD
+    /// constructions.
+    fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+        Ok(())
+    }
+
     /// Returns an error if the packet violates the policy.
     ///
     /// This function performs the last check before a packet is
@@ -155,6 +167,9 @@ pub struct StandardPolicy {
 
     // Symmetric algorithms.
     symmetric_algos: SymmetricAlgorithmCutoffList,
+
+    // AEAD algorithms.
+    aead_algos: AEADAlgorithmCutoffList,
 
     // Asymmetric algorithms.
     asymmetric_algos: AsymmetricAlgorithmCutoffList,
@@ -243,6 +258,13 @@ a_cutoff_list!(SymmetricAlgorithmCutoffList, SymmetricAlgorithm, 14,
                    ACCEPT,                 // 13. Camellia256.
                ]);
 
+a_cutoff_list!(AEADAlgorithmCutoffList, AEADAlgorithm, 3,
+               [
+                   REJECT,                 // 0. Reserved.
+                   ACCEPT,                 // 1. EAX.
+                   ACCEPT,                 // 2. OCB.
+               ]);
+
 a_cutoff_list!(PacketTagCutoffList, Tag, 21,
                [
                    REJECT,                 // 0. Reserved.
@@ -302,6 +324,7 @@ impl StandardPolicy {
             hash_algos_revocation: RevocationHashCutoffList::Default(),
             asymmetric_algos: AsymmetricAlgorithmCutoffList::Default(),
             symmetric_algos: SymmetricAlgorithmCutoffList::Default(),
+            aead_algos: AEADAlgorithmCutoffList::Default(),
             packet_tags: PacketTagCutoffList::Default(),
         }
     }
@@ -512,6 +535,37 @@ impl StandardPolicy {
         self.symmetric_algos.cutoff(s).map(|t| t.into())
     }
 
+    /// Always considers `s` to be secure.
+    pub fn accept_aead_algo(&mut self, a: AEADAlgorithm) {
+        self.aead_algos.set(a, ACCEPT);
+    }
+
+    /// Always considers `s` to be insecure.
+    pub fn reject_aead_algo(&mut self, a: AEADAlgorithm) {
+        self.aead_algos.set(a, REJECT);
+    }
+
+    /// Considers `a` to be insecure starting at `cutoff`.
+    ///
+    /// A cutoff of `None` means that there is no cutoff and the
+    /// algorithm has no known vulnerabilities.
+    ///
+    /// By default, we accept all AEAD modes.
+    pub fn reject_aead_algo_at<C>(&mut self, a: AEADAlgorithm,
+                                       cutoff: C)
+        where C: Into<Option<SystemTime>>,
+    {
+        self.aead_algos.set(
+            a,
+            cutoff.into().and_then(system_time_cutoff_to_timestamp));
+    }
+
+    /// Returns the cutoff times for the specified hash algorithm.
+    pub fn aead_algo_cutoff(&self, a: AEADAlgorithm)
+                                 -> Option<SystemTime> {
+        self.aead_algos.cutoff(a).map(|t| t.into())
+    }
+
     /// Always accept packets with the given tag.
     pub fn accept_packet_tag(&mut self, tag: Tag) {
         self.packet_tags.set(tag, ACCEPT);
@@ -663,6 +717,11 @@ impl Policy for StandardPolicy {
     fn symmetric_algorithm(&self, algo: SymmetricAlgorithm) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.symmetric_algos.check(algo, time)
+    }
+
+    fn aead_algorithm(&self, algo: AEADAlgorithm) -> Result<()> {
+        let time = self.time.unwrap_or_else(Timestamp::now);
+        self.aead_algos.check(algo, time)
     }
 }
 
