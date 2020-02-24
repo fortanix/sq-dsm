@@ -211,6 +211,12 @@ pub enum SubpacketTag {
     Unknown(u8),
 }
 
+impl fmt::Display for SubpacketTag {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl From<u8> for SubpacketTag {
     fn from(u: u8) -> Self {
         match u {
