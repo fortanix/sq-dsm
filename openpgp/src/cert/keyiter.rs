@@ -381,7 +381,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// ```
     ///
     /// [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-    /// [this discussion]: https://crypto.stackexchange.com/a/12138 .
+    /// [This discussion]: https://crypto.stackexchange.com/a/12138
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> ValidKeyIter<'a, P>
         where T: Into<Option<SystemTime>>
