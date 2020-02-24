@@ -1234,8 +1234,6 @@ impl<'a> Read for Reader<'a> {
     }
 }
 
-// XXX: impl BufferedReader for Reader
-
 const CRC24_INIT: u32 = 0xB704CE;
 const CRC24_POLY: u32 = 0x1864CFB;
 
