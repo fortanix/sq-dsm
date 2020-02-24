@@ -1428,8 +1428,9 @@ impl<P, R> Key4<P, R>
                     write_byte(o, 0)?;
 
                     // To compute the checksum, serialize to a buffer first.
-                    let mut buf = Vec::new(); // XXX: Protect this vec.
+                    let mut buf = Vec::new();
                     mpis.serialize(&mut buf)?;
+                    let buf: crate::crypto::mem::Protected = buf.into();
                     let checksum: usize = buf.iter().map(|x| *x as usize)
                         .sum();
 
