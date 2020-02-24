@@ -10,7 +10,7 @@ use crate::{
 /// Designates a key as a valid third-party revoker.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RevocationKey {
-    /// XXX: RFC4880 says nothing about this.
+    /// The public key algorithm used by the authorized key.
     pk_algo: PublicKeyAlgorithm,
 
     /// Fingerprint of authorized key.
