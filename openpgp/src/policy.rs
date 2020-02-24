@@ -952,6 +952,9 @@ mod test {
     use crate::types::KeyFlags;
     use crate::types::SymmetricAlgorithm;
 
+    // Test that the constructor is const.
+    const _A_STANDARD_POLICY: StandardPolicy = StandardPolicy::new();
+
     #[test]
     fn binding_signature() {
         let p = &P::new();
