@@ -30,9 +30,7 @@ pub use self::asymmetric::{
 
 /// Fills the given buffer with random data.
 pub fn random<B: AsMut<[u8]>>(mut buf: B) {
-    use std::cell::RefCell;
-    thread_local!(static RNG: RefCell<Yarrow> = Default::default());
-    RNG.with(|rng| rng.borrow_mut().random(buf.as_mut()));
+    Yarrow::default().random(buf.as_mut());
 }
 
 /// Holds a session key.
