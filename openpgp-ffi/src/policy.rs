@@ -24,7 +24,7 @@ pub struct Policy(Box<dyn policy::Policy>);
 #[crate::ffi_wrapper_type(
     prefix = "pgp_",
     derive = "Clone, Debug")]
-pub struct StandardPolicy(policy::StandardPolicy);
+pub struct StandardPolicy<'a>(policy::StandardPolicy<'a>);
 
 /// Returns a new standard policy.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]

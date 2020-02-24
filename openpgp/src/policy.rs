@@ -33,11 +33,15 @@ use failure::ResultExt;
 
 use crate::{
     cert::components::ValidKeyAmalgamation,
+    Error,
     Packet,
     packet::{
         key,
         Signature,
-        signature::subpacket::SubpacketTag,
+        signature::subpacket::{
+            SubpacketTag,
+            SubpacketValue,
+        },
         Tag,
     },
     Result,
@@ -154,8 +158,8 @@ pub trait Policy : fmt::Debug {
 /// reasonable to use the time that the signature was saved, since an
 /// attacker could not have taken advantage of any weaknesses found
 /// after that time.
-#[derive(Debug, Clone)]
-pub struct StandardPolicy {
+#[derive(Clone, Debug)]
+pub struct StandardPolicy<'a> {
     // The time.  If None, the current time is used.
     time: Option<Timestamp>,
 
@@ -165,6 +169,9 @@ pub struct StandardPolicy {
 
     // Critical subpacket tags.
     critical_subpackets: SubpacketTagCutoffList,
+
+    // Critical notation good-list.
+    good_critical_notations: &'a [&'a str],
 
     // Packet types.
     packet_tags: PacketTagCutoffList,
@@ -179,14 +186,14 @@ pub struct StandardPolicy {
     asymmetric_algos: AsymmetricAlgorithmCutoffList,
 }
 
-impl Default for StandardPolicy {
+impl<'a> Default for StandardPolicy<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<'a> From<&'a StandardPolicy> for Option<&'a dyn Policy> {
-    fn from(p: &'a StandardPolicy) -> Self {
+impl<'a> From<&'a StandardPolicy<'a>> for Option<&'a dyn Policy> {
+    fn from(p: &'a StandardPolicy<'a>) -> Self {
         Some(p as &dyn Policy)
     }
 }
@@ -362,14 +369,16 @@ fn system_time_cutoff_to_timestamp(t: SystemTime) -> Option<Timestamp> {
     }
 }
 
-impl StandardPolicy {
+impl<'a> StandardPolicy<'a> {
     /// Instantiates a new `StandardPolicy` with the default parameters.
     pub const fn new() -> Self {
+        const EMPTY_LIST: &'static [&'static str] = &[];
         Self {
             time: None,
             hash_algos_normal: NormalHashCutoffList::Default(),
             hash_algos_revocation: RevocationHashCutoffList::Default(),
             critical_subpackets: SubpacketTagCutoffList::Default(),
+            good_critical_notations: EMPTY_LIST,
             asymmetric_algos: AsymmetricAlgorithmCutoffList::Default(),
             symmetric_algos: SymmetricAlgorithmCutoffList::Default(),
             aead_algos: AEADAlgorithmCutoffList::Default(),
@@ -539,6 +548,13 @@ impl StandardPolicy {
         self.critical_subpackets.cutoff(s).map(|t| t.into())
     }
 
+    /// Sets the list of accepted critical notations.
+    ///
+    /// By default, we reject all critical notations.
+    pub fn good_critical_notations(&mut self, good_list: &'a [&'a str]) {
+        self.good_critical_notations = good_list;
+    }
+
     /// Always considers `s` to be secure.
     pub fn accept_asymmetric_algo(&mut self, a: AsymmetricAlgorithm) {
         self.asymmetric_algos.set(a, ACCEPT);
@@ -693,7 +709,7 @@ impl StandardPolicy {
     }
 }
 
-impl Policy for StandardPolicy {
+impl<'a> Policy for StandardPolicy<'a> {
     fn signature(&self, sig: &Signature) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
 
@@ -714,6 +730,13 @@ impl Policy for StandardPolicy {
 
         for csp in sig.hashed_area().iter().filter(|sp| sp.critical()) {
             self.critical_subpackets.check(csp.tag(), time)?;
+            if let SubpacketValue::NotationData(n) = csp.value() {
+                if ! self.good_critical_notations.contains(&n.name()) {
+                    return Err(Error::PolicyViolation(
+                        format!("Critical notation {:?} rejected",
+                                n.name()), None).into());
+                }
+            }
         }
 
         Ok(())
