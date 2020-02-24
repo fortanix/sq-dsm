@@ -37,6 +37,7 @@ use crate::{
     packet::{
         key,
         Signature,
+        signature::subpacket::SubpacketTag,
         Tag,
     },
     Result,
@@ -162,6 +163,9 @@ pub struct StandardPolicy {
     hash_algos_normal: NormalHashCutoffList,
     hash_algos_revocation: RevocationHashCutoffList,
 
+    // Critical subpacket tags.
+    critical_subpackets: SubpacketTagCutoffList,
+
     // Packet types.
     packet_tags: PacketTagCutoffList,
 
@@ -216,6 +220,49 @@ a_cutoff_list!(RevocationHashCutoffList, HashAlgorithm, 12,
                    ACCEPT,                 // 9. SHA384
                    ACCEPT,                 // 10. SHA512
                    ACCEPT,                 // 11. SHA224
+               ]);
+
+a_cutoff_list!(SubpacketTagCutoffList, SubpacketTag, 36,
+               [
+                   REJECT,                 // 0. Reserved.
+                   REJECT,                 // 1. Reserved.
+                   ACCEPT,                 // 2. SignatureCreationTime.
+                   ACCEPT,                 // 3. SignatureExpirationTime.
+                   ACCEPT,                 // 4. ExportableCertification.
+                   REJECT,                 // 5. TrustSignature.
+                   REJECT,                 // 6. RegularExpression.
+                   // Note: Even though we don't explicitly honor the
+                   // Revocable flag, we don't support signature
+                   // revocations, hence it is safe to ACCEPT it.
+                   ACCEPT,                 // 7. Revocable.
+                   REJECT,                 // 8. Reserved.
+                   ACCEPT,                 // 9. KeyExpirationTime.
+                   REJECT,                 // 10. PlaceholderForBackwardCompatibility.
+                   ACCEPT,                 // 11. PreferredSymmetricAlgorithms.
+                   ACCEPT,                 // 12. RevocationKey.
+                   REJECT,                 // 13. Reserved.
+                   REJECT,                 // 14. Reserved.
+                   REJECT,                 // 15. Reserved.
+                   ACCEPT,                 // 16. Issuer.
+                   REJECT,                 // 17. Reserved.
+                   REJECT,                 // 18. Reserved.
+                   REJECT,                 // 19. Reserved.
+                   ACCEPT,                 // 20. NotationData.
+                   ACCEPT,                 // 21. PreferredHashAlgorithms.
+                   ACCEPT,                 // 22. PreferredCompressionAlgorithms.
+                   ACCEPT,                 // 23. KeyServerPreferences.
+                   ACCEPT,                 // 24. PreferredKeyServer.
+                   ACCEPT,                 // 25. PrimaryUserID.
+                   ACCEPT,                 // 26. PolicyURI.
+                   ACCEPT,                 // 27. KeyFlags.
+                   ACCEPT,                 // 28. SignersUserID.
+                   ACCEPT,                 // 29. ReasonForRevocation.
+                   ACCEPT,                 // 30. Features.
+                   REJECT,                 // 31. SignatureTarget.
+                   ACCEPT,                 // 32. EmbeddedSignature.
+                   ACCEPT,                 // 33. IssuerFingerprint.
+                   ACCEPT,                 // 34. PreferredAEADAlgorithms.
+                   ACCEPT,                 // 35. IntendedRecipient.
                ]);
 
 a_cutoff_list!(AsymmetricAlgorithmCutoffList, AsymmetricAlgorithm, 18,
@@ -322,6 +369,7 @@ impl StandardPolicy {
             time: None,
             hash_algos_normal: NormalHashCutoffList::Default(),
             hash_algos_revocation: RevocationHashCutoffList::Default(),
+            critical_subpackets: SubpacketTagCutoffList::Default(),
             asymmetric_algos: AsymmetricAlgorithmCutoffList::Default(),
             symmetric_algos: SymmetricAlgorithmCutoffList::Default(),
             aead_algos: AEADAlgorithmCutoffList::Default(),
@@ -457,6 +505,38 @@ impl StandardPolicy {
     {
         (self.hash_algos_normal.cutoff(h).map(|t| t.into()),
          self.hash_algos_revocation.cutoff(h).map(|t| t.into()))
+    }
+
+    /// Always considers `s` to be secure.
+    pub fn accept_critical_subpacket(&mut self, s: SubpacketTag) {
+        self.critical_subpackets.set(s, ACCEPT);
+    }
+
+    /// Always considers `s` to be insecure.
+    pub fn reject_critical_subpacket(&mut self, s: SubpacketTag) {
+        self.critical_subpackets.set(s, REJECT);
+    }
+
+    /// Considers `s` to be insecure starting at `cutoff`.
+    ///
+    /// A cutoff of `None` means that there is no cutoff and the
+    /// subpacket has no known vulnerabilities.
+    ///
+    /// By default, we accept all critical subpackets that Sequoia
+    /// understands and honors.
+    pub fn reject_critical_subpacket_at<C>(&mut self, s: SubpacketTag,
+                                       cutoff: C)
+        where C: Into<Option<SystemTime>>,
+    {
+        self.critical_subpackets.set(
+            s,
+            cutoff.into().and_then(system_time_cutoff_to_timestamp));
+    }
+
+    /// Returns the cutoff times for the specified subpacket tag.
+    pub fn critical_subpacket_cutoff(&self, s: SubpacketTag)
+                                 -> Option<SystemTime> {
+        self.critical_subpackets.cutoff(s).map(|t| t.into())
     }
 
     /// Always considers `s` to be secure.
@@ -630,6 +710,10 @@ impl Policy for StandardPolicy {
                 self.hash_algos_normal.check(sig.hash_algo(), time)
                     .context(format!("non-revocation signature ({})", t))?
             }
+        }
+
+        for csp in sig.hashed_area().iter().filter(|sp| sp.critical()) {
+            self.critical_subpackets.check(csp.tag(), time)?;
         }
 
         Ok(())
