@@ -195,7 +195,6 @@ impl CTB {
     pub fn from_ptag(ptag: u8) -> Result<CTB> {
         // The top bit of the ptag must be set.
         if ptag & 0b1000_0000 == 0 {
-            // XXX: Use a proper error.
             return Err(
                 Error::MalformedPacket(
                     format!("Malformed CTB: MSB of ptag ({:#010b}) not set{}.",
