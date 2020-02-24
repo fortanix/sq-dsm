@@ -1,6 +1,5 @@
 //! Types for certificate components.
 
-use std::cmp::Ordering;
 use std::slice;
 use std::time;
 use std::ops::Deref;
@@ -156,11 +155,9 @@ impl<C> ComponentBundle<C> {
                     // If we are looking for t == 8, then binary_search could
                     // return index 1, 2, 3 or 4.
                     Ok(mut i) => {
-                        // XXX: we use PartialOrd to compare Tms due to
-                        // https://github.com/rust-lang-deprecated/time/issues/180
                         while i > 0
                             && self.self_signatures[i - 1].signature_creation_time()
-                            .cmp(&Some(t)) == Ordering::Equal
+                            == Some(t)
                         {
                             i -= 1;
                         }
