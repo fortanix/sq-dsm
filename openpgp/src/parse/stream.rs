@@ -1319,10 +1319,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                              decryption_proxy)?;
                     }
                     if ! pp.decrypted() {
-                        // XXX: That is not quite the right error to return.
                         return Err(
-                            Error::InvalidSessionKey("No session key".into())
-                                .into());
+                            Error::MissingSessionKey(
+                                "No session key decrypted".into()).into());
                     }
 
                     let sym_algo =

@@ -1772,7 +1772,7 @@ mod test {
             Helper {}, crate::frozen_time());
         match r {
             Ok(_) => panic!(),
-            Err(e) => assert_match!(Error::InvalidSessionKey(_)
+            Err(e) => assert_match!(Error::MissingSessionKey(_)
                                     = e.downcast().unwrap()),
         }
 
