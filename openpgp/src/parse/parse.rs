@@ -3469,7 +3469,6 @@ impl <'a> PacketParser<'a> {
                     } else {
                         self.state = state_;
                         self.finish()?;
-                        // XXX self.set_content_was_read(false);
                         let (fake_eof_, reader_) = buffered_reader_stack_pop(
                             reader_, recursion_depth - 1)?;
                         fake_eof = fake_eof_;
