@@ -939,7 +939,7 @@ int pgp_cert_is_tsk(pgp_cert_t cert);
 /*/
 /// Returns an iterator over the `UserIDBundle`s.
 /*/
-pgp_user_id_bundle_iter_t pgp_cert_user_id_binding_iter (pgp_cert_t cert);
+pgp_user_id_bundle_iter_t pgp_cert_user_id_bundle_iter (pgp_cert_t cert);
 
 /*/
 /// Returns an iterator over all `Key`s in a Cert.

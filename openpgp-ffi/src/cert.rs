@@ -403,9 +403,9 @@ pub extern "C" fn pgp_user_id_bundle_selfsig(
 
 /* UserIDBundleIter */
 
-/// Returns an iterator over the Cert's user id bindings.
+/// Returns an iterator over the Cert's user id bundles.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_cert_user_id_binding_iter(cert: *const Cert)
+pub extern "C" fn pgp_cert_user_id_bundle_iter(cert: *const Cert)
     -> *mut UserIDBundleIter<'static>
 {
     let cert = cert.ref_raw();
