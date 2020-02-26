@@ -1,6 +1,5 @@
 use crate::Result;
-use crate::Cert;
-use crate::cert::components::Amalgamation;
+use crate::cert::prelude::*;
 use crate::packet::{key, Signature, Tag};
 use crate::serialize::{
     PacketRef, Serialize, SerializeInto,
@@ -665,7 +664,6 @@ impl<'a> SerializeInto for TSK<'a> {
 mod test {
     use super::*;
     use crate::vec_truncate;
-    use crate::cert::components::ValidAmalgamation;
     use crate::parse::Parse;
     use crate::serialize::Serialize;
     use crate::packet::key;
@@ -745,7 +743,7 @@ mod test {
     #[test]
     fn export() {
         use crate::Packet;
-        use crate::cert::CertBuilder;
+        use crate::cert::prelude::*;
         use crate::types::{Curve, KeyFlags, SignatureType};
         use crate::packet::{
             signature, UserID, user_attribute::{UserAttribute, Subpacket},

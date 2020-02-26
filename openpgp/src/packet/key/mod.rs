@@ -30,8 +30,7 @@
 //! # extern crate sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-//! # use openpgp::cert::CertParser;
-//! # use openpgp::cert::{CipherSuite, CertBuilder};
+//! # use openpgp::cert::prelude::*;
 //! use openpgp::packet::{Key, key};
 //!
 //! # fn main() { f().unwrap(); }
@@ -57,13 +56,7 @@ use std::convert::{TryFrom, TryInto};
 use std::time;
 
 use crate::Error;
-use crate::cert::components::{
-    KeyBundle,
-    KeyAmalgamation,
-    ValidKeyAmalgamation,
-    PrimaryKeyAmalgamation,
-    ValidPrimaryKeyAmalgamation,
-};
+use crate::cert::prelude::*;
 use crate::crypto::{self, mem::{self, Protected}, mpis, hash::Hash};
 use crate::packet;
 use crate::packet::prelude::*;

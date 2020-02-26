@@ -9,17 +9,7 @@ use crate::{
     packet::key,
     packet::key::SecretKeyMaterial,
     types::KeyFlags,
-    cert::{
-        Cert,
-        components::{
-            Amalgamation,
-            KeyBundle,
-            UnfilteredKeyBundleIter,
-            ValidAmalgamation,
-        },
-        KeyAmalgamation,
-        ValidKeyAmalgamation,
-    },
+    cert::prelude::*,
     policy::Policy,
 };
 
@@ -272,7 +262,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// ```rust
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// # use openpgp::cert::CertBuilder;
+    /// # use openpgp::cert::prelude::*;
     /// use openpgp::types::RevocationStatus;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
@@ -310,7 +300,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// ```rust
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// # use openpgp::cert::CertBuilder;
+    /// # use openpgp::cert::prelude::*;
     /// use openpgp::types::RevocationStatus;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
@@ -363,7 +353,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// ```rust
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// # use openpgp::cert::CertBuilder;
+    /// # use openpgp::cert::prelude::*;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
@@ -766,9 +756,8 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
     /// ```rust
     /// extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// # use openpgp::cert::CertBuilder;
     /// use openpgp::types::RevocationStatus;
-    /// use openpgp::cert::components::ValidAmalgamation;
+    /// use openpgp::cert::prelude::*;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }

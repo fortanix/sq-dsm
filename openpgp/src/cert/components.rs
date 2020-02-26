@@ -49,11 +49,12 @@ pub use super::keyiter::{
 pub type KeyBundle<KeyPart, KeyRole> = ComponentBundle<Key<KeyPart, KeyRole>>;
 
 /// A primary key and any associated signatures.
-pub(crate) type PrimaryKeyBundle<KeyPart> =
+pub type PrimaryKeyBundle<KeyPart> =
     KeyBundle<KeyPart, key::PrimaryRole>;
 
 /// A subkey and any associated signatures.
-pub type SubkeyBundle<KeyPart> = KeyBundle<KeyPart, key::SubordinateRole>;
+pub type SubkeyBundle<KeyPart>
+    = KeyBundle<KeyPart, key::SubordinateRole>;
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.

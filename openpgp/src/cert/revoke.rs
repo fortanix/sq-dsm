@@ -19,7 +19,7 @@ use crate::packet::{
     UserAttribute,
     UserID,
 };
-use crate::cert::Cert;
+use crate::cert::prelude::*;
 
 /// A `Cert` revocation builder.
 ///
@@ -40,7 +40,7 @@ use crate::cert::Cert;
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// use openpgp::types::{ReasonForRevocation, RevocationStatus, SignatureType};
-/// use openpgp::cert::{CipherSuite, CertBuilder, CertRevocationBuilder};
+/// use openpgp::cert::prelude::*;
 /// use openpgp::crypto::KeyPair;
 /// use openpgp::parse::Parse;
 /// use sequoia_openpgp::policy::StandardPolicy;
@@ -273,8 +273,8 @@ impl Deref for SubkeyRevocationBuilder {
 /// # Example
 ///
 /// ```
-/// # use sequoia_openpgp::{*, packet::*, types::*, cert::*};
-/// use sequoia_openpgp::cert::components::ValidAmalgamation;
+/// # use sequoia_openpgp::{*, packet::*, types::*};
+/// use sequoia_openpgp::cert::prelude::*;
 /// use sequoia_openpgp::policy::StandardPolicy;
 ///
 /// # f().unwrap();
@@ -390,8 +390,8 @@ impl Deref for UserIDRevocationBuilder {
 /// # Example
 ///
 /// ```
-/// # use sequoia_openpgp::{*, packet::*, types::*, cert::*};
-/// use sequoia_openpgp::cert::components::ValidAmalgamation;
+/// # use sequoia_openpgp::{*, packet::*, types::*};
+/// use sequoia_openpgp::cert::prelude::*;
 /// use sequoia_openpgp::policy::StandardPolicy;
 ///
 /// # f().unwrap();

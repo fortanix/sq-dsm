@@ -2969,7 +2969,7 @@ mod test {
 
     #[test]
     fn export_signature() {
-        use crate::cert::CertBuilder;
+        use crate::cert::prelude::*;
 
         let (cert, _) = CertBuilder::new().generate().unwrap();
         let mut keypair = cert.primary_key().key().clone().mark_parts_secret()

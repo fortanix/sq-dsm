@@ -14,6 +14,7 @@ use std::convert::TryInto;
 
 extern crate failure;
 extern crate sequoia_openpgp as openpgp;
+use openpgp::cert::prelude::*;
 use openpgp::serialize::stream::*;
 use openpgp::packet::prelude::*;
 use openpgp::parse::stream::*;
@@ -41,7 +42,7 @@ fn main() {
 #
 # /// Generates an signing-capable key.
 # fn generate() -> openpgp::Result<openpgp::Cert> {
-#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+#     let (cert, _revocation) = CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_signing_subkey()
 #         .generate()?;
@@ -162,6 +163,7 @@ create it:
 #
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
 # use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
@@ -189,7 +191,7 @@ create it:
 #
 /// Generates an signing-capable key.
 fn generate() -> openpgp::Result<openpgp::Cert> {
-    let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+    let (cert, _revocation) = CertBuilder::new()
         .add_userid("someone@example.org")
         .add_signing_subkey()
         .generate()?;
@@ -310,6 +312,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
 # use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
@@ -337,7 +340,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 # /// Generates an signing-capable key.
 # fn generate() -> openpgp::Result<openpgp::Cert> {
-#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+#     let (cert, _revocation) = CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_signing_subkey()
 #         .generate()?;
@@ -469,6 +472,7 @@ Verified data can be read from this using [`io::Read`].
 #
 # extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
 # use openpgp::packet::prelude::*;
 # use openpgp::parse::stream::*;
@@ -496,7 +500,7 @@ Verified data can be read from this using [`io::Read`].
 # 
 # /// Generates an signing-capable key.
 # fn generate() -> openpgp::Result<openpgp::Cert> {
-#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+#     let (cert, _revocation) = CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_signing_subkey()
 #         .generate()?;

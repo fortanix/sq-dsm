@@ -17,19 +17,7 @@ use self::openpgp::{
         PacketParserResult,
         Parse,
     },
-    cert::{
-        CipherSuite,
-        CertBuilder,
-        CertParser,
-        CertRevocationBuilder,
-        components::{
-            KeyIter,
-            UserIDBundle,
-            UserIDBundleIter,
-            ValidAmalgamation,
-            ValidKeyIter,
-        },
-    },
+    cert::prelude::*,
 };
 
 use crate::error::Status;

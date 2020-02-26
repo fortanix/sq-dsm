@@ -32,7 +32,7 @@ use std::u32;
 use failure::ResultExt;
 
 use crate::{
-    cert::components::ValidKeyAmalgamation,
+    cert::prelude::*,
     Error,
     Packet,
     packet::{
@@ -933,8 +933,6 @@ mod test {
     use super::*;
     use crate::Error;
     use crate::Fingerprint;
-    use crate::cert::{Cert, CertBuilder, CipherSuite};
-    use crate::cert::components::Amalgamation;
     use crate::crypto::SessionKey;
     use crate::packet::key::Key4;
     use crate::packet::signature;
@@ -1004,8 +1002,7 @@ mod test {
 
     #[test]
     fn revocation() -> Result<()> {
-        use crate::cert::UserIDRevocationBuilder;
-        use crate::cert::SubkeyRevocationBuilder;
+        use crate::cert::prelude::*;
         use crate::types::SignatureType;
         use crate::types::ReasonForRevocation;
 

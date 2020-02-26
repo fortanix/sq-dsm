@@ -11,7 +11,7 @@ use std::env;
 
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::KeyID;
-use crate::openpgp::cert::CertParser;
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::parse::Parse;
 
 fn main() {

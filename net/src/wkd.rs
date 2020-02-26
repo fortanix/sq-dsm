@@ -35,7 +35,7 @@ use crate::openpgp::{
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
 use crate::openpgp::types::HashAlgorithm;
-use crate::openpgp::cert::CertParser;
+use crate::openpgp::cert::prelude::*;
 
 use super::{Result, Error};
 
@@ -424,7 +424,6 @@ impl Serialize for KeyRing {
 #[cfg(test)]
 mod tests {
     use crate::openpgp::serialize::Serialize;
-    use crate::openpgp::cert::CertBuilder;
 
     use super::*;
     use self::Variant::*;

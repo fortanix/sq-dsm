@@ -11,9 +11,9 @@ use sequoia_core::Context;
 use crate::openpgp::types::{
     CompressionAlgorithm,
 };
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto;
 use crate::openpgp::{Cert, KeyID, Result};
-use crate::openpgp::cert::components::Amalgamation;
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::{
     Parse,

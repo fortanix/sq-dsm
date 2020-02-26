@@ -11,6 +11,7 @@ use failure;
 use ::buffered_reader::*;
 
 use crate::{
+    cert::prelude::*,
     crypto::{aead, hash::Hash},
     Result,
     packet::header::{
@@ -2597,10 +2598,10 @@ struct PacketParserState {
     message_validator: MessageValidator,
 
     /// Whether the packet sequence is a valid OpenPGP keyring.
-    keyring_validator: crate::cert::KeyringValidator,
+    keyring_validator: KeyringValidator,
 
     /// Whether the packet sequence is a valid OpenPGP Cert.
-    cert_validator: crate::cert::CertValidator,
+    cert_validator: CertValidator,
 
     // Whether this is the first packet in the packet sequence.
     first_packet: bool,
@@ -2769,8 +2770,6 @@ impl PacketParserEOF {
     ///
     /// As opposed to a Message or just a bunch of packets.
     pub fn is_keyring(&self) -> Result<()> {
-        use crate::cert::KeyringValidity;
-
         match self.state.keyring_validator.check() {
             KeyringValidity::Keyring => Ok(()),
             KeyringValidity::KeyringPrefix => unreachable!(),
@@ -2782,8 +2781,6 @@ impl PacketParserEOF {
     ///
     /// As opposed to a Message or just a bunch of packets.
     pub fn is_cert(&self) -> Result<()> {
-        use crate::cert::CertValidity;
-
         match self.state.cert_validator.check() {
             CertValidity::Cert => Ok(()),
             CertValidity::CertPrefix => unreachable!(),
@@ -3060,8 +3057,6 @@ impl <'a> PacketParser<'a> {
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP keyring.
     pub fn possible_keyring(&self) -> Result<()> {
-        use crate::cert::KeyringValidity;
-
         match self.state.keyring_validator.check() {
             KeyringValidity::Keyring => unreachable!(),
             KeyringValidity::KeyringPrefix => Ok(()),
@@ -3076,8 +3071,6 @@ impl <'a> PacketParser<'a> {
     /// Before that, it is only possible to say that the message is a
     /// valid prefix or definitely not an OpenPGP Cert.
     pub fn possible_cert(&self) -> Result<()> {
-        use crate::cert::CertValidity;
-
         match self.state.cert_validator.check() {
             CertValidity::Cert => unreachable!(),
             CertValidity::CertPrefix => Ok(()),

@@ -3,6 +3,7 @@
 use std::io::{self, Write};
 
 extern crate sequoia_openpgp as openpgp;
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::serialize::stream::*;
@@ -31,7 +32,7 @@ fn main() {
 
 /// Generates an encryption-capable key.
 fn generate() -> openpgp::Result<openpgp::Cert> {
-    let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+    let (cert, _revocation) = CertBuilder::new()
         .add_userid("someone@example.org")
         .add_transport_encryption_subkey()
         .generate()?;

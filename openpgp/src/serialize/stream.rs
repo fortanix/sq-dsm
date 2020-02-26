@@ -28,7 +28,7 @@ use crate::{
         PublicParts,
         UnspecifiedRole,
     },
-    Cert,
+    cert::prelude::*,
 };
 use crate::packet::header::CTB;
 use crate::packet::header::BodyLength;
@@ -963,6 +963,7 @@ impl<'a> Encryptor<'a> {
     /// ```
     /// use std::io::Write;
     /// extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
     /// use openpgp::types::KeyFlags;
     /// use openpgp::serialize::stream::{
     ///     Message, Encryptor, LiteralWriter,
@@ -974,7 +975,7 @@ impl<'a> Encryptor<'a> {
     /// # fn f() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
-    /// let cert = openpgp::Cert::from_bytes(
+    /// let cert = Cert::from_bytes(
     /// #   // We do some acrobatics here to abbreviate the Cert.
     ///     "-----BEGIN PGP PUBLIC KEY BLOCK-----
     ///
@@ -1679,7 +1680,7 @@ mod test {
                 MessageStructure,
             },
         };
-        use crate::cert::{CertBuilder, CipherSuite};
+        use crate::cert::prelude::*;
         use crate::serialize::stream::{LiteralWriter, Message};
 
         let (tsk, _) = CertBuilder::new()
@@ -1813,7 +1814,7 @@ mod test {
     fn signature_at_time() {
         // Generates a signature with a specific Signature Creation
         // Time.
-        use crate::cert::{CertBuilder, CipherSuite};
+        use crate::cert::prelude::*;
         use crate::serialize::stream::{LiteralWriter, Message};
         use crate::crypto::KeyPair;
 

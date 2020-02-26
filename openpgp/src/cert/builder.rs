@@ -9,8 +9,7 @@ use crate::packet::{
 use crate::Result;
 use crate::packet::Signature;
 use crate::packet::signature;
-use crate::Cert;
-use crate::cert::CertRevocationBuilder;
+use crate::cert::prelude::*;
 use crate::Error;
 use crate::crypto::Password;
 use crate::types::{
@@ -428,8 +427,6 @@ impl CertBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cert::components::Amalgamation;
-    use crate::cert::components::ValidAmalgamation;
     use crate::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
     use crate::types::PublicKeyAlgorithm;
     use crate::policy::StandardPolicy as P;

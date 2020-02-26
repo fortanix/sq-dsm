@@ -12,6 +12,7 @@ fragments yields the [`openpgp/examples/generate-encrypt-decrypt.rs`].
 use std::io::{self, Write};
 
 extern crate sequoia_openpgp as openpgp;
+use openpgp::cert::prelude::*;
 use openpgp::crypto::SessionKey;
 use openpgp::types::SymmetricAlgorithm;
 use openpgp::serialize::stream::*;
@@ -40,7 +41,7 @@ fn main() {
 #
 # /// Generates an encryption-capable key.
 # fn generate() -> openpgp::Result<openpgp::Cert> {
-#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+#     let (cert, _revocation) = CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_transport_encryption_subkey()
 #         .generate()?;
@@ -162,6 +163,7 @@ create it:
 # use std::io::{self, Write};
 #
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::cert::prelude::*;
 # use openpgp::crypto::SessionKey;
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
@@ -190,7 +192,7 @@ create it:
 #
 /// Generates an encryption-capable key.
 fn generate() -> openpgp::Result<openpgp::Cert> {
-    let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+    let (cert, _revocation) = CertBuilder::new()
         .add_userid("someone@example.org")
         .add_transport_encryption_subkey()
         .generate()?;
@@ -312,6 +314,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # use std::io::{self, Write};
 #
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::cert::prelude::*;
 # use openpgp::crypto::SessionKey;
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
@@ -340,7 +343,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 # /// Generates an encryption-capable key.
 # fn generate() -> openpgp::Result<openpgp::Cert> {
-#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+#     let (cert, _revocation) = CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_transport_encryption_subkey()
 #         .generate()?;
@@ -476,6 +479,7 @@ Decrypted data can be read from this using [`io::Read`].
 # use std::io::{self, Write};
 #
 # extern crate sequoia_openpgp as openpgp;
+# use openpgp::cert::prelude::*;
 # use openpgp::crypto::SessionKey;
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
@@ -504,7 +508,7 @@ Decrypted data can be read from this using [`io::Read`].
 #
 # /// Generates an encryption-capable key.
 # fn generate() -> openpgp::Result<openpgp::Cert> {
-#     let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+#     let (cert, _revocation) = CertBuilder::new()
 #         .add_userid("someone@example.org")
 #         .add_transport_encryption_subkey()
 #         .generate()?;

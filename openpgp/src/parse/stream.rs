@@ -42,12 +42,7 @@ use crate::{
     Result,
     packet,
     packet::Signature,
-    Cert,
-    cert::components::{
-        Amalgamation,
-        ValidAmalgamation,
-        ValidKeyAmalgamation,
-    },
+    cert::prelude::*,
     crypto::SessionKey,
     serialize::Serialize,
     policy::Policy,
@@ -2037,7 +2032,6 @@ mod test {
     #[test]
     fn verify_long_message() {
         use std::io::Write;
-        use crate::cert::{CertBuilder, CipherSuite};
         use crate::serialize::stream::{LiteralWriter, Signer, Message};
 
         let p = &P::new();

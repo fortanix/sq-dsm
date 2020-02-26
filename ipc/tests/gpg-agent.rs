@@ -14,7 +14,7 @@ use crate::openpgp::types::{
 use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::parse::stream::*;
 use crate::openpgp::serialize::{Serialize, stream::*};
-use crate::openpgp::cert::{CertBuilder, CipherSuite};
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::Policy;
 
 extern crate sequoia_ipc as ipc;

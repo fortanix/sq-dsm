@@ -15,7 +15,6 @@ extern crate sequoia_openpgp as openpgp;
 
 use crate::openpgp::{
     Cert,
-    cert::components::Amalgamation,
     KeyHandle,
     Result,
     parse::Parse,
@@ -28,7 +27,7 @@ use crate::openpgp::parse::stream::{
     GoodChecksum,
     VerificationError,
 };
-use crate::openpgp::cert::CertParser;
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
 
 mod sqv_cli;

@@ -31,7 +31,7 @@ use crate::openpgp::fmt::hex;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
-use crate::openpgp::cert::CertParser;
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::{KeyServer, wkd};

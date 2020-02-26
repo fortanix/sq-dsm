@@ -47,37 +47,14 @@ mod amalgamation;
 mod builder;
 mod bindings;
 pub mod components;
-use components::{
-    Amalgamation,
-    ComponentBundle,
-    PrimaryKeyBundle,
-    UnfilteredKeyBundleIter,
-    UnknownBundleIter,
-    ValidAmalgamation,
-    ValidComponentAmalgamation,
-};
+use components::ValidAmalgamation;
 mod component_iter;
-use component_iter::{
-    ComponentIter,
-    ValidComponentIter,
-};
 mod keyiter;
 mod key_amalgamation;
 mod parser;
 mod revoke;
 
 pub use self::builder::{CertBuilder, CipherSuite};
-
-use keyiter::{
-    KeyIter,
-    ValidKeyIter,
-};
-use key_amalgamation::{
-    KeyAmalgamation,
-    PrimaryKeyAmalgamation,
-    ValidKeyAmalgamation,
-    ValidPrimaryKeyAmalgamation,
-};
 
 pub use parser::{
     KeyringValidity,
@@ -93,6 +70,9 @@ pub use revoke::{
     UserAttributeRevocationBuilder,
     UserIDRevocationBuilder,
 };
+
+pub mod prelude;
+use prelude::*;
 
 const TRACE : bool = false;
 
@@ -253,7 +233,7 @@ type UnknownBindings = ComponentBundles<Unknown>;
 /// on self signatures can be used to express preferences for
 /// algorithms and key management.  Furthermore, the key holder's
 /// OpenPGP implementation can express its feature set.
-pub trait Preferences<'a, C: 'a>: components::ValidAmalgamation<'a, C> {
+pub trait Preferences<'a, C: 'a>: ValidAmalgamation<'a, C> {
     /// Returns symmetric algorithms that the key holder prefers.
     ///
     /// The algorithms are ordered according by the key holder's
@@ -350,9 +330,8 @@ use super::*;
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::cert::components::Amalgamation;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-/// use openpgp::{Cert, cert::CertBuilder};
+/// use openpgp::cert::prelude::*;
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
@@ -556,7 +535,7 @@ impl Cert {
     /// # use openpgp::Result;
     /// use openpgp::types::RevocationStatus;
     /// use openpgp::types::{ReasonForRevocation, SignatureType};
-    /// use openpgp::cert::{CipherSuite, CertBuilder};
+    /// use openpgp::cert::prelude::*;
     /// use openpgp::crypto::KeyPair;
     /// use openpgp::parse::Parse;
     /// use sequoia_openpgp::policy::StandardPolicy;
@@ -1494,7 +1473,7 @@ impl<'a> CertAmalgamation<'a> {
 
     /// Returns the amalgamated primary key.
     pub fn primary_key(&self)
-                       -> Result<ValidPrimaryKeyAmalgamation<key::PublicParts>>
+        -> Result<ValidPrimaryKeyAmalgamation<key::PublicParts>>
     {
         self.cert.primary_key().with_policy(self.policy, self.time)
     }
@@ -1535,7 +1514,6 @@ impl<'a> CertAmalgamation<'a> {
 #[cfg(test)]
 mod test {
     use crate::serialize::Serialize;
-    use super::components::ValidAmalgamation;
     use crate::policy::StandardPolicy as P;
     use crate::types::Curve;
     use super::*;
@@ -3148,7 +3126,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
     #[test]
     fn keysigning_party() {
-        use crate::cert::packet::signature;
+        use crate::packet::signature;
 
         for cs in &[ CipherSuite::Cv25519,
                      CipherSuite::RSA3k,

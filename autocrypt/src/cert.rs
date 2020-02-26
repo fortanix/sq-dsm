@@ -1,9 +1,6 @@
 use sequoia_openpgp as openpgp;
 use openpgp::packet;
-use openpgp::cert::{
-    CertBuilder,
-    CipherSuite,
-};
+use openpgp::cert::prelude::*;
 use openpgp::types::{
     KeyFlags,
 };

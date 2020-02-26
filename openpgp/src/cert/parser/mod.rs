@@ -395,7 +395,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-/// use openpgp::cert::CertParser;
+/// use openpgp::cert::prelude::*;
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
@@ -512,7 +512,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::parse::{Parse, PacketParser};
-    /// use openpgp::cert::CertParser;
+    /// use openpgp::cert::prelude::*;
     /// use openpgp::Cert;
     /// use openpgp::KeyID;
     ///

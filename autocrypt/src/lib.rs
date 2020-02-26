@@ -26,11 +26,7 @@ use openpgp::Error;
 pub use openpgp::Result;
 use openpgp::Packet;
 use openpgp::packet::SKESK;
-use openpgp::Cert;
-use openpgp::cert::components::{
-    Amalgamation,
-    ValidAmalgamation
-};
+use openpgp::cert::prelude::*;
 use openpgp::parse::{
     Parse,
     PacketParserResult, PacketParser,

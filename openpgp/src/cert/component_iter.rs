@@ -3,17 +3,7 @@ use std::time::SystemTime;
 
 use crate::{
     types::RevocationStatus,
-    cert::{
-        Cert,
-        components::{
-            Amalgamation,
-            ComponentBundle,
-            ComponentBundleIter,
-            ComponentAmalgamation,
-            ValidAmalgamation,
-            ValidComponentAmalgamation,
-        },
-    },
+    cert::prelude::*,
     policy::Policy,
 };
 
@@ -181,18 +171,17 @@ impl<'a, C> ValidComponentIter<'a, C> {
     /// ```rust
     /// extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// # use openpgp::cert::CertBuilder;
+    /// use openpgp::cert::prelude::*;
     /// use openpgp::types::RevocationStatus;
-    /// use openpgp::cert::components::{Amalgamation, ValidAmalgamation};
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
-    /// #     let (cert, _) =
-    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
-    /// #         .generate()?;
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
     /// # let timestamp = None;
     /// let non_revoked_uas = cert
     ///     .user_attributes()

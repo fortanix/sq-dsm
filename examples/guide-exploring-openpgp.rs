@@ -1,7 +1,7 @@
 //! https://sequoia-pgp.org/guide/exploring-openpgp/
 
 extern crate sequoia_openpgp as openpgp;
-use crate::openpgp::cert::components::Amalgamation;
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::policy::StandardPolicy as P;
 

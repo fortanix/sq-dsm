@@ -7,7 +7,7 @@ extern crate clap;
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_ipc as ipc;
 
-use crate::openpgp::cert::components::Amalgamation;
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::packet::key;

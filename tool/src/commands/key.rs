@@ -5,7 +5,7 @@ use itertools::Itertools;
 use std::time::{SystemTime, Duration};
 
 use crate::openpgp::Packet;
-use crate::openpgp::cert::{CertBuilder, CipherSuite};
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::armor::{Writer, Kind};
 use crate::openpgp::serialize::Serialize;

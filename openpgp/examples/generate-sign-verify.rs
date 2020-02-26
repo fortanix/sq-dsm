@@ -4,6 +4,7 @@ use std::io::{self, Write};
 
 extern crate failure;
 extern crate sequoia_openpgp as openpgp;
+use crate::openpgp::cert::prelude::*;
 use crate::openpgp::serialize::stream::*;
 use crate::openpgp::parse::stream::*;
 use crate::openpgp::policy::Policy;
@@ -30,7 +31,7 @@ fn main() {
 
 /// Generates an signing-capable key.
 fn generate() -> openpgp::Result<openpgp::Cert> {
-    let (cert, _revocation) = openpgp::cert::CertBuilder::new()
+    let (cert, _revocation) = CertBuilder::new()
         .add_userid("someone@example.org")
         .add_signing_subkey()
         .generate()?;

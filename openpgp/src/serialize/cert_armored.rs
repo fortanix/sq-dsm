@@ -78,13 +78,13 @@ impl Cert {
     ///
     /// ```rust
     /// use sequoia_openpgp as openpgp;
-    /// use openpgp::cert;
+    /// use openpgp::cert::prelude::*;
     /// use openpgp::serialize::SerializeInto;
     ///
     /// # f().unwrap();
     /// # fn f() -> openpgp::Result<()> {
     /// let (cert, _) =
-    ///     cert::CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+    ///     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
     ///     .generate()?;
     /// let armored = String::from_utf8(cert.armored().to_vec()?)?;
     ///
@@ -171,7 +171,7 @@ impl<'a> SerializeInto for Encoder<'a> {
 #[cfg(test)]
 mod tests {
     use crate::armor::{Kind, Reader, ReaderMode};
-    use crate::cert::CertBuilder;
+    use crate::cert::prelude::*;
     use crate::parse::Parse;
 
     use super::*;
