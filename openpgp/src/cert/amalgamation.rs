@@ -16,184 +16,6 @@ use crate::{
     },
 };
 
-/// A certificate's component and its associated data.
-#[derive(Debug, Clone)]
-pub struct ComponentAmalgamation<'a, C>{
-    cert: &'a Cert,
-    bundle: &'a ComponentBundle<C>,
-}
-
-impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
-    type Target = ComponentBundle<C>;
-
-    fn deref(&self) -> &Self::Target {
-        self.bundle
-    }
-}
-
-impl<'a, C> Amalgamation<'a, C> for ComponentAmalgamation<'a, C> {
-    type V = ValidComponentAmalgamation<'a, C>;
-
-    fn cert(&self) -> &'a Cert {
-        self.cert
-    }
-
-    fn bundle(&self) -> &'a ComponentBundle<C> {
-        &self.bundle
-    }
-
-    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
-        where T: Into<Option<time::SystemTime>>,
-              Self: Sized
-    {
-        let time = time.into().unwrap_or_else(SystemTime::now);
-        if let Some(binding_signature) = self.binding_signature(policy, time) {
-            Ok(ValidComponentAmalgamation {
-                a: self,
-                policy: policy,
-                time: time,
-                binding_signature: binding_signature,
-            })
-        } else {
-            Err(Error::NoBindingSignature(time).into())
-        }
-    }
-}
-
-impl<'a, C> ComponentAmalgamation<'a, C> {
-    /// Creates a new amalgamation.
-    pub(crate) fn new(cert: &'a Cert, bundle: &'a ComponentBundle<C>) -> Self
-    {
-        Self {
-            cert,
-            bundle,
-        }
-    }
-
-    /// Returns the components's binding signature as of the reference
-    /// time, if any.
-    ///
-    /// Note: this function is not exported.  Users of this interface
-    /// should do: ca.with_policy(policy, time)?.binding_signature().
-    fn binding_signature<T>(&self, policy: &dyn Policy, time: T)
-        -> Option<&'a Signature>
-        where T: Into<Option<time::SystemTime>>
-    {
-        let time = time.into().unwrap_or_else(SystemTime::now);
-        self.bundle.binding_signature(policy, time)
-    }
-}
-
-impl<'a> ComponentAmalgamation<'a, crate::packet::UserID> {
-    /// Returns a reference to the User ID.
-    pub fn userid(&self) -> &crate::packet::UserID {
-        self.bundle().userid()
-    }
-}
-
-impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
-    /// Returns a reference to the User Attribute.
-    pub fn user_attribute(&self) -> &crate::packet::UserAttribute {
-        self.bundle().user_attribute()
-    }
-}
-
-/// A certificate's component and its associated data.
-#[derive(Debug, Clone)]
-pub struct ValidComponentAmalgamation<'a, C> {
-    a: ComponentAmalgamation<'a, C>,
-    policy: &'a dyn Policy,
-    // The reference time.
-    time: SystemTime,
-    // The binding signature at time `time`.  (This is just a cache.)
-    binding_signature: &'a Signature,
-}
-
-impl<'a, C> std::ops::Deref for ValidComponentAmalgamation<'a, C> {
-    type Target = ComponentAmalgamation<'a, C>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.a
-    }
-}
-
-impl<'a, C> ValidComponentAmalgamation<'a, C>
-    where C: Ord
-{
-    /// Returns the amalgamated primary component at time `time`
-    ///
-    /// If `time` is None, then the current time is used.
-    /// `ValidComponentIter` for the definition of a valid component.
-    ///
-    /// The primary component is determined by taking the components that
-    /// are alive at time `t`, and sorting them as follows:
-    ///
-    ///   - non-revoked first
-    ///   - primary first
-    ///   - signature creation first
-    ///
-    /// If there is more than one, than one is selected in a
-    /// deterministic, but undefined manner.
-    pub(super) fn primary(cert: &'a Cert,
-                          iter: std::slice::Iter<'a, ComponentBundle<C>>,
-                          policy: &'a dyn Policy, t: SystemTime)
-        -> Option<ValidComponentAmalgamation<'a, C>>
-    {
-        use std::cmp::Ordering;
-
-        // Filter out components that are not alive at time `t`.
-        //
-        // While we have the binding signature, extract a few
-        // properties to avoid recomputing the same thing multiple
-        // times.
-        iter.filter_map(|c| {
-            // No binding signature at time `t` => not alive.
-            let sig = c.binding_signature(policy, t)?;
-
-            if !sig.signature_alive(t, std::time::Duration::new(0, 0)).is_ok() {
-                return None;
-            }
-
-            let revoked = c._revoked(policy, t, false, Some(sig));
-            let primary = sig.primary_userid().unwrap_or(false);
-            let signature_creation_time = sig.signature_creation_time()?;
-
-            Some(((c, sig, revoked), primary, signature_creation_time))
-        })
-            .max_by(|(a, a_primary, a_signature_creation_time),
-                    (b, b_primary, b_signature_creation_time)| {
-                match (destructures_to!(RevocationStatus::Revoked(_) = &a.2),
-                       destructures_to!(RevocationStatus::Revoked(_) = &b.2)) {
-                    (true, false) => return Ordering::Less,
-                    (false, true) => return Ordering::Greater,
-                    _ => (),
-                }
-                match (a_primary, b_primary) {
-                    (true, false) => return Ordering::Greater,
-                    (false, true) => return Ordering::Less,
-                    _ => (),
-                }
-                match a_signature_creation_time.cmp(&b_signature_creation_time)
-                {
-                    Ordering::Less => return Ordering::Less,
-                    Ordering::Greater => return Ordering::Greater,
-                    Ordering::Equal => (),
-                }
-
-                // Fallback to a lexographical comparison.  Prefer
-                // the "smaller" one.
-                match a.0.component().cmp(&b.0.component()) {
-                    Ordering::Less => return Ordering::Greater,
-                    Ordering::Greater => return Ordering::Less,
-                    Ordering::Equal =>
-                        panic!("non-canonicalized Cert (duplicate components)"),
-                }
-            })
-            .and_then(|c| ComponentAmalgamation::new(cert, (c.0).0)
-                      .with_policy(policy, t).ok())
-    }
-}
-
 /// Represents a component.
 pub trait Amalgamation<'a, C: 'a> {
     /// The type returned by `with_policy`.
@@ -380,6 +202,184 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
         } else {
             Box::new(self.binding_signature().revocation_keys())
         }
+    }
+}
+
+/// A certificate's component and its associated data.
+#[derive(Debug, Clone)]
+pub struct ComponentAmalgamation<'a, C>{
+    cert: &'a Cert,
+    bundle: &'a ComponentBundle<C>,
+}
+
+impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
+    type Target = ComponentBundle<C>;
+
+    fn deref(&self) -> &Self::Target {
+        self.bundle
+    }
+}
+
+impl<'a, C> Amalgamation<'a, C> for ComponentAmalgamation<'a, C> {
+    type V = ValidComponentAmalgamation<'a, C>;
+
+    fn cert(&self) -> &'a Cert {
+        self.cert
+    }
+
+    fn bundle(&self) -> &'a ComponentBundle<C> {
+        &self.bundle
+    }
+
+    fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
+        where T: Into<Option<time::SystemTime>>,
+              Self: Sized
+    {
+        let time = time.into().unwrap_or_else(SystemTime::now);
+        if let Some(binding_signature) = self.binding_signature(policy, time) {
+            Ok(ValidComponentAmalgamation {
+                a: self,
+                policy: policy,
+                time: time,
+                binding_signature: binding_signature,
+            })
+        } else {
+            Err(Error::NoBindingSignature(time).into())
+        }
+    }
+}
+
+impl<'a, C> ComponentAmalgamation<'a, C> {
+    /// Creates a new amalgamation.
+    pub(crate) fn new(cert: &'a Cert, bundle: &'a ComponentBundle<C>) -> Self
+    {
+        Self {
+            cert,
+            bundle,
+        }
+    }
+
+    /// Returns the components's binding signature as of the reference
+    /// time, if any.
+    ///
+    /// Note: this function is not exported.  Users of this interface
+    /// should do: ca.with_policy(policy, time)?.binding_signature().
+    fn binding_signature<T>(&self, policy: &dyn Policy, time: T)
+        -> Option<&'a Signature>
+        where T: Into<Option<time::SystemTime>>
+    {
+        let time = time.into().unwrap_or_else(SystemTime::now);
+        self.bundle.binding_signature(policy, time)
+    }
+}
+
+impl<'a> ComponentAmalgamation<'a, crate::packet::UserID> {
+    /// Returns a reference to the User ID.
+    pub fn userid(&self) -> &crate::packet::UserID {
+        self.bundle().userid()
+    }
+}
+
+impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
+    /// Returns a reference to the User Attribute.
+    pub fn user_attribute(&self) -> &crate::packet::UserAttribute {
+        self.bundle().user_attribute()
+    }
+}
+
+/// A certificate's component and its associated data.
+#[derive(Debug, Clone)]
+pub struct ValidComponentAmalgamation<'a, C> {
+    a: ComponentAmalgamation<'a, C>,
+    policy: &'a dyn Policy,
+    // The reference time.
+    time: SystemTime,
+    // The binding signature at time `time`.  (This is just a cache.)
+    binding_signature: &'a Signature,
+}
+
+impl<'a, C> std::ops::Deref for ValidComponentAmalgamation<'a, C> {
+    type Target = ComponentAmalgamation<'a, C>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.a
+    }
+}
+
+impl<'a, C> ValidComponentAmalgamation<'a, C>
+    where C: Ord
+{
+    /// Returns the amalgamated primary component at time `time`
+    ///
+    /// If `time` is None, then the current time is used.
+    /// `ValidComponentIter` for the definition of a valid component.
+    ///
+    /// The primary component is determined by taking the components that
+    /// are alive at time `t`, and sorting them as follows:
+    ///
+    ///   - non-revoked first
+    ///   - primary first
+    ///   - signature creation first
+    ///
+    /// If there is more than one, than one is selected in a
+    /// deterministic, but undefined manner.
+    pub(super) fn primary(cert: &'a Cert,
+                          iter: std::slice::Iter<'a, ComponentBundle<C>>,
+                          policy: &'a dyn Policy, t: SystemTime)
+        -> Option<ValidComponentAmalgamation<'a, C>>
+    {
+        use std::cmp::Ordering;
+
+        // Filter out components that are not alive at time `t`.
+        //
+        // While we have the binding signature, extract a few
+        // properties to avoid recomputing the same thing multiple
+        // times.
+        iter.filter_map(|c| {
+            // No binding signature at time `t` => not alive.
+            let sig = c.binding_signature(policy, t)?;
+
+            if !sig.signature_alive(t, std::time::Duration::new(0, 0)).is_ok() {
+                return None;
+            }
+
+            let revoked = c._revoked(policy, t, false, Some(sig));
+            let primary = sig.primary_userid().unwrap_or(false);
+            let signature_creation_time = sig.signature_creation_time()?;
+
+            Some(((c, sig, revoked), primary, signature_creation_time))
+        })
+            .max_by(|(a, a_primary, a_signature_creation_time),
+                    (b, b_primary, b_signature_creation_time)| {
+                match (destructures_to!(RevocationStatus::Revoked(_) = &a.2),
+                       destructures_to!(RevocationStatus::Revoked(_) = &b.2)) {
+                    (true, false) => return Ordering::Less,
+                    (false, true) => return Ordering::Greater,
+                    _ => (),
+                }
+                match (a_primary, b_primary) {
+                    (true, false) => return Ordering::Greater,
+                    (false, true) => return Ordering::Less,
+                    _ => (),
+                }
+                match a_signature_creation_time.cmp(&b_signature_creation_time)
+                {
+                    Ordering::Less => return Ordering::Less,
+                    Ordering::Greater => return Ordering::Greater,
+                    Ordering::Equal => (),
+                }
+
+                // Fallback to a lexographical comparison.  Prefer
+                // the "smaller" one.
+                match a.0.component().cmp(&b.0.component()) {
+                    Ordering::Less => return Ordering::Greater,
+                    Ordering::Greater => return Ordering::Less,
+                    Ordering::Equal =>
+                        panic!("non-canonicalized Cert (duplicate components)"),
+                }
+            })
+            .and_then(|c| ComponentAmalgamation::new(cert, (c.0).0)
+                      .with_policy(policy, t).ok())
     }
 }
 
