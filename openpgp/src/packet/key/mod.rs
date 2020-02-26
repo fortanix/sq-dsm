@@ -447,7 +447,7 @@ macro_rules! convert_ref {
 
 macro_rules! create_part_conversions {
     ( $Key:ident<$( $l:lifetime ),*; $( $g:ident ),*>) => {
-        create_part_conversions!($Key<$($l,)*; $($g,)*> where );
+        create_part_conversions!($Key<$($l),*; $($g),*> where );
     };
     ( $Key:ident<$( $l:lifetime ),*; $( $g:ident ),*> where $( $w:ident: $c:path ),* ) => {
         // Convert between two KeyParts for a constant KeyRole.
