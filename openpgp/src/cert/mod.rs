@@ -50,7 +50,7 @@ pub mod components;
 use components::ValidAmalgamation;
 mod component_iter;
 mod keyiter;
-mod key_amalgamation;
+pub mod key_amalgamation;
 mod parser;
 mod revoke;
 
@@ -478,8 +478,7 @@ impl Cert {
     /// Returns the amalgamated primary key.
     pub fn primary_key(&self) -> PrimaryKeyAmalgamation<key::PublicParts>
     {
-        PrimaryKeyAmalgamation::new(
-            self.keys().nth(0).expect("primary key"))
+        PrimaryKeyAmalgamation::new(&self)
     }
 
     /// Returns the Cert's revocation status at time `t`.

@@ -96,7 +96,7 @@ pub struct GoodChecksum<'a> {
     pub sig: &'a Signature,
 
     /// The signing key that made the signature.
-    pub ka: ValidKeyAmalgamation<'a, key::PublicParts>,
+    pub ka: ValidErasedKeyAmalgamation<'a, key::PublicParts>,
 }
 
 /// Possible errors during signature verifications.
@@ -135,7 +135,7 @@ pub enum VerificationError<'a> {
         sig: &'a Signature,
 
         /// The signing key that made the signature.
-        ka: ValidKeyAmalgamation<'a, key::PublicParts>,
+        ka: ValidErasedKeyAmalgamation<'a, key::PublicParts>,
 
         /// The reason why the key is bad.
         error: failure::Error,
@@ -146,7 +146,7 @@ pub enum VerificationError<'a> {
         sig: &'a Signature,
 
         /// The signing key that made the signature.
-        ka: ValidKeyAmalgamation<'a, key::PublicParts>,
+        ka: ValidErasedKeyAmalgamation<'a, key::PublicParts>,
 
         /// The reason why the signature is bad.
         error: failure::Error,

@@ -100,16 +100,16 @@ pub trait KeyParts: fmt::Debug {
 
     /// Converts a key amalgamation with unspecified parts into this
     /// kind of key amalgamation.
-    fn convert_valid_amalgamation<'a>(
-        amalgamation: ValidKeyAmalgamation<'a, UnspecifiedParts>)
-        -> Result<ValidKeyAmalgamation<'a, Self>>
+    fn convert_key_amalgamation<'a, R: KeyRole>(
+        ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
+        -> Result<ComponentAmalgamation<'a, Key<Self, R>>>
         where Self: Sized;
 
     /// Converts a reference to a key amalgamation with unspecified
     /// parts into this kind of key amalgamation reference.
-    fn convert_valid_amalgamation_ref<'a>(
-        amalgamation: &'a ValidKeyAmalgamation<'a, UnspecifiedParts>)
-        -> Result<&'a ValidKeyAmalgamation<'a, Self>>
+    fn convert_key_amalgamation_ref<'a, R: KeyRole>(
+        ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
+        -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>>
         where Self: Sized;
 }
 
@@ -169,16 +169,18 @@ impl KeyParts for PublicParts {
         Ok(bundle.into())
     }
 
-    fn convert_valid_amalgamation<'a>(
-        amalgamation: ValidKeyAmalgamation<'a, UnspecifiedParts>)
-        -> Result<ValidKeyAmalgamation<'a, Self>> {
-        Ok(amalgamation.into())
+    fn convert_key_amalgamation<'a, R: KeyRole>(
+        ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
+        -> Result<ComponentAmalgamation<'a, Key<Self, R>>> {
+        Ok(ka.into())
     }
 
-    fn convert_valid_amalgamation_ref<'a>(
-        amalgamation: &'a ValidKeyAmalgamation<'a, UnspecifiedParts>)
-        -> Result<&'a ValidKeyAmalgamation<'a, Self>> {
-        Ok(amalgamation.into())
+    /// Converts a reference to a key amalgamation with unspecified
+    /// parts into this kind of key amalgamation reference.
+    fn convert_key_amalgamation_ref<'a, R: KeyRole>(
+        ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
+        -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
+        Ok(ka.into())
     }
 }
 
@@ -211,16 +213,18 @@ impl KeyParts for SecretParts {
         bundle.try_into()
     }
 
-    fn convert_valid_amalgamation<'a>(
-        amalgamation: ValidKeyAmalgamation<'a, UnspecifiedParts>)
-        -> Result<ValidKeyAmalgamation<'a, Self>> {
-        amalgamation.try_into()
+    fn convert_key_amalgamation<'a, R: KeyRole>(
+        ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
+        -> Result<ComponentAmalgamation<'a, Key<Self, R>>> {
+        ka.try_into()
     }
 
-    fn convert_valid_amalgamation_ref<'a>(
-        amalgamation: &'a ValidKeyAmalgamation<'a, UnspecifiedParts>)
-        -> Result<&'a ValidKeyAmalgamation<'a, Self>> {
-        amalgamation.try_into()
+    /// Converts a reference to a key amalgamation with unspecified
+    /// parts into this kind of key amalgamation reference.
+    fn convert_key_amalgamation_ref<'a, R: KeyRole>(
+        ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
+        -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
+        ka.try_into()
     }
 }
 
@@ -256,16 +260,18 @@ impl KeyParts for UnspecifiedParts {
         Ok(bundle)
     }
 
-    fn convert_valid_amalgamation<'a>(
-        amalgamation: ValidKeyAmalgamation<'a, UnspecifiedParts>)
-        -> Result<ValidKeyAmalgamation<'a, Self>> {
-        Ok(amalgamation)
+    fn convert_key_amalgamation<'a, R: KeyRole>(
+        ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
+        -> Result<ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>> {
+        Ok(ka.into())
     }
 
-    fn convert_valid_amalgamation_ref<'a>(
-        amalgamation: &'a ValidKeyAmalgamation<'a, UnspecifiedParts>)
-        -> Result<&'a ValidKeyAmalgamation<'a, Self>> {
-        Ok(amalgamation)
+    /// Converts a reference to a key amalgamation with unspecified
+    /// parts into this kind of key amalgamation reference.
+    fn convert_key_amalgamation_ref<'a, R: KeyRole>(
+        ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
+        -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
+        Ok(ka.into())
     }
 }
 
@@ -783,10 +789,17 @@ create_conversions!(Key<>);
 create_conversions!(Key4<>);
 create_conversions!(KeyBundle<>);
 
-create_part_conversions!(KeyAmalgamation<'a;> where);
-create_part_conversions!(PrimaryKeyAmalgamation<'a;> where);
-create_part_conversions!(ValidKeyAmalgamation<'a;> where);
-create_part_conversions!(ValidPrimaryKeyAmalgamation<'a;> where);
+// A hack, since the type has to be an ident, which means that we
+// can't use <>.
+type KeyComponentAmalgamation<'a, P, R> = ComponentAmalgamation<'a, Key<P, R>>;
+create_conversions!(KeyComponentAmalgamation<'a>);
+
+create_part_conversions!(PrimaryKeyAmalgamation<'a;>);
+create_part_conversions!(SubordinateKeyAmalgamation<'a;>);
+create_part_conversions!(ErasedKeyAmalgamation<'a;>);
+create_part_conversions!(ValidPrimaryKeyAmalgamation<'a;>);
+create_part_conversions!(ValidSubordinateKeyAmalgamation<'a;>);
+create_part_conversions!(ValidErasedKeyAmalgamation<'a;>);
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///

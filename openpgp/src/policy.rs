@@ -96,7 +96,7 @@ pub trait Policy : fmt::Debug {
     /// algoriths, don't have a sufficiently high security margin
     /// (e.g., 1024-bit RSA keys), are on a bad list, etc. from being
     /// used here.
-    fn key(&self, _ka: &ValidKeyAmalgamation<key::PublicParts>)
+    fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
         -> Result<()>
     {
         Ok(())
@@ -742,7 +742,7 @@ impl<'a> Policy for StandardPolicy<'a> {
         Ok(())
     }
 
-    fn key(&self, ka: &ValidKeyAmalgamation<key::PublicParts>)
+    fn key(&self, ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
         -> Result<()>
     {
         use self::AsymmetricAlgorithm::{*, Unknown};
@@ -1461,7 +1461,7 @@ mod test {
         #[derive(Debug)]
         struct NoRsa;
         impl Policy for NoRsa {
-            fn key(&self, ka: &ValidKeyAmalgamation<key::PublicParts>)
+            fn key(&self, ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
                    -> Result<()>
             {
                 use crate::types::PublicKeyAlgorithm::*;
@@ -1563,7 +1563,7 @@ mod test {
         #[derive(Debug)]
         struct NoRsa;
         impl Policy for NoRsa {
-            fn key(&self, ka: &ValidKeyAmalgamation<key::PublicParts>)
+            fn key(&self, ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
                    -> Result<()>
             {
                 use crate::types::PublicKeyAlgorithm::*;

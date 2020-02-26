@@ -207,7 +207,7 @@ fn inspect_cert(policy: &dyn Policy,
 fn inspect_key(policy: &dyn Policy,
                output: &mut dyn io::Write,
                indent: &str,
-               ka: openpgp::cert::components::KeyAmalgamation<PublicParts>,
+               ka: ErasedKeyAmalgamation<PublicParts>,
                print_keygrips: bool,
                print_certifications: bool)
         -> Result<()>

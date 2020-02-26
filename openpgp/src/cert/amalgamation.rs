@@ -1,3 +1,16 @@
+//! Component amalgamations.
+//!
+//! Whereas a `ComponentBundle` groups a `Component` with its self
+//! signatures, its third-party signatures, and its revocation
+//! certificates, an `Amalgamation` groups a `ComponentBundle` with
+//! all of the necessary context needed to correctly implement
+//! relevant functionality related to the component.  Specifically, a
+//! `Amalgamation` includes a reference to the `ComponentBundle`, and
+//! a reference to the containing certificate.
+//!
+//! A notable differences between `ComponentBundle`s and
+//! `Amalgamation`s is that a `ComponentBundle`, owns its data, but an
+//! `Amalgamation` only references the contained data.
 use std::borrow::Borrow;
 use std::time;
 use std::time::SystemTime;
@@ -16,17 +29,15 @@ use crate::{
     },
 };
 
-/// Represents a component.
-pub trait Amalgamation<'a, C: 'a> {
+/// Applies a policy to an amalgamation.
+///
+/// Note: This trait is split off from the `Amalgamation` trait, to
+/// reduce code duplication: it is often possible to provide blanket
+/// implementations of `Amalgamation`, but the `ValidateAmalgamation`
+/// trait can only be implemented on more concrete types.
+pub trait ValidateAmalgamation<'a, C: 'a> {
     /// The type returned by `with_policy`.
     type V;
-
-    /// Returns the certificate that the component came from.
-    fn cert(&self) -> &'a Cert;
-
-
-    /// Returns this component's bundle.
-    fn bundle(&self) -> &'a ComponentBundle<C>;
 
     /// Changes the amalgamation's policy.
     ///
@@ -36,8 +47,25 @@ pub trait Amalgamation<'a, C: 'a> {
               Self: Sized;
 }
 
-/// Represents a component under a given policy.
-pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
+/// An amalgamation with a policy and a reference time.
+///
+/// In a certain sense, a `ValidAmalgamation` provides a view of an
+/// `Amalgamation` as it was at a particular time.  That is,
+/// signatures and components that are not valid at the reference
+/// time, because they were created after the reference time, for
+/// instance, are ignored.
+///
+/// The methods exposed by a `ValidAmalgamation` are similar to those
+/// exposed by an `Amalgamation`, but the policy and reference time
+/// are taken from the `ValidAmalgamation`.  This helps prevent using
+/// different policies or different reference times when using a
+/// component, which can easily happen when the checks span multiple
+/// functions.
+pub trait ValidAmalgamation<'a, C: 'a>
+{
+    /// Returns the certificate.
+    fn cert(&self) -> &'a Cert;
+
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this
@@ -234,16 +262,135 @@ impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
     }
 }
 
-impl<'a, C> Amalgamation<'a, C> for ComponentAmalgamation<'a, C> {
-    type V = ValidComponentAmalgamation<'a, C>;
-
-    fn cert(&self) -> &'a Cert {
-        self.cert
+impl<'a, C> ComponentAmalgamation<'a, C> {
+    /// Returns the certificate that the component came from.
+    pub fn cert(&self) -> &'a Cert {
+        &self.cert
     }
 
-    fn bundle(&self) -> &'a ComponentBundle<C> {
+    /// Returns this amalgamation's bundle.
+    ///
+    /// Note: although `Amalgamation` derefs to a
+    /// `ComponentBundle`, this method provides a more accurate
+    /// lifetime, which is helpful when returning the reference
+    /// from a function.
+    ///
+    /// Consider the following, which doesn't work:
+    ///
+    /// ```compile_fail
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// cert.keys()
+    ///     .map(|ka| {
+    ///         let b : &KeyBundle<_, _> = &ka;
+    ///         b
+    ///     })
+    ///     .collect::<Vec<&KeyBundle<_, _>>>();
+    /// ```
+    ///
+    /// Compiling the above code results in the following error:
+    ///
+    /// > `b` returns a value referencing data owned by the current
+    /// function
+    ///
+    /// This error occurs because the [`Deref` trait] says that the
+    /// lifetime of the target, i.e., `&KeyBundle`, is
+    /// bounded by `ka`'s lifetime, whose lifetime is indeed
+    /// limited to the closure.  But, `&KeyBundle` is independent
+    /// of `ka`!  It is a copy of the `KeyAmalgamation`'s
+    /// reference to the `KeyBundle` whose lifetime is `'a`.
+    /// Unfortunately, this can't be expressed using `Deref`, but
+    /// it can be done using a separate method:
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// cert.keys().map(|ka| ka.bundle())
+    ///     .collect::<Vec<&KeyBundle<_, _>>>();
+    /// ```
+    ///
+    /// [`Deref` trait]: https://doc.rust-lang.org/stable/std/ops/trait.Deref.html
+    pub fn bundle(&self) -> &'a ComponentBundle<C> {
         &self.bundle
     }
+
+    /// Returns this amalgamation's component.
+    ///
+    /// Note: although `Amalgamation` derefs to a `Component` (via
+    /// `ComponentBundle`), this method provides a more accurate
+    /// lifetime, which is helpful when returning the reference
+    /// from a function.
+    ///
+    /// Consider the following, which doesn't work:
+    ///
+    /// ```compile_fail
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// cert.keys()
+    ///     .map(|ka| {
+    ///         let k : &Key<_, _> = &ka;
+    ///         k
+    ///     })
+    ///     .collect::<Vec<&Key<_, _>>>();
+    /// ```
+    ///
+    /// Compiling the above code results in the following error:
+    ///
+    /// > `k` returns a value referencing data owned by the current
+    /// function
+    ///
+    /// This error occurs because the [`Deref` trait] says that the
+    /// lifetime of the target, i.e., `&Key`, is bounded by
+    /// the `ka`'s lifetime, whose lifetime is indeed limited to
+    /// the closure.  But, `&Key` is independent of `ka`!  It is a
+    /// copy of the `KeyAmalgamation`'s reference to the `Key`
+    /// whose lifetime is `'a`.  Unfortunately, this can't be
+    /// expressed using `Deref`, but it can be done using a
+    /// separate method:
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// cert.keys().map(|ka| ka.key())
+    ///     .collect::<Vec<&Key<_, _>>>();
+    /// ```
+    ///
+    /// [`Deref` trait]: https://doc.rust-lang.org/stable/std/ops/trait.Deref.html
+    pub fn component(&self) -> &'a C {
+        self.bundle().component()
+    }
+}
+
+impl<'a, C> ValidateAmalgamation<'a, C> for ComponentAmalgamation<'a, C> {
+    type V = ValidComponentAmalgamation<'a, C>;
 
     fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
         where T: Into<Option<time::SystemTime>>,
@@ -290,14 +437,14 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
 impl<'a> ComponentAmalgamation<'a, crate::packet::UserID> {
     /// Returns a reference to the User ID.
     pub fn userid(&self) -> &'a crate::packet::UserID {
-        self.bundle().userid()
+        self.component()
     }
 }
 
 impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
     /// Returns a reference to the User Attribute.
     pub fn user_attribute(&self) -> &'a crate::packet::UserAttribute {
-        self.bundle().user_attribute()
+        self.component()
     }
 }
 
@@ -333,6 +480,14 @@ impl<'a, C> std::ops::Deref for ValidComponentAmalgamation<'a, C> {
 
     fn deref(&self) -> &Self::Target {
         &self.ca
+    }
+}
+
+impl<'a, C: 'a> From<ValidComponentAmalgamation<'a, C>>
+    for ComponentAmalgamation<'a, C>
+{
+    fn from(vca: ValidComponentAmalgamation<'a, C>) -> Self {
+        vca.ca
     }
 }
 
@@ -413,18 +568,8 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     }
 }
 
-impl<'a, C> Amalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
+impl<'a, C> ValidateAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     type V = Self;
-
-    // NOTE: No docstring, because ComponentAmalgamation has the same method.
-    // Returns the certificate that the component came from.
-    fn cert(&self) -> &'a Cert {
-        self.cert
-    }
-
-    fn bundle(&self) -> &'a ComponentBundle<C> {
-        self.bundle
-    }
 
     fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Result<Self::V>
         where T: Into<Option<time::SystemTime>>,
@@ -436,6 +581,10 @@ impl<'a, C> Amalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
 }
 
 impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
+    fn cert(&self) -> &'a Cert {
+        self.ca.cert()
+    }
+
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this
