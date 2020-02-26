@@ -23,25 +23,13 @@ use super::{
     sig_cmp,
     canonical_signature_order,
 };
-pub use super::amalgamation::{
-    ComponentAmalgamation,
-    ValidAmalgamation,
-    ValidComponentAmalgamation,
-};
-pub use super::key_amalgamation::{
-    KeyAmalgamation,
-    PrimaryKeyAmalgamation,
-    ValidKeyAmalgamation,
-    ValidPrimaryKeyAmalgamation,
-};
-pub use super::component_iter::{
-    ComponentIter,
-};
-pub use super::keyiter::{
-    KeyIter,
-    ValidKeyIter,
-};
 
+pub use super::{
+    component_iter::ComponentIter,
+    component_iter::ValidComponentIter,
+    keyiter::KeyIter,
+    keyiter::ValidKeyIter,
+};
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.

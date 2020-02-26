@@ -43,11 +43,11 @@ use crate::types::{
     SymmetricAlgorithm,
 };
 
-mod amalgamation;
+pub mod amalgamation;
+use amalgamation::ValidAmalgamation;
 mod builder;
 mod bindings;
 pub mod components;
-use components::ValidAmalgamation;
 mod component_iter;
 mod keyiter;
 pub mod key_amalgamation;
