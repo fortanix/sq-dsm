@@ -289,14 +289,14 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
 
 impl<'a> ComponentAmalgamation<'a, crate::packet::UserID> {
     /// Returns a reference to the User ID.
-    pub fn userid(&self) -> &crate::packet::UserID {
+    pub fn userid(&self) -> &'a crate::packet::UserID {
         self.bundle().userid()
     }
 }
 
 impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
     /// Returns a reference to the User Attribute.
-    pub fn user_attribute(&self) -> &crate::packet::UserAttribute {
+    pub fn user_attribute(&self) -> &'a crate::packet::UserAttribute {
         self.bundle().user_attribute()
     }
 }
@@ -528,5 +528,24 @@ mod test {
         let c = userid.clone();
         assert_eq!(userid.userid(), c.userid());
         assert_eq!(userid.time(), c.time());
+    }
+
+    #[test]
+    fn map() {
+        // The reference returned by `ComponentAmalgamation::userid`
+        // and `ComponentAmalgamation::user_attribute` is bound by the
+        // reference to the `Component` in the
+        // `ComponentAmalgamation`, not the `ComponentAmalgamation`
+        // itself.
+        let (cert, _) = CertBuilder::new()
+            .add_userid("test@example.example")
+            .generate()
+            .unwrap();
+
+        let _ = cert.userids().map(|ua| ua.userid())
+            .collect::<Vec<_>>();
+
+        let _ = cert.user_attributes().map(|ua| ua.user_attribute())
+            .collect::<Vec<_>>();
     }
 }
