@@ -342,7 +342,7 @@ use super::*;
 ///
 ///     // Primary key and related signatures.
 ///     let c = cert.primary_key();
-///     acc.push(c.key().clone().mark_role_primary().into());
+///     acc.push(c.key().clone().into());
 ///     for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///     for s in c.certifications()    { acc.push(s.clone().into()) }
 ///     for s in c.self_revocations()  { acc.push(s.clone().into()) }
