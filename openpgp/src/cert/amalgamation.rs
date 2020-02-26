@@ -67,13 +67,13 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
     fn revoked(&self) -> RevocationStatus<'a>;
 
     /// Returns the certificate's revocation status as of the
-    /// amalgamtion's reference time.
+    /// amalgamation's reference time.
     fn cert_revoked(&self) -> RevocationStatus<'a> {
         self.cert().revoked(self.policy(), self.time())
     }
 
-    /// Returns whether the certificateis alive as of the
-    /// amalgamtion's reference time.
+    /// Returns whether the certificate is alive as of the
+    /// amalgamation's reference time.
     fn cert_alive(&self) -> Result<()> {
         self.cert().alive(self.policy(), self.time())
     }
@@ -91,7 +91,7 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
             .or_else(|| self.direct_key_signature().and_then(f))
     }
 
-    /// Returns the key's key flags as of the amalgamtion's
+    /// Returns the key's key flags as of the amalgamation's
     /// reference time.
     ///
     /// Considers both the binding signature and the direct key
@@ -105,7 +105,7 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
     }
 
     /// Returns whether the key has at least one of the specified key
-    /// flags as of the amalgamtion's reference time.
+    /// flags as of the amalgamation's reference time.
     ///
     /// Key flags are computed as described in
     /// [`key_flags()`](#method.key_flags).
@@ -125,7 +125,7 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
         self.has_any_key_flag(KeyFlags::default().set_certification(true))
     }
 
-    /// Returns whether key is signing capable as of the amalgamtion's
+    /// Returns whether key is signing capable as of the amalgamation's
     /// reference time.
     ///
     /// Key flags are computed as described in
@@ -135,7 +135,7 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
     }
 
     /// Returns whether key is authentication capable as of the
-    /// amalgamtion's reference time.
+    /// amalgamation's reference time.
     ///
     /// Key flags are computed as described in
     /// [`key_flags()`](#method.key_flags).
@@ -145,7 +145,7 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
     }
 
     /// Returns whether key is intended for storage encryption as of
-    /// the amalgamtion's reference time.
+    /// the amalgamation's reference time.
     ///
     /// Key flags are computed as described in
     /// [`key_flags()`](#method.key_flags).
@@ -164,7 +164,7 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
         self.has_any_key_flag(KeyFlags::default().set_transport_encryption(true))
     }
 
-    /// Returns the key's expiration time as of the amalgamtion's
+    /// Returns the key's expiration time as of the amalgamation's
     /// reference time.
     ///
     /// Considers both the binding signature and the direct key
@@ -177,7 +177,7 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
         self.map(|s| s.key_validity_period())
     }
 
-    /// Returns the key's expiration time as of the amalgamtion's
+    /// Returns the key's expiration time as of the amalgamation's
     /// reference time.
     ///
     /// If this function returns `None`, the key does not expire.
