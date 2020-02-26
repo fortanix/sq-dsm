@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
 use std::time;
 use std::time::SystemTime;
+use std::clone::Clone;
 
 use crate::{
     cert::prelude::*,
@@ -205,10 +206,24 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
 }
 
 /// A certificate's component and its associated data.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct ComponentAmalgamation<'a, C>{
     cert: &'a Cert,
     bundle: &'a ComponentBundle<C>,
+}
+
+// derive(Clone) doesn't work with generic parameters that don't
+// implement clone.  But, we don't need to require that C implements
+// Clone, because we're not cloning C, just the reference.
+//
+// See: https://github.com/rust-lang/rust/issues/26925
+impl<'a, C> Clone for ComponentAmalgamation<'a, C> {
+    fn clone(&self) -> Self {
+        Self {
+            cert: self.cert,
+            bundle: self.bundle,
+        }
+    }
 }
 
 impl<'a, C> std::ops::Deref for ComponentAmalgamation<'a, C> {
@@ -287,7 +302,7 @@ impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
 }
 
 /// A certificate's component and its associated data.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ValidComponentAmalgamation<'a, C> {
     a: ComponentAmalgamation<'a, C>,
     policy: &'a dyn Policy,
@@ -295,6 +310,22 @@ pub struct ValidComponentAmalgamation<'a, C> {
     time: SystemTime,
     // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
+}
+
+// derive(Clone) doesn't work with generic parameters that don't
+// implement clone.  But, we don't need to require that C implements
+// Clone, because we're not cloning C, just the reference.
+//
+// See: https://github.com/rust-lang/rust/issues/26925
+impl<'a, C> Clone for ValidComponentAmalgamation<'a, C> {
+    fn clone(&self) -> Self {
+        Self {
+            a: self.a.clone(),
+            policy: self.policy,
+            time: self.time,
+            binding_signature: self.binding_signature,
+        }
+    }
 }
 
 impl<'a, C> std::ops::Deref for ValidComponentAmalgamation<'a, C> {
@@ -467,3 +498,35 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
 
 impl<'a, C> crate::cert::Preferences<'a, C>
     for ValidComponentAmalgamation<'a, C> {}
+
+#[cfg(test)]
+mod test {
+    use crate::policy::StandardPolicy as P;
+    use crate::cert::prelude::*;
+    use crate::packet::UserID;
+
+    // derive(Clone) doesn't work with generic parameters that don't
+    // implement clone.  Make sure that our custom implementations
+    // work.
+    //
+    // See: https://github.com/rust-lang/rust/issues/26925
+    #[test]
+    fn clone() {
+        let p = &P::new();
+
+        let (cert, _) = CertBuilder::new()
+            .add_userid("test@example.example")
+            .generate()
+            .unwrap();
+
+        let userid : ComponentAmalgamation<UserID>
+            = cert.userids().nth(0).unwrap();
+        assert_eq!(userid.userid(), userid.clone().userid());
+
+        let userid : ValidComponentAmalgamation<UserID>
+            = userid.with_policy(p, None).unwrap();
+        let c = userid.clone();
+        assert_eq!(userid.userid(), c.userid());
+        assert_eq!(userid.time(), c.time());
+    }
+}
