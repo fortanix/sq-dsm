@@ -235,7 +235,7 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
     let valid_certs: Vec<Cert> = certs.iter()
         // XXX: This filter could become a Cert method, but it adds other API
         // method to maintain
-        .filter(|cert| {cert.userids().bundles()
+        .filter(|cert| {cert.userids()
             .any(|uidb|
                 if let Ok(Some(a)) = uidb.userid().email() {
                     a == email_address
@@ -344,7 +344,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
     let variant = variant.into().unwrap_or_default();
 
     // First, check which UserIDs are in `domain`.
-    let addresses = cert.userids().bundles().filter_map(|uidb| {
+    let addresses = cert.userids().filter_map(|uidb| {
         uidb.userid().email().unwrap_or(None).and_then(|addr| {
             if EmailAddress::from(&addr).ok().map(|e| e.domain == domain)
                 .unwrap_or(false)

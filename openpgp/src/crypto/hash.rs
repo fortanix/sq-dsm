@@ -497,7 +497,7 @@ mod test {
     fn hash_verification() {
         fn check(cert: Cert) -> (usize, usize, usize) {
             let mut userid_sigs = 0;
-            for (i, binding) in cert.userids().bundles().enumerate() {
+            for (i, binding) in cert.userids().enumerate() {
                 for selfsig in binding.self_signatures() {
                     let h = Signature::hash_userid_binding(
                         selfsig,
@@ -513,16 +513,16 @@ mod test {
                 }
             }
             let mut ua_sigs = 0;
-            for (i, binding) in cert.user_attributes().bundles().enumerate()
+            for (i, a) in cert.user_attributes().enumerate()
             {
-                for selfsig in binding.self_signatures() {
+                for selfsig in a.self_signatures() {
                     let h = Signature::hash_user_attribute_binding(
                         selfsig,
                         cert.primary_key().key(),
-                        binding.user_attribute()).unwrap();
+                        a.user_attribute()).unwrap();
                     if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
-                                  i, binding.user_attribute(), selfsig);
+                                  i, a.user_attribute(), selfsig);
                         eprintln!("  Hash: {:?}", h);
                     }
                     assert_eq!(&h[..2], selfsig.digest_prefix());

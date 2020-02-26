@@ -522,7 +522,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
     /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
     /// for certr in CertParser::from_packet_parser(ppr)
     ///     .unvalidated_cert_filter(|cert, _| {
-    ///         for component in cert.keys().bundles() {
+    ///         for component in cert.keys() {
     ///             if component.key().keyid() == some_keyid {
     ///                 return true;
     ///             }

@@ -173,7 +173,7 @@ impl UserID {
     /// let bob = bob.merge_packets(vec![certificate.into()])?;
     ///
     /// // Check that we have a certification on the userid.
-    /// assert_eq!(bob.userids().bundles().nth(0).unwrap()
+    /// assert_eq!(bob.userids().nth(0).unwrap()
     ///            .certifications().len(), 1);
     /// # Ok(()) }
     pub fn certify<S, H, T>(&self, signer: &mut dyn Signer, cert: &Cert,
@@ -315,7 +315,7 @@ impl UserAttribute {
     /// let bob = bob.merge_packets(vec![certificate.into()])?;
     ///
     /// // Check that we have a certification on the userid.
-    /// assert_eq!(bob.user_attributes().bundles().nth(0).unwrap()
+    /// assert_eq!(bob.user_attributes().nth(0).unwrap()
     ///            .certifications().len(),
     ///            1);
     /// # Ok(()) }

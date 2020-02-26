@@ -111,8 +111,9 @@ impl AutocryptHeader {
         let mut acc = Vec::new();
 
         // The primary key and the most recent selfsig.
-        acc.push(cert.primary_key().key().clone().into());
-        cert.primary_key().bundle().self_signatures().iter().take(1)
+        let primary = cert.primary_key();
+        acc.push(primary.key().clone().into());
+        primary.self_signatures().iter().take(1)
             .for_each(|s| acc.push(s.clone().into()));
 
         // The subkeys and the most recent selfsig.
@@ -1101,9 +1102,9 @@ In the light of the Efail vulnerability I am asking myself if it's
             .expect("Failed to parse key material.");
         assert_eq!(&cert.fingerprint().to_string(),
                    "3E88 77C8 7727 4692 9751  89F5 D03F 6F86 5226 FE8B");
-        assert_eq!(cert.userids().bundles().len(), 1);
+        assert_eq!(cert.userids().len(), 1);
         assert_eq!(cert.keys().subkeys().count(), 1);
-        assert_eq!(cert.userids().bundles().next().unwrap().userid().value(),
+        assert_eq!(cert.userids().next().unwrap().userid().value(),
                    &b"Testy McTestface <testy@example.org>"[..]);
     }
 }

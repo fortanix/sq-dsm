@@ -341,7 +341,7 @@ use super::*;
 ///     let mut acc = Vec::new();
 ///
 ///     // Primary key and related signatures.
-///     let c = cert.primary_key().bundle();
+///     let c = cert.primary_key();
 ///     acc.push(c.key().clone().mark_role_primary().into());
 ///     for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///     for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -349,7 +349,7 @@ use super::*;
 ///     for s in c.other_revocations() { acc.push(s.clone().into()) }
 ///
 ///     // UserIDs and related signatures.
-///     for c in cert.userids().bundles() {
+///     for c in cert.userids() {
 ///         acc.push(c.userid().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -358,7 +358,7 @@ use super::*;
 ///     }
 ///
 ///     // UserAttributes and related signatures.
-///     for c in cert.user_attributes().bundles() {
+///     for c in cert.user_attributes() {
 ///         acc.push(c.user_attribute().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
@@ -413,8 +413,8 @@ use super::*;
 /// match Cert::from_packet_parser(ppr) {
 ///     Ok(cert) => {
 ///         println!("Key: {}", cert.fingerprint());
-///         for binding in cert.userids().bundles() {
-///             println!("User ID: {}", binding.userid());
+///         for uid in cert.userids() {
+///             println!("User ID: {}", uid.userid());
 ///         }
 ///     }
 ///     Err(err) => {
@@ -2616,7 +2616,7 @@ mod test {
                           = cert.revoked(p, None));
 
             assert_eq!(cert.user_attributes().count(), 1);
-            let ua = cert.user_attributes().bundles().nth(0).unwrap();
+            let ua = cert.user_attributes().nth(0).unwrap();
             if revoked {
                 assert_match!(RevocationStatus::Revoked(_)
                               = ua.revoked(p, t));
@@ -2845,7 +2845,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // than one signature.
         let mut cmps = 0;
 
-        for uid in neal.userids().bundles() {
+        for uid in neal.userids() {
             for sigs in [
                 uid.self_signatures(),
                     uid.certifications(),
@@ -3147,7 +3147,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 .generate().unwrap();
 
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().bundles().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             let sig_template
@@ -3170,7 +3170,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // Make sure the certification is merged, and put in the right
             // place.
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().bundles().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().nth(0).unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             // Canonicalizing Bob's cert without having Alice's key

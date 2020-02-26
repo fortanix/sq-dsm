@@ -116,7 +116,7 @@ impl<'a, C> Iterator for ValidComponentIter<'a, C>
 
         loop {
             let ca = ComponentAmalgamation::new(self.cert, self.iter.next()?);
-            t!("Considering component: {:?}", ca.bundle());
+            t!("Considering component: {:?}", ca.component());
 
             let vca = match ca.with_policy(self.policy, self.time) {
                 Ok(vca) => vca,
@@ -204,7 +204,6 @@ impl<'a, C> ValidComponentIter<'a, C> {
     ///                 true,
     ///         }
     ///     })
-    ///     .map(|ca| ca.bundle())
     ///     .collect::<Vec<_>>();
     /// #     Ok(())
     /// # }
