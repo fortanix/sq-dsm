@@ -252,7 +252,7 @@ impl<'a, C> Amalgamation<'a, C> for ComponentAmalgamation<'a, C> {
         let time = time.into().unwrap_or_else(SystemTime::now);
         if let Some(binding_signature) = self.binding_signature(policy, time) {
             Ok(ValidComponentAmalgamation {
-                a: self,
+                ca: self,
                 policy: policy,
                 time: time,
                 binding_signature: binding_signature,
@@ -304,7 +304,7 @@ impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
 /// A certificate's component and its associated data.
 #[derive(Debug)]
 pub struct ValidComponentAmalgamation<'a, C> {
-    a: ComponentAmalgamation<'a, C>,
+    ca: ComponentAmalgamation<'a, C>,
     policy: &'a dyn Policy,
     // The reference time.
     time: SystemTime,
@@ -320,7 +320,7 @@ pub struct ValidComponentAmalgamation<'a, C> {
 impl<'a, C> Clone for ValidComponentAmalgamation<'a, C> {
     fn clone(&self) -> Self {
         Self {
-            a: self.a.clone(),
+            ca: self.ca.clone(),
             policy: self.policy,
             time: self.time,
             binding_signature: self.binding_signature,
@@ -332,7 +332,7 @@ impl<'a, C> std::ops::Deref for ValidComponentAmalgamation<'a, C> {
     type Target = ComponentAmalgamation<'a, C>;
 
     fn deref(&self) -> &Self::Target {
-        &self.a
+        &self.ca
     }
 }
 
@@ -431,7 +431,7 @@ impl<'a, C> Amalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
               Self: Sized,
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
-        self.a.with_policy(policy, time)
+        self.ca.with_policy(policy, time)
     }
 }
 
