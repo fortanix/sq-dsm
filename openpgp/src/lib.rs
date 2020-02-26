@@ -1,20 +1,16 @@
 //! OpenPGP data types and associated machinery.
 //!
 //! This crate aims to provide a complete implementation of OpenPGP as
-//! defined by [RFC 4880] as well as several extensions (e.g., [RFC
-//! 6637], which describes ECC cryptography for OpenPGP, and [RFC
-//! 4880bis], the draft of the next OpenPGP standard).  This includes
-//! support for unbuffered message processing.
+//! defined by [RFC 4880] as well as some extensions (e.g., [RFC
+//! 6637], which describes ECC cryptography for OpenPGP.  This
+//! includes support for unbuffered message processing.
 //!
 //! A few features that the OpenPGP community considers to be
-//! deprecated (e.g., version 3 compatibility) have been left out as
-//! well as support for functionality that we consider to be not only
-//! completely useless, but also dangerous (e.g., support for
-//! [unhashed signature subpackets]).  We have also updated some
-//! OpenPGP defaults to avoid foot guns (e.g., this crate does not
-//! fallback to IDEA, but instead assumes all OpenPGP implementations
-//! understand AES).  If some functionality is missing, please file a
-//! bug report.
+//! deprecated (e.g., version 3 compatibility) have been left out.  We
+//! have also updated some OpenPGP defaults to avoid foot guns (e.g.,
+//! this crate does not fallback to IDEA, but instead assumes all
+//! OpenPGP implementations understand AES).  If some functionality is
+//! missing, please file a bug report.
 //!
 //! A non-goal of this crate is support for any sort of high-level,
 //! bolted-on functionality.  For instance, [RFC 4880] does not define
