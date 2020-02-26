@@ -205,7 +205,7 @@ pub trait ValidAmalgamation<'a, C: 'a> : Amalgamation<'a, C> {
 }
 
 /// A certificate's component and its associated data.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ComponentAmalgamation<'a, C>{
     cert: &'a Cert,
     bundle: &'a ComponentBundle<C>,
