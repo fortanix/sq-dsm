@@ -728,7 +728,7 @@ impl Cert {
     ///
     /// That is, this returns an iterator over the primary key and any
     /// subkeys.
-    pub fn keys(&self) -> KeyIter<key::PublicParts>
+    pub fn keys(&self) -> KeyIter<key::PublicParts, key::UnspecifiedRole>
     {
         KeyIter::new(self)
     }
@@ -1481,7 +1481,7 @@ impl<'a> CertAmalgamation<'a> {
     ///
     /// That is, this returns an iterator over the primary key and any
     /// subkeys.
-    pub fn keys(&self) -> ValidKeyIter<key::PublicParts> {
+    pub fn keys(&self) -> ValidKeyIter<key::PublicParts, key::UnspecifiedRole> {
         self.cert.keys().with_policy(self.policy, self.time)
     }
 

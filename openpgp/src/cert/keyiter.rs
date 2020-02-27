@@ -28,7 +28,10 @@ use crate::{
 /// include secret key material.  Of course, since `KeyIter`
 /// implements `Iterator`, it is possible to use `Iterator::filter` to
 /// implement custom filters.
-pub struct KeyIter<'a, P: key::KeyParts> {
+pub struct KeyIter<'a, P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     // This is an option to make it easier to create an empty KeyIter.
     cert: Option<&'a Cert>,
     primary: bool,
@@ -47,9 +50,12 @@ pub struct KeyIter<'a, P: key::KeyParts> {
     key_handles: Vec<KeyHandle>,
 
     _p: std::marker::PhantomData<P>,
+    _r: std::marker::PhantomData<R>,
 }
 
-impl<'a, P: key::KeyParts> fmt::Debug for KeyIter<'a, P>
+impl<'a, P, R> fmt::Debug for KeyIter<'a, P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("KeyIter")
@@ -66,7 +72,7 @@ impl<'a, P: key::KeyParts> fmt::Debug for KeyIter<'a, P>
 // implementation for Key<SecretParts, _> below.
 macro_rules! impl_iterator {
     ($parts:path) => {
-        impl<'a> Iterator for KeyIter<'a, $parts>
+        impl<'a> Iterator for KeyIter<'a, $parts, key::UnspecifiedRole>
         {
             type Item = ErasedKeyAmalgamation<'a, $parts>;
 
@@ -79,7 +85,7 @@ macro_rules! impl_iterator {
 impl_iterator!(key::PublicParts);
 impl_iterator!(key::UnspecifiedParts);
 
-impl<'a> Iterator for KeyIter<'a, key::SecretParts> {
+impl<'a> Iterator for KeyIter<'a, key::SecretParts, key::UnspecifiedRole> {
     type Item = ErasedKeyAmalgamation<'a, key::SecretParts>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -87,7 +93,10 @@ impl<'a> Iterator for KeyIter<'a, key::SecretParts> {
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P> {
+impl<'a, P, R> KeyIter<'a, P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     fn next_common(&mut self) -> Option<ErasedKeyAmalgamation<'a, key::PublicParts>>
     {
         tracer!(false, "KeyIter::next", 0);
@@ -161,7 +170,9 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P> {
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
+impl<'a, P, R> KeyIter<'a, P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
 {
     /// Returns a new `KeyIter` instance.
     pub(crate) fn new(cert: &'a Cert) -> Self where Self: 'a {
@@ -176,11 +187,12 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
             key_handles: Vec::with_capacity(0),
 
             _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
         }
     }
 
     /// Changes the filter to only return keys with secret key material.
-    pub fn secret(self) -> KeyIter<'a, key::SecretParts> {
+    pub fn secret(self) -> KeyIter<'a, key::SecretParts, R> {
         KeyIter {
             cert: self.cert,
             primary: self.primary,
@@ -192,12 +204,13 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
             key_handles: self.key_handles,
 
             _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
         }
     }
 
     /// Changes the filter to only return keys with unencrypted secret
     /// key material.
-    pub fn unencrypted_secret(self) -> KeyIter<'a, key::SecretParts> {
+    pub fn unencrypted_secret(self) -> KeyIter<'a, key::SecretParts, R> {
         KeyIter {
             cert: self.cert,
             primary: self.primary,
@@ -209,6 +222,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
             key_handles: self.key_handles,
 
             _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
         }
     }
 
@@ -373,7 +387,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
     /// [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
     /// [This discussion]: https://crypto.stackexchange.com/a/12138
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
-        -> ValidKeyIter<'a, P>
+        -> ValidKeyIter<'a, P, R>
         where T: Into<Option<SystemTime>>
     {
         ValidKeyIter {
@@ -393,6 +407,7 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
             revoked: None,
 
             _p: self._p,
+            _r: self._r,
         }
     }
 
@@ -455,7 +470,10 @@ impl<'a, P: 'a + key::KeyParts> KeyIter<'a, P>
 /// `ValidKeyIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
 /// `Iterator` trait.
-pub struct ValidKeyIter<'a, P: key::KeyParts> {
+pub struct ValidKeyIter<'a, P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
     // This is an option to make it easier to create an empty ValidKeyIter.
     cert: Option<&'a Cert>,
     primary: bool,
@@ -490,9 +508,12 @@ pub struct ValidKeyIter<'a, P: key::KeyParts> {
     revoked: Option<bool>,
 
     _p: std::marker::PhantomData<P>,
+    _r: std::marker::PhantomData<R>,
 }
 
-impl<'a, P: key::KeyParts> fmt::Debug for ValidKeyIter<'a, P>
+impl<'a, P, R> fmt::Debug for ValidKeyIter<'a, P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ValidKeyIter")
@@ -514,7 +535,7 @@ impl<'a, P: key::KeyParts> fmt::Debug for ValidKeyIter<'a, P>
 // implementation for Key<SecretParts, _> below.
 macro_rules! impl_valid_key_iterator {
     ($parts:path) => {
-        impl<'a> Iterator for ValidKeyIter<'a, $parts>
+        impl<'a> Iterator for ValidKeyIter<'a, $parts, key::UnspecifiedRole>
         {
             type Item = ValidErasedKeyAmalgamation<'a, $parts>;
 
@@ -527,7 +548,7 @@ macro_rules! impl_valid_key_iterator {
 impl_valid_key_iterator!(key::PublicParts);
 impl_valid_key_iterator!(key::UnspecifiedParts);
 
-impl<'a> Iterator for ValidKeyIter<'a, key::SecretParts>
+impl<'a> Iterator for ValidKeyIter<'a, key::SecretParts, key::UnspecifiedRole>
 {
     type Item = ValidErasedKeyAmalgamation<'a, key::SecretParts>;
 
@@ -536,8 +557,12 @@ impl<'a> Iterator for ValidKeyIter<'a, key::SecretParts>
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P> {
-    fn next_common(&mut self) -> Option<ValidErasedKeyAmalgamation<'a, key::PublicParts>>
+impl<'a, P, R> ValidKeyIter<'a, P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
+    fn next_common(&mut self)
+        -> Option<ValidErasedKeyAmalgamation<'a, key::PublicParts>>
     {
         tracer!(false, "ValidKeyIter::next", 0);
         t!("ValidKeyIter: {:?}", self);
@@ -667,7 +692,9 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P> {
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
+impl<'a, P, R> ValidKeyIter<'a, P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
 {
     /// Returns keys that have the at least one of the flags specified
     /// in `flags`.
@@ -808,7 +835,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
     }
 
     /// Changes the filter to only return keys with secret key material.
-    pub fn secret(self) -> ValidKeyIter<'a, key::SecretParts> {
+    pub fn secret(self) -> ValidKeyIter<'a, key::SecretParts, R> {
         ValidKeyIter {
             cert: self.cert,
             primary: self.primary,
@@ -826,12 +853,13 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
             revoked: self.revoked,
 
             _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
         }
     }
 
     /// Changes the filter to only return keys with unencrypted secret
     /// key material.
-    pub fn unencrypted_secret(self) -> ValidKeyIter<'a, key::SecretParts> {
+    pub fn unencrypted_secret(self) -> ValidKeyIter<'a, key::SecretParts, R> {
         ValidKeyIter {
             cert: self.cert,
             primary: self.primary,
@@ -849,6 +877,7 @@ impl<'a, P: 'a + key::KeyParts> ValidKeyIter<'a, P>
             revoked: self.revoked,
 
             _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
         }
     }
 

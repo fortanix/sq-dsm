@@ -435,7 +435,8 @@ pub extern "C" fn pgp_user_id_bundle_iter_next<'a>(
 /// Wraps a KeyIter for export via the FFI.
 pub struct KeyIterWrapper<'a> {
     pub(crate) // For serialize.rs.
-    iter: KeyIter<'a, openpgp::packet::key::PublicParts>,
+    iter: KeyIter<'a, openpgp::packet::key::PublicParts,
+                  openpgp::packet::key::UnspecifiedRole>,
     // Whether next has been called.
     next_called: bool,
 }
@@ -555,7 +556,8 @@ pub extern "C" fn pgp_cert_key_iter_next<'a>(
 /// Wraps a ValidKeyIter for export via the FFI.
 pub struct ValidKeyIterWrapper<'a> {
     pub(crate) // For serialize.rs.
-    iter: ValidKeyIter<'a, openpgp::packet::key::PublicParts>,
+    iter: ValidKeyIter<'a, openpgp::packet::key::PublicParts,
+                       openpgp::packet::key::UnspecifiedRole>,
     // Whether next has been called.
     next_called: bool,
 }
