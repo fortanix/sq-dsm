@@ -66,32 +66,42 @@ impl<'a, P, R> fmt::Debug for KeyIter<'a, P, R>
     }
 }
 
-// Very carefully implement Iterator for
-// Key<{PublicParts,UnspecifiedParts}, _>.  We cannot just abstract
-// over the parts, because then we cannot specialize the
-// implementation for Key<SecretParts, _> below.
 macro_rules! impl_iterator {
-    ($parts:path) => {
-        impl<'a> Iterator for KeyIter<'a, $parts, key::UnspecifiedRole>
+    ($parts:path, $role:path, $item:ty) => {
+        impl<'a> Iterator for KeyIter<'a, $parts, $role>
         {
-            type Item = ErasedKeyAmalgamation<'a, $parts>;
+            type Item = $item;
 
             fn next(&mut self) -> Option<Self::Item> {
-                self.next_common().map(|k| k.into())
+                // We unwrap the result of the conversion.  But, this
+                // is safe by construction: next_common only returns
+                // keys that can be correctly converted.
+                self.next_common().map(|k| k.try_into().expect("filtered"))
             }
         }
     }
 }
-impl_iterator!(key::PublicParts);
-impl_iterator!(key::UnspecifiedParts);
 
-impl<'a> Iterator for KeyIter<'a, key::SecretParts, key::UnspecifiedRole> {
-    type Item = ErasedKeyAmalgamation<'a, key::SecretParts>;
+impl_iterator!(key::PublicParts, key::PrimaryRole,
+               PrimaryKeyAmalgamation<'a, key::PublicParts>);
+impl_iterator!(key::SecretParts, key::PrimaryRole,
+               PrimaryKeyAmalgamation<'a, key::SecretParts>);
+impl_iterator!(key::UnspecifiedParts, key::PrimaryRole,
+               PrimaryKeyAmalgamation<'a, key::UnspecifiedParts>);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_common().map(|k| k.try_into().expect("has secret parts"))
-    }
-}
+impl_iterator!(key::PublicParts, key::SubordinateRole,
+               SubordinateKeyAmalgamation<'a, key::PublicParts>);
+impl_iterator!(key::SecretParts, key::SubordinateRole,
+               SubordinateKeyAmalgamation<'a, key::SecretParts>);
+impl_iterator!(key::UnspecifiedParts, key::SubordinateRole,
+               SubordinateKeyAmalgamation<'a, key::UnspecifiedParts>);
+
+impl_iterator!(key::PublicParts, key::UnspecifiedRole,
+               ErasedKeyAmalgamation<'a, key::PublicParts>);
+impl_iterator!(key::SecretParts, key::UnspecifiedRole,
+               ErasedKeyAmalgamation<'a, key::SecretParts>);
+impl_iterator!(key::UnspecifiedParts, key::UnspecifiedRole,
+               ErasedKeyAmalgamation<'a, key::UnspecifiedParts>);
 
 impl<'a, P, R> KeyIter<'a, P, R>
     where P: key::KeyParts,
@@ -529,33 +539,42 @@ impl<'a, P, R> fmt::Debug for ValidKeyIter<'a, P, R>
     }
 }
 
-// Very carefully implement Iterator for
-// Key<{PublicParts,UnspecifiedParts}, _>.  We cannot just abstract
-// over the parts, because then we cannot specialize the
-// implementation for Key<SecretParts, _> below.
-macro_rules! impl_valid_key_iterator {
-    ($parts:path) => {
-        impl<'a> Iterator for ValidKeyIter<'a, $parts, key::UnspecifiedRole>
+macro_rules! impl_iterator {
+    ($parts:path, $role:path, $item:ty) => {
+        impl<'a> Iterator for ValidKeyIter<'a, $parts, $role>
         {
-            type Item = ValidErasedKeyAmalgamation<'a, $parts>;
+            type Item = $item;
 
             fn next(&mut self) -> Option<Self::Item> {
-                self.next_common().map(|ka| ka.into())
+                // We unwrap the result of the conversion.  But, this
+                // is safe by construction: next_common only returns
+                // keys that can be correctly converted.
+                self.next_common().map(|k| k.try_into().expect("filtered"))
             }
         }
     }
 }
-impl_valid_key_iterator!(key::PublicParts);
-impl_valid_key_iterator!(key::UnspecifiedParts);
 
-impl<'a> Iterator for ValidKeyIter<'a, key::SecretParts, key::UnspecifiedRole>
-{
-    type Item = ValidErasedKeyAmalgamation<'a, key::SecretParts>;
+impl_iterator!(key::PublicParts, key::PrimaryRole,
+               ValidPrimaryKeyAmalgamation<'a, key::PublicParts>);
+impl_iterator!(key::SecretParts, key::PrimaryRole,
+               ValidPrimaryKeyAmalgamation<'a, key::SecretParts>);
+impl_iterator!(key::UnspecifiedParts, key::PrimaryRole,
+               ValidPrimaryKeyAmalgamation<'a, key::UnspecifiedParts>);
 
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_common().map(|ka| ka.try_into().expect("has secret parts"))
-    }
-}
+impl_iterator!(key::PublicParts, key::SubordinateRole,
+               ValidSubordinateKeyAmalgamation<'a, key::PublicParts>);
+impl_iterator!(key::SecretParts, key::SubordinateRole,
+               ValidSubordinateKeyAmalgamation<'a, key::SecretParts>);
+impl_iterator!(key::UnspecifiedParts, key::SubordinateRole,
+               ValidSubordinateKeyAmalgamation<'a, key::UnspecifiedParts>);
+
+impl_iterator!(key::PublicParts, key::UnspecifiedRole,
+               ValidErasedKeyAmalgamation<'a, key::PublicParts>);
+impl_iterator!(key::SecretParts, key::UnspecifiedRole,
+               ValidErasedKeyAmalgamation<'a, key::SecretParts>);
+impl_iterator!(key::UnspecifiedParts, key::UnspecifiedRole,
+               ValidErasedKeyAmalgamation<'a, key::UnspecifiedParts>);
 
 impl<'a, P, R> ValidKeyIter<'a, P, R>
     where P: key::KeyParts,
