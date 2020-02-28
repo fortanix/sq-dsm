@@ -267,15 +267,18 @@ impl<'a, P: 'a + key::KeyParts> From<SubordinateKeyAmalgamation<'a, P>>
 }
 
 
-impl<'a, P: 'a + key::KeyParts> TryFrom<ErasedKeyAmalgamation<'a, P>>
-    for PrimaryKeyAmalgamation<'a, P>
+impl<'a, P, P2> TryFrom<ErasedKeyAmalgamation<'a, P>>
+    for PrimaryKeyAmalgamation<'a, P2>
+    where P: 'a + key::KeyParts,
+          P2: 'a + key::KeyParts,
 {
     type Error = failure::Error;
 
     fn try_from(ka: ErasedKeyAmalgamation<'a, P>) -> Result<Self> {
         if ka.primary {
             Ok(Self {
-                ca: ka.ca.mark_role_primary(),
+                ca: P2::convert_key_amalgamation(
+                    ka.ca.mark_role_primary().mark_parts_unspecified())?,
                 primary: (),
             })
         } else {
@@ -286,8 +289,10 @@ impl<'a, P: 'a + key::KeyParts> TryFrom<ErasedKeyAmalgamation<'a, P>>
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> TryFrom<ErasedKeyAmalgamation<'a, P>>
-    for SubordinateKeyAmalgamation<'a, P>
+impl<'a, P, P2> TryFrom<ErasedKeyAmalgamation<'a, P>>
+    for SubordinateKeyAmalgamation<'a, P2>
+    where P: 'a + key::KeyParts,
+          P2: 'a + key::KeyParts,
 {
     type Error = failure::Error;
 
@@ -298,7 +303,8 @@ impl<'a, P: 'a + key::KeyParts> TryFrom<ErasedKeyAmalgamation<'a, P>>
                  to a SubordinateKeyAmalgamation".into()).into())
         } else {
             Ok(Self {
-                ca: ka.ca.mark_role_subordinate(),
+                ca: P2::convert_key_amalgamation(
+                    ka.ca.mark_role_subordinate().mark_parts_unspecified())?,
                 primary: (),
             })
         }
@@ -454,8 +460,10 @@ impl<'a, P: 'a + key::KeyParts> From<ValidSubordinateKeyAmalgamation<'a, P>>
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
-    for ValidPrimaryKeyAmalgamation<'a, P>
+impl<'a, P, P2> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
+    for ValidPrimaryKeyAmalgamation<'a, P2>
+    where P: 'a + key::KeyParts,
+          P2: 'a + key::KeyParts,
 {
     type Error = failure::Error;
 
@@ -469,8 +477,10 @@ impl<'a, P: 'a + key::KeyParts> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
     }
 }
 
-impl<'a, P: 'a + key::KeyParts> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
-    for ValidSubordinateKeyAmalgamation<'a, P>
+impl<'a, P, P2> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
+    for ValidSubordinateKeyAmalgamation<'a, P2>
+    where P: 'a + key::KeyParts,
+          P2: 'a + key::KeyParts,
 {
     type Error = failure::Error;
 
