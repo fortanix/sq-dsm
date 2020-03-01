@@ -1391,15 +1391,21 @@ impl Cert {
     /// Fixes a time and policy for use with this certificate.
     ///
     /// If `time` is `None`, the current time is used.
+    ///
+    /// Returns an error if the certificate is not valid for the given
+    /// policy at the given time.
     pub fn with_policy<'a, T>(&'a self, policy: &'a dyn Policy, time: T)
-                              -> CertAmalgamation<'a>
+                              -> Result<CertAmalgamation<'a>>
         where T: Into<Option<time::SystemTime>>,
     {
-        CertAmalgamation {
+        let time = time.into().unwrap_or_else(time::SystemTime::now);
+        self.primary_key().with_policy(policy, time)?;
+
+        Ok(CertAmalgamation {
             cert: self,
             policy,
-            time: time.into().unwrap_or_else(time::SystemTime::now),
-        }
+            time: time,
+        })
     }
 }
 
@@ -3392,7 +3398,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let p = &P::new();
         let cert_at = cert.with_policy(p,
                                        cert.primary_key().creation_time()
-                                       + time::Duration::new(60, 0));
+                                       + time::Duration::new(60, 0))
+            .unwrap();
         assert_eq!(cert_at.userids().count(), 0);
         assert_eq!(cert_at.keys().count(), 2);
 
@@ -3409,7 +3416,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         let cert_at = cert.with_policy(p,
                                        cert.primary_key().creation_time()
-                                       + time::Duration::new(60, 0));
+                                       + time::Duration::new(60, 0))
+            .unwrap();
         assert_eq!(cert_at.userids().count(), 1);
         assert_eq!(cert_at.keys().count(), 2);
         Ok(())
@@ -3426,7 +3434,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         let mut p = P::new();
         p.accept_hash(HashAlgorithm::SHA1);
-        let cert_at = cert.with_policy(&p, cert.primary_key().creation_time());
+        let cert_at = cert.with_policy(&p, cert.primary_key().creation_time())
+            .unwrap();
         assert_eq!(cert_at.userids().count(), 1);
         assert_eq!(cert_at.keys().count(), 1);
         Ok(())
