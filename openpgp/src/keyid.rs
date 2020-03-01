@@ -45,6 +45,12 @@ impl From<u64> for KeyID {
     }
 }
 
+impl From<[u8; 8]> for KeyID {
+    fn from(id: [u8; 8]) -> Self {
+        KeyID::from_bytes(&id[..])
+    }
+}
+
 impl From<&Fingerprint> for KeyID {
     fn from(fp: &Fingerprint) -> Self {
         match fp {
