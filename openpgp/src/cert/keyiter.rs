@@ -1,5 +1,5 @@
 use std::fmt;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::time::SystemTime;
 use std::borrow::Borrow;
 
@@ -429,30 +429,6 @@ impl<'a, P, R> KeyIter<'a, P, R>
 
             _p: self._p,
             _r: self._r,
-        }
-    }
-
-    /// Changes the iterator to return key bundles.
-    ///
-    /// A key bundle is similar to a key amalgamation, but is not
-    /// bound to a specific time.  It contains the key and all
-    /// relevant signatures.
-    ///
-    /// If the primary key satisfies the current filter on this
-    /// iterator, it is returned first.
-    pub fn bundles(self) -> KeyBundleIter<'a, P, key::UnspecifiedRole> {
-        KeyBundleIter {
-            cert: self.cert,
-            primary: self.primary,
-            subkey_iter: self.subkey_iter,
-
-            // The filters.
-            secret: self.secret,
-            unencrypted_secret: self.unencrypted_secret,
-            key_handles: self.key_handles,
-
-            _p: std::marker::PhantomData,
-            _r: std::marker::PhantomData,
         }
     }
 }
@@ -933,150 +909,6 @@ impl<'a, P, R> ValidKeyIter<'a, P, R>
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
-        }
-    }
-}
-
-pub struct KeyBundleIter<'a, P: key::KeyParts, R: key::KeyRole> {
-    // This is an option to make it easier to create an empty KeyIter.
-    cert: Option<&'a Cert>,
-    primary: bool,
-    subkey_iter: UnfilteredKeyBundleIter<'a,
-                                key::PublicParts,
-                                key::SubordinateRole>,
-    // If not None, filters by whether a key has a secret.
-    secret: Option<bool>,
-
-    // If not None, filters by whether a key has an unencrypted
-    // secret.
-    unencrypted_secret: Option<bool>,
-
-    // Only return keys in this set.
-    key_handles: Vec<KeyHandle>,
-
-    _p: std::marker::PhantomData<P>,
-    _r: std::marker::PhantomData<R>,
-}
-
-impl<'a, P: key::KeyParts, R: key::KeyRole> fmt::Debug
-    for KeyBundleIter<'a, P, R>
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("KeyBundleIter")
-            .field("primary", &self.primary)
-            .field("secret", &self.secret)
-            .field("unencrypted_secret", &self.unencrypted_secret)
-            .field("key_handles", &self.key_handles)
-            .finish()
-    }
-}
-
-// Very carefully implement Iterator for
-// Key<{PublicParts,UnspecifiedParts}, _>.  We cannot just abstract
-// over the parts, because then we cannot specialize the
-// implementation for Key<SecretParts, _> below.
-macro_rules! impl_key_component_iterator {
-    ($parts:path) => {
-        impl<'a, R: 'a + key::KeyRole> Iterator for KeyBundleIter<'a, $parts, R>
-            where &'a KeyBundle<$parts, R>:
-                      From<&'a KeyBundle<key::PublicParts, key::UnspecifiedRole>>
-        {
-            type Item = &'a KeyBundle<$parts, R>;
-
-            fn next(&mut self) -> Option<Self::Item> {
-                self.next_common().map(|b| b.into())
-            }
-        }
-    }
-}
-impl_key_component_iterator!(key::PublicParts);
-impl_key_component_iterator!(key::UnspecifiedParts);
-
-impl<'a, R: 'a + key::KeyRole, E> Iterator for KeyBundleIter<'a, key::SecretParts, R>
-    where &'a KeyBundle<key::SecretParts, R>:
-              TryFrom<&'a KeyBundle<key::PublicParts, key::UnspecifiedRole>,
-                      Error = E>,
-          E: std::fmt::Debug,
-{
-    type Item = &'a KeyBundle<key::SecretParts, R>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_common().map(|ka| ka.try_into().expect("has secret parts"))
-    }
-}
-
-impl<'a, P: 'a + key::KeyParts, R: 'a + key::KeyRole> KeyBundleIter<'a, P, R>
-{
-    fn next_common(&mut self) -> Option<&'a KeyBundle<key::PublicParts, key::UnspecifiedRole>>
-    {
-        tracer!(false, "KeyBundleIter::next", 0);
-        t!("KeyBundleIter: {:?}", self);
-
-        if self.cert.is_none() {
-            return None;
-        }
-        let cert = self.cert.unwrap();
-
-        loop {
-            let binding =
-                if ! self.primary {
-                    self.primary = true;
-                    cert.primary.mark_role_unspecified_ref()
-                } else {
-                    self.subkey_iter.next()?.mark_role_unspecified_ref()
-                };
-
-            let key = binding.key();
-            t!("Considering key: {:?}", key);
-
-            if self.key_handles.len() > 0 {
-                if !self.key_handles
-                    .iter()
-                    .any(|h| h.aliases(key.key_handle()))
-                {
-                    t!("{} is not one of the keys that we are looking for ({:?})",
-                       key.key_handle(), self.key_handles);
-                    continue;
-                }
-            }
-
-
-            if let Some(want_secret) = self.secret {
-                if key.has_secret() {
-                    // We have a secret.
-                    if ! want_secret {
-                        t!("Have a secret... skipping.");
-                        continue;
-                    }
-                } else {
-                    if want_secret {
-                        t!("No secret... skipping.");
-                        continue;
-                    }
-                }
-            }
-
-            if let Some(want_unencrypted_secret) = self.unencrypted_secret {
-                if let Some(secret) = key.optional_secret() {
-                    if let SecretKeyMaterial::Unencrypted { .. } = secret {
-                        if ! want_unencrypted_secret {
-                            t!("Unencrypted secret... skipping.");
-                            continue;
-                        }
-                    } else {
-                        if want_unencrypted_secret {
-                            t!("Encrypted secret... skipping.");
-                            continue;
-                        }
-                    }
-                } else {
-                    // No secret.
-                    t!("No secret... skipping.");
-                    continue;
-                }
-            }
-
-            return Some(binding);
         }
     }
 }
