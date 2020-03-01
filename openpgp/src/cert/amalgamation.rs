@@ -524,10 +524,6 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
             // No binding signature at time `t` => not alive.
             let sig = c.binding_signature(policy, t)?;
 
-            if !sig.signature_alive(t, std::time::Duration::new(0, 0)).is_ok() {
-                return None;
-            }
-
             let revoked = c._revoked(policy, t, false, Some(sig));
             let primary = sig.primary_userid().unwrap_or(false);
             let signature_creation_time = sig.signature_creation_time()?;
