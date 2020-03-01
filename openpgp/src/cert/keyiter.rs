@@ -262,9 +262,20 @@ impl<'a, P, R> KeyIter<'a, P, R>
     }
 
     /// Changes the iterator to skip the primary key.
-    pub fn skip_primary(mut self) -> Self {
-        self.primary = true;
-        self
+    pub fn subkeys(self) -> KeyIter<'a, P, key::SubordinateRole> {
+        KeyIter {
+            cert: self.cert,
+            primary: true,
+            subkey_iter: self.subkey_iter,
+
+            // The filters.
+            secret: self.secret,
+            unencrypted_secret: self.unencrypted_secret,
+            key_handles: self.key_handles,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
     }
 
     /// Changes the iterator to only return keys that are valid at
@@ -433,29 +444,6 @@ impl<'a, P, R> KeyIter<'a, P, R>
         KeyBundleIter {
             cert: self.cert,
             primary: self.primary,
-            subkey_iter: self.subkey_iter,
-
-            // The filters.
-            secret: self.secret,
-            unencrypted_secret: self.unencrypted_secret,
-            key_handles: self.key_handles,
-
-            _p: std::marker::PhantomData,
-            _r: std::marker::PhantomData,
-        }
-    }
-
-    /// Changes the iterator to return subkey bundles.
-    ///
-    /// A key bundle is similar to a key amalgamation, but is not
-    /// bound to a specific time.  It contains the key and all
-    /// relevant signatures.
-    ///
-    /// The primary key is never returned from this iterator.
-    pub fn subkeys(self) -> KeyBundleIter<'a, P, key::SubordinateRole> {
-        KeyBundleIter {
-            cert: self.cert,
-            primary: true,
             subkey_iter: self.subkey_iter,
 
             // The filters.

@@ -3265,8 +3265,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
         let _signing_subkey_pair = signing_subkey.clone().into_keypair()?;
         let cert = cert.merge_packets(vec![signing_subkey.into()])?;
-        assert_eq!(cert.keys().skip_primary().count(), 1);
-        assert_eq!(cert.keys().skip_primary().with_policy(&p, None).count(), 0);
+        assert_eq!(cert.keys().subkeys().count(), 1);
+        assert_eq!(cert.keys().subkeys().with_policy(&p, None).count(), 0);
 
         // Add a component that Sequoia doesn't understand.
         let mut fake_key = packet::Unknown::new(
@@ -3367,8 +3367,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             subkey_sec.clone().into(),
             binding.clone().into(),
         ].into())?;
-        assert_eq!(cert.keys().skip_primary().count(), 1);
-        assert_eq!(cert.keys().unencrypted_secret().skip_primary().count(), 1);
+        assert_eq!(cert.keys().subkeys().count(), 1);
+        assert_eq!(cert.keys().unencrypted_secret().subkeys().count(), 1);
 
         let cert = Cert::from_packet_pile(vec![
             primary.clone().into(),
@@ -3377,8 +3377,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             subkey_pub.clone().into(),
             binding.clone().into(),
         ].into())?;
-        assert_eq!(cert.keys().skip_primary().count(), 1);
-        assert_eq!(cert.keys().unencrypted_secret().skip_primary().count(), 1);
+        assert_eq!(cert.keys().subkeys().count(), 1);
+        assert_eq!(cert.keys().unencrypted_secret().subkeys().count(), 1);
         Ok(())
     }
 

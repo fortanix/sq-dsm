@@ -142,10 +142,10 @@ fn inspect_cert(policy: &dyn Policy,
                 print_keygrips, print_certifications)?;
     writeln!(output)?;
 
-    for vka in cert.keys().skip_primary().with_policy(policy, None) {
+    for vka in cert.keys().subkeys().with_policy(policy, None) {
         writeln!(output, "         Subkey: {}", vka.key().fingerprint())?;
         inspect_revocation(output, "", vka.revoked())?;
-        inspect_key(policy, output, "", vka.into(),
+        inspect_key(policy, output, "", vka.into_key_amalgamation().into(),
                     print_keygrips, print_certifications)?;
         writeln!(output)?;
     }
