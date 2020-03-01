@@ -912,6 +912,29 @@ impl<'a, P, R> ValidKeyIter<'a, P, R>
         self.key_handles.extend(h.map(|h| h.clone()));
         self
     }
+
+    /// Changes the iterator to skip the primary key.
+    pub fn subkeys(self) -> ValidKeyIter<'a, P, key::SubordinateRole> {
+        ValidKeyIter {
+            cert: self.cert,
+            primary: true,
+            subkey_iter: self.subkey_iter,
+
+            time: self.time,
+            policy: self.policy,
+
+            // The filters.
+            secret: self.secret,
+            unencrypted_secret: self.unencrypted_secret,
+            key_handles: self.key_handles,
+            flags: self.flags,
+            alive: self.alive,
+            revoked: self.revoked,
+
+            _p: std::marker::PhantomData,
+            _r: std::marker::PhantomData,
+        }
+    }
 }
 
 pub struct KeyBundleIter<'a, P: key::KeyParts, R: key::KeyRole> {
