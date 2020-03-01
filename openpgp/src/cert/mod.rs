@@ -1395,13 +1395,13 @@ impl Cert {
     /// Returns an error if the certificate is not valid for the given
     /// policy at the given time.
     pub fn with_policy<'a, T>(&'a self, policy: &'a dyn Policy, time: T)
-                              -> Result<CertAmalgamation<'a>>
+                              -> Result<ValidCert<'a>>
         where T: Into<Option<time::SystemTime>>,
     {
         let time = time.into().unwrap_or_else(time::SystemTime::now);
         self.primary_key().with_policy(policy, time)?;
 
-        Ok(CertAmalgamation {
+        Ok(ValidCert {
             cert: self,
             policy,
             time: time,
@@ -1410,14 +1410,14 @@ impl Cert {
 }
 
 /// A certificate under a given policy at a given time.
-pub struct CertAmalgamation<'a> {
+pub struct ValidCert<'a> {
     cert: &'a Cert,
     policy: &'a dyn Policy,
     // The reference time.
     time: time::SystemTime,
 }
 
-impl<'a> std::ops::Deref for CertAmalgamation<'a> {
+impl<'a> std::ops::Deref for ValidCert<'a> {
     type Target = Cert;
 
     fn deref(&self) -> &Self::Target {
@@ -1425,7 +1425,7 @@ impl<'a> std::ops::Deref for CertAmalgamation<'a> {
     }
 }
 
-impl<'a> CertAmalgamation<'a> {
+impl<'a> ValidCert<'a> {
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this
@@ -1445,7 +1445,7 @@ impl<'a> CertAmalgamation<'a> {
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Self
         where T: Into<Option<time::SystemTime>>,
     {
-        CertAmalgamation {
+        ValidCert {
             cert: self.cert,
             policy,
             time: time.into().unwrap_or_else(time::SystemTime::now),

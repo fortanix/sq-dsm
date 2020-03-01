@@ -15,7 +15,6 @@
 #![allow(unused_imports)]
 pub use crate::cert::{
     Cert,
-    CertAmalgamation,
     CertBuilder,
     CertParser,
     CertRevocationBuilder,
@@ -28,6 +27,7 @@ pub use crate::cert::{
     SubkeyRevocationBuilder,
     UserAttributeRevocationBuilder,
     UserIDRevocationBuilder,
+    ValidCert,
     amalgamation::ComponentAmalgamation,
     amalgamation::ValidAmalgamation as _,
     amalgamation::ValidComponentAmalgamation,
