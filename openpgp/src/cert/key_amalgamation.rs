@@ -648,6 +648,11 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
         }
     }
 
+    /// Returns the wrapped `KeyAmalgamation`.
+    pub fn into_key_amalgamation(self) -> KeyAmalgamation<'a, P, R, R2> {
+        self.ka
+    }
+
     // NOTE: If you add a method to ValidKeyAmalgamation that takes
     // ownership of self, then don't forget to write a forwarder for
     // it for ValidPrimaryKeyAmalgamation.
