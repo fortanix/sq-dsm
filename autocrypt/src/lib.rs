@@ -37,6 +37,7 @@ use openpgp::serialize::stream::{
 };
 use openpgp::crypto::Password;
 use openpgp::policy::Policy;
+use openpgp::types::RevocationStatus;
 
 mod cert;
 pub use cert::cert_builder;
@@ -111,24 +112,21 @@ impl AutocryptHeader {
         let mut acc = Vec::new();
 
         // The primary key and the most recent selfsig.
-        let primary = cert.primary_key();
+        let primary = cert.primary_key().with_policy(policy, None)?;
         acc.push(primary.key().clone().into());
         primary.self_signatures().iter().take(1)
             .for_each(|s| acc.push(s.clone().into()));
 
         // The subkeys and the most recent selfsig.
-        for skb in cert.keys().subkeys() {
+        for skb in cert.keys().with_policy(policy, None).subkeys() {
             // Skip if revoked.
-            if ! skb.self_revocations().is_empty()
-                || ! skb.other_revocations().is_empty()
-            {
+            if let RevocationStatus::Revoked(_) = skb.revoked() {
                 continue;
             }
 
             let k = skb.key().clone();
             acc.push(k.into());
-            skb.self_signatures().iter().take(1)
-                .for_each(|s| acc.push(s.clone().into()));
+            acc.push(skb.binding_signature().clone().into());
         }
 
         // The UserIDs matching ADDR.
