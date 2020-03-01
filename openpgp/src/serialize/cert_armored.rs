@@ -3,12 +3,12 @@ use std::io;
 use std::str;
 
 use crate::armor;
+use crate::cert::{Cert, amalgamation::ValidAmalgamation};
 use crate::Result;
 use crate::types::RevocationStatus;
 use crate::serialize::{
     Serialize, SerializeInto, generic_serialize_into, generic_export_into,
 };
-use crate::Cert;
 use crate::policy::StandardPolicy as P;
 
 
@@ -28,26 +28,17 @@ impl Cert {
     /// default policy) are included as comments, so that it is easier
     /// to identify the Cert when looking at the armored data.
     pub fn armor_headers(&self) -> Vec<String> {
-        let p = P::default();
+        let p = &P::default();
 
         let length_value = armor::LINE_LENGTH - "Comment: ".len();
         // Create a header per userid.
-        let mut headers: Vec<String> = self.userids()
+        let mut headers: Vec<String> = self.userids().with_policy(p, None)
             // Ignore revoked userids.
             .filter_map(|uidb| {
-                if let RevocationStatus::Revoked(_) = uidb.revoked(&p, None) {
+                if let RevocationStatus::Revoked(_) = uidb.revoked() {
                     None
                 } else {
                     Some(uidb)
-                }
-            // Ignore userids not "alive".
-            }).filter_map(|uidb| {
-                if uidb.binding_signature(&p, None)?
-                    .signature_alive(None, None).is_ok()
-                {
-                    Some(uidb)
-                } else {
-                    None
                 }
             // Ignore userids with non-printable characters.
             }).filter_map(|uidb| {
