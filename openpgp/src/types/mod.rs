@@ -521,6 +521,8 @@ impl Arbitrary for SymmetricAlgorithm {
 /// symbolic one.
 ///
 ///   [`AEADAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
+///
+/// This feature is [experimental](../index.html#experimental-features).
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AEADAlgorithm {
     /// EAX mode.

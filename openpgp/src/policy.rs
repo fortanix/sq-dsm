@@ -121,6 +121,8 @@ pub trait Policy : fmt::Debug {
     ///
     /// With this function, you can prevent the use of insecure AEAD
     /// constructions.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
         Ok(())
     }
@@ -632,11 +634,15 @@ impl<'a> StandardPolicy<'a> {
     }
 
     /// Always considers `s` to be secure.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     pub fn accept_aead_algo(&mut self, a: AEADAlgorithm) {
         self.aead_algos.set(a, ACCEPT);
     }
 
     /// Always considers `s` to be insecure.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     pub fn reject_aead_algo(&mut self, a: AEADAlgorithm) {
         self.aead_algos.set(a, REJECT);
     }
@@ -647,6 +653,8 @@ impl<'a> StandardPolicy<'a> {
     /// algorithm has no known vulnerabilities.
     ///
     /// By default, we accept all AEAD modes.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     pub fn reject_aead_algo_at<C>(&mut self, a: AEADAlgorithm,
                                        cutoff: C)
         where C: Into<Option<SystemTime>>,
@@ -657,6 +665,8 @@ impl<'a> StandardPolicy<'a> {
     }
 
     /// Returns the cutoff times for the specified hash algorithm.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     pub fn aead_algo_cutoff(&self, a: AEADAlgorithm)
                                  -> Option<SystemTime> {
         self.aead_algos.cutoff(a).map(|t| t.into())

@@ -30,9 +30,19 @@
 //!
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880
 //! [RFC 6637]: https://tools.ietf.org/html/rfc6637
-//! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05
 //! [unhashed signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.2
 //! [sequoia-core]: ../sequoia_core
+//!
+//! # Experimental Features
+//!
+//! This crate implements functionality from [RFC 4880bis], notable
+//! AEAD encryption containers.  As of this writing, this RFC is still
+//! a draft and the syntax or semantic defined in it may change or go
+//! away.  Therefore, all related functionality may change and
+//! artifacts created using this functionality may not be usable in
+//! the future.  Do not use it for things other than experiments.
+//!
+//! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-08
 
 #![warn(missing_docs)]
 

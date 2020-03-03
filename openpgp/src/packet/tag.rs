@@ -48,6 +48,8 @@ pub enum Tag {
     /// Modification Detection Code Packet.
     MDC,
     /// AEAD Encrypted Data Packet.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     AED,
     /// Unassigned packets (as of RFC4880).
     Unknown(u8),

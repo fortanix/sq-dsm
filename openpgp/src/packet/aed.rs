@@ -15,6 +15,8 @@ use crate::Result;
 /// of RFC 4880bis] for details.
 ///
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
+///
+/// This feature is [experimental](../../index.html#experimental-features).
 #[derive(Clone, Debug)]
 pub struct AED1 {
     /// CTB packet header fields.

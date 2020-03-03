@@ -485,6 +485,8 @@ pub enum SKESK {
     /// SKESK packet version 4.
     V4(self::skesk::SKESK4),
     /// SKESK packet version 5.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     V5(self::skesk::SKESK5),
 
     /// This marks this enum as non-exhaustive.  Do not use this
@@ -779,6 +781,8 @@ impl DerefMut for SEIP {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+///
+/// This feature is [experimental](../index.html#experimental-features).
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum AED {
     /// AED packet version 1.

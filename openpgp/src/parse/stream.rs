@@ -266,6 +266,8 @@ pub enum MessageLayer<'a> {
         /// Symmetric algorithm used.
         sym_algo: SymmetricAlgorithm,
         /// AEAD algorithm used, if any.
+        ///
+        /// This feature is [experimental](../../index.html#experimental-features).
         aead_algo: Option<AEADAlgorithm>,
     },
     /// Represents a signature group.

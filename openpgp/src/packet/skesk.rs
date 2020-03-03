@@ -245,6 +245,8 @@ impl Arbitrary for SKESK4 {
 /// 4880bis] for details.
 ///
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.3
+///
+/// This feature is [experimental](../../index.html#experimental-features).
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct SKESK5 {
     /// Common fields.

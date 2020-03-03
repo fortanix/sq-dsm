@@ -142,11 +142,15 @@ impl Features {
     }
 
     /// Whether or not AEAD is supported.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     pub fn supports_aead(&self) -> bool {
         self.aead
     }
 
     /// Sets whether or not AEAD is supported.
+    ///
+    /// This feature is [experimental](../index.html#experimental-features).
     pub fn set_aead(mut self, v: bool) -> Self {
         self.aead = v;
         self

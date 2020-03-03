@@ -1113,6 +1113,8 @@ impl<'a> Encryptor<'a> {
     }
 
     /// Enables AEAD and sets the AEAD algorithm to use.
+    ///
+    /// This feature is [experimental](../../index.html#experimental-features).
     pub fn aead_algo(mut self, algo: AEADAlgorithm) -> Self {
         self.aead_algo = Some(algo);
         self
