@@ -155,7 +155,7 @@ impl mpis::SecretKeyMaterial {
     pub fn parse_chksumd<T: Read>(algo: PublicKeyAlgorithm, cur: T)
                                   -> Result<Self> {
         use std::io::Cursor;
-        use crate::serialize::Serialize;
+        use crate::serialize::Marshal;
 
         // read mpis
         let bio = buffered_reader::Generic::with_cookie(
@@ -483,7 +483,7 @@ impl mpis::Signature {
 fn mpis_parse_test() {
     use super::Parse;
     use crate::PublicKeyAlgorithm::*;
-    use crate::serialize::SerializeInto;
+    use crate::serialize::MarshalInto;
 
     // Dummy RSA public key.
     {

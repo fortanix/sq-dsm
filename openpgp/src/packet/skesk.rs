@@ -425,7 +425,7 @@ mod test {
     use super::*;
     use crate::PacketPile;
     use crate::parse::Parse;
-    use crate::serialize::{Serialize, SerializeInto};
+    use crate::serialize::{Marshal, MarshalInto};
 
     quickcheck! {
         fn roundtrip(p: SKESK) -> bool {

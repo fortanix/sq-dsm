@@ -15,7 +15,7 @@ use crate::openpgp::types::*;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
 use crate::openpgp::packet::signature::subpacket::SubpacketTag;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
-use crate::openpgp::serialize::SerializeInto;
+use crate::openpgp::serialize::MarshalInto;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

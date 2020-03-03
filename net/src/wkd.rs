@@ -33,7 +33,7 @@ use crate::openpgp::{
     Cert,
 };
 use crate::openpgp::parse::Parse;
-use crate::openpgp::serialize::Serialize;
+use crate::openpgp::serialize::Marshal;
 use crate::openpgp::types::HashAlgorithm;
 use crate::openpgp::cert::prelude::*;
 
@@ -404,7 +404,9 @@ impl KeyRing {
     }
 }
 
-impl Serialize for KeyRing {
+impl crate::openpgp::serialize::Serialize for KeyRing {}
+
+impl Marshal for KeyRing {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for cert in self.0.values() {
             cert.serialize(o)?;
@@ -423,8 +425,6 @@ impl Serialize for KeyRing {
 
 #[cfg(test)]
 mod tests {
-    use crate::openpgp::serialize::Serialize;
-
     use super::*;
     use self::Variant::*;
 

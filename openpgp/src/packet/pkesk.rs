@@ -207,7 +207,7 @@ mod tests {
     use crate::PacketPile;
     use crate::Packet;
     use crate::parse::Parse;
-    use crate::serialize::SerializeInto;
+    use crate::serialize::MarshalInto;
 
     quickcheck! {
         fn roundtrip(p: PKESK3) -> bool {

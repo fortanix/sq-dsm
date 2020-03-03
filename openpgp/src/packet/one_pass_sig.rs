@@ -197,7 +197,7 @@ impl Arbitrary for OnePassSig3 {
 mod tests {
     use super::*;
     use crate::parse::Parse;
-    use crate::serialize::SerializeInto;
+    use crate::serialize::MarshalInto;
 
     quickcheck! {
         fn roundtrip(p: OnePassSig3) -> bool {

@@ -200,7 +200,7 @@ impl Arbitrary for Literal {
 mod tests {
     use super::*;
     use crate::parse::Parse;
-    use crate::serialize::SerializeInto;
+    use crate::serialize::MarshalInto;
 
     quickcheck! {
         fn roundtrip(p: Literal) -> bool {

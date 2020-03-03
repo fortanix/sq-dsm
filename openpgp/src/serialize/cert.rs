@@ -2,19 +2,11 @@ use crate::Result;
 use crate::cert::prelude::*;
 use crate::packet::{key, Signature, Tag};
 use crate::serialize::{
-    PacketRef, Serialize, SerializeInto,
+    PacketRef,
+    Marshal, MarshalInto,
     generic_serialize_into, generic_export_into,
 };
 
-impl Serialize for Cert {
-    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        self.serialize_common(o, false)
-    }
-
-    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        self.serialize_common(o, true)
-    }
-}
 
 impl Cert {
     /// Serializes or exports the Cert.
@@ -170,7 +162,21 @@ impl Cert {
     }
 }
 
-impl SerializeInto for Cert {
+impl crate::serialize::Serialize for Cert {}
+
+impl Marshal for Cert {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        self.serialize_common(o, false)
+    }
+
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        self.serialize_common(o, true)
+    }
+}
+
+impl crate::serialize::SerializeInto for Cert {}
+
+impl MarshalInto for Cert {
     fn serialized_len(&self) -> usize {
         let mut l = 0;
         let primary = self.primary_key();
@@ -521,7 +527,9 @@ impl<'a> TSK<'a> {
     }
 }
 
-impl<'a> Serialize for TSK<'a> {
+impl<'a> crate::serialize::Serialize for TSK<'a> {}
+
+impl<'a> Marshal for TSK<'a> {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.serialize_common(o, false)
     }
@@ -531,7 +539,9 @@ impl<'a> Serialize for TSK<'a> {
     }
 }
 
-impl<'a> SerializeInto for TSK<'a> {
+impl<'a> crate::serialize::SerializeInto for TSK<'a> {}
+
+impl<'a> MarshalInto for TSK<'a> {
     fn serialized_len(&self) -> usize {
         let mut l = 0;
 
@@ -664,7 +674,6 @@ mod test {
     use super::*;
     use crate::vec_truncate;
     use crate::parse::Parse;
-    use crate::serialize::Serialize;
     use crate::packet::key;
     use crate::policy::StandardPolicy as P;
 

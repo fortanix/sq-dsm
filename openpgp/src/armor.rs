@@ -38,7 +38,7 @@ use quickcheck::{Arbitrary, Gen};
 use crate::vec_truncate;
 use crate::packet::prelude::*;
 use crate::packet::header::{BodyLength, CTBNew, CTBOld};
-use crate::serialize::SerializeInto;
+use crate::serialize::MarshalInto;
 
 /// The encoded output stream must be represented in lines of no more
 /// than 76 characters each (see (see [RFC 4880, section

@@ -832,7 +832,7 @@ impl Arbitrary for UserID {
 mod tests {
     use super::*;
     use crate::parse::Parse;
-    use crate::serialize::SerializeInto;
+    use crate::serialize::MarshalInto;
 
     quickcheck! {
         fn roundtrip(p: UserID) -> bool {

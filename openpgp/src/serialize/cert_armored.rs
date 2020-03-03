@@ -7,7 +7,8 @@ use crate::cert::{Cert, amalgamation::ValidAmalgamation};
 use crate::Result;
 use crate::types::RevocationStatus;
 use crate::serialize::{
-    Serialize, SerializeInto, generic_serialize_into, generic_export_into,
+    Marshal, MarshalInto,
+    generic_serialize_into, generic_export_into,
 };
 use crate::policy::StandardPolicy as P;
 
@@ -83,7 +84,9 @@ impl Cert {
     /// assert!(armored.contains("Mr. Pink ☮☮☮"));
     /// # Ok(()) }
     /// ```
-    pub fn armored<'a>(&'a self) -> impl Serialize + SerializeInto + 'a {
+    pub fn armored<'a>(&'a self)
+        -> impl crate::serialize::Serialize + crate::serialize::SerializeInto + 'a
+    {
         Encoder::new(self)
     }
 }
@@ -124,7 +127,9 @@ impl<'a> Encoder<'a> {
     }
 }
 
-impl<'a> Serialize for Encoder<'a> {
+impl<'a> crate::serialize::Serialize for Encoder<'a> {}
+
+impl<'a> Marshal for Encoder<'a> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         self.serialize_common(o, false)
     }
@@ -134,7 +139,9 @@ impl<'a> Serialize for Encoder<'a> {
     }
 }
 
-impl<'a> SerializeInto for Encoder<'a> {
+impl<'a> crate::serialize::SerializeInto for Encoder<'a> {}
+
+impl<'a> MarshalInto for Encoder<'a> {
     fn serialized_len(&self) -> usize {
         let h = self.cert.armor_headers();
         let headers_len =

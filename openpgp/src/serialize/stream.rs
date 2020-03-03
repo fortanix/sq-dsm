@@ -34,7 +34,7 @@ use crate::packet::header::CTB;
 use crate::packet::header::BodyLength;
 use super::{
     PartialBodyFilter,
-    Serialize,
+    Marshal,
     writer,
 };
 use crate::types::{

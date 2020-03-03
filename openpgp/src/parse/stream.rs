@@ -44,7 +44,7 @@ use crate::{
     packet::Signature,
     cert::prelude::*,
     crypto::SessionKey,
-    serialize::Serialize,
+    serialize::Marshal,
     policy::Policy,
 };
 use crate::parse::{

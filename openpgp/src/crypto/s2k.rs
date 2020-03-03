@@ -290,7 +290,6 @@ mod tests {
     use crate::SymmetricAlgorithm;
     use crate::Packet;
     use crate::parse::{Parse, PacketParser};
-    use crate::serialize::Serialize;
 
     #[test]
     fn s2k_parser_test() {
@@ -423,7 +422,8 @@ mod tests {
 
     quickcheck! {
         fn s2k_roundtrip(s2k: S2K) -> bool {
-            use crate::serialize::SerializeInto;
+            use crate::serialize::Marshal;
+            use crate::serialize::MarshalInto;
 
             eprintln!("in {:?}", s2k);
             use std::io::Cursor;

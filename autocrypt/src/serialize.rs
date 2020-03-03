@@ -1,5 +1,5 @@
 use sequoia_openpgp as openpgp;
-use openpgp::serialize::Serialize;
+use openpgp::serialize::Marshal;
 
 use super::{
     AutocryptHeader,
@@ -7,7 +7,9 @@ use super::{
     Result,
 };
 
-impl Serialize for AutocryptHeader {
+impl openpgp::serialize::Serialize for AutocryptHeader {}
+
+impl Marshal for AutocryptHeader {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         if self.key.is_none() {
             return Err(Error::InvalidOperation("No key".into()).into());

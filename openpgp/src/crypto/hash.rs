@@ -245,7 +245,7 @@ impl<P, R> Hash for Key4<P, R>
 {
     /// Update the Hash with a hash of the key.
     fn hash(&self, hash: &mut Context) {
-        use crate::serialize::SerializeInto;
+        use crate::serialize::MarshalInto;
 
         // We hash 8 bytes plus the MPIs.  But, the len doesn't
         // include the tag (1 byte) or the length (2 bytes).
@@ -303,7 +303,8 @@ impl Hash for Signature4 {
 impl Hash for signature::Builder {
     /// Adds the `Signature` to the provided hash context.
     fn hash(&self, hash: &mut Context) {
-        use crate::serialize::SerializeInto;
+        use crate::serialize::MarshalInto;
+
         // XXX: Annoyingly, we have no proper way of handling errors
         // here.
         let hashed_area = self.hashed_area().to_vec()

@@ -14,7 +14,7 @@ use crate::types::{
 };
 use crate::crypto::hash::{self, Hash};
 use crate::crypto::mem::{secure_cmp, Protected};
-use crate::serialize::Serialize;
+use crate::serialize::Marshal;
 
 use crate::Error;
 use crate::Result;
@@ -896,7 +896,6 @@ impl Arbitrary for Signature {
 mod tests {
     use super::*;
     use crate::parse::Parse;
-    use crate::serialize::Serialize;
 
     quickcheck! {
         fn mpi_roundtrip(mpi: MPI) -> bool {
@@ -910,7 +909,6 @@ mod tests {
         fn pk_roundtrip(pk: PublicKey) -> bool {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
-            use crate::serialize::Serialize;
 
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);
@@ -969,7 +967,6 @@ mod tests {
         fn sk_roundtrip(sk: SecretKeyMaterial) -> bool {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
-            use crate::serialize::Serialize;
 
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);
@@ -1009,7 +1006,6 @@ mod tests {
         fn ct_roundtrip(ct: Ciphertext) -> bool {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
-            use crate::serialize::Serialize;
 
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);
@@ -1040,7 +1036,6 @@ mod tests {
         fn signature_roundtrip(sig: Signature) -> bool {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
-            use crate::serialize::Serialize;
 
             let buf = Vec::<u8>::default();
             let mut cur = Cursor::new(buf);

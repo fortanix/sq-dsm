@@ -20,8 +20,8 @@ use crate::packet::{
     header::BodyLength,
 };
 use crate::Packet;
-use crate::serialize::Serialize;
-use crate::serialize::SerializeInto;
+use crate::serialize::Marshal;
+use crate::serialize::MarshalInto;
 
 /// Holds a UserAttribute packet.
 ///
@@ -270,7 +270,6 @@ impl Arbitrary for Image {
 mod tests {
     use super::*;
     use crate::parse::Parse;
-    use crate::serialize::SerializeInto;
 
     quickcheck! {
         fn roundtrip(p: UserAttribute) -> bool {

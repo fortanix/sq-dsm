@@ -1,9 +1,15 @@
 use crate::Result;
-use crate::serialize::{Serialize, SerializeInto, generic_serialize_into};
+use crate::serialize::{
+    Marshal,
+    MarshalInto,
+    generic_serialize_into,
+};
 
 use crate::crypto::sexp::{Sexp, String_};
 
-impl Serialize for Sexp {
+impl crate::serialize::Serialize for Sexp {}
+
+impl Marshal for Sexp {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             Sexp::String(ref s) => s.serialize(o),
@@ -19,7 +25,9 @@ impl Serialize for Sexp {
     }
 }
 
-impl SerializeInto for Sexp {
+impl crate::serialize::SerializeInto for Sexp {}
+
+impl MarshalInto for Sexp {
     fn serialized_len(&self) -> usize {
         match self {
             Sexp::String(ref s) => s.serialized_len(),
@@ -33,7 +41,7 @@ impl SerializeInto for Sexp {
     }
 }
 
-impl Serialize for String_ {
+impl Marshal for String_ {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         if let Some(display) = self.display_hint() {
             write!(o, "[{}:", display.len())?;
@@ -59,7 +67,7 @@ fn size_tag_len(len: usize) -> usize {
     std::cmp::max(1, digits) // 0 takes up 1 char, too.
 }
 
-impl SerializeInto for String_ {
+impl MarshalInto for String_ {
     fn serialized_len(&self) -> usize {
         self.display_hint()
             .map(|d| size_tag_len(d.len()) + 3 + d.len()).unwrap_or(0)

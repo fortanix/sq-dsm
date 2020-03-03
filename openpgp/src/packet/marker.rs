@@ -55,7 +55,7 @@ impl Arbitrary for Marker {
 mod tests {
     use super::*;
     use crate::parse::Parse;
-    use crate::serialize::SerializeInto;
+    use crate::serialize::MarshalInto;
 
     #[test]
     fn roundtrip() {

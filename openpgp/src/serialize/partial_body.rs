@@ -8,7 +8,7 @@ use std::cmp;
 use crate::Error;
 use crate::Result;
 use crate::packet::header::BodyLength;
-use super::{writer, write_byte, Serialize};
+use super::{writer, write_byte, Marshal};
 
 pub struct PartialBodyFilter<'a, C: 'a> {
     // The underlying writer.

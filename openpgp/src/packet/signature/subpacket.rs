@@ -77,7 +77,7 @@ use crate::{
     Fingerprint,
     KeyID,
     SignatureType,
-    serialize::SerializeInto,
+    serialize::MarshalInto,
 };
 use crate::types::{
     AEADAlgorithm,

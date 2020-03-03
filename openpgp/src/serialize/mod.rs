@@ -49,7 +49,107 @@ use crate::types::{
 const TRACE : bool = false;
 
 /// Serializes OpenPGP data structures.
-pub trait Serialize {
+///
+/// This trait provides the same interface as the `Marshal` trait (in
+/// fact, it is just a wrapper around that trait), but only data
+/// structures that it makes sense to export implement it.
+///
+/// Having a separate trait for data structures that it makes sense to
+/// export avoids an easy-to-make and hard-to-debug bug: inadvertently
+/// exporting an OpenPGP data structure without any framing
+/// information.
+///
+/// This bug is easy to make, because Rust infers types, which means
+/// that it is often not clear from the immediate context exactly what
+/// is being serialized.  This bug is hard to debug, because errors
+/// parsing data that has been incorrectly exported, are removed from
+/// the serialization code.
+///
+/// The following example shows how to correctly export a revocation
+/// certificate.  It should make clear how easy it is to forget to
+/// convert a bare signature into an OpenPGP packet before serializing
+/// it:
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::Packet;
+/// use openpgp::serialize::Serialize;
+///
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+/// let (_cert, rev) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     .generate()?;
+/// let rev : Packet = rev.into();
+/// # let output = &mut Vec::new();
+/// rev.serialize(output)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Note: if you `use` both `Serialize` and `Marshal`, then, because
+/// they both have the same methods, and all data structures that
+/// implement `Serialize` also implement `Marshal`, you will have to
+/// use the Universal Function Call Syntax (UFCS) to call the methods
+/// on those objects, for example:
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// # use openpgp::cert::prelude::*;
+/// # use openpgp::Packet;
+/// # use openpgp::serialize::Serialize;
+/// #
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+/// # let (_cert, rev) =
+/// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #     .generate()?;
+/// # let rev : Packet = rev.into();
+/// # let output = &mut Vec::new();
+/// Serialize::serialize(&rev, output)?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// If you really needed `Marshal`, we strongly recommend importing it
+/// in as small a scope as possible to avoid this, and to avoid
+/// accidentally exporting data without the required framing.
+pub trait Serialize : Marshal {
+    /// Writes a serialized version of the object to `o`.
+    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        Marshal::serialize(self, o)
+    }
+
+    /// Exports a serialized version of the object to `o`.
+    ///
+    /// This is similar to [`serialize(..)`], with these exceptions:
+    ///
+    ///   - It is an error to export a [`Signature`] if it is marked
+    ///     as non-exportable.
+    ///   - When exporting a [`Cert`], non-exportable signatures are
+    ///     not exported, and any component bound merely by
+    ///     non-exportable signatures is not exported.
+    ///
+    ///   [`serialize(..)`]: #tymethod.serialize
+    ///   [`Signature`]: ../packet/enum.Signature.html
+    ///   [`Cert`]: ../struct.Cert.html
+    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        Marshal::export(self, o)
+    }
+}
+
+/// Serializes OpenPGP data structures.
+///
+/// This trait provides the same interface as `Serialize`, but is
+/// implemented for all data structures that can be serialized.
+///
+/// In general, you should prefer the `Serialize` trait, as it is only
+/// implemented for data structures that are normally exported.  See
+/// the documentation for `Serialize` for more details.
+pub trait Marshal {
     /// Writes a serialized version of the object to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()>;
 
@@ -72,7 +172,95 @@ pub trait Serialize {
 }
 
 /// Serializes OpenPGP data structures into pre-allocated buffers.
-pub trait SerializeInto {
+///
+/// This trait provides the same interface as `MarshalInto`, but is
+/// only implemented for data structures that can be serialized.
+///
+/// In general, you should prefer this trait to `MarshalInto`, as it
+/// is only implemented for data structures that are normally
+/// exported.  See the documentation for `Serialize` for more details.
+pub trait SerializeInto : MarshalInto {
+    /// Computes the maximal length of the serialized representation.
+    ///
+    /// # Errors
+    ///
+    /// If serialization would fail, this function underestimates the
+    /// length.
+    fn serialized_len(&self) -> usize {
+        MarshalInto::serialized_len(self)
+    }
+
+    /// Serializes into the given buffer.
+    ///
+    /// Returns the length of the serialized representation.
+    ///
+    /// # Errors
+    ///
+    /// If the length of the given slice is smaller than the maximal
+    /// length computed by `serialized_len()`, this function returns
+    /// `Error::InvalidArgument`.
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        MarshalInto::serialize_into(self, buf)
+    }
+
+    /// Serializes the packet to a vector.
+    fn to_vec(&self) -> Result<Vec<u8>> {
+        MarshalInto::to_vec(self)
+    }
+
+    /// Exports into the given buffer.
+    ///
+    /// This is similar to [`serialize_into(..)`], with these
+    /// exceptions:
+    ///
+    ///   - It is an error to export a [`Signature`] if it is marked
+    ///     as non-exportable.
+    ///   - When exporting a [`Cert`], non-exportable signatures are
+    ///     not exported, and any component bound merely by
+    ///     non-exportable signatures is not exported.
+    ///
+    ///   [`serialize_into(..)`]: #tymethod.serialize_into
+    ///   [`Signature`]: ../packet/enum.Signature.html
+    ///   [`Cert`]: ../struct.Cert.html
+    ///
+    /// Returns the length of the serialized representation.
+    ///
+    /// # Errors
+    ///
+    /// If the length of the given slice is smaller than the maximal
+    /// length computed by `serialized_len()`, this function returns
+    /// `Error::InvalidArgument`.
+    fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
+        MarshalInto::export_into(self, buf)
+    }
+
+    /// Exports to a vector.
+    ///
+    /// This is similar to [`to_vec()`], with these exceptions:
+    ///
+    ///   - It is an error to export a [`Signature`] if it is marked
+    ///     as non-exportable.
+    ///   - When exporting a [`Cert`], non-exportable signatures are
+    ///     not exported, and any component bound merely by
+    ///     non-exportable signatures is not exported.
+    ///
+    ///   [`to_vec()`]: #method.to_vec
+    ///   [`Signature`]: ../packet/enum.Signature.html
+    ///   [`Cert`]: ../struct.Cert.html
+    fn export_to_vec(&self) -> Result<Vec<u8>> {
+        MarshalInto::export_to_vec(self)
+    }
+}
+
+/// Serializes OpenPGP data structures into pre-allocated buffers.
+///
+/// This trait provides the same interface as `SerializeInto`, but is
+/// implemented for all data structures that can be serialized.
+///
+/// In general, you should prefer the `SerializeInto` trait, as it is
+/// only implemented for data structures that are normally exported.
+/// See the documentation for `Serialize` for more details.
+pub trait MarshalInto {
     /// Computes the maximal length of the serialized representation.
     ///
     /// # Errors
@@ -180,7 +368,7 @@ trait NetLength {
 /// For now, we express SerializeInto using Serialize.  In the future,
 /// we may provide implementations not relying on Serialize for a
 /// no_std configuration of this crate.
-fn generic_serialize_into<T: Serialize + SerializeInto>(o: &T, buf: &mut [u8])
+fn generic_serialize_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
                                                         -> Result<usize> {
     let buf_len = buf.len();
     let mut cursor = ::std::io::Cursor::new(buf);
@@ -210,7 +398,7 @@ fn generic_serialize_into<T: Serialize + SerializeInto>(o: &T, buf: &mut [u8])
 /// For now, we express SerializeInto using Serialize.  In the future,
 /// we may provide implementations not relying on Serialize for a
 /// no_std configuration of this crate.
-fn generic_export_into<T: Serialize + SerializeInto>(o: &T, buf: &mut [u8])
+fn generic_export_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
                                                         -> Result<usize> {
     let buf_len = buf.len();
     let mut cursor = ::std::io::Cursor::new(buf);
@@ -298,7 +486,7 @@ fn log2_test() {
     }
 }
 
-impl Serialize for BodyLength {
+impl Marshal for BodyLength {
     /// Emits the length encoded for use with new-style CTBs.
     ///
     /// Note: the CTB itself is not emitted.
@@ -354,7 +542,7 @@ impl Serialize for BodyLength {
     }
 }
 
-impl SerializeInto for BodyLength {
+impl MarshalInto for BodyLength {
     fn serialized_len(&self) -> usize {
         match self {
             &BodyLength::Full(l) => {
@@ -420,7 +608,7 @@ impl BodyLength {
     }
 }
 
-impl Serialize for CTBNew {
+impl Marshal for CTBNew {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag: u8 = self.tag().into();
         o.write_all(&[0b1100_0000u8 | tag])?;
@@ -428,7 +616,7 @@ impl Serialize for CTBNew {
     }
 }
 
-impl SerializeInto for CTBNew {
+impl MarshalInto for CTBNew {
     fn serialized_len(&self) -> usize { 1 }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -436,7 +624,7 @@ impl SerializeInto for CTBNew {
     }
 }
 
-impl Serialize for CTBOld {
+impl Marshal for CTBOld {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag: u8 = self.tag().into();
         let length_type: u8 = self.length_type.into();
@@ -445,7 +633,7 @@ impl Serialize for CTBOld {
     }
 }
 
-impl SerializeInto for CTBOld {
+impl MarshalInto for CTBOld {
     fn serialized_len(&self) -> usize { 1 }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -453,7 +641,7 @@ impl SerializeInto for CTBOld {
     }
 }
 
-impl Serialize for CTB {
+impl Marshal for CTB {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &CTB::New(ref c) => c.serialize(o),
@@ -463,7 +651,7 @@ impl Serialize for CTB {
     }
 }
 
-impl SerializeInto for CTB {
+impl MarshalInto for CTB {
     fn serialized_len(&self) -> usize { 1 }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -471,7 +659,7 @@ impl SerializeInto for CTB {
     }
 }
 
-impl Serialize for Header {
+impl Marshal for Header {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.ctb().serialize(o)?;
         self.length().serialize(o)?;
@@ -479,7 +667,8 @@ impl Serialize for Header {
     }
 }
 
-impl Serialize for KeyID {
+impl Serialize for KeyID {}
+impl Marshal for KeyID {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let raw = match self {
             &KeyID::V4(ref fp) => &fp[..],
@@ -490,7 +679,8 @@ impl Serialize for KeyID {
     }
 }
 
-impl SerializeInto for KeyID {
+impl SerializeInto for KeyID {}
+impl MarshalInto for KeyID {
     fn serialized_len(&self) -> usize {
         match self {
             &KeyID::V4(_) => 8,
@@ -503,14 +693,16 @@ impl SerializeInto for KeyID {
     }
 }
 
-impl Serialize for Fingerprint {
+impl Serialize for Fingerprint {}
+impl Marshal for Fingerprint {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.as_slice())?;
         Ok(())
     }
 }
 
-impl SerializeInto for Fingerprint {
+impl SerializeInto for Fingerprint {}
+impl MarshalInto for Fingerprint {
     fn serialized_len(&self) -> usize {
         match self {
             Fingerprint::V4(_) => 20,
@@ -523,7 +715,7 @@ impl SerializeInto for Fingerprint {
     }
 }
 
-impl Serialize for crypto::mpis::MPI {
+impl Marshal for crypto::mpis::MPI {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         write_be_u16(w, self.bits() as u16)?;
         w.write_all(self.value())?;
@@ -531,7 +723,7 @@ impl Serialize for crypto::mpis::MPI {
     }
 }
 
-impl SerializeInto for crypto::mpis::MPI {
+impl MarshalInto for crypto::mpis::MPI {
     fn serialized_len(&self) -> usize {
         2 + self.value().len()
     }
@@ -541,7 +733,7 @@ impl SerializeInto for crypto::mpis::MPI {
     }
 }
 
-impl Serialize for crypto::mpis::ProtectedMPI {
+impl Marshal for crypto::mpis::ProtectedMPI {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         write_be_u16(w, self.bits() as u16)?;
         w.write_all(self.value())?;
@@ -549,7 +741,7 @@ impl Serialize for crypto::mpis::ProtectedMPI {
     }
 }
 
-impl SerializeInto for crypto::mpis::ProtectedMPI {
+impl MarshalInto for crypto::mpis::ProtectedMPI {
     fn serialized_len(&self) -> usize {
         2 + self.value().len()
     }
@@ -559,7 +751,7 @@ impl SerializeInto for crypto::mpis::ProtectedMPI {
     }
 }
 
-impl Serialize for crypto::mpis::PublicKey {
+impl Marshal for crypto::mpis::PublicKey {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpis::PublicKey::*;
 
@@ -615,7 +807,7 @@ impl Serialize for crypto::mpis::PublicKey {
     }
 }
 
-impl SerializeInto for crypto::mpis::PublicKey {
+impl MarshalInto for crypto::mpis::PublicKey {
     fn serialized_len(&self) -> usize {
         use crate::crypto::mpis::PublicKey::*;
         match self {
@@ -658,7 +850,7 @@ impl SerializeInto for crypto::mpis::PublicKey {
     }
 }
 
-impl Serialize for crypto::mpis::SecretKeyMaterial {
+impl Marshal for crypto::mpis::SecretKeyMaterial {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpis::SecretKeyMaterial::*;
 
@@ -704,7 +896,7 @@ impl Serialize for crypto::mpis::SecretKeyMaterial {
     }
 }
 
-impl SerializeInto for crypto::mpis::SecretKeyMaterial {
+impl MarshalInto for crypto::mpis::SecretKeyMaterial {
     fn serialized_len(&self) -> usize {
         use crate::crypto::mpis::SecretKeyMaterial::*;
         match self {
@@ -764,7 +956,7 @@ impl crypto::mpis::SecretKeyMaterial {
     }
 }
 
-impl Serialize for crypto::mpis::Ciphertext {
+impl Marshal for crypto::mpis::Ciphertext {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpis::Ciphertext::*;
 
@@ -799,7 +991,7 @@ impl Serialize for crypto::mpis::Ciphertext {
     }
 }
 
-impl SerializeInto for crypto::mpis::Ciphertext {
+impl MarshalInto for crypto::mpis::Ciphertext {
     fn serialized_len(&self) -> usize {
         use crate::crypto::mpis::Ciphertext::*;
         match self {
@@ -829,7 +1021,7 @@ impl SerializeInto for crypto::mpis::Ciphertext {
     }
 }
 
-impl Serialize for crypto::mpis::Signature {
+impl Marshal for crypto::mpis::Signature {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpis::Signature::*;
 
@@ -868,7 +1060,7 @@ impl Serialize for crypto::mpis::Signature {
     }
 }
 
-impl SerializeInto for crypto::mpis::Signature {
+impl MarshalInto for crypto::mpis::Signature {
     fn serialized_len(&self) -> usize {
         use crate::crypto::mpis::Signature::*;
         match self {
@@ -902,7 +1094,7 @@ impl SerializeInto for crypto::mpis::Signature {
     }
 }
 
-impl Serialize for S2K {
+impl Marshal for S2K {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &S2K::Simple{ hash } => {
@@ -926,7 +1118,7 @@ impl Serialize for S2K {
     }
 }
 
-impl SerializeInto for S2K {
+impl MarshalInto for S2K {
     fn serialized_len(&self) -> usize {
         match self {
             &S2K::Simple{ .. } => 2,
@@ -941,7 +1133,7 @@ impl SerializeInto for S2K {
     }
 }
 
-impl Serialize for Unknown {
+impl Marshal for Unknown {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.body())?;
         Ok(())
@@ -954,7 +1146,7 @@ impl NetLength for Unknown {
     }
 }
 
-impl SerializeInto for Unknown {
+impl MarshalInto for Unknown {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -964,7 +1156,7 @@ impl SerializeInto for Unknown {
     }
 }
 
-impl Serialize for SubpacketArea {
+impl Marshal for SubpacketArea {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for sb in self.iter() {
             sb.serialize(o)?;
@@ -973,7 +1165,7 @@ impl Serialize for SubpacketArea {
     }
 }
 
-impl SerializeInto for SubpacketArea {
+impl MarshalInto for SubpacketArea {
     fn serialized_len(&self) -> usize {
         self.iter().map(|sb| sb.serialized_len()).sum()
     }
@@ -988,7 +1180,7 @@ impl SerializeInto for SubpacketArea {
     }
 }
 
-impl Serialize for Subpacket {
+impl Marshal for Subpacket {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag = u8::from(self.tag())
             | if self.critical() { 1 << 7 } else { 0 };
@@ -999,7 +1191,7 @@ impl Serialize for Subpacket {
     }
 }
 
-impl SerializeInto for Subpacket {
+impl MarshalInto for Subpacket {
     fn serialized_len(&self) -> usize {
         self.length.serialized_len() + 1 + self.value().serialized_len()
     }
@@ -1009,7 +1201,7 @@ impl SerializeInto for Subpacket {
     }
 }
 
-impl Serialize for SubpacketValue {
+impl Marshal for SubpacketValue {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         use self::SubpacketValue::*;
         match self {
@@ -1102,7 +1294,7 @@ impl Serialize for SubpacketValue {
     }
 }
 
-impl SerializeInto for SubpacketValue {
+impl MarshalInto for SubpacketValue {
     fn serialized_len(&self) -> usize {
         use self::SubpacketValue::*;
         match self {
@@ -1115,7 +1307,7 @@ impl SerializeInto for SubpacketValue {
             KeyExpirationTime(_) => 4,
             PreferredSymmetricAlgorithms(ref p) => p.len(),
             RevocationKey(rk) => rk.serialized_len(),
-            Issuer(ref id) => id.serialized_len(),
+            Issuer(ref id) => (id as &MarshalInto).serialized_len(),
             NotationData(nd) => 4 + 2 + 2 + nd.name().len() + nd.value().len(),
             PreferredHashAlgorithms(ref p) => p.len(),
             PreferredCompressionAlgorithms(ref p) => p.len(),
@@ -1130,13 +1322,15 @@ impl SerializeInto for SubpacketValue {
             SignatureTarget { ref digest, .. } => 2 + digest.len(),
             EmbeddedSignature(sig) => sig.serialized_len(),
             IssuerFingerprint(ref fp) => match fp {
-                Fingerprint::V4(_) => 1 + fp.serialized_len(),
+                Fingerprint::V4(_) =>
+                    1 + (fp as &MarshalInto).serialized_len(),
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
             PreferredAEADAlgorithms(ref p) => p.len(),
             IntendedRecipient(ref fp) => match fp {
-                Fingerprint::V4(_) => 1 + fp.serialized_len(),
+                Fingerprint::V4(_) =>
+                    1 + (fp as &MarshalInto).serialized_len(),
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
@@ -1150,7 +1344,7 @@ impl SerializeInto for SubpacketValue {
     }
 }
 
-impl Serialize for RevocationKey {
+impl Marshal for RevocationKey {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let (pk_algo, fp) = self.revoker();
         o.write_all(&[self.class(), (pk_algo).into()])?;
@@ -1159,7 +1353,7 @@ impl Serialize for RevocationKey {
     }
 }
 
-impl SerializeInto for RevocationKey {
+impl MarshalInto for RevocationKey {
     fn serialized_len(&self) -> usize {
         1 + 1 + self.revoker().1.as_slice().len()
     }
@@ -1169,7 +1363,7 @@ impl SerializeInto for RevocationKey {
     }
 }
 
-impl Serialize for Signature {
+impl Marshal for Signature {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &Signature::V4(ref s) => s.serialize(o),
@@ -1185,7 +1379,7 @@ impl Serialize for Signature {
     }
 }
 
-impl SerializeInto for Signature {
+impl MarshalInto for Signature {
     fn serialized_len(&self) -> usize {
         match self {
             &Signature::V4(ref s) => s.serialized_len(),
@@ -1215,7 +1409,7 @@ impl SerializeInto for Signature {
     }
 }
 
-impl Serialize for Signature4 {
+impl Marshal for Signature4 {
     /// Writes a serialized version of the specified `Signature`
     /// packet to `o`.
     ///
@@ -1277,7 +1471,7 @@ impl NetLength for Signature4 {
     }
 }
 
-impl SerializeInto for Signature4 {
+impl MarshalInto for Signature4 {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1305,7 +1499,7 @@ impl SerializeInto for Signature4 {
     }
 }
 
-impl Serialize for OnePassSig {
+impl Marshal for OnePassSig {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &OnePassSig::V3(ref s) => s.serialize(o),
@@ -1314,7 +1508,7 @@ impl Serialize for OnePassSig {
     }
 }
 
-impl SerializeInto for OnePassSig {
+impl MarshalInto for OnePassSig {
     fn serialized_len(&self) -> usize {
         match self {
             &OnePassSig::V3(ref s) => s.serialized_len(),
@@ -1330,7 +1524,7 @@ impl SerializeInto for OnePassSig {
     }
 }
 
-impl Serialize for OnePassSig3 {
+impl Marshal for OnePassSig3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 3)?; // Version.
         write_byte(o, self.typ().into())?;
@@ -1354,7 +1548,7 @@ impl NetLength for OnePassSig3 {
     }
 }
 
-impl SerializeInto for OnePassSig3 {
+impl MarshalInto for OnePassSig3 {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1364,7 +1558,7 @@ impl SerializeInto for OnePassSig3 {
     }
 }
 
-impl<P: key::KeyParts, R: key::KeyRole> Serialize for Key<P, R> {
+impl<P: key::KeyParts, R: key::KeyRole> Marshal for Key<P, R> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         match self {
             &Key::V4(ref p) => p.serialize(o),
@@ -1382,7 +1576,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     }
 }
 
-impl<P: key::KeyParts, R: key::KeyRole> SerializeInto for Key<P, R> {
+impl<P: key::KeyParts, R: key::KeyRole> MarshalInto for Key<P, R> {
     fn serialized_len(&self) -> usize {
         match self {
             &Key::V4(ref p) => p.serialized_len(),
@@ -1398,7 +1592,7 @@ impl<P: key::KeyParts, R: key::KeyRole> SerializeInto for Key<P, R> {
     }
 }
 
-impl<P, R> Serialize for Key4<P, R>
+impl<P, R> Marshal for Key4<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
@@ -1473,7 +1667,7 @@ impl<P, R> Key4<P, R>
     }
 }
 
-impl<P, R> SerializeInto for Key4<P, R>
+impl<P, R> MarshalInto for Key4<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
@@ -1486,7 +1680,7 @@ impl<P, R> SerializeInto for Key4<P, R>
     }
 }
 
-impl Serialize for Marker {
+impl Marshal for Marker {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(Marker::BODY)?;
         Ok(())
@@ -1499,7 +1693,7 @@ impl NetLength for Marker {
     }
 }
 
-impl SerializeInto for Marker {
+impl MarshalInto for Marker {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1509,7 +1703,7 @@ impl SerializeInto for Marker {
     }
 }
 
-impl Serialize for Trust {
+impl Marshal for Trust {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.value())?;
         Ok(())
@@ -1522,7 +1716,7 @@ impl NetLength for Trust {
     }
 }
 
-impl SerializeInto for Trust {
+impl MarshalInto for Trust {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1532,7 +1726,7 @@ impl SerializeInto for Trust {
     }
 }
 
-impl Serialize for UserID {
+impl Marshal for UserID {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.value())?;
         Ok(())
@@ -1545,7 +1739,7 @@ impl NetLength for UserID {
     }
 }
 
-impl SerializeInto for UserID {
+impl MarshalInto for UserID {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1555,7 +1749,7 @@ impl SerializeInto for UserID {
     }
 }
 
-impl Serialize for UserAttribute {
+impl Marshal for UserAttribute {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.value())?;
         Ok(())
@@ -1568,7 +1762,7 @@ impl NetLength for UserAttribute {
     }
 }
 
-impl SerializeInto for UserAttribute {
+impl MarshalInto for UserAttribute {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1578,7 +1772,7 @@ impl SerializeInto for UserAttribute {
     }
 }
 
-impl Serialize for user_attribute::Subpacket {
+impl Marshal for user_attribute::Subpacket {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             user_attribute::Subpacket::Image(image) =>
@@ -1595,7 +1789,7 @@ impl Serialize for user_attribute::Subpacket {
     }
 }
 
-impl SerializeInto for user_attribute::Subpacket {
+impl MarshalInto for user_attribute::Subpacket {
     fn serialized_len(&self) -> usize {
         match self {
             user_attribute::Subpacket::Image(image) =>
@@ -1613,7 +1807,7 @@ impl SerializeInto for user_attribute::Subpacket {
     }
 }
 
-impl Serialize for user_attribute::Image {
+impl Marshal for user_attribute::Image {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             user_attribute::Image::JPEG(data) => {
@@ -1635,7 +1829,7 @@ impl Serialize for user_attribute::Image {
     }
 }
 
-impl SerializeInto for user_attribute::Image {
+impl MarshalInto for user_attribute::Image {
     fn serialized_len(&self) -> usize {
         match self {
             user_attribute::Image::JPEG(data)
@@ -1683,7 +1877,7 @@ impl Literal {
     }
 }
 
-impl Serialize for Literal {
+impl Marshal for Literal {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let body = self.body();
         if TRACE {
@@ -1708,7 +1902,7 @@ impl NetLength for Literal {
     }
 }
 
-impl SerializeInto for Literal {
+impl MarshalInto for Literal {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1718,7 +1912,7 @@ impl SerializeInto for Literal {
     }
 }
 
-impl Serialize for CompressedData {
+impl Marshal for CompressedData {
     /// Writes a serialized version of the specified `CompressedData`
     /// packet to `o`.
     ///
@@ -1739,7 +1933,7 @@ impl Serialize for CompressedData {
 
         // Serialize the packets.
         for p in self.children() {
-            p.serialize(&mut o)?;
+            (p as &Marshal).serialize(&mut o)?;
         }
 
         // Append the data.
@@ -1751,7 +1945,9 @@ impl Serialize for CompressedData {
 impl NetLength for CompressedData {
     fn net_len(&self) -> usize {
         let inner_length =
-            self.children().map(|p| p.serialized_len()).sum::<usize>()
+            self.children().map(|p| {
+                (p as &MarshalInto).serialized_len()
+            }).sum::<usize>()
             + self.body().len();
 
         // Worst case, the data gets larger.  Account for that.
@@ -1762,7 +1958,7 @@ impl NetLength for CompressedData {
     }
 }
 
-impl SerializeInto for CompressedData {
+impl MarshalInto for CompressedData {
     /// Computes the maximal length of the serialized representation.
     ///
     /// The size of the serialized compressed data packet is tricky to
@@ -1784,7 +1980,7 @@ impl SerializeInto for CompressedData {
     }
 }
 
-impl Serialize for PKESK {
+impl Marshal for PKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &PKESK::V3(ref p) => p.serialize(o),
@@ -1793,7 +1989,7 @@ impl Serialize for PKESK {
     }
 }
 
-impl SerializeInto for PKESK {
+impl MarshalInto for PKESK {
     fn serialized_len(&self) -> usize {
         match self {
             &PKESK::V3(ref p) => p.serialized_len(),
@@ -1809,10 +2005,10 @@ impl SerializeInto for PKESK {
     }
 }
 
-impl Serialize for PKESK3 {
+impl Marshal for PKESK3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 3)?; // Version.
-        self.recipient().serialize(o)?;
+        (self.recipient() as &Marshal).serialize(o)?;
         write_byte(o, self.pk_algo().into())?;
         self.esk().serialize(o)?;
 
@@ -1829,7 +2025,7 @@ impl NetLength for PKESK3 {
     }
 }
 
-impl SerializeInto for PKESK3 {
+impl MarshalInto for PKESK3 {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1839,7 +2035,7 @@ impl SerializeInto for PKESK3 {
     }
 }
 
-impl Serialize for SKESK {
+impl Marshal for SKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &SKESK::V4(ref s) => s.serialize(o),
@@ -1859,7 +2055,7 @@ impl NetLength for SKESK {
     }
 }
 
-impl SerializeInto for SKESK {
+impl MarshalInto for SKESK {
     fn serialized_len(&self) -> usize {
         match self {
             &SKESK::V4(ref s) => s.serialized_len(),
@@ -1877,7 +2073,7 @@ impl SerializeInto for SKESK {
     }
 }
 
-impl Serialize for SKESK4 {
+impl Marshal for SKESK4 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 4)?; // Version.
         write_byte(o, self.symmetric_algo().into())?;
@@ -1899,7 +2095,7 @@ impl NetLength for SKESK4 {
     }
 }
 
-impl SerializeInto for SKESK4 {
+impl MarshalInto for SKESK4 {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1909,7 +2105,7 @@ impl SerializeInto for SKESK4 {
     }
 }
 
-impl Serialize for SKESK5 {
+impl Marshal for SKESK5 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 5)?; // Version.
         write_byte(o, self.symmetric_algo().into())?;
@@ -1937,7 +2133,7 @@ impl NetLength for SKESK5 {
     }
 }
 
-impl SerializeInto for SKESK5 {
+impl MarshalInto for SKESK5 {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -1947,7 +2143,7 @@ impl SerializeInto for SKESK5 {
     }
 }
 
-impl Serialize for SEIP {
+impl Marshal for SEIP {
     /// Writes a serialized version of the specified `SEIP`
     /// packet to `o`.
     ///
@@ -1977,7 +2173,7 @@ impl NetLength for SEIP {
     }
 }
 
-impl SerializeInto for SEIP {
+impl MarshalInto for SEIP {
     fn serialized_len(&self) -> usize {
         if self.children().next().is_some() {
             0 // XXX
@@ -1991,7 +2187,7 @@ impl SerializeInto for SEIP {
     }
 }
 
-impl Serialize for MDC {
+impl Marshal for MDC {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.digest())?;
         Ok(())
@@ -2004,7 +2200,7 @@ impl NetLength for MDC {
     }
 }
 
-impl SerializeInto for MDC {
+impl MarshalInto for MDC {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -2014,7 +2210,7 @@ impl SerializeInto for MDC {
     }
 }
 
-impl Serialize for AED {
+impl Marshal for AED {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &AED::V1(ref p) => p.serialize(o),
@@ -2023,7 +2219,7 @@ impl Serialize for AED {
     }
 }
 
-impl SerializeInto for AED {
+impl MarshalInto for AED {
     fn serialized_len(&self) -> usize {
         match self {
             &AED::V1(ref p) => p.serialized_len(),
@@ -2051,7 +2247,7 @@ impl AED1 {
     }
 }
 
-impl Serialize for AED1 {
+impl Marshal for AED1 {
     /// Writes a serialized version of the specified `AED`
     /// packet to `o`.
     ///
@@ -2086,7 +2282,7 @@ impl NetLength for AED1 {
     }
 }
 
-impl SerializeInto for AED1 {
+impl MarshalInto for AED1 {
     fn serialized_len(&self) -> usize {
         self.net_len()
     }
@@ -2096,7 +2292,8 @@ impl SerializeInto for AED1 {
     }
 }
 
-impl Serialize for Packet {
+impl Serialize for Packet {}
+impl Marshal for Packet {
     /// Writes a serialized version of the specified `Packet` to `o`.
     ///
     /// This function works recursively: if the packet contains any
@@ -2208,7 +2405,8 @@ impl NetLength for Packet {
     }
 }
 
-impl SerializeInto for Packet {
+impl SerializeInto for Packet {}
+impl MarshalInto for Packet {
     fn serialized_len(&self) -> usize {
         (match self {
             &Packet::Unknown(ref p) => p.serialized_len(),
@@ -2323,7 +2521,8 @@ impl<'a> PacketRef<'a> {
     }
 }
 
-impl<'a> Serialize for PacketRef<'a> {
+impl<'a> Serialize for PacketRef<'a> {}
+impl<'a> Marshal for PacketRef<'a> {
     /// Writes a serialized version of the specified `Packet` to `o`.
     ///
     /// This function works recursively: if the packet contains any
@@ -2432,7 +2631,8 @@ impl<'a> NetLength for PacketRef<'a> {
     }
 }
 
-impl<'a> SerializeInto for PacketRef<'a> {
+impl<'a> SerializeInto for PacketRef<'a> {}
+impl<'a> MarshalInto for PacketRef<'a> {
     fn serialized_len(&self) -> usize {
         (match self {
             PacketRef::Unknown(p) => p.serialized_len(),
@@ -2467,11 +2667,12 @@ impl<'a> SerializeInto for PacketRef<'a> {
     }
 }
 
-impl Serialize for PacketPile {
+impl Serialize for PacketPile {}
+impl Marshal for PacketPile {
     /// Writes a serialized version of the specified `PacketPile` to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for p in self.children() {
-            p.serialize(o)?;
+            (p as &Marshal).serialize(o)?;
         }
 
         Ok(())
@@ -2480,16 +2681,19 @@ impl Serialize for PacketPile {
     /// Exports a serialized version of the specified `PacketPile` to `o`.
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for p in self.children() {
-            p.export(o)?;
+            (p as &Marshal).export(o)?;
         }
 
         Ok(())
     }
 }
 
-impl SerializeInto for PacketPile {
+impl SerializeInto for PacketPile {}
+impl MarshalInto for PacketPile {
     fn serialized_len(&self) -> usize {
-        self.children().map(|p| p.serialized_len()).sum()
+        self.children().map(|p| {
+            (p as &MarshalInto).serialized_len()
+        }).sum()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -2501,28 +2705,30 @@ impl SerializeInto for PacketPile {
     }
 }
 
-impl Serialize for Message {
+impl Serialize for Message {}
+impl Marshal for Message {
     /// Writes a serialized version of the specified `Message` to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         use std::ops::Deref;
-        self.deref().serialize(o)
+        (self.deref() as &Marshal).serialize(o)
     }
 }
 
-impl SerializeInto for Message {
+impl SerializeInto for Message {}
+impl MarshalInto for Message {
     fn serialized_len(&self) -> usize {
         use std::ops::Deref;
-        self.deref().serialized_len()
+        (self.deref() as &MarshalInto).serialized_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         use std::ops::Deref;
-        self.deref().serialize_into(buf)
+        (self.deref() as &MarshalInto).serialize_into(buf)
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         use std::ops::Deref;
-        self.deref().export_into(buf)
+        (self.deref() as &MarshalInto).export_into(buf)
     }
 }
 
@@ -2660,7 +2866,7 @@ mod test {
                     panic!("Didn't expect a {:?} packet.", p.tag());
                 },
             }
-            p.serialize(&mut buffer).unwrap();
+            (p as &Marshal).serialize(&mut buffer).unwrap();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
@@ -2688,7 +2894,7 @@ mod test {
             let u = Packet::Unknown(to_unknown_packet(&data[..]).unwrap());
 
             // 3. Serialize the packet it into a local buffer.
-            let data2 = u.to_vec().unwrap();
+            let data2 = (&u as &MarshalInto).to_vec().unwrap();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
@@ -2741,7 +2947,8 @@ mod test {
             if let Some(&Packet::CompressedData(ref cd)) = po {
                 // 4. Serialize the container.
                 let buffer =
-                    Packet::CompressedData(cd.clone()).to_vec().unwrap();
+                    (&Packet::CompressedData(cd.clone()) as &MarshalInto)
+                        .to_vec().unwrap();
 
                 // 5. Reparse it.
                 let pile2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
@@ -2903,7 +3110,7 @@ mod test {
 
             // 2. Serialize the message into a buffer.
             let mut buffer = Vec::new();
-            pile.clone().serialize(&mut buffer).unwrap();
+            (&pile as &Marshal).serialize(&mut buffer).unwrap();
 
             // 3. Reparse it.
             let pile2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
@@ -2987,18 +3194,27 @@ mod test {
         sig.export(&mut Vec::new()).unwrap();
         sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap();
         sig.export_to_vec().unwrap();
-        PacketRef::Signature(&sig).export(&mut Vec::new()).unwrap();
-        PacketRef::Signature(&sig).export_into(
-            &mut vec![0; PacketRef::Signature(&sig).serialized_len()]).unwrap();
-        PacketRef::Signature(&sig).export_to_vec().unwrap();
+        (&PacketRef::Signature(&sig) as &Marshal)
+            .export(&mut Vec::new()).unwrap();
+        (&PacketRef::Signature(&sig) as &MarshalInto).export_into(
+            &mut vec![0; (&PacketRef::Signature(&sig) as &MarshalInto)
+                             .serialized_len()]).unwrap();
+        (&PacketRef::Signature(&sig) as &MarshalInto)
+            .export_to_vec().unwrap();
         let p = Packet::Signature(sig);
-        p.export(&mut Vec::new()).unwrap();
-        p.export_into(&mut vec![0; p.serialized_len()]).unwrap();
-        p.export_to_vec().unwrap();
+        (&p as &Marshal).export(&mut Vec::new()).unwrap();
+        (&p as &MarshalInto)
+            .export_into(
+                &mut vec![0; (&p as &MarshalInto).serialized_len()])
+            .unwrap();
+        (&p as &MarshalInto).export_to_vec().unwrap();
         let pp = PacketPile::from(vec![p]);
-        pp.export(&mut Vec::new()).unwrap();
-        pp.export_into(&mut vec![0; pp.serialized_len()]).unwrap();
-        pp.export_to_vec().unwrap();
+        (&pp as &Marshal).export(&mut Vec::new()).unwrap();
+        (&pp as &MarshalInto)
+            .export_into(
+                &mut vec![0; (&pp as &MarshalInto).serialized_len()])
+            .unwrap();
+        (&pp as &MarshalInto).export_to_vec().unwrap();
 
         // Make a signature that is explicitly marked as exportable.
         let sig = uid.bind(
@@ -3011,18 +3227,29 @@ mod test {
         sig.export(&mut Vec::new()).unwrap();
         sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap();
         sig.export_to_vec().unwrap();
-        PacketRef::Signature(&sig).export(&mut Vec::new()).unwrap();
-        PacketRef::Signature(&sig).export_into(
-            &mut vec![0; PacketRef::Signature(&sig).serialized_len()]).unwrap();
-        PacketRef::Signature(&sig).export_to_vec().unwrap();
+        (&PacketRef::Signature(&sig) as &Marshal)
+            .export(&mut Vec::new()).unwrap();
+        (&PacketRef::Signature(&sig) as &MarshalInto)
+            .export_into(
+                &mut vec![0; (&PacketRef::Signature(&sig)
+                              as &MarshalInto).serialized_len()])
+            .unwrap();
+        (&PacketRef::Signature(&sig) as &MarshalInto)
+            .export_to_vec().unwrap();
         let p = Packet::Signature(sig);
-        p.export(&mut Vec::new()).unwrap();
-        p.export_into(&mut vec![0; p.serialized_len()]).unwrap();
-        p.export_to_vec().unwrap();
+        (&p as &Marshal).export(&mut Vec::new()).unwrap();
+        (&p as &MarshalInto)
+            .export_into(
+                &mut vec![0; (&p as &MarshalInto).serialized_len()])
+            .unwrap();
+        (&p as &MarshalInto).export_to_vec().unwrap();
         let pp = PacketPile::from(vec![p]);
-        pp.export(&mut Vec::new()).unwrap();
-        pp.export_into(&mut vec![0; pp.serialized_len()]).unwrap();
-        pp.export_to_vec().unwrap();
+        (&pp as &Marshal).export(&mut Vec::new()).unwrap();
+        (&pp as &MarshalInto)
+            .export_into(
+                &mut vec![0; (&pp as &MarshalInto).serialized_len()])
+            .unwrap();
+        (&pp as &MarshalInto).export_to_vec().unwrap();
 
         // Make a non-exportable signature.
         let sig = uid.bind(
@@ -3035,18 +3262,27 @@ mod test {
         sig.export(&mut Vec::new()).unwrap_err();
         sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap_err();
         sig.export_to_vec().unwrap_err();
-        PacketRef::Signature(&sig).export(&mut Vec::new()).unwrap_err();
-        PacketRef::Signature(&sig).export_into(
-            &mut vec![0; PacketRef::Signature(&sig).serialized_len()])
+        (&PacketRef::Signature(&sig) as &Marshal)
+            .export(&mut Vec::new()).unwrap_err();
+        (&PacketRef::Signature(&sig) as &MarshalInto)
+            .export_into(
+                &mut vec![0; (&PacketRef::Signature(&sig)
+                              as &MarshalInto).serialized_len()])
             .unwrap_err();
-        PacketRef::Signature(&sig).export_to_vec().unwrap_err();
+        (&PacketRef::Signature(&sig) as &MarshalInto)
+            .export_to_vec().unwrap_err();
         let p = Packet::Signature(sig);
-        p.export(&mut Vec::new()).unwrap_err();
-        p.export_into(&mut vec![0; p.serialized_len()]).unwrap_err();
-        p.export_to_vec().unwrap_err();
+        (&p as &Marshal).export(&mut Vec::new()).unwrap_err();
+        (&p as &MarshalInto)
+            .export_into(&mut vec![0; (&p as &MarshalInto).serialized_len()])
+            .unwrap_err();
+        (&p as &MarshalInto).export_to_vec().unwrap_err();
         let pp = PacketPile::from(vec![p]);
-        pp.export(&mut Vec::new()).unwrap_err();
-        pp.export_into(&mut vec![0; pp.serialized_len()]).unwrap_err();
-        pp.export_to_vec().unwrap_err();
+        (&pp as &Marshal).export(&mut Vec::new()).unwrap_err();
+        (&pp as &MarshalInto)
+            .export_into(
+                &mut vec![0; (&pp as &MarshalInto).serialized_len()])
+            .unwrap_err();
+        (&pp as &MarshalInto).export_to_vec().unwrap_err();
     }
 }

@@ -30,7 +30,7 @@ use crate::RefRaw;
 ///
 /// [`sequoia-openpgp::packet::literal::Literal`]: ../../../../sequoia_openpgp/packet/literal/struct.Literal.html
 #[crate::ffi_wrapper_type(prefix = "pgp_",
-                     derive = "Debug, Parse, Serialize")]
+                     derive = "Debug, Parse")]
 pub struct Literal(openpgp::packet::Literal);
 
 /// Converts the literal data packet to a packet.

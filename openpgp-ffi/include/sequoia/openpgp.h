@@ -317,13 +317,6 @@ pgp_signature_t pgp_signature_from_bytes (pgp_error_t *errp,
                                           const uint8_t *b, size_t len);
 
 /*/
-/// Serializes this object.
-/*/
-pgp_status_t pgp_signature_serialize (pgp_error_t *errp,
-				      const pgp_signature_t signature,
-				      pgp_writer_t writer);
-
-/*/
 /// Converts the signature to a packet.
 /*/
 pgp_packet_t pgp_signature_into_packet (pgp_signature_t signature);
@@ -566,13 +559,6 @@ pgp_literal_t pgp_literal_from_file (pgp_error_t *errp,
 /*/
 pgp_literal_t pgp_literal_from_bytes (pgp_error_t *errp,
                                       const uint8_t *b, size_t len);
-
-/*/
-/// Serializes this object.
-/*/
-pgp_status_t pgp_literal_serialize (pgp_error_t *errp,
-                                    const pgp_literal_t literal,
-                                    pgp_writer_t writer);
 
 /*/
 /// Converts the literal to a packet.

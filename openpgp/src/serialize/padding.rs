@@ -48,7 +48,7 @@ use crate::{
 use crate::packet::header::CTB;
 use super::{
     PartialBodyFilter,
-    Serialize,
+    Marshal,
     writer,
     stream::Cookie,
 };

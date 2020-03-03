@@ -9,7 +9,7 @@ use crate::openpgp::{
     armor,
     Packet,
     parse::{Parse, PacketParserResult},
-    serialize::Serialize,
+    serialize::Marshal,
 };
 use crate::openpgp::serialize::stream::{Message, LiteralWriter, Signer};
 use crate::openpgp::policy::StandardPolicy as P;

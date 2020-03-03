@@ -1172,7 +1172,7 @@ impl_parse_generic_packet!(Signature);
 
 #[test]
 fn signature_parser_test () {
-    use crate::serialize::SerializeInto;
+    use crate::serialize::MarshalInto;
     let data = crate::tests::message("sig.gpg");
 
     {
@@ -1790,7 +1790,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
     /// secret subkey packet.
     fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
         use std::io::Cursor;
-        use crate::serialize::Serialize;
+        use crate::serialize::Marshal;
 
         make_php_try!(php);
         let tag = php.header.ctb().tag();

@@ -1530,7 +1530,7 @@ pub struct Unencrypted {
 
 impl From<mpis::SecretKeyMaterial> for Unencrypted {
     fn from(mpis: mpis::SecretKeyMaterial) -> Self {
-        use crate::serialize::Serialize;
+        use crate::serialize::Marshal;
         let mut plaintext = Vec::new();
         // We need to store the type.
         plaintext.push(
