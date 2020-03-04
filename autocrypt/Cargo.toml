@@ -1,13 +1,13 @@
 [package]
 name = "sequoia-autocrypt"
 description = "Autocrypt support"
-version = "0.14.0"
+version = "0.15.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.14.0/sequoia_autocrypt"
+documentation = "https://docs.sequoia-pgp.org/0.15.0/sequoia_autocrypt"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "README.md"
@@ -21,5 +21,5 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.14" }
+sequoia-openpgp = { path = "../openpgp", version = "0.15" }
 base64 = "0.11"

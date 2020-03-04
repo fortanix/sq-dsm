@@ -1530,34 +1530,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "sequoia"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "buffered-reader 0.14.0",
- "sequoia-autocrypt 0.14.0",
- "sequoia-core 0.14.0",
- "sequoia-ffi 0.14.0",
- "sequoia-ffi-macros 0.14.0",
- "sequoia-guide 0.14.0",
- "sequoia-ipc 0.14.0",
- "sequoia-net 0.14.0",
- "sequoia-openpgp 0.14.0",
- "sequoia-openpgp-ffi 0.14.0",
- "sequoia-sqv 0.14.0",
- "sequoia-store 0.14.0",
- "sequoia-tool 0.14.0",
+ "sequoia-autocrypt 0.15.0",
+ "sequoia-core 0.15.0",
+ "sequoia-ffi 0.15.0",
+ "sequoia-ffi-macros 0.15.0",
+ "sequoia-guide 0.15.0",
+ "sequoia-ipc 0.15.0",
+ "sequoia-net 0.15.0",
+ "sequoia-openpgp 0.15.0",
+ "sequoia-openpgp-ffi 0.15.0",
+ "sequoia-sqv 0.15.0",
+ "sequoia-store 0.15.0",
+ "sequoia-tool 0.15.0",
 ]
 
 [[package]]
 name = "sequoia-autocrypt"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-openpgp 0.14.0",
+ "sequoia-openpgp 0.15.0",
 ]
 
 [[package]]
 name = "sequoia-core"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "dirs 2.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1566,7 +1566,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-ffi"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "filetime 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1574,17 +1574,17 @@ dependencies = [
  "libc 0.2.67 (registry+https://github.com/rust-lang/crates.io-index)",
  "memsec 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "native-tls 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-core 0.14.0",
- "sequoia-ffi-macros 0.14.0",
- "sequoia-net 0.14.0",
- "sequoia-openpgp 0.14.0",
- "sequoia-store 0.14.0",
+ "sequoia-core 0.15.0",
+ "sequoia-ffi-macros 0.15.0",
+ "sequoia-net 0.15.0",
+ "sequoia-openpgp 0.15.0",
+ "sequoia-store 0.15.0",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "sequoia-ffi-macros"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 1.0.9 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1595,15 +1595,15 @@ dependencies = [
 
 [[package]]
 name = "sequoia-guide"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-openpgp 0.14.0",
+ "sequoia-openpgp 0.15.0",
 ]
 
 [[package]]
 name = "sequoia-ipc"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "capnp-rpc 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1615,8 +1615,8 @@ dependencies = [
  "libc 0.2.67 (registry+https://github.com/rust-lang/crates.io-index)",
  "memsec 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-core 0.14.0",
- "sequoia-openpgp 0.14.0",
+ "sequoia-core 0.15.0",
+ "sequoia-openpgp 0.15.0",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.1.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1625,7 +1625,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-net"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1636,8 +1636,8 @@ dependencies = [
  "native-tls 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "percent-encoding 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-core 0.14.0",
- "sequoia-openpgp 0.14.0",
+ "sequoia-core 0.15.0",
+ "sequoia-openpgp 0.15.0",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-io 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1647,7 +1647,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-openpgp"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "buffered-reader 0.14.0",
@@ -1669,32 +1669,32 @@ dependencies = [
 
 [[package]]
 name = "sequoia-openpgp-ffi"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "filetime 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.67 (registry+https://github.com/rust-lang/crates.io-index)",
  "memsec 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-ffi-macros 0.14.0",
- "sequoia-openpgp 0.14.0",
+ "sequoia-ffi-macros 0.15.0",
+ "sequoia-openpgp 0.15.0",
 ]
 
 [[package]]
 name = "sequoia-sqv"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "assert_cli 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "colored 1.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-openpgp 0.14.0",
+ "sequoia-openpgp 0.15.0",
 ]
 
 [[package]]
 name = "sequoia-store"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "capnp 0.10.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "capnp-rpc 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1703,17 +1703,17 @@ dependencies = [
  "futures 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-core 0.14.0",
- "sequoia-ipc 0.14.0",
- "sequoia-net 0.14.0",
- "sequoia-openpgp 0.14.0",
+ "sequoia-core 0.15.0",
+ "sequoia-ipc 0.15.0",
+ "sequoia-net 0.15.0",
+ "sequoia-openpgp 0.15.0",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-io 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "sequoia-tool"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "assert_cli 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1724,11 +1724,11 @@ dependencies = [
  "itertools 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "prettytable-rs 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rpassword 4.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "sequoia-autocrypt 0.14.0",
- "sequoia-core 0.14.0",
- "sequoia-net 0.14.0",
- "sequoia-openpgp 0.14.0",
- "sequoia-store 0.14.0",
+ "sequoia-autocrypt 0.15.0",
+ "sequoia-core 0.15.0",
+ "sequoia-net 0.15.0",
+ "sequoia-openpgp 0.15.0",
+ "sequoia-store 0.15.0",
  "tempfile 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
