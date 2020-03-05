@@ -38,7 +38,6 @@
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
 
-#[macro_use]
 extern crate failure;
 extern crate futures;
 extern crate http;
@@ -294,66 +293,48 @@ pub(crate) fn url2uri(uri: Url) -> hyper::Uri {
 /// Results for sequoia-net.
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 /// Errors returned from the network routines.
 pub enum Error {
     /// A requested key was not found.
-    #[fail(display = "Key not found")]
+    #[error("Key not found")]
     NotFound,
     /// Mismatched key ID
-    #[fail(display = "Mismatched key ID, expected {}", _0)]
+    #[error("Mismatched key ID, expected {0}")]
     MismatchedKeyID(KeyID, Cert),
     /// A given keyserver URI was malformed.
-    #[fail(display = "Malformed URI; expected hkp: or hkps:")]
+    #[error("Malformed URI; expected hkp: or hkps:")]
     MalformedUri,
     /// The server provided malformed data.
-    #[fail(display = "Malformed response from server")]
+    #[error("Malformed response from server")]
     MalformedResponse,
     /// A communication partner violated the protocol.
-    #[fail(display = "Protocol violation")]
+    #[error("Protocol violation")]
     ProtocolViolation,
     /// Encountered an unexpected low-level http status.
-    #[fail(display = "Error communicating with server")]
+    #[error("Error communicating with server")]
     HttpStatus(hyper::StatusCode),
     /// A `hyper::error::UriError` occurred.
-    #[fail(display = "URI Error")]
-    UriError(url::ParseError),
+    #[error("URI Error")]
+    UriError(#[from] url::ParseError),
     /// A `http::Error` occurred.
-    #[fail(display = "http Error")]
-    HttpError(http::Error),
+    #[error("http Error")]
+    HttpError(#[from] http::Error),
     /// A `hyper::Error` occurred.
-    #[fail(display = "Hyper Error")]
-    HyperError(hyper::Error),
+    #[error("Hyper Error")]
+    HyperError(#[from] hyper::Error),
     /// A `native_tls::Error` occurred.
-    #[fail(display = "TLS Error")]
+    #[error("TLS Error")]
     TlsError(native_tls::Error),
 
     /// wkd errors:
     /// An email address is malformed
-    #[fail(display = "Malformed email address {}", _0)]
+    #[error("Malformed email address {0}")]
     MalformedEmail(String),
 
     /// An email address was not found in Cert userids.
-    #[fail(display = "Email address {} not found in Cert's userids", _0)]
+    #[error("Email address {0} not found in Cert's userids")]
     EmailNotInUserids(String),
-}
-
-impl From<http::Error> for Error {
-    fn from(e: http::Error) -> Error {
-        Error::HttpError(e)
-    }
-}
-
-impl From<hyper::Error> for Error {
-    fn from(e: hyper::Error) -> Error {
-        Error::HyperError(e)
-    }
-}
-
-impl From<url::ParseError> for Error {
-    fn from(e: url::ParseError) -> Error {
-        Error::UriError(e)
-    }
 }
 
 #[cfg(test)]
