@@ -12,13 +12,12 @@ use std::time;
 use failure::ResultExt;
 
 use crate::{
-    crypto::{hash::Hash, Signer},
+    crypto::Signer,
     Error,
     Result,
     SignatureType,
     packet,
     packet::Signature,
-    packet::signature,
     packet::Key,
     packet::key,
     packet::UserID,
@@ -596,54 +595,17 @@ impl Cert {
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
+    #[cfg(test)]
     fn set_validity_period_as_of(self, policy: &dyn Policy,
-                        primary_signer: &mut dyn Signer,
-                        expiration: Option<time::Duration>,
-                        now: time::SystemTime)
+                                 primary_signer: &mut dyn Signer,
+                                 expiration: Option<time::Duration>,
+                                 now: time::SystemTime)
         -> Result<Cert>
     {
         let primary = self.primary_key().with_policy(policy, now)?;
-        let mut sigs = Vec::new();
-        let binding = primary.binding_signature();
-        for template in [
-            // The primary key's binding signature might be the direct
-            // key signature.  To avoid generating two new direct key
-            // signatures, check that we do have in fact a userid
-            // binding signature.
-            if binding.typ() != SignatureType::DirectKey {
-                // Userid binding signature.
-                Some(binding)
-            } else {
-                None
-            },
-            primary.direct_key_signature(),
-        ].iter().filter_map(|&x| x) {
-            // Recompute the signature.
-            let hash_algo = HashAlgorithm::SHA512;
-            let mut hash = hash_algo.context()?;
-
-            self.primary_key().hash(&mut hash);
-            match template.typ() {
-                SignatureType::DirectKey =>
-                    (), // Nothing to hash.
-                SignatureType::GenericCertification
-                    | SignatureType::PersonaCertification
-                    | SignatureType::CasualCertification
-                    | SignatureType::PositiveCertification =>
-                    self.primary_userid(policy, now)
-                    .expect("this type must be from a userid binding, \
-                             hence there must be a userid valid at `now`")
-                    .userid().hash(&mut hash),
-                _ => unreachable!(),
-            }
-
-            // Generate the signature.
-            sigs.push(signature::Builder::from(template.clone())
-                      .set_key_validity_period(expiration)?
-                      .set_signature_creation_time(now)?
-                      .sign_hash(primary_signer, hash)?.into());
-        }
-
+        let sigs = primary.set_validity_period_as_of(primary_signer,
+                                                     expiration,
+                                                     now)?;
         self.merge_packets(sigs)
     }
 
@@ -652,26 +614,15 @@ impl Cert {
     /// A policy is needed, because the expiration is updated by adding
     /// a self-signature to the primary user id.
     pub fn set_expiration_time(self, policy: &dyn Policy,
-                      primary_signer: &mut dyn Signer,
-                      expiration: Option<time::SystemTime>)
+                               primary_signer: &mut dyn Signer,
+                               expiration: Option<time::SystemTime>)
         -> Result<Cert>
     {
-        let expiration =
-            if let Some(e) = expiration.map(crate::types::normalize_systemtime)
-        {
-            let ct = self.primary_key().creation_time();
-            match e.duration_since(ct) {
-                Ok(v) => Some(v),
-                Err(_) => return Err(Error::InvalidArgument(
-                    format!("Expiration time {:?} predates creation time \
-                             {:?}", e, ct)).into()),
-            }
-        } else {
-            None
-        };
-
-        self.set_validity_period_as_of(policy, primary_signer, expiration,
-                                       time::SystemTime::now())
+        let now = time::SystemTime::now();
+        let primary = self.primary_key().with_policy(policy, now)?;
+        let sigs = primary.set_expiration_time(primary_signer,
+                                               expiration)?;
+        self.merge_packets(sigs)
     }
 
     /// Returns the amalgamated primary userid at `t`, if any.
@@ -1521,6 +1472,7 @@ mod test {
     use crate::serialize::Serialize;
     use crate::policy::StandardPolicy as P;
     use crate::types::Curve;
+    use crate::packet::signature;
     use super::*;
 
     use crate::{
