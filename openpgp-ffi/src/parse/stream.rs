@@ -797,7 +797,7 @@ impl VerificationHelper for DHelper {
 }
 
 impl DecryptionHelper for DHelper {
-    fn inspect(&mut self, pp: &PacketParser) -> failure::Fallible<()> {
+    fn inspect(&mut self, pp: &PacketParser) -> openpgp::Result<()> {
         if let Some(cb) = self.inspect_cb {
             match cb(self.vhelper.cookie, pp) {
                 Status::Success => Ok(()),

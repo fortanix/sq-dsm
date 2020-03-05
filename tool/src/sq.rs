@@ -25,6 +25,7 @@ extern crate sequoia_core;
 extern crate sequoia_net;
 extern crate sequoia_store as store;
 
+use crate::openpgp::Result;
 use crate::openpgp::{armor, Fingerprint, Cert};
 use sequoia_autocrypt as autocrypt;
 use crate::openpgp::fmt::hex;
@@ -41,7 +42,7 @@ mod sq_cli;
 mod commands;
 use commands::dump::Convert;
 
-fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read>, failure::Error> {
+fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read>> {
     match f {
         Some(f) => Ok(Box::new(File::open(f)
                                .context("Failed to open input file")?)),
@@ -50,7 +51,7 @@ fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read>, failure::Error> {
 }
 
 fn create_or_stdout(f: Option<&str>, force: bool)
-    -> Result<Box<dyn io::Write>, failure::Error> {
+    -> Result<Box<dyn io::Write>> {
     match f {
         None => Ok(Box::new(io::stdout())),
         Some(p) if p == "-" => Ok(Box::new(io::stdout())),
@@ -132,7 +133,7 @@ impl<T: Write> Write for Writer<T> {
 
 fn create_or_stdout_pgp(f: Option<&str>, force: bool,
                         binary: bool, kind: armor::Kind)
-    -> Result<Writer<Box<dyn Write>>, failure::Error>
+    -> Result<Writer<Box<dyn Write>>>
 {
     let sink = create_or_stdout(f, force)?;
     let mut sink = Writer::from(sink);
@@ -212,7 +213,7 @@ fn help_warning(arg: &str) {
     }
 }
 
-fn real_main() -> Result<(), failure::Error> {
+fn real_main() -> Result<()> {
     let policy = &P::new();
 
     let matches = sq_cli::build().get_matches();
@@ -681,7 +682,7 @@ fn real_main() -> Result<(), failure::Error> {
 }
 
 fn list_bindings(mapping: &Mapping, realm: &str, name: &str)
-                 -> Result<(), failure::Error> {
+                 -> Result<()> {
     if mapping.iter()?.count() == 0 {
         println!("No label-key bindings in the \"{}/{}\" mapping.",
                  realm, name);
@@ -725,7 +726,7 @@ fn print_log(iter: LogIter, with_slug: bool) {
 
 /// Parses the given string depicting a ISO 8601 timestamp.
 fn parse_iso8601(s: &str, pad_date_with: chrono::NaiveTime)
-                 -> failure::Fallible<DateTime<Utc>>
+                 -> Result<DateTime<Utc>>
 {
     // If you modify this function this function, synchronize the
     // changes with the copy in sqv.rs!

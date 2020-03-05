@@ -122,11 +122,11 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
 impl<'a> VerificationHelper for Helper<'a> {
     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
-                       -> failure::Fallible<Vec<openpgp::Cert>> {
+                       -> openpgp::Result<Vec<openpgp::Cert>> {
         Ok(Vec::new()) // Feed the Certs to the verifier here.
     }
     fn check(&mut self, structure: MessageStructure)
-             -> failure::Fallible<()> {
+             -> openpgp::Result<()> {
         use self::VerificationError::*;
         for layer in structure.iter() {
             match layer {

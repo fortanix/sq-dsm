@@ -4,6 +4,7 @@ use clap::ArgMatches;
 use itertools::Itertools;
 use std::time::{SystemTime, Duration};
 
+use crate::openpgp::Result;
 use crate::openpgp::Packet;
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::types::KeyFlags;
@@ -17,7 +18,7 @@ const SECONDS_IN_YEAR : u64 =
     // Average number of days in a year.
     (365.2422222 * SECONDS_IN_DAY as f64) as u64;
 
-pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
+pub fn generate(m: &ArgMatches, force: bool) -> Result<()> {
     let mut builder = CertBuilder::new();
 
     // User ID
@@ -184,7 +185,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> failure::Fallible<()> {
     Ok(())
 }
 
-fn parse_duration(expiry: &str) -> failure::Fallible<Duration> {
+fn parse_duration(expiry: &str) -> Result<Duration> {
     let mut expiry = expiry.chars().peekable();
 
     let _ = expiry.by_ref()

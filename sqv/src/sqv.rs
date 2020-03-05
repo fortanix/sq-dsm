@@ -307,7 +307,7 @@ fn main() {
 
 /// Parses the given string depicting a ISO 8601 timestamp.
 fn parse_iso8601(s: &str, pad_date_with: chrono::NaiveTime)
-                 -> failure::Fallible<DateTime<Utc>>
+                 -> Result<DateTime<Utc>>
 {
     // If you modify this function this function, synchronize the
     // changes with the copy in sqv.rs!
