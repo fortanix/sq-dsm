@@ -188,91 +188,91 @@ fn frozen_time() -> std::time::SystemTime {
 /// Crate result specialization.
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
-#[derive(Fail, Debug, Clone)]
+#[derive(thiserror::Error, Debug, Clone)]
 /// Errors returned by this module.
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 pub enum Error {
     /// Invalid argument.
-    #[fail(display = "Invalid argument: {}", _0)]
+    #[error("Invalid argument: {0}")]
     InvalidArgument(String),
 
     /// Invalid operation.
-    #[fail(display = "Invalid operation: {}", _0)]
+    #[error("Invalid operation: {0}")]
     InvalidOperation(String),
 
     /// A malformed packet.
-    #[fail(display = "Malformed packet: {}", _0)]
+    #[error("Malformed packet: {0}")]
     MalformedPacket(String),
 
     /// Packet size exceeds the configured limit.
-    #[fail(display = "{} Packet ({} bytes) exceeds limit of {} bytes",
+    #[error("{} Packet ({} bytes) exceeds limit of {} bytes",
            _0, _1, _2)]
     PacketTooLarge(packet::Tag, u32, u32),
 
     /// Unsupported packet type.
-    #[fail(display = "Unsupported packet type.  Tag: {}", _0)]
+    #[error("Unsupported packet type.  Tag: {0}")]
     UnsupportedPacketType(packet::Tag),
 
     /// Unsupported hash algorithm identifier.
-    #[fail(display = "Unsupported hash algorithm: {}", _0)]
+    #[error("Unsupported hash algorithm: {0}")]
     UnsupportedHashAlgorithm(HashAlgorithm),
 
     /// Unsupported public key algorithm identifier.
-    #[fail(display = "Unsupported public key algorithm: {}", _0)]
+    #[error("Unsupported public key algorithm: {0}")]
     UnsupportedPublicKeyAlgorithm(PublicKeyAlgorithm),
 
     /// Unsupported elliptic curve ASN.1 OID.
-    #[fail(display = "Unsupported elliptic curve: {}", _0)]
+    #[error("Unsupported elliptic curve: {0}")]
     UnsupportedEllipticCurve(types::Curve),
 
     /// Unsupported symmetric key algorithm.
-    #[fail(display = "Unsupported symmetric algorithm: {}", _0)]
+    #[error("Unsupported symmetric algorithm: {0}")]
     UnsupportedSymmetricAlgorithm(SymmetricAlgorithm),
 
     /// Unsupported AEAD algorithm.
-    #[fail(display = "Unsupported AEAD algorithm: {}", _0)]
+    #[error("Unsupported AEAD algorithm: {0}")]
     UnsupportedAEADAlgorithm(types::AEADAlgorithm),
 
     /// Unsupported Compression algorithm.
-    #[fail(display = "Unsupported Compression algorithm: {}", _0)]
+    #[error("Unsupported Compression algorithm: {0}")]
     UnsupportedCompressionAlgorithm(types::CompressionAlgorithm),
 
     /// Unsupported signature type.
-    #[fail(display = "Unsupported signature type: {}", _0)]
+    #[error("Unsupported signature type: {0}")]
     UnsupportedSignatureType(SignatureType),
 
     /// Invalid password.
-    #[fail(display = "Invalid password")]
+    #[error("Invalid password")]
     InvalidPassword,
 
     /// Invalid session key.
-    #[fail(display = "Invalid session key: {}", _0)]
+    #[error("Invalid session key: {0}")]
     InvalidSessionKey(String),
 
     /// Missing session key.
-    #[fail(display = "Missing session key: {}", _0)]
+    #[error("Missing session key: {0}")]
     MissingSessionKey(String),
 
     /// Malformed MPI.
-    #[fail(display = "Malformed MPI: {}", _0)]
+    #[error("Malformed MPI: {0}")]
     MalformedMPI(String),
 
     /// Bad signature.
-    #[fail(display = "Bad signature: {}", _0)]
+    #[error("Bad signature: {0}")]
     BadSignature(String),
 
     /// Message has been manipulated.
-    #[fail(display = "Message has been manipulated")]
+    #[error("Message has been manipulated")]
     ManipulatedMessage,
 
     /// Malformed message.
-    #[fail(display = "Malformed Message: {}", _0)]
+    #[error("Malformed Message: {0}")]
     MalformedMessage(String),
 
     /// Malformed certificate.
-    #[fail(display = "Malformed Cert: {}", _0)]
+    #[error("Malformed Cert: {0}")]
     MalformedCert(String),
 
     /// Unsupported Cert.
@@ -280,39 +280,39 @@ pub enum Error {
     /// This usually occurs, because the primary key is in an
     /// unsupported format.  In particular, Sequoia does not support
     /// version 3 keys.
-    #[fail(display = "Unsupported Cert: {}", _0)]
+    #[error("Unsupported Cert: {0}")]
     UnsupportedCert(String),
 
     /// Index out of range.
-    #[fail(display = "Index out of range")]
+    #[error("Index out of range")]
     IndexOutOfRange,
 
     /// Expired.
-    #[fail(display = "Expired on {:?}", _0)]
+    #[error("Expired on {0:?}")]
     Expired(std::time::SystemTime),
 
     /// Not yet live.
-    #[fail(display = "Not live until {:?}", _0)]
+    #[error("Not live until {0:?}")]
     NotYetLive(std::time::SystemTime),
 
     /// No binding signature.
-    #[fail(display = "No binding signature at time {:?}", _0)]
+    #[error("No binding signature at time {0:?}")]
     NoBindingSignature(std::time::SystemTime),
 
     /// Invalid key.
-    #[fail(display = "Invalid key: {:?}", _0)]
+    #[error("Invalid key: {0:?}")]
     InvalidKey(String),
 
     /// The operation is not allowed, because it violates the policy.
     ///
     /// The optional time is the time at which the operation was
     /// determined to no longer be secure.
-    #[fail(display = "Not secure as of: {:?}: {}", _1, _0)]
+    #[error("Not secure as of: {1:?}: {0}")]
     PolicyViolation(String, Option<std::time::SystemTime>),
 
     /// This marks this enum as non-exhaustive.  Do not use this
     /// variant.
-    #[doc(hidden)] #[fail(display = "__Nonexhaustive")] __Nonexhaustive,
+    #[doc(hidden)] #[error("__Nonexhaustive")] __Nonexhaustive,
 }
 
 /// The OpenPGP packets that Sequoia understands.
