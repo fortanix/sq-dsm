@@ -268,16 +268,16 @@ impl Config {
 /// Result type for Sequoia.
 pub type Result<T> = ::std::result::Result<T, failure::Error>;
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 /// Errors for Sequoia.
 pub enum Error {
     /// The network policy was violated by the given action.
-    #[fail(display = "Unmet network policy requirement: {}", _0)]
+    #[error("Unmet network policy requirement: {0}")]
     NetworkPolicyViolation(NetworkPolicy),
 
     /// An `io::Error` occurred.
-    #[fail(display = "{}", _0)]
-    IoError(#[cause] io::Error),
+    #[error("{0}")]
+    IoError(#[from] io::Error),
 }
 
 /* Network policy.  */
