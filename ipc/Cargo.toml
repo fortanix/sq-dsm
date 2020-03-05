@@ -32,6 +32,7 @@ libc = "0.2.33"
 memsec = "0.5.6"
 rand = { version = "0.7", default-features = false }
 tempfile = "3.0"
+thiserror = "1"
 tokio = "0.1"
 tokio-core = "0.1"
 tokio-io = "0.1.4"

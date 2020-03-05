@@ -768,17 +768,17 @@ impl<'a> crypto::Decryptor for KeyPair<'a> {
 }
 
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 /// Errors used in this module.
 pub enum Error {
     /// Errors related to `gpgconf`.
-    #[fail(display = "gpgconf: {}", _0)]
+    #[error("gpgconf: {0}")]
     GPGConf(String),
     /// The remote operation failed.
-    #[fail(display = "Operation failed: {}", _0)]
+    #[error("Operation failed: {0}")]
     OperationFailed(String),
     /// The remote party violated the protocol.
-    #[fail(display = "Protocol violation: {}", _0)]
+    #[error("Protocol violation: {0}")]
     ProtocolError(String),
 
 }

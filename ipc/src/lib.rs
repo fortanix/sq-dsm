@@ -477,13 +477,13 @@ impl PartialEq for Cookie {
     }
 }
 
-#[derive(Fail, Debug)]
+#[derive(thiserror::Error, Debug)]
 /// Errors returned from the network routines.
 pub enum Error {
     /// Handshake failed.
-    #[fail(display = "Handshake failed: {}", _0)]
+    #[error("Handshake failed: {0}")]
     HandshakeFailed(String),
     /// Connection closed unexpectedly.
-    #[fail(display = "Connection closed unexpectedly.")]
+    #[error("Connection closed unexpectedly.")]
     ConnectionClosed(Vec<u8>),
 }
