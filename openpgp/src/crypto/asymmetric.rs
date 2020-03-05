@@ -333,14 +333,14 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
                 //   https://tools.ietf.org/html/rfc4880#section-5.2.2
                 rsa::verify_digest_pkcs1(&key, digest, sig.hash_algo().oid()?,
-                                         s.value())
+                                         s.value())?
             },
             (DSA, PublicKey::DSA{ y, p, q, g }, Signature::DSA { s, r }) => {
                 let key = dsa::PublicKey::new(y.value());
                 let params = dsa::Params::new(p.value(), q.value(), g.value());
                 let signature = dsa::Signature::new(r.value(), s.value());
 
-                Ok(dsa::verify(&params, &key, digest, &signature))
+                dsa::verify(&params, &key, digest, &signature)
             },
             (EdDSA, PublicKey::EdDSA{ curve, q }, Signature::EdDSA { r, s }) =>
               match curve {
@@ -380,9 +380,9 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                                 signature.len(), r.value(), s.value())).into());
                     }
 
-                    ed25519::verify(&q.value()[1..], digest, &signature)
+                    ed25519::verify(&q.value()[1..], digest, &signature)?
                 },
-                _ =>
+                _ => return
                     Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
             },
             (ECDSA, PublicKey::ECDSA{ curve, q }, Signature::ECDSA { s, r }) =>
@@ -397,13 +397,13 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 };
 
                 let signature = dsa::Signature::new(r.value(), s.value());
-                Ok(ecdsa::verify(&key, digest, &signature))
+                ecdsa::verify(&key, digest, &signature)
             },
-            _ => Err(Error::MalformedPacket(format!(
+            _ => return Err(Error::MalformedPacket(format!(
                 "unsupported combination of algorithm {}, key {} and \
                  signature {:?}.",
                 sig.pk_algo(), self.pk_algo(), sig.mpis())).into()),
-        }?;
+        };
 
         if ok {
             Ok(())
