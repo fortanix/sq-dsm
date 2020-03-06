@@ -1,6 +1,6 @@
 //! Asymmetric crypt operations.
 
-use nettle::{dsa, ecc, ecdsa, ed25519, rsa, Yarrow};
+use nettle::{dsa, ecc, ecdsa, ed25519, rsa, random::Yarrow};
 
 use crate::packet::{self, key, Key};
 use crate::crypto::SessionKey;

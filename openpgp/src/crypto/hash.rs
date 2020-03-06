@@ -25,7 +25,7 @@ const DUMP_HASHED_VALUES: Option<&str> = None;
 #[derive(Clone)]
 pub struct Context {
     algo: HashAlgorithm,
-    ctx: Box<dyn nettle::Hash>,
+    ctx: Box<dyn nettle::hash::Hash>,
 }
 
 impl Context {
@@ -101,7 +101,7 @@ impl HashAlgorithm {
             Ripemd160,
         };
 
-        let c: Result<Box<dyn nettle::Hash>> = match self {
+        let c: Result<Box<dyn nettle::hash::Hash>> = match self {
             HashAlgorithm::SHA1 => Ok(Box::new(Sha1::default())),
             HashAlgorithm::SHA224 => Ok(Box::new(Sha224::default())),
             HashAlgorithm::SHA256 => Ok(Box::new(Sha256::default())),
@@ -115,7 +115,7 @@ impl HashAlgorithm {
         };
 
         if let Some(prefix) = DUMP_HASHED_VALUES {
-            c.map(|c: Box<dyn nettle::Hash>| {
+            c.map(|c: Box<dyn nettle::hash::Hash>| {
                 Context {
                     algo: self,
                     ctx: Box::new(HashDumper::new(c, prefix)),
@@ -146,14 +146,14 @@ impl HashAlgorithm {
 }
 
 struct HashDumper {
-    h: Box<dyn nettle::Hash>,
+    h: Box<dyn nettle::hash::Hash>,
     sink: File,
     filename: String,
     written: usize,
 }
 
 impl HashDumper {
-    fn new(h: Box<dyn nettle::Hash>, prefix: &str) -> Self {
+    fn new(h: Box<dyn nettle::hash::Hash>, prefix: &str) -> Self {
         let mut n = 0;
         let mut filename;
         let sink = loop {
@@ -182,7 +182,7 @@ impl Drop for HashDumper {
     }
 }
 
-impl nettle::Hash for HashDumper {
+impl nettle::hash::Hash for HashDumper {
     fn digest_size(&self) -> usize {
         self.h.digest_size()
     }
@@ -194,7 +194,7 @@ impl nettle::Hash for HashDumper {
     fn digest(&mut self, digest: &mut [u8]) {
         self.h.digest(digest);
     }
-    fn box_clone(&self) -> Box<dyn nettle::Hash> {
+    fn box_clone(&self) -> Box<dyn nettle::hash::Hash> {
         Box::new(Self::new(self.h.box_clone(), &DUMP_HASHED_VALUES.unwrap()))
     }
 }

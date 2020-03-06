@@ -1100,7 +1100,7 @@ impl<R> Key4<SecretParts, R>
 
     /// Generates a new RSA key with a public modulos of size `bits`.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
-        use nettle::{rsa, Yarrow};
+        use nettle::{rsa, random::Yarrow};
         use crate::crypto::mpis::{MPI, PublicKey};
 
         let mut rng = Yarrow::default();
@@ -1133,7 +1133,7 @@ impl<R> Key4<SecretParts, R>
     /// signing/encryption
     pub fn generate_ecc(for_signing: bool, curve: Curve) -> Result<Self> {
         use nettle::{
-            Yarrow,
+            random::Yarrow,
             ed25519, ed25519::ED25519_KEY_SIZE,
             curve25519, curve25519::CURVE25519_SIZE,
             ecc, ecdh, ecdsa,

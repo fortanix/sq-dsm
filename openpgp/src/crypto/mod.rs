@@ -4,7 +4,7 @@ use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
 
-use nettle::{Random, Yarrow};
+use nettle::random::{Random, Yarrow};
 
 use crate::types::HashAlgorithm;
 use crate::Result;
