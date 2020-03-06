@@ -1429,9 +1429,10 @@ impl<'a> ValidCert<'a> {
 
     /// Returns the amalgamated primary key.
     pub fn primary_key(&self)
-        -> Result<ValidPrimaryKeyAmalgamation<key::PublicParts>>
+        -> ValidPrimaryKeyAmalgamation<key::PublicParts>
     {
         self.cert.primary_key().with_policy(self.policy, self.time)
+            .expect("A ValidKeyAmalgamation must have a ValidPrimaryKeyAmalgamation")
     }
 
     /// Returns an iterator over the certificate's keys.
