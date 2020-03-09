@@ -172,7 +172,7 @@ fn sign() {
                             None => (),
                         }
                     },
-                    _ => return Err(failure::err_msg(
+                    _ => return Err(anyhow::anyhow!(
                         "Unexpected message structure")),
                 }
             }
@@ -180,7 +180,7 @@ fn sign() {
             if good {
                 Ok(()) // Good signature.
             } else {
-                Err(failure::err_msg("Signature verification failed"))
+                Err(anyhow::anyhow!("Signature verification failed"))
             }
         }
     }

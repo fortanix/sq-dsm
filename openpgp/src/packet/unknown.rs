@@ -1,8 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::cmp::Ordering;
 
-use failure;
-
 use crate::packet::Tag;
 use crate::packet;
 use crate::Packet;
@@ -20,7 +18,7 @@ pub struct Unknown {
     /// Packet tag.
     tag: Tag,
     /// Error that caused parsing or processing to abort.
-    error: failure::Error,
+    error: anyhow::Error,
     /// The unknown data packet is a container packet, but cannot
     /// store packets.
     ///
@@ -50,7 +48,7 @@ impl Clone for Unknown {
         Unknown {
             common: self.common.clone(),
             tag: self.tag,
-            error: failure::err_msg(format!("{}", self.error)),
+            error: anyhow::anyhow!("{}", self.error),
             container: self.container.clone(),
         }
     }
@@ -59,7 +57,7 @@ impl Clone for Unknown {
 
 impl Unknown {
     /// Returns a new `Unknown` packet.
-    pub fn new(tag: Tag, error: failure::Error) -> Self {
+    pub fn new(tag: Tag, error: anyhow::Error) -> Self {
         Unknown {
             common: Default::default(),
             tag: tag,
@@ -81,14 +79,14 @@ impl Unknown {
     /// Gets the unknown packet's error.
     ///
     /// This is the error that caused parsing or processing to abort.
-    pub fn error(&self) -> &failure::Error {
+    pub fn error(&self) -> &anyhow::Error {
         &self.error
     }
 
     /// Sets the unknown packet's error.
     ///
     /// This is the error that caused parsing or processing to abort.
-    pub fn set_error(&mut self, error: failure::Error) -> failure::Error {
+    pub fn set_error(&mut self, error: anyhow::Error) -> anyhow::Error {
         ::std::mem::replace(&mut self.error, error)
     }
 

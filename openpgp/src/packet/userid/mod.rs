@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use std::sync::Mutex;
 
 use quickcheck::{Arbitrary, Gen};
-use failure::ResultExt;
+use anyhow::Context;
 use regex::Regex;
 
 use crate::Result;
@@ -717,7 +717,7 @@ impl UserID {
                 Ok(puid) => puid,
                 Err(err) => {
                     // Return the error from the NameAddrOrOther parser.
-                    let err : failure::Error = err.into();
+                    let err : anyhow::Error = err.into();
                     return Err(err).context(format!(
                         "Failed to parse User ID: {:?}", s))?;
                 }
@@ -796,7 +796,7 @@ impl UserID {
 
                 // Normalize Unicode in domains.
                 let domain = idna::domain_to_ascii(domain)
-                    .map_err(|e| failure::format_err!(
+                    .map_err(|e| anyhow::anyhow!(
                         "punycode conversion failed: {:?}", e))?;
 
                 // Join.

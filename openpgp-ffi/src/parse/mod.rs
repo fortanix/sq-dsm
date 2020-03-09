@@ -216,7 +216,7 @@ pub extern "C" fn pgp_packet_parser_next<'a>
             }
             Status::Success
         },
-        Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
+        Err(e) => ffi_try_status!(Err::<(), anyhow::Error>(e)),
     }
 }
 
@@ -260,7 +260,7 @@ pub extern "C" fn pgp_packet_parser_recurse<'a>
             }
             Status::Success
         },
-        Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
+        Err(e) => ffi_try_status!(Err::<(), anyhow::Error>(e)),
     }
 }
 

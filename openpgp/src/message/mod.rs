@@ -14,8 +14,6 @@ use std::fmt;
 use std::io;
 use std::path::Path;
 
-use failure;
-
 use crate::Result;
 use crate::Error;
 use crate::Packet;
@@ -51,7 +49,7 @@ pub enum MessageParserError {
     #[doc(hidden)] __Nonexhaustive,
 }
 
-impl From<MessageParserError> for failure::Error {
+impl From<MessageParserError> for anyhow::Error {
     fn from(err: MessageParserError) -> Self {
         match err {
             MessageParserError::Parser(p) => p.into(),
@@ -72,7 +70,7 @@ pub enum MessageValidity {
     /// prefix of an OpenPGP message.
     MessagePrefix,
     /// The message is definitely not valid.
-    Error(failure::Error),
+    Error(anyhow::Error),
 }
 
 impl MessageValidity {
@@ -347,7 +345,7 @@ impl<'a> Parse<'a, Message> for Message {
 }
 
 impl std::str::FromStr for Message {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::from_bytes(s.as_bytes())

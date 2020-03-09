@@ -20,8 +20,6 @@
 
 extern crate dirs;
 extern crate tempfile;
-#[macro_use]
-extern crate failure;
 
 use std::fmt;
 use std::io;
@@ -199,7 +197,7 @@ impl Config {
             if home_not_set {
                 c.home =
                     dirs::home_dir().ok_or(
-                        format_err!("Failed to get users home directory"))?
+                        anyhow::anyhow!("Failed to get users home directory"))?
                 .join(".sequoia");
             }
         }
@@ -266,7 +264,7 @@ impl Config {
 /* Error handling.  */
 
 /// Result type for Sequoia.
-pub type Result<T> = ::std::result::Result<T, failure::Error>;
+pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
 #[derive(thiserror::Error, Debug)]
 /// Errors for Sequoia.

@@ -26,7 +26,7 @@ impl From<u32> for Timestamp {
 }
 
 impl TryFrom<SystemTime> for Timestamp {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn try_from(t: SystemTime) -> Result<Self> {
         match t.duration_since(std::time::UNIX_EPOCH) {
@@ -131,14 +131,14 @@ impl Timestamp {
     ///     /// First, get the certification key.
     ///     let mut keypair =
     ///         alice.keys().with_policy(policy, t).secret().for_certification()
-    ///         .nth(0).ok_or_else(|| failure::err_msg("no valid key at"))?
+    ///         .nth(0).ok_or_else(|| anyhow::anyhow!("no valid key at"))?
     ///         .key().clone().into_keypair()?;
     ///
     ///     // Then, lookup the binding between `bob@example.org` and
     ///     // `bob` at `t`.
     ///     let ca = bob.userids().with_policy(policy, t)
     ///         .filter(|ca| ca.userid().value() == b"bob@example.org")
-    ///         .nth(0).ok_or_else(|| failure::err_msg("no valid userid"))?;
+    ///         .nth(0).ok_or_else(|| anyhow::anyhow!("no valid userid"))?;
     ///
     ///     // Finally, Alice certifies the binding between
     ///     // `bob@example.org` and `bob` at `t`.
@@ -193,7 +193,7 @@ impl From<u32> for Duration {
 }
 
 impl TryFrom<SystemDuration> for Duration {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn try_from(d: SystemDuration) -> Result<Self> {
         if d.as_secs() <= std::u32::MAX as u64 {

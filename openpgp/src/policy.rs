@@ -29,7 +29,7 @@ use std::fmt;
 use std::time::{SystemTime, Duration};
 use std::u32;
 
-use failure::ResultExt;
+use anyhow::Context;
 
 use crate::{
     cert::prelude::*,
@@ -983,7 +983,7 @@ mod test {
                 use crate::types::SignatureType::*;
 
                 match sig.typ() {
-                    DirectKey => Err(format_err!("direct key!")),
+                    DirectKey => Err(anyhow::anyhow!("direct key!")),
                     _ => Ok(()),
                 }
             }
@@ -1000,7 +1000,7 @@ mod test {
                 use crate::types::SignatureType::*;
 
                 match sig.typ() {
-                    SubkeyBinding => Err(format_err!("subkey signature!")),
+                    SubkeyBinding => Err(anyhow::anyhow!("subkey signature!")),
                     _ => Ok(()),
                 }
             }
@@ -1037,7 +1037,7 @@ mod test {
                 use crate::types::SignatureType::*;
                 match sig.typ() {
                     PositiveCertification =>
-                        Err(format_err!("positive certification!")),
+                        Err(anyhow::anyhow!("positive certification!")),
                     _ => Ok(()),
                 }
             }
@@ -1074,7 +1074,7 @@ mod test {
                 use crate::types::SignatureType::*;
                 match sig.typ() {
                     CertificationRevocation =>
-                        Err(format_err!("certification certification!")),
+                        Err(anyhow::anyhow!("certification certification!")),
                     _ => Ok(()),
                 }
             }
@@ -1108,7 +1108,7 @@ mod test {
                 use crate::types::SignatureType::*;
                 match sig.typ() {
                     SubkeyRevocation =>
-                        Err(format_err!("subkey revocation!")),
+                        Err(anyhow::anyhow!("subkey revocation!")),
                     _ => Ok(()),
                 }
             }
@@ -1188,7 +1188,7 @@ mod test {
                 eprintln!("{:?}", sig.typ());
                 match sig.typ() {
                     Binary =>
-                        Err(format_err!("binary!")),
+                        Err(anyhow::anyhow!("binary!")),
                     _ => Ok(()),
                 }
             }
@@ -1203,7 +1203,7 @@ mod test {
                 use crate::types::SignatureType::*;
 
                 match sig.typ() {
-                    SubkeyBinding => Err(format_err!("subkey signature!")),
+                    SubkeyBinding => Err(anyhow::anyhow!("subkey signature!")),
                     _ => Ok(()),
                 }
             }
@@ -1478,7 +1478,7 @@ mod test {
 
                 eprintln!("algo: {}", ka.key().pk_algo());
                 if ka.key().pk_algo() == RSAEncryptSign {
-                    Err(format_err!("RSA!"))
+                    Err(anyhow::anyhow!("RSA!"))
                 } else {
                     Ok(())
                 }
@@ -1581,7 +1581,7 @@ mod test {
                 eprintln!("algo: {} is {}",
                           ka.fingerprint(), ka.key().pk_algo());
                 if ka.key().pk_algo() == RSAEncryptSign {
-                    Err(format_err!("RSA!"))
+                    Err(anyhow::anyhow!("RSA!"))
                 } else {
                     Ok(())
                 }

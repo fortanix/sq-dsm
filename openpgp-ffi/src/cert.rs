@@ -1012,7 +1012,7 @@ pub extern "C" fn pgp_cert_builder_generate
         },
         Err(e) => {
             *cert_out = None;
-            Err::<(), failure::Error>(e).move_into_raw(errp)
+            Err::<(), anyhow::Error>(e).move_into_raw(errp)
         },
     }
 }

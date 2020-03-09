@@ -9,7 +9,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::time;
 
-use failure::ResultExt;
+use anyhow::Context;
 
 use crate::{
     crypto::Signer,
@@ -447,7 +447,7 @@ pub struct Cert {
 } // doc-hack, see above
 
 impl std::str::FromStr for Cert {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::from_bytes(s.as_bytes())
@@ -3229,7 +3229,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         // Add a component that Sequoia doesn't understand.
         let mut fake_key = packet::Unknown::new(
-            packet::Tag::PublicSubkey, failure::err_msg("fake key"));
+            packet::Tag::PublicSubkey, anyhow::anyhow!("fake key"));
         fake_key.set_body("fake key".into());
         let fake_binding = signature::Builder::new(SignatureType::SubkeyBinding)
             .set_issuer(primary_pair.public().keyid())?

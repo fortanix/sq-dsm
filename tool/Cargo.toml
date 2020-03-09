@@ -27,9 +27,9 @@ sequoia-autocrypt = { path = "../autocrypt", version = "0.15" }
 sequoia-core = { path = "../core", version = "0.15" }
 sequoia-net = { path = "../net", version = "0.15" }
 sequoia-store = { path = "../store", version = "0.15" }
+anyhow = "1"
 chrono = "0.4"
 clap = "2.32.0"
-failure = "0.1.2"
 itertools = "0.8"
 prettytable-rs = "0.8.0"
 rpassword = "=4.0.3"

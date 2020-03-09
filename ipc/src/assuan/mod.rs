@@ -62,7 +62,7 @@ pub struct Client {
 
 enum WriteState {
     Ready(io::WriteHalf<UnixStream>),
-    Sending(future::FromErr<io::WriteAll<io::WriteHalf<tokio::net::UnixStream>, Vec<u8>>, failure::Error>),
+    Sending(future::FromErr<io::WriteAll<io::WriteHalf<tokio::net::UnixStream>, Vec<u8>>, anyhow::Error>),
     Transitioning,
     Dead,
 }
@@ -70,7 +70,7 @@ enum WriteState {
 impl Client {
     /// Connects to the server.
     pub fn connect<P>(path: P)
-        -> impl Future<Item = Client, Error = failure::Error>
+        -> impl Future<Item = Client, Error = anyhow::Error>
         where P: AsRef<Path>
     {
         UnixStream::connect(path).from_err()
@@ -197,7 +197,7 @@ impl ConnectionFuture {
 
 impl Future for ConnectionFuture {
     type Item = Client;
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn poll(&mut self) -> std::result::Result<Async<Self::Item>, Self::Error> {
         // Consume the initial message from the server.
@@ -227,7 +227,7 @@ impl Future for ConnectionFuture {
 
 impl Stream for Client {
     type Item = Response;
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     /// Attempt to pull out the next value of this stream, returning
     /// None if the stream is finished.
@@ -400,7 +400,7 @@ impl Response {
                                  c)?;
                     }
                 }
-                Err(failure::err_msg(
+                Err(anyhow::anyhow!(
                     String::from_utf8_lossy(&msg).to_string()).into())
             },
         }

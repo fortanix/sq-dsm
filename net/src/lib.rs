@@ -38,7 +38,6 @@
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
 
-extern crate failure;
 extern crate futures;
 extern crate http;
 extern crate hyper;
@@ -157,7 +156,7 @@ impl KeyServer {
 
     /// Retrieves the key with the given `keyid`.
     pub fn get(&mut self, keyid: &KeyID)
-               -> Box<dyn Future<Item=Cert, Error=failure::Error> + 'static> {
+               -> Box<dyn Future<Item=Cert, Error=anyhow::Error> + 'static> {
         let keyid_want = keyid.clone();
         let uri = self.uri.join(
             &format!("pks/lookup?op=get&options=mr&search=0x{}",
@@ -205,7 +204,7 @@ impl KeyServer {
 
     /// Sends the given key to the server.
     pub fn send(&mut self, key: &Cert)
-                -> Box<dyn Future<Item=(), Error=failure::Error> + 'static> {
+                -> Box<dyn Future<Item=(), Error=anyhow::Error> + 'static> {
         use crate::openpgp::armor::{Writer, Kind};
 
         let uri =
@@ -291,7 +290,7 @@ pub(crate) fn url2uri(uri: Url) -> hyper::Uri {
 }
 
 /// Results for sequoia-net.
-pub type Result<T> = ::std::result::Result<T, failure::Error>;
+pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
 #[derive(thiserror::Error, Debug)]
 /// Errors returned from the network routines.

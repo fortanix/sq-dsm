@@ -1,6 +1,5 @@
 //! Storage backend.
 
-use failure;
 use std::cmp;
 use std::fmt;
 use std::io;
@@ -920,7 +919,7 @@ impl KeyServer {
     /// Updates the key that was least recently updated.
     fn update(c: &Rc<Connection>,
               network_policy: core::NetworkPolicy)
-              -> Box<dyn Future<Item=Duration, Error=failure::Error> + 'static> {
+              -> Box<dyn Future<Item=Duration, Error=anyhow::Error> + 'static> {
         let (key, id, mut keyserver)
             = match Self::update_helper(c, network_policy) {
             Ok((key, id, keyserver)) => (key, id, keyserver),
@@ -1277,8 +1276,8 @@ impl From<rusqlite::Error> for node::Error {
     }
 }
 
-impl From<failure::Error> for node::Error {
-    fn from(e: failure::Error) -> Self {
+impl From<anyhow::Error> for node::Error {
+    fn from(e: anyhow::Error) -> Self {
         if let Some(e) = e.downcast_ref::<openpgp::Error>() {
             return match e {
                 &openpgp::Error::MalformedCert(_) =>

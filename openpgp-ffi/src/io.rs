@@ -47,7 +47,7 @@ pub extern "C" fn pgp_reader_from_file(errp: Option<&mut *mut crate::error::Erro
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     File::open(Path::new(&filename))
         .map(|r| ReaderKind::Generic(Box::new(r)))
-        .map_err(|e| ::failure::Error::from(e))
+        .map_err(|e| ::anyhow::Error::from(e))
         .move_into_raw(errp)
 }
 
@@ -123,7 +123,7 @@ pub extern "C" fn pgp_reader_read(errp: Option<&mut *mut crate::error::Error>,
         .map(|n_read| n_read as ssize_t)
         .unwrap_or_else(|e| {
             if let Some(errp) = errp {
-                *errp = ::failure::Error::from(e).move_into_raw();
+                *errp = ::anyhow::Error::from(e).move_into_raw();
             };
 
             // Signal failure.
@@ -145,7 +145,7 @@ pub extern "C" fn pgp_reader_copy(errp: Option<&mut *mut crate::error::Error>,
         .map(|n_read| n_read as ssize_t)
         .unwrap_or_else(|e| {
             if let Some(errp) = errp {
-                *errp = ::failure::Error::from(e).move_into_raw();
+                *errp = ::anyhow::Error::from(e).move_into_raw();
             };
 
             // Signal failure.
@@ -164,7 +164,7 @@ pub extern "C" fn pgp_reader_discard(errp: Option<&mut *mut crate::error::Error>
         .map(|n_read| n_read as ssize_t)
         .unwrap_or_else(|e| {
             if let Some(errp) = errp {
-                *errp = ::failure::Error::from(e).move_into_raw();
+                *errp = ::anyhow::Error::from(e).move_into_raw();
             };
 
             // Signal failure.
@@ -215,7 +215,7 @@ fn pgp_writer_from_file(errp: Option<&mut *mut crate::error::Error>,
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     File::create(Path::new(&filename))
         .map(|w| WriterKind::Generic(Box::new(w)))
-        .map_err(|e| ::failure::Error::from(e))
+        .map_err(|e| ::anyhow::Error::from(e))
         .move_into_raw(errp)
 }
 
@@ -348,7 +348,7 @@ fn pgp_writer_write(errp: Option<&mut *mut crate::error::Error>,
         .map(|n_read| n_read as ssize_t)
         .unwrap_or_else(|e| {
             if let Some(errp) = errp {
-                *errp = ::failure::Error::from(e).move_into_raw();
+                *errp = ::anyhow::Error::from(e).move_into_raw();
             };
 
             // Signal failure.

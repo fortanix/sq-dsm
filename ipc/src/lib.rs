@@ -42,7 +42,6 @@ use std::net::{SocketAddr, AddrParseError, TcpStream, TcpListener};
 use std::path::PathBuf;
 
 extern crate capnp_rpc;
-#[macro_use] extern crate failure;
 extern crate fs2;
 extern crate futures;
 extern crate lalrpop_util;
@@ -51,7 +50,7 @@ extern crate tokio;
 extern crate tokio_core;
 extern crate tokio_io;
 
-use failure::Fallible as Result;
+use anyhow::Result;
 use fs2::FileExt;
 use futures::{Future, Stream};
 
@@ -315,7 +314,7 @@ impl Server {
 
         if args.len() != 7 || args[1] != "--home"
             || args[3] != "--lib" || args[5] != "--ephemeral" {
-                return Err(format_err!(
+                return Err(anyhow::anyhow!(
                     "Usage: {} --home <HOMEDIR> --lib <LIBDIR> \
                      --ephemeral true|false", args[0]));
             }
@@ -328,7 +327,7 @@ impl Server {
                 cfg.set_ephemeral();
             }
         } else {
-            return Err(format_err!(
+            return Err(anyhow::anyhow!(
                 "Expected 'true' or 'false' for --ephemeral, got: {}",
                 args[6]));
         }

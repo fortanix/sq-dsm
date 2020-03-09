@@ -1,6 +1,5 @@
 //! Maps various errors to status codes.
 
-use failure;
 use std::io;
 use libc::c_char;
 
@@ -11,14 +10,14 @@ use crate::RefRaw;
 
 /// Complex errors.
 ///
-/// This wraps [`failure::Error`]s.
+/// This wraps [`anyhow::Error`]s.
 ///
-/// [`failure::Error`]: https://docs.rs/failure/0.1.5/failure/struct.Error.html
+/// [`anyhow::Error`]: https://docs.rs/failure/0.1.5/failure/struct.Error.html
 #[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Display")]
-pub struct Error(failure::Error);
+pub struct Error(anyhow::Error);
 
-impl<T> From<failure::Fallible<T>> for Status {
-    fn from(f: failure::Fallible<T>) -> crate::error::Status {
+impl<T> From<anyhow::Result<T>> for Status {
+    fn from(f: anyhow::Result<T>) -> crate::error::Status {
         match f {
             Ok(_) =>  crate::error::Status::Success,
             Err(e) => crate::error::Status::from(&e),
@@ -26,7 +25,7 @@ impl<T> From<failure::Fallible<T>> for Status {
     }
 }
 
-impl crate::MoveResultIntoRaw<crate::error::Status> for ::failure::Fallible<()>
+impl crate::MoveResultIntoRaw<crate::error::Status> for ::anyhow::Result<()>
 {
     fn move_into_raw(self, errp: Option<&mut *mut crate::error::Error>)
                      -> crate::error::Status {
@@ -210,8 +209,8 @@ pub extern "C" fn pgp_status_to_string(status: Status) -> *const c_char {
     }.as_bytes().as_ptr() as *const c_char
 }
 
-impl<'a> From<&'a failure::Error> for Status {
-    fn from(e: &'a failure::Error) -> Self {
+impl<'a> From<&'a anyhow::Error> for Status {
+    fn from(e: &'a anyhow::Error) -> Self {
         if let Some(e) = e.downcast_ref::<openpgp::Error>() {
             return match e {
                 &openpgp::Error::InvalidArgument(_) =>

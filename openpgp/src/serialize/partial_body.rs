@@ -107,9 +107,8 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
                 |e| match e.downcast::<io::Error>() {
                         // An io::Error.  Pass as-is.
                         Ok(err) => err,
-                        // A failure.  Create a compat object and wrap it.
-                        Err(e) => io::Error::new(io::ErrorKind::Other,
-                                                 e.compat()),
+                        // A failure.  Wrap it.
+                        Err(e) => io::Error::new(io::ErrorKind::Other, e),
                     })?;
 
             // Write the body.

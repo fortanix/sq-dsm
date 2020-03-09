@@ -46,9 +46,6 @@
 
 extern crate lalrpop_util;
 
-#[macro_use]
-extern crate failure;
-
 extern crate buffered_reader;
 
 extern crate memsec;
@@ -186,7 +183,7 @@ fn frozen_time() -> std::time::SystemTime {
 }
 
 /// Crate result specialization.
-pub type Result<T> = ::std::result::Result<T, failure::Error>;
+pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
 #[derive(thiserror::Error, Debug, Clone)]
 /// Errors returned by this module.

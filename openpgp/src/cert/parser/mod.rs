@@ -39,7 +39,7 @@ pub enum KeyringValidity {
     /// The packet sequence is a valid key ring prefix.
     KeyringPrefix,
     /// The packet sequence is definitely not a key ring.
-    Error(failure::Error),
+    Error(anyhow::Error),
 }
 
 impl KeyringValidity {
@@ -246,7 +246,7 @@ pub enum CertValidity {
     /// The packet sequence is a valid Cert prefix.
     CertPrefix,
     /// The packet sequence is definitely not a Cert.
-    Error(failure::Error),
+    Error(anyhow::Error),
 }
 
 impl CertValidity {

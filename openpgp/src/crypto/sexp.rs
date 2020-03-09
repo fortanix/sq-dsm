@@ -101,7 +101,7 @@ impl Sexp {
         where R: crate::packet::key::KeyRole
     {
         use crate::crypto::mpis::PublicKey;
-        let not_a_session_key = || -> failure::Error {
+        let not_a_session_key = || -> anyhow::Error {
             Error::MalformedMPI(
                 format!("Not a session key: {:?}", self)).into()
         };
@@ -190,7 +190,7 @@ impl Sexp {
     /// Such an expression is returned from gpg-agent's `PKSIGN`
     /// command.
     pub fn to_signature(&self) -> Result<mpis::Signature> {
-        let not_a_signature = || -> failure::Error {
+        let not_a_signature = || -> anyhow::Error {
             Error::MalformedMPI(
                 format!("Not a signature: {:?}", self)).into()
         };

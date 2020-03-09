@@ -1,5 +1,5 @@
 use crossterm::terminal;
-use failure::{self, ResultExt};
+use anyhow::Context as _;
 use std::collections::HashMap;
 use std::io;
 use rpassword;
@@ -253,7 +253,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
 
         if skesks.is_empty() {
             return
-                Err(failure::err_msg("No key to decrypt message"));
+                Err(anyhow::anyhow!("No key to decrypt message"));
         }
 
         // Finally, try to decrypt using the SKESKs.
@@ -289,14 +289,7 @@ pub fn decrypt(ctx: &Context, policy: &dyn Policy, mapping: &mut store::Mapping,
     let mut decryptor = Decryptor::from_reader(policy, input, helper, None)
         .context("Decryption failed")?;
 
-    io::copy(&mut decryptor, output)
-        .map_err(|e| if e.get_ref().is_some() {
-            // Wrapped failure::Error.  Recover it.
-            failure::Error::from_boxed_compat(e.into_inner().unwrap())
-        } else {
-            // Plain io::Error.
-            e.into()
-        }).context("Decryption failed")?;
+    io::copy(&mut decryptor, output).context("Decryption failed")?;
 
     let helper = decryptor.into_helper();
     if let Some(dumper) = helper.dumper.as_ref() {

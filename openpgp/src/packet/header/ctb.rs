@@ -75,7 +75,7 @@ pub enum PacketLengthType {
 }
 
 impl TryFrom<u8> for PacketLengthType {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn try_from(u: u8) -> Result<Self> {
         match u {

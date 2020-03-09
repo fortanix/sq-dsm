@@ -53,7 +53,6 @@
 extern crate capnp;
 #[macro_use]
 extern crate capnp_rpc;
-extern crate failure;
 extern crate futures;
 extern crate rand;
 extern crate rusqlite;
@@ -1153,11 +1152,11 @@ impl Iterator for LogIter {
 /* Error handling.  */
 
 /// Results for sequoia-store.
-pub type Result<T> = ::std::result::Result<T, failure::Error>;
+pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
 
 // Converts from backend errors.
-impl From<node::Error> for failure::Error {
+impl From<node::Error> for anyhow::Error {
     fn from(error: node::Error) -> Self {
         match error {
             node::Error::Unspecified => Error::StoreError.into(),

@@ -18,7 +18,7 @@ impl fmt::Debug for Fingerprint {
 }
 
 impl std::str::FromStr for Fingerprint {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::from_hex(s)

@@ -12,7 +12,6 @@ fragments yields the [`openpgp/examples/generate-sign-verify.rs`].
 use std::io::{self, Write};
 use std::convert::TryInto;
 
-extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 use openpgp::cert::prelude::*;
 use openpgp::serialize::stream::*;
@@ -132,10 +131,10 @@ fn main() {
 #                         Some(Err(e)) =>
 #                             return Err(openpgp::Error::from(e).into()),
 #                         None =>
-#                             return Err(failure::err_msg("No signature")),
+#                             return Err(anyhow::anyhow!("No signature")),
 #                     }
 #                 },
-#                 _ => return Err(failure::err_msg(
+#                 _ => return Err(anyhow::anyhow!(
 #                     "Unexpected message structure")),
 #             }
 #         }
@@ -143,7 +142,7 @@ fn main() {
 #         if good {
 #             Ok(()) // Good signature.
 #         } else {
-#             Err(failure::err_msg("Signature verification failed"))
+#             Err(anyhow::anyhow!("Signature verification failed"))
 #         }
 #     }
 # }
@@ -161,7 +160,6 @@ create it:
 # use std::io::{self, Write};
 # use std::convert::TryInto;
 #
-# extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
@@ -281,10 +279,10 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #                         Some(Err(e)) =>
 #                             return Err(openpgp::Error::from(e).into()),
 #                         None =>
-#                             return Err(failure::err_msg("No signature")),
+#                             return Err(anyhow::anyhow!("No signature")),
 #                     }
 #                 },
-#                 _ => return Err(failure::err_msg(
+#                 _ => return Err(anyhow::anyhow!(
 #                     "Unexpected message structure")),
 #             }
 #         }
@@ -292,7 +290,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #         if good {
 #             Ok(()) // Good signature.
 #         } else {
-#             Err(failure::err_msg("Signature verification failed"))
+#             Err(anyhow::anyhow!("Signature verification failed"))
 #         }
 #     }
 # }
@@ -310,7 +308,6 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # use std::io::{self, Write};
 # use std::convert::TryInto;
 #
-# extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
@@ -430,10 +427,10 @@ fn sign(policy: &dyn Policy,
 #                         Some(Err(e)) =>
 #                             return Err(openpgp::Error::from(e).into()),
 #                         None =>
-#                             return Err(failure::err_msg("No signature")),
+#                             return Err(anyhow::anyhow!("No signature")),
 #                     }
 #                 },
-#                 _ => return Err(failure::err_msg(
+#                 _ => return Err(anyhow::anyhow!(
 #                     "Unexpected message structure")),
 #             }
 #         }
@@ -441,7 +438,7 @@ fn sign(policy: &dyn Policy,
 #         if good {
 #             Ok(()) // Good signature.
 #         } else {
-#             Err(failure::err_msg("Signature verification failed"))
+#             Err(anyhow::anyhow!("Signature verification failed"))
 #         }
 #     }
 # }
@@ -470,7 +467,6 @@ Verified data can be read from this using [`io::Read`].
 # use std::io::{self, Write};
 # use std::convert::TryInto;
 #
-# extern crate failure;
 # extern crate sequoia_openpgp as openpgp;
 # use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
@@ -590,10 +586,10 @@ impl<'a> VerificationHelper for Helper<'a> {
                         Some(Err(e)) =>
                             return Err(openpgp::Error::from(e).into()),
                         None =>
-                            return Err(failure::err_msg("No signature")),
+                            return Err(anyhow::anyhow!("No signature")),
                     }
                 },
-                _ => return Err(failure::err_msg(
+                _ => return Err(anyhow::anyhow!(
                     "Unexpected message structure")),
             }
         }
@@ -601,7 +597,7 @@ impl<'a> VerificationHelper for Helper<'a> {
         if good {
             Ok(()) // Good signature.
         } else {
-            Err(failure::err_msg("Signature verification failed"))
+            Err(anyhow::anyhow!("Signature verification failed"))
         }
     }
 }

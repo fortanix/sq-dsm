@@ -23,8 +23,8 @@ maintenance = { status = "actively-developed" }
 sequoia-openpgp = { path = "../openpgp", version = "0.15" }
 sequoia-core = { path = "../core", version = "0.15" }
 
+anyhow = "1"
 capnp-rpc = "0.10"
-failure = "0.1.2"
 fs2 = "0.4.2"
 futures = "0.1"
 lalrpop-util = "0.17"

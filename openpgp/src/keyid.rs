@@ -21,7 +21,7 @@ impl fmt::Debug for KeyID {
 }
 
 impl std::str::FromStr for KeyID {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::from_hex(s)

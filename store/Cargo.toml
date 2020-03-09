@@ -30,9 +30,9 @@ sequoia-openpgp = { path = "../openpgp", version = "0.15" }
 sequoia-core = { path = "../core", version = "0.15" }
 sequoia-ipc = { path = "../ipc", version = "0.15" }
 sequoia-net = { path = "../net", version = "0.15" }
+anyhow = "1"
 capnp = "0.10"
 capnp-rpc = "0.10"
-failure = "0.1.2"
 futures = "0.1.17"
 rand = { version = "0.7", default-features = false }
 rusqlite = "0.19"

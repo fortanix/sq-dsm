@@ -150,7 +150,7 @@ macro_rules! ffi_make_fry_from_errp {
                     Ok(_) => crate::error::Status::Success,
                     Err(e) => {
                         use crate::MoveIntoRaw;
-                        use failure::Error;
+                        use anyhow::Error;
                         let status = crate::error::Status::from(&e);
                         if let Some(errp) = $errp {
                             let e : Error = e.into();
@@ -174,7 +174,7 @@ macro_rules! ffi_make_fry_from_errp {
                     Ok(v) => v,
                     Err(e) => {
                         use crate::MoveIntoRaw;
-                        use failure::Error;
+                        use anyhow::Error;
                         let status = crate::error::Status::from(&e);
                         if let Some(errp) = $errp {
                             let e : Error = e.into();
@@ -197,7 +197,7 @@ macro_rules! ffi_make_fry_from_errp {
                     Ok(v) => v,
                     Err(e) => {
                         use crate::MoveIntoRaw;
-                        use failure::Error;
+                        use anyhow::Error;
                         if let Some(errp) = $errp {
                             let e : Error = e.into();
                             *errp = e.move_into_raw();

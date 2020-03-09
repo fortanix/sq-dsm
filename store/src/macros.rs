@@ -21,10 +21,10 @@ macro_rules! make_request {
                     let r = match r {
                         /* The Result.  */
                         Which::Ok(Ok(x)) => Ok(x),
-                        Which::Err(Ok(e)) => Err(failure::Error::from(e)),
+                        Which::Err(Ok(e)) => Err(anyhow::Error::from(e)),
                         /* Protocol violations.  */
-                        Which::Ok(Err(e)) => Err(failure::Error::from(e)),
-                        Which::Err(Err(e)) => Err(failure::Error::from(e)),
+                        Which::Ok(Err(e)) => Err(anyhow::Error::from(e)),
+                        Which::Err(Err(e)) => Err(anyhow::Error::from(e)),
                     };
                     Promise::ok(r)
                 }));
@@ -43,10 +43,10 @@ macro_rules! make_request_map {
                     let r = match r {
                         /* The Result.  */
                         Which::Ok(Ok(x)) => $map(x),
-                        Which::Err(Ok(e)) => Err(failure::Error::from(e)),
+                        Which::Err(Ok(e)) => Err(anyhow::Error::from(e)),
                         /* Protocol violations.  */
-                        Which::Ok(Err(e)) => Err(failure::Error::from(e)),
-                        Which::Err(Err(e)) => Err(failure::Error::from(e)),
+                        Which::Ok(Err(e)) => Err(anyhow::Error::from(e)),
+                        Which::Err(Err(e)) => Err(anyhow::Error::from(e)),
                     };
                     Promise::ok(r)
                 }));

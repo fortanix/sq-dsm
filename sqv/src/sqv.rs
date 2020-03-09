@@ -8,8 +8,7 @@ use std::io;
 
 use chrono::{DateTime, offset::Utc};
 extern crate clap;
-extern crate failure;
-use failure::ResultExt;
+use anyhow::Context;
 
 extern crate sequoia_openpgp as openpgp;
 
@@ -224,7 +223,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
 }
 
 
-fn real_main() -> Result<()> {
+fn main() -> Result<()> {
     let p = &P::new();
 
     let matches = sqv_cli::build().get_matches();
@@ -292,19 +291,6 @@ fn real_main() -> Result<()> {
     exit(if h.good >= good_threshold { 0 } else { 1 });
 }
 
-fn main() {
-    if let Err(e) = real_main() {
-        let mut cause = e.as_fail();
-        eprint!("{}", cause);
-        while let Some(c) = cause.cause() {
-            eprint!(":\n  {}", c);
-            cause = c;
-        }
-        eprintln!();
-        exit(2);
-    }
-}
-
 /// Parses the given string depicting a ISO 8601 timestamp.
 fn parse_iso8601(s: &str, pad_date_with: chrono::NaiveTime)
                  -> Result<DateTime<Utc>>
@@ -348,7 +334,7 @@ fn parse_iso8601(s: &str, pad_date_with: chrono::NaiveTime)
             return Ok(DateTime::from_utc(d.and_time(pad_date_with), Utc));
         }
     }
-    Err(failure::format_err!("Malformed ISO8601 timestamp: {}", s))
+    Err(anyhow::anyhow!("Malformed ISO8601 timestamp: {}", s))
 }
 
 #[test]

@@ -3,7 +3,6 @@
 use std::slice;
 use libc::size_t;
 
-use failure;
 extern crate sequoia_openpgp as openpgp;
 use super::Packet;
 
@@ -47,7 +46,7 @@ pub extern "C" fn pgp_skesk_decrypt(errp: Option<&mut *mut crate::error::Error>,
                 *key_len = k.len();
                 Status::Success
             },
-            Err(e) => ffi_try_status!(Err::<(), failure::Error>(e)),
+            Err(e) => ffi_try_status!(Err::<(), anyhow::Error>(e)),
         }
     } else {
         panic!("Not a SKESK packet");

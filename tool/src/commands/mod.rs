@@ -1,4 +1,4 @@
-use failure::{self, ResultExt};
+use anyhow::Context as _;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -78,7 +78,7 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
             }
         }
 
-        return Err(failure::err_msg(
+        return Err(anyhow::anyhow!(
             format!("Found no suitable signing key on {}", tsk)));
     }
 
@@ -108,7 +108,7 @@ pub fn encrypt(policy: &dyn Policy,
     }
 
     if certs.len() + passwords.len() == 0 {
-        return Err(failure::format_err!(
+        return Err(anyhow::anyhow!(
             "Neither recipient nor password given"));
     }
 
@@ -128,7 +128,7 @@ pub fn encrypt(policy: &dyn Policy,
             count += 1;
         }
         if count == 0 {
-            return Err(failure::format_err!(
+            return Err(anyhow::anyhow!(
                 "Key {} has no suitable encryption key", cert));
         }
     }
@@ -394,7 +394,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
             Ok(())
         } else {
             self.print_status();
-            Err(failure::err_msg("Verification failed"))
+            Err(anyhow::anyhow!("Verification failed"))
         }
     }
 }
@@ -413,14 +413,7 @@ pub fn verify(ctx: &Context, policy: &dyn Policy,
         Verifier::from_reader(policy, input, helper, None)?
     };
 
-    io::copy(&mut verifier, output)
-        .map_err(|e| if e.get_ref().is_some() {
-            // Wrapped failure::Error.  Recover it.
-            failure::Error::from_boxed_compat(e.into_inner().unwrap())
-        } else {
-            // Plain io::Error.
-            e.into()
-        })?;
+    io::copy(&mut verifier, output)?;
 
     verifier.into_helper().print_status();
     Ok(())

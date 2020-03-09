@@ -6,7 +6,6 @@ use std::str;
 use std::mem;
 use std::fmt;
 use std::path::Path;
-use failure;
 
 use ::buffered_reader::*;
 
@@ -343,7 +342,7 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
         self.error(Error::MalformedPacket(reason.into()).into())
     }
 
-    fn error(mut self, error: failure::Error) -> Result<PacketParser<'a>> {
+    fn error(mut self, error: anyhow::Error) -> Result<PacketParser<'a>> {
         // Rewind the dup reader, so that the caller has a chance to
         // buffer the whole body of the unknown packet.
         self.reader.rewind();
@@ -941,7 +940,7 @@ fn body_length_old_format() {
 
 impl Unknown {
     /// Parses the body of any packet and returns an Unknown.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(php: PacketHeaderParser<T>, error: failure::Error)
+    fn parse<'a, T: 'a + BufferedReader<Cookie>>(php: PacketHeaderParser<T>, error: anyhow::Error)
                  -> Result<PacketParser<'a>>
     {
         let tag = php.header.ctb().tag();
@@ -979,7 +978,7 @@ pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
         reader, PacketParserState::new(Default::default()), vec![ 0 ], header, Vec::new());
     let mut pp =
         Unknown::parse(parser,
-                       failure::err_msg("explicit conversion to unknown"))?;
+                       anyhow::anyhow!("explicit conversion to unknown"))?;
     pp.buffer_unread_content()?;
     pp.finish()?;
 
@@ -2263,7 +2262,7 @@ impl SKESK {
                 // digest.  We don't know the size of the former, but
                 // we know the size of the latter.
                 let mut esk = php_try!(php.reader.steal_eof()
-                                       .map_err(|e| failure::Error::from(e)));
+                                       .map_err(|e| anyhow::Error::from(e)));
                 let l = esk.len();
                 let aead_digest = esk.split_off(l - digest_size);
                 // Now fix the map.
@@ -3177,7 +3176,7 @@ impl <'a> PacketParser<'a> {
 
         // Read the header.
         let mut skip = 0;
-        let mut orig_error : Option<failure::Error> = None;
+        let mut orig_error : Option<anyhow::Error> = None;
         loop {
             bio.rewind();
             bio.data_consume_hard(skip)?;

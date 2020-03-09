@@ -70,7 +70,7 @@ pub enum CertParserError {
     OpenPGP(Error),
 }
 
-impl From<CertParserError> for failure::Error {
+impl From<CertParserError> for anyhow::Error {
     fn from(err: CertParserError) -> Self {
         match err {
             CertParserError::Parser(p) => p.into(),

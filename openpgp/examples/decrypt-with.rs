@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::env;
 use std::io;
 
-extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 
 use crate::openpgp::cert::prelude::*;

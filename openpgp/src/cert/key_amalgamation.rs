@@ -38,7 +38,7 @@ use std::ops::Deref;
 use std::convert::TryFrom;
 use std::convert::TryInto;
 
-use failure::ResultExt;
+use anyhow::Context;
 
 use crate::{
     Cert,
@@ -313,7 +313,7 @@ impl<'a, P, P2> TryFrom<ErasedKeyAmalgamation<'a, P>>
     where P: 'a + key::KeyParts,
           P2: 'a + key::KeyParts,
 {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn try_from(ka: ErasedKeyAmalgamation<'a, P>) -> Result<Self> {
         if ka.primary {
@@ -335,7 +335,7 @@ impl<'a, P, P2> TryFrom<ErasedKeyAmalgamation<'a, P>>
     where P: 'a + key::KeyParts,
           P2: 'a + key::KeyParts,
 {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn try_from(ka: ErasedKeyAmalgamation<'a, P>) -> Result<Self> {
         if ka.primary {
@@ -544,7 +544,7 @@ impl<'a, P, P2> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
     where P: 'a + key::KeyParts,
           P2: 'a + key::KeyParts,
 {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn try_from(vka: ValidErasedKeyAmalgamation<'a, P>) -> Result<Self> {
         Ok(ValidPrimaryKeyAmalgamation {
@@ -561,7 +561,7 @@ impl<'a, P, P2> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
     where P: 'a + key::KeyParts,
           P2: 'a + key::KeyParts,
 {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn try_from(vka: ValidErasedKeyAmalgamation<'a, P>) -> Result<Self> {
         Ok(ValidSubordinateKeyAmalgamation {

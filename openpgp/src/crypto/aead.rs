@@ -396,9 +396,8 @@ impl<'a> io::Read for Decryptor<'a> {
             Err(e) => match e.downcast::<io::Error>() {
                 // An io::Error.  Pass as-is.
                 Ok(e) => Err(e),
-                // A failure.  Create a compat object and wrap it.
-                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
-                                             e.compat())),
+                // A failure.  Wrap it.
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
             },
         }
     }
@@ -744,9 +743,8 @@ impl<W: io::Write> io::Write for Encryptor<W> {
             Err(e) => match e.downcast::<io::Error>() {
                 // An io::Error.  Pass as-is.
                 Ok(e) => Err(e),
-                // A failure.  Create a compat object and wrap it.
-                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
-                                             e.compat())),
+                // A failure.  Wrap it.
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
             },
         }
     }

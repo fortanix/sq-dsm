@@ -24,7 +24,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 sequoia-ffi-macros = { path = "../ffi-macros", version = "0.15" }
 sequoia-openpgp = { path = "../openpgp", version = "0.15" }
-failure = "0.1.2"
+anyhow = "1"
 lazy_static = "1.0.0"
 libc = "0.2.33"
 memsec = "0.5.6"

@@ -315,7 +315,6 @@
 
 #![warn(missing_docs)]
 
-extern crate failure;
 #[macro_use]
 extern crate lazy_static;
 extern crate libc;

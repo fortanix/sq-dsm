@@ -2,8 +2,6 @@
 
 extern crate clap;
 #[macro_use]
-extern crate failure;
-#[macro_use]
 extern crate prettytable;
 extern crate rpassword;
 extern crate tempfile;
@@ -12,7 +10,7 @@ extern crate itertools;
 extern crate tokio_core;
 
 use crossterm::terminal;
-use failure::ResultExt;
+use anyhow::Context as _;
 use prettytable::{Table, Cell, Row};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
@@ -65,7 +63,7 @@ fn create_or_stdout(f: Option<&str>, force: bool)
                             .open(f)
                             .context("Failed to create output file")?))
             } else {
-                Err(failure::err_msg(
+                Err(anyhow::anyhow!(
                     format!("File {:?} exists, use --force to overwrite", p)))
             }
         }
@@ -213,7 +211,7 @@ fn help_warning(arg: &str) {
     }
 }
 
-fn real_main() -> Result<()> {
+fn main() -> Result<()> {
     let policy = &P::new();
 
     let matches = sq_cli::build().get_matches();
@@ -392,7 +390,7 @@ fn real_main() -> Result<()> {
                     let ac = autocrypt::AutocryptHeader::new_sender(
                         policy,
                         &cert,
-                        &addr.ok_or(failure::err_msg(
+                        &addr.ok_or(anyhow::anyhow!(
                             "No well-formed primary userid found, use \
                              --address to specify one"))?,
                         m.value_of("prefer-encrypt").expect("has default"))?;
@@ -767,7 +765,7 @@ fn parse_iso8601(s: &str, pad_date_with: chrono::NaiveTime)
             return Ok(DateTime::from_utc(d.and_time(pad_date_with), Utc));
         }
     }
-    Err(failure::format_err!("Malformed ISO8601 timestamp: {}", s))
+    Err(anyhow::anyhow!("Malformed ISO8601 timestamp: {}", s))
 }
 
 #[test]
@@ -794,17 +792,4 @@ fn test_parse_iso8601() {
     // parse_iso8601("201703", z).unwrap(); // ditto
     parse_iso8601("2017031", z).unwrap();
     // parse_iso8601("2017", z).unwrap(); // ditto
-}
-
-fn main() {
-    if let Err(e) = real_main() {
-        let mut cause = e.as_fail();
-        eprint!("{}", cause);
-        while let Some(c) = cause.cause() {
-            eprint!(":\n  {}", c);
-            cause = c;
-        }
-        eprintln!();
-        exit(2);
-    }
 }

@@ -73,7 +73,7 @@ impl From<&Fingerprint> for KeyHandle {
 }
 
 impl TryFrom<KeyHandle> for Fingerprint {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
     fn try_from(i: KeyHandle) -> Result<Self> {
         match i {
             KeyHandle::Fingerprint(i) => Ok(i),
@@ -84,7 +84,7 @@ impl TryFrom<KeyHandle> for Fingerprint {
 }
 
 impl TryFrom<&KeyHandle> for Fingerprint {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
     fn try_from(i: &KeyHandle) -> Result<Self> {
         match i {
             KeyHandle::Fingerprint(i) => Ok(i.clone()),

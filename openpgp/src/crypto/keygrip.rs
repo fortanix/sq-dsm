@@ -30,7 +30,7 @@ impl fmt::Display for Keygrip {
 }
 
 impl std::str::FromStr for Keygrip {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Self::from_hex(s)

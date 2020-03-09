@@ -486,7 +486,7 @@ macro_rules! create_part_conversions {
                 impl<$($l, )* $($g, )* > TryFrom<$Key<$($l, )* $from_parts, $($g, )* >> for $Key<$($l, )* $to_parts, $($g, )* >
                     where $($w: $c ),*
                 {
-                    type Error = failure::Error;
+                    type Error = anyhow::Error;
                     fn try_from(p: $Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
                         p.mark_parts_secret()
                     }
@@ -495,7 +495,7 @@ macro_rules! create_part_conversions {
                 impl<$($l, )* $($g, )* > TryFrom<&$($l)* $Key<$($l, )* $from_parts, $($g, )* >> for &$($l)* $Key<$($l, )* $to_parts, $($g, )* >
                     where $($w: $c ),*
                 {
-                    type Error = failure::Error;
+                    type Error = anyhow::Error;
                     fn try_from(p: &$($l)* $Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
                         if p.has_secret() {
                             Ok(convert_ref!(p))

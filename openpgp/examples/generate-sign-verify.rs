@@ -2,7 +2,6 @@
 
 use std::io::{self, Write};
 
-extern crate failure;
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::serialize::stream::*;
@@ -119,10 +118,10 @@ impl<'a> VerificationHelper for Helper<'a> {
                         Some(Err(e)) =>
                             return Err(openpgp::Error::from(e).into()),
                         None =>
-                            return Err(failure::err_msg("No signature")),
+                            return Err(anyhow::anyhow!("No signature")),
                     }
                 },
-                _ => return Err(failure::err_msg(
+                _ => return Err(anyhow::anyhow!(
                     "Unexpected message structure")),
             }
         }
@@ -130,7 +129,7 @@ impl<'a> VerificationHelper for Helper<'a> {
         if good {
             Ok(()) // Good signature.
         } else {
-            Err(failure::err_msg("Signature verification failed"))
+            Err(anyhow::anyhow!("Signature verification failed"))
         }
     }
 }

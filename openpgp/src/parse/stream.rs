@@ -108,7 +108,7 @@ pub enum VerificationError<'a> {
         sig: &'a Signature,
 
         /// The reason why the signature is malformed.
-        error: failure::Error,
+        error: anyhow::Error,
     },
     /// Missing Key
     MissingKey {
@@ -127,7 +127,7 @@ pub enum VerificationError<'a> {
         cert: &'a Cert,
 
         /// The reason why the key is bad.
-        error: failure::Error,
+        error: anyhow::Error,
     },
     /// Bad key (have a key, but it is not alive, etc.)
     BadKey {
@@ -138,7 +138,7 @@ pub enum VerificationError<'a> {
         ka: ValidErasedKeyAmalgamation<'a, key::PublicParts>,
 
         /// The reason why the key is bad.
-        error: failure::Error,
+        error: anyhow::Error,
     },
     /// Bad signature (have a valid key, but the signature didn't check out)
     BadSignature {
@@ -149,7 +149,7 @@ pub enum VerificationError<'a> {
         ka: ValidErasedKeyAmalgamation<'a, key::PublicParts>,
 
         /// The reason why the signature is bad.
-        error: failure::Error,
+        error: anyhow::Error,
     },
 }
 
@@ -503,7 +503,6 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 ///
 /// ```
 /// extern crate sequoia_openpgp as openpgp;
-/// extern crate failure;
 /// use std::io::Read;
 /// use openpgp::{KeyID, Cert, Result};
 /// use openpgp::parse::stream::*;
@@ -538,15 +537,7 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// let mut v = Verifier::from_bytes(p, message, h, None)?;
 ///
 /// let mut content = Vec::new();
-/// v.read_to_end(&mut content)
-///     .map_err(|e| if e.get_ref().is_some() {
-///         // Wrapped failure::Error.  Recover it.
-///         failure::Error::from_boxed_compat(e.into_inner().unwrap())
-///     } else {
-///         // Plain io::Error.
-///         e.into()
-///     })?;
-///
+/// v.read_to_end(&mut content)?;
 /// assert_eq!(content, b"Hello World!");
 /// # Ok(())
 /// # }
@@ -847,9 +838,8 @@ impl<'a> io::Read for Transformer<'a> {
             Err(e) => match e.downcast::<io::Error>() {
                 // An io::Error.  Pass as-is.
                 Ok(e) => Err(e),
-                // A failure.  Create a compat object and wrap it.
-                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
-                                             e.compat())),
+                // A failure.  Wrap it.
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
             },
         }
     }
@@ -871,7 +861,6 @@ impl<'a> io::Read for Transformer<'a> {
 ///
 /// ```
 /// extern crate sequoia_openpgp as openpgp;
-/// extern crate failure;
 /// use std::io::{self, Read};
 /// use openpgp::{KeyID, Cert, Result};
 /// use openpgp::parse::stream::*;
@@ -906,15 +895,7 @@ impl<'a> io::Read for Transformer<'a> {
 /// let mut v = DetachedVerifier::from_bytes(p, signature, data, h, None)?;
 ///
 /// let mut content = Vec::new();
-/// v.read_to_end(&mut content)
-///     .map_err(|e| if e.get_ref().is_some() {
-///         // Wrapped failure::Error.  Recover it.
-///         failure::Error::from_boxed_compat(e.into_inner().unwrap())
-///     } else {
-///         // Plain io::Error.
-///         e.into()
-///     })?;
-///
+/// v.read_to_end(&mut content)?;
 /// assert_eq!(content, b"Hello World!");
 /// # Ok(())
 /// # }
@@ -1024,7 +1005,6 @@ impl DetachedVerifier {
 ///
 /// ```
 /// extern crate sequoia_openpgp as openpgp;
-/// extern crate failure;
 /// use std::io::Read;
 /// use openpgp::crypto::SessionKey;
 /// use openpgp::types::SymmetricAlgorithm;
@@ -1071,15 +1051,7 @@ impl DetachedVerifier {
 /// let mut v = Decryptor::from_bytes(p, message, h, None)?;
 ///
 /// let mut content = Vec::new();
-/// v.read_to_end(&mut content)
-///     .map_err(|e| if e.get_ref().is_some() {
-///         // Wrapped failure::Error.  Recover it.
-///         failure::Error::from_boxed_compat(e.into_inner().unwrap())
-///     } else {
-///         // Plain io::Error.
-///         e.into()
-///     })?;
-///
+/// v.read_to_end(&mut content)?;
 /// assert_eq!(content, b"Hello World!");
 /// # Ok(())
 /// # }
@@ -1686,9 +1658,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> io::Read for Decryptor<'a, H>
             Err(e) => match e.downcast::<io::Error>() {
                 // An io::Error.  Pass as-is.
                 Ok(e) => Err(e),
-                // A failure.  Create a compat object and wrap it.
-                Err(e) => Err(io::Error::new(io::ErrorKind::Other,
-                                             e.compat())),
+                // A failure.  Wrap it.
+                Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
             },
         }
     }
@@ -1696,7 +1667,6 @@ impl<'a, H: VerificationHelper + DecryptionHelper> io::Read for Decryptor<'a, H>
 
 #[cfg(test)]
 mod test {
-    use failure;
     use super::*;
     use crate::parse::Parse;
     use crate::policy::StandardPolicy as P;
@@ -1776,7 +1746,7 @@ mod test {
             if self.good > 0 && self.bad == 0 {
                 Ok(())
             } else {
-                Err(failure::err_msg("Verification failed"))
+                Err(anyhow::anyhow!("Verification failed"))
             }
         }
     }

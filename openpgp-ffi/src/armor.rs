@@ -143,7 +143,7 @@ pub extern "C" fn pgp_armor_reader_from_file(errp: Option<&mut *mut crate::error
 
     armor::Reader::from_file(&filename, mode)
         .map(|r| ReaderKind::Armored(r))
-        .map_err(|e| ::failure::Error::from(e))
+        .map_err(|e| ::anyhow::Error::from(e))
         .move_into_raw(errp)
 }
 
@@ -270,7 +270,7 @@ pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut crate::error::
                 expected armor reader");
     };
 
-    match reader.headers().map_err(|e| ::failure::Error::from(e)) {
+    match reader.headers().map_err(|e| ::anyhow::Error::from(e)) {
         Ok(headers) => {
             // Allocate space for the result.
             let buf = unsafe {
@@ -391,7 +391,7 @@ pub extern "C" fn pgp_armor_writer_new
 
     armor::Writer::new(inner, kind, &header)
         .map(|w| WriterKind::Armored(w))
-        .map_err(|e| ::failure::Error::from(e))
+        .map_err(|e| ::anyhow::Error::from(e))
         .move_into_raw(errp)
 }
 

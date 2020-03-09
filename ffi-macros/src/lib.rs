@@ -648,7 +648,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
         }
 
         impl #generics crate::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
-            for ::failure::Fallible<#wrapped>
+            for ::anyhow::Result<#wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut crate::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper #generics>>
@@ -670,7 +670,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
         }
 
         impl #generics crate::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
-            for ::failure::Fallible<&#wrapped>
+            for ::anyhow::Result<&#wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut crate::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper #generics>>
@@ -692,7 +692,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
         }
 
         impl #generics crate::MoveResultIntoRaw<Option<::std::ptr::NonNull<#wrapper #generics>>>
-            for ::failure::Fallible<&mut #wrapped>
+            for ::anyhow::Result<&mut #wrapped>
         {
             fn move_into_raw(self, errp: Option<&mut *mut crate::error::Error>)
                              -> Option<::std::ptr::NonNull<#wrapper #generics>>

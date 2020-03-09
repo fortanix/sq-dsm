@@ -1,5 +1,4 @@
-extern crate failure;
-use failure::{Fallible as Result, ResultExt};
+use anyhow::{Result, Context};
 extern crate filetime;
 
 use std::cmp::min;

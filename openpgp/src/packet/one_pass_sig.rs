@@ -161,7 +161,7 @@ impl From<OnePassSig3> for Packet {
 }
 
 impl<'a> std::convert::TryFrom<&'a Signature> for OnePassSig3 {
-    type Error = failure::Error;
+    type Error = anyhow::Error;
 
     fn try_from(s: &'a Signature) -> Result<Self> {
         let issuer = match s.issuer() {

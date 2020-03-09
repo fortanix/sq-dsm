@@ -18,12 +18,12 @@ mod for_each_artifact {
                 (p as &Marshal).serialize(&mut v)?;
                 let q = openpgp::Packet::from_bytes(&v)?;
                 if p != &q {
-                    return Err(failure::format_err!(
+                    return Err(anyhow::anyhow!(
                         "assertion failed: p == q\np = {:?}\nq = {:?}", p, q));
                 }
                 let w = (p as &MarshalInto).to_vec()?;
                 if v != w {
-                    return Err(failure::format_err!(
+                    return Err(anyhow::anyhow!(
                         "assertion failed: v == w\nv = {:?}\nw = {:?}", v, w));
                 }
                 Ok(())

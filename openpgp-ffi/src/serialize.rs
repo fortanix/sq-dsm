@@ -63,7 +63,7 @@ pub extern "C" fn pgp_writer_stack_write
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    ffi_try_or!(writer.write(buf).map_err(|e| ::failure::Error::from(e)), -1) as ssize_t
+    ffi_try_or!(writer.write(buf).map_err(|e| ::anyhow::Error::from(e)), -1) as ssize_t
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
@@ -84,7 +84,7 @@ pub extern "C" fn pgp_writer_stack_write_all
     let buf = unsafe {
         slice::from_raw_parts(buf, len as usize)
     };
-    ffi_try_status!(writer.write_all(buf).map_err(|e| ::failure::Error::from(e)))
+    ffi_try_status!(writer.write_all(buf).map_err(|e| ::anyhow::Error::from(e)))
 }
 
 /// Finalizes this writer, returning the underlying writer.
@@ -168,7 +168,7 @@ pub extern "C" fn pgp_signer_new
 
     let mut signer =
         Signer::new(*inner, ffi_try!(signers.pop().ok_or_else(|| {
-            failure::format_err!("signers is empty")
+            anyhow::anyhow!("signers is empty")
         })));
     for s in signers {
         signer = signer.add_signer(s);
@@ -205,7 +205,7 @@ pub extern "C" fn pgp_signer_new_detached
 
     let mut signer =
         Signer::new(*inner, ffi_try!(signers.pop().ok_or_else(|| {
-            failure::format_err!("signers is empty")
+            anyhow::anyhow!("signers is empty")
         })));
     for s in signers {
         signer = signer.add_signer(s);
@@ -386,7 +386,7 @@ pub extern "C" fn pgp_encryptor_new<'a>
         Some(aead_algo.into())
     };
     if passwords_.len() + recipients_.len() == 0 {
-        ffi_try!(Err(failure::format_err!(
+        ffi_try!(Err(anyhow::anyhow!(
             "Neither recipient nor password given")));
     }
 

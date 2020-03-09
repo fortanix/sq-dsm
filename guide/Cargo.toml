@@ -13,4 +13,4 @@ build = "build.rs"
 
 [dependencies]
 sequoia-openpgp = { path = "../openpgp", version = "0.15" }
-failure = "0.1.2"
+anyhow = "1"

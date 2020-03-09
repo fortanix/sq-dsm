@@ -1,4 +1,4 @@
-use failure::{self, ResultExt};
+use anyhow::Context as _;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -60,7 +60,7 @@ fn sign_data(policy: &dyn Policy,
                 match packet {
                     Packet::Signature(sig) => sigs.push(sig),
                     p => return Err(
-                        failure::err_msg(
+                        anyhow::anyhow!(
                             format!("{} in detached signature", p.tag()))
                             .context("Invalid detached signature").into()),
                 }
@@ -91,7 +91,7 @@ fn sign_data(policy: &dyn Policy,
 
     let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;
     if keypairs.is_empty() {
-        return Err(failure::format_err!("No signing keys found"));
+        return Err(anyhow::anyhow!("No signing keys found"));
     }
 
     // When extending a detached signature, prepend any existing
@@ -166,7 +166,7 @@ fn sign_message_(policy: &dyn Policy,
 {
     let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;
     if keypairs.is_empty() {
-        return Err(failure::format_err!("No signing keys found"));
+        return Err(anyhow::anyhow!("No signing keys found"));
     }
 
     let mut sink = Message::new(output);
@@ -205,7 +205,7 @@ fn sign_message_(policy: &dyn Policy,
 
         match pp.packet {
             Packet::PKESK(_) | Packet::SKESK(_) =>
-                return Err(failure::err_msg(
+                return Err(anyhow::anyhow!(
                     "Signing encrypted data is not implemented")),
 
             Packet::Literal(_) =>
@@ -223,7 +223,7 @@ fn sign_message_(policy: &dyn Policy,
             // If you do implement this, there is a half-disabled test
             // in tests/sq-sign.rs.
             Packet::CompressedData(_) if seen_signature =>
-                return Err(failure::err_msg(
+                return Err(anyhow::anyhow!(
                     "Signing a compress-then-sign message is not implemented")),
 
             _ => (),

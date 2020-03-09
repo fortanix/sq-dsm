@@ -22,7 +22,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use failure::ResultExt;
+use anyhow::Context;
 use futures::{future, Future, Stream};
 use hyper::{Uri, Client};
 use hyper_tls::HttpsConnector;
@@ -291,7 +291,7 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
 // XXX: Maybe the direct method should be tried on other errors too.
 // https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
 pub fn get<S: AsRef<str>>(email_address: S)
-                          -> impl Future<Item=Vec<Cert>, Error=failure::Error> {
+                          -> impl Future<Item=Vec<Cert>, Error=anyhow::Error> {
     let email = email_address.as_ref().to_string();
     future::lazy(move || -> Result<_> {
         // First, prepare URIs and client.
@@ -407,14 +407,14 @@ impl KeyRing {
 impl crate::openpgp::serialize::Serialize for KeyRing {}
 
 impl Marshal for KeyRing {
-    fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+    fn serialize(&self, o: &mut dyn std::io::Write) -> openpgp::Result<()> {
         for cert in self.0.values() {
             cert.serialize(o)?;
         }
         Ok(())
     }
 
-    fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
+    fn export(&self, o: &mut dyn std::io::Write) -> openpgp::Result<()> {
         for cert in self.0.values() {
             cert.export(o)?;
         }

@@ -451,7 +451,7 @@ impl VHelper {
 
 impl VerificationHelper for VHelper {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle])
-        -> Result<Vec<openpgp::Cert>, failure::Error>
+        -> Result<Vec<openpgp::Cert>, anyhow::Error>
     {
         // The size of ID is not known in C.  Convert to KeyID, and
         // move it to C.
@@ -496,7 +496,7 @@ impl VerificationHelper for VHelper {
     }
 
     fn check(&mut self, structure: stream::MessageStructure)
-        -> Result<(), failure::Error>
+        -> Result<(), anyhow::Error>
     {
         let result = (self.check_signatures_cb)(self.cookie,
                                                 structure.move_into_raw());
@@ -784,13 +784,13 @@ impl DHelper {
 
 impl VerificationHelper for DHelper {
     fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle])
-        -> Result<Vec<openpgp::Cert>, failure::Error>
+        -> Result<Vec<openpgp::Cert>, anyhow::Error>
     {
         self.vhelper.get_public_keys(ids)
     }
 
     fn check(&mut self, structure: stream::MessageStructure)
-        -> Result<(), failure::Error>
+        -> Result<(), anyhow::Error>
     {
         self.vhelper.check(structure)
     }
@@ -802,7 +802,7 @@ impl DecryptionHelper for DHelper {
             match cb(self.vhelper.cookie, pp) {
                 Status::Success => Ok(()),
                 // XXX: Convert the status to an error better.
-                status => Err(failure::format_err!(
+                status => Err(anyhow::anyhow!(
                     "Inspect Callback returned an error: {:?}", status).into()),
             }
         } else {
