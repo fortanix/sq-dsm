@@ -87,6 +87,12 @@ pub(crate) struct Container {
     body_digest: Vec<u8>,
 }
 
+// Pick the fastest hash function from the SHA2 family for the
+// architectures word size.  On 64-bit architectures, SHA512 is almost
+// twice as fast, but on 32-bit ones, SHA256 is faster.
+#[cfg(target_pointer_width = "64")]
+const CONTAINER_BODY_HASH: HashAlgorithm = HashAlgorithm::SHA512;
+#[cfg(not(target_pointer_width = "64"))]
 const CONTAINER_BODY_HASH: HashAlgorithm = HashAlgorithm::SHA256;
 
 impl PartialEq for Container {
