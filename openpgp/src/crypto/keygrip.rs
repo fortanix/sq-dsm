@@ -63,10 +63,16 @@ impl PublicKey {
         fn hash_sexp_mpi(hash: &mut hash::Context, kind: char, prefix: &[u8],
                          mpi: &MPI)
         {
+            hash_sexp(hash, kind, prefix, mpi.value());
+        }
+
+        fn hash_sexp(hash: &mut hash::Context, kind: char, prefix: &[u8],
+                     buf: &[u8])
+        {
             write!(hash, "(1:{}{}:",
-                   kind, mpi.value().len() + prefix.len()).unwrap();
+                   kind, buf.len() + prefix.len()).unwrap();
             hash.update(prefix);
-            hash.update(mpi.value());
+            hash.update(buf);
             write!(hash, ")").unwrap();
         }
 
@@ -77,18 +83,21 @@ impl PublicKey {
                     continue;  // Skip cofactor.
                 }
 
-                let mut m =
-                    if i == 6 { q.clone() } else { ecc_param(curve, i) };
+                let mut param;
+                let mut m = if i == 6 {
+                    q.value()
+                } else {
+                    param = ecc_param(curve, i);
+                    param.value()
+                };
 
                 // Opaque encoding?
-                if m.value()[0] == 0x40 {
+                if m[0] == 0x40 {
                     // Drop the prefix!
-                    let mut p = Vec::from(m.value());
-                    p.remove(0);
-                    m = p.into();
+                    m = &m[1..];
                 }
 
-                hash_sexp_mpi(hash, name, &[], &m);
+                hash_sexp(hash, name, &[], m);
             }
         }
 
@@ -327,6 +336,11 @@ mod tests {
             // erika-corinna-daniela-simone-antonia-nistp521.pgp
             (FP::from_hex("B9E41C493B8988A7EDC502D99A404C898D411DC8").unwrap(),
              KG::from_hex("8F669049015534649776D0F1F439D37EE3F3D948").unwrap()),
+            // keygrip-issue-439.pgp
+            (FP::from_hex("597B1FEA9F1B91F6749E8A24652CC528EBDA1B20").unwrap(),
+             KG::from_hex("EF0CCDE02FFF9E24EFCCBF6F6FFE52716820E497").unwrap()),
+            (FP::from_hex("7147EB2C548AEF87E425B9543EF9867F7073B689").unwrap(),
+             KG::from_hex("642314FF90E6F8DA595EF51B7BA6B25071D3B0F1").unwrap()),
         ].iter().cloned().collect();
 
         for (name, cert) in [
@@ -338,6 +352,7 @@ mod tests {
             "erika-corinna-daniela-simone-antonia-nistp256.pgp",
             "erika-corinna-daniela-simone-antonia-nistp384.pgp",
             "erika-corinna-daniela-simone-antonia-nistp521.pgp",
+            "keygrip-issue-439.pgp",
         ]
             .iter().map(|n| (n, crate::Cert::from_bytes(crate::tests::key(n)).unwrap()))
         {
