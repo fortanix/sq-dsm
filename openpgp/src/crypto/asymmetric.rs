@@ -236,6 +236,25 @@ impl Decryptor for KeyPair {
             (PublicKey::RSA{ ref e, ref n },
              mpis::SecretKeyMaterial::RSA{ ref p, ref q, ref d, .. },
              mpis::Ciphertext::RSA{ ref c }) => {
+                // Workaround for #440:  Make sure c is of the same
+                // length as n.
+                // XXX: Remove once we depend on nettle > 7.0.0.
+                let c_ = if c.value().len() < n.value().len() {
+                    let mut c_ = vec![0; n.value().len() - c.value().len()];
+                    c_.extend_from_slice(c.value());
+                    Some(c_)
+                }  else {
+                    // If it is bigger, then the packet is likely
+                    // corrupted, tough luck then.
+                    None
+                };
+                let c = if let Some(c_) = c_.as_ref() {
+                    &c_[..]
+                } else {
+                    c.value()
+                };
+                // End of workaround.
+
                 let public = rsa::PublicKey::new(n.value(), e.value())?;
                 let secret = rsa::PrivateKey::new(d.value(), p.value(),
                                                   q.value(), Option::None)?;
@@ -243,11 +262,11 @@ impl Decryptor for KeyPair {
                 if let Some(l) = plaintext_len {
                     let mut plaintext: SessionKey = vec![0; l].into();
                     rsa::decrypt_pkcs1(&public, &secret, &mut rand,
-                                       c.value(), plaintext.as_mut())?;
+                                       c, plaintext.as_mut())?;
                     plaintext
                 } else {
                     rsa::decrypt_pkcs1_insecure(&public, &secret,
-                                                &mut rand, c.value())?
+                                                &mut rand, c)?
                     .into()
                 }
             }
