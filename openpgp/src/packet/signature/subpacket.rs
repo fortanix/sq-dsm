@@ -487,6 +487,16 @@ impl SubpacketArea {
         self.packets.clear();
     }
 
+    /// Sorts the subpackets by subpacket tag.
+    ///
+    /// This normalizes the subpacket area, and accelerates lookups in
+    /// implementations that sort the in-core representation and use
+    /// binary search for lookups.
+    pub fn sort(&mut self) {
+        self.cache_invalidate();
+        // slice::sort_by is stable.
+        self.packets.sort_by(|a, b| u8::from(a.tag()).cmp(&b.tag().into()));
+    }
 }
 
 /// Payload of a NotationData subpacket.
@@ -1585,6 +1595,16 @@ impl SubpacketAreas {
     /// Gets a mutable reference to the unhashed area.
     pub fn unhashed_area_mut(&mut self) -> &mut SubpacketArea {
         &mut self.unhashed_area
+    }
+
+    /// Sorts the subpacket areas.
+    ///
+    /// See [`SubpacketArea::sort()`].
+    ///
+    ///   [`SubpacketArea::sort()`]: struct.SubpacketArea.html#method.sort
+    pub fn sort(&mut self) {
+        self.hashed_area.sort();
+        self.unhashed_area.sort();
     }
 
     /// Returns the *last* instance of the specified subpacket.

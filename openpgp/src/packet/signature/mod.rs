@@ -137,6 +137,7 @@ impl Builder {
     pub fn sign_standalone(mut self, signer: &mut dyn Signer)
                            -> Result<Signature>
     {
+        self.sort();
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::hash_standalone(&self)?;
         self.sign(signer, digest)
@@ -149,6 +150,7 @@ impl Builder {
     pub fn sign_timestamp(mut self, signer: &mut dyn Signer)
                           -> Result<Signature>
     {
+        self.sort();
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::hash_timestamp(&self)?;
         self.sign(signer, digest)
@@ -161,6 +163,7 @@ impl Builder {
     pub fn sign_direct_key(mut self, signer: &mut dyn Signer)
         -> Result<Signature>
     {
+        self.sort();
         self.pk_algo = signer.public().pk_algo();
         let digest =
             Signature::hash_direct_key(&self,
@@ -180,6 +183,7 @@ impl Builder {
         -> Result<Signature>
         where P: key::KeyParts,
     {
+        self.sort();
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::hash_userid_binding(&self, key, userid)?;
 
@@ -197,6 +201,7 @@ impl Builder {
         where P: key:: KeyParts,
               Q: key:: KeyParts,
     {
+        self.sort();
         self.pk_algo = signer.public().pk_algo();
         let digest = Signature::hash_subkey_binding(&self, primary, subkey)?;
 
@@ -216,6 +221,7 @@ impl Builder {
         where P: key:: KeyParts,
               Q: key:: KeyParts,
     {
+        self.sort();
         self.pk_algo = subkey_signer.public().pk_algo();
         let digest =
             Signature::hash_primary_key_binding(&self, primary, subkey)?;
@@ -233,6 +239,7 @@ impl Builder {
         -> Result<Signature>
         where P: key::KeyParts,
     {
+        self.sort();
         self.pk_algo = signer.public().pk_algo();
         let digest =
             Signature::hash_user_attribute_binding(&self, key, ua)?;
@@ -248,6 +255,7 @@ impl Builder {
                      mut hash: hash::Context)
         -> Result<Signature>
     {
+        self.sort();
         // Fill out some fields, then hash the packet.
         self.pk_algo = signer.public().pk_algo();
         self.hash_algo = hash.algo();
@@ -268,6 +276,7 @@ impl Builder {
         -> Result<Signature>
         where M: AsRef<[u8]>
     {
+        self.sort();
         // Hash the message
         let mut hash = self.hash_algo.context()?;
         hash.update(msg.as_ref());
