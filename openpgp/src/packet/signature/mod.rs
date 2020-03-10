@@ -541,7 +541,8 @@ impl crate::packet::Signature {
     pub fn get_issuers(&self) -> Vec<crate::KeyHandle> {
         use crate::packet::signature::subpacket:: SubpacketValue;
 
-        self.hashed_area().iter()
+        let mut issuers: Vec<_> =
+            self.hashed_area().iter()
             .chain(self.unhashed_area().iter())
             .filter_map(|subpacket| {
                 match subpacket.value() {
@@ -550,7 +551,20 @@ impl crate::packet::Signature {
                     _ => None,
                 }
             })
-            .collect()
+            .collect();
+
+        // Sort the issuers so that the fingerprints come first.
+        issuers.sort_by(|a, b| {
+            use crate::KeyHandle::*;
+            use std::cmp::Ordering::*;
+            match (a, b) {
+                (Fingerprint(_), Fingerprint(_)) => Equal,
+                (KeyID(_), Fingerprint(_)) => Greater,
+                (Fingerprint(_), KeyID(_)) => Less,
+                (KeyID(_), KeyID(_)) => Equal,
+            }
+        });
+        issuers
     }
 
     /// Normalizes the signature.
@@ -1510,5 +1524,27 @@ mod test {
             .unwrap();
 
         sig.verify_timestamp(pair.public()).unwrap();
+    }
+
+    #[test]
+    fn get_issuers_prefers_fingerprints() -> Result<()> {
+        use crate::KeyHandle;
+        for f in [
+            // This has Fingerprint in the hashed, Issuer in the
+            // unhashed area.
+            "messages/sig.gpg",
+            // This has [Issuer, Fingerprint] in the hashed area.
+            "contrib/gnupg/timestamp-signature-by-alice.asc",
+        ].into_iter() {
+            let p = Packet::from_bytes(crate::tests::file(f))?;
+            if let Packet::Signature(sig) = p {
+                let issuers = sig.get_issuers();
+                assert_match!(KeyHandle::Fingerprint(_) = &issuers[0]);
+                assert_match!(KeyHandle::KeyID(_) = &issuers[1]);
+            } else {
+                panic!("expected a signature packet");
+            }
+        }
+        Ok(())
     }
 }
