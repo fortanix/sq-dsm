@@ -93,7 +93,7 @@ pub trait Policy : fmt::Debug {
     /// used to create any binding signatures.
     ///
     /// Thus, you can prevent keys that make use of insecure
-    /// algoriths, don't have a sufficiently high security margin
+    /// algorithms, don't have a sufficiently high security margin
     /// (e.g., 1024-bit RSA keys), are on a bad list, etc. from being
     /// used here.
     fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
