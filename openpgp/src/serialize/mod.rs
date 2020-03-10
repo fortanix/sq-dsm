@@ -1307,7 +1307,7 @@ impl MarshalInto for SubpacketValue {
             KeyExpirationTime(_) => 4,
             PreferredSymmetricAlgorithms(ref p) => p.len(),
             RevocationKey(rk) => rk.serialized_len(),
-            Issuer(ref id) => (id as &MarshalInto).serialized_len(),
+            Issuer(ref id) => (id as &dyn MarshalInto).serialized_len(),
             NotationData(nd) => 4 + 2 + 2 + nd.name().len() + nd.value().len(),
             PreferredHashAlgorithms(ref p) => p.len(),
             PreferredCompressionAlgorithms(ref p) => p.len(),
@@ -1323,14 +1323,14 @@ impl MarshalInto for SubpacketValue {
             EmbeddedSignature(sig) => sig.serialized_len(),
             IssuerFingerprint(ref fp) => match fp {
                 Fingerprint::V4(_) =>
-                    1 + (fp as &MarshalInto).serialized_len(),
+                    1 + (fp as &dyn MarshalInto).serialized_len(),
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
             PreferredAEADAlgorithms(ref p) => p.len(),
             IntendedRecipient(ref fp) => match fp {
                 Fingerprint::V4(_) =>
-                    1 + (fp as &MarshalInto).serialized_len(),
+                    1 + (fp as &dyn MarshalInto).serialized_len(),
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
             },
@@ -1933,7 +1933,7 @@ impl Marshal for CompressedData {
 
         // Serialize the packets.
         for p in self.children() {
-            (p as &Marshal).serialize(&mut o)?;
+            (p as &dyn Marshal).serialize(&mut o)?;
         }
 
         // Append the data.
@@ -1946,7 +1946,7 @@ impl NetLength for CompressedData {
     fn net_len(&self) -> usize {
         let inner_length =
             self.children().map(|p| {
-                (p as &MarshalInto).serialized_len()
+                (p as &dyn MarshalInto).serialized_len()
             }).sum::<usize>()
             + self.body().len();
 
@@ -2008,7 +2008,7 @@ impl MarshalInto for PKESK {
 impl Marshal for PKESK3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 3)?; // Version.
-        (self.recipient() as &Marshal).serialize(o)?;
+        (self.recipient() as &dyn Marshal).serialize(o)?;
         write_byte(o, self.pk_algo().into())?;
         self.esk().serialize(o)?;
 
@@ -2672,7 +2672,7 @@ impl Marshal for PacketPile {
     /// Writes a serialized version of the specified `PacketPile` to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for p in self.children() {
-            (p as &Marshal).serialize(o)?;
+            (p as &dyn Marshal).serialize(o)?;
         }
 
         Ok(())
@@ -2681,7 +2681,7 @@ impl Marshal for PacketPile {
     /// Exports a serialized version of the specified `PacketPile` to `o`.
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for p in self.children() {
-            (p as &Marshal).export(o)?;
+            (p as &dyn Marshal).export(o)?;
         }
 
         Ok(())
@@ -2692,7 +2692,7 @@ impl SerializeInto for PacketPile {}
 impl MarshalInto for PacketPile {
     fn serialized_len(&self) -> usize {
         self.children().map(|p| {
-            (p as &MarshalInto).serialized_len()
+            (p as &dyn MarshalInto).serialized_len()
         }).sum()
     }
 
@@ -2710,7 +2710,7 @@ impl Marshal for Message {
     /// Writes a serialized version of the specified `Message` to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         use std::ops::Deref;
-        (self.deref() as &Marshal).serialize(o)
+        (self.deref() as &dyn Marshal).serialize(o)
     }
 }
 
@@ -2718,17 +2718,17 @@ impl SerializeInto for Message {}
 impl MarshalInto for Message {
     fn serialized_len(&self) -> usize {
         use std::ops::Deref;
-        (self.deref() as &MarshalInto).serialized_len()
+        (self.deref() as &dyn MarshalInto).serialized_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         use std::ops::Deref;
-        (self.deref() as &MarshalInto).serialize_into(buf)
+        (self.deref() as &dyn MarshalInto).serialize_into(buf)
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         use std::ops::Deref;
-        (self.deref() as &MarshalInto).export_into(buf)
+        (self.deref() as &dyn MarshalInto).export_into(buf)
     }
 }
 
@@ -2866,7 +2866,7 @@ mod test {
                     panic!("Didn't expect a {:?} packet.", p.tag());
                 },
             }
-            (p as &Marshal).serialize(&mut buffer).unwrap();
+            (p as &dyn Marshal).serialize(&mut buffer).unwrap();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
@@ -2894,7 +2894,7 @@ mod test {
             let u = Packet::Unknown(to_unknown_packet(&data[..]).unwrap());
 
             // 3. Serialize the packet it into a local buffer.
-            let data2 = (&u as &MarshalInto).to_vec().unwrap();
+            let data2 = (&u as &dyn MarshalInto).to_vec().unwrap();
 
             // 4. Modulo the body length encoding, check that the
             // reserialized content is identical to the original data.
@@ -2947,7 +2947,7 @@ mod test {
             if let Some(&Packet::CompressedData(ref cd)) = po {
                 // 4. Serialize the container.
                 let buffer =
-                    (&Packet::CompressedData(cd.clone()) as &MarshalInto)
+                    (&Packet::CompressedData(cd.clone()) as &dyn MarshalInto)
                         .to_vec().unwrap();
 
                 // 5. Reparse it.
@@ -3110,7 +3110,7 @@ mod test {
 
             // 2. Serialize the message into a buffer.
             let mut buffer = Vec::new();
-            (&pile as &Marshal).serialize(&mut buffer).unwrap();
+            (&pile as &dyn Marshal).serialize(&mut buffer).unwrap();
 
             // 3. Reparse it.
             let pile2 = PacketParserBuilder::from_bytes(&buffer[..]).unwrap()
@@ -3194,27 +3194,27 @@ mod test {
         sig.export(&mut Vec::new()).unwrap();
         sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap();
         sig.export_to_vec().unwrap();
-        (&PacketRef::Signature(&sig) as &Marshal)
+        (&PacketRef::Signature(&sig) as &dyn Marshal)
             .export(&mut Vec::new()).unwrap();
-        (&PacketRef::Signature(&sig) as &MarshalInto).export_into(
-            &mut vec![0; (&PacketRef::Signature(&sig) as &MarshalInto)
+        (&PacketRef::Signature(&sig) as &dyn MarshalInto).export_into(
+            &mut vec![0; (&PacketRef::Signature(&sig) as &dyn MarshalInto)
                              .serialized_len()]).unwrap();
-        (&PacketRef::Signature(&sig) as &MarshalInto)
+        (&PacketRef::Signature(&sig) as &dyn MarshalInto)
             .export_to_vec().unwrap();
         let p = Packet::Signature(sig);
-        (&p as &Marshal).export(&mut Vec::new()).unwrap();
-        (&p as &MarshalInto)
+        (&p as &dyn Marshal).export(&mut Vec::new()).unwrap();
+        (&p as &dyn MarshalInto)
             .export_into(
-                &mut vec![0; (&p as &MarshalInto).serialized_len()])
+                &mut vec![0; (&p as &dyn MarshalInto).serialized_len()])
             .unwrap();
-        (&p as &MarshalInto).export_to_vec().unwrap();
+        (&p as &dyn MarshalInto).export_to_vec().unwrap();
         let pp = PacketPile::from(vec![p]);
-        (&pp as &Marshal).export(&mut Vec::new()).unwrap();
-        (&pp as &MarshalInto)
+        (&pp as &dyn Marshal).export(&mut Vec::new()).unwrap();
+        (&pp as &dyn MarshalInto)
             .export_into(
-                &mut vec![0; (&pp as &MarshalInto).serialized_len()])
+                &mut vec![0; (&pp as &dyn MarshalInto).serialized_len()])
             .unwrap();
-        (&pp as &MarshalInto).export_to_vec().unwrap();
+        (&pp as &dyn MarshalInto).export_to_vec().unwrap();
 
         // Make a signature that is explicitly marked as exportable.
         let sig = uid.bind(
@@ -3227,29 +3227,29 @@ mod test {
         sig.export(&mut Vec::new()).unwrap();
         sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap();
         sig.export_to_vec().unwrap();
-        (&PacketRef::Signature(&sig) as &Marshal)
+        (&PacketRef::Signature(&sig) as &dyn Marshal)
             .export(&mut Vec::new()).unwrap();
-        (&PacketRef::Signature(&sig) as &MarshalInto)
+        (&PacketRef::Signature(&sig) as &dyn MarshalInto)
             .export_into(
                 &mut vec![0; (&PacketRef::Signature(&sig)
-                              as &MarshalInto).serialized_len()])
+                              as &dyn MarshalInto).serialized_len()])
             .unwrap();
-        (&PacketRef::Signature(&sig) as &MarshalInto)
+        (&PacketRef::Signature(&sig) as &dyn MarshalInto)
             .export_to_vec().unwrap();
         let p = Packet::Signature(sig);
-        (&p as &Marshal).export(&mut Vec::new()).unwrap();
-        (&p as &MarshalInto)
+        (&p as &dyn Marshal).export(&mut Vec::new()).unwrap();
+        (&p as &dyn MarshalInto)
             .export_into(
-                &mut vec![0; (&p as &MarshalInto).serialized_len()])
+                &mut vec![0; (&p as &dyn MarshalInto).serialized_len()])
             .unwrap();
-        (&p as &MarshalInto).export_to_vec().unwrap();
+        (&p as &dyn MarshalInto).export_to_vec().unwrap();
         let pp = PacketPile::from(vec![p]);
-        (&pp as &Marshal).export(&mut Vec::new()).unwrap();
-        (&pp as &MarshalInto)
+        (&pp as &dyn Marshal).export(&mut Vec::new()).unwrap();
+        (&pp as &dyn MarshalInto)
             .export_into(
-                &mut vec![0; (&pp as &MarshalInto).serialized_len()])
+                &mut vec![0; (&pp as &dyn MarshalInto).serialized_len()])
             .unwrap();
-        (&pp as &MarshalInto).export_to_vec().unwrap();
+        (&pp as &dyn MarshalInto).export_to_vec().unwrap();
 
         // Make a non-exportable signature.
         let sig = uid.bind(
@@ -3262,27 +3262,27 @@ mod test {
         sig.export(&mut Vec::new()).unwrap_err();
         sig.export_into(&mut vec![0; sig.serialized_len()]).unwrap_err();
         sig.export_to_vec().unwrap_err();
-        (&PacketRef::Signature(&sig) as &Marshal)
+        (&PacketRef::Signature(&sig) as &dyn Marshal)
             .export(&mut Vec::new()).unwrap_err();
-        (&PacketRef::Signature(&sig) as &MarshalInto)
+        (&PacketRef::Signature(&sig) as &dyn MarshalInto)
             .export_into(
                 &mut vec![0; (&PacketRef::Signature(&sig)
-                              as &MarshalInto).serialized_len()])
+                              as &dyn MarshalInto).serialized_len()])
             .unwrap_err();
-        (&PacketRef::Signature(&sig) as &MarshalInto)
+        (&PacketRef::Signature(&sig) as &dyn MarshalInto)
             .export_to_vec().unwrap_err();
         let p = Packet::Signature(sig);
-        (&p as &Marshal).export(&mut Vec::new()).unwrap_err();
-        (&p as &MarshalInto)
-            .export_into(&mut vec![0; (&p as &MarshalInto).serialized_len()])
+        (&p as &dyn Marshal).export(&mut Vec::new()).unwrap_err();
+        (&p as &dyn MarshalInto)
+            .export_into(&mut vec![0; (&p as &dyn MarshalInto).serialized_len()])
             .unwrap_err();
-        (&p as &MarshalInto).export_to_vec().unwrap_err();
+        (&p as &dyn MarshalInto).export_to_vec().unwrap_err();
         let pp = PacketPile::from(vec![p]);
-        (&pp as &Marshal).export(&mut Vec::new()).unwrap_err();
-        (&pp as &MarshalInto)
+        (&pp as &dyn Marshal).export(&mut Vec::new()).unwrap_err();
+        (&pp as &dyn MarshalInto)
             .export_into(
-                &mut vec![0; (&pp as &MarshalInto).serialized_len()])
+                &mut vec![0; (&pp as &dyn MarshalInto).serialized_len()])
             .unwrap_err();
-        (&pp as &MarshalInto).export_to_vec().unwrap_err();
+        (&pp as &dyn MarshalInto).export_to_vec().unwrap_err();
     }
 }

@@ -223,7 +223,9 @@ pub trait ValidAmalgamation<'a, C: 'a>
     ///
     /// Considers both the binding signature and the direct key
     /// signature.
-    fn revocation_keys(&self) -> Box<Iterator<Item = &'a RevocationKey> + 'a> {
+    fn revocation_keys(&self)
+                       -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
+    {
         if let Some(dk) = self.direct_key_signature() {
             Box::new(self.binding_signature().revocation_keys().chain(
                 dk.revocation_keys()))
