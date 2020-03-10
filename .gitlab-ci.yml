@@ -1,12 +1,20 @@
-image: registry.gitlab.com/sequoia-pgp/build-docker-image:latest
+before_script:
+  - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
+  - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
+  - rustc --version
+  - cargo --version
+  - clang --version
 
-test:
+after_script:
+  - find $CARGO_TARGET_DIR -type f -atime +7 -delete
+  - du -sh $CARGO_TARGET_DIR
+  - du -sh $CARGO_HOME
+
+buster:
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/buster:latest
+
   script:
-    - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
-    - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
-    - rustc --version
-    - cargo --version
-    - clang --version
     - make codespell CODESPELL_FLAGS=--summary
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
     - make
@@ -14,9 +22,22 @@ test:
     - if ! git diff --quiet ; then echo "Please run 'make -C tool update-usage' and commit the result." ; false ; fi
     - make -C sqv update-usage
     - if ! git diff --quiet ; then echo "Please run 'make -C sqv update-usage' and commit the result." ; false ; fi
-    - find $CARGO_TARGET_DIR -type f -atime +7 -delete
-    - du -sh $CARGO_TARGET_DIR
-    - du -sh $CARGO_HOME
+
+bullseye:
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye:latest
+
+  script:
+    - make test # XXX: We cannot currently use valgrind, https://github.com/rust-lang/rust/issues/68979
+    - make
+    - make -C tool update-usage
+    - if ! git diff --quiet ; then echo "Please run 'make -C tool update-usage' and commit the result." ; false ; fi
+    - make -C sqv update-usage
+    - if ! git diff --quiet ; then echo "Please run 'make -C sqv update-usage' and commit the result." ; false ; fi
+
+  variables:
+    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target-bullseye
+    RUSTFLAGS: -D warnings -A unused-parens
 
 variables:
   CARGO_HOME: $CI_PROJECT_DIR/../cargo
