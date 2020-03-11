@@ -435,8 +435,8 @@ pub extern "C" fn pgp_user_id_bundle_iter_next<'a>(
 /// Wraps a KeyIter for export via the FFI.
 pub struct KeyIterWrapper<'a> {
     pub(crate) // For serialize.rs.
-    iter: KeyIter<'a, openpgp::packet::key::PublicParts,
-                  openpgp::packet::key::UnspecifiedRole>,
+    iter: Option<KeyIter<'a, openpgp::packet::key::PublicParts,
+                         openpgp::packet::key::UnspecifiedRole>>,
     // Whether next has been called.
     next_called: bool,
 }
@@ -451,7 +451,7 @@ pub extern "C" fn pgp_cert_key_iter(cert: *const Cert)
 {
     let cert = cert.ref_raw();
     box_raw!(KeyIterWrapper {
-        iter: cert.keys(),
+        iter: Some(cert.keys()),
         next_called: false,
     })
 }
@@ -476,9 +476,10 @@ pub extern "C" fn pgp_cert_key_iter_secret<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter = unsafe { std::mem::transmute(tmp.secret()) };
+    use std::mem::transmute;
+    iter_wrapper.iter = Some(unsafe {
+        transmute(iter_wrapper.iter.take().unwrap().secret())
+    });
 }
 
 /// Changes the iterator to only return keys that have unencrypted
@@ -494,10 +495,10 @@ pub extern "C" fn pgp_cert_key_iter_unencrypted_secret<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter =
-        unsafe { std::mem::transmute(tmp.unencrypted_secret()) };
+    use std::mem::transmute;
+    iter_wrapper.iter = Some(unsafe {
+        transmute(iter_wrapper.iter.take().unwrap().unencrypted_secret())
+    });
 }
 
 /// Changes the iterator to only return keys that are valid at time
@@ -517,13 +518,12 @@ pub extern "C" fn pgp_cert_key_iter_policy<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-
+    use std::mem::transmute;
     box_raw!(ValidKeyIterWrapper {
-        iter: unsafe {
-            std::mem::transmute(tmp.with_policy(&**policy, maybe_time(when)))
-        },
+        iter: Some(unsafe {
+            transmute(iter_wrapper.iter.take().unwrap()
+                      .with_policy(&**policy, maybe_time(when)))
+        }),
         next_called: false,
     })
 }
@@ -545,7 +545,7 @@ pub extern "C" fn pgp_cert_key_iter_next<'a>(
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     iter_wrapper.next_called = true;
 
-    if let Some(ka) = iter_wrapper.iter.next() {
+    if let Some(ka) = iter_wrapper.iter.as_mut().unwrap().next() {
         Some(ka.key().mark_parts_unspecified_ref().mark_role_unspecified_ref())
             .move_into_raw()
     } else {
@@ -556,8 +556,8 @@ pub extern "C" fn pgp_cert_key_iter_next<'a>(
 /// Wraps a ValidKeyIter for export via the FFI.
 pub struct ValidKeyIterWrapper<'a> {
     pub(crate) // For serialize.rs.
-    iter: ValidKeyIter<'a, openpgp::packet::key::PublicParts,
-                       openpgp::packet::key::UnspecifiedRole>,
+    iter: Option<ValidKeyIter<'a, openpgp::packet::key::PublicParts,
+                              openpgp::packet::key::UnspecifiedRole>>,
     // Whether next has been called.
     next_called: bool,
 }
@@ -574,7 +574,7 @@ pub extern "C" fn pgp_cert_valid_key_iter(cert: *const Cert,
 {
     let cert = cert.ref_raw();
     let iter = box_raw!(KeyIterWrapper {
-        iter: cert.keys(),
+        iter: Some(cert.keys()),
         next_called: false,
     });
 
@@ -601,9 +601,10 @@ pub extern "C" fn pgp_cert_valid_key_iter_secret<'a>(
         panic!("Can't change ValidKeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter = unsafe { std::mem::transmute(tmp.secret()) };
+    use std::mem::transmute;
+    iter_wrapper.iter = Some(unsafe {
+        transmute(iter_wrapper.iter.take().unwrap().secret())
+    });
 }
 
 /// Changes the iterator to only return keys that have unencrypted
@@ -619,10 +620,10 @@ pub extern "C" fn pgp_cert_valid_key_iter_unencrypted_secret<'a>(
         panic!("Can't change ValidKeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter =
-        unsafe { std::mem::transmute(tmp.unencrypted_secret()) };
+    use std::mem::transmute;
+    iter_wrapper.iter = Some(unsafe {
+        transmute(iter_wrapper.iter.take().unwrap().unencrypted_secret())
+    });
 }
 
 /// Changes the iterator to only return keys that are certification
@@ -643,9 +644,8 @@ pub extern "C" fn pgp_cert_valid_key_iter_for_certification<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter = tmp.for_certification();
+    iter_wrapper.iter =
+        Some(iter_wrapper.iter.take().unwrap().for_certification());
 }
 
 /// Changes the iterator to only return keys that are certification
@@ -666,9 +666,8 @@ pub extern "C" fn pgp_cert_valid_key_iter_for_signing<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter = tmp.for_signing();
+    iter_wrapper.iter =
+        Some(iter_wrapper.iter.take().unwrap().for_signing());
 }
 
 /// Changes the iterator to only return keys that are capable of
@@ -689,9 +688,8 @@ pub extern "C" fn pgp_cert_valid_key_iter_for_storage_encryption<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter = tmp.for_storage_encryption();
+    iter_wrapper.iter =
+        Some(iter_wrapper.iter.take().unwrap().for_storage_encryption());
 }
 
 /// Changes the iterator to only return keys that are capable of
@@ -712,9 +710,8 @@ pub extern "C" fn pgp_cert_valid_key_iter_for_transport_encryption<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter = tmp.for_transport_encryption();
+    iter_wrapper.iter =
+        Some(iter_wrapper.iter.take().unwrap().for_transport_encryption());
 }
 
 /// Changes the iterator to only return keys that are alive.
@@ -732,9 +729,7 @@ pub extern "C" fn pgp_cert_valid_key_iter_alive<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter = tmp.alive();
+    iter_wrapper.iter = Some(iter_wrapper.iter.take().unwrap().alive());
 }
 
 /// Changes the iterator to only return keys whose revocation status
@@ -751,9 +746,8 @@ pub extern "C" fn pgp_cert_valid_key_iter_revoked<'a>(
         panic!("Can't change KeyIter filter after iterating.");
     }
 
-    use std::mem;
-    let tmp = mem::replace(&mut iter_wrapper.iter, unsafe { mem::zeroed() });
-    iter_wrapper.iter = tmp.revoked(Some(revoked));
+    iter_wrapper.iter =
+        Some(iter_wrapper.iter.take().unwrap().revoked(revoked));
 }
 
 /// Returns the next valid key.  Returns NULL if there are no more
@@ -773,7 +767,7 @@ pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     iter_wrapper.next_called = true;
 
-    if let Some(ka) = iter_wrapper.iter.next() {
+    if let Some(ka) = iter_wrapper.iter.as_mut().unwrap().next() {
         let sig = ka.binding_signature();
         let rs = ka.revoked();
         let key = ka.key();

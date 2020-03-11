@@ -279,10 +279,11 @@ fn pgp_recipients_from_key_iter<'a>(
     result_len: *mut size_t)
     -> *mut *mut Recipient<'a>
 {
-    let iter_wrapper = ffi_param_move!(iter_wrapper);
+    let mut iter_wrapper = ffi_param_move!(iter_wrapper);
     let result_len = ffi_param_ref_mut!(result_len);
     let recipients =
         iter_wrapper.iter
+        .take().unwrap()
         .map(|ka| ka.key().into())
         .collect::<Vec<openpgp::serialize::stream::Recipient>>();
 
@@ -310,10 +311,11 @@ fn pgp_recipients_from_valid_key_iter<'a>(
     result_len: *mut size_t)
     -> *mut *mut Recipient<'a>
 {
-    let iter_wrapper = ffi_param_move!(iter_wrapper);
+    let mut iter_wrapper = ffi_param_move!(iter_wrapper);
     let result_len = ffi_param_ref_mut!(result_len);
     let recipients =
         iter_wrapper.iter
+        .take().unwrap()
         .map(|ka| ka.key().into())
         .collect::<Vec<openpgp::serialize::stream::Recipient>>();
 
