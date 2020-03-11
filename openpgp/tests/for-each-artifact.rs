@@ -5,7 +5,13 @@ use std::path::{Path, PathBuf};
 
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::parse::*;
-use crate::openpgp::serialize::*;
+// Rustc 1.34 thinks SerializeInto is unused, but if we don't import
+// it, it correctly complains about no trait being in scope providing
+// .to_vec().  This seems to be a compiler bug, because rustc 1.40
+// behaves correctly.  Hence, we work around the unused import warning
+// until we rise our MSRV.
+#[allow(unused_imports)] // XXX: Remove me.
+use crate::openpgp::serialize::{Serialize, SerializeInto};
 
 mod for_each_artifact {
     use super::*;
@@ -15,13 +21,13 @@ mod for_each_artifact {
         for_all_files(&test_data_dir(), |src| {
             for_all_packets(src, |p| {
                 let mut v = Vec::new();
-                (p as &Marshal).serialize(&mut v)?;
+                p.serialize(&mut v)?;
                 let q = openpgp::Packet::from_bytes(&v)?;
                 if p != &q {
                     return Err(anyhow::anyhow!(
                         "assertion failed: p == q\np = {:?}\nq = {:?}", p, q));
                 }
-                let w = (p as &MarshalInto).to_vec()?;
+                let w = p.to_vec()?;
                 if v != w {
                     return Err(anyhow::anyhow!(
                         "assertion failed: v == w\nv = {:?}\nw = {:?}", v, w));
@@ -42,7 +48,7 @@ mod for_each_artifact {
             };
 
             let mut v = Vec::new();
-            (&p.as_tsk() as &Marshal).serialize(&mut v)?;
+            p.as_tsk().serialize(&mut v)?;
             let q = openpgp::Cert::from_bytes(&v)?;
             if p != q {
                 eprintln!("roundtripping {:?} failed", src);
@@ -62,21 +68,20 @@ mod for_each_artifact {
 
                 eprintln!("This is the recovered cert:\n{}",
                           String::from_utf8_lossy(
-                              &(&q.armored() as &MarshalInto).to_vec()
-                                  .unwrap()));
+                              &q.armored().to_vec().unwrap()));
             }
             assert_eq!(p, q, "roundtripping {:?} failed", src);
 
-            let w = (&p.as_tsk() as &MarshalInto).to_vec().unwrap();
+            let w = p.as_tsk().to_vec().unwrap();
             assert_eq!(v, w,
                        "Serialize and SerializeInto disagree on {:?}", p);
 
             // Check that Cert::into_packets() and Cert::to_vec()
             // agree.
-            let v = (&p as &MarshalInto).to_vec()?;
+            let v = p.to_vec()?;
             let mut buf = Vec::new();
             for p in p.clone().into_packets() {
-                (&p as &Marshal).serialize(&mut buf)?;
+                p.serialize(&mut buf)?;
             }
             assert_eq!(buf, v);
             Ok(())
@@ -94,11 +99,11 @@ mod for_each_artifact {
             };
 
             let mut v = Vec::new();
-            (&p as &Marshal).serialize(&mut v)?;
+            p.serialize(&mut v)?;
             let q = openpgp::Message::from_bytes(&v)?;
             assert_eq!(p, q, "roundtripping {:?} failed", src);
 
-            let w = (&p as &MarshalInto).to_vec().unwrap();
+            let w = p.to_vec().unwrap();
             assert_eq!(v, w,
                        "Serialize and SerializeInto disagree on {:?}", p);
             Ok(())
@@ -190,7 +195,7 @@ fn for_all_packets<F>(src: &Path, mut fun: F) -> openpgp::Result<()>
                             &mut sink,
                             openpgp::armor::Kind::File,
                             &[])?;
-                        (&packet as &Marshal).serialize(&mut w)?;
+                        packet.serialize(&mut w)?;
                         return Err(e);
                     },
                 }
