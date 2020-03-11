@@ -364,6 +364,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
     }
 
     // Finally, create the files.
+    let mut well_known = None;
     for address in addresses.into_iter() {
         let path = base_path.join(address.to_file_path(variant)?);
         fs::create_dir_all(path.parent().expect("by construction"))?;
@@ -379,6 +380,20 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
         keyring.insert(cert.clone())?;
         let mut file = fs::File::create(&path)?;
         keyring.export(&mut file)?;
+
+        // Keep track of the WELL_KNOWN base path.
+        well_known = Some(path
+                          .parent().expect("by construction")
+                          .parent().expect("by construction")
+                          .to_path_buf());
+    }
+
+    // Create policy file if it does not exist.
+    match std::fs::OpenOptions::new().write(true).create_new(true)
+        .open(well_known.expect("at least one address").join("policy"))
+    {
+        Err(ref e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
+        r @ _ => drop(r?),
     }
 
     Ok(())
