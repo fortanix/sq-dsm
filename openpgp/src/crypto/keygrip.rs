@@ -83,7 +83,7 @@ impl PublicKey {
                     continue;  // Skip cofactor.
                 }
 
-                let mut param;
+                let param;
                 let mut m = if i == 6 {
                     q.value()
                 } else {
