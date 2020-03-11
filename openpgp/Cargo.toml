@@ -55,3 +55,7 @@ compression-bzip2 = ["bzip2", "buffered-reader/compression-bzip2"]
 # Vendoring.
 vendored = ["vendored-nettle"]
 vendored-nettle = ["nettle/vendored"]
+
+[[example]]
+name = "pad"
+required-features = ["compression-deflate"]
