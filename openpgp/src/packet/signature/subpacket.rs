@@ -500,6 +500,15 @@ impl SubpacketArea {
 }
 
 /// Payload of a NotationData subpacket.
+///
+/// The name falls into two namespaces: The user namespace and the
+/// IETF namespace.  Names in the user namespace have the form
+/// `name@example.org` and are managed by the owner of the domain.
+/// Names in the IETF namespace may not contain an `@` and are
+/// managed by IANA.  See [Section 5.2.3.16 of RFC 4880] for
+/// details.
+///
+///   [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct NotationData {
     flags: NotationDataFlags,
@@ -2086,6 +2095,15 @@ impl signature::Builder {
     ///
     /// Any existing Notation Data subpacket with the given name are
     /// replaced.
+    ///
+    /// The name falls into two namespaces: The user namespace and the
+    /// IETF namespace.  Names in the user namespace have the form
+    /// `name@example.org` and are managed by the owner of the domain.
+    /// Names in the IETF namespace may not contain an `@` and are
+    /// managed by IANA.  See [Section 5.2.3.16 of RFC 4880] for
+    /// details.
+    ///
+    ///   [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
     pub fn set_notation<N, V, F>(mut self, name: N, value: V, flags: F,
                                  critical: bool)
                                  -> Result<Self>
@@ -2110,6 +2128,15 @@ impl signature::Builder {
     ///
     /// Any existing Notation Data subpacket with the given name are
     /// kept.
+    ///
+    /// The name falls into two namespaces: The user namespace and the
+    /// IETF namespace.  Names in the user namespace have the form
+    /// `name@example.org` and are managed by the owner of the domain.
+    /// Names in the IETF namespace may not contain an `@` and are
+    /// managed by IANA.  See [Section 5.2.3.16 of RFC 4880] for
+    /// details.
+    ///
+    ///   [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
     pub fn add_notation<N, V, F>(mut self, name: N, value: V, flags: F,
                            critical: bool)
                            -> Result<Self>
