@@ -17,7 +17,8 @@ EXAMPLES = \
 	reader-cookie \
 
 CFLAGS  = -I../include -O0 -g -Wall -Werror
-LDFLAGS = -L$(CARGO_TARGET_DIR)/debug -lsequoia_openpgp_ffi
+LDFLAGS = -L$(CARGO_TARGET_DIR)/debug
+LDLIBS = -lsequoia_openpgp_ffi
 
 # Prefix our target directory.
 TARGETS := $(foreach example,$(EXAMPLES),$(EXAMPLE_TARGET_DIR)/$(example))
@@ -31,4 +32,4 @@ $(TARGETS): ../include/sequoia/openpgp.h
 
 $(EXAMPLE_TARGET_DIR)/%: %.c
 	mkdir -p $(EXAMPLE_TARGET_DIR)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o "$@" "$<"
+	$(CC) $(CFLAGS) $(LDFLAGS) -o "$@" "$<" $(LDLIBS)

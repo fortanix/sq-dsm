@@ -228,7 +228,8 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
     let st = Command::new("make")
         .env("CFLAGS", &format!("-Wall -O0 -ggdb {} {}", includes,
                                 env::var("CFLAGS").unwrap_or("".into())))
-        .env("LDFLAGS", &format!("-L{:?} -lsequoia_ffi", ldpath))
+        .env("LDFLAGS", &format!("-L{:?}", ldpath))
+        .env("LDLIBS", "-lsequoia_ffi")
         .arg("-C").arg(&target_dir)
         .arg("--quiet")
         // XXX: We don't track the header files as dependencies for
