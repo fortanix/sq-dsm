@@ -1138,12 +1138,6 @@ impl SubpacketArea {
     /// Returns the value of the Issuer subpacket, which contains the
     /// KeyID of the key that allegedly created this signature.
     ///
-    /// Note: for historical reasons this packet is usually stored in
-    /// the unhashed area of the signature and, consequently, it is
-    /// *not* protected by the signature.  Thus, it is trivial to
-    /// modify it in transit.  For this reason, the Issuer Fingerprint
-    /// subpacket should be preferred, when it is present.
-    ///
     /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
@@ -1480,10 +1474,7 @@ impl SubpacketArea {
     /// this signature.
     ///
     /// This subpacket should be preferred to the Issuer subpacket,
-    /// because Fingerprints are not subject to collisions, and the
-    /// Issuer subpacket is, for historic reasons, traditionally
-    /// stored in the unhashed area, i.e., it is not cryptographically
-    /// secured.
+    /// because Fingerprints are not subject to collisions.
     ///
     /// If the subpacket is not present, this returns `None`.
     ///
@@ -1785,12 +1776,6 @@ impl SubpacketAreas {
     /// Returns the value of the Issuer subpacket, which contains the
     /// KeyID of the key that allegedly created this signature.
     ///
-    /// Note: for historical reasons this packet is usually stored in
-    /// the unhashed area of the signature and, consequently, it is
-    /// *not* protected by the signature.  Thus, it is trivial to
-    /// modify it in transit.  For this reason, the Issuer Fingerprint
-    /// subpacket should be preferred, when it is present.
-    ///
     /// If the subpacket is not present, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
@@ -1838,10 +1823,7 @@ impl SubpacketAreas {
     /// this signature.
     ///
     /// This subpacket should be preferred to the Issuer subpacket,
-    /// because Fingerprints are not subject to collisions, and the
-    /// Issuer subpacket is, for historic reasons, traditionally
-    /// stored in the unhashed area, i.e., it is not cryptographically
-    /// secured.
+    /// because Fingerprints are not subject to collisions.
     ///
     /// If the subpacket is not present, this returns `None`.
     ///
@@ -2083,7 +2065,7 @@ impl signature::Builder {
     /// Sets the value of the Issuer subpacket, which contains the
     /// KeyID of the key that allegedly created this signature.
     pub fn set_issuer(mut self, id: KeyID) -> Result<Self> {
-        self.hashed_area.replace(Subpacket::new(
+        self.unhashed_area.replace(Subpacket::new(
             SubpacketValue::Issuer(id),
             false)?)?;
 
@@ -2313,7 +2295,7 @@ impl signature::Builder {
     /// contains the fingerprint of the key that allegedly created
     /// this signature.
     pub fn set_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
-        self.hashed_area.replace(Subpacket::new(
+        self.unhashed_area.replace(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),
             false)?)?;
 
