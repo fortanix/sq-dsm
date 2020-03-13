@@ -13,7 +13,9 @@ use std::mem::replace;
 
 /// Hooks into Rust's test system to extract, compile and run c tests.
 #[test]
-fn c_doctests() {
+fn c_doctests() -> Result<()> {
+    let stderr = &mut io::stderr();
+
     // The location of this crate's (i.e., the ffi crate's) source.
     let manifest_dir = PathBuf::from(
         var_os("CARGO_MANIFEST_DIR")
@@ -49,30 +51,31 @@ fn c_doctests() {
     for_all_rs(&src, |path| {
         for_all_tests(path, |src, lineno, name, lines, run_it| {
             n += 1;
-            eprint!("  test {} ... ", name);
+            write!(stderr, "  test {} ... ", name)?;
             match build(&includes, &debug, &target, src, lineno, name, lines) {
                 Ok(_) if ! run_it => {
-                    eprintln!("ok");
+                    writeln!(stderr, "ok")?;
                     passed += 1;
                 },
                 Ok(exe) => match run(&debug, &exe) {
                     Ok(()) => {
-                        eprintln!("ok");
+                        writeln!(stderr, "ok")?;
                         passed += 1;
                     },
                     Err(e) =>
-                        eprintln!("{}", e),
+                        writeln!(stderr, "{}", e)?,
                 },
                 Err(e) =>
-                    eprintln!("{}", e),
+                    writeln!(stderr, "{}", e)?,
             }
             Ok(())
         })
     }).unwrap();
-    eprintln!("  test result: {} passed; {} failed", passed, n - passed);
+    writeln!(stderr, "  test result: {} passed; {} failed", passed, n - passed)?;
     if n != passed {
         panic!("ffi test failures");
     }
+    Ok(())
 }
 
 /// Builds the shared object.
