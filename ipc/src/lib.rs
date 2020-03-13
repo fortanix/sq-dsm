@@ -38,7 +38,7 @@
 
 use std::fs;
 use std::io::{self, Read, Write};
-use std::net::{Ipv4Addr, SocketAddr, AddrParseError, TcpStream, TcpListener};
+use std::net::{Ipv4Addr, SocketAddr, TcpStream, TcpListener};
 use std::path::PathBuf;
 
 extern crate capnp_rpc;
@@ -164,8 +164,7 @@ impl Descriptor {
         file.read_to_end(&mut c)?;
 
         if let Some((cookie, a)) = Cookie::extract(c) {
-            let addr: ::std::result::Result<SocketAddr, AddrParseError> =
-                String::from_utf8_lossy(&a).parse();
+            let addr = String::from_utf8_lossy(&a).parse::<SocketAddr>();
             if addr.is_err() {
                 /* Malformed.  Invalidate the cookie and try again.  */
                 file.set_len(0)?;
