@@ -443,8 +443,7 @@ impl Cookie {
 
     /// Write a cookie to 'to'.
     fn send<W: Write>(&self, to: &mut W) -> io::Result<()> {
-        to.write_all(&self.0)?;
-        Ok(())
+        to.write_all(&self.0)
     }
 }
 
