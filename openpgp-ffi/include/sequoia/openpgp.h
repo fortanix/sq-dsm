@@ -948,7 +948,8 @@ pgp_cert_valid_key_iter_t pgp_cert_valid_key_iter
 /*/
 /// Returns the Cert's primary user id (if any).
 /*/
-char *pgp_cert_primary_user_id(pgp_cert_t cert, pgp_policy_t policy);
+char *pgp_cert_primary_user_id(pgp_cert_t cert, pgp_policy_t policy,
+                               time_t when);
 
 /*/
 /// Returns a CertParser.

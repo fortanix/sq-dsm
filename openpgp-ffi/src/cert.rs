@@ -357,12 +357,13 @@ fn pgp_cert_is_tsk(cert: *const Cert)
 
 /// Returns an iterator over the Cert's user id bindings.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy)
+fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy,
+                            when: time_t)
                            -> *mut c_char
 {
     let cert = cert.ref_raw();
     let policy = &**policy.ref_raw();
-    if let Some(binding) = cert.primary_userid(policy, None) {
+    if let Some(binding) = cert.primary_userid(policy, maybe_time(when)) {
         ffi_return_string!(binding.userid().value())
     } else {
         ptr::null_mut()
