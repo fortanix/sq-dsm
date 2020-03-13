@@ -131,8 +131,8 @@ impl<'a> PacketPileParser<'a> {
         for i in 0..position {
             // The most recent child.
             let tmp = container;
-            let packets_len = tmp.packets.len();
-            let p = &mut tmp.packets[packets_len - 1];
+            let packets_len = tmp.children_ref().len();
+            let p = &mut tmp.children_mut()[packets_len - 1];
             if p.children().next().is_none() {
                 assert!(i == position - 1,
                         "Internal inconsistency while building message.");
@@ -141,7 +141,7 @@ impl<'a> PacketPileParser<'a> {
             container = p.container_mut().unwrap();
         }
 
-        container.packets.push(packet);
+        container.children_mut().push(packet);
     }
 
     /// Finishes parsing the current packet and starts parsing the

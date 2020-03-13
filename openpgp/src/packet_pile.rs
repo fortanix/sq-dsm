@@ -20,7 +20,7 @@ use crate::parse::Cookie;
 impl fmt::Debug for PacketPile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("PacketPile")
-            .field("packets", &self.top_level.packets)
+            .field("packets", &self.top_level.children_ref())
             .finish()
     }
 }
@@ -123,8 +123,8 @@ impl PacketPile {
         let mut cont = Some(&self.top_level);
         for i in pathspec {
             if let Some(ref c) = cont.take() {
-                if *i < c.packets.len() {
-                    let p = &c.packets[*i];
+                if *i < c.children_ref().len() {
+                    let p = &c.children_ref()[*i];
                     packet = Some(p);
                     cont = p.container_ref();
                     continue;
@@ -146,11 +146,11 @@ impl PacketPile {
         for (level, &i) in pathspec.iter().enumerate() {
             let tmp = container;
 
-            if i >= tmp.packets.len() {
+            if i >= tmp.children_ref().len() {
                 return None;
             }
 
-            let p = &mut tmp.packets[i];
+            let p = &mut tmp.children_mut()[i];
 
             if level == pathspec.len() - 1 {
                 return Some(p)
@@ -218,33 +218,33 @@ impl PacketPile {
             let tmp = container;
 
             if level == pathspec.len() - 1 {
-                if i + count > tmp.packets.len() {
+                if i + count > tmp.children_ref().len() {
                     return Err(Error::IndexOutOfRange.into());
                 }
 
                 // Out with the old...
-                let old = tmp.packets
+                let old = tmp.children_mut()
                     .drain(i..i + count)
                     .collect::<Vec<Packet>>();
                 assert_eq!(old.len(), count);
 
                 // In with the new...
 
-                let mut tail = tmp.packets
+                let mut tail = tmp.children_mut()
                     .drain(i..)
                     .collect::<Vec<Packet>>();
 
-                tmp.packets.append(&mut packets);
-                tmp.packets.append(&mut tail);
+                tmp.children_mut().append(&mut packets);
+                tmp.children_mut().append(&mut tail);
 
                 return Ok(old)
             }
 
-            if i >= tmp.packets.len() {
+            if i >= tmp.children_ref().len() {
                 return Err(Error::IndexOutOfRange.into());
             }
 
-            match tmp.packets[i] {
+            match tmp.children_ref()[i] {
                 // The structured container types.
                 Packet::CompressedData(_)
                     | Packet::SEIP(_)
@@ -252,7 +252,7 @@ impl PacketPile {
                     => (), // Ok.
                 _ => return Err(Error::IndexOutOfRange.into()),
             }
-            container = tmp.packets[i].container_mut()
+            container = tmp.children_mut()[i].container_mut()
                 .expect("The above packets are structured containers");
         }
 
@@ -325,8 +325,8 @@ impl PacketPile {
                 // being reborrowed and preventing us from
                 // assigning to it.
                 let tmp = container;
-                let packets_len = tmp.packets.len();
-                let p = &mut tmp.packets[packets_len - 1];
+                let packets_len = tmp.children_ref().len();
+                let p = &mut tmp.children_mut()[packets_len - 1];
 
                 container = p.container_mut().unwrap();
             }
@@ -342,11 +342,11 @@ impl PacketPile {
                 if relative_position == 1 {
                     // Create a new container.
                     let tmp = container;
-                    let i = tmp.packets.len() - 1;
-                    container = tmp.packets[i].container_mut().unwrap();
+                    let i = tmp.children_ref().len() - 1;
+                    container = tmp.children_mut()[i].container_mut().unwrap();
                 }
 
-                container.packets.push(packet);
+                container.children_mut().push(packet);
 
                 if ppr.is_none() {
                     break 'outer;

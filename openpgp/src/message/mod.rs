@@ -1100,7 +1100,7 @@ mod tests {
         // 2: SEIP
         //  0: Literal
         // => good.
-        packets[2].container_mut().unwrap().packets.pop().unwrap();
+        packets[2].container_mut().unwrap().children_mut().pop().unwrap();
 
         #[allow(deprecated)]
         packets.insert(
