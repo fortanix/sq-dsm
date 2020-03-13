@@ -109,9 +109,9 @@ impl Descriptor {
                -> Self {
         Descriptor {
             ctx: ctx.clone(),
-            rendezvous: rendezvous,
-            executable: executable,
-            factory: factory,
+            rendezvous,
+            executable,
+            factory,
         }
     }
 
@@ -288,7 +288,7 @@ impl Server {
     pub fn new(descriptor: Descriptor) -> Result<Self> {
         Ok(Server {
             core: tokio_core::reactor::Core::new()?,
-            descriptor: descriptor,
+            descriptor,
         })
     }
 
