@@ -38,7 +38,7 @@
 
 use std::fs;
 use std::io::{self, Read, Write};
-use std::net::{SocketAddr, AddrParseError, TcpStream, TcpListener};
+use std::net::{Ipv4Addr, SocketAddr, AddrParseError, TcpStream, TcpListener};
 use std::path::PathBuf;
 
 extern crate capnp_rpc;
@@ -102,8 +102,6 @@ pub struct Descriptor {
     executable: PathBuf,
     factory: HandlerFactory,
 }
-
-const LOCALHOST: &str = "127.0.0.1";
 
 impl Descriptor {
     /// Create a descriptor given its rendezvous point, the path to
@@ -221,7 +219,7 @@ impl Descriptor {
                     /* Write connection information to file.  */
                     file.set_len(0)?;
                     cookie.send(&mut file)?;
-                    write!(file, "{}:{}", LOCALHOST, addr.port())?;
+                    write!(file, "{}", addr)?;
                 }
                 drop(file);
 
@@ -234,7 +232,7 @@ impl Descriptor {
     /// Start the service, either as an external process or as a
     /// thread.
     fn start(&self, external: bool) -> Result<SocketAddr> {
-        let listener = TcpListener::bind((LOCALHOST, 0)).unwrap();
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let addr = listener.local_addr()?;
 
         /* Start the server, connect to it, and send the cookie.  */
