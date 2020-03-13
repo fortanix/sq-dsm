@@ -231,22 +231,10 @@ impl Descriptor {
         }
     }
 
-    /// Try to create a TCP socket, bind it to a random port on
-    /// localhost.
-    fn listen(&self) -> Result<TcpListener> {
-        let port = OsRng.next_u32() as u16;
-        Ok(TcpListener::bind((LOCALHOST, port))?)
-    }
-
     /// Start the service, either as an external process or as a
     /// thread.
     fn start(&self, external: bool) -> Result<SocketAddr> {
-        /* Listen on a random port on localhost.  */
-        let mut listener = self.listen();
-        while listener.is_err() {
-            listener = self.listen();
-        }
-        let listener = listener.unwrap();
+        let listener = TcpListener::bind((LOCALHOST, 0)).unwrap();
         let addr = listener.local_addr()?;
 
         /* Start the server, connect to it, and send the cookie.  */
