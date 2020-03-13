@@ -533,4 +533,9 @@ typedef struct pgp_policy *pgp_policy_t;
 /*/
 typedef struct pgp_standard_policy *pgp_standard_policy_t;
 
+/*/
+/// A Null OpenPGP policy.
+/*/
+typedef struct pgp_null_policy *pgp_null_policy_t;
+
 #endif

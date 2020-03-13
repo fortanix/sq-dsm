@@ -935,6 +935,27 @@ impl From<AsymmetricAlgorithm> for u8 {
     }
 }
 
+/// The Null Policy.
+///
+/// Danger, here be dragons.
+///
+/// This policy imposes no additional policy, i.e., accepts
+/// everything.  This includes the MD5 hash algorithm, and SED
+/// packets.
+#[derive(Debug)]
+pub struct NullPolicy {
+}
+
+impl NullPolicy {
+    /// Instantiates a new `NullPolicy`.
+    pub const fn new() -> Self {
+        NullPolicy {}
+    }
+}
+
+impl Policy for NullPolicy {
+}
+
 #[cfg(test)]
 mod test {
     use std::io::Read;

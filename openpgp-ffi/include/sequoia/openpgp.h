@@ -1803,6 +1803,27 @@ void pgp_standard_policy_free (pgp_standard_policy_t);
 char *pgp_standard_policy_debug (const pgp_standard_policy_t);
 
 /*/
+/// Returns a new null policy.
+/*/
+pgp_policy_t pgp_null_policy ();
+
+/*/
+/// Clones the object.
+/*/
+pgp_policy_t pgp_null_policy_clone (pgp_null_policy_t);
+
+/*/
+/// Frees this object.
+/*/
+void pgp_null_policy_free (pgp_null_policy_t);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_null_policy_debug (const pgp_null_policy_t);
+
+/*/
 /// Clones the object.
 /*/
 pgp_policy_t pgp_policy_clone (pgp_policy_t);
