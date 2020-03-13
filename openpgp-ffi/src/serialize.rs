@@ -41,12 +41,16 @@ use super::cert::KeyIterWrapper;
 use super::cert::ValidKeyIterWrapper;
 
 /// Streams an OpenPGP message.
+///
+/// The returned `writer::Stack` does not take ownership of the
+/// `Writer`; the caller must free it after destroying the
+/// `writer::Stack`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_writer_stack_message
     (writer: *mut super::io::Writer)
      -> *mut writer::Stack<'static, Cookie>
 {
-    box_raw!(Message::new(writer.move_from_raw()))
+    box_raw!(Message::new(writer.ref_mut_raw()))
 }
 
 /// Writes up to `len` bytes of `buf` into `writer`.
