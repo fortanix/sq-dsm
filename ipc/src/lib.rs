@@ -62,14 +62,12 @@ use capnp_rpc::{RpcSystem, twoparty};
 use capnp_rpc::rpc_twoparty_capnp::Side;
 
 /* Unix-specific options.  */
-use std::os::unix::io::FromRawFd;
+use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::os::unix::fs::OpenOptionsExt;
 
 /* XXX: Implement Windows support.  */
 
 use std::process::{Command, Stdio};
-use std::os::unix::io::AsRawFd;
-
 use std::thread;
 
 extern crate sequoia_core;
