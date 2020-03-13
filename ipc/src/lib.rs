@@ -128,7 +128,7 @@ impl Descriptor {
 
     /// Connects to a descriptor, starting the server if necessary.
     ///
-    /// This function does not use the contexts IPC policy, but uses
+    /// This function does not use the context's IPC policy, but uses
     /// the given one.
     pub fn connect_with_policy(&self, handle: &tokio_core::reactor::Handle,
                                policy: core::IPCPolicy)
@@ -186,7 +186,7 @@ impl Descriptor {
         } else {
             let cookie = Cookie::new()?;
             for external in [true, false].iter() {
-                // Implement the IPC pocicy.
+                // Implement the IPC policy.
                 if policy == core::IPCPolicy::Internal && *external {
                     // Do not try to fork.
                     continue;
