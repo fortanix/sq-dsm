@@ -394,20 +394,20 @@ extern crate rand;
 use self::rand::RngCore;
 use self::rand::rngs::OsRng;
 
-const COOKIE_SIZE: usize = 32;
-
 impl Cookie {
+    const SIZE: usize = 32;
+
     /// Make a new cookie.
     fn new() -> Result<Self> {
-        let mut c = vec![0; COOKIE_SIZE];
+        let mut c = vec![0; Cookie::SIZE];
         OsRng.fill_bytes(&mut c);
         Ok(Cookie(c))
     }
 
     /// Make a new cookie from a slice.
     fn from(buf: &Vec<u8>) -> Option<Self> {
-        if buf.len() == COOKIE_SIZE {
-            let mut c = Vec::<u8>::with_capacity(COOKIE_SIZE);
+        if buf.len() == Cookie::SIZE {
+            let mut c = Vec::<u8>::with_capacity(Cookie::SIZE);
             c.extend_from_slice(buf);
             Some(Cookie(c))
         } else {
@@ -418,8 +418,8 @@ impl Cookie {
     /// Given a vector starting with a cookie, extract it and return
     /// the rest.
     fn extract(mut buf: Vec<u8>) -> Option<(Self, Vec<u8>)> {
-        if buf.len() >= COOKIE_SIZE {
-            let r = buf.split_off(COOKIE_SIZE);
+        if buf.len() >= Cookie::SIZE {
+            let r = buf.split_off(Cookie::SIZE);
             Some((Cookie(buf), r))
         } else {
             None
@@ -428,7 +428,7 @@ impl Cookie {
 
     /// Read a cookie from 'from'.
     fn receive<R: Read>(from: &mut R) -> Result<Self> {
-        let mut buf = vec![0; COOKIE_SIZE];
+        let mut buf = vec![0; Cookie::SIZE];
         from.read_exact(&mut buf)?;
         Ok(Cookie(buf))
     }
@@ -436,7 +436,7 @@ impl Cookie {
     /// Asynchronously read a cookie from 'socket'.
     fn receive_async(socket: net::TcpStream) -> ReadExact<net::TcpStream,
                                                           Vec<u8>> {
-        let buf = vec![0; COOKIE_SIZE];
+        let buf = vec![0; Cookie::SIZE];
         tokio_io::io::read_exact(socket, buf)
     }
 
