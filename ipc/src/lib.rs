@@ -184,7 +184,7 @@ impl Descriptor {
                 self.connect(handle)
             }
         } else {
-            let cookie = Cookie::new()?;
+            let cookie = Cookie::new();
             for external in [true, false].iter() {
                 // Implement the IPC policy.
                 if policy == core::IPCPolicy::Internal && *external {
@@ -398,16 +398,16 @@ impl Cookie {
     const SIZE: usize = 32;
 
     /// Make a new cookie.
-    fn new() -> Result<Self> {
+    fn new() -> Self {
         let mut c = vec![0; Cookie::SIZE];
         OsRng.fill_bytes(&mut c);
-        Ok(Cookie(c))
+        Cookie(c)
     }
 
     /// Make a new cookie from a slice.
-    fn from(buf: &Vec<u8>) -> Option<Self> {
+    fn from(buf: &[u8]) -> Option<Self> {
         if buf.len() == Cookie::SIZE {
-            let mut c = Vec::<u8>::with_capacity(Cookie::SIZE);
+            let mut c = Vec::with_capacity(Cookie::SIZE);
             c.extend_from_slice(buf);
             Some(Cookie(c))
         } else {
