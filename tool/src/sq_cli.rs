@@ -568,9 +568,12 @@ pub fn build() -> App<'static, 'static> {
                                         is updated and existing ones \
                                         will be updated.")
                                 .arg(Arg::with_name("base_directory")
-                                     .value_name("BASE-DIRECTORY")
+                                     .value_name("WEB-ROOT")
                                      .required(true)
-                                     .help("The location to write the WKD to"))
+                                     .help("The location to write the WKD to. \
+                                            This must be the directory the \
+                                            webserver is serving the \
+                                            '.well-known' directory from."))
                                 .arg(Arg::with_name("domain")
                                     .value_name("DOMAIN")
                                     .help("The domain for the WKD.")

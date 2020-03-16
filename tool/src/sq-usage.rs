@@ -715,7 +715,7 @@
 //! updated and existing ones will be updated.
 //!
 //! USAGE:
-//!     sq wkd generate [FLAGS] <BASE-DIRECTORY> <DOMAIN> [KEYRING]
+//!     sq wkd generate [FLAGS] <WEB-ROOT> <DOMAIN> [KEYRING]
 //!
 //! FLAGS:
 //!     -d, --direct_method    Use the direct method. [default: advanced method]
@@ -723,9 +723,10 @@
 //!     -V, --version          Prints version information
 //!
 //! ARGS:
-//!     <BASE-DIRECTORY>    The location to write the WKD to
-//!     <DOMAIN>            The domain for the WKD.
-//!     <KEYRING>           The keyring file with the keys to add to the WKD.
+//!     <WEB-ROOT>    The location to write the WKD to. This must be the directory the webserver is serving the '.well-
+//!                   known' directory from.
+//!     <DOMAIN>      The domain for the WKD.
+//!     <KEYRING>     The keyring file with the keys to add to the WKD.
 //! ```
 //!
 //! ### Subcommand wkd get
