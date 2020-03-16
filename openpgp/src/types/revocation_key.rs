@@ -51,13 +51,13 @@ impl RevocationKey {
 
     /// Returns the `class` octet, the sum of all flags.
     pub fn class(&self) -> u8 {
-        (REVOCATION_KEY_FLAG_MUST_BE_SET
-         | if self.sensitive() {
-             REVOCATION_KEY_FLAG_SENSITIVE
-         } else {
-             0
-         }
-         | self.unknown)
+        REVOCATION_KEY_FLAG_MUST_BE_SET
+            | if self.sensitive() {
+                REVOCATION_KEY_FLAG_SENSITIVE
+            } else {
+                0
+            }
+            | self.unknown
     }
 
     /// Returns the revoker's identity.
