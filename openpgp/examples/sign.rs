@@ -53,11 +53,11 @@ fn main() {
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.  First, we want the output to be
     // ASCII armored.
-    let sink = armor::Writer::new(io::stdout(), armor::Kind::Message, &[])
+    let mut sink = armor::Writer::new(io::stdout(), armor::Kind::Message, &[])
         .expect("Failed to create an armored writer.");
 
     // Stream an OpenPGP message.
-    let message = Message::new(sink);
+    let message = Message::new(&mut sink);
 
     // Now, create a signer that emits the signature(s).
     let mut signer =
@@ -78,5 +78,9 @@ fn main() {
 
     // Finally, teardown the stack to ensure all the data is written.
     literal.finalize()
+        .expect("Failed to write data");
+
+    // Finalize the armor writer.
+    sink.finalize()
         .expect("Failed to write data");
 }
