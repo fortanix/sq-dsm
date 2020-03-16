@@ -173,20 +173,7 @@ impl Url {
         // Create the directories string.
         let variant = variant.into().unwrap_or_default();
         let url = self.to_url(variant)?;
-        // Can not create path_buf as:
-        // let path_buf: PathBuf = [url.domain().unwrap(), url.path()]
-        //    .iter().collect();
-        // or:
-        // let mut path_buf = PathBuf::new();
-        // path_buf.push(url.domain().unwrap());
-        // path_buf.push(url.path());
-        // Because the domain part will disappear, dunno why.
-        // url.to_file_path() would not create the directory with the domain,
-        // but expect the hostname to match the domain.
-        // Ignore the query part of the url, take only the domain and path.
-        let string = format!("{}{}", url.domain().unwrap(), url.path());
-        let path_buf = PathBuf::from(string);
-        Ok(path_buf)
+        Ok(PathBuf::from(url.path()).strip_prefix("/")?.into())
     }
 }
 
@@ -489,8 +476,7 @@ mod tests {
     fn url_to_file_path() {
         // Advanced method
         let expected_path =
-            "openpgpkey.example.com/\
-             .well-known/openpgpkey/example.com/hu/\
+            ".well-known/openpgpkey/example.com/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic";
         let wkd_url = Url::from("test1@example.com").unwrap();
         assert_eq!(expected_path,
@@ -498,8 +484,7 @@ mod tests {
 
         // Direct method
         let expected_path =
-            "example.com/\
-             .well-known/openpgpkey/hu/\
+            ".well-known/openpgpkey/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic";
         assert_eq!(expected_path,
             wkd_url.to_file_path(Direct).unwrap().to_str().unwrap());
@@ -549,21 +534,18 @@ mod tests {
 
         // justus and juga files will be generated, but not test one.
         let path = dir_path.join(
-            "openpgpkey.sequoia-pgp.org/\
-             .well-known/openpgpkey/sequoia-pgp.org/hu\
+            ".well-known/openpgpkey/sequoia-pgp.org/hu\
              /jwp7xjqkdujgz5op6bpsoypg34pnrgmq");
         // Check that justus file was created
         assert!(path.is_file());
         let path = dir_path.join(
-            "openpgpkey.sequoia-pgp.org/\
-             .well-known/openpgpkey/sequoia-pgp.org/hu\
+            ".well-known/openpgpkey/sequoia-pgp.org/hu\
              /7t1uqk9cwh1955776rc4z1gqf388566j");
         // Check that juga file was created.
         assert!(path.is_file());
         // Check that the file for test uid is not created.
         let path = dir_path.join(
-            "openpgpkey.example.com/\
-             .well-known/openpgpkey/example.com/hu/\
+            ".well-known/openpgpkey/example.com/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic");
         assert!(!path.is_file());
     }
