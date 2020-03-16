@@ -2064,6 +2064,9 @@ impl signature::Builder {
 
     /// Sets the value of the Issuer subpacket, which contains the
     /// KeyID of the key that allegedly created this signature.
+    ///
+    /// Caution: By default, the issuer is set correctly when creating
+    /// the signature. Only use this function to override it.
     pub fn set_issuer(mut self, id: KeyID) -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
             SubpacketValue::Issuer(id),
@@ -2294,6 +2297,9 @@ impl signature::Builder {
     /// Sets the value of the Issuer Fingerprint subpacket, which
     /// contains the fingerprint of the key that allegedly created
     /// this signature.
+    ///
+    /// Caution: By default, the issuer fingerprint is set correctly when
+    /// creating the signature. Only use this function to override it.
     pub fn set_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),

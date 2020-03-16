@@ -48,6 +48,14 @@ pub mod subpacket;
 ///   [`sign_standalone`]: #method.sign_standalone
 ///   [`sign_timestamp`]: #method.sign_timestamp
 ///
+/// By default, these functions add references to the signing key by adding
+/// Issuer and Issuer Fingerprint subpackets in the unhashed subpacket area.
+/// To override, use [`set_issuer`] and [`set_issuer_fingerprint`].
+/// Caution: this likely makes the signature unverifiable.
+///
+///   [`set_issuer`]: #method.set_issuer
+///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+///
 /// Signatures must always include a creation time.  We automatically
 /// insert a creation time subpacket with the current time into the
 /// hashed subpacket area.  To override the creation time, use
@@ -134,6 +142,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `signer`.
     pub fn sign_standalone(mut self, signer: &mut dyn Signer)
                            -> Result<Signature>
     {
@@ -147,6 +157,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `signer`.
     pub fn sign_timestamp(mut self, signer: &mut dyn Signer)
                           -> Result<Signature>
     {
@@ -160,6 +172,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `signer`.
     pub fn sign_direct_key(mut self, signer: &mut dyn Signer)
         -> Result<Signature>
     {
@@ -177,6 +191,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `signer`.
     pub fn sign_userid_binding<P>(mut self, signer: &mut dyn Signer,
                                   key: &Key<P, key::PrimaryRole>,
                                   userid: &UserID)
@@ -194,6 +210,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `signer`.
     pub fn sign_subkey_binding<P, Q>(mut self, signer: &mut dyn Signer,
                                      primary: &Key<P, key::PrimaryRole>,
                                      subkey: &Key<Q, key::SubordinateRole>)
@@ -213,6 +231,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `subkey_signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `subkey_signer`.
     pub fn sign_primary_key_binding<P, Q>(mut self,
                                           subkey_signer: &mut dyn Signer,
                                           primary: &Key<P, key::PrimaryRole>,
@@ -233,6 +253,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `signer`.
     pub fn sign_user_attribute_binding<P>(mut self, signer: &mut dyn Signer,
                                           key: &Key<P, key::PrimaryRole>,
                                           ua: &UserAttribute)
@@ -251,6 +273,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `signer`.
     pub fn sign_hash(mut self, signer: &mut dyn Signer,
                      mut hash: hash::Context)
         -> Result<Signature>
@@ -272,6 +296,8 @@ impl Builder {
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
+    /// If not set before, Issuer and Issuer Fingerprint subpackets are added
+    /// pointing to `signer`.
     pub fn sign_message<M>(mut self, signer: &mut dyn Signer, msg: M)
         -> Result<Signature>
         where M: AsRef<[u8]>
@@ -298,9 +324,16 @@ impl Builder {
         let algo = self.hash_algo;
         let mpis = signer.sign(algo, &digest)?;
 
+        let mut fields = self;
+
+        if fields.issuer().is_none() && fields.issuer_fingerprint().is_none() {
+            fields = fields.set_issuer(signer.public().keyid())?
+                .set_issuer_fingerprint(signer.public().fingerprint())?;
+        }
+
         Ok(Signature4 {
             common: Default::default(),
-            fields: self,
+            fields: fields,
             digest_prefix: [digest[0], digest[1]],
             mpis: mpis,
             computed_digest: Some(digest),
