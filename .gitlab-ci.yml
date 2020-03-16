@@ -39,7 +39,28 @@ bullseye:
     CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target-bullseye
     RUSTFLAGS: -D warnings -A unused-parens
 
+rust-stable:
+  stage: build
+  image: rust:1-slim-buster
+
+  before_script:
+    - apt update -y -qq
+    - apt install --no-install-recommends -y -qq -o=Dpkg::Use-Pty=0 clang libclang-dev llvm pkg-config nettle-dev
+    - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
+    - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
+    - rustc --version
+    - cargo --version
+    - clang --version
+
+  script:
+    - cargo test -p buffered-reader -p sequoia-openpgp -p sequoia-sqv
+
+  variables:
+    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target-rust-stable
+    RUSTFLAGS: -D warnings -A unused-parens
+
 variables:
+  DEBIAN_FRONTEND: noninteractive
   CARGO_HOME: $CI_PROJECT_DIR/../cargo
   CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target
   CARGO_FLAGS: --color always
