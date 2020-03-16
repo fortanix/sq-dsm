@@ -1544,7 +1544,7 @@ mod test {
             "messages/sig.gpg",
             // This has [Issuer, Fingerprint] in the hashed area.
             "contrib/gnupg/timestamp-signature-by-alice.asc",
-        ].into_iter() {
+        ].iter() {
             let p = Packet::from_bytes(crate::tests::file(f))?;
             if let Packet::Signature(sig) = p {
                 let issuers = sig.get_issuers();
