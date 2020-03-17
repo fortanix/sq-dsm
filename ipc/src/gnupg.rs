@@ -9,16 +9,14 @@ use std::process::Command;
 
 use futures::{Async, Future, Stream};
 
-extern crate libc;
-extern crate tempfile;
-
-use crate::openpgp::types::HashAlgorithm;
-use crate::openpgp::fmt::hex;
-use crate::openpgp::crypto;
-use crate::openpgp::crypto::sexp::Sexp;
-use crate::openpgp::packet::prelude::*;
-use crate::openpgp::parse::Parse;
-use crate::openpgp::serialize::Serialize;
+use sequoia_openpgp as openpgp;
+use openpgp::types::HashAlgorithm;
+use openpgp::fmt::hex;
+use openpgp::crypto;
+use openpgp::crypto::sexp::Sexp;
+use openpgp::packet::prelude::*;
+use openpgp::parse::Parse;
+use openpgp::serialize::Serialize;
 
 use crate::Result;
 use crate::assuan;

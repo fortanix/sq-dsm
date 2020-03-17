@@ -41,15 +41,6 @@ use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream, TcpListener};
 use std::path::PathBuf;
 
-extern crate capnp_rpc;
-extern crate fs2;
-extern crate futures;
-extern crate lalrpop_util;
-extern crate memsec;
-extern crate tokio;
-extern crate tokio_core;
-extern crate tokio_io;
-
 use anyhow::Result;
 use fs2::FileExt;
 use futures::{Future, Stream};
@@ -70,9 +61,7 @@ use std::os::unix::fs::OpenOptionsExt;
 use std::process::{Command, Stdio};
 use std::thread;
 
-extern crate sequoia_core;
-extern crate sequoia_openpgp as openpgp;
-
+use sequoia_openpgp as openpgp;
 use sequoia_core as core;
 
 #[macro_use] mod trace;
@@ -384,9 +373,8 @@ impl Server {
 /// Cookies are used to authenticate clients.
 struct Cookie(Vec<u8>);
 
-extern crate rand;
-use self::rand::RngCore;
-use self::rand::rngs::OsRng;
+use rand::RngCore;
+use rand::rngs::OsRng;
 
 impl Cookie {
     const SIZE: usize = 32;
