@@ -172,49 +172,32 @@ impl Descriptor {
             }
         } else {
             let cookie = Cookie::new();
-            for external in &[true, false] {
-                // Implement the IPC policy.
-                if policy == core::IPCPolicy::Internal && *external {
-                    // Do not try to fork.
-                    continue;
-                }
 
-                let addr = match self.start(*external) {
-                    Ok(a) => a,
-                    Err(e) => if *external {
-                        if policy == core::IPCPolicy::External {
-                            // Fail!
-                            return Err(e);
-                        }
+            let (addr, external) = match policy {
+                core::IPCPolicy::Internal => self.start(false)?,
+                core::IPCPolicy::External => self.start(true)?,
+                core::IPCPolicy::Robust => self.start(true)
+                    .or_else(|_| self.start(false))?
+            };
 
-                        // Try to spawn a thread next.
-                        continue;
-                    } else {
-                        // Failed to spawn a thread.
-                        return Err(e);
-                    }
-                };
+            /* XXX: It'd be nice not to waste this connection.  */
+            cookie.send(&mut TcpStream::connect(addr)?)?;
 
-                /* XXX: It'd be nice not to waste this connection.  */
-                cookie.send(&mut TcpStream::connect(addr)?)?;
-
-                if *external {
-                    /* Write connection information to file.  */
-                    file.set_len(0)?;
-                    cookie.send(&mut file)?;
-                    write!(file, "{}", addr)?;
-                }
-                drop(file);
-
-                return do_connect(cookie, TcpStream::connect(addr)?);
+            if external {
+                /* Write connection information to file.  */
+                file.set_len(0)?;
+                file.write_all(&cookie.0)?;
+                write!(file, "{}", addr)?;
             }
-            unreachable!();
+            drop(file);
+
+            do_connect(cookie, TcpStream::connect(addr)?)
         }
     }
 
     /// Start the service, either as an external process or as a
     /// thread.
-    fn start(&self, external: bool) -> Result<SocketAddr> {
+    fn start(&self, external: bool) -> Result<(SocketAddr, bool)> {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let addr = listener.local_addr()?;
 
@@ -225,7 +208,7 @@ impl Descriptor {
             self.spawn(listener)?;
         }
 
-        Ok(addr)
+        Ok((addr, external))
     }
 
     fn fork(&self, listener: TcpListener) -> Result<()> {
