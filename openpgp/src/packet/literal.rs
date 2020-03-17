@@ -209,4 +209,38 @@ mod tests {
             true
         }
     }
+
+    /// Checks that partially read packets are still considered equal.
+    #[test]
+    fn partial_read_eq() -> Result<()> {
+        use buffered_reader::BufferedReader;
+        use crate::parse::PacketParserBuilder;
+
+        let mut l0 = Literal::new(Default::default());
+        l0.set_body(vec![0, 0]);
+        let l0 = Packet::from(l0);
+        let l0bin = l0.to_vec()?;
+        // Sanity check.
+        assert_eq!(l0, Packet::from_bytes(&l0bin)?);
+
+        for &buffer_unread_content in &[false, true] {
+            for read_n in 0..3 {
+                eprintln!("buffer_unread_content: {:?}, read_n: {}",
+                          buffer_unread_content, read_n);
+
+                let mut b = PacketParserBuilder::from_bytes(&l0bin)?;
+                if buffer_unread_content {
+                    b = b.buffer_unread_content();
+                }
+                let mut pp = b.finalize()?.unwrap();
+                let d = pp.steal(read_n)?;
+                d.into_iter().for_each(|b| assert_eq!(b, 0));
+                let l = pp.finish()?;
+                assert_eq!(&l0, l);
+                let l = pp.next()?.0;
+                assert_eq!(l0, l);
+            }
+        }
+        Ok(())
+    }
 }
