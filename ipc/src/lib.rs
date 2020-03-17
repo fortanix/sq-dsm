@@ -150,18 +150,11 @@ impl Descriptor {
         let mut c = vec![];
         file.read_to_end(&mut c)?;
 
-        if let Some((cookie, a)) = Cookie::extract(c) {
-            let addr = match String::from_utf8_lossy(&a).parse::<SocketAddr>() {
-                Ok(addr) => addr,
-                Err(..) => {
-                    /* Malformed.  Invalidate the cookie and try again.  */
-                    file.set_len(0)?;
-                    drop(file);
-                    return self.connect(handle);
-                }
-            };
+        if let Some((cookie, rest)) = Cookie::extract(c) {
+            let stream = String::from_utf8(rest).map_err(drop)
+                .and_then(|rest| rest.parse::<SocketAddr>().map_err(drop))
+                .and_then(|addr| TcpStream::connect(addr).map_err(drop));
 
-            let stream = TcpStream::connect(addr);
             if let Ok(s) = stream {
                 do_connect(cookie, s)
             } else {
