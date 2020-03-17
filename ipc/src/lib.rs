@@ -185,7 +185,7 @@ impl Descriptor {
             }
         } else {
             let cookie = Cookie::new();
-            for external in [true, false].iter() {
+            for external in &[true, false] {
                 // Implement the IPC policy.
                 if policy == core::IPCPolicy::Internal && *external {
                     // Do not try to fork.
