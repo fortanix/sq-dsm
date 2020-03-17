@@ -195,11 +195,8 @@ impl Descriptor {
                     }
                 };
 
-                let mut stream = TcpStream::connect(addr)?;
-                cookie.send(&mut stream)?;
-
                 /* XXX: It'd be nice not to waste this connection.  */
-                drop(stream);
+                cookie.send(&mut TcpStream::connect(addr)?)?;
 
                 if *external {
                     /* Write connection information to file.  */
