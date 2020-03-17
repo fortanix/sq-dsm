@@ -250,13 +250,13 @@ impl Descriptor {
         let fd = l.as_raw_fd();
         ::std::mem::forget(l);
 
-        Command::new(&self.executable.clone().into_os_string())
+        Command::new(&self.executable)
             .arg("--home")
-            .arg(self.ctx.home().to_string_lossy().into_owned())
+            .arg(self.ctx.home())
             .arg("--lib")
-            .arg(self.ctx.home().to_string_lossy().into_owned())
+            .arg(self.ctx.home())
             .arg("--ephemeral")
-            .arg(format!("{}", self.ctx.ephemeral()))
+            .arg(self.ctx.ephemeral().to_string())
             // l will be closed here if the exec fails.
             .stdin(unsafe { Stdio::from_raw_fd(fd) })
             .stdout(Stdio::null())
