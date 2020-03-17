@@ -122,8 +122,7 @@ impl Descriptor {
     pub fn connect_with_policy(&self, handle: &tokio_core::reactor::Handle,
                                policy: core::IPCPolicy)
                    -> Result<RpcSystem<Side>> {
-        let do_connect =
-            move |cookie: Cookie, mut s: TcpStream| -> Result<RpcSystem<Side>> {
+        let do_connect = |cookie: Cookie, mut s: TcpStream| {
             cookie.send(&mut s)?;
 
             /* Tokioize.  */
@@ -135,9 +134,8 @@ impl Descriptor {
                 Box::new(twoparty::VatNetwork::new(reader, writer,
                                                    Side::Client,
                                                    Default::default()));
-            let rpc_system = RpcSystem::new(network, None);
 
-            Ok(rpc_system)
+            Ok(RpcSystem::new(network, None))
         };
 
         fs::create_dir_all(self.ctx.home())?;
