@@ -254,7 +254,7 @@ impl Descriptor {
             .arg("--home")
             .arg(self.ctx.home())
             .arg("--lib")
-            .arg(self.ctx.home())
+            .arg(self.ctx.lib())
             .arg("--ephemeral")
             .arg(self.ctx.ephemeral().to_string())
             // l will be closed here if the exec fails.
