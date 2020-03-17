@@ -46,7 +46,7 @@ use fs2::FileExt;
 use futures::{Future, Stream};
 
 use tokio_core::net;
-use tokio_io::io::{ReadHalf, ReadExact};
+use tokio_io::io::ReadHalf;
 use tokio_io::AsyncRead;
 
 use capnp_rpc::{RpcSystem, twoparty};
@@ -346,8 +346,8 @@ impl Server {
         let done = socket.incoming().and_then(|(socket, _addr)| {
             let _ = socket.set_nodelay(true);
             Cookie::receive_async(socket)
-        }).and_then(|(socket, buf)| {
-            if Cookie::from(&buf).map(|c| c == cookie).unwrap_or(false) {
+        }).and_then(|(socket, received_cookie)| {
+            if received_cookie == cookie {
                 Ok(socket)
             } else {
                 Err(io::Error::new(io::ErrorKind::BrokenPipe, "Bad cookie."))
@@ -414,10 +414,13 @@ impl Cookie {
     }
 
     /// Asynchronously read a cookie from 'socket'.
-    fn receive_async(socket: net::TcpStream) -> ReadExact<net::TcpStream,
-                                                          Vec<u8>> {
+    fn receive_async(socket: net::TcpStream)
+        -> impl Future<Item = (net::TcpStream, Cookie), Error = io::Error> {
         let buf = vec![0; Cookie::SIZE];
         tokio_io::io::read_exact(socket, buf)
+            .and_then(|(socket, buf)| {
+                Ok((socket, Cookie::from(&buf).expect("enough bytes read")))
+            })
     }
 
 
