@@ -62,7 +62,7 @@ use capnp_rpc::{RpcSystem, twoparty};
 use capnp_rpc::rpc_twoparty_capnp::Side;
 
 /* Unix-specific options.  */
-use std::os::unix::io::{AsRawFd, FromRawFd};
+use std::os::unix::io::{IntoRawFd, FromRawFd};
 use std::os::unix::fs::OpenOptionsExt;
 
 /* XXX: Implement Windows support.  */
@@ -244,12 +244,7 @@ impl Descriptor {
         Ok(addr)
     }
 
-    fn fork(&self, l: TcpListener) -> Result<()> {
-        // Convert to raw fd, then forget l so that it will not be
-        // closed when it is dropped.
-        let fd = l.as_raw_fd();
-        ::std::mem::forget(l);
-
+    fn fork(&self, listener: TcpListener) -> Result<()> {
         Command::new(&self.executable)
             .arg("--home")
             .arg(self.ctx.home())
@@ -257,8 +252,7 @@ impl Descriptor {
             .arg(self.ctx.lib())
             .arg("--ephemeral")
             .arg(self.ctx.ephemeral().to_string())
-            // l will be closed here if the exec fails.
-            .stdin(unsafe { Stdio::from_raw_fd(fd) })
+            .stdin(unsafe { Stdio::from_raw_fd(listener.into_raw_fd()) })
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()?;
