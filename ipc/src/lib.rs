@@ -331,10 +331,11 @@ impl Server {
 
     fn serve_listener(&mut self, l: TcpListener) -> Result<()> {
         /* The first client tells us our cookie.  */
-        let mut i = l.accept()?;
-        let cookie = Cookie::receive(&mut i.0)?;
-        /* XXX: It'd be nice to recycle this connection.  */
-        drop(i);
+        let cookie = {
+            /* XXX: It'd be nice to recycle this connection.  */
+            let mut i = l.accept()?;
+            Cookie::receive(&mut i.0)?
+        };
 
         let handler = (self.descriptor.factory)(self.descriptor.clone(), self.core.handle())?;
 
