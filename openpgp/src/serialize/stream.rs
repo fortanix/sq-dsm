@@ -789,13 +789,7 @@ impl<'a> Compressor<'a> {
         self
     }
 
-    /// Finalizes the literal writer, returning the writer stack.
-    ///
-    /// `format`, `filename`, and `date` will be emitted as part of
-    /// the literal packets headers.  Note that these headers will not
-    /// be authenticated by signatures (but will be authenticated by a
-    /// SEIP/MDC container), and are therefore unreliable and should
-    /// not be trusted.
+    /// Finalizes the compressor, returning the writer stack.
     pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>> {
         let level = self.inner.cookie_ref().level + 1;
 
