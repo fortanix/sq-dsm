@@ -2742,36 +2742,9 @@ mod test {
 
     // A convenient function to dump binary data to stdout.
     fn binary_pp(data: &[u8]) -> String {
-        let mut output = Vec::with_capacity(data.len() * 2 + 3 * data.len() / 4);
-
-        for i in 0..data.len() {
-            if i > 0 && i % (4 * 4 * 2) == 0 {
-                output.push('\n' as u8);
-            } else {
-                if i > 0 && i % 2 == 0 {
-                    output.push(' ' as u8);
-                }
-                if i > 0 && i % (4 * 2) == 0 {
-                    output.push(' ' as u8);
-                }
-            }
-
-            let top = data[i] >> 4;
-            let bottom = data[i] & 0xFu8;
-
-            if top < 10u8 {
-                output.push('0' as u8 + top)
-            } else {
-                output.push('A' as u8 + (top - 10u8))
-            }
-
-            if bottom < 10u8 {
-                output.push('0' as u8 + bottom)
-            } else {
-                output.push('A' as u8 + (bottom - 10u8))
-            }
-        }
-
+        let mut output = Vec::new();
+        crate::fmt::hex::Dumper::new(&mut output, "")
+            .write_ascii(data).unwrap();
         // We know the content is valid UTF-8.
         String::from_utf8(output).unwrap()
     }
