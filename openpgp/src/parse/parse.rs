@@ -2987,15 +2987,14 @@ impl <'a> PacketParser<'a> {
         &mut self.reader
     }
 
-    /// Marks the packet's contents (packet.common.body) as being
-    /// decrypted (true) or encrypted (false).
+    /// Marks the packet's contents as being decrypted (true) or
+    /// encrypted (false).
     fn set_decrypted(mut self, v: bool) -> Self {
         self.decrypted = v;
         self
     }
 
-    /// Returns whether the packet's contents (packet.common.body) are
-    /// decrypted.
+    /// Returns whether the packet's contents are decrypted.
     pub fn decrypted(&self) -> bool {
         self.decrypted
     }
