@@ -3158,3 +3158,42 @@ fn subpacket_test_2() {
 //         }
 //     }
 }
+
+#[test]
+fn issuer_default() -> Result<()> {
+    use crate::types::Curve;
+
+    let hash_algo = HashAlgorithm::SHA512;
+    let hash = hash_algo.context()?;
+    let sig = signature::Builder::new(crate::types::SignatureType::Binary);
+    let key: crate::packet::key::SecretKey =
+        crate::packet::key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
+    let mut keypair = key.into_keypair()?;
+
+    // no issuer or issuer_fingerprint present, use default
+    let sig_ = sig.sign_hash(&mut keypair, hash.clone())?;
+
+    assert_eq!(sig_.issuer(), Some(&keypair.public().keyid()));
+    assert_eq!(sig_.issuer_fingerprint(), Some(&keypair.public().fingerprint()));
+
+    let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
+
+    // issuer subpacket present, do not override
+    let mut sig = signature::Builder::new(crate::types::SignatureType::Binary);
+
+    sig = sig.set_issuer(fp.clone().into())?;
+    let sig_ = sig.clone().sign_hash(&mut keypair, hash.clone())?;
+
+    assert_eq!(sig_.issuer(), Some(&fp.clone().into()));
+    assert!(sig_.issuer_fingerprint().is_none());
+
+    // issuer_fingerprint subpacket present, do not override
+    let mut sig = signature::Builder::new(crate::types::SignatureType::Binary);
+
+    sig = sig.set_issuer_fingerprint(fp.clone())?;
+    let sig_ = sig.clone().sign_hash(&mut keypair, hash.clone())?;
+
+    assert_eq!(sig_.issuer_fingerprint(), Some(&fp));
+    assert!(sig_.issuer().is_none());
+    Ok(())
+}
