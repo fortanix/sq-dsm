@@ -180,10 +180,13 @@ impl CertBuilder {
     }
 
     /// Sets the creation time.
+    ///
+    /// If `creation_time` is `None`, this causes the `Builder` to use
+    /// the time when `Builder::generate` is called.
     pub fn set_creation_time<T>(mut self, creation_time: T) -> Self
-        where T: Into<std::time::SystemTime>,
+        where T: Into<Option<std::time::SystemTime>>,
     {
-        self.creation_time = Some(creation_time.into());
+        self.creation_time = creation_time.into();
         self
     }
 
