@@ -17,6 +17,20 @@ impl fmt::Debug for Fingerprint {
     }
 }
 
+impl fmt::UpperHex for Fingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.convert_to_string(false))
+    }
+}
+
+impl fmt::LowerHex for Fingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut hex = self.convert_to_string(false);
+        hex.make_ascii_lowercase();
+        f.write_str(&hex)
+    }
+}
+
 impl std::str::FromStr for Fingerprint {
     type Err = anyhow::Error;
 
@@ -171,6 +185,14 @@ Echo Foxtrot Zero One Two Three Four Five Six Seven Eight Niner Alpha Bravo \
 Charlie Delta Echo Foxtrot Zero One Two Three Four Five Six Seven";
 
         assert_eq!(fpr.to_icao(), expected);
+    }
+
+    #[test]
+    fn hex_formatting() {
+        let fpr = Fingerprint::from_hex(
+            "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567").unwrap();
+        assert_eq!(format!("{:X}", fpr), "0123456789ABCDEF0123456789ABCDEF01234567");
+        assert_eq!(format!("{:x}", fpr), "0123456789abcdef0123456789abcdef01234567");
     }
 
     #[test]
