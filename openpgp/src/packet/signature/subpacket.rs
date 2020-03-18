@@ -2078,7 +2078,7 @@ impl signature::Builder {
     /// Sets the value of the Notation Data subpacket with the given
     /// name.
     ///
-    /// Any existing Notation Data subpacket with the given name are
+    /// Any existing Notation Data subpackets with the given name are
     /// replaced.
     ///
     /// The name falls into two namespaces: The user namespace and the
@@ -2111,7 +2111,7 @@ impl signature::Builder {
     /// Adds a Notation Data subpacket with the given name, value, and
     /// flags.
     ///
-    /// Any existing Notation Data subpacket with the given name are
+    /// Any existing Notation Data subpackets with the given name are
     /// kept.
     ///
     /// The name falls into two namespaces: The user namespace and the
