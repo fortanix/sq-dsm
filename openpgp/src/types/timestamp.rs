@@ -45,6 +45,12 @@ impl From<Timestamp> for SystemTime {
     }
 }
 
+impl From<Timestamp> for Option<SystemTime> {
+    fn from(t: Timestamp) -> Self {
+        Some(t.into())
+    }
+}
+
 impl fmt::Debug for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", SystemTime::from(*self))
