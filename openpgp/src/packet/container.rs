@@ -236,11 +236,6 @@ impl Container {
         crate::fmt::hex::encode(&self.body_digest)
     }
 
-    pub(crate) // For parse.rs
-    fn body_mut(&mut self) -> &mut Vec<u8> {
-        &mut self.body
-    }
-
     // Converts an indentation level to whitespace.
     fn indent(depth: usize) -> &'static str {
         use std::cmp;
@@ -280,11 +275,6 @@ macro_rules! the_common_container_forwards {
         /// Gets a reference to the this packet's body.
         pub fn body(&self) -> &[u8] {
             self.container.body()
-        }
-
-        /// Gets a mutable reference to the this packet's body.
-        pub fn body_mut(&mut self) -> &mut Vec<u8> {
-            self.container.body_mut()
         }
 
         /// Sets the this packet's body.
