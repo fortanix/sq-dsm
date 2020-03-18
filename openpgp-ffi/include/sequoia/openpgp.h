@@ -1037,6 +1037,12 @@ void pgp_cert_builder_add_transport_encryption_subkey(pgp_cert_builder_t *certb)
 void pgp_cert_builder_add_certification_subkey(pgp_cert_builder_t *certb);
 
 /*/
+/// Sets the creation time.
+/*/
+void pgp_cert_builder_set_creation_time(pgp_cert_builder_t *certb,
+                                        time_t when);
+
+/*/
 /// Generates the actual Cert.
 ///
 /// Consumes `certb`.

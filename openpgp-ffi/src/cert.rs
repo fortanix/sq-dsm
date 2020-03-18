@@ -986,6 +986,17 @@ pub extern "C" fn pgp_cert_builder_add_certification_subkey
     *certb = box_raw!(certb_);
 }
 
+/// Sets the creation time.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C" fn pgp_cert_builder_set_creation_time
+    (certb: *mut *mut CertBuilder, when: time_t)
+{
+    let certb = ffi_param_ref_mut!(certb);
+    let certb_ = ffi_param_move!(*certb);
+    let certb_ = certb_.set_creation_time(maybe_time(when));
+    *certb = box_raw!(certb_);
+}
+
 /// Generates the actual Cert.
 ///
 /// Consumes `certb`.
