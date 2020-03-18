@@ -27,6 +27,16 @@ pub fn build() -> App<'static, 'static> {
              .long("force")
              .short("f")
              .help("Overwrite existing files"))
+        .arg(Arg::with_name("known-notation")
+             .long("known-notation")
+             .multiple(true)
+             .takes_value(true)
+             .value_name("NOTATION")
+             .number_of_values(1)
+             .help("The notation name is considered known. \
+               This is used when validating sigantures. \
+               Signatures that have unknown notations with the \
+               critical bit set are considered invalid."))
         .subcommand(SubCommand::with_name("decrypt")
                     .display_order(10)
                     .about("Decrypts an OpenPGP message")

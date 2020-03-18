@@ -212,9 +212,14 @@ fn help_warning(arg: &str) {
 }
 
 fn main() -> Result<()> {
-    let policy = &P::new();
+    let policy = &mut P::new();
 
     let matches = sq_cli::build().get_matches();
+
+    let known_notations: Vec<&str> = matches.values_of("known-notation")
+        .unwrap_or_default()
+        .collect();
+    policy.good_critical_notations(&known_notations);
 
     let network_policy = match matches.value_of("policy") {
         None => NetworkPolicy::Encrypted,
