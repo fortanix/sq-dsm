@@ -89,6 +89,30 @@ pub mod hex {
             })
         }
 
+        /// Writes a chunk of data with ASCII-representation.
+        ///
+        /// This produces output similar to `hexdump(1)`.
+        pub fn write_ascii<B>(&mut self, buf: B) -> io::Result<()>
+            where B: AsRef<[u8]>,
+        {
+            self.write_labeled(buf, |offset, data| {
+                let mut l = String::new();
+                for _ in 0..offset {
+                    l.push(' ');
+                }
+                for &c in data {
+                    l.push(if c < 32 {
+                        '.'
+                    } else if c < 128 {
+                        c.into()
+                    } else {
+                        '.'
+                    })
+                }
+                Some(l)
+            })
+        }
+
         /// Writes a chunk of data.
         ///
         /// For each line, the given function is called to compute a

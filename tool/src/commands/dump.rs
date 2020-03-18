@@ -690,22 +690,7 @@ impl PacketDumper {
 
             for field in map.iter() {
                 if field.name() == "body" {
-                    hd.write_labeled(field.data(), |offset, data| {
-                        let mut l = String::new();
-                        for _ in 0..offset {
-                            l.push(' ');
-                        }
-                        for &c in data {
-                            l.push(if c < 32 {
-                                '.'
-                            } else if c < 128 {
-                                c.into()
-                            } else {
-                                '.'
-                            })
-                        }
-                        Some(l)
-                    })?;
+                    hd.write_ascii(field.data())?;
                 } else {
                     hd.write(field.data(), field.name())?;
                 }
