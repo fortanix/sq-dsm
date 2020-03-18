@@ -3618,64 +3618,30 @@ impl <'a> PacketParser<'a> {
     /// # return Ok(());
     /// # }
     pub fn buffer_unread_content(&mut self) -> Result<&[u8]> {
-        let mut rest = self.steal_eof()?;
+        let rest = self.steal_eof()?;
+
+        fn set_or_extend(rest: Vec<u8>, c: &mut Container) -> Result<&[u8]> {
+            if rest.len() > 0 {
+                if c.body().len() > 0 {
+                    let mut new =
+                        Vec::with_capacity(c.body().len() + rest.len());
+                    new.extend_from_slice(c.body());
+                    new.extend_from_slice(&rest);
+                    c.set_body(new);
+                } else {
+                    c.set_body(rest);
+                }
+            }
+
+            Ok(c.body())
+        }
 
         match &mut self.packet {
-            Packet::Literal(p) => {
-                if rest.len() > 0 {
-                    if p.body().len() > 0 {
-                        p.body_mut().append(&mut rest);
-                    } else {
-                        p.set_body(rest);
-                    }
-                }
-
-                Ok(p.body())
-            },
-            Packet::Unknown(p) => {
-                if rest.len() > 0 {
-                    if p.body().len() > 0 {
-                        p.body_mut().append(&mut rest);
-                    } else {
-                        p.set_body(rest);
-                    }
-                }
-
-                Ok(p.body())
-            },
-            Packet::CompressedData(p) => {
-                if rest.len() > 0 {
-                    if p.body().len() > 0 {
-                        p.body_mut().append(&mut rest);
-                    } else {
-                        p.set_body(rest);
-                    }
-                }
-
-                Ok(p.body())
-            },
-            Packet::SEIP(p) => {
-                if rest.len() > 0 {
-                    if p.body().len() > 0 {
-                        p.body_mut().append(&mut rest);
-                    } else {
-                        p.set_body(rest);
-                    }
-                }
-
-                Ok(p.body())
-            },
-            Packet::AED(p) => {
-                if rest.len() > 0 {
-                    if p.body().len() > 0 {
-                        p.body_mut().append(&mut rest);
-                    } else {
-                        p.set_body(rest);
-                    }
-                }
-
-                Ok(p.body())
-            },
+            Packet::Literal(p) => set_or_extend(rest, p.container_mut()),
+            Packet::Unknown(p) => set_or_extend(rest, p.container_mut()),
+            Packet::CompressedData(p) => set_or_extend(rest, p.container_mut()),
+            Packet::SEIP(p) => set_or_extend(rest, p.container_mut()),
+            Packet::AED(p) => set_or_extend(rest, p.container_mut()),
             p => {
                 if rest.len() > 0 {
                     Err(Error::MalformedPacket(
