@@ -10,7 +10,7 @@ use std::path::Path;
 use lalrpop_util::ParseError;
 
 use futures::{future, Async, Future, Stream};
-use tokio::net::UnixStream;
+use parity_tokio_ipc::IpcConnection;
 use tokio_io::io;
 use tokio_io::AsyncRead;
 
@@ -54,15 +54,15 @@ lalrpop_util::lalrpop_mod!(
 /// [`Connection::data()`]: #method.data
 /// [`Connection::cancel()`]: #method.cancel
 pub struct Client {
-    r: BufReader<io::ReadHalf<UnixStream>>, // xxx: abstract over
+    r: BufReader<io::ReadHalf<IpcConnection>>, // xxx: abstract over
     buffer: Vec<u8>,
     done: bool,
     w: WriteState,
 }
 
 enum WriteState {
-    Ready(io::WriteHalf<UnixStream>),
-    Sending(future::FromErr<io::WriteAll<io::WriteHalf<tokio::net::UnixStream>, Vec<u8>>, anyhow::Error>),
+    Ready(io::WriteHalf<IpcConnection>),
+    Sending(future::FromErr<io::WriteAll<io::WriteHalf<IpcConnection>, Vec<u8>>, anyhow::Error>),
     Transitioning,
     Dead,
 }
@@ -73,7 +73,10 @@ impl Client {
         -> impl Future<Item = Client, Error = anyhow::Error>
         where P: AsRef<Path>
     {
-        UnixStream::connect(path).from_err()
+        // XXX: Implement Windows support using TCP + nonce approach used upstream
+        // https://gnupg.org/documentation/manuals/assuan.pdf#Socket%20wrappers
+        future::result(IpcConnection::connect(path, &Default::default()))
+            .map_err(Into::into)
             .and_then(ConnectionFuture::new)
     }
 
@@ -185,7 +188,7 @@ impl Client {
 struct ConnectionFuture(Option<Client>);
 
 impl ConnectionFuture {
-    fn new(c: UnixStream) -> Self {
+    fn new(c: IpcConnection) -> Self {
         let (r, w) = c.split();
         let buffer = Vec::with_capacity(MAX_LINE_LENGTH);
         Self(Some(Client {
