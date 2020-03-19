@@ -123,11 +123,7 @@ impl Store {
         let core = Core::new()?;
         let handle = core.handle();
 
-        let mut rpc_system
-            = match descriptor.connect(&handle) {
-                Ok(r) => r,
-                Err(e) => return Err(e.into()),
-            };
+        let mut rpc_system = descriptor.connect(&handle)?;
 
         let client: node::Client = rpc_system.bootstrap(Side::Server);
         handle.spawn(rpc_system.map_err(|_e| ()));

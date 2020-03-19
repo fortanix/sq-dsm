@@ -37,6 +37,10 @@ tokio = "0.1"
 tokio-core = "0.1"
 tokio-io = "0.1.4"
 
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", default-features = false, features = ["winsock2"] }
+ctor = "0.1"
+
 [build-dependencies]
 lalrpop = "0.17"
 
