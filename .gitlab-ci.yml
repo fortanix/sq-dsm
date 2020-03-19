@@ -1,3 +1,9 @@
+.shared_windows_runners:
+  tags:
+  - shared-windows
+  - windows
+  - windows-1809
+
 before_script:
   - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
   - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
@@ -64,6 +70,38 @@ rust-stable:
   variables:
     CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target.$CI_CONCURRENT_ID.rust-stable
     RUSTFLAGS: -D warnings -A unused-parens
+
+windows:
+  extends:
+  - .shared_windows_runners
+  stage: build
+  # This job takes ~40 minutes to run, let's only execute it manually or for
+  # scheduled builds, otherwise this will stall MRs often not related to Windows
+  only:
+  - tags
+  - web
+  - scheduled
+  before_script:
+  - $env:USERNAME
+  - $env:USERPROFILE
+  # Install Rust 1.40
+  - $env:CARGO_HOME = "$env:ProgramFiles\cargo"
+  - $env:RUSTUP_HOME = "$env:ProgramFiles\rustup"
+  - Invoke-WebRequest https://win.rustup.rs -OutFile rustup-init.exe
+  - .\rustup-init.exe -y --default-toolchain 1.40.0 --default-host x86_64-pc-windows-gnu --profile minimal
+  - $env:Path += ";$env:ProgramFiles\cargo\bin"
+  - rustup --version
+  - rustc --version --verbose
+  # Install MSYS2/mingw-w64
+  - choco install msys2 -y
+  - $env:Path += ";C:\tools\msys64"
+  - $env:MSYSTEM =  "MINGW64"
+  - $env:MSYS = "winsymlinks:nativestrict"
+  - $env:MSYS2_PATH_TYPE = "inherit" # Inherit PATH from Windows
+  - $env:CHERE_INVOKING = "1" # Inherit working directory
+  - $env:CFLAGS = "" # Disregard C warnings due to MinGW being funky
+  script: C:/tools/msys64/usr/bin/bash.exe -l -c "bash -x ./.gitlab-ci/test-msys2.sh"
+  after_script: []
 
 variables:
   DEBIAN_FRONTEND: noninteractive
