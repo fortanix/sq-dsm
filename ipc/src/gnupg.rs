@@ -307,14 +307,15 @@ impl Agent {
     /// Computes options that we want to communicate.
     fn options() -> Vec<String> {
         use std::env::var;
-        use std::ffi::CStr;
 
         let mut r = Vec::new();
 
         if let Ok(tty) = var("GPG_TTY") {
             r.push(format!("OPTION ttyname={}", tty));
         } else {
+            #[cfg(unix)]
             unsafe {
+                use std::ffi::CStr;
                 let tty = libc::ttyname(0);
                 if ! tty.is_null() {
                     if let Ok(tty) = CStr::from_ptr(tty).to_str() {
