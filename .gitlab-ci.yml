@@ -11,6 +11,8 @@ after_script:
   - du -sh $CARGO_HOME
 
 buster:
+  tags:
+    - self-hosted
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/buster:latest
 
@@ -19,6 +21,8 @@ buster:
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind cargo test -p buffered-reader -p sequoia-openpgp -p sequoia-sqv -p sequoia-openpgp-ffi
 
 bullseye:
+  tags:
+    - self-hosted
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye:latest
 
@@ -35,6 +39,8 @@ bullseye:
     RUSTFLAGS: -D warnings -A unused-parens
 
 rust-stable:
+  tags:
+    - self-hosted
   stage: build
   image: rust:1-slim-buster
 
