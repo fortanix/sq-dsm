@@ -1096,6 +1096,20 @@ pgp_revocation_status_t pgp_valid_key_amalgamation_revocation_status (pgp_valid_
 pgp_signature_t pgp_valid_key_amalgamation_binding_signature (pgp_valid_key_amalgamation_t ka);
 
 /*/
+/// Creates one or more self-signatures that when merged with the
+/// certificate cause the key to expire at the specified time.
+///
+/// The returned buffer must be freed using libc's allocator.
+/*/
+pgp_status_t pgp_valid_key_amalgamation_set_expiration_time
+  (pgp_error_t *errp,
+   pgp_valid_key_amalgamation_t ka,
+   pgp_signer_t signer,
+   time_t time,
+   pgp_packet_t **packets,
+   size_t *packet_count);
+
+/*/
 /// Frees the Valid Key Amalgamation.
 /*/
 void pgp_valid_key_amalgamation_free (pgp_valid_key_amalgamation_t ka);
