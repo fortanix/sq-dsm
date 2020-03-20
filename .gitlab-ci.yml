@@ -20,6 +20,9 @@ buster:
     - make codespell CODESPELL_FLAGS=--summary
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind cargo test -p buffered-reader -p sequoia-openpgp -p sequoia-sqv -p sequoia-openpgp-ffi
 
+  variables:
+    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target.$CI_CONCURRENT_ID.buster
+
 bullseye:
   tags:
     - self-hosted
@@ -35,7 +38,7 @@ bullseye:
     - if ! git diff --quiet ; then echo "Please run 'make -C sqv update-usage' and commit the result." ; false ; fi
 
   variables:
-    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target-bullseye
+    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target.$CI_CONCURRENT_ID.bullseye
     RUSTFLAGS: -D warnings -A unused-parens
 
 rust-stable:
@@ -57,13 +60,12 @@ rust-stable:
     - cargo test -p buffered-reader -p sequoia-openpgp -p sequoia-sqv
 
   variables:
-    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target-rust-stable
+    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target.$CI_CONCURRENT_ID.rust-stable
     RUSTFLAGS: -D warnings -A unused-parens
 
 variables:
   DEBIAN_FRONTEND: noninteractive
   CARGO_HOME: $CI_PROJECT_DIR/../cargo
-  CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target
   CARGO_FLAGS: --color always
   CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: full
