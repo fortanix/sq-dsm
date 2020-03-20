@@ -1110,6 +1110,17 @@ pgp_status_t pgp_valid_key_amalgamation_set_expiration_time
    size_t *packet_count);
 
 /*/
+/// Changes the policy applied to the `ValidKeyAmalgamation`.
+///
+/// This consumes the key amalgamation.
+/*/
+pgp_valid_key_amalgamation_t pgp_valid_key_amalgamation_with_policy
+    (pgp_error_t *errp,
+     pgp_valid_key_amalgamation_t ka,
+     pgp_policy_t policy,
+     time_t time);
+
+/*/
 /// Frees the Valid Key Amalgamation.
 /*/
 void pgp_valid_key_amalgamation_free (pgp_valid_key_amalgamation_t ka);

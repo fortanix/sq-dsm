@@ -11,17 +11,21 @@ use libc::{size_t, time_t};
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::packet::key;
 use self::openpgp::cert::amalgamation::ValidAmalgamation;
+use self::openpgp::cert::amalgamation::ValidateAmalgamation;
 use self::openpgp::crypto;
 
 use super::packet::key::Key;
 use super::packet::signature::Signature;
 use super::packet::Packet;
+use super::policy::Policy;
 use super::revocation_status::RevocationStatus;
 
 use crate::error::Status;
+use crate::Maybe;
 use crate::MoveIntoRaw;
 use crate::MoveResultIntoRaw;
 use crate::RefRaw;
+use crate::MoveFromRaw;
 use crate::maybe_time;
 
 /// A local alias to appease the proc macro transformation.
@@ -133,4 +137,23 @@ fn pgp_valid_key_amalgamation_set_expiration_time(
             Err::<(), anyhow::Error>(err).move_into_raw(errp)
         }
     }
+}
+
+/// Changes the policy applied to the `ValidKeyAmalgamation`.
+///
+/// This consumes the key amalgamation.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_valid_key_amalgamation_with_policy<'a>(errp: Option<&mut *mut crate::error::Error>,
+                                              ka: *mut ValidKeyAmalgamation<'a>,
+                                              policy: *const Policy,
+                                              time: time_t)
+    -> Maybe<ValidKeyAmalgamation<'a>>
+{
+    ffi_make_fry_from_errp!(errp);
+
+    let ka = ka.move_from_raw();
+    let policy = policy.ref_raw();
+    let time = maybe_time(time);
+
+    ka.with_policy(&**policy, time).move_into_raw(errp)
 }
