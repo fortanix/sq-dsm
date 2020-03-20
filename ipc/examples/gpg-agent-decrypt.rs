@@ -150,17 +150,17 @@ impl<'a> VerificationHelper for Helper<'a> {
                             },
                             Err(MissingKey { sig, .. }) => {
                                 let issuers = sig.get_issuers();
-                                eprintln!("Missing key {}, which is needed to \
+                                eprintln!("Missing key {:X}, which is needed to \
                                            verify signature.",
-                                          issuers.first().unwrap().to_hex());
+                                          issuers.first().unwrap());
                             },
                             Err(UnboundKey { cert, error, .. }) => {
-                                eprintln!("Signing key on {} is not bound: {}",
-                                          cert.fingerprint().to_hex(), error);
+                                eprintln!("Signing key on {:X} is not bound: {}",
+                                          cert.fingerprint(), error);
                             },
                             Err(BadKey { ka, error, .. }) => {
-                                eprintln!("Signing key on {} is bad: {}",
-                                          ka.cert().fingerprint().to_hex(),
+                                eprintln!("Signing key on {:X} is bad: {}",
+                                          ka.cert().fingerprint(),
                                           error);
                             },
                             Err(BadSignature { error, .. }) => {

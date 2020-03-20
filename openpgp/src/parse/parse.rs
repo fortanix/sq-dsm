@@ -1664,7 +1664,7 @@ fn one_pass_sig_parser_test () {
         assert_eq!(p.typ(), SignatureType::Binary);
         assert_eq!(p.hash_algo(), HashAlgorithm::SHA512);
         assert_eq!(p.pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
-        assert_eq!(p.issuer().to_hex(), "7223B56678E02528");
+        assert_eq!(format!("{:X}", p.issuer()), "7223B56678E02528");
         assert_eq!(p.last_raw(), 1);
     } else {
         panic!("Wrong packet!");

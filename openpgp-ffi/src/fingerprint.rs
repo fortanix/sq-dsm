@@ -92,7 +92,7 @@ fn pgp_fingerprint_as_bytes(fp: *const Fingerprint,
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_fingerprint_to_hex(fp: *const Fingerprint)
                           -> *mut c_char {
-    ffi_return_string!(fp.ref_raw().to_hex())
+    ffi_return_string!(format!("{:X}", fp.ref_raw()))
 }
 
 /// Converts the fingerprint to a key ID.

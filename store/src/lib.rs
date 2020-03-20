@@ -200,7 +200,7 @@ impl Store {
     pub fn lookup(c: &Context, fp: &Fingerprint) -> Result<Key> {
         let (mut core, client) = Self::connect(c)?;
         let mut request = client.lookup_by_fingerprint_request();
-        let fp = fp.to_hex();
+        let fp = format!("{:X}", fp);
         request.get().set_fingerprint(&fp);
         let key = make_request!(&mut core, request)?;
         Ok(Key::new(Rc::new(RefCell::new(core)), key))
@@ -385,7 +385,7 @@ impl Mapping {
     pub fn add(&self, label: &str, fingerprint: &Fingerprint) -> Result<Binding> {
         let mut request = self.mapping.add_request();
         request.get().set_label(label);
-        request.get().set_fingerprint(fingerprint.to_hex().as_ref());
+        request.get().set_fingerprint(format!("{:X}", fingerprint).as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
         Ok(Binding::new(self.core.clone(), Some(label), binding))
     }
@@ -419,7 +419,7 @@ impl Mapping {
         let fingerprint = cert.fingerprint();
         let mut request = self.mapping.add_request();
         request.get().set_label(label);
-        request.get().set_fingerprint(fingerprint.to_hex().as_ref());
+        request.get().set_fingerprint(format!("{:X}", fingerprint).as_ref());
         let binding = make_request!(self.core.borrow_mut(), request)?;
         let binding = Binding::new(self.core.clone(), Some(label), binding);
         binding.import(cert)

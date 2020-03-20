@@ -63,7 +63,7 @@ impl Fingerprint {
     /// let hex = "3E8877C877274692975189F5D03F6F865226FE8B";
     /// let fp = Fingerprint::from_hex(hex);
     /// assert!(fp.is_ok());
-    /// assert_eq!(fp.unwrap().to_hex(), hex);
+    /// assert_eq!(format!("{:X}", fp.unwrap()), hex);
     /// ```
     pub fn from_hex(hex: &str) -> Result<Fingerprint> {
         Ok(Fingerprint::from_bytes(&crate::fmt::from_hex(hex, true)?[..]))
@@ -75,11 +75,6 @@ impl Fingerprint {
             &Fingerprint::V4(ref fp) => fp,
             &Fingerprint::Invalid(ref fp) => fp,
         }
-    }
-
-    /// Converts the fingerprint to a hexadecimal number.
-    pub fn to_hex(&self) -> String {
-        self.convert_to_string(false)
     }
 
     /// Common code for the above functions.
@@ -140,7 +135,7 @@ impl Fingerprint {
     pub fn to_icao(&self) -> String {
         let mut ret = String::default();
 
-        for ch in self.to_hex().chars() {
+        for ch in self.convert_to_string(false).chars() {
             let word = match ch {
                 '0' => "Zero",
                 '1' => "One",

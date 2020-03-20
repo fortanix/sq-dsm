@@ -2618,7 +2618,7 @@ fn subpacket_test_1 () {
                 fp == "7FAF 6ED7 2381 4355 7BDF  7ED2 6863 C9AD 5B4D 22D3"
                 || fp == "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528");
 
-            let hex = sig.issuer_fingerprint().unwrap().to_hex();
+            let hex = format!("{:X}", sig.issuer_fingerprint().unwrap());
             assert!(
                 hex == "7FAF6ED7238143557BDF7ED26863C9AD5B4D22D3"
                 || hex == "C03FA6411B03AE12576461187223B56678E02528");

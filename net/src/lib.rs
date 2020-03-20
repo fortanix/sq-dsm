@@ -159,8 +159,7 @@ impl KeyServer {
                -> Box<dyn Future<Item=Cert, Error=anyhow::Error> + 'static> {
         let keyid_want = keyid.clone();
         let uri = self.uri.join(
-            &format!("pks/lookup?op=get&options=mr&search=0x{}",
-                     keyid.to_hex()));
+            &format!("pks/lookup?op=get&options=mr&search=0x{:X}", keyid));
         if let Err(e) = uri {
             // This shouldn't happen, but better safe than sorry.
             return Box::new(future::err(Error::from(e).into()));

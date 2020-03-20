@@ -568,7 +568,7 @@ impl node::binding::Server for BindingServer {
         // If we found one, convert it to Cert.
         let current = if let Some(current) = key {
             let current = sry!(Cert::from_bytes(&current));
-            if current.fingerprint().to_hex() != fingerprint {
+            if format!("{:X}", current.fingerprint()) != fingerprint {
                 // Inconsistent database.
                 fail!(node::Error::SystemError);
             }
@@ -578,7 +578,7 @@ impl node::binding::Server for BindingServer {
         };
 
         // Check for conflicts.
-        if new.fingerprint().to_hex() != fingerprint {
+        if format!("{:X}", new.fingerprint()) != fingerprint {
             if force {
                 // Update binding, and retry.
                 let key_id =
@@ -716,7 +716,7 @@ impl KeyServer {
     ///
     /// On success, the id of the key is returned.
     fn lookup(c: &Connection, fp: &Fingerprint) -> Result<ID> {
-        let fp = fp.to_hex();
+        let fp = format!("{:X}", fp);
         Ok(c.query_row(
             "SELECT id FROM keys WHERE fingerprint = ?1",
             &[&fp], |row| row.get(0))?)
@@ -726,7 +726,7 @@ impl KeyServer {
     ///
     /// On success, the id of the key is returned.
     fn lookup_by_id(c: &Connection, keyid: &KeyID) -> Result<ID> {
-        let keyid = format!("%{}", keyid.to_hex());
+        let keyid = format!("%{:X}", keyid);
         Ok(c.query_row(
             "SELECT id FROM keys WHERE fingerprint LIKE ?1",
             &[&keyid], |row| row.get(0))?)
@@ -736,7 +736,7 @@ impl KeyServer {
     ///
     /// On success, the id of the key is returned.
     fn lookup_or_create(c: &Connection, fp: &Fingerprint) -> Result<ID> {
-        let fp = fp.to_hex();
+        let fp = format!("{:X}", fp);
         if let Ok(x) = c.query_row(
             "SELECT id FROM keys WHERE fingerprint = ?1",
             &[&fp], |row| row.get(0)) {
@@ -780,7 +780,7 @@ impl KeyServer {
         if let Some(current) = key {
             let current = Cert::from_bytes(&current)?;
 
-            if current.fingerprint().to_hex() != fingerprint {
+            if format!("{:X}", current.fingerprint()) != fingerprint {
                 // Inconsistent database.
                 return Err(node::Error::SystemError.into());
             }

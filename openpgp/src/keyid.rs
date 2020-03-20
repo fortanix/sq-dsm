@@ -166,11 +166,6 @@ impl KeyID {
         self.as_slice().iter().all(|b| *b == 0)
     }
 
-    /// Converts the key ID to a hexadecimal number.
-    pub fn to_hex(&self) -> String {
-        self.convert_to_string(false)
-    }
-
     /// Common code for the above functions.
     fn convert_to_string(&self, pretty: bool) -> String {
         let raw = match self {

@@ -152,14 +152,14 @@ impl<'a> VerificationHelper for VHelper<'a> {
                                     (Some(t), Some(not_before), not_after) => {
                                         if t < not_before {
                                             eprintln!(
-                                                "Signature by {} was created before \
+                                                "Signature by {:X} was created before \
                                                  the --not-before date.",
-                                                ka.key().fingerprint().to_hex());
+                                                ka.key().fingerprint());
                                         } else if t > not_after {
                                             eprintln!(
-                                                "Signature by {} was created after \
+                                                "Signature by {:X} was created after \
                                                  the --not-after date.",
-                                                ka.key().fingerprint().to_hex());
+                                                ka.key().fingerprint());
                                         } else {
                                             signers.push(ka.cert().fingerprint());
                                         }
@@ -167,9 +167,9 @@ impl<'a> VerificationHelper for VHelper<'a> {
                                     (Some(t), None, not_after) => {
                                         if t > not_after {
                                             eprintln!(
-                                                "Signature by {} was created after \
+                                                "Signature by {:X} was created after \
                                                  the --not-after date.",
-                                                ka.key().fingerprint().to_hex());
+                                                ka.key().fingerprint());
                                         } else {
                                             signers.push(ka.cert().fingerprint());
                                         }
@@ -181,17 +181,17 @@ impl<'a> VerificationHelper for VHelper<'a> {
                             }
                             Err(MissingKey { sig, .. }) => {
                                 let issuers = sig.get_issuers();
-                                eprintln!("Missing key {}, which is needed to \
+                                eprintln!("Missing key {:X}, which is needed to \
                                            verify signature.",
-                                          issuers.first().unwrap().to_hex());
+                                          issuers.first().unwrap());
                             }
                             Err(UnboundKey { cert, error, .. }) => {
-                                eprintln!("Signing key on {} is not bound: {}",
-                                          cert.fingerprint().to_hex(), error);
+                                eprintln!("Signing key on {:X} is not bound: {}",
+                                          cert.fingerprint(), error);
                             }
                             Err(BadKey { ka, error, .. }) => {
-                                eprintln!("Signing key on {} is bad: {}",
-                                          ka.cert().fingerprint().to_hex(),
+                                eprintln!("Signing key on {:X} is bad: {}",
+                                          ka.cert().fingerprint(),
                                           error);
                             }
                             Err(BadSignature { error, .. }) => {
@@ -215,7 +215,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
 
         self.good = signers.len();
         for signer in signers {
-            println!("{}", signer.to_hex());
+            println!("{:X}", signer);
         }
 
         Ok(())

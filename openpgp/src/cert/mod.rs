@@ -1531,7 +1531,7 @@ mod test {
                                 i == 0).unwrap();
             assert_eq!(cert.primary.key().creation_time(),
                        Timestamp::from(1511355130).into());
-            assert_eq!(cert.fingerprint().to_hex(),
+            assert_eq!(format!("{:X}", cert.fingerprint()),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
             assert_eq!(cert.userids.len(), 1, "number of userids");
@@ -1553,7 +1553,7 @@ mod test {
                                 i == 0).unwrap();
             assert_eq!(cert.primary.key().creation_time(),
                        Timestamp::from(1511355130).into());
-            assert_eq!(cert.fingerprint().to_hex(),
+            assert_eq!(format!("{:X}", cert.fingerprint()),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
 
             assert_eq!(cert.user_attributes.len(), 0);
@@ -1568,7 +1568,7 @@ mod test {
             assert_eq!(cert.subkeys.len(), 0, "number of subkeys");
 
             let cert = parse_cert(crate::tests::key("testy.asc"), i == 0).unwrap();
-            assert_eq!(cert.fingerprint().to_hex(),
+            assert_eq!(format!("{:X}", cert.fingerprint()),
                        "3E8877C877274692975189F5D03F6F865226FE8B");
         }
     }
