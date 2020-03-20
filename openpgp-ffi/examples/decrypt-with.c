@@ -170,14 +170,17 @@ decrypt_cb (void *cookie_opaque,
     pgp_keyid_t keyid = pgp_pkesk_recipient (pkesk);
 
     pgp_cert_key_iter_t key_iter = pgp_cert_key_iter (cookie->key);
+    pgp_key_amalgamation_t ka;
     pgp_key_t key;
-    while ((key = pgp_cert_key_iter_next (key_iter))) {
+    while ((ka = pgp_cert_key_iter_next (key_iter))) {
+      key = pgp_key_amalgamation_key (ka);
       pgp_keyid_t this_keyid = pgp_key_keyid (key);
       int match = pgp_keyid_equal (this_keyid, keyid);
       pgp_keyid_free (this_keyid);
       if (match)
         break;
       pgp_key_free (key);
+      pgp_key_amalgamation_free (ka);
     }
     pgp_cert_key_iter_free (key_iter);
     pgp_keyid_free (keyid);
@@ -193,6 +196,7 @@ decrypt_cb (void *cookie_opaque,
       error (1, 0, "pgp_pkesk_decrypt: %s", pgp_error_to_string (err));
     }
     pgp_key_free (key);
+    pgp_key_amalgamation_free (ka);
 
     pgp_session_key_t sk = pgp_session_key_from_bytes (session_key,
                                                        session_key_len);

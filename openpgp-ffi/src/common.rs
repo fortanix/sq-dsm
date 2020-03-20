@@ -343,3 +343,4 @@ pub mod cert;
 pub mod tsk;
 pub mod revocation_status;
 pub mod policy;
+pub mod key_amalgamation;

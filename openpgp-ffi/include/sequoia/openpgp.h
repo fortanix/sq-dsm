@@ -628,10 +628,10 @@ pgp_cert_valid_key_iter_t pgp_cert_key_iter_policy
     (pgp_cert_key_iter_t iter, pgp_policy_t policy, time_t when);
 
 /*/
-/// Returns a reference to the next key.  Returns NULL if there are no
+/// Returns a key amalgamation for the next key.  Returns NULL if there are no
 /// more elements.
 /*/
-pgp_key_t pgp_cert_key_iter_next (pgp_cert_key_iter_t iter);
+pgp_key_amalgamation_t pgp_cert_key_iter_next (pgp_cert_key_iter_t iter);
 
 /*/
 /// Frees an pgp_cert_key_iter_t.
@@ -722,7 +722,7 @@ void pgp_cert_valid_key_iter_secret (pgp_cert_valid_key_iter_t iter);
 void pgp_cert_valid_key_iter_unencrypted_secret (pgp_cert_valid_key_iter_t iter);
 
 /*/
-/// Returns a reference to the next key.  Returns NULL if there are no
+/// Returns a key amalgamation to the next key.  Returns NULL if there are no
 /// more elements.
 ///
 /// If signature is not NULL, stores the current self-signature (if
@@ -733,9 +733,10 @@ void pgp_cert_valid_key_iter_unencrypted_secret (pgp_cert_valid_key_iter_t iter)
 /// If rev is not NULL, this stores the key's revocation status in
 /// *rev.
 /*/
-pgp_key_t pgp_cert_valid_key_iter_next (pgp_cert_valid_key_iter_t iter,
-                                        pgp_signature_t *signature,
-                                        pgp_revocation_status_t *rev);
+pgp_valid_key_amalgamation_t pgp_cert_valid_key_iter_next
+    (pgp_cert_valid_key_iter_t iter,
+     pgp_signature_t *signature,
+     pgp_revocation_status_t *rev);
 
 /*/
 /// Frees an pgp_cert_valid_key_iter_t.
@@ -1051,6 +1052,64 @@ pgp_status_t pgp_cert_builder_generate(pgp_error_t *errp,
                                       pgp_cert_builder_t certb,
                                       pgp_cert_t *cert,
                                       pgp_signature_t *revocation);
+
+
+/* KeyAmalgamation */
+
+/*/
+/// Returns a reference to the Key Amalgamation's `Key`.
+/*/
+pgp_key_t pgp_key_amalgamation_key (pgp_key_amalgamation_t ka);
+
+/*/
+/// Frees the Key Amalgamation.
+/*/
+void pgp_key_amalgamation_free (pgp_key_amalgamation_t ka);
+
+/*/
+/// Clones the Key Amalgamation.
+/*/
+pgp_key_amalgamation_t pgp_key_amalgamation_clone (pgp_key_amalgamation_t ka);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_key_amalgamation_debug (const pgp_key_amalgamation_t ka);
+
+
+/* ValidKeyAmalgamation */
+
+/*/
+/// Returns a reference to the Valid Key Amalgamation's `Key`.
+/*/
+pgp_key_t pgp_valid_key_amalgamation_key (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Returns the Valid Key Amalgamation's revocation status.
+/*/
+pgp_revocation_status_t pgp_valid_key_amalgamation_revocation_status (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Returns a reference to the Valid Key Amalgamation's binding signature.
+/*/
+pgp_signature_t pgp_valid_key_amalgamation_binding_signature (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Frees the Valid Key Amalgamation.
+/*/
+void pgp_valid_key_amalgamation_free (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Clones the Valid Key Amalgamation.
+/*/
+pgp_valid_key_amalgamation_t pgp_valid_key_amalgamation_clone (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Returns a human readable description of this object suitable for
+/// debugging.
+/*/
+char *pgp_valid_key_amalgamation_debug (const pgp_valid_key_amalgamation_t ka);
 
 
 /* TSK */

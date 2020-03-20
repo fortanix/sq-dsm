@@ -395,6 +395,16 @@ typedef struct pgp_cert_valid_key_iter *pgp_cert_valid_key_iter_t;
 typedef struct pgp_cert *pgp_cert_t;
 
 /*/
+/// A key amalgamation.
+/*/
+typedef struct pgp_key_amalgamation *pgp_key_amalgamation_t;
+
+/*/
+/// A valid key amalgamation.
+/*/
+typedef struct pgp_valid_key_amalgamation *pgp_valid_key_amalgamation_t;
+
+/*/
 /// A parser for Certs
 ///
 /// A `CertParser` parses a keyring, which is simply zero or more

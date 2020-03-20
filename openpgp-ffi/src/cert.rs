@@ -29,6 +29,7 @@ use super::packet_pile::PacketPile;
 use super::tsk::TSK;
 use super::revocation_status::RevocationStatus;
 use super::policy::Policy;
+use super::key_amalgamation::{KeyAmalgamation, ValidKeyAmalgamation};
 
 use crate::Maybe;
 use crate::RefRaw;
@@ -541,14 +542,13 @@ pub extern "C" fn pgp_cert_key_iter_policy<'a>(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_key_iter_next<'a>(
     iter_wrapper: *mut KeyIterWrapper<'a>)
-    -> Maybe<Key>
+    -> Maybe<KeyAmalgamation<'a>>
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     iter_wrapper.next_called = true;
 
     if let Some(ka) = iter_wrapper.iter.as_mut().unwrap().next() {
-        Some(ka.key().mark_parts_unspecified_ref().mark_role_unspecified_ref())
-            .move_into_raw()
+        Some(ka.mark_parts_unspecified()).move_into_raw()
     } else {
         None
     }
@@ -763,7 +763,7 @@ pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
     iter_wrapper: *mut ValidKeyIterWrapper<'a>,
     sigo: Option<&mut *mut Signature>,
     rso: Option<&mut *mut RevocationStatus<'a>>)
-    -> Maybe<Key>
+    -> Maybe<ValidKeyAmalgamation<'a>>
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     iter_wrapper.next_called = true;
@@ -771,7 +771,6 @@ pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
     if let Some(ka) = iter_wrapper.iter.as_mut().unwrap().next() {
         let sig = ka.binding_signature();
         let rs = ka.revoked();
-        let key = ka.key();
 
         if let Some(ptr) = sigo {
             *ptr = sig.move_into_raw();
@@ -781,10 +780,7 @@ pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
             *ptr = rs.move_into_raw();
         }
 
-        let key
-            = key.mark_parts_unspecified_ref().mark_role_unspecified_ref();
-
-        Some(key).move_into_raw()
+        Some(ka.mark_parts_unspecified()).move_into_raw()
     } else {
         None
     }
