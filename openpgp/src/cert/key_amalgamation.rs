@@ -747,7 +747,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// This function exists to facilitate testing, which is why it is
     /// not exported.
-    pub(crate) fn set_validity_period_as_of(self,
+    pub(crate) fn set_validity_period_as_of(&self,
                                             primary_signer: &mut dyn Signer,
                                             expiration: Option<time::Duration>,
                                             now: time::SystemTime)
@@ -809,7 +809,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// A policy is needed, because the expiration is updated by adding
     /// a self-signature to the primary user id.
-    pub fn set_expiration_time(self,
+    pub fn set_expiration_time(&self,
                                primary_signer: &mut dyn Signer,
                                expiration: Option<time::SystemTime>)
         -> Result<Vec<Packet>>
