@@ -30,6 +30,24 @@ impl std::fmt::Display for KeyHandle {
     }
 }
 
+impl std::fmt::UpperHex for KeyHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match &self {
+            KeyHandle::Fingerprint(ref fpr) => write!(f, "{:X}", fpr),
+            KeyHandle::KeyID(ref keyid) => write!(f, "{:X}", keyid),
+        }
+    }
+}
+
+impl std::fmt::LowerHex for KeyHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match &self {
+            KeyHandle::Fingerprint(ref fpr) => write!(f, "{:x}", fpr),
+            KeyHandle::KeyID(ref keyid) => write!(f, "{:x}", keyid),
+        }
+    }
+}
+
 impl From<KeyID> for KeyHandle {
     fn from(i: KeyID) -> Self {
         KeyHandle::KeyID(i)
@@ -208,4 +226,42 @@ impl KeyHandle {
         self.partial_cmp(other.borrow()).unwrap_or(Ordering::Equal)
             == Ordering::Equal
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn upper_hex_formatting() {
+        let handle = KeyHandle::Fingerprint(Fingerprint::V4([1, 2, 3, 4, 5, 6, 7,
+            8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]));
+        assert_eq!(format!("{:X}", handle), "0102030405060708090A0B0C0D0E0F1011121314");
+
+        let handle = KeyHandle::Fingerprint(Fingerprint::Invalid(Box::new([10, 2, 3, 4])));
+        assert_eq!(format!("{:X}", handle), "0A020304");
+
+        let handle = KeyHandle::KeyID(KeyID::V4([10, 2, 3, 4, 5, 6, 7, 8]));
+        assert_eq!(format!("{:X}", handle), "0A02030405060708");
+
+        let handle = KeyHandle::KeyID(KeyID::Invalid(Box::new([10, 2])));
+        assert_eq!(format!("{:X}", handle), "0A02");
+    }
+
+    #[test]
+    fn lower_hex_formatting() {
+        let handle = KeyHandle::Fingerprint(Fingerprint::V4([1, 2, 3, 4, 5, 6, 7,
+            8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]));
+        assert_eq!(format!("{:x}", handle), "0102030405060708090a0b0c0d0e0f1011121314");
+
+        let handle = KeyHandle::Fingerprint(Fingerprint::Invalid(Box::new([10, 2, 3, 4])));
+        assert_eq!(format!("{:x}", handle), "0a020304");
+
+        let handle = KeyHandle::KeyID(KeyID::V4([10, 2, 3, 4, 5, 6, 7, 8]));
+        assert_eq!(format!("{:x}", handle), "0a02030405060708");
+
+        let handle = KeyHandle::KeyID(KeyID::Invalid(Box::new([10, 2])));
+        assert_eq!(format!("{:x}", handle), "0a02");
+    }
+
 }
