@@ -1073,7 +1073,12 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     oppr: Option<PacketParserResult<'a>>,
     identity: Option<Fingerprint>,
     structure: IMessageStructure,
+
+    /// We want to hold back some data until the signatures checked
+    /// out.  We buffer this here, cursor is the offset of unread
+    /// bytes in the buffer.
     reserve: Option<Vec<u8>>,
+    cursor: usize,
 
     /// Whether or not we shall decrypt (note: Verifier is implemented
     /// using Decryptor).
@@ -1250,6 +1255,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             identity: None,
             structure: IMessageStructure::new(),
             reserve: None,
+            cursor: 0,
             decrypt,
             time: time,
             clock_skew_tolerance: tolerance,
@@ -1396,6 +1402,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             if data_len <= BUFFER_SIZE {
                 // Stash the reserve.
                 self.reserve = Some(pp.steal_eof()?);
+                self.cursor = 0;
 
                 // Process the rest of the packets.
                 let mut ppr = PacketParserResult::Some(pp);
@@ -1634,10 +1641,11 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             // The message has been verified.  We can now drain the
             // reserve.
             assert!(self.oppr.is_none());
-
-            let n = cmp::min(buf.len(), reserve.len());
-            &mut buf[..n].copy_from_slice(&reserve[..n]);
-            crate::vec_drain_prefix(reserve, n);
+            assert!(self.cursor <= reserve.len());
+            let n = cmp::min(buf.len(), reserve.len() - self.cursor);
+            &mut buf[..n]
+                .copy_from_slice(&reserve[self.cursor..n + self.cursor]);
+            self.cursor += n;
             return Ok(n);
         }
 
