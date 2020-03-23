@@ -651,7 +651,11 @@ struct Transformer<'a> {
     state: TransformationState,
     sigs: Vec<Signature>,
     reader: Box<dyn BufferedReader<()> + 'a>,
+
+    /// We need to buffer some data.  This is the buffer, and the
+    /// offset of unread bytes in the buffer.
     buffer: Vec<u8>,
+    cursor: usize,
 }
 
 #[derive(PartialEq, Debug)]
@@ -736,6 +740,7 @@ impl<'a> Transformer<'a> {
             sigs: sigs,
             reader: data,
             buffer: buf,
+            cursor: 0,
         })
     }
 
@@ -743,7 +748,12 @@ impl<'a> Transformer<'a> {
         // Keep track of the bytes written into `buf`.
         let mut bytes_read = 0;
 
-        if self.buffer.is_empty() {
+        if self.cursor >= self.buffer.len() {
+            // We have exhausted the buffered data.  Reset length and
+            // offset.
+            crate::vec_truncate(&mut self.buffer, 0);
+            self.cursor = 0;
+
             self.state = match self.state {
                 TransformationState::Data => {
                     // Find the largest power of two equal or smaller
@@ -824,9 +834,11 @@ impl<'a> Transformer<'a> {
             return Ok(bytes_read);
         }
 
-        let n = cmp::min(buf.len(), self.buffer.len());
-        &mut buf[..n].copy_from_slice(&self.buffer[..n]);
-        crate::vec_drain_prefix(&mut self.buffer, n);
+        assert!(self.cursor <= self.buffer.len());
+        let n = cmp::min(buf.len(), self.buffer.len() - self.cursor);
+        &mut buf[..n]
+            .copy_from_slice(&self.buffer[self.cursor..n + self.cursor]);
+        self.cursor += n;
         Ok(n)
     }
 }
