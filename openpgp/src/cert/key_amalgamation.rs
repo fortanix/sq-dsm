@@ -48,6 +48,7 @@ use crate::{
         ValidAmalgamation,
         ValidateAmalgamation,
     },
+    cert::ValidCert,
     crypto::{hash::Hash, Signer},
     Error,
     Packet,
@@ -194,14 +195,32 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
         }
 
         if let Some(binding_signature) = self.binding_signature(policy, time) {
+            let cert = self.ca.cert();
             let vka = ValidErasedKeyAmalgamation {
                 ka: KeyAmalgamation {
                     ca: key::PublicParts::convert_key_amalgamation(
                         self.ca.mark_parts_unspecified()).expect("to public"),
                     primary: self.primary,
                 },
-                policy: policy,
-                time: time,
+                // We need some black magic to avoid infinite
+                // recursion: a ValidCert must be valid for the
+                // specified policy and reference time.  A ValidCert
+                // is consider valid if the primary key is valid.
+                // ValidCert::with_policy checks that by calling this
+                // function.  So, if we call ValidCert::with_policy
+                // here we'll recurse infinitely.
+                //
+                // But, hope is not lost!  We know that if we get
+                // here, we've already checked that the primary key is
+                // valid (see above), or that we're in the process of
+                // evaluating the primary key's validity and we just
+                // need to check the user's policy.  So, it is safe to
+                // create a ValidCert from scratch.
+                cert: ValidCert {
+                    cert: cert,
+                    policy: policy,
+                    time: time,
+                },
                 binding_signature: binding_signature,
             };
             policy.key(&vka)?;
@@ -211,8 +230,7 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
                         vka.ka.ca.mark_parts_unspecified()).expect("roundtrip"),
                     primary: vka.ka.primary,
                 },
-                policy: policy,
-                time: time,
+                cert: vka.cert,
                 binding_signature: binding_signature,
             })
         } else {
@@ -429,11 +447,15 @@ pub struct ValidKeyAmalgamation<'a, P, R, R2>
           R: 'a + key::KeyRole,
           R2: Copy,
 {
+    // Ouch, ouch, ouch!  ka is a `KeyAmalgamation`, which contains a
+    // reference to a `Cert`.  `cert` is a `ValidCert` and contains a
+    // reference to the same `Cert`!  We do this so that
+    // `ValidKeyAmalgamation` can deref to a `KeyAmalgamation` and
+    // `ValidKeyAmalgamation::cert` can return a `&ValidCert`.
+
     ka: KeyAmalgamation<'a, P, R, R2>,
-    // The policy.
-    policy: &'a dyn Policy,
-    // The reference time.
-    time: SystemTime,
+    cert: ValidCert<'a>,
+
     // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
 }
@@ -471,6 +493,7 @@ impl<'a, P, R, R2> From<ValidKeyAmalgamation<'a, P, R, R2>>
           R2: Copy,
 {
     fn from(vka: ValidKeyAmalgamation<'a, P, R, R2>) -> Self {
+        assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
         vka.ka
     }
 }
@@ -479,10 +502,10 @@ impl<'a, P: 'a + key::KeyParts> From<ValidPrimaryKeyAmalgamation<'a, P>>
     for ValidErasedKeyAmalgamation<'a, P>
 {
     fn from(vka: ValidPrimaryKeyAmalgamation<'a, P>) -> Self {
+        assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
         ValidErasedKeyAmalgamation {
             ka: vka.ka.into(),
-            time: vka.time,
-            policy: vka.policy,
+            cert: vka.cert,
             binding_signature: vka.binding_signature,
         }
     }
@@ -492,10 +515,10 @@ impl<'a, P: 'a + key::KeyParts> From<ValidSubordinateKeyAmalgamation<'a, P>>
     for ValidErasedKeyAmalgamation<'a, P>
 {
     fn from(vka: ValidSubordinateKeyAmalgamation<'a, P>) -> Self {
+        assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
         ValidErasedKeyAmalgamation {
             ka: vka.ka.into(),
-            time: vka.time,
-            policy: vka.policy,
+            cert: vka.cert,
             binding_signature: vka.binding_signature,
         }
     }
@@ -509,10 +532,10 @@ macro_rules! impl_conversion {
             for ValidErasedKeyAmalgamation<'a, $p2>
         {
             fn from(vka: $s<'a, $p1>) -> Self {
+                assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
                 ValidErasedKeyAmalgamation {
                     ka: vka.ka.into(),
-                    time: vka.time,
-                    policy: vka.policy,
+                    cert: vka.cert,
                     binding_signature: vka.binding_signature,
                 }
             }
@@ -547,10 +570,10 @@ impl<'a, P, P2> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
     type Error = anyhow::Error;
 
     fn try_from(vka: ValidErasedKeyAmalgamation<'a, P>) -> Result<Self> {
+        assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
         Ok(ValidPrimaryKeyAmalgamation {
             ka: vka.ka.try_into()?,
-            time: vka.time,
-            policy: vka.policy,
+            cert: vka.cert,
             binding_signature: vka.binding_signature,
         })
     }
@@ -566,8 +589,7 @@ impl<'a, P, P2> TryFrom<ValidErasedKeyAmalgamation<'a, P>>
     fn try_from(vka: ValidErasedKeyAmalgamation<'a, P>) -> Result<Self> {
         Ok(ValidSubordinateKeyAmalgamation {
             ka: vka.ka.try_into()?,
-            time: vka.time,
-            policy: vka.policy,
+            cert: vka.cert,
             binding_signature: vka.binding_signature,
         })
     }
@@ -584,7 +606,12 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::PrimaryRole>>
         where T: Into<Option<time::SystemTime>>,
               Self: Sized
     {
+        assert!(std::ptr::eq(self.ka.cert(), self.cert.cert()));
         self.ka.with_policy(policy, time)
+            .map(|vka| {
+                assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
+                vka
+            })
     }
 }
 
@@ -598,7 +625,12 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::SubordinateRole>>
         where T: Into<Option<time::SystemTime>>,
               Self: Sized
     {
+        assert!(std::ptr::eq(self.ka.cert(), self.cert.cert()));
         self.ka.with_policy(policy, time)
+            .map(|vka| {
+                assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
+                vka
+            })
     }
 }
 
@@ -613,7 +645,12 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
         where T: Into<Option<time::SystemTime>>,
               Self: Sized
     {
+        assert!(std::ptr::eq(self.ka.cert(), self.cert.cert()));
         self.ka.with_policy(policy, time)
+            .map(|vka| {
+                assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
+                vka
+            })
     }
 }
 
@@ -626,15 +663,17 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
           Self: Primary<'a, P, R>,
 {
     fn cert(&self) -> &'a Cert {
+        assert!(std::ptr::eq(self.ka.cert(), self.cert.cert()));
         self.ka.cert()
     }
 
     fn time(&self) -> SystemTime {
-        self.time
+        self.cert.time()
     }
 
     fn policy(&self) -> &'a dyn Policy {
-        self.policy
+        assert!(std::ptr::eq(self.ka.cert(), self.cert.cert()));
+        self.cert.policy()
     }
 
     fn binding_signature(&self) -> &'a Signature {
@@ -642,14 +681,14 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
     }
 
     fn direct_key_signature(&self) -> Option<&'a Signature> {
-        self.cert().primary.binding_signature(self.policy, self.time())
+        self.cert().primary.binding_signature(self.policy(), self.time())
     }
 
     fn revoked(&self) -> RevocationStatus<'a> {
         if self.primary() {
-            self.cert().revoked(self.policy, self.time())
+            self.cert().revoked(self.policy(), self.time())
         } else {
-            self.bundle()._revoked(self.policy, self.time(),
+            self.bundle()._revoked(self.policy(), self.time(),
                                    true, Some(self.binding_signature))
         }
     }
