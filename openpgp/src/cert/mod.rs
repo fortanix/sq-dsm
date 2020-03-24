@@ -1393,14 +1393,14 @@ impl<'a> ValidCert<'a> {
     /// Changes the amalgamation's policy.
     ///
     /// If `time` is `None`, the current time is used.
-    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T) -> Self
+    ///
+    /// Returns an error if the certificate is not valid for the given
+    /// policy at the given time.
+    pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
+        -> Result<ValidCert<'a>>
         where T: Into<Option<time::SystemTime>>,
     {
-        ValidCert {
-            cert: self.cert,
-            policy,
-            time: time.into().unwrap_or_else(time::SystemTime::now),
-        }
+        self.cert.with_policy(policy, time)
     }
 
     /// Returns the Cert's revocation status.
