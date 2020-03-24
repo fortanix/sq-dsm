@@ -1378,6 +1378,11 @@ impl<'a> std::ops::Deref for ValidCert<'a> {
 }
 
 impl<'a> ValidCert<'a> {
+    /// Returns the certificate.
+    pub fn cert(&self) -> &'a Cert {
+        self.cert
+    }
+
     /// Returns the amalgamation's reference time.
     ///
     /// For queries that are with respect to a point in time, this
