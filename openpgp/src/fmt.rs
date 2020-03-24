@@ -27,6 +27,12 @@ pub mod hex {
         super::from_hex(hex.as_ref(), true)
     }
 
+    /// Dumps binary data, like `hd(1)`.
+    pub fn dump<W: io::Write, B: AsRef<[u8]>>(sink: W, data: B)
+                                              -> io::Result<()> {
+        Dumper::new(sink, "").write_ascii(data)
+    }
+
     /// Writes annotated hex dumps, like hd(1).
     ///
     /// # Example
@@ -91,7 +97,7 @@ pub mod hex {
 
         /// Writes a chunk of data with ASCII-representation.
         ///
-        /// This produces output similar to `hexdump(1)`.
+        /// This produces output similar to `hd(1)`.
         pub fn write_ascii<B>(&mut self, buf: B) -> io::Result<()>
             where B: AsRef<[u8]>,
         {
