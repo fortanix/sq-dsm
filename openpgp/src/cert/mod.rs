@@ -1361,6 +1361,7 @@ impl Cert {
 }
 
 /// A certificate under a given policy at a given time.
+#[derive(Debug, Clone)]
 pub struct ValidCert<'a> {
     cert: &'a Cert,
     policy: &'a dyn Policy,
