@@ -1430,7 +1430,7 @@ impl<'a> ValidCert<'a> {
     ///
     /// Note: this only returns whether this Cert is revoked; it does
     /// not imply anything about the Cert or other components.
-    pub fn revoked(&self) -> RevocationStatus {
+    pub fn revoked(&self) -> RevocationStatus<'a> {
         self.cert.revoked(self.policy, self.time)
     }
 
