@@ -1377,6 +1377,12 @@ impl<'a> std::ops::Deref for ValidCert<'a> {
     }
 }
 
+impl<'a> fmt::Display for ValidCert<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.fingerprint())
+    }
+}
+
 impl<'a> ValidCert<'a> {
     /// Returns the certificate.
     pub fn cert(&self) -> &'a Cert {
