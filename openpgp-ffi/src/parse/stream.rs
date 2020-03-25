@@ -201,7 +201,7 @@ fn pgp_verification_result_good_checksum<'a>(
             *unsafe { p.as_mut() } = sig.move_into_raw();
         }
         if let Some(mut p) = cert_r {
-            *unsafe { p.as_mut() } = ka.cert().move_into_raw();
+            *unsafe { p.as_mut() } = ka.cert().cert().move_into_raw();
         }
         if let Some(mut p) = key_r {
             *unsafe { p.as_mut() } = {
@@ -329,7 +329,7 @@ fn $fn_name<'a>(
             *unsafe { p.as_mut() } = sig.move_into_raw();
         }
         if let Some(mut p) = cert_r {
-            *unsafe { p.as_mut() } = ka.cert().move_into_raw();
+            *unsafe { p.as_mut() } = ka.cert().cert().move_into_raw();
         }
         if let Some(mut p) = key_r {
             *unsafe { p.as_mut() } = {

@@ -662,9 +662,9 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
           R2: Copy,
           Self: Primary<'a, P, R>,
 {
-    fn cert(&self) -> &'a Cert {
+    fn cert(&self) -> &ValidCert<'a> {
         assert!(std::ptr::eq(self.ka.cert(), self.cert.cert()));
-        self.ka.cert()
+        &self.cert
     }
 
     fn time(&self) -> SystemTime {
@@ -681,12 +681,12 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
     }
 
     fn direct_key_signature(&self) -> Option<&'a Signature> {
-        self.cert().primary.binding_signature(self.policy(), self.time())
+        self.cert.cert.primary.binding_signature(self.policy(), self.time())
     }
 
     fn revoked(&self) -> RevocationStatus<'a> {
         if self.primary() {
-            self.cert().revoked(self.policy(), self.time())
+            self.cert.revoked()
         } else {
             self.bundle()._revoked(self.policy(), self.time(),
                                    true, Some(self.binding_signature))
@@ -825,7 +825,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                     | SignatureType::PersonaCertification
                     | SignatureType::CasualCertification
                     | SignatureType::PositiveCertification =>
-                    self.cert().primary_userid(self.policy(), self.time())
+                    self.cert.primary_userid()
                     .expect("this type must be from a userid binding, \
                              hence there must be a userid valid at `now`")
                     .userid().hash(&mut hash),

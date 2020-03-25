@@ -64,7 +64,7 @@ pub trait ValidateAmalgamation<'a, C: 'a> {
 pub trait ValidAmalgamation<'a, C: 'a>
 {
     /// Returns the certificate.
-    fn cert(&self) -> &'a Cert;
+    fn cert(&self) -> &ValidCert<'a>;
 
     /// Returns the amalgamation's reference time.
     ///
@@ -97,13 +97,13 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// Returns the certificate's revocation status as of the
     /// amalgamation's reference time.
     fn cert_revoked(&self) -> RevocationStatus<'a> {
-        self.cert().revoked(self.policy(), self.time())
+        self.cert().revoked()
     }
 
     /// Returns whether the certificate is alive as of the
     /// amalgamation's reference time.
     fn cert_alive(&self) -> Result<()> {
-        self.cert().alive(self.policy(), self.time())
+        self.cert().alive()
     }
 
     /// Maps the given function over binding and direct key signature.
@@ -584,9 +584,9 @@ impl<'a, C> ValidateAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
 }
 
 impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
-    fn cert(&self) -> &'a Cert {
+    fn cert(&self) -> &ValidCert<'a> {
         assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
-        self.ca.cert()
+        &self.cert
     }
 
     /// Returns the amalgamation's reference time.
