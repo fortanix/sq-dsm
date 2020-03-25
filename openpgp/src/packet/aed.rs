@@ -89,10 +89,10 @@ impl AED1 {
 
         Ok(AED1 {
             common: Default::default(),
-            sym_algo: sym_algo,
-            aead: aead,
-            chunk_size: chunk_size,
-            iv: iv,
+            sym_algo,
+            aead,
+            chunk_size,
+            iv,
             container: Default::default(),
         })
     }

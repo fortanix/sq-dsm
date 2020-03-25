@@ -443,7 +443,7 @@ impl VHelper {
         VHelper {
             get_public_keys_cb: get_public_keys,
             check_signatures_cb: check_signatures,
-            cookie: cookie,
+            cookie,
         }
     }
 }

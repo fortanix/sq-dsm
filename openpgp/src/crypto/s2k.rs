@@ -64,7 +64,7 @@ impl Default for S2K {
             // SHA2-512.  Furthermore, the digest size is large enough
             // for every cipher algorithm currently in use.
             hash: HashAlgorithm::SHA256,
-            salt: salt,
+            salt,
             // This is the largest count that OpenPGP can represent.
             // On moderate machines, like my Intel(R) Core(TM) i5-2400
             // CPU @ 3.10GHz, it takes ~354ms to derive a key.

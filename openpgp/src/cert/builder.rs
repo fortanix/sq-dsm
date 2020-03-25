@@ -249,7 +249,7 @@ impl CertBuilder {
               C: Into<Option<CipherSuite>>,
     {
         self.subkeys.push(KeyBlueprint {
-            flags: flags,
+            flags,
             expiration: expiration.into(),
             ciphersuite: cs.into(),
         });

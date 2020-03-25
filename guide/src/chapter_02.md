@@ -93,7 +93,7 @@ fn main() {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
 #     let helper = Helper {
-#         policy: policy,
+#         policy,
 #         secret: recipient,
 #     };
 #
@@ -244,7 +244,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
 #     let helper = Helper {
-#         policy: policy,
+#         policy,
 #         secret: recipient,
 #     };
 #
@@ -395,7 +395,7 @@ fn encrypt(policy: &dyn Policy,
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
 #     let helper = Helper {
-#         policy: policy,
+#         policy,
 #         secret: recipient,
 #     };
 #
@@ -560,7 +560,7 @@ fn decrypt(policy: &dyn Policy,
     // Make a helper that that feeds the recipient's secret key to the
     // decryptor.
     let helper = Helper {
-        policy: policy,
+        policy,
         secret: recipient,
     };
 

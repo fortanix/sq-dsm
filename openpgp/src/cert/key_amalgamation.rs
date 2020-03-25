@@ -221,7 +221,7 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
                     policy: policy,
                     time: time,
                 },
-                binding_signature: binding_signature,
+                binding_signature
             };
             policy.key(&vka)?;
             Ok(ValidErasedKeyAmalgamation {
@@ -231,7 +231,7 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
                     primary: vka.ka.primary,
                 },
                 cert: vka.cert,
-                binding_signature: binding_signature,
+                binding_signature,
             })
         } else {
             Err(Error::NoBindingSignature(time).into())

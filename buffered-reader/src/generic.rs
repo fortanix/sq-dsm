@@ -68,7 +68,7 @@ impl<T: io::Read, C> Generic<T, C> {
                 if let Some(s) = preferred_chunk_size { s }
                 else { DEFAULT_BUF_SIZE },
             reader: Box::new(reader),
-            cookie: cookie,
+            cookie,
         }
     }
 

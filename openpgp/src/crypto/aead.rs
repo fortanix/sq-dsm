@@ -133,9 +133,9 @@ impl<'a> Decryptor<'a> {
         -> Result<Self>
     {
         Ok(Decryptor {
-            source: source,
-            sym_algo: sym_algo,
-            aead: aead,
+            source,
+            sym_algo,
+            aead,
             key: key.clone(),
             iv: Vec::from(iv).into_boxed_slice(),
             ad: [
@@ -148,7 +148,7 @@ impl<'a> Decryptor<'a> {
                 0, 0, 0, 0, 0, 0, 0, 0,
             ],
             digest_size: aead.digest_size()?,
-            chunk_size: chunk_size,
+            chunk_size,
             chunk_index: 0,
             bytes_decrypted: 0,
             buffer: Vec::with_capacity(chunk_size),
@@ -551,8 +551,8 @@ impl<W: io::Write> Encryptor<W> {
 
         Ok(Encryptor {
             inner: Some(sink),
-            sym_algo: sym_algo,
-            aead: aead,
+            sym_algo,
+            aead,
             key: key.clone(),
             iv: Vec::from(iv).into_boxed_slice(),
             ad: [
@@ -565,11 +565,11 @@ impl<W: io::Write> Encryptor<W> {
                 0, 0, 0, 0, 0, 0, 0, 0,
             ],
             digest_size: aead.digest_size()?,
-            chunk_size: chunk_size,
+            chunk_size,
             chunk_index: 0,
             bytes_encrypted: 0,
             buffer: Vec::with_capacity(chunk_size),
-            scratch: scratch,
+            scratch,
         })
     }
 

@@ -64,7 +64,7 @@ impl Cookie {
     pub(crate) // For padding.rs
     fn new(level: usize) -> Self {
         Cookie {
-            level: level,
+            level,
             private: Private::Nothing,
         }
     }
@@ -290,7 +290,7 @@ impl<'a> Signer<'a> {
             creation_time: None,
             hash: HashAlgorithm::default().context().unwrap(),
             cookie: Cookie {
-                level: level,
+                level,
                 private: Private::Signer,
             },
             position: 0,
@@ -1131,7 +1131,7 @@ impl<'a> Encryptor<'a> {
             let mut nonce = vec![0; algo.iv_size()?];
             crypto::random(&mut nonce);
             Some(AEADParameters {
-                algo: algo,
+                algo,
                 chunk_size: Self::AEAD_CHUNK_SIZE,
                 nonce: nonce.into_boxed_slice(),
             })

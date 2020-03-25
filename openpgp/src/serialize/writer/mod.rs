@@ -216,7 +216,7 @@ impl<'a, C: 'a> Identity<'a, C> {
     /// Makes an identity writer.
     pub fn new(inner: Stack<'a, C>, cookie: C)
                   -> Stack<'a, C> {
-        Stack::from(Box::new(Self{inner: Some(inner.into()), cookie: cookie}))
+        Stack::from(Box::new(Self{inner: Some(inner.into()), cookie }))
     }
 }
 
@@ -300,8 +300,8 @@ impl<'a, W: 'a + io::Write, C: 'a> Generic<W, C> {
 
     fn new_unboxed(inner: W, cookie: C) -> Self {
         Generic {
-            inner: inner,
-            cookie: cookie,
+            inner,
+            cookie,
             position: 0,
         }
     }

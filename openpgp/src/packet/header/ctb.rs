@@ -41,7 +41,7 @@ impl CTBNew {
     pub fn new(tag: Tag) -> Self {
         CTBNew {
             common: CTBCommon {
-                tag: tag,
+                tag,
             },
         }
     }
@@ -153,9 +153,9 @@ impl CTBOld {
         };
         Ok(CTBOld {
             common: CTBCommon {
-                tag: tag,
+                tag,
             },
-            length_type: length_type,
+            length_type,
         })
     }
 

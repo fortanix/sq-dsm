@@ -124,9 +124,9 @@ impl mpis::PublicKey {
 
                 Ok(mpis::PublicKey::ECDH {
                     curve: Curve::from_oid(&curve),
-                    q: q,
-                    hash: hash,
-                    sym: sym
+                    q,
+                    hash,
+                    sym
                 })
             }
 

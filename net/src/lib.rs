@@ -151,7 +151,7 @@ impl KeyServer {
                         _ => unreachable!(),
                     }.unwrap()).parse()?;
 
-        Ok(KeyServer{client: client, uri: uri})
+        Ok(KeyServer{client, uri})
     }
 
     /// Retrieves the key with the given `keyid`.

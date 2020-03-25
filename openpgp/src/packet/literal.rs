@@ -96,7 +96,7 @@ impl Literal {
     pub fn new(format: DataFormat) -> Literal {
         Literal {
             common: Default::default(),
-            format: format,
+            format,
             filename: None,
             date: None,
             container: packet::Container::default_unprocessed(),

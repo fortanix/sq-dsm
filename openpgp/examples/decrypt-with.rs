@@ -71,7 +71,7 @@ impl Helper {
         }
 
         Helper {
-            keys: keys,
+            keys,
         }
     }
 }

@@ -1364,7 +1364,7 @@ impl Cert {
         Ok(ValidCert {
             cert: self,
             policy,
-            time: time,
+            time,
         })
     }
 }

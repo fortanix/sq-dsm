@@ -186,7 +186,7 @@ impl<W: Write> Writer<W> {
     pub fn new(inner: W, kind: Kind, headers: &[(&str, &str)]) -> Result<Self> {
         let mut w = Writer {
             sink: Some(inner),
-            kind: kind,
+            kind,
             stash: Vec::<u8>::with_capacity(2),
             column: 0,
             crc: CRC::new(),
@@ -562,7 +562,7 @@ impl<'a> Reader<'a> {
         Reader {
             source: Box::new(buffered_reader::Generic::new(inner, None)),
             kind: None,
-            mode: mode,
+            mode,
             buffer: Vec::<u8>::with_capacity(1024),
             crc: CRC::new(),
             expect_crc: None,

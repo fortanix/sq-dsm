@@ -90,7 +90,7 @@ impl Features {
         };
 
         Features{
-            mdc: mdc, aead: aead, unknown: unk, pad_to,
+            mdc, aead, unknown: unk, pad_to,
         }
     }
 

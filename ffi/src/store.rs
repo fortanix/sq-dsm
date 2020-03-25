@@ -165,8 +165,8 @@ fn sq_log_iter_next(iter: *mut LogIter) -> *mut Log {
                 binding: maybe_box_raw!(e.binding),
                 key: maybe_box_raw!(e.key),
                 slug: ffi_return_string!(&e.slug),
-                status: status,
-                error: error,
+                status,
+                error,
             })
         },
         None => ptr::null_mut(),

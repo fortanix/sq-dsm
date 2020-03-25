@@ -63,8 +63,8 @@ impl PKESK3 {
                -> Result<PKESK3> {
         Ok(PKESK3 {
             common: Default::default(),
-            recipient: recipient,
-            pk_algo: pk_algo,
+            recipient,
+            pk_algo,
             esk: encrypted_session_key,
         })
     }
@@ -97,7 +97,7 @@ impl PKESK3 {
             common: Default::default(),
             recipient: recipient.keyid(),
             pk_algo: recipient.pk_algo(),
-            esk: esk,
+            esk,
         })
     }
 

@@ -66,7 +66,7 @@ pub mod hex {
         /// `indent`.
         pub fn new<I: AsRef<str>>(inner: W, indent: I) -> Self {
             Dumper {
-                inner: inner,
+                inner,
                 indent: indent.as_ref().into(),
                 offset: 0,
             }

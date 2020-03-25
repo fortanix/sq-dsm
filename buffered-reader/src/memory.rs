@@ -52,9 +52,9 @@ impl<'a, C> Memory<'a, C> {
     /// `cookie_mut` methods, and set using the `cookie_set` method.
     pub fn with_cookie(buffer: &'a [u8], cookie: C) -> Self {
         Memory {
-            buffer: buffer,
+            buffer,
             cursor: 0,
-            cookie: cookie,
+            cookie,
         }
     }
 

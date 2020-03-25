@@ -59,7 +59,7 @@ impl<'a, C> ComponentIter<'a, C> {
             cert: self.cert,
             iter: self.iter,
             time: time.into().unwrap_or_else(SystemTime::now),
-            policy: policy,
+            policy,
             revoked: None,
         }
     }

@@ -74,13 +74,13 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
     pub fn with_cookie(reader: T, partial_body_length: u32,
                        hash_headers: bool, cookie: Cookie) -> Self {
         BufferedReaderPartialBodyFilter {
-            reader: reader,
-            partial_body_length: partial_body_length,
+            reader,
+            partial_body_length,
             last: false,
             buffer: None,
             cursor: 0,
-            cookie: cookie,
-            hash_headers: hash_headers,
+            cookie,
+            hash_headers,
         }
     }
 

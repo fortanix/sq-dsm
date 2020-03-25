@@ -183,7 +183,7 @@ impl<'a> MessageStructure<'a> {
 
     fn new_compression_layer(&mut self, algo: CompressionAlgorithm) {
         self.0.push(MessageLayer::Compression {
-            algo: algo,
+            algo,
         })
     }
 
@@ -309,7 +309,7 @@ impl IMessageStructure {
     fn new_compression_layer(&mut self, algo: CompressionAlgorithm) {
         self.insert_missing_signature_group();
         self.layers.push(IMessageLayer::Compression {
-            algo: algo,
+            algo,
         });
     }
 
@@ -1075,7 +1075,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             .map(helper.mapping()).finalize()?;
 
         let mut v = Decryptor {
-            helper: helper,
+            helper,
             certs: Vec::new(),
             oppr: None,
             identity: None,
@@ -1083,9 +1083,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             reserve: None,
             cursor: 0,
             mode,
-            time: time,
+            time,
             clock_skew_tolerance: tolerance,
-            policy: policy,
+            policy,
         };
 
         let mut issuers = Vec::new();
@@ -1602,11 +1602,11 @@ mod test {
     impl VHelper {
         fn new(good: usize, unknown: usize, bad: usize, error: usize, keys: Vec<Cert>) -> Self {
             VHelper {
-                good: good,
-                unknown: unknown,
-                bad: bad,
-                error: error,
-                keys: keys,
+                good,
+                unknown,
+                bad,
+                error,
+                keys,
             }
         }
     }

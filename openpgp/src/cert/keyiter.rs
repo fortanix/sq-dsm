@@ -416,7 +416,7 @@ impl<'a, P, R> KeyIter<'a, P, R>
             primary: self.primary,
             subkey_iter: self.subkey_iter,
 
-            policy: policy,
+            policy,
             time: time.into().unwrap_or_else(SystemTime::now),
 
             // The filters.

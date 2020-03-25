@@ -45,8 +45,8 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
         cookie.hashes_for = hashes_for;
 
         HashedReader {
-            reader: reader,
-            cookie: cookie,
+            reader,
+            cookie,
         }
     }
 }

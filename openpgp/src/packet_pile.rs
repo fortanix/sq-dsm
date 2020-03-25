@@ -385,7 +385,7 @@ impl PacketPile {
             }
         }
 
-        return Ok(PacketPile { top_level: top_level });
+        return Ok(PacketPile { top_level });
     }
 }
 

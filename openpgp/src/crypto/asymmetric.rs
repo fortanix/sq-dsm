@@ -73,8 +73,8 @@ impl KeyPair {
         -> Result<Self>
     {
         Ok(Self {
-            public: public,
-            secret: secret,
+            public,
+            secret,
         })
     }
 

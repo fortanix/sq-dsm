@@ -37,7 +37,7 @@ impl Map {
     /// Adds a field to the map.
     pub(crate) fn add(&mut self, field: &'static str, length: usize) {
         self.entries.push(Entry {
-            offset: self.length, length: length, field: field
+            offset: self.length, length, field
         });
         self.length += length;
     }

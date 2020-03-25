@@ -95,7 +95,7 @@ impl Builder {
     pub fn new(typ: SignatureType) ->  Self {
         Builder {
             version: 4,
-            typ: typ,
+            typ,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             hash_algo: HashAlgorithm::default(),
             subpackets: SubpacketAreas::default(),
@@ -333,9 +333,9 @@ impl Builder {
 
         Ok(Signature4 {
             common: Default::default(),
-            fields: fields,
+            fields,
             digest_prefix: [digest[0], digest[1]],
-            mpis: mpis,
+            mpis,
             computed_digest: Some(digest),
             level: 0,
         }.into())
@@ -493,13 +493,13 @@ impl Signature4 {
             common: Default::default(),
             fields: Builder {
                 version: 4,
-                typ: typ,
-                pk_algo: pk_algo,
-                hash_algo: hash_algo,
+                typ,
+                pk_algo,
+                hash_algo,
                 subpackets: SubpacketAreas::new(hashed_area, unhashed_area),
             },
-            digest_prefix: digest_prefix,
-            mpis: mpis,
+            digest_prefix,
+            mpis,
             computed_digest: None,
             level: 0,
         }

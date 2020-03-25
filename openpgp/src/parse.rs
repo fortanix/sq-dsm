@@ -414,10 +414,10 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
 
         Ok(PacketParser {
             header: self.header,
-            packet: packet,
+            packet,
             path: self.path,
             last_path: vec![],
-            reader: reader,
+            reader,
             content_was_read: false,
             decrypted: true,
             finished: false,

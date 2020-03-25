@@ -45,9 +45,9 @@ impl<T: BufferedReader<C>, C> Limitor<T, C> {
     pub fn with_cookie(reader: T, limit: u64, cookie: C)
             -> Limitor<T, C> {
         Limitor {
-            reader: reader,
-            limit: limit,
-            cookie: cookie,
+            reader,
+            limit,
+            cookie,
         }
     }
 }

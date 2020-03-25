@@ -101,7 +101,7 @@ impl<'a> Encoder<'a> {
     /// Returns a new Encoder to enarmor and serialize a `Cert`.
     fn new(cert: &'a Cert) -> Self {
         Self {
-            cert: cert,
+            cert,
         }
     }
 

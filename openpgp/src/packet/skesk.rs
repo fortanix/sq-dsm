@@ -103,7 +103,7 @@ impl SKESK4 {
             common: Default::default(),
             version: 4,
             sym_algo: cipher,
-            s2k: s2k,
+            s2k,
             esk: esk.and_then(|esk| {
                 if esk.len() == 0 { None } else { Some(esk) }
             }),
@@ -287,7 +287,7 @@ impl SKESK5 {
                 common: Default::default(),
                 version: 5,
                 sym_algo: cipher,
-                s2k: s2k,
+                s2k,
                 esk: Some(esk),
             },
             aead_algo: aead,

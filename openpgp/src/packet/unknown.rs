@@ -60,8 +60,8 @@ impl Unknown {
     pub fn new(tag: Tag, error: anyhow::Error) -> Self {
         Unknown {
             common: Default::default(),
-            tag: tag,
-            error: error,
+            tag,
+            error,
             container: packet::Container::default_unprocessed(),
         }
     }

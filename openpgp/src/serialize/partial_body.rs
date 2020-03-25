@@ -73,10 +73,10 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
 
         Ok(writer::Stack::from(Box::new(PartialBodyFilter {
             inner: Some(inner.into()),
-            cookie: cookie,
+            cookie,
             buffer: Vec::with_capacity(buffer_threshold),
-            buffer_threshold: buffer_threshold,
-            max_chunk_size: max_chunk_size,
+            buffer_threshold,
+            max_chunk_size,
             position: 0,
         })))
     }

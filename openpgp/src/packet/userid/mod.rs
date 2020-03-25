@@ -359,10 +359,10 @@ impl ConventionallyParsedUserID {
                 let email = Some(to_range(email));
 
                 Ok(ConventionallyParsedUserID {
-                    userid: userid,
+                    userid,
                     name: None,
                     comment: None,
-                    email: email,
+                    email,
                     uri: None,
                 })
             } else if let Some(uri) = cap.name("raw_uri") {
@@ -370,11 +370,11 @@ impl ConventionallyParsedUserID {
                 let uri = Some(to_range(uri));
 
                 Ok(ConventionallyParsedUserID {
-                    userid: userid,
+                    userid,
                     name: None,
                     comment: None,
                     email: None,
-                    uri: uri,
+                    uri,
                 })
             } else if let Some(email) = cap.name("wrapped_addr_spec") {
                 // wrapped-addr-spec
@@ -383,10 +383,10 @@ impl ConventionallyParsedUserID {
                 let email = Some(to_range(email));
 
                 Ok(ConventionallyParsedUserID {
-                    userid: userid,
-                    name: name,
-                    comment: comment,
-                    email: email,
+                    userid,
+                    name,
+                    comment,
+                    email,
                     uri: None,
                 })
             } else if let Some(uri) = cap.name("wrapped_uri") {
@@ -396,11 +396,11 @@ impl ConventionallyParsedUserID {
                 let uri = Some(to_range(uri));
 
                 Ok(ConventionallyParsedUserID {
-                    userid: userid,
-                    name: name,
-                    comment: comment,
+                    userid,
+                    name,
+                    comment,
                     email: None,
-                    uri: uri,
+                    uri,
                 })
             } else if let Some(name) = cap.name("bare_name") {
                 // name-bare
@@ -408,9 +408,9 @@ impl ConventionallyParsedUserID {
                 let comment = cap.name("bare_comment").map(to_range);
 
                 Ok(ConventionallyParsedUserID {
-                    userid: userid,
+                    userid,
                     name: Some(name),
-                    comment: comment,
+                    comment,
                     email: None,
                     uri: None,
                 })

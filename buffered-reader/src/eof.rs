@@ -35,7 +35,7 @@ impl<C> EOF<C> {
     /// Instantiates a new `EOF` with a cookie.
     pub fn with_cookie(cookie: C) -> Self {
         EOF {
-            cookie: cookie,
+            cookie,
         }
     }
 }

@@ -1157,7 +1157,7 @@ mod test {
                 VHelper {
                     good: 0,
                     errors: 0,
-                    keys: keys,
+                    keys,
                 }
             }
         }
@@ -1622,7 +1622,7 @@ mod test {
                 VHelper {
                     good: 0,
                     errors: 0,
-                    keys: keys,
+                    keys,
                 }
             }
         }

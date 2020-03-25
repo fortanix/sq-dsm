@@ -79,7 +79,7 @@ impl OnePassSig3 {
     pub fn new(typ: SignatureType) ->  Self {
         OnePassSig3 {
             common: Default::default(),
-            typ: typ,
+            typ,
             hash_algo: HashAlgorithm::Unknown(0),
             pk_algo: PublicKeyAlgorithm::Unknown(0),
             issuer: KeyID::new(0),
@@ -176,7 +176,7 @@ impl<'a> std::convert::TryFrom<&'a Signature> for OnePassSig3 {
             typ: s.typ(),
             hash_algo: s.hash_algo(),
             pk_algo: s.pk_algo(),
-            issuer: issuer,
+            issuer,
             last: 0,
         })
     }

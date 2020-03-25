@@ -323,7 +323,7 @@ impl<'a> TSK<'a> {
     /// Creates a new view for the given `Cert`.
     fn new(cert: &'a Cert) -> Self {
         Self {
-            cert: cert,
+            cert,
             filter: None,
         }
     }

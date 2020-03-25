@@ -167,9 +167,9 @@ impl HashDumper {
         };
         eprintln!("HashDumper: Writing to {}...", &filename);
         HashDumper {
-            h: h,
-            sink: sink,
-            filename: filename,
+            h,
+            sink,
+            filename,
             written: 0,
         }
     }

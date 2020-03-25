@@ -909,8 +909,8 @@ impl<R> Key4<key::PublicParts, R>
         Ok(Key4 {
             common: Default::default(),
             creation_time: creation_time.into().try_into()?,
-            pk_algo: pk_algo,
-            mpis: mpis,
+            pk_algo,
+            mpis,
             secret: None,
             p: std::marker::PhantomData,
             r: std::marker::PhantomData,
@@ -998,8 +998,8 @@ impl<R> Key4<SecretParts, R>
         Ok(Key4 {
             common: Default::default(),
             creation_time: creation_time.into().try_into()?,
-            pk_algo: pk_algo,
-            mpis: mpis,
+            pk_algo,
+            mpis,
             secret: Some(secret),
             p: std::marker::PhantomData,
             r: std::marker::PhantomData,
@@ -1213,7 +1213,7 @@ impl<R> Key4<SecretParts, R>
                 };
                 let (pub_x, pub_y) = public.as_bytes();
                 let public_mpis =  mpis::PublicKey::ECDSA{
-                    curve: curve,
+                    curve,
                     q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
                 };
                 let private_mpis = mpis::SecretKeyMaterial::ECDSA{
@@ -1250,9 +1250,9 @@ impl<R> Key4<SecretParts, R>
                     let public = ecdh::point_mul_g(&private);
                     let (pub_x, pub_y) = public.as_bytes();
                     let public_mpis = mpis::PublicKey::ECDH{
-                        curve: curve,
+                        curve,
                         q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
-                        hash: hash,
+                        hash,
                         sym: SymmetricAlgorithm::AES256,
                     };
                     let private_mpis = mpis::SecretKeyMaterial::ECDH{

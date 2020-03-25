@@ -1572,8 +1572,8 @@ impl SubpacketAreas {
     pub fn new(hashed_area: SubpacketArea,
                unhashed_area: SubpacketArea) ->  Self {
         Self {
-            hashed_area: hashed_area,
-            unhashed_area: unhashed_area,
+            hashed_area,
+            unhashed_area,
         }
     }
 
@@ -1959,8 +1959,8 @@ impl signature::Builder {
                                -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::TrustSignature {
-                level: level,
-                trust: trust,
+                level,
+                trust,
             },
             true)?)?;
 
@@ -2244,7 +2244,7 @@ impl signature::Builder {
     {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::ReasonForRevocation {
-                code: code,
+                code,
                 reason: reason.as_ref().to_vec(),
             },
             false)?)?;
@@ -2274,8 +2274,8 @@ impl signature::Builder {
     {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::SignatureTarget {
-                pk_algo: pk_algo,
-                hash_algo: hash_algo,
+                pk_algo,
+                hash_algo,
                 digest: digest.as_ref().to_vec(),
             },
             true)?)?;

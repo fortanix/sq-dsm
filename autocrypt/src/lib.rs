@@ -272,7 +272,7 @@ impl AutocryptHeaders {
                         } else {
                             key
                         },
-                        value: value,
+                        value,
                     });
                 }
 
@@ -346,7 +346,7 @@ impl AutocryptSetupMessage {
             passcode: None,
             passcode_format: None,
             passcode_begin: None,
-            cert: cert,
+            cert,
         }
     }
 
@@ -769,7 +769,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
             passcode: self.passcode,
             passcode_format: self.passcode_format,
             passcode_begin: self.passcode_begin,
-            cert: cert,
+            cert,
         })
     }
 }

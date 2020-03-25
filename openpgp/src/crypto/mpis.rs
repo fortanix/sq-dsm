@@ -49,7 +49,7 @@ impl MPI {
         let value = Vec::from(&value[offset..]).into_boxed_slice();
 
         MPI {
-            value: value,
+            value,
         }
     }
 

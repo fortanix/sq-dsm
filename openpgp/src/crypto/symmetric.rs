@@ -147,9 +147,9 @@ impl<R: io::Read> Decryptor<R> {
         let block_size = algo.block_size()?;
 
         Ok(Decryptor {
-            source: source,
-            dec: dec,
-            block_size: block_size,
+            source,
+            dec,
+            block_size,
             iv: vec![0u8; block_size],
             buffer: Vec::with_capacity(block_size),
         })
@@ -415,11 +415,11 @@ impl<W: io::Write> Encryptor<W> {
 
         Ok(Encryptor {
             inner: Some(sink),
-            cipher: cipher,
-            block_size: block_size,
+            cipher,
+            block_size,
             iv: vec![0u8; block_size],
             buffer: Vec::with_capacity(block_size),
-            scratch: scratch,
+            scratch,
         })
     }
 

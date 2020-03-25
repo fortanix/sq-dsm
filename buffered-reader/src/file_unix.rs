@@ -144,8 +144,8 @@ impl<'a, C> File<'a, C> {
 
         Ok(File(
             Imp::MMAP {
-                addr: addr,
-                length: length,
+                addr,
+                length,
                 reader: Memory::with_cookie(slice, cookie),
             }
         ))

@@ -396,7 +396,7 @@ impl Message {
         v.finish();
 
         match v.check() {
-            MessageValidity::Message => Ok(Message { pile: pile }),
+            MessageValidity::Message => Ok(Message { pile }),
             MessageValidity::MessagePrefix => unreachable!(),
             // We really want to squash the lexer's error: it is an
             // internal detail that may change, and meaningless even

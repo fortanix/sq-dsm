@@ -49,9 +49,9 @@ impl<T: BufferedReader<C>, C> Reserve<T, C> {
     pub fn with_cookie(reader: T, reserve: usize, cookie: C)
             -> Reserve<T, C> {
         Reserve {
-            reader: reader,
-            reserve: reserve,
-            cookie: cookie,
+            reader,
+            reserve,
+            cookie,
         }
     }
 }

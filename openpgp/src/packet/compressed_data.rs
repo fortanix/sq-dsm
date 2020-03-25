@@ -68,7 +68,7 @@ impl CompressedData {
     pub fn new(algo: CompressionAlgorithm) -> Self {
         CompressedData {
             common: Default::default(),
-            algo: algo,
+            algo,
             container: Default::default(),
         }
     }
