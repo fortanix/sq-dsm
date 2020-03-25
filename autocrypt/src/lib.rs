@@ -231,56 +231,70 @@ impl AutocryptHeaders {
             }
 
             const AUTOCRYPT : &str = "Autocrypt: ";
+            const AUTOCRYPT_GOSSIP : &str = "Autocrypt-Gossip: ";
             const FROM : &str = "From: ";
 
             if line.starts_with(FROM) {
                 headers.from
                     = Some(line[FROM.len()..].trim_matches(' ').into());
-            } else if line.starts_with(AUTOCRYPT) {
-                let ac_value = &line[AUTOCRYPT.len()..];
-
-                let mut header = AutocryptHeader::empty(
-                    AutocryptHeaderType::Sender);
-
-                for pair in ac_value.split(';') {
-                    let pair = pair
-                        .splitn(2, |c| c == '=')
-                        .collect::<Vec<&str>>();
-
-                    let (key, value) : (String, String) = if pair.len() == 1 {
-                        // No value...
-                        (pair[0].trim_matches(' ').into(), "".into())
-                    } else {
-                        (pair[0].trim_matches(' ').into(),
-                         pair[1].trim_matches(' ').into())
-                    };
-
-                    if key == "keydata" {
-                        if let Ok(decoded) = base64::decode(
-                            &value.replace(" ", "")[..]) {
-                            if let Ok(cert) = Cert::from_bytes(&decoded[..]) {
-                                header.key = Some(cert);
-                            }
-                        }
-                    }
-
-                    let critical = key.len() >= 1 && &key[0..1] == "_";
-                    header.attributes.push(Attribute {
-                        critical: critical,
-                        key: if critical {
-                            key[1..].to_string()
-                        } else {
-                            key
-                        },
-                        value,
-                    });
-                }
-
-                headers.headers.push(header);
+            } else if line.starts_with(AUTOCRYPT) || line.starts_with(AUTOCRYPT_GOSSIP) {
+                headers.headers.push(Self::decode_autocrypt_like_header(&line));
             }
         }
 
         return Ok(headers)
+    }
+
+    /// Decode header that has the same format as the Autocrypt header.
+    /// This function should be called only on "Autocrypt" or "Autocrypt-Gossip"
+    /// headers.
+    fn decode_autocrypt_like_header(line: &str) -> AutocryptHeader {
+        let mut parts = line.splitn(2, ": ");
+        let header_name = parts.next().unwrap();
+        let ac_value = parts.next().unwrap();
+
+        let header_type = match header_name {
+            "Autocrypt" => AutocryptHeaderType::Sender,
+            "Autocrypt-Gossip" => AutocryptHeaderType::Gossip,
+            other => panic!("Expected Autocrypt header but found: {}", other)
+        };
+
+        let mut header = AutocryptHeader::empty(header_type);
+
+        for pair in ac_value.split(';') {
+            let pair = pair
+                .splitn(2, |c| c == '=')
+                .collect::<Vec<&str>>();
+
+            let (key, value) : (String, String) = if pair.len() == 1 {
+                // No value...
+                (pair[0].trim_matches(' ').into(), "".into())
+            } else {
+                (pair[0].trim_matches(' ').into(),
+                 pair[1].trim_matches(' ').into())
+            };
+
+            if key == "keydata" {
+                if let Ok(decoded) = base64::decode(
+                    &value.replace(" ", "")[..]) {
+                    if let Ok(cert) = Cert::from_bytes(&decoded[..]) {
+                        header.key = Some(cert);
+                    }
+                }
+            }
+
+            let critical = key.len() >= 1 && &key[0..1] == "_";
+            header.attributes.push(Attribute {
+                critical,
+                key: if critical {
+                    key[1..].to_string()
+                } else {
+                    key
+                },
+                value,
+            });
+        }
+        header
     }
 
     /// Parses an autocrypt header.
@@ -905,6 +919,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         // We expect exactly one Autocrypt header.
         assert_eq!(ac.headers.len(), 1);
 
+        assert_eq!(ac.headers[0].header_type, AutocryptHeaderType::Sender);
         assert_eq!(ac.headers[0].get("addr").unwrap().value,
                    "holger@merlinux.eu");
 
@@ -967,6 +982,108 @@ In the light of the Efail vulnerability I am asking myself if it's
 
         let ac2 = AutocryptHeaders::from_bytes(&PATRICK_UNFOLDED[..]).unwrap();
         assert_eq!(ac, ac2);
+    }
+
+
+    #[test]
+    fn decode_gossip() {
+        const GOSSIP : &'static [u8] = b"\
+Autocrypt-Gossip: addr=dkg@fifthhorseman.net; keydata=
+ mDMEXEK/AhYJKwYBBAHaRw8BAQdAr/gSROcn+6m8ijTN0DV9AahoHGafy52RRkhCZVwxhEe0
+ K0RhbmllbCBLYWhuIEdpbGxtb3IgPGRrZ0BmaWZ0aGhvcnNlbWFuLm5ldD6ImQQTFggAQQIb
+ AQUJA8JnAAULCQgHAgYVCgkICwIEFgIDAQIeAQIXgBYhBMS8Lds4zOlkhevpwvIGkReQOOXG
+ BQJcQsbzAhkBAAoJEPIGkReQOOXG4fkBAO1joRxqAZY57PjdzGieXLpluk9RkWa3ufkt3YUV
+ EpH/AP9c+pgIxtyW+FwMQRjlqljuj8amdN4zuEqaCy4hhz/1DbgzBFxCv4sWCSsGAQQB2kcP
+ AQEHQERSZxSPmgtdw6nNu7uxY7bzb9TnPrGAOp9kClBLRwGfiPUEGBYIACYWIQTEvC3bOMzp
+ ZIXr6cLyBpEXkDjlxgUCXEK/iwIbAgUJAeEzgACBCRDyBpEXkDjlxnYgBBkWCAAdFiEEyQ5t
+ NiAKG5IqFQnndhgZZSmuX/gFAlxCv4sACgkQdhgZZSmuX/iVWgD/fCU4ONzgy8w8UCHGmrmI
+ ZfDvdhg512NIBfx+Mz9ls5kA/Rq97vz4z48MFuBdCuu0W/fVqVjnY7LN5n+CQJwGC0MIA7QA
+ /RyY7Sz2gFIOcrns0RpoHr+3WI+won3xCD8+sVXSHZvCAP98HCjDnw/b0lGuCR7coTXKLIM4
+ 4/LFWgXAdZjm1wjODbg4BFxCv50SCisGAQQBl1UBBQEBB0BG4iXnHX/fs35NWKMWQTQoRI7o
+ iAUt0wJHFFJbomxXbAMBCAeIfgQYFggAJhYhBMS8Lds4zOlkhevpwvIGkReQOOXGBQJcQr+d
+ AhsMBQkB4TOAAAoJEPIGkReQOOXGe/cBAPlek5d9xzcXUn/DkY6jKmxe26CTws3ZkbK6Aa5E
+ y/qKAP0VuPQSCRxA7RKfcB/XrEphfUFkraL06Xn/xGwJ+D0hCw==
+Autocrypt-Gossip: addr=neal@walfield.org; keydata=
+ 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
+
+...
+"
+;
+        let ac = AutocryptHeaders::from_bytes(&GOSSIP[..]).unwrap();
+        //eprintln!("ac: {:#?}", ac);
+
+        // We expect exactly two Autocrypt headers.
+        assert_eq!(ac.headers.len(), 2);
+
+        assert_eq!(ac.headers[0].header_type, AutocryptHeaderType::Gossip);
+        assert_eq!(ac.headers[0].get("addr").unwrap().value,
+                "dkg@fifthhorseman.net");
+
+        assert_eq!(ac.headers[1].get("addr").unwrap().value,
+                "neal@walfield.org");
+
+        let cert = ac.headers[0].key.as_ref()
+            .expect("Failed to parse key material.");
+        assert_eq!(cert.fingerprint(),
+                Fingerprint::from_hex(
+                    &"C4BC2DDB38CCE96485EBE9C2F20691179038E5C6"[..]).unwrap());
+        assert_eq!(cert.userids().next().unwrap().value(),
+                &b"Daniel Kahn Gillmor <dkg@fifthhorseman.net>"[..]);
+
     }
 
     #[test]
