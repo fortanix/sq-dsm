@@ -400,10 +400,14 @@ impl<'a, C> ValidateAmalgamation<'a, C> for ComponentAmalgamation<'a, C> {
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
         if let Some(binding_signature) = self.binding_signature(policy, time) {
+            let cert = self.cert;
             Ok(ValidComponentAmalgamation {
                 ca: self,
-                policy: policy,
-                time: time,
+                cert: ValidCert {
+                    cert: cert,
+                    policy: policy,
+                    time: time,
+                },
                 binding_signature: binding_signature,
             })
         } else {
@@ -454,9 +458,7 @@ impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
 #[derive(Debug)]
 pub struct ValidComponentAmalgamation<'a, C> {
     ca: ComponentAmalgamation<'a, C>,
-    policy: &'a dyn Policy,
-    // The reference time.
-    time: SystemTime,
+    cert: ValidCert<'a>,
     // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
 }
@@ -470,8 +472,7 @@ impl<'a, C> Clone for ValidComponentAmalgamation<'a, C> {
     fn clone(&self) -> Self {
         Self {
             ca: self.ca.clone(),
-            policy: self.policy,
-            time: self.time,
+            cert: self.cert.clone(),
             binding_signature: self.binding_signature,
         }
     }
@@ -481,6 +482,7 @@ impl<'a, C> std::ops::Deref for ValidComponentAmalgamation<'a, C> {
     type Target = ComponentAmalgamation<'a, C>;
 
     fn deref(&self) -> &Self::Target {
+        assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
         &self.ca
     }
 }
@@ -489,6 +491,7 @@ impl<'a, C: 'a> From<ValidComponentAmalgamation<'a, C>>
     for ComponentAmalgamation<'a, C>
 {
     fn from(vca: ValidComponentAmalgamation<'a, C>) -> Self {
+        assert!(std::ptr::eq(vca.ca.cert(), vca.cert.cert()));
         vca.ca
     }
 }
@@ -573,6 +576,8 @@ impl<'a, C> ValidateAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
         where T: Into<Option<time::SystemTime>>,
               Self: Sized,
     {
+        assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
+
         let time = time.into().unwrap_or_else(SystemTime::now);
         self.ca.with_policy(policy, time)
     }
@@ -580,6 +585,7 @@ impl<'a, C> ValidateAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
 
 impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     fn cert(&self) -> &'a Cert {
+        assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
         self.ca.cert()
     }
 
@@ -591,17 +597,20 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     /// `ValidComponentAmalgamation::alive` will return true if the reference
     /// time is greater than or equal to `t_c` and less than `t_e`.
     fn time(&self) -> SystemTime {
-        self.time
+        assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
+        self.cert.time
     }
 
     /// Returns the amalgamation's policy.
     fn policy(&self) -> &'a dyn Policy
     {
-        self.policy
+        assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
+        self.cert.policy
     }
 
     /// Returns the component's binding signature as of the reference time.
     fn binding_signature(&self) -> &'a Signature {
+        assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
         self.binding_signature
     }
 
@@ -611,7 +620,7 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     /// Subpackets on direct key signatures apply to all components of
     /// the certificate.
     fn direct_key_signature(&self) -> Option<&'a Signature> {
-        self.cert.primary.binding_signature(self.policy(), self.time())
+        self.cert.cert.primary.binding_signature(self.policy(), self.time())
     }
 
     /// Returns the component's revocation status as of the amalgamation's
@@ -619,7 +628,7 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     ///
     /// Note: this does not return whether the certificate is valid.
     fn revoked(&self) -> RevocationStatus<'a> {
-        self.bundle._revoked(self.policy(), self.time,
+        self.bundle._revoked(self.policy(), self.cert.time,
                               false, Some(self.binding_signature))
     }
 
