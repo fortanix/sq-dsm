@@ -799,19 +799,12 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     fn drop_eof(&mut self) -> Result<bool, std::io::Error> {
         let mut at_least_one_byte = false;
         loop {
-            match self.data_consume(DEFAULT_BUF_SIZE) {
-                Ok(ref buffer) => {
-                    if buffer.len() > 0 {
-                        at_least_one_byte = true;
-                    }
-
-                    if buffer.len() < DEFAULT_BUF_SIZE {
-                        // EOF.
-                        break;
-                    }
-                }
-                Err(err) =>
-                    return Err(err),
+            let n = self.data(DEFAULT_BUF_SIZE)?.len();
+            at_least_one_byte |= n > 0;
+            self.consume(n);
+            if n < DEFAULT_BUF_SIZE {
+                // EOF.
+                break;
             }
         }
 
