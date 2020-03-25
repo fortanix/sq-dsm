@@ -4,6 +4,7 @@ use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
 
+use buffered_reader::BufferedReader;
 use nettle::random::{Random, Yarrow};
 
 use crate::types::HashAlgorithm;
@@ -172,16 +173,26 @@ impl Password {
 pub fn hash_reader<R: Read>(reader: R, algos: &[HashAlgorithm])
     -> Result<Vec<hash::Context>>
 {
+    let reader
+        = buffered_reader::Generic::with_cookie(
+            reader, None, Default::default());
+    hash_buffered_reader(reader, algos)
+}
+
+/// Hashes the given buffered reader.
+///
+/// This can be used to verify detached signatures.  For a more
+/// convenient method, see [`DetachedVerifier`].
+///
+///  [`DetachedVerifier`]: ../parse/stream/struct.DetachedVerifier.html
+pub(crate) fn hash_buffered_reader<R>(reader: R, algos: &[HashAlgorithm])
+    -> Result<Vec<hash::Context>>
+    where R: BufferedReader<crate::parse::Cookie>,
+{
     use std::mem;
 
     use crate::parse::HashedReader;
     use crate::parse::HashesFor;
-
-    use buffered_reader::BufferedReader;
-
-    let reader
-        = buffered_reader::Generic::with_cookie(
-            reader, None, Default::default());
 
     let mut reader
         = HashedReader::new(reader, HashesFor::Signature, algos.to_vec());
