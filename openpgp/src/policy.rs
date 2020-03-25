@@ -1700,19 +1700,10 @@ mod test {
             };
 
             let h = VHelper::new(vec![ cert.clone() ]);
-            let mut v =
-                match DetachedVerifier::from_bytes(p, &sig, msg, h, None) {
-                    Ok(v) => v,
-                    Err(e) => panic!("{}", e),
-                };
-            assert!(v.message_processed());
+            let mut v = DetachedVerifier::from_bytes(p, &sig, h, None).unwrap();
+            v.verify_bytes(msg).unwrap();
             assert_eq!(v.helper_ref().good, if good { 1 } else { 0 });
             assert_eq!(v.helper_ref().errors, if good { 0 } else { 1 });
-
-            let mut content = Vec::new();
-            v.read_to_end(&mut content).unwrap();
-            assert_eq!(msg.len(), content.len());
-            assert_eq!(msg, &content[..]);
         }
 
 

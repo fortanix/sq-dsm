@@ -1856,20 +1856,26 @@ pgp_reader_t pgp_verifier_new (pgp_error_t *errp,
     void *cookie, time_t time);
 
 /*/
-/// Verifies a detached OpenPGP signature.///
-/// A Certificate (see [RFC 4880, section 11.1]) can be used to verify
-/// signatures and encrypt data.  It can be stored in a keystore and
-/// uploaded to keyservers.
-///
-/// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
-
+/// Verifies a detached OpenPGP signature.
 /*/
-pgp_reader_t pgp_detached_verifier_new (pgp_error_t *errp,
+pgp_detached_verifier_t pgp_detached_verifier_new (pgp_error_t *errp,
     pgp_policy_t policy,
-    pgp_reader_t signature_input, pgp_reader_t input,
+    pgp_reader_t signature_input,
     pgp_decryptor_get_public_keys_cb_t get_public_keys,
     pgp_decryptor_check_cb_t check,
     void *cookie, time_t time);
+
+/*/
+/// Frees this object.
+/*/
+void pgp_detached_verifier_free (pgp_detached_verifier_t);
+
+/*/
+/// Verifies `data` using `verifier`.
+/*/
+pgp_status_t pgp_detached_verifier_verify (pgp_error_t *errp,
+                                           pgp_detached_verifier_t verifier,
+                                           pgp_reader_t data);
 
 /*/
 /// Returns a new standard policy.

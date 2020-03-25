@@ -381,12 +381,9 @@ impl<'a> Signer<'a> {
     /// }
     ///
     /// let mut verifier =
-    ///     DetachedVerifier::from_bytes(p, &o, b"Make it so, number one!",
-    ///                                  Helper(&cert), None)?;
+    ///     DetachedVerifier::from_bytes(p, &o, Helper(&cert), None)?;
     ///
-    /// let mut message = String::new();
-    /// verifier.read_to_string(&mut message)?;
-    /// assert_eq!(&message, "Make it so, number one!");
+    /// verifier.verify_bytes(b"Make it so, number one!")?;
     /// # Ok(())
     /// # }
     /// ```

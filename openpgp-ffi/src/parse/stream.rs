@@ -30,7 +30,6 @@ use self::openpgp::parse::stream::{
     Decryptor,
     VerificationHelper,
     Verifier,
-    DetachedVerifier,
 };
 
 use crate::Maybe;
@@ -634,6 +633,14 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
         .move_into_raw(errp)
 }
 
+/// Verifies a detached signature.
+///
+/// Wraps [`sequoia-openpgp::parse::stream::DetachedVerifier`].
+///
+///   [`sequoia-openpgp::parse::stream::DetachedVerifier`]: ../../../../sequoia_openpgp/parse/stream/struct.DetachedVerifier.html
+#[crate::ffi_wrapper_type(prefix = "pgp_")]
+pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VHelper>);
+
 /// Verifies a detached OpenPGP signature.
 ///
 /// # Example
@@ -697,12 +704,11 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 /// int
 /// main (int argc, char **argv)
 /// {
+///   pgp_status_t rc;
 ///   pgp_cert_t cert;
 ///   pgp_reader_t signature;
 ///   pgp_reader_t source;
-///   pgp_reader_t plaintext;
-///   uint8_t buf[128];
-///   ssize_t nread;
+///   pgp_detached_verifier_t verifier;
 ///   pgp_policy_t policy = pgp_standard_policy ();
 ///
 ///   cert = pgp_cert_from_file (NULL,
@@ -721,17 +727,15 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 ///   struct verify_cookie cookie = {
 ///     .key = cert,  /* Move.  */
 ///   };
-///   plaintext = pgp_detached_verifier_new (NULL, policy, signature, source,
+///   verifier = pgp_detached_verifier_new (NULL, policy, signature,
 ///     get_public_keys_cb, check_cb,
 ///     &cookie, 1554542219);
-///   assert (source);
+///   assert (verifier);
 ///
-///   nread = pgp_reader_read (NULL, plaintext, buf, sizeof buf);
-///   assert (nread >= 42);
-///   assert (
-///     memcmp (buf, "A Cypherpunk's Manifesto\nby Eric Hughes\n", 40) == 0);
+///   rc = pgp_detached_verifier_verify (NULL, verifier, source);
+///   assert (rc == PGP_STATUS_SUCCESS);
 ///
-///   pgp_reader_free (plaintext);
+///   pgp_detached_verifier_free (verifier);
 ///   pgp_reader_free (source);
 ///   pgp_reader_free (signature);
 ///   pgp_policy_free (policy);
@@ -742,22 +746,34 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                                  policy: *const Policy,
                                  signature_input: *mut io::Reader,
-                                 input: *mut io::Reader,
                                  get_public_keys: GetPublicKeysCallback,
                                  check: CheckCallback,
                                  cookie: *mut HelperCookie,
                                  time: time_t)
-                                 -> Maybe<io::Reader>
+                                 -> Maybe<DetachedVerifier>
 {
     let policy = policy.ref_raw().as_ref();
 
     let helper = VHelper::new(get_public_keys, check, cookie);
 
-    DetachedVerifier::from_reader(policy, signature_input.ref_mut_raw(),
-                                  input.ref_mut_raw(), helper, maybe_time(time))
-        .map(|r| io::ReaderKind::Generic(Box::new(r)))
+    openpgp::parse::stream::DetachedVerifier::from_reader(
+        policy, signature_input.ref_mut_raw(), helper, maybe_time(time))
         .move_into_raw(errp)
 }
+
+/// Verifies `data` using `verifier`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_detached_verifier_verify(errp: Option<&mut *mut crate::error::Error>,
+                                verifier: *mut DetachedVerifier,
+                                data: *mut io::Reader)
+    -> Status
+{
+    ffi_make_fry_from_errp!(errp);
+    ffi_try_or_status!(
+        verifier.ref_mut_raw().verify_reader(data.ref_mut_raw()));
+    Status::Success
+}
+
 
 
 struct DHelper {

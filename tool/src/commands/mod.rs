@@ -407,15 +407,17 @@ pub fn verify(ctx: &Context, policy: &dyn Policy,
               signatures: usize, certs: Vec<Cert>)
               -> Result<()> {
     let helper = VHelper::new(ctx, mapping, signatures, certs);
-    let mut verifier = if let Some(dsig) = detached {
-        DetachedVerifier::from_reader(policy, dsig, input, helper, None)?
+    let helper = if let Some(dsig) = detached {
+        let mut v = DetachedVerifier::from_reader(policy, dsig, helper, None)?;
+        v.verify_reader(input)?;
+        v.into_helper()
     } else {
-        Verifier::from_reader(policy, input, helper, None)?
+        let mut v = Verifier::from_reader(policy, input, helper, None)?;
+        io::copy(&mut v, output)?;
+        v.into_helper()
     };
 
-    io::copy(&mut verifier, output)?;
-
-    verifier.into_helper().print_status();
+    helper.print_status();
     Ok(())
 }
 

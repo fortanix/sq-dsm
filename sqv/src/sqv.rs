@@ -4,7 +4,6 @@
 /// the motivation.
 
 use std::process::exit;
-use std::io;
 
 use chrono::{DateTime, offset::Utc};
 extern crate clap;
@@ -276,10 +275,8 @@ fn main() -> Result<()> {
 
     let h = VHelper::new(good_threshold, not_before, not_after, keyrings);
 
-    let mut v = DetachedVerifier::from_file(
-        p, sig_file, file, h, None)?;
-
-    io::copy(&mut v, &mut io::sink())?;
+    let mut v = DetachedVerifier::from_file(p, sig_file, h, None)?;
+    v.verify_file(file)?;
 
     let h = v.into_helper();
 

@@ -10,7 +10,6 @@
 //! [verification example]: struct.Verifier.html#example
 
 use std::cmp;
-use std::convert::TryFrom;
 use std::io::{self, Read};
 use std::path::Path;
 use std::time;
@@ -22,20 +21,14 @@ use crate::{
     types::{
         AEADAlgorithm,
         CompressionAlgorithm,
-        DataFormat,
         RevocationStatus,
         SymmetricAlgorithm,
     },
     packet::{
-        header::BodyLength,
-        header::CTB,
         key,
-        Literal,
         OnePassSig,
-        one_pass_sig::OnePassSig3,
         PKESK,
         SKESK,
-        Tag,
     },
     KeyID,
     Packet,
@@ -44,7 +37,6 @@ use crate::{
     packet::Signature,
     cert::prelude::*,
     crypto::SessionKey,
-    serialize::Marshal,
     policy::Policy,
 };
 use crate::parse::{
@@ -634,7 +626,8 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     {
         Ok(Verifier {
             decryptor: Decryptor::from_buffered_reader(
-                policy, bio, NoDecryptionHelper { v: helper, }, time, false)?,
+                policy, bio, NoDecryptionHelper { v: helper, }, time,
+                Mode::Verify)?,
         })
     }
 }
@@ -642,218 +635,6 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
 impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.decryptor.read(buf)
-    }
-}
-
-/// Transforms a detached signature and content into a signed message
-/// on the fly.
-struct Transformer<'a> {
-    state: TransformationState,
-    sigs: Vec<Signature>,
-    reader: Box<dyn BufferedReader<()> + 'a>,
-
-    /// We need to buffer some data.  This is the buffer, and the
-    /// offset of unread bytes in the buffer.
-    buffer: Vec<u8>,
-    cursor: usize,
-}
-
-#[derive(PartialEq, Debug)]
-enum TransformationState {
-    Data,
-    Sigs,
-    Done,
-}
-
-impl<'a> Transformer<'a> {
-    fn new<'b>(signatures: Box<dyn BufferedReader<Cookie> + 'b>,
-               mut data: Box<dyn BufferedReader<()> + 'a>)
-               -> Result<Transformer<'a>>
-    {
-        let mut sigs = Vec::new();
-
-        // Gather signatures.
-        let mut ppr = PacketParser::from_buffered_reader(signatures)?;
-        while let PacketParserResult::Some(pp) = ppr {
-            let (packet, ppr_) = pp.next()?;
-            ppr = ppr_;
-
-            match packet {
-                Packet::Signature(sig) => sigs.push(sig),
-                _ => return Err(Error::InvalidArgument(
-                    format!("Not a signature packet: {:?}",
-                            packet.tag())).into()),
-            }
-        }
-
-        let mut buf = Vec::new();
-        for (i, sig) in sigs.iter().rev().enumerate() {
-            let mut ops = OnePassSig3::try_from(sig)?;
-            if i == sigs.len() - 1 {
-                ops.set_last(true);
-            }
-
-            Packet::OnePassSig(ops.into()).serialize(&mut buf)?;
-        }
-
-        // We need to decide whether to use partial body encoding or
-        // not.  For partial body encoding, the first chunk must be at
-        // least 512 bytes long.  Try to read 512 - HEADER_LEN bytes
-        // from data.
-        let state = {
-            const HEADER_LEN: usize = 6;
-            let data_prefix = data.data_consume(512 - HEADER_LEN)?;
-            if data_prefix.len() < 512 - HEADER_LEN {
-                // Too little data for a partial body encoding, produce a
-                // Literal Data Packet header of known length.
-                CTB::new(Tag::Literal).serialize(&mut buf)?;
-
-                let len = BodyLength::Full((data_prefix.len() + HEADER_LEN) as u32);
-                len.serialize(&mut buf)?;
-
-                let lit = Literal::new(DataFormat::Binary);
-                lit.serialize_headers(&mut buf, false)?;
-
-                // Copy the data, then proceed directly to the signatures.
-                buf.extend_from_slice(data_prefix);
-                TransformationState::Sigs
-            } else {
-                // Produce a Literal Data Packet header with partial
-                // length encoding.
-                CTB::new(Tag::Literal).serialize(&mut buf)?;
-
-                let len = BodyLength::Partial(512);
-                len.serialize(&mut buf)?;
-
-                let lit = Literal::new(DataFormat::Binary);
-                lit.serialize_headers(&mut buf, false)?;
-
-                // Copy the prefix up to the first chunk, then keep in the
-                // data state.
-                buf.extend_from_slice(&data_prefix[..512 - HEADER_LEN]);
-                TransformationState::Data
-            }
-        };
-
-        Ok(Self {
-            state: state,
-            sigs: sigs,
-            reader: data,
-            buffer: buf,
-            cursor: 0,
-        })
-    }
-
-    fn read_helper(&mut self, mut buf: &mut [u8]) -> Result<usize> {
-        // Keep track of the bytes written into `buf`.
-        let mut bytes_read = 0;
-
-        if self.cursor >= self.buffer.len() {
-            // We have exhausted the buffered data.  Reset length and
-            // offset.
-            crate::vec_truncate(&mut self.buffer, 0);
-            self.cursor = 0;
-
-            self.state = match self.state {
-                TransformationState::Data => {
-                    // Find the largest power of two equal or smaller
-                    // than the size of buf.
-                    let mut s = buf.len().next_power_of_two();
-                    if ! buf.len().is_power_of_two() {
-                        s >>= 1;
-                    }
-
-                    // Cap it.  Drop once we avoid the copies below.
-                    const MAX_CHUNK_SIZE: usize = 1 << 22; // 4 megabytes.
-                    if s > MAX_CHUNK_SIZE {
-                        s = MAX_CHUNK_SIZE;
-                    }
-
-                    assert!(s <= ::std::u32::MAX as usize);
-
-                    // Try to read that amount into the buffer.
-                    let data = self.reader.data_consume(s)?;
-                    let mut data = &data[..cmp::min(s, data.len())];
-
-                    // Short read?  The end is nigh.
-                    let short_read = data.len() < s;
-                    let len = if short_read {
-                        BodyLength::Full(data.len() as u32)
-                    } else {
-                        BodyLength::Partial(data.len() as u32)
-                    };
-                    len.serialize(&mut self.buffer)?;
-                    // Offset into `self.buffer`.
-                    let mut off = self.buffer.len();
-
-                    // Try to copy the length directly into the read
-                    // buffer.
-                    if off < buf.len() {
-                        &mut buf[..off].copy_from_slice(&self.buffer[..off]);
-                        buf = &mut buf[off..];
-                        bytes_read += off;
-                        off = 0;
-
-                        // Try to copy as much as possible of `data` into
-                        // the read buffer.
-                        let n = cmp::min(buf.len(), data.len());
-                        &mut buf[..n].copy_from_slice(&data[..n]);
-                        data = &data[n..];
-                        bytes_read += n;
-                    }
-
-                    // Copy the rest.
-                    // XXX: Could avoid the copy here.
-                    self.buffer.resize(off + data.len(), 0);
-                    &mut self.buffer[off..].copy_from_slice(data);
-
-                    if short_read {
-                        TransformationState::Sigs
-                    } else {
-                        TransformationState::Data
-                    }
-                },
-
-                TransformationState::Sigs => {
-                    for sig in self.sigs.drain(..) {
-                        Packet::Signature(sig).serialize(&mut self.buffer)?;
-                    }
-
-                    TransformationState::Done
-                },
-
-                TransformationState::Done =>
-                    TransformationState::Done,
-            };
-        }
-
-        if bytes_read > 0 {
-            // We (partially?) satisfied the read request.  Return
-            // now, and leave `self.buffer` for the next read
-            // invocation.
-            return Ok(bytes_read);
-        }
-
-        assert!(self.cursor <= self.buffer.len());
-        let n = cmp::min(buf.len(), self.buffer.len() - self.cursor);
-        &mut buf[..n]
-            .copy_from_slice(&self.buffer[self.cursor..n + self.cursor]);
-        self.cursor += n;
-        Ok(n)
-    }
-}
-
-impl<'a> io::Read for Transformer<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        match self.read_helper(buf) {
-            Ok(n) => Ok(n),
-            Err(e) => match e.downcast::<io::Error>() {
-                // An io::Error.  Pass as-is.
-                Ok(e) => Err(e),
-                // A failure.  Wrap it.
-                Err(e) => Err(io::Error::new(io::ErrorKind::Other, e)),
-            },
-        }
     }
 }
 
@@ -904,26 +685,25 @@ impl<'a> io::Read for Transformer<'a> {
 ///
 /// let data = b"Hello World!";
 /// let h = Helper {};
-/// let mut v = DetachedVerifier::from_bytes(p, signature, data, h, None)?;
-///
-/// let mut content = Vec::new();
-/// v.read_to_end(&mut content)?;
-/// assert_eq!(content, b"Hello World!");
+/// let mut v = DetachedVerifier::from_bytes(p, signature, h, None)?;
+/// v.verify_bytes(data)?;
 /// # Ok(())
 /// # }
-pub struct DetachedVerifier {
+pub struct DetachedVerifier<'a, H: VerificationHelper> {
+    decryptor: Decryptor<'a, NoDecryptionHelper<H>>,
 }
 
-impl DetachedVerifier {
+impl<'a, H: VerificationHelper> DetachedVerifier<'a, H> {
     /// Creates a `Verifier` from the given readers.
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub fn from_reader<'a, 's, H, R, S, T>(policy: &'a dyn Policy,
-                                           signature_reader: S, reader: R,
-                                           helper: H, t: T)
-        -> Result<Verifier<'a, H>>
-        where R: io::Read + 'a, S: io::Read + 's, H: VerificationHelper,
+    pub fn from_reader<S, T>(policy: &'a dyn Policy,
+                             signature_reader: S,
+                             helper: H, t: T)
+        -> Result<DetachedVerifier<'a, H>>
+        where S: io::Read + 'a,
+              H: VerificationHelper,
               T: Into<Option<time::SystemTime>>
     {
         // Do not eagerly map `t` to the current time.
@@ -932,7 +712,6 @@ impl DetachedVerifier {
             policy,
             Box::new(buffered_reader::Generic::with_cookie(signature_reader, None,
                                                         Default::default())),
-            Box::new(buffered_reader::Generic::new(reader, None)),
             helper, t)
     }
 
@@ -940,11 +719,12 @@ impl DetachedVerifier {
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub fn from_file<'a, H, P, S, T>(policy: &'a dyn Policy,
-                                     signature_path: S, path: P,
-                                     helper: H, t: T)
-        -> Result<Verifier<'a, H>>
-        where P: AsRef<Path>, S: AsRef<Path>, H: VerificationHelper,
+    pub fn from_file<S, T>(policy: &'a dyn Policy,
+                           signature_path: S,
+                           helper: H, t: T)
+        -> Result<DetachedVerifier<'a, H>>
+        where S: AsRef<Path>,
+              H: VerificationHelper,
               T: Into<Option<time::SystemTime>>
     {
         // Do not eagerly map `t` to the current time.
@@ -952,8 +732,7 @@ impl DetachedVerifier {
         Self::from_buffered_reader(
             policy,
             Box::new(buffered_reader::File::with_cookie(signature_path,
-                                                     Default::default())?),
-            Box::new(buffered_reader::File::open(path)?),
+                                                        Default::default())?),
             helper, t)
     }
 
@@ -961,10 +740,10 @@ impl DetachedVerifier {
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub fn from_bytes<'a, 's, H, T>(policy: &'a dyn Policy,
-                                    signature_bytes: &'s [u8], bytes: &'a [u8],
-                                    helper: H, t: T)
-        -> Result<Verifier<'a, H>>
+    pub fn from_bytes<T>(policy: &'a dyn Policy,
+                         signature_bytes: &'a [u8],
+                         helper: H, t: T)
+        -> Result<DetachedVerifier<'a, H>>
         where H: VerificationHelper, T: Into<Option<time::SystemTime>>
     {
         // Do not eagerly map `t` to the current time.
@@ -973,7 +752,6 @@ impl DetachedVerifier {
             policy,
             Box::new(buffered_reader::Memory::with_cookie(signature_bytes,
                                                           Default::default())),
-            Box::new(buffered_reader::Memory::new(bytes)),
             helper, t)
     }
 
@@ -981,24 +759,73 @@ impl DetachedVerifier {
     ///
     /// Signature verifications are done relative to time `t`, or the
     /// current time, if `t` is `None`.
-    pub(crate) fn from_buffered_reader<'a, 's, H, T>
+    pub(crate) fn from_buffered_reader<T>
         (policy: &'a dyn Policy,
-         signature_bio: Box<dyn BufferedReader<Cookie> + 's>,
-         reader: Box<dyn BufferedReader<()> + 'a>,
+         signature_bio: Box<dyn BufferedReader<Cookie> + 'a>,
          helper: H, t: T)
-         -> Result<Verifier<'a, H>>
+         -> Result<DetachedVerifier<'a, H>>
         where H: VerificationHelper,
               T: Into<Option<time::SystemTime>>
     {
         // Do not eagerly map `t` to the current time.
         let t = t.into();
-        Verifier::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::Generic::with_cookie(
-                Transformer::new(signature_bio, reader)?,
-                None, Default::default())),
-            helper, t)
+        Ok(Self {
+            decryptor: Decryptor::from_buffered_reader(
+                policy,
+                signature_bio,
+                NoDecryptionHelper { v: helper, },
+                t, Mode::VerifyDetached)?,
+        })
     }
+
+    /// Verifies the given data.
+    pub fn verify_reader<R: io::Read>(&mut self, reader: R) -> Result<()> {
+        self.verify(buffered_reader::Generic::with_cookie(
+            reader, None, Default::default()).as_boxed())
+    }
+
+    /// Verifies the given data.
+    pub fn verify_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+        self.verify(buffered_reader::File::with_cookie(
+            path, Default::default())?.as_boxed())
+    }
+
+    /// Verifies the given data.
+    pub fn verify_bytes<B: AsRef<[u8]>>(&mut self, buf: B) -> Result<()> {
+        self.verify(buffered_reader::Memory::with_cookie(
+            buf.as_ref(), Default::default()).as_boxed())
+    }
+
+    /// Verifies the given data.
+    fn verify<R>(&mut self, reader: R) -> Result<()>
+        where R: BufferedReader<Cookie>,
+    {
+        self.decryptor.verify_detached(reader)
+    }
+
+    /// Returns a reference to the helper.
+    pub fn helper_ref(&self) -> &H {
+        &self.decryptor.helper_ref().v
+    }
+
+    /// Returns a mutable reference to the helper.
+    pub fn helper_mut(&mut self) -> &mut H {
+        &mut self.decryptor.helper_mut().v
+    }
+
+    /// Recovers the helper.
+    pub fn into_helper(self) -> H {
+        self.decryptor.into_helper().v
+    }
+}
+
+
+/// Modes of operation for the Decryptor.
+#[derive(Debug, PartialEq, Eq)]
+enum Mode {
+    Decrypt,
+    Verify,
+    VerifyDetached,
 }
 
 /// Decrypts and verifies an encrypted and optionally signed OpenPGP
@@ -1080,9 +907,8 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     reserve: Option<Vec<u8>>,
     cursor: usize,
 
-    /// Whether or not we shall decrypt (note: Verifier is implemented
-    /// using Decryptor).
-    decrypt: bool,
+    /// The mode of operation.
+    mode: Mode,
 
     /// Signature verification relative to this time.
     ///
@@ -1165,7 +991,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             policy,
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                         Default::default())),
-            helper, t, true)
+            helper, t, Mode::Decrypt)
     }
 
     /// Creates a `Decryptor` from the given file.
@@ -1183,7 +1009,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             policy,
             Box::new(buffered_reader::File::with_cookie(path,
                                                      Default::default())?),
-            helper, t, true)
+            helper, t, Mode::Decrypt)
     }
 
     /// Creates a `Decryptor` from the given buffer.
@@ -1200,7 +1026,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             policy,
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                        Default::default())),
-            helper, t, true)
+            helper, t, Mode::Decrypt)
     }
 
     /// Returns a reference to the helper.
@@ -1227,11 +1053,11 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     }
 
     /// Creates the `Decryptor`, and buffers the data up to `BUFFER_SIZE`.
-    pub(crate) fn from_buffered_reader<T>(
+    fn from_buffered_reader<T>(
         policy: &'a dyn Policy,
         bio: Box<dyn BufferedReader<Cookie> + 'a>,
         helper: H, time: T,
-        decrypt: bool)
+        mode: Mode)
         -> Result<Decryptor<'a, H>>
         where T: Into<Option<time::SystemTime>>
     {
@@ -1256,7 +1082,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             structure: IMessageStructure::new(),
             reserve: None,
             cursor: 0,
-            decrypt,
+            mode,
             time: time,
             clock_skew_tolerance: tolerance,
             policy: policy,
@@ -1270,9 +1096,15 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         while let PacketParserResult::Some(mut pp) = ppr {
             v.policy.packet(&pp.packet)?;
             v.helper.inspect(&pp)?;
-            if let Err(err) = pp.possible_message() {
-                t!("Malformed message: {}", err);
-                return Err(err.context("Malformed OpenPGP message").into());
+
+            // When verifying detached signatures, we parse only the
+            // signatures here, which on their own are not a valid
+            // message.
+            if v.mode != Mode::VerifyDetached {
+                if let Err(err) = pp.possible_message() {
+                    t!("Malformed message: {}", err);
+                    return Err(err.context("Malformed OpenPGP message").into());
+                }
             }
 
             let sym_algo_hint = if let Packet::AED(ref aed) = pp.packet {
@@ -1284,7 +1116,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             match pp.packet {
                 Packet::CompressedData(ref p) =>
                     v.structure.new_compression_layer(p.algo()),
-                Packet::SEIP(_) | Packet::AED(_) if v.decrypt => {
+                Packet::SEIP(_) | Packet::AED(_) if v.mode == Mode::Decrypt => {
                     saw_content = true;
 
                     // Get the symmetric algorithm from the decryption
@@ -1373,10 +1205,53 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             ppr = ppr_tmp;
         }
 
+        if v.mode == Mode::VerifyDetached {
+            v.certs = v.helper.get_public_keys(&issuers)?;
+            return Ok(v);
+        }
+
         // We can only get here if we didn't encounter a literal data
         // packet.
         Err(Error::MalformedMessage(
             "Malformed OpenPGP message".into()).into())
+    }
+
+    /// Verifies the given data in detached verification mode.
+    fn verify_detached<D>(&mut self, data: D) -> Result<()>
+        where D: BufferedReader<Cookie>
+    {
+        assert_eq!(self.mode, Mode::VerifyDetached);
+
+        let sigs = if let IMessageLayer::SignatureGroup {
+            sigs, .. } = &mut self.structure.layers[0] {
+            sigs
+        } else {
+            unreachable!("There is exactly one signature group layer")
+        };
+
+        // Compute the necessary hashes.
+        let algos: Vec<_> = sigs.iter().map(|s| s.hash_algo()).collect();
+        let hashes = crate::crypto::hash_buffered_reader(data, &algos)?;
+
+        // Attach the digests.
+        for sig in sigs.iter_mut() {
+            let algo = sig.hash_algo();
+            // Note: |hashes| < 10, most likely 1.
+            for hash in hashes.iter().filter(|c| c.algo() == algo) {
+                // Clone the hash context, update it with the
+                // signature.
+                use crate::crypto::hash::Hash;
+                let mut hash = hash.clone();
+                sig.hash(&mut hash);
+
+                // Attach digest to the signature.
+                let mut digest = vec![0; hash.digest_size()];
+                hash.digest(&mut digest);
+                sig.set_computed_digest(Some(digest.into()));
+            }
+        }
+
+        self.verify_signatures()
     }
 
     /// Stashes the given Signature (if it is one) for later
@@ -1688,6 +1563,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> io::Read for Decryptor<'a, H>
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::convert::TryFrom;
     use crate::parse::Parse;
     use crate::policy::StandardPolicy as P;
 
@@ -1925,9 +1801,8 @@ mod test {
         assert!(v.message_processed());
     }
 
-    // This test is relatively long running in debug mode.  Split it
-    // up.
-    fn detached_verifier_read_size(l: usize) {
+    #[test]
+    fn detached_verifier() {
         lazy_static! {
             static ref ZEROS: Vec<u8> = vec![0; 100 * 1024 * 1024];
         }
@@ -1961,29 +1836,6 @@ mod test {
             .map(|f| Cert::from_bytes(crate::tests::key(f)).unwrap())
             .collect::<Vec<_>>();
 
-        let read_to_end = |v: &mut Verifier<_>, l, buffer: &mut Vec<_>| {
-            let mut offset = 0;
-            loop {
-                if offset + l > buffer.len() {
-                    if buffer.len() < buffer.capacity() {
-                        // Use the available capacity.
-                        buffer.resize(buffer.capacity(), 0);
-                    } else {
-                        // Double the capacity and size.
-                        buffer.resize(buffer.capacity() * 2, 0);
-                    }
-                }
-                match v.read(&mut buffer[offset..offset + l]) {
-                    Ok(0) => break,
-                    Ok(l) => offset += l,
-                    Err(err) => panic!("Error reading data: {:?}", err),
-                }
-            }
-
-            offset
-        };
-
-        let mut buffer = vec![0; 104 * 1024 * 1024];
         for test in tests.iter() {
             let sig = test.sig;
             let content = test.content;
@@ -1991,34 +1843,13 @@ mod test {
 
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v = DetachedVerifier::from_bytes(
-                &p, sig, content, h, reference).unwrap();
-
-            let got = read_to_end(&mut v, l, &mut buffer);
-            assert!(v.message_processed());
-            let got = &buffer[..got];
-            assert_eq!(got.len(), content.len());
-            assert_eq!(got, &content[..]);
+                &p, sig, h, reference).unwrap();
+            v.verify_bytes(content).unwrap();
 
             let h = v.into_helper();
             assert_eq!(h.good, 1);
             assert_eq!(h.bad, 0);
         }
-        crate::vec_truncate(&mut buffer, 0);
-    }
-
-    #[test]
-    fn detached_verifier1() {
-        // Transformer::read_helper rounds up to 4 MB chunks try
-        // chunk sizes around that size.
-        detached_verifier_read_size(4 * 1024 * 1024 - 1);
-    }
-    #[test]
-    fn detached_verifier2() {
-        detached_verifier_read_size(4 * 1024 * 1024);
-    }
-    #[test]
-    fn detached_verifier3() {
-        detached_verifier_read_size(4 * 1024 * 1024 + 1);
     }
 
     #[test]

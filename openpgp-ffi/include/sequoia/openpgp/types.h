@@ -534,6 +534,11 @@ typedef pgp_status_t (*pgp_decryptor_inspect_cb_t) (void *,
     pgp_packet_parser_t);
 
 /*/
+/// Verifies a detached signature.
+/*/
+typedef struct pgp_detached_verifier *pgp_detached_verifier_t;
+
+/*/
 /// An OpenPGP policy.
 /*/
 typedef struct pgp_policy *pgp_policy_t;
