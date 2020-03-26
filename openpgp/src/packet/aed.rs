@@ -157,19 +157,3 @@ impl From<AED1> for super::AED {
         super::AED::V1(p)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn deref() {
-        let mut s = AED1::new(SymmetricAlgorithm::AES128,
-                              AEADAlgorithm::EAX,
-                              64,
-                              vec![].into_boxed_slice()).unwrap();
-        assert_eq!(s.body(), &[]);
-        s.set_body(vec![0, 1, 2]);
-        assert_eq!(s.body(), &[0, 1, 2]);
-    }
-}

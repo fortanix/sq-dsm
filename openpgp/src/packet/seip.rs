@@ -60,16 +60,3 @@ impl From<SEIP1> for Packet {
         Packet::SEIP(s.into())
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn deref() {
-        let mut s = SEIP1::new();
-        assert_eq!(s.body(), &[]);
-        s.set_body(vec![0, 1, 2]);
-        assert_eq!(s.body(), &[0, 1, 2]);
-    }
-}
