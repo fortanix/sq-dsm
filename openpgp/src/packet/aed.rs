@@ -34,6 +34,19 @@ pub struct AED1 {
     container: packet::Container,
 }
 
+impl std::ops::Deref for AED1 {
+    type Target = packet::Container;
+    fn deref(&self) -> &Self::Target {
+        &self.container
+    }
+}
+
+impl std::ops::DerefMut for AED1 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.container
+    }
+}
+
 impl PartialEq for AED1 {
     fn eq(&self, other: &AED1) -> bool {
         self.sym_algo == other.sym_algo
@@ -143,8 +156,6 @@ impl AED1 {
         ::std::mem::replace(&mut self.iv, iv)
     }
 }
-
-impl_container_forwards!(AED1);
 
 impl From<AED1> for Packet {
     fn from(p: AED1) -> Self {

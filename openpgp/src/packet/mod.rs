@@ -14,7 +14,8 @@ use crate::Packet;
 
 #[macro_use]
 mod container;
-pub(crate) use container::Container;
+pub use container::Container;
+pub use container::Body;
 
 pub mod prelude;
 
@@ -171,7 +172,7 @@ impl<'a> Iterator for Iter<'a> {
         // Get the next child and the iterator for its children.
         self.child = self.children.next();
         if let Some(child) = self.child {
-            self.grandchildren = Some(Box::new(child.descendants()));
+            self.grandchildren = child.descendants().map(|d| Box::new(d));
         }
 
         // First return the child itself.  Subsequent calls will
@@ -255,9 +256,12 @@ fn packet_path_iter() {
             lpaths.push(v);
 
             if let Some(ref container) = packet.container_ref() {
-                for mut path in paths(container.children()).into_iter() {
-                    path.insert(0, i);
-                    lpaths.push(path);
+                if let Some(c) = container.children() {
+                    for mut path in paths(c).into_iter()
+                    {
+                        path.insert(0, i);
+                        lpaths.push(path);
+                    }
                 }
             }
         }

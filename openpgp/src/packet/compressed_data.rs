@@ -25,6 +25,19 @@ pub struct CompressedData {
     container: packet::Container,
 }
 
+impl std::ops::Deref for CompressedData {
+    type Target = packet::Container;
+    fn deref(&self) -> &Self::Target {
+        &self.container
+    }
+}
+
+impl std::ops::DerefMut for CompressedData {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.container
+    }
+}
+
 impl PartialEq for CompressedData {
     fn eq(&self, other: &CompressedData) -> bool {
         self.algo == other.algo
@@ -45,10 +58,7 @@ impl fmt::Debug for CompressedData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("CompressedData")
             .field("algo", &self.algo)
-            .field("children", &self.container.children_ref())
-            .field("body (bytes)",
-                   &self.container.body().len())
-            .field("body_digest", &self.container.body_digest())
+            .field("container", &self.container)
             .finish()
     }
 }
@@ -76,7 +86,7 @@ impl CompressedData {
     /// Adds a new packet to the container.
     #[cfg(test)]
     pub fn push(mut self, packet: Packet) -> Self {
-        self.container.children_mut().push(packet);
+        self.container.children_mut().unwrap().push(packet);
         self
     }
 
@@ -86,12 +96,10 @@ impl CompressedData {
     /// packet, etc.
     #[cfg(test)]
     pub fn insert(mut self, i: usize, packet: Packet) -> Self {
-        self.container.children_mut().insert(i, packet);
+        self.container.children_mut().unwrap().insert(i, packet);
         self
     }
 }
-
-impl_container_forwards!(CompressedData);
 
 impl From<CompressedData> for Packet {
     fn from(s: CompressedData) -> Self {

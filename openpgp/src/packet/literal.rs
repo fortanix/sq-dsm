@@ -99,7 +99,7 @@ impl Literal {
             format: format,
             filename: None,
             date: None,
-            container: Default::default(),
+            container: packet::Container::default_unprocessed(),
         }
     }
 

@@ -85,6 +85,11 @@ impl From<Packet> for PacketPile {
 }
 
 impl PacketPile {
+    /// Returns an error if operating on a non-container packet.
+    fn error() -> crate::Error {
+        crate::Error::InvalidOperation("Not a container packet".into())
+    }
+
     /// Pretty prints the message to stderr.
     ///
     /// This function is primarily intended for debugging purposes.
@@ -123,11 +128,13 @@ impl PacketPile {
         let mut cont = Some(&self.top_level);
         for i in pathspec {
             if let Some(ref c) = cont.take() {
-                if *i < c.children_ref().len() {
-                    let p = &c.children_ref()[*i];
-                    packet = Some(p);
-                    cont = p.container_ref();
-                    continue;
+                if let Some(children) = c.children_ref() {
+                    if *i < children.len() {
+                        let p = &children[*i];
+                        packet = Some(p);
+                        cont = p.container_ref();
+                        continue;
+                    }
                 }
             }
 
@@ -146,11 +153,7 @@ impl PacketPile {
         for (level, &i) in pathspec.iter().enumerate() {
             let tmp = container;
 
-            if i >= tmp.children_ref().len() {
-                return None;
-            }
-
-            let p = &mut tmp.children_mut()[i];
+            let p = tmp.children_mut().and_then(|c| c.get_mut(i))?;
 
             if level == pathspec.len() - 1 {
                 return Some(p)
@@ -190,7 +193,7 @@ impl PacketPile {
     /// literal.set_body(b"old".to_vec());
     /// let mut compressed =
     ///     CompressedData::new(CompressionAlgorithm::Uncompressed);
-    /// compressed.children_mut().push(literal.into());
+    /// compressed.children_mut().unwrap().push(literal.into());
     /// let mut pile = PacketPile::from(Packet::from(compressed));
     ///
     /// // Replace the literal data packet.
@@ -218,12 +221,15 @@ impl PacketPile {
             let tmp = container;
 
             if level == pathspec.len() - 1 {
-                if i + count > tmp.children_ref().len() {
+                if tmp.children_ref().map(|c| i + count > c.len())
+                    .unwrap_or(true)
+                {
                     return Err(Error::IndexOutOfRange.into());
                 }
 
                 // Out with the old...
                 let old = tmp.children_mut()
+                    .expect("checked above")
                     .drain(i..i + count)
                     .collect::<Vec<Packet>>();
                 assert_eq!(old.len(), count);
@@ -231,20 +237,21 @@ impl PacketPile {
                 // In with the new...
 
                 let mut tail = tmp.children_mut()
+                    .expect("checked above")
                     .drain(i..)
                     .collect::<Vec<Packet>>();
 
-                tmp.children_mut().append(&mut packets);
-                tmp.children_mut().append(&mut tail);
+                tmp.children_mut().expect("checked above").append(&mut packets);
+                tmp.children_mut().expect("checked above").append(&mut tail);
 
                 return Ok(old)
             }
 
-            if i >= tmp.children_ref().len() {
+            if tmp.children_ref().map(|c| i >= c.len()).unwrap_or(true) {
                 return Err(Error::IndexOutOfRange.into());
             }
 
-            match tmp.children_ref()[i] {
+            match tmp.children_ref().expect("checked above")[i] {
                 // The structured container types.
                 Packet::CompressedData(_)
                     | Packet::SEIP(_)
@@ -252,7 +259,8 @@ impl PacketPile {
                     => (), // Ok.
                 _ => return Err(Error::IndexOutOfRange.into()),
             }
-            container = tmp.children_mut()[i].container_mut()
+            container =
+                tmp.children_mut().expect("checked above")[i].container_mut()
                 .expect("The above packets are structured containers");
         }
 
@@ -262,17 +270,17 @@ impl PacketPile {
     /// Returns an iterator over all of the packet's descendants, in
     /// depth-first order.
     pub fn descendants(&self) -> packet::Iter {
-        self.top_level.descendants()
+        self.top_level.descendants().expect("toplevel is a container")
     }
 
     /// Returns an iterator over the top-level packets.
     pub fn children<'a>(&'a self) -> slice::Iter<'a, Packet> {
-        self.top_level.children()
+        self.top_level.children().expect("toplevel is a container")
     }
 
     /// Returns an `IntoIter` over the top-level packets.
     pub fn into_children(self) -> vec::IntoIter<Packet> {
-        self.top_level.into_children()
+        self.top_level.into_children().expect("toplevel is a container")
     }
 
 
@@ -325,8 +333,11 @@ impl PacketPile {
                 // being reborrowed and preventing us from
                 // assigning to it.
                 let tmp = container;
-                let packets_len = tmp.children_ref().len();
-                let p = &mut tmp.children_mut()[packets_len - 1];
+                let packets_len =
+                    tmp.children_ref().ok_or_else(Self::error)?.len();
+                let p = &mut tmp.children_mut()
+                    .ok_or_else(Self::error)?
+                    [packets_len - 1];
 
                 container = p.container_mut().unwrap();
             }
@@ -342,11 +353,14 @@ impl PacketPile {
                 if relative_position == 1 {
                     // Create a new container.
                     let tmp = container;
-                    let i = tmp.children_ref().len() - 1;
-                    container = tmp.children_mut()[i].container_mut().unwrap();
+                    let i =
+                        tmp.children_ref().ok_or_else(Self::error)?.len() - 1;
+                    container = tmp.children_mut()
+                        .ok_or_else(Self::error)?
+                        [i].container_mut().unwrap();
                 }
 
-                container.children_mut().push(packet);
+                container.children_mut().unwrap().push(packet);
 
                 if ppr.is_none() {
                     break 'outer;
@@ -597,11 +611,10 @@ mod test {
 
         // Get the rest of the content and put the initial byte that
         // we stole back.
-        let mut content = packet.body().unwrap().to_vec();
+        let mut content = packet.processed_body().unwrap().to_vec();
         content.insert(0, data[0]);
 
-        let content = &content.into_boxed_slice()[..];
-        let ppr = PacketParser::from_bytes(content).unwrap();
+        let ppr = PacketParser::from_bytes(&content).unwrap();
         let pp = ppr.unwrap();
         if let Packet::Literal(_) = pp.packet {
         } else {
@@ -634,7 +647,7 @@ mod test {
         }
 
         let mut seip = SEIP1::new();
-        seip.children_mut().push(cd.into());
+        seip.children_mut().unwrap().push(cd.into());
         packets.push(seip.into());
 
         eprintln!("{:#?}", packets);
@@ -809,7 +822,7 @@ mod test {
                     assert_eq!(top_level.len(), 1);
 
                     let values = top_level[0]
-                        .children()
+                        .children().unwrap()
                         .map(|p| {
                             if let Packet::Literal(ref literal) = p {
                                 literal.body()

@@ -4,6 +4,8 @@ pub use crate::Packet;
 pub use crate::packet::{
     Tag,
     Header,
+    Container,
+    Body,
     Unknown,
     Signature,
     signature,

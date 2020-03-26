@@ -3711,28 +3711,54 @@ impl <'a> PacketParser<'a> {
     pub fn buffer_unread_content(&mut self) -> Result<&[u8]> {
         let rest = self.steal_eof()?;
 
-        fn set_or_extend(rest: Vec<u8>, c: &mut Container) -> Result<&[u8]> {
+        fn set_or_extend(rest: Vec<u8>, c: &mut Container, processed: bool)
+                         -> Result<&[u8]> {
             if rest.len() > 0 {
-                if c.body().len() > 0 {
+                let current = match c.body() {
+                    Body::Unprocessed(bytes) => &bytes[..],
+                    Body::Processed(bytes) => &bytes[..],
+                    Body::Structured(packets) if packets.is_empty() => &[][..],
+                    Body::Structured(_) => return Err(Error::InvalidOperation(
+                        "cannot append unread bytes to parsed packets"
+                            .into()).into()),
+                };
+                let rest = if current.len() > 0 {
                     let mut new =
-                        Vec::with_capacity(c.body().len() + rest.len());
-                    new.extend_from_slice(c.body());
+                        Vec::with_capacity(current.len() + rest.len());
+                    new.extend_from_slice(current);
                     new.extend_from_slice(&rest);
-                    c.set_body(new);
+                    new
                 } else {
-                    c.set_body(rest);
-                }
+                    rest
+                };
+
+                c.set_body(if processed {
+                    Body::Processed(rest)
+                } else {
+                    Body::Unprocessed(rest)
+                });
             }
 
-            Ok(c.body())
+            match c.body() {
+                Body::Unprocessed(bytes) => Ok(bytes),
+                Body::Processed(bytes) => Ok(bytes),
+                Body::Structured(packets) if packets.is_empty() => Ok(&[][..]),
+                Body::Structured(_) => Err(Error::InvalidOperation(
+                    "cannot append unread bytes to parsed packets"
+                        .into()).into()),
+            }
         }
 
+        use std::ops::DerefMut;
         match &mut self.packet {
-            Packet::Literal(p) => set_or_extend(rest, p.container_mut()),
-            Packet::Unknown(p) => set_or_extend(rest, p.container_mut()),
-            Packet::CompressedData(p) => set_or_extend(rest, p.container_mut()),
-            Packet::SEIP(p) => set_or_extend(rest, p.container_mut()),
-            Packet::AED(p) => set_or_extend(rest, p.container_mut()),
+            Packet::Literal(p) => set_or_extend(rest, p.container_mut(), false),
+            Packet::Unknown(p) => set_or_extend(rest, p.container_mut(), false),
+            Packet::CompressedData(p) =>
+                set_or_extend(rest, p.deref_mut(), true),
+            Packet::SEIP(p) =>
+                set_or_extend(rest, p.deref_mut(), self.decrypted),
+            Packet::AED(p) =>
+                set_or_extend(rest, p.deref_mut(), self.decrypted),
             p => {
                 if rest.len() > 0 {
                     Err(Error::MalformedPacket(
@@ -4023,7 +4049,7 @@ fn packet_parser_reader_interface() {
     let (packet, ppr) = pp.recurse().unwrap();
     assert!(ppr.is_none());
     // Since we read all of the data, we expect content to be None.
-    assert_eq!(packet.body().unwrap().len(), 0);
+    assert_eq!(packet.unprocessed_body().unwrap().len(), 0);
 }
 
 impl<'a> PacketParser<'a> {

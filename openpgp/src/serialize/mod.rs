@@ -1919,42 +1919,69 @@ impl Marshal for CompressedData {
     /// This function works recursively: if the `CompressedData` packet
     /// contains any packets, they are also serialized.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        if TRACE {
-            eprintln!("CompressedData::serialize(\
-                       algo: {}, {:?} children, {:?} bytes)",
-                      self.algo(),
-                      self.children().count(),
-                      self.body().len());
+        match self.body() {
+            Body::Unprocessed(bytes) => {
+                if TRACE {
+                    eprintln!("CompressedData::serialize(\
+                               algo: {}, {} bytes of unprocessed body)",
+                              self.algo(), bytes.len());
+                }
+
+                o.write_all(&[self.algo().into()])?;
+                o.write_all(bytes)?;
+            },
+
+            Body::Processed(bytes) => {
+                if TRACE {
+                    eprintln!("CompressedData::serialize(\
+                               algo: {}, {} bytes of processed body)",
+                              self.algo(), bytes.len());
+                }
+
+                let o = stream::Message::new(o);
+                let mut o = stream::Compressor::new_naked(
+                    o, self.algo(), Default::default(), 0)?;
+                o.write_all(bytes)?;
+                o.finalize()?;
+            },
+
+            Body::Structured(children) => {
+                if TRACE {
+                    eprintln!("CompressedData::serialize(\
+                               algo: {}, {:?} children)",
+                              self.algo(), children.len());
+                }
+
+                let o = stream::Message::new(o);
+                let mut o = stream::Compressor::new_naked(
+                    o, self.algo(), Default::default(), 0)?;
+
+                // Serialize the packets.
+                for p in children {
+                    (p as &dyn Marshal).serialize(&mut o)?;
+                }
+
+                o.finalize()?;
+            },
         }
-
-        let o = stream::Message::new(o);
-        let mut o = stream::Compressor::new_naked(
-            o, self.algo(), Default::default(), 0)?;
-
-        // Serialize the packets.
-        for p in self.children() {
-            (p as &dyn Marshal).serialize(&mut o)?;
-        }
-
-        // Append the data.
-        o.write_all(self.body())?;
-        o.finalize()
+        Ok(())
     }
 }
 
 impl NetLength for CompressedData {
     fn net_len(&self) -> usize {
-        let inner_length =
-            self.children().map(|p| {
-                (p as &dyn MarshalInto).serialized_len()
-            }).sum::<usize>()
-            + self.body().len();
-
         // Worst case, the data gets larger.  Account for that.
-        let inner_length = inner_length + cmp::max(inner_length / 2, 128);
+        let compressed = |l| l + cmp::max(l / 2, 128);
 
-        1 // Algorithm.
-            + inner_length // Compressed data.
+        match self.body() {
+            Body::Unprocessed(bytes) => 1 /* Algo */ + bytes.len(),
+            Body::Processed(bytes) => 1 /* Algo */ + compressed(bytes.len()),
+            Body::Structured(packets) =>
+                1 // Algo
+                + compressed(packets.iter().map(|p| {
+                    (p as &dyn MarshalInto).serialized_len()
+                }).sum::<usize>()),
+        }
     }
 }
 
@@ -2153,33 +2180,31 @@ impl Marshal for SEIP {
     /// To construct an encrypted message, use
     /// `serialize::stream::Encryptor`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        if self.children().next().is_some() {
-            return Err(Error::InvalidOperation(
+        match self.body() {
+            Body::Unprocessed(bytes) => {
+                o.write_all(&[self.version()])?;
+                o.write_all(bytes)?;
+                Ok(())
+            },
+            _ => Err(Error::InvalidOperation(
                 "Cannot encrypt, use serialize::stream::Encryptor".into())
-                       .into());
-        } else {
-            o.write_all(&[self.version()])?;
-            o.write_all(self.body())?;
+                     .into()),
         }
-
-        Ok(())
     }
 }
 
 impl NetLength for SEIP {
     fn net_len(&self) -> usize {
-        1 // Version.
-            + self.body().len()
+        match self.body() {
+            Body::Unprocessed(bytes) => 1 /* Version */ + bytes.len(),
+            _ => 0,
+        }
     }
 }
 
 impl MarshalInto for SEIP {
     fn serialized_len(&self) -> usize {
-        if self.children().next().is_some() {
-            0 // XXX
-        } else {
-            self.gross_len()
-        }
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -2257,34 +2282,34 @@ impl Marshal for AED1 {
     /// To construct an encrypted message, use
     /// `serialize::stream::Encryptor`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        if self.children().next().is_some() {
-            return Err(Error::InvalidOperation(
+        match self.body() {
+            Body::Unprocessed(bytes) => {
+                self.serialize_headers(o)?;
+                o.write_all(bytes)?;
+                Ok(())
+            },
+            _ => Err(Error::InvalidOperation(
                 "Cannot encrypt, use serialize::stream::Encryptor".into())
-                       .into());
-        } else {
-            self.serialize_headers(o)?;
-            o.write_all(self.body())?;
+                     .into()),
         }
-
-        Ok(())
     }
 }
 
 impl NetLength for AED1 {
     fn net_len(&self) -> usize {
-        if self.children().next().is_some() {
-            0
-        } else {
-            4 // Headers.
+        match self.body() {
+            Body::Unprocessed(bytes) =>
+                4 // Headers.
                 + self.iv().len()
-                + self.body().len()
+                + bytes.len(),
+            _ => 0,
         }
     }
 }
 
 impl MarshalInto for AED1 {
     fn serialized_len(&self) -> usize {
-        self.net_len()
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -2936,14 +2961,14 @@ mod test {
                     eprintln!("Orig:");
                     let p = pile.children().next().unwrap();
                     eprintln!("{:?}", p);
-                    let body = p.body().unwrap();
+                    let body = p.processed_body().unwrap();
                     eprintln!("Body: {}", body.len());
                     eprintln!("{}", binary_pp(body));
 
                     eprintln!("Reparsed:");
                     let p = pile2.children().next().unwrap();
                     eprintln!("{:?}", p);
-                    let body = p.body().unwrap();
+                    let body = p.processed_body().unwrap();
                     eprintln!("Body: {}", body.len());
                     eprintln!("{}", binary_pp(body));
 

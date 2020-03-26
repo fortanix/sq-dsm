@@ -62,7 +62,7 @@ impl Unknown {
             common: Default::default(),
             tag: tag,
             error: error,
-            container: Default::default(),
+            container: packet::Container::default_unprocessed(),
         }
     }
 
