@@ -196,6 +196,7 @@ fn for_all_packets<F>(src: &Path, mut fun: F) -> openpgp::Result<()>
                             openpgp::armor::Kind::File,
                             &[])?;
                         packet.serialize(&mut w)?;
+                        w.finalize()?;
                         return Err(e);
                     },
                 }
