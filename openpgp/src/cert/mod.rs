@@ -626,13 +626,22 @@ impl Cert {
     }
 
     /// Returns the amalgamated primary userid at `t`, if any.
-    pub fn primary_userid<'a, T>(&'a self, policy: &'a dyn Policy, t: T)
+    fn primary_userid_relaxed<'a, T>(&'a self, policy: &'a dyn Policy, t: T,
+                                     valid_cert: bool)
         -> Option<ValidComponentAmalgamation<'a, UserID>>
         where T: Into<Option<std::time::SystemTime>>
     {
         let t = t.into().unwrap_or_else(std::time::SystemTime::now);
         ValidComponentAmalgamation::primary(self, self.userids.iter(),
-                                            policy, t)
+                                            policy, t, valid_cert)
+    }
+
+    /// Returns the amalgamated primary userid at `t`, if any.
+    pub fn primary_userid<'a, T>(&'a self, policy: &'a dyn Policy, t: T)
+        -> Option<ValidComponentAmalgamation<'a, UserID>>
+        where T: Into<Option<std::time::SystemTime>>
+    {
+        self.primary_userid_relaxed(policy, t, true)
     }
 
     /// Returns an iterator over the Cert's userids.
@@ -647,7 +656,7 @@ impl Cert {
     {
         let t = t.into().unwrap_or_else(std::time::SystemTime::now);
         ValidComponentAmalgamation::primary(self, self.user_attributes.iter(),
-                                            policy, t)
+                                            policy, t, true)
     }
 
     /// Returns an iterator over the Cert's `UserAttributeBundle`s.

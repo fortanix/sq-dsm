@@ -404,7 +404,7 @@ impl<'a, P: 'a + key::KeyParts> ErasedKeyAmalgamation<'a, P> {
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
         if self.primary {
-            self.cert().primary_userid(policy, time)
+            self.cert().primary_userid_relaxed(policy, time, false)
                 .map(|u| u.binding_signature())
                 .or_else(|| self.cert().primary_key().bundle()
                          .binding_signature(policy, time))
