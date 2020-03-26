@@ -134,7 +134,7 @@ impl<'a, C> File<'a, C> {
             mmap(ptr::null_mut(), length, PROT_READ, MAP_PRIVATE,
                  fd, 0)
         };
-        if addr.is_null() {
+        if addr == libc::MAP_FAILED {
             return generic(file, cookie);
         }
 
