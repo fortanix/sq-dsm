@@ -150,15 +150,25 @@ fn inspect_cert(policy: &dyn Policy,
         writeln!(output)?;
     }
 
+    fn print_error_chain(output: &mut dyn io::Write, err: &anyhow::Error)
+                         -> Result<()> {
+        writeln!(output, "                 Invalid: {}", err)?;
+        for cause in err.chain().skip(1) {
+            writeln!(output, "                 because: {}", cause)?;
+        }
+        Ok(())
+    }
+
     for uidb in cert.userids() {
         writeln!(output, "         UserID: {}", uidb.userid())?;
         inspect_revocation(output, "", uidb.revoked(policy, None))?;
-        if let Some(sig) = uidb.binding_signature(policy, None) {
-            if let Err(e) =
+        match uidb.binding_signature(policy, None) {
+            Ok(sig) => if let Err(e) =
                 sig.signature_alive(None, std::time::Duration::new(0, 0))
             {
-                writeln!(output, "                 Invalid: {}", e)?;
+                print_error_chain(output, &e)?;
             }
+            Err(e) => print_error_chain(output, &e)?,
         }
         inspect_certifications(output,
                                uidb.certifications(),
@@ -169,12 +179,13 @@ fn inspect_cert(policy: &dyn Policy,
     for uab in cert.user_attributes() {
         writeln!(output, "         UserID: {:?}", uab.user_attribute())?;
         inspect_revocation(output, "", uab.revoked(policy, None))?;
-        if let Some(sig) = uab.binding_signature(policy, None) {
-            if let Err(e) =
+        match uab.binding_signature(policy, None) {
+            Ok(sig) => if let Err(e) =
                 sig.signature_alive(None, std::time::Duration::new(0, 0))
             {
-                writeln!(output, "                 Invalid: {}", e)?;
+                print_error_chain(output, &e)?;
             }
+            Err(e) => print_error_chain(output, &e)?,
         }
         inspect_certifications(output,
                                uab.certifications(),
@@ -184,12 +195,13 @@ fn inspect_cert(policy: &dyn Policy,
 
     for ub in cert.unknowns() {
         writeln!(output, "         Unknown component: {:?}", ub.unknown())?;
-        if let Some(sig) = ub.binding_signature(policy, None) {
-            if let Err(e) =
+        match ub.binding_signature(policy, None) {
+            Ok(sig) => if let Err(e) =
                 sig.signature_alive(None, std::time::Duration::new(0, 0))
             {
-                writeln!(output, "                 Invalid: {}", e)?;
+                print_error_chain(output, &e)?;
             }
+            Err(e) => print_error_chain(output, &e)?,
         }
         inspect_certifications(output,
                                ub.certifications(),

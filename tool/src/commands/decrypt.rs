@@ -47,7 +47,7 @@ impl<'a> Helper<'a> {
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
         for tsk in secrets {
-            let hint = match tsk.primary_userid(policy, None) {
+            let hint = match tsk.primary_userid(policy, None).ok() {
                 Some(uid) => format!("{} ({})", uid.userid(),
                                      KeyID::from(tsk.fingerprint())),
                 None => format!("{}", KeyID::from(tsk.fingerprint())),

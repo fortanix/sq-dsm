@@ -125,7 +125,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     ///
     /// Subpackets on direct key signatures apply to all components of
     /// the certificate.
-    fn direct_key_signature(&self) -> Option<&'a Signature>;
+    fn direct_key_signature(&self) -> Result<&'a Signature>;
 
     /// Returns the component's revocation status as of the amalgamation's
     /// reference time.
@@ -155,7 +155,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     fn map<F: Fn(&'a Signature) -> Option<T>, T>(&self, f: F) -> Option<T> {
         f(self.binding_signature())
-            .or_else(|| self.direct_key_signature().and_then(f))
+            .or_else(|| self.direct_key_signature().ok().and_then(f))
     }
 
     /// Returns the key's key flags as of the amalgamation's
@@ -265,7 +265,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     fn revocation_keys(&self)
                        -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
     {
-        if let Some(dk) = self.direct_key_signature() {
+        if let Some(dk) = self.direct_key_signature().ok() {
             Box::new(self.binding_signature().revocation_keys().chain(
                 dk.revocation_keys()))
         } else {
@@ -443,24 +443,21 @@ macro_rules! impl_with_policy {
                 self.cert.with_policy(policy, time)?;
             }
 
-            if let Some(binding_signature) = self.binding_signature(policy, time) {
-                let cert = self.cert;
-                // We can't do `Cert::with_policy` as that would
-                // result in infinite recursion.  But at this point,
-                // we know the certificate is valid (unless the caller
-                // doesn't care).
-                Ok(ValidComponentAmalgamation {
-                    ca: self,
-                    cert: ValidCert {
-                        cert: cert,
-                        policy: policy,
-                        time: time,
-                    },
-                    binding_signature: binding_signature,
-                })
-            } else {
-                Err(Error::NoBindingSignature(time).into())
-            }
+            let binding_signature = self.binding_signature(policy, time)?;
+            let cert = self.cert;
+            // We can't do `Cert::with_policy` as that would
+            // result in infinite recursion.  But at this point,
+            // we know the certificate is valid (unless the caller
+            // doesn't care).
+            Ok(ValidComponentAmalgamation {
+                ca: self,
+                cert: ValidCert {
+                    cert: cert,
+                    policy: policy,
+                    time: time,
+                },
+                binding_signature: binding_signature,
+            })
         }
     }
 }
@@ -493,7 +490,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// Note: this function is not exported.  Users of this interface
     /// should do: ca.with_policy(policy, time)?.binding_signature().
     fn binding_signature<T>(&self, policy: &dyn Policy, time: T)
-        -> Option<&'a Signature>
+        -> crate::Result<&'a Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
@@ -598,9 +595,11 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
                           iter: std::slice::Iter<'a, ComponentBundle<C>>,
                           policy: &'a dyn Policy, t: SystemTime,
                           valid_cert: bool)
-        -> Option<ValidComponentAmalgamation<'a, C>>
+        -> Result<ValidComponentAmalgamation<'a, C>>
     {
         use std::cmp::Ordering;
+
+        let mut error = None;
 
         // Filter out components that are not alive at time `t`.
         //
@@ -609,11 +608,24 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
         // times.
         iter.filter_map(|c| {
             // No binding signature at time `t` => not alive.
-            let sig = c.binding_signature(policy, t)?;
+            let sig = match c.binding_signature(policy, t) {
+                Ok(sig) => Some(sig),
+                Err(e) => {
+                    error = Some(e);
+                    None
+                },
+            }?;
 
             let revoked = c._revoked(policy, t, false, Some(sig));
             let primary = sig.primary_userid().unwrap_or(false);
-            let signature_creation_time = sig.signature_creation_time()?;
+            let signature_creation_time = match sig.signature_creation_time() {
+                Some(time) => Some(time),
+                None => {
+                    error = Some(Error::MalformedPacket(
+                        "Signature has no creation time".into()).into());
+                    None
+                },
+            }?;
 
             Some(((c, sig, revoked), primary, signature_creation_time))
         })
@@ -646,8 +658,12 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
                         panic!("non-canonicalized Cert (duplicate components)"),
                 }
             })
+            .ok_or_else(|| {
+                error.map(|e| e.context("No valid binding signature"))
+                    .unwrap_or(Error::NoBindingSignature(t).into())
+            })
             .and_then(|c| ComponentAmalgamation::new(cert, (c.0).0)
-                      .with_policy_relaxed(policy, t, valid_cert).ok())
+                      .with_policy_relaxed(policy, t, valid_cert))
     }
 }
 
@@ -701,7 +717,7 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     ///
     /// Subpackets on direct key signatures apply to all components of
     /// the certificate.
-    fn direct_key_signature(&self) -> Option<&'a Signature> {
+    fn direct_key_signature(&self) -> Result<&'a Signature> {
         self.cert.cert.primary.binding_signature(self.policy(), self.time())
     }
 

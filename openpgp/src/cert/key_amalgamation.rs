@@ -194,48 +194,45 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
             pka.with_policy(policy, time).context("primary key")?;
         }
 
-        if let Some(binding_signature) = self.binding_signature(policy, time) {
-            let cert = self.ca.cert();
-            let vka = ValidErasedKeyAmalgamation {
-                ka: KeyAmalgamation {
-                    ca: key::PublicParts::convert_key_amalgamation(
-                        self.ca.mark_parts_unspecified()).expect("to public"),
-                    primary: self.primary,
-                },
-                // We need some black magic to avoid infinite
-                // recursion: a ValidCert must be valid for the
-                // specified policy and reference time.  A ValidCert
-                // is consider valid if the primary key is valid.
-                // ValidCert::with_policy checks that by calling this
-                // function.  So, if we call ValidCert::with_policy
-                // here we'll recurse infinitely.
-                //
-                // But, hope is not lost!  We know that if we get
-                // here, we've already checked that the primary key is
-                // valid (see above), or that we're in the process of
-                // evaluating the primary key's validity and we just
-                // need to check the user's policy.  So, it is safe to
-                // create a ValidCert from scratch.
-                cert: ValidCert {
-                    cert: cert,
-                    policy: policy,
-                    time: time,
-                },
-                binding_signature
-            };
-            policy.key(&vka)?;
-            Ok(ValidErasedKeyAmalgamation {
-                ka: KeyAmalgamation {
-                    ca: P::convert_key_amalgamation(
-                        vka.ka.ca.mark_parts_unspecified()).expect("roundtrip"),
-                    primary: vka.ka.primary,
-                },
-                cert: vka.cert,
-                binding_signature,
-            })
-        } else {
-            Err(Error::NoBindingSignature(time).into())
-        }
+        let binding_signature = self.binding_signature(policy, time)?;
+        let cert = self.ca.cert();
+        let vka = ValidErasedKeyAmalgamation {
+            ka: KeyAmalgamation {
+                ca: key::PublicParts::convert_key_amalgamation(
+                    self.ca.mark_parts_unspecified()).expect("to public"),
+                primary: self.primary,
+            },
+            // We need some black magic to avoid infinite
+            // recursion: a ValidCert must be valid for the
+            // specified policy and reference time.  A ValidCert
+            // is consider valid if the primary key is valid.
+            // ValidCert::with_policy checks that by calling this
+            // function.  So, if we call ValidCert::with_policy
+            // here we'll recurse infinitely.
+            //
+            // But, hope is not lost!  We know that if we get
+            // here, we've already checked that the primary key is
+            // valid (see above), or that we're in the process of
+            // evaluating the primary key's validity and we just
+            // need to check the user's policy.  So, it is safe to
+            // create a ValidCert from scratch.
+            cert: ValidCert {
+                cert: cert,
+                policy: policy,
+                time: time,
+            },
+            binding_signature
+        };
+        policy.key(&vka)?;
+        Ok(ValidErasedKeyAmalgamation {
+            ka: KeyAmalgamation {
+                ca: P::convert_key_amalgamation(
+                    vka.ka.ca.mark_parts_unspecified()).expect("roundtrip"),
+                primary: vka.ka.primary,
+            },
+            cert: vka.cert,
+            binding_signature,
+        })
     }
 }
 
@@ -399,15 +396,30 @@ impl<'a, P: 'a + key::KeyParts> ErasedKeyAmalgamation<'a, P> {
     /// should instead do: `ka.with_policy(policy,
     /// time)?.binding_signature()`.
     fn binding_signature<T>(&self, policy: &'a dyn Policy, time: T)
-        -> Option<&'a Signature>
+        -> Result<&'a Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);
         if self.primary {
             self.cert().primary_userid_relaxed(policy, time, false)
                 .map(|u| u.binding_signature())
-                .or_else(|| self.cert().primary_key().bundle()
-                         .binding_signature(policy, time))
+                .or_else(|e0| {
+                    // Lookup of the primary user id binding failed.
+                    // Look for direct key signatures.
+                    self.cert().primary_key().bundle()
+                        .binding_signature(policy, time)
+                        .or_else(|e1| {
+                            // Both lookups failed.  Keep the more
+                            // meaningful error.
+                            if let Some(Error::NoBindingSignature(_))
+                                = e1.downcast_ref()
+                            {
+                                Err(e0) // Return the original error.
+                            } else {
+                                Err(e1)
+                            }
+                        })
+                })
         } else {
             self.bundle().binding_signature(policy, time)
         }
@@ -680,7 +692,7 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
         self.binding_signature
     }
 
-    fn direct_key_signature(&self) -> Option<&'a Signature> {
+    fn direct_key_signature(&self) -> Result<&'a Signature> {
         self.cert.cert.primary.binding_signature(self.policy(), self.time())
     }
 
@@ -754,7 +766,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
             if binding.key_validity_period().is_some() {
                 Some(binding)
             } else {
-                self.direct_key_signature()
+                self.direct_key_signature().ok()
             }
         };
         if let Some(sig) = sig {
@@ -808,7 +820,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
             // Also update the direct key signature if we're updating
             // the primary key's expiration time.
             if self.primary() {
-                self.direct_key_signature()
+                self.direct_key_signature().ok()
             } else {
                 None
             },

@@ -364,7 +364,7 @@ fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy,
 {
     let cert = cert.ref_raw();
     let policy = &**policy.ref_raw();
-    if let Some(binding) = cert.primary_userid(policy, maybe_time(when)) {
+    if let Ok(binding) = cert.primary_userid(policy, maybe_time(when)) {
         ffi_return_string!(binding.userid().value())
     } else {
         ptr::null_mut()
@@ -393,13 +393,14 @@ pub extern "C" fn pgp_user_id_bundle_user_id(
 /// Returns a reference to the self-signature, if any.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_user_id_bundle_selfsig(
+    errp: Option<&mut *mut crate::error::Error>,
     binding: *const UserIDBundle,
     policy: *const Policy)
     -> Maybe<Signature>
 {
     let binding = ffi_param_ref!(binding);
     let policy = &**policy.ref_raw();
-    binding.binding_signature(policy, None).move_into_raw()
+    binding.binding_signature(policy, None).move_into_raw(errp)
 }
 
 

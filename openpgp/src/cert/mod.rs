@@ -505,7 +505,7 @@ impl Cert {
         let vkao = self.primary_key().with_policy(policy, t).ok();
         let mut sig = vkao.as_ref().map(|vka| vka.binding_signature());
         if let Some(direct) = vkao.as_ref()
-            .and_then(|vka| vka.direct_key_signature())
+            .and_then(|vka| vka.direct_key_signature().ok())
         {
             match (direct.signature_creation_time(),
                    sig.and_then(|s| s.signature_creation_time())) {
@@ -628,7 +628,7 @@ impl Cert {
     /// Returns the amalgamated primary userid at `t`, if any.
     fn primary_userid_relaxed<'a, T>(&'a self, policy: &'a dyn Policy, t: T,
                                      valid_cert: bool)
-        -> Option<ValidComponentAmalgamation<'a, UserID>>
+        -> Result<ValidComponentAmalgamation<'a, UserID>>
         where T: Into<Option<std::time::SystemTime>>
     {
         let t = t.into().unwrap_or_else(std::time::SystemTime::now);
@@ -638,7 +638,7 @@ impl Cert {
 
     /// Returns the amalgamated primary userid at `t`, if any.
     pub fn primary_userid<'a, T>(&'a self, policy: &'a dyn Policy, t: T)
-        -> Option<ValidComponentAmalgamation<'a, UserID>>
+        -> Result<ValidComponentAmalgamation<'a, UserID>>
         where T: Into<Option<std::time::SystemTime>>
     {
         self.primary_userid_relaxed(policy, t, true)
@@ -651,7 +651,7 @@ impl Cert {
 
     /// Returns the amalgamated primary user attribute at `t`, if any.
     pub fn primary_user_attribute<'a, T>(&'a self, policy: &'a dyn Policy, t: T)
-        -> Option<ValidComponentAmalgamation<'a, UserAttribute>>
+        -> Result<ValidComponentAmalgamation<'a, UserAttribute>>
         where T: Into<Option<std::time::SystemTime>>
     {
         let t = t.into().unwrap_or_else(std::time::SystemTime::now);
@@ -1466,7 +1466,7 @@ impl<'a> ValidCert<'a> {
 
     /// Returns the amalgamated primary userid, if any.
     pub fn primary_userid(&self)
-        -> Option<ValidComponentAmalgamation<'a, UserID>>
+        -> Result<ValidComponentAmalgamation<'a, UserID>>
     {
         self.cert.primary_userid(self.policy, self.time)
     }
@@ -1478,7 +1478,7 @@ impl<'a> ValidCert<'a> {
 
     /// Returns the amalgamated primary user attribute, if any.
     pub fn primary_user_attribute(&self)
-        -> Option<ValidComponentAmalgamation<'a, UserAttribute>>
+        -> Result<ValidComponentAmalgamation<'a, UserAttribute>>
     {
         self.cert.primary_user_attribute(self.policy, self.time)
     }
@@ -3084,16 +3084,16 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 let direct_signatures =
                     cert.primary_key().bundle().self_signatures();
                 assert_eq!(cert.primary_key().with_policy(p, *t).unwrap()
-                           .direct_key_signature(),
+                           .direct_key_signature().ok(),
                            direct_signatures.get(*offset));
                 // A time that doesn't match any signature.
                 assert_eq!(cert.primary_key().with_policy(p, *t + a_sec).unwrap()
-                           .direct_key_signature(),
+                           .direct_key_signature().ok(),
                            direct_signatures.get(*offset));
 
                 // The current time, which should use the first signature.
                 assert_eq!(cert.primary_key().with_policy(p, None).unwrap()
-                           .direct_key_signature(),
+                           .direct_key_signature().ok(),
                            direct_signatures.get(0));
 
                 // The beginning of time, which should return no

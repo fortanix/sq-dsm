@@ -109,9 +109,11 @@ impl<C> ComponentBundle<C> {
     /// that is alive at time `t` (`creation time <= t`, `t <
     /// expiry`).
     ///
-    /// This function returns None if there are no active binding
-    /// signatures at time `t`.
-    pub fn binding_signature<T>(&self, policy: &dyn Policy, t: T) -> Option<&Signature>
+    /// This function returns an error if there are no active binding
+    /// signatures at time `t`, or there is one that did not match the
+    /// given policy.
+    pub fn binding_signature<T>(&self, policy: &dyn Policy, t: T)
+                                -> crate::Result<&Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into().unwrap_or_else(|| time::SystemTime::now());
@@ -166,10 +168,24 @@ impl<C> ComponentBundle<C> {
                 }
             };
 
-        self.self_signatures[i..].iter().filter(|s| {
-            s.signature_alive(t, time::Duration::new(0, 0)).is_ok()
-                && policy.signature(s).is_ok()
-        }).nth(0)
+        let mut sig = None;
+        let mut error = crate::Error::NoBindingSignature(t).into();
+        for s in self.self_signatures[i..].iter() {
+            if let Err(e) = s.signature_alive(t, time::Duration::new(0, 0)) {
+                error = e;
+                continue;
+            }
+
+            if let Err(e) = policy.signature(s) {
+                error = e;
+                continue;
+            }
+
+            sig = Some(s);
+            break;
+        }
+
+        sig.ok_or(error)
     }
 
     /// The self-signatures.
@@ -393,7 +409,7 @@ impl<P: key::KeyParts> ComponentBundle<Key<P, key::SubordinateRole>> {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(policy, t, true, self.binding_signature(policy, t))
+        self._revoked(policy, t, true, self.binding_signature(policy, t).ok())
     }
 }
 
@@ -420,7 +436,7 @@ impl ComponentBundle<UserID> {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(policy, t, false, self.binding_signature(policy, t))
+        self._revoked(policy, t, false, self.binding_signature(policy, t).ok())
     }
 }
 
@@ -447,7 +463,7 @@ impl ComponentBundle<UserAttribute> {
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(policy, t, false, self.binding_signature(policy, t))
+        self._revoked(policy, t, false, self.binding_signature(policy, t).ok())
     }
 }
 

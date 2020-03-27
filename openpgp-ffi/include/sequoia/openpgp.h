@@ -586,8 +586,9 @@ char *pgp_user_id_bundle_user_id (pgp_user_id_bundle_t binding);
 /*/
 /// Returns a reference to the self-signature, if any.
 /*/
-pgp_signature_t pgp_user_id_bundle_selfsig(pgp_user_id_bundle_t binding,
-                                            pgp_policy_t policy);
+pgp_signature_t pgp_user_id_bundle_selfsig(pgp_error_t *errp,
+                                           pgp_user_id_bundle_t binding,
+                                           pgp_policy_t policy);
 
 /* openpgp::cert::UserIDBundleIter.  */
 

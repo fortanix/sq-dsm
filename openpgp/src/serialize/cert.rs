@@ -801,8 +801,7 @@ mod test {
         ]).unwrap();
 
         assert_eq!(cert.subkeys().count(), 1);
-        assert!(cert.subkeys().nth(0).unwrap().binding_signature(p, None)
-                .is_some());
+        cert.subkeys().nth(0).unwrap().binding_signature(p, None).unwrap();
         assert_eq!(cert.userids().count(), 1);
         assert!(cert.userids().with_policy(p, None).nth(0).is_some());
         assert_eq!(cert.user_attributes().count(), 1);

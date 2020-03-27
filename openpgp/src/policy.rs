@@ -1401,7 +1401,7 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash(algo);
         assert!(cert.primary_key()
-                    .binding_signature(&reject, None).is_none());
+                    .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
                       = cert_revoked.revoked(&reject, None));
 
@@ -1411,8 +1411,7 @@ mod test {
             algo,
             SystemTime::now() + Duration::from_secs(SECS_IN_YEAR),
             SystemTime::now() + Duration::from_secs(SECS_IN_YEAR));
-        assert!(cert.primary_key()
-                    .binding_signature(&reject, None).is_some());
+        cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revoked(&reject, None));
 
@@ -1423,7 +1422,7 @@ mod test {
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
         assert!(cert.primary_key()
-                    .binding_signature(&reject, None).is_none());
+                    .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
                       = cert_revoked.revoked(&reject, None));
 
@@ -1435,7 +1434,7 @@ mod test {
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
             SystemTime::now() + Duration::from_secs(SECS_IN_YEAR));
         assert!(cert.primary_key()
-                    .binding_signature(&reject, None).is_none());
+                    .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revoked(&reject, None));
 
@@ -1451,8 +1450,7 @@ mod test {
             (algo_u8 + 1).into(),
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
-        assert!(cert.primary_key()
-                    .binding_signature(&reject, None).is_some());
+        cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revoked(&reject, None));
 
@@ -1465,7 +1463,7 @@ mod test {
             SystemTime::UNIX_EPOCH - Duration::from_secs(SECS_IN_YEAR),
             SystemTime::UNIX_EPOCH - Duration::from_secs(SECS_IN_YEAR));
         assert!(cert.primary_key()
-                    .binding_signature(&reject, None).is_none());
+                    .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
                       = cert_revoked.revoked(&reject, None));
 
@@ -1477,8 +1475,7 @@ mod test {
             algo,
             SystemTime::UNIX_EPOCH + Duration::from_secs(500 * SECS_IN_YEAR),
             SystemTime::UNIX_EPOCH + Duration::from_secs(500 * SECS_IN_YEAR));
-        assert!(cert.primary_key()
-                    .binding_signature(&reject, None).is_some());
+        cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revoked(&reject, None));
 
