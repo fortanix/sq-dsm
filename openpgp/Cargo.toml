@@ -61,6 +61,7 @@ lalrpop = ">=0.17"
 quickcheck = { version = "0.9", default-features = false }
 rand = { version = "0.7", default-features = false }
 rpassword = "5.0"
+criterion = { version = "0.3.4", features = ["html_reports"] }
 
 [features]
 default = ["compression", "crypto-nettle"]
@@ -83,3 +84,7 @@ bench = false
 [[example]]
 name = "pad"
 required-features = ["compression-deflate"]
+
+[[bench]]
+name = "parse_cert"
+harness = false
