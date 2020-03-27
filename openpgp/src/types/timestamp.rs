@@ -51,9 +51,15 @@ impl From<Timestamp> for Option<SystemTime> {
     }
 }
 
+impl fmt::Display for Timestamp {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", crate::fmt::time(&SystemTime::from(*self)))
+    }
+}
+
 impl fmt::Debug for Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", SystemTime::from(*self))
+        write!(f, "{}", self.0)
     }
 }
 
