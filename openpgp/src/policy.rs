@@ -730,22 +730,23 @@ impl<'a> Policy for StandardPolicy<'a> {
             {
                 self.hash_algos_revocation.check(sig.hash_algo(), time)
                     .context(format!(
-                        "Not secure for revocation signature ({})", t))?
+                        "Policy rejected revocation signature ({})", t))?
             }
             t =>
             {
                 self.hash_algos_normal.check(sig.hash_algo(), time)
                     .context(format!(
-                        "Not secure for non-revocation signature ({})", t))?
+                        "Policy rejected non-revocation signature ({})", t))?
             }
         }
 
         for csp in sig.hashed_area().iter().filter(|sp| sp.critical()) {
-            self.critical_subpackets.check(csp.tag(), time)?;
+            self.critical_subpackets.check(csp.tag(), time)
+                .context("Policy rejected critical signature subpacket")?;
             if let SubpacketValue::NotationData(n) = csp.value() {
                 if ! self.good_critical_notations.contains(&n.name()) {
                     return Err(Error::PolicyViolation(
-                        format!("Critical notation {:?} rejected",
+                        format!("Policy rejected critical notation {:?}",
                                 n.name()), None).into());
                 }
             }
@@ -826,21 +827,25 @@ impl<'a> Policy for StandardPolicy<'a> {
 
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.asymmetric_algos.check(a, time)
+            .context("Policy rejected encryption algorithm")
     }
 
     fn packet(&self, packet: &Packet) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.packet_tags.check(packet.tag(), time)
+            .context("Policy rejected packet type")
     }
 
     fn symmetric_algorithm(&self, algo: SymmetricAlgorithm) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.symmetric_algos.check(algo, time)
+            .context("Policy rejected symmetric encryption algorithm")
     }
 
     fn aead_algorithm(&self, algo: AEADAlgorithm) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.aead_algos.check(algo, time)
+            .context("Policy rejected authenticated encryption algorithm")
     }
 }
 
