@@ -612,46 +612,26 @@ impl crate::packet::Signature {
     /// Normalizes the signature.
     ///
     /// This function normalizes the *unhashed* signature subpackets.
-    /// All but the following subpackets are removed:
+    /// It removes all but the following self-authenticating
+    /// subpackets:
     ///
-    ///   - `SubpacketValue::Issuer` is left in place, is added, or
-    ///     updated from the *hashed* signature subpackets, and
-    ///   - the first `SubpacketValue::EmbeddedSignature` is left in
-    ///     place.
+    ///   - `SubpacketValue::Issuer`
+    ///   - `SubpacketValue::IssuerFingerprint`
+    ///   - `SubpacketValue::EmbeddedSignature`
     pub fn normalize(&self) -> Self {
-        use crate::packet::signature::subpacket::{Subpacket, SubpacketTag,
-                                           SubpacketValue};
+        use crate::packet::signature::subpacket::SubpacketTag::*;
         let mut sig = self.clone();
         {
             let area = sig.unhashed_area_mut();
             area.clear();
 
-            // First, add an Issuer subpacket derived from information
-            // from the hashed area.
-            if let Some(issuer) = self.issuer_fingerprint() {
-                // Prefer the IssuerFingerprint.
-                area.add(Subpacket::new(
-                    SubpacketValue::Issuer(issuer.into()), false).unwrap())
-                    .unwrap();
-            } else if let Some(issuer) = self.issuer() {
-                // Fall back to the Issuer, which we will also get
-                // from the unhashed area if necessary.
-                area.add(Subpacket::new(
-                    SubpacketValue::Issuer(issuer.clone()), false).unwrap())
-                    .unwrap();
-            }
-
-            // Second, re-add the EmbeddedSignature, if present.
-            if let Some(embedded_sig) =
-                self.unhashed_area().iter().find_map(|v| {
-                    if v.tag() == SubpacketTag::EmbeddedSignature {
-                        Some(v)
-                    } else {
-                        None
-                    }
-                })
+            for spkt in self.unhashed_area().iter()
+                .filter(|s| s.tag() == Issuer
+                        || s.tag() == IssuerFingerprint
+                        || s.tag() == EmbeddedSignature)
             {
-                area.add(embedded_sig.clone()).unwrap();
+                area.add(spkt.clone())
+                    .expect("it did fit into the old area");
             }
         }
         sig
