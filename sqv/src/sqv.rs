@@ -145,9 +145,11 @@ impl<'a> VerificationHelper for VHelper<'a> {
                                                 self.not_before,
                                                 self.not_after)
                                 {
-                                    (None, _, _) =>
-                                        eprintln!("Malformed signature: \
-                                                   no signature creation time"),
+                                    (None, _, _) => {
+                                        eprintln!("Malformed signature:");
+                                        print_error_chain(&anyhow::anyhow!(
+                                            "no signature creation time"));
+                                    },
                                     (Some(t), Some(not_before), not_after) => {
                                         if t < not_before {
                                             eprintln!(
@@ -176,7 +178,8 @@ impl<'a> VerificationHelper for VHelper<'a> {
                                 };
                             }
                             Err(MalformedSignature { error, .. }) => {
-                                eprintln!("Signature is malformed: {}", error);
+                                eprintln!("Signature is malformed:");
+                                print_error_chain(&error);
                             }
                             Err(MissingKey { sig, .. }) => {
                                 let issuers = sig.get_issuers();
@@ -185,16 +188,18 @@ impl<'a> VerificationHelper for VHelper<'a> {
                                           issuers.first().unwrap());
                             }
                             Err(UnboundKey { cert, error, .. }) => {
-                                eprintln!("Signing key on {:X} is not bound: {}",
-                                          cert.fingerprint(), error);
+                                eprintln!("Signing key on {:X} is not bound:",
+                                          cert.fingerprint());
+                                print_error_chain(&error);
                             }
                             Err(BadKey { ka, error, .. }) => {
-                                eprintln!("Signing key on {:X} is bad: {}",
-                                          ka.cert().fingerprint(),
-                                          error);
+                                eprintln!("Signing key on {:X} is bad:",
+                                          ka.cert().fingerprint());
+                                print_error_chain(&error);
                             }
                             Err(BadSignature { error, .. }) => {
-                                eprintln!("Verifying signature: {}.", error);
+                                eprintln!("Verifying signature:");
+                                print_error_chain(&error);
                                 if verification_err.is_none() {
                                     verification_err = Some(error)
                                 }
@@ -219,6 +224,11 @@ impl<'a> VerificationHelper for VHelper<'a> {
 
         Ok(())
     }
+}
+
+fn print_error_chain(err: &anyhow::Error) {
+    eprintln!("           {}", err);
+    err.chain().skip(1).for_each(|cause| eprintln!("  because: {}", cause));
 }
 
 
