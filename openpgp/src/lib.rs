@@ -285,15 +285,15 @@ pub enum Error {
     IndexOutOfRange,
 
     /// Expired.
-    #[error("Expired on {0:?}")]
+    #[error("Expired on {}", crate::fmt::time(.0))]
     Expired(std::time::SystemTime),
 
     /// Not yet live.
-    #[error("Not live until {0:?}")]
+    #[error("Not live until {}", crate::fmt::time(.0))]
     NotYetLive(std::time::SystemTime),
 
     /// No binding signature.
-    #[error("No binding signature at time {0:?}")]
+    #[error("No binding signature at time {}", crate::fmt::time(.0))]
     NoBindingSignature(std::time::SystemTime),
 
     /// Invalid key.
@@ -304,7 +304,9 @@ pub enum Error {
     ///
     /// The optional time is the time at which the operation was
     /// determined to no longer be secure.
-    #[error("Not secure as of: {1:?}: {0}")]
+    #[error("Not secure{}: {0}",
+            .1.as_ref().map(|t| format!(" as of {}", crate::fmt::time(t)))
+            .unwrap_or("".into()))]
     PolicyViolation(String, Option<std::time::SystemTime>),
 
     /// This marks this enum as non-exhaustive.  Do not use this
