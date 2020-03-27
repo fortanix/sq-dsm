@@ -422,7 +422,7 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
             decrypted: true,
             finished: false,
             map: self.map,
-            body_hash: None,
+            body_hash: Some(Container::make_body_hash()),
             state: self.state,
         })
     }
@@ -2787,7 +2787,7 @@ pub struct PacketParser<'a> {
     map: Option<map::Map>,
 
     /// We compute a hashsum over the body to implement comparison on
-    /// containers that have been streamed..
+    /// containers that have been streamed.
     body_hash: Option<crate::crypto::hash::Context>,
 
     state: PacketParserState,
@@ -3817,7 +3817,7 @@ impl <'a> PacketParser<'a> {
 
         if let Some(c) = self.packet.container_mut() {
             let h = self.body_hash.take()
-                .unwrap_or_else(Container::make_body_hash);
+                .expect("body_hash is Some");
             c.set_body_hash(h);
         }
 
@@ -3829,10 +3829,8 @@ impl <'a> PacketParser<'a> {
     /// Hashes content that has been streamed.
     fn hash_read_content(&mut self, b: &[u8]) {
         if b.len() > 0 {
-            if self.body_hash.is_none() {
-                self.body_hash = Some(Container::make_body_hash());
-            }
-            self.body_hash.as_mut().map(|c| c.update(b));
+            assert!(self.body_hash.is_some());
+            self.body_hash.as_mut().map(|h| h.update(b));
             self.content_was_read = true;
         }
     }
@@ -3905,6 +3903,8 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
             body_hash.update(data);
             self.body_hash = Some(body_hash);
             self.content_was_read |= read_something;
+        } else {
+            panic!("body_hash is None");
         }
 
         self.reader.consume(amount)
@@ -3918,6 +3918,8 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
             body_hash.update(data);
             self.body_hash = Some(body_hash);
             self.content_was_read |= read_something;
+        } else {
+            panic!("body_hash is None");
         }
 
         self.reader.data_consume(amount)
@@ -3931,6 +3933,8 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
             body_hash.update(data);
             self.body_hash = Some(body_hash);
             self.content_was_read |= read_something;
+        } else {
+            panic!("body_hash is None");
         }
 
         self.reader.data_consume_hard(amount)
