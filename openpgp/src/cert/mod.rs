@@ -187,7 +187,7 @@ impl<C> ComponentBundles<C>
                 b.self_signatures.append(&mut a.self_signatures);
                 b.certifications.append(&mut a.certifications);
                 b.self_revocations.append(&mut a.self_revocations);
-                b.other_revocations.append(&mut a.self_revocations);
+                b.other_revocations.append(&mut a.other_revocations);
 
                 true
             } else {
