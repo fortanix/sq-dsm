@@ -17,7 +17,9 @@ use crate::Result;
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
 ///
 /// This feature is [experimental](../../index.html#experimental-features).
-#[derive(Clone, Debug)]
+// IMPORTANT: If you add fields to this struct, you need to explicitly
+// IMPORTANT: implement PartialEq, Eq, and Hash.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct AED1 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -44,28 +46,6 @@ impl std::ops::Deref for AED1 {
 impl std::ops::DerefMut for AED1 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.container
-    }
-}
-
-impl PartialEq for AED1 {
-    fn eq(&self, other: &AED1) -> bool {
-        self.sym_algo == other.sym_algo
-            && self.aead == other.aead
-            && self.chunk_size == other.chunk_size
-            && self.iv == other.iv
-            && self.container == other.container
-    }
-}
-
-impl Eq for AED1 {}
-
-impl std::hash::Hash for AED1 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::hash::Hash::hash(&self.sym_algo, state);
-        std::hash::Hash::hash(&self.aead, state);
-        std::hash::Hash::hash(&self.chunk_size, state);
-        std::hash::Hash::hash(&self.iv, state);
-        std::hash::Hash::hash(&self.container, state);
     }
 }
 

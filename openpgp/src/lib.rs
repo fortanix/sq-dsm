@@ -332,6 +332,14 @@ pub enum Error {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+///
+/// # A note on equality
+///
+/// We define equality on `Packet` like equality of the serialized
+/// form of the packet bodies defined by RFC4880, i.e. two packets are
+/// considered equal if and only if their serialized form is equal,
+/// modulo the OpenPGP framing (`CTB` and length style, potential
+/// partial body encoding).
 #[derive(Debug)]
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {

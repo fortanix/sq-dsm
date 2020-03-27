@@ -11,6 +11,11 @@ use crate::Packet;
 /// how to process rather than abort.
 ///
 /// This packet effectively holds a binary blob.
+///
+/// # A note on equality
+///
+/// Two `Unknown` packets are considered equal if their tag and their
+/// body is equal.
 #[derive(Debug)]
 pub struct Unknown {
     /// CTB packet header fields.

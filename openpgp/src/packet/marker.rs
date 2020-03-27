@@ -8,23 +8,12 @@ use crate::Packet;
 /// See [Section 5.8 of RFC 4880] for details.
 ///
 ///   [Section 5.8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.8
-#[derive(Clone, Debug)]
+// IMPORTANT: If you add fields to this struct, you need to explicitly
+// IMPORTANT: implement PartialEq, Eq, and Hash.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Marker {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
-}
-
-impl PartialEq for Marker {
-    fn eq(&self, _other: &Marker) -> bool {
-        true
-    }
-}
-
-impl Eq for Marker {}
-
-impl std::hash::Hash for Marker {
-    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {
-    }
 }
 
 impl Marker {

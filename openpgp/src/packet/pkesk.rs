@@ -26,7 +26,9 @@ use crate::packet;
 /// [Section 5.1 of RFC 4880] for details.
 ///
 ///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
-#[derive(Clone, Debug)]
+// IMPORTANT: If you add fields to this struct, you need to explicitly
+// IMPORTANT: implement PartialEq, Eq, and Hash.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PKESK3 {
     /// CTB header fields.
     pub(crate) common: packet::Common,
@@ -36,24 +38,6 @@ pub struct PKESK3 {
     pk_algo: PublicKeyAlgorithm,
     /// The encrypted session key.
     esk: Ciphertext,
-}
-
-impl PartialEq for PKESK3 {
-    fn eq(&self, other: &PKESK3) -> bool {
-        self.recipient == other.recipient
-            && self.pk_algo == other.pk_algo
-            && self.esk == other.esk
-    }
-}
-
-impl Eq for PKESK3 {}
-
-impl std::hash::Hash for PKESK3 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::hash::Hash::hash(&self.recipient, state);
-        std::hash::Hash::hash(&self.pk_algo, state);
-        std::hash::Hash::hash(&self.esk, state);
-    }
 }
 
 impl PKESK3 {

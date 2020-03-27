@@ -112,6 +112,16 @@ impl<'a> DerefMut for Packet {
 /// Fields used by multiple packet types.
 #[derive(Debug, Clone)]
 pub struct Common {
+    // In the future, this structure will hold the parsed CTB, packet
+    // length, and lengths of chunks of partial body encoded packets.
+    // This will allow for bit-perfect roundtripping of parsed
+    // packets.  Since we consider Packets to be equal if their
+    // serialized form is equal modulo CTB, packet length encoding,
+    // and chunk lengths, this structure has trivial implementations
+    // for PartialEq, Eq, PartialOrd, Ord, and Hash, so that we can
+    // derive PartialEq, Eq, PartialOrd, Ord, and Hash for most
+    // packets.
+
     /// XXX: Prevents trivial matching on this structure.  Remove once
     /// this structure actually gains some fields.
     dummy: std::marker::PhantomData<()>,
@@ -124,6 +134,34 @@ impl Default for Common {
         }
     }
 }
+
+impl PartialEq for Common {
+    fn eq(&self, _: &Common) -> bool {
+        // Don't compare anything.
+        true
+    }
+}
+
+impl Eq for Common {}
+
+impl PartialOrd for Common {
+    fn partial_cmp(&self, _: &Self) -> Option<std::cmp::Ordering> {
+        Some(std::cmp::Ordering::Equal)
+    }
+}
+
+impl Ord for Common {
+    fn cmp(&self, _: &Self) -> std::cmp::Ordering {
+        std::cmp::Ordering::Equal
+    }
+}
+
+impl std::hash::Hash for Common {
+    fn hash<H: std::hash::Hasher>(&self, _: &mut H) {
+        // Don't hash anything.
+    }
+}
+
 
 /// A `Iter` iterates over the *contents* of a packet in
 /// depth-first order.  It starts by returning the current packet.
@@ -313,6 +351,21 @@ fn packet_path_iter() {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+///
+/// # A note on equality
+///
+/// Two `Signature` packets are considered equal if their serialized
+/// form is equal.  Notably this includes the unhashed subpacket area,
+/// but excludes the computed digest and signature level.
+///
+/// A consequence of considering packets in the unhashed subpacket
+/// area is that an adversary can take a valid signature and create
+/// many distinct but valid signatures by changing the unhashed
+/// subpacket area.  This has the potential of creating a denial of
+/// service vector.  To protect against this, consider using
+/// [`Signature::normalized_eq`].
+///
+///   [`Signature::normalized_eq`]: #method.normalized_eq
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Signature {
     /// Signature packet version 4.
@@ -523,6 +576,17 @@ impl From<SKESK> for Packet {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+///
+/// # A note on equality
+///
+/// Two `Key` packets are considered equal if their serialized form is
+/// equal.  Notably this includes the secret key material, but
+/// excludes the `KeyParts` and `KeyRole` marker traits.
+///
+/// To compare only the public bits of `Key` packets, use
+/// [`Key::public_eq`].
+///
+///   [`Key::public_eq`]: #method.public_eq
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Key<P: key::KeyParts, R: key::KeyRole> {
     /// Key packet version 4.
@@ -566,6 +630,20 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
             (Key::__Nonexhaustive, _) => unreachable!(),
             (_, Key::__Nonexhaustive) => unreachable!(),
         }
+    }
+
+    /// This method tests for self and other values to be equal modulo
+    /// the secret bits.
+    ///
+    /// This returns true if the public MPIs, creation time and
+    /// algorithm of the two `Key`s match.  This does not consider
+    /// the packet's encoding, packet's tag or the secret key
+    /// material.
+    pub fn public_eq<PB, RB>(&self, b: &Key<PB, RB>) -> bool
+        where PB: key::KeyParts,
+              RB: key::KeyRole,
+    {
+        self.public_cmp(b) == std::cmp::Ordering::Equal
     }
 }
 

@@ -9,24 +9,12 @@ use crate::Packet;
 /// See [Section 5.10 of RFC 4880] for details.
 ///
 ///   [Section 5.10 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.10
-#[derive(Clone)]
+// IMPORTANT: If you add fields to this struct, you need to explicitly
+// IMPORTANT: implement PartialEq, Eq, and Hash.
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Trust {
     pub(crate) common: packet::Common,
     value: Vec<u8>,
-}
-
-impl PartialEq for Trust {
-    fn eq(&self, other: &Trust) -> bool {
-        self.value == other.value
-    }
-}
-
-impl Eq for Trust {}
-
-impl std::hash::Hash for Trust {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::hash::Hash::hash(&self.value, state);
-    }
 }
 
 impl From<Vec<u8>> for Trust {

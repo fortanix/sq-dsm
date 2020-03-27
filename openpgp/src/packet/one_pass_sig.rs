@@ -5,7 +5,6 @@
 //!   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
 
 use std::fmt;
-use std::hash::{Hash, Hasher};
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -23,7 +22,9 @@ use crate::SignatureType;
 /// See [Section 5.4 of RFC 4880] for details.
 ///
 ///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
-#[derive(Clone)]
+// IMPORTANT: If you add fields to this struct, you need to explicitly
+// IMPORTANT: implement PartialEq, Eq, and Hash.
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct OnePassSig3 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -49,28 +50,6 @@ impl fmt::Debug for OnePassSig3 {
             .field("issuer", &self.issuer)
             .field("last", &self.last)
             .finish()
-    }
-}
-
-impl PartialEq for OnePassSig3 {
-    fn eq(&self, other: &OnePassSig3) -> bool {
-        self.typ == other.typ
-            && self.hash_algo == other.hash_algo
-            && self.pk_algo == other.pk_algo
-            && self.issuer == other.issuer
-            && self.last == other.last
-    }
-}
-
-impl Eq for OnePassSig3 {}
-
-impl Hash for OnePassSig3 {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.typ.hash(state);
-        self.hash_algo.hash(state);
-        self.pk_algo.hash(state);
-        self.issuer.hash(state);
-        self.last.hash(state);
     }
 }
 

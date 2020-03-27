@@ -62,6 +62,8 @@ pub mod subpacket;
 /// [`set_signature_creation_time`].
 ///
 ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
+// IMPORTANT: If you add fields to this struct, you need to explicitly
+// IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct Builder {
     /// Version of the signature packet. Must be 4.
@@ -455,11 +457,8 @@ impl PartialEq for Signature4 {
     /// signatures using this predicate.
     fn eq(&self, other: &Signature4) -> bool {
         self.mpis == other.mpis
-            && self.fields.version == other.fields.version
-            && self.fields.typ == other.fields.typ
-            && self.fields.pk_algo == other.fields.pk_algo
-            && self.fields.hash_algo == other.fields.hash_algo
-            && self.fields.hashed_area() == other.fields.hashed_area()
+            && self.fields == other.fields
+            && self.digest_prefix == other.digest_prefix
     }
 }
 
@@ -468,12 +467,9 @@ impl Eq for Signature4 {}
 impl std::hash::Hash for Signature4 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         use std::hash::Hash as StdHash;
-        self.fields.version.hash(state);
-        self.fields.typ.hash(state);
-        self.fields.pk_algo.hash(state);
-        self.fields.hash_algo.hash(state);
-        self.fields.hashed_area().hash(state);
         StdHash::hash(&self.mpis, state);
+        StdHash::hash(&self.fields, state);
+        self.digest_prefix.hash(state);
     }
 }
 
@@ -607,6 +603,26 @@ impl crate::packet::Signature {
             }
         });
         issuers
+    }
+
+    /// Compares Signatures ignoring the unhashed subpacket area.
+    ///
+    /// We ignore the unhashed subpacket area when comparing
+    /// signatures.  This prevents a malicious party to take valid
+    /// signatures, add subpackets to the unhashed area, yielding
+    /// valid but distinct signatures.
+    ///
+    /// The problem we are trying to avoid here is signature spamming.
+    /// Ignoring the unhashed subpackets means that we can deduplicate
+    /// signatures using this predicate.
+    pub fn normalized_eq(&self, other: &Signature) -> bool {
+        self.mpis() == other.mpis()
+            && self.version() == other.version()
+            && self.typ() == other.typ()
+            && self.pk_algo() == other.pk_algo()
+            && self.hash_algo() == other.hash_algo()
+            && self.hashed_area() == other.hashed_area()
+            && self.digest_prefix() == other.digest_prefix()
     }
 
     /// Normalizes the signature.
@@ -1461,16 +1477,20 @@ mod test {
         let keyid = KeyID::from(&fp);
 
         // First, make sure any superfluous subpackets are removed,
-        // yet the Issuer and EmbeddedSignature ones are kept.
+        // yet the Issuer, IssuerFingerprint and EmbeddedSignature
+        // ones are kept.
         let mut builder = Builder::new(SignatureType::Text);
-        // This subpacket does not belong there, and should be
-        // removed.
         builder.unhashed_area_mut().add(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp.clone()), false).unwrap())
             .unwrap();
         builder.unhashed_area_mut().add(Subpacket::new(
             SubpacketValue::Issuer(keyid.clone()), false).unwrap())
             .unwrap();
+        // This subpacket does not belong there, and should be
+        // removed.
+        builder.unhashed_area_mut().add(Subpacket::new(
+            SubpacketValue::PreferredSymmetricAlgorithms(Vec::new()),
+            false).unwrap()).unwrap();
 
         // Build and add an embedded sig.
         let embedded_sig = Builder::new(SignatureType::PrimaryKeyBinding)
@@ -1480,22 +1500,14 @@ mod test {
                                         .unwrap()).unwrap();
         let sig = builder.sign_hash(&mut pair,
                                     hash.clone()).unwrap().normalize();
-        assert_eq!(sig.unhashed_area().iter().count(), 2);
+        assert_eq!(sig.unhashed_area().iter().count(), 3);
         assert_eq!(*sig.unhashed_area().iter().nth(0).unwrap(),
                    Subpacket::new(SubpacketValue::Issuer(keyid.clone()),
                                   false).unwrap());
         assert_eq!(sig.unhashed_area().iter().nth(1).unwrap().tag(),
                    SubpacketTag::EmbeddedSignature);
-
-        // Now, make sure that an Issuer subpacket is synthesized from
-        // the hashed area for compatibility.
-        let sig = Builder::new(SignatureType::Text)
-            .set_issuer_fingerprint(fp).unwrap()
-            .sign_hash(&mut pair,
-                       hash.clone()).unwrap().normalize();
-        assert_eq!(sig.unhashed_area().iter().count(), 1);
-        assert_eq!(*sig.unhashed_area().iter().nth(0).unwrap(),
-                   Subpacket::new(SubpacketValue::Issuer(keyid.clone()),
+        assert_eq!(*sig.unhashed_area().iter().nth(2).unwrap(),
+                   Subpacket::new(SubpacketValue::IssuerFingerprint(fp.clone()),
                                   false).unwrap());
     }
 

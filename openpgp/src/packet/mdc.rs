@@ -8,6 +8,11 @@ use crate::Packet;
 /// SEIP packet.  See [Section 5.14 of RFC 4880] for details.
 ///
 /// [Section 5.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.14
+///
+/// # A note on equality
+///
+/// Two `Signature` packets are considered equal if their serialized
+/// form is equal.  This excludes the computed digest.
 #[derive(Clone, Debug)]
 pub struct MDC {
     /// CTB packet header fields.
@@ -20,7 +25,8 @@ pub struct MDC {
 
 impl PartialEq for MDC {
     fn eq(&self, other: &MDC) -> bool {
-        self.digest == other.digest
+        self.common == other.common
+            && self.digest == other.digest
     }
 }
 
@@ -28,6 +34,7 @@ impl Eq for MDC {}
 
 impl std::hash::Hash for MDC {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&self.common, state);
         std::hash::Hash::hash(&self.digest, state);
     }
 }

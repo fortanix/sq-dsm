@@ -54,7 +54,9 @@ impl Arbitrary for SKESK {
 /// 4880] for details.
 ///
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
-#[derive(Clone, Debug)]
+// IMPORTANT: If you add fields to this struct, you need to explicitly
+// IMPORTANT: implement PartialEq, Eq, and Hash.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SKESK4 {
     /// CTB header fields.
     pub(crate) common: packet::Common,
@@ -69,26 +71,6 @@ pub struct SKESK4 {
     s2k: S2K,
     /// The encrypted session key.
     esk: Option<Vec<u8>>,
-}
-
-impl PartialEq for SKESK4 {
-    fn eq(&self, other: &SKESK4) -> bool {
-        self.version == other.version
-            && self.sym_algo == other.sym_algo
-            && self.s2k == other.s2k
-            && self.esk == other.esk
-    }
-}
-
-impl Eq for SKESK4 {}
-
-impl std::hash::Hash for SKESK4 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::hash::Hash::hash(&self.version, state);
-        std::hash::Hash::hash(&self.sym_algo, state);
-        std::hash::Hash::hash(&self.s2k, state);
-        std::hash::Hash::hash(&self.esk, state);
-    }
 }
 
 impl SKESK4 {
@@ -247,6 +229,8 @@ impl Arbitrary for SKESK4 {
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.3
 ///
 /// This feature is [experimental](../../index.html#experimental-features).
+// IMPORTANT: If you add fields to this struct, you need to explicitly
+// IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct SKESK5 {
     /// Common fields.

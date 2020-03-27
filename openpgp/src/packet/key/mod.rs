@@ -895,6 +895,20 @@ impl<P, R> Key4<P, R>
 
         self.pk_algo.cmp(&b.pk_algo)
     }
+
+    /// This method tests for self and other values to be equal modulo
+    /// the secret bits.
+    ///
+    /// This returns true if the public MPIs, creation time and
+    /// algorithm of the two `Key4`s match.  This does not consider
+    /// the packet's encoding, packet's tag or the secret key
+    /// material.
+    pub fn public_eq<PB, RB>(&self, b: &Key4<PB, RB>) -> bool
+        where PB: key::KeyParts,
+              RB: key::KeyRole,
+    {
+        self.public_cmp(b) == Ordering::Equal
+    }
 }
 
 impl<R> Key4<key::PublicParts, R>
@@ -1522,6 +1536,8 @@ impl SecretKeyMaterial {
 /// demand.  See [`crypto::mem::Encrypted`] for details.
 ///
 ///  [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
+// Note: PartialEq, Eq, and Hash on mem::Encrypted does the right
+// thing.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Unencrypted {
     /// MPIs of the secret key.

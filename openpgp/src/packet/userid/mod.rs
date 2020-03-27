@@ -506,7 +506,8 @@ impl fmt::Debug for UserID {
 
 impl PartialEq for UserID {
     fn eq(&self, other: &UserID) -> bool {
-        self.value == other.value
+        self.common == other.common
+            && self.value == other.value
     }
 }
 
@@ -521,20 +522,26 @@ impl PartialOrd for UserID {
 
 impl Ord for UserID {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.value.cmp(&other.value)
+        self.common.cmp(&other.common).then_with(
+            || self.value.cmp(&other.value))
     }
 }
 
 impl Hash for UserID {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // We hash only the data; the cache does not implement hash.
+        self.common.hash(state);
         self.value.hash(state);
     }
 }
 
 impl Clone for UserID {
     fn clone(&self) -> Self {
-        self.value.clone().into()
+        UserID {
+            common: self.common.clone(),
+            value: self.value.clone(),
+            parsed: Mutex::new(RefCell::new(None)),
+        }
     }
 }
 
