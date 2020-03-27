@@ -261,6 +261,48 @@ pub(crate) fn from_hex(hex: &str, pretty: bool) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
+/// Formats the given time using ISO 8601.
+///
+/// This is a no-dependency, best-effort mechanism.  If the given time
+/// is not representable using unsigned UNIX time, we return the debug
+/// formatting.
+pub(crate) fn time(t: &std::time::SystemTime) -> String {
+    extern "C" {
+        fn strftime(
+            s: *mut libc::c_char,
+            max: libc::size_t,
+            format: *const libc::c_char,
+            tm: *const libc::tm,
+        ) -> usize;
+    }
+
+    let t = match t.duration_since(std::time::UNIX_EPOCH) {
+        Ok(t) => t.as_secs() as libc::time_t,
+        Err(_) => return format!("{:?}", t),
+    };
+    let fmt = b"%Y-%m-%dT%H:%M:%SZ\x00";
+    assert_eq!(b"2020-03-26T10:08:10Z\x00".len(), 21);
+    let mut s = [0u8; 21];
+
+    unsafe {
+        let mut tm: libc::tm = std::mem::zeroed();
+
+        #[cfg(unix)]
+        libc::gmtime_r(&t, &mut tm);
+        #[cfg(windows)]
+        libc::gmtime_s(&mut tm, &t);
+
+        strftime(s.as_mut_ptr() as *mut libc::c_char,
+                 s.len(),
+                 fmt.as_ptr() as *const libc::c_char,
+                 &tm);
+    }
+
+    std::ffi::CStr::from_bytes_with_nul(&s)
+        .expect("strftime nul terminates string")
+        .to_string_lossy().into()
+}
+
 #[cfg(test)]
 mod test {
     #[test]
@@ -388,5 +430,15 @@ mod test {
              00000004              00                                     \
              type\n\
              ");
+    }
+
+    #[test]
+    fn time() {
+        use super::time;
+        use crate::types::Timestamp;
+        let t = |epoch| -> std::time::SystemTime {
+            Timestamp::from(epoch).into()
+        };
+        assert_eq!(&time(&t(1585217290)), "2020-03-26T10:08:10Z");
     }
 }
