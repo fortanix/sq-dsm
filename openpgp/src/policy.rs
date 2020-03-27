@@ -729,12 +729,14 @@ impl<'a> Policy for StandardPolicy<'a> {
                 | t @ SignatureType::CertificationRevocation =>
             {
                 self.hash_algos_revocation.check(sig.hash_algo(), time)
-                    .context(format!("revocation signature ({})", t))?
+                    .context(format!(
+                        "Not secure for revocation signature ({})", t))?
             }
             t =>
             {
                 self.hash_algos_normal.check(sig.hash_algo(), time)
-                    .context(format!("non-revocation signature ({})", t))?
+                    .context(format!(
+                        "Not secure for non-revocation signature ({})", t))?
             }
         }
 
