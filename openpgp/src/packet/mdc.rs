@@ -11,8 +11,8 @@ use crate::Packet;
 ///
 /// # A note on equality
 ///
-/// Two `Signature` packets are considered equal if their serialized
-/// form is equal.  This excludes the computed digest.
+/// Two `MDC` packets are considered equal if their serialized form is
+/// equal.  This excludes the computed digest.
 #[derive(Clone, Debug)]
 pub struct MDC {
     /// CTB packet header fields.

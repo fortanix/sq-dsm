@@ -14,6 +14,12 @@ use crate::Packet;
 /// 4880] for details.
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
+///
+/// # A note on equality
+///
+/// An unprocessed (encrypted) `SEIP` packet is never considered equal
+/// to a processed (decrypted) one.  Likewise, a processed (decrypted)
+/// packet is never considered equal to a structured (parsed) one.
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

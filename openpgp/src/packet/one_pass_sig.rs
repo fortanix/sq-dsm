@@ -22,6 +22,11 @@ use crate::SignatureType;
 /// See [Section 5.4 of RFC 4880] for details.
 ///
 ///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
+///
+/// # A note on equality
+///
+/// The `last` flag is represented as a `u8` and is compared
+/// literally, not semantically.
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, PartialEq, Eq, Hash)]

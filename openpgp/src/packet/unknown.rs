@@ -14,8 +14,8 @@ use crate::Packet;
 ///
 /// # A note on equality
 ///
-/// Two `Unknown` packets are considered equal if their tag and their
-/// body is equal.
+/// Two `Unknown` packets are considered equal if their tags and their
+/// bodies are equal.
 #[derive(Debug)]
 pub struct Unknown {
     /// CTB packet header fields.

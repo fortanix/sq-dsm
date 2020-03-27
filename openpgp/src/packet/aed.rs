@@ -17,6 +17,12 @@ use crate::Result;
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
 ///
 /// This feature is [experimental](../../index.html#experimental-features).
+///
+/// # A note on equality
+///
+/// An unprocessed (encrypted) `SEIP` packet is never considered equal
+/// to a processed (decrypted) one.  Likewise, a processed (decrypted)
+/// packet is never considered equal to a structured (parsed) one.
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]

@@ -355,8 +355,9 @@ fn packet_path_iter() {
 /// # A note on equality
 ///
 /// Two `Signature` packets are considered equal if their serialized
-/// form is equal.  Notably this includes the unhashed subpacket area,
-/// but excludes the computed digest and signature level.
+/// form is equal.  Notably this includes the unhashed subpacket area
+/// and the order of subpackets and notations, but excludes the
+/// computed digest and signature level.
 ///
 /// A consequence of considering packets in the unhashed subpacket
 /// area is that an adversary can take a valid signature and create
