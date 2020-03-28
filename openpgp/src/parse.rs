@@ -3950,10 +3950,6 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
         Ok(v)
     }
 
-    fn drop_eof(&mut self) -> io::Result<bool> {
-        Ok(! self.steal_eof()?.is_empty())
-    }
-
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {
         None
     }
