@@ -3938,18 +3938,6 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
         self.reader.data_consume_hard(amount)
     }
 
-    fn read_be_u16(&mut self) -> io::Result<u16> {
-        let v = self.reader.read_be_u16()?;
-        self.hash_read_content(&v.to_be_bytes());
-        Ok(v)
-    }
-
-    fn read_be_u32(&mut self) -> io::Result<u32> {
-        let v = self.reader.read_be_u32()?;
-        self.hash_read_content(&v.to_be_bytes());
-        Ok(v)
-    }
-
     fn steal(&mut self, amount: usize) -> io::Result<Vec<u8>> {
         let v = self.reader.steal(amount)?;
         self.hash_read_content(&v);
