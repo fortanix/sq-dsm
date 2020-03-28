@@ -3899,10 +3899,9 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
         if let Some(mut body_hash) = self.body_hash.take() {
             let data = self.data_hard(amount)
                 .expect("It is an error to consume more than data returns");
-            let read_something = data.len() > 0;
             body_hash.update(&data[..amount]);
             self.body_hash = Some(body_hash);
-            self.content_was_read |= read_something;
+            self.content_was_read |= amount > 0;
         } else {
             panic!("body_hash is None");
         }
@@ -3910,14 +3909,14 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
         self.reader.consume(amount)
     }
 
-    fn data_consume(&mut self, amount: usize) -> io::Result<&[u8]> {
+    fn data_consume(&mut self, mut amount: usize) -> io::Result<&[u8]> {
         // This is awkward.  Juggle mutable references around.
         if let Some(mut body_hash) = self.body_hash.take() {
             let data = self.data(amount)?;
-            let read_something = data.len() > 0;
+            amount = cmp::min(data.len(), amount);
             body_hash.update(&data[..amount]);
             self.body_hash = Some(body_hash);
-            self.content_was_read |= read_something;
+            self.content_was_read |= amount > 0;
         } else {
             panic!("body_hash is None");
         }
@@ -3929,10 +3928,9 @@ impl<'a> BufferedReader<Cookie> for PacketParser<'a> {
         // This is awkward.  Juggle mutable references around.
         if let Some(mut body_hash) = self.body_hash.take() {
             let data = self.data_hard(amount)?;
-            let read_something = data.len() > 0;
             body_hash.update(&data[..amount]);
             self.body_hash = Some(body_hash);
-            self.content_was_read |= read_something;
+            self.content_was_read |= amount > 0;
         } else {
             panic!("body_hash is None");
         }
