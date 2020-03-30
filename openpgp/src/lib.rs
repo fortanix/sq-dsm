@@ -424,27 +424,9 @@ impl Packet {
     /// into an `Packet::Unknown`.  `tag()` returns `Tag::Signature`,
     /// whereas `kind()` returns `None`.
     pub fn kind(&self) -> Option<packet::Tag> {
-        use crate::packet::Tag;
         match self {
             &Packet::Unknown(_) => None,
-            &Packet::Signature(_) => Some(Tag::Signature),
-            &Packet::OnePassSig(_) => Some(Tag::OnePassSig),
-            &Packet::PublicKey(_) => Some(Tag::PublicKey),
-            &Packet::PublicSubkey(_) => Some(Tag::PublicSubkey),
-            &Packet::SecretKey(_) => Some(Tag::SecretKey),
-            &Packet::SecretSubkey(_) => Some(Tag::SecretSubkey),
-            &Packet::Marker(_) => Some(Tag::Marker),
-            &Packet::Trust(_) => Some(Tag::Trust),
-            &Packet::UserID(_) => Some(Tag::UserID),
-            &Packet::UserAttribute(_) => Some(Tag::UserAttribute),
-            &Packet::Literal(_) => Some(Tag::Literal),
-            &Packet::CompressedData(_) => Some(Tag::CompressedData),
-            &Packet::PKESK(_) => Some(Tag::PKESK),
-            &Packet::SKESK(_) => Some(Tag::SKESK),
-            &Packet::SEIP(_) => Some(Tag::SEIP),
-            &Packet::MDC(_) => Some(Tag::MDC),
-            &Packet::AED(_) => Some(Tag::AED),
-            Packet::__Nonexhaustive => unreachable!(),
+            _ => Some(self.tag()),
         }
     }
 }
