@@ -139,6 +139,16 @@ Please make sure to preserve line-endings when cloning the Sequoia
 repository.  The relevant git option is `core.autocrlf` which must be
 set to false.
 
+#### MSYS2
+You can install the needed libraries with the following command:
+```shell
+    $ pacboy -S base-devel toolchain:x clang:x bzip2:x nettle:x sqlite3:x capnproto:x
+```
+
+Due to Gitlab's Windows Shared Runners being somewhat slow, we only run them
+automatically for MRs, which contain `windows` in the branch name. Please name
+your branch accordingly when contributing a patch which might affect Windows.
+
 Bindings
 --------
 
