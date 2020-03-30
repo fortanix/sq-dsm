@@ -236,17 +236,31 @@ impl<'a> PacketPileParser<'a> {
 }
 
 #[test]
-fn message_parser_test() {
+fn test_recurse() -> Result<()> {
     let mut count = 0;
     let mut ppp =
-        PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))
-        .unwrap();
+        PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))?;
     let mut ppr = ppp.recurse().unwrap();
     while ppr.is_some() {
         count += 1;
         ppr = ppp.recurse().unwrap();
     }
     assert_eq!(count, 61);
+    Ok(())
+}
+
+#[test]
+fn test_next() -> Result<()> {
+    let mut count = 0;
+    let mut ppp =
+        PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))?;
+    let mut ppr = ppp.recurse().unwrap();
+    while ppr.is_some() {
+        count += 1;
+        ppr = ppp.next().unwrap();
+    }
+    assert_eq!(count, 61);
+    Ok(())
 }
 
 /// Check that we can use the read interface to stream the contents of
