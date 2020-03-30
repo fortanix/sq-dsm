@@ -78,6 +78,7 @@ windows:
   # This job takes ~40 minutes to run, let's only execute it manually or for
   # scheduled builds, otherwise this will stall MRs often not related to Windows
   only:
+  - /windows/i # refs containing 'windows' keyword
   - tags
   - web
   - scheduled
