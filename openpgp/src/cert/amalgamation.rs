@@ -490,7 +490,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// Note: this function is not exported.  Users of this interface
     /// should do: ca.with_policy(policy, time)?.binding_signature().
     fn binding_signature<T>(&self, policy: &dyn Policy, time: T)
-        -> crate::Result<&'a Signature>
+        -> Result<&'a Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let time = time.into().unwrap_or_else(SystemTime::now);

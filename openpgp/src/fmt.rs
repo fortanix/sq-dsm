@@ -7,6 +7,8 @@ use crate::Result;
 pub mod hex {
     use std::io;
 
+    use crate::Result;
+
     /// Encodes the given buffer as hexadecimal number.
     pub fn encode<B: AsRef<[u8]>>(buffer: B) -> String {
         super::to_hex(buffer.as_ref(), false)
@@ -18,12 +20,12 @@ pub mod hex {
     }
 
     /// Decodes the given hexadecimal number.
-    pub fn decode<H: AsRef<str>>(hex: H) -> crate::Result<Vec<u8>> {
+    pub fn decode<H: AsRef<str>>(hex: H) -> Result<Vec<u8>> {
         super::from_hex(hex.as_ref(), false)
     }
 
     /// Decodes the given hexadecimal number, ignoring whitespace.
-    pub fn decode_pretty<H: AsRef<str>>(hex: H) -> crate::Result<Vec<u8>> {
+    pub fn decode_pretty<H: AsRef<str>>(hex: H) -> Result<Vec<u8>> {
         super::from_hex(hex.as_ref(), true)
     }
 

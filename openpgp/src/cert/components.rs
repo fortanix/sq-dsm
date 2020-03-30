@@ -13,6 +13,7 @@ use crate::{
     packet::Unknown,
     Packet,
     policy::Policy,
+    Result,
 };
 use crate::types::{
     RevocationType,
@@ -113,7 +114,7 @@ impl<C> ComponentBundle<C> {
     /// signatures at time `t`, or there is one that did not match the
     /// given policy.
     pub fn binding_signature<T>(&self, policy: &dyn Policy, t: T)
-                                -> crate::Result<&Signature>
+                                -> Result<&Signature>
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into().unwrap_or_else(|| time::SystemTime::now());
