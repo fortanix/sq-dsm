@@ -12,6 +12,17 @@ use memsec;
 ///
 /// The memory is guaranteed not to be copied around, and is cleared
 /// when the object is dropped.
+///
+/// ```rust
+/// use sequoia_openpgp::crypto::mem::Protected;
+///
+/// {
+///     let p: Protected = vec![0, 1, 2].into();
+///     assert_eq!(p.as_ref(), &[0, 1, 2]);
+/// }
+///
+/// // p is cleared once it goes out of scope.
+/// ```
 #[derive(Clone)]
 pub struct Protected(Pin<Box<[u8]>>);
 
@@ -121,6 +132,19 @@ impl fmt::Debug for Protected {
 /// This kind of protection was pioneered by OpenSSH.  The commit
 /// adding it can be found
 /// [here](https://marc.info/?l=openbsd-cvs&m=156109087822676).
+///
+/// # Example
+///
+/// ```rust
+/// use sequoia_openpgp::crypto::mem::Encrypted;
+///
+/// let e = Encrypted::new(vec![0, 1, 2].into());
+/// e.map(|p| {
+///     // e is temporarily decrypted and made available to the closure.
+///     assert_eq!(p.as_ref(), &[0, 1, 2]);
+///     // p is cleared once the function returns.
+/// });
+/// ```
 #[derive(Clone, Debug)]
 pub struct Encrypted {
     ciphertext: Protected,
