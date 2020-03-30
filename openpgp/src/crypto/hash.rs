@@ -22,6 +22,30 @@ use std::io::{self, Write};
 const DUMP_HASHED_VALUES: Option<&str> = None;
 
 /// State of a hash function.
+///
+/// This provides an abstract interface to the hash functions used in
+/// OpenPGP.
+///
+/// ```rust
+/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp::types::HashAlgorithm;
+///
+/// // Create a context and feed data to it.
+/// let mut ctx = HashAlgorithm::SHA512.context()?;
+/// ctx.update(&b"The quick brown fox jumps over the lazy dog."[..]);
+///
+/// // Extract the digest.
+/// let mut digest = vec![0; ctx.digest_size()];
+/// ctx.digest(&mut digest);
+///
+/// use sequoia_openpgp::fmt::hex;
+/// assert_eq!(&hex::encode(digest),
+///            "91EA1245F20D46AE9A037A989F54F1F7\
+///             90F0A47607EEB8A14D12890CEA77A1BB\
+///             C6C7ED9CF205E67B7F2B8FD4C7DFD3A7\
+///             A8617E45F3C463D481C7E586C39AC1ED");
+/// # Ok(()) }
+/// ```
 #[derive(Clone)]
 pub struct Context {
     algo: HashAlgorithm,
