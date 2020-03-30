@@ -138,16 +138,14 @@ impl HashAlgorithm {
             HashAlgorithm::__Nonexhaustive => unreachable!(),
         };
 
-        if let Some(prefix) = DUMP_HASHED_VALUES {
-            c.map(|c: Box<dyn nettle::hash::Hash>| {
-                Context {
-                    algo: self,
-                    ctx: Box::new(HashDumper::new(c, prefix)),
-                }
-            })
-        } else {
-            c.map(|c| Context { algo: self, ctx: c })
-        }
+        c.map(|ctx| Context {
+            algo: self,
+            ctx: if let Some(prefix) = DUMP_HASHED_VALUES {
+                Box::new(HashDumper::new(ctx, prefix))
+            } else {
+                ctx
+            },
+        })
     }
 
     /// Returns the ASN.1 OID of this hash algorithm.
