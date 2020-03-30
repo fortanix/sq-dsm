@@ -21,7 +21,7 @@ mod lexer;
 use self::lexer::Lexer;
 
 // Load the generated code.
-lalrpop_mod!(#[allow(missing_docs)] grammar, "/parse/sexp/grammar.rs");
+lalrpop_mod!(#[allow(missing_docs, unused_parens)] grammar, "/parse/sexp/grammar.rs");
 
 impl<'a> Parse<'a, Sexp> for Sexp {
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Sexp> {
