@@ -7,6 +7,7 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::slice;
+use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
 use crate::Result;
@@ -246,6 +247,13 @@ pub struct Common {
     /// XXX: Prevents trivial matching on this structure.  Remove once
     /// this structure actually gains some fields.
     dummy: std::marker::PhantomData<()>,
+}
+
+impl Arbitrary for Common {
+    fn arbitrary<G: Gen>(_: &mut G) -> Self {
+        // XXX: Change if this gets interesting fields.
+        Common::default()
+    }
 }
 
 impl Default for Common {
