@@ -165,6 +165,7 @@ use crate::types::{
 
 mod fingerprint;
 mod keyid;
+pub use keyid::KeyID;
 mod keyhandle;
 pub use keyhandle::KeyHandle;
 pub mod policy;
@@ -457,23 +458,6 @@ pub struct Message {
 pub enum Fingerprint {
     /// 20 byte SHA-1 hash.
     V4([u8;20]),
-    /// Used for holding fingerprints that we don't understand.  For
-    /// instance, we don't grok v3 fingerprints.  And, it is possible
-    /// that the Issuer subpacket contains the wrong number of bytes.
-    Invalid(Box<[u8]>)
-}
-
-/// Holds a KeyID.
-///
-/// A KeyID is a fingerprint fragment.  It identifies a public key,
-/// but is easy to forge.  For more details about how a KeyID is
-/// generated, see [Section 12.2 of RFC 4880].
-///
-///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
-pub enum KeyID {
-    /// Lower 8 byte SHA-1 hash.
-    V4([u8;8]),
     /// Used for holding fingerprints that we don't understand.  For
     /// instance, we don't grok v3 fingerprints.  And, it is possible
     /// that the Issuer subpacket contains the wrong number of bytes.
