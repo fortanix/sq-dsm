@@ -49,6 +49,7 @@ impl fmt::Debug for KeyServerPreferences {
 impl PartialEq for KeyServerPreferences {
     fn eq(&self, other: &Self) -> bool {
         self.no_modify == other.no_modify
+            && self.unknown == other.unknown
     }
 }
 
@@ -57,6 +58,7 @@ impl Eq for KeyServerPreferences {}
 impl Hash for KeyServerPreferences {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.no_modify.hash(state);
+        self.unknown.hash(state);
     }
 }
 
