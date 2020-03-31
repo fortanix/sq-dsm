@@ -1,4 +1,5 @@
 use std::fmt;
+use quickcheck::{Arbitrary, Gen};
 
 use crate::packet;
 use crate::Packet;
@@ -90,5 +91,25 @@ impl CompressedData {
 impl From<CompressedData> for Packet {
     fn from(s: CompressedData) -> Self {
         Packet::CompressedData(s)
+    }
+}
+
+impl Arbitrary for CompressedData {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        use rand::Rng;
+        use crate::serialize::SerializeInto;
+        loop {
+            let a = CompressionAlgorithm::from(g.gen_range(0, 4));
+            if a.is_supported() {
+                let mut c = CompressedData::new(a);
+                // We arbitrarily chose to create packets with
+                // processed bodies, so that
+                // Packet::from_bytes(c.to_vec()) will roundtrip them.
+                c.set_body(packet::Body::Processed(
+                    Packet::arbitrary(g).to_vec().unwrap()
+                ));
+                return c;
+            }
+        }
     }
 }
