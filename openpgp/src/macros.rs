@@ -7,6 +7,7 @@ use std::cmp;
 // if destructures_to(Foo::Bar(_) = value)
 //    || destructures_to(Foo::Bam(_) = value) { ... }
 // ```
+// TODO: Replace with `std::matches!` once MSRV is bumped to 1.42.
 macro_rules! destructures_to {
     ( $error: pat = $expr:expr ) => {
         {
