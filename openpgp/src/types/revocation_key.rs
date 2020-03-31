@@ -1,3 +1,5 @@
+use quickcheck::{Arbitrary, Gen};
+
 use crate::{
     Error,
     Fingerprint,
@@ -96,3 +98,14 @@ const REVOCATION_KEY_FLAG_SENSITIVE: u8 = 0x40;
 /// Mask covering the unknown bits.
 const REVOCATION_KEY_MASK_UNKNOWN: u8 = ! (REVOCATION_KEY_FLAG_MUST_BE_SET
                                            | REVOCATION_KEY_FLAG_SENSITIVE);
+
+impl Arbitrary for RevocationKey {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        RevocationKey {
+            pk_algo: Arbitrary::arbitrary(g),
+            fp: Arbitrary::arbitrary(g),
+            sensitive: Arbitrary::arbitrary(g),
+            unknown: Arbitrary::arbitrary(g),
+        }
+    }
+}
