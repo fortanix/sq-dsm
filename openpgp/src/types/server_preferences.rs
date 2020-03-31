@@ -106,7 +106,7 @@ impl KeyServerPreferences {
 
     /// Whether or not keyservers are allowed to modify this key.
     pub fn no_modify(&self) -> bool {
-        !self.no_modify
+        self.no_modify
     }
 
     /// Sets whether or not keyservers are allowed to modify this key.
@@ -126,6 +126,17 @@ const KEYSERVER_PREFERENCES_N_KNOWN_BYTES: usize = 1;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn basics() -> crate::Result<()> {
+        let p = KeyServerPreferences::default();
+        assert_eq!(p.no_modify(), false);
+        let p = KeyServerPreferences::new(&[]);
+        assert_eq!(p.no_modify(), false);
+        let p = KeyServerPreferences::new(&[0xff]);
+        assert_eq!(p.no_modify(), true);
+        Ok(())
+    }
 
     quickcheck! {
         fn roundtrip(raw: Vec<u8>) -> bool {
