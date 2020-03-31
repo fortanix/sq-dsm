@@ -1,5 +1,6 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use quickcheck::{Arbitrary, Gen};
 
 /// Describes features supported by an OpenPGP implementation.
 ///
@@ -172,14 +173,20 @@ const FEATURE_FLAG_AEAD: u8 = 0x02;
 /// Number of bytes with known flags.
 const FEATURE_FLAGS_N_KNOWN_BYTES: usize = 1;
 
+impl Arbitrary for Features {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        Self::new(Vec::arbitrary(g))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     quickcheck! {
-        fn roundtrip(raw: Vec<u8>) -> bool {
-            let val = Features::new(&raw);
-            assert_eq!(raw, val.to_vec());
+        fn roundtrip(val: Features) -> bool {
+            let q = Features::new(&val.to_vec());
+            assert_eq!(val, q);
 
             // Check that equality ignores padding.
             let mut val_without_padding = val.clone();

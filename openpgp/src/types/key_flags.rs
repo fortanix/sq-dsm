@@ -2,6 +2,7 @@ use std::hash::{Hash, Hasher};
 use std::fmt;
 use std::cmp;
 use std::ops::{BitAnd, BitOr};
+use quickcheck::{Arbitrary, Gen};
 
 /// Describes how a key may be used, and stores additional
 /// information.
@@ -335,6 +336,12 @@ const KEY_FLAG_GROUP_KEY: u8 = 0x80;
 /// Number of bytes with known flags.
 const KEY_FLAGS_N_KNOWN_BYTES: usize = 1;
 
+impl Arbitrary for KeyFlags {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        Self::new(Vec::arbitrary(g))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -364,9 +371,9 @@ mod tests {
     }
 
     quickcheck! {
-        fn roundtrip(raw: Vec<u8>) -> bool {
-            let val = KeyFlags::new(&raw);
-            assert_eq!(raw, val.to_vec());
+        fn roundtrip(val: KeyFlags) -> bool {
+            let q = KeyFlags::new(&val.to_vec());
+            assert_eq!(val, q);
 
             // Check that equality ignores padding.
             let mut val_without_padding = val.clone();
