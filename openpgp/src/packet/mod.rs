@@ -234,16 +234,17 @@ impl<'a> DerefMut for Packet {
 impl Arbitrary for Packet {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use rand::Rng;
-        match g.gen_range(0, 9) {
-            0 => OnePassSig::arbitrary(g).into(),
-            1 => Marker::arbitrary(g).into(),
-            2 => Trust::arbitrary(g).into(),
-            3 => UserID::arbitrary(g).into(),
-            4 => UserAttribute::arbitrary(g).into(),
-            5 => Literal::arbitrary(g).into(),
-            6 => CompressedData::arbitrary(g).into(),
-            7 => PKESK::arbitrary(g).into(),
-            8 => SKESK::arbitrary(g).into(),
+        match g.gen_range(0, 10) {
+            0 => Signature::arbitrary(g).into(),
+            1 => OnePassSig::arbitrary(g).into(),
+            2 => Marker::arbitrary(g).into(),
+            3 => Trust::arbitrary(g).into(),
+            4 => UserID::arbitrary(g).into(),
+            5 => UserAttribute::arbitrary(g).into(),
+            6 => Literal::arbitrary(g).into(),
+            7 => CompressedData::arbitrary(g).into(),
+            8 => PKESK::arbitrary(g).into(),
+            9 => SKESK::arbitrary(g).into(),
             _ => unreachable!(),
         }
     }

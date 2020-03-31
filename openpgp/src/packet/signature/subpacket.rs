@@ -71,7 +71,7 @@ use crate::{
     Error,
     Result,
     packet::Signature,
-    packet::signature::{self, Signature4},
+    packet::signature::{self, Signature4, ArbitraryBounded},
     packet::key,
     packet::Key,
     Fingerprint,
@@ -340,6 +340,21 @@ pub struct SubpacketArea {
     parsed: Mutex<RefCell<Option<HashMap<SubpacketTag, usize>>>>,
 }
 
+impl ArbitraryBounded for SubpacketArea {
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        use rand::Rng;
+
+        let mut a = Self::default();
+        for _ in 0..g.gen_range(0, 32) {
+            let _ = a.add(ArbitraryBounded::arbitrary_bounded(g, depth));
+        }
+
+        a
+    }
+}
+
+impl_arbitrary_with_bound!(SubpacketArea);
+
 impl Default for SubpacketArea {
     fn default() -> Self {
         Self::new(Default::default())
@@ -516,6 +531,16 @@ pub struct NotationData {
     value: Vec<u8>,
 }
 
+impl Arbitrary for NotationData {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        NotationData {
+            flags: Arbitrary::arbitrary(g),
+            name: Arbitrary::arbitrary(g),
+            value: Arbitrary::arbitrary(g),
+        }
+    }
+}
+
 impl NotationData {
     /// Creates a new Notation Data subpacket payload.
     pub fn new<N, V, F>(name: N, value: V, flags: F) -> Self
@@ -559,6 +584,12 @@ impl Default for NotationDataFlags {
 impl From<u32> for NotationDataFlags {
     fn from(v: u32) -> Self {
         Self(v)
+    }
+}
+
+impl Arbitrary for NotationDataFlags {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        u32::arbitrary(g).into()
     }
 }
 
@@ -716,6 +747,58 @@ pub enum SubpacketValue {
     #[doc(hidden)] __Nonexhaustive,
 }
 
+impl ArbitraryBounded for SubpacketValue {
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        use rand::Rng;
+        use self::SubpacketValue::*;
+        loop {
+            break match g.gen_range(0, 26) {
+                0 => SignatureCreationTime(Arbitrary::arbitrary(g)),
+                1 => SignatureExpirationTime(Arbitrary::arbitrary(g)),
+                2 => ExportableCertification(Arbitrary::arbitrary(g)),
+                3 => TrustSignature {
+                    level: Arbitrary::arbitrary(g),
+                    trust: Arbitrary::arbitrary(g),
+                },
+                4 => RegularExpression(Arbitrary::arbitrary(g)),
+                5 => Revocable(Arbitrary::arbitrary(g)),
+                6 => KeyExpirationTime(Arbitrary::arbitrary(g)),
+                7 => PreferredSymmetricAlgorithms(Arbitrary::arbitrary(g)),
+                8 => RevocationKey(Arbitrary::arbitrary(g)),
+                9 => Issuer(Arbitrary::arbitrary(g)),
+                10 => NotationData(Arbitrary::arbitrary(g)),
+                11 => PreferredHashAlgorithms(Arbitrary::arbitrary(g)),
+                12 => PreferredCompressionAlgorithms(Arbitrary::arbitrary(g)),
+                13 => KeyServerPreferences(Arbitrary::arbitrary(g)),
+                14 => PreferredKeyServer(Arbitrary::arbitrary(g)),
+                15 => PrimaryUserID(Arbitrary::arbitrary(g)),
+                16 => PolicyURI(Arbitrary::arbitrary(g)),
+                17 => KeyFlags(Arbitrary::arbitrary(g)),
+                18 => SignersUserID(Arbitrary::arbitrary(g)),
+                19 => ReasonForRevocation {
+                    code: Arbitrary::arbitrary(g),
+                    reason: Arbitrary::arbitrary(g),
+                },
+                20 => Features(Arbitrary::arbitrary(g)),
+                21 => SignatureTarget {
+                    pk_algo: Arbitrary::arbitrary(g),
+                    hash_algo: Arbitrary::arbitrary(g),
+                    digest: Arbitrary::arbitrary(g),
+                },
+                22 if depth == 0 => continue, // Don't recurse, try again.
+                22 => EmbeddedSignature(
+                    ArbitraryBounded::arbitrary_bounded(g, depth - 1)),
+                23 => IssuerFingerprint(Arbitrary::arbitrary(g)),
+                24 => PreferredAEADAlgorithms(Arbitrary::arbitrary(g)),
+                25 => IntendedRecipient(Arbitrary::arbitrary(g)),
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+impl_arbitrary_with_bound!(SubpacketValue);
+
 impl SubpacketValue {
     /// Returns the subpacket tag for this value.
     pub fn tag(&self) -> SubpacketTag {
@@ -777,6 +860,15 @@ pub struct Subpacket {
     /// Packet value, must match packet type.
     value: SubpacketValue,
 }
+
+impl ArbitraryBounded for Subpacket {
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        Subpacket::new(ArbitraryBounded::arbitrary_bounded(g, depth),
+                       Arbitrary::arbitrary(g)).unwrap()
+    }
+}
+
+impl_arbitrary_with_bound!(Subpacket);
 
 impl fmt::Debug for Subpacket {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1552,6 +1644,15 @@ pub struct SubpacketAreas {
     /// Subpackets _not_ that are part of the signature.
     unhashed_area: SubpacketArea,
 }
+
+impl ArbitraryBounded for SubpacketAreas {
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        SubpacketAreas::new(ArbitraryBounded::arbitrary_bounded(g, depth),
+                            ArbitraryBounded::arbitrary_bounded(g, depth))
+    }
+}
+
+impl_arbitrary_with_bound!(SubpacketAreas);
 
 impl Deref for SubpacketAreas {
     type Target = SubpacketArea;

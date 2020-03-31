@@ -2,6 +2,7 @@
 
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
 use crate::Result;
@@ -26,6 +27,28 @@ use crate::packet::signature::subpacket::{
     SubpacketArea,
     SubpacketAreas,
 };
+
+/// Like quickcheck::Arbitrary, but bounded.
+trait ArbitraryBounded {
+    /// Generates an arbitrary value, but only recurses if `depth >
+    /// 0`.
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self;
+}
+
+/// Default depth when implementing Arbitrary using ArbitraryBounded.
+const DEFAULT_ARBITRARY_DEPTH: usize = 2;
+
+macro_rules! impl_arbitrary_with_bound {
+    ($typ:path) => {
+        impl Arbitrary for $typ {
+            fn arbitrary<G: Gen>(g: &mut G) -> Self {
+                Self::arbitrary_bounded(
+                    g,
+                    crate::packet::signature::DEFAULT_ARBITRARY_DEPTH)
+            }
+        }
+    }
+}
 
 pub mod subpacket;
 
@@ -77,6 +100,22 @@ pub struct Builder {
     /// Subpackets.
     subpackets: SubpacketAreas,
 }
+
+impl ArbitraryBounded for Builder {
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        Builder {
+            // XXX: Make this more interesting once we dig other
+            // versions.
+            version: 4,
+            typ: Arbitrary::arbitrary(g),
+            pk_algo: PublicKeyAlgorithm::arbitrary_for_signing(g),
+            hash_algo: Arbitrary::arbitrary(g),
+            subpackets: ArbitraryBounded::arbitrary_bounded(g, depth),
+        }
+    }
+}
+
+impl_arbitrary_with_bound!(Builder);
 
 impl Deref for Builder {
     type Target = SubpacketAreas;
@@ -1173,6 +1212,57 @@ impl From<Signature4> for super::Signature {
     }
 }
 
+impl ArbitraryBounded for super::Signature {
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        Signature4::arbitrary_bounded(g, depth).into()
+    }
+}
+
+impl_arbitrary_with_bound!(super::Signature);
+
+impl ArbitraryBounded for Signature4 {
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        use mpis::MPI;
+        use PublicKeyAlgorithm::*;
+
+        let fields = Builder::arbitrary_bounded(g, depth);
+        #[allow(deprecated)]
+        let mpis = match fields.pk_algo() {
+            RSAEncryptSign | RSASign => mpis::Signature::RSA  {
+                s: MPI::arbitrary(g),
+            },
+
+            DSA => mpis::Signature::DSA {
+                r: MPI::arbitrary(g),
+                s: MPI::arbitrary(g),
+            },
+
+            EdDSA => mpis::Signature::EdDSA  {
+                r: MPI::arbitrary(g),
+                s: MPI::arbitrary(g),
+            },
+
+            ECDSA => mpis::Signature::ECDSA  {
+                r: MPI::arbitrary(g),
+                s: MPI::arbitrary(g),
+            },
+
+            _ => unreachable!(),
+        };
+
+        Signature4 {
+            common: Arbitrary::arbitrary(g),
+            fields,
+            digest_prefix: [Arbitrary::arbitrary(g),
+                            Arbitrary::arbitrary(g)],
+            mpis,
+            computed_digest: None,
+            level: 0,
+        }
+    }
+}
+
+impl_arbitrary_with_bound!(Signature4);
 
 #[cfg(test)]
 mod test {

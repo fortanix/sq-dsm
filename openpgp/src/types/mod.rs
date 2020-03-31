@@ -187,6 +187,24 @@ impl Arbitrary for PublicKeyAlgorithm {
     }
 }
 
+impl PublicKeyAlgorithm {
+    pub(crate) fn arbitrary_for_signing<G: Gen>(g: &mut G) -> Self {
+        use rand::Rng;
+        use self::PublicKeyAlgorithm::*;
+        #[allow(deprecated)]
+        let a = match g.gen_range(0, 5) {
+            0 => RSAEncryptSign,
+            1 => RSASign,
+            2 => DSA,
+            3 => ECDSA,
+            4 => EdDSA,
+            _ => unreachable!(),
+        };
+        assert!(a.for_signing());
+        a
+    }
+}
+
 /// Elliptic curves used in OpenPGP.
 ///
 /// `PublicKeyAlgorithm` does not differentiate between elliptic
