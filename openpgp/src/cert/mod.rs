@@ -480,6 +480,18 @@ impl Cert {
         PrimaryKeyAmalgamation::new(&self)
     }
 
+    /// Returns the Certificate's direct key signature as of the
+    /// reference time, if any.
+    ///
+    /// Subpackets on direct key signatures apply to all components of
+    /// the certificate.
+    pub fn direct_key_signature<T>(&self, policy: &dyn Policy, t: T)
+        -> Result<&Signature>
+        where T: Into<Option<time::SystemTime>>
+    {
+        self.primary.binding_signature(policy, t)
+    }
+
     /// Returns the Cert's revocation status at time `t`.
     ///
     /// A Cert is revoked at time `t` if:
@@ -1422,6 +1434,16 @@ impl<'a> ValidCert<'a> {
         where T: Into<Option<time::SystemTime>>,
     {
         self.cert.with_policy(policy, time)
+    }
+
+    /// Returns the Certificate's direct key signature as of the
+    /// reference time, if any.
+    ///
+    /// Subpackets on direct key signatures apply to all components of
+    /// the certificate.
+    pub fn direct_key_signature(&self) -> Result<&'a Signature>
+    {
+        self.cert.direct_key_signature(self.policy(), self.time())
     }
 
     /// Returns the Cert's revocation status.
