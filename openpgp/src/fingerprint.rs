@@ -1,4 +1,5 @@
 use std::fmt;
+use quickcheck::{Arbitrary, Gen};
 
 use crate::Result;
 
@@ -179,6 +180,15 @@ impl Fingerprint {
         }
 
         ret
+    }
+}
+
+impl Arbitrary for Fingerprint {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        use rand::Rng;
+        let mut fp = [0; 20];
+        fp.iter_mut().for_each(|p| *p = g.gen());
+        Fingerprint::V4(fp)
     }
 }
 
