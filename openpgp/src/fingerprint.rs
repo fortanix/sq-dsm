@@ -1,7 +1,23 @@
 use std::fmt;
 
-use crate::Fingerprint;
 use crate::Result;
+
+/// Holds a fingerprint.
+///
+/// A fingerprint uniquely identifies a public key.  For more details
+/// about how a fingerprint is generated, see [Section 12.2 of RFC
+/// 4880].
+///
+///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+pub enum Fingerprint {
+    /// 20 byte SHA-1 hash.
+    V4([u8;20]),
+    /// Used for holding fingerprints that we don't understand.  For
+    /// instance, we don't grok v3 fingerprints.  And, it is possible
+    /// that the Issuer subpacket contains the wrong number of bytes.
+    Invalid(Box<[u8]>)
+}
 
 impl fmt::Display for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
