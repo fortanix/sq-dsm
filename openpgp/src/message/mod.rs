@@ -18,7 +18,6 @@ use crate::Result;
 use crate::Error;
 use crate::Packet;
 use crate::PacketPile;
-use crate::Message;
 use crate::packet::Literal;
 use crate::packet::Tag;
 use crate::parse::Parse;
@@ -307,6 +306,26 @@ impl MessageValidator {
     }
 }
 
+// DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
+// it in a submodule `def`.
+pub use def::Message;
+mod def {
+use super::*;
+/// An OpenPGP message.
+///
+/// An OpenPGP message is a structured sequence of OpenPGP packets.
+/// Basically, it's an optionally encrypted, optionally signed literal
+/// data packet.  The exact structure is defined in [Section 11.3 of RFC
+/// 4880].
+///
+///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+#[derive(PartialEq)]
+pub struct Message {
+    /// A message is just a validated packet pile.
+    pub(super) pile: PacketPile,
+}
+} // doc-hack, see above
+
 impl fmt::Debug for Message {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Message")

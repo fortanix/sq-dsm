@@ -154,6 +154,7 @@ pub mod serialize;
 mod packet_pile;
 pub use packet_pile::PacketPile;
 pub mod message;
+pub use message::Message;
 
 pub mod types;
 use crate::types::{
@@ -432,18 +433,4 @@ impl Packet {
             _ => Some(self.tag()),
         }
     }
-}
-
-/// An OpenPGP message.
-///
-/// An OpenPGP message is a structured sequence of OpenPGP packets.
-/// Basically, it's an optionally encrypted, optionally signed literal
-/// data packet.  The exact structure is defined in [Section 11.3 of RFC
-/// 4880].
-///
-///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
-#[derive(PartialEq)]
-pub struct Message {
-    /// A message is just a validated packet pile.
-    pile: PacketPile,
 }
