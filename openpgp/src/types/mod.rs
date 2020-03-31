@@ -1,4 +1,4 @@
-//! Primitive OpenPGP types.
+//! Primitive types.
 //!
 //! This module provides types used in OpenPGP, like enumerations
 //! describing algorithms.

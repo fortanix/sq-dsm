@@ -2,7 +2,7 @@ use std::fmt;
 
 use crate::Result;
 
-/// Holds a fingerprint.
+/// A long identifier for certificates and keys.
 ///
 /// A fingerprint uniquely identifies a public key.  For more details
 /// about how a fingerprint is generated, see [Section 12.2 of RFC

@@ -1,4 +1,4 @@
-//! OpenPGP Certificates.
+//! Certificates and related data structures.
 
 use std::io;
 use std::cmp;
@@ -288,7 +288,7 @@ pub trait Preferences<'a, C: 'a>: ValidAmalgamation<'a, C> {
 pub use def::Cert;
 mod def {
 use super::*;
-/// A OpenPGP Certificate.
+/// A collection of keys, signatures, and metadata.
 ///
 /// A Certificate (see [RFC 4880, section 11.1]) can be used to verify
 /// signatures and encrypt data.  It can be stored in a keystore and

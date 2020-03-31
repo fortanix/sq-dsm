@@ -191,7 +191,7 @@ fn frozen_time() -> std::time::SystemTime {
 pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
 #[derive(thiserror::Error, Debug, Clone)]
-/// Errors returned by this module.
+/// Errors used in this crate.
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.

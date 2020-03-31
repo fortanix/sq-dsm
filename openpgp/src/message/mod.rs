@@ -1,4 +1,4 @@
-//! OpenPGP Message support.
+//! Message support.
 //!
 //! An OpenPGP message is a sequence of OpenPGP packets that
 //! corresponds to an optionally signed, optionally encrypted,
@@ -311,7 +311,7 @@ impl MessageValidator {
 pub use def::Message;
 mod def {
 use super::*;
-/// An OpenPGP message.
+/// A message.
 ///
 /// An OpenPGP message is a structured sequence of OpenPGP packets.
 /// Basically, it's an optionally encrypted, optionally signed literal

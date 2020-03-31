@@ -15,11 +15,11 @@ use crate::parse::PacketParserBuilder;
 use crate::parse::Parse;
 use crate::parse::Cookie;
 
-/// A `PacketPile` holds a deserialized sequence of OpenPGP messages.
+/// An unstructured packet sequence.
 ///
-/// To deserialize an OpenPGP usage, use either [`PacketParser`],
-/// [`PacketPileParser`], or [`PacketPile::from_file`] (or related
-/// routines).
+/// To deserialize an OpenPGP packet stream, use either
+/// [`PacketParser`], [`PacketPileParser`], or
+/// [`PacketPile::from_file`] (or related routines).
 ///
 /// Normally, you'll want to convert the `PacketPile` to a Cert or a
 /// `Message`.

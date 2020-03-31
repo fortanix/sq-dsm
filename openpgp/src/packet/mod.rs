@@ -54,7 +54,7 @@ pub mod aed;
 pub use def::Packet;
 mod def {
 use super::*;
-/// The OpenPGP packets that Sequoia understands.
+/// Enumeration of packet types.
 ///
 /// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
 ///

@@ -1,4 +1,4 @@
-//! OpenPGP packet serializer.
+//! Packet serialization infrastructure.
 //!
 //! There are two interfaces to serialize OpenPGP data.  Which one is
 //! applicable depends on whether or not the packet structure is

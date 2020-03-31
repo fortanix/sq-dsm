@@ -5,7 +5,7 @@ use crate::Error;
 use crate::Fingerprint;
 use crate::Result;
 
-/// Holds a KeyID.
+/// A short identifier for certificates and keys.
 ///
 /// A KeyID is a fingerprint fragment.  It identifies a public key,
 /// but is easy to forge.  For more details about how a KeyID is
