@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{self, Read, Write, Cursor};
 use std::path::Path;
 use std::slice;
-use libc::{c_void, c_char, c_int, size_t, ssize_t, realloc};
+use libc::{c_void, c_char, size_t, ssize_t, realloc};
 
 #[cfg(unix)]
 use std::os::unix::io::FromRawFd;
@@ -54,7 +54,7 @@ pub extern "C" fn pgp_reader_from_file(errp: Option<&mut *mut crate::error::Erro
 /// Opens a file descriptor returning a reader.
 #[cfg(unix)]
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_reader_from_fd(fd: c_int)
+pub extern "C" fn pgp_reader_from_fd(fd: libc::c_int)
                                           -> *mut Reader {
     ReaderKind::Generic(Box::new(unsafe {
         File::from_raw_fd(fd)
@@ -222,7 +222,7 @@ fn pgp_writer_from_file(errp: Option<&mut *mut crate::error::Error>,
 /// Opens a file descriptor returning a writer.
 #[cfg(unix)]
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_writer_from_fd(fd: c_int) -> *mut Writer {
+fn pgp_writer_from_fd(fd: libc::c_int) -> *mut Writer {
     WriterKind::Generic(Box::new(unsafe {
         File::from_raw_fd(fd)
     })).move_into_raw()
