@@ -44,31 +44,13 @@
 
 #![warn(missing_docs)]
 
-extern crate lalrpop_util;
-
-extern crate buffered_reader;
-
-extern crate memsec;
-extern crate nettle;
-
-#[cfg(feature = "compression-deflate")]
-extern crate flate2;
-#[cfg(feature = "compression-bzip2")]
-extern crate bzip2;
-
 #[cfg(test)]
 #[macro_use]
 extern crate quickcheck;
 
-#[cfg(not(test))]
-extern crate quickcheck;
+#[macro_use]
+extern crate lazy_static;
 
-extern crate rand;
-
-#[macro_use] extern crate lazy_static;
-
-extern crate idna;
-
 #[macro_use]
 mod macros;
 
