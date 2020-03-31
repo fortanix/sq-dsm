@@ -43,7 +43,6 @@ use crate::types::{
 };
 
 pub mod amalgamation;
-use amalgamation::ValidAmalgamation;
 mod builder;
 mod bindings;
 pub mod components;
@@ -232,55 +231,40 @@ type UnknownBindings = ComponentBundles<Unknown>;
 /// on self signatures can be used to express preferences for
 /// algorithms and key management.  Furthermore, the key holder's
 /// OpenPGP implementation can express its feature set.
-pub trait Preferences<'a, C: 'a>: ValidAmalgamation<'a, C> {
+pub trait Preferences<'a> {
     /// Returns symmetric algorithms that the key holder prefers.
     ///
     /// The algorithms are ordered according by the key holder's
-    /// preference.
     fn preferred_symmetric_algorithms(&self)
-                                      -> Option<&'a [SymmetricAlgorithm]> {
-        self.map(|s| s.preferred_symmetric_algorithms())
-    }
+        -> Option<&'a [SymmetricAlgorithm]>;
 
     /// Returns hash algorithms that the key holder prefers.
     ///
     /// The algorithms are ordered according by the key holder's
     /// preference.
-    fn preferred_hash_algorithms(&self) -> Option<&'a [HashAlgorithm]> {
-        self.map(|s| s.preferred_hash_algorithms())
-    }
+    fn preferred_hash_algorithms(&self) -> Option<&'a [HashAlgorithm]>;
 
     /// Returns compression algorithms that the key holder prefers.
     ///
     /// The algorithms are ordered according by the key holder's
     /// preference.
     fn preferred_compression_algorithms(&self)
-                                        -> Option<&'a [CompressionAlgorithm]> {
-        self.map(|s| s.preferred_compression_algorithms())
-    }
+        -> Option<&'a [CompressionAlgorithm]>;
 
     /// Returns AEAD algorithms that the key holder prefers.
     ///
     /// The algorithms are ordered according by the key holder's
     /// preference.
-    fn preferred_aead_algorithms(&self) -> Option<&'a [AEADAlgorithm]> {
-        self.map(|s| s.preferred_aead_algorithms())
-    }
+    fn preferred_aead_algorithms(&self) -> Option<&'a [AEADAlgorithm]>;
 
     /// Returns the key holder's keyserver preferences.
-    fn key_server_preferences(&self) -> Option<KeyServerPreferences> {
-        self.map(|s| s.key_server_preferences())
-    }
+    fn key_server_preferences(&self) -> Option<KeyServerPreferences>;
 
     /// Returns the key holder's preferred keyserver for updates.
-    fn preferred_key_server(&self) -> Option<&'a [u8]> {
-        self.map(|s| s.preferred_key_server())
-    }
+    fn preferred_key_server(&self) -> Option<&'a [u8]>;
 
     /// Returns the key holder's feature set.
-    fn features(&self) -> Option<Features> {
-        self.map(|s| s.features())
-    }
+    fn features(&self) -> Option<Features>;
 }
 
 // DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
@@ -1509,6 +1493,36 @@ impl<'a> ValidCert<'a> {
     pub fn user_attributes(&self) -> ValidComponentIter<UserAttribute> {
         self.cert.user_attributes().with_policy(self.policy, self.time)
     }
+}
+
+macro_rules! impl_pref {
+    ($subpacket:ident, $rt:ty) => {
+        fn $subpacket(&self) -> Option<$rt>
+        {
+            // When addressed by the fingerprint or keyid, we first
+            // look on the primary User ID and then fall back to the
+            // direct key signature.  We need to be careful to handle
+            // the case where there are no User IDs.
+            if let Ok(u) = self.primary_userid() {
+                u.$subpacket()
+            } else if let Ok(sig) = self.direct_key_signature() {
+                sig.$subpacket()
+            } else {
+                None
+            }
+        }
+    }
+}
+
+impl<'a> crate::cert::Preferences<'a> for ValidCert<'a>
+{
+    impl_pref!(preferred_symmetric_algorithms, &'a [SymmetricAlgorithm]);
+    impl_pref!(preferred_hash_algorithms, &'a [HashAlgorithm]);
+    impl_pref!(preferred_compression_algorithms, &'a [CompressionAlgorithm]);
+    impl_pref!(preferred_aead_algorithms, &'a [AEADAlgorithm]);
+    impl_pref!(key_server_preferences, KeyServerPreferences);
+    impl_pref!(preferred_key_server, &'a [u8]);
+    impl_pref!(features, Features);
 }
 
 #[cfg(test)]
@@ -3434,6 +3448,127 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             .unwrap();
         assert_eq!(cert_at.userids().count(), 1);
         assert_eq!(cert_at.keys().count(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn different_preferences() -> Result<()> {
+        use crate::cert::Preferences;
+        let p = &crate::policy::StandardPolicy::new();
+
+        // This key returns different preferences depending on how you
+        // address it.  (It has two user ids and the user ids have
+        // different preference packets on their respective self
+        // signatures.)
+
+        let cert = Cert::from_bytes(
+            crate::tests::key("different-preferences.asc"))?;
+        assert_eq!(cert.userids().count(), 2);
+
+        if let Some(userid) = cert.userids().nth(0) {
+            assert_eq!(userid.userid().value(),
+                       &b"Alice Confusion <alice@example.com>"[..]);
+
+            let userid = userid.with_policy(p, None).expect("valid");
+
+            use crate::types::SymmetricAlgorithm::*;
+            assert_eq!(userid.preferred_symmetric_algorithms(),
+                       Some(&[ AES256, AES192, AES128, TripleDES ][..]));
+
+            use crate::types::HashAlgorithm::*;
+            assert_eq!(userid.preferred_hash_algorithms(),
+                       Some(&[ SHA512, SHA384, SHA256, SHA224, SHA1 ][..]));
+
+            use crate::types::CompressionAlgorithm::*;
+            assert_eq!(userid.preferred_compression_algorithms(),
+                       Some(&[ Zlib, BZip2, Zip ][..]));
+
+            assert_eq!(userid.preferred_aead_algorithms(), None);
+
+            // assert_eq!(userid.key_server_preferences(),
+            //            Some(KeyServerPreferences::new(&[])));
+
+            assert_eq!(userid.features(),
+                       Some(Features::new(&[]).set_mdc(true)));
+        } else {
+            panic!("two user ids");
+        }
+
+        if let Some(userid) = cert.userids().nth(0) {
+            assert_eq!(userid.userid().value(),
+                       &b"Alice Confusion <alice@example.com>"[..]);
+
+            let userid = userid.with_policy(p, None).expect("valid");
+
+            use crate::types::SymmetricAlgorithm::*;
+            assert_eq!(userid.preferred_symmetric_algorithms(),
+                       Some(&[ AES256, AES192, AES128, TripleDES ][..]));
+
+            use crate::types::HashAlgorithm::*;
+            assert_eq!(userid.preferred_hash_algorithms(),
+                       Some(&[ SHA512, SHA384, SHA256, SHA224, SHA1 ][..]));
+
+            use crate::types::CompressionAlgorithm::*;
+            assert_eq!(userid.preferred_compression_algorithms(),
+                       Some(&[ Zlib, BZip2, Zip ][..]));
+
+            assert_eq!(userid.preferred_aead_algorithms(), None);
+
+            assert_eq!(userid.key_server_preferences(),
+                       Some(KeyServerPreferences::new(&[0x80])));
+
+            assert_eq!(userid.features(),
+                       Some(Features::new(&[]).set_mdc(true)));
+
+            // Using the certificate should choose the primary user
+            // id, which is this one (because it is lexicographically
+            // earlier).
+            let cert = cert.with_policy(p, None).expect("valid");
+            assert_eq!(userid.preferred_symmetric_algorithms(),
+                       cert.preferred_symmetric_algorithms());
+            assert_eq!(userid.preferred_hash_algorithms(),
+                       cert.preferred_hash_algorithms());
+            assert_eq!(userid.preferred_compression_algorithms(),
+                       cert.preferred_compression_algorithms());
+            assert_eq!(userid.preferred_aead_algorithms(),
+                       cert.preferred_aead_algorithms());
+            assert_eq!(userid.key_server_preferences(),
+                       cert.key_server_preferences());
+            assert_eq!(userid.features(),
+                       cert.features());
+        } else {
+            panic!("two user ids");
+        }
+
+        if let Some(userid) = cert.userids().nth(1) {
+            assert_eq!(userid.userid().value(),
+                       &b"Alice Confusion <alice@example.net>"[..]);
+
+            let userid = userid.with_policy(p, None).expect("valid");
+
+            use crate::types::SymmetricAlgorithm::*;
+            assert_eq!(userid.preferred_symmetric_algorithms(),
+                       Some(&[ AES192, AES256, AES128, TripleDES ][..]));
+
+            use crate::types::HashAlgorithm::*;
+            assert_eq!(userid.preferred_hash_algorithms(),
+                       Some(&[ SHA384, SHA512, SHA256, SHA224, SHA1 ][..]));
+
+            use crate::types::CompressionAlgorithm::*;
+            assert_eq!(userid.preferred_compression_algorithms(),
+                       Some(&[ BZip2, Zlib, Zip ][..]));
+
+            assert_eq!(userid.preferred_aead_algorithms(), None);
+
+            assert_eq!(userid.key_server_preferences(),
+                       Some(KeyServerPreferences::new(&[0x80])));
+
+            assert_eq!(userid.features(),
+                       Some(Features::new(&[]).set_mdc(true)));
+        } else {
+            panic!("two user ids");
+        }
+
         Ok(())
     }
 }

@@ -890,15 +890,6 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
 }
 
 
-impl<'a, P, R, R2> crate::cert::Preferences<'a, Key<P, R>>
-    for ValidKeyAmalgamation<'a, P, R, R2>
-    where P: 'a + key::KeyParts,
-          R: 'a + key::KeyRole,
-          R2: Copy,
-          Self: Primary<'a, P, R>,
-{
-}
-
 #[cfg(test)]
 mod test {
     use crate::policy::StandardPolicy as P;

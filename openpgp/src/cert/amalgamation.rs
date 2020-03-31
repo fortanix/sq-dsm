@@ -23,9 +23,15 @@ use crate::{
     Result,
     policy::Policy,
     types::{
+        AEADAlgorithm,
+        CompressionAlgorithm,
+        Features,
+        HashAlgorithm,
+        KeyFlags,
+        KeyServerPreferences,
         RevocationKey,
         RevocationStatus,
-        KeyFlags,
+        SymmetricAlgorithm,
     },
 };
 
@@ -276,7 +282,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
 
 /// A certificate's component and its associated data.
 #[derive(Debug, PartialEq)]
-pub struct ComponentAmalgamation<'a, C>{
+pub struct ComponentAmalgamation<'a, C> {
     cert: &'a Cert,
     bundle: &'a ComponentBundle<C>,
 }
@@ -751,8 +757,39 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     }
 }
 
-impl<'a, C> crate::cert::Preferences<'a, C>
-    for ValidComponentAmalgamation<'a, C> {}
+impl<'a, C> crate::cert::Preferences<'a>
+    for ValidComponentAmalgamation<'a, C>
+{
+    fn preferred_symmetric_algorithms(&self)
+                                      -> Option<&'a [SymmetricAlgorithm]> {
+        self.map(|s| s.preferred_symmetric_algorithms())
+    }
+
+    fn preferred_hash_algorithms(&self) -> Option<&'a [HashAlgorithm]> {
+        self.map(|s| s.preferred_hash_algorithms())
+    }
+
+    fn preferred_compression_algorithms(&self)
+                                        -> Option<&'a [CompressionAlgorithm]> {
+        self.map(|s| s.preferred_compression_algorithms())
+    }
+
+    fn preferred_aead_algorithms(&self) -> Option<&'a [AEADAlgorithm]> {
+        self.map(|s| s.preferred_aead_algorithms())
+    }
+
+    fn key_server_preferences(&self) -> Option<KeyServerPreferences> {
+        self.map(|s| s.key_server_preferences())
+    }
+
+    fn preferred_key_server(&self) -> Option<&'a [u8]> {
+        self.map(|s| s.preferred_key_server())
+    }
+
+    fn features(&self) -> Option<Features> {
+        self.map(|s| s.features())
+    }
+}
 
 #[cfg(test)]
 mod test {
