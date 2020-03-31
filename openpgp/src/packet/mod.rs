@@ -1073,10 +1073,21 @@ impl DerefMut for AED {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::serialize::SerializeInto;
+    use crate::parse::Parse;
 
     #[test]
     fn packet_is_send_and_sync() {
         fn f<T: Send + Sync>(_: T) {}
         f(Packet::Marker(Default::default()));
+    }
+
+    quickcheck! {
+        fn roundtrip(p: Packet) -> bool {
+            let buf = p.to_vec().expect("Failed to serialize packet");
+            let q = Packet::from_bytes(&buf).unwrap();
+            assert_eq!(p, q);
+            true
+        }
     }
 }
