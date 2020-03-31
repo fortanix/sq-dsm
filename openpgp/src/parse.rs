@@ -1,6 +1,6 @@
 //! Packet parsing infrastructure.
 //!
-//! An OpenPGP message is a sequence of packets.  Some of the packets
+//! An OpenPGP stream is a sequence of packets.  Some of the packets
 //! contain other packets.  These containers include encrypted packets
 //! (the SED and SEIP packets), and compressed packets.  This
 //! structure results in a tree, which is laid out in depth-first
@@ -17,7 +17,7 @@
 //! allow the caller to choose the behavior by either calling the
 //! `recurse()` method or the `next()` method, as appropriate.
 //! OpenPGP doesn't impose any restrictions on the amount of nesting.
-//! So, to prevent a denial of service attack, the parsers doesn't
+//! So, to prevent a denial of service attack, the parsers don't
 //! recurse more than `MAX_RECURSION_DEPTH` times, by default.
 //!
 //! Second, packets can contain an effectively unbounded amount of
@@ -55,7 +55,7 @@
 //! ```
 //!
 //! This crate provide three abstractions for parsing OpenPGP
-//! messages:
+//! streams:
 //!
 //!   - The [`PacketParser`] abstraction produces one packet at a
 //!     time.  What is done with those packets is completely up to the
@@ -68,18 +68,18 @@
 //!     completely processed.
 //!
 //!     This interface should only be used if the caller actually
-//!     wants a `PacketPile`; if the OpenPGP message is parsed in place,
+//!     wants a `PacketPile`; if the OpenPGP stream is parsed in place,
 //!     then using a `PacketParser` is better.
 //!
 //!   - The [`PacketPile::from_file`] (and related methods) is the most
 //!     convenient, but least flexible way to parse a sequence of OpenPGP
 //!     packets.  Whereas a `PacketPileParser` allows the caller to
 //!     determine how to handle individual packets, the
-//!     [`PacketPile::from_file`] parses the whole message at once and
+//!     [`PacketPile::from_file`] parses the whole stream at once and
 //!     returns a [`PacketPile`].
 //!
 //!     This interface should only be used if the caller is certain
-//!     that the parsed message will fit in memory.
+//!     that the parsed stream will fit in memory.
 //!
 //! In all cases, the default behavior can be configured using a
 //! [`PacketParserBuilder`].
