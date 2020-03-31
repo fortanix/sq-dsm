@@ -2,6 +2,11 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 
 /// Describes features supported by an OpenPGP implementation.
+///
+/// # A note on equality
+///
+/// `PartialEq` is implements semantic equality, i.e. it ignores
+/// padding.
 #[derive(Clone)]
 pub struct Features{
     mdc: bool,

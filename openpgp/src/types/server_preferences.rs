@@ -2,6 +2,11 @@ use std::hash::{Hash, Hasher};
 use std::fmt;
 
 /// Describes preferences regarding key servers.
+///
+/// # A note on equality
+///
+/// `PartialEq` is implements semantic equality, i.e. it ignores
+/// padding.
 #[derive(Clone)]
 pub struct KeyServerPreferences{
     no_modify: bool,

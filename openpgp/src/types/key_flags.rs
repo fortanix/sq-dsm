@@ -5,6 +5,11 @@ use std::ops::{BitAnd, BitOr};
 
 /// Describes how a key may be used, and stores additional
 /// information.
+///
+/// # A note on equality
+///
+/// `PartialEq` is implements semantic equality, i.e. it ignores
+/// padding.
 #[derive(Clone)]
 pub struct KeyFlags{
     for_certification: bool,
