@@ -230,6 +230,23 @@ impl<'a> DerefMut for Packet {
         }
     }
 }
+
+impl Arbitrary for Packet {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        use rand::Rng;
+        match g.gen_range(0, 8) {
+            0 => OnePassSig::arbitrary(g).into(),
+            1 => Marker::arbitrary(g).into(),
+            2 => Trust::arbitrary(g).into(),
+            3 => UserID::arbitrary(g).into(),
+            4 => UserAttribute::arbitrary(g).into(),
+            5 => Literal::arbitrary(g).into(),
+            6 => PKESK::arbitrary(g).into(),
+            7 => SKESK::arbitrary(g).into(),
+            _ => unreachable!(),
+        }
+    }
+}
 
 /// Fields used by multiple packet types.
 #[derive(Debug, Clone)]
