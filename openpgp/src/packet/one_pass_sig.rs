@@ -166,6 +166,12 @@ impl<'a> std::convert::TryFrom<&'a Signature> for OnePassSig3 {
     }
 }
 
+impl Arbitrary for super::OnePassSig {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        OnePassSig3::arbitrary(g).into()
+    }
+}
+
 impl Arbitrary for OnePassSig3 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let mut ops = OnePassSig3::new(SignatureType::arbitrary(g));

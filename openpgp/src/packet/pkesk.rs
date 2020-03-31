@@ -171,6 +171,12 @@ impl From<PKESK3> for Packet {
     }
 }
 
+impl Arbitrary for super::PKESK {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        PKESK3::arbitrary(g).into()
+    }
+}
+
 impl Arbitrary for PKESK3 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let (ciphertext, pk_algo) = loop {
