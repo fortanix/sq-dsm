@@ -152,6 +152,7 @@ pub use cert::Cert;
 pub mod serialize;
 
 mod packet_pile;
+pub use packet_pile::PacketPile;
 pub mod message;
 
 pub mod types;
@@ -429,25 +430,6 @@ impl Packet {
             _ => Some(self.tag()),
         }
     }
-}
-
-/// A `PacketPile` holds a deserialized sequence of OpenPGP messages.
-///
-/// To deserialize an OpenPGP usage, use either [`PacketParser`],
-/// [`PacketPileParser`], or [`PacketPile::from_file`] (or related
-/// routines).
-///
-/// Normally, you'll want to convert the `PacketPile` to a Cert or a
-/// `Message`.
-///
-///   [`PacketParser`]: parse/struct.PacketParser.html
-///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
-///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
-#[derive(PartialEq, Clone)]
-pub struct PacketPile {
-    /// At the top level, we have a sequence of packets, which may be
-    /// containers.
-    top_level: Container,
 }
 
 /// An OpenPGP message.

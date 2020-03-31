@@ -10,13 +10,30 @@ use crate::Result;
 use crate::Error;
 use crate::Packet;
 use crate::packet::{self, Container};
-use crate::PacketPile;
 use crate::parse::PacketParserResult;
 use crate::parse::PacketParserBuilder;
 use crate::parse::Parse;
 use crate::parse::Cookie;
 
-
+/// A `PacketPile` holds a deserialized sequence of OpenPGP messages.
+///
+/// To deserialize an OpenPGP usage, use either [`PacketParser`],
+/// [`PacketPileParser`], or [`PacketPile::from_file`] (or related
+/// routines).
+///
+/// Normally, you'll want to convert the `PacketPile` to a Cert or a
+/// `Message`.
+///
+///   [`PacketParser`]: parse/struct.PacketParser.html
+///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
+///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
+#[derive(PartialEq, Clone, Default)]
+pub struct PacketPile {
+    /// At the top level, we have a sequence of packets, which may be
+    /// containers.
+    top_level: Container,
+}
+
 impl fmt::Debug for PacketPile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("PacketPile")
@@ -85,6 +102,11 @@ impl From<Packet> for PacketPile {
 }
 
 impl PacketPile {
+    /// Accessor for PacketPileParser.
+    pub(crate) fn top_level_mut(&mut self) -> &mut Container {
+        &mut self.top_level
+    }
+
     /// Returns an error if operating on a non-container packet.
     fn error() -> crate::Error {
         crate::Error::InvalidOperation("Not a container packet".into())

@@ -108,7 +108,7 @@ impl<'a> PacketPileParser<'a> {
         -> Result<PacketPileParser<'a>>
     {
         Ok(PacketPileParser {
-            pile: PacketPile { top_level: Default::default() },
+            pile: Default::default(),
             ppr: ppr,
             returned_first: false,
         })
@@ -124,7 +124,7 @@ impl<'a> PacketPileParser<'a> {
     /// Inserts the next packet into the `PacketPile`.
     fn insert_packet(&mut self, packet: Packet, position: isize) {
         // Find the right container.
-        let mut container = &mut self.pile.top_level;
+        let mut container = self.pile.top_level_mut();
 
         assert!(position >= 0);
 
