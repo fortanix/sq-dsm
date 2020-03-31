@@ -10,7 +10,6 @@ use std::slice;
 
 use crate::Error;
 use crate::Result;
-use crate::Packet;
 
 #[macro_use]
 mod container;
@@ -49,6 +48,128 @@ pub mod pkesk;
 mod mdc;
 pub use self::mdc::MDC;
 pub mod aed;
+
+// DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
+// it in a submodule `def`.
+pub use def::Packet;
+mod def {
+use super::*;
+/// The OpenPGP packets that Sequoia understands.
+///
+/// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
+///
+/// The `Unknown` packet allows Sequoia to deal with packets that it
+/// doesn't understand.  The `Unknown` packet is basically a binary
+/// blob that includes the packet's tag.
+///
+/// The unknown packet is also used for packets that are understood,
+/// but use unsupported options.  For instance, when the packet parser
+/// encounters a compressed data packet with an unknown compression
+/// algorithm, it returns the packet in an `Unknown` packet rather
+/// than a `CompressedData` packet.
+///
+///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
+///
+/// # A note on equality
+///
+/// We define equality on `Packet` like equality of the serialized
+/// form of the packet bodies defined by RFC4880, i.e. two packets are
+/// considered equal if and only if their serialized form is equal,
+/// modulo the OpenPGP framing (`CTB` and length style, potential
+/// partial body encoding).
+#[derive(Debug)]
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub enum Packet {
+    /// Unknown packet.
+    Unknown(Unknown),
+    /// Signature packet.
+    Signature(Signature),
+    /// One pass signature packet.
+    OnePassSig(OnePassSig),
+    /// Public key packet.
+    PublicKey(key::PublicKey),
+    /// Public subkey packet.
+    PublicSubkey(key::PublicSubkey),
+    /// Public/Secret key pair.
+    SecretKey(key::SecretKey),
+    /// Public/Secret subkey pair.
+    SecretSubkey(key::SecretSubkey),
+    /// Marker packet.
+    Marker(Marker),
+    /// Trust packet.
+    Trust(Trust),
+    /// User ID packet.
+    UserID(UserID),
+    /// User attribute packet.
+    UserAttribute(UserAttribute),
+    /// Literal data packet.
+    Literal(Literal),
+    /// Compressed literal data packet.
+    CompressedData(CompressedData),
+    /// Public key encrypted data packet.
+    PKESK(PKESK),
+    /// Symmetric key encrypted data packet.
+    SKESK(SKESK),
+    /// Symmetric key encrypted, integrity protected data packet.
+    SEIP(SEIP),
+    /// Modification detection code packet.
+    MDC(MDC),
+    /// AEAD Encrypted Data Packet.
+    AED(AED),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
+}
+} // doc-hack, see above
+
+impl Packet {
+    /// Returns the `Packet's` corresponding OpenPGP tag.
+    ///
+    /// Tags are explained in [Section 4.3 of RFC 4880].
+    ///
+    ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
+    pub fn tag(&self) -> Tag {
+        match self {
+            &Packet::Unknown(ref packet) => packet.tag(),
+            &Packet::Signature(_) => Tag::Signature,
+            &Packet::OnePassSig(_) => Tag::OnePassSig,
+            &Packet::PublicKey(_) => Tag::PublicKey,
+            &Packet::PublicSubkey(_) => Tag::PublicSubkey,
+            &Packet::SecretKey(_) => Tag::SecretKey,
+            &Packet::SecretSubkey(_) => Tag::SecretSubkey,
+            &Packet::Marker(_) => Tag::Marker,
+            &Packet::Trust(_) => Tag::Trust,
+            &Packet::UserID(_) => Tag::UserID,
+            &Packet::UserAttribute(_) => Tag::UserAttribute,
+            &Packet::Literal(_) => Tag::Literal,
+            &Packet::CompressedData(_) => Tag::CompressedData,
+            &Packet::PKESK(_) => Tag::PKESK,
+            &Packet::SKESK(_) => Tag::SKESK,
+            &Packet::SEIP(_) => Tag::SEIP,
+            &Packet::MDC(_) => Tag::MDC,
+            &Packet::AED(_) => Tag::AED,
+            Packet::__Nonexhaustive => unreachable!(),
+        }
+    }
+
+    /// Returns the parsed `Packet's` corresponding OpenPGP tag.
+    ///
+    /// Returns the packets tag, but only if it was successfully
+    /// parsed into the corresponding packet type.  If e.g. a
+    /// Signature Packet uses some unsupported methods, it is parsed
+    /// into an `Packet::Unknown`.  `tag()` returns `Tag::Signature`,
+    /// whereas `kind()` returns `None`.
+    pub fn kind(&self) -> Option<Tag> {
+        match self {
+            &Packet::Unknown(_) => None,
+            _ => Some(self.tag()),
+        }
+    }
+}
 
 // Allow transparent access of common fields.
 impl<'a> Deref for Packet {
