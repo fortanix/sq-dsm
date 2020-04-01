@@ -69,6 +69,21 @@ use sequoia_core as core;
 pub mod assuan;
 pub mod gnupg;
 
+macro_rules! platform {
+    { unix => { $($unix:tt)* }, windows => { $($windows:tt)* } } => {
+        if cfg!(unix) {
+            #[cfg(unix)] { $($unix)* }
+            #[cfg(not(unix))] { unreachable!() }
+        } else if cfg!(windows) {
+            #[cfg(windows)] { $($windows)* }
+            #[cfg(not(windows))] { unreachable!() }
+        } else {
+            #[cfg(not(any(unix, windows)))] compile_error!("Unsupported platform");
+            unreachable!()
+        }
+    }
+}
+
 /// Servers need to implement this trait.
 pub trait Handler {
     /// Called on every connection.
@@ -219,30 +234,30 @@ impl Descriptor {
             .stdout(Stdio::null())
             .stderr(Stdio::null());
 
-        #[cfg(unix)]
-        {
-            // Pass the listening TCP socket as child stdin.
-            cmd.stdin(unsafe { Stdio::from_raw_fd(listener.into_raw_fd()) });
-        }
-        #[cfg(windows)]
-        {
-            // Sockets for `TcpListener` are not inheritable by default, so
-            // let's make them so, since we'll pass them to a child process.
-            unsafe {
-                match winapi::um::handleapi::SetHandleInformation(
-                    listener.as_raw_socket() as _,
-                    winapi::um::winbase::HANDLE_FLAG_INHERIT,
-                    winapi::um::winbase::HANDLE_FLAG_INHERIT,
-                ) {
-                    0 => Err(std::io::Error::last_os_error()),
-                    _ => Ok(())
-                }?
-            };
-            // We can't pass the socket to stdin directly on Windows, since only
-            // non-overlapped (blocking) I/O handles can be redirected there.
-            // We use Tokio (async I/O), so we just pass it via env var rather than
-            // establishing a whole separate channel to pass the socket through.
-            cmd.env("SOCKET", format!("{}", listener.into_raw_socket()));
+        platform! {
+            unix => {
+                // Pass the listening TCP socket as child stdin.
+                cmd.stdin(unsafe { Stdio::from_raw_fd(listener.into_raw_fd()) });
+            },
+            windows => {
+                // Sockets for `TcpListener` are not inheritable by default, so
+                // let's make them so, since we'll pass them to a child process.
+                unsafe {
+                    match winapi::um::handleapi::SetHandleInformation(
+                        listener.as_raw_socket() as _,
+                        winapi::um::winbase::HANDLE_FLAG_INHERIT,
+                        winapi::um::winbase::HANDLE_FLAG_INHERIT,
+                    ) {
+                        0 => Err(std::io::Error::last_os_error()),
+                        _ => Ok(())
+                    }?
+                };
+                // We can't pass the socket to stdin directly on Windows, since
+                // non-overlapped (blocking) I/O handles can be redirected there.
+                // We use Tokio (async I/O), so we just pass it via env var rather
+                // than establishing a separate channel to pass the socket through.
+                cmd.env("SOCKET", format!("{}", listener.into_raw_socket()));
+            }
         }
 
         cmd.spawn()?;
@@ -332,18 +347,14 @@ impl Server {
     /// }
     /// ```
     pub fn serve(&mut self) -> Result<()> {
-        #[cfg(unix)]
-        fn fetch_listener() -> Result<TcpListener> {
-            Ok(unsafe { TcpListener::from_raw_fd(0) })
-        }
-        #[cfg(windows)]
-        fn fetch_listener() -> Result<TcpListener> {
-            let socket = std::env::var("SOCKET")?.parse()?;
-
-            Ok(unsafe { TcpListener::from_raw_socket(socket) })
-        }
-
-        self.serve_listener(fetch_listener()?)
+        let listener = platform! {
+            unix => { unsafe { TcpListener::from_raw_fd(0) } },
+            windows => {
+                let socket = std::env::var("SOCKET")?.parse()?;
+                unsafe { TcpListener::from_raw_socket(socket) }
+            }
+        };
+        self.serve_listener(listener)
     }
 
     fn serve_listener(&mut self, l: TcpListener) -> Result<()> {
