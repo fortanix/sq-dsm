@@ -20,6 +20,7 @@ clang --version
 date
 # Ensure everything compiles but leave FFI tests for now
 # Also omit some of the time-consuming tests because we hit CI 1hr timeout
+cargo check --all --all-targets
 cargo test -v \
     -p buffered-reader \
     -p sequoia-ipc \
