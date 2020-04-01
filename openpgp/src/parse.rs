@@ -1308,7 +1308,7 @@ impl Subpacket {
         php.field("subpacket length", length.serialized_len());
         let len = length.len() as usize;
 
-        if limit < len {
+        if limit < length.serialized_len() + len {
             return Err(Error::MalformedPacket(
                 "Subpacket extends beyond the end of the subpacket area".into())
                        .into());
