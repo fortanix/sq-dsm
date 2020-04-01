@@ -188,11 +188,23 @@ impl CTB {
         CTB::New(CTBNew::new(tag))
     }
 
+    /// Returns the packet's tag.
+    pub fn tag(&self) -> Tag {
+        match self {
+            CTB::New(c) => c.tag(),
+            CTB::Old(c) => c.tag(),
+        }
+    }
+}
+
+impl TryFrom<u8> for CTB {
+    type Error = anyhow::Error;
+
     /// Parses a CTB as described in [Section 4.2 of RFC 4880].  This
     /// function parses both new and old format CTBs.
     ///
     ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-    pub fn from_ptag(ptag: u8) -> Result<CTB> {
+    fn try_from(ptag: u8) -> Result<CTB> {
         // The top bit of the ptag must be set.
         if ptag & 0b1000_0000 == 0 {
             return Err(
@@ -228,20 +240,12 @@ impl CTB {
 
         Ok(ctb)
     }
-
-    /// Returns the packet's tag.
-    pub fn tag(&self) -> Tag {
-        match self {
-            CTB::New(c) => c.tag(),
-            CTB::Old(c) => c.tag(),
-        }
-    }
 }
 
 #[test]
 fn ctb() {
     // 0x99 = public key packet
-    if let CTB::Old(ctb) = CTB::from_ptag(0x99).unwrap() {
+    if let CTB::Old(ctb) = CTB::try_from(0x99).unwrap() {
         assert_eq!(ctb.tag(), Tag::PublicKey);
         assert_eq!(ctb.length_type, PacketLengthType::TwoOctets);
     } else {
@@ -249,7 +253,7 @@ fn ctb() {
     }
 
     // 0xa3 = old compressed packet
-    if let CTB::Old(ctb) = CTB::from_ptag(0xa3).unwrap() {
+    if let CTB::Old(ctb) = CTB::try_from(0xa3).unwrap() {
         assert_eq!(ctb.tag(), Tag::CompressedData);
         assert_eq!(ctb.length_type, PacketLengthType::Indeterminate);
     } else {
@@ -257,7 +261,7 @@ fn ctb() {
     }
 
     // 0xcb: new literal
-    if let CTB::New(ctb) = CTB::from_ptag(0xcb).unwrap() {
+    if let CTB::New(ctb) = CTB::try_from(0xcb).unwrap() {
         assert_eq!(ctb.tag(), Tag::Literal);
     } else {
         panic!("Expected a new format packet.");

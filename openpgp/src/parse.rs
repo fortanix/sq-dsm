@@ -92,6 +92,7 @@
 use std;
 use std::io;
 use std::io::prelude::*;
+use std::convert::TryFrom;
 use std::cmp;
 use std::str;
 use std::mem;
@@ -912,7 +913,7 @@ impl Header {
     pub(crate) fn parse<R: BufferedReader<C>, C> (bio: &mut R)
         -> Result<Header>
     {
-        let ctb = CTB::from_ptag(bio.data_consume_hard(1)?[0])?;
+        let ctb = CTB::try_from(bio.data_consume_hard(1)?[0])?;
         let length = match ctb {
             CTB::New(_) => BodyLength::parse_new_format(bio)?,
             CTB::Old(ref ctb) =>
