@@ -1090,4 +1090,31 @@ mod test {
             true
         }
     }
+
+    quickcheck! {
+        /// Given a packet and a position, induces a bit flip in the
+        /// serialized form, then checks that PartialEq detects that.
+        /// Recall that for packets, PartialEq is defined using the
+        /// serialized form.
+        fn mutate_eq_discriminates(p: Packet, i: usize) -> bool {
+            if p.tag() == Tag::CompressedData {
+                // Mutating compressed data streams is not that
+                // trivial, because there are bits we can flip without
+                // changing the decompressed data.
+                return true;
+            }
+
+            let mut buf = p.to_vec().unwrap();
+            let bit =
+                // Avoid first two bytes so that we don't change the
+                // type and reduce the chance of changing the length.
+                i.saturating_add(16)
+                % (buf.len() * 8);
+            buf[bit / 8] ^= 1 << (bit % 8);
+            match Packet::from_bytes(&buf) {
+                Ok(q) => p != q,
+                Err(_) => true, // Packet failed to parse.
+            }
+        }
+    }
 }
