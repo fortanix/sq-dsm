@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::fmt;
 use std::slice;
 use std::vec;
@@ -312,12 +313,16 @@ impl PacketPile {
             .buffer_unread_content()
             .into_packet_pile()
     }
+}
+
+impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
+    type Error = anyhow::Error;
 
     /// Reads all of the packets from a `PacketParser`, and turns them
     /// into a message.
     ///
     /// Note: this assumes that `ppr` points to a top-level packet.
-    pub fn from_packet_parser<'a>(ppr: PacketParserResult<'a>)
+    fn try_from(ppr: PacketParserResult<'a>)
         -> Result<PacketPile>
     {
         // Things are not going to work out if we don't start with a
@@ -440,10 +445,10 @@ impl<'a> PacketParserBuilder<'a> {
     /// # }
     /// ```
     pub fn into_packet_pile(self) -> Result<PacketPile> {
-        PacketPile::from_packet_parser(self.finalize()?)
+        PacketPile::try_from(self.finalize()?)
     }
 }
-
+
 #[cfg(test)]
 mod test {
     use super::*;
