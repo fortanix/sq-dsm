@@ -382,6 +382,8 @@ fn generic_serialize_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
                     false
                 };
             return if short_write {
+                assert!(buf_len < o.serialized_len(),
+                        "o.serialized_len() underestimated the required space");
                 Err(Error::InvalidArgument(
                     format!("Invalid buffer size, expected {}, got {}",
                             o.serialized_len(), buf_len)).into())
@@ -412,6 +414,8 @@ fn generic_export_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
                     false
                 };
             return if short_write {
+                assert!(buf_len < o.serialized_len(),
+                        "o.serialized_len() underestimated the required space");
                 Err(Error::InvalidArgument(
                     format!("Invalid buffer size, expected {}, got {}",
                             o.serialized_len(), buf_len)).into())
@@ -1971,7 +1975,10 @@ impl Marshal for CompressedData {
 impl NetLength for CompressedData {
     fn net_len(&self) -> usize {
         // Worst case, the data gets larger.  Account for that.
-        let compressed = |l| l + cmp::max(l / 2, 128);
+        // Experiments suggest that the overhead of compressing random
+        // data is worse for BZIP2, but it converges to 20% starting
+        // at ~2k of random data.
+        let compressed = |l| l + cmp::max(l / 5, 4096);
 
         match self.body() {
             Body::Unprocessed(bytes) => 1 /* Algo */ + bytes.len(),
