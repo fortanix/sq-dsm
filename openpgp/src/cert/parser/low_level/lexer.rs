@@ -3,7 +3,7 @@ use std::fmt;
 use crate::Error;
 use crate::Packet;
 use crate::packet::Tag;
-use crate::cert::components::{
+use crate::cert::bundle::{
     SubkeyBundle,
     UserIDBundle,
     UserAttributeBundle,

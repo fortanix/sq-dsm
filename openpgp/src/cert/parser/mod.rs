@@ -16,7 +16,7 @@ use crate::{
         PacketParser
     },
     Result,
-    cert::components::ComponentBundle,
+    cert::bundle::ComponentBundle,
     Cert,
 };
 

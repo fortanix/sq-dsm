@@ -42,7 +42,7 @@ use anyhow::Context;
 
 use crate::{
     Cert,
-    cert::components::KeyBundle,
+    cert::bundle::KeyBundle,
     cert::amalgamation::{
         ComponentAmalgamation,
         ValidAmalgamation,

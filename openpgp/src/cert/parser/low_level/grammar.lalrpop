@@ -12,7 +12,7 @@ use crate::cert::prelude::*;
 use crate::cert::parser::low_level::lexer;
 use crate::cert::parser::low_level::lexer::{Token, Component};
 use crate::cert::ComponentBundles;
-use crate::cert::components::{
+use crate::cert::bundle::{
     PrimaryKeyBundle,
     SubkeyBundle,
     UserIDBundle,

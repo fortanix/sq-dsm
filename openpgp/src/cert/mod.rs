@@ -45,7 +45,7 @@ use crate::types::{
 pub mod amalgamation;
 mod builder;
 mod bindings;
-pub mod components;
+pub mod bundle;
 mod component_iter;
 mod keyiter;
 pub mod key_amalgamation;
