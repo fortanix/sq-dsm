@@ -781,7 +781,7 @@ pub struct Subpacket {
 impl fmt::Debug for Subpacket {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut s = f.debug_struct("Subpacket");
-        if self.length.raw.is_some() || true {
+        if self.length.raw.is_some() {
             s.field("length", &self.length);
         }
         if self.critical {
