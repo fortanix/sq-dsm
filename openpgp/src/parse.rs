@@ -1475,9 +1475,14 @@ impl Subpacket {
                                     expect_len, len)).into());
                     }
                 }
+                let bytes = php.parse_bytes("issuer fp", len - 1)?;
                 SubpacketValue::IssuerFingerprint(
-                    Fingerprint::from_bytes(
-                        &php.parse_bytes("issuer fp", len - 1)?))
+                    match version {
+                        4 => Fingerprint::from_bytes(&bytes),
+                        // XXX: Fix once we dig V5.
+                        5 => Fingerprint::Invalid(bytes.into()),
+                        _ => Fingerprint::Invalid(bytes.into()),
+                    })
             },
             SubpacketTag::PreferredAEADAlgorithms =>
                 SubpacketValue::PreferredAEADAlgorithms(
@@ -1501,9 +1506,14 @@ impl Subpacket {
                                     expect_len, len)).into());
                     }
                 }
+                let bytes = php.parse_bytes("intended rcpt", len - 1)?;
                 SubpacketValue::IntendedRecipient(
-                    Fingerprint::from_bytes(
-                        &php.parse_bytes("intended rcpt", len - 1)?))
+                    match version {
+                        4 => Fingerprint::from_bytes(&bytes),
+                        // XXX: Fix once we dig V5.
+                        5 => Fingerprint::Invalid(bytes.into()),
+                        _ => Fingerprint::Invalid(bytes.into()),
+                    })
             },
             SubpacketTag::Reserved(_)
                 | SubpacketTag::PlaceholderForBackwardCompatibility
