@@ -3179,7 +3179,7 @@ mod test {
         use crate::cert::prelude::*;
 
         let (cert, _) = CertBuilder::new().generate().unwrap();
-        let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
+        let mut keypair = cert.primary_key().key().clone().parts_into_secret()
             .unwrap().into_keypair().unwrap();
         let uid = UserID::from("foo");
 

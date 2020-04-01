@@ -146,7 +146,7 @@ fn pgp_cert_as_tsk(cert: *const Cert) -> *mut TSK<'static> {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_primary_key(cert: *const Cert) -> *const Key {
     let key = cert.ref_raw().primary_key().key()
-        .mark_parts_unspecified_ref().mark_role_unspecified_ref();
+        .parts_as_unspecified().mark_role_unspecified_ref();
     key.move_into_raw()
 }
 
@@ -611,7 +611,7 @@ pub extern "C" fn pgp_cert_key_iter_next<'a>(
     iter_wrapper.next_called = true;
 
     if let Some(ka) = iter_wrapper.iter.as_mut().unwrap().next() {
-        Some(ka.mark_parts_unspecified()).move_into_raw()
+        Some(ka.parts_into_unspecified()).move_into_raw()
     } else {
         None
     }
@@ -843,7 +843,7 @@ pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
             *ptr = rs.move_into_raw();
         }
 
-        Some(ka.mark_parts_unspecified()).move_into_raw()
+        Some(ka.parts_into_unspecified()).move_into_raw()
     } else {
         None
     }

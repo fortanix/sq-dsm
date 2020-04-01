@@ -45,7 +45,7 @@
 //! let sk: &Key<key::SecretParts, key::PrimaryRole> = cert.primary_key().key().try_into()?;
 //!
 //! // Make the conversion explicit.
-//! let sk = cert.primary_key().key().mark_parts_secret_ref()?;
+//! let sk = cert.primary_key().key().parts_as_secret()?;
 //! #     Ok(())
 //! # }
 //! ```
@@ -489,7 +489,7 @@ macro_rules! create_part_conversions {
                 {
                     type Error = anyhow::Error;
                     fn try_from(p: $Key<$($l, )* $from_parts, $($g, )* >) -> Result<Self> {
-                        p.mark_parts_secret()
+                        p.parts_into_secret()
                     }
                 }
 
@@ -523,7 +523,7 @@ macro_rules! create_part_conversions {
         impl<$($l, )* P, $($g, )*> $Key<$($l, )* P, $($g, )*> where P: KeyParts, $($w: $c ),*
         {
             /// Changes the key's parts tag to `PublicParts`.
-            pub fn mark_parts_public(self) -> $Key<$($l, )* PublicParts, $($g, )*> {
+            pub fn parts_into_public(self) -> $Key<$($l, )* PublicParts, $($g, )*> {
                 // Ideally, we'd use self.into() to do the actually
                 // conversion.  But, because P is not concrete, we get the
                 // following error:
@@ -548,12 +548,12 @@ macro_rules! create_part_conversions {
             }
 
             /// Changes the key's parts tag to `PublicParts`.
-            pub fn mark_parts_public_ref(&$($l)* self) -> &$($l)* $Key<$($l, )* PublicParts, $($g, )*> {
+            pub fn parts_as_public(&$($l)* self) -> &$($l)* $Key<$($l, )* PublicParts, $($g, )*> {
                 convert_ref!(self)
             }
 
             /// Changes the key's parts tag to `SecretParts`.
-            pub fn mark_parts_secret(self) -> Result<$Key<$($l, )* SecretParts, $($g, )*>> {
+            pub fn parts_into_secret(self) -> Result<$Key<$($l, )* SecretParts, $($g, )*>> {
                 if self.has_secret() {
                     Ok(convert!(self))
                 } else {
@@ -562,7 +562,7 @@ macro_rules! create_part_conversions {
             }
 
             /// Changes the key's parts tag to `SecretParts`.
-            pub fn mark_parts_secret_ref(&$($l)* self) -> Result<&$($l)* $Key<$($l, )* SecretParts, $($g, )*>>
+            pub fn parts_as_secret(&$($l)* self) -> Result<&$($l)* $Key<$($l, )* SecretParts, $($g, )*>>
             {
                 if self.has_secret() {
                     Ok(convert_ref!(self))
@@ -572,12 +572,12 @@ macro_rules! create_part_conversions {
             }
 
             /// Changes the key's parts tag to `UnspecifiedParts`.
-            pub fn mark_parts_unspecified(self) -> $Key<$($l, )* UnspecifiedParts, $($g, )*> {
+            pub fn parts_into_unspecified(self) -> $Key<$($l, )* UnspecifiedParts, $($g, )*> {
                 convert!(self)
             }
 
             /// Changes the key's parts tag to `UnspecifiedParts`.
-            pub fn mark_parts_unspecified_ref(&$($l)* self) -> &$Key<$($l, )* UnspecifiedParts, $($g, )*> {
+            pub fn parts_as_unspecified(&$($l)* self) -> &$Key<$($l, )* UnspecifiedParts, $($g, )*> {
                 convert_ref!(self)
             }
         }
@@ -1396,7 +1396,7 @@ macro_rules! impl_common_secret_functions {
                                -> (Key4<PublicParts, R>, Option<SecretKeyMaterial>)
             {
                 let old = std::mem::replace(&mut self.secret, None);
-                (self.mark_parts_public(), old)
+                (self.parts_into_public(), old)
             }
 
             /// Adds `SecretKeyMaterial` to the packet, returning the old if
@@ -1405,7 +1405,7 @@ macro_rules! impl_common_secret_functions {
                               -> (Key4<SecretParts, R>, Option<SecretKeyMaterial>)
             {
                 let old = std::mem::replace(&mut self.secret, Some(secret));
-                (self.mark_parts_secret().expect("secret just set"), old)
+                (self.parts_into_secret().expect("secret just set"), old)
             }
         }
     }
@@ -1433,7 +1433,7 @@ impl<R> Key4<SecretParts, R>
                        -> (Key4<PublicParts, R>, SecretKeyMaterial)
     {
         let old = std::mem::replace(&mut self.secret, None);
-        (self.mark_parts_public(),
+        (self.parts_into_public(),
          old.expect("Key<SecretParts, _> has a secret key material"))
     }
 
@@ -1443,7 +1443,7 @@ impl<R> Key4<SecretParts, R>
                       -> (Key4<SecretParts, R>, SecretKeyMaterial)
     {
         let old = std::mem::replace(&mut self.secret, Some(secret));
-        (self.mark_parts_secret().expect("secret just set"),
+        (self.parts_into_secret().expect("secret just set"),
          old.expect("Key<SecretParts, _> has a secret key material"))
     }
 }
@@ -1921,7 +1921,7 @@ mod tests {
         let sk = SessionKey::from(Vec::from(&dek[..]));
 
         // Expected
-        let got_enc = ecdh::encrypt_shared(&key.mark_parts_public(),
+        let got_enc = ecdh::encrypt_shared(&key.parts_into_public(),
                                            &sk, eph_pubkey, &shared_sec)
             .unwrap();
 
@@ -1959,7 +1959,7 @@ mod tests {
         // Session key
         let dek = b"\x09\x0D\xDC\x40\xC5\x71\x51\x88\xAC\xBD\x45\x56\xD4\x2A\xDF\x77\xCD\xF4\x82\xA2\x1B\x8F\x2E\x48\x3B\xCA\xBF\xD3\xE8\x6D\x0A\x7C\xDF\x10\xe6";
 
-        let key = key.mark_parts_public();
+        let key = key.parts_into_public();
         let got_dek = match key.optional_secret() {
             Some(SecretKeyMaterial::Unencrypted(ref u)) => u.map(|mpis| {
                 ecdh::decrypt(&key, mpis, &ciphertext)

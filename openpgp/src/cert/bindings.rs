@@ -35,7 +35,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (cert, _) = CertBuilder::new().generate()?;
     /// let mut keypair = cert.primary_key().key().clone()
-    ///     .mark_parts_secret()?.into_keypair()?;
+    ///     .parts_into_secret()?.into_keypair()?;
     ///
     /// // Let's add an encryption subkey.
     /// let flags = KeyFlags::default().set_storage_encryption(true);
@@ -97,7 +97,7 @@ impl UserID {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (cert, _) = CertBuilder::new().generate()?;
     /// let mut keypair = cert.primary_key().key().clone()
-    ///     .mark_parts_secret()?.into_keypair()?;
+    ///     .parts_into_secret()?.into_keypair()?;
     /// assert_eq!(cert.userids().len(), 0);
     ///
     /// // Generate a userid and a binding signature.
@@ -155,7 +155,7 @@ impl UserID {
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary_key().key().clone()
-    ///     .mark_parts_secret()?.into_keypair()?;
+    ///     .parts_into_secret()?.into_keypair()?;
     ///
     /// // Generate a Cert for Bob.
     /// let (bob, _) = CertBuilder::new()
@@ -232,7 +232,7 @@ impl UserAttribute {
     /// let (cert, _) = CertBuilder::new()
     ///     .generate()?;
     /// let mut keypair = cert.primary_key().key().clone()
-    ///     .mark_parts_secret()?.into_keypair()?;
+    ///     .parts_into_secret()?.into_keypair()?;
     /// assert_eq!(cert.userids().len(), 0);
     ///
     /// // Generate a user attribute and a binding signature.
@@ -293,7 +293,7 @@ impl UserAttribute {
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     /// let mut keypair = alice.primary_key().key().clone()
-    ///     .mark_parts_secret()?.into_keypair()?;
+    ///     .parts_into_secret()?.into_keypair()?;
     ///
     /// // Generate a Cert for Bob.
     /// let user_attr = UserAttribute::new(&[

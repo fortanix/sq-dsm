@@ -1076,7 +1076,7 @@ mod test {
 
         // Revoke it.
         let mut keypair = cert.primary_key().key().clone()
-            .mark_parts_secret()?.into_keypair()?;
+            .parts_into_secret()?.into_keypair()?;
         let ca = cert.userids().nth(0).unwrap();
 
         // Generate the revocation for the first and only UserID.
@@ -1389,7 +1389,7 @@ mod test {
 
         // Create a revoked version.
         let mut keypair = cert.primary_key().key().clone()
-            .mark_parts_secret()?.into_keypair()?;
+            .parts_into_secret()?.into_keypair()?;
         let cert_revoked = cert.clone().revoke_in_place(
             &mut keypair,
             ReasonForRevocation::KeyCompromised,
@@ -1530,7 +1530,7 @@ mod test {
             .add_signing_subkey()
             .generate()?;
 
-        let pk = cert.primary_key().key().mark_parts_secret_ref()?;
+        let pk = cert.primary_key().key().parts_as_secret()?;
         let subkey: key::SecretSubkey
             = Key4::generate_rsa(4096)?.into();
         let binding = signature::Builder::new(SignatureType::SubkeyBinding)
@@ -1554,7 +1554,7 @@ mod test {
             .add_signing_subkey()
             .generate()?;
 
-        let pk = cert.primary_key().key().mark_parts_secret_ref()?;
+        let pk = cert.primary_key().key().parts_as_secret()?;
         let subkey: key::SecretSubkey
             = key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
         let binding = signature::Builder::new(SignatureType::SubkeyBinding)
@@ -1681,7 +1681,7 @@ mod test {
             // We always use the first subkey.
             let key = cert.keys().nth(1).unwrap().key();
             let mut keypair = key.clone()
-                .mark_parts_secret().unwrap()
+                .parts_into_secret().unwrap()
                 .into_keypair().unwrap();
 
             // Create a signature.

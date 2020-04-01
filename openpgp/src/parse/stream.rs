@@ -1869,7 +1869,7 @@ mod test {
         {
             let key = cert.keys().with_policy(p, None).for_signing().nth(0).unwrap().key();
             let keypair =
-                key.clone().mark_parts_secret().unwrap()
+                key.clone().parts_into_secret().unwrap()
                 .into_keypair().unwrap();
 
             let m = Message::new(&mut buf);

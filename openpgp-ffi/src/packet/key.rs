@@ -82,6 +82,6 @@ fn pgp_key_into_key_pair(errp: Option<&mut *mut crate::error::Error>,
                          -> *mut self::openpgp::crypto::KeyPair
 {
     ffi_make_fry_from_errp!(errp);
-    let key = ffi_try!(key.move_from_raw().mark_parts_secret());
+    let key = ffi_try!(key.move_from_raw().parts_into_secret());
     ffi_try_box!(key.into_keypair())
 }

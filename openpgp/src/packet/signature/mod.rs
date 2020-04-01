@@ -1434,7 +1434,7 @@ mod test {
         ] {
             let cert = Cert::from_bytes(crate::tests::key(key)).unwrap();
             let mut pair = cert.primary_key().key().clone()
-                .mark_parts_secret().unwrap()
+                .parts_into_secret().unwrap()
                 .into_keypair()
                 .expect("secret key is encrypted/missing");
 

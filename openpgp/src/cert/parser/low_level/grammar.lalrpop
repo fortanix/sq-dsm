@@ -234,7 +234,7 @@ Subkey: Option<Key<key::PublicParts, key::SubordinateRole>> = {
     },
     <t:SECRET_SUBKEY> => {
         match t.into() {
-            Some(Packet::SecretSubkey(key)) => Some(key.mark_parts_public()),
+            Some(Packet::SecretSubkey(key)) => Some(key.parts_into_public()),
             // Just validating a message...
             None => None,
             Some(pkt) =>

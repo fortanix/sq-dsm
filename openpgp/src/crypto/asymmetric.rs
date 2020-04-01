@@ -327,7 +327,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     },
                 }
             },
-            ECDH => crate::crypto::ecdh::encrypt(self.mark_parts_public_ref(),
+            ECDH => crate::crypto::ecdh::encrypt(self.parts_as_public(),
                                                  data),
             algo => Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
         }

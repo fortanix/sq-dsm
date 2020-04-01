@@ -253,7 +253,7 @@ impl<'a> Signer<'a> {
     /// #     .unwrap();
     /// # let keypair = tsk.keys().with_policy(p, None).alive().revoked(false).for_signing()
     /// #     .nth(0).unwrap()
-    /// #     .key().clone().mark_parts_secret().unwrap().into_keypair().unwrap();
+    /// #     .key().clone().parts_into_secret().unwrap().into_keypair().unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
     /// #      -> Result<()> {
@@ -362,7 +362,7 @@ impl<'a> Signer<'a> {
     /// # let keypair
     /// #     = tsk.keys().with_policy(p, None).alive().revoked(false).for_signing()
     /// #           .nth(0).unwrap()
-    /// #           .key().clone().mark_parts_secret().unwrap().into_keypair()
+    /// #           .key().clone().parts_into_secret().unwrap().into_keypair()
     /// #           .unwrap();
     /// # f(tsk, keypair).unwrap();
     /// # fn f(cert: Cert, mut signing_keypair: KeyPair)
@@ -928,7 +928,7 @@ impl<'a> Recipient<'a> {
     {
         Recipient {
             keyid,
-            key: key.mark_parts_public_ref().mark_role_unspecified_ref(),
+            key: key.parts_as_public().mark_role_unspecified_ref(),
         }
     }
 
@@ -1523,7 +1523,7 @@ mod test {
         let mut o = vec![];
         {
             let mut signers = keys.iter().map(|(_, key)| {
-                key.clone().mark_parts_secret().unwrap().into_keypair()
+                key.clone().parts_into_secret().unwrap().into_keypair()
                     .expect("expected unencrypted secret key")
             }).collect::<Vec<KeyPair>>();
 
@@ -1721,7 +1721,7 @@ mod test {
                 let mut keypair = self.tsk.keys().with_policy(self.policy, None)
                     .for_transport_encryption()
                     .map(|ka| ka.key()).next().unwrap()
-                    .clone().mark_parts_secret().unwrap()
+                    .clone().parts_into_secret().unwrap()
                     .into_keypair().unwrap();
                 pkesks[0].decrypt(&mut keypair, sym_algo)
                     .and_then(|(algo, session_key)| decrypt(algo, &session_key))
@@ -1847,7 +1847,7 @@ mod test {
         let mut o = vec![];
         {
             let signer_keypair : KeyPair =
-                ka.key().clone().mark_parts_secret().unwrap().into_keypair()
+                ka.key().clone().parts_into_secret().unwrap().into_keypair()
                     .expect("expected unencrypted secret key");
 
             let m = Message::new(&mut o);

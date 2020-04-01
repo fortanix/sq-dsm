@@ -57,7 +57,7 @@ use crate::cert::prelude::*;
 ///            cert.revoked(p, None));
 ///
 /// let mut signer = cert.primary_key().key().clone()
-///     .mark_parts_secret()?.into_keypair()?;
+///     .parts_into_secret()?.into_keypair()?;
 /// let sig = CertRevocationBuilder::new()
 ///     .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
 ///                                b"It was the maid :/")?
@@ -168,7 +168,7 @@ impl Deref for CertRevocationBuilder {
 ///     .add_transport_encryption_subkey()
 ///     .generate()?;
 /// let mut keypair = cert.primary_key().key().clone()
-///     .mark_parts_secret()?.into_keypair()?;
+///     .parts_into_secret()?.into_keypair()?;
 /// let subkey = cert.keys().subkeys().nth(0).unwrap();
 ///
 /// // Generate the revocation for the first and only Subkey.
@@ -286,7 +286,7 @@ impl Deref for SubkeyRevocationBuilder {
 ///     .add_userid("some@example.org")
 ///     .generate()?;
 /// let mut keypair = cert.primary_key().key().clone()
-///     .mark_parts_secret()?.into_keypair()?;
+///     .parts_into_secret()?.into_keypair()?;
 /// let ca = cert.userids().nth(0).unwrap();
 ///
 /// // Generate the revocation for the first and only UserID.
@@ -406,7 +406,7 @@ impl Deref for UserIDRevocationBuilder {
 ///     .add_user_attribute(some_user_attribute)
 ///     .generate()?;
 /// let mut keypair = cert.primary_key().key().clone()
-///     .mark_parts_secret()?.into_keypair()?;
+///     .parts_into_secret()?.into_keypair()?;
 /// let ca = cert.user_attributes().nth(0).unwrap();
 ///
 /// // Generate the revocation for the first and only UserAttribute.

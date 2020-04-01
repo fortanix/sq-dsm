@@ -199,7 +199,7 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
         let vka = ValidErasedKeyAmalgamation {
             ka: KeyAmalgamation {
                 ca: key::PublicParts::convert_key_amalgamation(
-                    self.ca.mark_parts_unspecified()).expect("to public"),
+                    self.ca.parts_into_unspecified()).expect("to public"),
                 primary: self.primary,
             },
             // We need some black magic to avoid infinite
@@ -227,7 +227,7 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
         Ok(ValidErasedKeyAmalgamation {
             ka: KeyAmalgamation {
                 ca: P::convert_key_amalgamation(
-                    vka.ka.ca.mark_parts_unspecified()).expect("roundtrip"),
+                    vka.ka.ca.parts_into_unspecified()).expect("roundtrip"),
                 primary: vka.ka.primary,
             },
             cert: vka.cert,
@@ -334,7 +334,7 @@ impl<'a, P, P2> TryFrom<ErasedKeyAmalgamation<'a, P>>
         if ka.primary {
             Ok(Self {
                 ca: P2::convert_key_amalgamation(
-                    ka.ca.mark_role_primary().mark_parts_unspecified())?,
+                    ka.ca.mark_role_primary().parts_into_unspecified())?,
                 primary: (),
             })
         } else {
@@ -360,7 +360,7 @@ impl<'a, P, P2> TryFrom<ErasedKeyAmalgamation<'a, P>>
         } else {
             Ok(Self {
                 ca: P2::convert_key_amalgamation(
-                    ka.ca.mark_role_subordinate().mark_parts_unspecified())?,
+                    ka.ca.mark_role_subordinate().parts_into_unspecified())?,
                 primary: (),
             })
         }
@@ -923,7 +923,7 @@ mod test {
         }
 
         let mut primary = cert.primary_key().key().clone()
-            .mark_parts_secret().unwrap().into_keypair().unwrap();
+            .parts_into_secret().unwrap().into_keypair().unwrap();
 
         // Only expire the subkeys.
         let sigs = cert.keys().subkeys().with_policy(p, None)

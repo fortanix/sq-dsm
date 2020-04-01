@@ -545,7 +545,7 @@ impl Cert {
     ///            cert.revoked(p, None));
     ///
     /// let mut keypair = cert.primary_key().key().clone()
-    ///     .mark_parts_secret()?.into_keypair()?;
+    ///     .parts_into_secret()?.into_keypair()?;
     /// let cert = cert.revoke_in_place(&mut keypair,
     ///                               ReasonForRevocation::KeyCompromised,
     ///                               b"It was the maid :/")?;
@@ -2130,7 +2130,7 @@ mod test {
             .key_validity_period()
             .expect("Keys expire by default.");
 
-        let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
+        let mut keypair = cert.primary_key().key().clone().parts_into_secret()
             .unwrap().into_keypair().unwrap();
 
         // Clear the expiration.
@@ -2309,7 +2309,7 @@ mod test {
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    cert.revoked(p, None));
 
-        let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
+        let mut keypair = cert.primary_key().key().clone().parts_into_secret()
             .unwrap().into_keypair().unwrap();
 
         let sig = CertRevocationBuilder::new()
@@ -2331,7 +2331,7 @@ mod test {
         let (other, _) = CertBuilder::general_purpose(None, Some("Test 2"))
             .generate().unwrap();
 
-        let mut keypair = other.primary_key().key().clone().mark_parts_secret()
+        let mut keypair = other.primary_key().key().clone().parts_into_secret()
             .unwrap().into_keypair().unwrap();
 
         let sig = CertRevocationBuilder::new()
@@ -2359,7 +2359,7 @@ mod test {
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                        subkey.revoked(p, None));
 
-            let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
+            let mut keypair = cert.primary_key().key().clone().parts_into_secret()
                 .unwrap().into_keypair().unwrap();
             SubkeyRevocationBuilder::new()
                 .set_reason_for_revocation(
@@ -2390,7 +2390,7 @@ mod test {
             let uid = cert.userids().with_policy(p, None).nth(1).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
 
-            let mut keypair = cert.primary_key().key().clone().mark_parts_secret()
+            let mut keypair = cert.primary_key().key().clone().parts_into_secret()
                 .unwrap().into_keypair().unwrap();
             UserIDRevocationBuilder::new()
                 .set_reason_for_revocation(
@@ -3177,7 +3177,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // Have alice cerify the binding "bob@bar.com" and bob's key.
             let alice_certifies_bob
                 = bob_userid_binding.userid().bind(
-                    &mut alice.primary_key().key().clone().mark_parts_secret()
+                    &mut alice.primary_key().key().clone().parts_into_secret()
                         .unwrap().into_keypair().unwrap(),
                     &bob,
                     sig_template).unwrap();
@@ -3219,12 +3219,12 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.keys().unencrypted_secret().count(), 0);
 
         let mut primary = cert.primary_key().key().clone()
-            .mark_parts_secret().unwrap();
+            .parts_into_secret().unwrap();
         let algo = primary.pk_algo();
         primary.secret_mut()
             .decrypt_in_place(algo, &"streng geheim".into()).unwrap();
         let cert = cert.merge_packets(vec![
-            primary.mark_parts_secret().unwrap().mark_role_primary().into()
+            primary.parts_into_secret().unwrap().mark_role_primary().into()
         ]).unwrap();
 
         assert_eq!(cert.keys().secret().count(), 2);
@@ -3417,7 +3417,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert_at.keys().count(), 2);
 
         let mut primary_pair = cert.primary_key().key().clone()
-            .mark_parts_secret()?.into_keypair()?;
+            .parts_into_secret()?.into_keypair()?;
         let uid: UserID = "foo@example.org".into();
         let sig = uid.bind(
             &mut primary_pair, &cert,
