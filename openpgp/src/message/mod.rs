@@ -10,6 +10,7 @@
 //!
 //! [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
 
+use std::convert::TryFrom;
 use std::fmt;
 use std::io;
 use std::path::Path;
@@ -337,29 +338,29 @@ impl fmt::Debug for Message {
 impl<'a> Parse<'a, Message> for Message {
     /// Reads a `Message` from the specified reader.
     ///
-    /// See [`Message::from_packet_pile`] for more details.
+    /// See [`Message::try_from`] for more details.
     ///
-    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
+    ///   [`Message::try_from`]: #method.try_from
     fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from_reader(reader)?)
+        Self::try_from(PacketPile::from_reader(reader)?)
     }
 
     /// Reads a `Message` from the specified file.
     ///
-    /// See [`Message::from_packet_pile`] for more details.
+    /// See [`Message::try_from`] for more details.
     ///
-    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
+    ///   [`Message::try_from`]: #method.try_from
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from_file(path)?)
+        Self::try_from(PacketPile::from_file(path)?)
     }
 
     /// Reads a `Message` from `buf`.
     ///
-    /// See [`Message::from_packet_pile`] for more details.
+    /// See [`Message::try_from`] for more details.
     ///
-    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
+    ///   [`Message::try_from`]: #method.try_from
     fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from_bytes(data)?)
+        Self::try_from(PacketPile::from_bytes(data)?)
     }
 }
 
@@ -372,6 +373,34 @@ impl std::str::FromStr for Message {
 }
 
 impl Message {
+    /// Converts the vector of `Packets` to a `Message`.
+    ///
+    /// See [`Message::try_from`] for more details.
+    ///
+    ///   [`Message::try_from`]: #method.try_from
+    pub fn from_packets(packets: Vec<Packet>) -> Result<Self> {
+        Self::try_from(PacketPile::from(packets))
+    }
+
+    /// Returns the body of the message.
+    ///
+    /// Returns `None` if no literal data packet is found.  This
+    /// happens if a SEIP container has not been decrypted.
+    pub fn body(&self) -> Option<&Literal> {
+        for packet in self.pile.descendants() {
+            if let &Packet::Literal(ref l) = packet {
+                return Some(l);
+            }
+        }
+
+        // No literal data packet found.
+        None
+    }
+}
+
+impl TryFrom<PacketPile> for Message {
+    type Error = anyhow::Error;
+
     /// Converts the `PacketPile` to a `Message`.
     ///
     /// Converting a `PacketPile` to a `Message` doesn't change the
@@ -384,7 +413,7 @@ impl Message {
     /// or still compressed parts are valid messages.
     ///
     ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
-    pub fn from_packet_pile(pile: PacketPile) -> Result<Self> {
+    fn try_from(pile: PacketPile) -> Result<Self> {
         let mut v = MessageValidator::new();
         for (mut path, packet) in pile.descendants().paths() {
             match packet {
@@ -422,30 +451,6 @@ impl Message {
             // to an immediate user of this crate.
             MessageValidity::Error(e) => Err(e.into()),
         }
-    }
-
-    /// Converts the vector of `Packets` to a `Message`.
-    ///
-    /// See [`Message::from_packet_pile`] for more details.
-    ///
-    ///   [`Message::from_packet_pile`]: #method.from_packet_pile
-    pub fn from_packets(packets: Vec<Packet>) -> Result<Self> {
-        Self::from_packet_pile(PacketPile::from(packets))
-    }
-
-    /// Returns the body of the message.
-    ///
-    /// Returns `None` if no literal data packet is found.  This
-    /// happens if a SEIP container has not been decrypted.
-    pub fn body(&self) -> Option<&Literal> {
-        for packet in self.pile.descendants() {
-            if let &Packet::Literal(ref l) = packet {
-                return Some(l);
-            }
-        }
-
-        // No literal data packet found.
-        None
     }
 }
 

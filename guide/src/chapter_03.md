@@ -95,13 +95,13 @@ fn main() {
 [`PacketPile`]s are unstructured sequences of OpenPGP packets.  Packet
 piles can be inspected, manipulated, validated using a formal grammar
 and thereby turned into [`Message`]s or [`Cert`]s using
-[`Message::from_packet_pile`] or [`Cert::from_packet_pile`], or just
+[`Message::try_from`] or [`Cert::from_packet_pile`], or just
 turned into a vector of [`Packet`]s:
 
 [`PacketPile`]: ../../sequoia_openpgp/struct.PacketPile.html
 [`Packet`]: ../../sequoia_openpgp/enum.Packet.html
 [`Cert::from_packet_pile`]: ../../sequoia_openpgp/cert/struct.Cert.html#method.from_packet_pile
-[`Message::from_packet_pile`]: ../../sequoia_openpgp/struct.Message.html#method.from_packet_pile
+[`Message::try_from`]: ../../sequoia_openpgp/struct.Message.html#method.try_from
 
 ```rust
 extern crate sequoia_openpgp as openpgp;
