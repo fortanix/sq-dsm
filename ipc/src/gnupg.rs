@@ -3,6 +3,7 @@
 #![warn(missing_docs)]
 
 use std::collections::BTreeMap;
+use std::convert::TryFrom;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -630,7 +631,7 @@ impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
                     },
                     Async::Ready(None) => {
                         let mut buf = Vec::new();
-                        Sexp::from_ciphertext(&self.ciphertext)?
+                        Sexp::try_from(self.ciphertext)?
                             .serialize(&mut buf)?;
                         self.c.data(&buf)?;
                         self.state = Inquire(Vec::new(), true);

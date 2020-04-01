@@ -6,6 +6,7 @@
 //!
 //! [S-Expressions]: https://people.csail.mit.edu/rivest/Sexp.txt
 
+use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Deref;
 use quickcheck::{Arbitrary, Gen};
@@ -37,55 +38,6 @@ impl fmt::Debug for Sexp {
 }
 
 impl Sexp {
-    /// Constructs an S-Expression representing `ciphertext`.
-    ///
-    /// The resulting expression is suitable for gpg-agent's `INQUIRE
-    /// CIPHERTEXT` inquiry.
-    pub fn from_ciphertext(ciphertext: &mpis::Ciphertext) -> Result<Self> {
-        use crate::crypto::mpis::Ciphertext::*;
-        match ciphertext {
-            RSA { ref c } =>
-                Ok(Sexp::List(vec![
-                    Sexp::String("enc-val".into()),
-                    Sexp::List(vec![
-                        Sexp::String("rsa".into()),
-                        Sexp::List(vec![
-                            Sexp::String("a".into()),
-                            Sexp::String(c.value().into())])])])),
-
-            &ElGamal { ref e, ref c } =>
-                Ok(Sexp::List(vec![
-                    Sexp::String("enc-val".into()),
-                    Sexp::List(vec![
-                        Sexp::String("elg".into()),
-                        Sexp::List(vec![
-                            Sexp::String("a".into()),
-                            Sexp::String(e.value().into())]),
-                        Sexp::List(vec![
-                            Sexp::String("b".into()),
-                            Sexp::String(c.value().into())])])])),
-
-            &ECDH { ref e, ref key } =>
-                Ok(Sexp::List(vec![
-                    Sexp::String("enc-val".into()),
-                    Sexp::List(vec![
-                        Sexp::String("ecdh".into()),
-                        Sexp::List(vec![
-                            Sexp::String("s".into()),
-                            Sexp::String(key.as_ref().into())]),
-                        Sexp::List(vec![
-                            Sexp::String("e".into()),
-                            Sexp::String(e.value().into())])])])),
-
-            &Unknown { .. } =>
-                Err(Error::InvalidArgument(
-                    format!("Don't know how to convert {:?}", ciphertext))
-                    .into()),
-
-            __Nonexhaustive => unreachable!(),
-        }
-    }
-
     /// Completes the decryption of this S-Expression representing a
     /// wrapped session key.
     ///
@@ -284,6 +236,59 @@ impl Sexp {
             _ =>
                 Err(Error::InvalidArgument(
                     format!("Malformed alist: {:?}", self)).into()),
+        }
+    }
+}
+
+impl TryFrom<&mpis::Ciphertext> for Sexp {
+    type Error = anyhow::Error;
+
+    /// Constructs an S-Expression representing `ciphertext`.
+    ///
+    /// The resulting expression is suitable for gpg-agent's `INQUIRE
+    /// CIPHERTEXT` inquiry.
+    fn try_from(ciphertext: &mpis::Ciphertext) -> Result<Self> {
+        use crate::crypto::mpis::Ciphertext::*;
+        match ciphertext {
+            RSA { ref c } =>
+                Ok(Sexp::List(vec![
+                    Sexp::String("enc-val".into()),
+                    Sexp::List(vec![
+                        Sexp::String("rsa".into()),
+                        Sexp::List(vec![
+                            Sexp::String("a".into()),
+                            Sexp::String(c.value().into())])])])),
+
+            &ElGamal { ref e, ref c } =>
+                Ok(Sexp::List(vec![
+                    Sexp::String("enc-val".into()),
+                    Sexp::List(vec![
+                        Sexp::String("elg".into()),
+                        Sexp::List(vec![
+                            Sexp::String("a".into()),
+                            Sexp::String(e.value().into())]),
+                        Sexp::List(vec![
+                            Sexp::String("b".into()),
+                            Sexp::String(c.value().into())])])])),
+
+            &ECDH { ref e, ref key } =>
+                Ok(Sexp::List(vec![
+                    Sexp::String("enc-val".into()),
+                    Sexp::List(vec![
+                        Sexp::String("ecdh".into()),
+                        Sexp::List(vec![
+                            Sexp::String("s".into()),
+                            Sexp::String(key.as_ref().into())]),
+                        Sexp::List(vec![
+                            Sexp::String("e".into()),
+                            Sexp::String(e.value().into())])])])),
+
+            &Unknown { .. } =>
+                Err(Error::InvalidArgument(
+                    format!("Don't know how to convert {:?}", ciphertext))
+                    .into()),
+
+            __Nonexhaustive => unreachable!(),
         }
     }
 }
