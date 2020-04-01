@@ -2355,7 +2355,7 @@ impl SKESK {
                 let mut esk = php_try!(php.reader.steal_eof()
                                        .map_err(|e| anyhow::Error::from(e)));
                 let l = esk.len();
-                let aead_digest = esk.split_off(l - digest_size);
+                let aead_digest = esk.split_off(l.saturating_sub(digest_size));
                 // Now fix the map.
                 php.field("esk", esk.len());
                 php.field("aead_digest", aead_digest.len());
