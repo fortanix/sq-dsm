@@ -105,7 +105,7 @@ impl Arbitrary for RevocationKey {
             pk_algo: Arbitrary::arbitrary(g),
             fp: Arbitrary::arbitrary(g),
             sensitive: Arbitrary::arbitrary(g),
-            unknown: Arbitrary::arbitrary(g),
+            unknown: u8::arbitrary(g) & REVOCATION_KEY_MASK_UNKNOWN,
         }
     }
 }
