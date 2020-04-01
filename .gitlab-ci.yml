@@ -1,9 +1,3 @@
-.shared_windows_runners:
-  tags:
-  - shared-windows
-  - windows
-  - windows-1809
-
 before_script:
   - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
   - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
@@ -72,8 +66,9 @@ rust-stable:
     RUSTFLAGS: -D warnings -A unused-parens
 
 windows:
-  extends:
-  - .shared_windows_runners
+  tags:
+  - win
+  - win2019
   stage: build
   # This job takes ~40 minutes to run, let's only execute it manually or for
   # scheduled builds, otherwise this will stall MRs often not related to Windows
