@@ -878,7 +878,7 @@ fn pgp_cert_parser_from_packet_parser(ppr: *mut PacketParserResult<'static>)
     -> *mut CertParserWrapper<'static>
 {
     let ppr = ffi_param_move!(ppr);
-    let parser = CertParser::from_packet_parser(*ppr);
+    let parser = CertParser::from(*ppr);
     box_raw!(CertParserWrapper { parser: parser })
 }
 

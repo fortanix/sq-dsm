@@ -1353,7 +1353,7 @@ impl TryFrom<PacketParserResult<'_>> for Cert {
     /// packet stream is a keyring, this function will return
     /// `Error::MalformedCert`.
     fn try_from(ppr: PacketParserResult) -> Result<Self> {
-        let mut parser = parser::CertParser::from_packet_parser(ppr);
+        let mut parser = parser::CertParser::from(ppr);
         if let Some(cert_result) = parser.next() {
             if parser.next().is_some() {
                 Err(Error::MalformedCert(

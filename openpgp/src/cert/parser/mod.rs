@@ -400,7 +400,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
 /// #     let ppr = PacketParser::from_bytes(b"")?;
-/// for certo in CertParser::from_packet_parser(ppr) {
+/// for certo in CertParser::from(ppr) {
 ///     match certo {
 ///         Ok(cert) => {
 ///             println!("Key: {}", cert.fingerprint());
@@ -437,9 +437,9 @@ impl<'a, I: Iterator<Item=Packet>> Default for CertParser<'a, I> {
 // When using a `PacketParser`, we never use the `Iter` variant.
 // Nevertheless, we need to provide a concrete type.
 // vec::IntoIter<Packet> is about as good as any other.
-impl<'a> CertParser<'a, vec::IntoIter<Packet>> {
+impl<'a> From<PacketParserResult<'a>> for CertParser<'a, vec::IntoIter<Packet>> {
     /// Initializes a `CertParser` from a `PacketParser`.
-    pub fn from_packet_parser(ppr: PacketParserResult<'a>) -> Self {
+    fn from(ppr: PacketParserResult<'a>) -> Self {
         let mut parser : Self = Default::default();
         if let PacketParserResult::Some(pp) = ppr {
             parser.source = PacketSource::PacketParser(pp);
@@ -453,17 +453,17 @@ impl<'a> Parse<'a, CertParser<'a, vec::IntoIter<Packet>>>
 {
     /// Initializes a `CertParser` from a `Read`er.
     fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
-        Ok(Self::from_packet_parser(PacketParser::from_reader(reader)?))
+        Ok(Self::from(PacketParser::from_reader(reader)?))
     }
 
     /// Initializes a `CertParser` from a `File`.
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Ok(Self::from_packet_parser(PacketParser::from_file(path)?))
+        Ok(Self::from(PacketParser::from_file(path)?))
     }
 
     /// Initializes a `CertParser` from a byte string.
     fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
-        Ok(Self::from_packet_parser(PacketParser::from_bytes(data)?))
+        Ok(Self::from(PacketParser::from_bytes(data)?))
     }
 }
 
@@ -520,7 +520,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
     /// # fn f() -> Result<()> {
     /// #     let ppr = PacketParser::from_bytes(b"")?;
     /// #     let some_keyid = "C2B819056C652598".parse().unwrap();
-    /// for certr in CertParser::from_packet_parser(ppr)
+    /// for certr in CertParser::from(ppr)
     ///     .unvalidated_cert_filter(|cert, _| {
     ///         for component in cert.keys() {
     ///             if component.key().keyid() == some_keyid {
@@ -926,7 +926,7 @@ mod test {
         Packet::Marker(Default::default())
             .serialize(&mut testy_with_marker).unwrap();
         testy_with_marker.extend_from_slice(crate::tests::key("testy.pgp"));
-        CertParser::from_packet_parser(
+        CertParser::from(
             PacketParser::from_bytes(&testy_with_marker).unwrap())
             .nth(0).unwrap().unwrap();
     }
