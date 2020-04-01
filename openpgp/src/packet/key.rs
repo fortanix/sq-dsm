@@ -54,6 +54,7 @@ use std::fmt;
 use std::cmp::Ordering;
 use std::convert::{TryFrom, TryInto};
 use std::time;
+use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
 use crate::cert::prelude::*;
@@ -1647,6 +1648,79 @@ impl Encrypted {
         dec.read_exact(&mut trash)?;
 
         mpis::SecretKeyMaterial::parse_chksumd(pk_algo, &mut dec).map(|m| m.into())
+    }
+}
+
+impl<P, R> Arbitrary for super::Key<P, R>
+    where P: KeyParts, P: Clone,
+          R: KeyRole, R: Clone,
+          Key4<P, R>: Arbitrary,
+{
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        Key4::arbitrary(g).into()
+    }
+}
+
+impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        let mpis = mpis::PublicKey::arbitrary(g);
+        Key4 {
+            common: Arbitrary::arbitrary(g),
+            creation_time: Arbitrary::arbitrary(g),
+            pk_algo: mpis.algo()
+                .expect("mpis::PublicKey::arbitrary only uses known algos"),
+            mpis,
+            secret: None,
+            p: std::marker::PhantomData,
+            r: std::marker::PhantomData,
+        }
+    }
+}
+
+impl Arbitrary for Key4<SecretParts, UnspecifiedRole> {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        use rand::Rng;
+        use PublicKeyAlgorithm::*;
+        use mpis::MPI;
+
+        let key = Key4::arbitrary(g);
+        let mut secret: SecretKeyMaterial = match key.pk_algo() {
+            RSAEncryptSign => mpis::SecretKeyMaterial::RSA {
+                d: MPI::arbitrary(g).into(),
+                p: MPI::arbitrary(g).into(),
+                q: MPI::arbitrary(g).into(),
+                u: MPI::arbitrary(g).into(),
+            },
+
+            DSA => mpis::SecretKeyMaterial::DSA {
+                x: MPI::arbitrary(g).into(),
+            },
+
+            ElGamalEncrypt => mpis::SecretKeyMaterial::ElGamal {
+                x: MPI::arbitrary(g).into(),
+            },
+
+            EdDSA => mpis::SecretKeyMaterial::EdDSA {
+                scalar: MPI::arbitrary(g).into(),
+            },
+
+            ECDSA => mpis::SecretKeyMaterial::ECDSA {
+                scalar: MPI::arbitrary(g).into(),
+            },
+
+            ECDH => mpis::SecretKeyMaterial::ECDH {
+                scalar: MPI::arbitrary(g).into(),
+            },
+
+            _ => unreachable!("only valid algos, normalizes to these values"),
+        }.into();
+
+        if g.gen() {
+            secret.encrypt_in_place(&Password::from(Vec::arbitrary(g)))
+                .unwrap();
+        }
+
+        Key4::<PublicParts, UnspecifiedRole>::add_secret(key, secret).0
     }
 }
 
