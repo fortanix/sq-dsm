@@ -19,16 +19,15 @@ clang --version
 
 date
 # Ensure everything compiles but leave FFI tests for now
-# Also omit some of the time-consuming tests because we hit CI 1hr timeout
 cargo check --all --all-targets
 cargo test -v \
     -p buffered-reader \
     -p sequoia-ipc \
     -p sequoia-openpgp \
-    -p sequoia-sqv
-#   -p sequoia-autocrypt \
-#   -p sequoia-core \
-#   -p sequoia-net
-#   -p sequoia-store # FIXME: Somehow keeps CI stalled (zombie children proc?)
+    -p sequoia-sqv \
+    -p sequoia-autocrypt \
+    -p sequoia-core \
+    -p sequoia-net \
+    -p sequoia-store
 #   -p sequoia-ffi \
 #   -p sequoia-openpgp-ffi \
