@@ -5,6 +5,7 @@
 //! [`sequoia-openpgp::Cert`]: ../../../sequoia_openpgp/cert/struct.Cert.html
 //! [related functionality]: ../../../sequoia_openpgp/cert/index.html
 
+use std::convert::TryFrom;
 use std::ptr;
 use std::slice;
 use libc::{c_char, c_int, size_t, time_t};
@@ -80,7 +81,7 @@ fn pgp_cert_from_packet_parser(errp: Option<&mut *mut crate::error::Error>,
 {
     let ppr = ffi_param_move!(ppr);
 
-    openpgp::Cert::from_packet_parser(*ppr).move_into_raw(errp)
+    openpgp::Cert::try_from(*ppr).move_into_raw(errp)
 }
 
 /// Merges `other` into `cert`.

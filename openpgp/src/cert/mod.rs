@@ -3,6 +3,7 @@
 use std::io;
 use std::cmp;
 use std::cmp::Ordering;
+use std::convert::TryFrom;
 use std::path::Path;
 use std::mem;
 use std::fmt;
@@ -383,6 +384,7 @@ use super::*;
 ///
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
+/// # use std::convert::TryFrom;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 /// use openpgp::Cert;
@@ -390,7 +392,7 @@ use super::*;
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
 /// #     let ppr = PacketParser::from_bytes(&b""[..])?;
-/// match Cert::from_packet_parser(ppr) {
+/// match Cert::try_from(ppr) {
 ///     Ok(cert) => {
 ///         println!("Key: {}", cert.fingerprint());
 ///         for uid in cert.userids() {
@@ -438,19 +440,19 @@ impl std::str::FromStr for Cert {
 impl<'a> Parse<'a, Cert> for Cert {
     /// Returns the first Cert encountered in the reader.
     fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
-        Cert::from_packet_parser(PacketParser::from_reader(reader)?)
+        Cert::try_from(PacketParser::from_reader(reader)?)
     }
 
     /// Returns the first Cert encountered in the file.
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
-        Cert::from_packet_parser(PacketParser::from_file(path)?)
+        Cert::try_from(PacketParser::from_file(path)?)
     }
 
     /// Returns the first Cert found in `buf`.
     ///
     /// `buf` must be an OpenPGP-encoded message.
     fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
-        Cert::from_packet_parser(PacketParser::from_bytes(data)?)
+        Cert::try_from(PacketParser::from_bytes(data)?)
     }
 }
 
@@ -684,26 +686,6 @@ impl Cert {
     pub fn keys(&self) -> KeyAmalgamationIter<key::PublicParts, key::UnspecifiedRole>
     {
         KeyAmalgamationIter::new(self)
-    }
-
-    /// Returns the Cert found in the packet stream.
-    ///
-    /// If there are more packets after the Cert, e.g. because the
-    /// packet stream is a keyring, this function will return
-    /// `Error::MalformedCert`.
-    pub fn from_packet_parser(ppr: PacketParserResult) -> Result<Self> {
-        let mut parser = parser::CertParser::from_packet_parser(ppr);
-        if let Some(cert_result) = parser.next() {
-            if parser.next().is_some() {
-                Err(Error::MalformedCert(
-                    "Additional packets found, is this a keyring?".into()
-                ).into())
-            } else {
-                cert_result
-            }
-        } else {
-            Err(Error::MalformedCert("No data".into()).into())
-        }
     }
 
     /// Returns the first Cert found in the `PacketPile`.
@@ -1359,6 +1341,30 @@ impl Cert {
             policy,
             time,
         })
+    }
+}
+
+impl TryFrom<PacketParserResult<'_>> for Cert {
+    type Error = anyhow::Error;
+
+    /// Returns the Cert found in the packet stream.
+    ///
+    /// If there are more packets after the Cert, e.g. because the
+    /// packet stream is a keyring, this function will return
+    /// `Error::MalformedCert`.
+    fn try_from(ppr: PacketParserResult) -> Result<Self> {
+        let mut parser = parser::CertParser::from_packet_parser(ppr);
+        if let Some(cert_result) = parser.next() {
+            if parser.next().is_some() {
+                Err(Error::MalformedCert(
+                    "Additional packets found, is this a keyring?".into()
+                ).into())
+            } else {
+                cert_result
+            }
+        } else {
+            Err(Error::MalformedCert("No data".into()).into())
+        }
     }
 }
 
