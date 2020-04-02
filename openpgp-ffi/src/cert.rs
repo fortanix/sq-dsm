@@ -29,6 +29,7 @@ use super::packet_pile::PacketPile;
 use super::tsk::TSK;
 use super::revocation_status::RevocationStatus;
 use super::policy::Policy;
+use super::amalgamation::{UserIDAmalgamation, ValidUserIDAmalgamation};
 use super::key_amalgamation::{KeyAmalgamation, ValidKeyAmalgamation};
 
 use crate::Maybe;
@@ -371,67 +372,127 @@ fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy,
     }
 }
 
-/* UserIDBundle */
+/* UserIDIter */
 
-/// Returns the user id.
-///
-/// This function may fail and return NULL if the user id contains an
-/// interior NUL byte.  We do this rather than complicate the API, as
-/// there is no valid use for such user ids; they must be malicious.
-///
-/// The caller must free the returned value.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_user_id_bundle_user_id(
-    binding: *const UserIDBundle)
-    -> *mut c_char
-{
-    let binding = ffi_param_ref!(binding);
-
-    ffi_return_maybe_string!(binding.userid().value())
+/// Wraps a UserIDIter for export via the FFI.
+pub struct UserIDIterWrapper<'a> {
+    pub(crate) // For serialize.rs.
+    iter: Option<ComponentIter<'a, openpgp::packet::UserID>>,
+    // Whether next has been called.
+    next_called: bool,
 }
 
-/// Returns a reference to the self-signature, if any.
+/// Returns an iterator over the Cert's user ids.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_user_id_bundle_selfsig(
-    errp: Option<&mut *mut crate::error::Error>,
-    binding: *const UserIDBundle,
-    policy: *const Policy)
-    -> Maybe<Signature>
-{
-    let binding = ffi_param_ref!(binding);
-    let policy = &**policy.ref_raw();
-    binding.binding_signature(policy, None).move_into_raw(errp)
-}
-
-
-/* UserIDBundleIter */
-
-/// Returns an iterator over the Cert's user id bundles.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_cert_user_id_bundle_iter(cert: *const Cert)
-    -> *mut UserIDBundleIter<'static>
+pub extern "C" fn pgp_cert_user_id_iter(cert: *const Cert)
+    -> *mut UserIDIterWrapper<'static>
 {
     let cert = cert.ref_raw();
-    box_raw!(cert.userids().bundles())
+    box_raw!(UserIDIterWrapper {
+        iter: Some(cert.userids()),
+        next_called: false,
+    })
 }
 
-/// Frees a pgp_user_id_bundle_iter_t.
+/// Changes the iterator to only return keys that are valid at time
+/// `t`.
+///
+/// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_user_id_bundle_iter_free(
-    iter: Option<&mut UserIDBundleIter>)
+pub extern "C" fn pgp_cert_user_id_iter_policy<'a>(
+    iter_wrapper: *mut UserIDIterWrapper<'a>,
+    policy: *const Policy,
+    when: time_t)
+    -> *mut ValidUserIDIterWrapper<'static>
+{
+    let policy = policy.ref_raw();
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    if iter_wrapper.next_called {
+        panic!("Can't change UserIDIter filter after iterating.");
+    }
+
+    use std::mem::transmute;
+    box_raw!(ValidUserIDIterWrapper {
+        iter: Some(unsafe {
+            transmute(iter_wrapper.iter.take().unwrap()
+                      .with_policy(&**policy, maybe_time(when)))
+        }),
+        next_called: false,
+    })
+}
+
+
+/// Frees a pgp_user_id_iter_t.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C" fn pgp_cert_user_id_iter_free(
+    iter: Option<&mut UserIDIterWrapper>)
 {
     ffi_free!(iter)
 }
 
-/// Returns the next `UserIDBundle`.
+/// Returns the next `UserIDAmalgamation`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_user_id_bundle_iter_next<'a>(
-    iter: *mut UserIDBundleIter<'a>)
-    -> Option<&'a UserIDBundle>
+pub extern "C" fn pgp_cert_user_id_iter_next<'a>(
+    iter_wrapper: *mut UserIDIterWrapper<'a>)
+    -> Maybe<UserIDAmalgamation<'a>>
 {
-    let iter = ffi_param_ref_mut!(iter);
-    iter.next()
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    iter_wrapper.next_called = true;
+
+    if let Some(ua) = iter_wrapper.iter.as_mut().unwrap().next() {
+        Some(ua).move_into_raw()
+    } else {
+        None
+    }
 }
+
+/// Wraps a ValidKeyIter for export via the FFI.
+pub struct ValidUserIDIterWrapper<'a> {
+    pub(crate) // For serialize.rs.
+    iter: Option<ValidComponentIter<'a, openpgp::packet::UserID>>,
+    // Whether next has been called.
+    next_called: bool,
+}
+
+/// Returns an iterator over the Cert's user id bundles.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C" fn pgp_cert_valid_user_id_iter(cert: *const Cert,
+                                          policy: *const Policy, when: time_t)
+    -> *mut ValidUserIDIterWrapper<'static>
+{
+    let cert = cert.ref_raw();
+    let iter = box_raw!(UserIDIterWrapper {
+        iter: Some(cert.userids()),
+        next_called: false,
+    });
+
+    pgp_cert_user_id_iter_policy(iter, policy, when)
+}
+
+/// Frees a pgp_user_id_iter_t.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C" fn pgp_cert_valid_user_id_iter_free(
+    iter: Option<&mut ValidUserIDIterWrapper>)
+{
+    ffi_free!(iter)
+}
+
+/// Returns the next `UserIDAmalgamation`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C" fn pgp_cert_valid_user_id_iter_next<'a>(
+    iter_wrapper: *mut ValidUserIDIterWrapper<'a>)
+    -> Maybe<ValidUserIDAmalgamation<'a>>
+{
+    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    iter_wrapper.next_called = true;
+
+    if let Some(ua) = iter_wrapper.iter.as_mut().unwrap().next() {
+        Some(ua).move_into_raw()
+    } else {
+        None
+    }
+}
+
 
 /* cert::KeyIter. */
 

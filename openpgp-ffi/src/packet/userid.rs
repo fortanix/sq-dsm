@@ -12,6 +12,19 @@ use super::Packet;
 use crate::RefRaw;
 use crate::MoveIntoRaw;
 
+/// Holds a UserID packet.
+///
+/// See [Section 5.11 of RFC 4880] for details.
+///
+///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
+///
+/// Wraps [`sequoia-openpgp::packet::UserID`].
+///
+/// [`sequoia-openpgp::packet::UserID`]: ../../../sequoia_openpgp/packet/struct.UserID.html
+#[crate::ffi_wrapper_type(prefix = "pgp_",
+                     derive = "Clone, Debug, PartialEq")]
+pub struct UserID(openpgp::packet::UserID);
+
 /// Create a new User ID with the value `value`.
 ///
 /// `value` need not be valid UTF-8, but it must be NUL terminated.
