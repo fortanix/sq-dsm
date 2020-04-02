@@ -60,7 +60,7 @@ char *pgp_keyid_to_hex (const pgp_keyid_t keyid);
 /*/
 /// Compares KeyIDs.
 /*/
-int pgp_keyid_equal (const pgp_keyid_t a, const pgp_keyid_t b);
+bool pgp_keyid_equal (const pgp_keyid_t a, const pgp_keyid_t b);
 
 
 /* sequoia::openpgp::Fingerprint.  */
@@ -122,7 +122,7 @@ pgp_keyid_t pgp_fingerprint_to_keyid (const pgp_fingerprint_t fp);
 /*/
 /// Compares Fingerprints.
 /*/
-int pgp_fingerprint_equal (const pgp_fingerprint_t a, const pgp_fingerprint_t b);
+bool pgp_fingerprint_equal (const pgp_fingerprint_t a, const pgp_fingerprint_t b);
 
 /* sequoia::openpgp::RevocationStatus.  */
 
@@ -795,7 +795,7 @@ pgp_cert_t pgp_cert_clone (pgp_cert_t cert);
 /*/
 /// Compares Certs.
 /*/
-int pgp_cert_equal (const pgp_cert_t a, const pgp_cert_t b);
+bool pgp_cert_equal (const pgp_cert_t a, const pgp_cert_t b);
 
 /*/
 /// Returns a human readable description of this object intended for

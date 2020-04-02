@@ -32,7 +32,7 @@ pgp_session_key_t pgp_session_key_clone (pgp_session_key_t session_key);
 /*/
 /// Compares session keys.
 /*/
-int pgp_session_key_equal (const pgp_session_key_t a,
+bool pgp_session_key_equal (const pgp_session_key_t a,
 			   const pgp_session_key_t b);
 
 /*/
@@ -59,7 +59,7 @@ pgp_password_t pgp_password_clone (pgp_password_t password);
 /*/
 /// Compares passwords.
 /*/
-int pgp_password_equal (const pgp_password_t a, const pgp_password_t b);
+bool pgp_password_equal (const pgp_password_t a, const pgp_password_t b);
 
 typedef struct pgp_key_unencrypted *pgp_key_unencrypted_t;
 

@@ -20,7 +20,7 @@ char *pgp_packet_debug (const pgp_packet_t fp);
 /*/
 /// Compares objects of this kind.
 /*/
-int pgp_packet_equal (const pgp_packet_t a, const pgp_packet_t b);
+bool pgp_packet_equal (const pgp_packet_t a, const pgp_packet_t b);
 
 /*/
 /// Hashes this object.
