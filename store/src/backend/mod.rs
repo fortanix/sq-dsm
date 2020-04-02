@@ -229,7 +229,7 @@ impl node::Server for NodeServer {
                              -> Promise<(), capnp::Error> {
         bind_results!(results);
         let fingerprint = pry!(pry!(params.get()).get_fingerprint());
-        let fingerprint = sry!(Fingerprint::from_hex(fingerprint));
+        let fingerprint: openpgp::Fingerprint = sry!(fingerprint.parse());
         let key_id = sry!(KeyServer::lookup(&self.c, &fingerprint));
 
         pry!(pry!(results.get().get_result()).set_ok(
@@ -335,7 +335,7 @@ impl node::mapping::Server for MappingServer {
         bind_results!(results);
         let params = pry!(params.get());
         let fp = pry!(params.get_fingerprint());
-        let fp = sry!(Fingerprint::from_hex(fp)
+        let fp = sry!(fp.parse()
                       .map_err(|_| node::Error::MalformedFingerprint));
         let label = pry!(params.get_label());
 
@@ -904,7 +904,7 @@ impl KeyServer {
                  ORDER BY keys.update_at LIMIT 1",
             &[&network_policy_u8 as &dyn ToSql, &Timestamp::now()],
             |row| Ok((row.get(0)?, row.get(1)?)))?;
-        let fingerprint = openpgp::Fingerprint::from_hex(&fingerprint)
+        let fingerprint = fingerprint.parse::<openpgp::Fingerprint>()
             .map_err(|_| node::Error::SystemError)?;
 
         let ctx = core::Context::configure()
@@ -1003,7 +1003,7 @@ impl Query for KeyServer {
             "SELECT fingerprint FROM keys WHERE id = ?1",
             &[&self.id], |row| -> rusqlite::Result<String> { row.get(0) })
             .ok()
-            .and_then(|fp| Fingerprint::from_hex(&fp).ok())
+            .and_then(|fp| fp.parse::<openpgp::Fingerprint>().ok())
             .map(|fp| KeyID::from(fp).to_string())
             .unwrap_or(
                 format!("{}::{}", Self::table_name(), self.id())

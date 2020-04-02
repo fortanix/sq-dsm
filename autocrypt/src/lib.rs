@@ -792,7 +792,6 @@ impl<'a> AutocryptSetupMessageParser<'a> {
 mod test {
     use super::*;
 
-    use openpgp::Fingerprint;
     use openpgp::policy::StandardPolicy as P;
 
     #[test]
@@ -929,8 +928,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
         assert_eq!(cert.fingerprint(),
-                   Fingerprint::from_hex(
-                       &"156962B0F3115069ACA970C68E3B03A279B772D6"[..]).unwrap());
+                   "156962B0F3115069ACA970C68E3B03A279B772D6".parse().unwrap());
         assert_eq!(cert.userids().next().unwrap().value(),
                    &b"holger krekel <holger@merlinux.eu>"[..]);
 
@@ -952,8 +950,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
         assert_eq!(cert.fingerprint(),
-                   Fingerprint::from_hex(
-                       &"D4AB192964F76A7F8F8A9B357BD18320DEADFA11"[..]).unwrap());
+                   "D4AB192964F76A7F8F8A9B357BD18320DEADFA11".parse().unwrap());
         assert_eq!(cert.userids().next().unwrap().value(),
                    &b"Vincent Breitmoser <look@my.amazin.horse>"[..]);
 
@@ -975,8 +972,7 @@ In the light of the Efail vulnerability I am asking myself if it's
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
         assert_eq!(cert.fingerprint(),
-                   Fingerprint::from_hex(
-                       &"4F9F89F5505AC1D1A260631CDB1187B9DD5F693B"[..]).unwrap());
+                   "4F9F89F5505AC1D1A260631CDB1187B9DD5F693B".parse().unwrap());
         assert_eq!(cert.userids().next().unwrap().value(),
                    &b"Patrick Brunschwig <patrick@enigmail.net>"[..]);
 
@@ -1079,8 +1075,7 @@ Autocrypt-Gossip: addr=neal@walfield.org; keydata=
         let cert = ac.headers[0].key.as_ref()
             .expect("Failed to parse key material.");
         assert_eq!(cert.fingerprint(),
-                Fingerprint::from_hex(
-                    &"C4BC2DDB38CCE96485EBE9C2F20691179038E5C6"[..]).unwrap());
+                   "C4BC2DDB38CCE96485EBE9C2F20691179038E5C6".parse().unwrap());
         assert_eq!(cert.userids().next().unwrap().value(),
                 &b"Daniel Kahn Gillmor <dkg@fifthhorseman.net>"[..]);
 
@@ -1168,8 +1163,7 @@ Autocrypt-Gossip: addr=neal@walfield.org; keydata=
 
         // A basic check to make sure we got the key.
         assert_eq!(asm.into_cert().fingerprint(),
-                   Fingerprint::from_hex(
-                       "E604 68CE 44D7 7C3F CE9F  D072 71DB C565 7FDE 65A7")
+                   "E604 68CE 44D7 7C3F CE9F  D072 71DB C565 7FDE 65A7".parse()
                        .unwrap());
 
 

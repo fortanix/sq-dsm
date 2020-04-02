@@ -62,7 +62,7 @@ impl std::str::FromStr for KeyID {
         } else {
             // Maybe a fingerprint was given.  Try to parse it and
             // convert it to a KeyID.
-            Ok(Fingerprint::from_hex(s)?.into())
+            Ok(s.parse::<Fingerprint>()?.into())
         }
     }
 }

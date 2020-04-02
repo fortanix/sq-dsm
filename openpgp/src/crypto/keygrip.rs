@@ -301,45 +301,45 @@ mod tests {
 
         let keygrips: HashMap<FP, KG> = [
             // testy.pgp
-            (FP::from_hex("3E8877C877274692975189F5D03F6F865226FE8B").unwrap(),
+            ("3E8877C877274692975189F5D03F6F865226FE8B".parse::<FP>().unwrap(),
              KG::from_hex("71ADDE3BBC0B7F1BFC2DA414C4F473B197763733").unwrap()),
-            (FP::from_hex("01F187575BD45644046564C149E2118166C92632").unwrap(),
+            ("01F187575BD45644046564C149E2118166C92632".parse::<FP>().unwrap(),
              KG::from_hex("CB6149C50DF90DC88626283A6B6C918A1C29E37D").unwrap()),
             // neal.pgp
-            (FP::from_hex("8F17777118A33DDA9BA48E62AACB3243630052D9").unwrap(),
+            ("8F17777118A33DDA9BA48E62AACB3243630052D9".parse::<FP>().unwrap(),
              KG::from_hex("C45986381F54F967C2F6B104521C8634090F326A").unwrap()),
-            (FP::from_hex("C03FA6411B03AE12576461187223B56678E02528").unwrap(),
+            ("C03FA6411B03AE12576461187223B56678E02528".parse::<FP>().unwrap(),
              KG::from_hex("BE2FE8C8793141322AC30E3EAFD1E4F9D8DACCC4").unwrap()),
-            (FP::from_hex("50E6D924308DBF223CFB510AC2B819056C652598").unwrap(),
+            ("50E6D924308DBF223CFB510AC2B819056C652598".parse::<FP>().unwrap(),
              KG::from_hex("9873FD355DE470DDC151CD9919AC9785C3C2FDDE").unwrap()),
-            (FP::from_hex("2DC50AB55BE2F3B04C2D2CF8A3506AFB820ABD08").unwrap(),
+            ("2DC50AB55BE2F3B04C2D2CF8A3506AFB820ABD08".parse::<FP>().unwrap(),
              KG::from_hex("9483454871CC1239D4C2A1416F2742D39A14DB14").unwrap()),
             // dennis-simon-anton.pgp
-            (FP::from_hex("5BFBCD2A23E6866B77198C1147606B18E3D45CE9").unwrap(),
+            ("5BFBCD2A23E6866B77198C1147606B18E3D45CE9".parse::<FP>().unwrap(),
              KG::from_hex("D3E87BECEF18FB4C561F3C4E73A92C4D7A43FD90").unwrap()),
             // testy-new.pgp
-            (FP::from_hex("39D100AB67D5BD8C04010205FB3751F1587DAEF1").unwrap(),
+            ("39D100AB67D5BD8C04010205FB3751F1587DAEF1".parse::<FP>().unwrap(),
              KG::from_hex("DD143ABA8D1D7D09875D6209E01BCF020788FF77").unwrap()),
-            (FP::from_hex("F4D1450B041F622FCEFBFDB18BD88E94C0D20333").unwrap(),
+            ("F4D1450B041F622FCEFBFDB18BD88E94C0D20333".parse::<FP>().unwrap(),
              KG::from_hex("583225FBC0A88293472FB95F37E9595E1367188C").unwrap()),
             // emmelie-dorothea-dina-samantha-awina-ed25519.pgp
-            (FP::from_hex("8E8C33FA4626337976D97978069C0C348DD82C19").unwrap(),
+            ("8E8C33FA4626337976D97978069C0C348DD82C19".parse::<FP>().unwrap(),
              KG::from_hex("8BFFDC31BCFC3F31304DACD55AC5F15839A64040").unwrap()),
-            (FP::from_hex("061C3CA44AFF0EC58DC66E9522E3FAFE96B56C32").unwrap(),
+            ("061C3CA44AFF0EC58DC66E9522E3FAFE96B56C32".parse::<FP>().unwrap(),
              KG::from_hex("E80BBB4AC2048A708ADB376C6491E8302150DCC9").unwrap()),
             // erika-corinna-daniela-simone-antonia-nistp256.pgp
-            (FP::from_hex("B45FB2CD7B227C057D6BD690DA6846EEA212A3C0").unwrap(),
+            ("B45FB2CD7B227C057D6BD690DA6846EEA212A3C0".parse::<FP>().unwrap(),
              KG::from_hex("CA791A9F0F2EF0163461BA991BFEB2315EDF13F5").unwrap()),
             // erika-corinna-daniela-simone-antonia-nistp384.pgp
-            (FP::from_hex("E837639193664C9BB1C212E70CB719D5AA7D91F1").unwrap(),
+            ("E837639193664C9BB1C212E70CB719D5AA7D91F1".parse::<FP>().unwrap(),
              KG::from_hex("625CC3D9A795AD7AC6B666E92E46156917773CBC").unwrap()),
             // erika-corinna-daniela-simone-antonia-nistp521.pgp
-            (FP::from_hex("B9E41C493B8988A7EDC502D99A404C898D411DC8").unwrap(),
+            ("B9E41C493B8988A7EDC502D99A404C898D411DC8".parse::<FP>().unwrap(),
              KG::from_hex("8F669049015534649776D0F1F439D37EE3F3D948").unwrap()),
             // keygrip-issue-439.pgp
-            (FP::from_hex("597B1FEA9F1B91F6749E8A24652CC528EBDA1B20").unwrap(),
+            ("597B1FEA9F1B91F6749E8A24652CC528EBDA1B20".parse::<FP>().unwrap(),
              KG::from_hex("EF0CCDE02FFF9E24EFCCBF6F6FFE52716820E497").unwrap()),
-            (FP::from_hex("7147EB2C548AEF87E425B9543EF9867F7073B689").unwrap(),
+            ("7147EB2C548AEF87E425B9543EF9867F7073B689".parse::<FP>().unwrap(),
              KG::from_hex("642314FF90E6F8DA595EF51B7BA6B25071D3B0F1").unwrap()),
         ].iter().cloned().collect();
 

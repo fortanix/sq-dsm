@@ -2006,7 +2006,6 @@ mod tests {
 
     #[test]
     fn import_ed25519() {
-        use crate::Fingerprint;
         use crate::types::SignatureType;
         use crate::packet::signature::Signature4;
         use crate::packet::signature::subpacket::{
@@ -2021,7 +2020,8 @@ mod tests {
 
         let mut hashed = SubpacketArea::default();
         let mut unhashed = SubpacketArea::default();
-        let fpr = Fingerprint::from_hex("D81A 5DC0 DEBF EE5F 9AC8  20EB 6769 5DB9 920D 4FAC").unwrap();
+        let fpr = "D81A 5DC0 DEBF EE5F 9AC8  20EB 6769 5DB9 920D 4FAC"
+            .parse().unwrap();
         let kid = "6769 5DB9 920D 4FAC".parse().unwrap();
         let ctime = 1549460479.into();
         let r = b"\x5A\xF9\xC7\x42\x70\x24\x73\xFF\x7F\x27\xF9\x20\x9D\x20\x0F\xE3\x8F\x71\x3C\x5F\x97\xFD\x60\x80\x39\x29\xC2\x14\xFD\xC2\x4D\x70";

@@ -70,7 +70,7 @@ fn pgp_fingerprint_from_bytes(buf: *const u8,
 fn pgp_fingerprint_from_hex(hex: *const c_char)
                             -> Maybe<Fingerprint> {
     let hex = ffi_param_cstr!(hex).to_string_lossy();
-    openpgp::Fingerprint::from_hex(&hex).ok().move_into_raw()
+    hex.parse::<openpgp::Fingerprint>().ok().move_into_raw()
 }
 
 /// Returns a reference to the raw Fingerprint.

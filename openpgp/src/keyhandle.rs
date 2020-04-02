@@ -191,14 +191,12 @@ impl KeyHandle {
     /// # use openpgp::KeyHandle;
     /// #
     /// # let fpr1 : KeyHandle
-    /// #     = Fingerprint::from_hex(
-    /// #           "8F17 7771 18A3 3DDA 9BA4  8E62 AACB 3243 6300 52D9")
-    /// #       .unwrap().into();
+    /// #     = "8F17 7771 18A3 3DDA 9BA4  8E62 AACB 3243 6300 52D9"
+    /// #       .parse::<Fingerprint>().unwrap().into();
     /// #
     /// # let fpr2 : KeyHandle
-    /// #     = Fingerprint::from_hex(
-    /// #           "0123 4567 8901 2345 6789  0123 AACB 3243 6300 52D9")
-    /// #       .unwrap().into();
+    /// #     = "0123 4567 8901 2345 6789  0123 AACB 3243 6300 52D9"
+    /// #       .parse::<Fingerprint>().unwrap().into();
     /// #
     /// # let keyid : KeyHandle = "AACB 3243 6300 52D9".parse::<KeyID>()
     /// #     .unwrap().into();

@@ -1,8 +1,6 @@
 use std::fmt;
 use quickcheck::{Arbitrary, Gen};
 
-use crate::Result;
-
 /// A long identifier for certificates and keys.
 ///
 /// A fingerprint uniquely identifies a public key.  For more details
@@ -52,7 +50,7 @@ impl std::str::FromStr for Fingerprint {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Self::from_hex(s)
+        Ok(Self::from_bytes(&crate::fmt::hex::decode_pretty(s)?[..]))
     }
 }
 
@@ -66,24 +64,6 @@ impl Fingerprint {
         } else {
             Fingerprint::Invalid(raw.to_vec().into_boxed_slice())
         }
-    }
-
-    /// Reads a hexadecimal fingerprint.
-    ///
-    /// This function ignores whitespace.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::Fingerprint;
-    /// let hex = "3E8877C877274692975189F5D03F6F865226FE8B";
-    /// let fp = Fingerprint::from_hex(hex);
-    /// assert!(fp.is_ok());
-    /// assert_eq!(format!("{:X}", fp.unwrap()), hex);
-    /// ```
-    pub fn from_hex(hex: &str) -> Result<Fingerprint> {
-        Ok(Fingerprint::from_bytes(&crate::fmt::from_hex(hex, true)?[..]))
     }
 
     /// Returns a reference to the raw Fingerprint.
@@ -198,8 +178,8 @@ mod tests {
 
     #[test]
     fn icao() {
-        let fpr = Fingerprint::from_hex(
-            "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567").unwrap();
+        let fpr = "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567"
+            .parse::<Fingerprint>().unwrap();
         let expected = "\
 Zero One Two Three Four Five Six Seven Eight Niner Alpha Bravo Charlie Delta \
 Echo Foxtrot Zero One Two Three Four Five Six Seven Eight Niner Alpha Bravo \
@@ -210,8 +190,8 @@ Charlie Delta Echo Foxtrot Zero One Two Three Four Five Six Seven";
 
     #[test]
     fn hex_formatting() {
-        let fpr = Fingerprint::from_hex(
-            "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567").unwrap();
+        let fpr = "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567"
+            .parse::<Fingerprint>().unwrap();
         assert_eq!(format!("{:X}", fpr), "0123456789ABCDEF0123456789ABCDEF01234567");
         assert_eq!(format!("{:x}", fpr), "0123456789abcdef0123456789abcdef01234567");
     }
@@ -219,7 +199,7 @@ Charlie Delta Echo Foxtrot Zero One Two Three Four Five Six Seven";
     #[test]
     fn fingerprint_is_send_and_sync() {
         fn f<T: Send + Sync>(_: T) {}
-        f(Fingerprint::from_hex(
-            "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567").unwrap());
+        f("0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567"
+          .parse::<Fingerprint>().unwrap());
     }
 }
