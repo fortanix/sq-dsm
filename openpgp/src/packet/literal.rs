@@ -73,6 +73,12 @@ impl fmt::Debug for Literal {
     }
 }
 
+impl Default for Literal {
+    fn default() -> Self {
+        Self::new(Default::default())
+    }
+}
+
 impl Literal {
     /// Returns a new `Literal` packet.
     pub fn new(format: DataFormat) -> Literal {
