@@ -404,7 +404,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
     let magic_value = hash_ident(&wrapper);
 
     // To help during debugging, we store the name of the type.
-    const C_TYPE_NAME_LEN: usize = 32;
+    const C_TYPE_NAME_LEN: usize = 48;
     let c_type_name_type = syn::parse_quote!([u8; #C_TYPE_NAME_LEN]);
     let mut c_type_name_padded = [0u8; C_TYPE_NAME_LEN];
     &mut c_type_name_padded[..::std::cmp::min(C_TYPE_NAME_LEN,
@@ -412,7 +412,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
         .copy_from_slice(c_type_name.as_bytes());
     let c_type_name_padded_literal =
         syn::parse_str::<proc_macro2::TokenStream>(
-            &format!("{:?}", c_type_name_padded))
+            &format!("{:?}", &c_type_name_padded[..]))
         .expect("parsing array failed");
 
     let ownership =
