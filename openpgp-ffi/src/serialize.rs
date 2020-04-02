@@ -24,8 +24,8 @@ use crate::RefRaw;
 use crate::RefMutRaw;
 
 use self::openpgp::serialize::{
-    writer,
     stream::{
+        writer,
         Message,
         Cookie,
         ArbitraryWriter,

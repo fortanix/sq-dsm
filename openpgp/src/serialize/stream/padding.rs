@@ -49,8 +49,10 @@ use crate::packet::header::CTB;
 use crate::serialize::{
     PartialBodyFilter,
     Marshal,
-    writer,
-    stream::Cookie,
+    stream::{
+        writer,
+        Cookie,
+    },
 };
 use crate::types::{
     CompressionAlgorithm,

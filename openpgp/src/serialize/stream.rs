@@ -35,7 +35,6 @@ use crate::packet::header::BodyLength;
 use super::{
     PartialBodyFilter,
     Marshal,
-    writer,
 };
 use crate::types::{
     AEADAlgorithm,
@@ -45,6 +44,7 @@ use crate::types::{
     SymmetricAlgorithm,
 };
 
+pub mod writer;
 #[cfg(feature = "compression-deflate")]
 pub mod padding;
 

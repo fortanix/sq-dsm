@@ -25,7 +25,6 @@ mod cert;
 pub use self::cert::TSK;
 mod cert_armored;
 use self::partial_body::PartialBodyFilter;
-pub mod writer;
 pub mod stream;
 use crate::crypto::S2K;
 use crate::packet::header::{
