@@ -8,7 +8,7 @@ use crate::{
     policy::Policy,
 };
 
-/// An iterator over all components in a certificate.
+/// An iterator over all component bundles of a given type in a certificate.
 ///
 /// `ComponentIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
@@ -47,8 +47,8 @@ impl<'a, C> ComponentIter<'a, C> {
         }
     }
 
-    /// Changes the iterator to only return components that are valid at
-    /// time `time`.
+    /// Changes the iterator to only return components that are valid
+    /// for the given policy at the specified time.
     ///
     /// If `time` is None, then the current time is used.
     ///
@@ -67,7 +67,8 @@ impl<'a, C> ComponentIter<'a, C> {
     }
 }
 
-/// An iterator over all valid `Component`s in a certificate.
+/// An iterator over all valid `Component`s of a given type in a
+/// certificate.
 ///
 /// A component is valid at time `t` if it was not created after `t`
 /// and it has a live self-signature at time `t`.
