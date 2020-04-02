@@ -2638,7 +2638,7 @@ impl PKESK3 {
         let mut keyid = [0u8; 8];
         keyid.copy_from_slice(&php_try!(php.parse_bytes("keyid", 8)));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        if ! pk_algo.can_encrypt() {
+        if ! pk_algo.for_encryption() {
             return php.fail("not an encryption algorithm");
         }
         let mpis = crypto::mpis::Ciphertext::_parse(pk_algo, &mut php)?;

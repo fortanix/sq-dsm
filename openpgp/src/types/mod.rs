@@ -92,7 +92,7 @@ impl PublicKeyAlgorithm {
     }
 
     /// Returns true if the algorithm can encrypt data.
-    pub fn can_encrypt(&self) -> bool {
+    pub fn for_encryption(&self) -> bool {
         use self::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
         match &self {
