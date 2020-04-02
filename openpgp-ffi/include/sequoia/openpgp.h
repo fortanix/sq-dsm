@@ -981,7 +981,7 @@ pgp_cert_parser_t pgp_cert_parser_from_packet_parser(pgp_packet_parser_result_t 
 pgp_cert_t pgp_cert_parser_next(pgp_error_t *errp, pgp_cert_parser_t parser);
 
 /*/
-/// Frees an pgp_cert_key_iter_t.
+/// Frees an pgp_cert_parser_t.
 /*/
 void pgp_cert_parser_free (pgp_cert_parser_t parser);
 
