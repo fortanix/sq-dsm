@@ -302,9 +302,24 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Derives the C type from the Rust type.
 fn ident2c(ident: &syn::Ident) -> String {
     let mut s = String::new();
-    for (i, c) in ident.to_string().chars().enumerate() {
+
+    let mut ident = ident.to_string().chars().collect::<Vec<_>>();
+
+    // s/ID/Id/.
+    for i in 0..ident.len() - 1 {
+        if ident[i] == 'I' && ident[i + 1] == 'D' {
+            ident[i + 1] = 'd';
+        }
+    }
+
+    let mut previous_is_uppercase = Vec::new();
+    previous_is_uppercase.push(true);
+    previous_is_uppercase.extend(ident.iter().map(|c| c.is_uppercase()));
+
+    for (c, previous_is_upper) in ident.iter().zip(previous_is_uppercase)
+    {
         if c.is_uppercase() {
-            if i > 0 {
+            if ! previous_is_upper {
                 s += "_";
             }
             s += &c.to_lowercase().to_string();
@@ -320,6 +335,9 @@ fn ident2c_tests() {
     let span = proc_macro2::Span::call_site();
     assert_eq!(&ident2c(&syn::Ident::new("Fingerprint", span)), "fingerprint");
     assert_eq!(&ident2c(&syn::Ident::new("PacketPile", span)), "packet_pile");
+    assert_eq!(&ident2c(&syn::Ident::new("UserID", span)), "user_id");
+    assert_eq!(&ident2c(&syn::Ident::new("UserIDAmalgamation", span)),
+               "user_id_amalgamation");
 }
 
 /// Describes our custom derive functions.
