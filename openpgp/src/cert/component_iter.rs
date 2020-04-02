@@ -1,3 +1,4 @@
+use std::slice;
 use std::fmt;
 use std::time::SystemTime;
 
@@ -13,10 +14,10 @@ use crate::{
 /// explicitly finalize it, however: it already implements the
 /// `Iterator` trait.
 ///
-/// By default, `ComponentIter` returns all components without context.
+/// By default, `ComponentIter` returns each component in turn.
 pub struct ComponentIter<'a, C> {
     cert: &'a Cert,
-    iter: ComponentBundleIter<'a, C>,
+    iter: slice::Iter<'a, ComponentBundle<C>>,
 }
 
 impl<'a, C> fmt::Debug for ComponentIter<'a, C> {
@@ -26,7 +27,8 @@ impl<'a, C> fmt::Debug for ComponentIter<'a, C> {
     }
 }
 
-impl<'a, C> Iterator for ComponentIter<'a, C> {
+impl<'a, C> Iterator for ComponentIter<'a, C>
+{
     type Item = ComponentAmalgamation<'a, C>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -41,7 +43,7 @@ impl<'a, C> ComponentIter<'a, C> {
         where Self: 'a
     {
         ComponentIter {
-            cert, iter: ComponentBundleIter { iter: Some(iter), },
+            cert, iter,
         }
     }
 
@@ -76,7 +78,7 @@ impl<'a, C> ComponentIter<'a, C> {
 pub struct ValidComponentIter<'a, C> {
     // This is an option to make it easier to create an empty ValidComponentIter.
     cert: &'a Cert,
-    iter: ComponentBundleIter<'a, C>,
+    iter: slice::Iter<'a, ComponentBundle<C>>,
 
     policy: &'a dyn Policy,
     // The time.
@@ -138,7 +140,8 @@ impl<'a, C> Iterator for ValidComponentIter<'a, C>
     }
 }
 
-impl<'a, C> ExactSizeIterator for ComponentIter<'a, C> {
+impl<'a, C> ExactSizeIterator for ComponentIter<'a, C>
+{
     fn len(&self) -> usize {
         self.iter.len()
     }

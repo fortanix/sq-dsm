@@ -1,6 +1,5 @@
 //! Types for certificate components.
 
-use std::slice;
 use std::time;
 use std::ops::Deref;
 
@@ -472,41 +471,5 @@ impl ComponentBundle<Unknown> {
     /// Returns a reference to the unknown component.
     pub fn unknown(&self) -> &Unknown {
         self.component()
-    }
-}
-
-/// An iterator over `ComponentBundle`s.
-pub struct ComponentBundleIter<'a, C> {
-    pub(crate) iter: Option<slice::Iter<'a, ComponentBundle<C>>>,
-}
-
-/// An iterator over `KeyBundle`s.
-pub type UnfilteredKeyBundleIter<'a, P, R> = ComponentBundleIter<'a, Key<P, R>>;
-/// An iterator over `UserIDBundle`s.
-pub type UserIDBundleIter<'a> = ComponentBundleIter<'a, UserID>;
-/// An iterator over `UserAttributeBundle`s.
-pub type UserAttributeBundleIter<'a> = ComponentBundleIter<'a, UserAttribute>;
-/// An iterator over `UnknownBundle`s.
-pub type UnknownBundleIter<'a> = ComponentBundleIter<'a, Unknown>;
-
-impl<'a, C> Iterator for ComponentBundleIter<'a, C>
-{
-    type Item = &'a ComponentBundle<C>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.iter {
-            Some(ref mut iter) => iter.next(),
-            None => None,
-        }
-    }
-}
-
-impl<'a, C> ExactSizeIterator for ComponentBundleIter<'a, C>
-{
-    fn len(&self) -> usize {
-        match self.iter {
-            Some(ref iter) => iter.len(),
-            None => 0,
-        }
     }
 }
