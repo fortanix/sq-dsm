@@ -63,15 +63,6 @@ impl<'a, C> ComponentIter<'a, C> {
             revoked: None,
         }
     }
-
-    /// Changes the iterator to return component bindings.
-    ///
-    /// A component binding is similar to a component amalgamation,
-    /// but is not bound to a specific time.  It contains the
-    /// component and all relevant signatures.
-    pub fn bundles(self) -> ComponentBundleIter<'a, C> {
-        self.iter
-    }
 }
 
 /// An iterator over all valid `Component`s in a certificate.
