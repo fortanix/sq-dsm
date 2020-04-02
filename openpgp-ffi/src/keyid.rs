@@ -81,7 +81,7 @@ fn pgp_keyid_from_bytes(id: *const u8) -> *mut KeyID {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_keyid_from_hex(id: *const c_char) -> Maybe<KeyID> {
     let id = ffi_param_cstr!(id).to_string_lossy();
-    openpgp::KeyID::from_hex(&id).ok().move_into_raw()
+    id.parse::<openpgp::KeyID>().ok().move_into_raw()
 }
 
 /// Converts the KeyID to a hexadecimal number.

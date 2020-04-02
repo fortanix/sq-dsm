@@ -476,7 +476,6 @@ mod tests {
     use crate::crypto::S2K;
     use crate::crypto::mpis::{Ciphertext, MPI};
     use crate::packet::prelude::*;
-    use crate::KeyID;
 
     #[test]
     fn tokens() {
@@ -1124,7 +1123,7 @@ mod tests {
         packets.insert(
             1,
             PKESK3::new(
-                KeyID::from_hex("0000111122223333").unwrap(),
+                "0000111122223333".parse().unwrap(),
                 PublicKeyAlgorithm::RSAEncrypt,
                 Ciphertext::RSA { c: MPI::new(&[]) }).unwrap().into());
 

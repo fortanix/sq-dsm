@@ -2898,7 +2898,7 @@ fn subpacket_test_2() {
                            Features::default().set_mdc(true))
                    }));
 
-        let keyid = KeyID::from_hex("F004 B9A4 5C58 6126").unwrap();
+        let keyid = "F004 B9A4 5C58 6126".parse().unwrap();
         assert_eq!(sig.issuer(), Some(&keyid));
         assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(&Subpacket {
@@ -3020,7 +3020,7 @@ fn subpacket_test_2() {
                    }));
 
 
-        let keyid = KeyID::from_hex("CEAD 0621 0934 7957").unwrap();
+        let keyid = "CEAD 0621 0934 7957".parse().unwrap();
         assert_eq!(sig.issuer(), Some(&keyid));
         assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(&Subpacket {
@@ -3224,7 +3224,7 @@ fn subpacket_test_2() {
                            63072000.into())
                    }));
 
-        let keyid = KeyID::from_hex("CEAD 0621 0934 7957").unwrap();
+        let keyid = "CEAD 0621 0934 7957".parse().unwrap();
         assert_eq!(sig.issuer(), Some(&keyid));
         assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(&Subpacket {

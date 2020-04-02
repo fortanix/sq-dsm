@@ -27,7 +27,7 @@
 //! let mut core = Core::new().unwrap();
 //! let ctx = Context::new()?;
 //! let mut ks = KeyServer::keys_openpgp_org(&ctx)?;
-//! let keyid = KeyID::from_hex("31855247603831FD").unwrap();
+//! let keyid = "31855247603831FD".parse().unwrap();
 //! println!("{:?}", core.run(ks.get(&keyid)));
 //! Ok(())
 //! # }

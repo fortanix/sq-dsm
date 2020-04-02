@@ -519,7 +519,7 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// #     let ppr = PacketParser::from_bytes(b"")?;
-    /// #     let some_keyid = KeyID::from_hex("C2B819056C652598").unwrap();
+    /// #     let some_keyid = "C2B819056C652598".parse().unwrap();
     /// for certr in CertParser::from_packet_parser(ppr)
     ///     .unvalidated_cert_filter(|cert, _| {
     ///         for component in cert.keys() {

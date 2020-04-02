@@ -54,7 +54,16 @@ impl std::str::FromStr for KeyID {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Self::from_hex(s)
+        let bytes = crate::fmt::hex::decode_pretty(s)?;
+
+        // A KeyID is exactly 8 bytes long.
+        if bytes.len() == 8 {
+            Ok(KeyID::from_bytes(&bytes[..]))
+        } else {
+            // Maybe a fingerprint was given.  Try to parse it and
+            // convert it to a KeyID.
+            Ok(Fingerprint::from_hex(s)?.into())
+        }
     }
 }
 
@@ -151,17 +160,9 @@ impl KeyID {
     }
 
     /// Reads a hex-encoded Key ID.
+    #[deprecated]
     pub fn from_hex(hex: &str) -> Result<KeyID> {
-        let bytes = crate::fmt::from_hex(hex, true)?;
-
-        // A KeyID is exactly 8 bytes long.
-        if bytes.len() == 8 {
-            Ok(KeyID::from_bytes(&bytes[..]))
-        } else {
-            // Maybe a fingerprint was given.  Try to parse it and
-            // convert it to a KeyID.
-            Ok(Fingerprint::from_hex(hex)?.into())
-        }
+        hex.parse()
     }
 
     /// Returns a reference to the raw KeyID.
@@ -247,26 +248,25 @@ mod test {
 
     #[test]
     fn from_hex() {
-        KeyID::from_hex("FB3751F1587DAEF1").unwrap();
-        KeyID::from_hex("39D100AB67D5BD8C04010205FB3751F1587DAEF1")
+        "FB3751F1587DAEF1".parse::<KeyID>().unwrap();
+        "39D100AB67D5BD8C04010205FB3751F1587DAEF1".parse::<KeyID>()
             .unwrap();
-        KeyID::from_hex("0xFB3751F1587DAEF1").unwrap();
-        KeyID::from_hex("0x39D100AB67D5BD8C04010205FB3751F1587DAEF1")
+        "0xFB3751F1587DAEF1".parse::<KeyID>().unwrap();
+        "0x39D100AB67D5BD8C04010205FB3751F1587DAEF1".parse::<KeyID>()
             .unwrap();
-        KeyID::from_hex("FB37 51F1 587D AEF1").unwrap();
-        KeyID::from_hex("39D1 00AB 67D5 BD8C 0401  0205 FB37 51F1 587D AEF1")
+        "FB37 51F1 587D AEF1".parse::<KeyID>().unwrap();
+        "39D1 00AB 67D5 BD8C 0401  0205 FB37 51F1 587D AEF1".parse::<KeyID>()
             .unwrap();
-        KeyID::from_hex("GB3751F1587DAEF1").unwrap_err();
-        KeyID::from_hex("EFB3751F1587DAEF1").unwrap_err();
-        KeyID::from_hex("%FB3751F1587DAEF1").unwrap_err();
-        assert_match!(KeyID::Invalid(_) = KeyID::from_hex("587DAEF1").unwrap());
-        assert_match!(KeyID::Invalid(_) =
-                      KeyID::from_hex("0x587DAEF1").unwrap());
+        "GB3751F1587DAEF1".parse::<KeyID>().unwrap_err();
+        "EFB3751F1587DAEF1".parse::<KeyID>().unwrap_err();
+        "%FB3751F1587DAEF1".parse::<KeyID>().unwrap_err();
+        assert_match!(KeyID::Invalid(_) = "587DAEF1".parse().unwrap());
+        assert_match!(KeyID::Invalid(_) = "0x587DAEF1".parse().unwrap());
     }
 
     #[test]
     fn hex_formatting() {
-        let keyid = KeyID::from_hex("FB3751F1587DAEF1").unwrap();
+        let keyid = "FB3751F1587DAEF1".parse::<KeyID>().unwrap();
         assert_eq!(format!("{:X}", keyid), "FB3751F1587DAEF1");
         assert_eq!(format!("{:x}", keyid), "fb3751f1587daef1");
     }
@@ -274,6 +274,6 @@ mod test {
     #[test]
     fn keyid_is_send_and_sync() {
         fn f<T: Send + Sync>(_: T) {}
-        f(KeyID::from_hex("89AB CDEF 0123 4567").unwrap());
+        f("89AB CDEF 0123 4567".parse::<KeyID>().unwrap());
     }
 }

@@ -484,7 +484,7 @@ fn main() -> Result<()> {
             match m.subcommand() {
                 ("get",  Some(m)) => {
                     let keyid = m.value_of("keyid").unwrap();
-                    let id = openpgp::KeyID::from_hex(keyid);
+                    let id = keyid.parse();
                     if id.is_err() {
                         eprintln!("Malformed key ID: {:?}\n\
                                    (Note: only long Key IDs are supported.)",

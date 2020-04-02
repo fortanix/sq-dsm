@@ -200,7 +200,7 @@ impl KeyHandle {
     /// #           "0123 4567 8901 2345 6789  0123 AACB 3243 6300 52D9")
     /// #       .unwrap().into();
     /// #
-    /// # let keyid : KeyHandle = KeyID::from_hex("AACB 3243 6300 52D9")
+    /// # let keyid : KeyHandle = "AACB 3243 6300 52D9".parse::<KeyID>()
     /// #     .unwrap().into();
     /// #
     /// // fpr1 and fpr2 are different fingerprints with the same KeyID.
