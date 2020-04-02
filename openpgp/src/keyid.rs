@@ -159,12 +159,6 @@ impl KeyID {
         }
     }
 
-    /// Reads a hex-encoded Key ID.
-    #[deprecated]
-    pub fn from_hex(hex: &str) -> Result<KeyID> {
-        hex.parse()
-    }
-
     /// Returns a reference to the raw KeyID.
     pub fn as_slice(&self) -> &[u8] {
         match self {
