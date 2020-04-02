@@ -45,6 +45,9 @@ use crate::types::{
     SymmetricAlgorithm,
 };
 
+#[cfg(feature = "compression-deflate")]
+pub mod padding;
+
 /// Cookie must be public because the writers are.
 #[doc(hidden)]
 #[derive(Debug)]

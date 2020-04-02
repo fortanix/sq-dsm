@@ -30,10 +30,10 @@ use crate::openpgp::parse::stream::{
 use crate::openpgp::serialize::stream::{
     Message, Signer, LiteralWriter, Encryptor, Recipient,
     Compressor,
-};
-use crate::openpgp::serialize::padding::{
-    Padder,
-    padme,
+    padding::{
+        Padder,
+        padme,
+    },
 };
 use crate::openpgp::policy::Policy;
 extern crate sequoia_store as store;

@@ -10,9 +10,8 @@ use crate::openpgp::KeyID;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{
-    Message, LiteralWriter, Encryptor, Recipient,
+    Message, LiteralWriter, Encryptor, Recipient, padding::*,
 };
-use crate::openpgp::serialize::padding::*;
 use crate::openpgp::policy::StandardPolicy as P;
 
 fn main() {

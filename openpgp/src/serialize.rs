@@ -27,8 +27,6 @@ mod cert_armored;
 use self::partial_body::PartialBodyFilter;
 pub mod writer;
 pub mod stream;
-#[cfg(feature = "compression-deflate")]
-pub mod padding;
 use crate::crypto::S2K;
 use crate::packet::header::{
     BodyLength,

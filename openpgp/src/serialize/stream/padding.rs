@@ -46,7 +46,7 @@ use crate::{
     packet::prelude::*,
 };
 use crate::packet::header::CTB;
-use super::{
+use crate::serialize::{
     PartialBodyFilter,
     Marshal,
     writer,
@@ -94,7 +94,7 @@ use crate::types::{
 /// extern crate sequoia_openpgp as openpgp;
 /// use std::io::Write;
 /// use openpgp::serialize::stream::{Message, LiteralWriter};
-/// use openpgp::serialize::padding::{Padder, padme};
+/// use openpgp::serialize::stream::padding::{Padder, padme};
 /// use openpgp::types::CompressionAlgorithm;
 /// # use openpgp::Result;
 /// # f().unwrap();
