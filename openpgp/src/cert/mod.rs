@@ -668,8 +668,8 @@ impl Cert {
     }
 
     /// Returns an iterator over the Cert's unknown components.
-    pub fn unknowns(&self) -> UnknownBundleIter {
-        UnknownBundleIter { iter: Some(self.unknowns.iter()) }
+    pub fn unknowns(&self) -> ComponentIter<Unknown> {
+        ComponentIter::new(self, self.unknowns.iter())
     }
 
     /// Returns a slice containing all bad signatures.
