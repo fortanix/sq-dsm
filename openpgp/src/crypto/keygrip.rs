@@ -33,22 +33,15 @@ impl std::str::FromStr for Keygrip {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Self::from_hex(s)
-    }
-}
-
-impl Keygrip {
-    /// Parses a keygrip.
-    pub fn from_hex(hex: &str) -> Result<Self> {
-        let bytes = crate::fmt::from_hex(hex, true)?;
-        if bytes.len() != 20 {
-            return Err(Error::InvalidArgument(
-                format!("Expected 20 bytes, got {}", bytes.len())).into());
+        let bytes = crate::fmt::hex::decode_pretty(s)?;
+        if bytes.len() == 20 {
+            let mut digest = [0; 20];
+            &mut digest[..].copy_from_slice(&bytes[..]);
+            Ok(Keygrip(digest))
+        } else {
+            Err(Error::InvalidArgument(
+                format!("Expected 20 bytes, got {}", bytes.len())).into())
         }
-
-        let mut digest = [0; 20];
-        &mut digest[..].copy_from_slice(&bytes[..]);
-        Ok(Keygrip(digest))
     }
 }
 
@@ -302,45 +295,45 @@ mod tests {
         let keygrips: HashMap<FP, KG> = [
             // testy.pgp
             ("3E8877C877274692975189F5D03F6F865226FE8B".parse::<FP>().unwrap(),
-             KG::from_hex("71ADDE3BBC0B7F1BFC2DA414C4F473B197763733").unwrap()),
+             "71ADDE3BBC0B7F1BFC2DA414C4F473B197763733".parse::<KG>().unwrap()),
             ("01F187575BD45644046564C149E2118166C92632".parse::<FP>().unwrap(),
-             KG::from_hex("CB6149C50DF90DC88626283A6B6C918A1C29E37D").unwrap()),
+             "CB6149C50DF90DC88626283A6B6C918A1C29E37D".parse::<KG>().unwrap()),
             // neal.pgp
             ("8F17777118A33DDA9BA48E62AACB3243630052D9".parse::<FP>().unwrap(),
-             KG::from_hex("C45986381F54F967C2F6B104521C8634090F326A").unwrap()),
+             "C45986381F54F967C2F6B104521C8634090F326A".parse::<KG>().unwrap()),
             ("C03FA6411B03AE12576461187223B56678E02528".parse::<FP>().unwrap(),
-             KG::from_hex("BE2FE8C8793141322AC30E3EAFD1E4F9D8DACCC4").unwrap()),
+             "BE2FE8C8793141322AC30E3EAFD1E4F9D8DACCC4".parse::<KG>().unwrap()),
             ("50E6D924308DBF223CFB510AC2B819056C652598".parse::<FP>().unwrap(),
-             KG::from_hex("9873FD355DE470DDC151CD9919AC9785C3C2FDDE").unwrap()),
+             "9873FD355DE470DDC151CD9919AC9785C3C2FDDE".parse::<KG>().unwrap()),
             ("2DC50AB55BE2F3B04C2D2CF8A3506AFB820ABD08".parse::<FP>().unwrap(),
-             KG::from_hex("9483454871CC1239D4C2A1416F2742D39A14DB14").unwrap()),
+             "9483454871CC1239D4C2A1416F2742D39A14DB14".parse::<KG>().unwrap()),
             // dennis-simon-anton.pgp
             ("5BFBCD2A23E6866B77198C1147606B18E3D45CE9".parse::<FP>().unwrap(),
-             KG::from_hex("D3E87BECEF18FB4C561F3C4E73A92C4D7A43FD90").unwrap()),
+             "D3E87BECEF18FB4C561F3C4E73A92C4D7A43FD90".parse::<KG>().unwrap()),
             // testy-new.pgp
             ("39D100AB67D5BD8C04010205FB3751F1587DAEF1".parse::<FP>().unwrap(),
-             KG::from_hex("DD143ABA8D1D7D09875D6209E01BCF020788FF77").unwrap()),
+             "DD143ABA8D1D7D09875D6209E01BCF020788FF77".parse::<KG>().unwrap()),
             ("F4D1450B041F622FCEFBFDB18BD88E94C0D20333".parse::<FP>().unwrap(),
-             KG::from_hex("583225FBC0A88293472FB95F37E9595E1367188C").unwrap()),
+             "583225FBC0A88293472FB95F37E9595E1367188C".parse::<KG>().unwrap()),
             // emmelie-dorothea-dina-samantha-awina-ed25519.pgp
             ("8E8C33FA4626337976D97978069C0C348DD82C19".parse::<FP>().unwrap(),
-             KG::from_hex("8BFFDC31BCFC3F31304DACD55AC5F15839A64040").unwrap()),
+             "8BFFDC31BCFC3F31304DACD55AC5F15839A64040".parse::<KG>().unwrap()),
             ("061C3CA44AFF0EC58DC66E9522E3FAFE96B56C32".parse::<FP>().unwrap(),
-             KG::from_hex("E80BBB4AC2048A708ADB376C6491E8302150DCC9").unwrap()),
+             "E80BBB4AC2048A708ADB376C6491E8302150DCC9".parse::<KG>().unwrap()),
             // erika-corinna-daniela-simone-antonia-nistp256.pgp
             ("B45FB2CD7B227C057D6BD690DA6846EEA212A3C0".parse::<FP>().unwrap(),
-             KG::from_hex("CA791A9F0F2EF0163461BA991BFEB2315EDF13F5").unwrap()),
+             "CA791A9F0F2EF0163461BA991BFEB2315EDF13F5".parse::<KG>().unwrap()),
             // erika-corinna-daniela-simone-antonia-nistp384.pgp
             ("E837639193664C9BB1C212E70CB719D5AA7D91F1".parse::<FP>().unwrap(),
-             KG::from_hex("625CC3D9A795AD7AC6B666E92E46156917773CBC").unwrap()),
+             "625CC3D9A795AD7AC6B666E92E46156917773CBC".parse::<KG>().unwrap()),
             // erika-corinna-daniela-simone-antonia-nistp521.pgp
             ("B9E41C493B8988A7EDC502D99A404C898D411DC8".parse::<FP>().unwrap(),
-             KG::from_hex("8F669049015534649776D0F1F439D37EE3F3D948").unwrap()),
+             "8F669049015534649776D0F1F439D37EE3F3D948".parse::<KG>().unwrap()),
             // keygrip-issue-439.pgp
             ("597B1FEA9F1B91F6749E8A24652CC528EBDA1B20".parse::<FP>().unwrap(),
-             KG::from_hex("EF0CCDE02FFF9E24EFCCBF6F6FFE52716820E497").unwrap()),
+             "EF0CCDE02FFF9E24EFCCBF6F6FFE52716820E497".parse::<KG>().unwrap()),
             ("7147EB2C548AEF87E425B9543EF9867F7073B689".parse::<FP>().unwrap(),
-             KG::from_hex("642314FF90E6F8DA595EF51B7BA6B25071D3B0F1").unwrap()),
+             "642314FF90E6F8DA595EF51B7BA6B25071D3B0F1".parse::<KG>().unwrap()),
         ].iter().cloned().collect();
 
         for (name, cert) in [
