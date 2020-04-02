@@ -530,7 +530,7 @@ mod tests {
             .set_primary_key_flags(KeyFlags::default())
             .add_subkey(KeyFlags::default().set_certification(true), None, None)
             .generate().unwrap();
-        let sig_pkts = cert1.subkeys().next().unwrap().self_signatures[0].hashed_area();
+        let sig_pkts = cert1.subkeys().next().unwrap().bundle().self_signatures[0].hashed_area();
 
         match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
             SubpacketValue::KeyFlags(ref ks) => assert!(ks.for_certification()),

@@ -2,6 +2,7 @@ use std::fmt;
 use std::convert::TryInto;
 use std::time::SystemTime;
 use std::borrow::Borrow;
+use std::slice;
 
 use crate::{
     KeyHandle,
@@ -35,9 +36,8 @@ pub struct KeyIter<'a, P, R>
     // This is an option to make it easier to create an empty KeyIter.
     cert: Option<&'a Cert>,
     primary: bool,
-    subkey_iter: UnfilteredKeyBundleIter<'a,
-                                key::PublicParts,
-                                key::SubordinateRole>,
+    subkey_iter: slice::Iter<'a, KeyBundle<key::PublicParts,
+                                           key::SubordinateRole>>,
 
     // If not None, filters by whether a key has a secret.
     secret: Option<bool>,
@@ -189,7 +189,7 @@ impl<'a, P, R> KeyIter<'a, P, R>
         KeyIter {
             cert: Some(cert),
             primary: false,
-            subkey_iter: cert.subkeys(),
+            subkey_iter: cert.subkeys.iter(),
 
             // The filters.
             secret: None,
@@ -451,9 +451,8 @@ pub struct ValidKeyIter<'a, P, R>
     // This is an option to make it easier to create an empty ValidKeyIter.
     cert: Option<&'a Cert>,
     primary: bool,
-    subkey_iter: UnfilteredKeyBundleIter<'a,
-                                key::PublicParts,
-                                key::SubordinateRole>,
+    subkey_iter: slice::Iter<'a, KeyBundle<key::PublicParts,
+                                           key::SubordinateRole>>,
 
     // The policy.
     policy: &'a dyn Policy,
