@@ -40,6 +40,18 @@ pub use iter::{
     KeyAmalgamationIter,
     ValidKeyAmalgamationIter,
 };
+mod key;
+pub use key::{
+    ErasedKeyAmalgamation,
+    KeyAmalgamation,
+    Primary,
+    PrimaryKeyAmalgamation,
+    SubordinateKeyAmalgamation,
+    ValidErasedKeyAmalgamation,
+    ValidKeyAmalgamation,
+    ValidPrimaryKeyAmalgamation,
+    ValidSubordinateKeyAmalgamation,
+};
 
 /// Applies a policy to an amalgamation.
 ///

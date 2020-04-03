@@ -46,7 +46,6 @@ pub mod amalgamation;
 mod builder;
 mod bindings;
 pub mod bundle;
-pub mod key_amalgamation;
 mod parser;
 mod revoke;
 
