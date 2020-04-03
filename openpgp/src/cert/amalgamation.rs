@@ -44,7 +44,7 @@ mod key;
 pub use key::{
     ErasedKeyAmalgamation,
     KeyAmalgamation,
-    Primary,
+    PrimaryKey,
     PrimaryKeyAmalgamation,
     SubordinateKeyAmalgamation,
     ValidErasedKeyAmalgamation,

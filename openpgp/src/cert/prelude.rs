@@ -32,7 +32,7 @@ pub use crate::cert::{
     amalgamation::ErasedKeyAmalgamation,
     amalgamation::KeyAmalgamation,
     amalgamation::KeyAmalgamationIter,
-    amalgamation::Primary as _,
+    amalgamation::PrimaryKey as _,
     amalgamation::PrimaryKeyAmalgamation,
     amalgamation::SubordinateKeyAmalgamation,
     amalgamation::ValidAmalgamation as _,

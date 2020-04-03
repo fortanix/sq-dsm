@@ -67,7 +67,7 @@ use crate::{
 /// Methods specific to key amalgamations.
 // This trait exists primarily so that `ValidAmalgamation` can depend
 // on it, and use it in its default implementations.
-pub trait Primary<'a, P, R>
+pub trait PrimaryKey<'a, P, R>
     where P: 'a + key::KeyParts,
           R: 'a + key::KeyRole,
 {
@@ -236,7 +236,7 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
     }
 }
 
-impl<'a, P> Primary<'a, P, key::PrimaryRole>
+impl<'a, P> PrimaryKey<'a, P, key::PrimaryRole>
     for PrimaryKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
 {
@@ -245,7 +245,7 @@ impl<'a, P> Primary<'a, P, key::PrimaryRole>
     }
 }
 
-impl<'a, P> Primary<'a, P, key::SubordinateRole>
+impl<'a, P> PrimaryKey<'a, P, key::SubordinateRole>
     for SubordinateKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
 {
@@ -254,7 +254,7 @@ impl<'a, P> Primary<'a, P, key::SubordinateRole>
     }
 }
 
-impl<'a, P> Primary<'a, P, key::UnspecifiedRole>
+impl<'a, P> PrimaryKey<'a, P, key::UnspecifiedRole>
     for ErasedKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
 {
@@ -672,7 +672,7 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
     where P: 'a + key::KeyParts,
           R: 'a + key::KeyRole,
           R2: Copy,
-          Self: Primary<'a, P, R>,
+          Self: PrimaryKey<'a, P, R>,
 {
     fn cert(&self) -> &ValidCert<'a> {
         assert!(std::ptr::eq(self.ka.cert(), self.cert.cert()));
@@ -714,7 +714,7 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
 }
 
 
-impl<'a, P> Primary<'a, P, key::PrimaryRole>
+impl<'a, P> PrimaryKey<'a, P, key::PrimaryRole>
     for ValidPrimaryKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
 {
@@ -723,7 +723,7 @@ impl<'a, P> Primary<'a, P, key::PrimaryRole>
     }
 }
 
-impl<'a, P> Primary<'a, P, key::SubordinateRole>
+impl<'a, P> PrimaryKey<'a, P, key::SubordinateRole>
     for ValidSubordinateKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
 {
@@ -732,7 +732,7 @@ impl<'a, P> Primary<'a, P, key::SubordinateRole>
     }
 }
 
-impl<'a, P> Primary<'a, P, key::UnspecifiedRole>
+impl<'a, P> PrimaryKey<'a, P, key::UnspecifiedRole>
     for ValidErasedKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
 {
@@ -789,7 +789,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     where P: 'a + key::KeyParts,
           R: 'a + key::KeyRole,
           R2: Copy,
-          Self: Primary<'a, P, R>,
+          Self: PrimaryKey<'a, P, R>,
 {
     /// Sets the key to expire in delta seconds.
     ///
