@@ -12,7 +12,7 @@ after_script:
 
 buster:
   tags:
-    - self-hosted
+    - linux
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/buster:latest
 
@@ -25,7 +25,7 @@ buster:
 
 bullseye:
   tags:
-    - self-hosted
+    - linux
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye:latest
 
@@ -45,7 +45,7 @@ bullseye:
 
 rust-stable:
   tags:
-    - self-hosted
+    - linux
   stage: build
   image: rust:1-slim-buster
 
