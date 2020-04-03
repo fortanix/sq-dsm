@@ -57,6 +57,7 @@ use crate::serialize::{
 };
 use crate::types::{
     CompressionAlgorithm,
+    CompressionLevel,
 };
 
 /// Pads a packet stream.
@@ -150,7 +151,7 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
         // Create an appropriate filter.
         let inner: Message<'a, Cookie> =
             writer::ZIP::new(inner, Cookie::new(level),
-                             writer::CompressionLevel::none());
+                             CompressionLevel::none());
 
         Ok(Message::from(Box::new(Self {
             inner: inner.into(),

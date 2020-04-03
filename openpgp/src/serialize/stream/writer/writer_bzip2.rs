@@ -3,7 +3,8 @@ use std::fmt;
 use std::io;
 
 use crate::Result;
-use super::{Generic, Message, BoxStack, Stackable, CompressionLevel};
+use crate::types::CompressionLevel;
+use super::{Generic, Message, BoxStack, Stackable};
 
 /// BZing writer.
 pub struct BZ<'a, C: 'a> {

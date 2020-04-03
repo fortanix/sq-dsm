@@ -38,6 +38,7 @@ use super::{
 use crate::types::{
     AEADAlgorithm,
     CompressionAlgorithm,
+    CompressionLevel,
     DataFormat,
     SignatureType,
     SymmetricAlgorithm,
@@ -775,7 +776,7 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
 /// # }
 pub struct Compressor<'a> {
     algo: CompressionAlgorithm,
-    level: writer::CompressionLevel,
+    level: CompressionLevel,
     inner: writer::BoxStack<'a, Cookie>,
 }
 
@@ -799,7 +800,7 @@ impl<'a> Compressor<'a> {
     }
 
     /// Sets the compression level.
-    pub fn level(mut self, level: writer::CompressionLevel) -> Self {
+    pub fn level(mut self, level: CompressionLevel) -> Self {
         self.level = level;
         self
     }
@@ -822,7 +823,7 @@ impl<'a> Compressor<'a> {
     pub(crate) // For CompressedData::serialize.
     fn new_naked(mut inner: Message<'a, Cookie>,
                  algo: CompressionAlgorithm,
-                 compression_level: writer::CompressionLevel,
+                 compression_level: CompressionLevel,
                  level: usize)
                  -> Result<Message<'a, Cookie>>
     {

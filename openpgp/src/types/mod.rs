@@ -12,6 +12,8 @@ use quickcheck::{Arbitrary, Gen};
 use crate::Error;
 use crate::Result;
 
+mod compression_level;
+pub use compression_level::CompressionLevel;
 mod features;
 pub use self::features::Features;
 mod key_flags;

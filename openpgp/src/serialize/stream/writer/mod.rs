@@ -8,8 +8,6 @@ pub use self::writer_bzip2::BZ;
 mod writer_deflate;
 #[cfg(feature = "compression-deflate")]
 pub use self::writer_deflate::{ZIP, ZLIB};
-mod compression_common;
-pub use compression_common::CompressionLevel;
 
 use std::fmt;
 use std::io;
