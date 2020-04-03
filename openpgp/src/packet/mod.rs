@@ -442,7 +442,7 @@ fn packet_path_iter() {
     use crate::parse::Parse;
     use crate::PacketPile;
 
-    fn paths(iter: slice::Iter<Packet>) -> Vec<Vec<usize>> {
+    fn paths<'a>(iter: impl Iterator<Item=&'a Packet>) -> Vec<Vec<usize>> {
         let mut lpaths : Vec<Vec<usize>> = Vec::new();
         for (i, packet) in iter.enumerate() {
             let mut v = Vec::new();

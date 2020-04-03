@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 use std::fmt;
-use std::slice;
 use std::vec;
 use std::io;
 use std::path::Path;
@@ -306,12 +305,16 @@ impl PacketPile {
     }
 
     /// Returns an iterator over the top-level packets.
-    pub fn children<'a>(&'a self) -> slice::Iter<'a, Packet> {
+    pub fn children(&self)
+        -> impl Iterator<Item=&Packet> + ExactSizeIterator
+    {
         self.top_level.children().expect("toplevel is a container")
     }
 
     /// Returns an `IntoIter` over the top-level packets.
-    pub fn into_children(self) -> vec::IntoIter<Packet> {
+    pub fn into_children(self)
+        -> impl Iterator<Item=Packet> + ExactSizeIterator
+    {
         self.top_level.into_children().expect("toplevel is a container")
     }
 
