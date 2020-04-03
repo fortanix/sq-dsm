@@ -46,7 +46,6 @@ pub mod amalgamation;
 mod builder;
 mod bindings;
 pub mod bundle;
-mod keyiter;
 pub mod key_amalgamation;
 mod parser;
 mod revoke;
@@ -683,9 +682,9 @@ impl Cert {
     ///
     /// That is, this returns an iterator over the primary key and any
     /// subkeys.
-    pub fn keys(&self) -> KeyIter<key::PublicParts, key::UnspecifiedRole>
+    pub fn keys(&self) -> KeyAmalgamationIter<key::PublicParts, key::UnspecifiedRole>
     {
-        KeyIter::new(self)
+        KeyAmalgamationIter::new(self)
     }
 
     /// Returns the Cert found in the packet stream.
@@ -1465,7 +1464,7 @@ impl<'a> ValidCert<'a> {
     ///
     /// That is, this returns an iterator over the primary key and any
     /// subkeys.
-    pub fn keys(&self) -> ValidKeyIter<key::PublicParts, key::UnspecifiedRole> {
+    pub fn keys(&self) -> ValidKeyAmalgamationIter<key::PublicParts, key::UnspecifiedRole> {
         self.cert.keys().with_policy(self.policy, self.time)
     }
 

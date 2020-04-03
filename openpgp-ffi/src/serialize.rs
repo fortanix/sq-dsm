@@ -37,8 +37,8 @@ use self::openpgp::serialize::{
 
 use super::keyid::KeyID;
 use super::packet::key::Key;
-use super::cert::KeyIterWrapper;
-use super::cert::ValidKeyIterWrapper;
+use super::cert::KeyAmalgamationIterWrapper;
+use super::cert::ValidKeyAmalgamationIterWrapper;
 
 /// Streams an OpenPGP message.
 ///
@@ -279,7 +279,7 @@ fn pgp_recipient_set_keyid(recipient: *mut Recipient, keyid: *mut KeyID) {
 /// libc's allocator.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_recipients_from_key_iter<'a>(
-    iter_wrapper: *mut KeyIterWrapper<'a>,
+    iter_wrapper: *mut KeyAmalgamationIterWrapper<'a>,
     result_len: *mut size_t)
     -> *mut *mut Recipient<'a>
 {
@@ -311,7 +311,7 @@ fn pgp_recipients_from_key_iter<'a>(
 /// libc's allocator.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_recipients_from_valid_key_iter<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>,
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>,
     result_len: *mut size_t)
     -> *mut *mut Recipient<'a>
 {

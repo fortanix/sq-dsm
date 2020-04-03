@@ -446,7 +446,7 @@ pub extern "C" fn pgp_cert_user_id_iter_next<'a>(
     }
 }
 
-/// Wraps a ValidKeyIter for export via the FFI.
+/// Wraps a ValidKeyAmalgamationIter for export via the FFI.
 pub struct ValidUserIDIterWrapper<'a> {
     pub(crate) // For serialize.rs.
     iter: Option<ValidComponentBundleIter<'a, openpgp::packet::UserID>>,
@@ -494,12 +494,12 @@ pub extern "C" fn pgp_cert_valid_user_id_iter_next<'a>(
 }
 
 
-/* cert::KeyIter. */
+/* cert::KeyAmalgamationIter. */
 
-/// Wraps a KeyIter for export via the FFI.
-pub struct KeyIterWrapper<'a> {
+/// Wraps a KeyAmalgamationIter for export via the FFI.
+pub struct KeyAmalgamationIterWrapper<'a> {
     pub(crate) // For serialize.rs.
-    iter: Option<KeyIter<'a, openpgp::packet::key::PublicParts,
+    iter: Option<KeyAmalgamationIter<'a, openpgp::packet::key::PublicParts,
                          openpgp::packet::key::UnspecifiedRole>>,
     // Whether next has been called.
     next_called: bool,
@@ -511,10 +511,10 @@ pub struct KeyIterWrapper<'a> {
 /// subkeys.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_key_iter(cert: *const Cert)
-    -> *mut KeyIterWrapper<'static>
+    -> *mut KeyAmalgamationIterWrapper<'static>
 {
     let cert = cert.ref_raw();
-    box_raw!(KeyIterWrapper {
+    box_raw!(KeyAmalgamationIterWrapper {
         iter: Some(cert.keys()),
         next_called: false,
     })
@@ -523,7 +523,7 @@ pub extern "C" fn pgp_cert_key_iter(cert: *const Cert)
 /// Frees a pgp_cert_key_iter_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_key_iter_free(
-    iter: Option<&mut KeyIterWrapper>)
+    iter: Option<&mut KeyAmalgamationIterWrapper>)
 {
     ffi_free!(iter)
 }
@@ -533,11 +533,11 @@ pub extern "C" fn pgp_cert_key_iter_free(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_key_iter_secret<'a>(
-    iter_wrapper: *mut KeyIterWrapper<'a>)
+    iter_wrapper: *mut KeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     use std::mem::transmute;
@@ -552,11 +552,11 @@ pub extern "C" fn pgp_cert_key_iter_secret<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_key_iter_unencrypted_secret<'a>(
-    iter_wrapper: *mut KeyIterWrapper<'a>)
+    iter_wrapper: *mut KeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     use std::mem::transmute;
@@ -571,19 +571,19 @@ pub extern "C" fn pgp_cert_key_iter_unencrypted_secret<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_key_iter_policy<'a>(
-    iter_wrapper: *mut KeyIterWrapper<'a>,
+    iter_wrapper: *mut KeyAmalgamationIterWrapper<'a>,
     policy: *const Policy,
     when: time_t)
-    -> *mut ValidKeyIterWrapper<'static>
+    -> *mut ValidKeyAmalgamationIterWrapper<'static>
 {
     let policy = policy.ref_raw();
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     use std::mem::transmute;
-    box_raw!(ValidKeyIterWrapper {
+    box_raw!(ValidKeyAmalgamationIterWrapper {
         iter: Some(unsafe {
             transmute(iter_wrapper.iter.take().unwrap()
                       .with_policy(&**policy, maybe_time(when)))
@@ -603,7 +603,7 @@ pub extern "C" fn pgp_cert_key_iter_policy<'a>(
 /// *rso.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_key_iter_next<'a>(
-    iter_wrapper: *mut KeyIterWrapper<'a>)
+    iter_wrapper: *mut KeyAmalgamationIterWrapper<'a>)
     -> Maybe<KeyAmalgamation<'a>>
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
@@ -616,10 +616,10 @@ pub extern "C" fn pgp_cert_key_iter_next<'a>(
     }
 }
 
-/// Wraps a ValidKeyIter for export via the FFI.
-pub struct ValidKeyIterWrapper<'a> {
+/// Wraps a ValidKeyAmalgamationIter for export via the FFI.
+pub struct ValidKeyAmalgamationIterWrapper<'a> {
     pub(crate) // For serialize.rs.
-    iter: Option<ValidKeyIter<'a, openpgp::packet::key::PublicParts,
+    iter: Option<ValidKeyAmalgamationIter<'a, openpgp::packet::key::PublicParts,
                               openpgp::packet::key::UnspecifiedRole>>,
     // Whether next has been called.
     next_called: bool,
@@ -633,10 +633,10 @@ pub struct ValidKeyIterWrapper<'a> {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter(cert: *const Cert,
                                           policy: *const Policy, when: time_t)
-    -> *mut ValidKeyIterWrapper<'static>
+    -> *mut ValidKeyAmalgamationIterWrapper<'static>
 {
     let cert = cert.ref_raw();
-    let iter = box_raw!(KeyIterWrapper {
+    let iter = box_raw!(KeyAmalgamationIterWrapper {
         iter: Some(cert.keys()),
         next_called: false,
     });
@@ -647,7 +647,7 @@ pub extern "C" fn pgp_cert_valid_key_iter(cert: *const Cert,
 /// Frees a pgp_cert_key_iter_t.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_free(
-    iter: Option<&mut ValidKeyIterWrapper>)
+    iter: Option<&mut ValidKeyAmalgamationIterWrapper>)
 {
     ffi_free!(iter)
 }
@@ -657,11 +657,11 @@ pub extern "C" fn pgp_cert_valid_key_iter_free(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_secret<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>)
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change ValidKeyIter filter after iterating.");
+        panic!("Can't change ValidKeyAmalgamationIter filter after iterating.");
     }
 
     use std::mem::transmute;
@@ -676,11 +676,11 @@ pub extern "C" fn pgp_cert_valid_key_iter_secret<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_unencrypted_secret<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>)
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change ValidKeyIter filter after iterating.");
+        panic!("Can't change ValidKeyAmalgamationIter filter after iterating.");
     }
 
     use std::mem::transmute;
@@ -700,11 +700,11 @@ pub extern "C" fn pgp_cert_valid_key_iter_unencrypted_secret<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_for_certification<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>)
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     iter_wrapper.iter =
@@ -722,11 +722,11 @@ pub extern "C" fn pgp_cert_valid_key_iter_for_certification<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_for_signing<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>)
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     iter_wrapper.iter =
@@ -744,11 +744,11 @@ pub extern "C" fn pgp_cert_valid_key_iter_for_signing<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_for_storage_encryption<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>)
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     iter_wrapper.iter =
@@ -766,11 +766,11 @@ pub extern "C" fn pgp_cert_valid_key_iter_for_storage_encryption<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_for_transport_encryption<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>)
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     iter_wrapper.iter =
@@ -785,11 +785,11 @@ pub extern "C" fn pgp_cert_valid_key_iter_for_transport_encryption<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_alive<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>)
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     iter_wrapper.iter = Some(iter_wrapper.iter.take().unwrap().alive());
@@ -801,12 +801,12 @@ pub extern "C" fn pgp_cert_valid_key_iter_alive<'a>(
 /// Note: you may not call this function after starting to iterate.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_revoked<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>,
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>,
     revoked: bool)
 {
     let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
     if iter_wrapper.next_called {
-        panic!("Can't change KeyIter filter after iterating.");
+        panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
 
     iter_wrapper.iter =
@@ -822,7 +822,7 @@ pub extern "C" fn pgp_cert_valid_key_iter_revoked<'a>(
 /// *rso.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
-    iter_wrapper: *mut ValidKeyIterWrapper<'a>,
+    iter_wrapper: *mut ValidKeyAmalgamationIterWrapper<'a>,
     sigo: Option<&mut *mut Signature>,
     rso: Option<&mut *mut RevocationStatus<'a>>)
     -> Maybe<ValidKeyAmalgamation<'a>>

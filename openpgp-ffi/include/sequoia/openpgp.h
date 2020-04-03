@@ -681,7 +681,7 @@ pgp_valid_user_id_amalgamation_t pgp_cert_valid_user_id_iter_next (pgp_cert_vali
 /*/
 void pgp_cert_valid_user_id_iter_free (pgp_cert_valid_user_id_iter_t iter);
 
-/* openpgp::cert::KeyIter.  */
+/* openpgp::cert::KeyAmalgamationIter.  */
 
 /*/
 /// Changes the iterator to only return keys that have secret keys.

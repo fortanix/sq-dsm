@@ -19,21 +19,21 @@ use crate::{
 ///
 /// Returned by `Cert::keys()`.
 ///
-/// `KeyIter` follows the builder pattern.  There is no need to
+/// `KeyAmalgamationIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
 /// `Iterator` trait.
 ///
-/// By default, `KeyIter` returns all keys.  `KeyIter` provides some
+/// By default, `KeyAmalgamationIter` returns all keys.  `KeyAmalgamationIter` provides some
 /// filters to control what it returns.  For instance,
-/// `KeyIter::secret` causes the iterator to only returns keys that
-/// include secret key material.  Of course, since `KeyIter`
+/// `KeyAmalgamationIter::secret` causes the iterator to only returns keys that
+/// include secret key material.  Of course, since `KeyAmalgamationIter`
 /// implements `Iterator`, it is possible to use `Iterator::filter` to
 /// implement custom filters.
-pub struct KeyIter<'a, P, R>
+pub struct KeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
-    // This is an option to make it easier to create an empty KeyIter.
+    // This is an option to make it easier to create an empty KeyAmalgamationIter.
     cert: Option<&'a Cert>,
     primary: bool,
     subkey_iter: slice::Iter<'a, KeyBundle<key::PublicParts,
@@ -53,12 +53,12 @@ pub struct KeyIter<'a, P, R>
     _r: std::marker::PhantomData<R>,
 }
 
-impl<'a, P, R> fmt::Debug for KeyIter<'a, P, R>
+impl<'a, P, R> fmt::Debug for KeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("KeyIter")
+        f.debug_struct("KeyAmalgamationIter")
             .field("secret", &self.secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
             .field("key_handles", &self.key_handles)
@@ -68,7 +68,7 @@ impl<'a, P, R> fmt::Debug for KeyIter<'a, P, R>
 
 macro_rules! impl_iterator {
     ($parts:path, $role:path, $item:ty) => {
-        impl<'a> Iterator for KeyIter<'a, $parts, $role>
+        impl<'a> Iterator for KeyAmalgamationIter<'a, $parts, $role>
         {
             type Item = $item;
 
@@ -103,14 +103,14 @@ impl_iterator!(key::SecretParts, key::UnspecifiedRole,
 impl_iterator!(key::UnspecifiedParts, key::UnspecifiedRole,
                ErasedKeyAmalgamation<'a, key::UnspecifiedParts>);
 
-impl<'a, P, R> KeyIter<'a, P, R>
+impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
     fn next_common(&mut self) -> Option<ErasedKeyAmalgamation<'a, key::PublicParts>>
     {
-        tracer!(false, "KeyIter::next", 0);
-        t!("KeyIter: {:?}", self);
+        tracer!(false, "KeyAmalgamationIter::next", 0);
+        t!("KeyAmalgamationIter: {:?}", self);
 
         if self.cert.is_none() {
             return None;
@@ -180,13 +180,13 @@ impl<'a, P, R> KeyIter<'a, P, R>
     }
 }
 
-impl<'a, P, R> KeyIter<'a, P, R>
+impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
-    /// Returns a new `KeyIter` instance.
+    /// Returns a new `KeyAmalgamationIter` instance.
     pub(crate) fn new(cert: &'a Cert) -> Self where Self: 'a {
-        KeyIter {
+        KeyAmalgamationIter {
             cert: Some(cert),
             primary: false,
             subkey_iter: cert.subkeys.iter(),
@@ -202,8 +202,8 @@ impl<'a, P, R> KeyIter<'a, P, R>
     }
 
     /// Changes the filter to only return keys with secret key material.
-    pub fn secret(self) -> KeyIter<'a, key::SecretParts, R> {
-        KeyIter {
+    pub fn secret(self) -> KeyAmalgamationIter<'a, key::SecretParts, R> {
+        KeyAmalgamationIter {
             cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
@@ -220,8 +220,8 @@ impl<'a, P, R> KeyIter<'a, P, R>
 
     /// Changes the filter to only return keys with unencrypted secret
     /// key material.
-    pub fn unencrypted_secret(self) -> KeyIter<'a, key::SecretParts, R> {
-        KeyIter {
+    pub fn unencrypted_secret(self) -> KeyAmalgamationIter<'a, key::SecretParts, R> {
+        KeyAmalgamationIter {
             cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
@@ -262,8 +262,8 @@ impl<'a, P, R> KeyIter<'a, P, R>
     }
 
     /// Changes the iterator to skip the primary key.
-    pub fn subkeys(self) -> KeyIter<'a, P, key::SubordinateRole> {
-        KeyIter {
+    pub fn subkeys(self) -> KeyAmalgamationIter<'a, P, key::SubordinateRole> {
+        KeyAmalgamationIter {
             cert: self.cert,
             primary: true,
             subkey_iter: self.subkey_iter,
@@ -283,7 +283,7 @@ impl<'a, P, R> KeyIter<'a, P, R>
     ///
     /// If `time` is None, then the current time is used.
     ///
-    /// See `ValidKeyIter` for the definition of a valid key.
+    /// See `ValidKeyAmalgamationIter` for the definition of a valid key.
     ///
     /// This also makes a number of filters like `alive` and `revoked`
     /// available and causes the iterator to return a
@@ -408,10 +408,10 @@ impl<'a, P, R> KeyIter<'a, P, R>
     /// [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
     /// [This discussion]: https://crypto.stackexchange.com/a/12138
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
-        -> ValidKeyIter<'a, P, R>
+        -> ValidKeyAmalgamationIter<'a, P, R>
         where T: Into<Option<SystemTime>>
     {
-        ValidKeyIter {
+        ValidKeyAmalgamationIter {
             cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
@@ -441,14 +441,14 @@ impl<'a, P, R> KeyIter<'a, P, R>
 /// or certificate may be expired, but the self-signature is still
 /// valid.
 ///
-/// `ValidKeyIter` follows the builder pattern.  There is no need to
+/// `ValidKeyAmalgamationIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
 /// `Iterator` trait.
-pub struct ValidKeyIter<'a, P, R>
+pub struct ValidKeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
-    // This is an option to make it easier to create an empty ValidKeyIter.
+    // This is an option to make it easier to create an empty ValidKeyAmalgamationIter.
     cert: Option<&'a Cert>,
     primary: bool,
     subkey_iter: slice::Iter<'a, KeyBundle<key::PublicParts,
@@ -484,12 +484,12 @@ pub struct ValidKeyIter<'a, P, R>
     _r: std::marker::PhantomData<R>,
 }
 
-impl<'a, P, R> fmt::Debug for ValidKeyIter<'a, P, R>
+impl<'a, P, R> fmt::Debug for ValidKeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ValidKeyIter")
+        f.debug_struct("ValidKeyAmalgamationIter")
             .field("policy", &self.policy)
             .field("time", &self.time)
             .field("secret", &self.secret)
@@ -504,7 +504,7 @@ impl<'a, P, R> fmt::Debug for ValidKeyIter<'a, P, R>
 
 macro_rules! impl_iterator {
     ($parts:path, $role:path, $item:ty) => {
-        impl<'a> Iterator for ValidKeyIter<'a, $parts, $role>
+        impl<'a> Iterator for ValidKeyAmalgamationIter<'a, $parts, $role>
         {
             type Item = $item;
 
@@ -539,15 +539,15 @@ impl_iterator!(key::SecretParts, key::UnspecifiedRole,
 impl_iterator!(key::UnspecifiedParts, key::UnspecifiedRole,
                ValidErasedKeyAmalgamation<'a, key::UnspecifiedParts>);
 
-impl<'a, P, R> ValidKeyIter<'a, P, R>
+impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
     fn next_common(&mut self)
         -> Option<ValidErasedKeyAmalgamation<'a, key::PublicParts>>
     {
-        tracer!(false, "ValidKeyIter::next", 0);
-        t!("ValidKeyIter: {:?}", self);
+        tracer!(false, "ValidKeyAmalgamationIter::next", 0);
+        t!("ValidKeyAmalgamationIter: {:?}", self);
 
         if self.cert.is_none() {
             return None;
@@ -674,7 +674,7 @@ impl<'a, P, R> ValidKeyIter<'a, P, R>
     }
 }
 
-impl<'a, P, R> ValidKeyIter<'a, P, R>
+impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
@@ -817,8 +817,8 @@ impl<'a, P, R> ValidKeyIter<'a, P, R>
     }
 
     /// Changes the filter to only return keys with secret key material.
-    pub fn secret(self) -> ValidKeyIter<'a, key::SecretParts, R> {
-        ValidKeyIter {
+    pub fn secret(self) -> ValidKeyAmalgamationIter<'a, key::SecretParts, R> {
+        ValidKeyAmalgamationIter {
             cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
@@ -841,8 +841,8 @@ impl<'a, P, R> ValidKeyIter<'a, P, R>
 
     /// Changes the filter to only return keys with unencrypted secret
     /// key material.
-    pub fn unencrypted_secret(self) -> ValidKeyIter<'a, key::SecretParts, R> {
-        ValidKeyIter {
+    pub fn unencrypted_secret(self) -> ValidKeyAmalgamationIter<'a, key::SecretParts, R> {
+        ValidKeyAmalgamationIter {
             cert: self.cert,
             primary: self.primary,
             subkey_iter: self.subkey_iter,
@@ -889,8 +889,8 @@ impl<'a, P, R> ValidKeyIter<'a, P, R>
     }
 
     /// Changes the iterator to skip the primary key.
-    pub fn subkeys(self) -> ValidKeyIter<'a, P, key::SubordinateRole> {
-        ValidKeyIter {
+    pub fn subkeys(self) -> ValidKeyAmalgamationIter<'a, P, key::SubordinateRole> {
+        ValidKeyAmalgamationIter {
             cert: self.cert,
             primary: true,
             subkey_iter: self.subkey_iter,

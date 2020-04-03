@@ -35,6 +35,12 @@ use crate::{
     },
 };
 
+mod iter;
+pub use iter::{
+    KeyAmalgamationIter,
+    ValidKeyAmalgamationIter,
+};
+
 /// Applies a policy to an amalgamation.
 ///
 /// Note: This trait is split off from the `Amalgamation` trait, to

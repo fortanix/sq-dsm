@@ -30,11 +30,6 @@ pub use iter::{
     ValidComponentBundleIter,
 };
 
-pub use super::{
-    keyiter::KeyIter,
-    keyiter::ValidKeyIter,
-};
-
 /// A Cert component binding.
 ///
 /// A Cert component is a primary key, a subkey, a user id, or a user
