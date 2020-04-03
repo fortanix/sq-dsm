@@ -24,9 +24,13 @@ use super::{
     canonical_signature_order,
 };
 
+mod iter;
+pub use iter::{
+    ComponentBundleIter,
+    ValidComponentBundleIter,
+};
+
 pub use super::{
-    component_iter::ComponentIter,
-    component_iter::ValidComponentIter,
     keyiter::KeyIter,
     keyiter::ValidKeyIter,
 };

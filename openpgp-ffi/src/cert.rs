@@ -377,7 +377,7 @@ fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy,
 /// Wraps a UserIDIter for export via the FFI.
 pub struct UserIDIterWrapper<'a> {
     pub(crate) // For serialize.rs.
-    iter: Option<ComponentIter<'a, openpgp::packet::UserID>>,
+    iter: Option<ComponentBundleIter<'a, openpgp::packet::UserID>>,
     // Whether next has been called.
     next_called: bool,
 }
@@ -449,7 +449,7 @@ pub extern "C" fn pgp_cert_user_id_iter_next<'a>(
 /// Wraps a ValidKeyIter for export via the FFI.
 pub struct ValidUserIDIterWrapper<'a> {
     pub(crate) // For serialize.rs.
-    iter: Option<ValidComponentIter<'a, openpgp::packet::UserID>>,
+    iter: Option<ValidComponentBundleIter<'a, openpgp::packet::UserID>>,
     // Whether next has been called.
     next_called: bool,
 }

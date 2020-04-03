@@ -10,24 +10,24 @@ use crate::{
 
 /// An iterator over all component bundles of a given type in a certificate.
 ///
-/// `ComponentIter` follows the builder pattern.  There is no need to
+/// `ComponentBundleIter` follows the builder pattern.  There is no need to
 /// explicitly finalize it, however: it already implements the
 /// `Iterator` trait.
 ///
-/// By default, `ComponentIter` returns each component in turn.
-pub struct ComponentIter<'a, C> {
+/// By default, `ComponentBundleIter` returns each component in turn.
+pub struct ComponentBundleIter<'a, C> {
     cert: &'a Cert,
     iter: slice::Iter<'a, ComponentBundle<C>>,
 }
 
-impl<'a, C> fmt::Debug for ComponentIter<'a, C> {
+impl<'a, C> fmt::Debug for ComponentBundleIter<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ComponentIter")
+        f.debug_struct("ComponentBundleIter")
             .finish()
     }
 }
 
-impl<'a, C> Iterator for ComponentIter<'a, C>
+impl<'a, C> Iterator for ComponentBundleIter<'a, C>
 {
     type Item = ComponentAmalgamation<'a, C>;
 
@@ -36,13 +36,13 @@ impl<'a, C> Iterator for ComponentIter<'a, C>
     }
 }
 
-impl<'a, C> ComponentIter<'a, C> {
-    /// Returns a new `ComponentIter` instance.
+impl<'a, C> ComponentBundleIter<'a, C> {
+    /// Returns a new `ComponentBundleIter` instance.
     pub(crate) fn new(cert: &'a Cert,
                       iter: std::slice::Iter<'a, ComponentBundle<C>>) -> Self
         where Self: 'a
     {
-        ComponentIter {
+        ComponentBundleIter {
             cert, iter,
         }
     }
@@ -52,12 +52,12 @@ impl<'a, C> ComponentIter<'a, C> {
     ///
     /// If `time` is None, then the current time is used.
     ///
-    /// See `ValidComponentIter` for the definition of a valid component.
+    /// See `ValidComponentBundleIter` for the definition of a valid component.
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
-        -> ValidComponentIter<'a, C>
+        -> ValidComponentBundleIter<'a, C>
         where T: Into<Option<SystemTime>>
     {
-        ValidComponentIter {
+        ValidComponentBundleIter {
             cert: self.cert,
             iter: self.iter,
             time: time.into().unwrap_or_else(SystemTime::now),
@@ -73,11 +73,11 @@ impl<'a, C> ComponentIter<'a, C> {
 /// A component is valid at time `t` if it was not created after `t`
 /// and it has a live self-signature at time `t`.
 ///
-/// `ValidComponentIter` follows the builder pattern.  There is no
+/// `ValidComponentBundleIter` follows the builder pattern.  There is no
 /// need to explicitly finalize it, however: it already implements the
 /// `Iterator` trait.
-pub struct ValidComponentIter<'a, C> {
-    // This is an option to make it easier to create an empty ValidComponentIter.
+pub struct ValidComponentBundleIter<'a, C> {
+    // This is an option to make it easier to create an empty ValidComponentBundleIter.
     cert: &'a Cert,
     iter: slice::Iter<'a, ComponentBundle<C>>,
 
@@ -90,23 +90,23 @@ pub struct ValidComponentIter<'a, C> {
     revoked: Option<bool>,
 }
 
-impl<'a, C> fmt::Debug for ValidComponentIter<'a, C> {
+impl<'a, C> fmt::Debug for ValidComponentBundleIter<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("ValidComponentIter")
+        f.debug_struct("ValidComponentBundleIter")
             .field("time", &self.time)
             .field("revoked", &self.revoked)
             .finish()
     }
 }
 
-impl<'a, C> Iterator for ValidComponentIter<'a, C>
+impl<'a, C> Iterator for ValidComponentBundleIter<'a, C>
     where C: std::fmt::Debug
 {
     type Item = ValidComponentAmalgamation<'a, C>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        tracer!(false, "ValidComponentIter::next", 0);
-        t!("ValidComponentIter: {:?}", self);
+        tracer!(false, "ValidComponentBundleIter::next", 0);
+        t!("ValidComponentBundleIter: {:?}", self);
 
         loop {
             let ca = ComponentAmalgamation::new(self.cert, self.iter.next()?);
@@ -141,14 +141,14 @@ impl<'a, C> Iterator for ValidComponentIter<'a, C>
     }
 }
 
-impl<'a, C> ExactSizeIterator for ComponentIter<'a, C>
+impl<'a, C> ExactSizeIterator for ComponentBundleIter<'a, C>
 {
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
-impl<'a, C> ValidComponentIter<'a, C> {
+impl<'a, C> ValidComponentBundleIter<'a, C> {
     /// Filters by whether a component is definitely revoked.
     ///
     /// A value of None disables this filter.
