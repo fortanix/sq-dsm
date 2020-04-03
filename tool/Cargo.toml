@@ -1,14 +1,14 @@
 [package]
 name = "sequoia-tool"
 description = "Command-line frontends for Sequoia"
-version = "0.15.0"
+version = "0.16.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
 build = "build.rs"
-documentation = "https://docs.sequoia-pgp.org/0.15.0/sq"
+documentation = "https://docs.sequoia-pgp.org/0.16.0/sq"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "../README.md"
@@ -22,11 +22,11 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.15" }
-sequoia-autocrypt = { path = "../autocrypt", version = "0.15" }
-sequoia-core = { path = "../core", version = "0.15" }
-sequoia-net = { path = "../net", version = "0.15" }
-sequoia-store = { path = "../store", version = "0.15" }
+sequoia-openpgp = { path = "../openpgp", version = "0.16" }
+sequoia-autocrypt = { path = "../autocrypt", version = "0.16" }
+sequoia-core = { path = "../core", version = "0.16" }
+sequoia-net = { path = "../net", version = "0.16" }
+sequoia-store = { path = "../store", version = "0.16" }
 anyhow = "1"
 chrono = "0.4"
 clap = "2.32.0"
