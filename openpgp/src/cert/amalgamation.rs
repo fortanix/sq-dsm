@@ -35,8 +35,8 @@ use crate::{
     },
 };
 
-mod iter;
-pub use iter::{
+mod keyiter;
+pub use keyiter::{
     KeyAmalgamationIter,
     ValidKeyAmalgamationIter,
 };
