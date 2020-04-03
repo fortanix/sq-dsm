@@ -12,6 +12,7 @@ use buffered_reader::BufferedReader;
 use crate::Result;
 use crate::Error;
 use crate::Packet;
+use crate::cert::Cert;
 use crate::packet::{self, Container};
 use crate::parse::PacketParserResult;
 use crate::parse::PacketParserBuilder;
@@ -320,6 +321,13 @@ impl PacketPile {
         PacketParserBuilder::from_buffered_reader(bio)?
             .buffer_unread_content()
             .into_packet_pile()
+    }
+}
+
+impl From<Cert> for PacketPile {
+    /// Converts the `Cert` into a `PacketPile`.
+    fn from(cert: Cert) -> PacketPile {
+        PacketPile::from(cert.into_packets().collect::<Vec<Packet>>())
     }
 }
 

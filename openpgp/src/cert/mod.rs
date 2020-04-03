@@ -1224,7 +1224,7 @@ impl Cert {
     ///
     /// This method discards invalid components and bad signatures.
     pub fn into_packet_pile(self) -> PacketPile {
-        PacketPile::from(self.into_packets().collect::<Vec<Packet>>())
+        self.into()
     }
 
     /// Merges `other` into `self`.
