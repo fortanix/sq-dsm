@@ -177,9 +177,9 @@ impl fmt::Debug for MPI {
 impl Hash for MPI {
     /// Update the Hash with a hash of the MPIs.
     fn hash(&self, hash: &mut hash::Context) {
-        let len = &[(self.bits() >> 8) as u8 & 0xFF, self.bits() as u8];
+        let len = self.bits() as u16;
 
-        hash.update(len);
+        hash.update(&len.to_be_bytes());
         hash.update(&self.value);
     }
 }

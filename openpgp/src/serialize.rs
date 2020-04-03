@@ -580,19 +580,15 @@ fn test_generic_export_into() {
 }
 
 fn write_byte(o: &mut dyn std::io::Write, b: u8) -> io::Result<()> {
-    let b : [u8; 1] = [b; 1];
-    o.write_all(&b[..])
+    o.write_all(&[b])
 }
 
 fn write_be_u16(o: &mut dyn std::io::Write, n: u16) -> io::Result<()> {
-    let b : [u8; 2] = [ ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8 ];
-    o.write_all(&b[..])
+    o.write_all(&n.to_be_bytes())
 }
 
 fn write_be_u32(o: &mut dyn std::io::Write, n: u32) -> io::Result<()> {
-    let b : [u8; 4] = [ (n >> 24) as u8, ((n >> 16) & 0xFF) as u8,
-                         ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8 ];
-    o.write_all(&b[..])
+    o.write_all(&n.to_be_bytes())
 }
 
 // Compute the log2 of an integer.  (This is simply the most

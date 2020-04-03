@@ -303,12 +303,9 @@ impl<W: Write> Writer<W> {
             write!(self.sink, "{}", LINE_ENDING)?;
         }
 
+        // 24-bit CRC
         let crc = self.crc.finalize();
-        let bytes: [u8; 3] = [
-            (crc >> 16) as u8,
-            (crc >>  8) as u8,
-            (crc >>  0) as u8,
-        ];
+        let bytes = &crc.to_be_bytes()[1..4];
 
         // CRC and footer.
         write!(self.sink, "={}{}{}{}",

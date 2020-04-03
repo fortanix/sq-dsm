@@ -117,16 +117,7 @@ impl From<Fingerprint> for KeyID {
 impl KeyID {
     /// Converts a u64 to a KeyID.
     pub fn new(data: u64) -> KeyID {
-        let bytes = [
-            (data >> (7 * 8)) as u8,
-            (data >> (6 * 8)) as u8,
-            (data >> (5 * 8)) as u8,
-            (data >> (4 * 8)) as u8,
-            (data >> (3 * 8)) as u8,
-            (data >> (2 * 8)) as u8,
-            (data >> (1 * 8)) as u8,
-            (data >> (0 * 8)) as u8
-        ];
+        let bytes = data.to_be_bytes();
         Self::from_bytes(&bytes[..])
     }
 
@@ -134,15 +125,7 @@ impl KeyID {
     pub fn as_u64(&self) -> Result<u64> {
         match &self {
             KeyID::V4(ref b) =>
-                Ok(0u64
-                   | ((b[0] as u64) << (7 * 8))
-                   | ((b[1] as u64) << (6 * 8))
-                   | ((b[2] as u64) << (5 * 8))
-                   | ((b[3] as u64) << (4 * 8))
-                   | ((b[4] as u64) << (3 * 8))
-                   | ((b[5] as u64) << (2 * 8))
-                   | ((b[6] as u64) << (1 * 8))
-                   | ((b[7] as u64) << (0 * 8))),
+                Ok(u64::from_be_bytes(*b)),
             KeyID::Invalid(_) =>
                 Err(Error::InvalidArgument("Invalid KeyID".into()).into()),
         }

@@ -100,21 +100,17 @@ pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
 
     /// Writes a byte.
     fn write_u8(&mut self, b: u8) -> io::Result<()> {
-        let b : [u8; 1] = [b; 1];
-        self.write_all(&b[..])
+        self.write_all(&[b])
     }
 
     /// Writes a big endian `u16`.
     fn write_be_u16(&mut self, n: u16) -> io::Result<()> {
-        let b : [u8; 2] = [ ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8 ];
-        self.write_all(&b[..])
+        self.write_all(&n.to_be_bytes())
     }
 
     /// Writes a big endian `u32`.
     fn write_be_u32(&mut self, n: u32) -> io::Result<()> {
-        let b : [u8; 4] = [ (n >> 24) as u8, ((n >> 16) & 0xFF) as u8,
-                             ((n >> 8) & 0xFF) as u8, (n & 0xFF) as u8 ];
-        self.write_all(&b[..])
+        self.write_all(&n.to_be_bytes())
     }
 }
 

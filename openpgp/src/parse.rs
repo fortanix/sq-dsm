@@ -1553,13 +1553,10 @@ impl SubpacketLength {
                 if Self::len_optimal_encoding(len) == 5 {
                     None
                 } else {
-                    Some(vec![
-                        octet1,
-                        (len >> 24) as u8,
-                        (len >> 16) as u8,
-                        (len >>  8) as u8,
-                        (len >>  0) as u8,
-                    ])
+                    let mut out = Vec::with_capacity(5);
+                    out.push(octet1);
+                    out.extend_from_slice(&len.to_be_bytes());
+                    Some(out)
                 }))
         }
     }

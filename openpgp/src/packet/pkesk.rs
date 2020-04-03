@@ -70,11 +70,15 @@ impl PKESK3 {
         psk.push(algo.into());
         psk.extend_from_slice(session_key);
 
-        // Compute the sum modulo 65536.
-        let checksum
-            = session_key.iter().map(|&x| x as usize).sum::<usize>() & 0xffff;
-        psk.push((checksum >> 8) as u8);
-        psk.push((checksum >> 0) as u8);
+        // Compute the sum modulo 65536, i.e. as u16.
+        let checksum = session_key
+            .iter()
+            .cloned()
+            .map(u16::from)
+            .fold(0u16, u16::wrapping_add);
+
+        psk.extend_from_slice(&checksum.to_be_bytes());
+
         let psk: SessionKey = psk.into();
         let esk = recipient.encrypt(&psk)?;
         Ok(PKESK3{
