@@ -47,11 +47,11 @@ use crate::{
 };
 use crate::packet::header::CTB;
 use crate::serialize::{
-    PartialBodyFilter,
     Marshal,
     stream::{
         writer,
         Cookie,
+        PartialBodyFilter,
     },
 };
 use crate::types::{

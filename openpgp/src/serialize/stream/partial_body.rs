@@ -8,7 +8,8 @@ use std::cmp;
 use crate::Error;
 use crate::Result;
 use crate::packet::header::BodyLength;
-use super::{
+use crate::serialize::{
+    log2,
     stream::writer,
     write_byte,
     Marshal,
@@ -124,9 +125,9 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
 
                 // Write a partial body length header.
                 let chunk_size_log2 =
-                    super::log2(cmp::min(self.max_chunk_size,
-                                         self.buffer.len() + other.len())
-                                as u32);
+                    log2(cmp::min(self.max_chunk_size,
+                                  self.buffer.len() + other.len())
+                         as u32);
                 let chunk_size = (1usize) << chunk_size_log2;
 
                 let size = BodyLength::Partial(chunk_size as u32);
