@@ -4,6 +4,8 @@ use std::slice;
 use std::vec;
 use std::io;
 use std::path::Path;
+use std::iter::FromIterator;
+use std::iter::IntoIterator;
 
 use buffered_reader::BufferedReader;
 
@@ -99,6 +101,12 @@ impl From<Vec<Packet>> for PacketPile {
 impl From<Packet> for PacketPile {
     fn from(p: Packet) -> Self {
         Self::from(vec![p])
+    }
+}
+
+impl FromIterator<Packet> for PacketPile {
+    fn from_iter<I: IntoIterator<Item=Packet>>(iter: I) -> Self {
+        Self::from(Vec::from_iter(iter))
     }
 }
 
