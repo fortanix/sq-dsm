@@ -207,18 +207,19 @@ fn decrypt() {
 
         let mut message = Vec::new();
         {
-            let recipient =
+            let recipients =
                 cert.keys().with_policy(p, None).alive().revoked(false)
                 .for_transport_encryption()
                 .map(|ka| ka.key().into())
-                .nth(0).unwrap();
+                .collect();
 
             // Start streaming an OpenPGP message.
             let message = Message::new(&mut message);
 
             // We want to encrypt a literal data packet.
             let encryptor =
-                Encryptor::for_recipient(message, recipient).build().unwrap();
+                Encryptor::for_recipients(message, recipients)
+                .build().unwrap();
 
             // Emit a literal data packet.
             let mut literal_writer = LiteralWriter::new(

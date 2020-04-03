@@ -56,7 +56,7 @@ fn main() {
 #            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
-#    let mut recipients =
+#    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
 #        .map(|ka| ka.key().into())
@@ -65,13 +65,9 @@ fn main() {
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 #
-#     // We want to encrypt a literal data packet.
-#     let mut encryptor = Encryptor::for_recipient(
-#         message, recipients.pop().expect("No encryption key found"));
-#     for r in recipients {
-#         encryptor = encryptor.add_recipient(r)
-#     }
-#     let encryptor = encryptor.build().expect("Failed to create encryptor");
+#    // We want to encrypt a literal data packet.
+#    let encryptor = Encryptor::for_recipients(message, recipients)
+#        .build()?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
@@ -207,7 +203,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
-#    let mut recipients =
+#    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
 #        .map(|ka| ka.key().into())
@@ -216,13 +212,9 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 #
-#     // We want to encrypt a literal data packet.
-#     let mut encryptor = Encryptor::for_recipient(
-#         message, recipients.pop().expect("No encryption key found"));
-#     for r in recipients {
-#         encryptor = encryptor.add_recipient(r)
-#     }
-#     let encryptor = encryptor.build().expect("Failed to create encryptor");
+#    // We want to encrypt a literal data packet.
+#    let encryptor = Encryptor::for_recipients(message, recipients)
+#        .build()?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
@@ -358,7 +350,7 @@ fn encrypt(policy: &dyn Policy,
            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Build a vector of recipients to hand to Encryptor.
-    let mut recipients =
+    let recipients =
         recipient.keys().with_policy(policy, None).alive().revoked(false)
         .for_transport_encryption()
         .map(|ka| ka.key().into())
@@ -368,12 +360,8 @@ fn encrypt(policy: &dyn Policy,
     let message = Message::new(sink);
 
     // We want to encrypt a literal data packet.
-    let mut encryptor = Encryptor::for_recipient(
-        message, recipients.pop().expect("No encryption key found"));
-    for r in recipients {
-        encryptor = encryptor.add_recipient(r)
-    }
-    let encryptor = encryptor.build().expect("Failed to create encryptor");
+    let encryptor = Encryptor::for_recipients(message, recipients)
+        .build()?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
@@ -523,7 +511,7 @@ Decrypted data can be read from this using [`io::Read`].
 #            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    // Build a vector of recipients to hand to Encryptor.
-#    let mut recipients =
+#    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
 #        .map(|ka| ka.key().into())
@@ -532,13 +520,9 @@ Decrypted data can be read from this using [`io::Read`].
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
 #
-#     // We want to encrypt a literal data packet.
-#     let mut encryptor = Encryptor::for_recipient(
-#         message, recipients.pop().expect("No encryption key found"));
-#     for r in recipients {
-#         encryptor = encryptor.add_recipient(r)
-#     }
-#     let encryptor = encryptor.build().expect("Failed to create encryptor");
+#    // We want to encrypt a literal data packet.
+#    let encryptor = Encryptor::for_recipients(message, recipients)
+#        .build()?;
 #
 #     // Emit a literal data packet.
 #     let mut literal_writer = LiteralWriter::new(encryptor).build()?;

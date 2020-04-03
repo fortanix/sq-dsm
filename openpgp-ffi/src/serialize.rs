@@ -395,16 +395,9 @@ pub extern "C" fn pgp_encryptor_new<'a>
             "Neither recipient nor password given")));
     }
 
-    let mut encryptor = if let Some(p) = passwords_.pop() {
-        Encryptor::with_password(*inner, p)
-    } else {
-        Encryptor::for_recipient(*inner, recipients_.pop().unwrap())
-    };
+    let mut encryptor = Encryptor::for_recipients(*inner, recipients_);
     for p in passwords_ {
         encryptor = encryptor.add_password(p);
-    }
-    for r in recipients_ {
-        encryptor = encryptor.add_recipient(r);
     }
     if let Some(algo) = cipher_algo {
         encryptor = encryptor.sym_algo(algo);

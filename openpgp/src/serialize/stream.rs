@@ -1024,17 +1024,17 @@ impl<'a> Encryptor<'a> {
     /// ).unwrap();
     ///
     /// // Build a vector of recipients to hand to Encryptor.
-    /// let recipient =
+    /// let recipients =
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
     ///     .map(|ka| ka.key().into())
-    ///     .nth(0).unwrap();
+    ///     .collect();
     ///
     /// let mut o = vec![];
     /// let message = Message::new(&mut o);
     /// let encryptor =
-    ///     Encryptor::for_recipient(message, recipient)
+    ///     Encryptor::for_recipients(message, recipients)
     ///         .build().expect("Failed to create encryptor");
     /// let mut w = LiteralWriter::new(encryptor).build()?;
     /// w.write_all(b"Hello world.")?;
@@ -1042,11 +1042,11 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn for_recipient(inner: Message<'a, Cookie>,
-                         recipient: Recipient<'a>) -> Self {
+    pub fn for_recipients(inner: Message<'a, Cookie>,
+                          recipients: Vec<Recipient<'a>>) -> Self {
         Self {
             inner: Some(inner.into()),
-            recipients: vec![recipient],
+            recipients,
             passwords: Vec::new(),
             sym_algo: Default::default(),
             aead_algo: Default::default(),
@@ -1083,7 +1083,8 @@ impl<'a> Encryptor<'a> {
     /// let mut o = vec![];
     /// let message = Message::new(&mut o);
     /// let encryptor =
-    ///     Encryptor::with_password(message, "совершенно секретно".into())
+    ///     Encryptor::with_passwords(message,
+    ///                               vec!["совершенно секретно".into()])
     ///         .build().expect("Failed to create encryptor");
     /// let mut w = LiteralWriter::new(encryptor).build()?;
     /// w.write_all(b"Hello world.")?;
@@ -1091,12 +1092,12 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_password(inner: Message<'a, Cookie>,
-                         password: Password) -> Self {
+    pub fn with_passwords(inner: Message<'a, Cookie>,
+                          passwords: Vec<Password>) -> Self {
         Self {
             inner: Some(inner.into()),
             recipients: Vec::new(),
-            passwords: vec![password],
+            passwords,
             sym_algo: Default::default(),
             aead_algo: Default::default(),
             hash: HashAlgorithm::SHA1.context().unwrap(),
@@ -1137,8 +1138,10 @@ impl<'a> Encryptor<'a> {
 
     /// Finalizes the encryptor, returning the writer stack.
     pub fn build(mut self) -> Result<Message<'a, Cookie>> {
-        assert!(self.recipients.len() + self.passwords.len() > 0,
-                "The constructors add at least one recipient or password");
+        if self.recipients.len() + self.passwords.len() == 0 {
+            return Err(Error::InvalidOperation(
+                "Neither recipients nor passwords given".into()).into());
+        }
 
         struct AEADParameters {
             algo: AEADAlgorithm,
@@ -1557,16 +1560,15 @@ mod test {
 
     #[test]
     fn encryptor() {
-        let passwords: [Password; 2] = ["streng geheim".into(),
-                                        "top secret".into()];
+        let passwords = vec!["streng geheim".into(),
+                             "top secret".into()];
         let message = b"Hello world.";
 
         // Write a simple encrypted message...
         let mut o = vec![];
         {
             let m = Message::new(&mut o);
-            let encryptor = Encryptor::with_password(m, passwords[0].clone())
-                .add_password(passwords[1].clone())
+            let encryptor = Encryptor::with_passwords(m, passwords.clone())
                 .build().unwrap();
             let mut literal = LiteralWriter::new(encryptor).build()
                 .unwrap();
@@ -1747,11 +1749,11 @@ mod test {
                 let mut msg = vec![];
                 {
                     let m = Message::new(&mut msg);
-                    let recipient = tsk
+                    let recipients = tsk
                         .keys().with_policy(p, None)
                         .for_storage_encryption().for_transport_encryption()
-                        .nth(0).unwrap().key().into();
-                    let encryptor = Encryptor::for_recipient(m, recipient)
+                        .map(|ka| ka.key().into()).collect();
+                    let encryptor = Encryptor::for_recipients(m, recipients)
                         .aead_algo(AEADAlgorithm::EAX)
                         .build().unwrap();
                     let mut literal = LiteralWriter::new(encryptor).build()

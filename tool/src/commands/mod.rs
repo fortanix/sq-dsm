@@ -137,16 +137,10 @@ pub fn encrypt(policy: &dyn Policy,
     let message = Message::new(output);
 
     // We want to encrypt a literal data packet.
-    let mut encryptor = if let Some(p) = passwords.pop() {
-        Encryptor::with_password(message, p)
-    } else {
-        Encryptor::for_recipient(message, recipient_subkeys.pop().unwrap())
-    };
+    let mut encryptor =
+        Encryptor::for_recipients(message, recipient_subkeys);
     for p in passwords {
         encryptor = encryptor.add_password(p);
-    }
-    for r in recipient_subkeys {
-        encryptor = encryptor.add_recipient(r);
     }
 
     let mut sink = encryptor.build()

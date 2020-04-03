@@ -48,7 +48,7 @@ fn encrypt(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str,
     -> openpgp::Result<()>
 {
     // Build a vector of recipients to hand to Encryptor.
-    let mut recipients =
+    let recipients =
         recipient.keys().with_policy(p, None).alive().revoked(false)
         .for_transport_encryption()
         .map(|ka| ka.key().into())
@@ -58,12 +58,8 @@ fn encrypt(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str,
     let message = Message::new(sink);
 
     // We want to encrypt a literal data packet.
-    let mut encryptor = Encryptor::for_recipient(
-        message, recipients.pop().expect("No encryption key found"));
-    for r in recipients {
-        encryptor = encryptor.add_recipient(r)
-    }
-    let encryptor = encryptor.build().expect("Failed to create encryptor");
+    let encryptor = Encryptor::for_recipients(message, recipients)
+        .build()?;
 
     // Emit a literal data packet.
     let mut literal_writer = LiteralWriter::new(encryptor).build()?;

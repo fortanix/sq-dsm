@@ -487,8 +487,8 @@ impl AutocryptSetupMessage {
         {
             // Passphrase-Format header with value numeric9x4
             let m = Message::new(&mut armor_writer);
-            let w = Encryptor::with_password(m, self.passcode.clone().unwrap())
-                .build()?;
+            let w = Encryptor::with_passwords(
+                m, vec![self.passcode.clone().unwrap()]).build()?;
 
             let mut w = LiteralWriter::new(w).build()?;
 
