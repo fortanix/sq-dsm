@@ -43,7 +43,7 @@ use crate::types::{
     SymmetricAlgorithm,
 };
 
-pub mod writer;
+pub(crate) mod writer;
 #[cfg(feature = "compression-deflate")]
 pub mod padding;
 mod partial_body;
@@ -83,17 +83,31 @@ impl Default for Cookie {
 /// Streams an OpenPGP message.
 ///
 /// Wraps a `std::io::Write`r for use with the streaming subsystem.
-pub struct Message {
-}
+#[derive(Debug)]
+pub struct Message<'a, C>(writer::BoxStack<'a, C>);
 
-impl Message {
+impl<'a> Message<'a, Cookie> {
     /// Streams an OpenPGP message.
-    pub fn new<'a, W: 'a + io::Write>(w: W) -> writer::Stack<'a, Cookie> {
+    pub fn new<W: 'a + io::Write>(w: W) -> Message<'a, Cookie> {
         writer::Generic::new(w, Cookie::new(0))
+    }
+
+    /// Finalizes this writer, returning the underlying writer.
+    pub fn finalize_one(self) -> Result<Option<Message<'a, Cookie>>> {
+        Ok(self.0.into_inner()?.map(|bs| Self::from(bs)))
+    }
+
+    /// Finalizes all writers, tearing down the whole stack.
+    pub fn finalize(self) -> Result<()> {
+        let mut stack = self;
+        while let Some(s) = stack.finalize_one()? {
+            stack = s;
+        }
+        Ok(())
     }
 }
 
-impl<'a> From<&'a mut dyn io::Write> for writer::Stack<'a, Cookie> {
+impl<'a> From<&'a mut dyn io::Write> for Message<'a, Cookie> {
     fn from(w: &'a mut dyn io::Write) -> Self {
         writer::Generic::new(w, Cookie::new(0))
     }
@@ -133,11 +147,11 @@ pub struct ArbitraryWriter<'a> {
 
 impl<'a> ArbitraryWriter<'a> {
     /// Creates a new writer with the given tag.
-    pub fn new(mut inner: writer::Stack<'a, Cookie>, tag: Tag)
-               -> Result<writer::Stack<'a, Cookie>> {
+    pub fn new(mut inner: Message<'a, Cookie>, tag: Tag)
+               -> Result<Message<'a, Cookie>> {
         let level = inner.as_ref().cookie_ref().level + 1;
         CTB::new(tag).serialize(&mut inner)?;
-        Ok(writer::Stack::from(Box::new(ArbitraryWriter {
+        Ok(Message::from(Box::new(ArbitraryWriter {
             inner: PartialBodyFilter::new(inner, Cookie::new(level)).into()
         })))
     }
@@ -281,7 +295,7 @@ impl<'a> Signer<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new<S>(inner: writer::Stack<'a, Cookie>, signer: S) -> Self
+    pub fn new<S>(inner: Message<'a, Cookie>, signer: S) -> Self
         where S: crypto::Signer + 'a
     {
         let inner = writer::BoxStack::from(inner);
@@ -406,7 +420,7 @@ impl<'a> Signer<'a> {
     }
 
     /// Finalizes the signer, returning the writer stack.
-    pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>>
+    pub fn build(mut self) -> Result<Message<'a, Cookie>>
     {
         assert!(self.signers.len() > 0, "The constructor adds a signer.");
         assert!(self.inner.is_some(), "The constructor adds an inner writer.");
@@ -426,7 +440,7 @@ impl<'a> Signer<'a> {
             }
         }
 
-        Ok(writer::Stack::from(Box::new(self)))
+        Ok(Message::from(Box::new(self)))
     }
 
     fn emit_signatures(&mut self) -> Result<()> {
@@ -583,7 +597,7 @@ pub struct LiteralWriter<'a> {
 
 impl<'a> LiteralWriter<'a> {
     /// Creates a new literal writer.
-    pub fn new(inner: writer::Stack<'a, Cookie>) -> Self {
+    pub fn new(inner: Message<'a, Cookie>) -> Self {
         LiteralWriter {
             template: Literal::new(DataFormat::default()),
             inner: writer::BoxStack::from(inner),
@@ -620,7 +634,7 @@ impl<'a> LiteralWriter<'a> {
     /// be authenticated by signatures (but will be authenticated by a
     /// SEIP/MDC container), and are therefore unreliable and should
     /// not be trusted.
-    pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>> {
+    pub fn build(mut self) -> Result<Message<'a, Cookie>> {
         let level = self.inner.cookie_ref().level + 1;
 
         // For historical reasons, signatures over literal data
@@ -651,13 +665,13 @@ impl<'a> LiteralWriter<'a> {
 
         // Neither is any framing added by the PartialBodyFilter.
         self.inner
-            = PartialBodyFilter::new(writer::Stack::from(self.inner),
+            = PartialBodyFilter::new(Message::from(self.inner),
                                      Cookie::new(level)).into();
 
         // Nor the headers.
         self.template.serialize_headers(&mut self.inner, false)?;
 
-        Ok(writer::Stack::from(Box::new(self)))
+        Ok(Message::from(Box::new(self)))
     }
 }
 
@@ -770,7 +784,7 @@ impl<'a> Compressor<'a> {
     ///
     /// Passing `None` to `compression_level` selects the default
     /// compression level.
-    pub fn new(inner: writer::Stack<'a, Cookie>) -> Self {
+    pub fn new(inner: Message<'a, Cookie>) -> Self {
         Self {
             algo: Default::default(),
             level: Default::default(),
@@ -791,13 +805,13 @@ impl<'a> Compressor<'a> {
     }
 
     /// Finalizes the compressor, returning the writer stack.
-    pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>> {
+    pub fn build(mut self) -> Result<Message<'a, Cookie>> {
         let level = self.inner.cookie_ref().level + 1;
 
         // Packet header.
         CTB::new(Tag::CompressedData).serialize(&mut self.inner)?;
-        let inner: writer::Stack<'a, Cookie>
-            = PartialBodyFilter::new(writer::Stack::from(self.inner),
+        let inner: Message<'a, Cookie>
+            = PartialBodyFilter::new(Message::from(self.inner),
                                      Cookie::new(level));
 
         Self::new_naked(inner, self.algo, self.level, level)
@@ -806,17 +820,17 @@ impl<'a> Compressor<'a> {
 
     /// Creates a new compressor using the given algorithm.
     pub(crate) // For CompressedData::serialize.
-    fn new_naked(mut inner: writer::Stack<'a, Cookie>,
+    fn new_naked(mut inner: Message<'a, Cookie>,
                  algo: CompressionAlgorithm,
                  compression_level: writer::CompressionLevel,
                  level: usize)
-                 -> Result<writer::Stack<'a, Cookie>>
+                 -> Result<Message<'a, Cookie>>
     {
         // Compressed data header.
         inner.as_mut().write_u8(algo.into())?;
 
         // Create an appropriate filter.
-        let inner: writer::Stack<'a, Cookie> = match algo {
+        let inner: Message<'a, Cookie> = match algo {
             CompressionAlgorithm::Uncompressed => {
                 // Avoid warning about unused value if compiled
                 // without any compression support.
@@ -836,7 +850,7 @@ impl<'a> Compressor<'a> {
                 return Err(Error::UnsupportedCompressionAlgorithm(a).into()),
         };
 
-        Ok(writer::Stack::from(Box::new(Self {
+        Ok(Message::from(Box::new(Self {
             algo,
             level: compression_level,
             inner: inner.into(),
@@ -1027,7 +1041,7 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn for_recipient(inner: writer::Stack<'a, Cookie>,
+    pub fn for_recipient(inner: Message<'a, Cookie>,
                          recipient: Recipient<'a>) -> Self {
         Self {
             inner: Some(inner.into()),
@@ -1076,7 +1090,7 @@ impl<'a> Encryptor<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_password(inner: writer::Stack<'a, Cookie>,
+    pub fn with_password(inner: Message<'a, Cookie>,
                          password: Password) -> Self {
         Self {
             inner: Some(inner.into()),
@@ -1121,7 +1135,7 @@ impl<'a> Encryptor<'a> {
     const AEAD_CHUNK_SIZE : usize = 4096;
 
     /// Finalizes the encryptor, returning the writer stack.
-    pub fn build(mut self) -> Result<writer::Stack<'a, Cookie>> {
+    pub fn build(mut self) -> Result<Message<'a, Cookie>> {
         assert!(self.recipients.len() + self.passwords.len() > 0,
                 "The constructors add at least one recipient or password");
 
@@ -1175,7 +1189,7 @@ impl<'a> Encryptor<'a> {
         if let Some(aead) = aead {
             // Write the AED packet.
             CTB::new(Tag::AED).serialize(&mut inner)?;
-            let mut inner = PartialBodyFilter::new(writer::Stack::from(inner),
+            let mut inner = PartialBodyFilter::new(Message::from(inner),
                                                    Cookie::new(level));
             let aed = AED1::new(self.sym_algo, aead.algo, aead.chunk_size, aead.nonce)?;
             aed.serialize_headers(&mut inner)?;
@@ -1192,7 +1206,7 @@ impl<'a> Encryptor<'a> {
         } else {
             // Write the SEIP packet.
             CTB::new(Tag::SEIP).serialize(&mut inner)?;
-            let mut inner = PartialBodyFilter::new(writer::Stack::from(inner),
+            let mut inner = PartialBodyFilter::new(Message::from(inner),
                                                    Cookie::new(level));
             inner.write_all(&[1])?; // Version.
 
@@ -1214,7 +1228,7 @@ impl<'a> Encryptor<'a> {
             self.write_all(&iv)?;
             self.write_all(&iv[iv.len() - 2..])?;
 
-            Ok(writer::Stack::from(Box::new(self)))
+            Ok(Message::from(Box::new(self)))
         }
     }
 

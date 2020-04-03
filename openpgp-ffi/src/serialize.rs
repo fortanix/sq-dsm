@@ -25,7 +25,6 @@ use crate::RefMutRaw;
 
 use self::openpgp::serialize::{
     stream::{
-        writer,
         Message,
         Cookie,
         ArbitraryWriter,
@@ -42,13 +41,13 @@ use super::cert::ValidKeyAmalgamationIterWrapper;
 
 /// Streams an OpenPGP message.
 ///
-/// The returned `writer::Stack` does not take ownership of the
+/// The returned `Message` does not take ownership of the
 /// `Writer`; the caller must free it after destroying the
-/// `writer::Stack`.
+/// `Message`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_writer_stack_message
     (writer: *mut super::io::Writer)
-     -> *mut writer::Stack<'static, Cookie>
+     -> *mut Message<'static, Cookie>
 {
     box_raw!(Message::new(writer.ref_mut_raw()))
 }
@@ -57,7 +56,7 @@ pub extern "C" fn pgp_writer_stack_message
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_writer_stack_write
     (errp: Option<&mut *mut crate::error::Error>,
-     writer: *mut writer::Stack<'static, Cookie>,
+     writer: *mut Message<'static, Cookie>,
      buf: *const u8, len: size_t)
      -> ssize_t
 {
@@ -78,7 +77,7 @@ pub extern "C" fn pgp_writer_stack_write
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_writer_stack_write_all
     (errp: Option<&mut *mut crate::error::Error>,
-     writer: *mut writer::Stack<'static, Cookie>,
+     writer: *mut Message<'static, Cookie>,
      buf: *const u8, len: size_t)
      -> Status
 {
@@ -95,8 +94,8 @@ pub extern "C" fn pgp_writer_stack_write_all
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_writer_stack_finalize_one
     (errp: Option<&mut *mut crate::error::Error>,
-     writer: *mut writer::Stack<'static, Cookie>)
-     -> *mut writer::Stack<'static, Cookie>
+     writer: *mut Message<'static, Cookie>)
+     -> *mut Message<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
     if !writer.is_null() {
@@ -111,7 +110,7 @@ pub extern "C" fn pgp_writer_stack_finalize_one
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_writer_stack_finalize
     (errp: Option<&mut *mut crate::error::Error>,
-     writer: *mut writer::Stack<'static, Cookie>)
+     writer: *mut Message<'static, Cookie>)
      -> Status
 {
     ffi_make_fry_from_errp!(errp);
@@ -131,9 +130,9 @@ pub extern "C" fn pgp_writer_stack_finalize
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_arbitrary_writer_new
     (errp: Option<&mut *mut crate::error::Error>,
-     inner: *mut writer::Stack<'static, Cookie>,
+     inner: *mut Message<'static, Cookie>,
      tag: u8)
-     -> *mut writer::Stack<'static, Cookie>
+     -> *mut Message<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
@@ -154,11 +153,11 @@ pub extern "C" fn pgp_arbitrary_writer_new
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_signer_new
     (errp: Option<&mut *mut crate::error::Error>,
-     inner: *mut writer::Stack<'static, Cookie>,
+     inner: *mut Message<'static, Cookie>,
      signers: *const *mut Box<dyn self::openpgp::crypto::Signer>,
      signers_len: size_t,
      hash_algo: u8)
-     -> *mut writer::Stack<'static, Cookie>
+     -> *mut Message<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
@@ -191,11 +190,11 @@ pub extern "C" fn pgp_signer_new
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_signer_new_detached
     (errp: Option<&mut *mut crate::error::Error>,
-     inner: *mut writer::Stack<'static, Cookie>,
+     inner: *mut Message<'static, Cookie>,
      signers: *const *mut Box<dyn self::openpgp::crypto::Signer>,
      signers_len: size_t,
      hash_algo: u8)
-     -> *mut writer::Stack<'static, Cookie>
+     -> *mut Message<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
@@ -229,8 +228,8 @@ pub extern "C" fn pgp_signer_new_detached
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_literal_writer_new
     (errp: Option<&mut *mut crate::error::Error>,
-     inner: *mut writer::Stack<'static, Cookie>)
-     -> *mut writer::Stack<'static, Cookie>
+     inner: *mut Message<'static, Cookie>)
+     -> *mut Message<'static, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);
@@ -351,12 +350,12 @@ fn pgp_recipients_from_valid_key_iter<'a>(
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_encryptor_new<'a>
     (errp: Option<&mut *mut crate::error::Error>,
-     inner: *mut writer::Stack<'a, Cookie>,
+     inner: *mut Message<'a, Cookie>,
      passwords: Option<&*const c_char>, passwords_len: size_t,
      recipients: Option<&*mut Recipient<'a>>, recipients_len: size_t,
      cipher_algo: u8,
      aead_algo: u8)
-     -> *mut writer::Stack<'a, Cookie>
+     -> *mut Message<'a, Cookie>
 {
     ffi_make_fry_from_errp!(errp);
     let inner = ffi_param_move!(inner);

@@ -51,6 +51,7 @@ use crate::serialize::{
     stream::{
         writer,
         Cookie,
+        Message,
         PartialBodyFilter,
     },
 };
@@ -132,26 +133,26 @@ pub struct Padder<'a, P: Fn(u64) -> u64 + 'a> {
 
 impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
     /// Creates a new padder with the given policy.
-    pub fn new(inner: writer::Stack<'a, Cookie>, p: P)
-               -> Result<writer::Stack<'a, Cookie>> {
+    pub fn new(inner: Message<'a, Cookie>, p: P)
+               -> Result<Message<'a, Cookie>> {
         let mut inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
 
         // Packet header.
         CTB::new(Tag::CompressedData).serialize(&mut inner)?;
-        let mut inner: writer::Stack<'a, Cookie>
-            = PartialBodyFilter::new(writer::Stack::from(inner),
+        let mut inner: Message<'a, Cookie>
+            = PartialBodyFilter::new(Message::from(inner),
                                      Cookie::new(level));
 
         // Compressed data header.
         inner.as_mut().write_u8(CompressionAlgorithm::Zip.into())?;
 
         // Create an appropriate filter.
-        let inner: writer::Stack<'a, Cookie> =
+        let inner: Message<'a, Cookie> =
             writer::ZIP::new(inner, Cookie::new(level),
                              writer::CompressionLevel::none());
 
-        Ok(writer::Stack::from(Box::new(Self {
+        Ok(Message::from(Box::new(Self {
             inner: inner.into(),
             policy: p,
         })))

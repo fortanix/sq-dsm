@@ -23,14 +23,11 @@ use crate::{
     Result,
     crypto::SessionKey,
 };
+use super::Message;
 
-/// A stack of writers.
-#[derive(Debug)]
-pub struct Stack<'a, C>(BoxStack<'a, C>);
-
-impl<'a, C> Stack<'a, C> {
+impl<'a, C> Message<'a, C> {
     pub(crate) fn from(bs: BoxStack<'a, C>) -> Self {
-        Stack(bs)
+        Message(bs)
     }
 
     pub(crate) fn as_ref(&self) -> &BoxStack<'a, C> {
@@ -40,23 +37,9 @@ impl<'a, C> Stack<'a, C> {
     pub(crate) fn as_mut(&mut self) -> &mut BoxStack<'a, C> {
         &mut self.0
     }
-
-    /// Finalizes this writer, returning the underlying writer.
-    pub fn finalize_one(self) -> Result<Option<Stack<'a, C>>> {
-        Ok(self.0.into_inner()?.map(|bs| Self::from(bs)))
-    }
-
-    /// Finalizes all writers, tearing down the whole stack.
-    pub fn finalize(self) -> Result<()> {
-        let mut stack = self;
-        while let Some(s) = stack.finalize_one()? {
-            stack = s;
-        }
-        Ok(())
-    }
 }
 
-impl<'a, C> io::Write for Stack<'a, C> {
+impl<'a, C> io::Write for Message<'a, C> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.0.write(buf)
     }
@@ -66,8 +49,8 @@ impl<'a, C> io::Write for Stack<'a, C> {
     }
 }
 
-impl<'a, C> From<Stack<'a, C>> for BoxStack<'a, C> {
-    fn from(s: Stack<'a, C>) -> Self {
+impl<'a, C> From<Message<'a, C>> for BoxStack<'a, C> {
+    fn from(s: Message<'a, C>) -> Self {
         s.0
     }
 }
@@ -214,9 +197,9 @@ pub struct Identity<'a, C> {
 
 impl<'a, C: 'a> Identity<'a, C> {
     /// Makes an identity writer.
-    pub fn new(inner: Stack<'a, C>, cookie: C)
-                  -> Stack<'a, C> {
-        Stack::from(Box::new(Self{inner: Some(inner.into()), cookie }))
+    pub fn new(inner: Message<'a, C>, cookie: C)
+                  -> Message<'a, C> {
+        Message::from(Box::new(Self{inner: Some(inner.into()), cookie }))
     }
 }
 
@@ -294,8 +277,8 @@ pub struct Generic<W: io::Write, C> {
 
 impl<'a, W: 'a + io::Write, C: 'a> Generic<W, C> {
     /// Wraps an `io::Write`r.
-    pub fn new(inner: W, cookie: C) -> Stack<'a, C> {
-        Stack::from(Box::new(Self::new_unboxed(inner.into(), cookie)))
+    pub fn new(inner: W, cookie: C) -> Message<'a, C> {
+        Message::from(Box::new(Self::new_unboxed(inner.into(), cookie)))
     }
 
     fn new_unboxed(inner: W, cookie: C) -> Self {
@@ -378,11 +361,11 @@ pub struct Encryptor<'a, C: 'a> {
 
 impl<'a, C: 'a> Encryptor<'a, C> {
     /// Makes an encrypting writer.
-    pub fn new(inner: Stack<'a, C>, cookie: C, algo: SymmetricAlgorithm,
+    pub fn new(inner: Message<'a, C>, cookie: C, algo: SymmetricAlgorithm,
                key: &[u8])
-        -> Result<Stack<'a, C>>
+        -> Result<Message<'a, C>>
     {
-        Ok(Stack::from(Box::new(Encryptor {
+        Ok(Message::from(Box::new(Encryptor {
             inner: Generic::new_unboxed(
                 symmetric::Encryptor::new(algo, key, inner.into())?,
                 cookie),
@@ -449,12 +432,12 @@ pub struct AEADEncryptor<'a, C: 'a> {
 
 impl<'a, C: 'a> AEADEncryptor<'a, C> {
     /// Makes an encrypting writer.
-    pub fn new(inner: Stack<'a, C>, cookie: C,
+    pub fn new(inner: Message<'a, C>, cookie: C,
                cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
                chunk_size: usize, iv: &[u8], key: &SessionKey)
-        -> Result<Stack<'a, C>>
+        -> Result<Message<'a, C>>
     {
-        Ok(Stack::from(Box::new(AEADEncryptor {
+        Ok(Message::from(Box::new(AEADEncryptor {
             inner: Generic::new_unboxed(
                 aead::Encryptor::new(1, cipher, aead, chunk_size, iv, key,
                                      inner.into())?,

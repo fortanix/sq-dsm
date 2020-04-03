@@ -10,7 +10,10 @@ use crate::Result;
 use crate::packet::header::BodyLength;
 use crate::serialize::{
     log2,
-    stream::writer,
+    stream::{
+        writer,
+        Message,
+    },
     write_byte,
     Marshal,
 };
@@ -48,8 +51,8 @@ const PARTIAL_BODY_FILTER_BUFFER_THRESHOLD : usize = 4 * 1024 * 1024;
 
 impl<'a, C: 'a> PartialBodyFilter<'a, C> {
     /// Returns a new partial body encoder.
-    pub fn new(inner: writer::Stack<'a, C>, cookie: C)
-               -> writer::Stack<'a, C> {
+    pub fn new(inner: Message<'a, C>, cookie: C)
+               -> Message<'a, C> {
         Self::with_limits(inner, cookie,
                           PARTIAL_BODY_FILTER_BUFFER_THRESHOLD,
                           PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE)
@@ -57,10 +60,10 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
     }
 
     /// Returns a new partial body encoder with the given limits.
-    pub fn with_limits(inner: writer::Stack<'a, C>, cookie: C,
+    pub fn with_limits(inner: Message<'a, C>, cookie: C,
                        buffer_threshold: usize,
                        max_chunk_size: usize)
-                       -> Result<writer::Stack<'a, C>> {
+                       -> Result<Message<'a, C>> {
         if buffer_threshold.count_ones() != 1 {
             return Err(Error::InvalidArgument(
                 "buffer_threshold is not a power of two".into()).into());
@@ -76,7 +79,7 @@ impl<'a, C: 'a> PartialBodyFilter<'a, C> {
                 "max_chunk_size exceeds limit".into()).into());
         }
 
-        Ok(writer::Stack::from(Box::new(PartialBodyFilter {
+        Ok(Message::from(Box::new(PartialBodyFilter {
             inner: Some(inner.into()),
             cookie,
             buffer: Vec::with_capacity(buffer_threshold),
