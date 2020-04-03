@@ -622,9 +622,9 @@ impl<'a> LiteralWriter<'a> {
     }
 
     /// Sets the data format.
-    pub fn date(mut self, timestamp: SystemTime) -> Result<Self>
+    pub fn date<T: Into<SystemTime>>(mut self, timestamp: T) -> Result<Self>
     {
-        self.template.set_date(Some(timestamp))?;
+        self.template.set_date(Some(timestamp.into()))?;
         Ok(self)
     }
 
