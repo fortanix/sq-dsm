@@ -65,12 +65,6 @@ pub type PrimaryKeyBundle<KeyPart> =
 pub type SubkeyBundle<KeyPart>
     = KeyBundle<KeyPart, key::SubordinateRole>;
 
-/// A key (primary or subkey, public or private) and any associated
-/// signatures.
-#[allow(dead_code)]
-type GenericKeyBinding
-    = ComponentBundle<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
-
 /// A User ID and any associated signatures.
 pub type UserIDBundle = ComponentBundle<UserID>;
 
