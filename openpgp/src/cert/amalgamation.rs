@@ -35,11 +35,19 @@ use crate::{
     },
 };
 
+
+mod iter;
+pub use iter::{
+    ComponentAmalgamationIter,
+    ValidComponentAmalgamationIter,
+};
+
 mod keyiter;
 pub use keyiter::{
     KeyAmalgamationIter,
     ValidKeyAmalgamationIter,
 };
+
 mod key;
 pub use key::{
     ErasedKeyAmalgamation,
@@ -584,7 +592,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     /// Returns the amalgamated primary component at time `time`
     ///
     /// If `time` is None, then the current time is used.
-    /// `ValidComponentBundleIter` for the definition of a valid component.
+    /// `ValidComponentAmalgamationIter` for the definition of a valid component.
     ///
     /// The primary component is determined by taking the components that
     /// are alive at time `t`, and sorting them as follows:

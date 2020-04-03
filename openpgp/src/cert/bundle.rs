@@ -25,12 +25,6 @@ use super::{
     canonical_signature_order,
 };
 
-mod iter;
-pub use iter::{
-    ComponentBundleIter,
-    ValidComponentBundleIter,
-};
-
 /// A Cert component binding.
 ///
 /// A Cert component is a primary key, a subkey, a user id, or a user

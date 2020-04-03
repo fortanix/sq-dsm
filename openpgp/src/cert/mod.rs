@@ -640,8 +640,8 @@ impl Cert {
     }
 
     /// Returns an iterator over the Cert's userids.
-    pub fn userids(&self) -> ComponentBundleIter<UserID> {
-        ComponentBundleIter::new(self, self.userids.iter())
+    pub fn userids(&self) -> ComponentAmalgamationIter<UserID> {
+        ComponentAmalgamationIter::new(self, self.userids.iter())
     }
 
     /// Returns the amalgamated primary user attribute at `t`, if any.
@@ -655,20 +655,20 @@ impl Cert {
     }
 
     /// Returns an iterator over the Cert's `UserAttributeBundle`s.
-    pub fn user_attributes(&self) -> ComponentBundleIter<UserAttribute> {
-        ComponentBundleIter::new(self, self.user_attributes.iter())
+    pub fn user_attributes(&self) -> ComponentAmalgamationIter<UserAttribute> {
+        ComponentAmalgamationIter::new(self, self.user_attributes.iter())
     }
 
     /// Returns an iterator over the Cert's subkeys.
-    pub(crate) fn subkeys(&self) -> ComponentBundleIter<Key<key::PublicParts,
+    pub(crate) fn subkeys(&self) -> ComponentAmalgamationIter<Key<key::PublicParts,
                                                       key::SubordinateRole>>
     {
-        ComponentBundleIter::new(self, self.subkeys.iter())
+        ComponentAmalgamationIter::new(self, self.subkeys.iter())
     }
 
     /// Returns an iterator over the Cert's unknown components.
-    pub fn unknowns(&self) -> ComponentBundleIter<Unknown> {
-        ComponentBundleIter::new(self, self.unknowns.iter())
+    pub fn unknowns(&self) -> ComponentAmalgamationIter<Unknown> {
+        ComponentAmalgamationIter::new(self, self.unknowns.iter())
     }
 
     /// Returns a slice containing all bad signatures.
@@ -1481,7 +1481,7 @@ impl<'a> ValidCert<'a> {
     }
 
     /// Returns an iterator over the Cert's userids.
-    pub fn userids(&self) -> ValidComponentBundleIter<UserID> {
+    pub fn userids(&self) -> ValidComponentAmalgamationIter<UserID> {
         self.cert.userids().with_policy(self.policy, self.time)
     }
 
@@ -1493,7 +1493,7 @@ impl<'a> ValidCert<'a> {
     }
 
     /// Returns an iterator over the Cert's `UserAttributeBundle`s.
-    pub fn user_attributes(&self) -> ValidComponentBundleIter<UserAttribute> {
+    pub fn user_attributes(&self) -> ValidComponentAmalgamationIter<UserAttribute> {
         self.cert.user_attributes().with_policy(self.policy, self.time)
     }
 }
