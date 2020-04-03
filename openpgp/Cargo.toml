@@ -37,7 +37,7 @@ quickcheck = { version = "0.9", default-features = false }
 rand = { version = "0.7", default-features = false }
 regex = "1"
 thiserror = "1"
-unicode-normalization = "< 0.1.10"
+unicode-normalization = "= 0.1.9"
 
 [build-dependencies]
 lalrpop = "0.17"

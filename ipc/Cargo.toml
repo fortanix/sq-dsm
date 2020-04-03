@@ -37,6 +37,7 @@ tokio = "0.1"
 tokio-core = "0.1"
 tokio-io = "0.1.4"
 parity-tokio-ipc = "0.4"
+socket2 = "= 0.3.11"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", default-features = false, features = ["winsock2"] }
