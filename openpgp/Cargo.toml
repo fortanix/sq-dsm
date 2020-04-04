@@ -32,7 +32,7 @@ lalrpop-util = "0.17"
 lazy_static = "1.3"
 libc = "0.2"
 memsec = "0.5.6"
-nettle = "7"
+nettle = { version = "7", optional = true }
 quickcheck = { version = "0.9", default-features = false }
 rand = { version = "0.7", default-features = false }
 regex = "1"
@@ -46,7 +46,9 @@ lalrpop = "0.17"
 rpassword = "=4.0.3"
 
 [features]
-default = ["compression"]
+default = ["compression", "crypto-nettle"]
+# TODO(#333): Allow for/implement more backends
+crypto-nettle = ["nettle"]
 
 # The compression algorithms.
 compression = ["compression-deflate", "compression-bzip2"]

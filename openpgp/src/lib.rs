@@ -54,6 +54,9 @@ extern crate lazy_static;
 #[macro_use]
 mod macros;
 
+#[cfg(not(feature = "crypto-nettle"))]
+compile_error!("Sequoia currently requires the Nettle cryptographic library for now");
+
 // On debug builds, Vec<u8>::truncate is very, very slow.  For
 // instance, running the decrypt_test_stream test takes 51 seconds on
 // my (Neal's) computer using Vec<u8>::truncate and <0.1 seconds using
