@@ -3,7 +3,7 @@ use std::io::{self, Read};
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::types::{Duration, Timestamp, SymmetricAlgorithm};
 use self::openpgp::fmt::hex;
-use self::openpgp::crypto::mpis;
+use self::openpgp::crypto::mpi;
 use self::openpgp::{Packet, Result};
 use self::openpgp::packet::prelude::*;
 use self::openpgp::packet::header::CTB;
@@ -307,35 +307,35 @@ impl PacketDumper {
 
                 let ii = format!("{}    ", i);
                 match k.mpis() {
-                    mpis::PublicKey::RSA { e, n } =>
+                    mpi::PublicKey::RSA { e, n } =>
                         pd.dump_mpis(output, &ii,
                                        &[e.value(), n.value()],
                                        &["e", "n"])?,
-                    mpis::PublicKey::DSA { p, q, g, y } =>
+                    mpi::PublicKey::DSA { p, q, g, y } =>
                         pd.dump_mpis(output, &ii,
                                        &[p.value(), q.value(), g.value(),
                                          y.value()],
                                        &["p", "q", "g", "y"])?,
-                    mpis::PublicKey::ElGamal { p, g, y } =>
+                    mpi::PublicKey::ElGamal { p, g, y } =>
                         pd.dump_mpis(output, &ii,
                                        &[p.value(), g.value(), y.value()],
                                        &["p", "g", "y"])?,
-                    mpis::PublicKey::EdDSA { curve, q } => {
+                    mpi::PublicKey::EdDSA { curve, q } => {
                         writeln!(output, "{}  Curve: {}", ii, curve)?;
                         pd.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                     },
-                    mpis::PublicKey::ECDSA { curve, q } => {
+                    mpi::PublicKey::ECDSA { curve, q } => {
                         writeln!(output, "{}  Curve: {}", ii, curve)?;
                         pd.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                     },
-                    mpis::PublicKey::ECDH { curve, q, hash, sym } => {
+                    mpi::PublicKey::ECDH { curve, q, hash, sym } => {
                         writeln!(output, "{}  Curve: {}", ii, curve)?;
                         writeln!(output, "{}  Hash algo: {}", ii, hash)?;
                         writeln!(output, "{}  Symmetric algo: {}", ii,
                                  sym)?;
                         pd.dump_mpis(output, &ii, &[q.value()], &["q"])?;
                     },
-                    mpis::PublicKey::Unknown { mpis, rest } => {
+                    mpi::PublicKey::Unknown { mpis, rest } => {
                         let keys: Vec<String> =
                             (0..mpis.len()).map(
                                 |i| format!("mpi{}", i)).collect();
@@ -350,7 +350,7 @@ impl PacketDumper {
 
                         pd.dump_mpis(output, &ii, &[&rest[..]], &["rest"])?;
                     },
-                    mpis::PublicKey::__Nonexhaustive => unreachable!(),
+                    mpi::PublicKey::__Nonexhaustive => unreachable!(),
                 }
 
                 if let Some(secrets) = k.optional_secret() {
@@ -364,30 +364,30 @@ impl PacketDumper {
                             |mpis| -> Result<()> {
                                 match mpis
                                 {
-                                    mpis::SecretKeyMaterial::RSA { d, p, q, u } =>
+                                    mpi::SecretKeyMaterial::RSA { d, p, q, u } =>
                                         pd.dump_mpis(output, &ii,
                                                        &[d.value(), p.value(),
                                                          q.value(), u.value()],
                                                        &["d", "p", "q", "u"])?,
-                                    mpis::SecretKeyMaterial::DSA { x } =>
+                                    mpi::SecretKeyMaterial::DSA { x } =>
                                         pd.dump_mpis(output, &ii, &[x.value()],
                                                        &["x"])?,
-                                    mpis::SecretKeyMaterial::ElGamal { x } =>
+                                    mpi::SecretKeyMaterial::ElGamal { x } =>
                                         pd.dump_mpis(output, &ii, &[x.value()],
                                                        &["x"])?,
-                                    mpis::SecretKeyMaterial::EdDSA { scalar } =>
+                                    mpi::SecretKeyMaterial::EdDSA { scalar } =>
                                         pd.dump_mpis(output, &ii,
                                                        &[scalar.value()],
                                                        &["scalar"])?,
-                                    mpis::SecretKeyMaterial::ECDSA { scalar } =>
+                                    mpi::SecretKeyMaterial::ECDSA { scalar } =>
                                         pd.dump_mpis(output, &ii,
                                                        &[scalar.value()],
                                                        &["scalar"])?,
-                                    mpis::SecretKeyMaterial::ECDH { scalar } =>
+                                    mpi::SecretKeyMaterial::ECDH { scalar } =>
                                         pd.dump_mpis(output, &ii,
                                                        &[scalar.value()],
                                                        &["scalar"])?,
-                                    mpis::SecretKeyMaterial::Unknown { mpis, rest } => {
+                                    mpi::SecretKeyMaterial::Unknown { mpis, rest } => {
                                         let keys: Vec<String> =
                                             (0..mpis.len()).map(
                                                 |i| format!("mpi{}", i)).collect();
@@ -403,7 +403,7 @@ impl PacketDumper {
                                         pd.dump_mpis(output, &ii, &[rest],
                                                        &["rest"])?;
                                     },
-                                    mpis::SecretKeyMaterial::__Nonexhaustive =>
+                                    mpi::SecretKeyMaterial::__Nonexhaustive =>
                                         unreachable!(),
                                 } Ok(()) })?,
                         SecretKeyMaterial::Encrypted(ref e) => {
@@ -466,27 +466,27 @@ impl PacketDumper {
 
                     let ii = format!("{}    ", i);
                     match s.mpis() {
-                        mpis::Signature::RSA { s } =>
+                        mpi::Signature::RSA { s } =>
                             self.dump_mpis(output, &ii,
                                            &[s.value()],
                                            &["s"])?,
-                        mpis::Signature::DSA { r, s } =>
+                        mpi::Signature::DSA { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        mpis::Signature::ElGamal { r, s } =>
+                        mpi::Signature::ElGamal { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        mpis::Signature::EdDSA { r, s } =>
+                        mpi::Signature::EdDSA { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        mpis::Signature::ECDSA { r, s } =>
+                        mpi::Signature::ECDSA { r, s } =>
                             self.dump_mpis(output, &ii,
                                            &[r.value(), s.value()],
                                            &["r", "s"])?,
-                        mpis::Signature::Unknown { mpis, rest } => {
+                        mpi::Signature::Unknown { mpis, rest } => {
                             let keys: Vec<String> =
                                 (0..mpis.len()).map(
                                     |i| format!("mpi{}", i)).collect();
@@ -501,7 +501,7 @@ impl PacketDumper {
 
                             self.dump_mpis(output, &ii, &[&rest[..]], &["rest"])?;
                         },
-                        mpis::Signature::__Nonexhaustive => unreachable!(),
+                        mpi::Signature::__Nonexhaustive => unreachable!(),
 
                     }
                 }
@@ -584,19 +584,19 @@ impl PacketDumper {
 
                     let ii = format!("{}    ", i);
                     match p.esk() {
-                        mpis::Ciphertext::RSA { c } =>
+                        mpi::Ciphertext::RSA { c } =>
                             self.dump_mpis(output, &ii,
                                            &[c.value()],
                                            &["c"])?,
-                        mpis::Ciphertext::ElGamal { e, c } =>
+                        mpi::Ciphertext::ElGamal { e, c } =>
                             self.dump_mpis(output, &ii,
                                            &[e.value(), c.value()],
                                            &["e", "c"])?,
-                        mpis::Ciphertext::ECDH { e, key } =>
+                        mpi::Ciphertext::ECDH { e, key } =>
                             self.dump_mpis(output, &ii,
                                            &[e.value(), key],
                                            &["e", "key"])?,
-                        mpis::Ciphertext::Unknown { mpis, rest } => {
+                        mpi::Ciphertext::Unknown { mpis, rest } => {
                             let keys: Vec<String> =
                                 (0..mpis.len()).map(
                                     |i| format!("mpi{}", i)).collect();
@@ -611,7 +611,7 @@ impl PacketDumper {
 
                             self.dump_mpis(output, &ii, &[rest], &["rest"])?;
                         },
-                        mpis::Ciphertext::__Nonexhaustive => unreachable!(),
+                        mpi::Ciphertext::__Nonexhaustive => unreachable!(),
                     }
                 }
             },

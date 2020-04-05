@@ -847,7 +847,7 @@ impl MarshalInto for Fingerprint {
     }
 }
 
-impl Marshal for crypto::mpis::MPI {
+impl Marshal for crypto::mpi::MPI {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         write_be_u16(w, self.bits() as u16)?;
         w.write_all(self.value())?;
@@ -855,7 +855,7 @@ impl Marshal for crypto::mpis::MPI {
     }
 }
 
-impl MarshalInto for crypto::mpis::MPI {
+impl MarshalInto for crypto::mpi::MPI {
     fn serialized_len(&self) -> usize {
         2 + self.value().len()
     }
@@ -865,7 +865,7 @@ impl MarshalInto for crypto::mpis::MPI {
     }
 }
 
-impl Marshal for crypto::mpis::ProtectedMPI {
+impl Marshal for crypto::mpi::ProtectedMPI {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         write_be_u16(w, self.bits() as u16)?;
         w.write_all(self.value())?;
@@ -873,7 +873,7 @@ impl Marshal for crypto::mpis::ProtectedMPI {
     }
 }
 
-impl MarshalInto for crypto::mpis::ProtectedMPI {
+impl MarshalInto for crypto::mpi::ProtectedMPI {
     fn serialized_len(&self) -> usize {
         2 + self.value().len()
     }
@@ -883,9 +883,9 @@ impl MarshalInto for crypto::mpis::ProtectedMPI {
     }
 }
 
-impl Marshal for crypto::mpis::PublicKey {
+impl Marshal for crypto::mpi::PublicKey {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crate::crypto::mpis::PublicKey::*;
+        use crate::crypto::mpi::PublicKey::*;
 
         match self {
             &RSA { ref e, ref n } => {
@@ -939,9 +939,9 @@ impl Marshal for crypto::mpis::PublicKey {
     }
 }
 
-impl MarshalInto for crypto::mpis::PublicKey {
+impl MarshalInto for crypto::mpi::PublicKey {
     fn serialized_len(&self) -> usize {
-        use crate::crypto::mpis::PublicKey::*;
+        use crate::crypto::mpi::PublicKey::*;
         match self {
             &RSA { ref e, ref n } => {
                 n.serialized_len() + e.serialized_len()
@@ -982,9 +982,9 @@ impl MarshalInto for crypto::mpis::PublicKey {
     }
 }
 
-impl Marshal for crypto::mpis::SecretKeyMaterial {
+impl Marshal for crypto::mpi::SecretKeyMaterial {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crate::crypto::mpis::SecretKeyMaterial::*;
+        use crate::crypto::mpi::SecretKeyMaterial::*;
 
         match self {
             &RSA{ ref d, ref p, ref q, ref u } => {
@@ -1028,9 +1028,9 @@ impl Marshal for crypto::mpis::SecretKeyMaterial {
     }
 }
 
-impl MarshalInto for crypto::mpis::SecretKeyMaterial {
+impl MarshalInto for crypto::mpi::SecretKeyMaterial {
     fn serialized_len(&self) -> usize {
-        use crate::crypto::mpis::SecretKeyMaterial::*;
+        use crate::crypto::mpi::SecretKeyMaterial::*;
         match self {
             &RSA{ ref d, ref p, ref q, ref u } => {
                 d.serialized_len() + p.serialized_len() + q.serialized_len()
@@ -1071,7 +1071,7 @@ impl MarshalInto for crypto::mpis::SecretKeyMaterial {
     }
 }
 
-impl crypto::mpis::SecretKeyMaterial {
+impl crypto::mpi::SecretKeyMaterial {
     /// Writes this secret key with a checksum to `w`.
     pub fn serialize_chksumd<W: io::Write>(&self, w: &mut W) -> Result<()> {
         // First, the MPIs.
@@ -1088,9 +1088,9 @@ impl crypto::mpis::SecretKeyMaterial {
     }
 }
 
-impl Marshal for crypto::mpis::Ciphertext {
+impl Marshal for crypto::mpi::Ciphertext {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crate::crypto::mpis::Ciphertext::*;
+        use crate::crypto::mpi::Ciphertext::*;
 
         match self {
             &RSA{ ref c } => {
@@ -1123,9 +1123,9 @@ impl Marshal for crypto::mpis::Ciphertext {
     }
 }
 
-impl MarshalInto for crypto::mpis::Ciphertext {
+impl MarshalInto for crypto::mpi::Ciphertext {
     fn serialized_len(&self) -> usize {
-        use crate::crypto::mpis::Ciphertext::*;
+        use crate::crypto::mpi::Ciphertext::*;
         match self {
             &RSA{ ref c } => {
                 c.serialized_len()
@@ -1153,9 +1153,9 @@ impl MarshalInto for crypto::mpis::Ciphertext {
     }
 }
 
-impl Marshal for crypto::mpis::Signature {
+impl Marshal for crypto::mpi::Signature {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
-        use crate::crypto::mpis::Signature::*;
+        use crate::crypto::mpi::Signature::*;
 
         match self {
             &RSA { ref s } => {
@@ -1192,9 +1192,9 @@ impl Marshal for crypto::mpis::Signature {
     }
 }
 
-impl MarshalInto for crypto::mpis::Signature {
+impl MarshalInto for crypto::mpi::Signature {
     fn serialized_len(&self) -> usize {
-        use crate::crypto::mpis::Signature::*;
+        use crate::crypto::mpi::Signature::*;
         match self {
             &RSA { ref s } => {
                 s.serialized_len()

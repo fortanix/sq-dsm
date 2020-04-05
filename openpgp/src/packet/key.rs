@@ -58,7 +58,7 @@ use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
 use crate::cert::prelude::*;
-use crate::crypto::{self, mem::{self, Protected}, mpis, hash::Hash};
+use crate::crypto::{self, mem::{self, Protected}, mpi, hash::Hash};
 use crate::packet;
 use crate::packet::prelude::*;
 use crate::PublicKeyAlgorithm;
@@ -818,7 +818,7 @@ pub struct Key4<P, R>
     /// Public key algorithm of this signature.
     pk_algo: PublicKeyAlgorithm,
     /// Public key MPIs.
-    mpis: mpis::PublicKey,
+    mpis: mpi::PublicKey,
     /// Optional secret part of the key.
     secret: Option<SecretKeyMaterial>,
 
@@ -917,7 +917,7 @@ impl<R> Key4<key::PublicParts, R>
 {
     /// Creates a new OpenPGP key packet.
     pub fn new<T>(creation_time: T, pk_algo: PublicKeyAlgorithm,
-                  mpis: mpis::PublicKey)
+                  mpis: mpi::PublicKey)
                   -> Result<Self>
         where T: Into<time::SystemTime>
     {
@@ -950,11 +950,11 @@ impl<R> Key4<key::PublicParts, R>
         Self::new(
             ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::ECDH,
-            mpis::PublicKey::ECDH {
+            mpi::PublicKey::ECDH {
                 curve: Curve::Cv25519,
                 hash: hash.into().unwrap_or(HashAlgorithm::SHA512),
                 sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
-                q: mpis::MPI::new(&point),
+                q: mpi::MPI::new(&point),
             })
     }
 
@@ -973,9 +973,9 @@ impl<R> Key4<key::PublicParts, R>
         Self::new(
             ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::EdDSA,
-            mpis::PublicKey::EdDSA {
+            mpi::PublicKey::EdDSA {
                 curve: Curve::Ed25519,
-                q: mpis::MPI::new(&point),
+                q: mpi::MPI::new(&point),
             })
     }
 
@@ -990,9 +990,9 @@ impl<R> Key4<key::PublicParts, R>
         Self::new(
             ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::RSAEncryptSign,
-            mpis::PublicKey::RSA {
-                e: mpis::MPI::new(e),
-                n: mpis::MPI::new(n),
+            mpi::PublicKey::RSA {
+                e: mpi::MPI::new(e),
+                n: mpi::MPI::new(n),
             })
     }
 }
@@ -1002,7 +1002,7 @@ impl<R> Key4<SecretParts, R>
 {
     /// Creates a new OpenPGP key packet with secrets.
     pub fn with_secret<T>(creation_time: T, pk_algo: PublicKeyAlgorithm,
-                          mpis: mpis::PublicKey,
+                          mpis: mpi::PublicKey,
                           secret: SecretKeyMaterial)
                           -> Result<Self>
         where T: Into<time::SystemTime>
@@ -1041,13 +1041,13 @@ impl<R> Key4<SecretParts, R>
         Self::with_secret(
             ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::ECDH,
-            mpis::PublicKey::ECDH {
+            mpi::PublicKey::ECDH {
                 curve: Curve::Cv25519,
                 hash: hash.into().unwrap_or(HashAlgorithm::SHA512),
                 sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
-                q: mpis::MPI::new(&public_key),
+                q: mpi::MPI::new(&public_key),
             },
-            mpis::SecretKeyMaterial::ECDH {
+            mpi::SecretKeyMaterial::ECDH {
                 scalar: private_key.into(),
             }.into())
     }
@@ -1069,12 +1069,12 @@ impl<R> Key4<SecretParts, R>
         Self::with_secret(
             ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::EdDSA,
-            mpis::PublicKey::EdDSA {
+            mpi::PublicKey::EdDSA {
                 curve: Curve::Ed25519,
-                q: mpis::MPI::new(&public_key),
+                q: mpi::MPI::new(&public_key),
             },
-            mpis::SecretKeyMaterial::EdDSA {
-                scalar: mpis::MPI::new(private_key).into(),
+            mpi::SecretKeyMaterial::EdDSA {
+                scalar: mpi::MPI::new(private_key).into(),
             }.into())
     }
 
@@ -1095,22 +1095,22 @@ impl<R> Key4<SecretParts, R>
         Self::with_secret(
             ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::RSAEncryptSign,
-            mpis::PublicKey::RSA {
-                e: mpis::MPI::new(&key.e()[..]),
-                n: mpis::MPI::new(&key.n()[..]),
+            mpi::PublicKey::RSA {
+                e: mpi::MPI::new(&key.e()[..]),
+                n: mpi::MPI::new(&key.n()[..]),
             },
-            mpis::SecretKeyMaterial::RSA {
-                d: mpis::MPI::new(d).into(),
-                p: mpis::MPI::new(&a[..]).into(),
-                q: mpis::MPI::new(&b[..]).into(),
-                u: mpis::MPI::new(&c[..]).into(),
+            mpi::SecretKeyMaterial::RSA {
+                d: mpi::MPI::new(d).into(),
+                p: mpi::MPI::new(&a[..]).into(),
+                q: mpi::MPI::new(&b[..]).into(),
+                u: mpi::MPI::new(&c[..]).into(),
             }.into())
     }
 
     /// Generates a new RSA key with a public modulos of size `bits`.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
         use nettle::{rsa, random::Yarrow};
-        use crate::crypto::mpis::{MPI, PublicKey};
+        use crate::crypto::mpi::{MPI, PublicKey};
 
         let mut rng = Yarrow::default();
         let (public, private) = rsa::generate_keypair(&mut rng, bits as u32)?;
@@ -1119,7 +1119,7 @@ impl<R> Key4<SecretParts, R>
             e: MPI::new(&*public.e()).into(),
             n: MPI::new(&*public.n()).into(),
         };
-        let private_mpis = mpis::SecretKeyMaterial::RSA {
+        let private_mpis = mpi::SecretKeyMaterial::RSA {
             d: MPI::new(&*private.d()).into(),
             p: MPI::new(&*p).into(),
             q: MPI::new(&*q).into(),
@@ -1147,7 +1147,7 @@ impl<R> Key4<SecretParts, R>
             curve25519, curve25519::CURVE25519_SIZE,
             ecc, ecdh, ecdsa,
         };
-        use crate::crypto::mpis::{MPI, PublicKey};
+        use crate::crypto::mpi::{MPI, PublicKey};
         use crate::PublicKeyAlgorithm::*;
 
         let mut rng = Yarrow::default();
@@ -1165,7 +1165,7 @@ impl<R> Key4<SecretParts, R>
                     curve: Curve::Ed25519,
                     q: MPI::new(&public),
                 };
-                let private_mpis = mpis::SecretKeyMaterial::EdDSA {
+                let private_mpis = mpi::SecretKeyMaterial::EdDSA {
                     scalar: private.into(),
                 };
                 let sec = private_mpis.into();
@@ -1192,7 +1192,7 @@ impl<R> Key4<SecretParts, R>
                     hash: HashAlgorithm::SHA256,
                     sym: SymmetricAlgorithm::AES256,
                 };
-                let private_mpis = mpis::SecretKeyMaterial::ECDH {
+                let private_mpis = mpi::SecretKeyMaterial::ECDH {
                     scalar: private.into(),
                 };
                 let sec = private_mpis.into();
@@ -1221,11 +1221,11 @@ impl<R> Key4<SecretParts, R>
                     _ => unreachable!(),
                 };
                 let (pub_x, pub_y) = public.as_bytes();
-                let public_mpis =  mpis::PublicKey::ECDSA{
+                let public_mpis =  mpi::PublicKey::ECDSA{
                     curve,
                     q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
                 };
-                let private_mpis = mpis::SecretKeyMaterial::ECDSA{
+                let private_mpis = mpi::SecretKeyMaterial::ECDSA{
                     scalar: MPI::new(&private.as_bytes()).into(),
                 };
                 let sec = private_mpis.into();
@@ -1258,13 +1258,13 @@ impl<R> Key4<SecretParts, R>
                     };
                     let public = ecdh::point_mul_g(&private);
                     let (pub_x, pub_y) = public.as_bytes();
-                    let public_mpis = mpis::PublicKey::ECDH{
+                    let public_mpis = mpi::PublicKey::ECDH{
                         curve,
                         q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
                         hash,
                         sym: SymmetricAlgorithm::AES256,
                     };
-                    let private_mpis = mpis::SecretKeyMaterial::ECDH{
+                    let private_mpis = mpi::SecretKeyMaterial::ECDH{
                         scalar: MPI::new(&private.as_bytes()).into(),
                     };
                     let sec = private_mpis.into();
@@ -1315,17 +1315,17 @@ impl<P, R> Key4<P, R>
     }
 
     /// Gets the key packet's MPIs.
-    pub fn mpis(&self) -> &mpis::PublicKey {
+    pub fn mpis(&self) -> &mpi::PublicKey {
         &self.mpis
     }
 
     /// Gets a mutable reference to the key packet's MPIs.
-    pub fn mpis_mut(&mut self) -> &mut mpis::PublicKey {
+    pub fn mpis_mut(&mut self) -> &mut mpi::PublicKey {
         &mut self.mpis
     }
 
     /// Sets the key packet's MPIs.
-    pub fn set_mpis(&mut self, mpis: mpis::PublicKey) -> mpis::PublicKey {
+    pub fn set_mpis(&mut self, mpis: mpi::PublicKey) -> mpi::PublicKey {
         ::std::mem::replace(&mut self.mpis, mpis)
     }
 
@@ -1456,8 +1456,8 @@ pub enum SecretKeyMaterial {
     Encrypted(Encrypted),
 }
 
-impl From<mpis::SecretKeyMaterial> for SecretKeyMaterial {
-    fn from(mpis: mpis::SecretKeyMaterial) -> Self {
+impl From<mpi::SecretKeyMaterial> for SecretKeyMaterial {
+    fn from(mpis: mpi::SecretKeyMaterial) -> Self {
         SecretKeyMaterial::Unencrypted(mpis.into())
     }
 }
@@ -1533,8 +1533,8 @@ pub struct Unencrypted {
     mpis: mem::Encrypted,
 }
 
-impl From<mpis::SecretKeyMaterial> for Unencrypted {
-    fn from(mpis: mpis::SecretKeyMaterial) -> Self {
+impl From<mpi::SecretKeyMaterial> for Unencrypted {
+    fn from(mpis: mpi::SecretKeyMaterial) -> Self {
         use crate::serialize::Marshal;
         let mut plaintext = Vec::new();
         // We need to store the type.
@@ -1549,11 +1549,11 @@ impl From<mpis::SecretKeyMaterial> for Unencrypted {
 impl Unencrypted {
     /// Maps the given function over the secret.
     pub fn map<F, T>(&self, mut fun: F) -> T
-        where F: FnMut(&mpis::SecretKeyMaterial) -> T
+        where F: FnMut(&mpi::SecretKeyMaterial) -> T
     {
         self.mpis.map(|plaintext| {
             let algo: PublicKeyAlgorithm = plaintext[0].into();
-            let mpis = mpis::SecretKeyMaterial::parse(algo, &plaintext[1..])
+            let mpis = mpi::SecretKeyMaterial::parse(algo, &plaintext[1..])
                 .expect("Decrypted secret key is malformed");
             fun(&mpis)
         })
@@ -1635,7 +1635,7 @@ impl Encrypted {
         let mut trash = vec![0u8; self.algo.block_size()?];
         dec.read_exact(&mut trash)?;
 
-        mpis::SecretKeyMaterial::parse_chksumd(pk_algo, &mut dec).map(|m| m.into())
+        mpi::SecretKeyMaterial::parse_chksumd(pk_algo, &mut dec).map(|m| m.into())
     }
 }
 
@@ -1651,12 +1651,12 @@ impl<P, R> Arbitrary for super::Key<P, R>
 
 impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        let mpis = mpis::PublicKey::arbitrary(g);
+        let mpis = mpi::PublicKey::arbitrary(g);
         Key4 {
             common: Arbitrary::arbitrary(g),
             creation_time: Arbitrary::arbitrary(g),
             pk_algo: mpis.algo()
-                .expect("mpis::PublicKey::arbitrary only uses known algos"),
+                .expect("mpi::PublicKey::arbitrary only uses known algos"),
             mpis,
             secret: None,
             p: std::marker::PhantomData,
@@ -1669,34 +1669,34 @@ impl Arbitrary for Key4<SecretParts, UnspecifiedRole> {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use rand::Rng;
         use PublicKeyAlgorithm::*;
-        use mpis::MPI;
+        use mpi::MPI;
 
         let key = Key4::arbitrary(g);
         let mut secret: SecretKeyMaterial = match key.pk_algo() {
-            RSAEncryptSign => mpis::SecretKeyMaterial::RSA {
+            RSAEncryptSign => mpi::SecretKeyMaterial::RSA {
                 d: MPI::arbitrary(g).into(),
                 p: MPI::arbitrary(g).into(),
                 q: MPI::arbitrary(g).into(),
                 u: MPI::arbitrary(g).into(),
             },
 
-            DSA => mpis::SecretKeyMaterial::DSA {
+            DSA => mpi::SecretKeyMaterial::DSA {
                 x: MPI::arbitrary(g).into(),
             },
 
-            ElGamalEncrypt => mpis::SecretKeyMaterial::ElGamal {
+            ElGamalEncrypt => mpi::SecretKeyMaterial::ElGamal {
                 x: MPI::arbitrary(g).into(),
             },
 
-            EdDSA => mpis::SecretKeyMaterial::EdDSA {
+            EdDSA => mpi::SecretKeyMaterial::EdDSA {
                 scalar: MPI::arbitrary(g).into(),
             },
 
-            ECDSA => mpis::SecretKeyMaterial::ECDSA {
+            ECDSA => mpi::SecretKeyMaterial::ECDSA {
                 scalar: MPI::arbitrary(g).into(),
             },
 
-            ECDH => mpis::SecretKeyMaterial::ECDH {
+            ECDH => mpi::SecretKeyMaterial::ECDH {
                 scalar: MPI::arbitrary(g).into(),
             },
 
@@ -1739,7 +1739,7 @@ mod tests {
 
         match secret {
             SecretKeyMaterial::Unencrypted(ref u) => u.map(|mpis| match mpis {
-                mpis::SecretKeyMaterial::RSA { .. } => (),
+                mpi::SecretKeyMaterial::RSA { .. } => (),
                 _ => panic!(),
             }),
             _ => panic!(),
@@ -1884,7 +1884,7 @@ mod tests {
     #[test]
     fn import_cv25519() {
         use crate::crypto::{ecdh, mem, SessionKey};
-        use self::mpis::{MPI, Ciphertext};
+        use self::mpi::{MPI, Ciphertext};
 
         // X25519 key
         let ctime =
@@ -1919,7 +1919,7 @@ mod tests {
     #[test]
     fn import_cv25519_sec() {
         use crate::crypto::ecdh;
-        use self::mpis::{MPI, Ciphertext};
+        use self::mpi::{MPI, Ciphertext};
 
         // X25519 key
         let ctime =
@@ -1932,7 +1932,7 @@ mod tests {
                                           SymmetricAlgorithm::AES128,
                                           ctime).unwrap().into();
         match key.mpis {
-            self::mpis::PublicKey::ECDH{ ref q,.. } =>
+            self::mpi::PublicKey::ECDH{ ref q,.. } =>
                 assert_eq!(&q.value()[1..], &public[..]),
             _ => unreachable!(),
         }
@@ -1962,7 +1962,7 @@ mod tests {
     #[test]
     fn import_rsa() {
         use crate::crypto::SessionKey;
-        use self::mpis::{MPI, Ciphertext};
+        use self::mpi::{MPI, Ciphertext};
 
         // RSA key
         let ctime =
@@ -2023,8 +2023,8 @@ mod tests {
         let sig = Signature4::new(SignatureType::Binary, PublicKeyAlgorithm::EdDSA,
                                   HashAlgorithm::SHA256, hashed, unhashed,
                                   [0xa7,0x19],
-                                  mpis::Signature::EdDSA{
-                                      r: mpis::MPI::new(r), s: mpis::MPI::new(s)
+                                  mpi::Signature::EdDSA{
+                                      r: mpi::MPI::new(r), s: mpi::MPI::new(s)
                                   });
         let sig: Signature = sig.into();
         sig.verify_message(&key, b"Hello, World\n").unwrap();

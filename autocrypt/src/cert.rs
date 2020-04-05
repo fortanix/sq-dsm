@@ -71,7 +71,7 @@ mod tests {
         assert_eq!(cert1.keys().subkeys().next().unwrap().key().pk_algo(),
                    PublicKeyAlgorithm::ECDH);
         match cert1.keys().subkeys().next().unwrap().key().mpis() {
-            openpgp::crypto::mpis::PublicKey::ECDH {
+            openpgp::crypto::mpi::PublicKey::ECDH {
                 curve: openpgp::types::Curve::Cv25519, ..
             } => (),
             m => panic!("unexpected mpi: {:?}", m),

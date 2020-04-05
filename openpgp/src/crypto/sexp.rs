@@ -11,7 +11,7 @@ use std::fmt;
 use std::ops::Deref;
 use quickcheck::{Arbitrary, Gen};
 
-use crate::crypto::{self, mpis, SessionKey};
+use crate::crypto::{self, mpi, SessionKey};
 use crate::crypto::mem::Protected;
 
 use crate::Error;
@@ -47,12 +47,12 @@ impl Sexp {
     pub fn finish_decryption<R>(&self,
                                 recipient: &crate::packet::Key<
                                         crate::packet::key::PublicParts, R>,
-                                ciphertext: &mpis::Ciphertext,
+                                ciphertext: &mpi::Ciphertext,
                                 padding: bool)
         -> Result<SessionKey>
         where R: crate::packet::key::KeyRole
     {
-        use crate::crypto::mpis::PublicKey;
+        use crate::crypto::mpi::PublicKey;
         let not_a_session_key = || -> anyhow::Error {
             Error::MalformedMPI(
                 format!("Not a session key: {:?}", self)).into()
@@ -119,7 +119,7 @@ impl Sexp {
                 PublicKey::ECDH { curve, .. } => {
                     // The shared point has been computed by the
                     // remote agent.  The shared point is not padded.
-                    let mut s = mpis::MPI::new(s);
+                    let mut s = mpi::MPI::new(s);
                     #[allow(non_snake_case)]
                     let S: Protected = s.decode_point(curve)?.0.into();
                     s.secure_memzero();
@@ -141,7 +141,7 @@ impl Sexp {
     ///
     /// Such an expression is returned from gpg-agent's `PKSIGN`
     /// command.
-    pub fn to_signature(&self) -> Result<mpis::Signature> {
+    pub fn to_signature(&self) -> Result<mpi::Signature> {
         let not_a_signature = || -> anyhow::Error {
             Error::MalformedMPI(
                 format!("Not a signature: {:?}", self)).into()
@@ -159,9 +159,9 @@ impl Sexp {
                 p.get(b"s").ok().unwrap_or_default()
                     .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
             }).ok_or_else(not_a_signature)?;
-            Ok(mpis::Signature::EdDSA {
-                r: mpis::MPI::new(&r),
-                s: mpis::MPI::new(&s),
+            Ok(mpi::Signature::EdDSA {
+                r: mpi::MPI::new(&r),
+                s: mpi::MPI::new(&s),
             })
         } else if let Some(param) = sig.get(b"ecdsa")? {
             let r = param.iter().find_map(|p| {
@@ -172,17 +172,17 @@ impl Sexp {
                 p.get(b"s").ok().unwrap_or_default()
                     .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
             }).ok_or_else(not_a_signature)?;
-            Ok(mpis::Signature::ECDSA {
-                r: mpis::MPI::new(&r),
-                s: mpis::MPI::new(&s),
+            Ok(mpi::Signature::ECDSA {
+                r: mpi::MPI::new(&r),
+                s: mpi::MPI::new(&s),
             })
         } else if let Some(param) = sig.get(b"rsa")? {
             let s = param.iter().find_map(|p| {
                 p.get(b"s").ok().unwrap_or_default()
                     .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
             }).ok_or_else(not_a_signature)?;
-            Ok(mpis::Signature::RSA {
-                s: mpis::MPI::new(&s),
+            Ok(mpi::Signature::RSA {
+                s: mpi::MPI::new(&s),
             })
         } else if let Some(param) = sig.get(b"dsa")? {
             let r = param.iter().find_map(|p| {
@@ -193,9 +193,9 @@ impl Sexp {
                 p.get(b"s").ok().unwrap_or_default()
                     .and_then(|l| l.get(0).and_then(Sexp::string).cloned())
             }).ok_or_else(not_a_signature)?;
-            Ok(mpis::Signature::DSA {
-                r: mpis::MPI::new(&r),
-                s: mpis::MPI::new(&s),
+            Ok(mpi::Signature::DSA {
+                r: mpi::MPI::new(&r),
+                s: mpi::MPI::new(&s),
             })
         } else {
             Err(Error::MalformedMPI(
@@ -240,15 +240,15 @@ impl Sexp {
     }
 }
 
-impl TryFrom<&mpis::Ciphertext> for Sexp {
+impl TryFrom<&mpi::Ciphertext> for Sexp {
     type Error = anyhow::Error;
 
     /// Constructs an S-Expression representing `ciphertext`.
     ///
     /// The resulting expression is suitable for gpg-agent's `INQUIRE
     /// CIPHERTEXT` inquiry.
-    fn try_from(ciphertext: &mpis::Ciphertext) -> Result<Self> {
-        use crate::crypto::mpis::Ciphertext::*;
+    fn try_from(ciphertext: &mpi::Ciphertext) -> Result<Self> {
+        use crate::crypto::mpi::Ciphertext::*;
         match ciphertext {
             RSA { ref c } =>
                 Ok(Sexp::List(vec![
@@ -411,7 +411,7 @@ mod tests {
 
     #[test]
     fn to_signature() {
-        use crate::crypto::mpis::Signature::*;
+        use crate::crypto::mpi::Signature::*;
         assert_match!(DSA { .. } = Sexp::from_bytes(
             crate::tests::file("sexp/dsa-signature.sexp")).unwrap()
                       .to_signature().unwrap());

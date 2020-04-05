@@ -4,7 +4,7 @@ use nettle::{dsa, ecc, ecdsa, ed25519, rsa, random::Yarrow};
 
 use crate::packet::{self, key, Key};
 use crate::crypto::SessionKey;
-use crate::crypto::mpis::{self, MPI};
+use crate::crypto::mpi::{self, MPI};
 use crate::types::{Curve, HashAlgorithm};
 
 use crate::Error;
@@ -22,7 +22,7 @@ pub trait Signer {
 
     /// Creates a signature over the `digest` produced by `hash_algo`.
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
-            -> Result<mpis::Signature>;
+            -> Result<mpi::Signature>;
 }
 
 impl Signer for Box<dyn Signer> {
@@ -31,7 +31,7 @@ impl Signer for Box<dyn Signer> {
     }
 
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
-            -> Result<mpis::Signature> {
+            -> Result<mpi::Signature> {
         self.as_mut().sign(hash_algo, digest)
     }
 }
@@ -47,7 +47,7 @@ pub trait Decryptor {
     fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole>;
 
     /// Decrypts `ciphertext`, returning the plain session key.
-    fn decrypt(&mut self, ciphertext: &mpis::Ciphertext,
+    fn decrypt(&mut self, ciphertext: &mpi::Ciphertext,
                plaintext_len: Option<usize>)
                -> Result<SessionKey>;
 }
@@ -95,10 +95,10 @@ impl Signer for KeyPair {
     }
 
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
-            -> Result<mpis::Signature>
+            -> Result<mpi::Signature>
     {
         use crate::PublicKeyAlgorithm::*;
-        use crate::crypto::mpis::PublicKey;
+        use crate::crypto::mpi::PublicKey;
 
         let mut rng = Yarrow::default();
 
@@ -108,10 +108,10 @@ impl Signer for KeyPair {
         {
             (RSASign,
              &PublicKey::RSA { ref e, ref n },
-             &mpis::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) |
+             &mpi::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) |
             (RSAEncryptSign,
              &PublicKey::RSA { ref e, ref n },
-             &mpis::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) => {
+             &mpi::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) => {
                 let public = rsa::PublicKey::new(n.value(), e.value())?;
                 let secret = rsa::PrivateKey::new(d.value(), p.value(),
                                                   q.value(), Option::None)?;
@@ -129,20 +129,20 @@ impl Signer for KeyPair {
                                        hash_algo.oid()?,
                                        &mut rng, &mut sig)?;
 
-                Ok(mpis::Signature::RSA {
+                Ok(mpi::Signature::RSA {
                     s: MPI::new(&sig),
                 })
             },
 
             (DSA,
              &PublicKey::DSA { ref p, ref q, ref g, .. },
-             &mpis::SecretKeyMaterial::DSA { ref x }) => {
+             &mpi::SecretKeyMaterial::DSA { ref x }) => {
                 let params = dsa::Params::new(p.value(), q.value(), g.value());
                 let secret = dsa::PrivateKey::new(x.value());
 
                 let sig = dsa::sign(&params, &secret, digest, &mut rng)?;
 
-                Ok(mpis::Signature::DSA {
+                Ok(mpi::Signature::DSA {
                     r: MPI::new(&sig.r()),
                     s: MPI::new(&sig.s()),
                 })
@@ -150,7 +150,7 @@ impl Signer for KeyPair {
 
             (EdDSA,
              &PublicKey::EdDSA { ref curve, ref q },
-             &mpis::SecretKeyMaterial::EdDSA { ref scalar }) => match curve {
+             &mpi::SecretKeyMaterial::EdDSA { ref scalar }) => match curve {
                 Curve::Ed25519 => {
                     let public = q.decode_point(&Curve::Ed25519)?.0;
 
@@ -173,7 +173,7 @@ impl Signer for KeyPair {
                     }
                     res?;
 
-                    Ok(mpis::Signature::EdDSA {
+                    Ok(mpi::Signature::EdDSA {
                         r: MPI::new(&sig[..32]),
                         s: MPI::new(&sig[32..]),
                     })
@@ -184,7 +184,7 @@ impl Signer for KeyPair {
 
             (ECDSA,
              &PublicKey::ECDSA { ref curve, .. },
-             &mpis::SecretKeyMaterial::ECDSA { ref scalar }) => {
+             &mpi::SecretKeyMaterial::ECDSA { ref scalar }) => {
                 let secret = match curve {
                     Curve::NistP256 =>
                         ecc::Scalar::new::<ecc::Secp256r1>(
@@ -203,7 +203,7 @@ impl Signer for KeyPair {
 
                 let sig = ecdsa::sign(&secret, digest, &mut rng);
 
-                Ok(mpis::Signature::ECDSA {
+                Ok(mpi::Signature::ECDSA {
                     r: MPI::new(&sig.r()),
                     s: MPI::new(&sig.s()),
                 })
@@ -223,19 +223,19 @@ impl Decryptor for KeyPair {
     }
 
     /// Creates a signature over the `digest` produced by `hash_algo`.
-    fn decrypt(&mut self, ciphertext: &mpis::Ciphertext,
+    fn decrypt(&mut self, ciphertext: &mpi::Ciphertext,
                plaintext_len: Option<usize>)
                -> Result<SessionKey>
     {
         use crate::PublicKeyAlgorithm::*;
-        use crate::crypto::mpis::PublicKey;
+        use crate::crypto::mpi::PublicKey;
 
         self.secret.map(
             |secret| Ok(match (self.public.mpis(), secret, ciphertext)
         {
             (PublicKey::RSA{ ref e, ref n },
-             mpis::SecretKeyMaterial::RSA{ ref p, ref q, ref d, .. },
-             mpis::Ciphertext::RSA{ ref c }) => {
+             mpi::SecretKeyMaterial::RSA{ ref p, ref q, ref d, .. },
+             mpi::Ciphertext::RSA{ ref c }) => {
                 // Workaround for #440:  Make sure c is of the same
                 // length as n.
                 // XXX: Remove once we depend on nettle > 7.0.0.
@@ -272,14 +272,14 @@ impl Decryptor for KeyPair {
             }
 
             (PublicKey::ElGamal{ .. },
-             mpis::SecretKeyMaterial::ElGamal{ .. },
-             mpis::Ciphertext::ElGamal{ .. }) =>
+             mpi::SecretKeyMaterial::ElGamal{ .. },
+             mpi::Ciphertext::ElGamal{ .. }) =>
                 return Err(
                     Error::UnsupportedPublicKeyAlgorithm(ElGamalEncrypt).into()),
 
             (PublicKey::ECDH{ .. },
-             mpis::SecretKeyMaterial::ECDH { .. },
-             mpis::Ciphertext::ECDH { .. }) =>
+             mpi::SecretKeyMaterial::ECDH { .. },
+             mpi::Ciphertext::ECDH { .. }) =>
                 crate::crypto::ecdh::decrypt(&self.public, secret, ciphertext)?,
 
             (public, secret, ciphertext) =>
@@ -300,7 +300,7 @@ impl From<KeyPair> for Key<key::SecretParts, key::UnspecifiedRole> {
 
 impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     /// Encrypts the given data with this key.
-    pub fn encrypt(&self, data: &SessionKey) -> Result<mpis::Ciphertext> {
+    pub fn encrypt(&self, data: &SessionKey) -> Result<mpi::Ciphertext> {
         use crate::PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
@@ -308,14 +308,14 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
             RSAEncryptSign | RSAEncrypt => {
                 // Extract the public recipient.
                 match self.mpis() {
-                    mpis::PublicKey::RSA { e, n } => {
+                    mpi::PublicKey::RSA { e, n } => {
                         // The ciphertext has the length of the modulus.
                         let mut esk = vec![0u8; n.value().len()];
                         let mut rng = Yarrow::default();
                         let pk = rsa::PublicKey::new(n.value(), e.value())?;
                         rsa::encrypt_pkcs1(&pk, &mut rng, data,
                                            &mut esk)?;
-                        Ok(mpis::Ciphertext::RSA {
+                        Ok(mpi::Ciphertext::RSA {
                             c: MPI::new(&esk),
                         })
                     },
@@ -337,7 +337,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     pub fn verify(&self, sig: &packet::Signature, digest: &[u8]) -> Result<()>
     {
         use crate::PublicKeyAlgorithm::*;
-        use crate::crypto::mpis::{PublicKey, Signature};
+        use crate::crypto::mpi::{PublicKey, Signature};
 
         #[allow(deprecated)]
         let ok = match (sig.pk_algo(), self.mpis(), sig.mpis()) {

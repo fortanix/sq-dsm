@@ -17,7 +17,7 @@ pub mod hash;
 mod keygrip;
 pub use self::keygrip::Keygrip;
 pub mod mem;
-pub mod mpis;
+pub mod mpi;
 mod s2k;
 pub use s2k::S2K;
 pub mod sexp;

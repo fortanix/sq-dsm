@@ -286,7 +286,7 @@ impl Agent {
     pub fn sign<'a, R>(&'a mut self,
                        key: &'a Key<key::PublicParts, R>,
                        algo: HashAlgorithm, digest: &'a [u8])
-        -> impl Future<Item = crypto::mpis::Signature,
+        -> impl Future<Item = crypto::mpi::Signature,
                        Error = anyhow::Error> + 'a
         where R: key::KeyRole
     {
@@ -297,7 +297,7 @@ impl Agent {
     /// by the agent.
     pub fn decrypt<'a, R>(&'a mut self,
                           key: &'a Key<key::PublicParts, R>,
-                          ciphertext: &'a crypto::mpis::Ciphertext)
+                          ciphertext: &'a crypto::mpi::Ciphertext)
         -> impl Future<Item = crypto::SessionKey,
                        Error = anyhow::Error> + 'a
         where R: key::KeyRole
@@ -406,7 +406,7 @@ fn protocol_error<T>(response: &assuan::Response) -> Result<T> {
 impl<'a, 'b, 'c, R> Future for SigningRequest<'a, 'b, 'c, R>
     where R: key::KeyRole
 {
-    type Item = crypto::mpis::Signature;
+    type Item = crypto::mpi::Signature;
     type Error = anyhow::Error;
 
     fn poll(&mut self) -> std::result::Result<Async<Self::Item>, Self::Error> {
@@ -520,7 +520,7 @@ struct DecryptionRequest<'a, 'b, 'c, R>
 {
     c: &'a mut assuan::Client,
     key: &'b Key<key::PublicParts, R>,
-    ciphertext: &'c crypto::mpis::Ciphertext,
+    ciphertext: &'c crypto::mpi::Ciphertext,
     options: Vec<String>,
     state: DecryptionRequestState,
 }
@@ -530,7 +530,7 @@ impl<'a, 'b, 'c, R> DecryptionRequest<'a, 'b, 'c, R>
 {
     fn new(c: &'a mut assuan::Client,
            key: &'b Key<key::PublicParts, R>,
-           ciphertext: &'c crypto::mpis::Ciphertext)
+           ciphertext: &'c crypto::mpi::Ciphertext)
            -> Self {
         Self {
             c,
@@ -713,10 +713,10 @@ impl<'a> crypto::Signer for KeyPair<'a> {
     }
 
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
-            -> openpgp::Result<openpgp::crypto::mpis::Signature>
+            -> openpgp::Result<openpgp::crypto::mpi::Signature>
     {
         use crate::openpgp::types::PublicKeyAlgorithm::*;
-        use crate::openpgp::crypto::mpis::PublicKey;
+        use crate::openpgp::crypto::mpi::PublicKey;
 
         #[allow(deprecated)]
         match (self.public.pk_algo(), self.public.mpis())
@@ -743,11 +743,11 @@ impl<'a> crypto::Decryptor for KeyPair<'a> {
         self.public
     }
 
-    fn decrypt(&mut self, ciphertext: &crypto::mpis::Ciphertext,
+    fn decrypt(&mut self, ciphertext: &crypto::mpi::Ciphertext,
                _plaintext_len: Option<usize>)
                -> openpgp::Result<crypto::SessionKey>
     {
-        use crate::openpgp::crypto::mpis::{PublicKey, Ciphertext};
+        use crate::openpgp::crypto::mpi::{PublicKey, Ciphertext};
 
         match (self.public.mpis(), ciphertext) {
             (PublicKey::RSA { .. }, Ciphertext::RSA { .. })

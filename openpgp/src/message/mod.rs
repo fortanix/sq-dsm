@@ -483,7 +483,7 @@ mod tests {
     use crate::PublicKeyAlgorithm;
     use crate::SignatureType;
     use crate::crypto::S2K;
-    use crate::crypto::mpis::{Ciphertext, MPI};
+    use crate::crypto::mpi::{Ciphertext, MPI};
     use crate::packet::prelude::*;
 
     #[test]

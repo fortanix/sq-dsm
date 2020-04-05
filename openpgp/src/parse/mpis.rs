@@ -10,13 +10,13 @@ use crate::{
     HashAlgorithm,
 };
 use crate::types::Curve;
-use crate::crypto::mpis::{self, MPI};
+use crate::crypto::mpi::{self, MPI};
 use crate::parse::{
     PacketHeaderParser,
     Cookie,
 };
 
-impl mpis::PublicKey {
+impl mpi::PublicKey {
     /// Parses a set of OpenPGP MPIs representing a public key.
     ///
     /// See [Section 3.2 of RFC 4880] for details.
@@ -53,7 +53,7 @@ impl mpis::PublicKey {
                 let n = MPI::parse("rsa_public_n_len", "rsa_public_n", php)?;
                 let e = MPI::parse("rsa_public_e_len", "rsa_public_e", php)?;
 
-                Ok(mpis::PublicKey::RSA { e: e, n: n })
+                Ok(mpi::PublicKey::RSA { e: e, n: n })
             }
 
             DSA => {
@@ -62,7 +62,7 @@ impl mpis::PublicKey {
                 let g = MPI::parse("dsa_public_g_len", "dsa_public_g", php)?;
                 let y = MPI::parse("dsa_public_y_len", "dsa_public_y", php)?;
 
-                Ok(mpis::PublicKey::DSA {
+                Ok(mpi::PublicKey::DSA {
                     p: p,
                     q: q,
                     g: g,
@@ -78,7 +78,7 @@ impl mpis::PublicKey {
                 let y = MPI::parse("elgamal_public_y_len", "elgamal_public_y",
                                    php)?;
 
-                Ok(mpis::PublicKey::ElGamal {
+                Ok(mpi::PublicKey::ElGamal {
                     p: p,
                     g: g,
                     y: y,
@@ -90,7 +90,7 @@ impl mpis::PublicKey {
                 let curve = php.parse_bytes("curve", curve_len)?;
                 let q = MPI::parse("eddsa_public_len", "eddsa_public", php)?;
 
-                Ok(mpis::PublicKey::EdDSA {
+                Ok(mpi::PublicKey::EdDSA {
                     curve: Curve::from_oid(&curve),
                     q: q
                 })
@@ -101,7 +101,7 @@ impl mpis::PublicKey {
                 let curve = php.parse_bytes("curve", curve_len)?;
                 let q = MPI::parse("ecdsa_public_len", "ecdsa_public", php)?;
 
-                Ok(mpis::PublicKey::ECDSA {
+                Ok(mpi::PublicKey::ECDSA {
                     curve: Curve::from_oid(&curve),
                     q: q
                 })
@@ -122,7 +122,7 @@ impl mpis::PublicKey {
                 let hash: HashAlgorithm = php.parse_u8("kdf_hash")?.into();
                 let sym: SymmetricAlgorithm = php.parse_u8("kek_symm")?.into();
 
-                Ok(mpis::PublicKey::ECDH {
+                Ok(mpi::PublicKey::ECDH {
                     curve: Curve::from_oid(&curve),
                     q,
                     hash,
@@ -138,7 +138,7 @@ impl mpis::PublicKey {
                 }
                 let rest = php.parse_bytes_eof("rest")?;
 
-                Ok(mpis::PublicKey::Unknown {
+                Ok(mpi::PublicKey::Unknown {
                     mpis: mpis.into_boxed_slice(),
                     rest: rest.into_boxed_slice(),
                 })
@@ -149,7 +149,7 @@ impl mpis::PublicKey {
     }
 }
 
-impl mpis::SecretKeyMaterial {
+impl mpi::SecretKeyMaterial {
     /// Parses secret key MPIs for `algo` plus their SHA1 checksum. Fails if the
     /// checksum is wrong.
     pub fn parse_chksumd<T: Read>(algo: PublicKeyAlgorithm, cur: T)
@@ -220,7 +220,7 @@ impl mpis::SecretKeyMaterial {
                 let q = MPI::parse("rsa_secret_q_len", "rsa_secret_q", php)?;
                 let u = MPI::parse("rsa_secret_u_len", "rsa_secret_u", php)?;
 
-                Ok(mpis::SecretKeyMaterial::RSA {
+                Ok(mpi::SecretKeyMaterial::RSA {
                     d: d.into(),
                     p: p.into(),
                     q: q.into(),
@@ -231,7 +231,7 @@ impl mpis::SecretKeyMaterial {
             DSA => {
                 let x = MPI::parse("dsa_secret_len", "dsa_secret", php)?;
 
-                Ok(mpis::SecretKeyMaterial::DSA {
+                Ok(mpi::SecretKeyMaterial::DSA {
                     x: x.into(),
                 })
             }
@@ -240,27 +240,27 @@ impl mpis::SecretKeyMaterial {
                 let x = MPI::parse("elgamal_secret_len", "elgamal_secret",
                                    php)?;
 
-                Ok(mpis::SecretKeyMaterial::ElGamal {
+                Ok(mpi::SecretKeyMaterial::ElGamal {
                     x: x.into(),
                 })
             }
 
             EdDSA => {
-                Ok(mpis::SecretKeyMaterial::EdDSA {
+                Ok(mpi::SecretKeyMaterial::EdDSA {
                     scalar: MPI::parse("eddsa_secret_len", "eddsa_secret", php)?
                                 .into()
                 })
             }
 
             ECDSA => {
-                Ok(mpis::SecretKeyMaterial::ECDSA {
+                Ok(mpi::SecretKeyMaterial::ECDSA {
                     scalar: MPI::parse("ecdsa_secret_len", "ecdsa_secret", php)?
                                 .into()
                 })
             }
 
             ECDH => {
-                Ok(mpis::SecretKeyMaterial::ECDH {
+                Ok(mpi::SecretKeyMaterial::ECDH {
                     scalar: MPI::parse("ecdh_secret_len", "ecdh_secret", php)?
                                 .into()
                 })
@@ -274,7 +274,7 @@ impl mpis::SecretKeyMaterial {
                 }
                 let rest = php.parse_bytes_eof("rest")?;
 
-                Ok(mpis::SecretKeyMaterial::Unknown {
+                Ok(mpi::SecretKeyMaterial::Unknown {
                     mpis: mpis.into_boxed_slice(),
                     rest: rest.into(),
                 })
@@ -285,7 +285,7 @@ impl mpis::SecretKeyMaterial {
     }
 }
 
-impl mpis::Ciphertext {
+impl mpi::Ciphertext {
     /// Parses a set of OpenPGP MPIs representing a ciphertext.
     ///
     /// Expects MPIs for a public key algorithm `algo`s ciphertext.
@@ -321,7 +321,7 @@ impl mpis::Ciphertext {
                 let c = MPI::parse("rsa_ciphertxt_len", "rsa_ciphertxt",
                                    php)?;
 
-                Ok(mpis::Ciphertext::RSA {
+                Ok(mpi::Ciphertext::RSA {
                     c: c,
                 })
             }
@@ -330,7 +330,7 @@ impl mpis::Ciphertext {
                 let e = MPI::parse("elgamal_e_len", "elgamal_e", php)?;
                 let c = MPI::parse("elgamal_c_len", "elgamal_c", php)?;
 
-                Ok(mpis::Ciphertext::ElGamal {
+                Ok(mpi::Ciphertext::ElGamal {
                     e: e,
                     c: c,
                 })
@@ -342,7 +342,7 @@ impl mpis::Ciphertext {
                 let key = Vec::from(&php.parse_bytes("ecdh_esk", key_len)?
                                     [..key_len]);
 
-                Ok(mpis::Ciphertext::ECDH {
+                Ok(mpi::Ciphertext::ECDH {
                     e: e, key: key.into_boxed_slice()
                 })
             }
@@ -355,7 +355,7 @@ impl mpis::Ciphertext {
                 }
                 let rest = php.parse_bytes_eof("rest")?;
 
-                Ok(mpis::Ciphertext::Unknown {
+                Ok(mpi::Ciphertext::Unknown {
                     mpis: mpis.into_boxed_slice(),
                     rest: rest.into_boxed_slice(),
                 })
@@ -369,7 +369,7 @@ impl mpis::Ciphertext {
     }
 }
 
-impl mpis::Signature {
+impl mpi::Signature {
     /// Parses a set of OpenPGP MPIs representing a signature.
     ///
     /// Expects MPIs for a public key algorithm `algo`s signature.
@@ -404,7 +404,7 @@ impl mpis::Signature {
             RSAEncryptSign | RSASign => {
                 let s = MPI::parse("rsa_signature_len", "rsa_signature", php)?;
 
-                Ok(mpis::Signature::RSA {
+                Ok(mpi::Signature::RSA {
                     s: s,
                 })
             }
@@ -415,7 +415,7 @@ impl mpis::Signature {
                 let s = MPI::parse("dsa_sig_s_len", "dsa_sig_s",
                                    php)?;
 
-                Ok(mpis::Signature::DSA {
+                Ok(mpi::Signature::DSA {
                     r: r,
                     s: s,
                 })
@@ -427,7 +427,7 @@ impl mpis::Signature {
                 let s = MPI::parse("elgamal_sig_s_len",
                                    "elgamal_sig_s", php)?;
 
-                Ok(mpis::Signature::ElGamal {
+                Ok(mpi::Signature::ElGamal {
                     r: r,
                     s: s,
                 })
@@ -439,7 +439,7 @@ impl mpis::Signature {
                 let s = MPI::parse("eddsa_sig_s_len", "eddsa_sig_s",
                                    php)?;
 
-                Ok(mpis::Signature::EdDSA {
+                Ok(mpi::Signature::EdDSA {
                     r: r,
                     s: s,
                 })
@@ -451,7 +451,7 @@ impl mpis::Signature {
                 let s = MPI::parse("ecdsa_sig_s_len", "ecdsa_sig_s",
                                    php)?;
 
-                Ok(mpis::Signature::ECDSA {
+                Ok(mpi::Signature::ECDSA {
                     r: r,
                     s: s,
                 })
@@ -465,7 +465,7 @@ impl mpis::Signature {
                 }
                 let rest = php.parse_bytes_eof("rest")?;
 
-                Ok(mpis::Signature::Unknown {
+                Ok(mpi::Signature::Unknown {
                     mpis: mpis.into_boxed_slice(),
                     rest: rest.into_boxed_slice(),
                 })
@@ -488,11 +488,11 @@ fn mpis_parse_test() {
     // Dummy RSA public key.
     {
         let buf = b"\x00\x01\x01\x00\x02\x02".to_vec();
-        let mpis = mpis::PublicKey::parse(RSAEncryptSign, buf).unwrap();
+        let mpis = mpi::PublicKey::parse(RSAEncryptSign, buf).unwrap();
 
         //assert_eq!(mpis.serialized_len(), 6);
         match &mpis {
-            &mpis::PublicKey::RSA{ ref n, ref e } => {
+            &mpi::PublicKey::RSA{ ref n, ref e } => {
                 assert_eq!(n.bits(), 1);
                 assert_eq!(n.value()[0], 1);
                 assert_eq!(n.value().len(), 1);
@@ -508,7 +508,7 @@ fn mpis_parse_test() {
     // The number 2.
     {
         let buf = b"\x00\x02\x02".to_vec();
-        let mpis = mpis::Ciphertext::parse(RSAEncryptSign, buf).unwrap();
+        let mpis = mpi::Ciphertext::parse(RSAEncryptSign, buf).unwrap();
 
         assert_eq!(mpis.serialized_len(), 3);
     }

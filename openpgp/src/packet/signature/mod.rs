@@ -7,7 +7,7 @@ use quickcheck::{Arbitrary, Gen};
 use crate::Error;
 use crate::Result;
 use crate::crypto::{
-    mpis,
+    mpi,
     hash::{self, Hash},
     Signer,
 };
@@ -434,7 +434,7 @@ pub struct Signature4 {
     /// Lower 16 bits of the signed hash value.
     digest_prefix: [u8; 2],
     /// Signature MPIs.
-    mpis: mpis::Signature,
+    mpis: mpi::Signature,
 
     /// When used in conjunction with a one-pass signature, this is the
     /// hash computed over the enclosed message.
@@ -523,7 +523,7 @@ impl Signature4 {
                hash_algo: HashAlgorithm, hashed_area: SubpacketArea,
                unhashed_area: SubpacketArea,
                digest_prefix: [u8; 2],
-               mpis: mpis::Signature) -> Self {
+               mpis: mpi::Signature) -> Self {
         Signature4 {
             common: Default::default(),
             fields: Builder {
@@ -552,13 +552,13 @@ impl Signature4 {
     }
 
     /// Gets the signature packet's MPIs.
-    pub fn mpis(&self) -> &mpis::Signature {
+    pub fn mpis(&self) -> &mpi::Signature {
         &self.mpis
     }
 
     /// Sets the signature packet's MPIs.
     #[allow(dead_code)]
-    pub(crate) fn set_mpis(&mut self, mpis: mpis::Signature) -> mpis::Signature
+    pub(crate) fn set_mpis(&mut self, mpis: mpi::Signature) -> mpi::Signature
     {
         ::std::mem::replace(&mut self.mpis, mpis)
     }
@@ -1222,27 +1222,27 @@ impl_arbitrary_with_bound!(super::Signature);
 
 impl ArbitraryBounded for Signature4 {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
-        use mpis::MPI;
+        use mpi::MPI;
         use PublicKeyAlgorithm::*;
 
         let fields = Builder::arbitrary_bounded(g, depth);
         #[allow(deprecated)]
         let mpis = match fields.pk_algo() {
-            RSAEncryptSign | RSASign => mpis::Signature::RSA  {
+            RSAEncryptSign | RSASign => mpi::Signature::RSA  {
                 s: MPI::arbitrary(g),
             },
 
-            DSA => mpis::Signature::DSA {
+            DSA => mpi::Signature::DSA {
                 r: MPI::arbitrary(g),
                 s: MPI::arbitrary(g),
             },
 
-            EdDSA => mpis::Signature::EdDSA  {
+            EdDSA => mpi::Signature::EdDSA  {
                 r: MPI::arbitrary(g),
                 s: MPI::arbitrary(g),
             },
 
-            ECDSA => mpis::Signature::ECDSA  {
+            ECDSA => mpi::Signature::ECDSA  {
                 r: MPI::arbitrary(g),
                 s: MPI::arbitrary(g),
             },
@@ -1270,7 +1270,7 @@ mod test {
     use crate::KeyID;
     use crate::cert::prelude::*;
     use crate::crypto;
-    use crate::crypto::mpis::MPI;
+    use crate::crypto::mpi::MPI;
     use crate::parse::Parse;
     use crate::packet::Key;
     use crate::packet::key::Key4;
@@ -1505,11 +1505,11 @@ mod test {
         let mut pnt = [0x40u8; nettle::ed25519::ED25519_KEY_SIZE + 1];
         nettle::ed25519::public_key(&mut pnt[1..], &sec[..]).unwrap();
 
-        let public_mpis = mpis::PublicKey::EdDSA {
+        let public_mpis = mpi::PublicKey::EdDSA {
             curve: Curve::Ed25519,
             q: MPI::new(&pnt[..]),
         };
-        let private_mpis = mpis::SecretKeyMaterial::EdDSA {
+        let private_mpis = mpi::SecretKeyMaterial::EdDSA {
             scalar: MPI::new(&sec[..]).into(),
         };
         let key : key::SecretKey

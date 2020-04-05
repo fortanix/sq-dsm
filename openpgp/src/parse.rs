@@ -136,7 +136,7 @@ use crate::types::{
     SymmetricAlgorithm,
     Timestamp,
 };
-use crate::crypto::{self, mpis::{PublicKey, MPI}};
+use crate::crypto::{self, mpi::{PublicKey, MPI}};
 use crate::crypto::symmetric::{Decryptor, BufferedReaderDecryptor};
 use crate::message;
 use crate::message::MessageValidator;
@@ -1137,7 +1137,7 @@ impl Signature4 {
             return php.fail("not a signature algorithm");
         }
         let mpis = php_try!(
-            crypto::mpis::Signature::_parse(pk_algo, &mut php));
+            crypto::mpi::Signature::_parse(pk_algo, &mut php));
 
         let hash_algo = hash_algo.into();
         let mut pp = php.ok(Packet::Signature(Signature4::new(
@@ -1909,7 +1909,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                 // Unencrypted
                 0 => {
                     let sec = php_try!(
-                        crypto::mpis::SecretKeyMaterial::_parse(pk_algo, &mut php));
+                        crypto::mpi::SecretKeyMaterial::_parse(pk_algo, &mut php));
                     let their_chksum = php_try!(php.parse_be_u16("checksum"));
                     let mut cur = Cursor::new(Vec::default());
 
@@ -2642,7 +2642,7 @@ impl PKESK3 {
         if ! pk_algo.for_encryption() {
             return php.fail("not an encryption algorithm");
         }
-        let mpis = crypto::mpis::Ciphertext::_parse(pk_algo, &mut php)?;
+        let mpis = crypto::mpi::Ciphertext::_parse(pk_algo, &mut php)?;
 
         let pkesk = php_try!(PKESK3::new(KeyID::from_bytes(&keyid),
                                          pk_algo, mpis));

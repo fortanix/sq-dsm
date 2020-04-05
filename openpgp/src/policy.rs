@@ -760,7 +760,7 @@ impl<'a> Policy for StandardPolicy<'a> {
     {
         use self::AsymmetricAlgorithm::{*, Unknown};
         use crate::types::PublicKeyAlgorithm::*;
-        use crate::crypto::mpis::PublicKey;
+        use crate::crypto::mpi::PublicKey;
 
         #[allow(deprecated)]
         let a = match (ka.pk_algo(), ka.mpis().bits()) {

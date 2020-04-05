@@ -12,7 +12,7 @@ use crate::packet::key;
 use crate::packet::Key;
 use crate::KeyID;
 use crate::crypto::Decryptor;
-use crate::crypto::mpis::Ciphertext;
+use crate::crypto::mpi::Ciphertext;
 use crate::Packet;
 use crate::PublicKeyAlgorithm;
 use crate::Result;
@@ -337,7 +337,7 @@ mod tests {
     fn decrypt_with_short_cv25519_secret_key() {
         use super::PKESK3;
         use crate::crypto::SessionKey;
-        use crate::crypto::mpis::{self, MPI};
+        use crate::crypto::mpi::{self, MPI};
         use crate::PublicKeyAlgorithm;
         use crate::SymmetricAlgorithm;
         use crate::HashAlgorithm;
@@ -357,13 +357,13 @@ mod tests {
         curve25519::mul_g(&mut pnt[1..], &sec[..]).unwrap();
         sec.reverse();
 
-        let public_mpis = mpis::PublicKey::ECDH {
+        let public_mpis = mpi::PublicKey::ECDH {
             curve: Curve::Cv25519,
             q: MPI::new(&pnt[..]),
             hash: HashAlgorithm::SHA256,
             sym: SymmetricAlgorithm::AES256,
         };
-        let private_mpis = mpis::SecretKeyMaterial::ECDH {
+        let private_mpis = mpi::SecretKeyMaterial::ECDH {
             scalar: MPI::new(&sec[..]).into(),
         };
         let key: key::UnspecifiedPublic
