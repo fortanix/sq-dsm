@@ -1342,16 +1342,10 @@ impl<P, R> Key4<P, R>
 
     /// Returns whether the key contains unencrypted secret key
     /// material.
-    pub fn has_unencrypted_secret(&self) -> bool
-    {
-        if let Some(secret) = &self.secret {
-            if let SecretKeyMaterial::Unencrypted { .. } = secret {
-                true
-            } else {
-                false
-            }
-        } else {
-            false
+    pub fn has_unencrypted_secret(&self) -> bool {
+        match self.secret {
+            Some(SecretKeyMaterial::Unencrypted { .. }) => true,
+            _ => false,
         }
     }
 
