@@ -415,8 +415,10 @@ impl<'a> Signer<'a> {
     ///
     /// Note: it is up to the caller to make sure the signing keys are
     /// actually valid as of `time`.
-    pub fn creation_time(mut self, creation_time: SystemTime) -> Self {
-        self.creation_time = Some(creation_time);
+    pub fn creation_time<T: Into<SystemTime>>(mut self, creation_time: T)
+                                              -> Self
+    {
+        self.creation_time = Some(creation_time.into());
         self
     }
 
