@@ -429,19 +429,19 @@ type CheckCallback = fn(*mut HelperCookie,
 
 // This fetches keys and computes the validity of the verification.
 struct VHelper {
-    get_public_keys_cb: GetPublicKeysCallback,
+    get_certs_cb: GetPublicKeysCallback,
     check_signatures_cb: CheckCallback,
     cookie: *mut HelperCookie,
 }
 
 impl VHelper {
-    fn new(get_public_keys: GetPublicKeysCallback,
+    fn new(get_certs: GetPublicKeysCallback,
            check_signatures: CheckCallback,
            cookie: *mut HelperCookie)
        -> Self
     {
         VHelper {
-            get_public_keys_cb: get_public_keys,
+            get_certs_cb: get_certs,
             check_signatures_cb: check_signatures,
             cookie,
         }
@@ -449,7 +449,7 @@ impl VHelper {
 }
 
 impl VerificationHelper for VHelper {
-    fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle])
+    fn get_certs(&mut self, ids: &[openpgp::KeyHandle])
         -> Result<Vec<openpgp::Cert>, anyhow::Error>
     {
         // The size of ID is not known in C.  Convert to KeyID, and
@@ -463,7 +463,7 @@ impl VerificationHelper for VHelper {
 
         let mut free : FreeCallback = |_| {};
 
-        let result = (self.get_public_keys_cb)(
+        let result = (self.get_certs_cb)(
             self.cookie,
             ids.as_ptr(), ids.len(),
             &mut cert_refs_raw, &mut cert_refs_raw_len as *mut usize,
@@ -535,7 +535,7 @@ impl VerificationHelper for VHelper {
 /// };
 ///
 /// static pgp_status_t
-/// get_public_keys_cb (void *cookie_opaque,
+/// get_certs_cb (void *cookie_opaque,
 ///                     pgp_keyid_t *keyids, size_t keyids_len,
 ///                     pgp_cert_t **certs, size_t *certs_len,
 ///                     void (**our_free)(void *))
@@ -600,7 +600,7 @@ impl VerificationHelper for VHelper {
 ///     .key = cert,  /* Move.  */
 ///   };
 ///   plaintext = pgp_verifier_new (NULL, policy, source,
-///                                 get_public_keys_cb, check_cb,
+///                                 get_certs_cb, check_cb,
 ///                                 &cookie, 1554542219);
 ///   assert (source);
 ///
@@ -619,14 +619,14 @@ impl VerificationHelper for VHelper {
 fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                         policy: *const Policy,
                         input: *mut io::Reader,
-                        get_public_keys: GetPublicKeysCallback,
+                        get_certs: GetPublicKeysCallback,
                         check: CheckCallback,
                         cookie: *mut HelperCookie,
                         time: time_t)
                         -> Maybe<io::Reader>
 {
     let policy = policy.ref_raw().as_ref();
-    let helper = VHelper::new(get_public_keys, check, cookie);
+    let helper = VHelper::new(get_certs, check, cookie);
 
     Verifier::from_reader(policy, input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
@@ -661,7 +661,7 @@ pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VH
 /// };
 ///
 /// static pgp_status_t
-/// get_public_keys_cb (void *cookie_opaque,
+/// get_certs_cb (void *cookie_opaque,
 ///                     pgp_keyid_t *keyids, size_t keyids_len,
 ///                     pgp_cert_t **certs, size_t *certs_len,
 ///                     void (**our_free)(void *))
@@ -728,7 +728,7 @@ pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VH
 ///     .key = cert,  /* Move.  */
 ///   };
 ///   verifier = pgp_detached_verifier_new (NULL, policy, signature,
-///     get_public_keys_cb, check_cb,
+///     get_certs_cb, check_cb,
 ///     &cookie, 1554542219);
 ///   assert (verifier);
 ///
@@ -746,7 +746,7 @@ pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VH
 fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                                  policy: *const Policy,
                                  signature_input: *mut io::Reader,
-                                 get_public_keys: GetPublicKeysCallback,
+                                 get_certs: GetPublicKeysCallback,
                                  check: CheckCallback,
                                  cookie: *mut HelperCookie,
                                  time: time_t)
@@ -754,7 +754,7 @@ fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 {
     let policy = policy.ref_raw().as_ref();
 
-    let helper = VHelper::new(get_public_keys, check, cookie);
+    let helper = VHelper::new(get_certs, check, cookie);
 
     openpgp::parse::stream::DetachedVerifier::from_reader(
         policy, signature_input.ref_mut_raw(), helper, maybe_time(time))
@@ -783,7 +783,7 @@ struct DHelper {
 }
 
 impl DHelper {
-    fn new(get_public_keys: GetPublicKeysCallback,
+    fn new(get_certs: GetPublicKeysCallback,
            decrypt: DecryptCallback,
            check: CheckCallback,
            inspect: Option<InspectCallback>,
@@ -791,7 +791,7 @@ impl DHelper {
        -> Self
     {
         DHelper {
-            vhelper: VHelper::new(get_public_keys, check, cookie),
+            vhelper: VHelper::new(get_certs, check, cookie),
             inspect_cb: inspect,
             decrypt_cb: decrypt,
         }
@@ -799,10 +799,10 @@ impl DHelper {
 }
 
 impl VerificationHelper for DHelper {
-    fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle])
+    fn get_certs(&mut self, ids: &[openpgp::KeyHandle])
         -> Result<Vec<openpgp::Cert>, anyhow::Error>
     {
-        self.vhelper.get_public_keys(ids)
+        self.vhelper.get_certs(ids)
     }
 
     fn check(&mut self, structure: stream::MessageStructure)
@@ -913,7 +913,7 @@ impl DecryptionHelper for DHelper {
 /// };
 ///
 /// static pgp_status_t
-/// get_public_keys_cb (void *cookie_raw,
+/// get_certs_cb (void *cookie_raw,
 ///                     pgp_keyid_t *keyids, size_t keyids_len,
 ///                     pgp_cert_t **certs, size_t *cert_len,
 ///                     void (**our_free)(void *))
@@ -1023,7 +1023,7 @@ impl DecryptionHelper for DHelper {
 ///     .decrypt_called = 0,
 ///   };
 ///   plaintext = pgp_decryptor_new (NULL, policy, source,
-///                                  get_public_keys_cb, decrypt_cb,
+///                                  get_certs_cb, decrypt_cb,
 ///                                  check_cb, NULL, &cookie, 1554542219);
 ///   assert (plaintext);
 ///
@@ -1043,7 +1043,7 @@ impl DecryptionHelper for DHelper {
 fn pgp_decryptor_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                          policy: *const Policy,
                          input: *mut io::Reader,
-                         get_public_keys: GetPublicKeysCallback,
+                         get_certs: GetPublicKeysCallback,
                          decrypt: DecryptCallback,
                          check: CheckCallback,
                          inspect: Option<InspectCallback>,
@@ -1053,7 +1053,7 @@ fn pgp_decryptor_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 {
     let policy = policy.ref_raw().as_ref();
     let helper = DHelper::new(
-        get_public_keys, decrypt, check, inspect, cookie);
+        get_certs, decrypt, check, inspect, cookie);
 
     Decryptor::from_reader(policy, input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))

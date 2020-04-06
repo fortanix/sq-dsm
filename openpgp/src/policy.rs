@@ -1170,7 +1170,7 @@ mod test {
         }
 
         impl VerificationHelper for VHelper {
-            fn get_public_keys(&mut self, _ids: &[crate::KeyHandle])
+            fn get_certs(&mut self, _ids: &[crate::KeyHandle])
                 -> Result<Vec<Cert>>
             {
                 Ok(self.keys.clone())
@@ -1632,7 +1632,7 @@ mod test {
         }
 
         impl VerificationHelper for VHelper {
-            fn get_public_keys(&mut self, _ids: &[crate::KeyHandle])
+            fn get_certs(&mut self, _ids: &[crate::KeyHandle])
                 -> Result<Vec<Cert>>
             {
                 Ok(self.keys.clone())
@@ -1770,7 +1770,7 @@ mod test {
         #[derive(PartialEq, Debug)]
         struct Helper {}
         impl VerificationHelper for Helper {
-            fn get_public_keys(&mut self, _: &[crate::KeyHandle])
+            fn get_certs(&mut self, _: &[crate::KeyHandle])
                 -> Result<Vec<Cert>> {
                 unreachable!()
             }
@@ -1816,7 +1816,7 @@ mod test {
     fn reject_cipher() {
         struct Helper {}
         impl VerificationHelper for Helper {
-            fn get_public_keys(&mut self, _: &[crate::KeyHandle])
+            fn get_certs(&mut self, _: &[crate::KeyHandle])
                 -> Result<Vec<Cert>> {
                 Ok(Default::default())
             }

@@ -519,7 +519,7 @@ typedef enum pgp_verification_result_variant {
   PGP_VERIFICATION_RESULT_CODE_FORCE_WIDTH = INT_MAX,
 } pgp_verification_result_variant_t;
 
-typedef pgp_status_t (*pgp_decryptor_get_public_keys_cb_t) (void *,
+typedef pgp_status_t (*pgp_decryptor_get_certs_cb_t) (void *,
     pgp_keyid_t *, size_t,
     pgp_cert_t **, size_t *,
     void (**free)(void *));

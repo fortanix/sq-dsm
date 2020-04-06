@@ -121,7 +121,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
 }
 
 impl<'a> VerificationHelper for Helper<'a> {
-    fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
+    fn get_certs(&mut self, _ids: &[openpgp::KeyHandle])
                        -> openpgp::Result<Vec<openpgp::Cert>> {
         Ok(Vec::new()) // Feed the Certs to the verifier here.
     }

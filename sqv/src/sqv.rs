@@ -71,7 +71,7 @@ impl<'a> VHelper<'a> {
 }
 
 impl<'a> VerificationHelper for VHelper<'a> {
-    fn get_public_keys(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>> {
+    fn get_certs(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>> {
         let mut certs = Vec::with_capacity(ids.len());
 
         // Load relevant keys from the keyring.

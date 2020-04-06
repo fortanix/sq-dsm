@@ -421,7 +421,7 @@ pub trait VerificationHelper {
     /// a subset of them may be sufficient.
     ///
     /// This method will be called at most once per message.
-    fn get_public_keys(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>>;
+    fn get_certs(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>>;
 
     /// Conveys the message structure.
     ///
@@ -452,9 +452,9 @@ struct NoDecryptionHelper<V: VerificationHelper> {
 }
 
 impl<V: VerificationHelper> VerificationHelper for NoDecryptionHelper<V> {
-    fn get_public_keys(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>>
+    fn get_certs(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>>
     {
-        self.v.get_public_keys(ids)
+        self.v.get_certs(ids)
     }
     fn check(&mut self, structure: MessageStructure) -> Result<()>
     {
@@ -507,7 +507,7 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// // This fetches keys and computes the validity of the verification.
 /// struct Helper {};
 /// impl VerificationHelper for Helper {
-///     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+///     fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
 ///         Ok(Vec::new()) // Feed the Certs to the verifier here...
 ///     }
 ///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
@@ -666,7 +666,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// // This fetches keys and computes the validity of the verification.
 /// struct Helper {};
 /// impl VerificationHelper for Helper {
-///     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+///     fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
 ///         Ok(Vec::new()) // Feed the Certs to the verifier here...
 ///     }
 ///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
@@ -858,7 +858,7 @@ enum Mode {
 /// // This fetches keys and computes the validity of the verification.
 /// struct Helper {};
 /// impl VerificationHelper for Helper {
-///     fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+///     fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
 ///         Ok(Vec::new()) // Feed the Certs to the verifier here...
 ///     }
 ///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
@@ -1165,7 +1165,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 Packet::Literal(_) => {
                     v.structure.insert_missing_signature_group();
                     // Query keys.
-                    v.certs = v.helper.get_public_keys(&issuers)?;
+                    v.certs = v.helper.get_certs(&issuers)?;
                     v.oppr = Some(PacketParserResult::Some(pp));
                     v.finish_maybe()?;
 
@@ -1206,7 +1206,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         }
 
         if v.mode == Mode::VerifyDetached {
-            v.certs = v.helper.get_public_keys(&issuers)?;
+            v.certs = v.helper.get_certs(&issuers)?;
             return Ok(v);
         }
 
@@ -1612,7 +1612,7 @@ mod test {
     }
 
     impl VerificationHelper for VHelper {
-        fn get_public_keys(&mut self, _ids: &[crate::KeyHandle]) -> Result<Vec<Cert>> {
+        fn get_certs(&mut self, _ids: &[crate::KeyHandle]) -> Result<Vec<Cert>> {
             Ok(self.keys.clone())
         }
 
@@ -1745,7 +1745,7 @@ mod test {
 
         struct VHelper(());
         impl VerificationHelper for VHelper {
-            fn get_public_keys(&mut self, _ids: &[crate::KeyHandle])
+            fn get_certs(&mut self, _ids: &[crate::KeyHandle])
                                -> Result<Vec<Cert>> {
                 Ok(Vec::new())
             }

@@ -314,7 +314,7 @@ impl<'a> VHelper<'a> {
 }
 
 impl<'a> VerificationHelper for VHelper<'a> {
-    fn get_public_keys(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+    fn get_certs(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
         let mut certs = self.certs.take().unwrap();
         // Get all keys.
         let seen: HashSet<_> = certs.iter()

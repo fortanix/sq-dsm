@@ -145,7 +145,7 @@ fn sign() {
     }
 
     impl<'a> VerificationHelper for Helper<'a> {
-        fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
+        fn get_certs(&mut self, _ids: &[openpgp::KeyHandle])
                            -> openpgp::Result<Vec<openpgp::Cert>> {
             // Return public keys for signature verification here.
             Ok(vec![self.cert.clone()])
@@ -253,7 +253,7 @@ fn decrypt() {
         }
 
         impl<'a> VerificationHelper for Helper<'a> {
-            fn get_public_keys(&mut self, _ids: &[openpgp::KeyHandle])
+            fn get_certs(&mut self, _ids: &[openpgp::KeyHandle])
                                -> openpgp::Result<Vec<openpgp::Cert>> {
                 // Return public keys for signature verification here.
                 Ok(Vec::new())

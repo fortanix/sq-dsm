@@ -26,7 +26,7 @@ struct decrypt_cookie {
 };
 
 static pgp_status_t
-get_public_keys_cb (void *cookie_raw,
+get_certs_cb (void *cookie_raw,
                     pgp_keyid_t *keyids, size_t keyids_len,
                     pgp_cert_t **certs, size_t *cert_len,
                     void (**our_free)(void *))
@@ -236,7 +236,7 @@ main (int argc, char **argv)
     .decrypt_called = 0,
   };
   plaintext = pgp_decryptor_new (&err, policy, source,
-                                 get_public_keys_cb, decrypt_cb,
+                                 get_certs_cb, decrypt_cb,
                                  check_cb, NULL, &cookie, 0);
   if (! plaintext)
     error (1, 0, "pgp_decryptor_new: %s", pgp_error_to_string (err));
