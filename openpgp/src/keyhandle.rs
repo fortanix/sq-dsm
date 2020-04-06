@@ -10,9 +10,68 @@ use crate::{
     Result,
 };
 
-/// Identifies certificates and keys.
+/// Enum representing an identifier for certificates and keys.
 ///
-/// A `KeyHandle` is either a `Fingerprint` or a `KeyID`.
+/// A `KeyHandle` contains either a [`Fingerprint`] or a [`KeyID`].
+/// This is needed because signatures can reference their issuer
+/// either by `Fingerprint` or by `KeyID`.
+///
+/// Currently, sequoia supports *version 4* fingerprints and Key ID
+/// only.  *Version 3* fingerprints and Key ID were deprecated by [RFC
+/// 4880] in 2007.
+///
+/// A *v4* fingerprint is, essentially, a 20-byte SHA-1 hash over the
+/// key's public key packet.  A *v4* Key ID is defined as the
+/// fingerprint's lower 8 bytes.
+///
+/// For the exact definition, see [Section 12.2 of RFC 4880].
+///
+/// Both fingerprint and Key ID are used to identify a key, e.g., the
+/// issuer of a signature.
+///
+///   [RFC 4880]: https://tools.ietf.org/html/rfc4880
+///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
+///   [`Fingerprint`]: ./enum.Fingerprint.html
+///   [`KeyID`]: ./enum.KeyID.html
+///
+/// # Examples
+///
+/// ```rust
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// # use sequoia_openpgp as openpgp;
+/// use openpgp::KeyHandle;
+/// use openpgp::Packet;
+/// use openpgp::parse::Parse;
+///
+/// let p = Packet::from_bytes(
+///     "-----BEGIN PGP SIGNATURE-----
+/// #
+/// #    wsBzBAABCgAdFiEEwD+mQRsDrhJXZGEYciO1ZnjgJSgFAlnclx8ACgkQciO1Znjg
+/// #    JShldAf+NBvUTVPnVPhYM4KihWOUlup8lbD6g1IduSM5rpsGvOVb+uKF6ik+GOBB
+/// #    RlMT4s183r3teFxiTkDx2pRhUz0MnOMPfbXovjF6Y93fKCOxCQWLBa0ukjNmE+ax
+/// #    gu9nZ3XXDGXZW22iGE52uVjPGSfuLfqvdMy5bKHn8xow/kepuGHZwy8yn7uFv7sl
+/// #    LnOBUz1FKA7iRl457XKPUhw5K7BnfRW/I2BRlnrwTDkjfXaJZC+bUTIJvm682Bvt
+/// #    ZNn8zc0JucyEkuL9WXYNuZg0znDE3T7D/6+tzfEdSf706unsXFXWHf83vL2eHCcw
+/// #    qhImm1lmcC+agFtWQ6/qD923LR9xmg==
+/// #    =htNu
+/// #    -----END PGP SIGNATURE-----" /* docstring trickery ahead:
+///      // ...
+///      -----END PGP SIGNATURE-----")?;
+/// #    */)?;
+/// if let Packet::Signature(sig) = p {
+///     let issuers = sig.get_issuers();
+///     assert_eq!(issuers.len(), 2);
+///     assert_eq!(&issuers[0],
+///                &KeyHandle::Fingerprint(
+///                    "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528"
+///                        .parse()?));
+///     assert_eq!(&issuers[1],
+///                &KeyHandle::KeyID("7223 B566 78E0 2528".parse()?));
+/// } else {
+///     unreachable!("It's a signature!");
+/// }
+/// # Ok(()) }
+/// ```
 #[derive(Debug, Clone)]
 pub enum KeyHandle {
     /// A Fingerprint.
@@ -146,7 +205,7 @@ impl PartialEq for KeyHandle {
 }
 
 impl KeyHandle {
-    /// Returns a reference to the raw identifier.
+    /// Returns the raw identifier as a byte slice.
     pub fn as_bytes(&self) -> &[u8] {
         match self {
             KeyHandle::Fingerprint(i) => i.as_bytes(),
@@ -154,7 +213,8 @@ impl KeyHandle {
         }
     }
 
-    /// Returns whether `self` and `other` could be aliases of each other.
+    /// Returns whether `self` and `other` could be aliases of each
+    /// other.
     ///
     /// `KeyHandle`'s `PartialEq` implementation cannot assert that a
     /// `Fingerprint` and a `KeyID` are equal, because distinct
