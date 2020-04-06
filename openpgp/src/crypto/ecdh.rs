@@ -581,9 +581,9 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
         let mut iv: Protected = vec![0; cipher.block_size()].into();
 
         // For j = 5 to 0
-        for j in (0..6_usize).into_iter().map(|x| 5 - x) {
+        for j in (0..=5).rev() {
             // For i = n to 1
-            for i in (0..n).into_iter().map(|x| n - 1 - x) {
+            for i in (0..=n-1).rev() {
                 // B = AES-1(K, (A ^ t) | R[i]) where t = n*j+i
                 write_be_u64(&mut tmp[..8], a ^ ((n * j) + i + 1) as u64);
                 &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
