@@ -460,6 +460,68 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     pub fn component(&self) -> &'a C {
         self.bundle().component()
     }
+
+    /// The component's self-signatures.
+    ///
+    /// This method is a forwarder for
+    /// [`ComponentBundle::self_signatures`].  Although
+    /// `ComponentAmalgamation` derefs to a `&ComponentBundle`, this
+    /// method provides a more accurate lifetime, which is helpful
+    /// when returning the reference from a function.  [See the
+    /// module's documentation] for more details.
+    ///
+    /// [`ComponentBundle::self_signatures`]: ../bundle/struct.ComponentBundle.html#method.self_signatures
+    /// [See the module's documentation]: index.html
+    pub fn self_signatures(&self) -> &'a [Signature] {
+        self.bundle().self_signatures()
+    }
+
+    /// The component's third-party certifications.
+    ///
+    /// This method is a forwarder for
+    /// [`ComponentBundle::certifications`].  Although
+    /// `ComponentAmalgamation` derefs to a `&ComponentBundle`, this
+    /// method provides a more accurate lifetime, which is helpful
+    /// when returning the reference from a function.  [See the
+    /// module's documentation] for more details.
+    ///
+    /// [`ComponentBundle::certifications`]: ../bundle/struct.ComponentBundle.html#method.certifications
+    /// [See the module's documentation]: index.html
+    pub fn certifications(&self) -> &'a [Signature] {
+        self.bundle().certifications()
+    }
+
+    /// The component's revocations that were issued by the
+    /// certificate holder.
+    ///
+    /// This method is a forwarder for
+    /// [`ComponentBundle::self_revocations`].  Although
+    /// `ComponentAmalgamation` derefs to a `&ComponentBundle`, this
+    /// method provides a more accurate lifetime, which is helpful
+    /// when returning the reference from a function.  [See the
+    /// module's documentation] for more details.
+    ///
+    /// [`ComponentBundle::self_revocations`]: ../bundle/struct.ComponentBundle.html#method.self_revocations
+    /// [See the module's documentation]: index.html
+    pub fn self_revocations(&self) -> &'a [Signature] {
+        self.bundle().self_revocations()
+    }
+
+    /// The component's revocations that were issued by other
+    /// certificates.
+    ///
+    /// This method is a forwarder for
+    /// [`ComponentBundle::other_revocations`].  Although
+    /// `ComponentAmalgamation` derefs to a `&ComponentBundle`, this
+    /// method provides a more accurate lifetime, which is helpful
+    /// when returning the reference from a function.  [See the
+    /// module's documentation] for more details.
+    ///
+    /// [`ComponentBundle::other_revocations`]: ../bundle/struct.ComponentBundle.html#method.other_revocations
+    /// [See the module's documentation]: index.html
+    pub fn other_revocations(&self) -> &'a [Signature] {
+        self.bundle().other_revocations()
+    }
 }
 
 macro_rules! impl_with_policy {
