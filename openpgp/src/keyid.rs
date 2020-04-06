@@ -160,7 +160,7 @@ impl KeyID {
     }
 
     /// Returns a reference to the raw KeyID.
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         match self {
             &KeyID::V4(ref id) => id,
             &KeyID::Invalid(ref id) => id,
@@ -174,7 +174,7 @@ impl KeyID {
 
     /// Returns true if this is a wild card ID.
     pub fn is_wildcard(&self) -> bool {
-        self.as_slice().iter().all(|b| *b == 0)
+        self.as_bytes().iter().all(|b| *b == 0)
     }
 
     /// Common code for the above functions.

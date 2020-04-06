@@ -114,8 +114,8 @@ impl TryFrom<&KeyHandle> for Fingerprint {
 
 impl PartialOrd for KeyHandle {
     fn partial_cmp(&self, other: &KeyHandle) -> Option<Ordering> {
-        let a = self.as_slice();
-        let b = other.as_slice();
+        let a = self.as_bytes();
+        let b = other.as_bytes();
 
         let l = cmp::min(a.len(), b.len());
 
@@ -147,10 +147,10 @@ impl PartialEq for KeyHandle {
 
 impl KeyHandle {
     /// Returns a reference to the raw identifier.
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         match self {
-            KeyHandle::Fingerprint(i) => i.as_slice(),
-            KeyHandle::KeyID(i) => i.as_slice(),
+            KeyHandle::Fingerprint(i) => i.as_bytes(),
+            KeyHandle::KeyID(i) => i.as_bytes(),
         }
     }
 

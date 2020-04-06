@@ -695,7 +695,7 @@ impl MarshalInto for KeyID {
 impl Serialize for Fingerprint {}
 impl Marshal for Fingerprint {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        o.write_all(self.as_slice())?;
+        o.write_all(self.as_bytes())?;
         Ok(())
     }
 }
@@ -1226,7 +1226,7 @@ impl Marshal for SubpacketValue {
                 },
             RevocationKey(rk) => rk.serialize(o)?,
             Issuer(ref id) =>
-                o.write_all(id.as_slice())?,
+                o.write_all(id.as_bytes())?,
             NotationData(nd) => {
                 write_be_u32(o, nd.flags().raw())?;
                 write_be_u16(o, nd.name().len() as u16)?;
@@ -1268,7 +1268,7 @@ impl Marshal for SubpacketValue {
             IssuerFingerprint(ref fp) => match fp {
                 Fingerprint::V4(_) => {
                     o.write_all(&[4])?;
-                    o.write_all(fp.as_slice())?;
+                    o.write_all(fp.as_bytes())?;
                 },
                 _ => return Err(Error::InvalidArgument(
                     "Unknown kind of fingerprint".into()).into()),
@@ -1280,7 +1280,7 @@ impl Marshal for SubpacketValue {
             IntendedRecipient(ref fp) => match fp {
                 Fingerprint::V4(_) => {
                     o.write_all(&[4])?;
-                    o.write_all(fp.as_slice())?;
+                    o.write_all(fp.as_bytes())?;
                 },
                 _ => return Err(Error::InvalidArgument(
                     "Unknown kind of fingerprint".into()).into()),
@@ -1324,14 +1324,14 @@ impl MarshalInto for SubpacketValue {
                 Fingerprint::V4(_) =>
                     1 + (fp as &dyn MarshalInto).serialized_len(),
                 // Educated guess for unknown versions.
-                Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
+                Fingerprint::Invalid(_) => 1 + fp.as_bytes().len(),
             },
             PreferredAEADAlgorithms(ref p) => p.len(),
             IntendedRecipient(ref fp) => match fp {
                 Fingerprint::V4(_) =>
                     1 + (fp as &dyn MarshalInto).serialized_len(),
                 // Educated guess for unknown versions.
-                Fingerprint::Invalid(_) => 1 + fp.as_slice().len(),
+                Fingerprint::Invalid(_) => 1 + fp.as_bytes().len(),
             },
             Unknown { body, .. } => body.len(),
             __Nonexhaustive => unreachable!(),
@@ -1347,14 +1347,14 @@ impl Marshal for RevocationKey {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let (pk_algo, fp) = self.revoker();
         o.write_all(&[self.class(), (pk_algo).into()])?;
-        o.write_all(fp.as_slice())?;
+        o.write_all(fp.as_bytes())?;
         Ok(())
     }
 }
 
 impl MarshalInto for RevocationKey {
     fn serialized_len(&self) -> usize {
-        1 + 1 + self.revoker().1.as_slice().len()
+        1 + 1 + self.revoker().1.as_bytes().len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1529,7 +1529,7 @@ impl Marshal for OnePassSig3 {
         write_byte(o, self.typ().into())?;
         write_byte(o, self.hash_algo().into())?;
         write_byte(o, self.pk_algo().into())?;
-        o.write_all(self.issuer().as_slice())?;
+        o.write_all(self.issuer().as_bytes())?;
         write_byte(o, self.last_raw())?;
 
         Ok(())

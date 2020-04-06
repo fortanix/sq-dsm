@@ -67,7 +67,7 @@ impl Fingerprint {
     }
 
     /// Returns a reference to the raw Fingerprint.
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         match self {
             &Fingerprint::V4(ref fp) => fp,
             &Fingerprint::Invalid(ref fp) => fp,

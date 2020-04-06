@@ -343,7 +343,7 @@ fn make_param<P, R>(recipient: &Key<P, R>,
             + 1                      // Public key algorithm ID,
             + 4                      // KDF parameters,
             + 20                     // "Anonymous Sender    ",
-            + fp.as_slice().len());  // Recipients key fingerprint.
+            + fp.as_bytes().len());  // Recipients key fingerprint.
 
     param.push(curve.oid().len() as u8);
     param.extend_from_slice(curve.oid());
@@ -353,13 +353,13 @@ fn make_param<P, R>(recipient: &Key<P, R>,
     param.push((*hash).into());
     param.push((*sym).into());
     param.extend_from_slice(b"Anonymous Sender    ");
-    param.extend_from_slice(fp.as_slice());
+    param.extend_from_slice(fp.as_bytes());
     assert_eq!(param.len(),
                1 + curve.oid().len()    // Length and Curve OID,
                + 1                      // Public key algorithm ID,
                + 4                      // KDF parameters,
                + 20                     // "Anonymous Sender    ",
-               + fp.as_slice().len());  // Recipients key fingerprint.
+               + fp.as_bytes().len());  // Recipients key fingerprint.
 
     param
 }
