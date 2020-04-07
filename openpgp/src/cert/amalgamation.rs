@@ -188,8 +188,13 @@ pub trait ValidAmalgamation<'a, C: 'a>
                        -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
     {
         if let Some(dk) = self.direct_key_signature().ok() {
-            Box::new(self.binding_signature().revocation_keys().chain(
-                dk.revocation_keys()))
+            let bs = self.binding_signature();
+            if std::ptr::eq(dk, bs) {
+                // Avoid unnecessary duplicates.
+                Box::new(bs.revocation_keys())
+            } else {
+                Box::new(bs.revocation_keys().chain(dk.revocation_keys()))
+            }
         } else {
             Box::new(self.binding_signature().revocation_keys())
         }
