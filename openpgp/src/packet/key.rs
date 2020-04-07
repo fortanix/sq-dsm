@@ -948,8 +948,7 @@ impl<R> Key4<key::PublicParts, R>
         point.insert(0, 0x40);
 
         Self::new(
-            ctime.into()
-                .unwrap_or_else(|| time::SystemTime::now()),
+            ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::ECDH,
             mpis::PublicKey::ECDH {
                 curve: Curve::Cv25519,
@@ -972,8 +971,7 @@ impl<R> Key4<key::PublicParts, R>
         point.insert(0, 0x40);
 
         Self::new(
-            ctime.into()
-                .unwrap_or_else(|| time::SystemTime::now()),
+            ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::EdDSA,
             mpis::PublicKey::EdDSA {
                 curve: Curve::Ed25519,
@@ -990,8 +988,7 @@ impl<R> Key4<key::PublicParts, R>
         -> Result<Self> where T: Into<Option<time::SystemTime>>
     {
         Self::new(
-            ctime.into()
-                .unwrap_or_else(|| time::SystemTime::now()),
+            ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::RSAEncryptSign,
             mpis::PublicKey::RSA {
                 e: mpis::MPI::new(e),
@@ -1042,8 +1039,7 @@ impl<R> Key4<SecretParts, R>
         private_key.reverse();
 
         Self::with_secret(
-            ctime.into()
-                .unwrap_or_else(|| time::SystemTime::now()),
+            ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::ECDH,
             mpis::PublicKey::ECDH {
                 curve: Curve::Cv25519,
@@ -1071,8 +1067,7 @@ impl<R> Key4<SecretParts, R>
         ed25519::public_key(&mut public_key[1..], private_key).unwrap();
 
         Self::with_secret(
-            ctime.into()
-                .unwrap_or_else(|| time::SystemTime::now()),
+            ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::EdDSA,
             mpis::PublicKey::EdDSA {
                 curve: Curve::Ed25519,
@@ -1098,8 +1093,7 @@ impl<R> Key4<SecretParts, R>
         let (a, b, c) = sec.as_rfc4880();
 
         Self::with_secret(
-            ctime.into()
-                .unwrap_or_else(|| time::SystemTime::now()),
+            ctime.into().unwrap_or_else(time::SystemTime::now),
             PublicKeyAlgorithm::RSAEncryptSign,
             mpis::PublicKey::RSA {
                 e: mpis::MPI::new(&key.e()[..]),

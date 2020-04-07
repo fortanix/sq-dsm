@@ -1862,8 +1862,7 @@ impl SubpacketAreas {
               R: key::KeyRole,
               T: Into<Option<time::SystemTime>>
     {
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        let t = t.into().unwrap_or_else(time::SystemTime::now);
 
         match self.key_validity_period() {
             Some(e) if e.as_secs() > 0 && key.creation_time() + e <= t =>

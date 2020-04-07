@@ -114,7 +114,7 @@ impl CertRevocationBuilder {
 
         let creation_time
             = self.signature_creation_time()
-            .unwrap_or_else(|| time::SystemTime::now());
+            .unwrap_or_else(time::SystemTime::now);
 
         self.builder
             // If not set, set it to now.

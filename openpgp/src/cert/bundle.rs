@@ -105,7 +105,7 @@ impl<C> ComponentBundle<C> {
                                 -> Result<&Signature>
         where T: Into<Option<time::SystemTime>>
     {
-        let t = t.into().unwrap_or_else(|| time::SystemTime::now());
+        let t = t.into().unwrap_or_else(time::SystemTime::now);
 
         // Recall: the signatures are sorted by their creation time in
         // descending order, i.e., newest first.
@@ -247,8 +247,7 @@ impl<C> ComponentBundle<C> {
     {
         // Fallback time.
         let time_zero = || time::UNIX_EPOCH;
-        let t = t.into()
-            .unwrap_or_else(|| time::SystemTime::now());
+        let t = t.into().unwrap_or_else(time::SystemTime::now);
         let selfsig_creation_time
             = selfsig.and_then(|s| s.signature_creation_time())
                      .unwrap_or_else(time_zero);
