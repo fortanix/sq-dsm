@@ -39,6 +39,7 @@ use crate::types::{
     HashAlgorithm,
     KeyServerPreferences,
     ReasonForRevocation,
+    RevocationKey,
     RevocationStatus,
     SymmetricAlgorithm,
 };
@@ -1495,6 +1496,19 @@ impl<'a> ValidCert<'a> {
     /// Returns an iterator over the Cert's `UserAttributeBundle`s.
     pub fn user_attributes(&self) -> ValidComponentAmalgamationIter<UserAttribute> {
         self.cert.user_attributes().with_policy(self.policy, self.time)
+    }
+
+    /// Returns a list of any designated revokers for this component.
+    ///
+    /// This function returns the designated revokers listed on both
+    /// this component's binding signature and the certificate's
+    /// direct key signature.
+    ///
+    /// Note: the returned list has not been deduplicated.
+    pub fn revocation_keys(&self)
+        -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
+    {
+        self.primary_key().revocation_keys()
     }
 }
 
