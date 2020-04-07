@@ -18,6 +18,7 @@ use crate::types::{
     KeyFlags,
     SignatureType,
     SymmetricAlgorithm,
+    RevocationKey,
 };
 
 /// Groups symmetric and asymmetric algorithms
@@ -117,6 +118,7 @@ pub struct CertBuilder {
     userids: Vec<packet::UserID>,
     user_attributes: Vec<packet::UserAttribute>,
     password: Option<Password>,
+    revocation_keys: Option<Vec<RevocationKey>>,
 }
 
 impl CertBuilder {
@@ -129,7 +131,7 @@ impl CertBuilder {
     /// `CertBuilder::add_transport_encryption_subkey`, for instance), and user
     /// ids (using `CertBuilder::add_userid`).
     pub fn new() -> Self {
-        CertBuilder{
+        CertBuilder {
             creation_time: None,
             ciphersuite: CipherSuite::default(),
             primary: KeyBlueprint{
@@ -141,6 +143,7 @@ impl CertBuilder {
             userids: vec![],
             user_attributes: vec![],
             password: None,
+            revocation_keys: None,
         }
     }
 
@@ -176,6 +179,7 @@ impl CertBuilder {
             userids: userids.into_iter().map(|x| x.into()).collect(),
             user_attributes: vec![],
             password: None,
+            revocation_keys: None,
         }
     }
 
@@ -279,6 +283,12 @@ impl CertBuilder {
         self
     }
 
+    /// Sets designated revokers.
+    pub fn set_revocation_keys(mut self, revocation_keys: Vec<RevocationKey>) -> Self {
+        self.revocation_keys = Some(revocation_keys);
+        self
+    }
+
     /// Generates the actual Cert.
     pub fn generate(mut self) -> Result<(Cert, Signature)> {
         use crate::{PacketPile, Packet};
@@ -309,12 +319,18 @@ impl CertBuilder {
         }));
         packets.push(sig.clone().into());
 
+        let sig = signature::Builder::from(sig.clone());
+
+        // Remove subpackets that needn't be copied into the binding
+        // signatures.
+        let sig = sig.set_revocation_key(vec![])?;
+
         let mut cert =
             Cert::from_packet_pile(PacketPile::from(packets))?;
 
         // Sign UserIDs.
         for uid in self.userids.into_iter() {
-            let builder = signature::Builder::from(sig.clone())
+            let builder = sig.clone()
                 .set_type(SignatureType::PositiveCertification)
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
@@ -324,7 +340,7 @@ impl CertBuilder {
 
         // Sign UserAttributes.
         for ua in self.user_attributes.into_iter() {
-            let builder = signature::Builder::from(sig.clone())
+            let builder = sig.clone()
                 .set_type(SignatureType::PositiveCertification)
             // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
@@ -408,7 +424,7 @@ impl CertBuilder {
             .unwrap_or(self.ciphersuite)
             .generate_key(&KeyFlags::default().set_certification(true))?;
         key.set_creation_time(creation_time)?;
-        let sig = signature::Builder::new(SignatureType::DirectKey)
+        let mut sig = signature::Builder::new(SignatureType::DirectKey)
             // GnuPG wants at least a 512-bit hash for P521 keys.
             .set_hash_algo(HashAlgorithm::SHA512)
             .set_features(&Features::sequoia())?
@@ -418,6 +434,10 @@ impl CertBuilder {
             .set_issuer_fingerprint(key.fingerprint())?
             .set_issuer(key.keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
+
+        if let Some(ref revocation_keys) = self.revocation_keys {
+            sig = sig.set_revocation_key(revocation_keys.clone())?;
+        }
 
         let mut signer = key.clone().into_keypair()
             .expect("key generated above has a secret");
@@ -429,7 +449,10 @@ impl CertBuilder {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
+    use crate::Fingerprint;
     use crate::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
     use crate::types::PublicKeyAlgorithm;
     use crate::policy::StandardPolicy as P;
@@ -662,5 +685,56 @@ mod tests {
             assert_eq!(ui.binding_signature()
                        .signature_creation_time().unwrap(), UNIX_EPOCH);
         }
+    }
+
+    #[test]
+    fn designated_revokers() -> Result<()> {
+        let p = &P::new();
+
+        let fpr1 = "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528";
+        let fpr2 = "50E6 D924 308D BF22 3CFB  510A C2B8 1905 6C65 2598";
+        let revokers = vec![
+            RevocationKey::new(PublicKeyAlgorithm::RSAEncryptSign,
+                               Fingerprint::from_str(fpr1)?,
+                               false),
+            RevocationKey::new(PublicKeyAlgorithm::ECDSA,
+                               Fingerprint::from_str(fpr2)?,
+                               false)
+        ];
+
+        let (cert,_)
+            = CertBuilder::general_purpose(None, Some("alice@example.org"))
+            .set_revocation_keys(revokers.clone())
+            .generate()?;
+        let cert = cert.with_policy(p, None)?;
+
+        assert_eq!(cert.revocation_keys().collect::<Vec<_>>(),
+                   revokers.iter().collect::<Vec<_>>());
+
+        // The designated revokers on the direct signature should also
+        // be returned when querying components for designated
+        // revokers.
+        assert_eq!(cert.primary_key().revocation_keys().collect::<Vec<_>>(),
+                   revokers.iter().collect::<Vec<_>>());
+        assert_eq!(cert.primary_userid()?.revocation_keys().collect::<Vec<_>>(),
+                   revokers.iter().collect::<Vec<_>>());
+
+
+        // Do it again, with a key that has no User IDs.
+        let (cert,_) = CertBuilder::new()
+            .set_revocation_keys(revokers.clone())
+            .generate()?;
+        let cert = cert.with_policy(p, None)?;
+        assert!(cert.primary_userid().is_err());
+
+        assert_eq!(cert.revocation_keys().collect::<Vec<_>>(),
+                   revokers.iter().collect::<Vec<_>>());
+
+        // The designated revokers on the direct signature should also
+        // be returned when querying components for designated
+        // revokers.
+        assert_eq!(cert.primary_key().revocation_keys().collect::<Vec<_>>(),
+                   revokers.iter().collect::<Vec<_>>());
+        Ok(())
     }
 }
