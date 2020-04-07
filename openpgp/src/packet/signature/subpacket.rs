@@ -2154,10 +2154,13 @@ impl signature::Builder {
 
     /// Sets the value of the Revocation Key subpacket, which contains
     /// a designated revoker.
-    pub fn set_revocation_key(mut self, rk: RevocationKey) -> Result<Self> {
-        self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::RevocationKey(rk),
-            true)?)?;
+    pub fn set_revocation_key(mut self, rk: Vec<RevocationKey>) -> Result<Self> {
+        self.hashed_area.remove_all(SubpacketTag::RevocationKey);
+        for rk in rk.into_iter() {
+            self.hashed_area.add(Subpacket::new(
+                SubpacketValue::RevocationKey(rk),
+                true)?)?;
+        }
 
         Ok(self)
     }
@@ -2539,7 +2542,7 @@ fn accessors() {
 
     let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     let rk = RevocationKey::new(pk_algo, fp.clone(), true);
-    sig = sig.set_revocation_key(rk.clone()).unwrap();
+    sig = sig.set_revocation_key(vec![ rk.clone() ]).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.revocation_keys().nth(0).unwrap(), &rk);
