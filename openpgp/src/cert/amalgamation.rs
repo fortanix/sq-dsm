@@ -11,7 +11,6 @@
 //! A notable differences between `ComponentBundle`s and
 //! `Amalgamation`s is that a `ComponentBundle`, owns its data, but an
 //! `Amalgamation` only references the contained data.
-use std::borrow::Borrow;
 use std::time;
 use std::time::SystemTime;
 use std::clone::Clone;
@@ -27,7 +26,6 @@ use crate::{
         CompressionAlgorithm,
         Features,
         HashAlgorithm,
-        KeyFlags,
         KeyServerPreferences,
         RevocationKey,
         RevocationStatus,
@@ -180,105 +178,6 @@ pub trait ValidAmalgamation<'a, C: 'a>
         f(self.binding_signature())
             .or_else(|| self.direct_key_signature().ok().and_then(f))
     }
-
-    /// Returns the key's key flags as of the amalgamation's
-    /// reference time.
-    ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
-    /// 5.2.3.3 of RFC 4880].
-    ///
-    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    fn key_flags(&self) -> Option<KeyFlags> {
-        self.map(|s| s.key_flags())
-    }
-
-    /// Returns whether the key has at least one of the specified key
-    /// flags as of the amalgamation's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    fn has_any_key_flag<F>(&self, flags: F) -> bool
-        where F: Borrow<KeyFlags>
-    {
-        let our_flags = self.key_flags().unwrap_or_default();
-        !(&our_flags & flags.borrow()).is_empty()
-    }
-
-    /// Returns whether key is certification capable as of the
-    /// amalgamtion's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    fn for_certification(&self) -> bool {
-        self.has_any_key_flag(KeyFlags::default().set_certification(true))
-    }
-
-    /// Returns whether key is signing capable as of the amalgamation's
-    /// reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    fn for_signing(&self) -> bool {
-        self.has_any_key_flag(KeyFlags::default().set_signing(true))
-    }
-
-    /// Returns whether key is authentication capable as of the
-    /// amalgamation's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    fn for_authentication(&self) -> bool
-    {
-        self.has_any_key_flag(KeyFlags::default().set_authentication(true))
-    }
-
-    /// Returns whether key is intended for storage encryption as of
-    /// the amalgamation's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    fn for_storage_encryption(&self) -> bool
-    {
-        self.has_any_key_flag(KeyFlags::default().set_storage_encryption(true))
-    }
-
-    /// Returns whether key is intended for transport encryption as of the
-    /// amalgamtion's reference time.
-    ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
-    fn for_transport_encryption(&self) -> bool
-    {
-        self.has_any_key_flag(KeyFlags::default().set_transport_encryption(true))
-    }
-
-    /// Returns the key's expiration time as of the amalgamation's
-    /// reference time.
-    ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
-    /// 5.2.3.3 of RFC 4880].
-    ///
-    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    fn key_validity_period(&self) -> Option<std::time::Duration> {
-        self.map(|s| s.key_validity_period())
-    }
-
-    /// Returns the key's expiration time as of the amalgamation's
-    /// reference time.
-    ///
-    /// If this function returns `None`, the key does not expire.
-    ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
-    /// 5.2.3.3 of RFC 4880].
-    ///
-    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    fn key_expiration_time(&self) -> Option<time::SystemTime>;
 
     /// Returns the value of the Revocation Key subpacket, which
     /// contains a designated revoker.
@@ -805,25 +704,6 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     fn revoked(&self) -> RevocationStatus<'a> {
         self.bundle._revoked(self.policy(), self.cert.time,
                               false, Some(self.binding_signature))
-    }
-
-    /// Returns the key's expiration time as of the amalgamtion's
-    /// reference time.
-    ///
-    /// If this function returns `None`, the key does not expire.
-    ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
-    /// 5.2.3.3 of RFC 4880].
-    ///
-    ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-    fn key_expiration_time(&self) -> Option<time::SystemTime> {
-        let key = self.cert().primary_key().key();
-        match self.key_validity_period() {
-            Some(vp) if vp.as_secs() > 0 => Some(key.creation_time() + vp),
-            _ => None,
-        }
     }
 }
 
