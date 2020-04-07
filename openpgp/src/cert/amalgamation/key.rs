@@ -692,10 +692,6 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
         self.binding_signature
     }
 
-    fn direct_key_signature(&self) -> Result<&'a Signature> {
-        self.cert.cert.primary.binding_signature(self.policy(), self.time())
-    }
-
     fn revoked(&self) -> RevocationStatus<'a> {
         if self.primary() {
             self.cert.revoked()

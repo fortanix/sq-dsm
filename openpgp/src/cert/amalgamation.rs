@@ -157,7 +157,10 @@ pub trait ValidAmalgamation<'a, C: 'a>
     ///
     /// Subpackets on direct key signatures apply to all components of
     /// the certificate.
-    fn direct_key_signature(&self) -> Result<&'a Signature>;
+    fn direct_key_signature(&self) -> Result<&'a Signature> {
+        self.cert().cert.primary.binding_signature(self.policy(), self.time())
+    }
+
 
     /// Returns the component's revocation status as of the amalgamation's
     /// reference time.
@@ -805,15 +808,6 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     fn binding_signature(&self) -> &'a Signature {
         assert!(std::ptr::eq(self.ca.cert(), self.cert.cert()));
         self.binding_signature
-    }
-
-    /// Returns the Certificate's direct key signature as of the
-    /// reference time, if any.
-    ///
-    /// Subpackets on direct key signatures apply to all components of
-    /// the certificate.
-    fn direct_key_signature(&self) -> Result<&'a Signature> {
-        self.cert.cert.primary.binding_signature(self.policy(), self.time())
     }
 
     /// Returns the component's revocation status as of the amalgamation's
