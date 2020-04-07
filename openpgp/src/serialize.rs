@@ -1,9 +1,16 @@
 //! Packet serialization infrastructure.
 //!
+//! OpenPGP defines a binary representation suitable for storing and
+//! communicating OpenPGP data structures (see [Section 3 ff. of RFC
+//! 4880]).  Serialization is the process of creating the binary
+//! representation.
+//!
+//!   [Section 3 ff. of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3
+//!
 //! There are two interfaces to serialize OpenPGP data.  Which one is
 //! applicable depends on whether or not the packet structure is
 //! already assembled in memory, with all information already in place
-//! (e.g. because it was parsed).
+//! (e.g. because it was previously parsed).
 //!
 //! If it is, you can use the [`Serialize`] or [`SerializeInto`]
 //! trait.  Otherwise, please use our [streaming serialization
@@ -12,6 +19,120 @@
 //!   [`Serialize`]: trait.Serialize.html
 //!   [`SerializeInto`]: trait.SerializeInto.html
 //!   [streaming serialization interface]: stream/index.html
+//!
+//! # Streaming serialization
+//!
+//! The [streaming serialization interface] is the preferred way to
+//! create OpenPGP messages (see [Section 11.3 of RFC 4880]).  It is
+//! ergonomic, yet flexible enough to accommodate most use cases.  It
+//! requires little buffering, minimizing the memory footprint of the
+//! operation.
+//!
+//! This example demonstrates how to create the simplest possible
+//! OpenPGP message (see [Section 11.3 of RFC 4880]) containing just a
+//! literal data packet (see [Section 5.9 of RFC 4880]):
+//!
+//!   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+//!   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+//!
+//! ```
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! use std::io::Write;
+//! use sequoia_openpgp as openpgp;
+//! use openpgp::serialize::stream::{Message, LiteralWriter};
+//!
+//! let mut o = vec![];
+//! {
+//!     let message = Message::new(&mut o);
+//!     let mut w = LiteralWriter::new(message).build()?;
+//!     w.write_all(b"Hello world.")?;
+//!     w.finalize()?;
+//! }
+//! assert_eq!(b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.", o.as_slice());
+//! # Ok(()) }
+//! ```
+//!
+//! For a more complete example, see the [streaming examples].
+//!
+//!   [streaming examples]: streaming/index.html#examples
+//!
+//! # Serializing objects
+//!
+//! The traits [`Serialize`] and [`SerializeInto`] provide a mechanism
+//! to serialize OpenPGP data structures.  [`Serialize`] writes to
+//! [`io::Write`]rs, while [`SerializeInto`] writes into pre-allocated
+//! buffers, computes the size of the serialized representation, and
+//! provides a convenient method to create byte vectors with the
+//! serialized form.
+//!
+//!   [`io::Write`]: https://doc.rust-lang.org/nightly/std/io/trait.Write.html
+//!
+//! To prevent accidentally serializing data structures that are not
+//! commonly exchanged between OpenPGP implementations, [`Serialize`]
+//! and [`SerializeInto`] is only implemented for types like
+//! [`Packet`], [`Cert`], and [`Message`], but not for packet bodies
+//! like [`Signature`].
+//!
+//!   [`Packet`]: ../enum.Packet.html
+//!   [`Cert`]: ../struct.Cert.html
+//!   [`Message`]: ../struct.Message.html
+//!   [`Signature`]: ../packet/enum.Signature.html
+//!
+//! This example demonstrates how to serialize a literal data packet
+//! (see [Section 5.9 of RFC 4880]):
+//!
+//! ```
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! use sequoia_openpgp as openpgp;
+//! use openpgp::packet::{Literal, Packet};
+//! use openpgp::serialize::{Serialize, SerializeInto};
+//!
+//! let mut l = Literal::default();
+//! l.set_body(b"Hello world.".to_vec());
+//!
+//! // Add packet framing.
+//! let p = Packet::from(l);
+//!
+//! // Using Serialize.
+//! let mut b = vec![];
+//! p.serialize(&mut b)?;
+//! assert_eq!(b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.", b.as_slice());
+//!
+//! // Using SerializeInto.
+//! let b = p.to_vec()?;
+//! assert_eq!(b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.", b.as_slice());
+//! # Ok(()) }
+//! ```
+//!
+//! # Marshalling objects
+//!
+//! The traits [`Marshal`] and [`MarshalInto`] provide a mechanism to
+//! serialize all OpenPGP data structures in this crate, even those
+//! not commonly interchanged between OpenPGP implementations.  For
+//! example, it allows the serialization of unframed packet bodies:
+//!
+//!   [`Marshal`]: trait.Marshal.html
+//!   [`MarshalInto`]: trait.MarshalInto.html
+//!
+//! ```
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! use sequoia_openpgp as openpgp;
+//! use openpgp::packet::Literal;
+//! use openpgp::serialize::{Marshal, MarshalInto};
+//!
+//! let mut l = Literal::default();
+//! l.set_body(b"Hello world.".to_vec());
+//!
+//! // Using Marshal.
+//! let mut b = vec![];
+//! l.serialize(&mut b)?;
+//! assert_eq!(b"b\x00\x00\x00\x00\x00Hello world.", b.as_slice());
+//!
+//! // Using MarshalInto.
+//! let b = l.to_vec()?;
+//! assert_eq!(b"b\x00\x00\x00\x00\x00Hello world.", b.as_slice());
+//! # Ok(()) }
+//! ```
 
 use std::io::{self, Write};
 use std::cmp;
@@ -45,9 +166,11 @@ const TRACE : bool = false;
 
 /// Serializes OpenPGP data structures.
 ///
-/// This trait provides the same interface as the `Marshal` trait (in
+/// This trait provides the same interface as the [`Marshal`] trait (in
 /// fact, it is just a wrapper around that trait), but only data
 /// structures that it makes sense to export implement it.
+///
+///   [`Marshal`]: trait.Marshal.html
 ///
 /// Having a separate trait for data structures that it makes sense to
 /// export avoids an easy-to-make and hard-to-debug bug: inadvertently
@@ -84,9 +207,9 @@ const TRACE : bool = false;
 /// # }
 /// ```
 ///
-/// Note: if you `use` both `Serialize` and `Marshal`, then, because
+/// Note: if you `use` both `Serialize` and [`Marshal`], then, because
 /// they both have the same methods, and all data structures that
-/// implement `Serialize` also implement `Marshal`, you will have to
+/// implement `Serialize` also implement [`Marshal`], you will have to
 /// use the Universal Function Call Syntax (UFCS) to call the methods
 /// on those objects, for example:
 ///
@@ -109,7 +232,7 @@ const TRACE : bool = false;
 /// # }
 /// ```
 ///
-/// If you really needed `Marshal`, we strongly recommend importing it
+/// If you really needed [`Marshal`], we strongly recommend importing it
 /// in as small a scope as possible to avoid this, and to avoid
 /// accidentally exporting data without the required framing.
 pub trait Serialize : Marshal {
@@ -138,12 +261,14 @@ pub trait Serialize : Marshal {
 
 /// Serializes OpenPGP data structures.
 ///
-/// This trait provides the same interface as `Serialize`, but is
+/// This trait provides the same interface as [`Serialize`], but is
 /// implemented for all data structures that can be serialized.
 ///
-/// In general, you should prefer the `Serialize` trait, as it is only
+///   [`Serialize`]: trait.Serialize.html
+///
+/// In general, you should prefer the [`Serialize`] trait, as it is only
 /// implemented for data structures that are normally exported.  See
-/// the documentation for `Serialize` for more details.
+/// the documentation for [`Serialize`] for more details.
 pub trait Marshal {
     /// Writes a serialized version of the object to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()>;
@@ -168,12 +293,16 @@ pub trait Marshal {
 
 /// Serializes OpenPGP data structures into pre-allocated buffers.
 ///
-/// This trait provides the same interface as `MarshalInto`, but is
+/// This trait provides the same interface as [`MarshalInto`], but is
 /// only implemented for data structures that can be serialized.
 ///
-/// In general, you should prefer this trait to `MarshalInto`, as it
+///   [`MarshalInto`]: trait.MarshalInto.html
+///
+/// In general, you should prefer this trait to [`MarshalInto`], as it
 /// is only implemented for data structures that are normally
-/// exported.  See the documentation for `Serialize` for more details.
+/// exported.  See the documentation for [`Serialize`] for more details.
+///
+///   [`Serialize`]: trait.Serialize.html
 pub trait SerializeInto : MarshalInto {
     /// Computes the maximal length of the serialized representation.
     ///
@@ -249,12 +378,16 @@ pub trait SerializeInto : MarshalInto {
 
 /// Serializes OpenPGP data structures into pre-allocated buffers.
 ///
-/// This trait provides the same interface as `SerializeInto`, but is
+/// This trait provides the same interface as [`SerializeInto`], but is
 /// implemented for all data structures that can be serialized.
 ///
-/// In general, you should prefer the `SerializeInto` trait, as it is
+///   [`SerializeInto`]: trait.SerializeInto.html
+///
+/// In general, you should prefer the [`SerializeInto`] trait, as it is
 /// only implemented for data structures that are normally exported.
-/// See the documentation for `Serialize` for more details.
+/// See the documentation for [`Serialize`] for more details.
+///
+///   [`Serialize`]: trait.Serialize.html
 pub trait MarshalInto {
     /// Computes the maximal length of the serialized representation.
     ///

@@ -292,11 +292,12 @@ impl Cert {
 
 /// A reference to a Cert that allows serialization of secret keys.
 ///
-/// To avoid accidental leakage `Cert::serialize()` skips secret keys.
-/// To serialize `Cert`s with secret keys, use [`Cert::as_tsk()`] to
-/// create a `TSK`, which is a shim on top of the `Cert`, and serialize
-/// this.
+/// To avoid accidental leakage, secret keys are not serialized when a
+/// serializing a [`Cert`].  To serialize [`Cert`]s with secret keys,
+/// use [`Cert::as_tsk()`] to create a `TSK`, which is a shim on top
+/// of the `Cert`, and serialize this.
 ///
+/// [`Cert`]: ../cert/struct.Cert.html
 /// [`Cert::as_tsk()`]: ../cert/struct.Cert.html#method.as_tsk
 ///
 /// # Example

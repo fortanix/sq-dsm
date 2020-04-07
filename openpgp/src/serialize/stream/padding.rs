@@ -1,7 +1,20 @@
 //! Padding for OpenPGP messages.
 //!
 //! To reduce the amount of information leaked via the message length,
-//! encrypted OpenPGP messages should be padded.
+//! encrypted OpenPGP messages (see [Section 11.3 of RFC 4880]) should
+//! be padded.
+//!
+//!   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+//!
+//! To pad a message using the streaming serialization interface, the
+//! [`Padder`] needs to be inserted into the writing stack between the
+//! [`Encryptor`] and [`Signer`].  This is illustrated in this
+//! [example].
+//!
+//!   [`Padder`]: struct.Padder.html
+//!   [`Encryptor`]: ../stream/struct.Encryptor.html
+//!   [`Signer`]: ../stream/struct.Signer.html
+//!   [example]: struct.Padder.html#example
 //!
 //! # Padding in OpenPGP
 //!
@@ -95,8 +108,8 @@ use crate::types::{
 /// [Padmé]: fn.padme.html
 ///
 /// ```
-/// extern crate sequoia_openpgp as openpgp;
 /// use std::io::Write;
+/// use sequoia_openpgp as openpgp;
 /// use openpgp::serialize::stream::{Message, LiteralWriter};
 /// use openpgp::serialize::stream::padding::{Padder, padme};
 /// use openpgp::types::CompressionAlgorithm;
@@ -109,20 +122,20 @@ use crate::types::{
 ///     let message = Message::new(&mut unpadded);
 ///     // XXX: Insert Encryptor here.
 ///     // XXX: Insert Signer here.
-///     let mut w = LiteralWriter::new(message).build()?;
-///     w.write_all(b"Hello world.")?;
-///     w.finalize()?;
+///     let mut message = LiteralWriter::new(message).build()?;
+///     message.write_all(b"Hello world.")?;
+///     message.finalize()?;
 /// }
 ///
 /// let mut padded = vec![];
 /// {
 ///     let message = Message::new(&mut padded);
 ///     // XXX: Insert Encryptor here.
-///     let padder = Padder::new(message, padme)?;
+///     let message = Padder::new(message, padme)?;
 ///     // XXX: Insert Signer here.
-///     let mut w = LiteralWriter::new(padder).build()?;
-///     w.write_all(b"Hello world.")?;
-///     w.finalize()?;
+///     let mut message = LiteralWriter::new(message).build()?;
+///     message.write_all(b"Hello world.")?;
+///     message.finalize()?;
 /// }
 /// assert!(unpadded.len() < padded.len());
 /// # Ok(())
@@ -134,6 +147,33 @@ pub struct Padder<'a, P: Fn(u64) -> u64 + 'a> {
 
 impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
     /// Creates a new padder with the given policy.
+    ///
+    /// # Example
+    ///
+    /// This example illustrates the use of `Padder` with the [Padmé]
+    /// policy.
+    ///
+    /// [Padmé]: fn.padme.html
+    ///
+    /// The most useful filter to push to the writer stack next is the
+    /// [`Signer`] or the [`LiteralWriter`].  Finally, literal data
+    /// *must* be wrapped using the [`LiteralWriter`].
+    ///
+    ///   [`Signer`]: ../struct.Signer.html
+    ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::serialize::stream::padding::{Padder, padme};
+    ///
+    /// # let message = openpgp::serialize::stream::Message::new(vec![]);
+    /// let message = Padder::new(message, padme)?;
+    /// // Optionally add a `Signer` here.
+    /// // Add a `LiteralWriter` here.
+    /// # let _ = message;
+    /// # Ok(()) }
+    /// ```
     pub fn new(inner: Message<'a, Cookie>, p: P)
                -> Result<Message<'a, Cookie>> {
         let mut inner = writer::BoxStack::from(inner);
@@ -264,6 +304,12 @@ impl<'a, P: Fn(u64) -> u64 + 'a> writer::Stackable<'a, Cookie> for Padder<'a, P>
 /// See Section 4 of [Reducing Metadata Leakage from Encrypted Files
 /// and Communication with
 /// PURBs](https://bford.info/pub/sec/purb.pdf).
+///
+/// This function is meant to be used with [`Padder`], see this
+/// [example].
+///
+///   [`Padder`]: struct.Padder.html
+///   [example]: struct.Padder.html#example
 pub fn padme(l: u64) -> u64 {
     if l < 2 {
         return 1; // Avoid cornercase.
