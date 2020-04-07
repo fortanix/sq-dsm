@@ -1382,7 +1382,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 }
                             };
 
-                            err = if let Err(err) = ka.cert_alive() {
+                            err = if let Err(err) = ka.cert().alive() {
                                 t!("{:02X}{:02X}: cert {} not alive: {}",
                                    sigid[0], sigid[1], ka.cert().fingerprint(), err);
                                 VerificationError::BadKey {
@@ -1399,7 +1399,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     error: err,
                                 }
                             } else if let
-                                RevocationStatus::Revoked(rev) = ka.cert_revoked()
+                                RevocationStatus::Revoked(rev) = ka.cert().revoked()
                             {
                                 t!("{:02X}{:02X}: cert {} revoked: {:?}",
                                    sigid[0], sigid[1], ka.cert().fingerprint(), rev);

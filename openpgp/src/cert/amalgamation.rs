@@ -168,18 +168,6 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// Note: this does not return whether the certificate is valid.
     fn revoked(&self) -> RevocationStatus<'a>;
 
-    /// Returns the certificate's revocation status as of the
-    /// amalgamation's reference time.
-    fn cert_revoked(&self) -> RevocationStatus<'a> {
-        self.cert().revoked()
-    }
-
-    /// Returns whether the certificate is alive as of the
-    /// amalgamation's reference time.
-    fn cert_alive(&self) -> Result<()> {
-        self.cert().alive()
-    }
-
     /// Maps the given function over binding and direct key signature.
     ///
     /// Makes `f` consider both the binding signature and the direct
