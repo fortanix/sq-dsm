@@ -452,12 +452,12 @@ control flow is determined by the message being processed.
 
 To use Sequoia's low-level streaming verifier, we need to provide an
 object that implements [`VerificationHelper`].  This object provides
-public and for the signature verification, and implements the
+certificates for the signature verification, and implements the
 signature verification policy.
 
 [`VerificationHelper`]: ../../sequoia_openpgp/parse/stream/trait.VerificationHelper.html
 
-To decrypt messages, we create a [`Verifier`] with our helper.
+To verify messages, we create a [`Verifier`] with our helper.
 Verified data can be read from this using [`io::Read`].
 
 [`Verifier`]: ../../sequoia_openpgp/parse/stream/struct.Verifier.html
