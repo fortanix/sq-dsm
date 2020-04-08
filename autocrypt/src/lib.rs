@@ -652,7 +652,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
     /// `AutocryptSetupMessageParser::parse()` to extract the
     /// `AutocryptSetupMessage`.
     pub fn decrypt(&mut self, passcode: &Password) -> Result<()> {
-        if self.pp.decrypted() {
+        if ! self.pp.encrypted() {
             return Err(
                 Error::InvalidOperation("Already decrypted".into()).into());
         }
@@ -676,7 +676,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
     /// If the payload is malformed, returns
     /// `Error::MalformedMessage`.
     pub fn parse(self) -> Result<AutocryptSetupMessage> {
-        if !self.pp.decrypted() {
+        if self.pp.encrypted() {
             return Err(
                 Error::InvalidOperation("Not decrypted".into()).into());
         }

@@ -420,7 +420,7 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
             last_path: vec![],
             reader,
             content_was_read: false,
-            decrypted: true,
+            encrypted: false,
             finished: false,
             map: self.map,
             body_hash: Some(Container::make_body_hash()),
@@ -1037,7 +1037,7 @@ impl Unknown {
     {
         let tag = php.header.ctb().tag();
         php.ok(Packet::Unknown(Unknown::new(tag, error)))
-            .map(|pp| pp.set_decrypted(false))
+            .map(|pp| pp.set_encrypted(true))
     }
 }
 
@@ -2452,7 +2452,7 @@ impl SEIP {
         }
 
         php.ok(SEIP1::new().into())
-            .map(|pp| pp.set_decrypted(false))
+            .map(|pp| pp.set_encrypted(true))
     }
 }
 
@@ -2543,7 +2543,7 @@ impl AED1 {
         let aed = php_try!(Self::new(
             cipher, aead, chunk_size, iv.into_boxed_slice()
         ));
-        php.ok(aed.into()).map(|pp| pp.set_decrypted(false))
+        php.ok(aed.into()).map(|pp| pp.set_encrypted(true))
     }
 }
 
@@ -2791,8 +2791,8 @@ pub struct PacketParser<'a> {
     // Whether PacketParser::finish has been called.
     finished: bool,
 
-    // Whether the content has been decrypted.
-    decrypted: bool,
+    // Whether the content is encrypted.
+    encrypted: bool,
 
     /// A map of this packet.
     map: Option<map::Map>,
@@ -2817,7 +2817,7 @@ impl<'a> std::fmt::Debug for PacketParser<'a> {
             .field("packet", &self.packet)
             .field("path", &self.path)
             .field("last_path", &self.last_path)
-            .field("decrypted", &self.decrypted)
+            .field("encrypted", &self.encrypted)
             .field("content_was_read", &self.content_was_read)
             .field("settings", &self.state.settings)
             .field("map", &self.map)
@@ -3089,16 +3089,15 @@ impl <'a> PacketParser<'a> {
         &mut self.reader
     }
 
-    /// Marks the packet's contents as being decrypted (true) or
-    /// encrypted (false).
-    fn set_decrypted(mut self, v: bool) -> Self {
-        self.decrypted = v;
+    /// Marks the packet's contents as encrypted or not.
+    fn set_encrypted(mut self, v: bool) -> Self {
+        self.encrypted = v;
         self
     }
 
-    /// Returns whether the packet's contents are decrypted.
-    pub fn decrypted(&self) -> bool {
-        self.decrypted
+    /// Returns whether the packet's contents are encrypted.
+    pub fn encrypted(&self) -> bool {
+        self.encrypted
     }
 
     /// Returns the path of the last packet.
@@ -3611,7 +3610,7 @@ impl <'a> PacketParser<'a> {
         match self.packet {
             // Packets that recurse.
             Packet::CompressedData(_) | Packet::SEIP(_) | Packet::AED(_)
-                if self.decrypted =>
+                if ! self.encrypted =>
             {
                 if self.recursion_depth() as u8
                     >= self.state.settings.max_recursion_depth
@@ -3767,9 +3766,9 @@ impl <'a> PacketParser<'a> {
             Packet::CompressedData(p) =>
                 set_or_extend(rest, p.deref_mut(), true),
             Packet::SEIP(p) =>
-                set_or_extend(rest, p.deref_mut(), self.decrypted),
+                set_or_extend(rest, p.deref_mut(), ! self.encrypted),
             Packet::AED(p) =>
-                set_or_extend(rest, p.deref_mut(), self.decrypted),
+                set_or_extend(rest, p.deref_mut(), ! self.encrypted),
             p => {
                 if rest.len() > 0 {
                     Err(Error::MalformedPacket(
@@ -4069,7 +4068,7 @@ impl<'a> PacketParser<'a> {
             return Err(Error::InvalidOperation(
                 format!("Packet's content has already been read.")).into());
         }
-        if self.decrypted {
+        if ! self.encrypted {
             return Err(Error::InvalidOperation(
                 format!("Packet not encrypted.")).into());
         }
@@ -4150,7 +4149,7 @@ impl<'a> PacketParser<'a> {
                 reader.data_consume_hard(bl + 2).unwrap();
 
                 self.reader = Box::new(reader);
-                self.decrypted = true;
+                self.encrypted = false;
 
                 Ok(())
             },
@@ -4190,7 +4189,7 @@ impl<'a> PacketParser<'a> {
                    reader.cookie_ref().level);
 
                 self.reader = Box::new(reader);
-                self.decrypted = true;
+                self.encrypted = false;
 
                 Ok(())
             },

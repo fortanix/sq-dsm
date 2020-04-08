@@ -327,7 +327,7 @@ pub fn decrypt_unwrap(ctx: &Context, policy: &dyn Policy,
                     helper.decrypt(&pkesks[..], &skesks[..], sym_algo_hint,
                                    decrypt)?;
                 }
-                if ! pp.decrypted() {
+                if pp.encrypted() {
                     // XXX: That is not quite the right error to return.
                     return Err(
                         openpgp::Error::InvalidSessionKey(
