@@ -144,7 +144,7 @@ impl Fingerprint {
                 '7' => "Seven",
                 '8' => "Eight",
                 '9' => "Niner",
-                'A' => "Alpha",
+                'A' => "Alfa",
                 'B' => "Bravo",
                 'C' => "Charlie",
                 'D' => "Delta",
@@ -181,8 +181,8 @@ mod tests {
         let fpr = "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567"
             .parse::<Fingerprint>().unwrap();
         let expected = "\
-Zero One Two Three Four Five Six Seven Eight Niner Alpha Bravo Charlie Delta \
-Echo Foxtrot Zero One Two Three Four Five Six Seven Eight Niner Alpha Bravo \
+Zero One Two Three Four Five Six Seven Eight Niner Alfa Bravo Charlie Delta \
+Echo Foxtrot Zero One Two Three Four Five Six Seven Eight Niner Alfa Bravo \
 Charlie Delta Echo Foxtrot Zero One Two Three Four Five Six Seven";
 
         assert_eq!(fpr.to_icao(), expected);
