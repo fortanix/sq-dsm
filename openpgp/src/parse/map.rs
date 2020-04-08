@@ -66,7 +66,7 @@ impl Map {
     /// let ppo = PacketParserBuilder::from_bytes(msg)?
     ///     .map(true).finalize()?;
     /// assert_eq!(ppo.unwrap().map().unwrap().iter()
-    ///            .map(|f| (f.name(), f.data()))
+    ///            .map(|f| (f.name(), f.as_bytes()))
     ///            .collect::<Vec<(&str, &[u8])>>(),
     ///            [("CTB", &b"\xcb"[..]),
     ///             ("length", &b"\x12"[..]),
@@ -139,7 +139,7 @@ impl<'a> Field<'a> {
     }
 
     /// Returns the value of the field.
-    pub fn data(&self) -> &'a [u8] {
+    pub fn as_bytes(&self) -> &'a [u8] {
         self.data
     }
 }

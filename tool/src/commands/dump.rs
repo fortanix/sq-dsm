@@ -690,9 +690,9 @@ impl PacketDumper {
 
             for field in map.iter() {
                 if field.name() == "body" {
-                    hd.write_ascii(field.data())?;
+                    hd.write_ascii(field.as_bytes())?;
                 } else {
-                    hd.write(field.data(), field.name())?;
+                    hd.write(field.as_bytes(), field.name())?;
                 }
             }
 
