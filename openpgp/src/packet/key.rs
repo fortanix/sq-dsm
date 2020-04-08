@@ -743,35 +743,35 @@ macro_rules! create_conversions {
         impl<$($l, )* P, R> $Key<$($l, )* P, R> where P: KeyParts, R: KeyRole
         {
             /// Changes the key's role tag to `PrimaryRole`.
-            pub fn mark_role_primary(self) -> $Key<$($l, )* P, PrimaryRole> {
+            pub fn role_into_primary(self) -> $Key<$($l, )* P, PrimaryRole> {
                 convert!(self)
             }
 
             /// Changes the key's role tag to `PrimaryRole`.
-            pub fn mark_role_primary_ref(&$($l)* self) -> &$($l)* $Key<$($l, )* P, PrimaryRole> {
+            pub fn role_as_primary(&$($l)* self) -> &$($l)* $Key<$($l, )* P, PrimaryRole> {
                 convert_ref!(self)
             }
 
             /// Changes the key's role tag to `SubordinateRole`.
-            pub fn mark_role_subordinate(self) -> $Key<$($l, )* P, SubordinateRole>
+            pub fn role_into_subordinate(self) -> $Key<$($l, )* P, SubordinateRole>
             {
                 convert!(self)
             }
 
             /// Changes the key's role tag to `SubordinateRole`.
-            pub fn mark_role_subordinate_ref(&$($l)* self) -> &$($l)* $Key<$($l, )* P, SubordinateRole>
+            pub fn role_as_subordinate(&$($l)* self) -> &$($l)* $Key<$($l, )* P, SubordinateRole>
             {
                 convert_ref!(self)
             }
 
             /// Changes the key's role tag to `UnspecifiedRole`.
-            pub fn mark_role_unspecified(self) -> $Key<$($l, )* P, UnspecifiedRole>
+            pub fn role_into_unspecified(self) -> $Key<$($l, )* P, UnspecifiedRole>
             {
                 convert!(self)
             }
 
             /// Changes the key's role tag to `UnspecifiedRole`.
-            pub fn mark_role_unspecified_ref(&$($l)* self) -> &$($l)* $Key<$($l, )* P, UnspecifiedRole>
+            pub fn role_as_unspecified(&$($l)* self) -> &$($l)* $Key<$($l, )* P, UnspecifiedRole>
             {
                 convert_ref!(self)
             }

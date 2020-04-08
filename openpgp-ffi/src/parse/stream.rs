@@ -207,7 +207,7 @@ fn pgp_verification_result_good_checksum<'a>(
             *unsafe { p.as_mut() } = {
                 let key = ka.key()
                     .parts_as_unspecified()
-                    .mark_role_unspecified_ref();
+                    .role_as_unspecified();
                 key.move_into_raw()
             };
         }
@@ -335,7 +335,7 @@ fn $fn_name<'a>(
             *unsafe { p.as_mut() } = {
                 let key = ka.key()
                     .parts_as_unspecified()
-                    .mark_role_unspecified_ref();
+                    .role_as_unspecified();
                 key.move_into_raw()
             };
         }

@@ -223,7 +223,7 @@ impl Builder {
         let digest =
             Signature::hash_direct_key(&self,
                                        signer.public()
-                                       .mark_role_primary_ref())?;
+                                       .role_as_primary())?;
 
         self.sign(signer, digest)
     }

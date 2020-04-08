@@ -701,7 +701,7 @@ impl<'a> KeyPair<'a> {
         where R: key::KeyRole
     {
         Ok(KeyPair {
-            public: key.mark_role_unspecified_ref(),
+            public: key.role_as_unspecified(),
             agent_socket: ctx.socket("agent")?.into(),
         })
     }

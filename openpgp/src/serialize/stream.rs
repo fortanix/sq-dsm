@@ -1610,7 +1610,7 @@ impl<'a> Recipient<'a> {
     {
         Recipient {
             keyid,
-            key: key.parts_as_public().mark_role_unspecified_ref(),
+            key: key.parts_as_public().role_as_unspecified(),
         }
     }
 

@@ -3238,7 +3238,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         primary.secret_mut()
             .decrypt_in_place(algo, &"streng geheim".into()).unwrap();
         let cert = cert.merge_packets(vec![
-            primary.parts_into_secret().unwrap().mark_role_primary().into()
+            primary.parts_into_secret().unwrap().role_into_primary().into()
         ]).unwrap();
 
         assert_eq!(cert.keys().secret().count(), 2);

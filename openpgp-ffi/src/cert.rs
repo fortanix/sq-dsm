@@ -146,7 +146,7 @@ fn pgp_cert_as_tsk(cert: *const Cert) -> *mut TSK<'static> {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_primary_key(cert: *const Cert) -> *const Key {
     let key = cert.ref_raw().primary_key().key()
-        .parts_as_unspecified().mark_role_unspecified_ref();
+        .parts_as_unspecified().role_as_unspecified();
     key.move_into_raw()
 }
 

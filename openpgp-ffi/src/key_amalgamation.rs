@@ -52,7 +52,7 @@ pub extern "C" fn pgp_key_amalgamation_key<'a>(ka: *const KeyAmalgamation<'a>)
 {
     let ka = ka.ref_raw();
 
-    ka.key().parts_as_unspecified().mark_role_unspecified_ref()
+    ka.key().parts_as_unspecified().role_as_unspecified()
         .move_into_raw()
 }
 
@@ -73,7 +73,7 @@ pub extern "C" fn pgp_valid_key_amalgamation_key<'a>(ka: *const ValidKeyAmalgama
 {
     let ka = ka.ref_raw();
 
-    ka.key().parts_as_unspecified().mark_role_unspecified_ref()
+    ka.key().parts_as_unspecified().role_as_unspecified()
         .move_into_raw()
 }
 

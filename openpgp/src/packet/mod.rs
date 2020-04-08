@@ -238,13 +238,13 @@ impl Arbitrary for Packet {
             0 => Signature::arbitrary(g).into(),
             1 => OnePassSig::arbitrary(g).into(),
             2 => Key::<key::PublicParts, key::UnspecifiedRole>::arbitrary(g)
-                .mark_role_primary().into(),
+                .role_into_primary().into(),
             3 => Key::<key::PublicParts, key::UnspecifiedRole>::arbitrary(g)
-                .mark_role_subordinate().into(),
+                .role_into_subordinate().into(),
             4 => Key::<key::SecretParts, key::UnspecifiedRole>::arbitrary(g)
-                .mark_role_primary().into(),
+                .role_into_primary().into(),
             5 => Key::<key::SecretParts, key::UnspecifiedRole>::arbitrary(g)
-                .mark_role_subordinate().into(),
+                .role_into_subordinate().into(),
             6 => Marker::arbitrary(g).into(),
             7 => Trust::arbitrary(g).into(),
             8 => UserID::arbitrary(g).into(),
@@ -849,7 +849,7 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
                     "secret key is encrypted".into()).into()),
         };
 
-        KeyPair::new(key.mark_role_unspecified(), secret)
+        KeyPair::new(key.role_into_unspecified(), secret)
     }
 }
 
@@ -870,7 +870,7 @@ impl<R: key::KeyRole> key::Key4<key::SecretParts, R> {
                     "secret key is encrypted".into()).into()),
         };
 
-        KeyPair::new(key.mark_role_unspecified().into(), secret)
+        KeyPair::new(key.role_into_unspecified().into(), secret)
     }
 }
 

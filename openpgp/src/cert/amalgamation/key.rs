@@ -271,7 +271,7 @@ impl<'a, P: 'a + key::KeyParts> From<PrimaryKeyAmalgamation<'a, P>>
 {
     fn from(ka: PrimaryKeyAmalgamation<'a, P>) -> Self {
         ErasedKeyAmalgamation {
-            ca: ka.ca.mark_role_unspecified(),
+            ca: ka.ca.role_into_unspecified(),
             primary: true,
         }
     }
@@ -282,7 +282,7 @@ impl<'a, P: 'a + key::KeyParts> From<SubordinateKeyAmalgamation<'a, P>>
 {
     fn from(ka: SubordinateKeyAmalgamation<'a, P>) -> Self {
         ErasedKeyAmalgamation {
-            ca: ka.ca.mark_role_unspecified(),
+            ca: ka.ca.role_into_unspecified(),
             primary: false,
         }
     }
@@ -336,7 +336,7 @@ impl<'a, P, P2> TryFrom<ErasedKeyAmalgamation<'a, P>>
         if ka.primary {
             Ok(Self {
                 ca: P2::convert_key_amalgamation(
-                    ka.ca.mark_role_primary().parts_into_unspecified())?,
+                    ka.ca.role_into_primary().parts_into_unspecified())?,
                 primary: (),
             })
         } else {
@@ -362,7 +362,7 @@ impl<'a, P, P2> TryFrom<ErasedKeyAmalgamation<'a, P>>
         } else {
             Ok(Self {
                 ca: P2::convert_key_amalgamation(
-                    ka.ca.mark_role_subordinate().parts_into_unspecified())?,
+                    ka.ca.role_into_subordinate().parts_into_unspecified())?,
                 primary: (),
             })
         }
