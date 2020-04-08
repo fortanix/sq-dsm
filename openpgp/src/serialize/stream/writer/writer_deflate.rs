@@ -4,16 +4,16 @@ use std::io;
 
 use crate::Result;
 use crate::types::CompressionLevel;
-use super::{Generic, Message, BoxStack, Stackable};
+use super::{Generic, Message, BoxStack, Stackable, Cookie};
 
 /// ZIPing writer.
 pub struct ZIP<'a, C: 'a> {
     inner: Generic<DeflateEncoder<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C: 'a> ZIP<'a, C> {
+impl<'a> ZIP<'a, Cookie> {
     /// Makes a ZIP compressing writer.
-    pub fn new<L>(inner: Message<'a, C>, cookie: C, level: L) -> Message<'a, C>
+    pub fn new<L>(inner: Message<'a>, cookie: Cookie, level: L) -> Message<'a>
         where L: Into<Option<CompressionLevel>>
     {
         Message::from(Box::new(ZIP {
@@ -79,9 +79,9 @@ pub struct ZLIB<'a, C: 'a> {
     inner: Generic<ZlibEncoder<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C: 'a> ZLIB<'a, C> {
+impl<'a> ZLIB<'a, Cookie> {
     /// Makes a ZLIB compressing writer.
-    pub fn new<L>(inner: Message<'a, C>, cookie: C, level: L) -> Message<'a, C>
+    pub fn new<L>(inner: Message<'a>, cookie: Cookie, level: L) -> Message<'a>
         where L: Into<Option<CompressionLevel>>
     {
         Message::from(Box::new(ZLIB {

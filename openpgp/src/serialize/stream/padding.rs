@@ -174,14 +174,14 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
-    pub fn new(inner: Message<'a, Cookie>, p: P)
-               -> Result<Message<'a, Cookie>> {
+    pub fn new(inner: Message<'a>, p: P)
+               -> Result<Message<'a>> {
         let mut inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
 
         // Packet header.
         CTB::new(Tag::CompressedData).serialize(&mut inner)?;
-        let mut inner: Message<'a, Cookie>
+        let mut inner: Message<'a>
             = PartialBodyFilter::new(Message::from(inner),
                                      Cookie::new(level));
 
@@ -189,7 +189,7 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
         inner.as_mut().write_u8(CompressionAlgorithm::Zip.into())?;
 
         // Create an appropriate filter.
-        let inner: Message<'a, Cookie> =
+        let inner: Message<'a> =
             writer::ZIP::new(inner, Cookie::new(level),
                              CompressionLevel::none());
 

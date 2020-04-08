@@ -4,16 +4,16 @@ use std::io;
 
 use crate::Result;
 use crate::types::CompressionLevel;
-use super::{Generic, Message, BoxStack, Stackable};
+use super::{Generic, Message, BoxStack, Stackable, Cookie};
 
 /// BZing writer.
 pub struct BZ<'a, C: 'a> {
     inner: Generic<BzEncoder<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C: 'a> BZ<'a, C> {
+impl<'a> BZ<'a, Cookie> {
     /// Makes a BZ compressing writer.
-    pub fn new<L>(inner: Message<'a, C>, cookie: C, level: L) -> Message<'a, C>
+    pub fn new<L>(inner: Message<'a>, cookie: Cookie, level: L) -> Message<'a>
         where L: Into<Option<CompressionLevel>>
     {
         Message::from(Box::new(BZ {

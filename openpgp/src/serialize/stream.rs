@@ -161,10 +161,8 @@ mod partial_body;
 use partial_body::PartialBodyFilter;
 
 /// Cookie must be public because the writers are.
-#[doc(hidden)]
 #[derive(Debug)]
-pub struct Cookie {
-    pub(crate) // For padding.rs
+struct Cookie {
     level: usize,
     private: Private,
 }
@@ -176,7 +174,6 @@ enum Private {
 }
 
 impl Cookie {
-    pub(crate) // For padding.rs
     fn new(level: usize) -> Self {
         Cookie {
             level,
@@ -203,9 +200,9 @@ impl Default for Cookie {
 ///   [`LiteralWriter`]: struct.LiteralWriter.html
 ///   [`Message::finalize`]: #method.finalize
 #[derive(Debug)]
-pub struct Message<'a, C>(writer::BoxStack<'a, C>);
+pub struct Message<'a>(writer::BoxStack<'a, Cookie>);
 
-impl<'a> Message<'a, Cookie> {
+impl<'a> Message<'a> {
     /// Starts streaming an OpenPGP message.
     ///
     /// # Example
@@ -225,7 +222,7 @@ impl<'a> Message<'a, Cookie> {
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn new<W: 'a + io::Write>(w: W) -> Message<'a, Cookie> {
+    pub fn new<W: 'a + io::Write>(w: W) -> Message<'a> {
         writer::Generic::new(w, Cookie::new(0))
     }
 
@@ -281,7 +278,7 @@ impl<'a> Message<'a, Cookie> {
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn finalize_one(self) -> Result<Option<Message<'a, Cookie>>> {
+    pub fn finalize_one(self) -> Result<Option<Message<'a>>> {
         Ok(self.0.into_inner()?.map(|bs| Self::from(bs)))
     }
 
@@ -321,7 +318,7 @@ impl<'a> Message<'a, Cookie> {
     }
 }
 
-impl<'a> From<&'a mut dyn io::Write> for Message<'a, Cookie> {
+impl<'a> From<&'a mut dyn io::Write> for Message<'a> {
     fn from(w: &'a mut dyn io::Write) -> Self {
         writer::Generic::new(w, Cookie::new(0))
     }
@@ -362,8 +359,8 @@ impl<'a> ArbitraryWriter<'a> {
     /// assert_eq!(b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.",
     ///            sink.as_slice());
     /// # Ok(()) }
-    pub fn new(mut inner: Message<'a, Cookie>, tag: Tag)
-               -> Result<Message<'a, Cookie>> {
+    pub fn new(mut inner: Message<'a>, tag: Tag)
+               -> Result<Message<'a>> {
         let level = inner.as_ref().cookie_ref().level + 1;
         CTB::new(tag).serialize(&mut inner)?;
         Ok(Message::from(Box::new(ArbitraryWriter {
@@ -520,7 +517,7 @@ impl<'a> Signer<'a> {
     /// assert_eq!(&message, "Make it so, number one!");
     /// # Ok(()) }
     /// ```
-    pub fn new<S>(inner: Message<'a, Cookie>, signer: S) -> Self
+    pub fn new<S>(inner: Message<'a>, signer: S) -> Self
         where S: crypto::Signer + 'a
     {
         let inner = writer::BoxStack::from(inner);
@@ -843,7 +840,7 @@ impl<'a> Signer<'a> {
     ///     .build()?;
     /// # Ok(()) }
     /// ```
-    pub fn build(mut self) -> Result<Message<'a, Cookie>>
+    pub fn build(mut self) -> Result<Message<'a>>
     {
         assert!(self.signers.len() > 0, "The constructor adds a signer.");
         assert!(self.inner.is_some(), "The constructor adds an inner writer.");
@@ -1036,7 +1033,7 @@ impl<'a> LiteralWriter<'a> {
     ///            sink.as_slice());
     /// # Ok(()) }
     /// ```
-    pub fn new(inner: Message<'a, Cookie>) -> Self {
+    pub fn new(inner: Message<'a>) -> Self {
         LiteralWriter {
             template: Literal::new(DataFormat::default()),
             inner: writer::BoxStack::from(inner),
@@ -1164,7 +1161,7 @@ impl<'a> LiteralWriter<'a> {
     ///            sink.as_slice());
     /// # Ok(()) }
     /// ```
-    pub fn build(mut self) -> Result<Message<'a, Cookie>> {
+    pub fn build(mut self) -> Result<Message<'a>> {
         let level = self.inner.cookie_ref().level + 1;
 
         // For historical reasons, signatures over literal data
@@ -1314,7 +1311,7 @@ impl<'a> Compressor<'a> {
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn new(inner: Message<'a, Cookie>) -> Self {
+    pub fn new(inner: Message<'a>) -> Self {
         Self {
             algo: Default::default(),
             level: Default::default(),
@@ -1408,12 +1405,12 @@ impl<'a> Compressor<'a> {
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn build(mut self) -> Result<Message<'a, Cookie>> {
+    pub fn build(mut self) -> Result<Message<'a>> {
         let level = self.inner.cookie_ref().level + 1;
 
         // Packet header.
         CTB::new(Tag::CompressedData).serialize(&mut self.inner)?;
-        let inner: Message<'a, Cookie>
+        let inner: Message<'a>
             = PartialBodyFilter::new(Message::from(self.inner),
                                      Cookie::new(level));
 
@@ -1423,17 +1420,17 @@ impl<'a> Compressor<'a> {
 
     /// Creates a new compressor using the given algorithm.
     pub(crate) // For CompressedData::serialize.
-    fn new_naked(mut inner: Message<'a, Cookie>,
+    fn new_naked(mut inner: Message<'a>,
                  algo: CompressionAlgorithm,
                  compression_level: CompressionLevel,
                  level: usize)
-                 -> Result<Message<'a, Cookie>>
+                 -> Result<Message<'a>>
     {
         // Compressed data header.
         inner.as_mut().write_u8(algo.into())?;
 
         // Create an appropriate filter.
-        let inner: Message<'a, Cookie> = match algo {
+        let inner: Message<'a> = match algo {
             CompressionAlgorithm::Uncompressed => {
                 // Avoid warning about unused value if compiled
                 // without any compression support.
@@ -1863,7 +1860,7 @@ impl<'a> Encryptor<'a> {
     /// w.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn for_recipients(inner: Message<'a, Cookie>,
+    pub fn for_recipients(inner: Message<'a>,
                           recipients: Vec<Recipient<'a>>) -> Self {
         Self {
             inner: Some(inner.into()),
@@ -1908,7 +1905,7 @@ impl<'a> Encryptor<'a> {
     /// w.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn with_passwords(inner: Message<'a, Cookie>,
+    pub fn with_passwords(inner: Message<'a>,
                           passwords: Vec<Password>) -> Self {
         Self {
             inner: Some(inner.into()),
@@ -2190,7 +2187,7 @@ impl<'a> Encryptor<'a> {
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn build(mut self) -> Result<Message<'a, Cookie>> {
+    pub fn build(mut self) -> Result<Message<'a>> {
         if self.recipients.len() + self.passwords.len() == 0 {
             return Err(Error::InvalidOperation(
                 "Neither recipients nor passwords given".into()).into());

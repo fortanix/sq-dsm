@@ -21,23 +21,23 @@ use crate::{
     Result,
     crypto::SessionKey,
 };
-use super::Message;
+use super::{Message, Cookie};
 
-impl<'a, C> Message<'a, C> {
-    pub(crate) fn from(bs: BoxStack<'a, C>) -> Self {
+impl<'a> Message<'a> {
+    pub(super) fn from(bs: BoxStack<'a, Cookie>) -> Self {
         Message(bs)
     }
 
-    pub(crate) fn as_ref(&self) -> &BoxStack<'a, C> {
+    pub(super) fn as_ref(&self) -> &BoxStack<'a, Cookie> {
         &self.0
     }
 
-    pub(crate) fn as_mut(&mut self) -> &mut BoxStack<'a, C> {
+    pub(super) fn as_mut(&mut self) -> &mut BoxStack<'a, Cookie> {
         &mut self.0
     }
 }
 
-impl<'a, C> io::Write for Message<'a, C> {
+impl<'a> io::Write for Message<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.0.write(buf)
     }
@@ -47,8 +47,8 @@ impl<'a, C> io::Write for Message<'a, C> {
     }
 }
 
-impl<'a, C> From<Message<'a, C>> for BoxStack<'a, C> {
-    fn from(s: Message<'a, C>) -> Self {
+impl<'a> From<Message<'a>> for BoxStack<'a, Cookie> {
+    fn from(s: Message<'a>) -> Self {
         s.0
     }
 }
@@ -193,10 +193,10 @@ pub struct Identity<'a, C> {
     cookie: C,
 }
 
-impl<'a, C: 'a> Identity<'a, C> {
+impl<'a> Identity<'a, Cookie> {
     /// Makes an identity writer.
-    pub fn new(inner: Message<'a, C>, cookie: C)
-                  -> Message<'a, C> {
+    pub fn new(inner: Message<'a>, cookie: Cookie)
+                  -> Message<'a> {
         Message::from(Box::new(Self{inner: Some(inner.into()), cookie }))
     }
 }
@@ -273,13 +273,13 @@ pub struct Generic<W: io::Write, C> {
     position: u64,
 }
 
-impl<'a, W: 'a + io::Write, C: 'a> Generic<W, C> {
+impl<'a, W: 'a + io::Write> Generic<W, Cookie> {
     /// Wraps an `io::Write`r.
-    pub fn new(inner: W, cookie: C) -> Message<'a, C> {
+    pub fn new(inner: W, cookie: Cookie) -> Message<'a> {
         Message::from(Box::new(Self::new_unboxed(inner.into(), cookie)))
     }
 
-    fn new_unboxed(inner: W, cookie: C) -> Self {
+    fn new_unboxed(inner: W, cookie: Cookie) -> Self {
         Generic {
             inner,
             cookie,
@@ -357,11 +357,11 @@ pub struct Encryptor<'a, C: 'a> {
     inner: Generic<symmetric::Encryptor<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C: 'a> Encryptor<'a, C> {
+impl<'a> Encryptor<'a, Cookie> {
     /// Makes an encrypting writer.
-    pub fn new(inner: Message<'a, C>, cookie: C, algo: SymmetricAlgorithm,
+    pub fn new(inner: Message<'a>, cookie: Cookie, algo: SymmetricAlgorithm,
                key: &[u8])
-        -> Result<Message<'a, C>>
+        -> Result<Message<'a>>
     {
         Ok(Message::from(Box::new(Encryptor {
             inner: Generic::new_unboxed(
@@ -428,12 +428,12 @@ pub struct AEADEncryptor<'a, C: 'a> {
     inner: Generic<aead::Encryptor<BoxStack<'a, C>>, C>,
 }
 
-impl<'a, C: 'a> AEADEncryptor<'a, C> {
+impl<'a> AEADEncryptor<'a, Cookie> {
     /// Makes an encrypting writer.
-    pub fn new(inner: Message<'a, C>, cookie: C,
+    pub fn new(inner: Message<'a>, cookie: Cookie,
                cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
                chunk_size: usize, iv: &[u8], key: &SessionKey)
-        -> Result<Message<'a, C>>
+        -> Result<Message<'a>>
     {
         Ok(Message::from(Box::new(AEADEncryptor {
             inner: Generic::new_unboxed(
@@ -500,33 +500,28 @@ mod test {
     use std::io::Write;
     use super::*;
 
-    #[derive(Debug)]
-    struct Cookie {
-        state: &'static str,
-    }
-
     #[test]
     fn generic_writer() {
         let mut inner = Vec::new();
         {
-            let mut w = Generic::new(&mut inner, Cookie { state: "happy" });
-            assert_eq!(w.as_ref().cookie_ref().state, "happy");
+            let mut w = Generic::new(&mut inner, Cookie::new(0));
+            assert_eq!(w.as_ref().cookie_ref().level, 0);
             dump(w.as_ref());
 
-            w.as_mut().cookie_mut().state = "sad";
-            assert_eq!(w.as_ref().cookie_ref().state, "sad");
+            *w.as_mut().cookie_mut() = Cookie::new(1);
+            assert_eq!(w.as_ref().cookie_ref().level, 1);
 
             w.write_all(b"be happy").unwrap();
             let mut count = 0;
             map_mut(w.as_mut(), |g| {
-                let new = Cookie { state: "happy" };
+                let new = Cookie::new(0);
                 let old = g.cookie_set(new);
-                assert_eq!(old.state, "sad");
+                assert_eq!(old.level, 1);
                 count += 1;
                 true
             });
             assert_eq!(count, 1);
-            assert_eq!(w.as_ref().cookie_ref().state, "happy");
+            assert_eq!(w.as_ref().cookie_ref().level, 0);
         }
         assert_eq!(&inner, b"be happy");
     }
@@ -535,20 +530,19 @@ mod test {
     fn stack() {
         let mut inner = Vec::new();
         {
-            let w = Generic::new(&mut inner, Cookie { state: "happy" });
+            let w = Generic::new(&mut inner, Cookie::new(0));
             dump(w.as_ref());
 
-            let w = Identity::new(w, Cookie { state: "happy" });
+            let w = Identity::new(w, Cookie::new(0));
             dump(w.as_ref());
 
             let mut count = 0;
             map(w.as_ref(), |g| {
-                assert_eq!(g.cookie_ref().state, "happy");
+                assert_eq!(g.cookie_ref().level, 0);
                 count += 1;
                 true
             });
             assert_eq!(count, 2);
         }
     }
-
 }
