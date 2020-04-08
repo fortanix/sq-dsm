@@ -25,7 +25,7 @@ struct Entry {
 
 impl Map {
     /// Creates a new map.
-    pub(crate) fn new(header: Vec<u8>) -> Self {
+    pub(super) fn new(header: Vec<u8>) -> Self {
         Map {
             length: 0,
             entries: Vec::new(),
@@ -35,7 +35,7 @@ impl Map {
     }
 
     /// Adds a field to the map.
-    pub(crate) fn add(&mut self, field: &'static str, length: usize) {
+    pub(super) fn add(&mut self, field: &'static str, length: usize) {
         self.entries.push(Entry {
             offset: self.length, length, field
         });
@@ -43,7 +43,7 @@ impl Map {
     }
 
     /// Finalizes the map providing the actual data.
-    pub(crate) fn finalize(&mut self, data: Vec<u8>) {
+    pub(super) fn finalize(&mut self, data: Vec<u8>) {
         self.data = data;
     }
 
