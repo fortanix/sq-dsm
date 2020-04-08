@@ -350,7 +350,12 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
         // it is hard to imagine that that is what the caller wants.
         // Instead of hiding that error, fail fast.
         if let PacketParserResult::Some(ref pp) = ppr {
-            assert_eq!(pp.recursion_depth(), 0);
+            if pp.recursion_depth() != 0 {
+                return Err(Error::InvalidOperation(
+                    format!("Expected top-level packet, \
+                             but the parser is at level {}",
+                            pp.recursion_depth())).into());
+            }
         }
 
         // Create a top-level container.
