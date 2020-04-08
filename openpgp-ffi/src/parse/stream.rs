@@ -429,18 +429,21 @@ type CheckCallback = fn(*mut HelperCookie,
 
 // This fetches keys and computes the validity of the verification.
 struct VHelper {
+    inspect_cb: Option<InspectCallback>,
     get_certs_cb: GetPublicKeysCallback,
     check_signatures_cb: CheckCallback,
     cookie: *mut HelperCookie,
 }
 
 impl VHelper {
-    fn new(get_certs: GetPublicKeysCallback,
+    fn new(inspect_cb: Option<InspectCallback>,
+           get_certs: GetPublicKeysCallback,
            check_signatures: CheckCallback,
            cookie: *mut HelperCookie)
        -> Self
     {
         VHelper {
+            inspect_cb,
             get_certs_cb: get_certs,
             check_signatures_cb: check_signatures,
             cookie,
@@ -449,6 +452,19 @@ impl VHelper {
 }
 
 impl VerificationHelper for VHelper {
+    fn inspect(&mut self, pp: &PacketParser) -> openpgp::Result<()> {
+        if let Some(cb) = self.inspect_cb {
+            match cb(self.cookie, pp) {
+                Status::Success => Ok(()),
+                // XXX: Convert the status to an error better.
+                status => Err(anyhow::anyhow!(
+                    "Inspect Callback returned an error: {:?}", status).into()),
+            }
+        } else {
+            Ok(())
+        }
+    }
+
     fn get_certs(&mut self, ids: &[openpgp::KeyHandle])
         -> Result<Vec<openpgp::Cert>, anyhow::Error>
     {
@@ -600,7 +616,7 @@ impl VerificationHelper for VHelper {
 ///     .key = cert,  /* Move.  */
 ///   };
 ///   plaintext = pgp_verifier_new (NULL, policy, source,
-///                                 get_certs_cb, check_cb,
+///                                 get_certs_cb, check_cb, NULL,
 ///                                 &cookie, 1554542219);
 ///   assert (source);
 ///
@@ -621,12 +637,13 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                         input: *mut io::Reader,
                         get_certs: GetPublicKeysCallback,
                         check: CheckCallback,
+                        inspect: Option<InspectCallback>,
                         cookie: *mut HelperCookie,
                         time: time_t)
                         -> Maybe<io::Reader>
 {
     let policy = policy.ref_raw().as_ref();
-    let helper = VHelper::new(get_certs, check, cookie);
+    let helper = VHelper::new(inspect, get_certs, check, cookie);
 
     Verifier::from_reader(policy, input.ref_mut_raw(), helper, maybe_time(time))
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
@@ -728,7 +745,7 @@ pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VH
 ///     .key = cert,  /* Move.  */
 ///   };
 ///   verifier = pgp_detached_verifier_new (NULL, policy, signature,
-///     get_certs_cb, check_cb,
+///     get_certs_cb, check_cb, NULL,
 ///     &cookie, 1554542219);
 ///   assert (verifier);
 ///
@@ -748,13 +765,14 @@ fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                                  signature_input: *mut io::Reader,
                                  get_certs: GetPublicKeysCallback,
                                  check: CheckCallback,
+                                 inspect: Option<InspectCallback>,
                                  cookie: *mut HelperCookie,
                                  time: time_t)
                                  -> Maybe<DetachedVerifier>
 {
     let policy = policy.ref_raw().as_ref();
 
-    let helper = VHelper::new(get_certs, check, cookie);
+    let helper = VHelper::new(inspect, get_certs, check, cookie);
 
     openpgp::parse::stream::DetachedVerifier::from_reader(
         policy, signature_input.ref_mut_raw(), helper, maybe_time(time))
@@ -778,7 +796,6 @@ fn pgp_detached_verifier_verify(errp: Option<&mut *mut crate::error::Error>,
 
 struct DHelper {
     vhelper: VHelper,
-    inspect_cb: Option<InspectCallback>,
     decrypt_cb: DecryptCallback,
 }
 
@@ -791,8 +808,7 @@ impl DHelper {
        -> Self
     {
         DHelper {
-            vhelper: VHelper::new(get_certs, check, cookie),
-            inspect_cb: inspect,
+            vhelper: VHelper::new(inspect, get_certs, check, cookie),
             decrypt_cb: decrypt,
         }
     }
@@ -813,19 +829,6 @@ impl VerificationHelper for DHelper {
 }
 
 impl DecryptionHelper for DHelper {
-    fn inspect(&mut self, pp: &PacketParser) -> openpgp::Result<()> {
-        if let Some(cb) = self.inspect_cb {
-            match cb(self.vhelper.cookie, pp) {
-                Status::Success => Ok(()),
-                // XXX: Convert the status to an error better.
-                status => Err(anyhow::anyhow!(
-                    "Inspect Callback returned an error: {:?}", status).into()),
-            }
-        } else {
-            Ok(())
-        }
-    }
-
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D)

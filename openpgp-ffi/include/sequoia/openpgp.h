@@ -1961,6 +1961,7 @@ pgp_reader_t pgp_verifier_new (pgp_error_t *errp,
     pgp_reader_t input,
     pgp_decryptor_get_certs_cb_t get_certs,
     pgp_decryptor_check_cb_t check,
+    pgp_decryptor_inspect_cb_t inspect,
     void *cookie, time_t time);
 
 /*/
@@ -1971,6 +1972,7 @@ pgp_detached_verifier_t pgp_detached_verifier_new (pgp_error_t *errp,
     pgp_reader_t signature_input,
     pgp_decryptor_get_certs_cb_t get_certs,
     pgp_decryptor_check_cb_t check,
+    pgp_decryptor_inspect_cb_t inspect,
     void *cookie, time_t time);
 
 /*/

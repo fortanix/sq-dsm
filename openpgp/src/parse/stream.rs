@@ -405,6 +405,26 @@ enum IMessageLayer {
 
 /// Helper for signature verification.
 pub trait VerificationHelper {
+    /// Turns mapping on or off.
+    ///
+    /// If this function returns true, the packet parser will create a
+    /// map of the packets.  Note that this buffers the packets
+    /// contents, and is not recommended unless you know that the
+    /// packets are small.  The default implementation returns false.
+    fn mapping(&self) -> bool {
+        false
+    }
+
+    /// Inspects the message.
+    ///
+    /// Called once per packet.  Can be used to dump packets in
+    /// encrypted messages.  The default implementation does nothing.
+    fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
+        // Do nothing.
+        let _ = pp;
+        Ok(())
+    }
+
     /// Retrieves the certificates containing the specified keys.
     ///
     /// When implementing this method, you should return as many
@@ -939,26 +959,6 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
 
 /// Helper for decrypting messages.
 pub trait DecryptionHelper {
-    /// Turns mapping on or off.
-    ///
-    /// If this function returns true, the packet parser will create a
-    /// map of the packets.  Note that this buffers the packets
-    /// contents, and is not recommended unless you know that the
-    /// packets are small.  The default implementation returns false.
-    fn mapping(&self) -> bool {
-        false
-    }
-
-    /// Inspects the message.
-    ///
-    /// Called once per packet.  Can be used to dump packets in
-    /// encrypted messages.  The default implementation does nothing.
-    fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
-        // Do nothing.
-        let _ = pp;
-        Ok(())
-    }
-
     /// Decrypts the message.
     ///
     /// This function is called with every `PKESK` and `SKESK` found
