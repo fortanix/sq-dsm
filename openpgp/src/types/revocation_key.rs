@@ -1,6 +1,7 @@
 use quickcheck::{Arbitrary, Gen};
 
 use crate::{
+    cert::prelude::*,
     Error,
     Fingerprint,
     Result,
@@ -25,6 +26,14 @@ pub struct RevocationKey {
     /// Other bits are for future expansion to other kinds of
     /// authorizations.
     unknown: u8,
+}
+
+impl From<&Cert> for RevocationKey {
+    fn from(cert: &Cert) -> Self {
+        RevocationKey::new(cert.primary_key().pk_algo(),
+                           cert.fingerprint(),
+                           false)
+    }
 }
 
 impl RevocationKey {
