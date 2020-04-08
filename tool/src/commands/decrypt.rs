@@ -328,9 +328,8 @@ pub fn decrypt_unwrap(ctx: &Context, policy: &dyn Policy,
                                    decrypt)?;
                 }
                 if pp.encrypted() {
-                    // XXX: That is not quite the right error to return.
                     return Err(
-                        openpgp::Error::InvalidSessionKey(
+                        openpgp::Error::MissingSessionKey(
                             "No session key".into()).into());
                 }
 
