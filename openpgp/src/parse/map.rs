@@ -138,11 +138,6 @@ impl<'a> Field<'a> {
         self.offset
     }
 
-    /// Returns the length of the field.
-    pub fn length(&self) -> usize {
-        self.data.len()
-    }
-
     /// Returns the value of the field.
     pub fn data(&self) -> &'a [u8] {
         self.data
