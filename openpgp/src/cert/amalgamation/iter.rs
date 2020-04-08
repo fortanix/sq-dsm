@@ -5,6 +5,11 @@ use std::time::SystemTime;
 use crate::{
     types::RevocationStatus,
     cert::prelude::*,
+    packet::{
+        Unknown,
+        UserAttribute,
+        UserID,
+    },
     policy::Policy,
 };
 
@@ -19,6 +24,25 @@ pub struct ComponentAmalgamationIter<'a, C> {
     cert: &'a Cert,
     iter: slice::Iter<'a, ComponentBundle<C>>,
 }
+
+/// An iterator over `UserIDAmalgamtion`s.
+///
+/// This is just a specialized version of `ComponentAmalgamationIter`.
+pub type UserIDAmalgamationIter<'a>
+    = ComponentAmalgamationIter<'a, UserID>;
+
+/// An iterator over `UserAttributeAmalgamtion`s.
+///
+/// This is just a specialized version of `ComponentAmalgamationIter`.
+pub type UserAttributeAmalgamationIter<'a>
+    = ComponentAmalgamationIter<'a, UserAttribute>;
+
+/// An iterator over `UnknownComponentAmalgamtion`s.
+///
+/// This is just a specialized version of `ComponentAmalgamationIter`.
+pub type UnknownComponentAmalgamationIter<'a>
+    = ComponentAmalgamationIter<'a, Unknown>;
+
 
 impl<'a, C> fmt::Debug for ComponentAmalgamationIter<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -89,6 +113,25 @@ pub struct ValidComponentAmalgamationIter<'a, C> {
     // at time `t`.
     revoked: Option<bool>,
 }
+
+/// An iterator over `ValidUserIDAmalgamtion`s.
+///
+/// This is just a specialized version of `ValidComponentAmalgamationIter`.
+pub type ValidUserIDAmalgamationIter<'a>
+    = ValidComponentAmalgamationIter<'a, UserID>;
+
+/// An iterator over `ValidUserAttributeAmalgamtion`s.
+///
+/// This is just a specialized version of `ValidComponentAmalgamationIter`.
+pub type ValidUserAttributeAmalgamationIter<'a>
+    = ValidComponentAmalgamationIter<'a, UserAttribute>;
+
+/// An iterator over `ValidUnknownComponentAmalgamtion`s.
+///
+/// This is just a specialized version of `ValidComponentAmalgamationIter`.
+pub type ValidUnknownComponentAmalgamationIter<'a>
+    = ValidComponentAmalgamationIter<'a, Unknown>;
+
 
 impl<'a, C> fmt::Debug for ValidComponentAmalgamationIter<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

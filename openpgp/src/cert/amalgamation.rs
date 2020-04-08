@@ -18,7 +18,12 @@ use std::clone::Clone;
 use crate::{
     cert::prelude::*,
     Error,
-    packet::Signature,
+    packet::{
+        Signature,
+        Unknown,
+        UserAttribute,
+        UserID,
+    },
     Result,
     policy::Policy,
     types::{
@@ -37,7 +42,13 @@ use crate::{
 mod iter;
 pub use iter::{
     ComponentAmalgamationIter,
+    UnknownComponentAmalgamationIter,
+    UserAttributeAmalgamationIter,
+    UserIDAmalgamationIter,
     ValidComponentAmalgamationIter,
+    ValidUnknownComponentAmalgamationIter,
+    ValidUserAttributeAmalgamationIter,
+    ValidUserIDAmalgamationIter,
 };
 
 mod keyiter;
@@ -207,6 +218,23 @@ pub struct ComponentAmalgamation<'a, C> {
     cert: &'a Cert,
     bundle: &'a ComponentBundle<C>,
 }
+
+/// A User ID and its associated data.
+///
+/// This is just a specialized version of `ComponentAmalgamation`.
+pub type UserIDAmalgamation<'a> = ComponentAmalgamation<'a, UserID>;
+
+/// A User Attribute and its associated data.
+///
+/// This is just a specialized version of `ComponentAmalgamation`.
+pub type UserAttributeAmalgamation<'a>
+    = ComponentAmalgamation<'a, UserAttribute>;
+
+/// An Unknown component and its associated data.
+///
+/// This is just a specialized version of `ComponentAmalgamation`.
+pub type UnknownComponentAmalgamation<'a>
+    = ComponentAmalgamation<'a, Unknown>;
 
 // derive(Clone) doesn't work with generic parameters that don't
 // implement clone.  But, we don't need to require that C implements
@@ -487,16 +515,16 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     }
 }
 
-impl<'a> ComponentAmalgamation<'a, crate::packet::UserID> {
+impl<'a> UserIDAmalgamation<'a> {
     /// Returns a reference to the User ID.
-    pub fn userid(&self) -> &'a crate::packet::UserID {
+    pub fn userid(&self) -> &'a UserID {
         self.component()
     }
 }
 
-impl<'a> ComponentAmalgamation<'a, crate::packet::UserAttribute> {
+impl<'a> UserAttributeAmalgamation<'a> {
     /// Returns a reference to the User Attribute.
-    pub fn user_attribute(&self) -> &'a crate::packet::UserAttribute {
+    pub fn user_attribute(&self) -> &'a UserAttribute {
         self.component()
     }
 }
@@ -509,6 +537,23 @@ pub struct ValidComponentAmalgamation<'a, C> {
     // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
 }
+
+/// A User ID and its associated data.
+///
+/// This is just a specialized version of `ValidComponentAmalgamation`.
+pub type ValidUserIDAmalgamation<'a> = ValidComponentAmalgamation<'a, UserID>;
+
+/// A User Attribute and its associated data.
+///
+/// This is just a specialized version of `ValidComponentAmalgamation`.
+pub type ValidUserAttributeAmalgamation<'a>
+    = ValidComponentAmalgamation<'a, UserAttribute>;
+
+/// An Unknown component and its associated data.
+///
+/// This is just a specialized version of `ValidComponentAmalgamation`.
+pub type ValidUnknownComponentAmalgamation<'a>
+    = ValidComponentAmalgamation<'a, Unknown>;
 
 // derive(Clone) doesn't work with generic parameters that don't
 // implement clone.  But, we don't need to require that C implements
@@ -750,7 +795,6 @@ impl<'a, C> crate::cert::Preferences<'a>
 mod test {
     use crate::policy::StandardPolicy as P;
     use crate::cert::prelude::*;
-    use crate::packet::UserID;
 
     // derive(Clone) doesn't work with generic parameters that don't
     // implement clone.  Make sure that our custom implementations
@@ -766,11 +810,10 @@ mod test {
             .generate()
             .unwrap();
 
-        let userid : ComponentAmalgamation<UserID>
-            = cert.userids().nth(0).unwrap();
+        let userid : UserIDAmalgamation = cert.userids().nth(0).unwrap();
         assert_eq!(userid.userid(), userid.clone().userid());
 
-        let userid : ValidComponentAmalgamation<UserID>
+        let userid : ValidUserIDAmalgamation
             = userid.with_policy(p, None).unwrap();
         let c = userid.clone();
         assert_eq!(userid.userid(), c.userid());

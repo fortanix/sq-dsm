@@ -26,7 +26,7 @@ use crate::maybe_time;
 
 /// A local alias to appease the proc macro transformation.
 type UserIDAmalgamationType<'a>
-    = openpgp::cert::amalgamation::ComponentAmalgamation<'a, openpgp::packet::UserID>;
+    = openpgp::cert::amalgamation::UserIDAmalgamation<'a>;
 
 /// A `UserIDAmalgamation` holds a `UserID` and associated data.
 ///
@@ -49,7 +49,7 @@ pub extern "C" fn pgp_user_id_amalgamation_user_id<'a>(ua: *const UserIDAmalgama
 
 /// A local alias to appease the proc macro transformation.
 type ValidUserIDAmalgamationType<'a>
-    = openpgp::cert::amalgamation::ValidComponentAmalgamation<'a, openpgp::packet::UserID>;
+    = openpgp::cert::amalgamation::ValidUserIDAmalgamation<'a>;
 
 /// A `ValidUserIDAmalgamation` holds a `UserID` and associated data
 /// including a policy and a reference time.
