@@ -8,6 +8,17 @@
 //! This module provides support for validating and working with
 //! OpenPGP messages.
 //!
+//! Example of ASCII-armored OpenPGP message:
+//!
+//! ```txt
+//! -----BEGIN PGP MESSAGE-----
+//!
+//! yDgBO22WxBHv7O8X7O/jygAEzol56iUKiXmV+XmpCtmpqQUKiQrFqclFqUDBovzS
+//! vBSFjNSiVHsuAA==
+//! =njUN
+//! -----END PGP MESSAGE-----
+//! ```
+//!
 //! [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
 
 use std::convert::TryFrom;
@@ -60,7 +71,7 @@ impl From<MessageParserError> for anyhow::Error {
 }
 
 
-/// Whether a packet sequence is a valid OpenPGP Message.
+/// Represents the status of a parsed message.
 #[derive(Debug)]
 pub enum MessageValidity {
     /// The packet sequence is a valid OpenPGP message.
@@ -111,6 +122,17 @@ impl MessageValidity {
 }
 
 /// Used to help validate a packet sequence is a valid OpenPGP message.
+///
+/// ```rust
+/// # extern crate sequoia_openpgp as openpgp;
+/// use openpgp::message::{MessageValidator, MessageValidity, Token};
+///
+/// let mut l = MessageValidator::new();
+/// l.push_token(Token::Literal, &[0]);
+/// l.finish();
+///
+/// assert!(if let MessageValidity::Message = l.check() { true } else { false });
+/// ```
 #[derive(Debug)]
 pub struct MessageValidator {
     tokens: Vec<Token>,
@@ -144,6 +166,26 @@ impl MessageValidator {
     ///
     /// Note: a `MessageValidator` will only return this after
     /// `MessageValidator::finish` has been called.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::message::MessageValidator;
+    /// use openpgp::packet::Tag;
+    ///
+    /// let mut l = MessageValidator::new();
+    /// l.push(Tag::Literal, &[0]);
+    ///
+    /// // Note: Even though we've read the whole message, because `finish` hasn't been called,
+    /// // `l.is_message()` still returns false.
+    /// assert!(!l.is_message());
+    ///
+    /// l.finish();
+    ///
+    /// // After `l.finish()` has been called the packet sequence is considered to ba a valid message.
+    /// assert!(l.is_message());
+    /// ```
     pub fn is_message(&self) -> bool {
         self.check().is_message()
     }
@@ -153,12 +195,65 @@ impl MessageValidator {
     ///
     /// Note: a `MessageValidator` will only return this before
     /// `MessageValidator::finish` has been called.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::message::MessageValidator;
+    /// use openpgp::packet::Tag;
+    ///
+    /// let mut l = MessageValidator::new();
+    /// l.push(Tag::Literal, &[0]);
+    ///
+    /// // Note: Even though we've read the whole message, because `finish` hasn't been called,
+    /// // `l.is_message()` still returns false.
+    /// assert!(!l.is_message());
+    ///
+    /// // `l.is_message_prefix()` returns true because this is a valid message prefix.
+    /// assert!(l.is_message_prefix());
+    /// ```
     pub fn is_message_prefix(&self) -> bool {
         self.check().is_message_prefix()
     }
 
     /// Returns whether the packet sequence is definitely not a valid
     /// OpenPGP Message.
+    ///
+    /// # Examples
+    ///
+    /// When the packet sequence is too short the validator will report an error.
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::message::MessageValidator;
+    ///
+    /// let mut l = MessageValidator::new();
+    ///
+    /// // Note: `l.is_err()` will not return true if this still can be a valid message prefix.
+    /// assert!(!l.is_err());
+    ///
+    /// l.finish();
+    ///
+    /// // Now that the packet sequence has been marked as finished `l.is_err()` will return true.
+    /// assert!(l.is_err());
+    /// ```
+    ///
+    /// When an unexpected packet is encountered the validator will report an error
+    /// early.
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::message::MessageValidator;
+    /// use openpgp::packet::Tag;
+    ///
+    /// let mut l = MessageValidator::new();
+    /// l.push(Tag::UserID, &[0]);
+    ///
+    /// // `l.is_err()` will return true even though `l.finish()` has not been called as this
+    /// // is definitely not a valid message prefix.
+    /// assert!(l.is_err());
+    /// ```
     pub fn is_err(&self) -> bool {
         self.check().is_err()
     }
@@ -186,6 +281,19 @@ impl MessageValidator {
     ///
     /// Note: the token *must* correspond to a packet; this function
     /// will panic if `token` is `Token::Pop`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::message::{MessageValidator, MessageValidity, Token};
+    ///
+    /// let mut l = MessageValidator::new();
+    /// l.push_token(Token::Literal, &[0]);
+    /// l.finish();
+    ///
+    /// assert!(if let MessageValidity::Message = l.check() { true } else { false });
+    /// ```
     pub fn push_token(&mut self, token: Token, path: &[usize]) {
         assert!(!self.finished);
         assert!(self.depth.is_some());
@@ -217,6 +325,20 @@ impl MessageValidator {
     /// Unlike `push_token`, this function does not automatically
     /// account for changes in the depth.  If you use this function
     /// directly, you must push any required `Token::Pop` tokens.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::message::{MessageValidator, MessageValidity};
+    /// use openpgp::packet::Tag;
+    ///
+    /// let mut l = MessageValidator::new();
+    /// l.push(Tag::Literal, &[0]);
+    /// l.finish();
+    ///
+    /// assert!(if let MessageValidity::Message = l.check() { true } else { false });
+    /// ```
     pub fn push(&mut self, tag: Tag, path: &[usize]) {
         if self.error.is_some() {
             return;
@@ -253,6 +375,18 @@ impl MessageValidator {
     }
 
     /// Note that the entire message has been seen.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::message::{MessageValidator, MessageValidity};
+    ///
+    /// let mut l = MessageValidator::new();
+    /// l.finish();
+    ///
+    /// assert!(if let MessageValidity::Error(_) = l.check() { true } else { false });
+    /// ```
     pub fn finish(&mut self) {
         assert!(!self.finished);
 
@@ -278,7 +412,30 @@ impl MessageValidator {
     /// this function will only ever return either
     /// MessageValidity::MessagePrefix or MessageValidity::Error.  Once
     /// MessageValidity::finish() has been called, then only
-    /// MessageValidity::Message or MessageValidity::Bad will be called.
+    /// MessageValidity::Message or MessageValidity::Error will be returned.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::message::{MessageValidator, MessageValidity};
+    /// use openpgp::packet::Tag;
+    ///
+    /// // No packets will return an error.
+    /// let mut l = MessageValidator::new();
+    /// assert!(if let MessageValidity::MessagePrefix = l.check() { true } else { false });
+    /// l.finish();
+    ///
+    /// assert!(if let MessageValidity::Error(_) = l.check() { true } else { false });
+    ///
+    /// // Simple one-literal message.
+    /// let mut l = MessageValidator::new();
+    /// l.push(Tag::Literal, &[0]);
+    /// assert!(if let MessageValidity::MessagePrefix = l.check() { true } else { false });
+    /// l.finish();
+    ///
+    /// assert!(if let MessageValidity::Message = l.check() { true } else { false });
+    /// ```
     pub fn check(&self) -> MessageValidity {
         if let Some(ref err) = self.error {
             return MessageValidity::Error((*err).clone().into());
@@ -320,6 +477,41 @@ use super::*;
 /// 4880].
 ///
 ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+///
+/// [ASCII Armored Messages] are wrapped in `-----BEGIN PGP MESSAGE-----` header
+/// and `-----END PGP MESSAGE-----` tail lines:
+///
+/// ```txt
+/// -----BEGIN PGP MESSAGE-----
+///
+/// xA0DAAoW5saJekzviSQByxBiAAAAAADYtdiv2KfZgtipwnUEABYKACcFglwJHYoW
+/// IQRnpIdTo4Cms7fffcXmxol6TO+JJAkQ5saJekzviSQAAIJ6APwK6FxtHXn8txDl
+/// tBFsIXlOSLOs4BvArlZzZSMomIyFLAEAwCLJUChMICDxWXRlHxORqU5x6hlO3DdW
+/// sl/1DAbnRgI=
+/// =AqoO
+/// -----END PGP MESSAGE-----
+/// ```
+///
+/// [ASCII Armored Messages]: https://tools.ietf.org/html/rfc4880#section-6.6
+///
+/// # Examples
+///
+/// Creating a Messaage encrypted with a password.
+///
+/// ```
+/// # use sequoia_openpgp as openpgp;
+/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// use std::io::Write;
+/// use openpgp::serialize::stream::{Message, Encryptor, LiteralWriter};
+///
+/// let mut sink = vec![];
+/// let message = Encryptor::with_passwords(
+///     Message::new(&mut sink), vec!["ściśle tajne".into()]).build()?;
+/// let mut w = LiteralWriter::new(message).build()?;
+/// w.write_all(b"Hello world.")?;
+/// w.finalize()?;
+/// # Ok(()) }
+/// ```
 #[derive(PartialEq)]
 pub struct Message {
     /// A message is just a validated packet pile.
@@ -377,6 +569,32 @@ impl Message {
     ///
     /// Returns `None` if no literal data packet is found.  This
     /// happens if a SEIP container has not been decrypted.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> openpgp::Result<()> {
+    /// use std::io;
+    /// use std::io::Read;
+    /// use openpgp::Message;
+    /// use openpgp::armor::{Reader, ReaderMode};
+    /// use openpgp::parse::Parse;
+    ///
+    /// let data = "yxJiAAAAAABIZWxsbyB3b3JsZCE="; // base64 over literal data packet
+    ///
+    /// let mut cursor = io::Cursor::new(&data);
+    /// let mut reader = Reader::new(&mut cursor, ReaderMode::VeryTolerant);
+    ///
+    /// let mut buf = Vec::new();
+    /// reader.read_to_end(&mut buf)?;
+    ///
+    /// let message = Message::from_bytes(&buf)?;
+    /// assert_eq!(message.body().unwrap().body(), b"Hello world!");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn body(&self) -> Option<&Literal> {
         for packet in self.pile.descendants() {
             if let &Packet::Literal(ref l) = packet {
