@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::io;
 use std::path::Path;
 
@@ -65,12 +66,13 @@ pub struct PacketPileParser<'a> {
     pile: PacketPile,
 }
 
-impl<'a> PacketParserBuilder<'a> {
+impl<'a> TryFrom<PacketParserBuilder<'a>> for PacketPileParser<'a> {
+    type Error = anyhow::Error;
+
     /// Finishes configuring the `PacketParser` and returns a
     /// `PacketPileParser`.
-    pub fn into_packet_pile_parser(self) -> Result<PacketPileParser<'a>>
-            where Self: 'a {
-        PacketPileParser::from_packet_parser(self.finalize()?)
+    fn try_from(ppb: PacketParserBuilder<'a>) -> Result<PacketPileParser<'a>> {
+        Self::from_packet_parser(ppb.finalize()?)
     }
 }
 
