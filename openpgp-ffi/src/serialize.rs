@@ -400,7 +400,7 @@ pub extern "C" fn pgp_encryptor_new<'a>
         encryptor = encryptor.add_password(p);
     }
     if let Some(algo) = cipher_algo {
-        encryptor = encryptor.sym_algo(algo);
+        encryptor = encryptor.symmetric_algo(algo);
     }
     if let Some(algo) = aead_algo {
         encryptor = encryptor.aead_algo(algo);

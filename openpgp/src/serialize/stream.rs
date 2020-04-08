@@ -2103,14 +2103,14 @@ impl<'a> Encryptor<'a> {
     /// let message =
     ///     Encryptor::with_passwords(message,
     ///                               vec!["совершенно секретно".into()])
-    ///         .sym_algo(SymmetricAlgorithm::AES128)
+    ///         .symmetric_algo(SymmetricAlgorithm::AES128)
     ///         .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
     /// message.write_all(b"Hello world.")?;
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn sym_algo(mut self, algo: SymmetricAlgorithm) -> Self {
+    pub fn symmetric_algo(mut self, algo: SymmetricAlgorithm) -> Self {
         self.sym_algo = algo;
         self
     }
