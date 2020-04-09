@@ -13,6 +13,7 @@ use crate::Result;
 pub(crate) mod aead;
 mod asymmetric;
 pub use self::asymmetric::{Signer, Decryptor, KeyPair};
+mod backend;
 pub(crate) mod ecdh;
 pub mod hash;
 mod keygrip;
