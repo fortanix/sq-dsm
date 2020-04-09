@@ -54,8 +54,8 @@ impl AEADAlgorithm {
         }
     }
 
-    /// Creates a nettle context.
-    pub fn context(&self, sym_algo: SymmetricAlgorithm, key: &[u8], nonce: &[u8])
+    /// Creates a Nettle context.
+    pub(crate) fn context(&self, sym_algo: SymmetricAlgorithm, key: &[u8], nonce: &[u8])
                    -> Result<Box<dyn aead::Aead>> {
         match self {
             AEADAlgorithm::EAX => match sym_algo {

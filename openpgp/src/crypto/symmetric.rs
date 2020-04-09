@@ -53,7 +53,7 @@ impl SymmetricAlgorithm {
     }
 
     /// Creates a Nettle context for encrypting in CFB mode.
-    pub fn make_encrypt_cfb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
+    pub(crate) fn make_encrypt_cfb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
         match self {
             SymmetricAlgorithm::TripleDES =>
                 Ok(Box::new(
@@ -90,7 +90,7 @@ impl SymmetricAlgorithm {
     }
 
     /// Creates a Nettle context for decrypting in CFB mode.
-    pub fn make_decrypt_cfb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
+    pub(crate) fn make_decrypt_cfb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
         match self {
             SymmetricAlgorithm::TripleDES =>
                 Ok(Box::new(

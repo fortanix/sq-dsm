@@ -108,7 +108,7 @@ impl HashAlgorithm {
         }
     }
 
-    /// Creates a new Nettle hash context for this algorithm.
+    /// Creates a new hash context for this algorithm.
     ///
     /// # Errors
     ///
