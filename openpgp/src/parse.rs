@@ -249,7 +249,7 @@ pub const DEFAULT_MAX_RECURSION_DEPTH : u8 = 16;
 /// an AEAD encrypted data packet.
 ///
 /// The default is 1 MiB.
-const MAX_PACKET_SIZE: u32 = 1 << 20; // 1 MiB
+pub const DEFAULT_MAX_PACKET_SIZE: u32 = 1 << 20; // 1 MiB
 
 // Used to parse an OpenPGP packet's header (note: in this case, the
 // header means a Packet's fixed data, not the OpenPGP framing
@@ -862,7 +862,7 @@ impl Default for PacketParserSettings {
     fn default() -> Self {
         PacketParserSettings {
             max_recursion_depth: DEFAULT_MAX_RECURSION_DEPTH,
-            max_packet_size: MAX_PACKET_SIZE,
+            max_packet_size: DEFAULT_MAX_PACKET_SIZE,
             buffer_unread_content: false,
             map: false,
         }
