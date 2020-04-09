@@ -2,6 +2,8 @@
 
 use std::convert::TryFrom;
 
+use dyn_clone::DynClone;
+
 use crate::HashAlgorithm;
 use crate::packet::Key;
 use crate::packet::UserID;
@@ -10,7 +12,6 @@ use crate::packet::key;
 use crate::packet::key::Key4;
 use crate::packet::Signature;
 use crate::packet::signature::{self, Signature4};
-use crate::Error;
 use crate::Result;
 use crate::types::Timestamp;
 
@@ -20,6 +21,26 @@ use std::io::{self, Write};
 // If set to e.g. Some("/tmp/hash"), we will dump everything that is
 // hashed to files /tmp/hash-N, where N is a number.
 const DUMP_HASHED_VALUES: Option<&str> = None;
+
+/// Hasher capable of calculating a digest for the input byte stream.
+pub trait Digest: DynClone {
+    /// Size of the digest in bytes
+    fn digest_size(&self) -> usize;
+
+    /// Writes data into the hash function.
+    fn update(&mut self, data: &[u8]);
+
+    /// Finalizes the hash function and writes the digest into the
+    /// provided slice.
+    ///
+    /// Resets the hash function contexts.
+    ///
+    /// `digest` must be at least `self.digest_size()` bytes large,
+    /// otherwise the digest will be truncated.
+    fn digest(&mut self, digest: &mut [u8]);
+}
+
+dyn_clone::clone_trait_object!(Digest);
 
 /// State of a hash function.
 ///
@@ -49,7 +70,7 @@ const DUMP_HASHED_VALUES: Option<&str> = None;
 #[derive(Clone)]
 pub struct Context {
     algo: HashAlgorithm,
-    ctx: Box<dyn nettle::hash::Hash>,
+    ctx: Box<dyn Digest>,
 }
 
 impl Context {
@@ -92,22 +113,6 @@ impl io::Write for Context {
 }
 
 impl HashAlgorithm {
-    /// Whether Sequoia supports this algorithm.
-    pub fn is_supported(self) -> bool {
-        match self {
-            HashAlgorithm::SHA1 => true,
-            HashAlgorithm::SHA224 => true,
-            HashAlgorithm::SHA256 => true,
-            HashAlgorithm::SHA384 => true,
-            HashAlgorithm::SHA512 => true,
-            HashAlgorithm::RipeMD => true,
-            HashAlgorithm::MD5 => true,
-            HashAlgorithm::Private(_) => false,
-            HashAlgorithm::Unknown(_) => false,
-            HashAlgorithm::__Nonexhaustive => unreachable!(),
-        }
-    }
-
     /// Creates a new hash context for this algorithm.
     ///
     /// # Errors
@@ -118,64 +123,27 @@ impl HashAlgorithm {
     ///
     ///   [`HashAlgorithm::is_supported`]: #method.is_supported
     pub fn context(self) -> Result<Context> {
-        use nettle::hash::{Sha224, Sha256, Sha384, Sha512};
-        use nettle::hash::insecure_do_not_use::{
-            Sha1,
-            Md5,
-            Ripemd160,
-        };
-
-        let c: Result<Box<dyn nettle::hash::Hash>> = match self {
-            HashAlgorithm::SHA1 => Ok(Box::new(Sha1::default())),
-            HashAlgorithm::SHA224 => Ok(Box::new(Sha224::default())),
-            HashAlgorithm::SHA256 => Ok(Box::new(Sha256::default())),
-            HashAlgorithm::SHA384 => Ok(Box::new(Sha384::default())),
-            HashAlgorithm::SHA512 => Ok(Box::new(Sha512::default())),
-            HashAlgorithm::MD5 => Ok(Box::new(Md5::default())),
-            HashAlgorithm::RipeMD => Ok(Box::new(Ripemd160::default())),
-            HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
-                Err(Error::UnsupportedHashAlgorithm(self).into()),
-            HashAlgorithm::__Nonexhaustive => unreachable!(),
-        };
-
-        c.map(|ctx| Context {
-            algo: self,
-            ctx: if let Some(prefix) = DUMP_HASHED_VALUES {
-                Box::new(HashDumper::new(ctx, prefix))
-            } else {
-                ctx
-            },
-        })
-    }
-
-    /// Returns the ASN.1 OID of this hash algorithm.
-    pub fn oid(self) -> Result<&'static [u8]> {
-        use nettle::rsa;
-
-        match self {
-            HashAlgorithm::SHA1 => Ok(rsa::ASN1_OID_SHA1),
-            HashAlgorithm::SHA224 => Ok(rsa::ASN1_OID_SHA224),
-            HashAlgorithm::SHA256 => Ok(rsa::ASN1_OID_SHA256),
-            HashAlgorithm::SHA384 => Ok(rsa::ASN1_OID_SHA384),
-            HashAlgorithm::SHA512 => Ok(rsa::ASN1_OID_SHA512),
-            HashAlgorithm::MD5 => Ok(rsa::ASN1_OID_MD5),
-            HashAlgorithm::RipeMD => Ok(rsa::ASN1_OID_RIPEMD160),
-            HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
-                Err(Error::UnsupportedHashAlgorithm(self).into()),
-            HashAlgorithm::__Nonexhaustive => unreachable!(),
-        }
+        self.new_hasher()
+            .map(|hasher| Context {
+                algo: self,
+                ctx: if let Some(prefix) = DUMP_HASHED_VALUES {
+                    Box::new(HashDumper::new(hasher, prefix))
+                } else {
+                    hasher
+                },
+            })
     }
 }
 
 struct HashDumper {
-    h: Box<dyn nettle::hash::Hash>,
+    hasher: Box<dyn Digest>,
     sink: File,
     filename: String,
     written: usize,
 }
 
 impl HashDumper {
-    fn new(h: Box<dyn nettle::hash::Hash>, prefix: &str) -> Self {
+    fn new(hasher: Box<dyn Digest>, prefix: &str) -> Self {
         let mut n = 0;
         let mut filename;
         let sink = loop {
@@ -189,11 +157,22 @@ impl HashDumper {
         };
         eprintln!("HashDumper: Writing to {}...", &filename);
         HashDumper {
-            h,
+            hasher,
             sink,
             filename,
             written: 0,
         }
+    }
+}
+
+impl Clone for HashDumper {
+    fn clone(&self) -> HashDumper {
+        // We only ever create instances of HashDumper when debugging.
+        // Whenever we're cloning an instance, just open another file for
+        // inspection.
+        let prefix = DUMP_HASHED_VALUES
+            .expect("cloning a HashDumper but DUMP_HASHED_VALUES wasn't specified");
+        HashDumper::new(self.hasher.clone(), prefix)
     }
 }
 
@@ -204,20 +183,17 @@ impl Drop for HashDumper {
     }
 }
 
-impl nettle::hash::Hash for HashDumper {
+impl Digest for HashDumper {
     fn digest_size(&self) -> usize {
-        self.h.digest_size()
+        self.hasher.digest_size()
     }
     fn update(&mut self, data: &[u8]) {
-        self.h.update(data);
+        self.hasher.update(data);
         self.sink.write_all(data).unwrap();
         self.written += data.len();
     }
     fn digest(&mut self, digest: &mut [u8]) {
-        self.h.digest(digest);
-    }
-    fn box_clone(&self) -> Box<dyn nettle::hash::Hash> {
-        Box::new(Self::new(self.h.box_clone(), &DUMP_HASHED_VALUES.unwrap()))
+        self.hasher.digest(digest);
     }
 }
 
