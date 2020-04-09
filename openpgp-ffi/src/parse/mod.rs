@@ -357,8 +357,8 @@ pub extern "C" fn pgp_packet_parser_result_tag<'a>
     let ppr = ffi_param_ref_mut!(ppr);
 
     let tag : u8 = match ppr {
-        PacketParserResult::Some(ref pp) => pp.packet.tag().into(),
-        PacketParserResult::EOF(_) => 0,
+        Ok(ref pp) => pp.packet.tag().into(),
+        Err(_) => 0,
     };
 
     tag as c_int
@@ -383,8 +383,8 @@ pub extern "C" fn pgp_packet_parser_result_packet_parser<'a>
     let ppr = ffi_param_move!(ppr);
 
     match *ppr {
-        PacketParserResult::Some(pp) => box_raw!(pp),
-        PacketParserResult::EOF(_) => {
+        Ok(pp) => box_raw!(pp),
+        Err(_) => {
             // Don't free ppr!
             forget(ppr);
             ptr::null_mut()
@@ -411,10 +411,10 @@ pub extern "C" fn pgp_packet_parser_result_eof<'a>
     let ppr = ffi_param_move!(ppr);
 
     match *ppr {
-        PacketParserResult::Some(_) => {
+        Ok(_) => {
             forget(ppr);
             ptr::null_mut()
         }
-        PacketParserResult::EOF(eof) => box_raw!(eof),
+        Err(eof) => box_raw!(eof),
     }
 }

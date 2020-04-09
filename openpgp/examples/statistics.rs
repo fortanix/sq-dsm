@@ -14,7 +14,7 @@ use crate::openpgp::{Packet, Fingerprint, KeyID, KeyHandle};
 use crate::openpgp::types::*;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
 use crate::openpgp::packet::signature::subpacket::SubpacketTag;
-use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
+use crate::openpgp::parse::{Parse, PacketParser};
 use crate::openpgp::serialize::MarshalInto;
 
 fn main() {
@@ -90,7 +90,7 @@ fn main() {
             .expect("Failed to create reader");
 
         // Iterate over all packets.
-        while let PacketParserResult::Some(pp) = ppr {
+        while let Ok(pp) = ppr {
             // While the packet is in the parser, get some data for later.
             let size = match pp.header().length() {
                 &BodyLength::Full(n) => Some(n),

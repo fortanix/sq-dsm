@@ -208,11 +208,11 @@ impl<'a> PacketParserBuilder<'a> {
                 pp.state.message_validator.push(pp.packet.tag(), &[0]);
                 pp.state.keyring_validator.push(pp.packet.tag());
                 pp.state.cert_validator.push(pp.packet.tag());
-                Ok(PacketParserResult::Some(pp))
+                Ok(Ok(pp))
             },
             ParserResult::EOF((_reader, state, _path)) => {
                 // `bio` is empty.  We're done.
-                Ok(PacketParserResult::EOF(PacketParserEOF::new(state)))
+                Ok(Err(PacketParserEOF::new(state)))
             }
         }
     }
@@ -231,12 +231,12 @@ mod tests {
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(Dearmor::Disabled)
             .build();
-        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+        assert_match!(Ok(Ok(ref _pp)) = ppr);
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(Dearmor::Auto(Default::default()))
             .build();
-        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+        assert_match!(Ok(Ok(ref _pp)) = ppr);
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(Dearmor::Enabled(Default::default()))
@@ -255,11 +255,11 @@ mod tests {
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(Dearmor::Auto(Default::default()))
             .build();
-        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+        assert_match!(Ok(Ok(ref _pp)) = ppr);
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(Dearmor::Enabled(Default::default()))
             .build();
-        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+        assert_match!(Ok(Ok(ref _pp)) = ppr);
     }
 }

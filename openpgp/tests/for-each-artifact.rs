@@ -177,7 +177,7 @@ fn for_all_packets<F>(src: &Path, mut fun: F) -> openpgp::Result<()>
         return Ok(());
     };
 
-    while let PacketParserResult::Some(pp) = ppr {
+    while let Ok(pp) = ppr {
         match pp.recurse() {
             Ok((packet, ppr_)) => {
                 ppr = ppr_;

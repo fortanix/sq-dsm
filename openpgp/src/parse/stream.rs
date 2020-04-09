@@ -1092,7 +1092,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         let mut skesks: Vec<packet::SKESK> = Vec::new();
         let mut saw_content = false;
 
-        while let PacketParserResult::Some(mut pp) = ppr {
+        while let Ok(mut pp) = ppr {
             v.policy.packet(&pp.packet)?;
             v.helper.inspect(&pp)?;
 
@@ -1165,7 +1165,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     v.structure.insert_missing_signature_group();
                     // Query keys.
                     v.certs = v.helper.get_certs(&issuers)?;
-                    v.oppr = Some(PacketParserResult::Some(pp));
+                    v.oppr = Some(Ok(pp));
                     v.finish_maybe()?;
 
                     return Ok(v);
@@ -1270,7 +1270,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     //
     // Note: once this call succeeds, you may not call it again.
     fn finish_maybe(&mut self) -> Result<()> {
-        if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
+        if let Some(Ok(mut pp)) = self.oppr.take() {
             // Check if we hit EOF.
             let data_len = pp.data(BUFFER_SIZE + 1)?.len();
             if data_len <= BUFFER_SIZE {
@@ -1279,9 +1279,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 self.cursor = 0;
 
                 // Process the rest of the packets.
-                let mut ppr = PacketParserResult::Some(pp);
+                let mut ppr = Ok(pp);
                 let mut first = true;
-                while let PacketParserResult::Some(pp) = ppr {
+                while let Ok(pp) = ppr {
                     // The literal data packet was already inspected.
                     if first {
                         assert_eq!(pp.packet.tag(), packet::Tag::Literal);
@@ -1309,7 +1309,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                 self.verify_signatures()
             } else {
-                self.oppr = Some(PacketParserResult::Some(pp));
+                self.oppr = Some(Ok(pp));
                 Ok(())
             }
         } else {
@@ -1524,18 +1524,18 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         }
 
         // Read the data from the Literal data packet.
-        if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
+        if let Some(Ok(mut pp)) = self.oppr.take() {
             // Be careful to not read from the reserve.
             let data_len = pp.data(BUFFER_SIZE + buf.len())?.len();
             if data_len <= BUFFER_SIZE {
-                self.oppr = Some(PacketParserResult::Some(pp));
+                self.oppr = Some(Ok(pp));
                 self.finish_maybe()?;
                 self.read_helper(buf)
             } else {
                 let n = cmp::min(buf.len(), data_len - BUFFER_SIZE);
                 let buf = &mut buf[..n];
                 let result = pp.read(buf);
-                self.oppr = Some(PacketParserResult::Some(pp));
+                self.oppr = Some(Ok(pp));
                 Ok(result?)
             }
         } else {

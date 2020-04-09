@@ -6,7 +6,7 @@ extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, Result};
 use crate::openpgp::cert::prelude::*;
 use openpgp::packet::key::PublicParts;
-use crate::openpgp::parse::{Parse, PacketParserResult};
+use crate::openpgp::parse::Parse;
 use crate::openpgp::policy::Policy;
 
 use super::dump::Convert;
@@ -30,7 +30,7 @@ pub fn inspect(m: &clap::ArgMatches, policy: &dyn Policy, output: &mut dyn io::W
 
     let mut ppr =
         openpgp::parse::PacketParser::from_reader(crate::open_or_stdin(input)?)?;
-    while let PacketParserResult::Some(mut pp) = ppr {
+    while let Ok(mut pp) = ppr {
         match pp.packet {
             Packet::PublicKey(_) | Packet::SecretKey(_) => {
                 if pp.possible_cert().is_err()
@@ -73,7 +73,7 @@ pub fn inspect(m: &clap::ArgMatches, policy: &dyn Policy, output: &mut dyn io::W
         }
     }
 
-    if let PacketParserResult::EOF(eof) = ppr {
+    if let Err(eof) = ppr {
         let is_message = eof.is_message();
         let is_cert = eof.is_cert();
         let is_keyring = eof.is_keyring();

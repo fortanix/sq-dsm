@@ -15,8 +15,7 @@ use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::{
     Parse,
     PacketParser,
-    PacketParserResult,
-};
+    };
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, Decryptor, MessageStructure,
 };
@@ -312,7 +311,7 @@ pub fn decrypt_unwrap(ctx: &Context, policy: &dyn Policy,
 
     let mut pkesks: Vec<packet::PKESK> = Vec::new();
     let mut skesks: Vec<packet::SKESK> = Vec::new();
-    while let PacketParserResult::Some(mut pp) = ppr {
+    while let Ok(mut pp) = ppr {
         let sym_algo_hint = if let Packet::AED(ref aed) = pp.packet {
             Some(aed.symmetric_algo())
         } else {

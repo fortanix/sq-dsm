@@ -2386,7 +2386,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
 mod test {
     use std::io::Read;
     use crate::{Packet, PacketPile, packet::CompressedData};
-    use crate::parse::{Parse, PacketParserResult, PacketParser};
+    use crate::parse::{Parse, PacketParser};
     use super::*;
     use crate::types::DataFormat::Text as T;
     use crate::policy::Policy;
@@ -2419,7 +2419,7 @@ mod test {
 
         // Make sure it is the only packet.
         let (_, ppr) = pp.recurse().unwrap();
-        assert!(ppr.is_none());
+        assert!(ppr.is_err());
     }
 
     // Create some crazy nesting structures, serialize the messages,
@@ -2594,7 +2594,7 @@ mod test {
 
         let mut ppr = PacketParser::from_bytes(&o).unwrap();
         let mut good = 0;
-        while let PacketParserResult::Some(pp) = ppr {
+        while let Ok(pp) = ppr {
             if let Packet::Signature(ref sig) = pp.packet {
                 let key = keys.get(&sig.issuer_fingerprint().unwrap())
                     .unwrap();
@@ -2639,7 +2639,7 @@ mod test {
         for password in &passwords {
             let mut state = State::Start;
             let mut ppr = PacketParser::from_bytes(&o).unwrap();
-            while let PacketParserResult::Some(mut pp) = ppr {
+            while let Ok(mut pp) = ppr {
                 state = match state {
                     // Look for the SKESK packet.
                     State::Start =>
@@ -2916,7 +2916,7 @@ mod test {
 
         let mut ppr = PacketParser::from_bytes(&o).unwrap();
         let mut good = 0;
-        while let PacketParserResult::Some(pp) = ppr {
+        while let Ok(pp) = ppr {
             if let Packet::Signature(ref sig) = pp.packet {
                 assert_eq!(sig.signature_creation_time(), Some(timestamp));
                 sig.verify(ka.key()).unwrap();

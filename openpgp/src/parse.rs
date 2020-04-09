@@ -212,13 +212,13 @@ macro_rules! impl_parse_generic_packet {
                 pp.buffer_unread_content()?;
 
                 match pp.next()? {
-                    (Packet::$typ(o), PacketParserResult::EOF(_))
+                    (Packet::$typ(o), Err(_))
                         => Ok(o),
-                    (p, PacketParserResult::EOF(_)) =>
+                    (p, Err(_)) =>
                         Err(Error::InvalidOperation(
                             format!("Not a {} packet: {:?}", stringify!($typ),
                                     p)).into()),
-                    (_, PacketParserResult::Some(_)) =>
+                    (_, Ok(_)) =>
                         Err(Error::InvalidOperation(
                             "Excess data after packet".into()).into()),
                 }
@@ -1821,7 +1821,7 @@ fn one_pass_sig_test () {
         let mut one_pass_sigs = 0;
         let mut sigs = 0;
 
-        while let PacketParserResult::Some(pp) = ppr {
+        while let Ok(pp) = ppr {
             if let Packet::OnePassSig(_) = pp.packet {
                 one_pass_sigs += 1;
             } else if let Packet::Signature(ref sig) = pp.packet {
@@ -2065,14 +2065,14 @@ impl<'a> Parse<'a, key::UnspecifiedKey> for key::UnspecifiedKey {
         pp.buffer_unread_content()?;
 
         match pp.next()? {
-            (Packet::PublicKey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
-            (Packet::PublicSubkey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
-            (Packet::SecretKey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
-            (Packet::SecretSubkey(o), PacketParserResult::EOF(_)) => Ok(o.into()),
-            (p, PacketParserResult::EOF(_)) =>
+            (Packet::PublicKey(o), Err(_)) => Ok(o.into()),
+            (Packet::PublicSubkey(o), Err(_)) => Ok(o.into()),
+            (Packet::SecretKey(o), Err(_)) => Ok(o.into()),
+            (Packet::SecretSubkey(o), Err(_)) => Ok(o.into()),
+            (p, Err(_)) =>
                 Err(Error::InvalidOperation(
                     format!("Not a Key packet: {:?}", p)).into()),
-            (_, PacketParserResult::Some(_)) =>
+            (_, Ok(_)) =>
                 Err(Error::InvalidOperation(
                     "Excess data after packet".into()).into()),
         }
@@ -2331,7 +2331,7 @@ fn compressed_data_parser_test () {
         }
 
         // And, we're done...
-        assert!(ppr.is_none());
+        assert!(ppr.is_err());
     }
 }
 
@@ -2673,18 +2673,18 @@ impl<'a> Parse<'a, Packet> for Packet {
             ?.buffer_unread_content().build()?;
 
         let (p, ppr) = match ppr {
-            PacketParserResult::Some(pp) => {
+            Ok(pp) => {
                 pp.next()?
             },
-            PacketParserResult::EOF(_) =>
+            Err(_) =>
                 return Err(Error::InvalidOperation(
                     "Unexpected EOF".into()).into()),
         };
 
         match (p, ppr) {
-            (p, PacketParserResult::EOF(_)) =>
+            (p, Err(_)) =>
                 Ok(p),
-            (_, PacketParserResult::Some(_)) =>
+            (_, Ok(_)) =>
                 Err(Error::InvalidOperation(
                     "Excess data after packet".into()).into()),
         }
@@ -2754,12 +2754,12 @@ impl PacketParserState {
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::Packet;
-/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+/// # use openpgp::parse::{Parse, PacketParser};
 /// # let _ = f(include_bytes!("../tests/data/keys/public-key.gpg"));
 /// #
 /// # fn f(message_data: &[u8]) -> Result<()> {
 /// let mut ppr = PacketParser::from_bytes(message_data)?;
-/// while let PacketParserResult::Some(mut pp) = ppr {
+/// while let Ok(mut pp) = ppr {
 ///     // Process the packet.
 ///
 ///     if let Packet::Literal(_) = pp.packet {
@@ -2916,89 +2916,20 @@ impl PacketParserEOF {
 /// We don't use an `Option`, because when we reach the end of the
 /// packet sequence, some information about the message needs to
 /// remain accessible.
-#[derive(Debug)]
-pub enum PacketParserResult<'a> {
-    /// A `PacketParser` for the next packet.
-    Some(PacketParser<'a>),
-    /// Information about a fully parsed packet sequence.
-    EOF(PacketParserEOF),
+pub type PacketParserResult<'a> =
+    std::result::Result<PacketParser<'a>, PacketParserEOF>;
+
+/// Like `Option::take`() for PacketParserResult.
+///
+/// `self` is replaced with a `PacketParserEOF` with default values.
+fn packet_parser_result_take<'a>(ppr: &mut PacketParserResult<'a>)
+                                 -> PacketParserResult<'a> {
+    mem::replace(
+        ppr,
+        Err(PacketParserEOF::new(
+                PacketParserState::new(Default::default()))))
 }
 
-impl<'a> PacketParserResult<'a> {
-    /// Like `Option::is_none`().
-    pub fn is_none(&self) -> bool {
-        if let PacketParserResult::EOF(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    /// An alias for `is_none`().
-    pub fn is_eof(&self) -> bool {
-        Self::is_none(self)
-    }
-
-    /// Like `Option::is_some`().
-    pub fn is_some(&self) -> bool {
-        ! Self::is_none(self)
-    }
-
-    /// Like `Option::expect`().
-    pub fn expect(self, msg: &str) -> PacketParser<'a> {
-        if let PacketParserResult::Some(pp) = self {
-            return pp;
-        } else {
-            panic!("{}", msg);
-        }
-    }
-
-    /// Like `Option::unwrap`().
-    pub fn unwrap(self) -> PacketParser<'a> {
-        self.expect("called `PacketParserResult::unwrap()` on a \
-                     `PacketParserResult::PacketParserEOF` value")
-    }
-
-    /// Like `Option::as_ref`().
-    pub fn as_ref(&self) -> Option<&PacketParser<'a>> {
-        if let PacketParserResult::Some(ref pp) = self {
-            Some(pp)
-        } else {
-            None
-        }
-    }
-
-    /// Like `Option::as_mut`().
-    pub fn as_mut(&mut self) -> Option<&mut PacketParser<'a>> {
-        if let PacketParserResult::Some(ref mut pp) = self {
-            Some(pp)
-        } else {
-            None
-        }
-    }
-
-    /// Like `Option::take`().
-    ///
-    /// `self` is replaced with a `PacketParserEOF` with default
-    /// values.
-    pub fn take(&mut self) -> Self {
-        mem::replace(
-            self,
-            PacketParserResult::EOF(
-                PacketParserEOF::new(
-                    PacketParserState::new(Default::default()))))
-    }
-
-    /// Like `Option::map`().
-    pub fn map<U, F>(self, f: F) -> Option<U>
-        where F: FnOnce(PacketParser<'a>) -> U
-    {
-        match self {
-            PacketParserResult::Some(x) => Some(f(x)),
-            PacketParserResult::EOF(_) => None,
-        }
-    }
-}
 
 impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
     /// Starts parsing an OpenPGP message stored in a `std::io::Read` object.
@@ -3533,7 +3464,7 @@ impl <'a> PacketParser<'a> {
                         let mut eof = PacketParserEOF::new(state_);
                         eof.last_path = self.last_path;
                         return Ok((self.packet,
-                                   PacketParserResult::EOF(eof)));
+                                   Err(eof)));
                     } else {
                         self.state = state_;
                         self.finish()?;
@@ -3556,7 +3487,7 @@ impl <'a> PacketParser<'a> {
 
                     pp.last_path = self.last_path;
 
-                    return Ok((self.packet, PacketParserResult::Some(pp)));
+                    return Ok((self.packet, Ok(pp)));
                 }
             }
         }
@@ -3626,7 +3557,7 @@ impl <'a> PacketParser<'a> {
                             pp.last_path = last_path;
 
                             return Ok((self.packet,
-                                       PacketParserResult::Some(pp)));
+                                       Ok(pp)));
                         },
                         ParserResult::EOF(_) => {
                             return Err(Error::MalformedPacket(
@@ -3667,13 +3598,13 @@ impl <'a> PacketParser<'a> {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::Packet;
-    /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    /// # use openpgp::parse::{Parse, PacketParser};
     /// # use std::string::String;
     /// # f(include_bytes!("../tests/data/messages/literal-mode-t-partial-body.gpg"));
     /// #
     /// # fn f(message_data: &[u8]) -> Result<()> {
     /// let mut ppr = PacketParser::from_bytes(message_data)?;
-    /// while let PacketParserResult::Some(mut pp) = ppr {
+    /// while let Ok(mut pp) = ppr {
     ///     // Process the packet.
     ///
     ///     if let Packet::Literal(_) = pp.packet {
@@ -4019,7 +3950,7 @@ fn packet_parser_reader_interface() {
     // Make sure we can still get the next packet (which in this case
     // is just EOF).
     let (packet, ppr) = pp.recurse().unwrap();
-    assert!(ppr.is_none());
+    assert!(ppr.is_err());
     // Since we read all of the data, we expect content to be None.
     assert_eq!(packet.unprocessed_body().unwrap().len(), 0);
 }
@@ -4353,11 +4284,11 @@ mod test {
             ppr = ppr.unwrap().recurse().unwrap().1;
         }
 
-        while let PacketParserResult::Some(pp) = ppr {
+        while let Ok(pp) = ppr {
             let tag = pp.packet.tag();
             for t in keep.iter() {
                 if *t == tag {
-                    return PacketParserResult::Some(pp);
+                    return Ok(pp);
                 }
             }
 
@@ -4401,7 +4332,7 @@ mod test {
             let mut ppr = consume_until(
                 ppr, false, &[ Tag::SEIP, Tag::AED ][..],
                 &[ Tag::SKESK, Tag::PKESK ][..] );
-            if let PacketParserResult::Some(ref mut pp) = ppr {
+            if let Ok(ref mut pp) = ppr {
                 let key = crate::fmt::from_hex(test.key_hex, false)
                     .unwrap().into();
 
@@ -4413,7 +4344,7 @@ mod test {
             let mut ppr = consume_until(
                 ppr, true, &[ Tag::Literal ][..],
                 &[ Tag::OnePassSig, Tag::CompressedData ][..]);
-            if let PacketParserResult::Some(ref mut pp) = ppr {
+            if let Ok(ref mut pp) = ppr {
                 if stream {
                     let mut body = Vec::new();
                     loop {
@@ -4442,20 +4373,20 @@ mod test {
 
             let ppr = consume_until(
                 ppr, true, &[ Tag::MDC ][..], &[ Tag::Signature ][..]);
-            if let PacketParserResult::Some(
+            if let Ok(
                 PacketParser { packet: Packet::MDC(ref mdc), .. }) = ppr
             {
                 assert_eq!(mdc.computed_digest(), mdc.digest(),
                            "MDC doesn't match");
             }
 
-            if ppr.is_none() {
+            if ppr.is_err() {
                 // AED packets don't have an MDC packet.
                 continue;
             }
             let ppr = consume_until(
                 ppr, true, &[][..], &[][..]);
-            assert!(ppr.is_none());
+            assert!(ppr.is_err());
         }
     }
 
@@ -4469,7 +4400,7 @@ mod test {
 
             // Make sure we actually decrypted...
             let mut saw_literal = false;
-            while let PacketParserResult::Some(mut pp) = ppr {
+            while let Ok(mut pp) = ppr {
                 assert!(pp.possible_message().is_ok());
 
                 match pp.packet {
@@ -4488,7 +4419,7 @@ mod test {
                 ppr = pp.recurse().unwrap().1;
             }
             assert!(saw_literal);
-            if let PacketParserResult::EOF(eof) = ppr {
+            if let Err(eof) = ppr {
                 assert!(eof.is_message().is_ok());
             } else {
                 unreachable!();
@@ -4510,11 +4441,11 @@ mod test {
                 .build()
                 .expect(&format!("Error reading {:?}", test));
 
-            while let PacketParserResult::Some(pp) = ppr {
+            while let Ok(pp) = ppr {
                 assert!(pp.possible_keyring().is_ok());
                 ppr = pp.recurse().unwrap().1;
             }
-            if let PacketParserResult::EOF(eof) = ppr {
+            if let Err(eof) = ppr {
                 assert!(eof.is_keyring().is_ok());
                 assert!(eof.is_cert().is_err());
             } else {
@@ -4535,12 +4466,12 @@ mod test {
                 .build()
                 .expect(&format!("Error reading {:?}", test));
 
-            while let PacketParserResult::Some(pp) = ppr {
+            while let Ok(pp) = ppr {
                 assert!(pp.possible_keyring().is_ok());
                 assert!(pp.possible_cert().is_ok());
                 ppr = pp.recurse().unwrap().1;
             }
-            if let PacketParserResult::EOF(eof) = ppr {
+            if let Err(eof) = ppr {
                 assert!(eof.is_keyring().is_ok());
                 assert!(eof.is_cert().is_ok());
             } else {
@@ -4560,7 +4491,7 @@ mod test {
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
             let mut saw_literal = false;
-            while let PacketParserResult::Some(pp) = ppr {
+            while let Ok(pp) = ppr {
                 assert!(pp.possible_message().is_ok());
 
                 match pp.packet {
@@ -4574,7 +4505,7 @@ mod test {
                 ppr = pp.recurse().unwrap().1;
             }
             assert!(! saw_literal);
-            if let PacketParserResult::EOF(eof) = ppr {
+            if let Err(eof) = ppr {
                 eprintln!("eof: {:?}; message: {:?}", eof, eof.is_message());
                 assert!(eof.is_message().is_ok());
             } else {
@@ -4599,7 +4530,7 @@ mod test {
             // We pop from the end.
             paths.reverse();
 
-            while let PacketParserResult::Some(mut pp) = ppr {
+            while let Ok(mut pp) = ppr {
                 let path = paths.pop().expect("Message longer than expect");
                 assert_eq!(path.0, pp.packet.tag());
                 assert_eq!(path.1, pp.path());
@@ -4626,7 +4557,7 @@ mod test {
                        "Message shorter than expected (expecting: {:?})",
                        paths);
 
-            if let PacketParserResult::EOF(eof) = ppr {
+            if let Err(eof) = ppr {
                 assert_eq!(last_path, eof.last_path());
             } else {
                 panic!("Expect an EOF");
@@ -4650,7 +4581,7 @@ mod test {
         let mut userids = 0;
         let mut uas = 0;
         let mut unknown = 0;
-        while let PacketParserResult::Some(pp) = ppr {
+        while let Ok(pp) = ppr {
             match pp.packet {
                 Packet::Signature(_) => sigs += 1,
                 Packet::PublicSubkey(_) => subkeys += 1,
@@ -4682,7 +4613,7 @@ mod test {
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(packet_parser_builder::Dearmor::Disabled)
             .build();
-        assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+        assert_match!(Ok(Ok(ref _pp)) = ppr);
 
 
         // Prepend an invalid byte and make sure we fail.  Note: we
@@ -4709,14 +4640,14 @@ mod test {
             let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
                 .dearmor(packet_parser_builder::Dearmor::Disabled)
                 .build();
-            assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
+            assert_match!(Ok(Ok(ref _pp)) = ppr);
 
             // Now truncate the packet.
             let msg2 = &msg[..msg.len() - 1];
             let ppr = PacketParserBuilder::from_bytes(msg2).unwrap()
                 .dearmor(packet_parser_builder::Dearmor::Disabled)
                 .build().unwrap();
-            if let PacketParserResult::Some(pp) = ppr {
+            if let Ok(pp) = ppr {
                 let err = pp.next().err().unwrap();
                 assert_match!(Some(&Error::MalformedPacket(_))
                               = err.downcast_ref());
@@ -4736,7 +4667,7 @@ mod test {
         // Make sure we can read it.
         let ppr = PacketParserBuilder::from_bytes(&buf).unwrap()
             .build().unwrap();
-        if let PacketParserResult::Some(pp) = ppr {
+        if let Ok(pp) = ppr {
             assert_eq!(Packet::UserID("foobar".into()), pp.packet);
         } else {
             panic!("failed to parse userid");
@@ -4747,7 +4678,7 @@ mod test {
         let ppr = PacketParserBuilder::from_bytes(&buf).unwrap()
             .max_packet_size(5)
             .build().unwrap();
-        if let PacketParserResult::Some(pp) = ppr {
+        if let Ok(pp) = ppr {
             if let Packet::Unknown(ref u) = pp.packet {
                 assert_eq!(u.tag(), Tag::UserID);
                 assert_match!(Some(&Error::PacketTooLarge(_, _, _))

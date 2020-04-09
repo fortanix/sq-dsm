@@ -312,7 +312,7 @@ use super::*;
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+/// # use openpgp::parse::{Parse, PacketParser};
 /// use openpgp::cert::prelude::*;
 ///
 /// # fn main() { f().unwrap(); }
@@ -387,7 +387,7 @@ use super::*;
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use std::convert::TryFrom;
 /// # use openpgp::Result;
-/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+/// # use openpgp::parse::{Parse, PacketParser};
 /// use openpgp::Cert;
 ///
 /// # fn main() { f().unwrap(); }

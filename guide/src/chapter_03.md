@@ -201,7 +201,7 @@ fn main() {
     let mut buf = vec![0; 1024 * 1024];
 
     let mut ppr = PacketParser::from_bytes(MESSAGE.as_bytes()).unwrap();
-    while let PacketParserResult::Some(mut pp) = ppr {
+    while let Ok(mut pp) = ppr {
         // Match on the kind of packet here while it is in the parser.
         if let openpgp::Packet::Literal(_) = pp.packet {
             // Stream the content of the literal packet.

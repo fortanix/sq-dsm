@@ -11,7 +11,6 @@ use crate::openpgp::{Packet, Result};
 use crate::openpgp::packet::Signature;
 use crate::openpgp::parse::{
     Parse,
-    PacketParserResult,
 };
 use crate::openpgp::serialize::Serialize;
 use crate::openpgp::serialize::stream::{
@@ -53,7 +52,7 @@ fn sign_data(policy: &dyn Policy,
             let mut ppr =
                 openpgp::parse::PacketParser::from_file(output_path.unwrap())?;
 
-            while let PacketParserResult::Some(pp) = ppr {
+            while let Ok(pp) = ppr {
                 let (packet, ppr_tmp) = pp.recurse()?;
                 ppr = ppr_tmp;
 
@@ -198,7 +197,7 @@ fn sign_message_(policy: &dyn Policy,
             State::AfterFirstSigGroup
         };
 
-    while let PacketParserResult::Some(mut pp) = ppr {
+    while let Ok(mut pp) = ppr {
         if let Err(err) = pp.possible_message() {
             return Err(err.context("Malformed OpenPGP message").into());
         }
@@ -330,7 +329,7 @@ fn sign_message_(policy: &dyn Policy,
         }
     }
 
-    if let PacketParserResult::EOF(eof) = ppr {
+    if let Err(eof) = ppr {
         if let Err(err) = eof.is_message() {
             return Err(err.context("Malformed OpenPGP message").into());
         }

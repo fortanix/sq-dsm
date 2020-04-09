@@ -8,7 +8,7 @@ extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{
     armor,
     Packet,
-    parse::{Parse, PacketParserResult},
+    parse::Parse,
     serialize::Marshal,
 };
 use crate::openpgp::serialize::stream::{Message, LiteralWriter, Signer};
@@ -78,7 +78,7 @@ fn main() {
         = openpgp::parse::PacketParser::from_reader(&mut input)
         .expect("Failed to build parser");
 
-    while let PacketParserResult::Some(mut pp) = ppr {
+    while let Ok(mut pp) = ppr {
         if let Err(err) = pp.possible_message() {
             panic!("Malformed OpenPGP message: {}", err);
         }
@@ -110,7 +110,7 @@ fn main() {
 
         ppr = pp.recurse().expect("Failed to recurse").1;
     }
-    if let PacketParserResult::EOF(eof) = ppr {
+    if let Err(eof) = ppr {
         if let Err(err) = eof.is_message() {
             panic!("Malformed OpenPGP message: {}", err)
         }

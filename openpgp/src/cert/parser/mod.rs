@@ -394,7 +394,7 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+/// # use openpgp::parse::{Parse, PacketParser};
 /// use openpgp::cert::prelude::*;
 ///
 /// # fn main() { f().unwrap(); }
@@ -441,7 +441,7 @@ impl<'a> From<PacketParserResult<'a>> for CertParser<'a, vec::IntoIter<Packet>> 
     /// Initializes a `CertParser` from a `PacketParser`.
     fn from(ppr: PacketParserResult<'a>) -> Self {
         let mut parser : Self = Default::default();
-        if let PacketParserResult::Some(pp) = ppr {
+        if let Ok(pp) = ppr {
             parser.source = PacketSource::PacketParser(pp);
         }
         parser
@@ -731,7 +731,7 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for CertParser<'a, I> {
 
                     match pp.next() {
                         Ok((packet, ppr)) => {
-                            if let PacketParserResult::Some(pp) = ppr {
+                            if let Ok(pp) = ppr {
                                 self.source = PacketSource::PacketParser(pp);
                             }
 
