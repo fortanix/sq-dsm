@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use std::fmt;
 use std::io;
 
-use nettle::{aead, cipher};
 use buffered_reader::BufferedReader;
 
 use crate::types::{
@@ -33,17 +32,32 @@ pub(crate) fn chunk_size_usize(chunk_size: u64) -> Result<usize> {
                      virtual memory: {}", chunk_size)).into())
 }
 
+/// An AEAD mode of operation.
+pub trait Aead {
+    /// Adds associated data `ad`.
+    fn update(&mut self, ad: &[u8]);
+
+    /// Encrypts one block `src` to `dst`.
+    fn encrypt(&mut self, dst: &mut [u8], src: &[u8]);
+    /// Decrypts one block `src` to `dst`.
+    fn decrypt(&mut self, dst: &mut [u8], src: &[u8]);
+
+    /// Produce the digest.
+    fn digest(&mut self, digest: &mut [u8]);
+
+    /// Length of the digest in bytes.
+    fn digest_size(&self) -> usize;
+}
+
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.
     pub fn digest_size(&self) -> Result<usize> {
         use self::AEADAlgorithm::*;
         match self {
-            &EAX =>
-            // Digest size is independent of the cipher.
-                Ok(aead::Eax::<cipher::Aes128>::DIGEST_SIZE),
-            &OCB =>
+            // According to RFC4880bis, Section 5.16.1.
+            EAX => Ok(16),
             // According to RFC4880bis, Section 5.16.2.
-                Ok(16),
+            OCB => Ok(16),
             _ => Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
         }
     }
@@ -52,48 +66,13 @@ impl AEADAlgorithm {
     pub fn iv_size(&self) -> Result<usize> {
         use self::AEADAlgorithm::*;
         match self {
-            &EAX =>
-                Ok(16), // According to RFC4880bis, Section 5.16.1.
-            &OCB =>
+            // According to RFC4880bis, Section 5.16.1.
+            EAX => Ok(16),
             // According to RFC4880bis, Section 5.16.2, the IV is "at
             // least 15 octets long".  GnuPG hardcodes 15 in
             // openpgp_aead_algo_info.
-                Ok(15),
+            OCB => Ok(15),
             _ => Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
-        }
-    }
-
-    /// Creates a Nettle context.
-    pub(crate) fn context(&self, sym_algo: SymmetricAlgorithm, key: &[u8], nonce: &[u8])
-                   -> Result<Box<dyn aead::Aead>> {
-        match self {
-            AEADAlgorithm::EAX => match sym_algo {
-                SymmetricAlgorithm::AES128 =>
-                    Ok(Box::new(aead::Eax::<cipher::Aes128>
-                                ::with_key_and_nonce(key, nonce)?)),
-                SymmetricAlgorithm::AES192 =>
-                    Ok(Box::new(aead::Eax::<cipher::Aes192>
-                                ::with_key_and_nonce(key, nonce)?)),
-                SymmetricAlgorithm::AES256 =>
-                    Ok(Box::new(aead::Eax::<cipher::Aes256>
-                                ::with_key_and_nonce(key, nonce)?)),
-                SymmetricAlgorithm::Twofish =>
-                    Ok(Box::new(aead::Eax::<cipher::Twofish>
-                                ::with_key_and_nonce(key, nonce)?)),
-                SymmetricAlgorithm::Camellia128 =>
-                    Ok(Box::new(aead::Eax::<cipher::Camellia128>
-                                ::with_key_and_nonce(key, nonce)?)),
-                SymmetricAlgorithm::Camellia192 =>
-                    Ok(Box::new(aead::Eax::<cipher::Camellia192>
-                                ::with_key_and_nonce(key, nonce)?)),
-                SymmetricAlgorithm::Camellia256 =>
-                    Ok(Box::new(aead::Eax::<cipher::Camellia256>
-                                ::with_key_and_nonce(key, nonce)?)),
-                _ =>
-                    Err(Error::UnsupportedSymmetricAlgorithm(sym_algo).into()),
-            },
-            _ =>
-                Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
         }
     }
 }
@@ -164,7 +143,7 @@ impl<'a> Decryptor<'a> {
         })
     }
 
-    fn hash_associated_data(&mut self, aead: &mut Box<dyn aead::Aead>,
+    fn hash_associated_data(&mut self, aead: &mut Box<dyn Aead>,
                             final_digest: bool) {
         // Prepare the associated data.
         write_be_u64(&mut self.ad[AD_PREFIX_LEN..AD_PREFIX_LEN + 8],
@@ -179,7 +158,7 @@ impl<'a> Decryptor<'a> {
         }
     }
 
-    fn make_aead(&mut self) -> Result<Box<dyn aead::Aead>> {
+    fn make_aead(&mut self) -> Result<Box<dyn Aead>> {
         // The chunk index is XORed into the IV.
         let mut chunk_index_be64 = vec![0u8; 8];
         write_be_u64(&mut chunk_index_be64, self.chunk_index);
@@ -582,7 +561,7 @@ impl<W: io::Write> Encryptor<W> {
         })
     }
 
-    fn hash_associated_data(&mut self, aead: &mut Box<dyn aead::Aead>,
+    fn hash_associated_data(&mut self, aead: &mut Box<dyn Aead>,
                             final_digest: bool) {
         // Prepare the associated data.
         write_be_u64(&mut self.ad[AD_PREFIX_LEN..AD_PREFIX_LEN + 8],
@@ -597,7 +576,7 @@ impl<W: io::Write> Encryptor<W> {
         }
     }
 
-    fn make_aead(&mut self) -> Result<Box<dyn aead::Aead>> {
+    fn make_aead(&mut self) -> Result<Box<dyn Aead>> {
         // The chunk index is XORed into the IV.
         let mut chunk_index_be64 = vec![0u8; 8];
         write_be_u64(&mut chunk_index_be64, self.chunk_index);

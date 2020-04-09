@@ -2,6 +2,7 @@
 
 use nettle::random::{Random, Yarrow};
 
+pub mod aead;
 pub mod asymmetric;
 pub mod ecdh;
 
