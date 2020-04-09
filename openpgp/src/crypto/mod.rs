@@ -5,7 +5,6 @@ use std::ops::{Deref, DerefMut};
 use std::fmt;
 
 use buffered_reader::BufferedReader;
-use nettle::random::{Random, Yarrow};
 
 use crate::types::HashAlgorithm;
 use crate::Result;
@@ -14,6 +13,7 @@ pub(crate) mod aead;
 mod asymmetric;
 pub use self::asymmetric::{Signer, Decryptor, KeyPair};
 mod backend;
+pub use backend::random;
 pub(crate) mod ecdh;
 pub mod hash;
 mod keygrip;
@@ -24,11 +24,6 @@ mod s2k;
 pub use s2k::S2K;
 pub mod sexp;
 pub(crate) mod symmetric;
-
-/// Fills the given buffer with random data.
-pub fn random<B: AsMut<[u8]>>(mut buf: B) {
-    Yarrow::default().random(buf.as_mut());
-}
 
 /// Holds a session key.
 ///
