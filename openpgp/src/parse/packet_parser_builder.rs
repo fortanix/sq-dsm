@@ -88,8 +88,8 @@ impl<'a> PacketParserBuilder<'a> {
     /// recurse; it will only parse the top-level packets.
     ///
     /// This is a u8, because recursing more than 255 times makes no
-    /// sense.  The default is `MAX_RECURSION_DEPTH`.  (GnuPG defaults
-    /// to a maximum recursion depth of 32.)
+    /// sense.  The default is `DEFAULT_MAX_RECURSION_DEPTH`.  (GnuPG
+    /// defaults to a maximum recursion depth of 32.)
     pub fn max_recursion_depth(mut self, value: u8) -> Self {
         self.settings.max_recursion_depth = value;
         self

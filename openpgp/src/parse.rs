@@ -18,7 +18,7 @@
 //! `recurse()` method or the `next()` method, as appropriate.
 //! OpenPGP doesn't impose any restrictions on the amount of nesting.
 //! So, to prevent a denial of service attack, the parsers don't
-//! recurse more than `MAX_RECURSION_DEPTH` times, by default.
+//! recurse more than `DEFAULT_MAX_RECURSION_DEPTH` times, by default.
 //!
 //! Second, packets can contain an effectively unbounded amount of
 //! data.  To avoid errors due to memory exhaustion, the
@@ -227,13 +227,16 @@ macro_rules! impl_parse_generic_packet {
     };
 }
 
-/// The default amount of acceptable nesting.  Typically, we expect a
-/// message to looking like:
+/// The default amount of acceptable nesting.
 ///
-///   [ encryption container: [ signature: [ compressioned data: [ literal data ]]]]
+/// Typically, we expect a message to looking like:
+///
+/// ```text
+/// [ encryption container: [ compressioned data: [ signature: [ literal data ]]]]
+/// ```
 ///
 /// So, this should be more than enough.
-const MAX_RECURSION_DEPTH : u8 = 16;
+pub const DEFAULT_MAX_RECURSION_DEPTH : u8 = 16;
 
 /// The default maximum size of non-container packets.
 ///
@@ -858,7 +861,7 @@ struct PacketParserSettings {
 impl Default for PacketParserSettings {
     fn default() -> Self {
         PacketParserSettings {
-            max_recursion_depth: MAX_RECURSION_DEPTH,
+            max_recursion_depth: DEFAULT_MAX_RECURSION_DEPTH,
             max_packet_size: MAX_PACKET_SIZE,
             buffer_unread_content: false,
             map: false,
