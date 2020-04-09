@@ -60,7 +60,7 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
 {
     let mut ppr
         = self::openpgp::parse::PacketParserBuilder::from_reader(input)?
-        .map(hex).finalize()?;
+        .map(hex).build()?;
     let mut message_encrypted = false;
     let width = width.into().unwrap_or(80);
     let mut dumper = PacketDumper::new(width, mpis);

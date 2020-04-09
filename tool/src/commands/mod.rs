@@ -421,7 +421,7 @@ pub fn split(input: &mut dyn io::Read, prefix: &str)
     // nested packets.
     let mut ppr =
         openpgp::parse::PacketParserBuilder::from_reader(input)?
-        .map(true).finalize()?;
+        .map(true).build()?;
 
     // This encodes our position in the tree.
     let mut pos = vec![0];
@@ -484,13 +484,13 @@ pub fn join(inputs: Option<clap::Values>, output: &mut dyn io::Write)
         for name in inputs {
             let ppr =
                 openpgp::parse::PacketParserBuilder::from_file(name)?
-                .map(true).finalize()?;
+                .map(true).build()?;
             copy(ppr, output)?;
         }
     } else {
         let ppr =
             openpgp::parse::PacketParserBuilder::from_reader(io::stdin())?
-            .map(true).finalize()?;
+            .map(true).build()?;
         copy(ppr, output)?;
     }
     Ok(())

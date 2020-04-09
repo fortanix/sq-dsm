@@ -64,7 +64,7 @@ impl Map {
     /// # fn f() -> Result<()> {
     /// let msg = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
     /// let ppo = PacketParserBuilder::from_bytes(msg)?
-    ///     .map(true).finalize()?;
+    ///     .map(true).build()?;
     /// assert_eq!(ppo.unwrap().map().unwrap().iter()
     ///            .map(|f| (f.name(), f.as_bytes()))
     ///            .collect::<Vec<(&str, &[u8])>>(),

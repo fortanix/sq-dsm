@@ -469,7 +469,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # }
     /// ```
     pub fn into_packet_pile(self) -> Result<PacketPile> {
-        PacketPile::try_from(self.finalize()?)
+        PacketPile::try_from(self.build()?)
     }
 }
 
@@ -615,7 +615,7 @@ mod test {
             = PacketParserBuilder::from_bytes(
                 crate::tests::message("compression-quine.gpg")).unwrap()
                 .max_recursion_depth(max_recursion_depth)
-                .finalize().unwrap();
+                .build().unwrap();
 
         let mut count = 0;
         loop {
@@ -647,7 +647,7 @@ mod test {
         let ppr = PacketParserBuilder::from_bytes(
                 crate::tests::message("compressed-data-algo-1.gpg")).unwrap()
             .buffer_unread_content()
-            .finalize().unwrap();
+            .build().unwrap();
 
         let mut pp = ppr.unwrap();
         if let Packet::CompressedData(_) = pp.packet {

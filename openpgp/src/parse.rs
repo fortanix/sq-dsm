@@ -1816,7 +1816,7 @@ fn one_pass_sig_test () {
         let mut ppr = PacketParserBuilder::from_bytes(
             crate::tests::message(test.filename))
             .expect(&format!("Reading {}", test.filename)[..])
-            .finalize().unwrap();
+            .build().unwrap();
 
         let mut one_pass_sigs = 0;
         let mut sigs = 0;
@@ -2670,7 +2670,7 @@ impl<'a> Parse<'a, Packet> for Packet {
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
         let ppr =
             PacketParserBuilder::from_reader(reader)
-            ?.buffer_unread_content().finalize()?;
+            ?.buffer_unread_content().build()?;
 
         let (p, ppr) = match ppr {
             PacketParserResult::Some(pp) => {
@@ -3034,7 +3034,7 @@ impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
     /// the stream.
     fn from_reader<R: io::Read + 'a>(reader: R)
             -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_reader(reader)?.finalize()
+        PacketParserBuilder::from_reader(reader)?.build()
     }
 
     /// Starts parsing an OpenPGP message stored in a file named `path`.
@@ -3043,7 +3043,7 @@ impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
     /// the stream.
     fn from_file<P: AsRef<Path>>(path: P)
             -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_file(path)?.finalize()
+        PacketParserBuilder::from_file(path)?.build()
     }
 
     /// Starts parsing an OpenPGP message stored in a buffer.
@@ -3052,7 +3052,7 @@ impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
     /// the stream.
     fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D)
             -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_bytes(data)?.finalize()
+        PacketParserBuilder::from_bytes(data)?.build()
     }
 }
 
@@ -3064,7 +3064,7 @@ impl <'a> PacketParser<'a> {
     /// the stream.
     pub(crate) fn from_buffered_reader(bio: Box<dyn BufferedReader<Cookie> + 'a>)
             -> Result<PacketParserResult<'a>> {
-        PacketParserBuilder::from_buffered_reader(bio)?.finalize()
+        PacketParserBuilder::from_buffered_reader(bio)?.build()
     }
 
     /// Returns the reader stack, replacing it with a
@@ -4422,7 +4422,7 @@ mod test {
             let ppr = PacketParserBuilder::from_bytes(
                 crate::tests::message(test.filename)).unwrap()
                 .buffer_unread_content()
-                .finalize()
+                .build()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
             let mut ppr = consume_until(
@@ -4491,7 +4491,7 @@ mod test {
         for test in DECRYPT_TESTS.iter() {
             let mut ppr = PacketParserBuilder::from_bytes(
                 crate::tests::message(test.filename)).unwrap()
-                .finalize()
+                .build()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
             // Make sure we actually decrypted...
@@ -4534,7 +4534,7 @@ mod test {
             let mut ppr = PacketParserBuilder::from_reader(
                 Cursor::new(crate::tests::key("testy.pgp")).chain(
                     Cursor::new(crate::tests::key(test)))).unwrap()
-                .finalize()
+                .build()
                 .expect(&format!("Error reading {:?}", test));
 
             while let PacketParserResult::Some(pp) = ppr {
@@ -4559,7 +4559,7 @@ mod test {
         {
             let mut ppr = PacketParserBuilder::from_bytes(crate::tests::key(test))
                 .unwrap()
-                .finalize()
+                .build()
                 .expect(&format!("Error reading {:?}", test));
 
             while let PacketParserResult::Some(pp) = ppr {
@@ -4583,7 +4583,7 @@ mod test {
         for test in DECRYPT_TESTS.iter() {
             let mut ppr = PacketParserBuilder::from_bytes(
                 crate::tests::message(test.filename)).unwrap()
-                .finalize()
+                .build()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
             let mut saw_literal = false;
@@ -4617,7 +4617,7 @@ mod test {
 
             let mut ppr = PacketParserBuilder::from_bytes(
                 crate::tests::message(test.filename)).unwrap()
-                .finalize()
+                .build()
                 .expect(&format!("Error reading {}", test.filename)[..]);
 
             let mut last_path = vec![];
@@ -4708,7 +4708,7 @@ mod test {
 
         let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
             .dearmor(packet_parser_builder::Dearmor::Disabled)
-            .finalize();
+            .build();
         assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
 
 
@@ -4722,7 +4722,7 @@ mod test {
 
         let ppr = PacketParserBuilder::from_bytes(&msg2[..]).unwrap()
             .dearmor(packet_parser_builder::Dearmor::Disabled)
-            .finalize();
+            .build();
         assert_match!(Err(_) = ppr);
     }
 
@@ -4735,14 +4735,14 @@ mod test {
             // Make sure we can read the first packet.
             let ppr = PacketParserBuilder::from_bytes(msg).unwrap()
                 .dearmor(packet_parser_builder::Dearmor::Disabled)
-                .finalize();
+                .build();
             assert_match!(Ok(PacketParserResult::Some(ref _pp)) = ppr);
 
             // Now truncate the packet.
             let msg2 = &msg[..msg.len() - 1];
             let ppr = PacketParserBuilder::from_bytes(msg2).unwrap()
                 .dearmor(packet_parser_builder::Dearmor::Disabled)
-                .finalize().unwrap();
+                .build().unwrap();
             if let PacketParserResult::Some(pp) = ppr {
                 let err = pp.next().err().unwrap();
                 assert_match!(Some(&Error::MalformedPacket(_))
@@ -4762,7 +4762,7 @@ mod test {
 
         // Make sure we can read it.
         let ppr = PacketParserBuilder::from_bytes(&buf).unwrap()
-            .finalize().unwrap();
+            .build().unwrap();
         if let PacketParserResult::Some(pp) = ppr {
             assert_eq!(Packet::UserID("foobar".into()), pp.packet);
         } else {
@@ -4773,7 +4773,7 @@ mod test {
         // into a unknown packet.
         let ppr = PacketParserBuilder::from_bytes(&buf).unwrap()
             .max_packet_size(5)
-            .finalize().unwrap();
+            .build().unwrap();
         if let PacketParserResult::Some(pp) = ppr {
             if let Packet::Unknown(ref u) = pp.packet {
                 assert_eq!(u.tag(), Tag::UserID);

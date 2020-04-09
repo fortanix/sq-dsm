@@ -72,7 +72,7 @@ impl<'a> TryFrom<PacketParserBuilder<'a>> for PacketPileParser<'a> {
     /// Finishes configuring the `PacketParser` and returns a
     /// `PacketPileParser`.
     fn try_from(ppb: PacketParserBuilder<'a>) -> Result<PacketPileParser<'a>> {
-        Self::from_packet_parser(ppb.finalize()?)
+        Self::from_packet_parser(ppb.build()?)
     }
 }
 

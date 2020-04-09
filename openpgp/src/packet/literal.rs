@@ -220,7 +220,7 @@ mod tests {
                 if buffer_unread_content {
                     b = b.buffer_unread_content();
                 }
-                let mut pp = b.finalize()?.unwrap();
+                let mut pp = b.build()?.unwrap();
                 let d = pp.steal(read_n)?;
                 d.into_iter().for_each(|b| assert_eq!(b, 0));
                 let l = pp.finish()?;
