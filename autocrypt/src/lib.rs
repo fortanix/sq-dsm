@@ -683,7 +683,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
 
         // Recurse into the SEIP packet.
         let mut ppr = self.pp.recurse()?.1;
-        if ppr.recursion_depth() != Some(1) {
+        if ppr.as_ref().map(|pp| pp.recursion_depth()) != Some(1) {
             return Err(
                 Error::MalformedMessage(
                     "SEIP container empty, but expected a Literal Data packet"

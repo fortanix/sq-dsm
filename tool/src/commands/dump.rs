@@ -137,9 +137,9 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
         let header = pp.header().clone();
         let map = pp.take_map();
 
+        let recursion_depth = pp.recursion_depth();
         let (packet, ppr_) = pp.recurse()?;
         ppr = ppr_;
-        let recursion_depth = ppr.last_recursion_depth().unwrap();
 
         dumper.packet(output, recursion_depth as usize,
                       header, packet, map, additional_fields)?;

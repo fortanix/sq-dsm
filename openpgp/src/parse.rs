@@ -2998,33 +2998,6 @@ impl<'a> PacketParserResult<'a> {
             PacketParserResult::EOF(_) => None,
         }
     }
-
-    /// The current packet's recursion depth.
-    ///
-    /// A top-level packet has a recursion depth of 0.  Packets in a
-    /// top-level container have a recursion depth of 1, etc.
-    ///
-    /// Note: if the PacketParser has reached the end of the packet
-    /// sequence and is not parsing a packet, then this returns None.
-    pub fn recursion_depth(&self) -> Option<isize> {
-        match self {
-            PacketParserResult::Some(pp) => Some(pp.recursion_depth()),
-            PacketParserResult::EOF(_) => None,
-        }
-    }
-
-    /// The last packet's recursion depth.
-    ///
-    /// A top-level packet has a recursion depth of 0.  Packets in a
-    /// top-level container have a recursion depth of 1, etc.
-    ///
-    /// Note: if no packet has been returned yet, this returns None.
-    pub fn last_recursion_depth(&self) -> Option<isize> {
-        match self {
-            PacketParserResult::Some(pp) => pp.last_recursion_depth(),
-            PacketParserResult::EOF(eof) => eof.last_recursion_depth(),
-        }
-    }
 }
 
 impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
@@ -4012,9 +3985,9 @@ fn packet_parser_reader_interface() {
     //
     // packet is the compressed data packet; ppo is the literal data
     // packet.
+    let packet_depth = pp.recursion_depth();
     let (packet, ppr) = pp.recurse().unwrap();
-    let packet_depth = ppr.last_recursion_depth().unwrap();
-    let pp_depth = ppr.recursion_depth().unwrap();
+    let pp_depth = ppr.as_ref().unwrap().recursion_depth();
     if let Packet::CompressedData(_) = packet {
     } else {
         panic!("Expected a compressed data packet.");

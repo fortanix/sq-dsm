@@ -160,10 +160,11 @@ impl<'a> PacketPileParser<'a> {
         if self.returned_first {
             match self.ppr.take() {
                 PacketParserResult::Some(pp) => {
+                    let recursion_depth = pp.recursion_depth();
                     let (packet, ppr) = pp.recurse()?;
                     self.insert_packet(
                         packet,
-                        ppr.last_recursion_depth().unwrap() as isize);
+                        recursion_depth as isize);
                     self.ppr = ppr;
                 }
                 eof @ PacketParserResult::EOF(_) => {
@@ -189,10 +190,11 @@ impl<'a> PacketPileParser<'a> {
         if self.returned_first {
             match self.ppr.take() {
                 PacketParserResult::Some(pp) => {
+                    let recursion_depth = pp.recursion_depth();
                     let (packet, ppr) = pp.next()?;
                     self.insert_packet(
                         packet,
-                        ppr.last_recursion_depth().unwrap() as isize);
+                        recursion_depth as isize);
                     self.ppr = ppr;
                 },
                 eof @ PacketParserResult::EOF(_) => {

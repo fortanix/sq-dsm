@@ -370,8 +370,9 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
         let mut pp = ppr.unwrap();
 
         'outer: loop {
+            let recursion_depth = pp.recursion_depth();
             let (mut packet, mut ppr) = pp.recurse()?;
-            let mut position = ppr.last_recursion_depth().unwrap() as isize;
+            let mut position = recursion_depth as isize;
 
             let mut relative_position : isize = position - last_position;
             assert!(relative_position <= 1);
@@ -428,11 +429,11 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
                     break;
                 }
 
+                let recursion_depth = pp.recursion_depth();
                 let (packet_, ppr_) = pp.recurse()?;
                 packet = packet_;
                 ppr = ppr_;
-                assert_eq!(position,
-                           ppr.last_recursion_depth().unwrap() as isize);
+                assert_eq!(position, recursion_depth as isize);
             }
         }
 
@@ -622,11 +623,11 @@ mod test {
             if let PacketParserResult::Some(pp2) = ppr {
                 count += 1;
 
+                let packet_depth = pp2.recursion_depth();
                 let pp2 = pp2.recurse().unwrap().1;
-                let packet_depth = pp2.last_recursion_depth().unwrap();
                 assert_eq!(packet_depth, count - 1);
                 if pp2.is_some() {
-                    assert_eq!(pp2.recursion_depth(), Some(count));
+                    assert_eq!(pp2.as_ref().unwrap().recursion_depth(), count);
                 }
                 ppr = pp2;
             } else {

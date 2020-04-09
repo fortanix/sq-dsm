@@ -443,9 +443,9 @@ pub fn split(input: &mut dyn io::Read, prefix: &str)
             }
         }
 
+        let old_depth = Some(pp.recursion_depth());
         ppr = pp.recurse()?.1;
-        let old_depth = ppr.last_recursion_depth();
-        let new_depth = ppr.recursion_depth();
+        let new_depth = ppr.as_ref().map(|pp| pp.recursion_depth());
 
         // Update pos.
         match old_depth.cmp(&new_depth) {
