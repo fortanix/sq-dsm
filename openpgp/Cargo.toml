@@ -49,6 +49,9 @@ thiserror = "1"
 backtrace = "= 0.3.46"
 unicode-normalization = "= 0.1.9"
 
+[target.'cfg(windows)'.dependencies]
+win-crypto-ng = { version = "0.2", features = ["rand"], optional = true }
+
 [build-dependencies]
 lalrpop = "0.17"
 
@@ -65,6 +68,7 @@ rpassword = "=4.0.3"
 default = ["compression", "crypto-nettle"]
 # TODO(#333): Allow for/implement more backends
 crypto-nettle = ["nettle"]
+crypto-cng = ["win-crypto-ng"]
 
 # The compression algorithms.
 compression = ["compression-deflate", "compression-bzip2"]

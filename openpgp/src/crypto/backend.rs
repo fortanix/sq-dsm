@@ -5,3 +5,8 @@
 mod nettle;
 #[cfg(feature = "crypto-nettle")]
 pub use self::nettle::*;
+
+#[cfg(feature = "crypto-cng")]
+mod cng;
+#[cfg(feature = "crypto-cng")]
+pub use self::cng::*;
