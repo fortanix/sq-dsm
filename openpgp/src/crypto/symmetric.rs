@@ -436,6 +436,50 @@ mod tests {
     use super::*;
     use std::io::{Cursor, Read, Write};
 
+    #[test]
+    fn smoke_test() {
+        use crate::fmt::hex;
+
+        let algo = SymmetricAlgorithm::AES128;
+        let key = &hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
+        assert_eq!(key.len(), 16);
+        // Ensure we use CFB128 by default
+        let mut cfb = algo.make_encrypt_cfb(&key).unwrap();
+
+        let mut iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let msg = hex::decode("6bc1bee22e409f96e93d7e117393172a").unwrap();
+        let mut dst = vec![0; msg.len()];
+
+        cfb.encrypt(&mut iv, &mut dst, &*msg).unwrap();
+        assert_eq!(&iv, &hex::decode("3b3fd92eb72dad20333449f8e83cfb4a").unwrap());
+        assert_eq!(&dst[..16], &*hex::decode("3b3fd92eb72dad20333449f8e83cfb4a").unwrap());
+        // 32-byte long message
+        let mut iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let msg = b"This is a very important message";
+        let mut dst = vec![0; msg.len()];
+        cfb.encrypt(&mut iv, &mut dst, &*msg).unwrap();
+        assert_eq!(&dst, &hex::decode(
+            "04960ebfb9044196bb29418ce9d6cc0939d5ccb1d0712fa8e45fe5673456fded"
+        ).unwrap());
+        // 33-byte (uneven) long message
+        let mut iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let msg = b"This is a very important message!";
+        let mut dst = vec![0; msg.len()];
+        cfb.encrypt(&mut iv, &mut dst, &*msg).unwrap();
+        assert_eq!(&dst, &hex::decode(
+            "04960ebfb9044196bb29418ce9d6cc0939d5ccb1d0712fa8e45fe5673456fded0b"
+        ).unwrap());
+        // 33-byte (uneven) long message, chunked
+        let mut iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let mut dst = vec![0; msg.len()];
+        for (mut dst, msg) in dst.chunks_mut(16).zip(msg.chunks(16)) {
+            cfb.encrypt(&mut iv, &mut dst, msg).unwrap();
+        }
+        assert_eq!(&dst, &hex::decode(
+            "04960ebfb9044196bb29418ce9d6cc0939d5ccb1d0712fa8e45fe5673456fded0b"
+        ).unwrap());
+    }
+
     /// This test is designed to test the buffering logic in Decryptor
     /// by reading directly from it (i.e. without any buffering
     /// introduced by the BufferedReaderDecryptor or any other source

@@ -3,6 +3,7 @@
 use win_crypto_ng::random::RandomNumberGenerator;
 
 pub mod hash;
+pub mod symmetric;
 
 /// Fills the given buffer with random data.
 pub fn random<B: AsMut<[u8]>>(mut buf: B) {
