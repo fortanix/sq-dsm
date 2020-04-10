@@ -2,6 +2,9 @@
 
 use win_crypto_ng::random::RandomNumberGenerator;
 
+pub mod aead;
+pub mod asymmetric;
+pub mod ecdh;
 pub mod hash;
 pub mod symmetric;
 
