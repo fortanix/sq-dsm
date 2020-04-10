@@ -66,6 +66,12 @@ use crate::{
     types::RevocationStatus,
 };
 
+mod iter;
+pub use iter::{
+    KeyAmalgamationIter,
+    ValidKeyAmalgamationIter,
+};
+
 /// Methods specific to key amalgamations.
 // This trait exists primarily so that `ValidAmalgamation` can depend
 // on it, and use it in its default implementations.

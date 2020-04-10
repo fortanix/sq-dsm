@@ -30,7 +30,7 @@ use crate::maybe_time;
 
 /// A local alias to appease the proc macro transformation.
 type ErasedKeyAmalgamation<'a> =
-    openpgp::cert::amalgamation::ErasedKeyAmalgamation<'a, key::UnspecifiedParts>;
+    openpgp::cert::amalgamation::key::ErasedKeyAmalgamation<'a, key::UnspecifiedParts>;
 
 /// A `KeyAmalgamation` holds a `Key` and associated data.
 ///
@@ -43,7 +43,7 @@ pub struct KeyAmalgamation<'a>(ErasedKeyAmalgamation<'a>);
 
 /// A local alias to appease the proc macro transformation.
 type ValidErasedKeyAmalgamation<'a> =
-    openpgp::cert::amalgamation::ValidErasedKeyAmalgamation<'a, key::UnspecifiedParts>;
+    openpgp::cert::amalgamation::key::ValidErasedKeyAmalgamation<'a, key::UnspecifiedParts>;
 
 /// Returns a reference to the `Key`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]

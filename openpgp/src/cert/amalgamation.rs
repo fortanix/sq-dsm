@@ -51,24 +51,7 @@ pub use iter::{
     ValidUserIDAmalgamationIter,
 };
 
-mod keyiter;
-pub use keyiter::{
-    KeyAmalgamationIter,
-    ValidKeyAmalgamationIter,
-};
-
-mod key;
-pub use key::{
-    ErasedKeyAmalgamation,
-    KeyAmalgamation,
-    PrimaryKey,
-    PrimaryKeyAmalgamation,
-    SubordinateKeyAmalgamation,
-    ValidErasedKeyAmalgamation,
-    ValidKeyAmalgamation,
-    ValidPrimaryKeyAmalgamation,
-    ValidSubordinateKeyAmalgamation,
-};
+pub mod key;
 
 /// Applies a policy to an amalgamation.
 ///
