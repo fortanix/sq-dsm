@@ -4,13 +4,13 @@
 //! [`Decryptor`]: ../../asymmetric/trait.Decryptor.html
 //! [`KeyPair`]: ../../asymmetric/struct.KeyPair.html
 
-use nettle::{ecc, ecdsa, ed25519, dsa, rsa, random::Yarrow};
+use nettle::{curve25519, ecc, ecdh, ecdsa, ed25519, dsa, rsa, random::Yarrow};
 
 use crate::{Error, Result};
 
 use crate::packet::{self, key, Key};
 use crate::crypto::asymmetric::{KeyPair, Decryptor, Signer};
-use crate::crypto::mpi::{self, MPI};
+use crate::crypto::mpi::{self, MPI, PublicKey};
 use crate::crypto::SessionKey;
 use crate::types::{Curve, HashAlgorithm};
 
@@ -23,7 +23,6 @@ impl Signer for KeyPair {
             -> Result<mpi::Signature>
     {
         use crate::PublicKeyAlgorithm::*;
-        use crate::crypto::mpi::PublicKey;
 
         let mut rng = Yarrow::default();
 
@@ -153,7 +152,6 @@ impl Decryptor for KeyPair {
                -> Result<SessionKey>
     {
         use crate::PublicKeyAlgorithm::*;
-        use crate::crypto::mpi::PublicKey;
 
         self.secret().map(
             |secret| Ok(match (self.public().mpis(), secret, ciphertext)
@@ -256,7 +254,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     pub fn verify(&self, sig: &packet::Signature, digest: &[u8]) -> Result<()>
     {
         use crate::PublicKeyAlgorithm::*;
-        use crate::crypto::mpi::{PublicKey, Signature};
+        use crate::crypto::mpi::Signature;
 
         #[allow(deprecated)]
         let ok = match (sig.pk_algo(), self.mpis(), sig.mpis()) {
@@ -372,9 +370,7 @@ impl<R> Key4<SecretParts, R>
                               S: Into<Option<SymmetricAlgorithm>>,
                               T: Into<Option<SystemTime>>
     {
-        use nettle::curve25519::{self, CURVE25519_SIZE};
-
-        let mut public_key = [0x40u8; CURVE25519_SIZE + 1];
+        let mut public_key = [0x40u8; curve25519::CURVE25519_SIZE + 1];
         curve25519::mul_g(&mut public_key[1..], private_key).unwrap();
 
         let mut private_key = Vec::from(private_key);
@@ -403,9 +399,7 @@ impl<R> Key4<SecretParts, R>
     pub fn import_secret_ed25519<T>(private_key: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<SystemTime>>
     {
-        use nettle::ed25519::{self, ED25519_KEY_SIZE};
-
-        let mut public_key = [0x40u8; ED25519_KEY_SIZE + 1];
+        let mut public_key = [0x40u8; ed25519::ED25519_KEY_SIZE + 1];
         ed25519::public_key(&mut public_key[1..], private_key).unwrap();
 
         Self::with_secret(
@@ -428,8 +422,6 @@ impl<R> Key4<SecretParts, R>
     pub fn import_secret_rsa<T>(d: &[u8], p: &[u8], q: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<SystemTime>>
     {
-        use nettle::rsa;
-
         let sec = rsa::PrivateKey::new(d, p, q, None)?;
         let key = sec.public_key()?;
         let (a, b, c) = sec.as_rfc4880();
@@ -451,10 +443,8 @@ impl<R> Key4<SecretParts, R>
 
     /// Generates a new RSA key with a public modulos of size `bits`.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
-        use nettle::{rsa, random::Yarrow};
-        use crate::crypto::mpi::{MPI, PublicKey};
-
         let mut rng = Yarrow::default();
+
         let (public, private) = rsa::generate_keypair(&mut rng, bits as u32)?;
         let (p, q, u) = private.as_rfc4880();
         let public_mpis = PublicKey::RSA {
@@ -482,20 +472,13 @@ impl<R> Key4<SecretParts, R>
     /// `curve == Cv25519` will produce an error. Likewise
     /// `for_signing == false` and `curve == Ed25519` will produce an error.
     pub fn generate_ecc(for_signing: bool, curve: Curve) -> Result<Self> {
-        use nettle::{
-            random::Yarrow,
-            ed25519, ed25519::ED25519_KEY_SIZE,
-            curve25519, curve25519::CURVE25519_SIZE,
-            ecc, ecdh, ecdsa,
-        };
-        use crate::crypto::mpi::{MPI, PublicKey};
         use crate::PublicKeyAlgorithm::*;
 
         let mut rng = Yarrow::default();
 
         let (mpis, secret, pk_algo) = match (curve.clone(), for_signing) {
             (Curve::Ed25519, true) => {
-                let mut public = [0u8; ED25519_KEY_SIZE + 1];
+                let mut public = [0u8; ed25519::ED25519_KEY_SIZE + 1];
                 let private: Protected =
                     ed25519::private_key(&mut rng).into();
 
@@ -515,7 +498,7 @@ impl<R> Key4<SecretParts, R>
             }
 
             (Curve::Cv25519, false) => {
-                let mut public = [0u8; CURVE25519_SIZE + 1];
+                let mut public = [0u8; curve25519::CURVE25519_SIZE + 1];
                 let mut private: Protected =
                     curve25519::private_key(&mut rng).into();
 
