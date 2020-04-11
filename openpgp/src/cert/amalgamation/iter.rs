@@ -126,12 +126,6 @@ pub type ValidUserIDAmalgamationIter<'a>
 pub type ValidUserAttributeAmalgamationIter<'a>
     = ValidComponentAmalgamationIter<'a, UserAttribute>;
 
-/// An iterator over `ValidUnknownComponentAmalgamtion`s.
-///
-/// This is just a specialized version of `ValidComponentAmalgamationIter`.
-pub type ValidUnknownComponentAmalgamationIter<'a>
-    = ValidComponentAmalgamationIter<'a, Unknown>;
-
 
 impl<'a, C> fmt::Debug for ValidComponentAmalgamationIter<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

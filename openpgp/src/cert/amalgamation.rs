@@ -46,7 +46,6 @@ pub use iter::{
     UserAttributeAmalgamationIter,
     UserIDAmalgamationIter,
     ValidComponentAmalgamationIter,
-    ValidUnknownComponentAmalgamationIter,
     ValidUserAttributeAmalgamationIter,
     ValidUserIDAmalgamationIter,
 };
@@ -531,12 +530,6 @@ pub type ValidUserIDAmalgamation<'a> = ValidComponentAmalgamation<'a, UserID>;
 /// This is just a specialized version of `ValidComponentAmalgamation`.
 pub type ValidUserAttributeAmalgamation<'a>
     = ValidComponentAmalgamation<'a, UserAttribute>;
-
-/// An Unknown component and its associated data.
-///
-/// This is just a specialized version of `ValidComponentAmalgamation`.
-pub type ValidUnknownComponentAmalgamation<'a>
-    = ValidComponentAmalgamation<'a, Unknown>;
 
 // derive(Clone) doesn't work with generic parameters that don't
 // implement clone.  But, we don't need to require that C implements

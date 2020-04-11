@@ -39,8 +39,6 @@ pub use crate::cert::{
     amalgamation::ValidAmalgamation as _,
     amalgamation::ValidComponentAmalgamation,
     amalgamation::ValidComponentAmalgamationIter,
-    amalgamation::ValidUnknownComponentAmalgamation,
-    amalgamation::ValidUnknownComponentAmalgamationIter,
     amalgamation::ValidUserAttributeAmalgamation,
     amalgamation::ValidUserAttributeAmalgamationIter,
     amalgamation::ValidUserIDAmalgamation,
