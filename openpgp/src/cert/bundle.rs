@@ -1,4 +1,83 @@
-//! Types for certificate components.
+//! A certificate component and its associated signatures.
+//!
+//! Certificates ([`Cert`]s) are a collection of components where each
+//! component corresponds to a [`Packet`], and each component has zero
+//! or more associated [`Signature`]s.  A [`ComponentBundle`]
+//! encapsulates a component and its associated signatures.
+//!
+//! Sequoia supports four different kinds of components: [`Key`]s,
+//! [`UserID`]s, [`UserAttribute`]s, and [`Unknown`] components.  The
+//! `Unknown` component has two purposes.  First, it is used to store
+//! packets that appear in a certificate and have an unknown [`Tag`].
+//! By not silently dropping these packets, it is possible to round
+//! trip certificates without losing any information.  This provides a
+//! measure of future compatibility.  Second, the `Unknown` component
+//! is used to store unsupported components.  For instance, Sequoia
+//! doesn't support v3 `Key`s, which are deprecated, or v5 `Key`s,
+//! which are still being standardized.  Because these keys are
+//! effectively unusable, they are stored as `Unknown` components
+//! instead of `Key`s.
+//!
+//! There are four types of signatures associated with a component:
+//! self signatures, self revocations, third-party signatures, and
+//! third-party revocations.  When parsing a certificate, self
+//! signatures and self revocations are checked for validity and
+//! invalid signatures and revocations are discarded.  Since the keys
+//! are not normally available, third-party signatures and third-party
+//! revocations cannot be rigorously (i.e., cryptographically) checked
+//! for validity.
+//!
+//! With the exception of the primary key, a component's self
+//! signatures are binding signatures.  A binding signature firstly
+//! binds the component to the certificate.  That is, it provides
+//! cryptographic evidence that the certificate holder intended for
+//! the component to be associated with the certificate.  Binding
+//! signatures also provide information about the component.  For
+//! instance, the binding signature for a subkey includes its
+//! capabilities, and its expiry time.
+//!
+//! Since the primary key is the embodiment of the certificate, there
+//! is nothing to bind it to.  Correspondingly, self signatures on a
+//! primary key are called direct key signatures.  Direct key
+//! signatures are used to provide information about the whole
+//! certificate.  For instance, they can include the default `Key`
+//! expiry time.  This is used if a subkey's binding signature doesn't
+//! include a expiry.
+//!
+//! Self-revocations are revocation certificates issued by the key
+//! certificate holder.
+//!
+//! Third-party signatures are typically signatures certifying that a
+//! `User ID` or `User Attribute` accurately describes the certificate
+//! holder.  This information is used by trust models, like the Web of
+//! Trust, to indirectly authenticate keys.
+//!
+//! Third-party revocations are revocations issued by another
+//! certificate.  They should normally only be respected if the
+//! certificate holder made the issuer a so-called [designated
+//! revoker].
+//!
+//! # Important
+//!
+//! When looking up information about a component, it is generally
+//! better to use the [`ComponentAmalgamation`] or [`KeyAmalgamation`]
+//! data structures.  These data structures provide convenience
+//! methods that implement the [complicated semantics] for correctly
+//! locating information.
+//!
+//! [`Cert`]: ../index.html
+//! [`Packet`]: ../../packet/index.html
+//! [`Signature`]: ../../packet/signature/index.html
+//! [`ComponentBundle`]: ./struct.ComponentBundle.html
+//! [`Key`]: ../../packet/key/index.html
+//! [`UserID`]: ../../packet/struct.UserID.html
+//! [`UserAttribute`]: ../../packet/user_attribute/index.html
+//! [`Unknown`]: ../../packet/struct.Unknown.html
+//! [`Tag`]: ../../packet/enum.Tag.html
+//! [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
+//! [`ComponentAmalgamation`]: ../amalgamation/index.html
+//! [`KeyAmalgamation`]: ../key_amalgamation/index.html
+//! [complicated semantics]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
 
 use std::time;
 use std::ops::Deref;
@@ -25,11 +104,10 @@ use super::{
     canonical_signature_order,
 };
 
-/// A Cert component binding.
+/// A certificate component and its associated signatures.
 ///
-/// A Cert component is a primary key, a subkey, a user id, or a user
-/// attribute.  A binding is a Cert component and any related
-/// signatures.
+/// [See the module level documentation]](index.html) for a detailed
+/// description.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentBundle<C> {
     pub(crate) component: C,
@@ -50,25 +128,37 @@ pub struct ComponentBundle<C> {
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.
+///
+/// [See the module level documentation.](index.html)
 pub type KeyBundle<KeyPart, KeyRole> = ComponentBundle<Key<KeyPart, KeyRole>>;
 
 /// A primary key and any associated signatures.
+///
+/// [See the module level documentation.](index.html)
 pub type PrimaryKeyBundle<KeyPart> =
     KeyBundle<KeyPart, key::PrimaryRole>;
 
 /// A subkey and any associated signatures.
+///
+/// [See the module level documentation.](index.html)
 pub type SubkeyBundle<KeyPart>
     = KeyBundle<KeyPart, key::SubordinateRole>;
 
 /// A User ID and any associated signatures.
+///
+/// [See the module level documentation.](index.html)
 pub type UserIDBundle = ComponentBundle<UserID>;
 
 /// A User Attribute and any associated signatures.
+///
+/// [See the module level documentation.](index.html)
 pub type UserAttributeBundle = ComponentBundle<UserAttribute>;
 
 /// An unknown component and any associated signatures.
 ///
 /// Note: all signatures are stored as certifications.
+///
+/// [See the module level documentation.](index.html)
 pub type UnknownBundle = ComponentBundle<Unknown>;
 
 
@@ -82,7 +172,24 @@ impl<C> Deref for ComponentBundle<C>
 }
 
 impl<C> ComponentBundle<C> {
-    /// Returns a reference to the component.
+    /// Returns a reference to the bundle's component.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about any unknown components.
+    /// for u in cert.unknowns() {
+    ///     eprintln!(" - {:?}", u.component());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn component(&self) -> &C {
         &self.component
     }
@@ -94,13 +201,32 @@ impl<C> ComponentBundle<C> {
 
     /// Returns the active binding signature at time `t`.
     ///
-    /// An active binding signature is a non-revoked, self-signature
-    /// that is alive at time `t` (`creation time <= t`, `t <
-    /// expiry`).
+    /// The active binding signature is the most recent, non-revoked
+    /// self-signature that is valid according to the `policy` and
+    /// alive at time `t` (`creation time <= t`, `t < expiry`).  If
+    /// there are multiple such signatures then the signatures are
+    /// ordered by their MPIs interpreted as byte strings.
     ///
-    /// This function returns an error if there are no active binding
-    /// signatures at time `t`, or there is one that did not match the
-    /// given policy.
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display information about each User ID's current active
+    /// // binding signature (the `time` parameter is `None`), if any.
+    /// for ua in cert.userids() {
+    ///     eprintln!("{:?}", ua.binding_signature(p, None));
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn binding_signature<T>(&self, policy: &dyn Policy, t: T)
                                 -> Result<&Signature>
         where T: Into<Option<time::SystemTime>>
@@ -195,34 +321,120 @@ impl<C> ComponentBundle<C> {
         }
     }
 
-    /// The self-signatures.
+    /// The component's self-signatures.
     ///
-    /// The signatures are validated, and they are reverse sorted by
-    /// their creation time (newest first).
+    /// The signatures are validated, and they are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, ka) in cert.keys().enumerate() {
+    ///     eprintln!("Key #{} ({}) has {:?} self signatures",
+    ///               i, ka.fingerprint(),
+    ///               ka.self_signatures().len());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn self_signatures(&self) -> &[Signature] {
         &self.self_signatures
     }
 
-    /// Any third-party certifications.
+    /// The component's third-party certifications.
     ///
-    /// The signatures are *not* validated.  They are reverse sorted by
-    /// their creation time (newest first).
+    /// The signatures are *not* validated.  They are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for ua in cert.userids() {
+    ///     eprintln!("User ID {} has {:?} unverified, third-party certifications",
+    ///               String::from_utf8_lossy(ua.userid().value()),
+    ///               ua.certifications().len());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn certifications(&self) -> &[Signature] {
         &self.certifications
     }
 
-    /// Revocations issued by the key itself.
+    /// The component's revocations that were issued by the
+    /// certificate holder.
     ///
-    /// The revocations are validated, and they are reverse sorted by
-    /// their creation time (newest first).
+    /// The revocations are validated, and they are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for u in cert.userids() {
+    ///     eprintln!("User ID {} has {:?} revocation certificates.",
+    ///               String::from_utf8_lossy(u.userid().value()),
+    ///               u.self_revocations().len());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn self_revocations(&self) -> &[Signature] {
         &self.self_revocations
     }
 
-    /// Revocations issued by other keys.
+    /// The component's revocations that were issued by other
+    /// certificates.
     ///
-    /// The revocations are *not* validated.  They are reverse sorted
-    /// by their creation time (newest first).
+    /// The revocations are *not* validated.  They are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for u in cert.userids() {
+    ///     eprintln!("User ID {} has {:?} unverified, third-party revocation certificates.",
+    ///               String::from_utf8_lossy(u.userid().value()),
+    ///               u.other_revocations().len());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn other_revocations(&self) -> &[Signature] {
         &self.other_revocations
     }
@@ -235,8 +447,8 @@ impl<C> ComponentBundle<C> {
     ///     all live self signatures at time `t`.
     ///
     ///   - `hard_revocations_are_final` is true, and there is a hard
-    ///     revocation (even if it is not live at time `t`, and even
-    ///     if there is a newer self-signature).
+    ///     revocation (even if it is not yet live at time `t`, and
+    ///     even if there is a newer self-signature).
     ///
     /// selfsig must be the newest live self signature at time `t`.
     pub(crate) fn _revoked<'a, T>(&'a self, policy: &dyn Policy, t: T,
@@ -328,21 +540,18 @@ impl<C> ComponentBundle<C> {
         }
     }
 
-    /// Converts the component into an iterator over the contained
-    /// packets.
+    /// Turns the `ComponentBundle` into an iterator over its
+    /// `Packet`s.
     ///
-    /// The signatures are ordered from authenticated and most
-    /// important to not authenticated and most likely to be abused.
-    /// The order is:
+    /// The signatures are ordered as follows:
     ///
-    ///   - Self revocations first.  They are authenticated and the
-    ///     most important information.
-    ///   - Self signatures.  They are authenticated.
-    ///   - Other signatures.  They are not authenticated at this point.
-    ///   - Other revocations.  They are not authenticated, and likely
-    ///     not well supported in other implementations, hence the
-    ///     least reliable way of revoking keys and therefore least
-    ///     useful and most likely to be abused.
+    ///   - Self revocations,
+    ///   - Self signatures,
+    ///   - Third-party signatures, and
+    ///   - Third-party revocations.
+    ///
+    /// For a given type of signature, the signatures are ordered by
+    /// their creation time, most recent first.
     pub(crate) fn into_packets<'a>(self) -> impl Iterator<Item=Packet>
         where Packet: From<C>
     {
@@ -384,6 +593,28 @@ impl<C> ComponentBundle<C> {
 
 impl<P: key::KeyParts, R: key::KeyRole> ComponentBundle<Key<P, R>> {
     /// Returns a reference to the key.
+    ///
+    /// This is just a type-specific alias for
+    /// [`ComponentBundle::component`].
+    ///
+    /// [`ComponentBundle::component`]: #method.component
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the keys.
+    /// for ka in cert.keys() {
+    ///     eprintln!(" - {:?}", ka.key());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn key(&self) -> &Key<P, R> {
         self.component()
     }
@@ -410,6 +641,27 @@ impl<P: key::KeyParts> ComponentBundle<Key<P, key::SubordinateRole>> {
     ///
     /// Note: this only returns whether this subkey is revoked; it
     /// does not imply anything about the Cert or other components.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display the subkeys' revocation status.
+    /// for ka in cert.keys().subkeys() {
+    ///     eprintln!(" Revocation status of {}: {:?}",
+    ///               ka.fingerprint(), ka.revoked(p, None));
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
@@ -421,6 +673,28 @@ impl<P: key::KeyParts> ComponentBundle<Key<P, key::SubordinateRole>> {
 
 impl ComponentBundle<UserID> {
     /// Returns a reference to the User ID.
+    ///
+    /// This is just a type-specific alias for
+    /// [`ComponentBundle::component`].
+    ///
+    /// [`ComponentBundle::component`]: #method.component
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the User IDs.
+    /// for ua in cert.userids() {
+    ///     eprintln!(" - {:?}", ua.userid());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn userid(&self) -> &UserID {
         self.component()
     }
@@ -430,13 +704,35 @@ impl ComponentBundle<UserID> {
     /// A User ID is revoked at time `t` if:
     ///
     ///   - There is a live revocation at time `t` that is newer than
-    ///     all live self signatures at time `t`, or
+    ///     all live self signatures at time `t`.
     ///
     /// Note: Certs and subkeys have different criteria from User IDs
     /// and User Attributes.
     ///
     /// Note: this only returns whether this User ID is revoked; it
     /// does not imply anything about the Cert or other components.
+    //
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display the User IDs' revocation status.
+    /// for ua in cert.userids() {
+    ///     eprintln!(" Revocation status of {}: {:?}",
+    ///               String::from_utf8_lossy(ua.userid().value()),
+    ///               ua.revoked(p, None));
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
@@ -448,6 +744,28 @@ impl ComponentBundle<UserID> {
 
 impl ComponentBundle<UserAttribute> {
     /// Returns a reference to the User Attribute.
+    ///
+    /// This is just a type-specific alias for
+    /// [`ComponentBundle::component`].
+    ///
+    /// [`ComponentBundle::component`]: #method.component
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the User Attributes
+    /// for ua in cert.user_attributes() {
+    ///     eprintln!(" - {:?}", ua.user_attribute());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn user_attribute(&self) -> &UserAttribute {
         self.component()
     }
@@ -457,13 +775,34 @@ impl ComponentBundle<UserAttribute> {
     /// A User Attribute is revoked at time `t` if:
     ///
     ///   - There is a live revocation at time `t` that is newer than
-    ///     all live self signatures at time `t`, or
+    ///     all live self signatures at time `t`.
     ///
     /// Note: Certs and subkeys have different criteria from User IDs
     /// and User Attributes.
     ///
     /// Note: this only returns whether this User Attribute is revoked;
     /// it does not imply anything about the Cert or other components.
+    //
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display the User Attributes' revocation status.
+    /// for (i, ua) in cert.user_attributes().enumerate() {
+    ///     eprintln!(" Revocation status of User Attribute #{}: {:?}",
+    ///               i, ua.revoked(p, None));
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
@@ -475,6 +814,28 @@ impl ComponentBundle<UserAttribute> {
 
 impl ComponentBundle<Unknown> {
     /// Returns a reference to the unknown component.
+    ///
+    /// This is just a type-specific alias for
+    /// [`ComponentBundle::component`].
+    ///
+    /// [`ComponentBundle::component`]: #method.component
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// // Display some information about the User Attributes
+    /// for u in cert.unknowns() {
+    ///     eprintln!(" - {:?}", u.unknown());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn unknown(&self) -> &Unknown {
         self.component()
     }

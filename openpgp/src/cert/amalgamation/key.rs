@@ -1,37 +1,250 @@
-//! Key amalgamations.
+//! Keys, their associated signatures, and some useful methods.
 //!
-//! Whereas a `KeyBundle` groups a `Key` with its self signatures, its
-//! third-party signatures, and its revocation certificates, a
-//! `KeyAmalgamation` groups a `KeyBundle` with all of the necessary
-//! context needed to correctly implement relevant key-related
-//! functionality.  Specifically, a `KeyAmalgamation` includes a
-//! reference to the `KeyBundle`, a reference to the containing
-//! certificate, and the key's role (primary or subordinate).
+//! A [`KeyAmalgamation`] is similar to a [`ComponentAmalgamation`],
+//! but a `KeyAmalgamation` includes some additional functionality
+//! that is needed to correctly implement a [`Key`] component's
+//! semantics.  In particular, unlike other components where the
+//! binding signature stores the component's meta-data, a Primary Key
+//! doesn't have a binding signature (it is the thing that other
+//! components are bound to!), and, as a consequence, the associated
+//! meta-data is stored elsewhere.
 //!
-//! There are two notable differences between `KeyBundle`s and
-//! `KeyAmalgamation`s.  First, whereas a `KeyBundle`'s role is
-//! primarily a marker, a `KeyAmalgamation`'s role determines the
-//! `KeyAmalgamation`'s semantics.  As such, it is not possible to
-//! convert a `PrimaryKeyAmalgamation` to a `SubordinateAmalgamation`,
-//! and vice versa.  Second, a `KeyBundle`, owns its data, but a
-//! `KeyAmalgamation` only references the contained data.
+//! Unfortunately, a primary Key's meta-data is stored not on a direct
+//! key signature, which would be convenient as it is located at the
+//! same place as a binding signature would be, but on the primary
+//! User ID's binding signature.  This requires some acrobatics on the
+//! implementation side to realize the correct semantics.  In
+//! particular, a `Key` needs to memorize its role (i.e., whether it
+//! is a primary key or a subkey) in order to know whether to consider
+//! its own self signatures or the primary User ID's self signatures
+//! when looking for its meta-data.
 //!
-//! There are three `KeyAmalgamation` variants:
-//! `PrimaryKeyAmalgamation`, `SubordinateKeyAmalgamation`, and
-//! `ErasedKeyAmalgamation`.  Unlike a `Key` or a `KeyBundle` with an
-//! `UnspecifiedRole`, an `ErasedKeyAmalgamation` remembers its role.
-//! This means that an `ErasedKeyAmalgamation` implements the correct
-//! semantics even though the role marker has been erased (hence the
-//! name).
+//! Ideally, a `KeyAmalgamation`'s role would be encoded in its type.
+//! This increases safety, and reduces the run-time overhead.
+//! However, we want [`Cert::keys`] to return an iterator over all
+//! keys; we don't want the user to have to specially handle the
+//! primary key when that fact is not relevant.  This means that
+//! `Cert::keys` has to erase the returned `Key`s' roles: all items in
+//! an iterator must have the same type.  To support this, we have to
+//! keep track of a `KeyAmalgamation`'s role at run-time.
 //!
-//! `ErasedKeyAmalgamation`s are returned by `Cert::keys`.
-//! `Cert::keys` can't return a more specific type, because it returns
-//! an iterator that can contain both primary and subordinate keys.
-//! The reason that we use a concrete type instead of a trait object
-//! is so that when the user converts a `KeyAmalgamation` to a
-//! `ValidKeyAmalgamation`, the `ValidKeyAmalgamation` retains the
-//! type information about the role.  Preserving this type information
-//! increases type safety for users of this API.
+//! But, just because we need to erase a `KeyAmalgamation`'s role to
+//! implement `Cert::keys` doesn't mean that we have to always erase
+//! it.  To achieve this, we use three data types:
+//! [`PrimaryKeyAmalgamation`], [`SubordinateKeyAmalgamation`], and
+//! [`ErasedKeyAmalgamation`].  The first two encode the role
+//! information in their type, and the last one stores it at run time.
+//! We provide conversion functions to convert the static type
+//! information into dynamic type information, and vice versa.
+//!
+//! Note: `KeyBundle`s and `KeyAmalgamation`s have a notable
+//! difference: whereas a `KeyBundle`'s role is a marker, a
+//! `KeyAmalgamation`'s role determines its semantics.  A consequence
+//! of this is that it is not possible to convert a
+//! `PrimaryKeyAmalgamation` into a `SubordinateAmalgamation`s, or
+//! vice versa even though we support changing a `KeyBundle`'s role:
+//!
+//! ```
+//! # use std::convert::TryInto;
+//! # extern crate sequoia_openpgp as openpgp;
+//! # use openpgp::cert::prelude::*;
+//! # use openpgp::packet::prelude::*;
+//! # let (cert, _) = CertBuilder::new()
+//! #     .add_userid("Alice")
+//! #     .add_signing_subkey()
+//! #     .add_transport_encryption_subkey()
+//! #     .generate().unwrap();
+//! // This works:
+//! cert.primary_key().bundle().role_as_subordinate();
+//!
+//! // But this doesn't:
+//! let ka : ErasedKeyAmalgamation<_> = cert.keys().nth(0).expect("primary key");
+//! let ka : openpgp::Result<SubordinateKeyAmalgamation<key::PublicParts>> = ka.try_into();
+//! assert!(ka.is_err());
+//! ```
+//!
+//! The use of the prefix `Erased` instead of `Unspecified`
+//! (cf. [`KeyRole::UnspecifiedRole`]) emphasizes this.
+//!
+//! # Selecting Keys
+//!
+//! It is essential to choose the right keys, and to make sure that
+//! they appropriate.  Below, we present some guidelines for the most
+//! common situations.
+//!
+//! ## Encrypting and Signing Messages
+//!
+//! As a general rule of thumb, when encrypting or signing a message,
+//! you want to use keys that are alive, not revoked, and have the
+//! appropriate capabilities right now.  For example, the following
+//! code shows how to find a key, which is appropriate for signing a
+//! message:
+//!
+//! ```rust
+//! # extern crate sequoia_openpgp as openpgp;
+//! # use openpgp::Result;
+//! # use openpgp::cert::prelude::*;
+//! use openpgp::types::RevocationStatus;
+//! use sequoia_openpgp::policy::StandardPolicy;
+//!
+//! # fn main() { f().unwrap(); }
+//! # fn f() -> Result<()> {
+//! #     let (cert, _) =
+//! #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+//! #         .generate()?;
+//! #     let mut i = 0;
+//! let p = &StandardPolicy::new();
+//!
+//! let cert = cert.with_policy(p, None)?;
+//!
+//! if let RevocationStatus::Revoked(_) = cert.revoked() {
+//!     // The certificate is revoked, don't use any keys from it.
+//! #   unreachable!();
+//! } else if let Err(_) = cert.alive() {
+//!     // The certificate is not alive, don't use any keys from it.
+//! #   unreachable!();
+//! } else {
+//!     for ka in cert.keys() {
+//!         if let RevocationStatus::Revoked(_) = ka.revoked() {
+//!             // The key is revoked.
+//! #           unreachable!();
+//!         } else if let Err(_) = ka.alive() {
+//!             // The key is not alive.
+//! #           unreachable!();
+//!         } else if ! ka.for_signing() {
+//!             // The key is not signing capable.
+//!         } else {
+//!             // Use it!
+//! #           i += 1;
+//!         }
+//!     }
+//! }
+//! # assert_eq!(i, 1);
+//! #     Ok(())
+//! # }
+//! ```
+//!
+//! ## Verifying a Message
+//!
+//! When verifying a message, you only want to use keys that were
+//! alive, not revoked, and signing capable *when the message was
+//! signed*.  These are the keys that the signer would have used, and
+//! they reflect the signer's policy when they made the signature.
+//! (See the [`Policy` discussion] for an explanation.)
+//!
+//! For version 4 Signature packets, the `Signature Creation Time`
+//! subpacket indicates when the signature was allegedly created.  For
+//! the purpose of finding the key to verify the signature, this time
+//! stamp should be trusted: if the key is authenticated and the
+//! signature is valid, then the time stamp is valid; if the signature
+//! is not valid, then forging the time stamp won't help an attacker.
+//!
+//! ```rust
+//! # extern crate sequoia_openpgp as openpgp;
+//! # use openpgp::Result;
+//! # use openpgp::cert::prelude::*;
+//! use openpgp::types::RevocationStatus;
+//! use sequoia_openpgp::policy::StandardPolicy;
+//!
+//! # fn main() { f().unwrap(); }
+//! # fn f() -> Result<()> {
+//! let p = &StandardPolicy::new();
+//!
+//! #     let (cert, _) =
+//! #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+//! #         .generate()?;
+//! #     let timestamp = None;
+//! #     let issuer = cert.fingerprint();
+//! #     let mut i = 0;
+//! let cert = cert.with_policy(p, timestamp)?;
+//! if let RevocationStatus::Revoked(_) = cert.revoked() {
+//!     // The certificate is revoked, don't use any keys from it.
+//! #   unreachable!();
+//! } else if let Err(_) = cert.alive() {
+//!     // The certificate is not alive, don't use any keys from it.
+//! #   unreachable!();
+//! } else {
+//!     for ka in cert.keys().key_handle(issuer) {
+//!         if let RevocationStatus::Revoked(_) = ka.revoked() {
+//!             // The key is revoked, don't use it!
+//! #           unreachable!();
+//!         } else if let Err(_) = ka.alive() {
+//!             // The key was not alive when the signature was made!
+//!             // Something fishy is going on.
+//! #           unreachable!();
+//!         } else if ! ka.for_signing() {
+//!             // The key was not signing capable!  Better be safe
+//!             // than sorry.
+//! #           unreachable!();
+//!         } else {
+//!             // Try verifying the message with this key.
+//! #           i += 1;
+//!         }
+//!     }
+//! }
+//! #     assert_eq!(i, 1);
+//! #     Ok(())
+//! # }
+//! ```
+//!
+//! ## Decrypting a Message
+//!
+//! When decrypting a message, it seems like one ought to only keys
+//! that were alive, not revoked, and encryption-capable when the
+//! message was encrypted.  Unfortunately, we don't know when a
+//! message was encrypted.  But anyway, due to the slow propagation of
+//! revocation certificates, we can't assume that senders won't
+//! mistakenly use a revoked key.
+//!
+//! However, wanting to decrypt a message encrypted using an expired
+//! or revoked key is reasonable.  If someone is trying to decrypt a
+//! message using an expired key, then they are the certificate
+//! holder, and probably attempting to access archived data using a
+//! key that they themselves revoked!  We don't want to prevent that.
+//!
+//! We do, however, want to check whether a key is really encryption
+//! capable.  [This discussion] explains why using a signing key to
+//! decrypt a message can be dangerous.  Since we need a binding
+//! signature to determine this, but we don't have the time that the
+//! message was encrypted, we need a workaround.  One approach would
+//! be to check whether the key is encryption capable now.  Since a
+//! key's key flags don't typically change, this will correctly filter
+//! out keys that are not encryption capable.  But, it will skip keys
+//! whose self signature has expired.  But that is not a problem
+//! either: no one sets self signatures to expire; if anything, they
+//! set keys to expire.  Thus, this will not result in incorrectly
+//! failing to decrypt messages in practice, and is a reasonable
+//! approach.
+//!
+//! ```rust
+//! # extern crate sequoia_openpgp as openpgp;
+//! # use openpgp::Result;
+//! # use openpgp::cert::prelude::*;
+//! use sequoia_openpgp::policy::StandardPolicy;
+//!
+//! # fn main() { f().unwrap(); }
+//! # fn f() -> Result<()> {
+//! let p = &StandardPolicy::new();
+//!
+//! #     let (cert, _) =
+//! #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+//! #         .generate()?;
+//! let decryption_keys = cert.keys().with_policy(p, None)
+//!     .for_storage_encryption().for_transport_encryption()
+//!     .collect::<Vec<_>>();
+//! #     Ok(())
+//! # }
+//! ```
+//!
+//! [`KeyAmalgamation`]: struct.KeyAmalgamation.html
+//! [`ComponentAmalgamation`]: ../struct.ComponentAmalgamation.html
+//! [`Key`]: ../../../packet/key/index.html
+//! [`Cert::keys`]: ../../struct.Cert.html#method.keys
+//! [`PrimaryKeyAmalgamation`]: ../type.PrimaryKeyAmalgamation.html
+//! [`SubordinateKeyAmalgamation`]: ../type.SubordinateKeyAmalgamation.html
+//! [`ErasedKeyAmalgamation`]: ../type.ErasedKeyAmalgamation.html
+//! [`KeyRole::UnspecifiedRole`]: ../../../packet/key/trait.KeyRole.html
+//! [`Policy` discussion]: ../index.html
 use std::time;
 use std::time::SystemTime;
 use std::ops::Deref;
@@ -72,26 +285,151 @@ pub use iter::{
     ValidKeyAmalgamationIter,
 };
 
-/// Methods specific to key amalgamations.
-// This trait exists primarily so that `ValidAmalgamation` can depend
-// on it, and use it in its default implementations.
+/// Whether the key is a primary key.
+///
+/// This trait is an implementation detail.  It exists so that we can
+/// have a blanket implementation of [`ValidAmalgamation`] for
+/// [`ValidKeyAmalgamation`], for instance, even though we only have
+/// specialized implementations of `PrimaryKey`.
+///
+/// [`ValidAmalgamation`]: ../trait.ValidAmalgamation.html
+/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub trait PrimaryKey<'a, P, R>
     where P: 'a + key::KeyParts,
           R: 'a + key::KeyRole,
 {
     /// Returns whether the key amalgamation is a primary key
     /// amalgamation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// #     let p = &StandardPolicy::new();
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// #     let fpr = cert.fingerprint();
+    /// // This works if the type is concrete:
+    /// let ka : PrimaryKeyAmalgamation<_> = cert.primary_key();
+    /// assert!(ka.primary());
+    ///
+    /// // Or if it has been erased:
+    /// for (i, ka) in cert.keys().enumerate() {
+    ///     let ka : ErasedKeyAmalgamation<_> = ka;
+    ///     if i == 0 {
+    ///         // The primary key is always the first key returned by
+    ///         // `Cert::keys`.
+    ///         assert!(ka.primary());
+    ///     } else {
+    ///         // The rest are subkeys.
+    ///         assert!(! ka.primary());
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
     fn primary(&self) -> bool;
 }
 
-/// A key amalgamation.
+/// A key, and its associated data, and useful methods.
+///
+/// A `KeyAmalgamation` is like a [`ComponentAmalgamation`], but
+/// specialized for keys.  Due to the requirement to keep track of the
+/// key's role when it is erased ([see the module's documentation] for
+/// more details), this is a different data structure rather than a
+/// specialized type alias.
 ///
 /// Generally, you won't use this type directly, but instead use
-/// `PrimaryKeyAmalgamation`, `SubordinateKeyAmalgamation`, or
-/// `ErasedKeyAmalgamation`.
+/// [`PrimaryKeyAmalgamation`], [`SubordinateKeyAmalgamation`], or
+/// [`ErasedKeyAmalgamation`].
 ///
-/// See the module-level documentation for information about key
-/// amalgamations.
+/// A `KeyAmalgamation` is returned by [`Cert::primary_key`], and
+/// [`Cert::keys`].
+///
+/// `KeyAmalgamation` implements [`ValidateAmalgamation`], which
+/// allows you to turn a `KeyAmalgamation` into a
+/// [`ValidKeyAmalgamation`] using [`KeyAmalgamation::with_policy`].
+///
+/// # Examples
+///
+/// Iterating over all keys:
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::cert::prelude::*;
+/// # use openpgp::policy::StandardPolicy;
+/// #
+/// # fn main() -> openpgp::Result<()> {
+/// #     let p = &StandardPolicy::new();
+/// #     let (cert, _) =
+/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         .generate()?;
+/// #     let fpr = cert.fingerprint();
+/// for ka in cert.keys() {
+///     let ka : ErasedKeyAmalgamation<_> = ka;
+/// }
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// Getting the primary key:
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::cert::prelude::*;
+/// # use openpgp::policy::StandardPolicy;
+/// #
+/// # fn main() -> openpgp::Result<()> {
+/// #     let p = &StandardPolicy::new();
+/// #     let (cert, _) =
+/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         .generate()?;
+/// #     let fpr = cert.fingerprint();
+/// let ka : PrimaryKeyAmalgamation<_> = cert.primary_key();
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// Iterating over just the subkeys:
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::cert::prelude::*;
+/// # use openpgp::policy::StandardPolicy;
+/// #
+/// # fn main() -> openpgp::Result<()> {
+/// #     let p = &StandardPolicy::new();
+/// #     let (cert, _) =
+/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         .generate()?;
+/// #     let fpr = cert.fingerprint();
+/// // We can skip the primary key (it's always first):
+/// for ka in cert.keys().skip(1) {
+///     let ka : ErasedKeyAmalgamation<_> = ka;
+/// }
+///
+/// // Or use `subkeys`, which returns a more accurate type:
+/// for ka in cert.keys().subkeys() {
+///     let ka : SubordinateKeyAmalgamation<_> = ka;
+/// }
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// [`ComponentAmalgamation`]: ../struct.ComponentAmalgamation.html
+/// [see the module's documentation]: index.html
+/// [`PrimaryKeyAmalgamation`]: type.PrimaryKeyAmalgamation.html
+/// [`SubordinateKeyAmalgamation`]: type.SubordinateKeyAmalgamation.html
+/// [`ErasedKeyAmalgamation`]: type.ErasedKeyAmalgamation.html
+/// [`Cert::primary_key`]: ../../../cert/struct.Cert.html#method.primary_key
+/// [`Cert::keys`]: ../../../cert/struct.Cert.html#method.keys
+/// [`ValidateAmalgamation`]: ../trait.ValidateAmalgamation.html
+/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
+/// [`KeyAmalgamation::with_policy`]: ../trait.ValidateAmalgamation.html#method.with_policy
 #[derive(Debug)]
 pub struct KeyAmalgamation<'a, P, R, R2>
     where P: 'a + key::KeyParts,
@@ -121,19 +459,34 @@ impl<'a, P, R, R2> Clone for KeyAmalgamation<'a, P, R, R2>
 
 
 /// A primary key amalgamation.
+///
+/// A specialized version of [`KeyAmalgamation`].
+///
+/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
 pub type PrimaryKeyAmalgamation<'a, P>
     = KeyAmalgamation<'a, P, key::PrimaryRole, ()>;
 
 /// A subordinate key amalgamation.
+///
+/// A specialized version of [`KeyAmalgamation`].
+///
+/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
 pub type SubordinateKeyAmalgamation<'a, P>
     = KeyAmalgamation<'a, P, key::SubordinateRole, ()>;
 
 /// An amalgamation whose role is not known at compile time.
 ///
-/// Note: unlike a `Key` or a `KeyBundle` with an unspecified role, an
+/// A specialized version of [`KeyAmalgamation`].
+///
+/// Unlike a [`Key`] or a [`KeyBundle`] with an unspecified role, an
 /// `ErasedKeyAmalgamation` remembers its role; it is just not exposed
-/// to the type system.  For details, see the documentation for
-/// `KeyAmalgamation`.
+/// to the type system.  For details, see the [module-level
+/// documentation].
+///
+/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
+/// [`Key`]: ../../../packet/key/index.html
+/// [`KeyBundle`]: ../../bundle/index.html
+/// [module-level documentation]: index.html
 pub type ErasedKeyAmalgamation<'a, P>
     = KeyAmalgamation<'a, P, key::UnspecifiedRole, bool>;
 
@@ -457,10 +810,98 @@ impl<'a, P, R, R2> KeyAmalgamation<'a, P, R, R2>
     }
 }
 
-/// A validated `KeyAmalgamation`.
+/// A `KeyAmalgamation` plus a `Policy` and a reference time.
 ///
-/// A `ValidKeyAmalgamation` includes a policy and a reference time,
-/// and is guaranteed to have a live binding signature at that time.
+/// In the same way that a [`ValidComponentAmalgamation`] extends a
+/// [`ComponentAmalgamation`], a `ValidKeyAmalgamation` extends a
+/// [`KeyAmalgamation`]: a `ValidKeyAmalgamation` combines a
+/// `KeyAmalgamation`, a [`Policy`], and a reference time.  This
+/// allows it to implement the [`ValidAmalgamation`] trait, which
+/// provides methods like [`binding_signature`] that require a
+/// `Policy` and a reference time.  Although `KeyAmalgamation` could
+/// implement these methods by requiring that the caller explicitly
+/// pass them in, embedding them in the `ValidKeyAmalgamation` helps
+/// ensure that multipart operations, even those that span multiple
+/// functions, use the same `Policy` and reference time.
+///
+/// A `ValidKeyAmalgamation` can be obtained by transforming a
+/// `KeyAmalgamation` using [`ValidateAmalgamation::with_policy`].  A
+/// [`KeyAmalgamationIter`] can also be changed to yield
+/// `ValidKeyAmalgamation`s.
+///
+/// A `ValidKeyAmalgamation` is guaranteed to come from a valid
+/// certificate, and have a valid and live *binding* signature at the
+/// specified reference time.  Note: this only means that the binding
+/// signatures are live; it says nothing about whether the
+/// *certificate* or the *`Key`* is live and non-revoked.  If you care
+/// about those things, you need to check them separately.
+///
+/// # Examples:
+///
+/// Find all non-revoked, live, signing-capable keys:
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::RevocationStatus;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// # let (cert, _) = CertBuilder::new()
+/// #     .add_userid("Alice")
+/// #     .add_signing_subkey()
+/// #     .add_transport_encryption_subkey()
+/// #     .generate().unwrap();
+/// // `with_policy` ensures that the certificate and any components
+/// // that it returns have valid *binding signatures*.  But, we still
+/// // need to check that the certificate and `Key` are not revoked,
+/// // and live.
+/// //
+/// // Note: `ValidKeyAmalgamation::revoked`, etc. use the
+/// // embedded policy and timestamp.  Even though we used `None` for
+/// // the timestamp (i.e., now), they are guaranteed to use the same
+/// // timestamp, because `with_policy` eagerly transforms it into
+/// // the current time.
+/// let cert = cert.with_policy(p, None)?;
+/// if let RevocationStatus::Revoked(_revs) = cert.revoked() {
+///     // Revoked by the certificate holder.  (If we care about
+///     // designated revokers, then we need to check those
+///     // ourselves.)
+/// #   unreachable!();
+/// } else if let Err(_err) = cert.alive() {
+///     // Certificate was created in the future or is expired.
+/// #   unreachable!();
+/// } else {
+///     // `ValidCert::keys` returns `ValidKeyAmalgamation`s.
+///     for ka in cert.keys() {
+///         if let RevocationStatus::Revoked(_revs) = ka.revoked() {
+///             // Revoked by the key owner.  (If we care about
+///             // designated revokers, then we need to check those
+///             // ourselves.)
+/// #           unreachable!();
+///         } else if let Err(_err) = ka.alive() {
+///             // Key was created in the future or is expired.
+/// #           unreachable!();
+///         } else if ! ka.for_signing() {
+///             // We're looking for a signing-capable key, skip this one.
+///         } else {
+///             // Use it!
+///         }
+///     }
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// [`ValidComponentAmalgamation`]: ../struct.ValidComponentAmalgamation.html
+/// [`ComponentAmalgamation`]: ../struct.ComponentAmalgamation.html
+/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
+/// [`Policy`]: ../../../policy/index.html
+/// [`ValidAmalgamation`]: ../trait.ValidAmalgamation.html
+/// [`binding_signature`]: ../trait.ValidAmalgamation.html#method.binding_signature
+/// [`ValidateAmalgamation::with_policy`]: ../trait.ValidateAmalgamation.html#tymethod.with_policy
+/// [`KeyAmalgamationIter`]: struct.KeyAmalgamationIter.html
 #[derive(Debug, Clone)]
 pub struct ValidKeyAmalgamation<'a, P, R, R2>
     where P: 'a + key::KeyParts,
@@ -480,15 +921,27 @@ pub struct ValidKeyAmalgamation<'a, P, R, R2>
     binding_signature: &'a Signature,
 }
 
-/// A valid primary key amalgamation.
+/// A Valid primary Key, and its associated data.
+///
+/// A specialized version of [`ValidKeyAmalgamation`].
+///
+/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub type ValidPrimaryKeyAmalgamation<'a, P>
     = ValidKeyAmalgamation<'a, P, key::PrimaryRole, ()>;
 
-/// A valid subordinate key amalgamation.
+/// A Valid subkey, and its associated data.
+///
+/// A specialized version of [`ValidKeyAmalgamation`].
+///
+/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub type ValidSubordinateKeyAmalgamation<'a, P>
     = ValidKeyAmalgamation<'a, P, key::SubordinateRole, ()>;
 
-/// A valid amalgamation whose role is not known at compile time.
+/// A valid key whose role is not known at compile time.
+///
+/// A specialized version of [`ValidKeyAmalgamation`].
+///
+/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 pub type ValidErasedKeyAmalgamation<'a, P>
     = ValidKeyAmalgamation<'a, P, key::UnspecifiedRole, bool>;
 
@@ -745,17 +1198,46 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
           R2: Copy,
           Self: ValidAmalgamation<'a, Key<P, R>>
 {
-    /// Returns whether the key (not just the binding signature!) is
-    /// alive as of the amalgamtion's reference time.
+    /// Returns whether the key is alive as of the amalgamation's
+    /// reference time.
     ///
-    /// Note: this does not return whether the certificate is valid.
+    /// A `ValidKeyAmalgamation` is guaranteed to have a live binding
+    /// signature.  This is independent of whether the component is
+    /// live.
     ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
+    /// This function considers both the binding signature and the
+    /// direct key signature.  Information in the binding signature
+    /// takes precedence over the direct key signature.  See [Section
     /// 5.2.3.3 of RFC 4880].
     ///
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+    ///
+    /// For a definition of liveness, see the [`key_alive`] method.
+    ///
+    /// [`key_alive`]: ../../../packet/signature/subpacket/struct.SubpacketAreas.html#method.key_alive
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// let ka = cert.primary_key().with_policy(p, None)?;
+    /// if let Err(_err) = ka.alive() {
+    ///     // Not alive.
+    /// #   unreachable!();
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn alive(&self) -> Result<()>
     {
         let sig = {
@@ -776,6 +1258,31 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     }
 
     /// Returns the wrapped `KeyAmalgamation`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// let ka = cert.primary_key();
+    ///
+    /// // `with_policy` takes ownership of `ka`.
+    /// let vka = ka.with_policy(p, None)?;
+    ///
+    /// // And here we get it back:
+    /// let ka = vka.into_key_amalgamation();
+    /// # Ok(()) }
+    /// ```
     pub fn into_key_amalgamation(self) -> KeyAmalgamation<'a, P, R, R2> {
         self.ka
     }
@@ -853,10 +1360,80 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
         Ok(sigs)
     }
 
-    /// Sets the key to expire at the given time.
+    /// Creates signatures that cause the key to expire at the specified time.
     ///
-    /// A policy is needed, because the expiration is updated by adding
-    /// a self-signature to the primary user id.
+    /// This function creates new binding signatures that cause the
+    /// key to expire at the specified time when integrated into the
+    /// certificate.  For subkeys, only a single `Signature` is
+    /// returned.  For the primary key, however, it is necessary to
+    /// create a new self-signature for each User ID, and to create a
+    /// direct key signature.  This is needed, because the primary
+    /// User ID is first consulted when determining the primary key's
+    /// expiration time, and certificates can be distributed with a
+    /// possibly empty subset of User IDs.
+    ///
+    /// Setting a key's expiry time means updating an existing binding
+    /// signature---when looking up information, only one binding
+    /// signature is normally considered, and we don't want to drop
+    /// the other information stored in the current binding signature.
+    /// This function uses the binding signature determined by
+    /// `ValidKeyAmalgamation`'s policy and reference time for this.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::time;
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let t = time::SystemTime::now() - time::Duration::from_secs(10);
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .set_creation_time(t)
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// // Assert that the keys are not expired.
+    /// for ka in vc.keys() {
+    ///     assert!(ka.alive().is_ok());
+    /// }
+    ///
+    /// // Make the keys expire in a week.
+    /// let t = time::SystemTime::now()
+    ///     + time::Duration::from_secs(7 * 24 * 60 * 60);
+    ///
+    /// // We assume that the secret key material is available, and not
+    /// // password protected.
+    /// let mut signer = vc.primary_key()
+    ///     .key().clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let sigs = vc.keys()
+    ///     .flat_map(|ka| {
+    ///         ka.set_expiration_time(&mut signer, Some(t)).unwrap()
+    ///     })
+    ///     .collect::<Vec<_>>();
+    /// let cert = cert.merge_packets(sigs)?;
+    ///
+    /// // They aren't expired yet.
+    /// let vc = cert.with_policy(p, None)?;
+    /// for ka in vc.keys() {
+    ///     assert!(ka.alive().is_ok());
+    /// }
+    ///
+    /// // But in two weeks, they will be...
+    /// let t = time::SystemTime::now()
+    ///     + time::Duration::from_secs(2 * 7 * 24 * 60 * 60);
+    /// let vc = cert.with_policy(p, t)?;
+    /// for ka in vc.keys() {
+    ///     assert!(ka.alive().is_err());
+    /// }
+    /// # Ok(()) }
     pub fn set_expiration_time(&self,
                                primary_signer: &mut dyn Signer,
                                expiration: Option<time::SystemTime>)
@@ -880,24 +1457,87 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                                        time::SystemTime::now())
     }
 
-    /// Returns the key's key flags as of the amalgamation's
+    /// Returns the key's `Key Flags`.
+    ///
+    /// A Key's [`Key Flags`] holds information about the key.  As of
+    /// RFC 4880, this information is primarily concerned with the
+    /// key's capabilities (e.g., whether it may be used for signing).
+    /// The other information that has been defined is: whether the
+    /// key has been split using something like [SSS], and whether the
+    /// primary key material is held by multiple parties.  In
+    /// practice, the latter two flags are ignored.
+    ///
+    /// As per [Section 5.2.3.3 of RFC 4880], when looking for the
+    /// `Key Flags`, the key's binding signature is first consulted
+    /// (in the case of the primary Key, this is the binding signature
+    /// of the primary User ID).  If the `Key Flags` subpacket is not
+    /// present, then the direct key signature is consulted.
+    ///
+    /// Since the key flags are taken from the active self signature,
+    /// a key's flags may change depending on the policy and the
     /// reference time.
     ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
-    /// 5.2.3.3 of RFC 4880].
-    ///
+    ///   [`Key Flags`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
+    ///   [SSS]: https://de.wikipedia.org/wiki/Shamir%E2%80%99s_Secret_Sharing
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::policy::{Policy, StandardPolicy};
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// #     let p : &dyn Policy = &StandardPolicy::new();
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// #     let cert = cert.with_policy(p, None)?;
+    /// let ka = cert.primary_key();
+    /// println!("Primary Key's Key Flags: {:?}", ka.key_flags());
+    /// # assert!(ka.key_flags().unwrap().for_certification());
+    /// # Ok(()) }
+    /// ```
     pub fn key_flags(&self) -> Option<KeyFlags> {
         self.map(|s| s.key_flags())
     }
 
     /// Returns whether the key has at least one of the specified key
-    /// flags as of the amalgamation's reference time.
+    /// flags.
     ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
+    /// The key flags are looked up as described in
+    /// [`ValidKeyAmalgamation::key_flags`].
+    ///
+    /// # Examples
+    ///
+    /// Finds keys that may be used for transport encryption (data in
+    /// motion) *or* storage encryption (data at rest):
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// for ka in cert.keys().with_policy(p, None) {
+    ///     if ka.has_any_key_flag(KeyFlags::empty()
+    ///        .set_storage_encryption(true)
+    ///        .set_transport_encryption(true))
+    ///     {
+    ///         // `ka` is encryption capable.
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn has_any_key_flag<F>(&self, flags: F) -> bool
         where F: Borrow<KeyFlags>
     {
@@ -905,77 +1545,312 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
         !(&our_flags & flags.borrow()).is_empty()
     }
 
-    /// Returns whether key is certification capable as of the
-    /// amalgamtion's reference time.
+    /// Returns whether the key is certification capable.
     ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
+    /// Note: [Section 12.1 of RFC 4880] says that the primary key is
+    /// certification capable independent of the `Key Flags`
+    /// subpacket:
+    ///
+    /// > In a V4 key, the primary key MUST be a key capable of
+    /// > certification.
+    ///
+    /// This function only reflects what is stored in the `Key Flags`
+    /// packet; it does not implicitly set this flag.  In practice,
+    /// there are keys whose primary key's `Key Flags` do not have the
+    /// certification capable flag set.  Some versions of netpgp, for
+    /// instance, create keys like this.  Sequoia's higher-level
+    /// functionality correctly handles these keys by always
+    /// considering the primary key to be certification capable.
+    /// Users of this interface should too.
+    ///
+    /// The key flags are looked up as described in
+    /// [`ValidKeyAmalgamation::key_flags`].
+    ///
+    /// # Examples
+    ///
+    /// Finds keys that are certification capable:
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// for ka in cert.keys().with_policy(p, None) {
+    ///     if ka.primary() || ka.for_certification() {
+    ///         // `ka` is certification capable.
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
+    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_certification(&self) -> bool {
         self.has_any_key_flag(KeyFlags::default().set_certification(true))
     }
 
-    /// Returns whether key is signing capable as of the amalgamation's
-    /// reference time.
+    /// Returns whether the key is signing capable.
     ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
+    /// The key flags are looked up as described in
+    /// [`ValidKeyAmalgamation::key_flags`].
+    ///
+    /// # Examples
+    ///
+    /// Finds keys that are signing capable:
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// for ka in cert.keys().with_policy(p, None) {
+    ///     if ka.for_signing() {
+    ///         // `ka` is signing capable.
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_signing(&self) -> bool {
         self.has_any_key_flag(KeyFlags::default().set_signing(true))
     }
 
-    /// Returns whether key is authentication capable as of the
-    /// amalgamation's reference time.
+    /// Returns whether the key is authentication capable.
     ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
+    /// The key flags are looked up as described in
+    /// [`ValidKeyAmalgamation::key_flags`].
+    ///
+    /// # Examples
+    ///
+    /// Finds keys that are authentication capable:
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// for ka in cert.keys().with_policy(p, None) {
+    ///     if ka.for_authentication() {
+    ///         // `ka` is authentication capable.
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_authentication(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::default().set_authentication(true))
     }
 
-    /// Returns whether key is intended for storage encryption as of
-    /// the amalgamation's reference time.
+    /// Returns whether the key is storage-encryption capable.
     ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
+    /// OpenPGP distinguishes two types of encryption keys: those for
+    /// storage ([data at rest]) and those for transport ([data in
+    /// transit]).  Most OpenPGP implementations, however, don't
+    /// distinguish between them in practice.  Instead, when they
+    /// create a new encryption key, they just set both flags.
+    /// Likewise, when encrypting a message, it is not typically
+    /// possible to indicate the type of protection that is needed.
+    /// Sequoia supports creating keys with only one of these flags
+    /// set, and makes it easy to select the right type of key when
+    /// encrypting messages.
+    ///
+    /// The key flags are looked up as described in
+    /// [`ValidKeyAmalgamation::key_flags`].
+    ///
+    /// # Examples
+    ///
+    /// Finds keys that are storage-encryption capable:
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// for ka in cert.keys().with_policy(p, None) {
+    ///     if ka.for_storage_encryption() {
+    ///         // `ka` is storage-encryption capable.
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// [data at rest]: https://en.wikipedia.org/wiki/Data_at_rest
+    /// [data in transit]: https://en.wikipedia.org/wiki/Data_in_transit
+    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_storage_encryption(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::default().set_storage_encryption(true))
     }
 
-    /// Returns whether key is intended for transport encryption as of the
-    /// amalgamtion's reference time.
+    /// Returns whether the key is transport-encryption capable.
     ///
-    /// Key flags are computed as described in
-    /// [`key_flags()`](#method.key_flags).
+    /// OpenPGP distinguishes two types of encryption keys: those for
+    /// storage ([data at rest]) and those for transport ([data in
+    /// transit]).  Most OpenPGP implementations, however, don't
+    /// distinguish between them in practice.  Instead, when they
+    /// create a new encryption key, they just set both flags.
+    /// Likewise, when encrypting a message, it is not typically
+    /// possible to indicate the type of protection that is needed.
+    /// Sequoia supports creating keys with only one of these flags
+    /// set, and makes it easy to select the right type of key when
+    /// encrypting messages.
+    ///
+    /// The key flags are looked up as described in
+    /// [`ValidKeyAmalgamation::key_flags`].
+    ///
+    /// # Examples
+    ///
+    /// Finds keys that are transport-encryption capable:
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// for ka in cert.keys().with_policy(p, None) {
+    ///     if ka.for_transport_encryption() {
+    ///         // `ka` is transport-encryption capable.
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// [data at rest]: https://en.wikipedia.org/wiki/Data_at_rest
+    /// [data in transit]: https://en.wikipedia.org/wiki/Data_in_transit
+    /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_transport_encryption(&self) -> bool
     {
         self.has_any_key_flag(KeyFlags::default().set_transport_encryption(true))
     }
 
-    /// Returns the key's expiration time as of the amalgamation's
-    /// reference time.
+    /// Returns how long the key is live.
     ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
+    /// This returns how long the key is live relative to its creation
+    /// time.  Use [`ValidKeyAmalgamation::key_expiration_time`] to
+    /// get the key's absolute expiry time.
+    ///
+    /// This function considers both the binding signature and the
+    /// direct key signature.  Information in the binding signature
+    /// takes precedence over the direct key signature.  See [Section
     /// 5.2.3.3 of RFC 4880].
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::time;
+    /// use std::convert::TryInto;
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::Timestamp;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// // OpenPGP Timestamps have a one-second resolution.  Since we
+    /// // want to round trip the time, round it down.
+    /// let now : Timestamp = time::SystemTime::now().try_into()?;
+    /// let now : time::SystemTime = now.try_into()?;
+    ///
+    /// let a_week = time::Duration::from_secs(7 * 24 * 60 * 60);
+    /// let a_week_later = now + a_week;
+    ///
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .set_creation_time(now)
+    ///     .set_expiration_time(a_week_later)
+    ///     .generate()?;
+    ///
+    /// assert_eq!(cert.primary_key().with_policy(p, None)?.key_validity_period(),
+    ///            Some(a_week));
+    /// # Ok(()) }
+    /// ```
+    ///
+    ///   [`ValidKeyAmalgamation::key_expiration_time`]: #method.key_expiration_time
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     pub fn key_validity_period(&self) -> Option<std::time::Duration> {
         self.map(|s| s.key_validity_period())
     }
 
-    /// Returns the key's expiration time as of the amalgamtion's
-    /// reference time.
+    /// Returns the key's expiration time.
     ///
     /// If this function returns `None`, the key does not expire.
     ///
-    /// Considers both the binding signature and the direct key
-    /// signature.  Information in the binding signature takes
-    /// precedence over the direct key signature.  See also [Section
+    /// This returns the key's expiration time.  Use
+    /// [`ValidKeyAmalgamation::key_validity_period`] to get the
+    /// duration of the key's lifetime.
+    ///
+    /// This function considers both the binding signature and the
+    /// direct key signature.  Information in the binding signature
+    /// takes precedence over the direct key signature.  See [Section
     /// 5.2.3.3 of RFC 4880].
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::time;
+    /// use std::convert::TryInto;
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::Timestamp;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// // OpenPGP Timestamps have a one-second resolution.  Since we
+    /// // want to round trip the time, round it down.
+    /// let now : Timestamp = time::SystemTime::now().try_into()?;
+    /// let now : time::SystemTime = now.try_into()?;
+    //
+    /// let a_week = time::Duration::from_secs(7 * 24 * 60 * 60);
+    /// let a_week_later = now + a_week;
+    ///
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .set_creation_time(now)
+    ///     .set_expiration_time(a_week_later)
+    ///     .generate()?;
+    ///
+    /// assert_eq!(cert.primary_key().with_policy(p, None)?.key_expiration_time(),
+    ///            Some(a_week_later));
+    /// # Ok(()) }
+    /// ```
+    ///
+    ///   [`ValidKeyAmalgamation::key_validity_period`]: #method.key_validity_period
     ///   [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
     pub fn key_expiration_time(&self) -> Option<time::SystemTime> {
         match self.key_validity_period() {

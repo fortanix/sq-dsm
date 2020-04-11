@@ -1,4 +1,140 @@
 //! Certificates and related data structures.
+//!
+//! An OpenPGP certificate, often called a `PGP key` or just a `key,`
+//! is a collection of keys, identity information, and certifications
+//! about those keys and identities.
+//!
+//! The foundation of an OpenPGP certificate is the so-called primary
+//! key.  A primary key has three essential functions.  First, the
+//! primary key is used to derive a universally unique identifier
+//! (UUID) for the certificate, the certificate's so-called
+//! fingerprint.  Second, the primary key is used to certify
+//! assertions that the certificate holder makes about their
+//! certificate.  For instance, to associate a subkey or a User ID
+//! with a certificate, the certificate holder uses the primary key to
+//! create a self signature called a binding signature.  This binding
+//! signature is distributed with the certificate.  It allows anyone
+//! who has the certificate to verify that the certificate holder
+//! (identified by the primary key) really intended for the subkey to
+//! be associated with the certificate.  Finally, the primary key can
+//! be used to make assertions about other certificates.  For
+//! instance, Alice can make a so-called third-party certification
+//! that attests that she is convinced that `Bob` (as described by
+//! some User ID) controls a particular certificate.  These
+//! third-party certifications are typically distributed alongside the
+//! signee's certificate, and are used by trust models like the Web of
+//! Trust to authenticate certificates.
+//!
+//! # Data Structures
+//!
+//! ## `Cert`
+//!
+//! The [`Cert`] data structure closely mirrors the transferable
+//! public key (`TPK`) data structure described in [Section 11.1] of
+//! RFC 4880: it contains the certificate's `Component`s and their
+//! associated signatures.
+//!
+//! ## `Component`s
+//!
+//! In Sequoia, we refer to `User ID`s, `User Attribute`s, and `Key`s
+//! as `Component`s.  To accommodate unsupported components (e.g.,
+//! deprecated v3 keys) and unknown components (e.g., the
+//! yet-to-be-defined `Xyzzy Property`), we also define an `Unknown`
+//! component.
+//!
+//! ## `ComponentBundle`s
+//!
+//! We call a Component and any associated signatures a
+//! [`ComponentBundle`].  There are four types of associated
+//! signatures: self signatures, third-party signatures, self
+//! revocations, and third-party revocations.
+//!
+//! Although some information about a given `Component` is stored in
+//! the `Component` itself, most of the information is stored on the
+//! associated signatures.  For instance, a key's creation time is
+//! stored in the key packet, but the key's capabilities (e.g.,
+//! whether it can be used for encryption or signing), and its expiry
+//! are stored in the associated self signatures.  Thus, to use a
+//! component, we usually need its corresponding self signature.
+//!
+//! When a certificate is parsed, Sequoia ensures that all components
+//! (except the primary key) have at least one valid self signature.
+//! However, when using a component, it is still necessary to find the
+//! right self signature.  And, unfortunately, finding the
+//! self signature for the primary `Key` is non-trivial: that's the
+//! primary User ID's self signature.  Another complication is that if
+//! the self signature doesn't contain the required information, then
+//! the implementation should look for the information on a direct key
+//! signature.  Thus, a `ComponentBundle` doesn't contain all of the
+//! information that is needed to use a component.
+//!
+//! ## `ComponentAmalgamation`s
+//!
+//! To workaround this lack of context, we introduce another data
+//! structure called a [`ComponentAmalgamation`].  A
+//! `ComponentAmalgamation` references a `ComponentBundle` and its
+//! associated `Cert`.  Unfortunately, we can't include a reference to
+//! the `Cert` in the `ComponentBundle`, because the `Cert` owns the
+//! `ComponentBundle`, and that would create a self-referential data
+//! structure, which is currently not supported in Rust.
+//!
+//! # Common Operations
+//!
+//!  - *Generating a certificate*: See the [`CertBuilder`] module.
+//!  - *Parsing a certificate*: See the [`Parser` implementation] for `Cert`.
+//!  - *Parsing a keyring*: See the [`CertParser`] module.
+//!  - *Serializing a certificate*: See the [`Serialize`
+//!    implementation] for `Cert`, and the [`Cert::as_tsk`] method to
+//!    also include any secret key material.
+//!  - *Using a certificate*: See the [`Cert`] and [`ValidCert`] data structures.
+//!  - *Revoking a certificate*: See the [`CertRevocationBuilder`] data structure.
+//!  - *Merging packets*: See the [`Cert::merge_packets`] method.
+//!  - *Merging certificates*: See the [`Cert::merge`] method.
+//!  - *Creating third-party certifications*: See the [`UserID::certify`]
+//!     and [`UserAttribute::certify`] methods.
+//!  - *Using User IDs and User Attributes*: See the [`ComponentAmalgamation`] module.
+//!  - *Using keys*: See the [`KeyAmalgamation`] module.
+//!  - *Updating a binding signature*: See the [`UserID::bind`],
+//!    [`UserAttribute::bind`], and [`Key::bind`] methods.
+//!  - *Checking third-party signatures*: See the
+//!    [`Signature::verify_direct_key`],
+//!    [`Signature::verify_userid_binding`], and
+//!    [`Signature::verify_user_attribute_binding`] methods.
+//!  - *Checking third-party revocations*: See the
+//!    [`ValidCert::revocation_keys`],
+//!    [`ValidAmalgamation::revocation_keys`],
+//!    [`Signature::verify_primary_key_revocation`],
+//!    [`Signature::verify_userid_revocation`],
+//!    [`Signature::verify_user_attribute_revocation`] methods.
+//!
+//! [Section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+//! [`Cert`]: struct.Cert.html
+//! [`ComponentBundle`]: bindle/index.html
+//! [`ComponentAmalgamation`]: amalgamation/index.html
+//! [`CertBuilder`]: struct.CertBuilder.html
+//! [`Parser` implementation]: struct.Cert.html#impl-Parse%3C%27a%2C%20Cert%3E
+//! [`CertParser`]: struct.CertParser.html
+//! [`Serialize` implementation]: struct.Cert.html#impl-Serialize%3C%27a%2C%20Cert%3E
+//! [`Cert::as_tsk`]: struct.Cert.html#method.as_tsk
+//! [`ValidCert`]: struct.ValidCert.html
+//! [`CertRevocationBuilder`]: struct.CertRevocationBuilder.html
+//! [`Cert::merge_packets`]: struct.Cert.html#method.merge_packets
+//! [`Cert::merge`]: struct.Cert.html#method.merge
+//! [`UserID::certify`]: ../packet/struct.UserID.html#method.certify
+//! [`UserAttribute::certify`]: ../packet/user_attribute/struct.UserAttribute.html#method.certify
+//! [`ComponentAmalgamation`]: amalgamation/index.html
+//! [`KeyAmalgamation`]: amalgamation/key/index.html
+//! [`UserID::bind`]: ../packet/struct.UserID.html#method.bind
+//! [`UserAttribute::bind`]: ../packet/user_attribute/struct.UserAttribute.html#method.bind
+//! [`Key::bind`]: ../packet/enum.Key.html#method.bind
+//! [`Signature::verify_direct_key`]: ../packet/enum.Signature.html#method.verify_direct_key
+//! [`Signature::verify_userid_binding`]: ../packet/enum.Signature.html#method.verify_userid_binding
+//! [`Signature::verify_user_attribute_binding`]: ../packet/enum.Signature.html#method.verify_user_attribute_binding
+//! [`ValidCert::revocation_keys`]: struct.ValidCert.html#method.revocation_keys
+//! [`ValidAmalgamation::revocation_keys`]: amalgamation/trait.ValidAmalgamation.html#method.revocation_keys
+//! [`Signature::verify_primary_key_revocation`]: ../packet/enum.Signature.html#method.verify_primary_key_revocation
+//! [`Signature::verify_userid_revocation`]: ../packet/enum.Signature.html#method.verify_userid_revocation
+//! [`Signature::verify_user_attribute_revocation`]: ../packet/enum.Signature.html#method.verify_user_attribute_revocation
 
 use std::io;
 use std::cmp;
@@ -224,45 +360,113 @@ type UserAttributeBindings = ComponentBundles<UserAttribute>;
 /// Note: all signatures are stored as certifications.
 type UnknownBindings = ComponentBundles<Unknown>;
 
-/// Queries certificate holder's preferences.
+/// Returns the certificate holder's preferences.
 ///
-/// A certificate's key holder controls the primary key.  Subpackets
-/// on self signatures can be used to express preferences for
-/// algorithms and key management.  Furthermore, the key holder's
-/// OpenPGP implementation can express its feature set.
+/// OpenPGP provides a mechanism for a certificate holder to transmit
+/// information about communication preferences, and key management to
+/// communication partners in an asynchronous manner.  This
+/// information is attached to the certificate itself.  Specifically,
+/// the different types of information are stored as signature
+/// subpackets in the User IDs' self signatures, and in the
+/// certificate's direct key signature.
+///
+/// OpenPGP allows the certificate holder to specify different
+/// information depending on the way the certificate is addressed.
+/// When addressed by User ID, that User ID's self signature is first
+/// checked for the subpacket in question.  If the subpacket is not
+/// present or the certificate is addressed is some other way, for
+/// instance, by its fingerprint, then the primary User ID's
+/// self signature is checked.  If the subpacket is also not there,
+/// then the direct key signature is checked.  This policy and its
+/// justification are described in [Section 5.2.3.3] of RFC 4880.
+///
+/// Note: User IDs may be stripped.  For instance, the [WKD] standard
+/// requires User IDs that are unrelated to the WKD's domain be
+/// stripped from the certificate prior to publication.  As such, any
+/// User ID may be considered the primary User ID.  Consequently, if
+/// any User ID includes this packet, then all User IDs should include
+/// it.  Furthermore, RFC 4880bis allows certificates [without any
+/// User ID packets].  To handle this case, certificates should also
+/// create a direct key signature with this information.
+///
+/// [Section 5.2.3.3]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+/// [WKD] https://tools.ietf.org/html/draft-koch-openpgp-webkey-service-09#section-5
+/// [without any User ID packets]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-11.1
+///
+/// # Algorithm Preferences
+///
+/// Algorithms are ordered with the most preferred algorithm first.
+/// According to RFC 4880, if an algorithm is not listed, then the
+/// implementation should assume that it is not supported by the
+/// certificate holder's software.
+///
+/// # Examples
+///
+/// ```
+/// extern crate sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use sequoia_openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// # let (cert, _) =
+/// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #     .generate()?;
+/// match cert.primary_userid(p, None)?.preferred_symmetric_algorithms() {
+///     Some(algos) => {
+///         println!("Certificate Holder's preferred symmetric algorithms:");
+///         for (i, algo) in algos.iter().enumerate() {
+///             println!("{}. {}", i, algo);
+///         }
+///     }
+///     None => {
+///         println!("Certificate Holder did not specify any preferred \
+///                   symmetric algorithms, or the subpacket is missing.");
+///     }
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// [Section 5.2.3.3]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
 pub trait Preferences<'a> {
-    /// Returns symmetric algorithms that the key holder prefers.
+    /// Returns the supported symmetric algorithms ordered by
+    /// preference.
     ///
-    /// The algorithms are ordered according by the key holder's
+    /// The algorithms are ordered according by the certificate
+    /// holder's preference.
     fn preferred_symmetric_algorithms(&self)
         -> Option<&'a [SymmetricAlgorithm]>;
 
-    /// Returns hash algorithms that the key holder prefers.
+    /// Returns the supported hash algorithms ordered by preference.
     ///
-    /// The algorithms are ordered according by the key holder's
-    /// preference.
+    /// The algorithms are ordered according by the certificate
+    /// holder's preference.
     fn preferred_hash_algorithms(&self) -> Option<&'a [HashAlgorithm]>;
 
-    /// Returns compression algorithms that the key holder prefers.
-    ///
-    /// The algorithms are ordered according by the key holder's
+    /// Returns the supported compression algorithms ordered by
     /// preference.
+    ///
+    /// The algorithms are ordered according by the certificate
+    /// holder's preference.
     fn preferred_compression_algorithms(&self)
         -> Option<&'a [CompressionAlgorithm]>;
 
-    /// Returns AEAD algorithms that the key holder prefers.
+    /// Returns the supported AEAD algorithms ordered by preference.
     ///
-    /// The algorithms are ordered according by the key holder's
+    /// The algorithms are ordered according by the certificate holder's
     /// preference.
     fn preferred_aead_algorithms(&self) -> Option<&'a [AEADAlgorithm]>;
 
-    /// Returns the key holder's keyserver preferences.
+    /// Returns the certificate holder's keyserver preferences.
     fn key_server_preferences(&self) -> Option<KeyServerPreferences>;
 
-    /// Returns the key holder's preferred keyserver for updates.
+    /// Returns the certificate holder's preferred keyserver for
+    /// updates.
     fn preferred_key_server(&self) -> Option<&'a [u8]>;
 
-    /// Returns the key holder's feature set.
+    /// Returns the certificate holder's feature set.
     fn features(&self) -> Option<Features>;
 }
 
@@ -273,22 +477,17 @@ mod def {
 use super::*;
 /// A collection of keys, signatures, and metadata.
 ///
-/// A Certificate (see [RFC 4880, section 11.1]) can be used to verify
-/// signatures and encrypt data.  It can be stored in a keystore and
-/// uploaded to keyservers.
+/// `Cert`s are always canonicalized in the sense that only
+/// `Component`s (User IDs, User Attributes, and Subkeys) with at
+/// least one valid self signature are retained.
 ///
-/// Certs are always canonicalized in the sense that only elements
-/// (user id, user attribute, subkey) with at least one valid
-/// self-signature at a given time under a given policy are used.
-/// However, we keep all packets around for re-serialization.  It
-/// could be an component that we simply do not understand.
-/// The self-signatures are sorted so that the newest
-/// self-signature comes first.  Components are sorted, but in an
-/// undefined manner (i.e., when parsing the same Cert multiple times,
-/// the components will be in the same order, but we reserve the right
-/// to change the sort function between versions).  Third-party
-/// certifications are *not* validated, as the keys are not available;
-/// they are simply passed through as is.
+/// Self signatures are sorted so that the newest self signature comes
+/// first.  Components are sorted, but in an undefined manner (i.e.,
+/// when parsing the same Cert multiple times, the components will be
+/// in the same order, but we reserve the right to change the sort
+/// function between versions).  Third-party certifications are *not*
+/// validated, as the keys are not available; they are simply passed
+/// through as is.
 ///
 /// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 ///
@@ -296,9 +495,9 @@ use super::*;
 ///
 /// Any key in a `Cert` may have a secret key attached to it.  To
 /// protect secret keys from being leaked, secret keys are not written
-/// out if a `Cert` is serialized.  To also serialize the secret keys,
-/// you need to use [`Cert::as_tsk()`] to get an object that writes
-/// them out during serialization.
+/// out when a `Cert` is serialized.  To also serialize the secret
+/// keys, you need to use [`Cert::as_tsk()`] to get an object that
+/// writes them out during serialization.
 ///
 /// [`Cert::as_tsk()`]: #method.as_tsk
 ///
@@ -484,7 +683,7 @@ impl Cert {
     ///     all live self signatures at time `t`, or
     ///
     ///   - There is a hard revocation (even if it is not live at
-    ///     time `t`, and even if there is a newer self-signature).
+    ///     time `t`, and even if there is a newer self signature).
     ///
     /// Note: Certs and subkeys have different criteria from User IDs
     /// and User Attributes.
@@ -608,7 +807,7 @@ impl Cert {
     /// Sets the key to expire at the given time.
     ///
     /// A policy is needed, because the expiration is updated by adding
-    /// a self-signature to the primary user id.
+    /// a self signature to the primary user id.
     pub fn set_expiration_time(self, policy: &dyn Policy,
                                primary_signer: &mut dyn Signer,
                                expiration: Option<time::SystemTime>)
@@ -703,13 +902,13 @@ impl Cert {
         tracer!(TRACE, "canonicalize", 0);
 
         // The very first thing that we do is verify the
-        // self-signatures.  There are a few things that we need to be
+        // self signatures.  There are a few things that we need to be
         // aware of:
         //
         //  - Signatures may be invalid.  These should be dropped.
         //
         //  - Signatures may be out of order.  These should be
-        //    reordered so that we have the latest self-signature and
+        //    reordered so that we have the latest self signature and
         //    we don't drop a userid or subkey that is actually
         //    valid.
 
@@ -1138,7 +1337,7 @@ impl Cert {
         }
 
         if self.bad.len() > 0 {
-            t!("{}: ignoring {} bad self-signatures",
+            t!("{}: ignoring {} bad self signatures",
                self.keyid(), self.bad.len());
         }
 
@@ -1174,7 +1373,7 @@ impl Cert {
 
         // XXX: Check if the sigs in other_sigs issuer are actually
         // designated revokers for this key (listed in a "Revocation
-        // Key" subpacket in *any* non-revoked self-signature).  Only
+        // Key" subpacket in *any* non-revoked self signature).  Only
         // if that is the case should a sig be considered a potential
         // revocation.  (This applies to
         // self.primary_other_revocations as well as
@@ -1442,7 +1641,7 @@ impl<'a> ValidCert<'a> {
     ///     self signatures, or
     ///
     ///   - There is a hard revocation (even if it is not live at time
-    ///     `t`, and even if there is a newer self-signature).
+    ///     `t`, and even if there is a newer self signature).
     ///
     /// Note: Certs and subkeys have different criteria from User IDs
     /// and User Attributes.

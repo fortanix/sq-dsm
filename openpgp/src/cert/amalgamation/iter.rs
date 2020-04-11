@@ -13,13 +13,79 @@ use crate::{
     policy::Policy,
 };
 
-/// An iterator over all component bundles of a given type in a certificate.
+/// An iterator over components.
 ///
-/// `ComponentAmalgamationIter` follows the builder pattern.  There is no need to
-/// explicitly finalize it, however: it already implements the
+/// Using the [`ComponentAmalgamationIter::with_policy`], it is
+/// possible to change the iterator to only return
+/// [`ComponentAmalgamation`]s for valid components.  In this case,
+/// `ComponentAmalgamationIter::with_policy` transforms the
+/// `ComponentAmalgamationIter` into a
+/// [`ValidComponentAmalgamationIter`], which returns
+/// [`ValidComponentAmalgamation`]s.  `ValidComponentAmalgamation`
+/// offers additional filters.
+///
+/// `ComponentAmalgamationIter` follows the builder pattern.  There is
+/// no need to explicitly finalize it: it already implements the
 /// `Iterator` trait.
 ///
-/// By default, `ComponentAmalgamationIter` returns each component in turn.
+/// A `ComponentAmalgamationIter` is returned by [`Cert::userids`],
+/// [`Cert::user_attributes`], and [`Cert::unknowns`].
+/// ([`Cert::keys`] returns a [`KeyAmalgamationIter`].)
+///
+/// # Examples
+///
+/// Iterate over the User IDs in a certificate:
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+///
+/// #
+/// # fn main() -> openpgp::Result<()> {
+/// #     let (cert, _) =
+/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         .generate()?;
+/// #     let fpr = cert.fingerprint();
+/// // Iterate over all User IDs.
+/// for ua in cert.userids() {
+///     // ua is a `ComponentAmalgamation`, specifically, a `UserIDAmalgamation`.
+/// }
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// Only return valid User IDs.
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// #
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// #     let (cert, _) =
+/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         .generate()?;
+/// #     let fpr = cert.fingerprint();
+/// // Iterate over all valid User IDs.
+/// for ua in cert.userids().with_policy(p, None) {
+///     // ua is a `ValidComponentAmalgamation`, specifically, a
+///     // `ValidUserIDAmalgamation`.
+/// }
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// [`ComponentAmalgamationIter::with_policy`]: #method.with_policy
+/// [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
+/// [`ValidComponentAmalgamationIter`]: struct.ValidComponentAmalgamationIter.html
+/// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
+/// [`Cert::userids`]: ../struct.Cert.html#method.userids
+/// [`Cert::user_attributes`]: ../struct.Cert.html#method.user_attributes
+/// [`Cert::unknowns`]: ../struct.Cert.html#method.unknown
+/// [`Cert::keys`]: ../struct.Cert.html#method.keys
+/// [`KeyAmalgamationIter`]: struct.KeyAmalgamationIter.html
 pub struct ComponentAmalgamationIter<'a, C> {
     cert: &'a Cert,
     iter: slice::Iter<'a, ComponentBundle<C>>,
@@ -27,19 +93,25 @@ pub struct ComponentAmalgamationIter<'a, C> {
 
 /// An iterator over `UserIDAmalgamtion`s.
 ///
-/// This is just a specialized version of `ComponentAmalgamationIter`.
+/// A specialized version of [`ComponentAmalgamationIter`].
+///
+/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
 pub type UserIDAmalgamationIter<'a>
     = ComponentAmalgamationIter<'a, UserID>;
 
 /// An iterator over `UserAttributeAmalgamtion`s.
 ///
-/// This is just a specialized version of `ComponentAmalgamationIter`.
+/// A specialized version of [`ComponentAmalgamationIter`].
+///
+/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
 pub type UserAttributeAmalgamationIter<'a>
     = ComponentAmalgamationIter<'a, UserAttribute>;
 
 /// An iterator over `UnknownComponentAmalgamtion`s.
 ///
-/// This is just a specialized version of `ComponentAmalgamationIter`.
+/// A specialized version of [`ComponentAmalgamationIter`].
+///
+/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
 pub type UnknownComponentAmalgamationIter<'a>
     = ComponentAmalgamationIter<'a, Unknown>;
 
@@ -72,11 +144,37 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
     }
 
     /// Changes the iterator to only return components that are valid
-    /// for the given policy at the specified time.
+    /// according to the policy at the specified time.
     ///
     /// If `time` is None, then the current time is used.
     ///
-    /// See `ValidComponentAmalgamationIter` for the definition of a valid component.
+    /// Refer to the [`ValidateAmalgamation`] trait for a definition
+    /// of a valid component.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// #     let fpr = cert.fingerprint();
+    /// // Iterate over all valid User Attributes.
+    /// for ua in cert.user_attributes().with_policy(p, None) {
+    ///     // ua is a `ValidComponentAmalgamation`, specifically, a
+    ///     // `ValidUserAttributeAmalgamation`.
+    /// }
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// [`ValidateAmalgamation`]: trait.ValidateAmalgamation.html
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> ValidComponentAmalgamationIter<'a, C>
         where T: Into<Option<SystemTime>>
@@ -91,15 +189,49 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
     }
 }
 
-/// An iterator over all valid `Component`s of a given type in a
-/// certificate.
+/// An iterator over valid components.
 ///
-/// A component is valid at time `t` if it was not created after `t`
-/// and it has a live self-signature at time `t`.
+/// A `ValidComponentAmalgamationIter` is a
+/// [`ComponentAmalgamationIter`] with a policy and a reference time.
 ///
-/// `ValidComponentAmalgamationIter` follows the builder pattern.  There is no
-/// need to explicitly finalize it, however: it already implements the
-/// `Iterator` trait.
+/// This allows it to filter the returned components based on
+/// information available in the components' binding signatures.  For
+/// instance, [`ValidComponentAmalgamationIter::revoked`] filters the
+/// returned components by whether or not they are revoked.
+///
+/// `ValidComponentAmalgamationIter` follows the builder pattern.
+/// There is no need to explicitly finalize it: it already implements
+/// the `Iterator` trait.
+///
+/// A `ValidComponentAmalgamationIter` is returned by
+/// [`ComponentAmalgamationIter::with_policy`].
+///
+/// # Examples
+///
+/// ```
+/// # extern crate sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// #
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// #     let (cert, _) =
+/// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #         .generate()?;
+/// #     let fpr = cert.fingerprint();
+/// // Iterate over all valid User Attributes.
+/// for ua in cert.userids().with_policy(p, None) {
+///     // ua is a `ValidComponentAmalgamation`, specifically, a
+///     // `ValidUserIDAmalgamation`.
+/// }
+/// #     Ok(())
+/// # }
+/// ```
+///
+/// [`ComponentAmalgamationIter`]: struct.ComponentAmalgamationIter.html
+/// [`ValidComponentAmalgamationIter::revoked`]: #method.revoked
+/// [`ComponentAmalgamationIter::with_policy`]: struct.ComponentAmalgamationIter.html#method.with_policy
 pub struct ValidComponentAmalgamationIter<'a, C> {
     // This is an option to make it easier to create an empty ValidComponentAmalgamationIter.
     cert: &'a Cert,
@@ -190,14 +322,14 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     ///
     /// A value of None disables this filter.
     ///
-    /// Note: If you call this function multiple times on the same
-    /// iterator, only the last value is used.
+    /// If you call this function multiple times on the same iterator,
+    /// only the last value is used.
     ///
-    /// Note: This only checks if the component is not revoked; it does not
-    /// check whether the certificate not revoked.
+    /// This filter only checks if the component is not revoked; it
+    /// does not check whether the certificate not revoked.
     ///
     /// This filter checks whether a component's revocation status is
-    /// `RevocationStatus::Revoked` or not.  The latter (i.e.,
+    /// [`RevocationStatus::Revoked`] or not.  The latter (i.e.,
     /// `revoked(false)`) is equivalent to:
     ///
     /// ```rust
@@ -245,6 +377,8 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     /// flexible than using `ValidComponentAmalgamation::revoked`.
     /// However, this filter implements a typical policy, and does not
     /// preclude using `filter` to realize alternative policies.
+    ///
+    /// [`RevocationStatus::Revoked`]: ../../types/enum.RevocationStatus.html#variant.Revoked
     pub fn revoked<T>(mut self, revoked: T) -> Self
         where T: Into<Option<bool>>
     {
