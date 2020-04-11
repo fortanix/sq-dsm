@@ -29,43 +29,65 @@ use crate::parse::Cookie;
 ///
 /// # Example
 ///
-/// This example filters User IDs based on the domain name.
+/// This example shows how to modify packets in PacketPile using [`pathspec`]s.
 ///
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
 /// use openpgp::{Packet, PacketPile};
+/// use openpgp::packet::signature::Signature4;
+/// use openpgp::packet::Signature;
 /// use openpgp::cert::prelude::*;
+/// use openpgp::parse::Parse;
+/// use openpgp::serialize::Serialize;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::crypto::mpi;
+/// use openpgp::types::RevocationStatus::{Revoked, CouldBe};
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> openpgp::Result<()> {
-/// let (cert, _) = CertBuilder::new()
-///     .add_userid("someone@example.com")
-///     .add_userid("someone@example.org")
-///     .add_signing_subkey()
-///     .generate()?;
+/// let (cert, revocation) = CertBuilder::new().generate()?;
 ///
-/// let pp: PacketPile = cert.into();
+/// let mut buffer = Vec::new();
+/// cert.serialize(&mut buffer)?;
+/// let packet: Packet = revocation.into();
+/// packet.serialize(&mut buffer)?;
 ///
-/// let packets = pp.into_children().filter(|pkt| {
-///     match pkt {
-///         Packet::UserID(ref uid) =>
-///           if let Ok(email) = uid.email() {
-///               email.unwrap().ends_with("@example.org")
-///           } else {
-///               false
-///           }
-///         _ => true,
-///     }
-/// });
+/// let policy = &StandardPolicy::new();
 ///
-/// let pp = packets.collect::<Vec<Packet>>().into();
-/// if let Ok(cert) = Cert::from_packet_pile(pp) {
-///     println!("Key: {}", cert.fingerprint());
-///     for uid in cert.userids() {
-///         let email = uid.userid().email()?.unwrap();
-///         assert_eq!("someone@example.org", email);
-///     }
+/// // Certificate is considered revoked because it is accompanied with its
+/// // revocation signature
+/// let pp: PacketPile = PacketPile::from_bytes(&buffer)?;
+/// let cert = Cert::from_packet_pile(pp)?;
+/// if let Revoked(_) = cert.revoked(policy, None) {
+///     // cert is considered revoked
 /// }
+/// # else {
+/// #     unreachable!();
+/// # }
+///
+/// // Breaking the revocation signature changes certificate's status
+/// let mut pp: PacketPile = PacketPile::from_bytes(&buffer)?;
+/// if let Some(Packet::Signature(ref mut sig)) = pp.path_ref_mut(&[2]) {
+///     *sig = Signature4::new(
+///         sig.typ(),
+///         sig.pk_algo(),
+///         sig.hash_algo(),
+///         sig.hashed_area().clone(),
+///         sig.unhashed_area().clone(),
+///         *sig.digest_prefix(),
+///         // MPI is replaced with a dummy one
+///         mpi::Signature::RSA {
+///             s: mpi::MPI::from(vec![1, 2, 3])
+///         }).into();
+/// }
+///
+/// let cert = Cert::from_packet_pile(pp)?;
+/// if let CouldBe(_) = cert.revoked(policy, None) {
+///     // revocation signature is broken and the key is not definitely revoked
+/// }
+/// # else {
+/// #   unreachable!();
+/// # }
 /// #     Ok(())
 /// # }
 /// ```
@@ -74,6 +96,7 @@ use crate::parse::Cookie;
 ///   [`PacketParser`]: parse/struct.PacketParser.html
 ///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
 ///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
+///   [`pathspec`]: struct.PacketPile.html#method.path_ref
 #[derive(PartialEq, Clone, Default)]
 pub struct PacketPile {
     /// At the top level, we have a sequence of packets, which may be
@@ -463,7 +486,7 @@ impl PacketPile {
     /// let pile = PacketPile::from(vec![ lit.into() ]);
     ///
     /// for packet in pile.into_children() {
-    ///   assert_eq!(packet.tag(), Tag::Literal);
+    ///     assert_eq!(packet.tag(), Tag::Literal);
     /// }
     /// # Ok(())
     /// # }
