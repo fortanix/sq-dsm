@@ -4,11 +4,11 @@ use crate::vec_truncate;
 use crate::{Error, Result};
 
 use crate::crypto::mem::Protected;
-use crate::types::HashAlgorithm;
+use crate::types::{SymmetricAlgorithm, HashAlgorithm};
+use crate::utils::{read_be_u64, write_be_u64};
 
 pub use crate::crypto::backend::ecdh::{encrypt, decrypt};
 pub use crate::crypto::backend::ecdh::{encrypt_shared, decrypt_shared};
-pub use crate::crypto::backend::ecdh::{aes_key_wrap, aes_key_unwrap};
 
 /// Derives a secret key for session key wrapping.
 ///
@@ -81,5 +81,294 @@ pub fn pkcs5_unpad(sk: Protected, target_len: usize) -> Result<Protected> {
         let sk: Protected = buf.into();
         drop(sk);
         Err(Error::InvalidArgument("bad padding".into()).into())
+    }
+}
+
+
+/// Wraps a key using the AES Key Wrap Algorithm.
+///
+/// See [RFC 3394].
+///
+///  [RFC 3394]: https://tools.ietf.org/html/rfc3394
+pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
+                    plaintext: &Protected)
+                    -> Result<Vec<u8>> {
+    use crate::SymmetricAlgorithm::*;
+
+    if plaintext.len() % 8 != 0 {
+        return Err(Error::InvalidArgument(
+            "Plaintext must be a multiple of 8".into()).into());
+    }
+
+    if key.len() != algo.key_size()? {
+        return Err(Error::InvalidArgument("Bad key size".into()).into());
+    }
+
+    // We need ECB for the algorithm. However, there is no nettle::Mode:ECB,
+    // so to  work around this, we use CBC, and always use an all-zero IV.
+    let mut cipher = match algo {
+        AES128 | AES192 | AES256 => algo.make_encrypt_cbc(key)?,
+        _ => return Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
+    };
+
+    //   Inputs:  Plaintext, n 64-bit values {P1, P2, ..., Pn}, and
+    //            Key, K (the KEK).
+    //   Outputs: Ciphertext, (n+1) 64-bit values {C0, C1, ..., Cn}.
+    let n = plaintext.len() / 8;
+    let mut ciphertext = vec![0; 8 + plaintext.len()];
+
+    //   1) Initialize variables.
+    //
+    //       Set A = IV, an initial value (see 2.2.3)
+    let mut a = AES_KEY_WRAP_IV;
+
+    {
+        //   For i = 1 to n
+        //       R[i] = P[i]
+        let r = &mut ciphertext[8..];
+        r.copy_from_slice(plaintext);
+
+        let mut b = [0; 16];
+        let mut tmp = [0; 16];
+        let mut iv: Protected = vec![0; cipher.block_size()].into();
+
+        //   2) Calculate intermediate values.
+
+        // For j = 0 to 5
+        for j in 0..6 {
+            // For i=1 to n
+            for i in 0..n {
+                // B = AES(K, A | R[i])
+                write_be_u64(&mut tmp[..8], a);
+                &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
+                iv.iter_mut().for_each(|p| *p = 0); // Turn CBC into ECB.
+                cipher.encrypt(&mut iv, &mut b, &tmp)?;
+
+                // A = MSB(64, B) ^ t where t = (n*j)+i
+                a = read_be_u64(&b[..8]) ^ ((n * j) + i + 1) as u64;
+                // (Note that our i runs from 0 to n-1 instead of 1 to
+                // n, hence the index shift.
+
+                // R[i] = LSB(64, B)
+                &mut r[8 * i..8 * (i + 1)].copy_from_slice(&b[8..]);
+            }
+        }
+    }
+
+    //   3) Output the results.
+    //
+    //       Set C[0] = A
+    //       For i = 1 to n
+    //           C[i] = R[i]
+    write_be_u64(&mut ciphertext[..8], a);
+    Ok(ciphertext)
+}
+
+/// Unwraps an encrypted key using the AES Key Wrap Algorithm.
+///
+/// See [RFC 3394].
+///
+///  [RFC 3394]: https://tools.ietf.org/html/rfc3394
+pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
+                      ciphertext: &[u8])
+                      -> Result<Protected> {
+    use crate::SymmetricAlgorithm::*;
+
+    if ciphertext.len() % 8 != 0 {
+        return Err(Error::InvalidArgument(
+            "Ciphertext must be a multiple of 8".into()).into());
+    }
+
+    if key.len() != algo.key_size()? {
+        return Err(Error::InvalidArgument("Bad key size".into()).into());
+    }
+
+    // We need ECB for the algorithm. However, there is no nettle::Mode:ECB,
+    // so to  work around this, we use CBC, and always use an all-zero IV.
+    let mut cipher = match algo {
+        AES128 | AES192 | AES256 => algo.make_decrypt_cbc(key)?,
+        _ => return Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
+    };
+
+    //   Inputs:  Ciphertext, (n+1) 64-bit values {C0, C1, ..., Cn}, and
+    //            Key, K (the KEK).
+    //   Outputs: Plaintext, n 64-bit values {P1, P2, ..., Pn}.
+    let n = ciphertext.len() / 8 - 1;
+    let mut plaintext = Vec::with_capacity(ciphertext.len() - 8);
+
+    //   1) Initialize variables.
+    //
+    //       Set A = C[0]
+    //       For i = 1 to n
+    //           R[i] = C[i]
+    let mut a = read_be_u64(&ciphertext[..8]);
+    plaintext.extend_from_slice(&ciphertext[8..]);
+    let mut plaintext: Protected = plaintext.into();
+
+    //   2) Calculate intermediate values.
+    {
+        let r = &mut plaintext;
+
+        let mut b = [0; 16];
+        let mut tmp = [0; 16];
+        let mut iv: Protected = vec![0; cipher.block_size()].into();
+
+        // For j = 5 to 0
+        for j in (0..=5).rev() {
+            // For i = n to 1
+            for i in (0..=n-1).rev() {
+                // B = AES-1(K, (A ^ t) | R[i]) where t = n*j+i
+                write_be_u64(&mut tmp[..8], a ^ ((n * j) + i + 1) as u64);
+                &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
+                // (Note that our i runs from n-1 to 0 instead of n to
+                // 1, hence the index shift.
+                iv.iter_mut().for_each(|p| *p = 0); // Turn CBC into ECB.
+                cipher.decrypt(&mut iv, &mut b, &tmp)?;
+
+                // A = MSB(64, B)
+                a = read_be_u64(&b[..8]);
+
+                // R[i] = LSB(64, B)
+                &mut r[8 * i..8 * (i + 1)].copy_from_slice(&b[8..]);
+            }
+        }
+    }
+
+    //   3) Output results.
+    //
+    //   If A is an appropriate initial value (see 2.2.3),
+    //   Then
+    //       For i = 1 to n
+    //           P[i] = R[i]
+    //   Else
+    //       Return an error
+    if a == AES_KEY_WRAP_IV {
+        Ok(plaintext)
+    } else {
+        Err(Error::InvalidArgument("Bad key".into()).into())
+    }
+}
+
+const AES_KEY_WRAP_IV: u64 = 0xa6a6a6a6a6a6a6a6;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pkcs5_padding() {
+        let v = pkcs5_pad(vec![0, 0, 0].into(), 8);
+        assert_eq!(&v, &Protected::from(&[0, 0, 0, 5, 5, 5, 5, 5][..]));
+        let v = pkcs5_unpad(v, 3).unwrap();
+        assert_eq!(&v, &Protected::from(&[0, 0, 0][..]));
+
+        let v = pkcs5_pad(vec![].into(), 8);
+        assert_eq!(&v, &Protected::from(&[8, 8, 8, 8, 8, 8, 8, 8][..]));
+        let v = pkcs5_unpad(v, 0).unwrap();
+        assert_eq!(&v, &Protected::from(&[][..]));
+    }
+
+    #[test]
+    fn aes_wrapping() {
+        struct Test {
+            algo: SymmetricAlgorithm,
+            kek: &'static [u8],
+            key_data: &'static [u8],
+            ciphertext: &'static [u8],
+        }
+
+        // These are the test vectors from RFC3394.
+        const TESTS: &[Test] = &[
+            Test {
+                algo: SymmetricAlgorithm::AES128,
+                kek: &[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                       0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F],
+                key_data: &[0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                            0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF],
+                ciphertext: &[0x1F, 0xA6, 0x8B, 0x0A, 0x81, 0x12, 0xB4, 0x47,
+                              0xAE, 0xF3, 0x4B, 0xD8, 0xFB, 0x5A, 0x7B, 0x82,
+                              0x9D, 0x3E, 0x86, 0x23, 0x71, 0xD2, 0xCF, 0xE5],
+            },
+            Test {
+                algo: SymmetricAlgorithm::AES192,
+                kek: &[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                       0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+                       0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17],
+                key_data: &[0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                            0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF],
+                ciphertext: &[0x96, 0x77, 0x8B, 0x25, 0xAE, 0x6C, 0xA4, 0x35,
+                              0xF9, 0x2B, 0x5B, 0x97, 0xC0, 0x50, 0xAE, 0xD2,
+                              0x46, 0x8A, 0xB8, 0xA1, 0x7A, 0xD8, 0x4E, 0x5D],
+            },
+            Test {
+                algo: SymmetricAlgorithm::AES256,
+                kek: &[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                       0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+                       0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+                       0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F],
+                key_data: &[0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                            0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF],
+                ciphertext: &[0x64, 0xE8, 0xC3, 0xF9, 0xCE, 0x0F, 0x5B, 0xA2,
+                              0x63, 0xE9, 0x77, 0x79, 0x05, 0x81, 0x8A, 0x2A,
+                              0x93, 0xC8, 0x19, 0x1E, 0x7D, 0x6E, 0x8A, 0xE7],
+            },
+            Test {
+                algo: SymmetricAlgorithm::AES192,
+                kek: &[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                       0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+                       0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17],
+                key_data: &[0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                            0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+                            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07],
+                ciphertext: &[0x03, 0x1D, 0x33, 0x26, 0x4E, 0x15, 0xD3, 0x32,
+                              0x68, 0xF2, 0x4E, 0xC2, 0x60, 0x74, 0x3E, 0xDC,
+                              0xE1, 0xC6, 0xC7, 0xDD, 0xEE, 0x72, 0x5A, 0x93,
+                              0x6B, 0xA8, 0x14, 0x91, 0x5C, 0x67, 0x62, 0xD2],
+            },
+            Test {
+                algo: SymmetricAlgorithm::AES256,
+                kek: &[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                       0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+                       0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+                       0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F],
+                key_data: &[0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                            0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+                            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07],
+                ciphertext: &[0xA8, 0xF9, 0xBC, 0x16, 0x12, 0xC6, 0x8B, 0x3F,
+                              0xF6, 0xE6, 0xF4, 0xFB, 0xE3, 0x0E, 0x71, 0xE4,
+                              0x76, 0x9C, 0x8B, 0x80, 0xA3, 0x2C, 0xB8, 0x95,
+                              0x8C, 0xD5, 0xD1, 0x7D, 0x6B, 0x25, 0x4D, 0xA1],
+            },
+            Test {
+                algo: SymmetricAlgorithm::AES256,
+                kek: &[0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                       0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+                       0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+                       0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F],
+                key_data: &[0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
+                            0x88, 0x99, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+                            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+                            0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F],
+                ciphertext: &[0x28, 0xC9, 0xF4, 0x04, 0xC4, 0xB8, 0x10, 0xF4,
+                              0xCB, 0xCC, 0xB3, 0x5C, 0xFB, 0x87, 0xF8, 0x26,
+                              0x3F, 0x57, 0x86, 0xE2, 0xD8, 0x0E, 0xD3, 0x26,
+                              0xCB, 0xC7, 0xF0, 0xE7, 0x1A, 0x99, 0xF4, 0x3B,
+                              0xFB, 0x98, 0x8B, 0x9B, 0x7A, 0x02, 0xDD, 0x21],
+            },
+        ];
+
+        for test in TESTS {
+            let ciphertext = aes_key_wrap(test.algo,
+                                          &test.kek.into(),
+                                          &test.key_data.into())
+                .unwrap();
+            assert_eq!(test.ciphertext, &ciphertext[..]);
+
+            let key_data = aes_key_unwrap(test.algo,
+                                          &test.kek.into(),
+                                          &ciphertext[..])
+                .unwrap();
+            assert_eq!(&Protected::from(test.key_data), &key_data);
+        }
     }
 }

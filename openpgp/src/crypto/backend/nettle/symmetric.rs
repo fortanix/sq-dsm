@@ -143,4 +143,78 @@ impl SymmetricAlgorithm {
             _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into())
         }
     }
+
+    /// Creates a Nettle context for encrypting in CBC mode.
+    pub(crate) fn make_encrypt_cbc(self, key: &[u8]) -> Result<Box<dyn Mode>> {
+        match self {
+            SymmetricAlgorithm::TripleDES =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Des3>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::CAST5 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Cast128>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Blowfish =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Blowfish>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::AES128 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Aes128>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::AES192 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Aes192>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::AES256 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Aes256>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Twofish =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Twofish>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Camellia128 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Camellia128>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Camellia192 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Camellia192>::with_encrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Camellia256 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Camellia256>::with_encrypt_key(&key[..])?)),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
+        }
+    }
+
+    /// Creates a Nettle context for decrypting in CBC mode.
+    pub(crate) fn make_decrypt_cbc(self, key: &[u8]) -> Result<Box<dyn Mode>> {
+        match self {
+            SymmetricAlgorithm::TripleDES =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Des3>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::CAST5 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Cast128>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Blowfish =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Blowfish>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::AES128 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Aes128>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::AES192 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Aes192>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::AES256 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Aes256>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Twofish =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Twofish>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Camellia128 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Camellia128>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Camellia192 =>
+                Ok(Box::new(
+                    mode::Cbc::<cipher::Camellia192>::with_decrypt_key(&key[..])?)),
+            SymmetricAlgorithm::Camellia256 =>
+            Ok(Box::new(
+                    mode::Cbc::<cipher::Camellia256>::with_decrypt_key(&key[..])?)),
+            _ => Err(Error::UnsupportedSymmetricAlgorithm(self).into()),
+        }
+    }
 }
