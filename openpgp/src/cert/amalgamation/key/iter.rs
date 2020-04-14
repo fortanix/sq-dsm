@@ -544,7 +544,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 ///     //
 ///     // Note: using the combinator interface (instead of checking
 ///     // the individual keys) makes it harder to report exactly why no
-///     // was usable.
+///     // key was usable.
 ///     for ka in cert.keys()
 ///         // Not revoked.
 ///         .revoked(false)

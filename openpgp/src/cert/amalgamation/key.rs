@@ -9,15 +9,15 @@
 //! components are bound to!), and, as a consequence, the associated
 //! meta-data is stored elsewhere.
 //!
-//! Unfortunately, a primary Key's meta-data is stored not on a direct
-//! key signature, which would be convenient as it is located at the
-//! same place as a binding signature would be, but on the primary
-//! User ID's binding signature.  This requires some acrobatics on the
-//! implementation side to realize the correct semantics.  In
-//! particular, a `Key` needs to memorize its role (i.e., whether it
-//! is a primary key or a subkey) in order to know whether to consider
-//! its own self signatures or the primary User ID's self signatures
-//! when looking for its meta-data.
+//! Unfortunately, a primary Key's meta-data is usually not stored on
+//! a direct key signature, which would be convenient as it is located
+//! at the same place as a binding signature would be, but on the
+//! primary User ID's binding signature.  This requires some
+//! acrobatics on the implementation side to realize the correct
+//! semantics.  In particular, a `Key` needs to memorize its role
+//! (i.e., whether it is a primary key or a subkey) in order to know
+//! whether to consider its own self signatures or the primary User
+//! ID's self signatures when looking for its meta-data.
 //!
 //! Ideally, a `KeyAmalgamation`'s role would be encoded in its type.
 //! This increases safety, and reduces the run-time overhead.
@@ -58,8 +58,8 @@
 //! cert.primary_key().bundle().role_as_subordinate();
 //!
 //! // But this doesn't:
-//! let ka : ErasedKeyAmalgamation<_> = cert.keys().nth(0).expect("primary key");
-//! let ka : openpgp::Result<SubordinateKeyAmalgamation<key::PublicParts>> = ka.try_into();
+//! let ka: ErasedKeyAmalgamation<_> = cert.keys().nth(0).expect("primary key");
+//! let ka: openpgp::Result<SubordinateKeyAmalgamation<key::PublicParts>> = ka.try_into();
 //! assert!(ka.is_err());
 //! ```
 //!
@@ -245,6 +245,7 @@
 //! [`ErasedKeyAmalgamation`]: ../type.ErasedKeyAmalgamation.html
 //! [`KeyRole::UnspecifiedRole`]: ../../../packet/key/trait.KeyRole.html
 //! [`Policy` discussion]: ../index.html
+//! [This discussion]: https://crypto.stackexchange.com/a/12138
 use std::time;
 use std::time::SystemTime;
 use std::ops::Deref;
@@ -315,12 +316,12 @@ pub trait PrimaryKey<'a, P, R>
     /// #         .generate()?;
     /// #     let fpr = cert.fingerprint();
     /// // This works if the type is concrete:
-    /// let ka : PrimaryKeyAmalgamation<_> = cert.primary_key();
+    /// let ka: PrimaryKeyAmalgamation<_> = cert.primary_key();
     /// assert!(ka.primary());
     ///
     /// // Or if it has been erased:
     /// for (i, ka) in cert.keys().enumerate() {
-    ///     let ka : ErasedKeyAmalgamation<_> = ka;
+    ///     let ka: ErasedKeyAmalgamation<_> = ka;
     ///     if i == 0 {
     ///         // The primary key is always the first key returned by
     ///         // `Cert::keys`.
@@ -370,7 +371,7 @@ pub trait PrimaryKey<'a, P, R>
 /// #         .generate()?;
 /// #     let fpr = cert.fingerprint();
 /// for ka in cert.keys() {
-///     let ka : ErasedKeyAmalgamation<_> = ka;
+///     let ka: ErasedKeyAmalgamation<_> = ka;
 /// }
 /// #     Ok(())
 /// # }
@@ -389,7 +390,7 @@ pub trait PrimaryKey<'a, P, R>
 /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
 /// #         .generate()?;
 /// #     let fpr = cert.fingerprint();
-/// let ka : PrimaryKeyAmalgamation<_> = cert.primary_key();
+/// let ka: PrimaryKeyAmalgamation<_> = cert.primary_key();
 /// #     Ok(())
 /// # }
 /// ```
@@ -409,12 +410,12 @@ pub trait PrimaryKey<'a, P, R>
 /// #     let fpr = cert.fingerprint();
 /// // We can skip the primary key (it's always first):
 /// for ka in cert.keys().skip(1) {
-///     let ka : ErasedKeyAmalgamation<_> = ka;
+///     let ka: ErasedKeyAmalgamation<_> = ka;
 /// }
 ///
 /// // Or use `subkeys`, which returns a more accurate type:
 /// for ka in cert.keys().subkeys() {
-///     let ka : SubordinateKeyAmalgamation<_> = ka;
+///     let ka: SubordinateKeyAmalgamation<_> = ka;
 /// }
 /// #     Ok(())
 /// # }
@@ -817,7 +818,7 @@ impl<'a, P, R, R2> KeyAmalgamation<'a, P, R, R2>
 /// [`KeyAmalgamation`]: a `ValidKeyAmalgamation` combines a
 /// `KeyAmalgamation`, a [`Policy`], and a reference time.  This
 /// allows it to implement the [`ValidAmalgamation`] trait, which
-/// provides methods like [`binding_signature`] that require a
+/// provides methods like [`ValidAmalgamation::binding_signature`] that require a
 /// `Policy` and a reference time.  Although `KeyAmalgamation` could
 /// implement these methods by requiring that the caller explicitly
 /// pass them in, embedding them in the `ValidKeyAmalgamation` helps
@@ -899,7 +900,7 @@ impl<'a, P, R, R2> KeyAmalgamation<'a, P, R, R2>
 /// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
 /// [`Policy`]: ../../../policy/index.html
 /// [`ValidAmalgamation`]: ../trait.ValidAmalgamation.html
-/// [`binding_signature`]: ../trait.ValidAmalgamation.html#method.binding_signature
+/// [`ValidAmalgamation::binding_signature`]: ../trait.ValidAmalgamation.html#method.binding_signature
 /// [`ValidateAmalgamation::with_policy`]: ../trait.ValidateAmalgamation.html#tymethod.with_policy
 /// [`KeyAmalgamationIter`]: struct.KeyAmalgamationIter.html
 #[derive(Debug, Clone)]
@@ -1497,7 +1498,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # use openpgp::policy::{Policy, StandardPolicy};
     /// #
     /// # fn main() -> openpgp::Result<()> {
-    /// #     let p : &dyn Policy = &StandardPolicy::new();
+    /// #     let p: &dyn Policy = &StandardPolicy::new();
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -1790,8 +1791,8 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// // OpenPGP Timestamps have a one-second resolution.  Since we
     /// // want to round trip the time, round it down.
-    /// let now : Timestamp = time::SystemTime::now().try_into()?;
-    /// let now : time::SystemTime = now.try_into()?;
+    /// let now: Timestamp = time::SystemTime::now().try_into()?;
+    /// let now: time::SystemTime = now.try_into()?;
     ///
     /// let a_week = time::Duration::from_secs(7 * 24 * 60 * 60);
     /// let a_week_later = now + a_week;
@@ -1841,8 +1842,8 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// // OpenPGP Timestamps have a one-second resolution.  Since we
     /// // want to round trip the time, round it down.
-    /// let now : Timestamp = time::SystemTime::now().try_into()?;
-    /// let now : time::SystemTime = now.try_into()?;
+    /// let now: Timestamp = time::SystemTime::now().try_into()?;
+    /// let now: time::SystemTime = now.try_into()?;
     //
     /// let a_week = time::Duration::from_secs(7 * 24 * 60 * 60);
     /// let a_week_later = now + a_week;

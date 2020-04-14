@@ -321,7 +321,7 @@ impl<C> ComponentBundle<C> {
         }
     }
 
-    /// The component's self-signatures.
+    /// Returns the component's self-signatures.
     ///
     /// The signatures are validated, and they are sorted by their
     /// creation time, most recent first.
@@ -350,7 +350,7 @@ impl<C> ComponentBundle<C> {
         &self.self_signatures
     }
 
-    /// The component's third-party certifications.
+    /// Returns the component's third-party certifications.
     ///
     /// The signatures are *not* validated.  They are sorted by their
     /// creation time, most recent first.
@@ -379,7 +379,7 @@ impl<C> ComponentBundle<C> {
         &self.certifications
     }
 
-    /// The component's revocations that were issued by the
+    /// Returns the component's revocations that were issued by the
     /// certificate holder.
     ///
     /// The revocations are validated, and they are sorted by their
@@ -409,7 +409,7 @@ impl<C> ComponentBundle<C> {
         &self.self_revocations
     }
 
-    /// The component's revocations that were issued by other
+    /// Returns the component's revocations that were issued by other
     /// certificates.
     ///
     /// The revocations are *not* validated.  They are sorted by their

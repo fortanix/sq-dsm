@@ -47,7 +47,7 @@
 //! flexible mechanism, called [`Policy`] objects, that allow users to
 //! implement this type of filtering: before a self signature is used,
 //! a policy object is queried to determine whether the `Signature`
-//! should be rejected.  If so, the it is skipped.
+//! should be rejected.  If so, then it is skipped.
 //!
 //! Second, we need an algorithm to determine the most appropriate
 //! self signature.  Obvious non-candidate self signatures are self
@@ -117,7 +117,7 @@
 //! "[Intended Recipients]" subpacket, which more tightly binds the
 //! message to its context.
 //!
-//! # [`ValidComponetAmalgamation`]
+//! # [`ValidComponentAmalgamation`]
 //!
 //! Most operations need to query a `ComponentAmalgamation` for
 //! multiple pieces of information.  Accidentally using a different
@@ -132,12 +132,12 @@
 //! calls clutters the code.
 //!
 //! To mitigate these issues, we have a separate data structure,
-//! `ValidComponetAmalgamation`, which combines a
+//! `ValidComponentAmalgamation`, which combines a
 //! `ComponetAmalgamation`, a `Policy` and a reference time.  It
 //! implements methods that require a `Policy` and reference time, but
 //! instead of requiring the caller to pass them in, it uses the ones
 //! embedded in the data structure.  Further, when the
-//! `ValidComponetAmalgamation` constructor is passed `None` for the
+//! `ValidComponentAmalgamation` constructor is passed `None` for the
 //! reference time, it eagerly stores the current time, and uses that
 //! for all operations.  This approach elegantly solves all of the
 //! aforementioned problems.
@@ -165,7 +165,7 @@
 //! cert.userids()
 //!     .map(|ua| {
 //!         // Use auto deref to get the containing `&ComponentBundle`.
-//!         let b : &ComponentBundle<_> = &ua;
+//!         let b: &ComponentBundle<_> = &ua;
 //!         b
 //!     })
 //!     .collect::<Vec<&UserID>>();
@@ -210,15 +210,15 @@
 //! [`ComponentAmalgamation`]: struct.ComponentAmalgamation.html
 //! [`Cert`]: ../index.html
 //! [is supposed to]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-//! [`ValidComponetAmalgamation`]: struct.ValidComponentAmalgamation.html
+//! [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
 //! [`std::iter::map`]: https://doc.rust-lang.org/std/iter/struct.Map.html
 //! [MD5 collisions]: https://en.wikipedia.org/wiki/MD5
 //! [`Policy`]: ../../policy/index.html
 //! [streaming verifier]: ../../parse/stream.html
 //! [Intended Recipients]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
 //! [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-//! [This discussion]: https://crypto.stackexchange.com/a/12138
 //! [`Deref` trait]: https://doc.rust-lang.org/stable/std/ops/trait.Deref.html
+//! [`ComponentAmalgamation::component`]: struct.ComponentAmalgamation.html#method.component
 use std::time;
 use std::time::SystemTime;
 use std::clone::Clone;
@@ -273,14 +273,14 @@ pub mod key;
 ///
 ///   - The certificate is valid.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
 /// # extern crate sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::policy::{Policy, StandardPolicy};
 ///
-/// const POLICY : &dyn Policy = &StandardPolicy::new();
+/// const POLICY: &dyn Policy = &StandardPolicy::new();
 ///
 /// fn f(ua: UserIDAmalgamation) -> openpgp::Result<()> {
 ///     let ua = ua.with_policy(POLICY, None)?;
@@ -452,7 +452,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     ///     // ...
     /// }
     /// # fn main() -> openpgp::Result<()> {
-    /// #     let p : &dyn Policy = &StandardPolicy::new();
+    /// #     let p: &dyn Policy = &StandardPolicy::new();
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -479,7 +479,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     ///     // ...
     /// }
     /// # fn main() -> openpgp::Result<()> {
-    /// #     let p : &dyn Policy = &StandardPolicy::new();
+    /// #     let p: &dyn Policy = &StandardPolicy::new();
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -511,7 +511,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     ///     // ...
     /// }
     /// # fn main() -> openpgp::Result<()> {
-    /// #     let p : &dyn Policy = &StandardPolicy::new();
+    /// #     let p: &dyn Policy = &StandardPolicy::new();
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -795,7 +795,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     ///     .map(|ua| {
     ///         // The following doesn't work:
     ///         //
-    ///         //   let b : &ComponentBundle<_> = &ua; b
+    ///         //   let b: &ComponentBundle<_> = &ua; b
     ///         //
     ///         // Because ua's lifetime is this closure and autoderef
     ///         // assigns `b` the same lifetime as `ua`.  `bundle()`,
@@ -984,9 +984,9 @@ impl<'a> UserAttributeAmalgamation<'a> {
 /// *certificate* is live.  If you care about that, then you need to
 /// check it separately.
 ///
-/// # Example
+/// # Examples
 ///
-/// Print out information about all non-revoked certificates.
+/// Print out information about all non-revoked User IDs.
 ///
 /// ```
 /// # extern crate sequoia_openpgp as openpgp;
