@@ -2312,6 +2312,46 @@ mod test {
                    + 1 // binding signature
         );
     }
+
+    #[test]
+    fn set_validity_period_two_uids() -> Result<()> {
+        use quickcheck::{Arbitrary, StdThreadGen};
+        let mut gen = StdThreadGen::new(16);
+        let p = &P::new();
+
+        let (cert, _) = CertBuilder::general_purpose(
+            None, Some(UserID::arbitrary(&mut gen)))
+            .add_userid(UserID::arbitrary(&mut gen))
+            .generate()?;
+        let primary_uid = cert.primary_userid(p, None)?.userid().clone();
+        assert_eq!(cert.clone().into_packet_pile().children().count(),
+                   1 // primary key
+                   + 1 // direct key signature
+                   + 1 // userid
+                   + 1 // binding signature
+                   + 1 // userid
+                   + 1 // binding signature
+                   + 1 // subkey
+                   + 1 // binding signature
+        );
+        let cert = check_set_validity_period(p, cert);
+        assert_eq!(cert.clone().into_packet_pile().children().count(),
+                   1 // primary key
+                   + 1 // direct key signature
+                   + 2 // two new direct key signatures
+                   + 1 // userid
+                   + 1 // binding signature
+                   + 2 // two new binding signatures
+                   + 1 // userid
+                   + 1 // binding signature
+                   + 2 // two new binding signatures
+                   + 1 // subkey
+                   + 1 // binding signature
+        );
+        assert_eq!(&primary_uid, cert.primary_userid(p, None)?.userid());
+        Ok(())
+    }
+
     #[test]
     fn set_validity_period_uidless() {
         use crate::types::{Duration, Timestamp};

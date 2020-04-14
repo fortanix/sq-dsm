@@ -1308,50 +1308,58 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                                             now: time::SystemTime)
         -> Result<Vec<Packet>>
     {
+        let hash_algo = HashAlgorithm::SHA512;
         let mut sigs = Vec::new();
-        let binding = self.binding_signature();
-        for template in [
-            // The primary key's binding signature might be the direct
-            // key signature.  To avoid generating two new direct key
-            // signatures, check that we do in fact have a userid
-            // binding signature.
-            if binding.typ() != SignatureType::DirectKey {
-                // Userid binding signature.
-                Some(binding)
-            } else {
-                None
-            },
-            // Also update the direct key signature if we're updating
-            // the primary key's expiration time.
-            if self.primary() {
-                self.direct_key_signature().ok()
-            } else {
-                None
-            },
-        ].iter().filter_map(|&x| x) {
-            // Recompute the signature.
-            let hash_algo = HashAlgorithm::SHA512;
-            let mut hash = hash_algo.context()?;
 
-            self.cert().primary.key().hash(&mut hash);
-            match template.typ() {
-                SignatureType::DirectKey =>
-                    (), // Nothing to hash.
-                SignatureType::GenericCertification
-                    | SignatureType::PersonaCertification
-                    | SignatureType::CasualCertification
-                    | SignatureType::PositiveCertification =>
-                    self.cert.primary_userid()
-                    .expect("this type must be from a userid binding, \
-                             hence there must be a userid valid at `now`")
-                    .userid().hash(&mut hash),
-                SignatureType::SubkeyBinding =>
-                    self.key().hash(&mut hash),
-                _ => unreachable!(),
-            }
+        // There are two cases to consider.  If we are extending the
+        // validity of the primary key, we also need to create new
+        // binding signatures for all userids.
+        if self.primary() {
+            // First, update or create a direct key signature.
+            let template = self.direct_key_signature()
+                .unwrap_or_else(|_| self.binding_signature())
+                .clone();
+
+            let mut builder = signature::Builder::from(template)
+                .set_type(SignatureType::DirectKey);
+            builder.remove_all(
+                signature::subpacket::SubpacketTag::PrimaryUserID);
 
             // Generate the signature.
-            sigs.push(signature::Builder::from(template.clone())
+            let mut hash = hash_algo.context()?;
+            self.cert().primary_key().hash(&mut hash);
+            sigs.push(builder
+                      .set_key_validity_period(expiration)?
+                      .set_signature_creation_time(now)?
+                      .sign_hash(primary_signer, hash)?.into());
+
+            // Second, generate a new binding signature for every
+            // userid.  We need to be careful not to change the
+            // primary userid, so we make it explicit using the
+            // primary userid subpacket.
+            for userid in self.cert().userids() {
+                // To extend the validity of the subkey, create a new
+                // binding signature with updated key validity period.
+                let binding_signature = userid.binding_signature();
+                let mut hash = hash_algo.context()?;
+                self.cert().primary.key().hash(&mut hash);
+                userid.hash(&mut hash);
+                sigs.push(signature::Builder::from(binding_signature.clone())
+                          .set_key_validity_period(expiration)?
+                          .set_signature_creation_time(now)?
+                          .set_primary_userid(
+                              self.cert().primary_userid().map(|primary| {
+                                  userid.userid() == primary.userid()
+                              }).unwrap_or(false))?
+                          .sign_hash(primary_signer, hash)?.into());
+            }
+        } else {
+            // To extend the validity of the subkey, create a new
+            // binding signature with updated key validity period.
+            let mut hash = hash_algo.context()?;
+            self.cert().primary.key().hash(&mut hash);
+            self.key().hash(&mut hash);
+            sigs.push(signature::Builder::from(self.binding_signature().clone())
                       .set_key_validity_period(expiration)?
                       .set_signature_creation_time(now)?
                       .sign_hash(primary_signer, hash)?.into());
