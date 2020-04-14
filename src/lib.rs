@@ -32,4 +32,4 @@ pub extern crate sequoia_core as core;
 pub extern crate sequoia_net as net;
 pub extern crate sequoia_store as store;
 
-extern crate buffered_reader;
+
