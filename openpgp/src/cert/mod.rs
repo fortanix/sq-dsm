@@ -243,7 +243,7 @@ impl fmt::Display for Cert {
 struct ComponentBundles<C>
     where ComponentBundle<C>: cmp::PartialEq
 {
-    bindings: Vec<ComponentBundle<C>>,
+    bundles: Vec<ComponentBundle<C>>,
 }
 
 impl<C> Deref for ComponentBundles<C>
@@ -252,7 +252,7 @@ impl<C> Deref for ComponentBundles<C>
     type Target = Vec<ComponentBundle<C>>;
 
     fn deref(&self) -> &Self::Target {
-        &self.bindings
+        &self.bundles
     }
 }
 
@@ -260,7 +260,7 @@ impl<C> DerefMut for ComponentBundles<C>
     where ComponentBundle<C>: cmp::PartialEq
 {
     fn deref_mut(&mut self) -> &mut Vec<ComponentBundle<C>> {
-        &mut self.bindings
+        &mut self.bundles
     }
 }
 
@@ -268,7 +268,7 @@ impl<C> Into<Vec<ComponentBundle<C>>> for ComponentBundles<C>
     where ComponentBundle<C>: cmp::PartialEq
 {
     fn into(self) -> Vec<ComponentBundle<C>> {
-        self.bindings
+        self.bundles
     }
 }
 
@@ -279,7 +279,7 @@ impl<C> IntoIterator for ComponentBundles<C>
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.bindings.into_iter()
+        self.bundles.into_iter()
     }
 }
 
@@ -287,7 +287,7 @@ impl<C> ComponentBundles<C>
     where ComponentBundle<C>: cmp::PartialEq
 {
     fn new() -> Self {
-        Self { bindings: vec![] }
+        Self { bundles: vec![] }
     }
 }
 
@@ -304,13 +304,13 @@ impl<C> ComponentBundles<C>
         where F: Fn(&C, &C) -> Ordering,
               F2: Fn(&mut C, &mut C)
     {
-        // We dedup by component (not bindings!).  To do this, we need
-        // to sort the bindings by their components.
+        // We dedup by component (not bundles!).  To do this, we need
+        // to sort the bundles by their components.
 
-        self.bindings.sort_unstable_by(
+        self.bundles.sort_unstable_by(
             |a, b| cmp(&a.component, &b.component));
 
-        self.bindings.dedup_by(|a, b| {
+        self.bundles.dedup_by(|a, b| {
             if cmp(&a.component, &b.component) == Ordering::Equal {
                 // Merge.
                 merge(&mut a.component, &mut b.component);
@@ -328,7 +328,7 @@ impl<C> ComponentBundles<C>
         });
 
         // And sort the certificates.
-        for b in self.bindings.iter_mut() {
+        for b in self.bundles.iter_mut() {
             b.sort_and_dedup();
         }
     }
@@ -339,24 +339,24 @@ impl<C> ComponentBundles<C>
 type KeyBundles<KeyPart, KeyRole> = ComponentBundles<Key<KeyPart, KeyRole>>;
 
 /// A vector of subkeys and any associated signatures.
-type SubkeyBindings<KeyPart> = KeyBundles<KeyPart, key::SubordinateRole>;
+type SubkeyBundles<KeyPart> = KeyBundles<KeyPart, key::SubordinateRole>;
 
 /// A vector of key (primary or subkey, public or private) and any
 /// associated signatures.
 #[allow(dead_code)]
-type GenericKeyBindings
+type GenericKeyBundles
     = ComponentBundles<Key<key::UnspecifiedParts, key::UnspecifiedRole>>;
 
-/// A vector of User ID bindings and any associated signatures.
-type UserIDBindings = ComponentBundles<UserID>;
+/// A vector of User ID bundles and any associated signatures.
+type UserIDBundles = ComponentBundles<UserID>;
 
-/// A vector of User Attribute bindings and any associated signatures.
-type UserAttributeBindings = ComponentBundles<UserAttribute>;
+/// A vector of User Attribute bundles and any associated signatures.
+type UserAttributeBundles = ComponentBundles<UserAttribute>;
 
 /// A vector of unknown components and any associated signatures.
 ///
 /// Note: all signatures are stored as certifications.
-type UnknownBindings = ComponentBundles<Unknown>;
+type UnknownBundles = ComponentBundles<Unknown>;
 
 /// Returns the certificate holder's preferences.
 ///
@@ -623,16 +623,16 @@ pub struct Cert {
     primary: PrimaryKeyBundle<key::PublicParts>,
 
     pub(super) // doc-hack, see above
-    userids: UserIDBindings,
+    userids: UserIDBundles,
     pub(super) // doc-hack, see above
-    user_attributes: UserAttributeBindings,
+    user_attributes: UserAttributeBundles,
     pub(super) // doc-hack, see above
-    subkeys: SubkeyBindings<key::PublicParts>,
+    subkeys: SubkeyBundles<key::PublicParts>,
 
     // Unknown components, e.g., some UserAttribute++ packet from the
     // future.
     pub(super) // doc-hack, see above
-    unknowns: UnknownBindings,
+    unknowns: UnknownBundles,
     // Signatures that we couldn't find a place for.
     pub(super) // doc-hack, see above
     bad: Vec<packet::Signature>,
