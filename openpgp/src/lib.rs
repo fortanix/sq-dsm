@@ -172,6 +172,9 @@ fn frozen_time() -> std::time::SystemTime {
     crate::types::Timestamp::from(1554542220 - 1).into()
 }
 
+/// The version of this crate.
+pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 /// Crate result specialization.
 pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
