@@ -83,6 +83,7 @@ build-release:
 	$(MAKE) -Copenpgp-ffi build-release
 	$(MAKE) -Cffi build-release
 	$(MAKE) -Csqv build-release
+	$(MAKE) -Csop build-release
 
 .PHONY: install
 install: build-release
@@ -95,6 +96,7 @@ install: build-release
 	$(MAKE) -Copenpgp-ffi install
 	$(MAKE) -Cffi install
 	$(MAKE) -Csqv install
+	$(MAKE) -Csop install
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/zsh/site-functions
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/share/zsh/site-functions \
 	    $(CARGO_TARGET_DIR)/_sq

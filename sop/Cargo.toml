@@ -1,0 +1,30 @@
+[package]
+name = "sequoia-sop"
+description = "An implementation of the Stateless OpenPGP Command Line Interface using Sequoia"
+version = "0.16.0"
+authors = [
+    "Justus Winter <justus@sequoia-pgp.org>",
+]
+documentation = "https://docs.sequoia-pgp.org/0.16.0/sop"
+homepage = "https://sequoia-pgp.org/"
+repository = "https://gitlab.com/sequoia-pgp/sequoia"
+readme = "README.md"
+keywords = ["cryptography", "openpgp", "pgp", "sop", "stateless-openpgp-protocol"]
+categories = ["cryptography", "command-line-utilities"]
+license = "GPL-2.0-or-later"
+edition = "2018"
+
+[badges]
+gitlab = { repository = "sequoia-pgp/sequoia" }
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+sequoia-openpgp = { path = "../openpgp", version = "0.16" }
+anyhow = "1"
+chrono = "0.4"
+structopt = { version = "0.3", default-features = false }
+thiserror = "1"
+
+[[bin]]
+name = "sqop"
+path = "src/main.rs"

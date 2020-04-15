@@ -34,6 +34,7 @@ sequoia-ipc = { path = "ipc", version = "0.16" }
 sequoia-net = { path = "net", version = "0.16" }
 sequoia-store = { path = "store", version = "0.16" }
 sequoia-tool = { path = "tool", version = "0.16" }
+sequoia-sop = { path = "sop", version = "0.16" }
 sequoia-sqv = { path = "sqv", version = "0.16" }
 sequoia-guide = { path = "guide", version = "0.16" }
 
