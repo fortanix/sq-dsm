@@ -477,9 +477,18 @@ mod def {
 use super::*;
 /// A collection of keys, signatures, and metadata.
 ///
-/// `Cert`s are always canonicalized in the sense that only
-/// `Component`s (User IDs, User Attributes, and Subkeys) with at
-/// least one valid self signature are retained.
+/// `Cert`s are always canonicalized in the sense that `Component`s
+/// (User IDs, User Attributes, and Subkeys) are deduplicated, and
+/// their self signatures and self revocations are checked for
+/// validity.  If a self signature or self revocation is not valid, we
+/// check to see whether it is simply out of place (i.e., belongs to
+/// another component) and, if so, reorder it.
+///
+/// The canonicalization routine does *not* throw away components that
+/// have no self-signatures.  These are returned as usual by, e.g.,
+/// [`Cert::userids`].  Signatures that are not valid for any
+/// component are added to the list of bad signatures.  These can be
+/// retrieved using [`Cert::bad_signatures`].
 ///
 /// Self signatures are sorted so that the newest self signature comes
 /// first.  Components are sorted, but in an undefined manner (i.e.,
@@ -607,6 +616,9 @@ use super::*;
 /// #     Ok(())
 /// # }
 /// ```
+///
+/// [`Cert::userids`]: struct.Cert.html#method.userids
+/// [`Cert::bad_signatures`]: struct.Cert.html#bad_signatures
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cert {
     pub(super) // doc-hack, see above
@@ -3824,6 +3836,32 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             panic!("two user ids");
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn unsigned_components() -> Result<()> {
+        // We have a certificate with an unsigned User ID, User
+        // Attribute, encryption-capable subkey, and signing-capable
+        // subkey.  (Actually, they are signed, but the signatures are
+        // bad.)  We expect that when we parse such a certificate the
+        // unsigned components are not dropped and they appear when
+        // iterating over the components using, e.g., Cert::userids,
+        // but not when we check for valid components.
+
+        let p = &crate::policy::StandardPolicy::new();
+
+        let cert = Cert::from_bytes(
+            crate::tests::key("certificate-with-unsigned-components.asc"))?;
+
+        assert_eq!(cert.userids().count(), 2);
+        assert_eq!(cert.userids().with_policy(p, None).count(), 1);
+
+        assert_eq!(cert.user_attributes().count(), 2);
+        assert_eq!(cert.user_attributes().with_policy(p, None).count(), 1);
+
+        assert_eq!(cert.keys().count(), 1 + 4);
+        assert_eq!(cert.keys().with_policy(p, None).count(), 1 + 2);
         Ok(())
     }
 }
