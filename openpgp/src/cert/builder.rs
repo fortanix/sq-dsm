@@ -689,6 +689,8 @@ mod tests {
 
     #[test]
     fn designated_revokers() -> Result<()> {
+        use std::collections::HashSet;
+
         let p = &P::new();
 
         let fpr1 = "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528";
@@ -708,16 +710,16 @@ mod tests {
             .generate()?;
         let cert = cert.with_policy(p, None)?;
 
-        assert_eq!(cert.revocation_keys().collect::<Vec<_>>(),
-                   revokers.iter().collect::<Vec<_>>());
+        assert_eq!(cert.revocation_keys().collect::<HashSet<_>>(),
+                   revokers.iter().collect::<HashSet<_>>());
 
         // The designated revokers on the direct signature should also
         // be returned when querying components for designated
         // revokers.
-        assert_eq!(cert.primary_key().revocation_keys().collect::<Vec<_>>(),
-                   revokers.iter().collect::<Vec<_>>());
-        assert_eq!(cert.primary_userid()?.revocation_keys().collect::<Vec<_>>(),
-                   revokers.iter().collect::<Vec<_>>());
+        assert_eq!(cert.primary_key().revocation_keys().collect::<HashSet<_>>(),
+                   revokers.iter().collect::<HashSet<_>>());
+        assert_eq!(cert.primary_userid()?.revocation_keys().collect::<HashSet<_>>(),
+                   revokers.iter().collect::<HashSet<_>>());
 
 
         // Do it again, with a key that has no User IDs.
@@ -727,14 +729,14 @@ mod tests {
         let cert = cert.with_policy(p, None)?;
         assert!(cert.primary_userid().is_err());
 
-        assert_eq!(cert.revocation_keys().collect::<Vec<_>>(),
-                   revokers.iter().collect::<Vec<_>>());
+        assert_eq!(cert.revocation_keys().collect::<HashSet<_>>(),
+                   revokers.iter().collect::<HashSet<_>>());
 
         // The designated revokers on the direct signature should also
         // be returned when querying components for designated
         // revokers.
-        assert_eq!(cert.primary_key().revocation_keys().collect::<Vec<_>>(),
-                   revokers.iter().collect::<Vec<_>>());
+        assert_eq!(cert.primary_key().revocation_keys().collect::<HashSet<_>>(),
+                   revokers.iter().collect::<HashSet<_>>());
         Ok(())
     }
 }
