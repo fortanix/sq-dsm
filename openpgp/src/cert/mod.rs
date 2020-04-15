@@ -830,16 +830,6 @@ impl Cert {
         ComponentAmalgamationIter::new(self, self.userids.iter())
     }
 
-    /// Returns the amalgamated primary user attribute at `t`, if any.
-    pub fn primary_user_attribute<'a, T>(&'a self, policy: &'a dyn Policy, t: T)
-        -> Result<ValidUserAttributeAmalgamation<'a>>
-        where T: Into<Option<std::time::SystemTime>>
-    {
-        let t = t.into().unwrap_or_else(std::time::SystemTime::now);
-        ValidComponentAmalgamation::primary(self, self.user_attributes.iter(),
-                                            policy, t, true)
-    }
-
     /// Returns an iterator over the Cert's `UserAttributeBundle`s.
     pub fn user_attributes(&self) -> UserAttributeAmalgamationIter {
         ComponentAmalgamationIter::new(self, self.user_attributes.iter())
@@ -1687,7 +1677,9 @@ impl<'a> ValidCert<'a> {
     pub fn primary_user_attribute(&self)
         -> Result<ValidComponentAmalgamation<'a, UserAttribute>>
     {
-        self.cert.primary_user_attribute(self.policy, self.time)
+        ValidComponentAmalgamation::primary(self.cert,
+                                            self.cert.user_attributes.iter(),
+                                            self.policy(), self.time(), true)
     }
 
     /// Returns an iterator over the Cert's `UserAttributeBundle`s.
