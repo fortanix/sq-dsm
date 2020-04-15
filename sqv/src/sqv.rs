@@ -76,23 +76,19 @@ impl<'a> VerificationHelper for VHelper<'a> {
 
         // Load relevant keys from the keyring.
         for filename in self.keyrings.clone() {
-            certs.extend(
-                CertParser::from_file(filename)?
-                    .unvalidated_cert_filter(|cert, _| {
-                        // We don't skip keys that are valid (not revoked,
-                        // alive, etc.) so that
-                        cert.keys().key_handles(ids.iter()).next().is_some()
-                    })
-                    .map(|certr| {
-                        match certr {
-                            Ok(cert) => cert,
-                            Err(err) => {
-                                eprintln!("Error reading keyring {:?}: {}",
-                                          filename, err);
-                                exit(2);
-                            }
-                        }
-                    }))
+            for cert in CertParser::from_file(filename)
+                .with_context(|| format!("Failed to parse keyring {:?}",
+                                         filename))?
+                .unvalidated_cert_filter(|cert, _| {
+                    // We don't skip keys that are valid (not revoked,
+                    // alive, etc.) so that
+                    cert.keys().key_handles(ids.iter()).next().is_some()
+                })
+            {
+                certs.push(cert.with_context(|| {
+                    format!("Malformed certificate in keyring {:?}", filename)
+                })?);
+            }
         }
 
         // Dedup.  To avoid cloning the certificates, we don't use
