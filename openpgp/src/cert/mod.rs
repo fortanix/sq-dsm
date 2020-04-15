@@ -900,6 +900,19 @@ impl Cert {
         KeyAmalgamationIter::new(self)
     }
 
+    /// Returns a list of any designated revokers for this component.
+    ///
+    /// This function returns the designated revokers listed on both
+    /// this component's binding signature and the certificate's
+    /// direct key signature.
+    ///
+    /// Note: the returned list has not been deduplicated.
+    pub fn revocation_keys<'a>(&'a self, policy: &dyn Policy)
+        -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
+    {
+        self.primary_key().revocation_keys(policy)
+    }
+
     /// Returns the first Cert found in the `PacketPile`.
     pub fn from_packet_pile(p: PacketPile) -> Result<Self> {
         let mut i = parser::CertParser::from_iter(p.into_children());
@@ -1706,19 +1719,6 @@ impl<'a> ValidCert<'a> {
     /// Returns an iterator over the Cert's `UserAttributeBundle`s.
     pub fn user_attributes(&self) -> ValidUserAttributeAmalgamationIter<'a> {
         self.cert.user_attributes().with_policy(self.policy, self.time)
-    }
-
-    /// Returns a list of any designated revokers for this component.
-    ///
-    /// This function returns the designated revokers listed on both
-    /// this component's binding signature and the certificate's
-    /// direct key signature.
-    ///
-    /// Note: the returned list has not been deduplicated.
-    pub fn revocation_keys(&self)
-        -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
-    {
-        self.primary_key().revocation_keys()
     }
 }
 

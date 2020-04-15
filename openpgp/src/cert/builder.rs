@@ -710,16 +710,18 @@ mod tests {
             .generate()?;
         let cert = cert.with_policy(p, None)?;
 
-        assert_eq!(cert.revocation_keys().collect::<HashSet<_>>(),
+        assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
 
         // The designated revokers on the direct signature should also
         // be returned when querying components for designated
         // revokers.
-        assert_eq!(cert.primary_key().revocation_keys().collect::<HashSet<_>>(),
-                   revokers.iter().collect::<HashSet<_>>());
-        assert_eq!(cert.primary_userid()?.revocation_keys().collect::<HashSet<_>>(),
-                   revokers.iter().collect::<HashSet<_>>());
+        assert_eq!(
+            cert.primary_key().revocation_keys(p).collect::<HashSet<_>>(),
+            revokers.iter().collect::<HashSet<_>>());
+        assert_eq!(
+            cert.primary_userid()?.revocation_keys(p).collect::<HashSet<_>>(),
+            revokers.iter().collect::<HashSet<_>>());
 
 
         // Do it again, with a key that has no User IDs.
@@ -729,13 +731,39 @@ mod tests {
         let cert = cert.with_policy(p, None)?;
         assert!(cert.primary_userid().is_err());
 
-        assert_eq!(cert.revocation_keys().collect::<HashSet<_>>(),
+        assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
 
         // The designated revokers on the direct signature should also
         // be returned when querying components for designated
         // revokers.
-        assert_eq!(cert.primary_key().revocation_keys().collect::<HashSet<_>>(),
+        assert_eq!(
+            cert.primary_key().revocation_keys(p).collect::<HashSet<_>>(),
+            revokers.iter().collect::<HashSet<_>>());
+
+        // The designated revokers on all signatures should be
+        // considered.
+        let now = crate::types::Timestamp::now();
+        let then = now.checked_add(crate::types::Duration::days(1)?).unwrap();
+        let (cert,_) = CertBuilder::new()
+            .set_revocation_keys(revokers.clone())
+            .set_creation_time(now)
+            .generate()?;
+
+        // Add a newer direct key signature.
+        use crate::crypto::hash::Hash;
+        let mut hash = HashAlgorithm::SHA512.context()?;
+        cert.primary_key().hash(&mut hash);
+        let mut primary_signer =
+            cert.primary_key().key().clone().parts_into_secret()?
+            .into_keypair()?;
+        let sig = signature::Builder::new(SignatureType::DirectKey)
+            .set_signature_creation_time(then)?
+            .sign_hash(&mut primary_signer, hash)?;
+        let cert = cert.merge_packets(vec![sig.into()])?;
+
+        assert!(cert.with_policy(p, then)?.primary_userid().is_err());
+        assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
         Ok(())
     }
