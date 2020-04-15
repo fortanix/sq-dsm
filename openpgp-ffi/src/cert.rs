@@ -368,7 +368,9 @@ fn pgp_cert_primary_user_id(cert: *const Cert, policy: *const Policy,
 {
     let cert = cert.ref_raw();
     let policy = &**policy.ref_raw();
-    if let Ok(binding) = cert.primary_userid(policy, maybe_time(when)) {
+    if let Ok(binding) = cert.with_policy(policy, maybe_time(when))
+        .and_then(|valid_cert| valid_cert.primary_userid())
+    {
         ffi_return_string!(binding.userid().value())
     } else {
         ptr::null_mut()

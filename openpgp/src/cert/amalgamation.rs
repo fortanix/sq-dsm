@@ -863,7 +863,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     ///
     /// // Make sure Alice is listed as a designated revoker for Bob
     /// // on a component.
-    /// assert_eq!(bob.primary_userid(p, None)?.revocation_keys(p)
+    /// assert_eq!(bob.with_policy(p, None)?.primary_userid()?.revocation_keys(p)
     ///                .collect::<Vec<&RevocationKey>>(),
     ///            vec![ &(&alice).into() ]);
     /// # Ok(()) }

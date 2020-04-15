@@ -389,7 +389,8 @@ fn main() -> Result<()> {
                     let cert = Cert::from_reader(input)?;
                     let addr = m.value_of("address").map(|a| a.to_string())
                         .or_else(|| {
-                            cert.primary_userid(policy, None).ok()
+                            cert.with_policy(policy, None)
+                                .and_then(|vcert| vcert.primary_userid()).ok()
                                 .map(|ca| ca.userid().to_string())
                         });
                     let ac = autocrypt::AutocryptHeader::new_sender(

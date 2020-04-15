@@ -530,7 +530,7 @@ mod tests {
         assert_eq!(cert1.primary_key().pk_algo(),
                    PublicKeyAlgorithm::EdDSA);
         assert!(cert1.subkeys().next().is_none());
-        assert!(cert1.primary_userid(p, None).unwrap()
+        assert!(cert1.with_policy(p, None).unwrap().primary_userid().unwrap()
                 .binding_signature().features().unwrap().supports_mdc());
     }
 

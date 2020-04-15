@@ -412,7 +412,7 @@ type UnknownBindings = ComponentBundles<Unknown>;
 /// # let (cert, _) =
 /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
 /// #     .generate()?;
-/// match cert.primary_userid(p, None)?.preferred_symmetric_algorithms() {
+/// match cert.with_policy(p, None)?.primary_userid()?.preferred_symmetric_algorithms() {
 ///     Some(algos) => {
 ///         println!("Certificate Holder's preferred symmetric algorithms:");
 ///         for (i, algo) in algos.iter().enumerate() {
@@ -815,14 +815,6 @@ impl Cert {
         let t = t.into().unwrap_or_else(std::time::SystemTime::now);
         ValidComponentAmalgamation::primary(self, self.userids.iter(),
                                             policy, t, valid_cert)
-    }
-
-    /// Returns the amalgamated primary userid at `t`, if any.
-    pub fn primary_userid<'a, T>(&'a self, policy: &'a dyn Policy, t: T)
-        -> Result<ValidUserIDAmalgamation<'a>>
-        where T: Into<Option<std::time::SystemTime>>
-    {
-        self.primary_userid_relaxed(policy, t, true)
     }
 
     /// Returns an iterator over the Cert's userids.
@@ -1665,7 +1657,7 @@ impl<'a> ValidCert<'a> {
     /// Returns the amalgamated primary userid, if any.
     pub fn primary_userid(&self) -> Result<ValidUserIDAmalgamation<'a>>
     {
-        self.cert.primary_userid(self.policy, self.time)
+        self.cert.primary_userid_relaxed(self.policy(), self.time(), true)
     }
 
     /// Returns an iterator over the Cert's userids.
@@ -2301,7 +2293,7 @@ mod test {
             None, Some(UserID::arbitrary(&mut gen)))
             .add_userid(UserID::arbitrary(&mut gen))
             .generate()?;
-        let primary_uid = cert.primary_userid(p, None)?.userid().clone();
+        let primary_uid = cert.with_policy(p, None)?.primary_userid()?.userid().clone();
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key
                    + 1 // direct key signature
@@ -2326,7 +2318,7 @@ mod test {
                    + 1 // subkey
                    + 1 // binding signature
         );
-        assert_eq!(&primary_uid, cert.primary_userid(p, None)?.userid());
+        assert_eq!(&primary_uid, cert.with_policy(p, None)?.primary_userid()?.userid());
         Ok(())
     }
 
@@ -3155,9 +3147,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         //
         //   Slim Shady: 2019-09-14T14:21
         //   Eminem:     2019-09-14T14:22
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Eminem");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Eminem");
 
         // A soft-revocation for "Slim Shady".
@@ -3166,9 +3160,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("really-revoked-userid-1-soft-revocation.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Eminem");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Eminem");
 
         // A new self signature for "Slim Shady".  This should
@@ -3178,9 +3174,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("really-revoked-userid-2-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Eminem");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Slim Shady");
 
         // A hard revocation for "Slim Shady".
@@ -3189,9 +3187,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("really-revoked-userid-3-hard-revocation.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Eminem");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Eminem");
 
         // A newer self siganture for "Slim Shady". Unlike for Certs, this
@@ -3201,9 +3201,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("really-revoked-userid-4-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Eminem");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"Slim Shady");
 
         // Play with the primary user id flag.
@@ -3217,9 +3219,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             .max().unwrap();
 
         // There is only a single User ID.
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
 
 
@@ -3230,9 +3234,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-1-add-userid-bbbbb.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"bbbbb");
 
         // Mark aaaaa as primary.  It is now primary and the newest one.
@@ -3241,9 +3247,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-2-make-aaaaa-primary.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
 
         // Update the preferences on bbbbb.  It is now the newest, but
@@ -3253,9 +3261,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-3-make-bbbbb-new-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
 
         // Mark bbbbb as primary.  It is now the newest and marked as
@@ -3265,9 +3275,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-4-make-bbbbb-primary.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"bbbbb");
 
         // Update the preferences on aaaaa.  It is now has the newest
@@ -3278,9 +3290,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-5-make-aaaaa-self-sig.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"bbbbb");
 
         // Hard revoke aaaaa.  Unlike with Certs, a hard revocation is
@@ -3290,9 +3304,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 crate::tests::key("primary-key-6-revoked-aaaaa.pgp")
             ).unwrap()).unwrap();
 
-        assert_eq!(cert.primary_userid(p, selfsig0).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, selfsig0).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"aaaaa");
-        assert_eq!(cert.primary_userid(p, now).unwrap().userid().value(),
+        assert_eq!(cert.with_policy(p, now).unwrap()
+                   .primary_userid().unwrap().userid().value(),
                    b"bbbbb");
     }
 
