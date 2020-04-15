@@ -327,7 +327,9 @@ fn pgp_cert_alive(errp: Option<&mut *mut crate::error::Error>,
 {
     let policy = &**policy.ref_raw();
     ffi_make_fry_from_errp!(errp);
-    ffi_try_status!(cert.ref_raw().alive(policy, maybe_time(when)))
+    let valid_cert = ffi_try_or_status!(
+        cert.ref_raw().with_policy(policy, maybe_time(when)));
+    ffi_try_status!(valid_cert.alive())
 }
 
 /// Sets the key to expire at the given time.

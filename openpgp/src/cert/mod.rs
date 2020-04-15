@@ -146,8 +146,6 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::time;
 
-use anyhow::Context;
-
 use crate::{
     crypto::Signer,
     Error,
@@ -769,18 +767,6 @@ impl Cert {
             .set_reason_for_revocation(code, reason)?
             .build(primary_signer, &self, None)?;
         self.merge_packets(vec![sig.into()])
-    }
-
-    /// Returns whether or not the Cert is alive at `t`.
-    pub fn alive<T>(&self, policy: &dyn Policy, t: T) -> Result<()>
-
-        where T: Into<Option<time::SystemTime>>
-    {
-        let t = t.into();
-        self.primary_key()
-            .with_policy(policy, t).context(
-                "primary key rejected by policy")?
-            .alive()
     }
 
     /// Sets the key to expire in delta seconds.
@@ -1667,7 +1653,7 @@ impl<'a> ValidCert<'a> {
 
     /// Returns whether or not the Cert is alive.
     pub fn alive(&self) -> Result<()> {
-        self.cert.alive(self.policy, self.time)
+        self.primary_key().alive()
     }
 
     /// Returns the amalgamated primary key.
@@ -3585,7 +3571,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             "issue-215-expiration-on-direct-key-sig.pgp")).unwrap();
         assert_match!(
             Error::Expired(_)
-                = cert.alive(p, None).unwrap_err().downcast().unwrap());
+                = cert.with_policy(p, None).unwrap().alive()
+                .unwrap_err().downcast().unwrap());
         assert_match!(
             Error::Expired(_)
                 = cert.primary_key().with_policy(p, None).unwrap()
