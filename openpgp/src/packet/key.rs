@@ -29,7 +29,7 @@
 //! ```rust
 //! # extern crate sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
-//! # use openpgp::parse::{Parse, PacketParser};
+//! # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 //! # use openpgp::cert::prelude::*;
 //! use openpgp::packet::{Key, key};
 //!

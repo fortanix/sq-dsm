@@ -10,7 +10,7 @@ use self::openpgp::packet::header::CTB;
 use self::openpgp::packet::{Header, header::BodyLength, Signature};
 use self::openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
 use self::openpgp::crypto::{SessionKey, S2K};
-use self::openpgp::parse::{map::Map, Parse};
+use self::openpgp::parse::{map::Map, Parse, PacketParserResult};
 
 #[derive(Debug)]
 pub enum Kind {
@@ -65,7 +65,7 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
     let width = width.into().unwrap_or(80);
     let mut dumper = PacketDumper::new(width, mpis);
 
-    while let Ok(mut pp) = ppr {
+    while let PacketParserResult::Some(mut pp) = ppr {
         let additional_fields = match pp.packet {
             Packet::Literal(_) => {
                 let mut prefix = vec![0; 40];
@@ -147,7 +147,7 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
 
     dumper.flush(output)?;
 
-    if let Err(eof) = ppr {
+    if let PacketParserResult::EOF(eof) = ppr {
         if eof.is_message().is_ok() {
             Ok(Kind::Message {
                 encrypted: message_encrypted,

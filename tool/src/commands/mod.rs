@@ -426,7 +426,7 @@ pub fn split(input: &mut dyn io::Read, prefix: &str)
     // This encodes our position in the tree.
     let mut pos = vec![0];
 
-    while let Ok(pp) = ppr {
+    while let PacketParserResult::Some(pp) = ppr {
         if let Some(ref map) = pp.map() {
             let filename = format!(
                 "{}{}--{}{:?}", prefix,
@@ -445,7 +445,7 @@ pub fn split(input: &mut dyn io::Read, prefix: &str)
 
         let old_depth = Some(pp.recursion_depth());
         ppr = pp.recurse()?.1;
-        let new_depth = ppr.as_ref().ok().map(|pp| pp.recursion_depth());
+        let new_depth = ppr.as_ref().map(|pp| pp.recursion_depth());
 
         // Update pos.
         match old_depth.cmp(&new_depth) {
@@ -468,7 +468,7 @@ pub fn join(inputs: Option<clap::Values>, output: &mut dyn io::Write)
     /// OUTPUT.
     fn copy(mut ppr: PacketParserResult, output: &mut dyn io::Write)
             -> Result<()> {
-        while let Ok(pp) = ppr {
+        while let PacketParserResult::Some(pp) = ppr {
             // We (ab)use the mapping feature to create byte-accurate
             // copies.
             for field in pp.map().expect("must be mapped").iter() {

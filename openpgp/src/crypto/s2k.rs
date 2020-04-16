@@ -416,7 +416,7 @@ mod tests {
 
             // Get the next packet.
             let (_, ppr) = pp.next().unwrap();
-            assert!(ppr.is_err());
+            assert!(ppr.is_none());
         }
     }
 

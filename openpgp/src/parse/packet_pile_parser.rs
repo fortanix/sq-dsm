@@ -45,7 +45,7 @@ use buffered_reader::BufferedReader;
 /// # fn f(message_data: &[u8]) -> Result<()> {
 /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
 /// let mut ppr = ppp.recurse()?;
-/// while let Ok(pp) = ppr.as_ref() {
+/// while let Some(pp) = ppr.as_ref() {
 ///     eprintln!("{:?}", pp);
 ///     ppr = ppp.recurse()?;
 /// }
@@ -158,8 +158,8 @@ impl<'a> PacketPileParser<'a> {
     /// it returns the following packet.
     pub fn recurse(&mut self) -> Result<&mut PacketParserResult<'a>> {
         if self.returned_first {
-            match super::packet_parser_result_take(&mut self.ppr) {
-                Ok(pp) => {
+            match self.ppr.take() {
+                PacketParserResult::Some(pp) => {
                     let recursion_depth = pp.recursion_depth();
                     let (packet, ppr) = pp.recurse()?;
                     self.insert_packet(
@@ -167,7 +167,7 @@ impl<'a> PacketPileParser<'a> {
                         recursion_depth as isize);
                     self.ppr = ppr;
                 }
-                eof @ Err(_) => {
+                eof @ PacketParserResult::EOF(_) => {
                     self.ppr = eof;
                 }
             }
@@ -188,8 +188,8 @@ impl<'a> PacketPileParser<'a> {
     /// container; it skips any packets that it may contain.
     pub fn next(&mut self) -> Result<&mut PacketParserResult<'a>> {
         if self.returned_first {
-            match super::packet_parser_result_take(&mut self.ppr) {
-                Ok(pp) => {
+            match self.ppr.take() {
+                PacketParserResult::Some(pp) => {
                     let recursion_depth = pp.recursion_depth();
                     let (packet, ppr) = pp.next()?;
                     self.insert_packet(
@@ -197,7 +197,7 @@ impl<'a> PacketPileParser<'a> {
                         recursion_depth as isize);
                     self.ppr = ppr;
                 },
-                eof @ Err(_) => {
+                eof @ PacketParserResult::EOF(_) => {
                     self.ppr = eof
                 },
             }
@@ -213,7 +213,7 @@ impl<'a> PacketPileParser<'a> {
     /// A top-level packet has a recursion depth of 0.  Packets in a
     /// top-level container have a recursion depth of 1.  Etc.
     pub fn recursion_depth(&self) -> Option<u8> {
-        if let Ok(ref pp) = self.ppr {
+        if let PacketParserResult::Some(ref pp) = self.ppr {
             Some(pp.recursion_depth() as u8)
         } else {
             None
@@ -222,7 +222,7 @@ impl<'a> PacketPileParser<'a> {
 
     /// Returns whether the message has been completely parsed.
     pub fn is_done(&self) -> bool {
-        self.ppr.is_err()
+        self.ppr.is_none()
     }
 
     /// Finishes parsing the message and returns the assembled
@@ -245,7 +245,7 @@ fn test_recurse() -> Result<()> {
     let mut ppp =
         PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))?;
     let mut ppr = ppp.recurse().unwrap();
-    while ppr.is_ok() {
+    while ppr.is_some() {
         count += 1;
         ppr = ppp.recurse().unwrap();
     }
@@ -259,7 +259,7 @@ fn test_next() -> Result<()> {
     let mut ppp =
         PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))?;
     let mut ppr = ppp.recurse().unwrap();
-    while ppr.is_ok() {
+    while ppr.is_some() {
         count += 1;
         ppr = ppp.next().unwrap();
     }
@@ -282,7 +282,7 @@ fn message_parser_reader_interface() {
         crate::tests::message("compressed-data-algo-1.gpg")).unwrap();
     let mut count = 0;
     let mut ppr = ppp.recurse().unwrap();
-    while let Ok(pp) = ppr.as_mut() {
+    while let Some(pp) = ppr.as_mut() {
         count += 1;
         if let Packet::Literal(_) = pp.packet {
             assert_eq!(count, 2);

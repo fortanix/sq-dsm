@@ -1283,7 +1283,7 @@ mod test {
         use super::*;
 
         use crate::Cert;
-        use crate::parse::PacketParser;
+        use crate::parse::{PacketParserResult, PacketParser};
 
         struct Test<'a> {
             key: &'a str,
@@ -1369,7 +1369,7 @@ mod test {
             let mut good = 0;
             let mut ppr = PacketParser::from_bytes(
                 crate::tests::message(test.data)).unwrap();
-            while let Ok(pp) = ppr {
+            while let PacketParserResult::Some(pp) = ppr {
                 if let Packet::Signature(ref sig) = pp.packet {
                     let result = sig.verify(cert.primary_key().key())
                         .map(|_| true).unwrap_or(false);

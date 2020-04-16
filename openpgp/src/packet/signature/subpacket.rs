@@ -34,13 +34,13 @@
 //! # extern crate sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::Packet;
-//! # use openpgp::parse::{Parse, PacketParser};
+//! # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 //! #
 //! # f(include_bytes!("../../../tests/data/messages/signed.gpg"));
 //! #
 //! # fn f(message_data: &[u8]) -> Result<()> {
 //! let mut ppr = PacketParser::from_bytes(message_data)?;
-//! while let Ok(mut pp) = ppr {
+//! while let PacketParserResult::Some(mut pp) = ppr {
 //!     if let Packet::Signature(ref sig) = pp.packet {
 //!         if let Some(fp) = sig.issuer_fingerprint() {
 //!             eprintln!("Signature issued by: {}", fp.to_string());

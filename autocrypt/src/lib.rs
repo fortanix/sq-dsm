@@ -29,7 +29,7 @@ use openpgp::packet::SKESK;
 use openpgp::cert::prelude::*;
 use openpgp::parse::{
     Parse,
-    PacketParser,
+    PacketParserResult, PacketParser,
 };
 use openpgp::serialize::Serialize;
 use openpgp::serialize::stream::{
@@ -568,7 +568,7 @@ impl AutocryptSetupMessage {
         // SK-ESK and a SEIP packet, which contains a Literal data
         // packet.
 
-        let pp = if let Ok(pp) = ppr {
+        let pp = if let PacketParserResult::Some(pp) = ppr {
             pp
         } else {
             return Err(
@@ -590,12 +590,12 @@ impl AutocryptSetupMessage {
         };
 
         let pp = match ppr {
-            Err(_) =>
+            PacketParserResult::EOF(_) =>
                 return Err(
                     Error::MalformedMessage(
                         "Pre-mature EOF after reading SK-ESK packet".into())
                     .into()),
-            Ok(pp) => {
+            PacketParserResult::Some(pp) => {
                 match pp.packet {
                     Packet::SEIP(_) => (),
                     ref p => return Err(
@@ -683,7 +683,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
 
         // Recurse into the SEIP packet.
         let mut ppr = self.pp.recurse()?.1;
-        if ppr.as_ref().ok().map(|pp| pp.recursion_depth()) != Some(1) {
+        if ppr.as_ref().map(|pp| pp.recursion_depth()) != Some(1) {
             return Err(
                 Error::MalformedMessage(
                     "SEIP container empty, but expected a Literal Data packet"
@@ -692,7 +692,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
         }
 
         // Get the literal data packet.
-        let (prefer_encrypt, cert) = if let Ok(mut pp) = ppr {
+        let (prefer_encrypt, cert) = if let PacketParserResult::Some(mut pp) = ppr {
             match pp.packet {
                 Packet::Literal(_) => (),
                 p => return Err(Error::MalformedMessage(
@@ -746,7 +746,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
         };
 
         // Get the MDC packet.
-        if let Ok(pp) = ppr {
+        if let PacketParserResult::Some(pp) = ppr {
             match pp.packet {
                 Packet::MDC(_) => (),
                 ref p => return
@@ -762,7 +762,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
 
         // Make sure we reached the end of the outer message.
         match ppr {
-            Err(pp) => {
+            PacketParserResult::EOF(pp) => {
                 // If we've gotten this far, then the outer message
                 // has the right sequence of packets, but we haven't
                 // carefully checked the nesting.  We do that now.
@@ -771,7 +771,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                         "Invalid OpenPGP Message").into());
                 }
             }
-            Ok(pp) =>
+            PacketParserResult::Some(pp) =>
                 return Err(Error::MalformedMessage(
                     format!("Extraneous packet: {}.", pp.packet.tag()))
                            .into()),

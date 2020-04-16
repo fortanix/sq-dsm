@@ -528,7 +528,7 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
         // ppo.recursion_depth and leave the rest of the message, but
         // it is hard to imagine that that is what the caller wants.
         // Instead of hiding that error, fail fast.
-        if let Ok(ref pp) = ppr {
+        if let PacketParserResult::Some(ref pp) = ppr {
             if pp.recursion_depth() != 0 {
                 return Err(Error::InvalidOperation(
                     format!("Expected top-level packet, \
@@ -542,7 +542,7 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
 
         let mut last_position = 0;
 
-        if ppr.is_err() {
+        if ppr.is_none() {
             // Empty message.
             return Ok(PacketPile::from(Vec::new()));
         }
@@ -593,7 +593,7 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
 
                 container.children_mut().unwrap().push(packet);
 
-                if ppr.is_err() {
+                if ppr.is_none() {
                     break 'outer;
                 }
 
@@ -740,7 +740,7 @@ mod test {
             .try_into().unwrap();
 
         let mut ppr = ppp.recurse().unwrap();
-        while ppr.is_ok() {
+        while ppr.is_some() {
             ppr = ppp.recurse().unwrap();
         }
         let pile = ppp.finish();
@@ -755,7 +755,7 @@ mod test {
             .try_into().unwrap();
 
         let mut ppr = ppp.recurse().unwrap();
-        while let Ok(pp) = ppr.as_mut() {
+        while let Some(pp) = ppr.as_mut() {
             eprintln!("{:?}", pp);
             ppr = ppp.recurse().unwrap();
         }
@@ -799,13 +799,13 @@ mod test {
 
         let mut count = 0;
         loop {
-            if let Ok(pp2) = ppr {
+            if let PacketParserResult::Some(pp2) = ppr {
                 count += 1;
 
                 let packet_depth = pp2.recursion_depth();
                 let pp2 = pp2.recurse().unwrap().1;
                 assert_eq!(packet_depth, count - 1);
-                if pp2.is_ok() {
+                if pp2.is_some() {
                     assert_eq!(pp2.as_ref().unwrap().recursion_depth(), count);
                 }
                 ppr = pp2;
@@ -843,7 +843,7 @@ mod test {
         // recurse should now not recurse.  Since there is nothing
         // following the compressed packet, ppr should be EOF.
         let (packet, ppr) = pp.next().unwrap();
-        assert!(ppr.is_err());
+        assert!(ppr.is_none());
 
         // Get the rest of the content and put the initial byte that
         // we stole back.
@@ -859,7 +859,7 @@ mod test {
 
         // And we're done...
         let ppr = pp.next().unwrap().1;
-        assert!(ppr.is_err());
+        assert!(ppr.is_none());
     }
 
     #[test]
