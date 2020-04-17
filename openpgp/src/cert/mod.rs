@@ -1650,7 +1650,7 @@ impl<'a> ValidCert<'a> {
     ///
     /// That is, this returns an iterator over the primary key and any
     /// subkeys.
-    pub fn keys(&self) -> ValidKeyAmalgamationIter<key::PublicParts, key::UnspecifiedRole> {
+    pub fn keys(&self) -> ValidKeyAmalgamationIter<'a, key::PublicParts, key::UnspecifiedRole> {
         self.cert.keys().with_policy(self.policy, self.time)
     }
 
