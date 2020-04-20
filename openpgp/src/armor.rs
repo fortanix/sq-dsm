@@ -370,12 +370,6 @@ impl<W: Write> Write for Writer<W> {
     }
 }
 
-impl<W: Write> Drop for Writer<W> {
-    fn drop(&mut self) {
-        let _ = self.finalize_armor();
-    }
-}
-
 /// How an ArmorReader should act.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ReaderMode {
