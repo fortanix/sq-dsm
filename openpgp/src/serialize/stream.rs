@@ -355,6 +355,7 @@ impl<'a> ArbitraryWriter<'a> {
     ///     message.write_all(b"\x00")?;                // filename length
     ///     message.write_all(b"\x00\x00\x00\x00")?;    // date
     ///     message.write_all(b"Hello world.")?;        // body
+    ///     message.finalize()?;
     /// }
     /// assert_eq!(b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.",
     ///            sink.as_slice());
@@ -2402,6 +2403,7 @@ mod test {
             ustr.write_all(b"\x00").unwrap(); // fn length
             ustr.write_all(b"\x00\x00\x00\x00").unwrap(); // date
             ustr.write_all(b"Hello world.").unwrap(); // body
+            ustr.finalize().unwrap();
         }
 
         let mut pp = PacketParser::from_bytes(&o).unwrap().unwrap();
@@ -2458,6 +2460,7 @@ mod test {
             let c = c.finalize_one().unwrap().unwrap(); // Pop the Compressor.
             let mut ls = LiteralWriter::new(c).format(T).build().unwrap();
             write!(ls, "three").unwrap();
+            ls.finalize().unwrap();
         }
 
         let pile = PacketPile::from(reference);
@@ -2524,6 +2527,7 @@ mod test {
             let c = ls.finalize_one().unwrap().unwrap();
             let mut ls = LiteralWriter::new(c).format(T).build().unwrap();
             write!(ls, "four").unwrap();
+            ls.finalize().unwrap();
         }
 
         let pile = PacketPile::from(reference);
@@ -2623,6 +2627,7 @@ mod test {
             let mut literal = LiteralWriter::new(encryptor).build()
                 .unwrap();
             literal.write_all(message).unwrap();
+            literal.finalize().unwrap();
         }
 
         // ... and recover it...
@@ -2809,7 +2814,7 @@ mod test {
                     let mut literal = LiteralWriter::new(encryptor).build()
                         .unwrap();
                     literal.write_all(&content).unwrap();
-                    // literal.finalize().unwrap();
+                    literal.finalize().unwrap();
                 }
 
                 for &read_len in &[

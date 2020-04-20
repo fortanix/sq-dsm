@@ -22,9 +22,11 @@ use crate::serialize::{
 pub struct PartialBodyFilter<'a, C: 'a> {
     // The underlying writer.
     //
-    // Because this writer implements `Drop`, we cannot move the inner
-    // writer out of this writer.  We therefore wrap it with `Option`
-    // so that we can `take()` it.
+    // XXX: Opportunity for optimization.  Previously, this writer
+    // implemented `Drop`, so we could not move the inner writer out
+    // of this writer.  We therefore wrapped it with `Option` so that
+    // we can `take()` it.  This writer no longer implements Drop, so
+    // we could avoid the Option here.
     inner: Option<writer::BoxStack<'a, C>>,
 
     // The cookie.
@@ -184,13 +186,6 @@ impl<'a, C: 'a> io::Write for PartialBodyFilter<'a, C> {
     }
 }
 
-impl<'a, C: 'a> Drop for PartialBodyFilter<'a, C> {
-    // Make sure the internal buffer is flushed.
-    fn drop(&mut self) {
-        let _ = self.write_out(&b""[..], true);
-    }
-}
-
 impl<'a, C: 'a> fmt::Debug for PartialBodyFilter<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("PartialBodyFilter")
@@ -257,6 +252,7 @@ mod test {
                 .unwrap();
             pb.write_all(b"0123").unwrap();
             pb.write_all(b"4567").unwrap();
+            pb.finalize().unwrap();
         }
         assert_eq!(&buf,
                    &[8, // no chunking
@@ -274,6 +270,7 @@ mod test {
                 /*   max_chunk_size: */ 16)
                 .unwrap();
             pb.write_all(b"01234567").unwrap();
+            pb.finalize().unwrap();
         }
         assert_eq!(&buf,
                    &[0xe0 + 3, // first chunk
@@ -293,6 +290,7 @@ mod test {
                 /*   max_chunk_size: */ 16)
                 .unwrap();
             pb.write_all(b"012345670123456701234567").unwrap();
+            pb.finalize().unwrap();
         }
         assert_eq!(&buf,
                    &[0xe0 + 4, // first chunk
