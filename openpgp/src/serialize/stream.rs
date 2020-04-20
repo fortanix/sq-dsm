@@ -900,12 +900,6 @@ impl<'a> Signer<'a> {
     }
 }
 
-impl<'a> Drop for Signer<'a> {
-    fn drop(&mut self) {
-        let _ = self.emit_signatures();
-    }
-}
-
 impl<'a> fmt::Debug for Signer<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Signer")
