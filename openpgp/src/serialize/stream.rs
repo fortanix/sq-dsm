@@ -8,11 +8,11 @@
 //!
 //!   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
 //!
-//! To use this interface, a sink implementing [`io::Write`] is wrapped
-//! by [`Message::new`] returning an [`writer::Stack`].  The writer
-//! stack is a structure to compose filters that create the desired
-//! message structure.  There are a number of filters that can be
-//! freely combined:
+//! To use this interface, a sink implementing [`io::Write`] is
+//! wrapped by [`Message::new`] returning a streaming [`Message`].
+//! The writer stack is a structure to compose filters that create the
+//! desired message structure.  There are a number of filters that can
+//! be freely combined:
 //!
 //!   - [`Encryptor`] encrypts data fed into it,
 //!   - [`Compressor`] compresses data,
@@ -25,7 +25,7 @@
 //!
 //!   [`io::Write`]: https://doc.rust-lang.org/nightly/std/io/trait.Write.html
 //!   [`Message::new`]: struct.Message.html#method.new
-//!   [`writer::Stack`]: ../writer/struct.Stack.html
+//!   [`Message`]: struct.Message.html
 //!   [`Encryptor`]: struct.Encryptor.html
 //!   [`Compressor`]: struct.Compressor.html
 //!   [`Padder`]: padding/struct.Padder.html
