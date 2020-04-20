@@ -1770,6 +1770,11 @@ impl<'a> Recipient<'a> {
 /// will be encrypted using the given passwords, and for all given
 /// recipients.
 pub struct Encryptor<'a> {
+    // XXX: Opportunity for optimization.  Previously, this writer
+    // implemented `Drop`, so we could not move the inner writer out
+    // of this writer.  We therefore wrapped it with `Option` so that
+    // we can `take()` it.  This writer no longer implements Drop, so
+    // we could avoid the Option here.
     inner: Option<writer::BoxStack<'a, Cookie>>,
     recipients: Vec<Recipient<'a>>,
     passwords: Vec<Password>,
@@ -2311,12 +2316,6 @@ impl<'a> Encryptor<'a> {
             Err(Error::InvalidOperation(
                 "Inner writer already taken".into()).into())
         }
-    }
-}
-
-impl<'a> Drop for Encryptor<'a> {
-    fn drop(&mut self) {
-        let _ = self.emit_mdc();
     }
 }
 
