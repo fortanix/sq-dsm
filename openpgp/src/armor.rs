@@ -152,13 +152,6 @@ pub struct Writer<W: Write> {
 impl<W: Write> Writer<W> {
     /// Constructs a new filter for the given type of data.
     ///
-    /// Note: To ensure that we can handle errors during writing of
-    /// the armor footer, this object must be consumed by calling
-    /// [`Writer::finalize()`].  If the object is dropped without
-    /// being finalized, we will panic in debug builds.
-    ///
-    ///   [`Writer::finalize()`]: #method.finalize
-    ///
     /// # Example
     ///
     /// ```
@@ -235,17 +228,11 @@ impl<W: Write> Writer<W> {
             // No data was written to us, don't emit anything.
             return Ok(self.sink.take().ok_or_else(Self::e_finalized)?);
         }
-
-        // We need to clear self.sink if this succeeds or not, so be
-        // careful with the result here.  Otherwise, self.sink may
-        // still be present when the object is really dropped,
-        // invoking finalize_armor again.
-        let r = self.finalize_armor();
-        let sink = self.sink.take();
-        if let Err(e) = r {
-            Err(e)
+        self.finalize_armor()?;
+        if let Some(sink) = self.sink.take() {
+            Ok(sink)
         } else {
-            sink.ok_or(Self::e_finalized())
+            Err(Self::e_finalized())
         }
     }
 
@@ -385,9 +372,6 @@ impl<W: Write> Write for Writer<W> {
 
 impl<W: Write> Drop for Writer<W> {
     fn drop(&mut self) {
-        debug_assert!(self.sink.is_none(),
-                      "armor writer dropped without being finalized, \
-                       use armor::Writer::finalize()");
         let _ = self.finalize_armor();
     }
 }
