@@ -214,8 +214,7 @@ impl KeyServer {
                 Ok(u) => u,
             };
 
-        let mut w = match Writer::new(Vec::new(),
-                                      Kind::PublicKey, &[]) {
+        let mut w = match Writer::new(Vec::new(), Kind::PublicKey) {
             Ok(v) => v,
             Err(e) => return Box::new(future::err(e.into())),
         };

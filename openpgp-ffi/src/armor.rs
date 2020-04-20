@@ -389,7 +389,7 @@ pub extern "C" fn pgp_armor_writer_new
     let header: Vec<(&str, &str)> =
         header_.iter().map(|h| (h.0.as_ref(), h.1.as_ref())).collect();
 
-    armor::Writer::new(inner, kind, &header)
+    armor::Writer::with_headers(inner, kind, header)
         .map(|w| WriterKind::Armored(w))
         .map_err(|e| ::anyhow::Error::from(e))
         .move_into_raw(errp)

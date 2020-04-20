@@ -158,7 +158,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> Result<()> {
                 .collect();
 
             let w = create_or_stdout(Some(&key_path), force)?;
-            let mut w = Writer::new(w, Kind::SecretKey, &headers)?;
+            let mut w = Writer::with_headers(w, Kind::SecretKey, headers)?;
             cert.as_tsk().serialize(&mut w)?;
             w.finalize()?;
         }
@@ -171,7 +171,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> Result<()> {
             headers.insert(0, ("Comment", "Revocation certificate for"));
 
             let w = create_or_stdout(Some(&rev_path), force)?;
-            let mut w = Writer::new(w, Kind::Signature, &headers)?;
+            let mut w = Writer::with_headers(w, Kind::Signature, headers)?;
             Packet::Signature(rev).serialize(&mut w)?;
             w.finalize()?;
         }

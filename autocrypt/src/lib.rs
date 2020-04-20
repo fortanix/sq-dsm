@@ -482,7 +482,7 @@ impl AutocryptSetupMessage {
         }
 
         let mut armor_writer =
-            armor::Writer::new(w, armor::Kind::Message, &headers[..])?;
+            armor::Writer::with_headers(w, armor::Kind::Message, headers)?;
 
         {
             // Passphrase-Format header with value numeric9x4
@@ -493,10 +493,10 @@ impl AutocryptSetupMessage {
             let m = LiteralWriter::new(m).build()?;
 
             // The inner message is an ASCII-armored encoded Cert.
-            let mut w = armor::Writer::new(
+            let mut w = armor::Writer::with_headers(
                 m, armor::Kind::SecretKey,
-                &[ (&"Autocrypt-Prefer-Encrypt"[..],
-                    self.prefer_encrypt().unwrap_or(&"nopreference"[..])) ])?;
+                vec![("Autocrypt-Prefer-Encrypt",
+                      self.prefer_encrypt().unwrap_or(&"nopreference"[..]))])?;
 
             self.cert.as_tsk().serialize(&mut w)?;
             let m = w.finalize()?;

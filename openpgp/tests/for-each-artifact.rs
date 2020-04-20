@@ -193,8 +193,7 @@ fn for_all_packets<F>(src: &Path, mut fun: F) -> openpgp::Result<()>
                         let mut sink = io::stderr();
                         let mut w = openpgp::armor::Writer::new(
                             &mut sink,
-                            openpgp::armor::Kind::File,
-                            &[])?;
+                            openpgp::armor::Kind::File)?;
                         packet.serialize(&mut w)?;
                         w.finalize()?;
                         return Err(e);

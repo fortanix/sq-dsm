@@ -86,7 +86,7 @@ fn sign_data(policy: &dyn Policy,
             } else {
                 armor::Kind::Message
             },
-            &[])?;
+            Vec::new())?;
     }
 
     let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;

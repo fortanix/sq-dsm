@@ -93,12 +93,12 @@ impl<T: Write> From<openpgp::armor::Writer<T>> for Writer<T> {
 }
 
 impl<T: Write> Writer<T> {
-    pub fn armor(self, kind: openpgp::armor::Kind, headers: &[(&str, &str)])
+    pub fn armor(self, kind: openpgp::armor::Kind, headers: Vec<(&str, &str)>)
                  -> openpgp::Result<Self>
     {
         match self {
             Writer::Binary { inner } =>
-                Ok(openpgp::armor::Writer::new(inner, kind, headers)?
+                Ok(openpgp::armor::Writer::with_headers(inner, kind, headers)?
                    .into()),
             Writer::Armored { .. } =>
                 Err(openpgp::Error::InvalidOperation("already armored".into())
@@ -136,7 +136,7 @@ fn create_or_stdout_pgp(f: Option<&str>, force: bool,
     let sink = create_or_stdout(f, force)?;
     let mut sink = Writer::from(sink);
     if ! binary {
-        sink = sink.armor(kind, &[])?;
+        sink = sink.armor(kind, Vec::new())?;
     }
     Ok(sink)
 }
@@ -178,9 +178,9 @@ fn serialize_keyring(mut output: &mut dyn io::Write, certs: &[Cert], binary: boo
     let headers: Vec<_> = headers.iter()
         .map(|value| ("Comment", value.as_str()))
         .collect();
-    let mut output = armor::Writer::new(&mut output,
-                                        armor::Kind::PublicKey,
-                                        &headers)?;
+    let mut output = armor::Writer::with_headers(&mut output,
+                                                 armor::Kind::PublicKey,
+                                                 headers)?;
     for cert in certs {
         cert.serialize(&mut output)?;
     }

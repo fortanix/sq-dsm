@@ -116,7 +116,8 @@ impl<'a> Encoder<'a> {
             .map(|value| ("Comment", value.as_str()))
             .collect();
 
-        let mut w = armor::Writer::new(o, armor::Kind::PublicKey, &headers)?;
+        let mut w =
+            armor::Writer::with_headers(o, armor::Kind::PublicKey, headers)?;
         if export {
             self.cert.export(&mut w)?;
         } else {

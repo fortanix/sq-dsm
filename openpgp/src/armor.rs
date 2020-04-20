@@ -160,8 +160,36 @@ impl<W: Write> Writer<W> {
     /// use openpgp::armor::{Writer, Kind};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> std::io::Result<()> {
-    /// let mut writer = Writer::new(Vec::new(), Kind::File,
-    ///     &[ ("Key", "Value") ][..])?;
+    /// let mut writer = Writer::new(Vec::new(), Kind::File)?;
+    /// writer.write_all(b"Hello world!")?;
+    /// let buffer = writer.finalize()?;
+    /// assert_eq!(
+    ///     String::from_utf8_lossy(&buffer),
+    ///     "-----BEGIN PGP ARMORED FILE-----
+    ///
+    /// SGVsbG8gd29ybGQh
+    /// =s4Gu
+    /// -----END PGP ARMORED FILE-----
+    /// ");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn new(inner: W, kind: Kind) -> Result<Self> {
+        Self::with_headers(inner, kind, Option::<(&str, &str)>::None)
+    }
+
+    /// Constructs a new filter for the given type of data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::io::{Read, Write, Cursor};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::armor::{Writer, Kind};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> std::io::Result<()> {
+    /// let mut writer = Writer::with_headers(Vec::new(), Kind::File,
+    ///     vec![ ("Key", "Value") ])?;
     /// writer.write_all(b"Hello world!")?;
     /// let buffer = writer.finalize()?;
     /// assert_eq!(
@@ -176,7 +204,12 @@ impl<W: Write> Writer<W> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(inner: W, kind: Kind, headers: &[(&str, &str)]) -> Result<Self> {
+    pub fn with_headers<I, K, V>(inner: W, kind: Kind, headers: I)
+                                 -> Result<Self>
+        where I: IntoIterator<Item = (K, V)>,
+              K: AsRef<str>,
+              V: AsRef<str>,
+    {
         let mut w = Writer {
             sink: inner,
             kind,
@@ -192,7 +225,8 @@ impl<W: Write> Writer<W> {
             write!(&mut cur, "{}{}", kind.begin(), LINE_ENDING)?;
 
             for h in headers {
-                write!(&mut cur, "{}: {}{}", h.0, h.1, LINE_ENDING)?;
+                write!(&mut cur, "{}: {}{}", h.0.as_ref(), h.1.as_ref(),
+                       LINE_ENDING)?;
             }
 
             // A blank line separates the headers from the body.
@@ -1294,7 +1328,7 @@ mod test {
     fn enarmor() {
         for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
             let mut w =
-                Writer::new(Vec::new(), Kind::File, &[]).unwrap();
+                Writer::new(Vec::new(), Kind::File).unwrap();
             w.write(&[]).unwrap();  // Avoid zero-length optimization.
             w.write_all(bin).unwrap();
             let buf = w.finalize().unwrap();
@@ -1306,7 +1340,7 @@ mod test {
     #[test]
     fn enarmor_bytewise() {
         for (bin, asc) in TEST_BIN.iter().zip(TEST_ASC.iter()) {
-            let mut w = Writer::new(Vec::new(), Kind::File, &[]).unwrap();
+            let mut w = Writer::new(Vec::new(), Kind::File).unwrap();
             w.write(&[]).unwrap();  // Avoid zero-length optimization.
             for b in bin.iter() {
                 w.write(&[*b]).unwrap();
@@ -1321,12 +1355,12 @@ mod test {
     fn drop_writer() {
         // No ASCII frame shall be emitted if the writer is dropped
         // unused.
-        assert!(Writer::new(Vec::new(), Kind::File, &[]).unwrap()
+        assert!(Writer::new(Vec::new(), Kind::File).unwrap()
                 .finalize().unwrap().is_empty());
 
         // However, if the user insists, we will encode a zero-byte
         // string.
-        let mut w = Writer::new(Vec::new(), Kind::File, &[]).unwrap();
+        let mut w = Writer::new(Vec::new(), Kind::File).unwrap();
         w.write(&[]).unwrap();
         let buf = w.finalize().unwrap();
         assert_eq!(
@@ -1567,7 +1601,7 @@ mod test {
                 return true;
             }
 
-            let mut w = Writer::new(Vec::new(), kind, &[]).unwrap();
+            let mut w = Writer::new(Vec::new(), kind).unwrap();
             w.write_all(&payload).unwrap();
             let encoded = w.finalize().unwrap();
 
