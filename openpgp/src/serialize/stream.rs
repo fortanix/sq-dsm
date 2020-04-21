@@ -1068,7 +1068,7 @@ impl<'a> Signer<'a> {
         self
     }
 
-    /// Finalizes the signer, returning the writer stack.
+    /// Builds the signer, returning the writer stack.
     ///
     /// The most useful filter to push to the writer stack next is the
     /// [`LiteralWriter`].  Note, if you are creating a signed OpenPGP
@@ -1403,7 +1403,7 @@ impl<'a> LiteralWriter<'a> {
         Ok(self)
     }
 
-    /// Finalizes the literal writer, returning the writer stack.
+    /// Builds the literal writer, returning the writer stack.
     ///
     /// The next step is to write the payload to the writer stack.
     ///
@@ -1643,7 +1643,7 @@ impl<'a> Compressor<'a> {
         self
     }
 
-    /// Finalizes the compressor, returning the writer stack.
+    /// Builds the compressor, returning the writer stack.
     ///
     /// The most useful filter to push to the writer stack next is the
     /// [`Signer`] or the [`LiteralWriter`].  Finally, literal data
@@ -2421,7 +2421,7 @@ impl<'a> Encryptor<'a> {
     // A page, 3 per mille overhead.
     const AEAD_CHUNK_SIZE : usize = 4096;
 
-    /// Finalizes the encryptor, returning the writer stack.
+    /// Builds the encryptor, returning the writer stack.
     ///
     /// The most useful filters to push to the writer stack next are
     /// the [`Padder`] or [`Compressor`], and after that the
