@@ -236,6 +236,16 @@ impl<W: Write> Writer<W> {
         Ok(w)
     }
 
+    /// Returns a reference to the inner writer.
+    pub fn get_ref(&self) -> &W {
+        &self.sink
+    }
+
+    /// Returns a mutable reference to the inner writer.
+    pub fn get_mut(&mut self) -> &mut W {
+        &mut self.sink
+    }
+
     fn finalize_headers(&mut self) -> Result<()> {
         if ! self.dirty {
             self.dirty = true;
