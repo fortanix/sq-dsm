@@ -2663,7 +2663,7 @@ mod test {
         key.set_creation_time(t1).unwrap();
         let mut pair = key.clone().into_keypair().unwrap();
         let (bind1, rev1, bind2, rev2) = {
-            let bind1 = signature::Builder::new(SignatureType::DirectKey)
+            let bind1 = signature::SignatureBuilder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
                 .set_key_flags(&KeyFlags::default()).unwrap()
                 .set_signature_creation_time(t1).unwrap()
@@ -2673,7 +2673,7 @@ mod test {
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                 .sign_direct_key(&mut pair).unwrap();
 
-            let rev1 = signature::Builder::new(SignatureType::KeyRevocation)
+            let rev1 = signature::SignatureBuilder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t2).unwrap()
                 .set_reason_for_revocation(ReasonForRevocation::KeySuperseded,
                                            &b""[..]).unwrap()
@@ -2681,7 +2681,7 @@ mod test {
                 .set_issuer(key.keyid()).unwrap()
                 .sign_direct_key(&mut pair).unwrap();
 
-            let bind2 = signature::Builder::new(SignatureType::DirectKey)
+            let bind2 = signature::SignatureBuilder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
                 .set_key_flags(&KeyFlags::default()).unwrap()
                 .set_signature_creation_time(t3).unwrap()
@@ -2691,7 +2691,7 @@ mod test {
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                 .sign_direct_key(&mut pair).unwrap();
 
-            let rev2 = signature::Builder::new(SignatureType::KeyRevocation)
+            let rev2 = signature::SignatureBuilder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t4).unwrap()
                 .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
                                            &b""[..]).unwrap()
@@ -3348,7 +3348,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         const N: usize = 5;
         for (t, offset) in &[ (t2, 0), (t4, 0), (t3, 1 * N), (t1, 3 * N) ] {
             for i in 0..N {
-                let binding = signature::Builder::new(SignatureType::DirectKey)
+                let binding = signature::SignatureBuilder::new(SignatureType::DirectKey)
                     .set_features(&Features::sequoia()).unwrap()
                     .set_key_flags(&KeyFlags::default()).unwrap()
                     .set_signature_creation_time(t1).unwrap()
@@ -3416,7 +3416,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             let sig_template
-                = signature::Builder::new(SignatureType::GenericCertification)
+                = signature::SignatureBuilder::new(SignatureType::GenericCertification)
                       .set_trust_signature(255, 120)
                       .unwrap();
 
@@ -3537,7 +3537,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let mut fake_key = packet::Unknown::new(
             packet::Tag::PublicSubkey, anyhow::anyhow!("fake key"));
         fake_key.set_body("fake key".into());
-        let fake_binding = signature::Builder::new(SignatureType::SubkeyBinding)
+        let fake_binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_issuer(primary_pair.public().keyid())?
             .set_issuer_fingerprint(primary_pair.public().fingerprint())?
             .sign_standalone(&mut primary_pair)?;
@@ -3621,7 +3621,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let subkey_sec: Key<_, key::SubordinateRole> =
             key::Key4::generate_ecc(false, Curve::Cv25519)?.into();
         let subkey_pub = subkey_sec.clone().take_secret().0;
-        let builder = signature::Builder::new(SignatureType::SubkeyBinding)
+        let builder = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::default()
                            .set_transport_encryption(true))?;
         let binding = subkey_sec.bind(&mut primary_pair, &cert, builder)?;
@@ -3668,7 +3668,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let uid: UserID = "foo@example.org".into();
         let sig = uid.bind(
             &mut primary_pair, &cert,
-            signature::Builder::new(SignatureType::PositiveCertification))?;
+            signature::SignatureBuilder::new(SignatureType::PositiveCertification))?;
         let cert = cert.merge_packets(vec![
             uid.into(),
             sig.into(),

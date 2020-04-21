@@ -322,7 +322,7 @@ impl Hash for Signature4 {
     }
 }
 
-impl Hash for signature::Builder {
+impl Hash for signature::SignatureBuilder {
     /// Adds the `Signature` to the provided hash context.
     fn hash(&self, hash: &mut Context) {
         use crate::serialize::MarshalInto;
@@ -389,7 +389,7 @@ impl Hash for signature::Builder {
 impl Signature {
     /// Computes the message digest of standalone signatures.
     pub fn hash_standalone<'a, S>(sig: S) -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder>
+        where S: Into<&'a signature::SignatureBuilder>
     {
         let sig = sig.into();
         let mut h = sig.hash_algo().context()?;
@@ -403,7 +403,7 @@ impl Signature {
 
     /// Computes the message digest of timestamp signatures.
     pub fn hash_timestamp<'a, S>(sig: S) -> Result<Vec<u8>>
-        where S: Into<&'a signature::Builder>
+        where S: Into<&'a signature::SignatureBuilder>
     {
         Self::hash_standalone(sig)
     }
@@ -413,7 +413,7 @@ impl Signature {
     pub fn hash_direct_key<'a, P, S>(sig: S, key: &Key<P, key::PrimaryRole>)
         -> Result<Vec<u8>>
         where P: key::KeyParts,
-              S: Into<&'a signature::Builder>,
+              S: Into<&'a signature::SignatureBuilder>,
     {
 
         let sig = sig.into();
@@ -436,7 +436,7 @@ impl Signature {
         -> Result<Vec<u8>>
         where P: key::KeyParts,
               Q: key::KeyParts,
-              S: Into<&'a signature::Builder>
+              S: Into<&'a signature::SignatureBuilder>
     {
 
         let sig = sig.into();
@@ -460,7 +460,7 @@ impl Signature {
         -> Result<Vec<u8>>
         where P: key::KeyParts,
               Q: key::KeyParts,
-              S: Into<&'a signature::Builder>
+              S: Into<&'a signature::SignatureBuilder>
     {
         Self::hash_subkey_binding(sig.into(), key, subkey)
     }
@@ -472,7 +472,7 @@ impl Signature {
                                          userid: &UserID)
         -> Result<Vec<u8>>
         where P: key::KeyParts,
-              S: Into<&'a signature::Builder>
+              S: Into<&'a signature::SignatureBuilder>
     {
         let sig = sig.into();
         let mut h = sig.hash_algo().context()?;
@@ -494,7 +494,7 @@ impl Signature {
         ua: &UserAttribute)
         -> Result<Vec<u8>>
         where P: key::KeyParts,
-              S: Into<&'a signature::Builder>,
+              S: Into<&'a signature::SignatureBuilder>,
     {
 
         let sig = sig.into();

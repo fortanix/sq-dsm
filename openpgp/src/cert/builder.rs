@@ -319,7 +319,7 @@ impl CertBuilder {
         }));
         packets.push(sig.clone().into());
 
-        let sig = signature::Builder::from(sig.clone());
+        let sig = signature::SignatureBuilder::from(sig.clone());
 
         // Remove subpackets that needn't be copied into the binding
         // signatures.
@@ -357,7 +357,7 @@ impl CertBuilder {
             subkey.set_creation_time(creation_time)?;
 
             let mut builder =
-                signature::Builder::new(SignatureType::SubkeyBinding)
+                signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
                 .set_signature_creation_time(creation_time)?
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512)
@@ -382,7 +382,7 @@ impl CertBuilder {
                 // We need to create a primary key binding signature.
                 let mut subkey_signer = subkey.clone().into_keypair().unwrap();
                 let backsig =
-                    signature::Builder::new(SignatureType::PrimaryKeyBinding)
+                    signature::SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
                     .set_signature_creation_time(creation_time)?
                     // GnuPG wants at least a 512-bit hash for P521 keys.
                     .set_hash_algo(HashAlgorithm::SHA512)
@@ -424,7 +424,7 @@ impl CertBuilder {
             .unwrap_or(self.ciphersuite)
             .generate_key(&KeyFlags::default().set_certification(true))?;
         key.set_creation_time(creation_time)?;
-        let mut sig = signature::Builder::new(SignatureType::DirectKey)
+        let mut sig = signature::SignatureBuilder::new(SignatureType::DirectKey)
             // GnuPG wants at least a 512-bit hash for P521 keys.
             .set_hash_algo(HashAlgorithm::SHA512)
             .set_features(&Features::sequoia())?
@@ -757,7 +757,7 @@ mod tests {
         let mut primary_signer =
             cert.primary_key().key().clone().parts_into_secret()?
             .into_keypair()?;
-        let sig = signature::Builder::new(SignatureType::DirectKey)
+        let sig = signature::SignatureBuilder::new(SignatureType::DirectKey)
             .set_signature_creation_time(then)?
             .sign_hash(&mut primary_signer, hash)?;
         let cert = cert.merge_packets(vec![sig.into()])?;

@@ -637,7 +637,7 @@ pub struct Signer<'a> {
     signers: Vec<Box<dyn crypto::Signer + 'a>>,
     intended_recipients: Vec<Fingerprint>,
     detached: bool,
-    template: signature::Builder,
+    template: signature::SignatureBuilder,
     creation_time: Option<SystemTime>,
     hash: crypto::hash::Context,
     cookie: Cookie,
@@ -724,14 +724,14 @@ impl<'a> Signer<'a> {
         where S: crypto::Signer + 'a
     {
         Self::with_template(inner, signer,
-                            signature::Builder::new(SignatureType::Binary))
+                            signature::SignatureBuilder::new(SignatureType::Binary))
     }
 
     /// Creates a signer with a given signature template.
     ///
     /// Signs the message with the given [`crypto::Signer`] like
     /// [`Signer::new`], but allows more control over the generated
-    /// signatures.  The given [`signature::Builder`] is used to
+    /// signatures.  The given [`signature::SignatureBuilder`] is used to
     /// create all the signatures.
     ///
     /// For every signature, the creation time is set to the current
@@ -744,7 +744,7 @@ impl<'a> Signer<'a> {
     ///
     ///   [`crypto::Signer`]: ../../crypto/trait.Signer.html
     ///   [`Signer::new`]: #method.new
-    ///   [`signature::Builder`]: ../../packet/signature/struct.Builder.html
+    ///   [`signature::SignatureBuilder`]: ../../packet/signature/struct.Builder.html
     ///   [`Signer::creation_time`]: #method.creation_time
     ///   [`Signer::hash_algo`]: #method.hash_algo
     ///   [`Signer::add_intended_recipient`]: #method.add_intended_recipient
@@ -777,7 +777,7 @@ impl<'a> Signer<'a> {
     /// let message = Message::new(&mut sink);
     /// let message = Signer::with_template(
     ///     message, signing_keypair,
-    ///     signature::Builder::new(SignatureType::Text)
+    ///     signature::SignatureBuilder::new(SignatureType::Text)
     ///         .add_notation("issuer@starfleet.command", "Jean-Luc Picard",
     ///                       None, true)?)
     ///     // Further customize the `Signer` here.
@@ -790,7 +790,7 @@ impl<'a> Signer<'a> {
     pub fn with_template<S, T>(inner: Message<'a>, signer: S, template: T)
                                -> Self
         where S: crypto::Signer + 'a,
-              T: Into<signature::Builder>,
+              T: Into<signature::SignatureBuilder>,
     {
         let inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;

@@ -299,7 +299,7 @@ fn create_key() {
     let mut sk_signer = subkey.clone().into_keypair().unwrap();
 
     // 1st direct key signature valid from t1 on
-    let mut b = signature::Builder::new(SignatureType::DirectKey)
+    let mut b = signature::SignatureBuilder::new(SignatureType::DirectKey)
         .set_features(&Features::sequoia()).unwrap()
         .set_key_flags(&KeyFlags::default()
                        .set_signing(true).set_certification(true)).unwrap()
@@ -311,13 +311,13 @@ fn create_key() {
     let direct1 = b.sign_direct_key(&mut signer).unwrap();
 
     // 1st subkey binding signature valid from t_sk_binding on
-    b = signature::Builder::new(SignatureType::SubkeyBinding)
+    b = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
         .set_key_flags(&KeyFlags::default().set_signing(true)).unwrap()
         .set_signature_creation_time(t_sk_binding).unwrap()
         .set_issuer_fingerprint(key.fingerprint()).unwrap()
         .set_issuer(key.fingerprint().into()).unwrap()
         .set_embedded_signature(
-            signature::Builder::new(SignatureType::PrimaryKeyBinding)
+            signature::SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
                 .set_signature_creation_time(t_sk_binding).unwrap()
                 .set_issuer_fingerprint(subkey.fingerprint()).unwrap()
                 .set_issuer(subkey.keyid()).unwrap()
@@ -326,7 +326,7 @@ fn create_key() {
     let sk_bind1 = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
 
     // 2nd direct key signature valid from t3 on
-    b = signature::Builder::new(SignatureType::DirectKey)
+    b = signature::SignatureBuilder::new(SignatureType::DirectKey)
         .set_features(&Features::sequoia()).unwrap()
         .set_key_flags(&KeyFlags::default()
                        .set_signing(true).set_certification(true)).unwrap()
@@ -338,13 +338,13 @@ fn create_key() {
     let direct2 = b.sign_direct_key(&mut signer).unwrap();
 
     // 2nd subkey binding signature valid from t3 on
-    let mut b = signature::Builder::new(SignatureType::SubkeyBinding)
+    let mut b = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
         .set_key_flags(&KeyFlags::default().set_signing(true)).unwrap()
         .set_signature_creation_time(t3).unwrap()
         .set_issuer_fingerprint(key.fingerprint()).unwrap()
         .set_issuer(key.fingerprint().into()).unwrap()
         .set_embedded_signature(
-            signature::Builder::new(SignatureType::PrimaryKeyBinding)
+            signature::SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
                 .set_signature_creation_time(t3).unwrap()
                 .set_issuer_fingerprint(subkey.fingerprint()).unwrap()
                 .set_issuer(subkey.keyid()).unwrap()
@@ -374,7 +374,7 @@ fn create_key() {
         ("unknown", Some(ReasonForRevocation::Unknown(200))),
     ] {
         // Revocation sig valid from t2 on
-        let mut b = signature::Builder::new(SignatureType::KeyRevocation)
+        let mut b = signature::SignatureBuilder::new(SignatureType::KeyRevocation)
             .set_signature_creation_time(t2).unwrap()
             .set_issuer_fingerprint(key.fingerprint()).unwrap()
             .set_issuer(key.fingerprint().into()).unwrap();
@@ -401,7 +401,7 @@ fn create_key() {
         cert.serialize(&mut fd).unwrap();
 
         // Again, this time we revoke the subkey.
-        let mut b = signature::Builder::new(SignatureType::SubkeyRevocation)
+        let mut b = signature::SignatureBuilder::new(SignatureType::SubkeyRevocation)
             .set_signature_creation_time(t2).unwrap()
             .set_issuer_fingerprint(key.fingerprint()).unwrap()
             .set_issuer(key.fingerprint().into()).unwrap();
@@ -429,7 +429,7 @@ fn create_key() {
     }
 
     // 0th message sig before t1
-    let sig0 = signature::Builder::new(SignatureType::Binary)
+    let sig0 = signature::SignatureBuilder::new(SignatureType::Binary)
         .set_signature_creation_time(t0).unwrap()
         .set_issuer_fingerprint(key.fingerprint()).unwrap()
         .set_issuer(key.fingerprint().into()).unwrap()
@@ -438,7 +438,7 @@ fn create_key() {
     Packet::from(sig0).serialize(&mut fd).unwrap();
 
     // 0th message sig before t1, subkey
-    let sig0 = signature::Builder::new(SignatureType::Binary)
+    let sig0 = signature::SignatureBuilder::new(SignatureType::Binary)
         .set_signature_creation_time(t0).unwrap()
         .set_issuer_fingerprint(subkey.fingerprint()).unwrap()
         .set_issuer(subkey.fingerprint().into()).unwrap()
@@ -447,7 +447,7 @@ fn create_key() {
     Packet::from(sig0).serialize(&mut fd).unwrap();
 
     // 1st message sig between t1 and t2
-    b = signature::Builder::new(SignatureType::Binary)
+    b = signature::SignatureBuilder::new(SignatureType::Binary)
         .set_signature_creation_time(t12).unwrap()
         .set_issuer_fingerprint(key.fingerprint()).unwrap()
         .set_issuer(key.fingerprint().into()).unwrap();
@@ -456,7 +456,7 @@ fn create_key() {
     Packet::from(sig1).serialize(&mut fd).unwrap();
 
     // 1st message sig between t1 and t2, subkey
-    b = signature::Builder::new(SignatureType::Binary)
+    b = signature::SignatureBuilder::new(SignatureType::Binary)
         .set_signature_creation_time(t12).unwrap()
         .set_issuer_fingerprint(subkey.fingerprint()).unwrap()
         .set_issuer(subkey.fingerprint().into()).unwrap();
@@ -465,7 +465,7 @@ fn create_key() {
     Packet::from(sig1).serialize(&mut fd).unwrap();
 
     // 2nd message sig between t2 and t3
-    b = signature::Builder::new(SignatureType::Binary)
+    b = signature::SignatureBuilder::new(SignatureType::Binary)
         .set_signature_creation_time(t23).unwrap()
         .set_issuer_fingerprint(key.fingerprint()).unwrap()
         .set_issuer(key.fingerprint().into()).unwrap();
@@ -474,7 +474,7 @@ fn create_key() {
     Packet::from(sig2).serialize(&mut fd).unwrap();
 
     // 2nd message sig between t2 and t3, subkey
-    b = signature::Builder::new(SignatureType::Binary)
+    b = signature::SignatureBuilder::new(SignatureType::Binary)
         .set_signature_creation_time(t23).unwrap()
         .set_issuer_fingerprint(subkey.fingerprint()).unwrap()
         .set_issuer(subkey.fingerprint().into()).unwrap();
@@ -483,7 +483,7 @@ fn create_key() {
     Packet::from(sig2).serialize(&mut fd).unwrap();
 
     // 3rd message sig between t3 and now
-    b = signature::Builder::new(SignatureType::Binary)
+    b = signature::SignatureBuilder::new(SignatureType::Binary)
         .set_signature_creation_time(std::time::SystemTime::now()).unwrap()
         .set_issuer_fingerprint(key.fingerprint()).unwrap()
         .set_issuer(key.fingerprint().into()).unwrap();
@@ -492,7 +492,7 @@ fn create_key() {
     Packet::from(sig3).serialize(&mut fd).unwrap();
 
     // 3rd message sig between t3 and now, subkey
-    b = signature::Builder::new(SignatureType::Binary)
+    b = signature::SignatureBuilder::new(SignatureType::Binary)
         .set_signature_creation_time(std::time::SystemTime::now()).unwrap()
         .set_issuer_fingerprint(subkey.fingerprint()).unwrap()
         .set_issuer(subkey.fingerprint().into()).unwrap();

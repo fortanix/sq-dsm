@@ -47,7 +47,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// let subkey: Key<_, key::SubordinateRole> =
     ///     Key4::generate_ecc(false, Curve::Cv25519)?
     ///     .into();
-    /// let builder = signature::Builder::new(SignatureType::SubkeyBinding)
+    /// let builder = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(&flags)?;
     /// let binding = subkey.bind(&mut keypair, &cert, builder)?;
     ///
@@ -61,7 +61,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///            1);
     /// # Ok(()) }
     pub fn bind(&self, signer: &mut dyn Signer, cert: &Cert,
-                signature: signature::Builder)
+                signature: signature::SignatureBuilder)
         -> Result<Signature>
     {
         signature
@@ -103,7 +103,7 @@ impl UserID {
     /// // Generate a userid and a binding signature.
     /// let userid = UserID::from("test@example.org");
     /// let builder =
-    ///     signature::Builder::new(SignatureType::PositiveCertification);
+    ///     signature::SignatureBuilder::new(SignatureType::PositiveCertification);
     /// let binding = userid.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the userid and binding signature into the Cert.
@@ -113,7 +113,7 @@ impl UserID {
     /// assert_eq!(cert.userids().len(), 1);
     /// # Ok(()) }
     pub fn bind(&self, signer: &mut dyn Signer, cert: &Cert,
-                signature: signature::Builder)
+                signature: signature::SignatureBuilder)
                 -> Result<Signature>
     {
         signature
@@ -194,7 +194,7 @@ impl UserID {
                 format!("Invalid signature type: {}", t)).into()),
             None => SignatureType::GenericCertification,
         };
-        let mut sig = signature::Builder::new(typ);
+        let mut sig = signature::SignatureBuilder::new(typ);
         if let Some(algo) = hash_algo.into() {
             sig = sig.set_hash_algo(algo);
         }
@@ -241,7 +241,7 @@ impl UserAttribute {
     ///         Image::Private(100, vec![0, 1, 2].into_boxed_slice())),
     /// ])?;
     /// let builder =
-    ///     signature::Builder::new(SignatureType::PositiveCertification);
+    ///     signature::SignatureBuilder::new(SignatureType::PositiveCertification);
     /// let binding = user_attr.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the user attribute and binding signature into the Cert.
@@ -251,7 +251,7 @@ impl UserAttribute {
     /// assert_eq!(cert.user_attributes().count(), 1);
     /// # Ok(()) }
     pub fn bind(&self, signer: &mut dyn Signer, cert: &Cert,
-                signature: signature::Builder)
+                signature: signature::SignatureBuilder)
         -> Result<Signature>
     {
         signature
@@ -337,7 +337,7 @@ impl UserAttribute {
                 format!("Invalid signature type: {}", t)).into()),
             None => SignatureType::GenericCertification,
         };
-        let mut sig = signature::Builder::new(typ);
+        let mut sig = signature::SignatureBuilder::new(typ);
         if let Some(algo) = hash_algo.into() {
             sig = sig.set_hash_algo(algo);
         }

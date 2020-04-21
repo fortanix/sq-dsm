@@ -1945,7 +1945,7 @@ impl SubpacketAreas {
 }
 
 impl Deref for Signature4 {
-    type Target = signature::Builder;
+    type Target = signature::SignatureBuilder;
 
     fn deref(&self) -> &Self::Target {
         &self.fields
@@ -1959,11 +1959,11 @@ impl DerefMut for Signature4 {
 }
 
 // We'd like to implement Deref for Signature4 for both
-// signature::Builder and SubpacketArea.  Unfortunately, it is
+// signature::SignatureBuilder and SubpacketArea.  Unfortunately, it is
 // only possible to implement Deref for one of them.  Since
 // SubpacketArea has more methods with much more documentation,
 // implement deref for that, and write provider forwarders for
-// signature::Builder.
+// signature::SignatureBuilder.
 impl Signature4 {
     /// Gets the version.
     pub fn version(&self) -> u8 {
@@ -1986,7 +1986,7 @@ impl Signature4 {
     }
 }
 
-impl signature::Builder {
+impl signature::SignatureBuilder {
     /// Sets the value of the Creation Time subpacket.
     pub fn set_signature_creation_time<T>(mut self, creation_time: T)
                                           -> Result<Self>
@@ -2444,7 +2444,7 @@ fn accessors() {
     let pk_algo = PublicKeyAlgorithm::EdDSA;
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context().unwrap();
-    let mut sig = signature::Builder::new(crate::types::SignatureType::Binary);
+    let mut sig = signature::SignatureBuilder::new(crate::types::SignatureType::Binary);
     let mut key: crate::packet::key::SecretKey =
         crate::packet::key::Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
     let mut keypair = key.clone().into_keypair().unwrap();
@@ -3265,7 +3265,7 @@ fn issuer_default() -> Result<()> {
 
     let hash_algo = HashAlgorithm::SHA512;
     let hash = hash_algo.context()?;
-    let sig = signature::Builder::new(crate::types::SignatureType::Binary);
+    let sig = signature::SignatureBuilder::new(crate::types::SignatureType::Binary);
     let key: crate::packet::key::SecretKey =
         crate::packet::key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
     let mut keypair = key.into_keypair()?;
@@ -3279,7 +3279,7 @@ fn issuer_default() -> Result<()> {
     let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
 
     // issuer subpacket present, do not override
-    let mut sig = signature::Builder::new(crate::types::SignatureType::Binary);
+    let mut sig = signature::SignatureBuilder::new(crate::types::SignatureType::Binary);
 
     sig = sig.set_issuer(fp.clone().into())?;
     let sig_ = sig.clone().sign_hash(&mut keypair, hash.clone())?;
@@ -3288,7 +3288,7 @@ fn issuer_default() -> Result<()> {
     assert!(sig_.issuer_fingerprint().is_none());
 
     // issuer_fingerprint subpacket present, do not override
-    let mut sig = signature::Builder::new(crate::types::SignatureType::Binary);
+    let mut sig = signature::SignatureBuilder::new(crate::types::SignatureType::Binary);
 
     sig = sig.set_issuer_fingerprint(fp.clone())?;
     let sig_ = sig.clone().sign_hash(&mut keypair, hash.clone())?;

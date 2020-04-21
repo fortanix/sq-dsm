@@ -50,7 +50,7 @@ mod integration {
 //             Some(SecretKey::Unencrypted{ ref mpis }) => mpis,
 //             _ => unreachable!(),
 //         };
-//         let mut b = signature::Builder::new(SignatureType::Binary);
+//         let mut b = signature::SignatureBuilder::new(SignatureType::Binary);
 //         b.set_signature_creation_time(time::now()).unwrap();
 //         b.set_issuer_fingerprint(key.fingerprint()).unwrap();
 //         b.set_issuer(key.fingerprint().into()).unwrap();

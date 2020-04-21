@@ -70,7 +70,7 @@ use crate::cert::prelude::*;
 /// # Ok(())
 /// # }
 pub struct CertRevocationBuilder {
-    builder: signature::Builder,
+    builder: signature::SignatureBuilder,
 }
 
 impl CertRevocationBuilder {
@@ -78,7 +78,7 @@ impl CertRevocationBuilder {
     pub fn new() -> Self {
         Self {
             builder:
-                signature::Builder::new(SignatureType::KeyRevocation)
+                signature::SignatureBuilder::new(SignatureType::KeyRevocation)
         }
     }
 
@@ -126,7 +126,7 @@ impl CertRevocationBuilder {
 }
 
 impl Deref for CertRevocationBuilder {
-    type Target = signature::Builder;
+    type Target = signature::SignatureBuilder;
 
     fn deref(&self) -> &Self::Target {
         &self.builder
@@ -194,7 +194,7 @@ impl Deref for CertRevocationBuilder {
 /// # Ok(()) }
 /// ```
 pub struct SubkeyRevocationBuilder {
-    builder: signature::Builder,
+    builder: signature::SignatureBuilder,
 }
 
 impl SubkeyRevocationBuilder {
@@ -202,7 +202,7 @@ impl SubkeyRevocationBuilder {
     pub fn new() -> Self {
         Self {
             builder:
-                signature::Builder::new(SignatureType::SubkeyRevocation)
+                signature::SignatureBuilder::new(SignatureType::SubkeyRevocation)
         }
     }
 
@@ -244,7 +244,7 @@ impl SubkeyRevocationBuilder {
 }
 
 impl Deref for SubkeyRevocationBuilder {
-    type Target = signature::Builder;
+    type Target = signature::SignatureBuilder;
 
     fn deref(&self) -> &Self::Target {
         &self.builder
@@ -312,7 +312,7 @@ impl Deref for SubkeyRevocationBuilder {
 /// # Ok(()) }
 /// ```
 pub struct UserIDRevocationBuilder {
-    builder: signature::Builder,
+    builder: signature::SignatureBuilder,
 }
 
 impl UserIDRevocationBuilder {
@@ -320,7 +320,7 @@ impl UserIDRevocationBuilder {
     pub fn new() -> Self {
         Self {
             builder:
-                signature::Builder::new(SignatureType::CertificationRevocation)
+                signature::SignatureBuilder::new(SignatureType::CertificationRevocation)
         }
     }
 
@@ -361,7 +361,7 @@ impl UserIDRevocationBuilder {
 }
 
 impl Deref for UserIDRevocationBuilder {
-    type Target = signature::Builder;
+    type Target = signature::SignatureBuilder;
 
     fn deref(&self) -> &Self::Target {
         &self.builder
@@ -432,7 +432,7 @@ impl Deref for UserIDRevocationBuilder {
 /// # Ok(()) }
 /// ```
 pub struct UserAttributeRevocationBuilder {
-    builder: signature::Builder,
+    builder: signature::SignatureBuilder,
 }
 
 impl UserAttributeRevocationBuilder {
@@ -440,7 +440,7 @@ impl UserAttributeRevocationBuilder {
     pub fn new() -> Self {
         Self {
             builder:
-                signature::Builder::new(SignatureType::CertificationRevocation)
+                signature::SignatureBuilder::new(SignatureType::CertificationRevocation)
         }
     }
 
@@ -481,7 +481,7 @@ impl UserAttributeRevocationBuilder {
 }
 
 impl Deref for UserAttributeRevocationBuilder {
-    type Target = signature::Builder;
+    type Target = signature::SignatureBuilder;
 
     fn deref(&self) -> &Self::Target {
         &self.builder

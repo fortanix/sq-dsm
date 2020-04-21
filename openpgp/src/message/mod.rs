@@ -842,7 +842,7 @@ mod tests {
             crate::packet::key::Key4::generate_ecc(true, crate::types::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
-        let sig = crate::packet::signature::Builder::new(SignatureType::Binary)
+        let sig = crate::packet::signature::SignatureBuilder::new(SignatureType::Binary)
             .sign_hash(&mut pair, hash.context().unwrap()).unwrap();
 
         // 0: OnePassSig
@@ -954,7 +954,7 @@ mod tests {
             crate::packet::key::Key4::generate_ecc(true, crate::types::Curve::Ed25519)
             .unwrap().into();
         let mut pair = key.clone().into_keypair().unwrap();
-        let sig = crate::packet::signature::Builder::new(SignatureType::Binary)
+        let sig = crate::packet::signature::SignatureBuilder::new(SignatureType::Binary)
             .sign_hash(&mut pair, hash.context().unwrap()).unwrap();
 
         // 0: Signature

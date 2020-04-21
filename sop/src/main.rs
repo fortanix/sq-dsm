@@ -152,7 +152,7 @@ fn real_main() -> Result<()> {
             let message = stdout(no_armor, armor::Kind::Signature)?;
             let mut signer = Signer::with_template(
                 message, signers.pop().expect("at least one"),
-                signature::Builder::new(as_.into()))
+                signature::SignatureBuilder::new(as_.into()))
                 .hash_algo(hash_algos.get(0).cloned().unwrap_or_default())?
                 .detached();
             for s in signers {
@@ -318,7 +318,7 @@ fn real_main() -> Result<()> {
             // Maybe sign the message.
             if let Some(s) = signers.pop() {
                 let mut signer = Signer::with_template(
-                    message, s, signature::Builder::new(as_.into()))
+                    message, s, signature::SignatureBuilder::new(as_.into()))
                     .hash_algo(hash_algos.get(0).cloned()
                                .unwrap_or_default())?;
                 for s in signers {

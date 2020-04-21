@@ -1321,7 +1321,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                 .unwrap_or_else(|_| self.binding_signature())
                 .clone();
 
-            let mut builder = signature::Builder::from(template)
+            let mut builder = signature::SignatureBuilder::from(template)
                 .set_type(SignatureType::DirectKey);
             builder.remove_all(
                 signature::subpacket::SubpacketTag::PrimaryUserID);
@@ -1345,7 +1345,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                 let mut hash = hash_algo.context()?;
                 self.cert().primary.key().hash(&mut hash);
                 userid.hash(&mut hash);
-                sigs.push(signature::Builder::from(binding_signature.clone())
+                sigs.push(signature::SignatureBuilder::from(binding_signature.clone())
                           .set_key_validity_period(expiration)?
                           .set_signature_creation_time(now)?
                           .set_primary_userid(
@@ -1360,7 +1360,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
             let mut hash = hash_algo.context()?;
             self.cert().primary.key().hash(&mut hash);
             self.key().hash(&mut hash);
-            sigs.push(signature::Builder::from(self.binding_signature().clone())
+            sigs.push(signature::SignatureBuilder::from(self.binding_signature().clone())
                       .set_key_validity_period(expiration)?
                       .set_signature_creation_time(now)?
                       .sign_hash(primary_signer, hash)?.into());

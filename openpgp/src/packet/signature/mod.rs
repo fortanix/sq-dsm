@@ -88,7 +88,7 @@ pub mod subpacket;
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct Builder {
+pub struct SignatureBuilder {
     /// Version of the signature packet. Must be 4.
     version: u8,
     /// Type of signature.
@@ -101,9 +101,9 @@ pub struct Builder {
     subpackets: SubpacketAreas,
 }
 
-impl ArbitraryBounded for Builder {
+impl ArbitraryBounded for SignatureBuilder {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
-        Builder {
+        SignatureBuilder {
             // XXX: Make this more interesting once we dig other
             // versions.
             version: 4,
@@ -115,9 +115,9 @@ impl ArbitraryBounded for Builder {
     }
 }
 
-impl_arbitrary_with_bound!(Builder);
+impl_arbitrary_with_bound!(SignatureBuilder);
 
-impl Deref for Builder {
+impl Deref for SignatureBuilder {
     type Target = SubpacketAreas;
 
     fn deref(&self) -> &Self::Target {
@@ -125,16 +125,16 @@ impl Deref for Builder {
     }
 }
 
-impl DerefMut for Builder {
+impl DerefMut for SignatureBuilder {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.subpackets
     }
 }
 
-impl Builder {
-    /// Returns a new `Builder` object.
+impl SignatureBuilder {
+    /// Returns a new `SignatureBuilder` object.
     pub fn new(typ: SignatureType) ->  Self {
-        Builder {
+        SignatureBuilder {
             version: 4,
             typ,
             pk_algo: PublicKeyAlgorithm::Unknown(0),
@@ -383,7 +383,7 @@ impl Builder {
     }
 }
 
-impl From<Signature> for Builder {
+impl From<Signature> for SignatureBuilder {
     fn from(sig: Signature) -> Self {
         match sig {
             Signature::V4(sig) => sig.into(),
@@ -392,13 +392,13 @@ impl From<Signature> for Builder {
     }
 }
 
-impl From<Signature4> for Builder {
+impl From<Signature4> for SignatureBuilder {
     fn from(sig: Signature4) -> Self {
         sig.fields
     }
 }
 
-impl<'a> From<&'a Signature> for &'a Builder {
+impl<'a> From<&'a Signature> for &'a SignatureBuilder {
     fn from(sig: &'a Signature) -> Self {
         match sig {
             Signature::V4(ref sig) => sig.into(),
@@ -407,7 +407,7 @@ impl<'a> From<&'a Signature> for &'a Builder {
     }
 }
 
-impl<'a> From<&'a Signature4> for &'a Builder {
+impl<'a> From<&'a Signature4> for &'a SignatureBuilder {
     fn from(sig: &'a Signature4) -> Self {
         &sig.fields
     }
@@ -428,8 +428,8 @@ pub struct Signature4 {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
 
-    /// Fields as configured using the builder.
-    pub(crate) fields: Builder,
+    /// Fields as configured using the SignatureBuilder.
+    pub(crate) fields: SignatureBuilder,
 
     /// Lower 16 bits of the signed hash value.
     digest_prefix: [u8; 2],
@@ -515,10 +515,10 @@ impl std::hash::Hash for Signature4 {
 impl Signature4 {
     /// Creates a new signature packet.
     ///
-    /// If you want to sign something, consider using the [`Builder`]
+    /// If you want to sign something, consider using the [`SignatureBuilder`]
     /// interface.
     ///
-    /// [`Builder`]: struct.Builder.html
+    /// [`SignatureBuilder`]: struct.SignatureBuilder.html
     pub fn new(typ: SignatureType, pk_algo: PublicKeyAlgorithm,
                hash_algo: HashAlgorithm, hashed_area: SubpacketArea,
                unhashed_area: SubpacketArea,
@@ -526,7 +526,7 @@ impl Signature4 {
                mpis: mpi::Signature) -> Self {
         Signature4 {
             common: Default::default(),
-            fields: Builder {
+            fields: SignatureBuilder {
                 version: 4,
                 typ,
                 pk_algo,
@@ -1225,7 +1225,7 @@ impl ArbitraryBounded for Signature4 {
         use mpi::MPI;
         use PublicKeyAlgorithm::*;
 
-        let fields = Builder::arbitrary_bounded(g, depth);
+        let fields = SignatureBuilder::arbitrary_bounded(g, depth);
         #[allow(deprecated)]
         let mpis = match fields.pk_algo() {
             RSAEncryptSign | RSASign => mpi::Signature::RSA  {
@@ -1438,7 +1438,7 @@ mod test {
                 .into_keypair()
                 .expect("secret key is encrypted/missing");
 
-            let sig = Builder::new(SignatureType::Binary);
+            let sig = SignatureBuilder::new(SignatureType::Binary);
             let hash = hash_algo.context().unwrap();
 
             // Make signature.
@@ -1466,7 +1466,7 @@ mod test {
             .unwrap().into();
         let msg = b"Hello, World";
         let mut pair = key.into_keypair().unwrap();
-        let sig = Builder::new(SignatureType::Binary)
+        let sig = SignatureBuilder::new(SignatureType::Binary)
             .set_signature_creation_time(
                 std::time::SystemTime::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
@@ -1524,7 +1524,7 @@ mod test {
 
         hash.update(&msg[..]);
 
-        Builder::new(SignatureType::Text)
+        SignatureBuilder::new(SignatureType::Text)
             .sign_hash(&mut pair, hash).unwrap();
     }
 
@@ -1569,7 +1569,7 @@ mod test {
         // First, make sure any superfluous subpackets are removed,
         // yet the Issuer, IssuerFingerprint and EmbeddedSignature
         // ones are kept.
-        let mut builder = Builder::new(SignatureType::Text);
+        let mut builder = SignatureBuilder::new(SignatureType::Text);
         builder.unhashed_area_mut().add(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp.clone()), false).unwrap())
             .unwrap();
@@ -1583,7 +1583,7 @@ mod test {
             false).unwrap()).unwrap();
 
         // Build and add an embedded sig.
-        let embedded_sig = Builder::new(SignatureType::PrimaryKeyBinding)
+        let embedded_sig = SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
             .sign_hash(&mut pair, hash.clone()).unwrap();
         builder.unhashed_area_mut().add(Subpacket::new(
             SubpacketValue::EmbeddedSignature(embedded_sig.into()), false)
@@ -1607,7 +1607,7 @@ mod test {
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
         let mut pair = key.into_keypair().unwrap();
 
-        let sig = Builder::new(SignatureType::Standalone)
+        let sig = SignatureBuilder::new(SignatureType::Standalone)
             .set_signature_creation_time(
                 std::time::SystemTime::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
@@ -1639,7 +1639,7 @@ mod test {
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
         let mut pair = key.into_keypair().unwrap();
 
-        let sig = Builder::new(SignatureType::Timestamp)
+        let sig = SignatureBuilder::new(SignatureType::Timestamp)
             .set_signature_creation_time(
                 std::time::SystemTime::now()).unwrap()
             .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()

@@ -1533,7 +1533,7 @@ mod test {
         let pk = cert.primary_key().key().parts_as_secret()?;
         let subkey: key::SecretSubkey
             = Key4::generate_rsa(4096)?.into();
-        let binding = signature::Builder::new(SignatureType::SubkeyBinding)
+        let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::default().set_transport_encryption(true))?
             .set_issuer_fingerprint(cert.fingerprint())?
             .set_issuer(cert.keyid())?
@@ -1557,7 +1557,7 @@ mod test {
         let pk = cert.primary_key().key().parts_as_secret()?;
         let subkey: key::SecretSubkey
             = key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
-        let binding = signature::Builder::new(SignatureType::SubkeyBinding)
+        let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::default().set_transport_encryption(true))?
             .set_issuer_fingerprint(cert.fingerprint())?
             .set_issuer(cert.keyid())?
@@ -1685,7 +1685,7 @@ mod test {
                 .into_keypair().unwrap();
 
             // Create a signature.
-            let sig = signature::Builder::new(SignatureType::Binary)
+            let sig = signature::SignatureBuilder::new(SignatureType::Binary)
                 .set_signature_creation_time(
                     std::time::SystemTime::now()).unwrap()
                 .set_issuer_fingerprint(key.fingerprint()).unwrap()

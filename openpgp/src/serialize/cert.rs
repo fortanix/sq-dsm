@@ -769,7 +769,7 @@ mod test {
             Key4::generate_ecc(false, Curve::Cv25519).unwrap().into();
         let key_binding = key.bind(
             &mut keypair, &cert,
-            signature::Builder::new(SignatureType::SubkeyBinding)
+            signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
                 .set_key_flags(
                     &KeyFlags::default().set_transport_encryption(true))
                 .unwrap()
@@ -778,7 +778,7 @@ mod test {
         let uid = UserID::from("foo");
         let uid_binding = uid.bind(
             &mut keypair, &cert,
-            signature::Builder::from(
+            signature::SignatureBuilder::from(
                 cert.primary_key().with_policy(p, None).unwrap()
                     .direct_key_signature().unwrap().clone())
                     .set_type(SignatureType::PositiveCertification)
@@ -789,7 +789,7 @@ mod test {
         ]).unwrap();
         let ua_binding = ua.bind(
             &mut keypair, &cert,
-            signature::Builder::from(
+            signature::SignatureBuilder::from(
                 cert.primary_key().with_policy(p, None).unwrap()
                     .direct_key_signature().unwrap().clone())
                 .set_type(SignatureType::PositiveCertification)
