@@ -14,6 +14,7 @@
 //! desired message structure.  There are a number of filters that can
 //! be freely combined:
 //!
+//!   - [`Armorer`] applies ASCII-Armor to the stream,
 //!   - [`Encryptor`] encrypts data fed into it,
 //!   - [`Compressor`] compresses data,
 //!   - [`Padder`] pads data,
@@ -26,6 +27,7 @@
 //!   [`io::Write`]: https://doc.rust-lang.org/nightly/std/io/trait.Write.html
 //!   [`Message::new`]: struct.Message.html#method.new
 //!   [`Message`]: struct.Message.html
+//!   [`Armorer`]: struct.Armorer.html
 //!   [`Encryptor`]: struct.Encryptor.html
 //!   [`Compressor`]: struct.Compressor.html
 //!   [`Padder`]: padding/struct.Padder.html
@@ -67,9 +69,9 @@
 //!
 //! This example demonstrates how to create the most common OpenPGP
 //! message structure (see [Section 11.3 of RFC 4880]).  The plaintext
-//! is first signed, then compressed, and finally encrypted.  Our
-//! example pads the plaintext instead of compressing it, but the
-//! resulting message structure is the same.
+//! is first signed, then compressed, encrypted, and finally ASCII
+//! armored.  Our example pads the plaintext instead of compressing
+//! it, but the resulting message structure is the same.
 //!
 //! ```
 //! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -78,7 +80,7 @@
 //! use openpgp::policy::StandardPolicy;
 //! use openpgp::cert::prelude::*;
 //! use openpgp::serialize::stream::{
-//!     Message, Encryptor, Signer, LiteralWriter,
+//!     Message, Armorer, Encryptor, Signer, LiteralWriter,
 //!     padding::{Padder, padme},
 //! };
 //! # use openpgp::parse::Parse;
@@ -106,6 +108,7 @@
 //!
 //! # let mut sink = vec![];
 //! let message = Message::new(&mut sink);
+//! let message = Armorer::new(message).build()?;
 //! let message = Encryptor::for_recipients(message, recipients).build()?;
 //! // Reduce metadata leakage by concealing the message size.
 //! let message = Padder::new(message, padme)?;
@@ -124,6 +127,7 @@ use std::io::{self, Write};
 use std::time::SystemTime;
 
 use crate::{
+    armor,
     crypto,
     Error,
     Fingerprint,
@@ -321,6 +325,201 @@ impl<'a> Message<'a> {
 impl<'a> From<&'a mut dyn io::Write> for Message<'a> {
     fn from(w: &'a mut dyn io::Write) -> Self {
         writer::Generic::new(w, Cookie::new(0))
+    }
+}
+
+
+/// Applies ASCII Armor to the message.
+///
+/// ASCII armored data (see [Section 6 of RFC 4880]) is a OpenPGP data
+/// stream that has been base64-encoded and decorated with a header,
+/// footer, and optional headers representing key-value pairs.  It can
+/// be safely transmitted over protocols that can only transmit
+/// printable characters, and can handled by end users (e.g. copied
+/// and pasted).
+///
+///   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+pub struct Armorer<'a> {
+    kind: armor::Kind,
+    headers: Vec<(String, String)>,
+    inner: Message<'a>,
+}
+
+impl<'a> Armorer<'a> {
+    /// Creates a new armoring filter.
+    ///
+    /// By default, the type of the armored data is set to
+    /// [`armor::Kind`]`::Message`.  To change it, use
+    /// [`Armorer::kind`].  To add headers to the armor, use
+    /// [`Armorer::add_header`].
+    ///
+    ///   [`armor::Kind`]: ../../armor/enum.Kind.html
+    ///   [`Armorer::kind`]: #method.kind
+    ///   [`Armorer::add_header`]: #method.add_header
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use std::io::Write;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::serialize::stream::{Message, Armorer, LiteralWriter};
+    ///
+    /// let mut sink = vec![];
+    /// {
+    ///     let message = Message::new(&mut sink);
+    ///     let message = Armorer::new(message)
+    ///         // Customize the `Armorer` here.
+    ///         .build()?;
+    ///     let mut message = LiteralWriter::new(message).build()?;
+    ///     message.write_all(b"Hello world.")?;
+    ///     message.finalize()?;
+    /// }
+    /// assert_eq!("-----BEGIN PGP MESSAGE-----\n\
+    ///             \n\
+    ///             yxJiAAAAAABIZWxsbyB3b3JsZC4=\n\
+    ///             =6nHv\n\
+    ///             -----END PGP MESSAGE-----\n",
+    ///            std::str::from_utf8(&sink)?);
+    /// # Ok(()) }
+    pub fn new(inner: Message<'a>) -> Self {
+        Self {
+            kind: armor::Kind::Message,
+            headers: Vec::with_capacity(0),
+            inner,
+        }
+    }
+
+    /// Changes the kind of armoring.
+    ///
+    /// The armor header and footer changes depending on the type of
+    /// wrapped data.  See [`armor::Kind`] for the possible values.
+    ///
+    ///   [`armor::Kind`]: ../../armor/enum.Kind.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use std::io::Write;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::armor;
+    /// use openpgp::serialize::stream::{Message, Armorer, Signer};
+    /// # use sequoia_openpgp::policy::StandardPolicy;
+    /// # use openpgp::{Result, Cert};
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::crypto::KeyPair;
+    /// # use openpgp::parse::Parse;
+    /// # use openpgp::parse::stream::*;
+    /// # let p = &StandardPolicy::new();
+    /// # let cert = Cert::from_bytes(&include_bytes!(
+    /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
+    /// # let signing_keypair
+    /// #     = cert.keys().secret()
+    /// #           .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #           .nth(0).unwrap()
+    /// #           .key().clone().into_keypair()?;
+    ///
+    /// let mut sink = vec![];
+    /// {
+    ///     let message = Message::new(&mut sink);
+    ///     let message = Armorer::new(message)
+    ///         .kind(armor::Kind::Signature)
+    ///         .build()?;
+    ///     let mut signer = Signer::new(message, signing_keypair)
+    ///         .detached()
+    ///         .build()?;
+    ///
+    ///     // Write the data directly to the `Signer`.
+    ///     signer.write_all(b"Make it so, number one!")?;
+    ///     // In reality, just io::copy() the file to be signed.
+    ///     signer.finalize()?;
+    /// }
+    ///
+    /// assert!(std::str::from_utf8(&sink)?
+    ///         .starts_with("-----BEGIN PGP SIGNATURE-----\n"));
+    /// # Ok(()) }
+    pub fn kind(mut self, kind: armor::Kind) -> Self {
+        self.kind = kind;
+        self
+    }
+
+    /// Adds a header to the armor block.
+    ///
+    /// There are a number of defined armor header keys (see [Section
+    /// 6 of RFC 4880]), but in practice, any key may be used, as
+    /// implementations should simply ignore unknown keys.
+    ///
+    ///   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use std::io::Write;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::serialize::stream::{Message, Armorer, LiteralWriter};
+    ///
+    /// let mut sink = vec![];
+    /// {
+    ///     let message = Message::new(&mut sink);
+    ///     let message = Armorer::new(message)
+    ///         .add_header("Comment", "No comment.")
+    ///         .build()?;
+    ///     let mut message = LiteralWriter::new(message).build()?;
+    ///     message.write_all(b"Hello world.")?;
+    ///     message.finalize()?;
+    /// }
+    /// assert_eq!("-----BEGIN PGP MESSAGE-----\n\
+    ///             Comment: No comment.\n\
+    ///             \n\
+    ///             yxJiAAAAAABIZWxsbyB3b3JsZC4=\n\
+    ///             =6nHv\n\
+    ///             -----END PGP MESSAGE-----\n",
+    ///            std::str::from_utf8(&sink)?);
+    /// # Ok(()) }
+    pub fn add_header<K, V>(mut self, key: K, value: V) -> Self
+        where K: AsRef<str>,
+              V: AsRef<str>,
+    {
+        self.headers.push((key.as_ref().to_string(),
+                           value.as_ref().to_string()));
+        self
+    }
+
+    /// Builds the armor writer, returning the writer stack.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::serialize::stream::{Message, Armorer, LiteralWriter};
+    ///
+    /// # let mut sink = vec![];
+    /// let message = Message::new(&mut sink);
+    /// let message = Armorer::new(message)
+    ///     // Customize the `Armorer` here.
+    ///     .build()?;
+    /// # Ok(()) }
+    pub fn build(self) -> Result<Message<'a>> {
+        let level = self.inner.as_ref().cookie_ref().level;
+        writer::Armorer::new(
+            self.inner,
+            Cookie::new(level + 1),
+            self.kind,
+            self.headers,
+        )
+    }
+}
+
+impl<'a> fmt::Debug for Armorer<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Armorer")
+            .field("inner", &self.inner)
+            .field("kind", &self.kind)
+            .field("headers", &self.headers)
+            .finish()
     }
 }
 

@@ -12,6 +12,7 @@ pub use self::writer_deflate::{ZIP, ZLIB};
 use std::fmt;
 use std::io;
 
+use crate::armor;
 use crate::crypto::{aead, symmetric};
 use crate::types::{
     AEADAlgorithm,
@@ -348,6 +349,78 @@ impl<'a, W: io::Write, C> Stackable<'a, C> for Generic<W, C> {
     }
     fn position(&self) -> u64 {
         self.position
+    }
+}
+
+
+/// Armoring writer.
+pub struct Armorer<'a, C: 'a> {
+    inner: Generic<armor::Writer<BoxStack<'a, C>>, C>,
+}
+
+impl<'a> Armorer<'a, Cookie> {
+    /// Makes an armoring writer.
+    pub fn new<I, K, V>(inner: Message<'a>, cookie: Cookie,
+                        kind: armor::Kind, headers: I)
+                        -> Result<Message<'a>>
+        where I: IntoIterator<Item = (K, V)>,
+              K: AsRef<str>,
+              V: AsRef<str>,
+    {
+        Ok(Message::from(Box::new(Armorer {
+            inner: Generic::new_unboxed(
+                armor::Writer::with_headers(inner.into(), kind, headers)?,
+                cookie),
+        })))
+    }
+}
+
+impl<'a, C: 'a> fmt::Debug for Armorer<'a, C> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("writer::Armorer")
+            .field("inner", &self.inner)
+            .finish()
+    }
+}
+
+impl<'a, C: 'a> io::Write for Armorer<'a, C> {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.inner.write(bytes)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+impl<'a, C: 'a> Stackable<'a, C> for Armorer<'a, C> {
+    fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
+        let inner = self.inner.inner.finalize()?;
+        Ok(Some(inner))
+    }
+    fn pop(&mut self) -> Result<Option<BoxStack<'a, C>>> {
+        unreachable!("Only implemented by Signer")
+    }
+    fn mount(&mut self, _new: BoxStack<'a, C>) {
+        unreachable!("Only implemented by Signer")
+    }
+    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+        Some(self.inner.inner.get_mut().as_mut())
+    }
+    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+        Some(self.inner.inner.get_ref().as_ref())
+    }
+    fn cookie_set(&mut self, cookie: C) -> C {
+        self.inner.cookie_set(cookie)
+    }
+    fn cookie_ref(&self) -> &C {
+        self.inner.cookie_ref()
+    }
+    fn cookie_mut(&mut self) -> &mut C {
+        self.inner.cookie_mut()
+    }
+    fn position(&self) -> u64 {
+        self.inner.position
     }
 }
 
