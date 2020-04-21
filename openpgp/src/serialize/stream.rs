@@ -637,6 +637,7 @@ pub struct Signer<'a> {
     signers: Vec<Box<dyn crypto::Signer + 'a>>,
     intended_recipients: Vec<Fingerprint>,
     detached: bool,
+    template: signature::Builder,
     creation_time: Option<SystemTime>,
     hash: crypto::hash::Context,
     cookie: Cookie,
@@ -651,12 +652,14 @@ impl<'a> Signer<'a> {
     /// using [`Signer::add_signer`].  Properties of the signatures
     /// can be tweaked using the methods of this type.  Notably, to
     /// generate a detached signature (see [Section 11.4 of RFC
-    /// 4880]), use [`Signer::detached`].
+    /// 4880]), use [`Signer::detached`].  For even more control over
+    /// the generated signatures, use [`Signer::with_template`].
     ///
     ///   [`crypto::Signer`]: ../../crypto/trait.Signer.html
     ///   [`Signer::add_signer`]: #method.add_signer
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
     ///   [`Signer::detached`]: #method.detached
+    ///   [`Signer::with_template`]: #method.with_template
     ///
     /// # Example
     ///
@@ -720,6 +723,75 @@ impl<'a> Signer<'a> {
     pub fn new<S>(inner: Message<'a>, signer: S) -> Self
         where S: crypto::Signer + 'a
     {
+        Self::with_template(inner, signer,
+                            signature::Builder::new(SignatureType::Binary))
+    }
+
+    /// Creates a signer with a given signature template.
+    ///
+    /// Signs the message with the given [`crypto::Signer`] like
+    /// [`Signer::new`], but allows more control over the generated
+    /// signatures.  The given [`signature::Builder`] is used to
+    /// create all the signatures.
+    ///
+    /// For every signature, the creation time is set to the current
+    /// time or the one specified using [`Signer::creation_time`], the
+    /// intended recipients are added (see
+    /// [`Signer::add_intended_recipient`]), the issuer and issuer
+    /// fingerprint subpackets are set according to the signing key,
+    /// and the hash algorithm set using [`Signer::hash_algo`] is used
+    /// to create the signature.
+    ///
+    ///   [`crypto::Signer`]: ../../crypto/trait.Signer.html
+    ///   [`Signer::new`]: #method.new
+    ///   [`signature::Builder`]: ../../packet/signature/struct.Builder.html
+    ///   [`Signer::creation_time`]: #method.creation_time
+    ///   [`Signer::hash_algo`]: #method.hash_algo
+    ///   [`Signer::add_intended_recipient`]: #method.add_intended_recipient
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use std::io::{Read, Write};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::SignatureType;
+    /// use openpgp::packet::signature;
+    /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
+    /// # use openpgp::policy::StandardPolicy;
+    /// # use openpgp::{Result, Cert};
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::parse::Parse;
+    /// # use openpgp::parse::stream::*;
+    /// #
+    /// # let p = &StandardPolicy::new();
+    /// # let cert: Cert = // ...
+    /// #     Cert::from_bytes(&include_bytes!(
+    /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
+    /// # let signing_keypair = cert.keys().secret()
+    /// #     .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #     .nth(0).unwrap()
+    /// #     .key().clone().into_keypair()?;
+    /// # let mut sink = vec![];
+    ///
+    /// let message = Message::new(&mut sink);
+    /// let message = Signer::with_template(
+    ///     message, signing_keypair,
+    ///     signature::Builder::new(SignatureType::Text)
+    ///         .add_notation("issuer@starfleet.command", "Jean-Luc Picard",
+    ///                       None, true)?)
+    ///     // Further customize the `Signer` here.
+    ///     .build()?;
+    /// let mut message = LiteralWriter::new(message).build()?;
+    /// message.write_all(b"Make it so, number one!")?;
+    /// message.finalize()?;
+    /// # Ok(()) }
+    /// ```
+    pub fn with_template<S, T>(inner: Message<'a>, signer: S, template: T)
+                               -> Self
+        where S: crypto::Signer + 'a,
+              T: Into<signature::Builder>,
+    {
         let inner = writer::BoxStack::from(inner);
         let level = inner.cookie_ref().level + 1;
         Signer {
@@ -727,6 +799,7 @@ impl<'a> Signer<'a> {
             signers: vec![Box::new(signer)],
             intended_recipients: Vec::new(),
             detached: false,
+            template: template.into(),
             creation_time: None,
             hash: HashAlgorithm::default().context().unwrap(),
             cookie: Cookie {
@@ -1074,7 +1147,7 @@ impl<'a> Signer<'a> {
                 let hash = self.hash.clone();
 
                 // Make and hash a signature packet.
-                let mut sig = signature::Builder::new(SignatureType::Binary)
+                let mut sig = self.template.clone()
                     .set_signature_creation_time(
                         self.creation_time
                             .unwrap_or_else(SystemTime::now))?
