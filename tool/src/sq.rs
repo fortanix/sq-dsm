@@ -275,14 +275,17 @@ fn main() -> Result<()> {
                 create_or_stdout_pgp(m.value_of("output"), force,
                                      m.is_present("binary"),
                                      armor::Kind::Message)?;
-            let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
+            let mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
-            let recipients = m.values_of("recipient")
-                .map(|r| r.collect())
-                .unwrap_or(vec![]);
-            let additional_certs = m.values_of("recipient-key-file")
+            let mut recipients = m.values_of("recipient-key-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
+            if let Some(r) = m.values_of("recipient") {
+                for recipient in r {
+                    recipients.push(mapping.lookup(recipient)
+                                    .context("No such key found")?.cert()?);
+                }
+            }
             let additional_secrets = m.values_of("signer-key-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
@@ -303,9 +306,9 @@ fn main() -> Result<()> {
             } else {
                 None
             };
-            commands::encrypt(policy, &mut mapping, &mut input, &mut output,
+            commands::encrypt(policy, &mut input, &mut output,
                               m.occurrences_of("symmetric") as usize,
-                              recipients, additional_certs, additional_secrets,
+                              &recipients, additional_secrets,
                               mode,
                               m.value_of("compression").expect("has default"),
                               time.into())?;
