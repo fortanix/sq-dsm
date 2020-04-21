@@ -85,13 +85,13 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
     Ok(keys)
 }
 
-pub fn encrypt(policy: &dyn Policy,
-               input: &mut dyn io::Read, output: &mut dyn io::Write,
-               npasswords: usize, recipients: &[openpgp::Cert],
-               signers: Vec<openpgp::Cert>,
-               mode: openpgp::types::KeyFlags, compression: &str,
-               time: Option<SystemTime>)
-               -> Result<()> {
+pub fn encrypt<'a>(policy: &'a dyn Policy,
+                   input: &mut dyn io::Read, message: Message<'a>,
+                   npasswords: usize, recipients: &'a [openpgp::Cert],
+                   signers: Vec<openpgp::Cert>,
+                   mode: openpgp::types::KeyFlags, compression: &str,
+                   time: Option<SystemTime>)
+                   -> Result<()> {
     let mut passwords: Vec<crypto::Password> = Vec::with_capacity(npasswords);
     for n in 0..npasswords {
         let nprompt = format!("Enter password {}: ", n + 1);
@@ -125,9 +125,6 @@ pub fn encrypt(policy: &dyn Policy,
                 "Key {} has no suitable encryption key", cert));
         }
     }
-
-    // Stream an OpenPGP message.
-    let message = Message::new(output);
 
     // We want to encrypt a literal data packet.
     let mut encryptor =

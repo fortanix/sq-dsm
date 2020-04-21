@@ -29,7 +29,7 @@ use sequoia_autocrypt as autocrypt;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::Parse;
-use crate::openpgp::serialize::Serialize;
+use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
 use sequoia_core::{Context, NetworkPolicy};
@@ -70,75 +70,16 @@ fn create_or_stdout(f: Option<&str>, force: bool)
     }
 }
 
-// XXX: This is a candidate for inclusion in the library.
-enum Writer<T: Write> {
-    Binary {
-        inner: T,
-    },
-    Armored {
-        inner: openpgp::armor::Writer<T>,
-    },
-}
-
-impl<T: Write> From<T> for Writer<T> {
-    fn from(inner: T) -> Self {
-        Writer::Binary { inner }
-    }
-}
-
-impl<T: Write> From<openpgp::armor::Writer<T>> for Writer<T> {
-    fn from(inner: openpgp::armor::Writer<T>) -> Self {
-        Writer::Armored { inner }
-    }
-}
-
-impl<T: Write> Writer<T> {
-    pub fn armor(self, kind: openpgp::armor::Kind, headers: Vec<(&str, &str)>)
-                 -> openpgp::Result<Self>
-    {
-        match self {
-            Writer::Binary { inner } =>
-                Ok(openpgp::armor::Writer::with_headers(inner, kind, headers)?
-                   .into()),
-            Writer::Armored { .. } =>
-                Err(openpgp::Error::InvalidOperation("already armored".into())
-                    .into()),
-        }
-    }
-
-    pub fn finalize(self) -> std::io::Result<T> {
-        match self {
-            Writer::Binary { inner } => Ok(inner),
-            Writer::Armored { inner } => inner.finalize(),
-        }
-    }
-}
-
-impl<T: Write> Write for Writer<T> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match self {
-            Writer::Binary { inner } => inner.write(buf),
-            Writer::Armored { inner } => inner.write(buf),
-        }
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        match self {
-            Writer::Binary { inner } => inner.flush(),
-            Writer::Armored { inner } => inner.flush(),
-        }
-    }
-}
-
-fn create_or_stdout_pgp(f: Option<&str>, force: bool,
-                        binary: bool, kind: armor::Kind)
-    -> Result<Writer<Box<dyn Write>>>
+fn create_or_stdout_pgp<'a>(f: Option<&str>, force: bool,
+                            binary: bool, kind: armor::Kind)
+                            -> Result<Message<'a>>
 {
     let sink = create_or_stdout(f, force)?;
-    let mut sink = Writer::from(sink);
+    let mut message = Message::new(sink);
     if ! binary {
-        sink = sink.armor(kind, Vec::new())?;
+        message = Armorer::new(message).kind(kind).build()?;
     }
-    Ok(sink)
+    Ok(message)
 }
 
 fn load_certs<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
@@ -270,11 +211,6 @@ fn main() -> Result<()> {
                               m.is_present("dump"), m.is_present("hex"))?;
         },
         ("encrypt",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output =
-                create_or_stdout_pgp(m.value_of("output"), force,
-                                     m.is_present("binary"),
-                                     armor::Kind::Message)?;
             let mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
             let mut recipients = m.values_of("recipient-key-file")
@@ -286,6 +222,11 @@ fn main() -> Result<()> {
                                     .context("No such key found")?.cert()?);
                 }
             }
+            let mut input = open_or_stdin(m.value_of("input"))?;
+            let output =
+                create_or_stdout_pgp(m.value_of("output"), force,
+                                     m.is_present("binary"),
+                                     armor::Kind::Message)?;
             let additional_secrets = m.values_of("signer-key-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
@@ -306,13 +247,12 @@ fn main() -> Result<()> {
             } else {
                 None
             };
-            commands::encrypt(policy, &mut input, &mut output,
+            commands::encrypt(policy, &mut input, output,
                               m.occurrences_of("symmetric") as usize,
                               &recipients, additional_secrets,
                               mode,
                               m.value_of("compression").expect("has default"),
                               time.into())?;
-            output.finalize()?;
         },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;

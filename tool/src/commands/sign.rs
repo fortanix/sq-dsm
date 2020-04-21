@@ -15,13 +15,12 @@ use crate::openpgp::parse::{
 };
 use crate::openpgp::serialize::Serialize;
 use crate::openpgp::serialize::stream::{
-    Message, Signer, LiteralWriter,
+    Message, Armorer, Signer, LiteralWriter,
 };
 use crate::openpgp::policy::Policy;
 use crate::{
     create_or_stdout,
     create_or_stdout_pgp,
-    Writer,
 };
 
 pub fn sign(policy: &dyn Policy,
@@ -45,7 +44,7 @@ fn sign_data(policy: &dyn Policy,
              secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
              append: bool, time: Option<SystemTime>, force: bool)
              -> Result<()> {
-    let (output, prepend_sigs, tmp_path):
+    let (mut output, prepend_sigs, tmp_path):
     (Box<dyn io::Write>, Vec<Signature>, Option<PathBuf>) =
         if detached && append && output_path.is_some() {
             // First, read the existing signatures.
@@ -78,32 +77,32 @@ fn sign_data(policy: &dyn Policy,
             (create_or_stdout(output_path, force)?, Vec::new(), None)
         };
 
-    let mut output = Writer::from(output);
-    if ! binary {
-        output = output.armor(
-            if detached {
-                armor::Kind::Signature
-            } else {
-                armor::Kind::Message
-            },
-            Vec::new())?;
-    }
-
     let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;
     if keypairs.is_empty() {
         return Err(anyhow::anyhow!("No signing keys found"));
     }
 
+    // Stream an OpenPGP message.
+    // The sink may be a NamedTempFile.  Carefully keep a reference so
+    // that we can rename it.
+    let mut message = Message::new(&mut output);
+    if ! binary {
+        message = Armorer::new(message)
+            .kind(if detached {
+                armor::Kind::Signature
+            } else {
+                armor::Kind::Message
+            })
+            .build()?;
+    }
+
     // When extending a detached signature, prepend any existing
     // signatures first.
     for sig in prepend_sigs.into_iter() {
-        Packet::Signature(sig).serialize(&mut output)?;
+        Packet::Signature(sig).serialize(&mut message)?;
     }
 
-    // Stream an OpenPGP message.
-    let sink = Message::new(&mut output);
-
-    let mut signer = Signer::new(sink, keypairs.pop().unwrap());
+    let mut signer = Signer::new(message, keypairs.pop().unwrap());
     for s in keypairs {
         signer = signer.add_signer(s);
         if let Some(time) = time {
@@ -131,16 +130,12 @@ fn sign_data(policy: &dyn Policy,
 
     writer.finalize()
         .context("Failed to sign")?;
-    // The sink may be a NamedTempFile.  Carefully keep a reference so
-    // that we can rename it.
-    let tmp = output.finalize()?;
 
     if let Some(path) = tmp_path {
         // Atomically replace the old file.
         fs::rename(path,
                    output_path.expect("must be Some if tmp_path is Some"))?;
     }
-    drop(tmp);
     Ok(())
 }
 
