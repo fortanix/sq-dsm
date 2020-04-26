@@ -473,47 +473,101 @@ pub trait Preferences<'a> {
 pub use def::Cert;
 mod def {
 use super::*;
-/// A collection of keys, signatures, and metadata.
+/// A collection of components and their associated signatures.
 ///
-/// `Cert`s are always canonicalized in the sense that `Component`s
-/// (User IDs, User Attributes, and Subkeys) are deduplicated, and
-/// their self signatures and self revocations are checked for
-/// validity.  If a self signature or self revocation is not valid, we
-/// check to see whether it is simply out of place (i.e., belongs to
-/// another component) and, if so, reorder it.
+/// The `Cert` data structure mirrors the [TPK and TSK data
+/// structures] defined in RFC 4880.  Specifically, it contains
+/// components ([`Key`]s, [`UserID`]s, and [`UserAttribute`]s), their
+/// associated self signatures, self revocations, third-party
+/// signatures, and third-party revocations, use useful methods.
 ///
-/// The canonicalization routine does *not* throw away components that
-/// have no self-signatures.  These are returned as usual by, e.g.,
-/// [`Cert::userids`].  Signatures that are not valid for any
-/// component are added to the list of bad signatures.  These can be
-/// retrieved using [`Cert::bad_signatures`].
+/// [TPK and TSK data structures]: https://tools.ietf.org/html/rfc4880#section-11
+/// [`Key`]: ../packet/enum.Key.html
+/// [`UserID`]: ../packet/struct.UserID.html
+/// [`UserAttribute`]: ../packet/user_attribute/struct.UserAttribute.html
 ///
-/// Self signatures are sorted so that the newest self signature comes
-/// first.  Components are sorted, but in an undefined manner (i.e.,
-/// when parsing the same Cert multiple times, the components will be
-/// in the same order, but we reserve the right to change the sort
-/// function between versions).  Third-party certifications are *not*
-/// validated, as the keys are not available; they are simply passed
-/// through as is.
+/// `Cert`s are canonicalized in the sense that their `Component`s are
+/// deduplicated, and their signatures and revocations are
+/// deduplicated and checked for validity.  The canonicalization
+/// routine does *not* throw away components that have no self
+/// signatures.  These are returned as usual by, e.g.,
+/// [`Cert::userids`].
 ///
-/// [RFC 4880, section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
+/// [`Cert::userids`]: struct.Cert.html#method.userids
 ///
-/// # Secret keys
+/// Keys are deduplicated by comparing their public bits using
+/// [`Key::public_cmp`].  If two keys are considered equal, and only
+/// one of them has secret key material, the key with the secret key
+/// material is preferred.  If both keys have secret material, then
+/// one of them is chosen in a deterministic, but undefined manner,
+/// which is subject to change.  ***Note***: the secret key material
+/// is not integrity checked.  Hence when updating a certificate with
+/// secret key material, it is essential to first strip the secret key
+/// material from copies that came from an untrusted source.
 ///
-/// Any key in a `Cert` may have a secret key attached to it.  To
-/// protect secret keys from being leaked, secret keys are not written
-/// out when a `Cert` is serialized.  To also serialize the secret
-/// keys, you need to use [`Cert::as_tsk()`] to get an object that
-/// writes them out during serialization.
+/// [`Key::public_cmp`]: ../packet/enum.Key.html#method.public_cmp
+///
+/// Signatures are deduplicated using [their `Eq` implementation],
+/// which compares the data that is hashed and the MPIs.  That is, it
+/// does not compare [the unhashed data], the digest prefix and the
+/// unhashed subpacket area.  If two signatures are considered equal,
+/// but have different unhashed data, the unhashed data are merged in
+/// a deterministic, but undefined manner, which is subject to change.
+/// This policy prevents an attacker from flooding a certificate with
+/// valid signatures that only differ in their unhashed data.
+///
+/// [their `Eq` implementation]: ../packet/enum.Signature.html#a-note-on-equality
+/// [the unhashed data]: https://tools.ietf.org/html/rfc4880#section-5.2.3
+///
+/// Self signatures and self revocations are checked for validity by
+/// making sure that the signature is *mathematically* correct.  At
+/// this point, the signature is *not* checked against a [`Policy`].
+///
+/// Third-party signatures and revocations are checked for validity by
+/// making sure the computed digest matches the [digest prefix] stored
+/// in the signature packet.  This is *not* an integrity check and is
+/// easily spoofed.  Unfortunately, at the time of canonicalization,
+/// the actual signatures cannot be checked, because the public keys
+/// are not available.  If you rely on these signatures, it is up to
+/// you to check their validity by using an appropriate signature
+/// verification method, e.g., [`Signature::verify_userid_binding`]
+/// or [`Signature::verify_userid_revocation`].
+///
+/// [`Policy`]: ../policy/index.html
+/// [digest prefix]: ../packet/signature/struct.Signature4.html#method.digest_prefix
+/// [`Signature::verify_userid_binding`]: ../packet/enum.Signature.html#method.verify_userid_binding
+/// [`Signature::verify_userid_revocation`]: ../packet/enum.Signature.html#method.verify_userid_revocation
+///
+/// If a signature or a revocation is not valid,
+/// we check to see whether it is simply out of place (i.e., belongs
+/// to a different component) and, if so, we reorder it.  If not, it
+/// is added to a list of bad signatures.  These can be retrieved
+/// using [`Cert::bad_signatures`].
+///
+/// [`Cert::bad_signatures`]: struct.Cert.html#method.bad_signatures
+///
+/// Signatures and revocations are sorted so that the newest signature
+/// comes first.  Components are sorted, but in an undefined manner
+/// (i.e., when parsing the same certificate multiple times, the
+/// components will be in the same order, but we reserve the right to
+/// change the sort function between versions).
+///
+/// # Secret Keys
+///
+/// Any key in a certificate may include secret key material.  To
+/// protect secret key material from being leaked, secret keys are not
+/// written out when a `Cert` is serialized.  To also serialize secret
+/// key material, you need to serialize the object returned by
+/// [`Cert::as_tsk()`].
 ///
 /// [`Cert::as_tsk()`]: #method.as_tsk
 ///
-/// # Filtering certificates
+/// # Filtering Certificates
 ///
 /// To filter certificates, iterate over all components, clone what
-/// you want to keep, and reassemble the certificate.  The following
-/// example simply copies all the packets, and can be adapted to
-/// suit your policy:
+/// you want to keep, and then reassemble the certificate.  The
+/// following example simply copies all the packets, and can be
+/// adapted to suit your policy:
 ///
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
@@ -587,11 +641,13 @@ use super::*;
 /// # }
 /// ```
 ///
-/// # Example
+/// # Examples
+///
+/// Parse a certificate:
 ///
 /// ```rust
-/// # extern crate sequoia_openpgp as openpgp;
-/// # use std::convert::TryFrom;
+/// use std::convert::TryFrom;
+/// use sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 /// use openpgp::Cert;
@@ -614,9 +670,6 @@ use super::*;
 /// #     Ok(())
 /// # }
 /// ```
-///
-/// [`Cert::userids`]: struct.Cert.html#method.userids
-/// [`Cert::bad_signatures`]: struct.Cert.html#bad_signatures
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cert {
     pub(super) // doc-hack, see above
@@ -667,27 +720,90 @@ impl<'a> Parse<'a, Cert> for Cert {
 }
 
 impl Cert {
-    /// Returns the amalgamated primary key.
+    /// Returns the primary key.
+    ///
+    /// Unlike getting the certificate's primary key using the
+    /// [`Cert::keys`] method, this method does not erase the key's
+    /// role.
+    ///
+    /// [`Cert::keys`]: #method.keys
+    ///
+    /// # Examples
+    ///
+    /// The first key returned by [`Cert::keys`] is the primary key,
+    /// but its role has been erased:
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate()?;
+    /// assert_eq!(cert.primary_key().key().role_as_unspecified(),
+    ///            cert.keys().nth(0).unwrap().key());
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn primary_key(&self) -> PrimaryKeyAmalgamation<key::PublicParts>
     {
         PrimaryKeyAmalgamation::new(&self)
     }
 
-    /// Returns the Cert's revocation status at time `t`.
+    /// Returns the certificate's revocation status.
     ///
-    /// A Cert is revoked at time `t` if:
+    /// Normally, methods that take a policy and a reference time are
+    /// only provided by [`ValidCert`].  This method is provided here
+    /// because there are two revocation criteria, and one of them is
+    /// independent of the reference time.  That is, even if it is not
+    /// possible to turn a `Cert` into a `ValidCert` at time `t`, it
+    /// may still be considered revoked at time `t`.
     ///
-    ///   - There is a live revocation at time `t` that is newer than
-    ///     all live self signatures at time `t`, or
+    /// [`ValidCert`]: struct.ValidCert.html
     ///
-    ///   - There is a hard revocation (even if it is not live at
-    ///     time `t`, and even if there is a newer self signature).
+    /// A certificate is considered revoked at time `t` if:
     ///
-    /// Note: Certs and subkeys have different criteria from User IDs
-    /// and User Attributes.
+    ///   - There is a valid and live revocation at time `t` that is
+    ///     newer than all valid and live self signatures at time `t`,
+    ///     or
     ///
-    /// Note: this only returns whether this Cert is revoked; it does
-    /// not imply anything about the Cert or other components.
+    ///   - There is a valid [hard revocation] (even if it is not live
+    ///     at time `t`, and even if there is a newer self signature).
+    ///
+    /// [hard revocation]: ../types/enum.RevocationType.html#variant.Hard
+    ///
+    /// Note: certificates and subkeys have different revocation
+    /// criteria from [User IDs and User Attributes].
+    ///
+    /// [User IDs and User Attributes]: amalgamation/struct.ComponentAmalgamation.html#method.revoked
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::RevocationStatus;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    ///
+    /// assert_eq!(cert.revoked(p, None), RevocationStatus::NotAsFarAsWeKnow);
+    ///
+    /// // Merge the revocation certificate.  `cert` is now considered
+    /// // to be revoked.
+    /// let cert = cert.merge_packets(vec![ rev.clone().into() ])?;
+    /// assert_eq!(cert.revoked(p, None),
+    ///            RevocationStatus::Revoked(vec![ &rev.into() ]));
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn revoked<T>(&self, policy: &dyn Policy, t: T) -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
@@ -710,47 +826,63 @@ impl Cert {
         self.primary_key().bundle()._revoked(policy, t, true, sig)
     }
 
-    /// Revokes the Cert in place.
+    /// Revokes the certificate in place.
     ///
-    /// Note: to just generate a revocation certificate, use the
-    /// `CertRevocationBuilder`.
+    /// This is a convenience function to generate a revocation
+    /// certificate and merge it into the certificate.
+    ///
+    /// To just generate a revocation certificate, use
+    /// [`CertRevocationBuilder`].
+    ///
+    /// [`CertRevocationBuilder`]: struct.CertRevocationBuilder.html
     ///
     /// If you want to revoke an individual component, use
-    /// `SubkeyRevocationBuilder`, `UserIDRevocationBuilder`, or
-    /// `UserAttributeRevocationBuilder`, as appropriate.
+    /// [`SubkeyRevocationBuilder`], [`UserIDRevocationBuilder`], or
+    /// [`UserAttributeRevocationBuilder`], as appropriate.
     ///
-    /// # Example
+    /// [`SubkeyRevocationBuilder`]: struct.SubkeyRevocationBuilder.html
+    /// [`UserIDRevocationBuilder`]: struct.UserIDRevocationBuilder.html
+    /// [`UserAttributeRevocationBuilder`]: struct.UserAttributeRevocationBuilder.html
+    ///
+    /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
-    /// use openpgp::types::RevocationStatus;
-    /// use openpgp::types::{ReasonForRevocation, SignatureType};
+    /// use openpgp::types::{ReasonForRevocation, RevocationStatus, SignatureType};
     /// use openpgp::cert::prelude::*;
     /// use openpgp::crypto::KeyPair;
     /// use openpgp::parse::Parse;
-    /// use sequoia_openpgp::policy::StandardPolicy;
+    /// use openpgp::policy::StandardPolicy;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()>
-    /// # {
+    /// # fn main() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
-    /// let (mut cert, _) = CertBuilder::new()
+    /// let (cert, rev) = CertBuilder::new()
     ///     .set_cipher_suite(CipherSuite::Cv25519)
     ///     .generate()?;
-    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-    ///            cert.revoked(p, None));
     ///
-    /// let mut keypair = cert.primary_key().key().clone()
-    ///     .parts_into_secret()?.into_keypair()?;
+    /// // A new certificate is not revoked.
+    /// assert_eq!(cert.revoked(p, None),
+    ///            RevocationStatus::NotAsFarAsWeKnow);
+    ///
+    /// // The default revocation certificate is a generic
+    /// // revocation.
+    /// assert_eq!(rev.reason_for_revocation().unwrap().0,
+    ///            ReasonForRevocation::Unspecified);
+    ///
+    /// // Create a revocation to explain what *really* happened.
+    /// let mut keypair = cert.primary_key()
+    ///     .key().clone().parts_into_secret()?.into_keypair()?;
     /// let cert = cert.revoke_in_place(&mut keypair,
-    ///                               ReasonForRevocation::KeyCompromised,
-    ///                               b"It was the maid :/")?;
-    /// if let RevocationStatus::Revoked(sigs) = cert.revoked(p, None) {
-    ///     assert_eq!(sigs.len(), 1);
-    ///     assert_eq!(sigs[0].typ(), SignatureType::KeyRevocation);
-    ///     assert_eq!(sigs[0].reason_for_revocation(),
+    ///                                 ReasonForRevocation::KeyCompromised,
+    ///                                 b"It was the maid :/")?;
+    /// if let RevocationStatus::Revoked(revs) = cert.revoked(p, None) {
+    ///     assert_eq!(revs.len(), 1);
+    ///     let rev = revs[0];
+    ///
+    ///     assert_eq!(rev.typ(), SignatureType::KeyRevocation);
+    ///     assert_eq!(rev.reason_for_revocation(),
     ///                Some((ReasonForRevocation::KeyCompromised,
     ///                      "It was the maid :/".as_bytes())));
     /// } else {
@@ -790,10 +922,54 @@ impl Cert {
         self.merge_packets(sigs)
     }
 
-    /// Sets the key to expire at the given time.
+    /// Sets the certificate to expire at the specified time.
     ///
-    /// A policy is needed, because the expiration is updated by adding
-    /// a self signature to the primary user id.
+    /// If no time (`None`) is specified, then the certificate is set
+    /// to not expire.
+    ///
+    /// This function creates new binding signatures that cause the
+    /// certificate to expire at the specified time.  Specifically, it
+    /// updates the current binding signature on each of the valid
+    /// User IDs, and the direct key signature, if any.  This is
+    /// necessary, because the primary User ID is first consulted when
+    /// determining the certificate's expiration time, and
+    /// certificates can be distributed with a possibly empty subset
+    /// of User IDs.
+    ///
+    /// A policy is needed, because the expiration is updated by
+    /// updating the current binding signatures.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::time;
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::crypto::KeyPair;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let t0 = time::SystemTime::now() - time::Duration::from_secs(1);
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .set_cipher_suite(CipherSuite::Cv25519)
+    /// #     .set_creation_time(t0)
+    /// #     .generate()?;
+    /// // The certificate is alive (not expired).
+    /// assert!(cert.with_policy(p, None)?.alive().is_ok());
+    ///
+    /// // Make cert expire now.
+    /// let mut keypair = cert.primary_key()
+    ///     .key().clone().parts_into_secret()?.into_keypair()?;
+    /// let cert = cert.set_expiration_time(p, &mut keypair,
+    ///                                     Some(time::SystemTime::now()))?;
+    ///
+    /// assert!(cert.with_policy(p, None)?.alive().is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_expiration_time(self, policy: &dyn Policy,
                                primary_signer: &mut dyn Signer,
                                expiration: Option<time::SystemTime>)
@@ -806,7 +982,7 @@ impl Cert {
         self.merge_packets(sigs)
     }
 
-    /// Returns the amalgamated primary userid at `t`, if any.
+    /// Returns the primary User ID at the reference time, if any.
     fn primary_userid_relaxed<'a, T>(&'a self, policy: &'a dyn Policy, t: T,
                                      valid_cert: bool)
         -> Result<ValidUserIDAmalgamation<'a>>
@@ -817,59 +993,321 @@ impl Cert {
                                             policy, t, valid_cert)
     }
 
-    /// Returns an iterator over the Cert's userids.
+    /// Returns an iterator over the certificate's User IDs.
+    ///
+    /// This returns all User IDs, even those without a binding
+    /// signature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, rev) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// println!("{}'s User IDs:", cert.fingerprint());
+    /// for ua in cert.userids() {
+    ///     println!("  {}", String::from_utf8_lossy(ua.value()));
+    /// }
+    /// # // Add a User ID without a binding signature and make sure
+    /// # // it is still returned.
+    /// # let userid = UserID::from("alice@example.net");
+    /// # let cert = cert.merge_packets(vec![ userid.into() ])?;
+    /// # assert_eq!(cert.userids().count(), 2);
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn userids(&self) -> UserIDAmalgamationIter {
         ComponentAmalgamationIter::new(self, self.userids.iter())
     }
 
-    /// Returns an iterator over the Cert's `UserAttributeBundle`s.
+    /// Returns an iterator over the certificate's User Attributes.
+    ///
+    /// This returns all User Attributes, even those without a binding
+    /// signature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, rev) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// println!("{}'s has {} User Attributes.",
+    ///          cert.fingerprint(),
+    ///          cert.user_attributes().count());
+    /// # assert_eq!(cert.user_attributes().count(), 0);
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn user_attributes(&self) -> UserAttributeAmalgamationIter {
         ComponentAmalgamationIter::new(self, self.user_attributes.iter())
     }
 
-    /// Returns an iterator over the Cert's subkeys.
+    /// Returns an iterator over the certificate's keys.
+    ///
+    /// That is, this returns an iterator over the primary key and any
+    /// subkeys.  It returns all keys, even those without a binding
+    /// signature.
+    ///
+    /// By necessity, this function erases the returned keys' roles.
+    /// If you are only interested in the primary key, use
+    /// [`Cert::primary_key`].  If you are only interested in the
+    /// subkeys, use [`KeyAmalgamationIter::subkeys`].  These
+    /// functions preserve the keys' role in the type system.
+    ///
+    /// [`Cert::primary_key`]: #method.primary_key
+    /// [`KeyAmalgamationIter::subkeys`]: amalgamation/key/struct.KeyAmalgamationIter.html#method.subkeys
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::Tag;
+    /// # use openpgp::PacketPile;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate()?;
+    /// println!("{}'s has {} keys.",
+    ///          cert.fingerprint(),
+    ///          cert.keys().count());
+    /// # assert_eq!(cert.keys().count(), 1 + 2);
+    /// #
+    /// # // Make sure that we keep all keys even if they don't have
+    /// # // any self signatures.
+    /// # let packets = cert.into_packets()
+    /// #     .filter(|p| p.tag() != Tag::Signature)
+    /// #     .collect::<Vec<_>>();
+    /// # let pp : PacketPile = packets.into();
+    /// # let cert = Cert::from_packet_pile(pp)?;
+    /// # assert_eq!(cert.keys().count(), 1 + 2);
+    /// #
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn keys(&self) -> KeyAmalgamationIter<key::PublicParts, key::UnspecifiedRole>
+    {
+        KeyAmalgamationIter::new(self)
+    }
+
+    /// Returns an iterator over the certificate's subkeys.
     pub(crate) fn subkeys(&self) -> ComponentAmalgamationIter<Key<key::PublicParts,
                                                       key::SubordinateRole>>
     {
         ComponentAmalgamationIter::new(self, self.subkeys.iter())
     }
 
-    /// Returns an iterator over the Cert's unknown components.
+    /// Returns an iterator over the certificate's unknown components.
+    ///
+    /// This function returns all unknown components even those
+    /// without a binding signature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let tag = Tag::Private(61);
+    /// # let unknown
+    /// #     = Unknown::new(tag, openpgp::Error::UnsupportedPacketType(tag).into());
+    /// # let cert = cert.merge_packets(vec![ unknown.into() ]).unwrap();
+    /// println!("{}'s has {} unknown components.",
+    ///          cert.fingerprint(),
+    ///          cert.unknowns().count());
+    /// for ua in cert.unknowns() {
+    ///     println!("  Unknown component with tag {} ({}), error: {}",
+    ///              ua.tag(), u8::from(ua.tag()), ua.error());
+    /// }
+    /// # assert_eq!(cert.unknowns().count(), 1);
+    /// # assert_eq!(cert.unknowns().nth(0).unwrap().tag(), tag);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn unknowns(&self) -> UnknownComponentAmalgamationIter {
         ComponentAmalgamationIter::new(self, self.unknowns.iter())
     }
 
-    /// Returns a slice containing all bad signatures.
+    /// Returns a slice containing the bad signatures.
     ///
-    /// Bad signatures are signatures that we could not associate with
-    /// one of the components.
+    /// Bad signatures are signatures and revocations that we could
+    /// not associate with one of the certificate's components.
+    ///
+    /// For self signatures and self revocations, we check that the
+    /// signature is correct.  For third-party signatures and
+    /// third-party revocations, we only check that the [digest
+    /// prefix] is correct, because third-party keys are not
+    /// available.  Checking the digest prefix is *not* an integrity
+    /// check; third party-signatures and third-party revocations may
+    /// be invalid and must still be checked for validity before use.
+    ///
+    /// [digest prefix]: packet/signature/struct.Signature4.html#method.digest_prefix
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, rev) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// println!("{}'s has {} bad signatures.",
+    ///          cert.fingerprint(),
+    ///          cert.bad_signatures().len());
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn bad_signatures(&self) -> &[Signature] {
         &self.bad
     }
 
-    /// Returns an iterator over the certificate's keys.
+    /// Returns a list of any designated revokers for this certificate.
     ///
-    /// That is, this returns an iterator over the primary key and any
-    /// subkeys.
-    pub fn keys(&self) -> KeyAmalgamationIter<key::PublicParts, key::UnspecifiedRole>
-    {
-        KeyAmalgamationIter::new(self)
-    }
-
-    /// Returns a list of any designated revokers for this component.
+    /// This function returns the designated revokers listed on the
+    /// primary key's binding signatures and the certificate's direct
+    /// key signatures.
     ///
-    /// This function returns the designated revokers listed on both
-    /// this component's binding signature and the certificate's
-    /// direct key signature.
+    /// Note: the returned list is deduplicated.
     ///
-    /// Note: the returned list has not been deduplicated.
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::RevocationKey;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    /// // Make Alice a designated revoker for Bob.
+    /// let (bob, _) =
+    ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///     .set_revocation_keys(vec![ (&alice).into() ])
+    ///     .generate()?;
+    ///
+    /// // Make sure Alice is listed as a designated revoker for Bob.
+    /// assert_eq!(bob.revocation_keys(p).collect::<Vec<&RevocationKey>>(),
+    ///            vec![ &(&alice).into() ]);
+    /// # Ok(()) }
+    /// ```
     pub fn revocation_keys<'a>(&'a self, policy: &dyn Policy)
         -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
     {
         self.primary_key().revocation_keys(policy)
     }
 
-    /// Returns the first Cert found in the `PacketPile`.
+    /// Converts the certificate into an iterator over a sequence of
+    /// packets.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #       .generate()?;
+    /// println!("Cert contains {} packets",
+    ///          cert.into_packets().count());
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn into_packets(self) -> impl Iterator<Item=Packet> {
+        self.primary.into_packets()
+            .chain(self.userids.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.user_attributes.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.subkeys.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.unknowns.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.bad.into_iter().map(|s| s.into()))
+    }
+
+    /// Converts the certificate into a `PacketPile`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::PacketPile;
+    /// # use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #       .generate()?;
+    /// let pp = cert.into_packet_pile();
+    /// # let _ : PacketPile = pp;
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn into_packet_pile(self) -> PacketPile {
+        self.into()
+    }
+
+    /// Returns the first certificate found in the `PacketPile`.
+    ///
+    /// If the [`PacketPile`] does not start with a certificate
+    /// (specifically, if it does not start with a primary key
+    /// packet), then this fails.
+    ///
+    /// If the `PacketPile` contains multiple keys (i.e., it is a key
+    /// ring) and you want all of the certificates, you should use
+    /// [`CertParser`] instead of this function.
+    ///
+    /// [`PacketPile`]: ../struct.PacketPile.html
+    /// [`CertParser`]: struct.CertParser.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::PacketPile;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    ///
+    /// // We should be able to turn a certificate into a PacketPile
+    /// // and back.
+    /// let pp : PacketPile = cert.into();
+    /// assert!(Cert::from_packet_pile(pp).is_ok());
+    ///
+    /// // But a revocation certificate is not a certificate, so this
+    /// // will fail.
+    /// let pp : PacketPile = Packet::from(rev).into();
+    /// assert!(Cert::from_packet_pile(pp).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn from_packet_pile(p: PacketPile) -> Result<Self> {
         let mut i = parser::CertParser::from_iter(p.into_children());
         match i.next() {
@@ -1374,46 +1812,118 @@ impl Cert {
         self
     }
 
-    /// Returns the Cert's fingerprint.
+    /// Returns the certificate's fingerprint as a `KeyHandle`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::KeyHandle;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// println!("{}", cert.key_handle());
+    ///
+    /// // This always returns a fingerprint.
+    /// match cert.key_handle() {
+    ///     KeyHandle::Fingerprint(_) => (),
+    ///     KeyHandle::KeyID(_) => unreachable!(),
+    /// }
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn key_handle(&self) -> KeyHandle {
         self.primary.key().key_handle()
     }
 
-    /// Returns the Cert's fingerprint.
+    /// Returns the certificate's fingerprint.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// println!("{}", cert.fingerprint());
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn fingerprint(&self) -> Fingerprint {
         self.primary.key().fingerprint()
     }
 
-    /// Returns the Cert's keyid.
+    /// Returns the certificate's Key ID.
+    ///
+    /// As a general rule of thumb, you should prefer the fingerprint
+    /// as it is possible to create keys with a colliding Key ID using
+    /// a [birthday attack].
+    ///
+    /// [birthday attack]: https://nullprogram.com/blog/2019/07/22/
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// println!("{}", cert.keyid());
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn keyid(&self) -> KeyID {
         self.primary.key().keyid()
     }
 
-    /// Converts the Cert into an iterator over a sequence of packets.
-    ///
-    /// This method discards invalid components and bad signatures.
-    pub fn into_packets(self) -> impl Iterator<Item=Packet> {
-        self.primary.into_packets()
-            .chain(self.userids.into_iter().flat_map(|b| b.into_packets()))
-            .chain(self.user_attributes.into_iter().flat_map(|b| b.into_packets()))
-            .chain(self.subkeys.into_iter().flat_map(|b| b.into_packets()))
-            .chain(self.unknowns.into_iter().flat_map(|b| b.into_packets()))
-            .chain(self.bad.into_iter().map(|s| s.into()))
-    }
-
-    /// Converts the Cert into a `PacketPile`.
-    ///
-    /// This method discards invalid components and bad signatures.
-    pub fn into_packet_pile(self) -> PacketPile {
-        self.into()
-    }
-
     /// Merges `other` into `self`.
     ///
-    /// If `other` is a different key, then an error is returned.
+    /// If `other` is a different certificate, then an error is
+    /// returned.
+    ///
+    /// This routine merges duplicate packets.  This is different from
+    /// [Cert::merge_packets], which prefers keys in the packets that
+    /// are being merged into the certificate.
+    ///
+    /// [Cert::merge_packets]: #method.merge_packets
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (local, _) =
+    /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #       .generate()?;
+    /// # let keyserver = local.clone();
+    /// // Merge the "local" version with the version from the "key server".
+    /// let cert = if local.fingerprint() == keyserver.fingerprint() {
+    ///     local.merge(keyserver)?;
+    /// } else {
+    ///     // Error, the key server returned a different certificate.
+    /// };
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn merge(mut self, mut other: Cert) -> Result<Self> {
-        if self.fingerprint() != other.fingerprint()
-        {
+        if self.fingerprint() != other.fingerprint() {
             // The primary key is not the same.  There is nothing to
             // do.
             return Err(Error::InvalidArgument(
@@ -1443,14 +1953,103 @@ impl Cert {
         Ok(self.canonicalize())
     }
 
-    /// Adds packets to the Cert.
+    /// Adds packets to the certificate.
     ///
-    /// This recanonicalizes the Cert.  If the packets are invalid,
-    /// they are dropped.
+    /// This function turns the certificate into a sequence of
+    /// packets, appends the packets to the end of it, and
+    /// canonicalizes the result.  [Known packets that don't belong in
+    /// a TPK or TSK] cause this function to return an error.  Unknown
+    /// packets are retained and added to the list of [unknown
+    /// components].  The goal is to provide some future
+    /// compatibility.
     ///
-    /// If a key is merged in that already exists in the cert, it
-    /// replaces the key.  This way, secret key material can be added,
-    /// removed, encrypted, or decrypted.
+    /// If a key is merged that already exists in the certificate, it
+    /// replaces the existing key.  This way, secret key material can
+    /// be added, removed, encrypted, or decrypted.
+    ///
+    /// [Known packets that don't belong in a TPK or TSK]: https://tools.ietf.org/html/rfc4880#section-11
+    /// [unknown components]: #method.unknowns
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::serialize::Serialize;
+    /// use openpgp::parse::Parse;
+    /// use openpgp::types::DataFormat;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// // Create a new key.
+    /// let (cert, rev) =
+    ///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///       .generate()?;
+    /// assert!(cert.is_tsk());
+    ///
+    ///
+    /// // Merge in the revocation certificate.
+    /// assert_eq!(cert.primary_key().self_revocations().len(), 0);
+    /// let cert = cert.merge_packets(vec![ rev.into() ])?;
+    /// assert_eq!(cert.primary_key().self_revocations().len(), 1);
+    ///
+    ///
+    /// // Add an unknown packet.
+    /// let tag = Tag::Private(61.into());
+    /// let unknown = Unknown::new(tag,
+    ///     openpgp::Error::UnsupportedPacketType(tag).into());
+    ///
+    /// // It shows up as an unknown component.
+    /// let cert = cert.merge_packets(vec![ unknown.into() ])?;
+    /// assert_eq!(cert.unknowns().count(), 1);
+    /// for p in cert.unknowns() {
+    ///     assert_eq!(p.tag(), tag);
+    /// }
+    ///
+    ///
+    /// // Try and merge a literal data packet.
+    /// let mut lit = Literal::new(DataFormat::Text);
+    /// lit.set_body(b"test".to_vec());
+    ///
+    /// // Merging packets that are known to not belong to a
+    /// // certificate result in an error.
+    /// assert!(cert.merge_packets(vec![ lit.into() ]).is_err());
+    /// #     Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Remove secret key material:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// // Create a new key.
+    /// let (cert, _) =
+    ///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///       .generate()?;
+    /// assert!(cert.is_tsk());
+    ///
+    /// // We just created the key, so all of the keys have secret key
+    /// // material.
+    /// let mut pk = cert.primary_key().key().clone();
+    ///
+    /// // Split off the secret key material.
+    /// let (pk, sk) = pk.take_secret();
+    /// assert!(sk.is_some());
+    /// assert!(! pk.has_secret());
+    ///
+    /// // Merge in the public key.  Recall: the packets that are
+    /// // being merged into the certificate take precedence.
+    /// let cert = cert.merge_packets(vec![ pk.into() ])?;
+    ///
+    /// // The secret key material is stripped.
+    /// assert!(! cert.primary_key().has_secret());
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn merge_packets(self, packets: Vec<Packet>) -> Result<Self> {
         let mut combined = self.into_packets().collect::<Vec<_>>();
 
@@ -1493,8 +2092,47 @@ impl Cert {
         Cert::from_packet_pile(PacketPile::from(combined))
     }
 
-    /// Returns whether at least one of the keys includes a secret
-    /// part.
+    /// Returns whether at least one of the keys includes secret
+    /// key material.
+    ///
+    /// This returns true if either the primary key or at least one of
+    /// the subkeys includes secret key material.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::serialize::Serialize;
+    /// use openpgp::parse::Parse;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// // Create a new key.
+    /// let (cert, _) =
+    ///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///       .generate()?;
+    /// assert!(cert.is_tsk());
+    ///
+    /// // If we serialize the certificate, the secret key material is
+    /// // stripped, unless we first convert it to a TSK.
+    ///
+    /// let mut buffer = Vec::new();
+    /// cert.as_tsk().serialize(&mut buffer);
+    /// let cert = Cert::from_bytes(&buffer)?;
+    /// assert!(cert.is_tsk());
+    ///
+    /// // Now round trip it without first converting it to a TSK.  This
+    /// // drops the secret key material.
+    /// let mut buffer = Vec::new();
+    /// cert.serialize(&mut buffer);
+    /// let cert = Cert::from_bytes(&buffer)?;
+    /// assert!(!cert.is_tsk());
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn is_tsk(&self) -> bool {
         if self.primary_key().has_secret() {
             return true;
@@ -1504,12 +2142,45 @@ impl Cert {
         })
     }
 
-    /// Fixes a time and policy for use with this certificate.
+    /// Associates a policy and a reference time with the certificate.
     ///
-    /// If `time` is `None`, the current time is used.
+    /// This is used to turn a certificate into a
+    /// [`ValidCert`].  (See also [`ValidateAmalgamation`],
+    /// which does the same for component amalgamations.)
     ///
-    /// Returns an error if the certificate is not valid for the given
-    /// policy at the given time.
+    /// A certificate is considered valid if:
+    ///
+    ///   - It has a self signature that is live at time `t`.
+    ///
+    ///   - The policy considers it acceptable.
+    ///
+    /// This doesn't say anything about whether the certificate itself
+    /// is alive (see [`ValidCert::alive`]) or revoked (see
+    /// [`ValidCert::revoked`]).
+    ///
+    /// [`ValidCert`]: cert/struct.ValidCert.html
+    /// [`ValidateAmalgamation`]: cert/amalgamation/trait.ValidateAmalgamation.html
+    /// [`ValidCert::alive`]: cert/struct.ValidCert.html#method.alive
+    /// [`ValidCert::revoked`]: cert/struct.ValidCert.html#method.revoked
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// let vc = cert.with_policy(p, None)?;
+    /// # assert!(std::ptr::eq(vc.policy(), p));
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn with_policy<'a, T>(&'a self, policy: &'a dyn Policy, time: T)
                               -> Result<ValidCert<'a>>
         where T: Into<Option<time::SystemTime>>,
@@ -1665,7 +2336,7 @@ impl<'a> ValidCert<'a> {
         self.cert.userids().with_policy(self.policy, self.time)
     }
 
-    /// Returns the amalgamated primary user attribute, if any.
+    /// Returns the primary User Attribute at `t`, if any.
     pub fn primary_user_attribute(&self)
         -> Result<ValidComponentAmalgamation<'a, UserAttribute>>
     {
