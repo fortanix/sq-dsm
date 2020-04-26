@@ -1072,7 +1072,7 @@ impl Cert {
     /// use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::packet::Tag;
-    /// # use openpgp::PacketPile;
+    /// # use std::convert::TryInto;
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) = CertBuilder::new()
@@ -1090,8 +1090,7 @@ impl Cert {
     /// # let packets = cert.into_packets()
     /// #     .filter(|p| p.tag() != Tag::Signature)
     /// #     .collect::<Vec<_>>();
-    /// # let pp : PacketPile = packets.into();
-    /// # let cert = Cert::from_packet_pile(pp)?;
+    /// # let cert : Cert = packets.try_into()?;
     /// # assert_eq!(cert.keys().count(), 1 + 2);
     /// #
     /// #     Ok(())
@@ -2257,6 +2256,14 @@ impl TryFrom<PacketParserResult<'_>> for Cert {
         } else {
             Err(Error::MalformedCert("No data".into()).into())
         }
+    }
+}
+
+impl TryFrom<Vec<Packet>> for Cert {
+    type Error = anyhow::Error;
+
+    fn try_from(p: Vec<Packet>) -> Result<Self> {
+        Cert::from_packets(p.into_iter())
     }
 }
 
