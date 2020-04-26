@@ -1248,6 +1248,51 @@ impl Cert {
             .chain(self.bad.into_iter().map(|s| s.into()))
     }
 
+    /// Returns the first certificate found in the sequence of packets.
+    ///
+    /// If the sequence of packets does not start with a certificate
+    /// (specifically, if it does not start with a primary key
+    /// packet), then this fails.
+    ///
+    /// If the sequence contains multiple keys (i.e., it is a key
+    /// ring) and you want all of the certificates, you should use
+    /// [`CertParser`] instead of this function.
+    ///
+    /// [`CertParser`]: struct.CertParser.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::PacketPile;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    ///
+    /// // We should be able to turn a certificate into a PacketPile
+    /// // and back.
+    /// assert!(Cert::from_packets(cert.into_packets()).is_ok());
+    ///
+    /// // But a revocation certificate is not a certificate, so this
+    /// // will fail.
+    /// let p : Vec<Packet> = vec![ rev.into() ];
+    /// assert!(Cert::from_packets(p.into_iter()).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn from_packets(p: impl Iterator<Item=Packet>) -> Result<Self> {
+        let mut i = parser::CertParser::from_iter(p);
+        match i.next() {
+            Some(Ok(cert)) => Ok(cert),
+            Some(Err(err)) => Err(err),
+            None => Err(Error::MalformedCert("No data".into()).into()),
+        }
+    }
+
     /// Converts the certificate into a `PacketPile`.
     ///
     /// # Examples
@@ -1309,12 +1354,7 @@ impl Cert {
     /// # }
     /// ```
     pub fn from_packet_pile(p: PacketPile) -> Result<Self> {
-        let mut i = parser::CertParser::from_iter(p.into_children());
-        match i.next() {
-            Some(Ok(cert)) => Ok(cert),
-            Some(Err(err)) => Err(err),
-            None => Err(Error::MalformedCert("No data".into()).into()),
-        }
+        Self::from_packets(p.into_children())
     }
 
     fn canonicalize(mut self) -> Self {
