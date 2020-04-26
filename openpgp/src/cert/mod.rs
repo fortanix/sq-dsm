@@ -930,12 +930,12 @@ impl Cert {
     ///
     /// This function creates new binding signatures that cause the
     /// certificate to expire at the specified time.  Specifically, it
-    /// updates the current binding signature on each of the valid
-    /// User IDs, and the direct key signature, if any.  This is
-    /// necessary, because the primary User ID is first consulted when
-    /// determining the certificate's expiration time, and
-    /// certificates can be distributed with a possibly empty subset
-    /// of User IDs.
+    /// updates the current binding signature on each of the valid,
+    /// non-revoked User IDs, and the direct key signature, if any.
+    /// This is necessary, because the primary User ID is first
+    /// consulted when determining the certificate's expiration time,
+    /// and certificates can be distributed with a possibly empty
+    /// subset of User IDs.
     ///
     /// A policy is needed, because the expiration is updated by
     /// updating the current binding signatures.

@@ -1338,7 +1338,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
             // userid.  We need to be careful not to change the
             // primary userid, so we make it explicit using the
             // primary userid subpacket.
-            for userid in self.cert().userids() {
+            for userid in self.cert().userids().revoked(false) {
                 // To extend the validity of the subkey, create a new
                 // binding signature with updated key validity period.
                 let binding_signature = userid.binding_signature();
@@ -1375,11 +1375,11 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// key to expire at the specified time when integrated into the
     /// certificate.  For subkeys, only a single `Signature` is
     /// returned.  For the primary key, however, it is necessary to
-    /// create a new self-signature for each User ID, and to create a
-    /// direct key signature.  This is needed, because the primary
-    /// User ID is first consulted when determining the primary key's
-    /// expiration time, and certificates can be distributed with a
-    /// possibly empty subset of User IDs.
+    /// create a new self-signature for each non-revoked User ID, and
+    /// to create a direct key signature.  This is needed, because the
+    /// primary User ID is first consulted when determining the
+    /// primary key's expiration time, and certificates can be
+    /// distributed with a possibly empty subset of User IDs.
     ///
     /// Setting a key's expiry time means updating an existing binding
     /// signature---when looking up information, only one binding
