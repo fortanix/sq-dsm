@@ -2276,6 +2276,13 @@ impl TryFrom<Packet> for Cert {
     }
 }
 
+impl From<Cert> for Vec<Packet> {
+    fn from(cert: Cert) -> Self {
+        cert.into_packets().collect::<Vec<_>>()
+    }
+}
+
+
 /// A certificate under a given policy at a given time.
 #[derive(Debug, Clone)]
 pub struct ValidCert<'a> {
