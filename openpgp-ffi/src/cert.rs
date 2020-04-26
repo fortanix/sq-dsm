@@ -347,7 +347,7 @@ fn pgp_cert_set_expiration_time(errp: Option<&mut *mut crate::error::Error>,
     let cert = cert.move_from_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
 
-    cert.set_expiration_time(policy, signer.as_mut(),
+    cert.set_expiration_time(policy, None, signer.as_mut(),
                              maybe_time(expiry))
         .move_into_raw(errp)
 }

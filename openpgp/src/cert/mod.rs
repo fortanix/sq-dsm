@@ -963,20 +963,20 @@ impl Cert {
     /// // Make cert expire now.
     /// let mut keypair = cert.primary_key()
     ///     .key().clone().parts_into_secret()?.into_keypair()?;
-    /// let cert = cert.set_expiration_time(p, &mut keypair,
+    /// let cert = cert.set_expiration_time(p, None, &mut keypair,
     ///                                     Some(time::SystemTime::now()))?;
     ///
     /// assert!(cert.with_policy(p, None)?.alive().is_err());
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_expiration_time(self, policy: &dyn Policy,
-                               primary_signer: &mut dyn Signer,
-                               expiration: Option<time::SystemTime>)
+    pub fn set_expiration_time<T>(self, policy: &dyn Policy, t: T,
+                                  primary_signer: &mut dyn Signer,
+                                  expiration: Option<time::SystemTime>)
         -> Result<Cert>
+        where T: Into<Option<time::SystemTime>>,
     {
-        let now = time::SystemTime::now();
-        let primary = self.primary_key().with_policy(policy, now)?;
+        let primary = self.primary_key().with_policy(policy, t.into())?;
         let sigs = primary.set_expiration_time(primary_signer,
                                                expiration)?;
         self.merge_packets(sigs)
