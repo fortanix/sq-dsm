@@ -140,6 +140,7 @@ use std::io;
 use std::cmp;
 use std::cmp::Ordering;
 use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::path::Path;
 use std::mem;
 use std::fmt;
@@ -2264,6 +2265,14 @@ impl TryFrom<Vec<Packet>> for Cert {
 
     fn try_from(p: Vec<Packet>) -> Result<Self> {
         Cert::from_packets(p.into_iter())
+    }
+}
+
+impl TryFrom<Packet> for Cert {
+    type Error = anyhow::Error;
+
+    fn try_from(p: Packet) -> Result<Self> {
+        vec![ p ].try_into()
     }
 }
 
