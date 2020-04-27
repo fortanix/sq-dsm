@@ -574,6 +574,7 @@ use super::*;
 /// # extern crate sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+/// use std::convert::TryFrom;
 /// use openpgp::cert::prelude::*;
 ///
 /// # fn main() { f().unwrap(); }
@@ -631,7 +632,7 @@ use super::*;
 ///     for s in cert.bad_signatures()     { acc.push(s.clone().into()) }
 ///
 ///     // Finally, parse into Cert.
-///     Cert::from_packet_pile(acc.into())
+///     Cert::try_from(acc)
 /// }
 ///
 /// let (cert, _) =
@@ -1311,48 +1312,6 @@ impl Cert {
     /// ```
     pub fn into_packet_pile(self) -> PacketPile {
         self.into()
-    }
-
-    /// Returns the first certificate found in the `PacketPile`.
-    ///
-    /// If the [`PacketPile`] does not start with a certificate
-    /// (specifically, if it does not start with a primary key
-    /// packet), then this fails.
-    ///
-    /// If the `PacketPile` contains multiple keys (i.e., it is a key
-    /// ring) and you want all of the certificates, you should use
-    /// [`CertParser`] instead of this function.
-    ///
-    /// [`PacketPile`]: ../struct.PacketPile.html
-    /// [`CertParser`]: struct.CertParser.html
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use sequoia_openpgp as openpgp;
-    /// use openpgp::cert::prelude::*;
-    /// use openpgp::packet::prelude::*;
-    /// use openpgp::PacketPile;
-    ///
-    /// # fn main() -> openpgp::Result<()> {
-    /// let (cert, rev) =
-    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
-    ///     .generate()?;
-    ///
-    /// // We should be able to turn a certificate into a PacketPile
-    /// // and back.
-    /// let pp : PacketPile = cert.into();
-    /// assert!(Cert::from_packet_pile(pp).is_ok());
-    ///
-    /// // But a revocation certificate is not a certificate, so this
-    /// // will fail.
-    /// let pp : PacketPile = Packet::from(rev).into();
-    /// assert!(Cert::from_packet_pile(pp).is_err());
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn from_packet_pile(p: PacketPile) -> Result<Self> {
-        Self::from_packets(p.into_children())
     }
 
     fn canonicalize(mut self) -> Self {
@@ -2127,7 +2086,7 @@ impl Cert {
             }
         }
 
-        Cert::from_packet_pile(PacketPile::from(combined))
+        Cert::try_from(PacketPile::from(combined))
     }
 
     /// Returns whether at least one of the keys includes secret
@@ -2271,6 +2230,53 @@ impl TryFrom<Packet> for Cert {
 
     fn try_from(p: Packet) -> Result<Self> {
         vec![ p ].try_into()
+    }
+}
+
+impl TryFrom<PacketPile> for Cert {
+    type Error = anyhow::Error;
+
+    /// Returns the first certificate found in the `PacketPile`.
+    ///
+    /// If the [`PacketPile`] does not start with a certificate
+    /// (specifically, if it does not start with a primary key
+    /// packet), then this fails.
+    ///
+    /// If the `PacketPile` contains multiple keys (i.e., it is a key
+    /// ring) and you want all of the certificates, you should use
+    /// [`CertParser`] instead of this function.
+    ///
+    /// [`PacketPile`]: ../struct.PacketPile.html
+    /// [`CertParser`]: struct.CertParser.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::PacketPile;
+    /// use std::convert::TryFrom;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    ///
+    /// // We should be able to turn a certificate into a PacketPile
+    /// // and back.
+    /// let pp : PacketPile = cert.into();
+    /// assert!(Cert::try_from(pp).is_ok());
+    ///
+    /// // But a revocation certificate is not a certificate, so this
+    /// // will fail.
+    /// let pp : PacketPile = Packet::from(rev).into();
+    /// assert!(Cert::try_from(pp).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn try_from(p: PacketPile) -> Result<Self> {
+        Self::from_packets(p.into_children())
     }
 }
 
@@ -2458,7 +2464,7 @@ mod test {
     fn parse_cert(data: &[u8], as_message: bool) -> Result<Cert> {
         if as_message {
             let pile = PacketPile::from_bytes(data).unwrap();
-            Cert::from_packet_pile(pile)
+            Cert::try_from(pile)
         } else {
             Cert::from_bytes(data)
         }
@@ -2938,30 +2944,30 @@ mod test {
 
     #[test]
     fn packet_pile_roundtrip() {
-        // Make sure Cert::from_packet_pile(Cert::to_packet_pile(cert))
+        // Make sure Cert::try_from(Cert::to_packet_pile(cert))
         // does a clean round trip.
 
         let cert = Cert::from_bytes(crate::tests::key("already-revoked.pgp")).unwrap();
         let cert2
-            = Cert::from_packet_pile(cert.clone().into_packet_pile()).unwrap();
+            = Cert::try_from(cert.clone().into_packet_pile()).unwrap();
         assert_eq!(cert, cert2);
 
         let cert = Cert::from_bytes(
             crate::tests::key("already-revoked-direct-revocation.pgp")).unwrap();
         let cert2
-            = Cert::from_packet_pile(cert.clone().into_packet_pile()).unwrap();
+            = Cert::try_from(cert.clone().into_packet_pile()).unwrap();
         assert_eq!(cert, cert2);
 
         let cert = Cert::from_bytes(
             crate::tests::key("already-revoked-userid-revocation.pgp")).unwrap();
         let cert2
-            = Cert::from_packet_pile(cert.clone().into_packet_pile()).unwrap();
+            = Cert::try_from(cert.clone().into_packet_pile()).unwrap();
         assert_eq!(cert, cert2);
 
         let cert = Cert::from_bytes(
             crate::tests::key("already-revoked-subkey-revocation.pgp")).unwrap();
         let cert2
-            = Cert::from_packet_pile(cert.clone().into_packet_pile()).unwrap();
+            = Cert::try_from(cert.clone().into_packet_pile()).unwrap();
         assert_eq!(cert, cert2);
     }
 
@@ -3434,7 +3440,7 @@ mod test {
             (bind1, rev1, bind2, rev2)
         };
         let pk : key::PublicKey = key.into();
-        let cert = Cert::from_packet_pile(PacketPile::from(vec![
+        let cert = Cert::try_from(PacketPile::from(vec![
             pk.into(),
             bind1.into(),
             bind2.into(),
@@ -3804,7 +3810,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             })
         .collect::<Vec<_>>();
         eprintln!("parse back");
-        let cert = Cert::from_packet_pile(PacketPile::from(pile)).unwrap();
+        let cert = Cert::try_from(PacketPile::from(pile)).unwrap();
 
         assert_eq!(cert.subkeys().len(), 2);
     }
@@ -4067,7 +4073,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         key.set_creation_time(t1).unwrap();
         let mut pair = key.clone().into_keypair().unwrap();
         let pk : key::PublicKey = key.clone().into();
-        let mut cert = Cert::from_packet_pile(PacketPile::from(vec![
+        let mut cert = Cert::try_from(PacketPile::from(vec![
             pk.into(),
         ])).unwrap();
         let uid: UserID = "foo@example.org".into();
@@ -4235,7 +4241,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let primary: Key<_, key::PrimaryRole> =
             key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
         let mut primary_pair = primary.clone().into_keypair()?;
-        let cert = Cert::from_packet_pile(vec![primary.into()].into())?;
+        let cert = Cert::try_from(vec![primary.into()])?;
 
         // We now add components without binding signatures.  They
         // should be kept, be enumerable, but ignored if a policy is
@@ -4327,16 +4333,16 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let primary_pub = primary_sec.clone().take_secret().0;
 
         let cert_p =
-            Cert::from_packet_pile(vec![primary_pub.clone().into()].into())?;
+            Cert::try_from(vec![primary_pub.clone().into()])?;
         let cert_s =
-            Cert::from_packet_pile(vec![primary_sec.clone().into()].into())?;
+            Cert::try_from(vec![primary_sec.clone().into()])?;
         let cert = cert_p.merge(cert_s)?;
         assert!(cert.primary_key().has_secret());
 
         let cert_p =
-            Cert::from_packet_pile(vec![primary_pub.clone().into()].into())?;
+            Cert::try_from(vec![primary_pub.clone().into()])?;
         let cert_s =
-            Cert::from_packet_pile(vec![primary_sec.clone().into()].into())?;
+            Cert::try_from(vec![primary_sec.clone().into()])?;
         let cert = cert_s.merge(cert_p)?;
         assert!(cert.primary_key().has_secret());
         Ok(())
@@ -4348,7 +4354,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let primary: Key<_, key::PrimaryRole> =
             key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
         let mut primary_pair = primary.clone().into_keypair()?;
-        let cert = Cert::from_packet_pile(vec![primary.clone().into()].into())?;
+        let cert = Cert::try_from(vec![primary.clone().into()])?;
 
         let subkey_sec: Key<_, key::SubordinateRole> =
             key::Key4::generate_ecc(false, Curve::Cv25519)?.into();
@@ -4358,23 +4364,23 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                            .set_transport_encryption(true))?;
         let binding = subkey_sec.bind(&mut primary_pair, &cert, builder)?;
 
-        let cert = Cert::from_packet_pile(vec![
+        let cert = Cert::try_from(vec![
             primary.clone().into(),
             subkey_pub.clone().into(),
             binding.clone().into(),
             subkey_sec.clone().into(),
             binding.clone().into(),
-        ].into())?;
+        ])?;
         assert_eq!(cert.keys().subkeys().count(), 1);
         assert_eq!(cert.keys().unencrypted_secret().subkeys().count(), 1);
 
-        let cert = Cert::from_packet_pile(vec![
+        let cert = Cert::try_from(vec![
             primary.clone().into(),
             subkey_sec.clone().into(),
             binding.clone().into(),
             subkey_pub.clone().into(),
             binding.clone().into(),
-        ].into())?;
+        ])?;
         assert_eq!(cert.keys().subkeys().count(), 1);
         assert_eq!(cert.keys().unencrypted_secret().subkeys().count(), 1);
         Ok(())

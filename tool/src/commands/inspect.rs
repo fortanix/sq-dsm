@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::io::{self, Read};
 
 use clap;
@@ -43,7 +44,7 @@ pub fn inspect(m: &clap::ArgMatches, policy: &dyn Policy, output: &mut dyn io::W
                     }
                     let pp = openpgp::PacketPile::from(
                         ::std::mem::replace(&mut packets, Vec::new()));
-                    let cert = openpgp::Cert::from_packet_pile(pp)?;
+                    let cert = openpgp::Cert::try_from(pp)?;
                     inspect_cert(policy, output, &cert, print_keygrips,
                                  print_certifications)?;
                 }
@@ -102,7 +103,7 @@ pub fn inspect(m: &clap::ArgMatches, policy: &dyn Policy, output: &mut dyn io::W
 
         } else if is_cert.is_ok() || is_keyring.is_ok() {
             let pp = openpgp::PacketPile::from(packets);
-            let cert = openpgp::Cert::from_packet_pile(pp)?;
+            let cert = openpgp::Cert::try_from(pp)?;
             inspect_cert(policy, output, &cert,
                          print_keygrips, print_certifications)?;
         } else if packets.is_empty() && ! sigs.is_empty() {

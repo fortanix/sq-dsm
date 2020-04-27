@@ -1,6 +1,7 @@
 //! https://sequoia-pgp.org/guide/exploring-openpgp/
 
 extern crate sequoia_openpgp as openpgp;
+use std::convert::TryFrom;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::policy::StandardPolicy as P;
 
@@ -51,7 +52,7 @@ fn main() {
     println!();
 
     // Parse into Cert.
-    let cert = openpgp::Cert::from_packet_pile(pile).unwrap();
+    let cert = openpgp::Cert::try_from(pile).unwrap();
     println!("Fingerprint: {}", cert.fingerprint());
 
     // List userids.

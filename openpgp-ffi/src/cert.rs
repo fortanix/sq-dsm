@@ -68,7 +68,7 @@ pub struct Cert(openpgp::Cert);
 fn pgp_cert_from_packet_pile(errp: Option<&mut *mut crate::error::Error>,
                             m: *mut PacketPile)
                             -> Maybe<Cert> {
-    openpgp::Cert::from_packet_pile(m.move_from_raw()).move_into_raw(errp)
+    openpgp::Cert::try_from(m.move_from_raw()).move_into_raw(errp)
 }
 
 /// Returns the first Cert found in the packet parser.

@@ -250,6 +250,7 @@ mod integration {
 #[allow(dead_code)]
 fn create_key() {
     use std::fs::File;
+    use std::convert::TryFrom;
     use sequoia_openpgp::{
         Cert,
         Packet,
@@ -352,7 +353,7 @@ fn create_key() {
         .unwrap();
     let sk_bind2 = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
 
-    let cert = Cert::from_packet_pile(PacketPile::from(vec![
+    let cert = Cert::try_from(PacketPile::from(vec![
         key.clone().into(),
         direct1.clone().into(),
         direct2.clone().into(),
@@ -385,7 +386,7 @@ fn create_key() {
         }
 
         let rev = b.sign_direct_key(&mut signer).unwrap();
-        let cert = Cert::from_packet_pile(PacketPile::from(vec![
+        let cert = Cert::try_from(PacketPile::from(vec![
             key.clone().into(),
             direct1.clone().into(),
             rev.clone().into(),
@@ -412,7 +413,7 @@ fn create_key() {
         }
 
         let rev = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
-        let cert = Cert::from_packet_pile(PacketPile::from(vec![
+        let cert = Cert::try_from(PacketPile::from(vec![
             key.clone().into(),
             direct1.clone().into(),
             direct2.clone().into(),

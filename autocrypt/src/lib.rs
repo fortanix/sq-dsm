@@ -13,6 +13,7 @@
 
 use base64;
 
+use std::convert::TryFrom;
 use std::io;
 use std::io::prelude::*;
 use std::io::BufReader;
@@ -146,7 +147,7 @@ impl AutocryptHeader {
             }
         }
 
-        let cleaned_cert = Cert::from_packet_pile(acc.into())?;
+        let cleaned_cert = Cert::try_from(acc)?;
 
         Ok(AutocryptHeader {
             header_type: AutocryptHeaderType::Sender,

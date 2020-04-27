@@ -293,6 +293,7 @@ impl CertBuilder {
     pub fn generate(mut self) -> Result<(Cert, Signature)> {
         use crate::{PacketPile, Packet};
         use crate::types::ReasonForRevocation;
+        use std::convert::TryFrom;
 
         let creation_time =
             self.creation_time.unwrap_or_else(std::time::SystemTime::now);
@@ -326,7 +327,7 @@ impl CertBuilder {
         let sig = sig.set_revocation_key(vec![])?;
 
         let mut cert =
-            Cert::from_packet_pile(PacketPile::from(packets))?;
+            Cert::try_from(PacketPile::from(packets))?;
 
         // Sign UserIDs.
         for uid in self.userids.into_iter() {
@@ -581,13 +582,14 @@ mod tests {
     #[test]
     fn builder_roundtrip() {
         use crate::PacketPile;
+        use std::convert::TryFrom;
 
         let (cert,_) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .add_signing_subkey()
             .generate().unwrap();
         let pile = cert.clone().into_packet_pile().into_children().collect::<Vec<_>>();
-        let exp = Cert::from_packet_pile(PacketPile::from(pile))
+        let exp = Cert::try_from(PacketPile::from(pile))
             .unwrap();
 
         assert_eq!(cert, exp);

@@ -33,6 +33,7 @@ use crate::parse::Cookie;
 ///
 /// ```rust
 /// # extern crate sequoia_openpgp as openpgp;
+/// use std::convert::TryFrom;
 /// use openpgp::{Packet, PacketPile};
 /// use openpgp::packet::signature::Signature4;
 /// use openpgp::packet::Signature;
@@ -57,7 +58,7 @@ use crate::parse::Cookie;
 /// // Certificate is considered revoked because it is accompanied with its
 /// // revocation signature
 /// let pp: PacketPile = PacketPile::from_bytes(&buffer)?;
-/// let cert = Cert::from_packet_pile(pp)?;
+/// let cert = Cert::try_from(pp)?;
 /// if let Revoked(_) = cert.revocation_status(policy, None) {
 ///     // cert is considered revoked
 /// }
@@ -81,7 +82,7 @@ use crate::parse::Cookie;
 ///         }).into();
 /// }
 ///
-/// let cert = Cert::from_packet_pile(pp)?;
+/// let cert = Cert::try_from(pp)?;
 /// if let CouldBe(_) = cert.revocation_status(policy, None) {
 ///     // revocation signature is broken and the key is not definitely revoked
 /// }
