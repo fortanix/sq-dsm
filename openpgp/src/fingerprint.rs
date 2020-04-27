@@ -74,6 +74,49 @@ impl Fingerprint {
         }
     }
 
+    /// Converts this fingerprint to its canonical hexadecimal representation.
+    ///
+    /// This representation is always uppercase and without spaces and is
+    /// suitable for stable key identifiers.
+    ///
+    /// The output of this function is exactly the same as formatting this
+    /// object with the `:X` format specifier.
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::Fingerprint;
+    ///
+    /// let fpr = "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567".parse::<Fingerprint>().unwrap();
+    ///
+    /// assert_eq!("0123456789ABCDEF0123456789ABCDEF01234567", fpr.to_hex());
+    /// assert_eq!(format!("{:X}", fpr), fpr.to_hex());
+    /// ```
+    pub fn to_hex(&self) -> String {
+        format!("{:X}", self)
+    }
+
+    /// Parses the hexadecimal representation of an OpenPGP fingerprint.
+    ///
+    /// This function is the reverse of `to_hex`. It also accepts other variants
+    /// of the fingerprint notation including lower-case letters, spaces and
+    /// optional leading `0x`.
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::Fingerprint;
+    ///
+    /// let fpr = Fingerprint::from_hex("0123456789ABCDEF0123456789ABCDEF01234567").unwrap();
+    ///
+    /// assert_eq!("0123456789ABCDEF0123456789ABCDEF01234567", fpr.to_hex());
+    ///
+    /// let fpr = Fingerprint::from_hex("0123 4567 89ab cdef 0123 4567 89ab cdef 0123 4567").unwrap();
+    ///
+    /// assert_eq!("0123456789ABCDEF0123456789ABCDEF01234567", fpr.to_hex());
+    /// ```
+    pub fn from_hex(s: &str) -> std::result::Result<Self, anyhow::Error> {
+        std::str::FromStr::from_str(s)
+    }
+
     /// Common code for the above functions.
     fn convert_to_string(&self, pretty: bool) -> String {
         let raw = match self {

@@ -177,6 +177,45 @@ impl KeyID {
         self.as_bytes().iter().all(|b| *b == 0)
     }
 
+    /// Converts this key ID to its canonical hexadecimal representation.
+    ///
+    /// This representation is always uppercase and without spaces and is
+    /// suitable for stable key identifiers.
+    ///
+    /// The output of this function is exactly the same as formatting this
+    /// object with the `:X` format specifier.
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::KeyID;
+    ///
+    /// let keyid = "fb3751f1587daef1".parse::<KeyID>().unwrap();
+    ///
+    /// assert_eq!("FB3751F1587DAEF1", keyid.to_hex());
+    /// assert_eq!(format!("{:X}", keyid), keyid.to_hex());
+    /// ```
+    pub fn to_hex(&self) -> String {
+        format!("{:X}", self)
+    }
+
+    /// Parses the hexadecimal representation of an OpenPGP key ID.
+    ///
+    /// This function is the reverse of `to_hex`. It also accepts other variants
+    /// of the key ID notation including lower-case letters, spaces and optional
+    /// leading `0x`.
+    ///
+    /// ```rust
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// use openpgp::KeyID;
+    ///
+    /// let keyid = KeyID::from_hex("0xfb3751f1587daef1").unwrap();
+    ///
+    /// assert_eq!("FB3751F1587DAEF1", keyid.to_hex());
+    /// ```
+    pub fn from_hex(s: &str) -> std::result::Result<Self, anyhow::Error> {
+        std::str::FromStr::from_str(s)
+    }
+
     /// Common code for the above functions.
     fn convert_to_string(&self, pretty: bool) -> String {
         let raw = match self {
