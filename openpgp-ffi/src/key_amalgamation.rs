@@ -83,7 +83,7 @@ pub extern "C" fn pgp_valid_key_amalgamation_revocation_status<'a>(ka: *const Va
     -> *mut RevocationStatus<'a>
 {
     ka.ref_raw()
-        .revoked()
+        .revocation_status()
         .move_into_raw()
 }
 

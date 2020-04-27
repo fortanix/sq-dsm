@@ -570,11 +570,11 @@ mod tests {
         let (cert, revocation) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .generate().unwrap();
-        assert_eq!(cert.revoked(p, None),
+        assert_eq!(cert.revocation_status(p, None),
                    RevocationStatus::NotAsFarAsWeKnow);
 
         let cert = cert.merge_packets(vec![revocation.clone().into()]).unwrap();
-        assert_eq!(cert.revoked(p, None),
+        assert_eq!(cert.revocation_status(p, None),
                    RevocationStatus::Revoked(vec![ &revocation ]));
     }
 

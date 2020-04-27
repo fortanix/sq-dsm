@@ -954,8 +954,8 @@ pgp_key_t pgp_cert_primary_key (pgp_cert_t cert);
 /// If `when` is 0, then returns the Cert's revocation status as of the
 /// time of the call.
 /*/
-pgp_revocation_status_t pgp_cert_revoked (pgp_cert_t cert,
-                                          pgp_policy_t policy, time_t when);
+pgp_revocation_status_t pgp_cert_revocation_status (pgp_cert_t cert,
+                                                    pgp_policy_t policy, time_t when);
 
 /*/
 /// Writes a revocation certificate to the writer.

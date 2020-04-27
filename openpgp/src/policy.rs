@@ -1395,7 +1395,7 @@ mod test {
             ReasonForRevocation::KeyCompromised,
             b"It was the maid :/")?;
 
-        match cert_revoked.revoked(&DEFAULT, None) {
+        match cert_revoked.revocation_status(&DEFAULT, None) {
             RevocationStatus::Revoked(sigs) => {
                 assert_eq!(sigs.len(), 1);
                 assert_eq!(sigs[0].hash_algo(), algo);
@@ -1410,7 +1410,7 @@ mod test {
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                      = cert_revoked.revoked(&reject, None));
+                      = cert_revoked.revocation_status(&reject, None));
 
         // Reject the hash algorithm next year.
         let mut reject : StandardPolicy = StandardPolicy::new();
@@ -1420,7 +1420,7 @@ mod test {
             SystemTime::now() + Duration::from_secs(SECS_IN_YEAR));
         cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
-                      = cert_revoked.revoked(&reject, None));
+                      = cert_revoked.revocation_status(&reject, None));
 
         // Reject the hash algorithm last year.
         let mut reject : StandardPolicy = StandardPolicy::new();
@@ -1431,7 +1431,7 @@ mod test {
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                      = cert_revoked.revoked(&reject, None));
+                      = cert_revoked.revocation_status(&reject, None));
 
         // Reject the hash algorithm for normal signatures last year,
         // and revocations next year.
@@ -1443,7 +1443,7 @@ mod test {
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::Revoked(_)
-                      = cert_revoked.revoked(&reject, None));
+                      = cert_revoked.revocation_status(&reject, None));
 
         // Accept algo, but reject the algos with id - 1 and id + 1.
         let mut reject : StandardPolicy = StandardPolicy::new();
@@ -1459,7 +1459,7 @@ mod test {
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
         cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
-                      = cert_revoked.revoked(&reject, None));
+                      = cert_revoked.revocation_status(&reject, None));
 
         // Reject the hash algorithm since before the Unix epoch.
         // Since the earliest representable time using a Timestamp is
@@ -1472,7 +1472,7 @@ mod test {
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                      = cert_revoked.revoked(&reject, None));
+                      = cert_revoked.revocation_status(&reject, None));
 
         // Reject the hash algorithm after the end of time that is
         // representable by a Timestamp (2106).  This should accept
@@ -1484,7 +1484,7 @@ mod test {
             SystemTime::UNIX_EPOCH + Duration::from_secs(500 * SECS_IN_YEAR));
         cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
-                      = cert_revoked.revoked(&reject, None));
+                      = cert_revoked.revocation_status(&reject, None));
 
         Ok(())
     }

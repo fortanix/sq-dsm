@@ -97,7 +97,7 @@
 //!
 //! let cert = cert.with_policy(p, None)?;
 //!
-//! if let RevocationStatus::Revoked(_) = cert.revoked() {
+//! if let RevocationStatus::Revoked(_) = cert.revocation_status() {
 //!     // The certificate is revoked, don't use any keys from it.
 //! #   unreachable!();
 //! } else if let Err(_) = cert.alive() {
@@ -105,7 +105,7 @@
 //! #   unreachable!();
 //! } else {
 //!     for ka in cert.keys() {
-//!         if let RevocationStatus::Revoked(_) = ka.revoked() {
+//!         if let RevocationStatus::Revoked(_) = ka.revocation_status() {
 //!             // The key is revoked.
 //! #           unreachable!();
 //!         } else if let Err(_) = ka.alive() {
@@ -157,7 +157,7 @@
 //! #     let issuer = cert.fingerprint();
 //! #     let mut i = 0;
 //! let cert = cert.with_policy(p, timestamp)?;
-//! if let RevocationStatus::Revoked(_) = cert.revoked() {
+//! if let RevocationStatus::Revoked(_) = cert.revocation_status() {
 //!     // The certificate is revoked, don't use any keys from it.
 //! #   unreachable!();
 //! } else if let Err(_) = cert.alive() {
@@ -165,7 +165,7 @@
 //! #   unreachable!();
 //! } else {
 //!     for ka in cert.keys().key_handle(issuer) {
-//!         if let RevocationStatus::Revoked(_) = ka.revoked() {
+//!         if let RevocationStatus::Revoked(_) = ka.revocation_status() {
 //!             // The key is revoked, don't use it!
 //! #           unreachable!();
 //!         } else if let Err(_) = ka.alive() {
@@ -860,13 +860,13 @@ impl<'a, P, R, R2> KeyAmalgamation<'a, P, R, R2>
 /// // need to check that the certificate and `Key` are not revoked,
 /// // and live.
 /// //
-/// // Note: `ValidKeyAmalgamation::revoked`, etc. use the
+/// // Note: `ValidKeyAmalgamation::revocation_status`, etc. use the
 /// // embedded policy and timestamp.  Even though we used `None` for
 /// // the timestamp (i.e., now), they are guaranteed to use the same
 /// // timestamp, because `with_policy` eagerly transforms it into
 /// // the current time.
 /// let cert = cert.with_policy(p, None)?;
-/// if let RevocationStatus::Revoked(_revs) = cert.revoked() {
+/// if let RevocationStatus::Revoked(_revs) = cert.revocation_status() {
 ///     // Revoked by the certificate holder.  (If we care about
 ///     // designated revokers, then we need to check those
 ///     // ourselves.)
@@ -877,7 +877,7 @@ impl<'a, P, R, R2> KeyAmalgamation<'a, P, R, R2>
 /// } else {
 ///     // `ValidCert::keys` returns `ValidKeyAmalgamation`s.
 ///     for ka in cert.keys() {
-///         if let RevocationStatus::Revoked(_revs) = ka.revoked() {
+///         if let RevocationStatus::Revoked(_revs) = ka.revocation_status() {
 ///             // Revoked by the key owner.  (If we care about
 ///             // designated revokers, then we need to check those
 ///             // ourselves.)
@@ -1154,12 +1154,12 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
         self.binding_signature
     }
 
-    fn revoked(&self) -> RevocationStatus<'a> {
+    fn revocation_status(&self) -> RevocationStatus<'a> {
         if self.primary() {
-            self.cert.revoked()
+            self.cert.revocation_status()
         } else {
-            self.bundle()._revoked(self.policy(), self.time(),
-                                   true, Some(self.binding_signature))
+            self.bundle()._revocation_status(self.policy(), self.time(),
+                                             true, Some(self.binding_signature))
         }
     }
 }

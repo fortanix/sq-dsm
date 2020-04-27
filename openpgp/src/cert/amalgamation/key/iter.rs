@@ -535,7 +535,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 /// // The certificate *and* keys need to be valid.
 /// let cert = cert.with_policy(p, None)?;
 ///
-/// if let RevocationStatus::Revoked(_) = cert.revoked() {
+/// if let RevocationStatus::Revoked(_) = cert.revocation_status() {
 ///     // Certificate is revoked.
 /// } else if let Err(_err) = cert.alive() {
 ///     // The certificate is not alive.
@@ -746,7 +746,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             }
 
             if let Some(want_revoked) = self.revoked {
-                if let RevocationStatus::Revoked(_) = ka.revoked() {
+                if let RevocationStatus::Revoked(_) = ka.revocation_status() {
                     // The key is definitely revoked.
                     if ! want_revoked {
                         t!("Key revoked... skipping.");
@@ -1216,7 +1216,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///     .keys()
     ///     .with_policy(p, timestamp)
     ///     .filter(|ka| {
-    ///         match ka.revoked() {
+    ///         match ka.revocation_status() {
     ///             RevocationStatus::Revoked(_) =>
     ///                 // It's definitely revoked, skip it.
     ///                 false,
@@ -1240,10 +1240,10 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// ```
     ///
     /// As the example shows, this filter is significantly less
-    /// flexible than using `KeyAmalgamation::revoked`.  However, this
-    /// filter implements a typical policy, and does not preclude
-    /// using something like `Iter::filter` to implement alternative
-    /// policies.
+    /// flexible than using `KeyAmalgamation::revocation_status`.
+    /// However, this filter implements a typical policy, and does not
+    /// preclude using something like `Iter::filter` to implement
+    /// alternative policies.
     pub fn revoked<T>(mut self, revoked: T) -> Self
         where T: Into<Option<bool>>
     {

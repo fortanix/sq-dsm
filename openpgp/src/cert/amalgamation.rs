@@ -531,7 +531,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// reference time.
     ///
     /// This does *not* check whether the certificate has been
-    /// revoked.  For that, use `Cert::revoked()`.
+    /// revoked.  For that, use `Cert::revocation_status()`.
     ///
     /// Note, as per [RFC 4880], a key is considered to be revoked at
     /// some time if there were no soft revocations created as of that
@@ -558,7 +558,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// #         .generate()?;
     /// #     let cert = cert.with_policy(p, None)?;
     /// #     let ua = cert.userids().nth(0).expect("User IDs");
-    /// match ua.revoked() {
+    /// match ua.revocation_status() {
     ///     RevocationStatus::Revoked(revs) => {
     ///         // The certificate holder revoked the User ID.
     /// #       unreachable!();
@@ -577,7 +577,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// #     Ok(())
     /// # }
     /// ```
-    fn revoked(&self) -> RevocationStatus<'a>;
+    fn revocation_status(&self) -> RevocationStatus<'a>;
 }
 
 /// A certificate component, its associated data, and useful methods.
@@ -1020,7 +1020,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
 ///     // that there is a valid *binding signature*, not that the
 ///     // `ComponentAmalgamation` is valid.
 ///     //
-///     // Note: `ValidComponentAmalgamation::revoked` and
+///     // Note: `ValidComponentAmalgamation::revocation_status` and
 ///     // `Preferences::preferred_symmetric_algorithms` use the
 ///     // embedded policy and timestamp.  Even though we used `None` for
 ///     // the timestamp (i.e., now), they are guaranteed to use the same
@@ -1030,7 +1030,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
 ///     // Note: we only check whether the User ID is not revoked.  If
 ///     // we were using a key, we'd also want to check that it is alive.
 ///     // (Keys can expire, but User IDs cannot.)
-///     if let RevocationStatus::Revoked(_revs) = u.revoked() {
+///     if let RevocationStatus::Revoked(_revs) = u.revocation_status() {
 ///         // Revoked by the key owner.  (If we care about
 ///         // designated revokers, then we need to check those
 ///         // ourselves.)
@@ -1167,7 +1167,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
                 },
             }?;
 
-            let revoked = c._revoked(policy, t, false, Some(sig));
+            let revoked = c._revocation_status(policy, t, false, Some(sig));
             let primary = sig.primary_userid().unwrap_or(false);
             let signature_creation_time = match sig.signature_creation_time() {
                 Some(time) => Some(time),
@@ -1255,9 +1255,9 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
         self.binding_signature
     }
 
-    fn revoked(&self) -> RevocationStatus<'a> {
-        self.bundle._revoked(self.policy(), self.cert.time,
-                              false, Some(self.binding_signature))
+    fn revocation_status(&self) -> RevocationStatus<'a> {
+        self.bundle._revocation_status(self.policy(), self.cert.time,
+                                       false, Some(self.binding_signature))
     }
 }
 

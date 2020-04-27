@@ -120,7 +120,7 @@ impl AutocryptHeader {
         // The subkeys and the most recent selfsig.
         for skb in cert.keys().with_policy(policy, None).subkeys() {
             // Skip if revoked.
-            if let RevocationStatus::Revoked(_) = skb.revoked() {
+            if let RevocationStatus::Revoked(_) = skb.revocation_status() {
                 continue;
             }
 

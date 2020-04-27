@@ -54,7 +54,7 @@ use crate::cert::prelude::*;
 ///     .set_cipher_suite(CipherSuite::Cv25519)
 ///     .generate()?;
 /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-///            cert.revoked(p, None));
+///            cert.revocation_status(p, None));
 ///
 /// let mut signer = cert.primary_key().key().clone()
 ///     .parts_into_secret()?.into_keypair()?;
@@ -66,7 +66,7 @@ use crate::cert::prelude::*;
 ///
 /// let cert = cert.merge_packets(vec![sig.clone().into()])?;
 /// assert_eq!(RevocationStatus::Revoked(vec![&sig]),
-///            cert.revoked(p, None));
+///            cert.revocation_status(p, None));
 /// # Ok(())
 /// # }
 pub struct CertRevocationBuilder {
@@ -185,7 +185,7 @@ impl Deref for CertRevocationBuilder {
 ///
 /// // Check that it is revoked.
 /// let subkey = cert.keys().subkeys().nth(0).unwrap();
-/// if let RevocationStatus::Revoked(revocations) = subkey.revoked(p, None) {
+/// if let RevocationStatus::Revoked(revocations) = subkey.revocation_status(p, None) {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);
 /// } else {
@@ -303,7 +303,7 @@ impl Deref for SubkeyRevocationBuilder {
 ///
 /// // Check that it is revoked.
 /// let userid = cert.userids().with_policy(p, None).nth(0).unwrap();
-/// if let RevocationStatus::Revoked(revocations) = userid.revoked() {
+/// if let RevocationStatus::Revoked(revocations) = userid.revocation_status() {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);
 /// } else {
@@ -423,7 +423,7 @@ impl Deref for UserIDRevocationBuilder {
 ///
 /// // Check that it is revoked.
 /// let ua = cert.user_attributes().with_policy(p, None).nth(0).unwrap();
-/// if let RevocationStatus::Revoked(revocations) = ua.revoked() {
+/// if let RevocationStatus::Revoked(revocations) = ua.revocation_status() {
 ///     assert_eq!(revocations.len(), 1);
 ///     assert_eq!(*revocations[0], revocation);
 /// } else {

@@ -778,7 +778,7 @@ impl Cert {
     /// Note: certificates and subkeys have different revocation
     /// criteria from [User IDs and User Attributes].
     ///
-    /// [User IDs and User Attributes]: amalgamation/struct.ComponentAmalgamation.html#method.revoked
+    /// [User IDs and User Attributes]: amalgamation/struct.ComponentAmalgamation.html#method.revocation_status
     ///
     /// # Examples
     ///
@@ -795,17 +795,17 @@ impl Cert {
     ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
     ///     .generate()?;
     ///
-    /// assert_eq!(cert.revoked(p, None), RevocationStatus::NotAsFarAsWeKnow);
+    /// assert_eq!(cert.revocation_status(p, None), RevocationStatus::NotAsFarAsWeKnow);
     ///
     /// // Merge the revocation certificate.  `cert` is now considered
     /// // to be revoked.
     /// let cert = cert.merge_packets(vec![ rev.clone().into() ])?;
-    /// assert_eq!(cert.revoked(p, None),
+    /// assert_eq!(cert.revocation_status(p, None),
     ///            RevocationStatus::Revoked(vec![ &rev.into() ]));
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn revoked<T>(&self, policy: &dyn Policy, t: T) -> RevocationStatus
+    pub fn revocation_status<T>(&self, policy: &dyn Policy, t: T) -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
@@ -824,7 +824,7 @@ impl Cert {
                 _ => ()
             }
         }
-        self.primary_key().bundle()._revoked(policy, t, true, sig)
+        self.primary_key().bundle()._revocation_status(policy, t, true, sig)
     }
 
     /// Revokes the certificate in place.
@@ -864,7 +864,7 @@ impl Cert {
     ///     .generate()?;
     ///
     /// // A new certificate is not revoked.
-    /// assert_eq!(cert.revoked(p, None),
+    /// assert_eq!(cert.revocation_status(p, None),
     ///            RevocationStatus::NotAsFarAsWeKnow);
     ///
     /// // The default revocation certificate is a generic
@@ -878,7 +878,7 @@ impl Cert {
     /// let cert = cert.revoke_in_place(&mut keypair,
     ///                                 ReasonForRevocation::KeyCompromised,
     ///                                 b"It was the maid :/")?;
-    /// if let RevocationStatus::Revoked(revs) = cert.revoked(p, None) {
+    /// if let RevocationStatus::Revoked(revs) = cert.revocation_status(p, None) {
     ///     assert_eq!(revs.len(), 1);
     ///     let rev = revs[0];
     ///
@@ -2201,7 +2201,7 @@ impl Cert {
     /// [`ValidCert`]: cert/struct.ValidCert.html
     /// [`ValidateAmalgamation`]: cert/amalgamation/trait.ValidateAmalgamation.html
     /// [`ValidCert::alive`]: cert/struct.ValidCert.html#method.alive
-    /// [`ValidCert::revoked`]: cert/struct.ValidCert.html#method.revoked
+    /// [`ValidCert::revocation_status`]: cert/struct.ValidCert.html#method.revocation_status
     ///
     /// # Examples
     ///
@@ -2363,8 +2363,8 @@ impl<'a> ValidCert<'a> {
     ///
     /// Note: this only returns whether this Cert is revoked; it does
     /// not imply anything about the Cert or other components.
-    pub fn revoked(&self) -> RevocationStatus<'a> {
-        self.cert.revoked(self.policy, self.time)
+    pub fn revocation_status(&self) -> RevocationStatus<'a> {
+        self.cert.revocation_status(self.policy, self.time)
     }
 
     /// Returns whether or not the Cert is alive.
@@ -3174,7 +3174,7 @@ mod test {
             assert_eq!(typ, SignatureType::PositiveCertification,
                        "{:#?}", cert);
 
-            let revoked = cert.revoked(p, None);
+            let revoked = cert.revocation_status(p, None);
             if direct_revoked {
                 assert_match!(RevocationStatus::Revoked(_) = revoked,
                               "{:#?}", cert);
@@ -3188,7 +3188,7 @@ mod test {
                 assert_eq!(typ, SignatureType::PositiveCertification,
                            "{:#?}", cert);
 
-                let revoked = userid.revoked();
+                let revoked = userid.revocation_status();
                 if userid_revoked {
                     assert_match!(RevocationStatus::Revoked(_) = revoked);
                 } else {
@@ -3202,7 +3202,7 @@ mod test {
                 assert_eq!(typ, SignatureType::SubkeyBinding,
                            "{:#?}", cert);
 
-                let revoked = subkey.revoked(p, None);
+                let revoked = subkey.revocation_status(p, None);
                 if subkey_revoked {
                     assert_match!(RevocationStatus::Revoked(_) = revoked);
                 } else {
@@ -3263,7 +3263,7 @@ mod test {
         let (cert, _) = CertBuilder::general_purpose(None, Some("Test"))
             .generate().unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   cert.revoked(p, None));
+                   cert.revocation_status(p, None));
 
         let mut keypair = cert.primary_key().key().clone().parts_into_secret()
             .unwrap().into_keypair().unwrap();
@@ -3280,7 +3280,7 @@ mod test {
                    Some(&cert.fingerprint()));
 
         let cert = cert.merge_packets(vec![sig.into()]).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, None));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, None));
 
 
         // Have other revoke cert.
@@ -3313,7 +3313,7 @@ mod test {
         let sig = {
             let subkey = cert.subkeys().nth(0).unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                       subkey.revoked(p, None));
+                       subkey.revocation_status(p, None));
 
             let mut keypair = cert.primary_key().key().clone().parts_into_secret()
                 .unwrap().into_keypair().unwrap();
@@ -3327,11 +3327,11 @@ mod test {
         assert_eq!(sig.typ(), SignatureType::SubkeyRevocation);
         let cert = cert.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   cert.revoked(p, None));
+                   cert.revocation_status(p, None));
 
         let subkey = cert.subkeys().nth(0).unwrap();
         assert_match!(RevocationStatus::Revoked(_)
-                      = subkey.revoked(p, None));
+                      = subkey.revocation_status(p, None));
     }
 
     #[test]
@@ -3344,7 +3344,7 @@ mod test {
 
         let sig = {
             let uid = cert.userids().with_policy(p, None).nth(1).unwrap();
-            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revoked());
+            assert_eq!(RevocationStatus::NotAsFarAsWeKnow, uid.revocation_status());
 
             let mut keypair = cert.primary_key().key().clone().parts_into_secret()
                 .unwrap().into_keypair().unwrap();
@@ -3358,10 +3358,10 @@ mod test {
         assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
         let cert = cert.merge_packets(vec![sig.into()]).unwrap();
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-                   cert.revoked(p, None));
+                   cert.revocation_status(p, None));
 
         let uid = cert.userids().with_policy(p, None).nth(1).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = uid.revoked());
+        assert_match!(RevocationStatus::Revoked(_) = uid.revocation_status());
     }
 
     #[test]
@@ -3452,20 +3452,20 @@ mod test {
         let t23 = t2 + time::Duration::new((60. * 60. * 24. * 300.0 * f3) as u64, 0);
         let t34 = t3 + time::Duration::new((60. * 60. * 24. * 300.0 * f4) as u64, 0);
 
-        assert_eq!(cert.revoked(p, te1), RevocationStatus::NotAsFarAsWeKnow);
-        assert_eq!(cert.revoked(p, t12), RevocationStatus::NotAsFarAsWeKnow);
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t23));
-        assert_eq!(cert.revoked(p, t34), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(cert.revocation_status(p, te1), RevocationStatus::NotAsFarAsWeKnow);
+        assert_eq!(cert.revocation_status(p, t12), RevocationStatus::NotAsFarAsWeKnow);
+        assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, t23));
+        assert_eq!(cert.revocation_status(p, t34), RevocationStatus::NotAsFarAsWeKnow);
 
         // Merge in the hard revocation.
         let cert = cert.merge_packets(vec![ rev2.into() ]).unwrap();
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, te1));
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t12));
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t23));
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t34));
-        assert_match!(RevocationStatus::Revoked(_) = cert.revoked(p, t4));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, te1));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, t12));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, t23));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, t34));
+        assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, t4));
         assert_match!(RevocationStatus::Revoked(_)
-                      = cert.revoked(p, time::SystemTime::now()));
+                      = cert.revocation_status(p, time::SystemTime::now()));
     }
 
     #[test]
@@ -3478,14 +3478,14 @@ mod test {
             where T: Into<Option<time::SystemTime>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = cert.revoked(p, t))
+                              = cert.revocation_status(p, t))
         }
 
         fn subkey_revoked<T>(p: &dyn Policy, cert: &Cert, t: T) -> bool
             where T: Into<Option<time::SystemTime>>
         {
             !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = cert.subkeys().nth(0).unwrap().bundle().revoked(p, t))
+                              = cert.subkeys().nth(0).unwrap().bundle().revocation_status(p, t))
         }
 
         let tests : [(&str, Box<dyn Fn(&dyn Policy, &Cert, _) -> bool>); 2] = [
@@ -3555,7 +3555,7 @@ mod test {
             where T: Into<Option<time::SystemTime>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                          = cert.revoked(p, None));
+                          = cert.revocation_status(p, None));
 
             let mut slim_shady = false;
             let mut eminem = false;
@@ -3566,17 +3566,17 @@ mod test {
 
                     if revoked {
                         assert_match!(RevocationStatus::Revoked(_)
-                                      = b.revoked());
+                                      = b.revocation_status());
                     } else {
                         assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                                      = b.revoked());
+                                      = b.revocation_status());
                     }
                 } else {
                     assert!(!eminem);
                     eminem = true;
 
                     assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                                  = b.revoked());
+                                  = b.revocation_status());
                 }
             }
 
@@ -3588,16 +3588,16 @@ mod test {
             where T: Into<Option<time::SystemTime>>, T: Copy
         {
             assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                          = cert.revoked(p, None));
+                          = cert.revocation_status(p, None));
 
             assert_eq!(cert.user_attributes().count(), 1);
             let ua = cert.user_attributes().nth(0).unwrap();
             if revoked {
                 assert_match!(RevocationStatus::Revoked(_)
-                              = ua.revoked(p, t));
+                              = ua.revocation_status(p, t));
             } else {
                 assert_match!(RevocationStatus::NotAsFarAsWeKnow
-                              = ua.revoked(p, t));
+                              = ua.revocation_status(p, t));
             }
         }
 
@@ -3678,7 +3678,7 @@ mod test {
             Cert::from_bytes(crate::tests::key("un-revoked-userid.pgp")).unwrap();
 
         for uid in cert.userids().with_policy(p, None) {
-            assert_eq!(uid.revoked(), RevocationStatus::NotAsFarAsWeKnow);
+            assert_eq!(uid.revocation_status(), RevocationStatus::NotAsFarAsWeKnow);
         }
     }
 

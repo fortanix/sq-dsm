@@ -137,14 +137,14 @@ fn inspect_cert(policy: &dyn Policy,
     }
     writeln!(output)?;
     writeln!(output, "    Fingerprint: {}", cert.fingerprint())?;
-    inspect_revocation(output, "", cert.revoked(policy, None))?;
+    inspect_revocation(output, "", cert.revocation_status(policy, None))?;
     inspect_key(policy, output, "", cert.keys().nth(0).unwrap(),
                 print_keygrips, print_certifications)?;
     writeln!(output)?;
 
     for vka in cert.keys().subkeys().with_policy(policy, None) {
         writeln!(output, "         Subkey: {}", vka.key().fingerprint())?;
-        inspect_revocation(output, "", vka.revoked())?;
+        inspect_revocation(output, "", vka.revocation_status())?;
         inspect_key(policy, output, "", vka.into_key_amalgamation().into(),
                     print_keygrips, print_certifications)?;
         writeln!(output)?;
@@ -161,7 +161,7 @@ fn inspect_cert(policy: &dyn Policy,
 
     for uidb in cert.userids() {
         writeln!(output, "         UserID: {}", uidb.userid())?;
-        inspect_revocation(output, "", uidb.revoked(policy, None))?;
+        inspect_revocation(output, "", uidb.revocation_status(policy, None))?;
         match uidb.binding_signature(policy, None) {
             Ok(sig) => if let Err(e) =
                 sig.signature_alive(None, std::time::Duration::new(0, 0))
@@ -178,7 +178,7 @@ fn inspect_cert(policy: &dyn Policy,
 
     for uab in cert.user_attributes() {
         writeln!(output, "         UserID: {:?}", uab.user_attribute())?;
-        inspect_revocation(output, "", uab.revoked(policy, None))?;
+        inspect_revocation(output, "", uab.revocation_status(policy, None))?;
         match uab.binding_signature(policy, None) {
             Ok(sig) => if let Err(e) =
                 sig.signature_alive(None, std::time::Duration::new(0, 0))

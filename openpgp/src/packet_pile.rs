@@ -58,7 +58,7 @@ use crate::parse::Cookie;
 /// // revocation signature
 /// let pp: PacketPile = PacketPile::from_bytes(&buffer)?;
 /// let cert = Cert::from_packet_pile(pp)?;
-/// if let Revoked(_) = cert.revoked(policy, None) {
+/// if let Revoked(_) = cert.revocation_status(policy, None) {
 ///     // cert is considered revoked
 /// }
 /// # else {
@@ -82,7 +82,7 @@ use crate::parse::Cookie;
 /// }
 ///
 /// let cert = Cert::from_packet_pile(pp)?;
-/// if let CouldBe(_) = cert.revoked(policy, None) {
+/// if let CouldBe(_) = cert.revocation_status(policy, None) {
 ///     // revocation signature is broken and the key is not definitely revoked
 /// }
 /// # else {

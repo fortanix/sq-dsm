@@ -1398,7 +1398,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     error: err,
                                 }
                             } else if let
-                                RevocationStatus::Revoked(rev) = ka.cert().revoked()
+                                RevocationStatus::Revoked(rev) = ka.cert().revocation_status()
                             {
                                 t!("{:02X}{:02X}: cert {} revoked: {:?}",
                                    sigid[0], sigid[1], ka.cert().fingerprint(), rev);
@@ -1410,7 +1410,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         .into(),
                                 }
                             } else if let
-                                RevocationStatus::Revoked(rev) = ka.revoked()
+                                RevocationStatus::Revoked(rev) = ka.revocation_status()
                             {
                                 t!("{:02X}{:02X}: key {} revoked: {:?}",
                                    sigid[0], sigid[1], ka.fingerprint(), rev);

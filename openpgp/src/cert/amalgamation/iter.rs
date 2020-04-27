@@ -290,7 +290,7 @@ impl<'a, C> Iterator for ValidComponentAmalgamationIter<'a, C>
             };
 
             if let Some(want_revoked) = self.revoked {
-                if let RevocationStatus::Revoked(_) = vca.revoked() {
+                if let RevocationStatus::Revoked(_) = vca.revocation_status() {
                     // The component is definitely revoked.
                     if ! want_revoked {
                         t!("Component revoked... skipping.");
@@ -351,7 +351,7 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     ///     .user_attributes()
     ///     .with_policy(p, timestamp)
     ///     .filter(|ca| {
-    ///         match ca.revoked() {
+    ///         match ca.revocation_status() {
     ///             RevocationStatus::Revoked(_) =>
     ///                 // It's definitely revoked, skip it.
     ///                 false,
@@ -374,7 +374,7 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     /// ```
     ///
     /// As the example shows, this filter is significantly less
-    /// flexible than using `ValidComponentAmalgamation::revoked`.
+    /// flexible than using `ValidComponentAmalgamation::revocation_status`.
     /// However, this filter implements a typical policy, and does not
     /// preclude using `filter` to realize alternative policies.
     ///

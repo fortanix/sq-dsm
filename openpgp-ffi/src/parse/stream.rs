@@ -216,7 +216,7 @@ fn pgp_verification_result_good_checksum<'a>(
                 ka.binding_signature().move_into_raw();
         }
         if let Some(mut p) = revocation_status_r {
-            *unsafe { p.as_mut() } = ka.revoked().move_into_raw();
+            *unsafe { p.as_mut() } = ka.revocation_status().move_into_raw();
         }
         true
     } else {
@@ -344,7 +344,7 @@ fn $fn_name<'a>(
                 ka.binding_signature().move_into_raw();
         }
         if let Some(mut p) = revocation_status_r {
-            *unsafe { p.as_mut() } = ka.revoked().move_into_raw();
+            *unsafe { p.as_mut() } = ka.revocation_status().move_into_raw();
         }
         if let Some(mut p) = error_r {
             *unsafe { p.as_mut() } = error.move_into_raw();

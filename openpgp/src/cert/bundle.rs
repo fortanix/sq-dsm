@@ -451,9 +451,9 @@ impl<C> ComponentBundle<C> {
     ///     even if there is a newer self-signature).
     ///
     /// selfsig must be the newest live self signature at time `t`.
-    pub(crate) fn _revoked<'a, T>(&'a self, policy: &dyn Policy, t: T,
-                                  hard_revocations_are_final: bool,
-                                  selfsig: Option<&Signature>)
+    pub(crate) fn _revocation_status<'a, T>(&'a self, policy: &dyn Policy, t: T,
+                                            hard_revocations_are_final: bool,
+                                            selfsig: Option<&Signature>)
         -> RevocationStatus<'a>
         where T: Into<Option<time::SystemTime>>
     {
@@ -464,7 +464,7 @@ impl<C> ComponentBundle<C> {
             = selfsig.and_then(|s| s.signature_creation_time())
                      .unwrap_or_else(time_zero);
 
-        tracer!(super::TRACE, "ComponentBundle::_revoked", 0);
+        tracer!(super::TRACE, "ComponentBundle::_revocation_status", 0);
         t!("hard_revocations_are_final: {}, selfsig: {:?}, t: {:?}",
            hard_revocations_are_final,
            selfsig_creation_time,
@@ -658,16 +658,17 @@ impl<P: key::KeyParts> ComponentBundle<Key<P, key::SubordinateRole>> {
     /// // Display the subkeys' revocation status.
     /// for ka in cert.keys().subkeys() {
     ///     eprintln!(" Revocation status of {}: {:?}",
-    ///               ka.fingerprint(), ka.revoked(p, None));
+    ///               ka.fingerprint(), ka.revocation_status(p, None));
     /// }
     /// # Ok(()) }
     /// ```
-    pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
+    pub fn revocation_status<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(policy, t, true, self.binding_signature(policy, t).ok())
+        self._revocation_status(policy, t, true,
+                                self.binding_signature(policy, t).ok())
     }
 }
 
@@ -729,16 +730,16 @@ impl ComponentBundle<UserID> {
     /// for ua in cert.userids() {
     ///     eprintln!(" Revocation status of {}: {:?}",
     ///               String::from_utf8_lossy(ua.userid().value()),
-    ///               ua.revoked(p, None));
+    ///               ua.revocation_status(p, None));
     /// }
     /// # Ok(()) }
     /// ```
-    pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
+    pub fn revocation_status<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(policy, t, false, self.binding_signature(policy, t).ok())
+        self._revocation_status(policy, t, false, self.binding_signature(policy, t).ok())
     }
 }
 
@@ -799,16 +800,17 @@ impl ComponentBundle<UserAttribute> {
     /// // Display the User Attributes' revocation status.
     /// for (i, ua) in cert.user_attributes().enumerate() {
     ///     eprintln!(" Revocation status of User Attribute #{}: {:?}",
-    ///               i, ua.revoked(p, None));
+    ///               i, ua.revocation_status(p, None));
     /// }
     /// # Ok(()) }
     /// ```
-    pub fn revoked<T>(&self, policy: &dyn Policy, t: T)
+    pub fn revocation_status<T>(&self, policy: &dyn Policy, t: T)
         -> RevocationStatus
         where T: Into<Option<time::SystemTime>>
     {
         let t = t.into();
-        self._revoked(policy, t, false, self.binding_signature(policy, t).ok())
+        self._revocation_status(policy, t, false,
+                                self.binding_signature(policy, t).ok())
     }
 }
 

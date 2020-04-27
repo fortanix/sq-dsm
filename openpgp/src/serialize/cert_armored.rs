@@ -36,7 +36,7 @@ impl Cert {
         let mut headers: Vec<String> = self.userids().with_policy(p, None)
             // Ignore revoked userids.
             .filter_map(|uidb| {
-                if let RevocationStatus::Revoked(_) = uidb.revoked() {
+                if let RevocationStatus::Revoked(_) = uidb.revocation_status() {
                     None
                 } else {
                     Some(uidb)

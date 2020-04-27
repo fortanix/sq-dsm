@@ -77,7 +77,7 @@ pub extern "C" fn pgp_valid_user_id_amalgamation_revocation_status<'a>(ua: *cons
     -> *mut RevocationStatus<'a>
 {
     ua.ref_raw()
-        .revoked()
+        .revocation_status()
         .move_into_raw()
 }
 

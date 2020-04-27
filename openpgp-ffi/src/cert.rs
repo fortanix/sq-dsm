@@ -159,12 +159,12 @@ fn pgp_cert_primary_key(cert: *const Cert) -> *const Key {
 /// If `when` is 0, then returns the Cert's revocation status as of the
 /// time of the call.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_revoked(cert: *const Cert, policy: *const Policy, when: time_t)
+fn pgp_cert_revocation_status(cert: *const Cert, policy: *const Policy, when: time_t)
     -> *mut RevocationStatus<'static>
 {
     let policy = &**policy.ref_raw();
     cert.ref_raw()
-        .revoked(policy, maybe_time(when))
+        .revocation_status(policy, maybe_time(when))
         .move_into_raw()
 }
 
@@ -222,7 +222,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// cert = pgp_cert_merge_packets (NULL, cert, &packet, 1);
 /// assert (cert);
 ///
-/// pgp_revocation_status_t rs = pgp_cert_revoked (cert, policy, 0);
+/// pgp_revocation_status_t rs = pgp_cert_revocation_status (cert, policy, 0);
 /// assert (pgp_revocation_status_variant (rs) == PGP_REVOCATION_STATUS_REVOKED);
 /// pgp_revocation_status_free (rs);
 ///
@@ -290,7 +290,7 @@ fn pgp_cert_revoke(errp: Option<&mut *mut crate::error::Error>,
 /// pgp_signer_free (primary_signer);
 /// pgp_key_pair_free (primary_keypair);
 ///
-/// pgp_revocation_status_t rs = pgp_cert_revoked (cert, policy, 0);
+/// pgp_revocation_status_t rs = pgp_cert_revocation_status (cert, policy, 0);
 /// assert (pgp_revocation_status_variant (rs) == PGP_REVOCATION_STATUS_REVOKED);
 /// pgp_revocation_status_free (rs);
 ///
@@ -837,7 +837,7 @@ pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
 
     if let Some(ka) = iter_wrapper.iter.as_mut().unwrap().next() {
         let sig = ka.binding_signature();
-        let rs = ka.revoked();
+        let rs = ka.revocation_status();
 
         if let Some(ptr) = sigo {
             *ptr = sig.move_into_raw();
