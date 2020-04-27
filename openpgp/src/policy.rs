@@ -1846,14 +1846,14 @@ mod test {
 
         let p = &P::new();
         Decryptor::from_bytes(
-            p, crate::tests::message("encrypted-to-testy.gpg"),
+            p, crate::tests::message("encrypted-to-testy-no-compression.gpg"),
             Helper {}, crate::frozen_time()).unwrap();
 
         // Reject the AES256.
         let p = &mut P::new();
         p.reject_symmetric_algo(SymmetricAlgorithm::AES256);
         let r = Decryptor::from_bytes(
-            p, crate::tests::message("encrypted-to-testy.gpg"),
+            p, crate::tests::message("encrypted-to-testy-no-compression.gpg"),
             Helper {}, crate::frozen_time());
         match r {
             Ok(_) => panic!(),

@@ -4264,6 +4264,7 @@ mod test {
         // signed.  But what makes these particularly complex is the
         // use of an indeterminate length encoding, which checks the
         // buffered_reader::Reserve hack.
+        #[cfg(feature = "compression-deflate")]
         DecryptTest {
             filename: "seip/msg-compression-not-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
@@ -4277,6 +4278,7 @@ mod test {
                 (Tag::MDC, &[ 1, 1 ]),
             ],
         },
+        #[cfg(feature = "compression-deflate")]
         DecryptTest {
             filename: "seip/msg-compression-signed-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
