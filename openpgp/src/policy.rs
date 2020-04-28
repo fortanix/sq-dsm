@@ -1390,10 +1390,11 @@ mod test {
         // Create a revoked version.
         let mut keypair = cert.primary_key().key().clone()
             .parts_into_secret()?.into_keypair()?;
-        let cert_revoked = cert.clone().revoke_in_place(
+        let rev = cert.revoke(
             &mut keypair,
             ReasonForRevocation::KeyCompromised,
             b"It was the maid :/")?;
+        let cert_revoked = cert.clone().merge_packets(vec![ rev.into() ])?;
 
         match cert_revoked.revocation_status(&DEFAULT, None) {
             RevocationStatus::Revoked(sigs) => {

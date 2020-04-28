@@ -829,11 +829,9 @@ impl Cert {
 
     /// Revokes the certificate in place.
     ///
-    /// This is a convenience function to generate a revocation
-    /// certificate and merge it into the certificate.
-    ///
-    /// To just generate a revocation certificate, use
-    /// [`CertRevocationBuilder`].
+    /// This is a convenience function around
+    /// [`CertRevocationBuilder`] to generate a revocation
+    /// certificate.
     ///
     /// [`CertRevocationBuilder`]: struct.CertRevocationBuilder.html
     ///
@@ -875,9 +873,10 @@ impl Cert {
     /// // Create a revocation to explain what *really* happened.
     /// let mut keypair = cert.primary_key()
     ///     .key().clone().parts_into_secret()?.into_keypair()?;
-    /// let cert = cert.revoke_in_place(&mut keypair,
-    ///                                 ReasonForRevocation::KeyCompromised,
-    ///                                 b"It was the maid :/")?;
+    /// let rev = cert.revoke(&mut keypair,
+    ///                       ReasonForRevocation::KeyCompromised,
+    ///                       b"It was the maid :/")?;
+    /// let cert = cert.merge_packets(vec![ rev.into() ])?;
     /// if let RevocationStatus::Revoked(revs) = cert.revocation_status(p, None) {
     ///     assert_eq!(revs.len(), 1);
     ///     let rev = revs[0];
@@ -892,14 +891,13 @@ impl Cert {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn revoke_in_place(self, primary_signer: &mut dyn Signer,
-                           code: ReasonForRevocation, reason: &[u8])
-        -> Result<Cert>
+    pub fn revoke(&self, primary_signer: &mut dyn Signer,
+                  code: ReasonForRevocation, reason: &[u8])
+        -> Result<Signature>
     {
-        let sig = CertRevocationBuilder::new()
+        CertRevocationBuilder::new()
             .set_reason_for_revocation(code, reason)?
-            .build(primary_signer, &self, None)?;
-        self.merge_packets(vec![sig.into()])
+            .build(primary_signer, &self, None)
     }
 
     /// Sets the key to expire in delta seconds.

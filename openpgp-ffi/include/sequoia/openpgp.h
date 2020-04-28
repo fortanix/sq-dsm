@@ -958,22 +958,11 @@ pgp_revocation_status_t pgp_cert_revocation_status (pgp_cert_t cert,
                                                     pgp_policy_t policy, time_t when);
 
 /*/
-/// Writes a revocation certificate to the writer.
+/// Returns a new revocation certificate for the Cert.
 ///
-/// This function consumes the writer.  It does *not* consume cert.
+/// This function does *not* consume `cert`.
 /*/
 pgp_signature_t pgp_cert_revoke (pgp_error_t *errp,
-                              pgp_cert_t cert,
-                              pgp_signer_t primary_signer,
-                              pgp_reason_for_revocation_t code,
-                              const char *reason);
-
-/*/
-/// Adds a revocation certificate to the cert.
-///
-/// This function consumes the cert.
-/*/
-pgp_cert_t pgp_cert_revoke_in_place (pgp_error_t *errp,
                                  pgp_cert_t cert,
                                  pgp_signer_t primary_signer,
                                  pgp_reason_for_revocation_t code,
