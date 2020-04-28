@@ -4203,7 +4203,7 @@ mod test {
         plaintext: Data<'a>,
         paths: &'a[ (Tag, &'a[ usize ] ) ],
     }
-    const DECRYPT_TESTS: [DecryptTest; 10] = [
+    const DECRYPT_TESTS: &[DecryptTest] = &[
         // Messages with a relatively simple structure:
         //
         //   [ SKESK SEIP [ Literal MDC ] ].
