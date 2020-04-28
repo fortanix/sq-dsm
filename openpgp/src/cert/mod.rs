@@ -2086,7 +2086,7 @@ impl Cert {
             }
         }
 
-        Cert::try_from(PacketPile::from(combined))
+        Cert::try_from(combined)
     }
 
     /// Returns whether at least one of the keys includes secret
@@ -3440,12 +3440,12 @@ mod test {
             (bind1, rev1, bind2, rev2)
         };
         let pk : key::PublicKey = key.into();
-        let cert = Cert::try_from(PacketPile::from(vec![
+        let cert = Cert::try_from(vec![
             pk.into(),
             bind1.into(),
             bind2.into(),
             rev1.into()
-        ])).unwrap();
+        ]).unwrap();
 
         let f1: f32 = thread_rng().sample(Open01);
         let f2: f32 = thread_rng().sample(Open01);
@@ -3810,7 +3810,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             })
         .collect::<Vec<_>>();
         eprintln!("parse back");
-        let cert = Cert::try_from(PacketPile::from(pile)).unwrap();
+        let cert = Cert::try_from(pile).unwrap();
 
         assert_eq!(cert.subkeys().len(), 2);
     }
@@ -4073,9 +4073,9 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         key.set_creation_time(t1).unwrap();
         let mut pair = key.clone().into_keypair().unwrap();
         let pk : key::PublicKey = key.clone().into();
-        let mut cert = Cert::try_from(PacketPile::from(vec![
+        let mut cert = Cert::try_from(vec![
             pk.into(),
-        ])).unwrap();
+        ]).unwrap();
         let uid: UserID = "foo@example.org".into();
         let sig = uid.certify(&mut pair, &cert,
                               SignatureType::PositiveCertification,

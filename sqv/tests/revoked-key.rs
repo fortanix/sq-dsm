@@ -254,7 +254,6 @@ fn create_key() {
     use sequoia_openpgp::{
         Cert,
         Packet,
-        PacketPile,
         packet::{
             signature,
             Key,
@@ -353,14 +352,14 @@ fn create_key() {
         .unwrap();
     let sk_bind2 = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
 
-    let cert = Cert::try_from(PacketPile::from(vec![
+    let cert = Cert::try_from(vec![
         key.clone().into(),
         direct1.clone().into(),
         direct2.clone().into(),
         subkey.clone().into(),
         sk_bind1.clone().into(),
         sk_bind2.clone().into(),
-    ])).unwrap();
+    ]).unwrap();
     let mut fd = File::create("revoked-key-cert-not-revoked.pgp").unwrap();
     cert.serialize(&mut fd).unwrap();
 
@@ -386,7 +385,7 @@ fn create_key() {
         }
 
         let rev = b.sign_direct_key(&mut signer).unwrap();
-        let cert = Cert::try_from(PacketPile::from(vec![
+        let cert = Cert::try_from(vec![
             key.clone().into(),
             direct1.clone().into(),
             rev.clone().into(),
@@ -394,7 +393,7 @@ fn create_key() {
             subkey.clone().into(),
             sk_bind1.clone().into(),
             sk_bind2.clone().into(),
-        ])).unwrap();
+        ]).unwrap();
 
         let mut fd =
             File::create(format!("revoked-key-cert-revoked-{}.pgp", slug))
@@ -413,7 +412,7 @@ fn create_key() {
         }
 
         let rev = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
-        let cert = Cert::try_from(PacketPile::from(vec![
+        let cert = Cert::try_from(vec![
             key.clone().into(),
             direct1.clone().into(),
             direct2.clone().into(),
@@ -421,7 +420,7 @@ fn create_key() {
             sk_bind1.clone().into(),
             rev.clone().into(),
             sk_bind2.clone().into(),
-        ])).unwrap();
+        ]).unwrap();
 
         let mut fd =
             File::create(format!("revoked-key-cert-revoked-{}.sk.pgp", slug))
