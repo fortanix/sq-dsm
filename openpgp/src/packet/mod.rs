@@ -7,6 +7,8 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::slice;
+use std::iter::IntoIterator;
+
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -126,6 +128,43 @@ pub enum Packet {
     #[doc(hidden)] __Nonexhaustive,
 }
 } // doc-hack, see above
+
+macro_rules! impl_into_iterator {
+    ($t:ty) => {
+        impl_into_iterator!($t where);
+    };
+    ($t:ty where $( $w:ident: $c:path ),*) => {
+        /// Implement `IntoIterator` so that
+        /// `cert::merge_packets(sig)` just works.
+        impl<$($w),*> IntoIterator for $t
+            where $($w: $c ),*
+        {
+            type Item = $t;
+            type IntoIter = std::iter::Once<$t>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                std::iter::once(self)
+            }
+        }
+    }
+}
+
+impl_into_iterator!(Packet);
+impl_into_iterator!(Unknown);
+impl_into_iterator!(Signature);
+impl_into_iterator!(OnePassSig);
+impl_into_iterator!(Marker);
+impl_into_iterator!(Trust);
+impl_into_iterator!(UserID);
+impl_into_iterator!(UserAttribute);
+impl_into_iterator!(Literal);
+impl_into_iterator!(CompressedData);
+impl_into_iterator!(PKESK);
+impl_into_iterator!(SKESK);
+impl_into_iterator!(SEIP);
+impl_into_iterator!(MDC);
+impl_into_iterator!(AED);
+impl_into_iterator!(Key<P, R> where P: key::KeyParts, R: key::KeyRole);
 
 impl Packet {
     /// Returns the `Packet's` corresponding OpenPGP tag.
