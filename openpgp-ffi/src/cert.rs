@@ -118,7 +118,7 @@ fn pgp_cert_merge_packets(errp: Option<&mut *mut crate::error::Error>,
         slice::from_raw_parts_mut(packets, packets_len)
     };
     let packets =
-        packets.iter_mut().map(|&mut p| p.move_from_raw()).collect();
+        packets.iter_mut().map(|&mut p| p.move_from_raw());
     cert.merge_packets(packets).move_into_raw(errp)
 }
 

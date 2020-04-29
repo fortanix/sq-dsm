@@ -1089,7 +1089,7 @@ mod test {
         assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 
         // Now merge the revocation signature into the Cert.
-        let cert = cert.merge_packets(vec![revocation.clone().into()])?;
+        let cert = cert.merge_packets(revocation.clone())?;
 
         // Check that it is revoked.
         assert_eq!(cert.userids().with_policy(p, None).revoked(false).count(), 0);
@@ -1125,7 +1125,7 @@ mod test {
 
         // Now merge the revocation signature into the Cert.
         assert_eq!(cert.keys().with_policy(p, None).revoked(false).count(), 3);
-        let cert = cert.merge_packets(vec![revocation.clone().into()])?;
+        let cert = cert.merge_packets(revocation.clone())?;
         assert_eq!(cert.keys().with_policy(p, None).revoked(false).count(), 2);
 
         // Reject all subkey revocations.
@@ -1394,7 +1394,7 @@ mod test {
             &mut keypair,
             ReasonForRevocation::KeyCompromised,
             b"It was the maid :/")?;
-        let cert_revoked = cert.clone().merge_packets(vec![ rev.into() ])?;
+        let cert_revoked = cert.clone().merge_packets(rev)?;
 
         match cert_revoked.revocation_status(&DEFAULT, None) {
             RevocationStatus::Revoked(sigs) => {
@@ -1541,7 +1541,8 @@ mod test {
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  &pk, &subkey)?;
 
-        let cert = cert.merge_packets(vec![ subkey.into(), binding.into() ])?;
+        let cert = cert.merge_packets(
+            vec![ Packet::from(subkey), binding.into() ])?;
 
         assert_eq!(cert.keys().with_policy(p, None).count(), 3);
         assert_eq!(cert.keys().with_policy(norsa, None).count(), 2);
@@ -1565,7 +1566,8 @@ mod test {
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  &pk, &subkey)?;
 
-        let cert = cert.merge_packets(vec![ subkey.into(), binding.into() ])?;
+        let cert = cert.merge_packets(
+            vec![ Packet::from(subkey), binding.into() ])?;
 
         assert_eq!(cert.keys().with_policy(p, None).count(), 3);
         assert_eq!(cert.keys().with_policy(norsa, None).count(), 0);

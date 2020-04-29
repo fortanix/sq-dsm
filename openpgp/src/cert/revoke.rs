@@ -64,7 +64,7 @@ use crate::cert::prelude::*;
 ///     .build(&mut signer, &cert, None)?;
 /// assert_eq!(sig.typ(), SignatureType::KeyRevocation);
 ///
-/// let cert = cert.merge_packets(vec![sig.clone().into()])?;
+/// let cert = cert.merge_packets(sig.clone())?;
 /// assert_eq!(RevocationStatus::Revoked(vec![&sig]),
 ///            cert.revocation_status(p, None));
 /// # Ok(())
@@ -181,7 +181,7 @@ impl Deref for CertRevocationBuilder {
 /// assert_eq!(revocation.typ(), SignatureType::SubkeyRevocation);
 ///
 /// // Now merge the revocation signature into the Cert.
-/// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
+/// let cert = cert.merge_packets(revocation.clone())?;
 ///
 /// // Check that it is revoked.
 /// let subkey = cert.keys().subkeys().nth(0).unwrap();
@@ -299,7 +299,7 @@ impl Deref for SubkeyRevocationBuilder {
 /// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 ///
 /// // Now merge the revocation signature into the Cert.
-/// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
+/// let cert = cert.merge_packets(revocation.clone())?;
 ///
 /// // Check that it is revoked.
 /// let userid = cert.userids().with_policy(p, None).nth(0).unwrap();
@@ -419,7 +419,7 @@ impl Deref for UserIDRevocationBuilder {
 /// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 ///
 /// // Now merge the revocation signature into the Cert.
-/// let cert = cert.merge_packets(vec![revocation.clone().into()])?;
+/// let cert = cert.merge_packets(revocation.clone())?;
 ///
 /// // Check that it is revoked.
 /// let ua = cert.user_attributes().with_policy(p, None).nth(0).unwrap();

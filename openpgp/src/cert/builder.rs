@@ -335,7 +335,8 @@ impl CertBuilder {
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
             let signature = uid.bind(&mut signer, &cert, builder)?;
-            cert = cert.merge_packets(vec![uid.into(), signature.into()])?;
+            cert = cert.merge_packets(
+                vec![Packet::from(uid), signature.into()])?;
         }
 
         // Sign UserAttributes.
@@ -345,7 +346,8 @@ impl CertBuilder {
             // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
             let signature = ua.bind(&mut signer, &cert, builder)?;
-            cert = cert.merge_packets(vec![ua.into(), signature.into()])?;
+            cert = cert.merge_packets(
+                vec![Packet::from(ua), signature.into()])?;
         }
 
         // sign subkeys
@@ -401,7 +403,7 @@ impl CertBuilder {
                 subkey.secret_mut().encrypt_in_place(password)?;
             }
             cert = cert.merge_packets(vec![Packet::SecretSubkey(subkey),
-                                         signature.into()])?;
+                                           signature.into()])?;
         }
 
         let revocation = CertRevocationBuilder::new()
@@ -573,7 +575,7 @@ mod tests {
         assert_eq!(cert.revocation_status(p, None),
                    RevocationStatus::NotAsFarAsWeKnow);
 
-        let cert = cert.merge_packets(vec![revocation.clone().into()]).unwrap();
+        let cert = cert.merge_packets(revocation.clone()).unwrap();
         assert_eq!(cert.revocation_status(p, None),
                    RevocationStatus::Revoked(vec![ &revocation ]));
     }
@@ -759,7 +761,7 @@ mod tests {
         let sig = signature::SignatureBuilder::new(SignatureType::DirectKey)
             .set_signature_creation_time(then)?
             .sign_hash(&mut primary_signer, hash)?;
-        let cert = cert.merge_packets(vec![sig.into()])?;
+        let cert = cert.merge_packets(sig)?;
 
         assert!(cert.with_policy(p, then)?.primary_userid().is_err());
         assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
