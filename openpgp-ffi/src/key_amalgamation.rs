@@ -16,7 +16,6 @@ use self::openpgp::crypto;
 
 use super::packet::key::Key;
 use super::packet::signature::Signature;
-use super::packet::Packet;
 use super::policy::Policy;
 use super::revocation_status::RevocationStatus;
 
@@ -107,7 +106,7 @@ fn pgp_valid_key_amalgamation_set_expiration_time(
     ka: *const ValidKeyAmalgamation,
     primary_signer: *mut Box<dyn crypto::Signer>,
     expiry: time_t,
-    packets: *mut *mut *mut Packet, packet_count: *mut size_t)
+    sigs: *mut *mut *mut Signature, sig_count: *mut size_t)
     -> Status
 {
     ffi_make_fry_from_errp!(errp);
@@ -115,22 +114,22 @@ fn pgp_valid_key_amalgamation_set_expiration_time(
     let ka = ka.ref_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
     let expiry = maybe_time(expiry);
-    let packets = ffi_param_ref_mut!(packets);
-    let packet_count = ffi_param_ref_mut!(packet_count);
+    let sigs = ffi_param_ref_mut!(sigs);
+    let sig_count = ffi_param_ref_mut!(sig_count);
 
     match ka.set_expiration_time(signer.as_mut(), expiry) {
-        Ok(sigs) => {
+        Ok(new_sigs) => {
             let buffer = unsafe {
-                libc::calloc(sigs.len(), std::mem::size_of::<*mut Packet>())
-                    as *mut *mut Packet
+                libc::calloc(new_sigs.len(), std::mem::size_of::<*mut Signature>())
+                    as *mut *mut Signature
             };
             let sl = unsafe {
-                slice::from_raw_parts_mut(buffer, sigs.len())
+                slice::from_raw_parts_mut(buffer, new_sigs.len())
             };
-            *packet_count = sigs.len();
-            sl.iter_mut().zip(sigs.into_iter())
+            *sig_count = new_sigs.len();
+            sl.iter_mut().zip(new_sigs.into_iter())
                 .for_each(|(e, sig)| *e = sig.move_into_raw());
-            *packets = buffer;
+            *sigs = buffer;
             Status::Success
         }
         Err(err) => {

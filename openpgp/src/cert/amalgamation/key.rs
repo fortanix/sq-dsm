@@ -266,7 +266,6 @@ use crate::{
     cert::ValidCert,
     crypto::{hash::Hash, Signer},
     Error,
-    Packet,
     packet::Key,
     packet::key,
     packet::key::KeyParts,
@@ -1307,7 +1306,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                                             primary_signer: &mut dyn Signer,
                                             expiration: Option<time::Duration>,
                                             now: time::SystemTime)
-        -> Result<Vec<Packet>>
+        -> Result<Vec<Signature>>
     {
         let hash_algo = HashAlgorithm::SHA512;
         let mut sigs = Vec::new();
@@ -1332,7 +1331,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
             sigs.push(builder
                       .set_key_validity_period(expiration)?
                       .set_signature_creation_time(now)?
-                      .sign_hash(primary_signer, hash)?.into());
+                      .sign_hash(primary_signer, hash)?);
 
             // Second, generate a new binding signature for every
             // userid.  We need to be careful not to change the
@@ -1352,7 +1351,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                               self.cert().primary_userid().map(|primary| {
                                   userid.userid() == primary.userid()
                               }).unwrap_or(false))?
-                          .sign_hash(primary_signer, hash)?.into());
+                          .sign_hash(primary_signer, hash)?);
             }
         } else {
             // To extend the validity of the subkey, create a new
@@ -1363,7 +1362,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
             sigs.push(signature::SignatureBuilder::from(self.binding_signature().clone())
                       .set_key_validity_period(expiration)?
                       .set_signature_creation_time(now)?
-                      .sign_hash(primary_signer, hash)?.into());
+                      .sign_hash(primary_signer, hash)?);
         }
 
         Ok(sigs)
@@ -1426,6 +1425,10 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///     .flat_map(|ka| {
     ///         ka.set_expiration_time(&mut signer, Some(t)).unwrap()
     ///     })
+    ///     // The iterator needs to run to completion before we
+    ///     // Cert::merge_packets, because the iterator has a reference
+    ///     // to cert (via vc), but Cert::merge_packets needs to  take
+    ///     // ownership of it.
     ///     .collect::<Vec<_>>();
     /// let cert = cert.merge_packets(sigs)?;
     ///
@@ -1446,7 +1449,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     pub fn set_expiration_time(&self,
                                primary_signer: &mut dyn Signer,
                                expiration: Option<time::SystemTime>)
-        -> Result<Vec<Packet>>
+        -> Result<Vec<Signature>>
     {
         let expiration =
             if let Some(e) = expiration.map(crate::types::normalize_systemtime)
@@ -1878,6 +1881,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
 mod test {
     use crate::policy::StandardPolicy as P;
     use crate::cert::prelude::*;
+    use crate::packet::Packet;
 
     use super::*;
 
