@@ -25,6 +25,35 @@
 //! signee's certificate, and are used by trust models like the Web of
 //! Trust to authenticate certificates.
 //!
+//! # Common Operations
+//!
+//!  - *Generating a certificate*: See the [`CertBuilder`] module.
+//!  - *Parsing a certificate*: See the [`Parser` implementation] for `Cert`.
+//!  - *Parsing a keyring*: See the [`CertParser`] module.
+//!  - *Serializing a certificate*: See the [`Serialize`
+//!    implementation] for `Cert`, and the [`Cert::as_tsk`] method to
+//!    also include any secret key material.
+//!  - *Using a certificate*: See the [`Cert`] and [`ValidCert`] data structures.
+//!  - *Revoking a certificate*: See the [`CertRevocationBuilder`] data structure.
+//!  - *Merging packets*: See the [`Cert::merge_packets`] method.
+//!  - *Merging certificates*: See the [`Cert::merge`] method.
+//!  - *Creating third-party certifications*: See the [`UserID::certify`]
+//!     and [`UserAttribute::certify`] methods.
+//!  - *Using User IDs and User Attributes*: See the [`ComponentAmalgamation`] module.
+//!  - *Using keys*: See the [`KeyAmalgamation`] module.
+//!  - *Updating a binding signature*: See the [`UserID::bind`],
+//!    [`UserAttribute::bind`], and [`Key::bind`] methods.
+//!  - *Checking third-party signatures*: See the
+//!    [`Signature::verify_direct_key`],
+//!    [`Signature::verify_userid_binding`], and
+//!    [`Signature::verify_user_attribute_binding`] methods.
+//!  - *Checking third-party revocations*: See the
+//!    [`ValidCert::revocation_keys`],
+//!    [`ValidAmalgamation::revocation_keys`],
+//!    [`Signature::verify_primary_key_revocation`],
+//!    [`Signature::verify_userid_revocation`],
+//!    [`Signature::verify_user_attribute_revocation`] methods.
+//!
 //! # Data Structures
 //!
 //! ## `Cert`
@@ -77,35 +106,6 @@
 //! the `Cert` in the `ComponentBundle`, because the `Cert` owns the
 //! `ComponentBundle`, and that would create a self-referential data
 //! structure, which is currently not supported in Rust.
-//!
-//! # Common Operations
-//!
-//!  - *Generating a certificate*: See the [`CertBuilder`] module.
-//!  - *Parsing a certificate*: See the [`Parser` implementation] for `Cert`.
-//!  - *Parsing a keyring*: See the [`CertParser`] module.
-//!  - *Serializing a certificate*: See the [`Serialize`
-//!    implementation] for `Cert`, and the [`Cert::as_tsk`] method to
-//!    also include any secret key material.
-//!  - *Using a certificate*: See the [`Cert`] and [`ValidCert`] data structures.
-//!  - *Revoking a certificate*: See the [`CertRevocationBuilder`] data structure.
-//!  - *Merging packets*: See the [`Cert::merge_packets`] method.
-//!  - *Merging certificates*: See the [`Cert::merge`] method.
-//!  - *Creating third-party certifications*: See the [`UserID::certify`]
-//!     and [`UserAttribute::certify`] methods.
-//!  - *Using User IDs and User Attributes*: See the [`ComponentAmalgamation`] module.
-//!  - *Using keys*: See the [`KeyAmalgamation`] module.
-//!  - *Updating a binding signature*: See the [`UserID::bind`],
-//!    [`UserAttribute::bind`], and [`Key::bind`] methods.
-//!  - *Checking third-party signatures*: See the
-//!    [`Signature::verify_direct_key`],
-//!    [`Signature::verify_userid_binding`], and
-//!    [`Signature::verify_user_attribute_binding`] methods.
-//!  - *Checking third-party revocations*: See the
-//!    [`ValidCert::revocation_keys`],
-//!    [`ValidAmalgamation::revocation_keys`],
-//!    [`Signature::verify_primary_key_revocation`],
-//!    [`Signature::verify_userid_revocation`],
-//!    [`Signature::verify_user_attribute_revocation`] methods.
 //!
 //! [Section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 //! [`Cert`]: struct.Cert.html
