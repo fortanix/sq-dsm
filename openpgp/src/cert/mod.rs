@@ -1218,7 +1218,21 @@ impl Cert {
     pub fn revocation_keys<'a>(&'a self, policy: &dyn Policy)
         -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
     {
-        self.primary_key().revocation_keys(policy)
+        let mut keys = std::collections::HashSet::new();
+
+        // All user ids.
+        self.userids()
+            .flat_map(|ua| {
+                // All valid self-signatures.
+                ua.self_signatures().iter()
+            })
+            // All direct-key signatures.
+            .chain(self.primary_key().self_signatures() .iter())
+            .filter(|sig| policy.signature(sig).is_ok())
+            .flat_map(|sig| sig.revocation_keys())
+            .for_each(|rk| { keys.insert(rk); });
+
+        Box::new(keys.into_iter())
     }
 
     /// Converts the certificate into an iterator over a sequence of
