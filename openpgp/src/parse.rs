@@ -103,6 +103,7 @@ use ::buffered_reader::*;
 
 use crate::{
     cert::prelude::*,
+    cert::CertValidator,
     crypto::{aead, hash::Hash},
     Result,
     packet::header::{

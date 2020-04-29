@@ -18,7 +18,6 @@ pub use crate::cert::{
     CertBuilder,
     CertParser,
     CertRevocationBuilder,
-    CertValidator,
     CertValidity,
     CipherSuite,
     KeyringValidator,

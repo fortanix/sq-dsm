@@ -287,7 +287,7 @@ impl CertValidity {
 
 /// Used to help validate that a packet sequence is a valid Cert.
 #[derive(Debug)]
-pub struct CertValidator(KeyringValidator);
+pub(crate) struct CertValidator(KeyringValidator);
 
 impl Default for CertValidator {
     fn default() -> Self {
@@ -301,30 +301,8 @@ impl CertValidator {
         CertValidator(Default::default())
     }
 
-    /// Returns whether the packet sequence is a valid Cert.
-    ///
-    /// Note: a `CertValidator` will only return this after
-    /// `CertValidator::finish` has been called.
-    pub fn is_cert(&self) -> bool {
-        self.check().is_cert()
-    }
-
-    /// Returns whether the packet sequence forms a valid Cert
-    /// prefix.
-    ///
-    /// Note: a `CertValidator` will only return this before
-    /// `CertValidator::finish` has been called.
-    pub fn is_cert_prefix(&self) -> bool {
-        self.check().is_cert_prefix()
-    }
-
-    /// Returns whether the packet sequence is definitely not a valid
-    /// Cert.
-    pub fn is_err(&self) -> bool {
-        self.check().is_err()
-    }
-
     /// Add the token `token` to the token stream.
+    #[cfg(test)]
     pub fn push_token(&mut self, token: Token) {
         self.0.push_token(token)
     }

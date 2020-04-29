@@ -193,8 +193,9 @@ pub use parser::{
     KeyringValidator,
     CertParser,
     CertValidity,
-    CertValidator,
 };
+
+pub(crate) use parser::CertValidator;
 
 pub use revoke::{
     SubkeyRevocationBuilder,
