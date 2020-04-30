@@ -178,11 +178,11 @@ pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 /// Crate result specialization.
 pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
-#[derive(thiserror::Error, Debug, Clone)]
 /// Errors used in this crate.
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// Invalid argument.
     #[error("Invalid argument: {0}")]
