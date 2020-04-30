@@ -35,6 +35,28 @@ pub enum Dearmor {
 /// will only be needed in exceptional circumstances.  Instead use,
 /// for instance, `PacketParser::from_file` or
 /// `PacketParser::from_reader` to start parsing an OpenPGP message.
+///
+/// # Examples
+///
+/// ```rust
+/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::parse::{Parse, PacketParserResult, PacketParserBuilder};
+///
+/// // Parse a message.
+/// let message_data: &[u8] = // ...
+/// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
+/// let mut ppr = PacketParserBuilder::from_bytes(message_data)?
+///     // Customize the `PacketParserBuilder` here.
+///     .build()?;
+/// while let PacketParserResult::Some(mut pp) = ppr {
+///     // ...
+///
+///     // Start parsing the next packet, recursing.
+///     ppr = pp.recurse()?.1;
+/// }
+/// # Ok(()) }
+/// ```
 pub struct PacketParserBuilder<'a> {
     bio: Box<dyn BufferedReader<Cookie> + 'a>,
     dearmor: Dearmor,
@@ -88,14 +110,39 @@ impl<'a> PacketParserBuilder<'a> {
     /// recurse; it will only parse the top-level packets.
     ///
     /// This is a u8, because recursing more than 255 times makes no
-    /// sense.  The default is `DEFAULT_MAX_RECURSION_DEPTH`.  (GnuPG
-    /// defaults to a maximum recursion depth of 32.)
+    /// sense.  The default is [`DEFAULT_MAX_RECURSION_DEPTH`].
+    /// (GnuPG defaults to a maximum recursion depth of 32.)
+    ///
+    ///   [`DEFAULT_MAX_RECURSION_DEPTH`]: constant.DEFAULT_MAX_RECURSION_DEPTH.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParserBuilder};
+    ///
+    /// // Parse a compressed message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParserBuilder::from_bytes(message_data)?
+    ///     .max_recursion_depth(0)
+    ///     .build()?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     assert_eq!(pp.recursion_depth(), 0);
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn max_recursion_depth(mut self, value: u8) -> Self {
         self.settings.max_recursion_depth = value;
         self
     }
 
-    /// Sets the maximum size of non-container packets.
+    /// Sets the maximum size in bytes of non-container packets.
     ///
     /// Packets that exceed this limit will be returned as
     /// `Packet::Unknown`, with the error set to
@@ -106,7 +153,48 @@ impl<'a> PacketParserBuilder<'a> {
     /// packet, a compressed data packet, a symmetrically encrypted
     /// data packet, or an AEAD encrypted data packet.
     ///
-    /// The default is 1 MiB.
+    /// The default is [`DEFAULT_MAX_PACKET_SIZE`].
+    ///
+    ///   [`DEFAULT_MAX_PACKET_SIZE`]: constant.DEFAULT_MAX_PACKET_SIZE.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::{Error, Packet};
+    /// use openpgp::packet::Tag;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParserBuilder};
+    /// use openpgp::serialize::MarshalInto;
+    ///
+    /// // Parse a signed message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../../tests/data/messages/signed-1.gpg");
+    /// let mut ppr = PacketParserBuilder::from_bytes(message_data)?
+    ///     .max_packet_size(256)    // Only parse 256 bytes of headers.
+    ///     .buffer_unread_content() // Used below.
+    ///     .build()?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     match &pp.packet {
+    ///         Packet::OnePassSig(p) =>
+    ///             // The OnePassSig packet was small enough.
+    ///             assert!(p.serialized_len() < 256),
+    ///         Packet::Literal(p) =>
+    ///             // Likewise the `Literal` packet, excluding the body.
+    ///             assert!(p.serialized_len() - p.body().len() < 256),
+    ///         Packet::Unknown(p) =>
+    ///             // The signature packet was too big.
+    ///             assert_eq!(
+    ///                 &Error::PacketTooLarge(Tag::Signature, 307, 256),
+    ///                 p.error().downcast_ref().unwrap()),
+    ///         _ => unreachable!(),
+    ///     }
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn max_packet_size(mut self, value: u32) -> Self {
         self.settings.max_packet_size = value;
         self
@@ -114,14 +202,72 @@ impl<'a> PacketParserBuilder<'a> {
 
     /// Causes `PacketParser::build()` to buffer any unread content.
     ///
-    /// The unread content is stored in the `Packet::content` Option.
+    /// The unread content can be accessed using [`Literal::body`],
+    /// [`Unknown::body`], or [`Container::body`].
+    ///
+    ///   [`Literal::body`]: ../packet/struct.Literal.html#method.body
+    ///   [`Unknown::body`]: ../packet/struct.Unknown.html#method.body
+    ///   [`Container::body`]: ../packet/struct.Container.html#method.body
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParserBuilder};
+    ///
+    /// // Parse a simple message.
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let mut ppr = PacketParserBuilder::from_bytes(message_data)?
+    ///     .buffer_unread_content()
+    ///     .build()?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     // Start parsing the next packet, recursing.
+    ///     let (packet, tmp) = pp.recurse()?;
+    ///     ppr = tmp;
+    ///
+    ///     match packet {
+    ///         Packet::Literal(l) => assert_eq!(l.body(), b"Hello world."),
+    ///         _ => unreachable!(),
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn buffer_unread_content(mut self) -> Self {
         self.settings.buffer_unread_content = true;
         self
     }
 
     /// Causes `PacketParser::finish()` to drop any unread content.
+    ///
     /// This is the default.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParserBuilder};
+    ///
+    /// // Parse a simple message.
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let mut ppr = PacketParserBuilder::from_bytes(message_data)?
+    ///     .drop_unread_content()
+    ///     .build()?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     // Start parsing the next packet, recursing.
+    ///     let (packet, tmp) = pp.recurse()?;
+    ///     ppr = tmp;
+    ///
+    ///     match packet {
+    ///         Packet::Literal(l) => assert_eq!(l.body(), b""),
+    ///         _ => unreachable!(),
+    ///     }
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn drop_unread_content(mut self) -> Self {
         self.settings.buffer_unread_content = false;
         self
@@ -130,6 +276,26 @@ impl<'a> PacketParserBuilder<'a> {
     /// Controls mapping.
     ///
     /// Note that enabling mapping buffers all the data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserBuilder};
+    ///
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .map(true) // Enable mapping.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// let map = pp.map().expect("Mapping is enabled");
+    ///
+    /// assert_eq!(map.iter().nth(0).unwrap().name(), "CTB");
+    /// assert_eq!(map.iter().nth(0).unwrap().offset(), 0);
+    /// assert_eq!(map.iter().nth(0).unwrap().as_bytes(), &[0xcb]);
+    /// # Ok(()) }
+    /// ```
     pub fn map(mut self, enable: bool) -> Self {
         self.settings.map = enable;
         self
@@ -141,25 +307,28 @@ impl<'a> PacketParserBuilder<'a> {
         self
     }
 
-    /// Finishes configuring the `PacketParser` and returns an
-    /// `Option<PacketParser>`.
+    /// Builds the `PacketParser`.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::Result;
-    /// # use openpgp::parse::{
-    /// #     Parse, PacketParserResult, PacketParser, PacketParserBuilder
-    /// # };
-    /// # f(include_bytes!("../../tests/data/keys/public-key.gpg"));
-    /// #
-    /// # fn f(message_data: &[u8])
-    /// #     -> Result<PacketParserResult> {
-    /// let ppr = PacketParserBuilder::from_bytes(message_data)?.build()?;
-    /// # return Ok(ppr);
-    /// # }
-    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParserBuilder};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParserBuilder::from_bytes(message_data)?
+    ///     // Customize the `PacketParserBuilder` here.
+    ///     .build()?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     // ...
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn build(mut self)
         -> Result<PacketParserResult<'a>>
         where Self: 'a

@@ -1,89 +1,52 @@
 //! Packet parsing infrastructure.
 //!
 //! An OpenPGP stream is a sequence of packets.  Some of the packets
-//! contain other packets.  These containers include encrypted packets
-//! (the SED and SEIP packets), and compressed packets.  This
-//! structure results in a tree, which is laid out in depth-first
+//! contain other packets.  These containers include encrypted data
+//! packets (the SED and [SEIP] packets), and [compressed data] packets.
+//! This structure results in a tree, which is laid out in depth-first
 //! order.
 //!
-//! There are two major concerns that inform the design of the parsing
-//! API.
+//!   [SEIP]: ../packet/enum.SEIP.html
+//!   [compressed data]: ../packet/struct.CompressedData.html
 //!
-//! First, when processing a container, it is possible to either
-//! recurse into the container, and process its children, or treat the
-//! contents of the container as an opaque byte stream, and process
-//! the packet following the container.  The low-level
-//! [`PacketParser`] and mid-level [`PacketPileParser`] abstractions
-//! allow the caller to choose the behavior by either calling the
-//! `recurse()` method or the `next()` method, as appropriate.
-//! OpenPGP doesn't impose any restrictions on the amount of nesting.
-//! So, to prevent a denial of service attack, the parsers don't
-//! recurse more than `DEFAULT_MAX_RECURSION_DEPTH` times, by default.
+//! This crate provide four abstractions for parsing OpenPGP streams,
+//! ordered from the most convenient but least flexible to the least
+//! convenient but most flexible:
 //!
-//! Second, packets can contain an effectively unbounded amount of
-//! data.  To avoid errors due to memory exhaustion, the
-//! [`PacketParser`] and [`PacketPileParser`] abstractions support
-//! parsing packets in a streaming manner, i.e., never buffering more
-//! than O(1) bytes of data.  To do this, the parsers initially only
-//! parse a packet's header (which is rarely more than a few kilobytes
-//! of data), and return control to the caller.  After inspecting that
-//! data, the caller can decide how to handle the packet's contents.
-//! If the content is deemed interesting, it can be streamed or
-//! buffered.  Otherwise, it can be dropped.  Streaming is possible
-//! not only for literal data packets, but also containers (other
-//! packets also support the interface, but just return EOF).  For
-//! instance, encryption can be stripped by saving the decrypted
-//! content of an encryption packet, which is just an OpenPGP message.
+//!   - The streaming [`Verifier`], [`DetachedVerifier`], and
+//!     [`Decryptor`] are the most convenient way to parse OpenPGP
+//!     messages.
 //!
-//! We explicitly chose to not use a callback-based API, but something
-//! that is closer to Rust's iterator API.  Unfortunately, because a
-//! [`PacketParser`] needs mutable access to the input stream (so that
-//! the content can be streamed), only a single [`PacketParser`] item
-//! can be live at a time (without a fair amount of unsafe nastiness).
-//! This is incompatible with Rust's iterator concept, which allows
-//! any number of items to be live at any time.  For instance:
+//!   - The [`PacketPile::from_file`] (and related methods) is the
+//!     most convenient, but least flexible way to parse an arbitrary
+//!     sequence of OpenPGP packets.  Whereas a [`PacketPileParser`]
+//!     allows the caller to determine how to handle individual
+//!     packets, the [`PacketPile::from_file`] parses the whole stream
+//!     at once and returns a [`PacketPile`].
 //!
-//! ```rust
-//! let mut v = vec![1, 2, 3, 4];
-//! let mut iter = v.iter_mut();
+//!   - The [`PacketPileParser`] abstraction builds on the
+//!     [`PacketParser`] abstraction and provides a similar interface.
+//!     However, after each iteration, the [`PacketPileParser`] adds the
+//!     packet to a [`PacketPile`], which is returned once the packets are
+//!     completely processed.
 //!
-//! let x = iter.next().unwrap();
-//! let y = iter.next().unwrap();
+//!     This interface should only be used if the caller actually
+//!     wants a [`PacketPile`]; if the OpenPGP stream is parsed in place,
+//!     then using a [`PacketParser`] is better.
 //!
-//! *x += 10; // This does not cause an error!
-//! *y += 10;
-//! ```
-//!
-//! This crate provide three abstractions for parsing OpenPGP
-//! streams:
+//!     This interface should only be used if the caller is certain
+//!     that the parsed stream will fit in memory.
 //!
 //!   - The [`PacketParser`] abstraction produces one packet at a
 //!     time.  What is done with those packets is completely up to the
 //!     caller.
 //!
-//!   - The [`PacketPileParser`] abstraction builds on the
-//!     [`PacketParser`] abstraction and provides a similar interface.
-//!     However, after each iteration, the `PacketPileParser` adds the
-//!     packet to a [`PacketPile`], which is returned once the packets are
-//!     completely processed.
-//!
-//!     This interface should only be used if the caller actually
-//!     wants a `PacketPile`; if the OpenPGP stream is parsed in place,
-//!     then using a `PacketParser` is better.
-//!
-//!   - The [`PacketPile::from_file`] (and related methods) is the most
-//!     convenient, but least flexible way to parse a sequence of OpenPGP
-//!     packets.  Whereas a `PacketPileParser` allows the caller to
-//!     determine how to handle individual packets, the
-//!     [`PacketPile::from_file`] parses the whole stream at once and
-//!     returns a [`PacketPile`].
-//!
-//!     This interface should only be used if the caller is certain
-//!     that the parsed stream will fit in memory.
-//!
-//! In all cases, the default behavior can be configured using a
+//! The behavior of the [`PacketParser`] can be configured using a
 //! [`PacketParserBuilder`].
 //!
+//!   [`Verifier`]: stream/struct.Verifier.html
+//!   [`DetachedVerifier`]: stream/struct.DetachedVerifier.html
+//!   [`Decryptor`]: stream/struct.Decryptor.html
 //!   [`PacketParser`]: struct.PacketParser.html
 //!   [`PacketPileParser`]: struct.PacketPileParser.html
 //!   [`PacketPile`]: ../struct.PacketPile.html
@@ -230,6 +193,8 @@ macro_rules! impl_parse_generic_packet {
 
 /// The default amount of acceptable nesting.
 ///
+/// The default is `16`.
+///
 /// Typically, we expect a message to looking like:
 ///
 /// ```text
@@ -237,9 +202,16 @@ macro_rules! impl_parse_generic_packet {
 /// ```
 ///
 /// So, this should be more than enough.
+///
+/// To change the maximum recursion depth, use
+/// [`PacketParserBuilder::max_recursion_depth`].
+///
+///   [`PacketParserBuilder::max_recursion_depth`]: struct.PacketParserBuilder.html#method.max_recursion_depth
 pub const DEFAULT_MAX_RECURSION_DEPTH : u8 = 16;
 
 /// The default maximum size of non-container packets.
+///
+/// The default is `1 MiB`.
 ///
 /// Packets that exceed this limit will be returned as
 /// `Packet::Unknown`, with the error set to `Error::PacketTooLarge`.
@@ -249,7 +221,10 @@ pub const DEFAULT_MAX_RECURSION_DEPTH : u8 = 16;
 /// compressed data packet, a symmetrically encrypted data packet, or
 /// an AEAD encrypted data packet.
 ///
-/// The default is 1 MiB.
+/// To change the maximum recursion depth, use
+/// [`PacketParserBuilder::max_packet_size`].
+///
+///   [`PacketParserBuilder::max_packet_size`]: struct.PacketParserBuilder.html#method.max_packet_size
 pub const DEFAULT_MAX_PACKET_SIZE: u32 = 1 << 20; // 1 MiB
 
 // Used to parse an OpenPGP packet's header (note: in this case, the
@@ -2736,29 +2711,32 @@ impl PacketParserState {
 /// Using the `PacketParser`, the user is able to configure how the
 /// new packet will be parsed.  For instance, it is possible to stream
 /// the packet's contents (a `PacketParser` implements the
-/// `std::io::Read` and the `BufferedReader` traits), buffer them
+/// [`std::io::Read`] and the [`BufferedReader`] traits), buffer them
 /// within the [`Packet`], or drop them.  The user can also decide to
 /// recurse into the packet, if it is a container, instead of getting
 /// the following packet.
 ///
-/// See the `next()` and `recurse()` methods for more details.
+/// See the [`PacketParser::next`] and [`PacketParser::recurse`]
+/// methods for more details.
 ///
-///   [`next()`]: #method.next
-///   [`recurse()`]: #method.recurse
 ///   [`Packet`]: ../enum.Packet.html
+///   [`std::io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+///   [`BufferedReader`]: https://docs.rs/buffered-reader/*/buffered_reader/trait.BufferedReader.html
+///   [`PacketParser::next`]: #method.next
+///   [`PacketParser::recurse`]: #method.recurse
 ///
 /// # Examples
 ///
 /// Parse an OpenPGP message using a `PacketParser`:
 ///
 /// ```rust
-/// # extern crate sequoia_openpgp as openpgp;
-/// # use openpgp::Result;
-/// # use openpgp::Packet;
-/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-/// # let _ = f(include_bytes!("../tests/data/keys/public-key.gpg"));
-/// #
-/// # fn f(message_data: &[u8]) -> Result<()> {
+/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::Packet;
+/// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+///
+/// let message_data: &[u8] = // ...
+/// #    include_bytes!("../tests/data/keys/public-key.gpg");
 /// let mut ppr = PacketParser::from_bytes(message_data)?;
 /// while let PacketParserResult::Some(mut pp) = ppr {
 ///     // Process the packet.
@@ -2768,11 +2746,67 @@ impl PacketParserState {
 ///         std::io::copy(&mut pp, &mut std::io::stdout());
 ///     }
 ///
-///     // Start parsing the next packet.
+///     // Start parsing the next packet, recursing.
 ///     ppr = pp.recurse()?.1;
 /// }
-/// # return Ok(());
-/// # }
+/// # Ok(()) }
+/// ```
+///
+/// # Packet Parser Design
+///
+/// There are two major concerns that inform the design of the parsing
+/// API.
+///
+/// First, when processing a container, it is possible to either
+/// recurse into the container, and process its children, or treat the
+/// contents of the container as an opaque byte stream, and process
+/// the packet following the container.  The low-level
+/// [`PacketParser`] and mid-level [`PacketPileParser`] abstractions
+/// allow the caller to choose the behavior by either calling the
+/// [`PacketParser::recurse`] method or the [`PacketParser::next`]
+/// method, as appropriate.  OpenPGP doesn't impose any restrictions
+/// on the amount of nesting.  So, to prevent a denial of service
+/// attack, the parsers don't recurse more than
+/// [`DEFAULT_MAX_RECURSION_DEPTH`] times, by default.
+///
+///   [`PacketPileParser`]: struct.PacketPileParser.html
+///   [`DEFAULT_MAX_RECURSION_DEPTH`]: constant.DEFAULT_MAX_RECURSION_DEPTH.html
+///
+/// Second, packets can contain an effectively unbounded amount of
+/// data.  To avoid errors due to memory exhaustion, the
+/// `PacketParser` and [`PacketPileParser`] abstractions support
+/// parsing packets in a streaming manner, i.e., never buffering more
+/// than O(1) bytes of data.  To do this, the parsers initially only
+/// parse a packet's header (which is rarely more than a few kilobytes
+/// of data), and return control to the caller.  After inspecting that
+/// data, the caller can decide how to handle the packet's contents.
+/// If the content is deemed interesting, it can be streamed or
+/// buffered.  Otherwise, it can be dropped.  Streaming is possible
+/// not only for literal data packets, but also containers (other
+/// packets also support the interface, but just return EOF).  For
+/// instance, encryption can be stripped by saving the decrypted
+/// content of an encryption packet, which is just an OpenPGP message.
+///
+/// ## Iterator Design
+///
+/// We explicitly chose to not use a callback-based API, but something
+/// that is closer to Rust's iterator API.  Unfortunately, because a
+/// `PacketParser` needs mutable access to the input stream (so that
+/// the content can be streamed), only a single `PacketParser` item
+/// can be live at a time (without a fair amount of unsafe nastiness).
+/// This is incompatible with Rust's iterator concept, which allows
+/// any number of items to be live at any time.  For instance:
+///
+/// ```rust
+/// let mut v = vec![1, 2, 3, 4];
+/// let mut iter = v.iter_mut();
+///
+/// let x = iter.next().unwrap();
+/// let y = iter.next().unwrap();
+///
+/// *x += 10; // This does not cause an error!
+/// *y += 10;
+/// ```
 pub struct PacketParser<'a> {
     /// The current packet's header.
     header: Header,
@@ -3073,16 +3107,119 @@ impl <'a> PacketParser<'a> {
     }
 
     /// Returns whether the packet's contents are encrypted.
+    ///
+    /// This function returns `true` while processing an encryption
+    /// container before it is decrypted using
+    /// [`PacketParser::decrypt`].  Once successfully decrypted, it
+    /// returns `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse an encrypted message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/encrypted-aes256-password-123.gpg");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     if let Packet::SEIP(_) = pp.packet {
+    ///         assert!(pp.encrypted());
+    ///         pp.decrypt(SymmetricAlgorithm::AES256,
+    ///                    &hex::decode("7EF4F08C44F780BEA866961423306166\
+    ///                                  B8912C43352F3D9617F745E4E3939710")?
+    ///                        .into())?;
+    ///         assert!(! pp.encrypted());
+    ///     }
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn encrypted(&self) -> bool {
         self.encrypted
     }
 
     /// Returns the path of the last packet.
+    ///
+    /// This function returns the path (see [`PacketPile::path_ref`]
+    /// for a description of paths) of the packet last returned by a
+    /// call to [`PacketParser::recurse`] or [`PacketParser::next`].
+    /// If no packet has been returned (i.e. the current packet is the
+    /// first packet), this returns the empty slice.
+    ///
+    ///   [`PacketPile::path_ref`]: ../struct.PacketPile.html#method.path_ref
+    ///   [`PacketParser::recurse`]: #method.recurse
+    ///   [`PacketParser::next`]: #method.next
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a compressed message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     match pp.packet {
+    ///         Packet::CompressedData(_) => assert_eq!(pp.last_path(), &[]),
+    ///         Packet::Literal(_) => assert_eq!(pp.last_path(), &[0]),
+    ///         _ => (),
+    ///     }
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn last_path(&self) -> &[usize] {
         &self.last_path[..]
     }
 
     /// Returns the path of the current packet.
+    ///
+    /// This function returns the path (see [`PacketPile::path_ref`]
+    /// for a description of paths) of the packet currently being
+    /// processed (see [`PacketParser::packet`]).
+    ///
+    ///   [`PacketPile::path_ref`]: ../struct.PacketPile.html#method.path_ref
+    ///   [`PacketParser::packet`]: #structfield.packet
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a compressed message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     match pp.packet {
+    ///         Packet::CompressedData(_) => assert_eq!(pp.path(), &[0]),
+    ///         Packet::Literal(_) => assert_eq!(pp.path(), &[0, 0]),
+    ///         _ => (),
+    ///     }
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn path(&self) -> &[usize] {
         &self.path[..]
     }
@@ -3091,6 +3228,32 @@ impl <'a> PacketParser<'a> {
     ///
     /// A top-level packet has a recursion depth of 0.  Packets in a
     /// top-level container have a recursion depth of 1, etc.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a compressed message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     match pp.packet {
+    ///         Packet::CompressedData(_) => assert_eq!(pp.recursion_depth(), 0),
+    ///         Packet::Literal(_) => assert_eq!(pp.recursion_depth(), 1),
+    ///         _ => (),
+    ///     }
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn recursion_depth(&self) -> isize {
         self.path.len() as isize - 1
     }
@@ -3101,6 +3264,32 @@ impl <'a> PacketParser<'a> {
     /// top-level container have a recursion depth of 1, etc.
     ///
     /// Note: if no packet has been returned yet, this returns None.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a compressed message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     match pp.packet {
+    ///         Packet::CompressedData(_) => assert_eq!(pp.last_recursion_depth(), None),
+    ///         Packet::Literal(_) => assert_eq!(pp.last_recursion_depth(), Some(0)),
+    ///         _ => (),
+    ///     }
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn last_recursion_depth(&self) -> Option<isize> {
         if self.last_path.len() == 0 {
             assert_eq!(&self.path[..], &[ 0 ]);
@@ -3115,7 +3304,32 @@ impl <'a> PacketParser<'a> {
     /// Only when the whole message has been processed is it possible
     /// to say whether the message is definitely an OpenPGP Message.
     /// Before that, it is only possible to say that the message is a
-    /// valid prefix or definitely not an OpenPGP message.
+    /// valid prefix or definitely not an OpenPGP message (see
+    /// [`PacketParserEOF::is_message`]).
+    ///
+    ///   [`PacketParserEOF::is_message`]: struct.PacketParserEOF.html#method.is_message
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a compressed message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     pp.possible_message()?;
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn possible_message(&self) -> Result<()> {
         use crate::message::MessageValidity;
 
@@ -3131,7 +3345,32 @@ impl <'a> PacketParser<'a> {
     /// Only when the whole message has been processed is it possible
     /// to say whether the message is definitely an OpenPGP keyring.
     /// Before that, it is only possible to say that the message is a
-    /// valid prefix or definitely not an OpenPGP keyring.
+    /// valid prefix or definitely not an OpenPGP keyring (see
+    /// [`PacketParserEOF::is_keyring`]).
+    ///
+    ///   [`PacketParserEOF::is_keyring`]: struct.PacketParserEOF.html#method.is_keyring
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a certificate.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/keys/testy.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     pp.possible_keyring()?;
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn possible_keyring(&self) -> Result<()> {
         match self.state.keyring_validator.check() {
             KeyringValidity::Keyring => unreachable!(),
@@ -3145,7 +3384,32 @@ impl <'a> PacketParser<'a> {
     /// Only when the whole message has been processed is it possible
     /// to say whether the message is definitely an OpenPGP Cert.
     /// Before that, it is only possible to say that the message is a
-    /// valid prefix or definitely not an OpenPGP Cert.
+    /// valid prefix or definitely not an OpenPGP Cert (see
+    /// [`PacketParserEOF::is_cert`]).
+    ///
+    ///   [`PacketParserEOF::is_cert`]: struct.PacketParserEOF.html#method.is_cert
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a certificate.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/keys/testy.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     pp.possible_cert()?;
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn possible_cert(&self) -> Result<()> {
         match self.state.cert_validator.check() {
             CertValidity::Cert => unreachable!(),
@@ -3480,6 +3744,26 @@ impl <'a> PacketParser<'a> {
     /// If the current container is empty, this function DOES pop that
     /// container off the container stack, and returns the following
     /// packet in the parent container.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     // Start parsing the next packet.
+    ///     ppr = pp.next()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn next(mut self)
         -> Result<(Packet, PacketParserResult<'a>)>
     {
@@ -3578,6 +3862,26 @@ impl <'a> PacketParser<'a> {
     /// than one level at a time.
     ///
     ///   [`next()`]: #method.next
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn recurse(self) -> Result<(Packet, PacketParserResult<'a>)> {
         let indent = self.recursion_depth();
         tracer!(TRACE, "PacketParser::recurse", indent);
@@ -3665,14 +3969,14 @@ impl <'a> PacketParser<'a> {
     /// content is small.
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::Result;
-    /// # use openpgp::Packet;
-    /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-    /// # use std::string::String;
-    /// # f(include_bytes!("../tests/data/messages/literal-mode-t-partial-body.gpg"));
-    /// #
-    /// # fn f(message_data: &[u8]) -> Result<()> {
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #   include_bytes!("../tests/data/messages/literal-mode-t-partial-body.gpg");
     /// let mut ppr = PacketParser::from_bytes(message_data)?;
     /// while let PacketParserResult::Some(mut pp) = ppr {
     ///     // Process the packet.
@@ -3690,11 +3994,10 @@ impl <'a> PacketParser<'a> {
     ///         }
     ///     }
     ///
-    ///     // Start parsing the next packet.
+    ///     // Start parsing the next packet, recursing.
     ///     ppr = pp.recurse()?.1;
     /// }
-    /// # return Ok(());
-    /// # }
+    /// # Ok(()) }
     pub fn buffer_unread_content(&mut self) -> Result<&[u8]> {
         let rest = self.steal_eof()?;
 
@@ -3763,6 +4066,29 @@ impl <'a> PacketParser<'a> {
     ///
     /// By default, this drops any unread content.  Use, for instance,
     /// `PacketParserBuild` to customize the default behavior.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     let p = pp.finish()?;
+    /// #   let _ = p;
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     // Note: this function is public and may be called multiple times!
     pub fn finish<'b>(&'b mut self) -> Result<&'b Packet> {
         let indent = self.recursion_depth();
@@ -3823,16 +4149,78 @@ impl <'a> PacketParser<'a> {
     }
 
     /// Returns a reference to the current packet's header.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     pp.header().valid(false)?;
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn header(&self) -> &Header {
         &self.header
     }
 
     /// Returns a reference to the map (if any is written).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserBuilder};
+    ///
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .map(true) // Enable mapping.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// let map = pp.map().expect("Mapping is enabled");
+    ///
+    /// assert_eq!(map.iter().nth(0).unwrap().name(), "CTB");
+    /// assert_eq!(map.iter().nth(0).unwrap().offset(), 0);
+    /// assert_eq!(map.iter().nth(0).unwrap().as_bytes(), &[0xcb]);
+    /// # Ok(()) }
+    /// ```
     pub fn map(&self) -> Option<&map::Map> {
         self.map.as_ref()
     }
 
     /// Takes the map (if any is written).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserBuilder};
+    ///
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let mut pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .map(true) // Enable mapping.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// let map = pp.take_map().expect("Mapping is enabled");
+    ///
+    /// assert_eq!(map.iter().nth(0).unwrap().name(), "CTB");
+    /// assert_eq!(map.iter().nth(0).unwrap().offset(), 0);
+    /// assert_eq!(map.iter().nth(0).unwrap().as_bytes(), &[0xcb]);
+    /// # Ok(()) }
+    /// ```
     pub fn take_map(&mut self) -> Option<map::Map> {
         self.map.take()
     }
@@ -4035,6 +4423,33 @@ impl<'a> PacketParser<'a> {
     /// If this function is called on a packet that does not contain
     /// encrypted data, or some of the data was already read, then it
     /// returns `Error::InvalidOperation`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::fmt::hex;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+    ///
+    /// // Parse an encrypted message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../tests/data/messages/encrypted-aes256-password-123.gpg");
+    /// let mut ppr = PacketParser::from_bytes(message_data)?;
+    /// while let PacketParserResult::Some(mut pp) = ppr {
+    ///     if let Packet::SEIP(_) = pp.packet {
+    ///         pp.decrypt(SymmetricAlgorithm::AES256,
+    ///                    &hex::decode("7EF4F08C44F780BEA866961423306166\
+    ///                                  B8912C43352F3D9617F745E4E3939710")?
+    ///                        .into())?;
+    ///     }
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppr = pp.recurse()?.1;
+    /// }
+    /// # Ok(()) }
     pub fn decrypt(&mut self, algo: SymmetricAlgorithm, key: &SessionKey)
         -> Result<()>
     {

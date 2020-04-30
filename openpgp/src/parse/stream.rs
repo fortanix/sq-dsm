@@ -1,13 +1,85 @@
 //! Streaming decryption and verification.
 //!
 //! This module provides convenient filters for decryption and
-//! verification of OpenPGP messages.  It is the preferred interface
-//! to process OpenPGP messages.  These implementations use constant
-//! space.
+//! verification of OpenPGP messages (see [Section 11.3 of RFC 4880]).
+//! It is the preferred interface to process OpenPGP messages.  These
+//! implementations use constant space.
 //!
-//! See the [verification example].
+//!   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
 //!
-//! [verification example]: struct.Verifier.html#example
+//! Use the [`Verifier`] to verify a signed message,
+//! [`DetachedVerifier`] to verify a detached signature, and
+//! [`Decryptor`] to decrypt and possibly verify an encrypted and
+//! possibly signed message.
+//!
+//!   [`Verifier`]: struct.Verifier.html
+//!   [`DetachedVerifier`]: struct.DetachedVerifier.html
+//!   [`Decryptor`]: struct.Decryptor.html
+//!
+//! Consuming OpenPGP messages is more difficult than producing them.
+//! When we produce the message, we control the packet structure being
+//! generated using our programs control flow.  However, when we
+//! consume a message, the control flow is determined by the message
+//! being processed.
+//!
+//! To use Sequoia's streaming [`Verifier`] and [`Decryptor`], you
+//! need to provide an object that implements [`VerificationHelper`],
+//! and for the [`Decryptor`] also [`DecryptionHelper`].
+//!
+//! [`VerificationHelper`]: trait.VerificationHelper.html
+//! [`DecryptionHelper`]: trait.DecryptionHelper.html
+//!
+//! The [`VerificationHelper`] trait give certificates for the
+//! signature verification to the [`Verifier`] or [`Decryptor`], let
+//! you inspect the message structure (see [Section 11.3 of RFC
+//! 4880]).
+//!
+//! public and for the signature verification, and implements the
+//! signature verification policy.
+//!
+//! To decrypt messages, we create a [`Verifier`] with our helper.
+//! Verified data can be read from this using [`io::Read`].
+//!
+//! # Examples
+//!
+//! ```
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! use std::io::Read;
+//! use sequoia_openpgp as openpgp;
+//! use openpgp::{KeyID, Cert, Result};
+//! use openpgp::parse::stream::*;
+//! use openpgp::policy::StandardPolicy;
+//!
+//! let p = &StandardPolicy::new();
+//!
+//! // This fetches keys and computes the validity of the verification.
+//! struct Helper {};
+//! impl VerificationHelper for Helper {
+//!     fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+//!         Ok(Vec::new()) // Feed the Certs to the verifier here...
+//!     }
+//!     fn check(&mut self, structure: MessageStructure) -> Result<()> {
+//!         Ok(()) // Implement your verification policy here.
+//!     }
+//! }
+//!
+//! let message =
+//!    b"-----BEGIN PGP MESSAGE-----
+//!
+//!      xA0DAAoWBpwMNI3YLBkByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoAJwWCW37P
+//!      8RahBI6MM/pGJjN5dtl5eAacDDSN2CwZCZAGnAw0jdgsGQAAeZQA/2amPbBXT96Q
+//!      O7PFms9DRuehsVVrFkaDtjN2WSxI4RGvAQDq/pzNdCMpy/Yo7AZNqZv5qNMtDdhE
+//!      b2WH5lghfKe/AQ==
+//!      =DjuO
+//!      -----END PGP MESSAGE-----";
+//!
+//! let h = Helper {};
+//! let mut v = Verifier::from_bytes(p, message, h, None)?;
+//!
+//! let mut content = Vec::new();
+//! v.read_to_end(&mut content)?;
+//! assert_eq!(content, b"Hello World!");
+//! # Ok(()) }
 
 use std::cmp;
 use std::io::{self, Read};
@@ -511,17 +583,16 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// revoked at the signature creation time, not have ever been hard
 /// revoked, and be signing capable at the signature creation time.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
-/// extern crate sequoia_openpgp as openpgp;
+/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
 /// use std::io::Read;
+/// use sequoia_openpgp as openpgp;
 /// use openpgp::{KeyID, Cert, Result};
 /// use openpgp::parse::stream::*;
 /// use openpgp::policy::StandardPolicy;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
 /// let p = &StandardPolicy::new();
 ///
 /// // This fetches keys and computes the validity of the verification.
@@ -551,8 +622,7 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)?;
 /// assert_eq!(content, b"Hello World!");
-/// # Ok(())
-/// # }
+/// # Ok(()) }
 pub struct Verifier<'a, H: VerificationHelper> {
     decryptor: Decryptor<'a, NoDecryptionHelper<H>>,
 }
@@ -670,17 +740,16 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// is important to treat the data as unverified and untrustworthy
 /// until you have seen a positive verification.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
-/// extern crate sequoia_openpgp as openpgp;
+/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
 /// use std::io::{self, Read};
+/// use sequoia_openpgp as openpgp;
 /// use openpgp::{KeyID, Cert, Result};
 /// use openpgp::parse::stream::*;
 /// use sequoia_openpgp::policy::StandardPolicy;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
 /// let p = &StandardPolicy::new();
 ///
 /// // This fetches keys and computes the validity of the verification.
@@ -707,8 +776,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// let h = Helper {};
 /// let mut v = DetachedVerifier::from_bytes(p, signature, h, None)?;
 /// v.verify_bytes(data)?;
-/// # Ok(())
-/// # }
+/// # Ok(()) }
 pub struct DetachedVerifier<'a, H: VerificationHelper> {
     decryptor: Decryptor<'a, NoDecryptionHelper<H>>,
 }
@@ -860,19 +928,18 @@ enum Mode {
 /// is important to treat the data as unverified and untrustworthy
 /// until you have seen a positive verification.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
-/// extern crate sequoia_openpgp as openpgp;
+/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
 /// use std::io::Read;
+/// use sequoia_openpgp as openpgp;
 /// use openpgp::crypto::SessionKey;
 /// use openpgp::types::SymmetricAlgorithm;
 /// use openpgp::{KeyID, Cert, Result, packet::{Key, PKESK, SKESK}};
 /// use openpgp::parse::stream::*;
 /// use sequoia_openpgp::policy::StandardPolicy;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
 /// let p = &StandardPolicy::new();
 ///
 /// // This fetches keys and computes the validity of the verification.
@@ -912,8 +979,7 @@ enum Mode {
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)?;
 /// assert_eq!(content, b"Hello World!");
-/// # Ok(())
-/// # }
+/// # Ok(()) }
 pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     helper: H,
     certs: Vec<Cert>,

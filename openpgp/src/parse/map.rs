@@ -3,6 +3,26 @@
 //! If configured to do so, a `PacketParser` will create a map that
 //! charts the byte-stream, describing where the information was
 //! extracted from.
+//!
+//! # Examples
+//!
+//! ```
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! use sequoia_openpgp as openpgp;
+//! use openpgp::parse::{Parse, PacketParserBuilder};
+//!
+//! let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+//! let pp = PacketParserBuilder::from_bytes(message_data)?
+//!     .map(true) // Enable mapping.
+//!     .build()?
+//!     .expect("One packet, not EOF");
+//! let map = pp.map().expect("Mapping is enabled");
+//!
+//! assert_eq!(map.iter().nth(0).unwrap().name(), "CTB");
+//! assert_eq!(map.iter().nth(0).unwrap().offset(), 0);
+//! assert_eq!(map.iter().nth(0).unwrap().as_bytes(), &[0xcb]);
+//! # Ok(()) }
+//! ```
 
 use std::cmp;
 
@@ -49,33 +69,26 @@ impl Map {
 
     /// Creates an iterator over the map.
     ///
-    /// Items returned are a small string indicating what kind of
-    /// information is extracted (e.g. "header", or "version"), and a
-    /// slice containing the actual bytes.
+    /// Returns references to [`Field`]s.
     ///
-    /// # Example
+    ///  [`Field`]: struct.Field.html
+    ///
+    /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::Result;
-    /// # use openpgp::parse::{Parse, PacketParser, PacketParserBuilder};
-    /// # f();
-    /// #
-    /// # fn f() -> Result<()> {
-    /// let msg = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
-    /// let ppo = PacketParserBuilder::from_bytes(msg)?
-    ///     .map(true).build()?;
-    /// assert_eq!(ppo.unwrap().map().unwrap().iter()
-    ///            .map(|f| (f.name(), f.as_bytes()))
-    ///            .collect::<Vec<(&str, &[u8])>>(),
-    ///            [("CTB", &b"\xcb"[..]),
-    ///             ("length", &b"\x12"[..]),
-    ///             ("format", b"t"),
-    ///             ("filename_len", b"\x00"),
-    ///             ("date", b"\x00\x00\x00\x00"),
-    ///             ("body", b"Hello world.")]);
-    /// # Ok(())
-    /// # }
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserBuilder};
+    ///
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .map(true) // Enable mapping.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// let map = pp.map().expect("Mapping is enabled");
+    ///
+    /// assert_eq!(map.iter().count(), 6);
+    /// # Ok(()) }
     /// ```
     pub fn iter<'a>(&'a self) -> impl Iterator<Item = Field<'a>> {
         Iter::new(self)
@@ -83,6 +96,14 @@ impl Map {
 }
 
 /// Represents an entry in the map.
+///
+/// A field has a [`name`] returning a human-readable field name
+/// (e.g. "CTB", or "version"), an [`offset`] into the packet, and the
+/// read [`data`].
+///
+///   [`name`]: #method.name
+///   [`offset`]: #method.offset
+///   [`data`]: #method.data
 #[derive(Clone, Debug)]
 pub struct Field<'a> {
     /// Name of the field.
@@ -129,16 +150,76 @@ impl<'a> Field<'a> {
     ///
     /// Note: The returned names are for display purposes only and may
     /// change in the future.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserBuilder};
+    ///
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .map(true) // Enable mapping.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// let map = pp.map().expect("Mapping is enabled");
+    ///
+    /// assert_eq!(map.iter().nth(0).unwrap().name(), "CTB");
+    /// assert_eq!(map.iter().nth(1).unwrap().name(), "length");
+    /// assert_eq!(map.iter().nth(2).unwrap().name(), "format");
+    /// # Ok(()) }
+    /// ```
     pub fn name(&self) -> &'a str {
         self.name
     }
 
     /// Returns the offset of the field in the packet.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserBuilder};
+    ///
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .map(true) // Enable mapping.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// let map = pp.map().expect("Mapping is enabled");
+    ///
+    /// assert_eq!(map.iter().nth(0).unwrap().offset(), 0);
+    /// assert_eq!(map.iter().nth(1).unwrap().offset(), 1);
+    /// assert_eq!(map.iter().nth(2).unwrap().offset(), 2);
+    /// # Ok(()) }
+    /// ```
     pub fn offset(&self) -> usize {
         self.offset
     }
 
     /// Returns the value of the field.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserBuilder};
+    ///
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .map(true) // Enable mapping.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// let map = pp.map().expect("Mapping is enabled");
+    ///
+    /// assert_eq!(map.iter().nth(0).unwrap().as_bytes(), &[0xcb]);
+    /// assert_eq!(map.iter().nth(1).unwrap().as_bytes(), &[0x12]);
+    /// assert_eq!(map.iter().nth(2).unwrap().as_bytes(), "t".as_bytes());
+    /// # Ok(()) }
+    /// ```
     pub fn as_bytes(&self) -> &'a [u8] {
         self.data
     }
