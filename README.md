@@ -8,14 +8,16 @@ with OpenPGP data.
 Low-level API
 -------------
 
-The low-level API can be found in the 'openpgp' crate.  This crate
+The low-level API can be found in the [openpgp](./openpgp) crate.
+This crate
 aims to provide a complete implementation of OpenPGP as defined by RFC
 4880 as well as several extensions (e.g., RFC 6637, which describes
 ECC cryptography for OpenPGP, and RFC 4880bis, the draft of the next
 OpenPGP standard).  This includes support for unbuffered message
 processing.
 
-The 'openpgp' crate tries hard to avoid dictating how OpenPGP should
+The [openpgp](./openpgp) crate tries hard to avoid dictating how
+OpenPGP should
 be used.  This doesn't mean that we don't have opinions about how
 OpenPGP should be used in a number of common scenarios (for instance,
 message validation).  But, in this crate, we refrain from expressing
@@ -26,12 +28,20 @@ use those crates instead of this one.
 High-level API
 --------------
 
-The high-level API can be found in the 'sequoia' crate, which
+The high-level API can be found in the [sequoia](.) crate, which
 conveniently includes all the other crates.  The high-level API
 include a public key store, and network access routines.
 
 Please note that as of this writing the high-level API is very
 incomplete.
+
+Command line interface
+--------------
+
+Sequoia includes a simple frontend `sq` (crate [tool](./tool)) that
+can be used to experiment with Sequoia and OpenPGP. It is also an
+example of how to use various aspects of Sequoia.
+
 
 Foreign Function Interface
 --------------------------
@@ -54,9 +64,6 @@ functionality related to key servers and key stores.
 The foreign function interface provides a C API for some of Sequoia's
 low- and high-level interfaces, but it is incomplete.
 
-There is a command-line frontend 'sq' that exposes most of Sequoia's
-functionality in a convenient way.
-
 There is a mostly feature-complete command-line verification tool for
 detached messages called 'sqv'.
 
@@ -64,10 +71,10 @@ LICENSE
 =======
 
 Sequoia is licensed under the GNU General Public License version 2 or
-any later version.  See the file LICENSE.txt or visit
+any later version.  See the file [LICENSE.txt](LICENSE.txt) or visit
 https://www.gnu.org/licenses/gpl-2.0.html for details.
 
-Building Sequoia
+Using Sequoia
 ================
 
 If you want to use Sequoia from Rust, you can simply register the
@@ -76,7 +83,21 @@ that we depend on a number of C libraries, which must be present along
 with their development packages.
 
 Besides being a Rust crate, we also provide a C API, and bindings to
-other languages.  We also consider the needs of packagers in times
+other languages.
+
+Building Sequoia
+================
+
+Using cargo
+-----------
+
+To build Sequoia, simply execute `cargo build [--release]`.
+To build `sq`, run `cargo build [--release] -p sequoia-tool`.
+
+Using the Makefile
+-----------
+
+We also consider the needs of packagers in times
 where distribution support for packaging Rust projects is not yet
 mature enough to handle a project like Sequoia.  Therefore, we provide
 a `Makefile` to simplify building, testing, and installing Sequoia.
@@ -92,11 +113,10 @@ these add `PYTHON=disable` to all `make` invocations. E.g. `make
 PYTHON=disable`.
 
 To build Sequoia, you need at least Rust 1.34 and a few
-libraries.  Please see below for OS-specific notes.
+libraries.  Please see below for OS-specific commands to install
+the needed libraries:
 
 ### Debian
-
-You can install the needed libraries with the following command:
 
 ```shell
     $ sudo apt install git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
@@ -113,8 +133,6 @@ Notes:
 
 ### Arch Linux
 
-You can install the needed libraries with the following command:
-
 ```shell
     $ sudo pacman -S git cargo clang make pkg-config nettle openssl capnproto sqlite3 --needed
 ```
@@ -127,8 +145,6 @@ You can install the needed libraries with the following command:
 
 ### macOS (Mojave), using MacPorts
 
-You can install the needed libraries with the following command:
-
 ```shell
     $ sudo port install cargo rust capnproto nettle pkgconfig coreutils
 ```
@@ -137,7 +153,7 @@ You can install the needed libraries with the following command:
 
 Please make sure to preserve line-endings when cloning the Sequoia
 repository.  The relevant git option is `core.autocrlf` which must be
-set to false.
+set to `false`.
 
 #### MSYS2
 You can install the needed libraries with the following command:
@@ -182,6 +198,8 @@ Getting help
 ============
 
 Sequoia's documentation is hosted here: https://docs.sequoia-pgp.org/
+
+The [guide](./guide) is hosted here: https://sequoia-pgp.org/guide/
 
 You can join our mailing list by sending a mail to
 devel-subscribe@sequoia-pgp.org.
