@@ -3365,7 +3365,7 @@ mod test {
         let cert = Cert::from_bytes(dkg);
         assert!(cert.is_ok(), "dkg.gpg: {:?}", cert);
 
-        // Key ring with two good keys
+        // Keyring with two good keys
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&dkg[..]);
@@ -3374,7 +3374,7 @@ mod test {
             .collect::<Vec<bool>>();
         assert_eq!(certs, &[ true, true ]);
 
-        // Key ring with a good key, and a bad key.
+        // Keyring with a good key, and a bad key.
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&lutz[..]);
@@ -3383,7 +3383,7 @@ mod test {
             .collect::<Vec<bool>>();
         assert_eq!(certs, &[ true, false ]);
 
-        // Key ring with a bad key, and a good key.
+        // Keyring with a bad key, and a good key.
         let mut combined = vec![];
         combined.extend_from_slice(&lutz[..]);
         combined.extend_from_slice(&dkg[..]);
@@ -3392,7 +3392,7 @@ mod test {
             .collect::<Vec<bool>>();
         assert_eq!(certs, &[ false, true ]);
 
-        // Key ring with a good key, a bad key, and a good key.
+        // Keyring with a good key, a bad key, and a good key.
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&lutz[..]);
@@ -3402,7 +3402,7 @@ mod test {
             .collect::<Vec<bool>>();
         assert_eq!(certs, &[ true, false, true ]);
 
-        // Key ring with a good key, a bad key, and a bad key.
+        // Keyring with a good key, a bad key, and a bad key.
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&lutz[..]);
@@ -3412,7 +3412,7 @@ mod test {
             .collect::<Vec<bool>>();
         assert_eq!(certs, &[ true, false, false ]);
 
-        // Key ring with a good key, a bad key, a bad key, and a good key.
+        // Keyring with a good key, a bad key, a bad key, and a good key.
         let mut combined = vec![];
         combined.extend_from_slice(&dkg[..]);
         combined.extend_from_slice(&lutz[..]);

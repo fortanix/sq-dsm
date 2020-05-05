@@ -31,19 +31,19 @@ use low_level::{
 
 use super::TRACE;
 
-/// Whether a packet sequence is a valid key ring.
+/// Whether a packet sequence is a valid keyring.
 #[derive(Debug)]
 pub enum KeyringValidity {
-    /// The packet sequence is a valid key ring.
+    /// The packet sequence is a valid keyring.
     Keyring,
-    /// The packet sequence is a valid key ring prefix.
+    /// The packet sequence is a valid keyring prefix.
     KeyringPrefix,
-    /// The packet sequence is definitely not a key ring.
+    /// The packet sequence is definitely not a keyring.
     Error(anyhow::Error),
 }
 
 impl KeyringValidity {
-    /// Returns whether the packet sequence is a valid key ring.
+    /// Returns whether the packet sequence is a valid keyring.
     ///
     /// Note: a `KeyringValidator` will only return this after
     /// `KeyringValidator::finish` has been called.
@@ -68,7 +68,7 @@ impl KeyringValidity {
     }
 
     /// Returns whether the packet sequence is definitely not a valid
-    /// key ring.
+    /// keyring.
     pub fn is_err(&self) -> bool {
         if let KeyringValidity::Error(_) = self {
             true
@@ -78,7 +78,7 @@ impl KeyringValidity {
     }
 }
 
-/// Used to help validate that a packet sequence is a valid key ring.
+/// Used to help validate that a packet sequence is a valid keyring.
 #[derive(Debug)]
 pub struct KeyringValidator {
     tokens: Vec<Token>,
