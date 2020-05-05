@@ -2160,7 +2160,7 @@ impl Cert {
 
     /// Associates a policy and a reference time with the certificate.
     ///
-    /// This is used to turn a certificate into a
+    /// This is used to turn a `Cert` into a
     /// [`ValidCert`].  (See also [`ValidateAmalgamation`],
     /// which does the same for component amalgamations.)
     ///
@@ -2305,7 +2305,50 @@ impl From<Cert> for Vec<Packet> {
     }
 }
 
-/// A certificate under a given policy at a given time.
+/// A `Cert` plus a `Policy` and a reference time.
+///
+/// A `ValidCert` combines a [`Cert`] with a [`Policy`] and a
+/// reference time.  This allows it to implement methods that require
+/// a `Policy` and a reference time without requiring the caller to
+/// explicitly pass them in.  Embedding them in the `ValidCert` data
+/// structure rather than having the caller pass them in explicitly
+/// helps ensure that multipart operations, even those that span
+/// multiple functions, use the same `Policy` and reference time.
+/// This avoids a subtle class of bugs in which different views of a
+/// certificate are unintentionally used.
+///
+/// A `ValidCert` is typically obtained by transforming a `Cert` using
+/// [`Cert::with_policy`].
+///
+/// A `ValidCert` is guaranteed to have a valid and live binding
+/// signature at the specified reference time.  Note: this only means
+/// that the binding signature is live; it says nothing about whether
+/// the certificate or any component is live.  If you care about those
+/// things, then you need to check them separately.
+///
+/// [`Cert`]: struct.Cert.html
+/// [`Policy`]: ../policy/index.html
+/// [`Cert::with_policy`]: struct.Cert.html#method.with_policy
+///
+/// # Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// # let (cert, _) = CertBuilder::new()
+/// #     .add_userid("Alice")
+/// #     .add_signing_subkey()
+/// #     .add_transport_encryption_subkey()
+/// #     .generate().unwrap();
+/// let vc = cert.with_policy(p, None)?;
+/// # assert!(std::ptr::eq(vc.policy(), p));
+/// # Ok(()) }
+/// ```
 #[derive(Debug, Clone)]
 pub struct ValidCert<'a> {
     cert: &'a Cert,
@@ -2329,30 +2372,114 @@ impl<'a> fmt::Display for ValidCert<'a> {
 }
 
 impl<'a> ValidCert<'a> {
-    /// Returns the certificate.
+    /// Returns the underlying certificate.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// let vc = cert.with_policy(p, None)?;
+    /// assert!(std::ptr::eq(vc.cert(), &cert));
+    /// # assert!(std::ptr::eq(vc.policy(), p));
+    /// # Ok(()) }
+    /// ```
     pub fn cert(&self) -> &'a Cert {
         self.cert
     }
 
-    /// Returns the amalgamation's reference time.
+    /// Returns the associated reference time.
     ///
-    /// For queries that are with respect to a point in time, this
-    /// determines that point in time.
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::time::{SystemTime, Duration, UNIX_EPOCH};
+    /// #
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let t = UNIX_EPOCH + Duration::from_secs(1307732220);
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .set_creation_time(t)
+    /// #         .generate()?;
+    /// let vc = cert.with_policy(p, t)?;
+    /// assert_eq!(vc.time(), t);
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn time(&self) -> time::SystemTime {
         self.time
     }
 
-    /// Returns the amalgamation's policy.
+    /// Returns the associated policy.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// let vc = cert.with_policy(p, None)?;
+    /// assert!(std::ptr::eq(vc.policy(), p));
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn policy(&self) -> &'a dyn Policy {
         self.policy
     }
 
-    /// Changes the amalgamation's policy.
+    /// Changes the associated policy and reference time.
     ///
     /// If `time` is `None`, the current time is used.
     ///
     /// Returns an error if the certificate is not valid for the given
-    /// policy at the given time.
+    /// policy at the specified time.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::{StandardPolicy, NullPolicy};
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let sp = &StandardPolicy::new();
+    /// let np = &NullPolicy::new();
+    ///
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// let vc = cert.with_policy(sp, None)?;
+    ///
+    /// // ...
+    ///
+    /// // Now with a different policy.
+    /// let vc = vc.with_policy(np, None)?;
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn with_policy<T>(self, policy: &'a dyn Policy, time: T)
         -> Result<ValidCert<'a>>
         where T: Into<Option<time::SystemTime>>,
@@ -2360,41 +2487,157 @@ impl<'a> ValidCert<'a> {
         self.cert.with_policy(policy, time)
     }
 
-    /// Returns the Certificate's direct key signature as of the
-    /// reference time, if any.
+    /// Returns the certificate's direct key signature as of the
+    /// reference time.
     ///
     /// Subpackets on direct key signatures apply to all components of
-    /// the certificate.
+    /// the certificate, cf. [Section 5.2.3.3 of RFC 4880].
+    ///
+    /// [Section 5.2.3.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use sequoia_openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .add_signing_subkey()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate().unwrap();
+    /// let vc = cert.with_policy(p, None)?;
+    /// println!("{:?}", vc.direct_key_signature());
+    /// # assert!(vc.direct_key_signature().is_ok());
+    /// # Ok(()) }
+    /// ```
     pub fn direct_key_signature(&self) -> Result<&'a Signature>
     {
         self.cert.primary.binding_signature(self.policy(), self.time())
     }
 
-    /// Returns the Cert's revocation status.
+    /// Returns the certificate's revocation status.
     ///
-    /// A Cert is revoked if:
+    /// A certificate is considered revoked at time `t` if:
     ///
-    ///   - There is a live revocation that is newer than all live
-    ///     self signatures, or
+    ///   - There is a valid and live revocation at time `t` that is
+    ///     newer than all valid and live self signatures at time `t`,
+    ///     or
     ///
-    ///   - There is a hard revocation (even if it is not live at time
-    ///     `t`, and even if there is a newer self signature).
+    ///   - There is a valid [hard revocation] (even if it is not live
+    ///     at time `t`, and even if there is a newer self signature).
     ///
-    /// Note: Certs and subkeys have different criteria from User IDs
-    /// and User Attributes.
+    /// [hard revocation]: ../types/enum.RevocationType.html#variant.Hard
     ///
-    /// Note: this only returns whether this Cert is revoked; it does
-    /// not imply anything about the Cert or other components.
+    /// Note: certificates and subkeys have different revocation
+    /// criteria from [User IDs and User Attributes].
+    ///
+    /// [User IDs and User Attributes]: amalgamation/struct.ComponentAmalgamation.html#userid_revocation_status
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::RevocationStatus;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    ///
+    /// // Not revoked.
+    /// assert_eq!(cert.with_policy(p, None)?.revocation_status(),
+    ///            RevocationStatus::NotAsFarAsWeKnow);
+    ///
+    /// // Merge the revocation certificate.  `cert` is now considered
+    /// // to be revoked.
+    /// let cert = cert.merge_packets(rev.clone())?;
+    /// assert_eq!(cert.with_policy(p, None)?.revocation_status(),
+    ///            RevocationStatus::Revoked(vec![ &rev.into() ]));
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn revocation_status(&self) -> RevocationStatus<'a> {
         self.cert.revocation_status(self.policy, self.time)
     }
 
-    /// Returns whether or not the Cert is alive.
+    /// Returns whether or not the certificate is alive at the
+    /// reference time.
+    ///
+    /// A certificate is considered to be alive at time `t` if the
+    /// primary key is alive at time `t`.
+    ///
+    /// A valid certificate's primary key is guaranteed to have [a live
+    /// binding signature], however, that does not mean that the
+    /// [primary key is necessarily alive].
+    ///
+    /// [a live binding signature]: amalgamation/trait.ValidateAmalgamation.html
+    /// [primary key is necessarily alive]: amalgamation/key/struct.ValidKeyAmalgamation.html#method.alive
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::time;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let a_second = time::Duration::from_secs(1);
+    ///
+    /// let creation_time = time::SystemTime::now();
+    /// let before_creation = creation_time - a_second;
+    /// let expiration_time = creation_time + 60 * a_second;
+    /// let before_expiration_time = expiration_time - a_second;
+    /// let after_expiration_time = expiration_time + a_second;
+    ///
+    /// let (cert, _) = CertBuilder::new()
+    ///     .add_userid("Alice")
+    ///     .set_expiration_time(expiration_time)
+    ///     .generate().unwrap();
+    ///
+    /// // There is no binding signature before the certificate was created.
+    /// assert!(cert.with_policy(p, before_creation).is_err());
+    /// assert!(cert.with_policy(p, creation_time)?.alive().is_ok());
+    /// assert!(cert.with_policy(p, before_expiration_time)?.alive().is_ok());
+    /// // The binding signature is still alive, but the key has expired.
+    /// assert!(cert.with_policy(p, expiration_time)?.alive().is_err());
+    /// assert!(cert.with_policy(p, after_expiration_time)?.alive().is_err());
+    /// # Ok(()) }
     pub fn alive(&self) -> Result<()> {
         self.primary_key().alive()
     }
 
-    /// Returns the amalgamated primary key.
+    /// Returns the certificate's primary key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let p = &StandardPolicy::new();
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("Alice")
+    /// #     .generate()?;
+    /// # let vc = cert.with_policy(p, None)?;
+    /// #
+    /// let primary = vc.primary_key();
+    /// // The certificate's fingerprint *is* the primary key's fingerprint.
+    /// assert_eq!(vc.fingerprint(), primary.fingerprint());
+    /// # Ok(()) }
     pub fn primary_key(&self)
         -> ValidPrimaryKeyAmalgamation<'a, key::PublicParts>
     {
@@ -2402,26 +2645,233 @@ impl<'a> ValidCert<'a> {
             .expect("A ValidKeyAmalgamation must have a ValidPrimaryKeyAmalgamation")
     }
 
-    /// Returns an iterator over the certificate's keys.
+    /// Returns an iterator over the certificate's valid keys.
     ///
     /// That is, this returns an iterator over the primary key and any
     /// subkeys.
+    ///
+    /// The iterator always returns the primary key first.  The order
+    /// of the subkeys is undefined.
+    ///
+    /// To only iterate over the certificate's subkeys, call
+    /// [`ValidKeyAmalgamationIter::subkeys`] on the returned iterator
+    /// instead of skipping the first key: this causes the iterator to
+    /// return values with a more accurate type.
+    ///
+    /// [`ValidKeyAmalgamationIter::subkeys`]: amalgamation/key/struct.ValidKeyAmalgamationIter.html#method.subkeys
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// // Create a key with two subkeys: one for signing and one for
+    /// // encrypting data in transit.
+    /// let (cert, _) = CertBuilder::new()
+    ///     .add_userid("Alice")
+    ///     .add_signing_subkey()
+    ///     .add_transport_encryption_subkey()
+    ///     .generate()?;
+    /// // They should all be valid.
+    /// assert_eq!(cert.with_policy(p, None)?.keys().count(), 1 + 2);
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn keys(&self) -> ValidKeyAmalgamationIter<'a, key::PublicParts, key::UnspecifiedRole> {
         self.cert.keys().with_policy(self.policy, self.time)
     }
 
-    /// Returns the amalgamated primary userid, if any.
+    /// Returns the primary User ID at the reference time, if any.
+    ///
+    /// A certificate may not have a primary User ID if it doesn't
+    /// have any valid User IDs.  If a certificate has at least one
+    /// valid User ID at time `t`, then it has a primary User ID at
+    /// time `t`.
+    ///
+    /// The primary User ID is determined as follows:
+    ///
+    ///   - Discard User IDs that are not valid or not alive at time `t`.
+    ///
+    ///   - Order the remaining User IDs by whether a User ID does not
+    ///     have a valid self-revocation (i.e., non-revoked first,
+    ///     ignoring third-party revocations).
+    ///
+    ///   - Break ties by ordering by whether the User ID is [marked
+    ///     as being the primary User ID].
+    ///
+    ///   - Break ties by ordering by the binding signature's creation
+    ///     time, most recent first.
+    ///
+    /// If there are multiple User IDs that are ordered first, then
+    /// one is chosen in a deterministic, but undefined manner
+    /// (currently, we order the value of the User IDs
+    /// lexographically, but you shouldn't rely on this).
+    ///
+    /// [marked as being the primary User ID]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::time;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let t1 = time::SystemTime::now();
+    /// let t2 = t1 + time::Duration::from_secs(1);
+    ///
+    /// let (cert, _) = CertBuilder::new()
+    ///     .set_creation_time(t1)
+    ///     .add_userid("Alice")
+    ///     .generate().unwrap();
+    /// let mut signer = cert
+    ///     .primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// // There is only one User ID.  It must be the primary User ID.
+    /// let vc = cert.with_policy(p, t1)?;
+    /// let alice = vc.primary_userid().unwrap();
+    /// assert_eq!(alice.value(), b"Alice");
+    /// // By default, the primary User ID flag is not set.
+    /// assert!(alice.binding_signature().primary_userid().is_none());
+    ///
+    /// let template: signature::SignatureBuilder
+    ///     = alice.binding_signature().clone().into();
+    ///
+    ///
+    /// // Add another user id whose creation time is after the
+    /// // existing User ID.
+    /// let sig = template.clone()
+    ///     .set_signature_creation_time(t2)?;
+    /// let bob: UserID = "Bob".into();
+    /// let sig = bob.bind(&mut signer, &cert, sig)?;
+    /// let cert = cert.merge_packets(vec![ Packet::from(bob), sig.into() ])?;
+    /// # assert_eq!(cert.userids().count(), 2);
+    ///
+    /// // It should now be the primary User ID, because it is newer.
+    /// let bob = cert.with_policy(p, t2)?.primary_userid().unwrap();
+    /// assert_eq!(bob.value(), b"Bob");
+    /// // But, not before it was created!.
+    /// let alice = cert.with_policy(p, t1)?.primary_userid().unwrap();
+    /// assert_eq!(alice.value(), b"Alice");
+    ///
+    ///
+    /// // Add another User ID, whose binding signature's creation
+    /// // time is prior to Bob's, but mark it as the primary User ID.
+    /// let sig = template.clone()
+    ///    .set_signature_creation_time(t1)?
+    ///    .set_primary_userid(true)?;
+    /// let carol: UserID = "Carol".into();
+    /// let sig = carol.bind(&mut signer, &cert, sig)?;
+    /// let cert = cert.merge_packets(vec![ Packet::from(carol), sig.into() ])?;
+    /// # assert_eq!(cert.userids().count(), 3);
+    ///
+    /// // It should now be the primary User ID, because the primary User ID
+    /// // bit is set.
+    /// let carol = cert.with_policy(p, t2)?.primary_userid().unwrap();
+    /// assert_eq!(carol.value(), b"Carol");
+    /// # Ok(()) }
     pub fn primary_userid(&self) -> Result<ValidUserIDAmalgamation<'a>>
     {
         self.cert.primary_userid_relaxed(self.policy(), self.time(), true)
     }
 
-    /// Returns an iterator over the Cert's userids.
+    /// Returns an iterator over the certificate's valid User IDs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::time;
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let t0 = time::SystemTime::now() - time::Duration::from_secs(10);
+    /// # let t1 = t0 + time::Duration::from_secs(1);
+    /// # let t2 = t1 + time::Duration::from_secs(1);
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .set_creation_time(t0)
+    /// #     .generate()?;
+    /// // `cert` was created at t0.  Add a second User ID at t1.
+    /// let userid = UserID::from("alice@example.com");
+    /// // Use the primary User ID's current binding signature as the
+    /// // basis for the new User ID's binding signature.
+    /// let template : signature::SignatureBuilder
+    ///     = cert.with_policy(p, None)?
+    ///           .primary_userid()?
+    ///           .binding_signature()
+    ///           .clone()
+    ///           .into();
+    /// let sig = template.set_signature_creation_time(t1)?;
+    /// let mut signer = cert
+    ///     .primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    /// let binding = userid.bind(&mut signer, &cert, sig)?;
+    /// // Merge it.
+    /// let cert = cert.merge_packets(
+    ///     vec![Packet::from(userid), binding.into()])?;
+    ///
+    /// // At t0, the new User ID is not yet valid (it doesn't have a
+    /// // binding signature that is live at t0).  Thus, it is not
+    /// // returned.
+    /// let vc = cert.with_policy(p, t0)?;
+    /// assert_eq!(vc.userids().count(), 1);
+    /// // But, at t1, we see both User IDs.
+    /// let vc = cert.with_policy(p, t1)?;
+    /// assert_eq!(vc.userids().count(), 2);
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn userids(&self) -> ValidUserIDAmalgamationIter<'a> {
         self.cert.userids().with_policy(self.policy, self.time)
     }
 
-    /// Returns the primary User Attribute at `t`, if any.
+    /// Returns the primary User Attribute, if any.
+    ///
+    /// If a certificate has any valid User Attributes, then it has a
+    /// primary User Attribute.  In other words, it will not have a
+    /// primary User Attribute at time `t` if there are no valid User
+    /// Attributes at time `t`.
+    ///
+    /// The primary User Attribute is determined in the same way as
+    /// the primary User ID.  See the documentation of
+    /// [`ValidCert::primary_userid`] for details.
+    ///
+    /// [`ValidCert::primary_userid`]: #method.primary_userid
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// let vc = cert.with_policy(p, None)?;
+    /// let ua = vc.primary_user_attribute();
+    /// # // We don't have an user attributes.  So, this should return an
+    /// # // error.
+    /// # assert!(ua.is_err());
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn primary_user_attribute(&self)
         -> Result<ValidComponentAmalgamation<'a, UserAttribute>>
     {
@@ -2430,7 +2880,36 @@ impl<'a> ValidCert<'a> {
                                             self.policy(), self.time(), true)
     }
 
-    /// Returns an iterator over the Cert's `UserAttributeBundle`s.
+    /// Returns an iterator over the certificate's valid
+    /// `UserAttribute`s.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use quickcheck::{Arbitrary, StdThreadGen};
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut gen = StdThreadGen::new(16);
+    /// # let ua : UserAttribute = UserAttribute::arbitrary(&mut gen);
+    /// // Add a User Attribute without a self-signature to the certificate.
+    /// let cert = cert.merge_packets(ua)?;
+    /// assert_eq!(cert.user_attributes().count(), 1);
+    ///
+    /// // Without a self-signature, it is definitely not valid.
+    /// let vc = cert.with_policy(p, None)?;
+    /// assert_eq!(vc.user_attributes().count(), 0);
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn user_attributes(&self) -> ValidUserAttributeAmalgamationIter<'a> {
         self.cert.user_attributes().with_policy(self.policy, self.time)
     }

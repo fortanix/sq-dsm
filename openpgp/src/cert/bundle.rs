@@ -700,7 +700,11 @@ impl ComponentBundle<UserID> {
         self.component()
     }
 
-    /// Returns the User ID's revocation status at time `t`.
+    /// Returns the User ID's revocation status at time `t`.<a
+    /// name="userid_revocation_status"></a>
+    ///
+    /// <!-- Why we have the above anchor:
+    ///      https://github.com/rust-lang/rust/issues/71912 -->
     ///
     /// A User ID is revoked at time `t` if:
     ///
