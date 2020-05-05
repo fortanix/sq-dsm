@@ -641,8 +641,8 @@ impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
 
 /// Splits the signatures in b.certifications into the correct
 /// vectors.
-pub fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
-                     b: &mut ComponentBundle<C>)
+pub(crate) fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
+                            b: &mut ComponentBundle<C>)
 {
     let mut self_signatures = vec![];
     let mut certifications = vec![];
