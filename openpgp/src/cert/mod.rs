@@ -189,13 +189,15 @@ mod revoke;
 pub use self::builder::{CertBuilder, CipherSuite};
 
 pub use parser::{
-    KeyringValidity,
-    KeyringValidator,
     CertParser,
-    CertValidity,
 };
 
-pub(crate) use parser::CertValidator;
+pub(crate) use parser::{
+    CertValidator,
+    CertValidity,
+    KeyringValidator,
+    KeyringValidity,
+};
 
 pub use revoke::{
     SubkeyRevocationBuilder,

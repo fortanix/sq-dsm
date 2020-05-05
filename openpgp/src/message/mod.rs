@@ -73,7 +73,7 @@ impl From<MessageParserError> for anyhow::Error {
 
 /// Represents the status of a parsed message.
 #[derive(Debug)]
-pub enum MessageValidity {
+pub(crate) enum MessageValidity {
     /// The packet sequence is a valid OpenPGP message.
     Message,
     /// The packet sequence appears to be a valid OpenPGP message that
@@ -84,6 +84,7 @@ pub enum MessageValidity {
     Error(anyhow::Error),
 }
 
+#[allow(unused)]
 impl MessageValidity {
     /// Returns whether the packet sequence is a valid message.
     ///

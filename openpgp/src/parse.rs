@@ -65,8 +65,10 @@ use std::path::Path;
 use ::buffered_reader::*;
 
 use crate::{
-    cert::prelude::*,
     cert::CertValidator,
+    cert::CertValidity,
+    cert::KeyringValidator,
+    cert::KeyringValidity,
     crypto::{aead, hash::Hash},
     Result,
     packet::header::{

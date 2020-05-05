@@ -32,8 +32,10 @@ use low_level::{
 use super::TRACE;
 
 /// Whether a packet sequence is a valid keyring.
+///
+/// This is used
 #[derive(Debug)]
-pub enum KeyringValidity {
+pub(crate) enum KeyringValidity {
     /// The packet sequence is a valid keyring.
     Keyring,
     /// The packet sequence is a valid keyring prefix.
@@ -42,6 +44,7 @@ pub enum KeyringValidity {
     Error(anyhow::Error),
 }
 
+#[allow(unused)]
 impl KeyringValidity {
     /// Returns whether the packet sequence is a valid keyring.
     ///
@@ -80,7 +83,7 @@ impl KeyringValidity {
 
 /// Used to help validate that a packet sequence is a valid keyring.
 #[derive(Debug)]
-pub struct KeyringValidator {
+pub(crate) struct KeyringValidator {
     tokens: Vec<Token>,
     n_keys: usize,
     n_packets: usize,
@@ -96,6 +99,7 @@ impl Default for KeyringValidator {
     }
 }
 
+#[allow(unused)]
 impl KeyringValidator {
     /// Instantiates a new `KeyringValidator`.
     pub fn new() -> Self {
@@ -240,7 +244,8 @@ impl KeyringValidator {
 
 /// Whether a packet sequence is a valid Cert.
 #[derive(Debug)]
-pub enum CertValidity {
+#[allow(unused)]
+pub(crate) enum CertValidity {
     /// The packet sequence is a valid Cert.
     Cert,
     /// The packet sequence is a valid Cert prefix.
@@ -249,6 +254,7 @@ pub enum CertValidity {
     Error(anyhow::Error),
 }
 
+#[allow(unused)]
 impl CertValidity {
     /// Returns whether the packet sequence is a valid Cert.
     ///
