@@ -2,15 +2,14 @@
 //!
 //! This module provides convenient filters for decryption and
 //! verification of OpenPGP messages (see [Section 11.3 of RFC 4880]).
-//! It is the preferred interface to process OpenPGP messages.  These
-//! implementations use constant space.
+//! It is the preferred interface to process OpenPGP messages:
 //!
 //!   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
 //!
-//! Use the [`Verifier`] to verify a signed message,
-//! [`DetachedVerifier`] to verify a detached signature, and
-//! [`Decryptor`] to decrypt and possibly verify an encrypted and
-//! possibly signed message.
+//!   - Use the [`Verifier`] to verify a signed message,
+//!   - [`DetachedVerifier`] to verify a detached signature,
+//!   - or [`Decryptor`] to decrypt and verify an encrypted and
+//!     possibly signed message.
 //!
 //!   [`Verifier`]: struct.Verifier.html
 //!   [`DetachedVerifier`]: struct.DetachedVerifier.html
@@ -32,21 +31,46 @@
 //! The [`VerificationHelper`] trait give certificates for the
 //! signature verification to the [`Verifier`] or [`Decryptor`], let
 //! you inspect the message structure (see [Section 11.3 of RFC
-//! 4880]).
+//! 4880]), and implements the signature verification policy.
 //!
-//! public and for the signature verification, and implements the
-//! signature verification policy.
+//! The [`DecryptionHelper`] trait is concerned with producing the
+//! session key to decrypt a message, most commonly by decrypting one
+//! of the messages' [`PKESK`] or [`SKESK`] packets.  It could also
+//! use a cached session key, or one that has been explicitly provided
+//! to the decryption operation.
 //!
-//! To decrypt messages, we create a [`Verifier`] with our helper.
-//! Verified data can be read from this using [`io::Read`].
+//!   [`PKESK`]: ../../packet/enum.PKESK.html
+//!   [`SKESK`]: ../../packet/enum.SKESK.html
+//!
+//! The [`Verifier`] and [`Decryptor`] are filters: they consume
+//! OpenPGP data from a reader, file, or bytes, and implement
+//! [`io::Read`] that can be used to read the verified and/or
+//! decrypted data.
+//!
+//!   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+//!
+//! [`DetachedVerifier`] does not provide the [`io::Read`] interface,
+//! because in this case, the data to be verified is easily available
+//! without any transformation.  Not providing a filter-like interface
+//! allows for a very performant implementation of the verification.
 //!
 //! # Examples
 //!
+//! This example demonstrates how to use the streaming interface using
+//! the [`Verifier`].  For brevity, no certificates are fed to the
+//! verifier, and the message structure is not verified, i.e. this
+//! merely extracts the literal data.  See the [`Verifier` examples]
+//! and the [`Decryptor` examples] for how to verify the message and
+//! its structure.
+//!
+//!   [`Verifier` examples]: struct.Verifier.html#examples
+//!   [`Decryptor` examples]: struct.Decryptor.html#examples
+//!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! use std::io::Read;
 //! use sequoia_openpgp as openpgp;
-//! use openpgp::{KeyID, Cert, Result};
+//! use openpgp::{KeyHandle, Cert, Result};
 //! use openpgp::parse::stream::*;
 //! use openpgp::policy::StandardPolicy;
 //!
@@ -55,7 +79,7 @@
 //! // This fetches keys and computes the validity of the verification.
 //! struct Helper {};
 //! impl VerificationHelper for Helper {
-//!     fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+//!     fn get_certs(&mut self, _ids: &[KeyHandle]) -> Result<Vec<Cert>> {
 //!         Ok(Vec::new()) // Feed the Certs to the verifier here...
 //!     }
 //!     fn check(&mut self, structure: MessageStructure) -> Result<()> {
@@ -80,7 +104,7 @@
 //! v.read_to_end(&mut content)?;
 //! assert_eq!(content, b"Hello World!");
 //! # Ok(()) }
-
+//! ```
 use std::cmp;
 use std::io::{self, Read};
 use std::path::Path;
@@ -135,7 +159,9 @@ pub type VerificationResult<'a> =
 ///   - The signature has a Signature Creation Time subpacket.
 ///
 ///   - The signature is alive at the specified time (the time
-///     parameter passed to, e.g., `Verifier::from_reader`).
+///     parameter passed to, e.g., [`Verifier::from_reader`]).
+///
+///       [`Verifier::from_reader`]: struct.Verifier.html#method.from_reader
 ///
 ///   - The certificate is alive and not revoked as of the signature's
 ///     creation time.
@@ -150,10 +176,11 @@ pub type VerificationResult<'a> =
 ///     belongs to the person or entity that the user thinks it
 ///     belongs to.  This property can only be evaluated within a
 ///     trust model, such as the [web of trust] (WoT).  This policy is
-///     normally implemented in the `VerificationHelper::check`
+///     normally implemented in the [`VerificationHelper::check`]
 ///     method.
 ///
-/// [web of trust]: https://en.wikipedia.org/wiki/Web_of_trust
+///       [web of trust]: https://en.wikipedia.org/wiki/Web_of_trust
+///       [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
 #[derive(Debug)]
 pub struct GoodChecksum<'a> {
     /// The signature.
@@ -463,21 +490,44 @@ enum IMessageLayer {
 }
 
 /// Helper for signature verification.
+///
+/// This trait abstracts over signature and message structure
+/// verification.  It allows us to provide the [`Verifier`],
+/// [`DetachedVerifier`], and [`Decryptor`] without imposing a policy
+/// on how certificates for signature verification are looked up, or
+/// what message structure is considered acceptable.
+///
+///   [`Verifier`]: struct.Verifier.html
+///   [`DetachedVerifier`]: struct.DetachedVerifier.html
+///   [`Decryptor`]: struct.Decryptor.html
+///
+/// It also allows you to inspect each packet that is processed during
+/// verification or decryption, optionally providing a [`Map`] for
+/// each packet.
+///
+///   [`Map`]: ../map/struct.Map.html
 pub trait VerificationHelper {
     /// Turns mapping on or off.
     ///
     /// If this function returns true, the packet parser will create a
-    /// map of the packets.  Note that this buffers the packets
+    /// [`Map`] of the packets.  Note that this buffers the packets
     /// contents, and is not recommended unless you know that the
-    /// packets are small.  The default implementation returns false.
+    /// packets are small.  This is called once before parsing the
+    /// first packet.
+    ///
+    ///   [`Map`]: ../map/struct.Map.html
+    ///
+    /// The default implementation returns false.
     fn mapping(&self) -> bool {
         false
     }
 
     /// Inspects the message.
     ///
-    /// Called once per packet.  Can be used to dump packets in
-    /// encrypted messages.  The default implementation does nothing.
+    /// Called once per packet.  Can be used to inspect and dump
+    /// packets in encrypted messages.
+    ///
+    /// The default implementation does nothing.
     fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
         // Do nothing.
         let _ = pp;
@@ -500,6 +550,36 @@ pub trait VerificationHelper {
     /// a subset of them may be sufficient.
     ///
     /// This method will be called at most once per message.
+    ///
+    /// # Examples
+    ///
+    /// This example demonstrates how to look up the certificates for
+    /// the signature verification given the list of signature
+    /// issuers.
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::stream::*;
+    /// # fn lookup_cert_by_handle(_: &KeyHandle) -> Result<Cert> {
+    /// #     unimplemented!()
+    /// # }
+    ///
+    /// struct Helper { /* ... */ };
+    /// impl VerificationHelper for Helper {
+    ///     fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    ///         let mut certs = Vec::new();
+    ///         for id in ids {
+    ///             certs.push(lookup_cert_by_handle(id)?);
+    ///         }
+    ///         Ok(certs)
+    ///     }
+    ///     // ...
+    /// #    fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #        unimplemented!()
+    /// #    }
+    /// }
+    /// ```
     fn get_certs(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>>;
 
     /// Conveys the message structure.
@@ -520,7 +600,46 @@ pub trait VerificationHelper {
     /// such, any error returned by this function will abort reading,
     /// and the error will be propagated via the `io::Read` operation.
     ///
-    /// This method will be called at most once per message.
+    /// This method will be called exactly once per message.
+    ///
+    /// # Examples
+    ///
+    /// This example demonstrates how to verify that the message is an
+    /// encrypted, optionally compressed, and signed message that has
+    /// at least one valid signature.
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::stream::*;
+    ///
+    /// struct Helper { /* ... */ };
+    /// impl VerificationHelper for Helper {
+    /// #    fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #        unimplemented!();
+    /// #    }
+    ///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    ///         for (i, layer) in structure.into_iter().enumerate() {
+    ///             match layer {
+    ///                 MessageLayer::Encryption { .. } if i == 0 => (),
+    ///                 MessageLayer::Compression { .. } if i == 1 => (),
+    ///                 MessageLayer::SignatureGroup { ref results }
+    ///                     if i == 1 || i == 2 =>
+    ///                 {
+    ///                     if ! results.iter().any(|r| r.is_ok()) {
+    ///                         return Err(anyhow::anyhow!(
+    ///                                        "No valid signature"));
+    ///                     }
+    ///                 }
+    ///                 _ => return Err(anyhow::anyhow!(
+    ///                                     "Unexpected message structure")),
+    ///             }
+    ///         }
+    ///         Ok(())
+    ///     }
+    ///     // ...
+    /// }
+    /// ```
     fn check(&mut self, structure: MessageStructure) -> Result<()>;
 }
 
@@ -573,35 +692,72 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// # Examples
 ///
 /// ```
-/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// # fn main() -> sequoia_openpgp::Result<()> {
 /// use std::io::Read;
 /// use sequoia_openpgp as openpgp;
-/// use openpgp::{KeyID, Cert, Result};
+/// use openpgp::{KeyHandle, Cert, Result};
 /// use openpgp::parse::stream::*;
 /// use openpgp::policy::StandardPolicy;
+/// # use sequoia_openpgp::parse::Parse;
+/// # fn lookup_cert_by_handle(_: &KeyHandle) -> Result<Cert> {
+/// #     Cert::from_bytes(
+/// #       &b"-----BEGIN PGP PUBLIC KEY BLOCK-----
+/// #
+/// #          xjMEWlNvABYJKwYBBAHaRw8BAQdA+EC2pvebpEbzPA9YplVgVXzkIG5eK+7wEAez
+/// #          lcBgLJrNMVRlc3R5IE1jVGVzdGZhY2UgKG15IG5ldyBrZXkpIDx0ZXN0eUBleGFt
+/// #          cGxlLm9yZz7CkAQTFggAOBYhBDnRAKtn1b2MBAECBfs3UfFYfa7xBQJaU28AAhsD
+/// #          BQsJCAcCBhUICQoLAgQWAgMBAh4BAheAAAoJEPs3UfFYfa7xJHQBAO4/GABMWUcJ
+/// #          5D/DZ9b+6YiFnysSjCT/gILJgxMgl7uoAPwJherI1pAAh49RnPHBR1IkWDtwzX65
+/// #          CJG8sDyO2FhzDs44BFpTbwASCisGAQQBl1UBBQEBB0B+A0GRHuBgdDX50T1nePjb
+/// #          mKQ5PeqXJbWEtVrUtVJaPwMBCAfCeAQYFggAIBYhBDnRAKtn1b2MBAECBfs3UfFY
+/// #          fa7xBQJaU28AAhsMAAoJEPs3UfFYfa7xzjIBANX2/FgDX3WkmvwpEHg/sn40zACM
+/// #          W2hrBY5x0sZ8H7JlAP47mCfCuRVBqyaePuzKbxLJeLe2BpDdc0n2izMVj8t9Cg==
+/// #          =QetZ
+/// #          -----END PGP PUBLIC KEY BLOCK-----"[..])
+/// # }
 ///
 /// let p = &StandardPolicy::new();
 ///
 /// // This fetches keys and computes the validity of the verification.
 /// struct Helper {};
 /// impl VerificationHelper for Helper {
-///     fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
-///         Ok(Vec::new()) // Feed the Certs to the verifier here...
+///     fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+///         let mut certs = Vec::new();
+///         for id in ids {
+///             certs.push(lookup_cert_by_handle(id)?);
+///         }
+///         Ok(certs)
 ///     }
+///
 ///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
-///         Ok(()) // Implement your verification policy here.
+///         for (i, layer) in structure.into_iter().enumerate() {
+///             match layer {
+///                 MessageLayer::Encryption { .. } if i == 0 => (),
+///                 MessageLayer::Compression { .. } if i == 1 => (),
+///                 MessageLayer::SignatureGroup { ref results } => {
+///                     if ! results.iter().any(|r| r.is_ok()) {
+///                         return Err(anyhow::anyhow!(
+///                                        "No valid signature"));
+///                     }
+///                 }
+///                 _ => return Err(anyhow::anyhow!(
+///                                     "Unexpected message structure")),
+///             }
+///         }
+///         Ok(())
 ///     }
 /// }
 ///
 /// let message =
 ///    b"-----BEGIN PGP MESSAGE-----
 ///
-///      xA0DAAoWBpwMNI3YLBkByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoAJwWCW37P
-///      8RahBI6MM/pGJjN5dtl5eAacDDSN2CwZCZAGnAw0jdgsGQAAeZQA/2amPbBXT96Q
-///      O7PFms9DRuehsVVrFkaDtjN2WSxI4RGvAQDq/pzNdCMpy/Yo7AZNqZv5qNMtDdhE
-///      b2WH5lghfKe/AQ==
-///      =DjuO
-///      -----END PGP MESSAGE-----";
+///      xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+///      AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+///      UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+///      YmAFv/UfO0vYBw==
+///      =+l94
+///      -----END PGP MESSAGE-----
+///      ";
 ///
 /// let h = Helper {};
 /// let mut v = Verifier::from_bytes(p, message, h, None)?;
@@ -683,9 +839,12 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         self.decryptor.into_helper().v
     }
 
-    /// Returns true if the whole message has been processed and the verification result is ready.
-    /// If the function returns false the message did not fit into the internal buffer and
-    /// **unverified** data must be `read()` from the instance until EOF.
+    /// Returns true if the whole message has been processed and the
+    /// verification result is ready.
+    ///
+    /// If the function returns false the message did not fit into the
+    /// internal buffer and **unverified** data must be `read()` from
+    /// the instance until EOF.
     pub fn message_processed(&self) -> bool {
         // oppr is only None after we've processed the packet sequence.
         self.decryptor.message_processed()
@@ -730,10 +889,10 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// # Examples
 ///
 /// ```
-/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// # fn main() -> sequoia_openpgp::Result<()> {
 /// use std::io::{self, Read};
 /// use sequoia_openpgp as openpgp;
-/// use openpgp::{KeyID, Cert, Result};
+/// use openpgp::{KeyHandle, Cert, Result};
 /// use openpgp::parse::stream::*;
 /// use sequoia_openpgp::policy::StandardPolicy;
 ///
@@ -742,7 +901,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// // This fetches keys and computes the validity of the verification.
 /// struct Helper {};
 /// impl VerificationHelper for Helper {
-///     fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+///     fn get_certs(&mut self, _ids: &[KeyHandle]) -> Result<Vec<Cert>> {
 ///         Ok(Vec::new()) // Feed the Certs to the verifier here...
 ///     }
 ///     fn check(&mut self, structure: MessageStructure) -> Result<()> {
@@ -918,7 +1077,7 @@ enum Mode {
 /// # Examples
 ///
 /// ```
-/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// # fn main() -> sequoia_openpgp::Result<()> {
 /// use std::io::Read;
 /// use sequoia_openpgp as openpgp;
 /// use openpgp::crypto::SessionKey;
@@ -1011,17 +1170,152 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
 }
 
 /// Helper for decrypting messages.
+///
+/// This trait abstracts over session key decryption.  It allows us to
+/// provide the [`Decryptor`] without imposing any policy on how the
+/// session key is decrypted.
+///
+///   [`Decryptor`]: struct.Decryptor.html
 pub trait DecryptionHelper {
     /// Decrypts the message.
     ///
-    /// This function is called with every `PKESK` and `SKESK` found
-    /// in the message.  The implementation must decrypt the symmetric
-    /// algorithm and session key from one of the PKESK packets, the
-    /// SKESKs, or retrieve it from a cache, and then call `decrypt`
-    /// with the symmetric algorithm and session key.
+    /// This function is called with every [`PKESK`] and [`SKESK`]
+    /// packet found in the message.  The implementation must decrypt
+    /// the symmetric algorithm and session key from one of the
+    /// [`PKESK`] packets, the [`SKESK`] packets, or retrieve it from
+    /// a cache, and then call `decrypt` with the symmetric algorithm
+    /// and session key.
+    ///
+    ///   [`PKESK`]: ../../packet/enum.PKESK.html
+    ///   [`SKESK`]: ../../packet/enum.SKESK.html
     ///
     /// If a symmetric algorithm is given, it should be passed on to
-    /// PKESK::decrypt.
+    /// [`PKESK::decrypt`].
+    ///
+    ///   [`PKESK::decrypt`]: ../../packet/enum.PKESK.html#method.decrypt
+    ///
+    /// If the message is decrypted using a [`PKESK`] packet, then the
+    /// fingerprint of the certificate containing the encryption
+    /// subkey should be returned.  This is used in conjunction with
+    /// the intended recipient subpacket (see [Section 5.2.3.29 of RFC
+    /// 4880bis]) to prevent [*Surreptitious Forwarding*].
+    ///
+    ///   [Section 5.2.3.29 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-08#section-5.2.3.29
+    ///   [*Surreptitious Forwarding*]: http://world.std.com/~dtd/sign_encrypt/sign_encrypt7.html
+    ///
+    /// This method will be called once per encryption layer.
+    ///
+    /// # Examples
+    ///
+    /// This example demonstrates how to decrypt a message using local
+    /// keys (i.e. excluding remote keys like smart cards) while
+    /// maximizing convenience for the user.
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::{Fingerprint, Cert, Result};
+    /// # use openpgp::KeyID;
+    /// use openpgp::crypto::SessionKey;
+    /// use openpgp::types::SymmetricAlgorithm;
+    /// use openpgp::packet::{PKESK, SKESK};
+    /// # use openpgp::packet::{Key, key::*};
+    /// use openpgp::parse::stream::*;
+    /// # fn lookup_cache(_: &[PKESK], _: &[SKESK])
+    /// #                 -> Option<(Option<Fingerprint>, SymmetricAlgorithm, SessionKey)> {
+    /// #     unimplemented!()
+    /// # }
+    /// # fn lookup_key(_: &KeyID)
+    /// #               -> Option<(Fingerprint, Key<SecretParts, UnspecifiedRole>)> {
+    /// #     unimplemented!()
+    /// # }
+    /// # fn all_keys() -> impl Iterator<Item = (Fingerprint, Key<SecretParts, UnspecifiedRole>)> {
+    /// #     Vec::new().into_iter()
+    /// # }
+    ///
+    /// struct Helper { /* ... */ };
+    /// impl DecryptionHelper for Helper {
+    ///     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
+    ///                   sym_algo: Option<SymmetricAlgorithm>,
+    ///                   mut decrypt: D) -> Result<Option<Fingerprint>>
+    ///         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+    ///     {
+    ///         // Try to decrypt, from the most convenient method to the
+    ///         // least convenient one.
+    ///
+    ///         // First, see if it is in the cache.
+    ///         if let Some((fp, algo, sk)) = lookup_cache(pkesks, skesks) {
+    ///             if decrypt(algo, &sk).is_ok() {
+    ///                 return Ok(fp);
+    ///             }
+    ///         }
+    ///
+    ///         // Second, we try those keys that we can use without
+    ///         // prompting for a password.
+    ///         for pkesk in pkesks {
+    ///             if let Some((fp, key)) = lookup_key(pkesk.recipient()) {
+    ///                 if ! key.secret().is_encrypted() {
+    ///                     let mut keypair = key.clone().into_keypair()?;
+    ///                     if pkesk.decrypt(&mut keypair, sym_algo)
+    ///                         .and_then(|(algo, sk)| decrypt(algo, &sk))
+    ///                         .is_ok()
+    ///                     {
+    ///                         return Ok(Some(fp));
+    ///                     }
+    ///                 }
+    ///             }
+    ///         }
+    ///
+    ///         // Third, we try to decrypt PKESK packets with
+    ///         // wildcard recipients using those keys that we can
+    ///         // use without prompting for a password.
+    ///         for pkesk in pkesks.iter().filter(|p| p.recipient().is_wildcard()) {
+    ///             for (fp, key) in all_keys() {
+    ///                 if ! key.secret().is_encrypted() {
+    ///                     let mut keypair = key.clone().into_keypair()?;
+    ///                     if pkesk.decrypt(&mut keypair, sym_algo)
+    ///                         .and_then(|(algo, sk)| decrypt(algo, &sk))
+    ///                         .is_ok()
+    ///                     {
+    ///                         return Ok(Some(fp));
+    ///                     }
+    ///                 }
+    ///             }
+    ///         }
+    ///
+    ///         // Fourth, we try to decrypt all PKESK packets that we
+    ///         // need encrypted keys for.
+    ///         // [...]
+    ///
+    ///         // Fifth, we try to decrypt all PKESK packets with
+    ///         // wildcard recipients using encrypted keys.
+    ///         // [...]
+    ///
+    ///         // At this point, we have exhausted our options at
+    ///         // decrypting the PKESK packets.
+    ///         if skesks.is_empty() {
+    ///             return
+    ///                 Err(anyhow::anyhow!("No key to decrypt message"));
+    ///         }
+    ///
+    ///         // Finally, try to decrypt using the SKESKs.
+    ///         loop {
+    ///             let password = // Prompt for a password.
+    /// #               "".into();
+    ///
+    ///             for skesk in skesks {
+    ///                 if skesk.decrypt(&password)
+    ///                     .and_then(|(algo, sk)| decrypt(algo, &sk))
+    ///                     .is_ok()
+    ///                 {
+    ///                     return Ok(None);
+    ///                 }
+    ///             }
+    ///
+    ///             eprintln!("Bad password.");
+    ///         }
+    ///     }
+    /// }
+    /// ```
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   sym_algo: Option<SymmetricAlgorithm>,
                   decrypt: D) -> Result<Option<Fingerprint>>
