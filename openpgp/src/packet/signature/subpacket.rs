@@ -61,7 +61,6 @@ use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
-use std::io;
 use std::cmp;
 use std::time;
 
@@ -73,6 +72,7 @@ use crate::packet::signature::ArbitraryBounded;
 use crate::{
     Error,
     Result,
+    packet::header::BodyLength,
     packet::Signature,
     packet::signature::{self, Signature4},
     packet::key,
@@ -80,7 +80,7 @@ use crate::{
     Fingerprint,
     KeyID,
     SignatureType,
-    serialize::MarshalInto,
+    serialize::{Marshal, MarshalInto},
 };
 use crate::types::{
     AEADAlgorithm,
@@ -956,22 +956,15 @@ impl SubpacketLength {
 
     /// Writes the subpacket length to `w`.
     pub(crate) fn serialize(&self, sink: &mut dyn std::io::Write)
-                            -> io::Result<()> {
-        let v = self.len;
-        if let Some(ref raw) = self.raw {
-            sink.write_all(raw)
-        } else if v < 192 {
-            sink.write_all(&[v as u8])
-        } else if v < 16320 {
-            let v = v - 192 + (192 << 8);
-            sink.write_all(&[(v >> 8) as u8,
-                             (v >> 0) as u8])
-        } else {
-            sink.write_all(&[(v >> 24) as u8,
-                             (v >> 16) as u8,
-                             (v >> 8) as u8,
-                             (v >> 0) as u8])
-        }
+                            -> Result<()> {
+        match self.raw {
+            Some(ref raw) => sink.write_all(raw)?,
+            None => {
+                BodyLength::serialize(&BodyLength::Full(self.len), sink)?
+            }
+        };
+
+        Ok(())
     }
 
     /// Returns the length.
@@ -990,13 +983,7 @@ impl SubpacketLength {
 
     /// Returns the length of the optimal encoding of `len`.
     pub(crate) fn len_optimal_encoding(len: u32) -> usize {
-        if len < 192 {
-            1
-        } else if len < 16320 {
-            2
-        } else {
-            5
-        }
+        BodyLength::serialized_len(&BodyLength::Full(len))
     }
 }
 
