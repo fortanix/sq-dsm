@@ -356,14 +356,6 @@ impl CertValidator {
     }
 }
 
-// A CertParser can read packets from either an Iterator or a
-// PacketParser.  Ideally, we would just take an iterator, but we
-// want to be able to handle errors, which iterators hide.
-enum PacketSource<I: Iterator<Item=Result<Packet>>> {
-    EOF,
-    Iter(I),
-}
-
 /// An iterator over a sequence of Certs (e.g., an OpenPGP keyring).
 ///
 /// The source of packets can either be a `PacketParser` or an
@@ -400,7 +392,7 @@ enum PacketSource<I: Iterator<Item=Result<Packet>>> {
 /// # }
 /// ```
 pub struct CertParser<'a, I: Iterator<Item=Result<Packet>>> {
-    source: PacketSource<I>,
+    source: Option<I>,
     packets: Vec<Packet>,
     saw_error: bool,
     filter: Vec<Box<dyn Fn(&Cert, bool) -> bool + 'a>>,
@@ -409,7 +401,7 @@ pub struct CertParser<'a, I: Iterator<Item=Result<Packet>>> {
 impl<'a, I: Iterator<Item=Result<Packet>>> Default for CertParser<'a, I> {
     fn default() -> Self {
         CertParser {
-            source: PacketSource::EOF,
+            source: None,
             packets: vec![],
             saw_error: false,
             filter: vec![],
@@ -428,7 +420,7 @@ impl<'a> From<PacketParserResult<'a>>
         let mut parser : Self = Default::default();
         if let PacketParserResult::Some(pp) = ppr {
             let mut ppp : Box<Option<PacketParser>> = Box::new(Some(pp));
-            parser.source = PacketSource::Iter(
+            parser.source = Some(
                 Box::new(std::iter::from_fn(move || {
                     if let Some(mut pp) = ppp.take() {
                         if let Packet::Unknown(_) = pp.packet {
@@ -485,7 +477,7 @@ impl<'a, I: Iterator<Item=Result<Packet>>> CertParser<'a, I> {
         where J: IntoIterator<Item=Result<Packet>, IntoIter=I>
     {
         let mut parser : Self = Default::default();
-        parser.source = PacketSource::Iter(iter.into_iter());
+        parser.source = Some(iter.into_iter());
         parser
     }
 
@@ -594,7 +586,7 @@ impl<'a, I: Iterator<Item=Result<Packet>>> CertParser<'a, I> {
     fn reset(&mut self) -> Self {
         // We need to preserve `source`.
         let mut orig = mem::replace(self, Default::default());
-        self.source = mem::replace(&mut orig.source, PacketSource::EOF);
+        self.source = orig.source.take();
         orig
     }
 
@@ -718,8 +710,8 @@ impl<'a, I: Iterator<Item=Result<Packet>>> Iterator for CertParser<'a, I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            match mem::replace(&mut self.source, PacketSource::EOF) {
-                PacketSource::EOF => {
+            match self.source.take() {
+                None => {
                     if TRACE {
                         eprintln!("CertParser::next: EOF.");
                     }
@@ -733,10 +725,10 @@ impl<'a, I: Iterator<Item=Result<Packet>>> Iterator for CertParser<'a, I> {
                         Err(err) => return Some(Err(err)),
                     }
                 },
-                PacketSource::Iter(mut iter) => {
+                Some(mut iter) => {
                     let r = match iter.next() {
                         Some(Ok(packet)) => {
-                            self.source = PacketSource::Iter(iter);
+                            self.source = Some(iter);
                             self.parse(packet)
                         }
                         Some(Err(err)) => {
