@@ -1300,7 +1300,7 @@ impl Cert {
     /// # }
     /// ```
     pub fn from_packets(p: impl Iterator<Item=Packet>) -> Result<Self> {
-        let mut i = parser::CertParser::from_iter(p);
+        let mut i = parser::CertParser::from_iter(p.map(|p| Ok(p)));
         match i.next() {
             Some(Ok(cert)) => Ok(cert),
             Some(Err(err)) => Err(err),

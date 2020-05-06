@@ -359,7 +359,7 @@ impl CertValidator {
 // A CertParser can read packets from either an Iterator or a
 // PacketParser.  Ideally, we would just take an iterator, but we
 // want to be able to handle errors, which iterators hide.
-enum PacketSource<'a, I: Iterator<Item=Packet>> {
+enum PacketSource<'a, I: Iterator<Item=Result<Packet>>> {
     EOF,
     PacketParser(PacketParser<'a>),
     Iter(I),
@@ -400,14 +400,14 @@ enum PacketSource<'a, I: Iterator<Item=Packet>> {
 /// #     Ok(())
 /// # }
 /// ```
-pub struct CertParser<'a, I: Iterator<Item=Packet>> {
+pub struct CertParser<'a, I: Iterator<Item=Result<Packet>>> {
     source: PacketSource<'a, I>,
     packets: Vec<Packet>,
     saw_error: bool,
     filter: Vec<Box<dyn Fn(&Cert, bool) -> bool + 'a>>,
 }
 
-impl<'a, I: Iterator<Item=Packet>> Default for CertParser<'a, I> {
+impl<'a, I: Iterator<Item=Result<Packet>>> Default for CertParser<'a, I> {
     fn default() -> Self {
         CertParser {
             source: PacketSource::EOF,
@@ -421,7 +421,9 @@ impl<'a, I: Iterator<Item=Packet>> Default for CertParser<'a, I> {
 // When using a `PacketParser`, we never use the `Iter` variant.
 // Nevertheless, we need to provide a concrete type.
 // vec::IntoIter<Packet> is about as good as any other.
-impl<'a> From<PacketParserResult<'a>> for CertParser<'a, vec::IntoIter<Packet>> {
+impl<'a> From<PacketParserResult<'a>>
+    for CertParser<'a, vec::IntoIter<Result<Packet>>>
+{
     /// Initializes a `CertParser` from a `PacketParser`.
     fn from(ppr: PacketParserResult<'a>) -> Self {
         let mut parser : Self = Default::default();
@@ -432,8 +434,8 @@ impl<'a> From<PacketParserResult<'a>> for CertParser<'a, vec::IntoIter<Packet>> 
     }
 }
 
-impl<'a> Parse<'a, CertParser<'a, vec::IntoIter<Packet>>>
-    for CertParser<'a, vec::IntoIter<Packet>>
+impl<'a> Parse<'a, CertParser<'a, vec::IntoIter<Result<Packet>>>>
+    for CertParser<'a, vec::IntoIter<Result<Packet>>>
 {
     /// Initializes a `CertParser` from a `Read`er.
     fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
@@ -451,11 +453,13 @@ impl<'a> Parse<'a, CertParser<'a, vec::IntoIter<Packet>>>
     }
 }
 
-impl<'a, I: Iterator<Item=Packet>> CertParser<'a, I> {
+impl<'a, I: Iterator<Item=Result<Packet>>> CertParser<'a, I> {
     /// Initializes a CertParser from an iterator over Packets.
-    pub fn from_iter(iter: I) -> Self {
+    pub fn from_iter<J>(iter: J) -> Self
+        where J: IntoIterator<Item=Result<Packet>, IntoIter=I>
+    {
         let mut parser : Self = Default::default();
-        parser.source = PacketSource::Iter(iter);
+        parser.source = PacketSource::Iter(iter.into_iter());
         parser
     }
 
@@ -683,7 +687,7 @@ pub(crate) fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
     b.other_revocations = other_revs;
 }
 
-impl<'a, I: Iterator<Item=Packet>> Iterator for CertParser<'a, I> {
+impl<'a, I: Iterator<Item=Result<Packet>>> Iterator for CertParser<'a, I> {
     type Item = Result<Cert>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -733,9 +737,13 @@ impl<'a, I: Iterator<Item=Packet>> Iterator for CertParser<'a, I> {
                 },
                 PacketSource::Iter(mut iter) => {
                     let r = match iter.next() {
-                        Some(packet) => {
+                        Some(Ok(packet)) => {
                             self.source = PacketSource::Iter(iter);
                             self.parse(packet)
+                        }
+                        Some(Err(err)) => {
+                            self.saw_error = true;
+                            return Some(Err(err));
                         }
                         None if self.packets.len() == 0 => Ok(None),
                         None => self.cert(None),

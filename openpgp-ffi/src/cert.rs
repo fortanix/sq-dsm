@@ -792,7 +792,8 @@ pub extern "C" fn pgp_cert_valid_key_iter_next<'a>(
 
 /// Wraps a CertParser for export via the FFI.
 pub struct CertParserWrapper<'a> {
-    parser: CertParser<'a, std::vec::IntoIter<self::openpgp::Packet>>,
+    parser: CertParser<'a,
+        std::vec::IntoIter<self::openpgp::Result<self::openpgp::Packet>>>,
 }
 
 /// Returns a CertParser.
