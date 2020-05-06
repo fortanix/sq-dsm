@@ -279,13 +279,14 @@ fn pgp_cert_set_expiration_time(errp: Option<&mut *mut crate::error::Error>,
                        expiry: time_t)
     -> Maybe<Cert>
 {
+    ffi_make_fry_from_errp!(errp);
     let policy = &**policy.ref_raw();
     let cert = cert.move_from_raw();
     let signer = ffi_param_ref_mut!(primary_signer);
 
-    cert.set_expiration_time(policy, None, signer.as_mut(),
-                             maybe_time(expiry))
-        .move_into_raw(errp)
+    let sigs = ffi_try_or!(cert.set_expiration_time(policy, None, signer.as_mut(),
+                                                    maybe_time(expiry)), None);
+    cert.merge_packets(sigs).move_into_raw(errp)
 }
 
 /// Returns whether the Cert includes any secret key material.

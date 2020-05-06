@@ -966,23 +966,22 @@ impl Cert {
     /// // Make cert expire now.
     /// let mut keypair = cert.primary_key()
     ///     .key().clone().parts_into_secret()?.into_keypair()?;
-    /// let cert = cert.set_expiration_time(p, None, &mut keypair,
+    /// let sigs = cert.set_expiration_time(p, None, &mut keypair,
     ///                                     Some(time::SystemTime::now()))?;
     ///
+    /// let cert = cert.merge_packets(sigs)?;
     /// assert!(cert.with_policy(p, None)?.alive().is_err());
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_expiration_time<T>(self, policy: &dyn Policy, t: T,
+    pub fn set_expiration_time<T>(&self, policy: &dyn Policy, t: T,
                                   primary_signer: &mut dyn Signer,
                                   expiration: Option<time::SystemTime>)
-        -> Result<Cert>
+        -> Result<Vec<Signature>>
         where T: Into<Option<time::SystemTime>>,
     {
         let primary = self.primary_key().with_policy(policy, t.into())?;
-        let sigs = primary.set_expiration_time(primary_signer,
-                                               expiration)?;
-        self.merge_packets(sigs)
+        primary.set_expiration_time(primary_signer, expiration)
     }
 
     /// Returns the primary User ID at the reference time, if any.
