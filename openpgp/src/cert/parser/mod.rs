@@ -359,9 +359,8 @@ impl CertValidator {
 // A CertParser can read packets from either an Iterator or a
 // PacketParser.  Ideally, we would just take an iterator, but we
 // want to be able to handle errors, which iterators hide.
-enum PacketSource<'a, I: Iterator<Item=Result<Packet>>> {
+enum PacketSource<I: Iterator<Item=Result<Packet>>> {
     EOF,
-    PacketParser(PacketParser<'a>),
     Iter(I),
 }
 
@@ -401,7 +400,7 @@ enum PacketSource<'a, I: Iterator<Item=Result<Packet>>> {
 /// # }
 /// ```
 pub struct CertParser<'a, I: Iterator<Item=Result<Packet>>> {
-    source: PacketSource<'a, I>,
+    source: PacketSource<I>,
     packets: Vec<Packet>,
     saw_error: bool,
     filter: Vec<Box<dyn Fn(&Cert, bool) -> bool + 'a>>,
@@ -422,20 +421,47 @@ impl<'a, I: Iterator<Item=Result<Packet>>> Default for CertParser<'a, I> {
 // Nevertheless, we need to provide a concrete type.
 // vec::IntoIter<Packet> is about as good as any other.
 impl<'a> From<PacketParserResult<'a>>
-    for CertParser<'a, vec::IntoIter<Result<Packet>>>
+    for CertParser<'a, Box<'a + Iterator<Item=Result<Packet>>>>
 {
     /// Initializes a `CertParser` from a `PacketParser`.
     fn from(ppr: PacketParserResult<'a>) -> Self {
         let mut parser : Self = Default::default();
         if let PacketParserResult::Some(pp) = ppr {
-            parser.source = PacketSource::PacketParser(pp);
+            let mut ppp : Box<Option<PacketParser>> = Box::new(Some(pp));
+            parser.source = PacketSource::Iter(
+                Box::new(std::iter::from_fn(move || {
+                    if let Some(mut pp) = ppp.take() {
+                        if let Packet::Unknown(_) = pp.packet {
+                            // Buffer unknown packets.  This may be a
+                            // signature that we don't understand, and
+                            // keeping it intact is important.
+                            if let Err(e) = pp.buffer_unread_content() {
+                                return Some(Err(e));
+                            }
+                        }
+
+                        match pp.next() {
+                            Ok((packet, ppr)) => {
+                                if let PacketParserResult::Some(pp) = ppr {
+                                    *ppp = Some(pp);
+                                }
+                                Some(Ok(packet))
+                            },
+                            Err(err) => {
+                                Some(Err(err))
+                            }
+                        }
+                    } else {
+                        None
+                    }
+                })));
         }
         parser
     }
 }
 
-impl<'a> Parse<'a, CertParser<'a, vec::IntoIter<Result<Packet>>>>
-    for CertParser<'a, vec::IntoIter<Result<Packet>>>
+impl<'a> Parse<'a, CertParser<'a, Box<'a + Iterator<Item=Result<Packet>>>>>
+    for CertParser<'a, Box<'a + Iterator<Item=Result<Packet>>>>
 {
     /// Initializes a `CertParser` from a `Read`er.
     fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
@@ -705,34 +731,6 @@ impl<'a, I: Iterator<Item=Result<Packet>>> Iterator for CertParser<'a, I> {
                         Ok(Some(cert)) => return Some(Ok(cert)),
                         Ok(None) => return None,
                         Err(err) => return Some(Err(err)),
-                    }
-                },
-                PacketSource::PacketParser(mut pp) => {
-                    if let Packet::Unknown(_) = pp.packet {
-                        // Buffer unknown packets.  This may be a
-                        // signature that we don't understand, and
-                        // keeping it intact is important.
-                        if let Err(e) = pp.buffer_unread_content() {
-                            return Some(Err(e));
-                        }
-                    }
-
-                    match pp.next() {
-                        Ok((packet, ppr)) => {
-                            if let PacketParserResult::Some(pp) = ppr {
-                                self.source = PacketSource::PacketParser(pp);
-                            }
-
-                            match self.parse(packet) {
-                                Ok(Some(cert)) => return Some(Ok(cert)),
-                                Ok(None) => (),
-                                Err(err) => return Some(Err(err)),
-                            }
-                        },
-                        Err(err) => {
-                            self.saw_error = true;
-                            return Some(Err(err));
-                        }
                     }
                 },
                 PacketSource::Iter(mut iter) => {
