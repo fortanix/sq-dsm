@@ -1096,7 +1096,7 @@ impl Arbitrary for ReasonForRevocation {
 /// should be considered invalid *after* the revocation signature's
 /// creation time.  `KeySuperseded`, `KeyRetired`, and `UIDRetired`
 /// are considered soft revocations.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevocationType {
     /// A hard revocation.
     ///
