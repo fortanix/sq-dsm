@@ -2,6 +2,48 @@
 //!
 //! This module provides types used in OpenPGP, like enumerations
 //! describing algorithms.
+//!
+//! # Common Operations
+//!
+//!  - *Rounding the creation time of signatures*: See the [`Timestamp::round_down`] method.
+//!  - *Checking key usage flags*: See the [`KeyFlags`] data structure.
+//!  - *Setting key validity ranges*: See the [`Timestamp`] and [`Duration`] data structures.
+//!
+//! # Data structures
+//!
+//! ## `CompressionLevel`
+//!
+//! Allows adjusting the amount of effort spent on compressing encoded data.
+//! This structure additionally has several helper methods for commonly used
+//! compression strategies.
+//!
+//! ## `Features`
+//!
+//! Describes particular features supported by the given OpenPGP implementation.
+//!
+//! ## `KeyFlags`
+//!
+//! Holds imformation about a key in particular how the given key can be used.
+//!
+//! ## `RevocationKey`
+//!
+//! Describes a key that has been designated to issue revocation signatures.
+//!
+//! # `ServerPreferences`
+//!
+//! Describes preferences regarding to key servers.
+//!
+//! ## `Timestamp` and `Duration`
+//!
+//! In OpenPGP time is represented as the number of seconds since the UNIX epoch stored
+//! as an `u32`. These two data structures allow manipulating OpenPGP time ensuring
+//! that adding or subtracting durations will never overflow or underflow without
+//! notice.
+//!
+//! [`Timestamp::round_down`]: struct.Timestamp.html#method.round_down
+//! [`KeyFlags`]: struct.KeyFlags.html
+//! [`Timestamp`]: struct.Timestamp.html
+//! [`Duration`]: struct.Duration.html
 
 use std::fmt;
 use std::str::FromStr;
@@ -40,6 +82,20 @@ pub(crate) fn bitfield_remove_padding(b: &mut Vec<u8>) -> usize {
 
 /// The OpenPGP public key algorithms as defined in [Section 9.1 of
 /// RFC 4880], and [Section 5 of RFC 6637].
+///
+/// # Examples
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::types::PublicKeyAlgorithm;
+///
+/// let (cert, _) = CertBuilder::new()
+///     .set_cipher_suite(CipherSuite::Cv25519)
+///     .generate().unwrap();
+///
+/// assert_eq!(cert.primary_key().pk_algo(), PublicKeyAlgorithm::EdDSA);
+/// ```
 ///
 ///   [Section 9.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.1
 ///   [Section 5 of RFC 6637]: https://tools.ietf.org/html/rfc6637
@@ -82,6 +138,17 @@ pub enum PublicKeyAlgorithm {
 
 impl PublicKeyAlgorithm {
     /// Returns true if the algorithm can sign data.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::PublicKeyAlgorithm;
+    ///
+    /// assert!(PublicKeyAlgorithm::EdDSA.for_signing());
+    /// assert!(PublicKeyAlgorithm::RSAEncryptSign.for_signing());
+    /// assert!(!PublicKeyAlgorithm::ElGamalEncrypt.for_signing());
+    /// ```
     pub fn for_signing(&self) -> bool {
         use self::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
@@ -94,6 +161,17 @@ impl PublicKeyAlgorithm {
     }
 
     /// Returns true if the algorithm can encrypt data.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::PublicKeyAlgorithm;
+    ///
+    /// assert!(!PublicKeyAlgorithm::EdDSA.for_encryption());
+    /// assert!(PublicKeyAlgorithm::RSAEncryptSign.for_encryption());
+    /// assert!(PublicKeyAlgorithm::ElGamalEncrypt.for_encryption());
+    /// ```
     pub fn for_encryption(&self) -> bool {
         use self::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
@@ -106,6 +184,18 @@ impl PublicKeyAlgorithm {
     }
 
     /// Returns whether this algorithm is supported.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::PublicKeyAlgorithm;
+    ///
+    /// assert!(PublicKeyAlgorithm::EdDSA.is_supported());
+    /// assert!(PublicKeyAlgorithm::RSAEncryptSign.is_supported());
+    /// assert!(!PublicKeyAlgorithm::ElGamalEncrypt.is_supported());
+    /// assert!(!PublicKeyAlgorithm::Private(101).is_supported());
+    /// ```
     pub fn is_supported(&self) -> bool {
         use self::PublicKeyAlgorithm::*;
         #[allow(deprecated)]
@@ -248,6 +338,18 @@ impl Curve {
     /// only because some legacy PGP application like HKP need it.
     ///
     /// Returns `None` for unknown curves.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::Curve;
+    ///
+    /// assert_eq!(Curve::NistP256.bits(), Some(256));
+    /// assert_eq!(Curve::NistP384.bits(), Some(384));
+    /// assert_eq!(Curve::Ed25519.bits(), Some(256));
+    /// assert_eq!(Curve::Unknown(Box::new([0x2B, 0x11])).bits(), None);
+    /// ```
     pub fn bits(&self) -> Option<usize> {
         use self::Curve::*;
 
@@ -299,6 +401,16 @@ const CV25519_OID: &[u8] =
 
 impl Curve {
     /// Parses the given OID.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::Curve;
+    ///
+    /// assert_eq!(Curve::from_oid(&[0x2B, 0x81, 0x04, 0x00, 0x22]), Curve::NistP384);
+    /// assert_eq!(Curve::from_oid(&[0x2B, 0x11]), Curve::Unknown(Box::new([0x2B, 0x11])));
+    /// ```
     pub fn from_oid(oid: &[u8]) -> Curve {
         // Match on OIDs, see section 11 of RFC6637.
         match oid {
@@ -314,6 +426,16 @@ impl Curve {
     }
 
     /// Returns this curve's OID.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::Curve;
+    ///
+    /// assert_eq!(Curve::NistP384.oid(), &[0x2B, 0x81, 0x04, 0x00, 0x22]);
+    /// assert_eq!(Curve::Unknown(Box::new([0x2B, 0x11])).oid(), &[0x2B, 0x11]);
+    /// ```
     pub fn oid(&self) -> &[u8] {
         match self {
             &Curve::NistP256 => NIST_P256_OID,
@@ -329,6 +451,18 @@ impl Curve {
     }
 
     /// Returns the length of a coordinate in bits.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::Curve;
+    ///
+    /// assert!(if let Ok(256) = Curve::NistP256.len() { true } else { false });
+    /// assert!(if let Ok(384) = Curve::NistP384.len() { true } else { false });
+    /// assert!(if let Ok(256) = Curve::Ed25519.len() { true } else { false });
+    /// assert!(if let Err(_) = Curve::Unknown(Box::new([0x2B, 0x11])).len() { true } else { false });
+    /// ```
     ///
     /// # Errors
     ///
@@ -351,6 +485,18 @@ impl Curve {
     }
 
     /// Returns whether this algorithm is supported.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::Curve;
+    ///
+    /// assert!(Curve::NistP256.is_supported());
+    /// assert!(Curve::NistP384.is_supported());
+    /// assert!(Curve::Ed25519.is_supported());
+    /// assert!(!Curve::Unknown(Box::new([0x2B, 0x11])).is_supported());
+    /// ```
     pub fn is_supported(&self) -> bool {
         use self::Curve::*;
         match &self {
@@ -389,6 +535,24 @@ impl Arbitrary for Curve {
 /// symbolic one.
 ///
 ///   [`SymmetricAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
+///
+/// # Examples
+///
+/// Use `SymmetricAlgorithm` to set the preferred symmetric algorithms on a signature:
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::packet::signature::SignatureBuilder;
+/// use openpgp::types::{HashAlgorithm, SymmetricAlgorithm, SignatureType};
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let mut builder = SignatureBuilder::new(SignatureType::DirectKey)
+///     .set_hash_algo(HashAlgorithm::SHA512)
+///     .set_preferred_symmetric_algorithms(vec![
+///         SymmetricAlgorithm::AES256,
+///     ])?;
+/// # Ok(()) }
+/// ```
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum SymmetricAlgorithm {
     /// Null encryption.
@@ -433,6 +597,20 @@ impl Default for SymmetricAlgorithm {
 
 impl SymmetricAlgorithm {
     /// Returns whether this algorithm is supported.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::SymmetricAlgorithm;
+    ///
+    /// assert!(SymmetricAlgorithm::AES256.is_supported());
+    /// assert!(SymmetricAlgorithm::TripleDES.is_supported());
+    ///
+    /// assert!(!SymmetricAlgorithm::IDEA.is_supported());
+    /// assert!(!SymmetricAlgorithm::Unencrypted.is_supported());
+    /// assert!(!SymmetricAlgorithm::Private(101).is_supported());
+    /// ```
     pub fn is_supported(&self) -> bool {
         use self::SymmetricAlgorithm::*;
         match &self {
@@ -543,6 +721,24 @@ impl Arbitrary for SymmetricAlgorithm {
 ///   [`AEADAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
 ///
 /// This feature is [experimental](../index.html#experimental-features).
+///
+/// # Examples
+///
+/// Use `AEADAlgorithm` to set the preferred AEAD algorithms on a signature:
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::packet::signature::SignatureBuilder;
+/// use openpgp::types::{Features, HashAlgorithm, AEADAlgorithm, SignatureType};
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let features = Features::default().set_aead(true);
+/// let mut builder = SignatureBuilder::new(SignatureType::DirectKey)
+///     .set_features(&features)?
+///     .set_preferred_aead_algorithms(vec![
+///         AEADAlgorithm::EAX,
+///     ])?;
+/// # Ok(()) }
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AEADAlgorithm {
     /// EAX mode.
@@ -561,6 +757,17 @@ pub enum AEADAlgorithm {
 
 impl AEADAlgorithm {
     /// Returns whether this algorithm is supported.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::AEADAlgorithm;
+    ///
+    /// assert!(AEADAlgorithm::EAX.is_supported());
+    ///
+    /// assert!(!AEADAlgorithm::OCB.is_supported());
+    /// ```
     pub fn is_supported(&self) -> bool {
         use self::AEADAlgorithm::*;
         match &self {
@@ -621,6 +828,25 @@ impl Arbitrary for AEADAlgorithm {
 /// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
 ///
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
+///
+/// # Examples
+///
+/// Use `CompressionAlgorithm` to set the preferred compressions algorithms on
+/// a signature:
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::packet::signature::SignatureBuilder;
+/// use openpgp::types::{HashAlgorithm, CompressionAlgorithm, SignatureType};
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let mut builder = SignatureBuilder::new(SignatureType::DirectKey)
+///     .set_hash_algo(HashAlgorithm::SHA512)
+///     .set_preferred_compression_algorithms(vec![
+///         CompressionAlgorithm::Zlib,
+///         CompressionAlgorithm::BZip2,
+///     ])?;
+/// # Ok(()) }
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum CompressionAlgorithm {
     /// Null compression.
@@ -667,6 +893,18 @@ impl Default for CompressionAlgorithm {
 
 impl CompressionAlgorithm {
     /// Returns whether this algorithm is supported.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::CompressionAlgorithm;
+    ///
+    /// assert!(CompressionAlgorithm::Uncompressed.is_supported());
+    /// assert!(CompressionAlgorithm::Zip.is_supported());
+    ///
+    /// assert!(!CompressionAlgorithm::Private(101).is_supported());
+    /// ```
     pub fn is_supported(&self) -> bool {
         use self::CompressionAlgorithm::*;
         match &self {
@@ -732,7 +970,22 @@ impl Arbitrary for CompressionAlgorithm {
 
 /// The OpenPGP hash algorithms as defined in [Section 9.4 of RFC 4880].
 ///
-///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
+/// # Examples
+///
+/// Use `HashAlgorithm` to set the preferred hash algorithms on a signature:
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::packet::signature::SignatureBuilder;
+/// use openpgp::types::{HashAlgorithm, SignatureType};
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let mut builder = SignatureBuilder::new(SignatureType::DirectKey)
+///     .set_hash_algo(HashAlgorithm::SHA512);
+/// # Ok(()) }
+/// ```
+///
+/// [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum HashAlgorithm {
     /// Rivest et.al. message digest 5.
@@ -852,6 +1105,22 @@ impl Arbitrary for HashAlgorithm {
 /// Signature type as defined in [Section 5.2.1 of RFC 4880].
 ///
 ///   [Section 5.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+///
+/// # Examples
+///
+/// Use `SignatureType` to create a timestamp signature:
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use std::time::SystemTime;
+/// use openpgp::packet::signature::SignatureBuilder;
+/// use openpgp::types::SignatureType;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let mut builder = SignatureBuilder::new(SignatureType::Timestamp)
+///     .set_signature_creation_time(SystemTime::now())?;
+/// # Ok(()) }
+/// ```
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 pub enum SignatureType {
     /// Signature over a binary document.
@@ -995,6 +1264,55 @@ impl Arbitrary for SignatureType {
 /// See the description of revocation subpackets [Section 5.2.3.23 of RFC 4880].
 ///
 ///   [Section 5.2.3.23 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
+///
+/// # Examples
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::{RevocationStatus, ReasonForRevocation, SignatureType};
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// // A certificate with a User ID.
+/// let (cert, _) = CertBuilder::new()
+///     .add_userid("Alice <alice@example.org>")
+///     .generate()?;
+///
+/// let mut keypair = cert.primary_key().key().clone()
+///     .parts_into_secret()?.into_keypair()?;
+/// let ca = cert.userids().nth(0).unwrap();
+///
+/// // Generate the revocation for the first and only UserID.
+/// let revocation =
+///     UserIDRevocationBuilder::new()
+///     .set_reason_for_revocation(
+///         ReasonForRevocation::UIDRetired,
+///         b"Left example.org.")?
+///     .build(&mut keypair, &cert, ca.userid(), None)?;
+/// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
+///
+/// // Now merge the revocation signature into the Cert.
+/// let cert = cert.merge_packets(revocation.clone())?;
+///
+/// // Check that it is revoked.
+/// let ca = cert.userids().nth(0).unwrap();
+/// let status = ca.with_policy(p, None)?.revocation_status();
+/// if let RevocationStatus::Revoked(revs) = status {
+///     assert_eq!(revs.len(), 1);
+///     let rev = revs[0];
+///
+///     assert_eq!(rev.typ(), SignatureType::CertificationRevocation);
+///     assert_eq!(rev.reason_for_revocation(),
+///                Some((ReasonForRevocation::UIDRetired,
+///                      "Left example.org.".as_bytes())));
+///    // User ID has been revoked.
+/// }
+/// # else { unreachable!(); }
+/// # Ok(()) }
+/// ```
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum ReasonForRevocation {
     /// No reason specified (key revocations or cert revocations)
@@ -1096,6 +1414,63 @@ impl Arbitrary for ReasonForRevocation {
 /// should be considered invalid *after* the revocation signature's
 /// creation time.  `KeySuperseded`, `KeyRetired`, and `UIDRetired`
 /// are considered soft revocations.
+///
+/// # Examples
+///
+/// A certificate is considered to be revoked when a hard revocation is present
+/// even if it is not live at the specified time.
+///
+/// Here, a certificate is generated at `t0` and then revoked later at `t2`.
+/// At `t1` (`t0` < `t1` < `t2`) depending on the revocation type it will be
+/// either considered revoked (hard revocation) or not revoked (soft revocation):
+///
+/// ```rust
+/// # use sequoia_openpgp as openpgp;
+/// use std::time::{Duration, SystemTime};
+/// use openpgp::cert::prelude::*;
+/// use openpgp::types::{RevocationStatus, ReasonForRevocation};
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let t0 = SystemTime::now();
+/// let (cert, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     .set_creation_time(t0)
+///     .generate()?;
+///
+/// let t2 = t0 + Duration::from_secs(3600);
+///
+/// let mut signer = cert.primary_key().key().clone()
+///     .parts_into_secret()?.into_keypair()?;
+///
+/// // Create a hard revocation (KeyCompromised):
+/// let sig = CertRevocationBuilder::new()
+///     .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
+///                                b"The butler did it :/")?
+///     .set_signature_creation_time(t2)?
+///     .build(&mut signer, &cert, None)?;
+///
+/// let t1 = t0 + Duration::from_secs(1200);
+/// let cert1 = cert.clone().merge_packets(sig.clone())?;
+/// assert_eq!(cert1.revocation_status(p, Some(t1)),
+///            RevocationStatus::Revoked(vec![ &sig.into() ]));
+///
+/// // Create a soft revocation (KeySuperseded):
+/// let sig = CertRevocationBuilder::new()
+///     .set_reason_for_revocation(ReasonForRevocation::KeySuperseded,
+///                                b"Migrated to key XYZ")?
+///     .set_signature_creation_time(t2)?
+///     .build(&mut signer, &cert, None)?;
+///
+/// let t1 = t0 + Duration::from_secs(1200);
+/// let cert2 = cert.clone().merge_packets(sig.clone())?;
+/// assert_eq!(cert2.revocation_status(p, Some(t1)),
+///            RevocationStatus::NotAsFarAsWeKnow);
+/// #     Ok(())
+/// # }
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RevocationType {
     /// A hard revocation.
@@ -1118,6 +1493,18 @@ pub enum RevocationType {
 
 impl ReasonForRevocation {
     /// Returns the revocation's `RevocationType`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::{ReasonForRevocation, RevocationType};
+    ///
+    /// assert_eq!(ReasonForRevocation::KeyCompromised.revocation_type(), RevocationType::Hard);
+    /// assert_eq!(ReasonForRevocation::Private(101).revocation_type(), RevocationType::Hard);
+    ///
+    /// assert_eq!(ReasonForRevocation::KeyRetired.revocation_type(), RevocationType::Soft);
+    /// ```
     pub fn revocation_type(&self) -> RevocationType {
         match self {
             ReasonForRevocation::Unspecified => RevocationType::Hard,
@@ -1137,6 +1524,28 @@ impl ReasonForRevocation {
 /// See the description of literal data packets [Section 5.9 of RFC 4880].
 ///
 ///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+///
+/// # Examples
+///
+/// Construct a new [`Message`] containing one text literal packet:
+///
+/// [`Message`]: struct.Message.html
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use std::convert::TryFrom;
+/// use openpgp::packet::prelude::*;
+/// use openpgp::types::DataFormat;
+/// use openpgp::message::Message;
+///
+/// let mut packets = Vec::new();
+/// let mut lit = Literal::new(DataFormat::Text);
+/// lit.set_body(b"data".to_vec());
+/// packets.push(lit.into());
+///
+/// let message = Message::try_from(packets);
+/// assert!(message.is_ok(), "{:?}", message);
+/// ```
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum DataFormat {
     /// Binary data.
@@ -1242,6 +1651,48 @@ impl Arbitrary for DataFormat {
 }
 
 /// The revocation status.
+///
+/// # Examples
+///
+/// Generates a new certificate then checks if the User ID is revoked or not under
+/// the given policy using [`ValidUserIDAmalgamation`]:
+///
+/// [`ValidUserIDAmalgamation`]: ../cert/amalgamation/type.ValidUserIDAmalgamation.html
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::RevocationStatus;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let (cert, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     .generate()?;
+/// let cert = cert.with_policy(p, None)?;
+/// let ua = cert.userids().nth(0).expect("User IDs");
+///
+/// match ua.revocation_status() {
+///     RevocationStatus::Revoked(revs) => {
+///         // The certificate holder revoked the User ID.
+/// #       unreachable!();
+///     }
+///     RevocationStatus::CouldBe(revs) => {
+///         // There are third-party revocations.  You still need
+///         // to check that they are valid (this is necessary,
+///         // because without the Certificates are not normally
+///         // available to Sequoia).
+/// #       unreachable!();
+///     }
+///     RevocationStatus::NotAsFarAsWeKnow => {
+///         // We have no evidence that the User ID is revoked.
+///     }
+/// }
+/// #     Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RevocationStatus<'a> {
     /// The key is definitely revoked.

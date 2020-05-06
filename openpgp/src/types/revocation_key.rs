@@ -11,6 +11,46 @@ use crate::{
 };
 
 /// Designates a key as a valid third-party revoker.
+///
+/// This is described in [Section 5.2.3.15 of RFC 4880].
+///
+/// [Section 5.2.3.15 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
+///
+/// Revocation keys can be retrieved using [`ComponentAmalgamation::revocation_keys`]
+/// and set using [`CertBuilder::set_revocation_keys`].
+///
+/// [`ComponentAmalgamation::revocation_keys`]: ../cert/amalgamation/struct.ComponentAmalgamation.html#method.revocation_keys
+/// [`CertBuilder::set_revocation_keys`]: ../cert/struct.CertBuilder.html#method.set_revocation_keys
+///
+/// # Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::RevocationKey;
+///
+/// # fn main() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let (alice, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     .generate()?;
+///
+/// // Make Alice a designated revoker for Bob.
+/// let (bob, _) =
+///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+///     .set_revocation_keys(vec![ (&alice).into() ])
+///     .generate()?;
+///
+/// // Make sure Alice is listed as a designated revoker for Bob
+/// // on a component.
+/// assert_eq!(bob.with_policy(p, None)?.primary_userid()?.revocation_keys(p)
+///                .collect::<Vec<&RevocationKey>>(),
+///            vec![ &(&alice).into() ]);
+/// # Ok(()) }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct RevocationKey {
     /// The public key algorithm used by the authorized key.
@@ -46,7 +86,7 @@ impl RevocationKey {
         }
     }
 
-    /// Creates a new instance from `bits`.
+    /// Creates a new instance from the raw `class` parameter.
     pub fn from_bits(pk_algo: PublicKeyAlgorithm, fp: Fingerprint, class: u8)
                      -> Result<Self> {
         if class & REVOCATION_KEY_FLAG_MUST_BE_SET == 0 {

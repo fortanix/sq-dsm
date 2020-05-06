@@ -398,7 +398,7 @@ impl CertBuilder {
     /// assert_eq!(userids[1].userid(),
     ///            &UserID::from("Alice Lovelace <alice@lovelace.name>"));
     ///
-    /// 
+    ///
     /// assert_eq!(userids[0].binding_signature().primary_userid().unwrap_or(false), true);
     /// assert_eq!(userids[1].binding_signature().primary_userid().unwrap_or(false), false);
     /// # Ok(())

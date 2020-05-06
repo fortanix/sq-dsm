@@ -4,10 +4,44 @@ use quickcheck::{Arbitrary, Gen};
 
 /// Describes preferences regarding key servers.
 ///
+/// Key server preferences are specified in [Section 5.2.3.17 of RFC 4880] and
+/// [Section 5.2.3.18 of RFC 4880bis].
+///
+/// [Section 5.2.3.17 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.17
+/// [Section 5.2.3.18 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-5.2.3.18
+///
 /// # A note on equality
 ///
 /// `PartialEq` is implements semantic equality, i.e. it ignores
 /// padding.
+///
+/// # Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let (cert, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     .generate()?;
+///
+/// match cert.with_policy(p, None)?.primary_userid()?.key_server_preferences() {
+///     Some(preferences) => {
+///         println!("Certificate holder's keyserver preferences:");
+///         assert!(preferences.no_modify());
+/// #       unreachable!();
+///     }
+///     None => {
+///         println!("Certificate Holder did not specify any key server preferences.");
+///     }
+/// }
+/// # Ok(()) }
+/// ```
 #[derive(Clone)]
 pub struct KeyServerPreferences{
     no_modify: bool,

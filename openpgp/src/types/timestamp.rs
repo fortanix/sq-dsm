@@ -11,6 +11,54 @@ use crate::{
 };
 
 /// A timestamp representable by OpenPGP.
+///
+/// OpenPGP timestamps are represented as `u32` containing the number of seconds
+/// elapsed since midnight, 1 January 1970 UTC ([Section 3.5 of RFC 4880]).
+///
+/// They cannot express dates further than 7th February of 2106 or earlier than
+/// the [UNIX epoch]. Unlike Unix's `time_t`, OpenPGP's timestamp is unsigned so
+/// it rollsover in 2106, not 2038.
+///
+/// # Examples
+///
+/// Signature creation time is internally stored as a `Timestamp`:
+///
+/// Note that this example retrieves raw packet value.
+/// Use [`SubpacketArea::signature_creation_time`] to get the signature creation time.
+///
+/// [`SubpacketArea::signature_creation_time`]: ../packet/signature/subpacket/struct.SubpacketArea.html#method.signature_creation_time
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use std::convert::From;
+/// use std::time::SystemTime;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
+///
+/// # fn main() -> Result<()> {
+/// let (cert, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     .generate()?;
+///
+/// let subkey = cert.keys().subkeys().next().unwrap();
+/// let packets = subkey.bundle().self_signatures()[0].hashed_area();
+///
+/// match packets.lookup(SubpacketTag::SignatureCreationTime).unwrap().value() {
+///     SubpacketValue::SignatureCreationTime(ts) => assert!(u32::from(*ts) > 0),
+///     v => panic!("Unexpected subpacket: {:?}", v),
+/// }
+///
+/// let p = &StandardPolicy::new();
+/// let now = SystemTime::now();
+/// assert!(subkey.binding_signature(p, now)?.signature_creation_time().is_some());
+/// # Ok(()) }
+/// ```
+///
+/// [Section 3.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.5
+/// [UNIX epoch]: https://en.wikipedia.org/wiki/Unix_time
+/// [`Timestamp::round_down`]: ../types/struct.Timestamp.html#method.round_down
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(u32);
 
@@ -201,6 +249,32 @@ impl Arbitrary for Timestamp {
 }
 
 /// A duration representable by OpenPGP.
+///
+/// # Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::packet::signature::subpacket::{SubpacketTag, SubpacketValue};
+/// use openpgp::types::{Timestamp, Duration};
+///
+/// # fn main() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let now = Timestamp::now();
+/// let then = now.checked_add(Duration::days(365)?).unwrap();
+///
+/// let (cert,_) = CertBuilder::new()
+///     .set_creation_time(now)
+///     .set_expiration_time(then)
+///     .generate()?;
+///
+/// let vc = cert.with_policy(p, now)?;
+/// assert!(vc.alive().is_ok());
+/// # Ok(()) }
+/// ```
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Duration(u32);
 

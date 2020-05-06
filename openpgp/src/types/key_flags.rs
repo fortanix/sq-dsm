@@ -4,13 +4,42 @@ use std::cmp;
 use std::ops::{BitAnd, BitOr};
 use quickcheck::{Arbitrary, Gen};
 
-/// Describes how a key may be used, and stores additional
-/// information.
+/// Describes how a key may be used, and stores additional information.
+///
+/// Key flags are described in [Section 5.2.3.21 of RFC 4880] and [Section 5.2.3.22
+/// of RFC 4880bis].
+///
+/// [Section 5.2.3.21 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
+/// [Section 5.2.3.22 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-5.2.3.22
 ///
 /// # A note on equality
 ///
 /// `PartialEq` is implements semantic equality, i.e. it ignores
 /// padding.
+///
+/// # Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let (cert, _) =
+///     CertBuilder::new()
+///         .add_userid("Alice <alice@example.com>")
+///         .add_transport_encryption_subkey()
+///         .generate()?;
+///
+/// for subkey in cert.with_policy(p, None)?.keys().subkeys() {
+///     // Key contains one Encryption subkey:
+///     assert!(subkey.key_flags().unwrap().for_transport_encryption());
+/// }
+/// # Ok(()) }
+/// ```
 #[derive(Clone)]
 pub struct KeyFlags{
     for_certification: bool,

@@ -4,10 +4,44 @@ use quickcheck::{Arbitrary, Gen};
 
 /// Describes features supported by an OpenPGP implementation.
 ///
+/// The features are defined in [Section 5.2.3.24 of RFC 4880], and
+/// [Section 5.2.3.25 of RFC 4880bis].
+///
+/// [Section 5.2.3.24 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.24
+/// [Section 5.2.3.25 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-5.2.3.25
+///
 /// # A note on equality
 ///
 /// `PartialEq` is implements semantic equality, i.e. it ignores
 /// padding.
+///
+/// # Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// # let (cert, _) =
+/// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #     .generate()?;
+/// match cert.with_policy(p, None)?.primary_userid()?.features() {
+///     Some(features) => {
+///         println!("Certificate holder's supported features:");
+///         assert!(features.supports_mdc());
+///         assert!(!features.supports_aead());
+///     }
+///     None => {
+///         println!("Certificate Holder did not specify any features.");
+/// #       unreachable!();
+///     }
+/// }
+/// # Ok(()) }
+/// ```
 #[derive(Clone)]
 pub struct Features{
     mdc: bool,

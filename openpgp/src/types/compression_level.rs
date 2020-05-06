@@ -12,6 +12,42 @@ use crate::{
 /// compression libraries, `0` to `9`, where `0` means no compression,
 /// `1` means fastest compression, `6` being a good default, and
 /// meaning `9` best compression.
+///
+/// Note that compression is [dangerous when used naively]. To mitigate some of
+/// these issues messages should [use padding].
+///
+/// [dangerous when used naively]: https://mailarchive.ietf.org/arch/msg/openpgp/2FQUVt6Dw8XAsaMELyo5BNlh2pM
+/// [use padding]: ../serialize/stream/padding/index.html
+///
+/// # Examples
+///
+/// Write a message using the given [CompressionAlgorithm]:
+///
+/// [CompressionAlgorithm]: enum.CompressionAlgorithm.html
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// # fn main() -> openpgp::Result<()> {
+/// use std::io::Write;
+/// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
+/// use openpgp::serialize::stream::padding::{Padder, padme};
+/// use openpgp::types::{CompressionAlgorithm, CompressionLevel};
+///
+/// let mut sink = Vec::new();
+/// let message = Message::new(&mut sink);
+/// let message = Compressor::new(message)
+///     .algo(CompressionAlgorithm::Zlib)
+/// #   .algo(CompressionAlgorithm::Uncompressed)
+///     .level(CompressionLevel::fastest())
+///     .build()?;
+///
+/// let message = Padder::new(message, padme)?;
+///
+/// let mut message = LiteralWriter::new(message).build()?;
+/// message.write_all(b"Hello world.")?;
+/// message.finalize()?;
+/// # Ok(()) }
+/// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CompressionLevel(u8);
 
