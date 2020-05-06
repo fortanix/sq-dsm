@@ -282,35 +282,22 @@ impl<'a> MessageStructure<'a> {
             panic!("cannot push to encryption or compression layer");
         }
     }
+}
 
-    /// Iterates over the message structure.
-    pub fn iter(&self) -> MessageStructureIter {
-        MessageStructureIter(self.0.iter())
-    }
+impl<'a> std::ops::Deref for MessageStructure<'a> {
+    type Target = [MessageLayer<'a>];
 
-    /// Iterates over the message structure.
-    pub fn into_iter(self) -> impl Iterator<Item = MessageLayer<'a>> {
-        MessageStructureIntoIter(self.0.into_iter())
+    fn deref(&self) -> &Self::Target {
+        &self.0[..]
     }
 }
 
-/// Iterates over the message structure.
-pub struct MessageStructureIter<'a>(::std::slice::Iter<'a, MessageLayer<'a>>);
-
-impl<'a> Iterator for MessageStructureIter<'a> {
-    type Item = &'a MessageLayer<'a>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-/// Iterates over the message structure.
-struct MessageStructureIntoIter<'a>(::std::vec::IntoIter<MessageLayer<'a>>);
-
-impl<'a> Iterator for MessageStructureIntoIter<'a> {
+impl<'a> IntoIterator for MessageStructure<'a> {
     type Item = MessageLayer<'a>;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+    type IntoIter = std::vec::IntoIter<MessageLayer<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -1816,7 +1803,7 @@ mod test {
             }
 
             fn check(&mut self, structure: MessageStructure) -> Result<()> {
-                assert_eq!(structure.iter().count(), 2);
+                assert_eq!(structure.len(), 2);
                 for (i, layer) in structure.into_iter().enumerate() {
                     match layer {
                         MessageLayer::SignatureGroup { results } => {

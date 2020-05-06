@@ -1178,7 +1178,7 @@ mod test {
 
             fn check(&mut self, structure: MessageStructure) -> Result<()>
             {
-                for layer in structure.iter() {
+                for layer in structure {
                     match layer {
                         MessageLayer::SignatureGroup { ref results } =>
                             for result in results {
@@ -1643,7 +1643,7 @@ mod test {
 
             fn check(&mut self, structure: MessageStructure) -> Result<()>
             {
-                for layer in structure.iter() {
+                for layer in structure {
                     match layer {
                         MessageLayer::SignatureGroup { ref results } =>
                             for result in results {

@@ -1823,7 +1823,7 @@ void pgp_message_structure_free (pgp_message_structure_t);
 char *pgp_message_structure_debug (const pgp_message_structure_t);
 
 pgp_message_structure_iter_t
-pgp_message_structure_iter (pgp_message_structure_t);
+pgp_message_structure_into_iter (pgp_message_structure_t);
 
 /*/
 /// Frees this object.

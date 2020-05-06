@@ -41,7 +41,8 @@ get_certs_cb (void *cookie_raw,
 static pgp_status_t
 check_cb (void *cookie_opaque, pgp_message_structure_t structure)
 {
-  pgp_message_structure_iter_t iter = pgp_message_structure_iter (structure);
+  pgp_message_structure_iter_t iter =
+    pgp_message_structure_into_iter (structure);
 
   for (pgp_message_layer_t layer = pgp_message_structure_iter_next (iter);
        layer;
@@ -142,7 +143,6 @@ check_cb (void *cookie_opaque, pgp_message_structure_t structure)
   }
 
   pgp_message_structure_iter_free (iter);
-  pgp_message_structure_free (structure);
 
   /* Implement your verification policy here.  */
   return PGP_STATUS_SUCCESS;

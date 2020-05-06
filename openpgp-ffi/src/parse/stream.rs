@@ -59,14 +59,15 @@ pub struct MessageStructure<'a>(stream::MessageStructure<'a>);
 
 /// Iterates over the message structure.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_message_structure_iter(structure: *const MessageStructure)
-                              -> *mut MessageStructureIter {
-    structure.ref_raw().iter().move_into_raw()
+fn pgp_message_structure_into_iter(structure: *mut MessageStructure)
+                                   -> *mut MessageStructureIter {
+    structure.move_from_raw().into_iter().move_into_raw()
 }
 
 /// Iterates over the message structure.
 #[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Iterator(MessageLayer)")]
-pub struct MessageStructureIter<'a>(stream::MessageStructureIter<'a>);
+pub struct MessageStructureIter<'a>(
+    std::vec::IntoIter<stream::MessageLayer<'a>>);
 
 /// Represents a layer of the message structure.
 #[crate::ffi_wrapper_type(prefix = "pgp_", derive = "Debug")]
@@ -570,7 +571,7 @@ impl VerificationHelper for VHelper {
 /// check_cb (void *cookie_opaque, pgp_message_structure_t structure)
 /// {
 ///   pgp_message_structure_iter_t iter =
-///     pgp_message_structure_iter (structure);
+///     pgp_message_structure_into_iter (structure);
 ///   pgp_message_layer_t layer = pgp_message_structure_iter_next (iter);
 ///   assert (layer);
 ///   assert (pgp_message_layer_compression (layer, NULL));
@@ -591,7 +592,6 @@ impl VerificationHelper for VHelper {
 ///   pgp_verification_result_iter_free (results);
 ///   pgp_message_layer_free (layer);
 ///   pgp_message_structure_iter_free (iter);
-///   pgp_message_structure_free (structure);
 ///   return PGP_STATUS_SUCCESS;
 /// }
 ///
@@ -697,7 +697,7 @@ pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VH
 /// check_cb (void *cookie_opaque, pgp_message_structure_t structure)
 /// {
 ///   pgp_message_structure_iter_t iter =
-///     pgp_message_structure_iter (structure);
+///     pgp_message_structure_into_iter (structure);
 ///   pgp_message_layer_t layer = pgp_message_structure_iter_next (iter);
 ///   assert (layer);
 ///   pgp_verification_result_iter_t results;
@@ -714,7 +714,6 @@ pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VH
 ///   pgp_verification_result_iter_free (results);
 ///   pgp_message_layer_free (layer);
 ///   pgp_message_structure_iter_free (iter);
-///   pgp_message_structure_free (structure);
 ///   return PGP_STATUS_SUCCESS;
 /// }
 ///
@@ -932,13 +931,12 @@ impl DecryptionHelper for DHelper {
 /// check_cb (void *cookie_opaque, pgp_message_structure_t structure)
 /// {
 ///   pgp_message_structure_iter_t iter =
-///     pgp_message_structure_iter (structure);
+///     pgp_message_structure_into_iter (structure);
 ///   pgp_message_layer_t layer = pgp_message_structure_iter_next (iter);
 ///   assert (layer);
 ///   assert (pgp_message_layer_encryption (layer, NULL, NULL));
 ///   pgp_message_layer_free (layer);
 ///   pgp_message_structure_iter_free (iter);
-///   pgp_message_structure_free (structure);
 ///   return PGP_STATUS_SUCCESS;
 /// }
 ///

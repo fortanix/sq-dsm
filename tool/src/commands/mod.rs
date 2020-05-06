@@ -357,7 +357,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
     }
 
     fn check(&mut self, structure: MessageStructure) -> Result<()> {
-        for layer in structure.iter() {
+        for layer in structure {
             match layer {
                 MessageLayer::Compression { algo } =>
                     eprintln!("Compressed using {}", algo),
