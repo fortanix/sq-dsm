@@ -391,14 +391,14 @@ impl CertValidator {
 /// #     Ok(())
 /// # }
 /// ```
-pub struct CertParser<'a, I: Iterator<Item=Result<Packet>>> {
-    source: Option<I>,
+pub struct CertParser<'a> {
+    source: Option<Box<dyn Iterator<Item=Result<Packet>> + 'a>>,
     packets: Vec<Packet>,
     saw_error: bool,
     filter: Vec<Box<dyn Fn(&Cert, bool) -> bool + 'a>>,
 }
 
-impl<'a, I: Iterator<Item=Result<Packet>>> Default for CertParser<'a, I> {
+impl<'a> Default for CertParser<'a> {
     fn default() -> Self {
         CertParser {
             source: None,
@@ -412,8 +412,7 @@ impl<'a, I: Iterator<Item=Result<Packet>>> Default for CertParser<'a, I> {
 // When using a `PacketParser`, we never use the `Iter` variant.
 // Nevertheless, we need to provide a concrete type.
 // vec::IntoIter<Packet> is about as good as any other.
-impl<'a> From<PacketParserResult<'a>>
-    for CertParser<'a, Box<'a + Iterator<Item=Result<Packet>>>>
+impl<'a> From<PacketParserResult<'a>> for CertParser<'a>
 {
     /// Initializes a `CertParser` from a `PacketParser`.
     fn from(ppr: PacketParserResult<'a>) -> Self {
@@ -452,8 +451,7 @@ impl<'a> From<PacketParserResult<'a>>
     }
 }
 
-impl<'a> Parse<'a, CertParser<'a, Box<'a + Iterator<Item=Result<Packet>>>>>
-    for CertParser<'a, Box<'a + Iterator<Item=Result<Packet>>>>
+impl<'a> Parse<'a, CertParser<'a>> for CertParser<'a>
 {
     /// Initializes a `CertParser` from a `Read`er.
     fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
@@ -471,13 +469,13 @@ impl<'a> Parse<'a, CertParser<'a, Box<'a + Iterator<Item=Result<Packet>>>>>
     }
 }
 
-impl<'a, I: Iterator<Item=Result<Packet>>> CertParser<'a, I> {
+impl<'a> CertParser<'a> {
     /// Initializes a CertParser from an iterator over Packets.
-    pub fn from_iter<J>(iter: J) -> Self
-        where J: IntoIterator<Item=Result<Packet>, IntoIter=I>
+    pub fn from_iter<I>(iter: I) -> Self
+        where I: 'a + IntoIterator<Item=Result<Packet>>
     {
         let mut parser : Self = Default::default();
-        parser.source = Some(iter.into_iter());
+        parser.source = Some(Box::new(iter.into_iter()));
         parser
     }
 
@@ -705,7 +703,7 @@ pub(crate) fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
     b.other_revocations = other_revs;
 }
 
-impl<'a, I: Iterator<Item=Result<Packet>>> Iterator for CertParser<'a, I> {
+impl<'a> Iterator for CertParser<'a> {
     type Item = Result<Cert>;
 
     fn next(&mut self) -> Option<Self::Item> {
