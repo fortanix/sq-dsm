@@ -847,7 +847,6 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// internal buffer and **unverified** data must be `read()` from
     /// the instance until EOF.
     pub fn message_processed(&self) -> bool {
-        // oppr is only None after we've processed the packet sequence.
         self.decryptor.message_processed()
     }
 
