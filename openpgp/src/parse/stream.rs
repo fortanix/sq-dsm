@@ -877,15 +877,6 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 
 /// Verifies a detached signature.
 ///
-/// Signature verification requires processing the whole message
-/// first.  Therefore, OpenPGP implementations supporting streaming
-/// operations necessarily must output unverified data.  This has been
-/// a source of problems in the past.  To alleviate this, we buffer up
-/// to 25 megabytes of net message data first, and verify the
-/// signatures if the message fits into our buffer.  Nevertheless it
-/// is important to treat the data as unverified and untrustworthy
-/// until you have seen a positive verification.
-///
 /// # Examples
 ///
 /// ```
