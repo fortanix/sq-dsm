@@ -15,7 +15,7 @@ use crate::openpgp::parse::{
     Parse,
     stream::{
         DecryptionHelper,
-        Decryptor,
+        DecryptorBuilder,
         VerificationHelper,
         GoodChecksum,
         VerificationError,
@@ -56,9 +56,8 @@ fn main() {
         }).collect();
 
     // Now, create a decryptor with a helper using the given Certs.
-    let mut decryptor =
-        Decryptor::from_reader(p, io::stdin(), Helper::new(&ctx, p, certs), None)
-        .unwrap();
+    let mut decryptor = DecryptorBuilder::from_reader(io::stdin()).unwrap()
+        .with_policy(p, None, Helper::new(&ctx, p, certs)).unwrap();
 
     // Finally, stream the decrypted data to stdout.
     io::copy(&mut decryptor, &mut io::stdout())

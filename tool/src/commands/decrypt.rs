@@ -18,7 +18,7 @@ use crate::openpgp::parse::{
     PacketParserResult,
 };
 use crate::openpgp::parse::stream::{
-    VerificationHelper, DecryptionHelper, Decryptor, MessageStructure,
+    VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
 use crate::openpgp::policy::Policy;
 extern crate sequoia_store as store;
@@ -288,7 +288,8 @@ pub fn decrypt(ctx: &Context, policy: &dyn Policy, mapping: &mut store::Mapping,
                -> Result<()> {
     let helper = Helper::new(ctx, policy, mapping, signatures, certs, secrets,
                              dump_session_key, dump, hex);
-    let mut decryptor = Decryptor::from_reader(policy, input, helper, None)
+    let mut decryptor = DecryptorBuilder::from_reader(input)?
+        .with_policy(policy, None, helper)
         .context("Decryption failed")?;
 
     io::copy(&mut decryptor, output).context("Decryption failed")?;

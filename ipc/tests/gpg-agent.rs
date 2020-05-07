@@ -241,8 +241,8 @@ fn decrypt() -> openpgp::Result<()> {
         let helper = Helper { policy: p, ctx: &ctx, cert: &cert, };
 
         // Now, create a decryptor with a helper using the given Certs.
-        let mut decryptor = Decryptor::from_bytes(p, &message, helper, None)
-            .unwrap();
+        let mut decryptor = DecryptorBuilder::from_bytes(&message).unwrap()
+            .with_policy(p, None, helper).unwrap();
 
         // Decrypt the data.
         let mut sink = Vec::new();

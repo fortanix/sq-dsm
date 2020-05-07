@@ -28,7 +28,7 @@ use self::openpgp::{
 use self::openpgp::parse::stream::{
     self,
     DecryptionHelper,
-    Decryptor,
+    DecryptorBuilder,
     VerificationHelper,
     VerifierBuilder,
 };
@@ -1057,11 +1057,13 @@ fn pgp_decryptor_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                          time: time_t)
                          -> Maybe<io::Reader>
 {
+    ffi_make_fry_from_errp!(errp);
     let policy = policy.ref_raw().as_ref();
     let helper = DHelper::new(
         get_certs, decrypt, check, inspect, cookie);
 
-    Decryptor::from_reader(policy, input.ref_mut_raw(), helper, maybe_time(time))
+    ffi_try_or!(DecryptorBuilder::from_reader(input.ref_mut_raw()), None)
+        .with_policy(policy, maybe_time(time), helper)
         .map(|r| io::ReaderKind::Generic(Box::new(r)))
         .move_into_raw(errp)
 }

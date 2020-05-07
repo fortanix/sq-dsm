@@ -7,7 +7,7 @@ use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto::SessionKey;
 use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::serialize::stream::*;
-use crate::openpgp::parse::stream::*;
+use crate::openpgp::parse::{Parse, stream::*};
 use crate::openpgp::policy::Policy;
 use crate::openpgp::policy::StandardPolicy as P;
 
@@ -86,7 +86,8 @@ fn decrypt(p: &dyn Policy,
     };
 
     // Now, create a decryptor with a helper using the given Certs.
-    let mut decryptor = Decryptor::from_bytes(p, ciphertext, helper, None)?;
+    let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
+        .with_policy(p, None, helper)?;
 
     // Decrypt the data.
     io::copy(&mut decryptor, sink)?;

@@ -1061,7 +1061,7 @@ enum Mode {
 /// use openpgp::crypto::SessionKey;
 /// use openpgp::types::SymmetricAlgorithm;
 /// use openpgp::{KeyID, Cert, Result, packet::{Key, PKESK, SKESK}};
-/// use openpgp::parse::stream::*;
+/// use openpgp::parse::{Parse, stream::*};
 /// use sequoia_openpgp::policy::StandardPolicy;
 ///
 /// let p = &StandardPolicy::new();
@@ -1098,7 +1098,8 @@ enum Mode {
 ///      -----END PGP MESSAGE-----";
 ///
 /// let h = Helper {};
-/// let mut v = Decryptor::from_bytes(p, message, h, None)?;
+/// let mut v = DecryptorBuilder::from_bytes(&message[..])?
+///     .with_policy(p, None, h)?;
 ///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)?;
@@ -1145,6 +1146,75 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     clock_skew_tolerance: time::Duration,
 
     policy: &'a dyn Policy,
+}
+
+/// A builder for `Decryptor`.
+///
+/// This allows the customization of [`Decryptor`], which can
+/// be built using [`DecryptorBuilder::with_policy`].
+///
+///   [`Decryptor`]: struct.Decryptor.html
+///   [`DecryptorBuilder::with_policy`]: struct.DecryptorBuilder.html#method.with_policy
+pub struct DecryptorBuilder<'a> {
+    message: Box<dyn BufferedReader<Cookie> + 'a>,
+}
+
+impl<'a> Parse<'a, DecryptorBuilder<'a>>
+    for DecryptorBuilder<'a>
+{
+    fn from_reader<R>(reader: R) -> Result<DecryptorBuilder<'a>>
+        where R: io::Read + 'a,
+    {
+        DecryptorBuilder::new(buffered_reader::Generic::with_cookie(
+            reader, None, Default::default()))
+    }
+
+    fn from_file<P>(path: P) -> Result<DecryptorBuilder<'a>>
+        where P: AsRef<Path>,
+    {
+        DecryptorBuilder::new(buffered_reader::File::with_cookie(
+            path, Default::default())?)
+    }
+
+    fn from_bytes<D>(data: &'a D) -> Result<DecryptorBuilder<'a>>
+        where D: AsRef<[u8]> + ?Sized,
+    {
+        DecryptorBuilder::new(buffered_reader::Memory::with_cookie(
+            data.as_ref(), Default::default()))
+    }
+}
+
+impl<'a> DecryptorBuilder<'a> {
+    fn new<B>(signatures: B) -> Result<Self>
+        where B: buffered_reader::BufferedReader<Cookie> + 'a
+    {
+        Ok(DecryptorBuilder {
+            message: Box::new(signatures),
+        })
+    }
+
+    /// Creates the `Decryptor`.
+    ///
+    /// Signature verifications are done under the given `policy` and
+    /// relative to time `time`, or the current time, if `time` is
+    /// `None`.  `helper` is the [`VerificationHelper`] and
+    /// [`DecryptionHelper`] to use.
+    ///
+    ///   [`VerificationHelper`]: trait.VerificationHelper.html
+    ///   [`DecryptionHelper`]: trait.DecryptionHelper.html
+    pub fn with_policy<T, H>(self, policy: &'a dyn Policy, time: T, helper: H)
+                             -> Result<Decryptor<'a, H>>
+        where H: VerificationHelper + DecryptionHelper,
+              T: Into<Option<time::SystemTime>>,
+    {
+        // Do not eagerly map `t` to the current time.
+        let t = time.into();
+        Decryptor::from_buffered_reader(
+            policy,
+            self.message,
+            helper,
+            t, Mode::Decrypt)
+    }
 }
 
 /// Helper for decrypting messages.
@@ -1301,59 +1371,6 @@ pub trait DecryptionHelper {
 }
 
 impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
-    /// Creates a `Decryptor` from the given reader.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_reader<R, T>(policy: &'a dyn Policy,
-                             reader: R, helper: H, t: T)
-        -> Result<Decryptor<'a, H>>
-        where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
-    {
-        // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Decryptor::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::Generic::with_cookie(reader, None,
-                                                        Default::default())),
-            helper, t, Mode::Decrypt)
-    }
-
-    /// Creates a `Decryptor` from the given file.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_file<P, T>(policy: &'a dyn Policy, path: P, helper: H, t: T)
-        -> Result<Decryptor<'a, H>>
-        where P: AsRef<Path>,
-              T: Into<Option<time::SystemTime>>
-    {
-        // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Decryptor::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::File::with_cookie(path,
-                                                     Default::default())?),
-            helper, t, Mode::Decrypt)
-    }
-
-    /// Creates a `Decryptor` from the given buffer.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_bytes<T>(policy: &'a dyn Policy, bytes: &'a [u8], helper: H, t: T)
-        -> Result<Decryptor<'a, H>>
-        where T: Into<Option<time::SystemTime>>
-    {
-        // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Decryptor::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::Memory::with_cookie(bytes,
-                                                       Default::default())),
-            helper, t, Mode::Decrypt)
-    }
-
     /// Returns a reference to the helper.
     pub fn helper_ref(&self) -> &H {
         &self.helper
@@ -2033,9 +2050,8 @@ mod test {
 
             // Test Decryptor.
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
-            let mut v =
-                match Decryptor::from_bytes(&p, crate::tests::file(f), h,
-                                            crate::frozen_time()) {
+            let mut v = match DecryptorBuilder::from_bytes(crate::tests::file(f))?
+                .with_policy(&p, crate::frozen_time(), h) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -2120,9 +2136,9 @@ mod test {
         assert!(v.message_processed());
 
         // Test decryptor.
-        let v = Decryptor::from_bytes(
-            &p, crate::tests::message("signed-1-notarized-by-ed25519.pgp"),
-            VHelper(()), crate::frozen_time()).unwrap();
+        let v = DecryptorBuilder::from_bytes(
+            crate::tests::message("signed-1-notarized-by-ed25519.pgp"))?
+            .with_policy(&p, crate::frozen_time(), VHelper(()))?;
         assert!(v.message_processed());
         Ok(())
     }
@@ -2255,7 +2271,8 @@ mod test {
 
         // Test Decryptor.
         let h = VHelper::new(0, 0, 0, 0, vec![cert.clone()]);
-        let mut v = Decryptor::from_bytes(p, &buf, h, None).unwrap();
+        let mut v =
+            DecryptorBuilder::from_bytes(&buf)?.with_policy(p, None, h)?;
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -2278,7 +2295,8 @@ mod test {
         // Try the same, but this time we let .check() fail.
         let h = VHelper::new(0, 0, /* makes check() fail: */ 1, 0,
                              vec![cert.clone()]);
-        let mut v = Decryptor::from_bytes(p, &buf, h, None).unwrap();
+        let mut v =
+            DecryptorBuilder::from_bytes(&buf)?.with_policy(p, None, h)?;
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);

@@ -16,7 +16,7 @@ use openpgp::cert::prelude::*;
 use openpgp::crypto::SessionKey;
 use openpgp::types::SymmetricAlgorithm;
 use openpgp::serialize::stream::*;
-use openpgp::parse::stream::*;
+use openpgp::parse::{Parse, stream::*};
 use openpgp::policy::Policy;
 use openpgp::policy::StandardPolicy as P;
 
@@ -94,7 +94,8 @@ fn main() {
 #     };
 #
 #     // Now, create a decryptor with a helper using the given Certs.
-#     let mut decryptor = Decryptor::from_bytes(policy, ciphertext, helper, None)?;
+#     let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
+#         .with_policy(policy, None, helper)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -163,7 +164,7 @@ create it:
 # use openpgp::crypto::SessionKey;
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
-# use openpgp::parse::stream::*;
+# use openpgp::parse::{Parse, stream::*};
 # use openpgp::policy::Policy;
 # use openpgp::policy::StandardPolicy as P;
 #
@@ -241,7 +242,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #     };
 #
 #     // Now, create a decryptor with a helper using the given Certs.
-#     let mut decryptor = Decryptor::from_bytes(policy, ciphertext, helper, None)?;
+#     let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
+#         .with_policy(policy, None, helper)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -310,7 +312,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # use openpgp::crypto::SessionKey;
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
-# use openpgp::parse::stream::*;
+# use openpgp::parse::{Parse, stream::*};
 # use openpgp::policy::Policy;
 # use openpgp::policy::StandardPolicy as P;
 #
@@ -388,7 +390,8 @@ fn encrypt(policy: &dyn Policy,
 #     };
 #
 #     // Now, create a decryptor with a helper using the given Certs.
-#     let mut decryptor = Decryptor::from_bytes(policy, ciphertext, helper, None)?;
+#     let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
+#         .with_policy(policy, None, helper)?;
 #
 #     // Decrypt the data.
 #     io::copy(&mut decryptor, sink)?;
@@ -471,7 +474,7 @@ Decrypted data can be read from this using [`io::Read`].
 # use openpgp::crypto::SessionKey;
 # use openpgp::types::SymmetricAlgorithm;
 # use openpgp::serialize::stream::*;
-# use openpgp::parse::stream::*;
+# use openpgp::parse::{Parse, stream::*};
 # use openpgp::policy::Policy;
 # use openpgp::policy::StandardPolicy as P;
 #
@@ -549,7 +552,8 @@ fn decrypt(policy: &dyn Policy,
     };
 
     // Now, create a decryptor with a helper using the given Certs.
-    let mut decryptor = Decryptor::from_bytes(policy, ciphertext, helper, None)?;
+    let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
+        .with_policy(policy, None, helper)?;
 
     // Decrypt the data.
     io::copy(&mut decryptor, sink)?;

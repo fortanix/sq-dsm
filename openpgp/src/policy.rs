@@ -977,7 +977,7 @@ mod test {
     use crate::packet::{PKESK, SKESK};
     use crate::parse::Parse;
     use crate::parse::stream::DecryptionHelper;
-    use crate::parse::stream::Decryptor;
+    use crate::parse::stream::DecryptorBuilder;
     use crate::parse::stream::DetachedVerifierBuilder;
     use crate::parse::stream::MessageLayer;
     use crate::parse::stream::MessageStructure;
@@ -1300,12 +1300,8 @@ mod test {
 
         // Standard policy.
         let h = VHelper::new(keys.clone());
-        let mut v =
-            match Decryptor::from_bytes(standard, crate::tests::file(data), h,
-                                        crate::frozen_time()) {
-                Ok(v) => v,
-                Err(e) => panic!("{}", e),
-            };
+        let mut v = DecryptorBuilder::from_bytes(crate::tests::file(data))?
+            .with_policy(standard, crate::frozen_time(), h)?;
         assert!(v.message_processed());
         assert_eq!(v.helper_ref().good, 1);
         assert_eq!(v.helper_ref().errors, 0);
@@ -1318,12 +1314,8 @@ mod test {
 
         // Kill the subkey.
         let h = VHelper::new(keys.clone());
-        let mut v = match Decryptor::from_bytes(no_subkey_signatures,
-                                                crate::tests::file(data), h,
-                                                crate::frozen_time()) {
-            Ok(v) => v,
-            Err(e) => panic!("{}", e),
-        };
+        let mut v = DecryptorBuilder::from_bytes(crate::tests::file(data))?
+            .with_policy(no_subkey_signatures, crate::frozen_time(), h)?;
         assert!(v.message_processed());
         assert_eq!(v.helper_ref().good, 0);
         assert_eq!(v.helper_ref().errors, 1);
@@ -1336,13 +1328,8 @@ mod test {
 
         // Kill the data signature.
         let h = VHelper::new(keys.clone());
-        let mut v =
-            match Decryptor::from_bytes(no_binary_signatures,
-                                        crate::tests::file(data), h,
-                                        crate::frozen_time()) {
-                Ok(v) => v,
-                Err(e) => panic!("{}", e),
-            };
+        let mut v = DecryptorBuilder::from_bytes(crate::tests::file(data))?
+            .with_policy(no_binary_signatures, crate::frozen_time(), h)?;
         assert!(v.message_processed());
         assert_eq!(v.helper_ref().good, 0);
         assert_eq!(v.helper_ref().errors, 1);
@@ -1758,7 +1745,7 @@ mod test {
     }
 
     #[test]
-    fn reject_seip_packet() {
+    fn reject_seip_packet() -> Result<()> {
         #[derive(PartialEq, Debug)]
         struct Helper {}
         impl VerificationHelper for Helper {
@@ -1782,9 +1769,9 @@ mod test {
         }
 
         let p = &P::new();
-        let r = Decryptor::from_bytes(
-            p, crate::tests::message("encrypted-to-testy.gpg"),
-            Helper {}, crate::frozen_time());
+        let r = DecryptorBuilder::from_bytes(crate::tests::message(
+                "encrypted-to-testy.gpg"))?
+            .with_policy(p, crate::frozen_time(), Helper {});
         match r {
             Ok(_) => panic!(),
             Err(e) => assert_match!(Error::MissingSessionKey(_)
@@ -1794,18 +1781,19 @@ mod test {
         // Reject the SEIP packet.
         let p = &mut P::new();
         p.reject_packet_tag(Tag::SEIP);
-        let r = Decryptor::from_bytes(
-            p, crate::tests::message("encrypted-to-testy.gpg"),
-            Helper {}, crate::frozen_time());
+        let r = DecryptorBuilder::from_bytes(crate::tests::message(
+                "encrypted-to-testy.gpg"))?
+            .with_policy(p, crate::frozen_time(), Helper {});
         match r {
             Ok(_) => panic!(),
             Err(e) => assert_match!(Error::PolicyViolation(_, _)
                                     = e.downcast().unwrap()),
         }
+        Ok(())
     }
 
     #[test]
-    fn reject_cipher() {
+    fn reject_cipher() -> Result<()> {
         struct Helper {}
         impl VerificationHelper for Helper {
             fn get_certs(&mut self, _: &[crate::KeyHandle])
@@ -1837,21 +1825,22 @@ mod test {
         }
 
         let p = &P::new();
-        Decryptor::from_bytes(
-            p, crate::tests::message("encrypted-to-testy-no-compression.gpg"),
-            Helper {}, crate::frozen_time()).unwrap();
+        DecryptorBuilder::from_bytes(crate::tests::message(
+                "encrypted-to-testy-no-compression.gpg"))?
+            .with_policy(p, crate::frozen_time(), Helper {})?;
 
         // Reject the AES256.
         let p = &mut P::new();
         p.reject_symmetric_algo(SymmetricAlgorithm::AES256);
-        let r = Decryptor::from_bytes(
-            p, crate::tests::message("encrypted-to-testy-no-compression.gpg"),
-            Helper {}, crate::frozen_time());
+        let r = DecryptorBuilder::from_bytes(crate::tests::message(
+                "encrypted-to-testy-no-compression.gpg"))?
+            .with_policy(p, crate::frozen_time(), Helper {});
         match r {
             Ok(_) => panic!(),
             Err(e) => assert_match!(Error::PolicyViolation(_, _)
                                     = e.downcast().unwrap()),
         }
+        Ok(())
     }
 
     #[test]
