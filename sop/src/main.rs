@@ -172,7 +172,8 @@ fn real_main() -> Result<()> {
                                       not_after.map(|d| d.into()),
                                       certs);
             let mut v =
-                DetachedVerifier::from_reader(p, signatures, helper, None)?;
+                DetachedVerifierBuilder::from_reader(signatures)?
+                .with_policy(p, None, helper)?;
             v.verify_reader(io::stdin())?;
         },
 

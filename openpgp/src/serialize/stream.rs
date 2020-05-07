@@ -875,8 +875,8 @@ impl<'a> Signer<'a> {
     ///     }
     /// }
     ///
-    /// let mut verifier =
-    ///     DetachedVerifier::from_bytes(p, &sink, Helper(&cert), None)?;
+    /// let mut verifier = DetachedVerifierBuilder::from_bytes(&sink)?
+    ///     .with_policy(p, None, Helper(&cert))?;
     ///
     /// verifier.verify_bytes(b"Make it so, number one!")?;
     /// # Ok(()) }

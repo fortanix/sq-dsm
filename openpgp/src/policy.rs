@@ -978,7 +978,7 @@ mod test {
     use crate::parse::Parse;
     use crate::parse::stream::DecryptionHelper;
     use crate::parse::stream::Decryptor;
-    use crate::parse::stream::DetachedVerifier;
+    use crate::parse::stream::DetachedVerifierBuilder;
     use crate::parse::stream::MessageLayer;
     use crate::parse::stream::MessageStructure;
     use crate::parse::stream::VerificationHelper;
@@ -1707,7 +1707,8 @@ mod test {
             };
 
             let h = VHelper::new(vec![ cert.clone() ]);
-            let mut v = DetachedVerifier::from_bytes(p, &sig, h, None).unwrap();
+            let mut v = DetachedVerifierBuilder::from_bytes(&sig).unwrap()
+                .with_policy(p, None, h).unwrap();
             v.verify_bytes(msg).unwrap();
             assert_eq!(v.helper_ref().good, if good { 1 } else { 0 });
             assert_eq!(v.helper_ref().errors, if good { 0 } else { 1 });

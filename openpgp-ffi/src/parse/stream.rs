@@ -23,6 +23,7 @@ use self::openpgp::{
         PKESK,
         SKESK,
     },
+    parse::Parse,
 };
 use self::openpgp::parse::stream::{
     self,
@@ -769,12 +770,14 @@ fn pgp_detached_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
                                  time: time_t)
                                  -> Maybe<DetachedVerifier>
 {
+    ffi_make_fry_from_errp!(errp);
     let policy = policy.ref_raw().as_ref();
 
     let helper = VHelper::new(inspect, get_certs, check, cookie);
 
-    openpgp::parse::stream::DetachedVerifier::from_reader(
-        policy, signature_input.ref_mut_raw(), helper, maybe_time(time))
+    ffi_try_or!(openpgp::parse::stream::DetachedVerifierBuilder::from_reader(
+        signature_input.ref_mut_raw()), None)
+        .with_policy(policy, maybe_time(time), helper)
         .move_into_raw(errp)
 }
 

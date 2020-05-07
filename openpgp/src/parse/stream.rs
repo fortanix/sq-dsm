@@ -140,6 +140,7 @@ use crate::parse::{
     PacketParser,
     PacketParserBuilder,
     PacketParserResult,
+    Parse,
 };
 
 /// Whether to trace execution by default (on stderr).
@@ -884,7 +885,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 /// use std::io::{self, Read};
 /// use sequoia_openpgp as openpgp;
 /// use openpgp::{KeyHandle, Cert, Result};
-/// use openpgp::parse::stream::*;
+/// use openpgp::parse::{Parse, stream::*};
 /// use sequoia_openpgp::policy::StandardPolicy;
 ///
 /// let p = &StandardPolicy::new();
@@ -911,98 +912,84 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 ///
 /// let data = b"Hello World!";
 /// let h = Helper {};
-/// let mut v = DetachedVerifier::from_bytes(p, signature, h, None)?;
+/// let mut v = DetachedVerifierBuilder::from_bytes(&signature[..])?
+///     .with_policy(p, None, h)?;
 /// v.verify_bytes(data)?;
 /// # Ok(()) }
 pub struct DetachedVerifier<'a, H: VerificationHelper> {
     decryptor: Decryptor<'a, NoDecryptionHelper<H>>,
 }
 
-impl<'a, H: VerificationHelper> DetachedVerifier<'a, H> {
-    /// Creates a `Verifier` from the given readers.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_reader<S, T>(policy: &'a dyn Policy,
-                             signature_reader: S,
-                             helper: H, t: T)
-        -> Result<DetachedVerifier<'a, H>>
-        where S: io::Read + 'a,
-              H: VerificationHelper,
-              T: Into<Option<time::SystemTime>>
+/// A builder for `DetachedVerifier`.
+///
+/// This allows the customization of [`DetachedVerifier`], which can
+/// be built using [`DetachedVerifierBuilder::with_policy`].
+///
+///   [`DetachedVerifier`]: struct.DetachedVerifier.html
+///   [`DetachedVerifierBuilder::with_policy`]: struct.DetachedVerifierBuilder.html#method.with_policy
+pub struct DetachedVerifierBuilder<'a> {
+    signatures: Box<dyn BufferedReader<Cookie> + 'a>,
+}
+
+impl<'a> Parse<'a, DetachedVerifierBuilder<'a>>
+    for DetachedVerifierBuilder<'a>
+{
+    fn from_reader<R>(reader: R) -> Result<DetachedVerifierBuilder<'a>>
+        where R: io::Read + 'a,
     {
-        // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Self::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::Generic::with_cookie(signature_reader, None,
-                                                        Default::default())),
-            helper, t)
+        DetachedVerifierBuilder::new(buffered_reader::Generic::with_cookie(
+            reader, None, Default::default()))
     }
 
-    /// Creates a `Verifier` from the given files.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_file<S, T>(policy: &'a dyn Policy,
-                           signature_path: S,
-                           helper: H, t: T)
-        -> Result<DetachedVerifier<'a, H>>
-        where S: AsRef<Path>,
-              H: VerificationHelper,
-              T: Into<Option<time::SystemTime>>
+    fn from_file<P>(path: P) -> Result<DetachedVerifierBuilder<'a>>
+        where P: AsRef<Path>,
     {
-        // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Self::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::File::with_cookie(signature_path,
-                                                        Default::default())?),
-            helper, t)
+        DetachedVerifierBuilder::new(buffered_reader::File::with_cookie(
+            path, Default::default())?)
     }
 
-    /// Creates a `Verifier` from the given buffers.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_bytes<T>(policy: &'a dyn Policy,
-                         signature_bytes: &'a [u8],
-                         helper: H, t: T)
-        -> Result<DetachedVerifier<'a, H>>
-        where H: VerificationHelper, T: Into<Option<time::SystemTime>>
+    fn from_bytes<D>(data: &'a D) -> Result<DetachedVerifierBuilder<'a>>
+        where D: AsRef<[u8]> + ?Sized,
     {
-        // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Self::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::Memory::with_cookie(signature_bytes,
-                                                          Default::default())),
-            helper, t)
+        DetachedVerifierBuilder::new(buffered_reader::Memory::with_cookie(
+            data.as_ref(), Default::default()))
+    }
+}
+
+impl<'a> DetachedVerifierBuilder<'a> {
+    fn new<B>(signatures: B) -> Result<Self>
+        where B: buffered_reader::BufferedReader<Cookie> + 'a
+    {
+        Ok(DetachedVerifierBuilder {
+            signatures: Box::new(signatures),
+        })
     }
 
-    /// Creates the `Verifier`, and buffers the data up to `BUFFER_SIZE`.
+    /// Creates the `DetachedVerifier`.
     ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub(crate) fn from_buffered_reader<T>
-        (policy: &'a dyn Policy,
-         signature_bio: Box<dyn BufferedReader<Cookie> + 'a>,
-         helper: H, t: T)
-         -> Result<DetachedVerifier<'a, H>>
+    /// Signature verifications are done under the given `policy` and
+    /// relative to time `time`, or the current time, if `time` is
+    /// `None`.  `helper` is the [`VerificationHelper`] to use.
+    ///
+    ///   [`VerificationHelper`]: trait.VerificationHelper.html
+    pub fn with_policy<T, H>(self, policy: &'a dyn Policy, time: T, helper: H)
+                             -> Result<DetachedVerifier<'a, H>>
         where H: VerificationHelper,
-              T: Into<Option<time::SystemTime>>
+              T: Into<Option<time::SystemTime>>,
     {
         // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Ok(Self {
+        let t = time.into();
+        Ok(DetachedVerifier {
             decryptor: Decryptor::from_buffered_reader(
                 policy,
-                signature_bio,
+                self.signatures,
                 NoDecryptionHelper { v: helper, },
                 t, Mode::VerifyDetached)?,
         })
     }
+}
 
+impl<'a, H: VerificationHelper> DetachedVerifier<'a, H> {
     /// Verifies the given data.
     pub fn verify_reader<R: io::Read>(&mut self, reader: R) -> Result<()> {
         self.verify(buffered_reader::Generic::with_cookie(
@@ -2179,8 +2166,8 @@ mod test {
             let reference = test.reference;
 
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
-            let mut v = DetachedVerifier::from_bytes(
-                &p, sig, h, reference).unwrap();
+            let mut v = DetachedVerifierBuilder::from_bytes(sig).unwrap()
+                .with_policy(&p, reference, h).unwrap();
             v.verify_bytes(content).unwrap();
 
             let h = v.into_helper();

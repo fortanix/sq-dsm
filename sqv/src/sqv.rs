@@ -18,7 +18,7 @@ use crate::openpgp::{
     parse::Parse,
 };
 use crate::openpgp::parse::stream::{
-    DetachedVerifier,
+    DetachedVerifierBuilder,
     MessageLayer,
     MessageStructure,
     VerificationHelper,
@@ -281,7 +281,8 @@ fn main() -> Result<()> {
 
     let h = VHelper::new(good_threshold, not_before, not_after, keyrings);
 
-    let mut v = DetachedVerifier::from_file(p, sig_file, h, None)?;
+    let mut v =
+        DetachedVerifierBuilder::from_file(sig_file)?.with_policy(p, None, h)?;
     v.verify_file(file)?;
 
     let h = v.into_helper();

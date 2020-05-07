@@ -19,14 +19,7 @@ use crate::openpgp::parse::{
     Parse,
     PacketParserResult,
 };
-use crate::openpgp::parse::stream::{
-    Verifier, DetachedVerifier,
-    GoodChecksum,
-    VerificationResult,
-    VerificationError,
-    VerificationHelper,
-    MessageStructure, MessageLayer,
-};
+use crate::openpgp::parse::stream::*;
 use crate::openpgp::serialize::stream::{
     Message, Signer, LiteralWriter, Encryptor, Recipient,
     Compressor,
@@ -392,7 +385,8 @@ pub fn verify(ctx: &Context, policy: &dyn Policy,
               -> Result<()> {
     let helper = VHelper::new(ctx, mapping, signatures, certs);
     let helper = if let Some(dsig) = detached {
-        let mut v = DetachedVerifier::from_reader(policy, dsig, helper, None)?;
+        let mut v = DetachedVerifierBuilder::from_reader(dsig)?
+            .with_policy(policy, None, helper)?;
         v.verify_reader(input)?;
         v.into_helper()
     } else {
