@@ -33,14 +33,13 @@ struct Helper<'a> {
     key_hints: HashMap<KeyID, String>,
     dump_session_key: bool,
     dumper: Option<PacketDumper>,
-    hex: bool,
 }
 
 impl<'a> Helper<'a> {
     fn new(ctx: &'a Context, policy: &'a dyn Policy,
            mapping: &'a mut store::Mapping,
            signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
-           dump_session_key: bool, dump: bool, hex: bool)
+           dump_session_key: bool, dump: bool)
            -> Self
     {
         let mut keys = HashMap::new();
@@ -74,14 +73,13 @@ impl<'a> Helper<'a> {
             key_identities: identities,
             key_hints: hints,
             dump_session_key: dump_session_key,
-            dumper: if dump || hex {
+            dumper: if dump {
                 let width = terminal::size().ok().map(|(cols, _)| cols as usize)
                     .unwrap_or(80);
                 Some(PacketDumper::new(width, false))
             } else {
                 None
             },
-            hex: hex,
         }
     }
 
@@ -116,10 +114,6 @@ impl<'a> Helper<'a> {
 }
 
 impl<'a> VerificationHelper for Helper<'a> {
-    fn mapping(&self) -> bool {
-        self.hex
-    }
-
     fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
         if let Some(dumper) = self.dumper.as_mut() {
             dumper.packet(&mut io::stderr(),
@@ -287,8 +281,9 @@ pub fn decrypt(ctx: &Context, policy: &dyn Policy, mapping: &mut store::Mapping,
                dump: bool, hex: bool)
                -> Result<()> {
     let helper = Helper::new(ctx, policy, mapping, signatures, certs, secrets,
-                             dump_session_key, dump, hex);
+                             dump_session_key, dump || hex);
     let mut decryptor = DecryptorBuilder::from_reader(input)?
+        .mapping(hex)
         .with_policy(policy, None, helper)
         .context("Decryption failed")?;
 
@@ -309,7 +304,7 @@ pub fn decrypt_unwrap(ctx: &Context, policy: &dyn Policy,
                       -> Result<()>
 {
     let mut helper = Helper::new(ctx, policy, mapping, 0, Vec::new(), secrets,
-                                 dump_session_key, false, false);
+                                 dump_session_key, false);
 
     let mut ppr = PacketParser::from_reader(input)?;
 

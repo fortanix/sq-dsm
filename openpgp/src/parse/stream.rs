@@ -509,21 +509,6 @@ enum IMessageLayer {
 ///
 ///   [`Map`]: ../map/struct.Map.html
 pub trait VerificationHelper {
-    /// Turns mapping on or off.
-    ///
-    /// If this function returns true, the packet parser will create a
-    /// [`Map`] of the packets.  Note that this buffers the packets
-    /// contents, and is not recommended unless you know that the
-    /// packets are small.  This is called once before parsing the
-    /// first packet.
-    ///
-    ///   [`Map`]: ../map/struct.Map.html
-    ///
-    /// The default implementation returns false.
-    fn mapping(&self) -> bool {
-        false
-    }
-
     /// Inspects the message.
     ///
     /// Called once per packet.  Can be used to inspect and dump
@@ -782,6 +767,7 @@ pub struct Verifier<'a, H: VerificationHelper> {
 ///   [`VerifierBuilder::with_policy`]: struct.VerifierBuilder.html#method.with_policy
 pub struct VerifierBuilder<'a> {
     message: Box<dyn BufferedReader<Cookie> + 'a>,
+    mapping: bool,
 }
 
 impl<'a> Parse<'a, VerifierBuilder<'a>>
@@ -815,7 +801,23 @@ impl<'a> VerifierBuilder<'a> {
     {
         Ok(VerifierBuilder {
             message: Box::new(signatures),
+            mapping: false,
         })
+    }
+
+    /// Enables mapping.
+    ///
+    /// If mapping is enabled, the packet parser will create a [`Map`]
+    /// of the packets that can be inspected in
+    /// [`VerificationHelper::inspect`].  Note that this buffers the
+    /// packets contents, and is not recommended unless you know that
+    /// the packets are small.
+    ///
+    ///   [`Map`]: ../map/struct.Map.html
+    ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    pub fn mapping(mut self, enabled: bool) -> Self {
+        self.mapping = enabled;
+        self
     }
 
     /// Creates the `Verifier`.
@@ -837,7 +839,7 @@ impl<'a> VerifierBuilder<'a> {
                 policy,
                 self.message,
                 NoDecryptionHelper { v: helper, },
-                t, Mode::Verify)?,
+                t, Mode::Verify, self.mapping)?,
         })
     }
 }
@@ -929,6 +931,7 @@ pub struct DetachedVerifier<'a, H: VerificationHelper> {
 ///   [`DetachedVerifierBuilder::with_policy`]: struct.DetachedVerifierBuilder.html#method.with_policy
 pub struct DetachedVerifierBuilder<'a> {
     signatures: Box<dyn BufferedReader<Cookie> + 'a>,
+    mapping: bool,
 }
 
 impl<'a> Parse<'a, DetachedVerifierBuilder<'a>>
@@ -962,7 +965,23 @@ impl<'a> DetachedVerifierBuilder<'a> {
     {
         Ok(DetachedVerifierBuilder {
             signatures: Box::new(signatures),
+            mapping: false,
         })
+    }
+
+    /// Enables mapping.
+    ///
+    /// If mapping is enabled, the packet parser will create a [`Map`]
+    /// of the packets that can be inspected in
+    /// [`VerificationHelper::inspect`].  Note that this buffers the
+    /// packets contents, and is not recommended unless you know that
+    /// the packets are small.
+    ///
+    ///   [`Map`]: ../map/struct.Map.html
+    ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    pub fn mapping(mut self, enabled: bool) -> Self {
+        self.mapping = enabled;
+        self
     }
 
     /// Creates the `DetachedVerifier`.
@@ -984,7 +1003,7 @@ impl<'a> DetachedVerifierBuilder<'a> {
                 policy,
                 self.signatures,
                 NoDecryptionHelper { v: helper, },
-                t, Mode::VerifyDetached)?,
+                t, Mode::VerifyDetached, self.mapping)?,
         })
     }
 }
@@ -1157,6 +1176,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
 ///   [`DecryptorBuilder::with_policy`]: struct.DecryptorBuilder.html#method.with_policy
 pub struct DecryptorBuilder<'a> {
     message: Box<dyn BufferedReader<Cookie> + 'a>,
+    mapping: bool,
 }
 
 impl<'a> Parse<'a, DecryptorBuilder<'a>>
@@ -1190,7 +1210,23 @@ impl<'a> DecryptorBuilder<'a> {
     {
         Ok(DecryptorBuilder {
             message: Box::new(signatures),
+            mapping: false,
         })
+    }
+
+    /// Enables mapping.
+    ///
+    /// If mapping is enabled, the packet parser will create a [`Map`]
+    /// of the packets that can be inspected in
+    /// [`VerificationHelper::inspect`].  Note that this buffers the
+    /// packets contents, and is not recommended unless you know that
+    /// the packets are small.
+    ///
+    ///   [`Map`]: ../map/struct.Map.html
+    ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    pub fn mapping(mut self, enabled: bool) -> Self {
+        self.mapping = enabled;
+        self
     }
 
     /// Creates the `Decryptor`.
@@ -1213,7 +1249,7 @@ impl<'a> DecryptorBuilder<'a> {
             policy,
             self.message,
             helper,
-            t, Mode::Decrypt)
+            t, Mode::Decrypt, self.mapping)
     }
 }
 
@@ -1399,7 +1435,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         policy: &'a dyn Policy,
         bio: Box<dyn BufferedReader<Cookie> + 'a>,
         helper: H, time: T,
-        mode: Mode)
+        mode: Mode,
+        mapping: bool)
         -> Result<Decryptor<'a, H>>
         where T: Into<Option<time::SystemTime>>
     {
@@ -1413,7 +1450,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         let time = time.unwrap_or_else(time::SystemTime::now);
 
         let mut ppr = PacketParserBuilder::from_buffered_reader(bio)?
-            .map(helper.mapping()).build()?;
+            .map(mapping).build()?;
 
         let mut v = Decryptor {
             helper,
