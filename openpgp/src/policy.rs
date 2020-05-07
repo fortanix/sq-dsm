@@ -982,7 +982,7 @@ mod test {
     use crate::parse::stream::MessageLayer;
     use crate::parse::stream::MessageStructure;
     use crate::parse::stream::VerificationHelper;
-    use crate::parse::stream::Verifier;
+    use crate::parse::stream::VerifierBuilder;
     use crate::policy::StandardPolicy as P;
     use crate::types::Curve;
     use crate::types::KeyFlags;
@@ -1151,7 +1151,7 @@ mod test {
 
 
     #[test]
-    fn binary_signature() {
+    fn binary_signature() -> Result<()> {
         #[derive(PartialEq, Debug)]
         struct VHelper {
             good: usize,
@@ -1255,12 +1255,8 @@ mod test {
 
         // Standard policy => ok.
         let h = VHelper::new(keys.clone());
-        let mut v =
-            match Verifier::from_bytes(standard, crate::tests::file(data), h,
-                                       crate::frozen_time()) {
-                Ok(v) => v,
-                Err(e) => panic!("{}", e),
-            };
+        let mut v = VerifierBuilder::from_bytes(crate::tests::file(data))?
+            .with_policy(standard, crate::frozen_time(), h)?;
         assert!(v.message_processed());
         assert_eq!(v.helper_ref().good, 1);
         assert_eq!(v.helper_ref().errors, 0);
@@ -1273,12 +1269,8 @@ mod test {
 
         // Kill the subkey.
         let h = VHelper::new(keys.clone());
-        let mut v = match Verifier::from_bytes(no_subkey_signatures,
-                                   crate::tests::file(data), h,
-                                   crate::frozen_time()) {
-            Ok(v) => v,
-            Err(e) => panic!("{}", e),
-        };
+        let mut v = VerifierBuilder::from_bytes(crate::tests::file(data))?
+            .with_policy(no_subkey_signatures, crate::frozen_time(), h)?;
         assert!(v.message_processed());
         assert_eq!(v.helper_ref().good, 0);
         assert_eq!(v.helper_ref().errors, 1);
@@ -1291,13 +1283,8 @@ mod test {
 
         // Kill the data signature.
         let h = VHelper::new(keys.clone());
-        let mut v =
-            match Verifier::from_bytes(no_binary_signatures,
-                                       crate::tests::file(data), h,
-                                       crate::frozen_time()) {
-                Ok(v) => v,
-                Err(e) => panic!("{}", e),
-            };
+        let mut v = VerifierBuilder::from_bytes(crate::tests::file(data))?
+            .with_policy(no_binary_signatures, crate::frozen_time(), h)?;
         assert!(v.message_processed());
         assert_eq!(v.helper_ref().good, 0);
         assert_eq!(v.helper_ref().errors, 1);
@@ -1364,6 +1351,7 @@ mod test {
         v.read_to_end(&mut content).unwrap();
         assert_eq!(reference.len(), content.len());
         assert_eq!(reference, &content[..]);
+        Ok(())
     }
 
     #[test]

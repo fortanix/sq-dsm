@@ -16,7 +16,7 @@ extern crate sequoia_openpgp as openpgp;
 use openpgp::cert::prelude::*;
 use openpgp::serialize::stream::*;
 use openpgp::packet::prelude::*;
-use openpgp::parse::stream::*;
+use openpgp::parse::{Parse, stream::*};
 use openpgp::policy::Policy;
 use openpgp::policy::StandardPolicy as P;
 
@@ -92,7 +92,8 @@ fn main() {
 #     };
 #
 #     // Now, create a verifier with a helper using the given Certs.
-#     let mut verifier = Verifier::from_bytes(policy, signed_message, helper, None)?;
+#     let mut verifier = VerifierBuilder::from_bytes(signed_message)?
+#         .with_policy(policy, None, helper)?;
 #
 #     // Verify the data.
 #     io::copy(&mut verifier, sink)?;
@@ -164,7 +165,7 @@ create it:
 # use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
 # use openpgp::packet::prelude::*;
-# use openpgp::parse::stream::*;
+# use openpgp::parse::{Parse, stream::*};
 # use openpgp::policy::Policy;
 # use openpgp::policy::StandardPolicy as P;
 #
@@ -240,7 +241,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #     };
 #
 #     // Now, create a verifier with a helper using the given Certs.
-#     let mut verifier = Verifier::from_bytes(policy, signed_message, helper, None)?;
+#     let mut verifier = VerifierBuilder::from_bytes(signed_message)?
+#         .with_policy(policy, None, helper)?;
 #
 #     // Verify the data.
 #     io::copy(&mut verifier, sink)?;
@@ -312,7 +314,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 # use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
 # use openpgp::packet::prelude::*;
-# use openpgp::parse::stream::*;
+# use openpgp::parse::{Parse, stream::*};
 # use openpgp::policy::Policy;
 # use openpgp::policy::StandardPolicy as P;
 #
@@ -388,7 +390,8 @@ fn sign(policy: &dyn Policy,
 #     };
 #
 #     // Now, create a verifier with a helper using the given Certs.
-#     let mut verifier = Verifier::from_bytes(policy, signed_message, helper, None)?;
+#     let mut verifier = VerifierBuilder::from_bytes(signed_message)?
+#         .with_policy(policy, None, helper)?;
 #
 #     // Verify the data.
 #     io::copy(&mut verifier, sink)?;
@@ -471,7 +474,7 @@ Verified data can be read from this using [`io::Read`].
 # use openpgp::cert::prelude::*;
 # use openpgp::serialize::stream::*;
 # use openpgp::packet::prelude::*;
-# use openpgp::parse::stream::*;
+# use openpgp::parse::{Parse, stream::*};
 # use openpgp::policy::Policy;
 # use openpgp::policy::StandardPolicy as P;
 # 
@@ -547,7 +550,8 @@ fn verify(policy: &dyn Policy,
     };
 
     // Now, create a verifier with a helper using the given Certs.
-    let mut verifier = Verifier::from_bytes(policy, signed_message, helper, None)?;
+    let mut verifier = VerifierBuilder::from_bytes(signed_message)?
+        .with_policy(policy, None, helper)?;
 
     // Verify the data.
     io::copy(&mut verifier, sink)?;

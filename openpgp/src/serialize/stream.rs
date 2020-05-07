@@ -713,7 +713,8 @@ impl<'a> Signer<'a> {
     ///     }
     /// }
     ///
-    /// let mut verifier = Verifier::from_bytes(p, &sink, Helper(&cert), None)?;
+    /// let mut verifier = VerifierBuilder::from_bytes(&sink)?
+    ///     .with_policy(p, None, Helper(&cert))?;
     ///
     /// let mut message = String::new();
     /// verifier.read_to_string(&mut message)?;

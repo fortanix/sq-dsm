@@ -5,7 +5,7 @@ use std::io::{self, Write};
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::serialize::stream::*;
-use crate::openpgp::parse::stream::*;
+use crate::openpgp::parse::{Parse, stream::*};
 use crate::openpgp::policy::Policy;
 use crate::openpgp::policy::StandardPolicy as P;
 
@@ -79,7 +79,8 @@ fn verify(p: &dyn Policy, sink: &mut dyn Write,
     };
 
     // Now, create a verifier with a helper using the given Certs.
-    let mut verifier = Verifier::from_bytes(p, signed_message, helper, None)?;
+    let mut verifier = VerifierBuilder::from_bytes(signed_message)?
+        .with_policy(p, None, helper)?;
 
     // Verify the data.
     io::copy(&mut verifier, sink)?;

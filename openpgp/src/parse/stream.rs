@@ -71,7 +71,7 @@
 //! use std::io::Read;
 //! use sequoia_openpgp as openpgp;
 //! use openpgp::{KeyHandle, Cert, Result};
-//! use openpgp::parse::stream::*;
+//! use openpgp::parse::{Parse, stream::*};
 //! use openpgp::policy::StandardPolicy;
 //!
 //! let p = &StandardPolicy::new();
@@ -98,7 +98,8 @@
 //!      -----END PGP MESSAGE-----";
 //!
 //! let h = Helper {};
-//! let mut v = Verifier::from_bytes(p, message, h, None)?;
+//! let mut v = VerifierBuilder::from_bytes(&message[..])?
+//!     .with_policy(p, None, h)?;
 //!
 //! let mut content = Vec::new();
 //! v.read_to_end(&mut content)?;
@@ -761,7 +762,8 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 ///      ";
 ///
 /// let h = Helper {};
-/// let mut v = Verifier::from_bytes(p, message, h, None)?;
+/// let mut v = VerifierBuilder::from_bytes(&message[..])?
+///     .with_policy(p, None, h)?;
 ///
 /// let mut content = Vec::new();
 /// v.read_to_end(&mut content)?;
@@ -771,60 +773,76 @@ pub struct Verifier<'a, H: VerificationHelper> {
     decryptor: Decryptor<'a, NoDecryptionHelper<H>>,
 }
 
-impl<'a, H: VerificationHelper> Verifier<'a, H> {
-    /// Creates a `Verifier` from the given reader.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_reader<R, T>(policy: &'a dyn Policy, reader: R, helper: H, t: T)
-        -> Result<Verifier<'a, H>>
-        where R: io::Read + 'a, T: Into<Option<time::SystemTime>>
+/// A builder for `Verifier`.
+///
+/// This allows the customization of [`Verifier`], which can
+/// be built using [`VerifierBuilder::with_policy`].
+///
+///   [`Verifier`]: struct.Verifier.html
+///   [`VerifierBuilder::with_policy`]: struct.VerifierBuilder.html#method.with_policy
+pub struct VerifierBuilder<'a> {
+    message: Box<dyn BufferedReader<Cookie> + 'a>,
+}
+
+impl<'a> Parse<'a, VerifierBuilder<'a>>
+    for VerifierBuilder<'a>
+{
+    fn from_reader<R>(reader: R) -> Result<VerifierBuilder<'a>>
+        where R: io::Read + 'a,
     {
-        // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Verifier::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::Generic::with_cookie(reader, None,
-                                                        Default::default())),
-            helper, t)
+        VerifierBuilder::new(buffered_reader::Generic::with_cookie(
+            reader, None, Default::default()))
     }
 
-    /// Creates a `Verifier` from the given file.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_file<P, T>(policy: &'a dyn Policy, path: P, helper: H, t: T)
-        -> Result<Verifier<'a, H>>
+    fn from_file<P>(path: P) -> Result<VerifierBuilder<'a>>
         where P: AsRef<Path>,
-              T: Into<Option<time::SystemTime>>
     {
-        // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Verifier::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::File::with_cookie(path,
-                                                     Default::default())?),
-            helper, t)
+        VerifierBuilder::new(buffered_reader::File::with_cookie(
+            path, Default::default())?)
     }
 
-    /// Creates a `Verifier` from the given buffer.
+    fn from_bytes<D>(data: &'a D) -> Result<VerifierBuilder<'a>>
+        where D: AsRef<[u8]> + ?Sized,
+    {
+        VerifierBuilder::new(buffered_reader::Memory::with_cookie(
+            data.as_ref(), Default::default()))
+    }
+}
+
+impl<'a> VerifierBuilder<'a> {
+    fn new<B>(signatures: B) -> Result<Self>
+        where B: buffered_reader::BufferedReader<Cookie> + 'a
+    {
+        Ok(VerifierBuilder {
+            message: Box::new(signatures),
+        })
+    }
+
+    /// Creates the `Verifier`.
     ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub fn from_bytes<T>(policy: &'a dyn Policy,
-                         bytes: &'a [u8], helper: H, t: T)
-        -> Result<Verifier<'a, H>>
-        where T: Into<Option<time::SystemTime>>
+    /// Signature verifications are done under the given `policy` and
+    /// relative to time `time`, or the current time, if `time` is
+    /// `None`.  `helper` is the [`VerificationHelper`] to use.
+    ///
+    ///   [`VerificationHelper`]: trait.VerificationHelper.html
+    pub fn with_policy<T, H>(self, policy: &'a dyn Policy, time: T, helper: H)
+                             -> Result<Verifier<'a, H>>
+        where H: VerificationHelper,
+              T: Into<Option<time::SystemTime>>,
     {
         // Do not eagerly map `t` to the current time.
-        let t = t.into();
-        Verifier::from_buffered_reader(
-            policy,
-            Box::new(buffered_reader::Memory::with_cookie(bytes,
-                                                       Default::default())),
-            helper, t)
+        let t = time.into();
+        Ok(Verifier {
+            decryptor: Decryptor::from_buffered_reader(
+                policy,
+                self.message,
+                NoDecryptionHelper { v: helper, },
+                t, Mode::Verify)?,
+        })
     }
+}
 
+impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// Returns a reference to the helper.
     pub fn helper_ref(&self) -> &H {
         &self.decryptor.helper_ref().v
@@ -848,23 +866,6 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
     /// the instance until EOF.
     pub fn message_processed(&self) -> bool {
         self.decryptor.message_processed()
-    }
-
-    /// Creates the `Verifier`, and buffers the data up to `BUFFER_SIZE`.
-    ///
-    /// Signature verifications are done relative to time `t`, or the
-    /// current time, if `t` is `None`.
-    pub(crate) fn from_buffered_reader<T>(policy: &'a dyn Policy,
-                                          bio: Box<dyn BufferedReader<Cookie> + 'a>,
-                                          helper: H, time: T)
-        -> Result<Verifier<'a, H>>
-        where T: Into<Option<time::SystemTime>>
-    {
-        Ok(Verifier {
-            decryptor: Decryptor::from_buffered_reader(
-                policy, bio, NoDecryptionHelper { v: helper, }, time,
-                Mode::Verify)?,
-        })
     }
 }
 
@@ -1981,7 +1982,7 @@ mod test {
     }
 
     #[test]
-    fn verifier() {
+    fn verifier() -> Result<()> {
         let p = P::new();
 
         let keys = [
@@ -2005,8 +2006,8 @@ mod test {
             // Test Verifier.
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
-                match Verifier::from_bytes(&p, crate::tests::file(f), h,
-                                           crate::frozen_time()) {
+                match VerifierBuilder::from_bytes(crate::tests::file(f))?
+                    .with_policy(&p, crate::frozen_time(), h) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -2058,12 +2059,13 @@ mod test {
             assert_eq!(reference.len(), content.len());
             assert_eq!(reference, &content[..]);
         }
+        Ok(())
     }
 
     /// Tests the order of signatures given to
     /// VerificationHelper::check().
     #[test]
-    fn verifier_levels() {
+    fn verifier_levels() -> Result<()> {
         let p = P::new();
 
         struct VHelper(());
@@ -2112,9 +2114,9 @@ mod test {
         }
 
         // Test verifier.
-        let v = Verifier::from_bytes(
-            &p, crate::tests::message("signed-1-notarized-by-ed25519.pgp"),
-            VHelper(()), crate::frozen_time()).unwrap();
+        let v = VerifierBuilder::from_bytes(
+            crate::tests::message("signed-1-notarized-by-ed25519.pgp"))?
+            .with_policy(&p, crate::frozen_time(), VHelper(()))?;
         assert!(v.message_processed());
 
         // Test decryptor.
@@ -2122,6 +2124,7 @@ mod test {
             &p, crate::tests::message("signed-1-notarized-by-ed25519.pgp"),
             VHelper(()), crate::frozen_time()).unwrap();
         assert!(v.message_processed());
+        Ok(())
     }
 
     #[test]
@@ -2176,7 +2179,7 @@ mod test {
     }
 
     #[test]
-    fn verify_long_message() {
+    fn verify_long_message() -> Result<()> {
         use std::io::Write;
         use crate::serialize::stream::{LiteralWriter, Signer, Message};
 
@@ -2205,7 +2208,7 @@ mod test {
 
         // Test Verifier.
         let h = VHelper::new(0, 0, 0, 0, vec![cert.clone()]);
-        let mut v = Verifier::from_bytes(p, &buf, h, None).unwrap();
+        let mut v = VerifierBuilder::from_bytes(&buf)?.with_policy(p, None, h)?;
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -2228,7 +2231,7 @@ mod test {
         // Try the same, but this time we let .check() fail.
         let h = VHelper::new(0, 0, /* makes check() fail: */ 1, 0,
                              vec![cert.clone()]);
-        let mut v = Verifier::from_bytes(p, &buf, h, None).unwrap();
+        let mut v = VerifierBuilder::from_bytes(&buf)?.with_policy(p, None, h)?;
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -2296,5 +2299,6 @@ mod test {
         assert!(v.helper_ref().bad == 1);
         assert!(v.helper_ref().unknown == 0);
         assert!(v.helper_ref().error == 0);
+        Ok(())
     }
 }

@@ -390,7 +390,8 @@ pub fn verify(ctx: &Context, policy: &dyn Policy,
         v.verify_reader(input)?;
         v.into_helper()
     } else {
-        let mut v = Verifier::from_reader(policy, input, helper, None)?;
+        let mut v = VerifierBuilder::from_reader(input)?
+            .with_policy(policy, None, helper)?;
         io::copy(&mut v, output)?;
         v.into_helper()
     };

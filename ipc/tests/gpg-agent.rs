@@ -12,7 +12,7 @@ use crate::openpgp::types::{
     SymmetricAlgorithm,
 };
 use crate::openpgp::crypto::SessionKey;
-use crate::openpgp::parse::stream::*;
+use crate::openpgp::parse::{Parse, stream::*};
 use crate::openpgp::serialize::{Serialize, stream::*};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::Policy;
@@ -27,7 +27,7 @@ macro_rules! make_context {
             Err(e) => {
                 eprintln!("SKIP: Failed to create GnuPG context: {}\n\
                            SKIP: Is GnuPG installed?", e);
-                return;
+                return Ok(());
             },
         };
         match ctx.start("gpg-agent") {
@@ -35,7 +35,7 @@ macro_rules! make_context {
             Err(e) => {
                 eprintln!("SKIP: Failed to create GnuPG context: {}\n\
                            SKIP: Is the GnuPG agent installed?", e);
-                return;
+                return Ok(());
             },
         }
         ctx
@@ -43,23 +43,25 @@ macro_rules! make_context {
 }
 
 #[test]
-fn nop() {
+fn nop() -> openpgp::Result<()> {
     let ctx = make_context!();
     let mut agent = Agent::connect(&ctx).wait().unwrap();
     agent.send("NOP").unwrap();
     let response = agent.wait().collect::<Vec<_>>();
     assert_eq!(response.len(), 1);
     assert!(response[0].is_ok());
+    Ok(())
 }
 
 #[test]
-fn help() {
+fn help() -> openpgp::Result<()>  {
     let ctx = make_context!();
     let mut agent = Agent::connect(&ctx).wait().unwrap();
     agent.send("HELP").unwrap();
     let response = agent.wait().collect::<Vec<_>>();
     assert!(response.len() > 3);
     assert!(response.iter().last().unwrap().is_ok());
+    Ok(())
 }
 
 const MESSAGE: &'static str = "дружба";
@@ -79,7 +81,7 @@ fn gpg_import(ctx: &Context, what: &[u8]) {
 }
 
 #[test]
-fn sign() {
+fn sign() -> openpgp::Result<()> {
     use self::CipherSuite::*;
     use openpgp::policy::StandardPolicy as P;
 
@@ -131,8 +133,8 @@ fn sign() {
         let helper = Helper { cert: &cert };
 
         // Now, create a verifier with a helper using the given Certs.
-        let mut verifier =
-            Verifier::from_bytes(p, &message, helper, None).unwrap();
+        let mut verifier = VerifierBuilder::from_bytes(&message)?
+            .with_policy(p, None, helper)?;
 
         // Verify the data.
         let mut sink = Vec::new();
@@ -184,10 +186,11 @@ fn sign() {
             }
         }
     }
+    Ok(())
 }
 
 #[test]
-fn decrypt() {
+fn decrypt() -> openpgp::Result<()> {
     use self::CipherSuite::*;
     use openpgp::policy::StandardPolicy as P;
 
@@ -291,4 +294,5 @@ fn decrypt() {
             }
         }
     }
+    Ok(())
 }
