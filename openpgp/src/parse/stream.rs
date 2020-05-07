@@ -148,7 +148,23 @@ use crate::parse::{
 const TRACE : bool = false;
 
 /// How much data to buffer before giving it to the caller.
-const BUFFER_SIZE: usize = 25 * 1024 * 1024;
+///
+/// Signature verification and detection of ciphertext tampering
+/// requires processing the whole message first.  Therefore, OpenPGP
+/// implementations supporting streaming operations necessarily must
+/// output unverified data.  This has been a source of problems in the
+/// past.  To alleviate this, we buffer the message first (up to 25
+/// megabytes of net message data by default), and verify the
+/// signatures if the message fits into our buffer.  Nevertheless it
+/// is important to treat the data as unverified and untrustworthy
+/// until you have seen a positive verification.
+///
+/// The default can be changed using [`VerifierBuilder::buffer_size`]
+/// and [`DecryptorBuilder::buffer_size`].
+///
+///   [`VerifierBuilder::buffer_size`]: struct.VerifierBuilder.html#method.buffer_size
+///   [`DecryptorBuilder::buffer_size`]: struct.DecryptorBuilder.html#method.buffer_size
+pub const DEFAULT_BUFFER_SIZE: usize = 25 * 1024 * 1024;
 
 /// The result of a signature verification.
 pub type VerificationResult<'a> =
@@ -662,11 +678,14 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// Signature verification requires processing the whole message
 /// first.  Therefore, OpenPGP implementations supporting streaming
 /// operations necessarily must output unverified data.  This has been
-/// a source of problems in the past.  To alleviate this, we buffer up
-/// to 25 megabytes of net message data first, and verify the
-/// signatures if the message fits into our buffer.  Nevertheless it
-/// is important to treat the data as unverified and untrustworthy
-/// until you have seen a positive verification.
+/// a source of problems in the past.  To alleviate this, we buffer
+/// the message first (up to 25 megabytes of net message data by
+/// default, see [`DEFAULT_BUFFER_SIZE`]), and verify the signatures
+/// if the message fits into our buffer.  Nevertheless it is important
+/// to treat the data as unverified and untrustworthy until you have
+/// seen a positive verification.
+///
+///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
 ///
 /// For a signature to be considered valid: The signature must have a
 /// `Signature Creation Time` subpacket.  The signature must be alive
@@ -767,6 +786,7 @@ pub struct Verifier<'a, H: VerificationHelper> {
 ///   [`VerifierBuilder::with_policy`]: struct.VerifierBuilder.html#method.with_policy
 pub struct VerifierBuilder<'a> {
     message: Box<dyn BufferedReader<Cookie> + 'a>,
+    buffer_size: usize,
     mapping: bool,
 }
 
@@ -801,8 +821,20 @@ impl<'a> VerifierBuilder<'a> {
     {
         Ok(VerifierBuilder {
             message: Box::new(signatures),
+            buffer_size: DEFAULT_BUFFER_SIZE,
             mapping: false,
         })
+    }
+
+    /// Changes the amount of buffered data.
+    ///
+    /// By default, we buffer up to 25 megabytes of net message data
+    /// (see [`DEFAULT_BUFFER_SIZE`]).  This changes the default.
+    ///
+    ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
+    pub fn buffer_size(mut self, size: usize) -> Self {
+        self.buffer_size = size;
+        self
     }
 
     /// Enables mapping.
@@ -839,7 +871,7 @@ impl<'a> VerifierBuilder<'a> {
                 policy,
                 self.message,
                 NoDecryptionHelper { v: helper, },
-                t, Mode::Verify, self.mapping)?,
+                t, Mode::Verify, self.buffer_size, self.mapping)?,
         })
     }
 }
@@ -1003,7 +1035,7 @@ impl<'a> DetachedVerifierBuilder<'a> {
                 policy,
                 self.signatures,
                 NoDecryptionHelper { v: helper, },
-                t, Mode::VerifyDetached, self.mapping)?,
+                t, Mode::VerifyDetached, 0, self.mapping)?,
         })
     }
 }
@@ -1062,14 +1094,18 @@ enum Mode {
 /// Decrypts and verifies an encrypted and optionally signed OpenPGP
 /// message.
 ///
-/// Signature verification requires processing the whole message
-/// first.  Therefore, OpenPGP implementations supporting streaming
-/// operations necessarily must output unverified data.  This has been
-/// a source of problems in the past.  To alleviate this, we buffer up
-/// to 25 megabytes of net message data first, and verify the
-/// signatures if the message fits into our buffer.  Nevertheless it
-/// is important to treat the data as unverified and untrustworthy
-/// until you have seen a positive verification.
+/// Signature verification and detection of ciphertext tampering
+/// requires processing the whole message first.  Therefore, OpenPGP
+/// implementations supporting streaming operations necessarily must
+/// output unverified data.  This has been a source of problems in the
+/// past.  To alleviate this, we buffer the message first (up to 25
+/// megabytes of net message data by default, see
+/// [`DEFAULT_BUFFER_SIZE`]), and verify the signatures if the message
+/// fits into our buffer.  Nevertheless it is important to treat the
+/// data as unverified and untrustworthy until you have seen a
+/// positive verification.
+///
+///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
 ///
 /// # Examples
 ///
@@ -1134,6 +1170,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
     /// We want to hold back some data until the signatures checked
     /// out.  We buffer this here, cursor is the offset of unread
     /// bytes in the buffer.
+    buffer_size: usize,
     reserve: Option<Vec<u8>>,
     cursor: usize,
 
@@ -1176,6 +1213,7 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
 ///   [`DecryptorBuilder::with_policy`]: struct.DecryptorBuilder.html#method.with_policy
 pub struct DecryptorBuilder<'a> {
     message: Box<dyn BufferedReader<Cookie> + 'a>,
+    buffer_size: usize,
     mapping: bool,
 }
 
@@ -1210,8 +1248,20 @@ impl<'a> DecryptorBuilder<'a> {
     {
         Ok(DecryptorBuilder {
             message: Box::new(signatures),
+            buffer_size: DEFAULT_BUFFER_SIZE,
             mapping: false,
         })
+    }
+
+    /// Changes the amount of buffered data.
+    ///
+    /// By default, we buffer up to 25 megabytes of net message data
+    /// (see [`DEFAULT_BUFFER_SIZE`]).  This changes the default.
+    ///
+    ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
+    pub fn buffer_size(mut self, size: usize) -> Self {
+        self.buffer_size = size;
+        self
     }
 
     /// Enables mapping.
@@ -1249,7 +1299,7 @@ impl<'a> DecryptorBuilder<'a> {
             policy,
             self.message,
             helper,
-            t, Mode::Decrypt, self.mapping)
+            t, Mode::Decrypt, self.buffer_size, self.mapping)
     }
 }
 
@@ -1430,12 +1480,13 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         self.oppr.is_none()
     }
 
-    /// Creates the `Decryptor`, and buffers the data up to `BUFFER_SIZE`.
+    /// Creates the `Decryptor`, and buffers the data up to `buffer_size`.
     fn from_buffered_reader<T>(
         policy: &'a dyn Policy,
         bio: Box<dyn BufferedReader<Cookie> + 'a>,
         helper: H, time: T,
         mode: Mode,
+        buffer_size: usize,
         mapping: bool)
         -> Result<Decryptor<'a, H>>
         where T: Into<Option<time::SystemTime>>
@@ -1458,6 +1509,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             oppr: None,
             identity: None,
             structure: IMessageStructure::new(),
+            buffer_size,
             reserve: None,
             cursor: 0,
             mode,
@@ -1651,8 +1703,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
     fn finish_maybe(&mut self) -> Result<()> {
         if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
             // Check if we hit EOF.
-            let data_len = pp.data(BUFFER_SIZE + 1)?.len();
-            if data_len <= BUFFER_SIZE {
+            let data_len = pp.data(self.buffer_size + 1)?.len();
+            if data_len <= self.buffer_size {
                 // Stash the reserve.
                 self.reserve = Some(pp.steal_eof()?);
                 self.cursor = 0;
@@ -1905,13 +1957,13 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         // Read the data from the Literal data packet.
         if let Some(PacketParserResult::Some(mut pp)) = self.oppr.take() {
             // Be careful to not read from the reserve.
-            let data_len = pp.data(BUFFER_SIZE + buf.len())?.len();
-            if data_len <= BUFFER_SIZE {
+            let data_len = pp.data(self.buffer_size + buf.len())?.len();
+            if data_len <= self.buffer_size {
                 self.oppr = Some(PacketParserResult::Some(pp));
                 self.finish_maybe()?;
                 self.read_helper(buf)
             } else {
-                let n = cmp::min(buf.len(), data_len - BUFFER_SIZE);
+                let n = cmp::min(buf.len(), data_len - self.buffer_size);
                 let buf = &mut buf[..n];
                 let result = pp.read(buf);
                 self.oppr = Some(PacketParserResult::Some(pp));
@@ -2243,7 +2295,7 @@ mod test {
             .add_signing_subkey()
             .generate().unwrap();
 
-        // sign 30MiB message
+        // sign 3MiB message
         let mut buf = vec![];
         {
             let key = cert.keys().with_policy(p, None).for_signing().nth(0).unwrap().key();
@@ -2255,13 +2307,15 @@ mod test {
             let signer = Signer::new(m, keypair).build().unwrap();
             let mut ls = LiteralWriter::new(signer).build().unwrap();
 
-            ls.write_all(&mut vec![42u8; 30 * 1024 * 1024]).unwrap();
+            ls.write_all(&mut vec![42u8; 3 * 1024 * 1024]).unwrap();
             ls.finalize().unwrap();
         }
 
         // Test Verifier.
         let h = VHelper::new(0, 0, 0, 0, vec![cert.clone()]);
-        let mut v = VerifierBuilder::from_bytes(&buf)?.with_policy(p, None, h)?;
+        let mut v = VerifierBuilder::from_bytes(&buf)?
+            .buffer_size(2 * 2usize.pow(20))
+            .with_policy(p, None, h)?;
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -2274,7 +2328,7 @@ mod test {
         v.read_to_end(&mut message).unwrap();
 
         assert!(v.message_processed());
-        assert_eq!(30 * 1024 * 1024, message.len());
+        assert_eq!(3 * 1024 * 1024, message.len());
         assert!(message.iter().all(|&b| b == 42));
         assert!(v.helper_ref().good == 1);
         assert!(v.helper_ref().bad == 0);
@@ -2284,7 +2338,9 @@ mod test {
         // Try the same, but this time we let .check() fail.
         let h = VHelper::new(0, 0, /* makes check() fail: */ 1, 0,
                              vec![cert.clone()]);
-        let mut v = VerifierBuilder::from_bytes(&buf)?.with_policy(p, None, h)?;
+        let mut v = VerifierBuilder::from_bytes(&buf)?
+            .buffer_size(2 * 2usize.pow(20))
+            .with_policy(p, None, h)?;
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -2299,7 +2355,7 @@ mod test {
         // Check that we only got a truncated message.
         assert!(v.message_processed());
         assert!(message.len() > 0);
-        assert!(message.len() <= 5 * 1024 * 1024);
+        assert!(message.len() <= 1 * 1024 * 1024);
         assert!(message.iter().all(|&b| b == 42));
         assert!(v.helper_ref().good == 1);
         assert!(v.helper_ref().bad == 1);
@@ -2308,8 +2364,9 @@ mod test {
 
         // Test Decryptor.
         let h = VHelper::new(0, 0, 0, 0, vec![cert.clone()]);
-        let mut v =
-            DecryptorBuilder::from_bytes(&buf)?.with_policy(p, None, h)?;
+        let mut v = DecryptorBuilder::from_bytes(&buf)?
+            .buffer_size(2 * 2usize.pow(20))
+            .with_policy(p, None, h)?;
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -2322,7 +2379,7 @@ mod test {
         v.read_to_end(&mut message).unwrap();
 
         assert!(v.message_processed());
-        assert_eq!(30 * 1024 * 1024, message.len());
+        assert_eq!(3 * 1024 * 1024, message.len());
         assert!(message.iter().all(|&b| b == 42));
         assert!(v.helper_ref().good == 1);
         assert!(v.helper_ref().bad == 0);
@@ -2332,8 +2389,9 @@ mod test {
         // Try the same, but this time we let .check() fail.
         let h = VHelper::new(0, 0, /* makes check() fail: */ 1, 0,
                              vec![cert.clone()]);
-        let mut v =
-            DecryptorBuilder::from_bytes(&buf)?.with_policy(p, None, h)?;
+        let mut v = DecryptorBuilder::from_bytes(&buf)?
+            .buffer_size(2 * 2usize.pow(20))
+            .with_policy(p, None, h)?;
 
         assert!(!v.message_processed());
         assert!(v.helper_ref().good == 0);
@@ -2348,7 +2406,7 @@ mod test {
         // Check that we only got a truncated message.
         assert!(v.message_processed());
         assert!(message.len() > 0);
-        assert!(message.len() <= 5 * 1024 * 1024);
+        assert!(message.len() <= 1 * 1024 * 1024);
         assert!(message.iter().all(|&b| b == 42));
         assert!(v.helper_ref().good == 1);
         assert!(v.helper_ref().bad == 1);
