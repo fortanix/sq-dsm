@@ -233,6 +233,7 @@ use std::io;
 use std::io::{Error, ErrorKind};
 use std::cmp;
 use std::fmt;
+use std::convert::TryInto;
 
 mod generic;
 mod memory;
@@ -603,15 +604,16 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
     /// in big endian format.
     fn read_be_u16(&mut self) -> Result<u16, std::io::Error> {
         let input = self.data_consume_hard(2)?;
-        return Ok(((input[0] as u16) << 8) + (input[1] as u16));
+        // input holds at least 2 bytes, so this cannot fail.
+        Ok(u16::from_be_bytes(input[..2].try_into().unwrap()))
     }
 
     /// A convenience function for reading a 32-bit unsigned integer
     /// in big endian format.
     fn read_be_u32(&mut self) -> Result<u32, std::io::Error> {
         let input = self.data_consume_hard(4)?;
-        return Ok(((input[0] as u32) << 24) + ((input[1] as u32) << 16)
-                  + ((input[2] as u32) << 8) + (input[3] as u32));
+        // input holds at least 4 bytes, so this cannot fail.
+        Ok(u32::from_be_bytes(input[..4].try_into().unwrap()))
     }
 
     /// Reads until either `terminal` is encountered or EOF.
