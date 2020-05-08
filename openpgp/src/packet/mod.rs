@@ -166,6 +166,15 @@ impl_into_iterator!(MDC);
 impl_into_iterator!(AED);
 impl_into_iterator!(Key<P, R> where P: key::KeyParts, R: key::KeyRole);
 
+// Make it easy to pass an iterator of Packets to something expecting
+// an iterator of Into<Result<Packet>> (specifically,
+// CertParser::into_iter)..
+impl From<Packet> for Result<Packet> {
+    fn from(p: Packet) -> Self {
+        Ok(p)
+    }
+}
+
 impl Packet {
     /// Returns the `Packet's` corresponding OpenPGP tag.
     ///
