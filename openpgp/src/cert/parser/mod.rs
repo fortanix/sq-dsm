@@ -470,12 +470,13 @@ impl<'a> Parse<'a, CertParser<'a>> for CertParser<'a>
 }
 
 impl<'a> CertParser<'a> {
-    /// Initializes a CertParser from an iterator over Packets.
-    pub fn from_iter<I>(iter: I) -> Self
-        where I: 'a + IntoIterator<Item=Result<Packet>>
+    /// Creates a `CertParser` from a `Result<Packet>` iterator.
+    pub fn from_iter<I, J>(iter: I) -> Self
+        where I: 'a + IntoIterator<Item=J>,
+              J: 'a + Into<Result<Packet>>
     {
         let mut parser : Self = Default::default();
-        parser.source = Some(Box::new(iter.into_iter()));
+        parser.source = Some(Box::new(iter.into_iter().map(Into::into)));
         parser
     }
 
