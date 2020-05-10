@@ -31,10 +31,10 @@ export PREFIX
 export DESTDIR
 
 # $(1) = install dir
-# $(2) = whether to set libdir to $(1) (empty string = false)
+# $(2) = whether to set libdir and prefix to $(1) (empty string = false)
 sequoia_openpgp_pc = \
 	sed -e 's|VERSION|$(VERSION)|g' \
-	    -e 's|PREFIX|$(shell pwd)|g' \
+	    $(if $(2),-e 's|PREFIX|$(shell pwd)|g',-e's|PREFIX|$(PREFIX)|g') \
 	    $(if $(2),-e 's|libdir=.*|libdir=$(1)|g') \
 	  sequoia-openpgp.pc.in \
 	  > $(1)/sequoia-openpgp.pc
