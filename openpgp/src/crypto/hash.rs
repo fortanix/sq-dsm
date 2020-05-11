@@ -281,7 +281,7 @@ impl<P, R> Hash for Key4<P, R>
         // Creation time.
         let creation_time: u32 =
             Timestamp::try_from(self.creation_time())
-            .unwrap_or_else(|_| Timestamp::try_from(0).unwrap())
+            .unwrap_or_else(|_| Timestamp::from(0))
             .into();
         header.extend_from_slice(&creation_time.to_be_bytes());
 
