@@ -1,4 +1,6 @@
 use std::fmt;
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -247,6 +249,7 @@ impl KeyID {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for KeyID {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         KeyID::new(u64::arbitrary(g))

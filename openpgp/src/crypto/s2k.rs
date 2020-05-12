@@ -14,7 +14,9 @@ use crate::crypto::SessionKey;
 
 use std::fmt;
 
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
+#[cfg(any(test, feature = "quickcheck"))]
 use rand::Rng;
 
 /// String-to-Key (S2K) specifiers.
@@ -262,6 +264,7 @@ impl fmt::Display for S2K {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for S2K {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 5) {

@@ -5,6 +5,8 @@
 //!   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
 
 use std::fmt;
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -166,12 +168,14 @@ impl<'a> std::convert::TryFrom<&'a Signature> for OnePassSig3 {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for super::OnePassSig {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         OnePassSig3::arbitrary(g).into()
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for OnePassSig3 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let mut ops = OnePassSig3::new(SignatureType::arbitrary(g));

@@ -7,6 +7,8 @@
 //! [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
 
 use std::ops::{Deref, DerefMut};
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Result;
@@ -37,6 +39,7 @@ impl SKESK {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for SKESK {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         if bool::arbitrary(g) {
@@ -211,6 +214,7 @@ impl From<SKESK4> for Packet {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for SKESK4 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         SKESK4::new(SymmetricAlgorithm::arbitrary(g),
@@ -383,6 +387,7 @@ impl From<SKESK5> for Packet {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for SKESK5 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let algo = AEADAlgorithm::EAX;  // The only one we dig.

@@ -3,6 +3,8 @@ use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::time::{SystemTime, Duration as SystemDuration, UNIX_EPOCH};
 use std::u32;
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::{
@@ -242,6 +244,7 @@ impl Timestamp {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Timestamp {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Timestamp(u32::arbitrary(g))
@@ -562,6 +565,7 @@ impl Timestamp {
     pub(crate) const Y2106 : Timestamp = Timestamp(4291747200);
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Duration {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Duration(u32::arbitrary(g))

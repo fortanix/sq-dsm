@@ -750,7 +750,7 @@ impl Deref for UserIDRevocationBuilder {
 /// Revoke a User Attribute that is no longer valid:
 ///
 /// ```rust
-/// # use quickcheck::{Arbitrary, StdThreadGen};
+/// # use openpgp::packet::user_attribute::Subpacket;
 /// use sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// use openpgp::cert::prelude::*;
@@ -763,8 +763,10 @@ impl Deref for UserIDRevocationBuilder {
 /// # fn main() -> Result<()> {
 /// let p = &StandardPolicy::new();
 ///
-/// # let mut gen = StdThreadGen::new(16);
-/// # let user_attribute : UserAttribute = UserAttribute::arbitrary(&mut gen);
+/// # // Create some user attribute. Doctests do not pass cfg(test),
+/// # // so UserAttribute::arbitrary is not available
+/// # let sp = Subpacket::Unknown(7, vec![7; 7].into_boxed_slice());
+/// # let user_attribute = UserAttribute::new(&[sp])?;
 /// #
 /// # let (cert, _) = CertBuilder::new()
 /// #     .add_user_attribute(user_attribute)
@@ -905,7 +907,7 @@ impl UserAttributeRevocationBuilder {
     /// valid:
     ///
     /// ```rust
-    /// # use quickcheck::{Arbitrary, StdThreadGen};
+    /// # use openpgp::packet::user_attribute::Subpacket;
     /// use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// use openpgp::cert::prelude::*;
@@ -918,8 +920,10 @@ impl UserAttributeRevocationBuilder {
     /// # fn main() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
-    /// # let mut gen = StdThreadGen::new(16);
-    /// # let user_attribute : UserAttribute = UserAttribute::arbitrary(&mut gen);
+    /// # // Create some user attribute. Doctests do not pass cfg(test),
+    /// # // so UserAttribute::arbitrary is not available
+    /// # let sp = Subpacket::Unknown(7, vec![7; 7].into_boxed_slice());
+    /// # let user_attribute = UserAttribute::new(&[sp])?;
     /// #
     /// # let (cert, _) = CertBuilder::new()
     /// #     .add_user_attribute(user_attribute)

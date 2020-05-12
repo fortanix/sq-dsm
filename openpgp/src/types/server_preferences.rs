@@ -1,5 +1,7 @@
 use std::hash::{Hash, Hasher};
 use std::fmt;
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 /// Describes preferences regarding key servers.
@@ -165,6 +167,7 @@ const KEYSERVER_PREFERENCE_NO_MODIFY: u8 = 0x80;
 /// Number of bytes with known flags.
 const KEYSERVER_PREFERENCES_N_KNOWN_BYTES: usize = 1;
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for KeyServerPreferences {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Self::new(Vec::arbitrary(g))

@@ -1,4 +1,6 @@
 use std::fmt;
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::packet;
@@ -94,6 +96,7 @@ impl From<CompressedData> for Packet {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for CompressedData {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use rand::Rng;

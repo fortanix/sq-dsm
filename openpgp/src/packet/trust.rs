@@ -1,4 +1,6 @@
 use std::fmt;
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::packet;
@@ -58,6 +60,7 @@ impl From<Trust> for Packet {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Trust {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Vec::<u8>::arbitrary(g).into()

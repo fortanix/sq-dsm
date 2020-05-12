@@ -5,7 +5,9 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::sync::Mutex;
 
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
+
 use anyhow::Context;
 use regex::Regex;
 
@@ -829,6 +831,7 @@ impl From<UserID> for Packet {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for UserID {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Vec::<u8>::arbitrary(g).into()

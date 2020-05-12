@@ -3,7 +3,9 @@
 use std::fmt;
 use std::cmp::Ordering;
 
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
+#[cfg(any(test, feature = "quickcheck"))]
 use rand::Rng;
 
 use crate::types::{
@@ -184,6 +186,7 @@ impl Hash for MPI {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for MPI {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         loop {
@@ -409,6 +412,7 @@ impl Hash for PublicKey {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for PublicKey {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use self::PublicKey::*;
@@ -678,6 +682,7 @@ impl Hash for SecretKeyMaterial {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for SecretKeyMaterial {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 6) {
@@ -780,6 +785,7 @@ impl Hash for Ciphertext {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Ciphertext {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 3) {
@@ -865,6 +871,7 @@ impl Hash for Signature {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Signature {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 4) {

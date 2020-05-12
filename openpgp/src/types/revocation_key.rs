@@ -1,3 +1,4 @@
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::{
@@ -148,6 +149,7 @@ const REVOCATION_KEY_FLAG_SENSITIVE: u8 = 0x40;
 const REVOCATION_KEY_MASK_UNKNOWN: u8 = ! (REVOCATION_KEY_FLAG_MUST_BE_SET
                                            | REVOCATION_KEY_FLAG_SENSITIVE);
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for RevocationKey {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         RevocationKey {

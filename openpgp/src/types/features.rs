@@ -1,5 +1,7 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 /// Describes features supported by an OpenPGP implementation.
@@ -207,6 +209,7 @@ const FEATURE_FLAG_AEAD: u8 = 0x02;
 /// Number of bytes with known flags.
 const FEATURE_FLAGS_N_KNOWN_BYTES: usize = 1;
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Features {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Self::new(Vec::arbitrary(g))

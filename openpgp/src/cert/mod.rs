@@ -3041,10 +3041,10 @@ impl<'a> ValidCert<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use quickcheck::{Arbitrary, StdThreadGen};
     /// use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::user_attribute::Subpacket;
     /// use openpgp::policy::StandardPolicy;
     ///
     /// # fn main() -> openpgp::Result<()> {
@@ -3053,8 +3053,12 @@ impl<'a> ValidCert<'a> {
     /// # let (cert, _) =
     /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #     .generate()?;
-    /// # let mut gen = StdThreadGen::new(16);
-    /// # let ua : UserAttribute = UserAttribute::arbitrary(&mut gen);
+    /// #
+    /// # // Create some user attribute. Doctests do not pass cfg(test),
+    /// # // so UserAttribute::arbitrary is not available
+    /// # let sp = Subpacket::Unknown(7, vec![7; 7].into_boxed_slice());
+    /// # let ua = UserAttribute::new(&[sp]);
+    /// #
     /// // Add a User Attribute without a self-signature to the certificate.
     /// let cert = cert.merge_packets(ua)?;
     /// assert_eq!(cert.user_attributes().count(), 1);

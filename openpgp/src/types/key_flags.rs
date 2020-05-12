@@ -2,6 +2,8 @@ use std::hash::{Hash, Hasher};
 use std::fmt;
 use std::cmp;
 use std::ops::{BitAnd, BitOr};
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 /// Describes how a key may be used, and stores additional information.
@@ -365,6 +367,7 @@ const KEY_FLAG_GROUP_KEY: u8 = 0x80;
 /// Number of bytes with known flags.
 const KEY_FLAGS_N_KNOWN_BYTES: usize = 1;
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for KeyFlags {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Self::new(Vec::arbitrary(g))

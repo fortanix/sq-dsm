@@ -426,7 +426,7 @@ impl CertBuilder {
     /// primary User ID flag set:
     ///
     /// ```
-    /// # use quickcheck::{Arbitrary, StdThreadGen};
+    /// # use openpgp::packet::user_attribute::Subpacket;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;
@@ -434,9 +434,11 @@ impl CertBuilder {
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// let p = &StandardPolicy::new();
-    ///
-    /// # let mut gen = StdThreadGen::new(16);
-    /// # let user_attribute : UserAttribute = UserAttribute::arbitrary(&mut gen);
+    /// #
+    /// # // Create some user attribute. Doctests do not pass cfg(test),
+    /// # // so UserAttribute::arbitrary is not available
+    /// # let sp = Subpacket::Unknown(7, vec![7; 7].into_boxed_slice());
+    /// # let user_attribute = UserAttribute::new(&[sp])?;
     ///
     /// let (cert, rev) =
     ///     CertBuilder::new()
@@ -455,7 +457,7 @@ impl CertBuilder {
     /// set:
     ///
     /// ```
-    /// # use quickcheck::{Arbitrary, StdThreadGen};
+    /// # use openpgp::packet::user_attribute::Subpacket;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;
@@ -463,9 +465,11 @@ impl CertBuilder {
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// let p = &StandardPolicy::new();
-    ///
-    /// # let mut gen = StdThreadGen::new(16);
-    /// # let user_attribute : UserAttribute = UserAttribute::arbitrary(&mut gen);
+    /// #
+    /// # // Create some user attribute. Doctests do not pass cfg(test),
+    /// # // so UserAttribute::arbitrary is not available
+    /// # let sp = Subpacket::Unknown(7, vec![7; 7].into_boxed_slice());
+    /// # let user_attribute = UserAttribute::new(&[sp])?;
     ///
     /// let (cert, rev) =
     ///     CertBuilder::new()

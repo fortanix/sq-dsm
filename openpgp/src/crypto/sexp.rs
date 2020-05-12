@@ -9,6 +9,8 @@
 use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Deref;
+
+#[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::crypto::{self, mpi, SessionKey};
@@ -293,6 +295,7 @@ impl TryFrom<&mpi::Ciphertext> for Sexp {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Sexp {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         if f32::arbitrary(g) < 0.7 {
@@ -382,6 +385,7 @@ impl Deref for String_ {
     }
 }
 
+#[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for String_ {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         if bool::arbitrary(g) {
