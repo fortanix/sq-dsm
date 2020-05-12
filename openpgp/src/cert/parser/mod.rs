@@ -790,6 +790,9 @@ impl<'a> Iterator for CertParser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::cert::prelude::*;
+    use crate::packet::prelude::*;
+    use crate::types::DataFormat;
 
     #[test]
     fn tokens() {
@@ -942,5 +945,250 @@ mod test {
         CertParser::from(
             PacketParser::from_bytes(&testy_with_marker).unwrap())
             .nth(0).unwrap().unwrap();
+    }
+
+    #[test]
+    fn invalid_packets() -> Result<()> {
+        tracer!(TRACE, "invalid_packets", 0);
+
+        fn cert_cmp(a: &Result<Cert>, b: &Vec<Packet>)
+        {
+            let a : Vec<Packet> = a.as_ref().unwrap().clone().into();
+
+            for (i, (a, b)) in a.iter().zip(b).enumerate() {
+                if a != b {
+                    panic!("Differ at element #{}:\n  {:?}\n  {:?}",
+                           i, a, b);
+                }
+            }
+            if a.len() != b.len() {
+                panic!("Different lengths (common prefix identical): {} vs. {}",
+                       a.len(), b.len());
+            }
+        }
+
+        let (cert, _) =
+            CertBuilder::general_purpose(None, Some("alice@example.org"))
+            .generate()?;
+        let cert : Vec<Packet> = cert.into();
+
+        // A userid packet.
+        let userid : Packet = cert.clone()
+            .into_iter()
+            .filter(|p| p.tag() == Tag::UserID)
+            .nth(0).unwrap()
+            .into();
+
+        // An unknown packet.
+        let tag = Tag::Private(61);
+        let unknown : Packet
+            = Unknown::new(tag, Error::UnsupportedPacketType(tag).into())
+            .into();
+
+        // A literal packet.  (This is a valid OpenPGP Message.)
+        let mut lit = Literal::new(DataFormat::Text);
+        lit.set_body(b"test".to_vec());
+        let lit = Packet::from(lit);
+
+        // A compressed data packet containing a literal data packet.
+        // (This is a valid OpenPGP Message.)
+        let cd = {
+            use crate::types::CompressionAlgorithm;
+            use crate::packet;
+            use crate::PacketPile;
+            use crate::serialize::Serialize;
+            use crate::parse::Parse;
+
+            let mut cd = CompressedData::new(
+                CompressionAlgorithm::Uncompressed);
+            let mut body = Vec::new();
+            lit.serialize(&mut body)?;
+            cd.set_body(packet::Body::Processed(body));
+            let cd = Packet::from(cd);
+
+            // Make sure we created the message correctly: serialize,
+            // parse it, and then check its form.
+            let mut bytes = Vec::new();
+            cd.serialize(&mut bytes)?;
+
+            let pp = PacketPile::from_bytes(&bytes[..])?;
+
+            assert_eq!(pp.descendants().count(), 2);
+            assert_eq!(pp.path_ref(&[ 0 ]).unwrap().tag(),
+                       packet::Tag::CompressedData);
+            assert_eq!(pp.path_ref(&[ 0, 0 ]), Some(&lit));
+
+            cd
+        };
+
+        t!("A single cert.");
+        let cp = CertParser::from_iter(cert.clone()).collect::<Vec<_>>();
+        assert_eq!(cp.len(), 1);
+        cert_cmp(&cp[0], &cert);
+
+        t!("Two certificates.");
+        let cp = CertParser::from_iter(
+            cert.clone().into_iter().chain(cert.clone())).collect::<Vec<_>>();
+        assert_eq!(cp.len(), 2);
+        cert_cmp(&cp[0], &cert);
+        cert_cmp(&cp[1], &cert);
+
+        fn interleave(cert: &Vec<Packet>, p: &Packet) {
+            t!("A certificate, a {}.", p.tag());
+            let cp = CertParser::from_iter(
+                cert.clone().into_iter()
+                    .chain(p.clone()))
+                .collect::<Vec<_>>();
+            assert_eq!(cp.len(), 2);
+            cert_cmp(&cp[0], cert);
+            assert!(cp[1].is_err());
+
+            t!("A certificate, two {}.", p.tag());
+            let cp = CertParser::from_iter(
+                cert.clone().into_iter()
+                    .chain(p.clone())
+                    .chain(p.clone()))
+                .collect::<Vec<_>>();
+            assert_eq!(cp.len(), 3);
+            cert_cmp(&cp[0], cert);
+            assert!(cp[1].is_err());
+            assert!(cp[2].is_err());
+
+            t!("A {}, a certificate.", p.tag());
+            let cp = CertParser::from_iter(
+                p.clone().into_iter()
+                    .chain(cert.clone()))
+                .collect::<Vec<_>>();
+            assert_eq!(cp.len(), 2);
+            assert!(cp[0].is_err());
+            cert_cmp(&cp[1], cert);
+
+            t!("Two {}, a certificate.", p.tag());
+            let cp = CertParser::from_iter(
+                p.clone().into_iter()
+                    .chain(p.clone())
+                    .chain(cert.clone()))
+                .collect::<Vec<_>>();
+            assert_eq!(cp.len(), 3);
+            assert!(cp[0].is_err());
+            assert!(cp[1].is_err());
+            cert_cmp(&cp[2], cert);
+
+            t!("Two {}, a certificate, two {}.", p.tag(), p.tag());
+            let cp = CertParser::from_iter(
+                p.clone().into_iter()
+                    .chain(p.clone())
+                    .chain(cert.clone())
+                    .chain(p.clone())
+                    .chain(p.clone()))
+                .collect::<Vec<_>>();
+            assert_eq!(cp.len(), 5);
+            assert!(cp[0].is_err());
+            assert!(cp[1].is_err());
+            cert_cmp(&cp[2], cert);
+            assert!(cp[3].is_err());
+            assert!(cp[4].is_err());
+
+            t!("Two {}, two certificates, two {}, a certificate.");
+            let cp = CertParser::from_iter(
+                p.clone().into_iter()
+                    .chain(p.clone())
+                    .chain(cert.clone())
+                    .chain(cert.clone())
+                    .chain(p.clone())
+                    .chain(p.clone())
+                    .chain(cert.clone()))
+                .collect::<Vec<_>>();
+            assert_eq!(cp.len(), 7);
+            assert!(cp[0].is_err());
+            assert!(cp[1].is_err());
+            cert_cmp(&cp[2], cert);
+            cert_cmp(&cp[3], cert);
+            assert!(cp[4].is_err());
+            assert!(cp[5].is_err());
+            cert_cmp(&cp[6], cert);
+        }
+
+        interleave(&cert, &lit);
+        // The certificate parser shouldn't recurse into containers.
+        // So, the compressed data packets should show up as a single
+        // error.
+        interleave(&cert, &cd);
+
+
+        // The certificate parser should treat unknown packets as
+        // valid certificate components.
+        let mut cert_plus = cert.clone();
+        cert_plus.push(unknown.clone());
+
+        t!("A certificate, an unknown.");
+        let cp = CertParser::from_iter(
+            cert.clone().into_iter()
+                .chain(unknown.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(cp.len(), 1);
+        cert_cmp(&cp[0], &cert_plus);
+
+        t!("An unknown, a certificate.");
+        let cp = CertParser::from_iter(
+            unknown.clone().into_iter()
+                .chain(cert.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(cp.len(), 2);
+        assert!(cp[0].is_err());
+        cert_cmp(&cp[1], &cert);
+
+        t!("A certificate, two unknowns.");
+        let cp = CertParser::from_iter(
+            cert.clone().into_iter()
+                .chain(unknown.clone())
+                .chain(unknown.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(cp.len(), 1);
+        cert_cmp(&cp[0], &cert_plus);
+
+        t!("A certificate, an unknown, a certificate.");
+        let cp = CertParser::from_iter(
+            cert.clone().into_iter()
+                .chain(unknown.clone())
+                .chain(cert.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(cp.len(), 2);
+        cert_cmp(&cp[0], &cert_plus);
+        cert_cmp(&cp[1], &cert);
+
+
+        t!("A Literal, two User IDs");
+        let cp = CertParser::from_iter(
+            lit.clone().into_iter()
+                .chain(userid.clone())
+                .chain(userid.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(cp.len(), 3);
+        assert!(cp[0].is_err());
+        assert!(cp[1].is_err());
+        assert!(cp[2].is_err());
+
+        t!("A User ID, a certificate");
+        let cp = CertParser::from_iter(
+            userid.clone().into_iter()
+                .chain(cert.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(cp.len(), 2);
+        assert!(cp[0].is_err());
+        cert_cmp(&cp[1], &cert);
+
+        t!("Two User IDs, a certificate");
+        let cp = CertParser::from_iter(
+            userid.clone().into_iter()
+                .chain(userid.clone())
+                .chain(cert.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(cp.len(), 3);
+        assert!(cp[0].is_err());
+        assert!(cp[1].is_err());
+        cert_cmp(&cp[2], &cert);
+
+        Ok(())
     }
 }
