@@ -29,7 +29,7 @@ use low_level::{
     parse_error_downcast,
 };
 
-const TRACE : bool = true;
+const TRACE : bool = false;
 
 /// Whether a packet sequence is a valid keyring.
 ///
