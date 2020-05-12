@@ -4,6 +4,8 @@ use std::hash::{Hash, Hasher};
 
 use quickcheck::{Arbitrary, Gen};
 
+use crate::packet::Packet;
+
 /// The OpenPGP packet tags as defined in [Section 4.3 of RFC 4880].
 ///
 ///   [Section 4.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.3
@@ -149,6 +151,18 @@ impl From<&Tag> for u8 {
             &Tag::Private(x) => x,
             &Tag::Unknown(x) => x,
         }
+    }
+}
+
+impl From<&Packet> for Tag {
+    fn from(p: &Packet) -> Tag {
+        p.tag()
+    }
+}
+
+impl From<Packet> for Tag {
+    fn from(p: Packet) -> Tag {
+        p.tag()
     }
 }
 
