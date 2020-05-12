@@ -2306,6 +2306,35 @@ impl From<Cert> for Vec<Packet> {
     }
 }
 
+/// An iterator that moves out of a `Cert`.
+///
+/// This structure is created by the `into_iter` method on [`Cert`]
+/// (provided by the [`IntoIterator`] trait).
+///
+/// [`Cert`]: struct.Cert.html
+/// [`IntoIterator`]: https://doc.rust-lang.org/stable/std/iter/trait.IntoIterator.html
+// We can't use a generic type, and due to the use of closures, we
+// can't write down the concrete type.  So, just use a Box.
+pub struct IntoIter(Box<dyn Iterator<Item=Packet>>);
+
+impl Iterator for IntoIter {
+    type Item = Packet;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+impl IntoIterator for Cert
+{
+    type Item = Packet;
+    type IntoIter = IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(Box::new(self.into_packets()))
+    }
+}
+
 /// A `Cert` plus a `Policy` and a reference time.
 ///
 /// A `ValidCert` combines a [`Cert`] with a [`Policy`] and a
