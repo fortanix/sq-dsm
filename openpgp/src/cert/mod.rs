@@ -156,6 +156,7 @@ use crate::{
     packet::Signature,
     packet::Key,
     packet::key,
+    packet::Tag,
     packet::UserID,
     packet::UserAttribute,
     packet::Unknown,
@@ -1269,9 +1270,16 @@ impl Cert {
     /// (specifically, if it does not start with a primary key
     /// packet), then this fails.
     ///
-    /// If the sequence contains multiple keys (i.e., it is a key
-    /// ring) and you want all of the certificates, you should use
+    /// If the sequence contains multiple keys (i.e., it is a keyring)
+    /// and you want all of the certificates, you should use
     /// [`CertParser`] instead of this function.
+    ///
+    /// This function does *not* fail if the certificate is followed
+    /// by an invalid packet.  In that case, the certificate is
+    /// returned and the packets starting with the first invalid
+    /// packet are ignored.  If you want to make sure that the
+    /// sequence of packets contains exactly one certificate and no
+    /// invalid packets, use [`CertParser`] instead of this function.
     ///
     /// [`CertParser`]: struct.CertParser.html
     ///
@@ -1966,6 +1974,55 @@ impl Cert {
         Ok(self.canonicalize())
     }
 
+    // Returns whether the specified packet is a valid start of a
+    // certificate.
+    fn valid_start<T>(tag: T) -> Result<()>
+        where T: Into<Tag>
+    {
+        let tag = tag.into();
+        match tag {
+            Tag::SecretKey | Tag::PublicKey => Ok(()),
+            _ => Err(Error::MalformedCert(
+                format!("A certificate does not start with a {}",
+                        tag).into()).into()),
+        }
+    }
+
+    // Returns whether the specified packet can occur in a
+    // certificate.
+    //
+    // This function rejects all packets that are known to not belong
+    // in a certificate.  It conservatively accepts unknown packets
+    // based on the assumption that they are some new component type
+    // from the future.
+    fn valid_packet<T>(tag: T) -> Result<()>
+        where T: Into<Tag>
+    {
+        let tag = tag.into();
+        match tag {
+            // Packets that definitely don't belong in a certificate.
+            Tag::Reserved
+                | Tag::PKESK
+                | Tag::SKESK
+                | Tag::OnePassSig
+                | Tag::CompressedData
+                | Tag::SED
+                | Tag::Literal
+                | Tag::SEIP
+                | Tag::MDC
+                | Tag::AED =>
+            {
+                Err(Error::MalformedCert(
+                    format!("A certificate cannot not include a {}",
+                            tag).into()).into())
+            }
+            // The rest either definitely belong in a certificate or
+            // are unknown (and conservatively accepted for future
+            // compatibility).
+            _ => Ok(()),
+        }
+    }
+
     /// Adds packets to the certificate.
     ///
     /// This function turns the certificate into a sequence of
@@ -2097,7 +2154,9 @@ impl Cert {
         };
 
         for p in packets {
-            match p.into() {
+            let p = p.into();
+            Cert::valid_packet(&p)?;
+            match p {
                 Packet::PublicKey(k) => replace_or_push(&mut combined, k),
                 Packet::SecretKey(k) => replace_or_push(&mut combined, k),
                 Packet::PublicSubkey(k) => replace_or_push(&mut combined, k),

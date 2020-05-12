@@ -568,12 +568,22 @@ impl<'a> CertParser<'a> {
         }
 
         if self.packets.len() > 0 {
-            match p.tag() {
-                Tag::PublicKey | Tag::SecretKey => {
-                    t!("Start of a new certificate; returning finished cert");
+            if self.packets.len() == 1 {
+                if let Err(err) = Cert::valid_start(&self.packets[0]) {
+                    t!("{}", err);
                     return self.cert(Some(p));
-                },
-                _ => {},
+                }
+            }
+
+            if Cert::valid_start(&p).is_ok() {
+                t!("Encountered the start of a new certificate ({}), \
+                    finishing buffered certificate", p.tag());
+                return self.cert(Some(p));
+            } else if let Err(err) = Cert::valid_packet(&p) {
+                t!("Encountered an invalid packet ({}), \
+                    finishing buffered certificate: {}",
+                   p.tag(), err);
+                return self.cert(Some(p));
             }
         }
 
