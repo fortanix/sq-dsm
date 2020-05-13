@@ -2045,7 +2045,7 @@ pub struct Encryptor<'a> {
 }
 
 impl<'a> Encryptor<'a> {
-    /// Creates a new encryptor for the given recipient.
+    /// Creates a new encryptor for the given recipients.
     ///
     /// To add more recipients, use [`Encryptor::add_recipient`].  To
     /// add a password, use [`Encryptor::add_password`].  To change
@@ -2139,7 +2139,7 @@ impl<'a> Encryptor<'a> {
         }
     }
 
-    /// Creates a new encryptor for the given password.
+    /// Creates a new encryptor for the given passwords.
     ///
     /// To add more passwords, use [`Encryptor::add_password`].  To
     /// add an recipient, use [`Encryptor::add_recipient`].  To change
@@ -2186,7 +2186,7 @@ impl<'a> Encryptor<'a> {
         }
     }
 
-    /// Adds a recipient.
+    /// Adds recipients.
     ///
     /// The resulting message can be encrypted by any recipient and
     /// with any password.
@@ -2270,7 +2270,7 @@ impl<'a> Encryptor<'a> {
         self
     }
 
-    /// Adds a password to encrypt with.
+    /// Adds passwords to encrypt with.
     ///
     /// The resulting message can be encrypted with any password and
     /// by any recipient.
