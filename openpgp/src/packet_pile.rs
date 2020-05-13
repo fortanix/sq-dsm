@@ -178,6 +178,12 @@ impl FromIterator<Packet> for PacketPile {
     }
 }
 
+impl From<PacketPile> for Vec<Packet> {
+    fn from(pp: PacketPile) -> Self {
+        pp.into_children().collect()
+    }
+}
+
 impl PacketPile {
     /// Accessor for PacketPileParser.
     pub(crate) fn top_level_mut(&mut self) -> &mut Container {
