@@ -1814,6 +1814,10 @@ impl<'a, P, R, R2> From<ValidKeyAmalgamation<'a, P, R, R2>>
 impl<'a> Recipient<'a> {
     /// Creates a new recipient with an explicit recipient keyid.
     ///
+    /// Note: If you don't want to change the recipient keyid,
+    /// `Recipient`s can be created from `Key` and
+    /// `ValidKeyAmalgamation` using `From`.
+    ///
     /// # Example
     ///
     /// ```
@@ -1871,7 +1875,7 @@ impl<'a> Recipient<'a> {
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key());
+    ///     .map(|ka| Recipient::new(ka.key().keyid(), ka.key()));
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
