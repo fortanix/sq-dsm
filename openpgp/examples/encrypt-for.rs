@@ -42,8 +42,7 @@ fn main() {
         .flat_map(|cert| {
             cert.keys()
                 .with_policy(p, None).alive().revoked(false).key_flags(&mode)
-        })
-        .map(|ka| ka.key());
+        });
 
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.  First, we want the output to be

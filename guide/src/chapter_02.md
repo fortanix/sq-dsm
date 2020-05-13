@@ -57,8 +57,7 @@ fn main() {
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
-#        .for_transport_encryption()
-#        .map(|ka| ka.key());
+#        .for_transport_encryption();
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -203,8 +202,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
-#        .for_transport_encryption()
-#        .map(|ka| ka.key());
+#        .for_transport_encryption();
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -349,8 +347,7 @@ fn encrypt(policy: &dyn Policy,
            -> openpgp::Result<()> {
     let recipients =
         recipient.keys().with_policy(policy, None).alive().revoked(false)
-        .for_transport_encryption()
-        .map(|ka| ka.key());
+        .for_transport_encryption();
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
@@ -509,8 +506,7 @@ Decrypted data can be read from this using [`io::Read`].
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
-#        .for_transport_encryption()
-#        .map(|ka| ka.key());
+#        .for_transport_encryption();
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
