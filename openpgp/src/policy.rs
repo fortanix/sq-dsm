@@ -8,7 +8,7 @@
 //! considered weak (e.g. SHA-1).  When dealing with data from an
 //! untrusted source, for instance, callers will often prefer to
 //! ignore signatures that rely on these algorithms even though [RFC
-//! 4880] says that "[i]mplementations MUST implement SHA-1."  When
+//! 4880] says that "\[i\]mplementations MUST implement SHA-1."  When
 //! trying to decrypt old archives, however, users probably don't want
 //! to ignore keys using MD5, even though [RFC 4880] deprecates MD5.
 //!
@@ -19,7 +19,7 @@
 //! `StandardPolicy`'s parameters.
 //!
 //! When implementing the `Policy` trait, it is *essential* that the
-//! functions are [idempotent].  That is, if the same `Policy` is used
+//! functions are [pure].  That is, if the same `Policy` is used
 //! to determine whether a given `Signature` is valid, it must always
 //! return the same value.
 //!

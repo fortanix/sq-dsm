@@ -393,7 +393,7 @@ type UnknownBundles = ComponentBundles<Unknown>;
 /// create a direct key signature with this information.
 ///
 /// [Section 5.2.3.3]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-/// [WKD] https://tools.ietf.org/html/draft-koch-openpgp-webkey-service-09#section-5
+/// [WKD]: https://tools.ietf.org/html/draft-koch-openpgp-webkey-service-09#section-5
 /// [without any User ID packets]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-11.1
 ///
 /// # Algorithm Preferences
@@ -2237,7 +2237,7 @@ impl Cert {
     /// [`ValidCert`]: cert/struct.ValidCert.html
     /// [`ValidateAmalgamation`]: cert/amalgamation/trait.ValidateAmalgamation.html
     /// [`ValidCert::alive`]: cert/struct.ValidCert.html#method.alive
-    /// [`ValidCert::revocation_status`]: cert/struct.ValidCert.html#method.revocation_status
+    /// [`ValidCert::revoked`]: cert/struct.ValidCert.html#method.revoked
     ///
     /// # Examples
     ///

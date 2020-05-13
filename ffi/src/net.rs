@@ -13,7 +13,7 @@
 //!
 //! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
 //!
-//! ```c, no-run
+//! ```c
 //! #include <sequoia.h>
 //!
 //! sq_context_t ctx;

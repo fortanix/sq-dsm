@@ -130,7 +130,7 @@ impl Kind {
     /// This does not include any trailing newline.  It is simply the
     /// length of:
     ///
-    /// ```norun
+    /// ```text
     /// -----BEGIN PGP BLUB -----
     /// ```
     fn header_len(&self) -> usize {

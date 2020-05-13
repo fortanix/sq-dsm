@@ -881,7 +881,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
 /// impl <T: BufferedReader> std::io::Read for T { ... }
 /// ```
 ///
-/// but, alas, Rust doesn't like that ("error[E0119]: conflicting
+/// but, alas, Rust doesn't like that ("error\[E0119\]: conflicting
 /// implementations of trait `std::io::Read` for type `&mut _`").
 pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C>
         (bio: &mut T, buf: &mut [u8]) -> Result<usize, io::Error> {

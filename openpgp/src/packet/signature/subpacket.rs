@@ -203,7 +203,7 @@ pub enum SubpacketTag {
     IssuerFingerprint,
     /// Preferred AEAD Algorithms.
     PreferredAEADAlgorithms,
-    /// Intended Recipient Fingerprint [proposed].
+    /// Intended Recipient Fingerprint (proposed).
     IntendedRecipient,
     /// Reserved subpacket tag.
     Reserved(u8),
@@ -739,7 +739,7 @@ pub enum SubpacketValue {
     IssuerFingerprint(Fingerprint),
     /// Preferred AEAD Algorithms.
     PreferredAEADAlgorithms(Vec<AEADAlgorithm>),
-    /// Intended Recipient Fingerprint [proposed].
+    /// Intended Recipient Fingerprint (proposed).
     IntendedRecipient(Fingerprint),
 
     /// This marks this enum as non-exhaustive.  Do not use this
