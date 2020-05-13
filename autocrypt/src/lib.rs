@@ -124,10 +124,11 @@ impl AutocryptHeader {
             if let RevocationStatus::Revoked(_) = skb.revocation_status() {
                 continue;
             }
-
-            let k = skb.key().clone();
-            acc.push(k.into());
-            acc.push(skb.binding_signature().clone().into());
+            if skb.for_signing() || skb.for_transport_encryption() {
+                let k = skb.key().clone();
+                acc.push(k.into());
+                acc.push(skb.binding_signature().clone().into());
+            }
         }
 
         // The UserIDs matching ADDR.
