@@ -338,7 +338,7 @@ use super::*;
 ///
 /// let mut sink = vec![];
 /// let message = Encryptor::with_passwords(
-///     Message::new(&mut sink), vec!["ściśle tajne".into()]).build()?;
+///     Message::new(&mut sink), Some("ściśle tajne")).build()?;
 /// let mut w = LiteralWriter::new(message).build()?;
 /// w.write_all(b"Hello world.")?;
 /// w.finalize()?;

@@ -2174,18 +2174,20 @@ impl<'a> Encryptor<'a> {
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
     /// let message = Encryptor::with_passwords(
-    ///     message, vec!["совершенно секретно".into()]).build()?;
+    ///     message, Some("совершенно секретно")).build()?;
     /// let mut w = LiteralWriter::new(message).build()?;
     /// w.write_all(b"Hello world.")?;
     /// w.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn with_passwords(inner: Message<'a>,
-                          passwords: Vec<Password>) -> Self {
+    pub fn with_passwords<P>(inner: Message<'a>, passwords: P) -> Self
+        where P: IntoIterator,
+              P::Item: Into<Password>,
+    {
         Self {
             inner: Some(inner.into()),
             recipients: Vec::new(),
-            passwords,
+            passwords: passwords.into_iter().map(|p| p.into()).collect(),
             sym_algo: Default::default(),
             aead_algo: Default::default(),
             hash: HashAlgorithm::SHA1.context().unwrap(),
@@ -2261,8 +2263,7 @@ impl<'a> Encryptor<'a> {
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
     /// let message =
-    ///     Encryptor::with_passwords(message,
-    ///                               vec!["совершенно секретно".into()])
+    ///     Encryptor::with_passwords(message, Some("совершенно секретно"))
     ///     .add_recipients(recipients)
     ///     .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
@@ -2382,8 +2383,7 @@ impl<'a> Encryptor<'a> {
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
     /// let message =
-    ///     Encryptor::with_passwords(message,
-    ///                               vec!["совершенно секретно".into()])
+    ///     Encryptor::with_passwords(message, Some("совершенно секретно"))
     ///         .symmetric_algo(SymmetricAlgorithm::AES128)
     ///         .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
@@ -2414,8 +2414,7 @@ impl<'a> Encryptor<'a> {
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
     /// let message =
-    ///     Encryptor::with_passwords(message,
-    ///                               vec!["совершенно секретно".into()])
+    ///     Encryptor::with_passwords(message, Some("совершенно секретно"))
     ///         .aead_algo(AEADAlgorithm::EAX)
     ///         .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
@@ -2458,8 +2457,7 @@ impl<'a> Encryptor<'a> {
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
     /// let message =
-    ///     Encryptor::with_passwords(message,
-    ///                               vec!["совершенно секретно".into()])
+    ///     Encryptor::with_passwords(message, Some("совершенно секретно"))
     ///         // Customize the `Encryptor` here.
     ///         .build()?;
     ///
