@@ -2433,7 +2433,7 @@ impl IntoIterator for Cert
 /// #     .add_userid("Alice")
 /// #     .add_signing_subkey()
 /// #     .add_transport_encryption_subkey()
-/// #     .generate().unwrap();
+/// #     .generate()?;
 /// let vc = cert.with_policy(p, None)?;
 /// # assert!(std::ptr::eq(vc.policy(), p));
 /// # Ok(()) }
@@ -2477,7 +2477,7 @@ impl<'a> ValidCert<'a> {
     /// #     .add_userid("Alice")
     /// #     .add_signing_subkey()
     /// #     .add_transport_encryption_subkey()
-    /// #     .generate().unwrap();
+    /// #     .generate()?;
     /// let vc = cert.with_policy(p, None)?;
     /// assert!(std::ptr::eq(vc.cert(), &cert));
     /// # assert!(std::ptr::eq(vc.policy(), p));
@@ -2598,7 +2598,7 @@ impl<'a> ValidCert<'a> {
     /// #     .add_userid("Alice")
     /// #     .add_signing_subkey()
     /// #     .add_transport_encryption_subkey()
-    /// #     .generate().unwrap();
+    /// #     .generate()?;
     /// let vc = cert.with_policy(p, None)?;
     /// println!("{:?}", vc.direct_key_signature());
     /// # assert!(vc.direct_key_signature().is_ok());
@@ -2693,7 +2693,7 @@ impl<'a> ValidCert<'a> {
     /// let (cert, _) = CertBuilder::new()
     ///     .add_userid("Alice")
     ///     .set_expiration_time(expiration_time)
-    ///     .generate().unwrap();
+    ///     .generate()?;
     ///
     /// // There is no binding signature before the certificate was created.
     /// assert!(cert.with_policy(p, before_creation).is_err());
@@ -2821,7 +2821,7 @@ impl<'a> ValidCert<'a> {
     /// let (cert, _) = CertBuilder::new()
     ///     .set_creation_time(t1)
     ///     .add_userid("Alice")
-    ///     .generate().unwrap();
+    ///     .generate()?;
     /// let mut signer = cert
     ///     .primary_key().key().clone().parts_into_secret()?.into_keypair()?;
     ///
