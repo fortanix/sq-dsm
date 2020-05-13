@@ -451,6 +451,18 @@ impl<'a> From<PacketParserResult<'a>> for CertParser<'a>
     }
 }
 
+impl<'a> From<Vec<Result<Packet>>> for CertParser<'a> {
+    fn from(p: Vec<Result<Packet>>) -> CertParser<'a> {
+        CertParser::from_iter(p)
+    }
+}
+
+impl<'a> From<Vec<Packet>> for CertParser<'a> {
+    fn from(p: Vec<Packet>) -> CertParser<'a> {
+        CertParser::from_iter(p)
+    }
+}
+
 impl<'a> Parse<'a, CertParser<'a>> for CertParser<'a>
 {
     /// Initializes a `CertParser` from a `Read`er.
