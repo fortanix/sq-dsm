@@ -44,7 +44,7 @@ fn main() {
             cert.keys()
                 .with_policy(p, None).alive().revoked(false).key_flags(&mode)
         })
-        .map(|ka| ka.key().into())
+        .map(|ka| ka.key())
         .collect::<Vec<_>>();
 
     // Compose a writer stack corresponding to the output format and

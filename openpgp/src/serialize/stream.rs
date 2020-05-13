@@ -103,8 +103,8 @@
 //!     recipient.keys().with_policy(p, None).alive().revoked(false)
 //!     // Or `for_storage_encryption()`, for data at rest.
 //!     .for_transport_encryption()
-//!     .map(|ka| ka.key().into())
-//!     .collect();
+//!     .map(|ka| ka.key())
+//!     .collect::<Vec<_>>();
 //!
 //! # let mut sink = vec![];
 //! let message = Message::new(&mut sink);
@@ -1863,8 +1863,8 @@ impl<'a> Recipient<'a> {
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key().into())
-    ///     .collect();
+    ///     .map(|ka| ka.key())
+    ///     .collect::<Vec<_>>();
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -2018,7 +2018,7 @@ impl<'a> Recipient<'a> {
     ///         r.set_keyid(KeyID::wildcard());
     ///         r
     ///     })
-    ///     .collect();
+    ///     .collect::<Vec<_>>();
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -2122,8 +2122,8 @@ impl<'a> Encryptor<'a> {
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key().into())
-    ///     .collect();
+    ///     .map(|ka| ka.key())
+    ///     .collect::<Vec<_>>();
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -2133,11 +2133,13 @@ impl<'a> Encryptor<'a> {
     /// w.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn for_recipients(inner: Message<'a>,
-                          recipients: Vec<Recipient<'a>>) -> Self {
-        Self {
+    pub fn for_recipients<R>(inner: Message<'a>, recipients: R) -> Self
+        where R: IntoIterator,
+              R::Item: Into<Recipient<'a>>,
+    {
+            Self {
             inner: Some(inner.into()),
-            recipients,
+            recipients: recipients.into_iter().map(|r| r.into()).collect(),
             passwords: Vec::new(),
             sym_algo: Default::default(),
             aead_algo: Default::default(),
@@ -2340,8 +2342,8 @@ impl<'a> Encryptor<'a> {
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key().into())
-    ///     .collect();
+    ///     .map(|ka| ka.key())
+    ///     .collect::<Vec<_>>();
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -3082,7 +3084,7 @@ mod test {
                     let recipients = tsk
                         .keys().with_policy(p, None)
                         .for_storage_encryption().for_transport_encryption()
-                        .map(|ka| ka.key().into()).collect();
+                        .map(|ka| ka.key()).collect::<Vec<_>>();
                     let encryptor = Encryptor::for_recipients(m, recipients)
                         .aead_algo(AEADAlgorithm::EAX)
                         .build().unwrap();

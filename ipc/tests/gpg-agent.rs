@@ -213,8 +213,8 @@ fn decrypt() -> openpgp::Result<()> {
             let recipients =
                 cert.keys().with_policy(p, None).alive().revoked(false)
                 .for_transport_encryption()
-                .map(|ka| ka.key().into())
-                .collect();
+                .map(|ka| ka.key())
+                .collect::<Vec<_>>();
 
             // Start streaming an OpenPGP message.
             let message = Message::new(&mut message);

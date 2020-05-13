@@ -51,7 +51,7 @@ fn encrypt(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str,
     let recipients =
         recipient.keys().with_policy(p, None).alive().revoked(false)
         .for_transport_encryption()
-        .map(|ka| ka.key().into())
+        .map(|ka| ka.key())
         .collect::<Vec<_>>();
 
     // Start streaming an OpenPGP message.
