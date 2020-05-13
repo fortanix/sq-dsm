@@ -329,11 +329,14 @@ impl CertBuilder {
         let mut cert = Cert::try_from(packets)?;
 
         // Sign UserIDs.
-        for uid in self.userids.into_iter() {
-            let builder = sig.clone()
+        for (i, uid) in self.userids.into_iter().enumerate() {
+            let mut builder = sig.clone()
                 .set_type(SignatureType::PositiveCertification)
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512);
+            if i == 0 {
+                builder = builder.set_primary_userid(true)?;
+            }
             let signature = uid.bind(&mut signer, &cert, builder)?;
             cert = cert.merge_packets(
                 vec![Packet::from(uid), signature.into()])?;
