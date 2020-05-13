@@ -302,13 +302,11 @@ fn real_main() -> Result<()> {
             // Encrypt the message.
             let mut encryptor =
                 Encryptor::for_recipients(message, recipients)
+                .add_passwords(passwords)
                 .symmetric_algo(
                     symmetric_algos.get(0).cloned().unwrap_or_default());
             if let Some(&a) = aead_algos.get(0) {
                 encryptor = encryptor.aead_algo(a);
-            }
-            for p in passwords {
-                encryptor = encryptor.add_password(p);
             }
             let message = encryptor.build()
                 .context("Failed to create encryptor")?;

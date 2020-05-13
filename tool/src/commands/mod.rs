@@ -120,11 +120,9 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
     }
 
     // We want to encrypt a literal data packet.
-    let mut encryptor =
-        Encryptor::for_recipients(message, recipient_subkeys);
-    for p in passwords {
-        encryptor = encryptor.add_password(p);
-    }
+    let encryptor =
+        Encryptor::for_recipients(message, recipient_subkeys)
+        .add_passwords(passwords);
 
     let mut sink = encryptor.build()
         .context("Failed to create encryptor")?;

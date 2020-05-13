@@ -366,7 +366,7 @@ pub extern "C" fn pgp_encryptor_new<'a>
         };
         for password in passwords {
             passwords_.push(ffi_param_cstr!(*password)
-                            .to_bytes().to_owned().into());
+                            .to_bytes().to_owned());
         }
     }
     let mut recipients_ = Vec::new();
@@ -394,10 +394,8 @@ pub extern "C" fn pgp_encryptor_new<'a>
             "Neither recipient nor password given")));
     }
 
-    let mut encryptor = Encryptor::for_recipients(*inner, recipients_);
-    for p in passwords_ {
-        encryptor = encryptor.add_password(p);
-    }
+    let mut encryptor = Encryptor::for_recipients(*inner, recipients_)
+        .add_passwords(passwords_);
     if let Some(algo) = cipher_algo {
         encryptor = encryptor.symmetric_algo(algo);
     }

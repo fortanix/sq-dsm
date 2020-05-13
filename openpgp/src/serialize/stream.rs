@@ -2343,15 +2343,20 @@ impl<'a> Encryptor<'a> {
     /// let message = Message::new(&mut sink);
     /// let message =
     ///     Encryptor::for_recipients(message, recipients)
-    ///         .add_password("совершенно секретно".into())
+    ///         .add_passwords(Some("совершенно секретно"))
     ///         .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
     /// message.write_all(b"Hello world.")?;
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn add_password(mut self, password: Password) -> Self {
-        self.passwords.push(password);
+    pub fn add_passwords<P>(mut self, passwords: P) -> Self
+        where P: IntoIterator,
+              P::Item: Into<Password>,
+    {
+        for p in passwords {
+            self.passwords.push(p.into());
+        }
         self
     }
 
