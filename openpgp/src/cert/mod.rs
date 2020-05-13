@@ -2829,42 +2829,39 @@ impl<'a> ValidCert<'a> {
     /// let vc = cert.with_policy(p, t1)?;
     /// let alice = vc.primary_userid().unwrap();
     /// assert_eq!(alice.value(), b"Alice");
-    /// // By default, the primary User ID flag is not set.
-    /// assert!(alice.binding_signature().primary_userid().is_none());
+    /// // By default, the primary User ID flag is set.
+    /// assert!(alice.binding_signature().primary_userid().is_some());
     ///
     /// let template: signature::SignatureBuilder
     ///     = alice.binding_signature().clone().into();
     ///
-    ///
     /// // Add another user id whose creation time is after the
-    /// // existing User ID.
+    /// // existing User ID, and doesn't have the User ID set.
     /// let sig = template.clone()
-    ///     .set_signature_creation_time(t2)?;
+    ///     .set_signature_creation_time(t2)?
+    ///     .set_primary_userid(false)?;
     /// let bob: UserID = "Bob".into();
     /// let sig = bob.bind(&mut signer, &cert, sig)?;
     /// let cert = cert.merge_packets(vec![ Packet::from(bob), sig.into() ])?;
     /// # assert_eq!(cert.userids().count(), 2);
     ///
-    /// // It should now be the primary User ID, because it is newer.
-    /// let bob = cert.with_policy(p, t2)?.primary_userid().unwrap();
-    /// assert_eq!(bob.value(), b"Bob");
-    /// // But, not before it was created!.
-    /// let alice = cert.with_policy(p, t1)?.primary_userid().unwrap();
+    /// // Alice should still be the primary User ID, because it has the
+    /// // primary User ID flag set.
+    /// let alice = cert.with_policy(p, t2)?.primary_userid().unwrap();
     /// assert_eq!(alice.value(), b"Alice");
     ///
     ///
     /// // Add another User ID, whose binding signature's creation
-    /// // time is prior to Bob's, but mark it as the primary User ID.
+    /// // time is after Alice's and also has the primary User ID flag set.
     /// let sig = template.clone()
-    ///    .set_signature_creation_time(t1)?
-    ///    .set_primary_userid(true)?;
+    ///    .set_signature_creation_time(t2)?;
     /// let carol: UserID = "Carol".into();
     /// let sig = carol.bind(&mut signer, &cert, sig)?;
     /// let cert = cert.merge_packets(vec![ Packet::from(carol), sig.into() ])?;
     /// # assert_eq!(cert.userids().count(), 3);
     ///
-    /// // It should now be the primary User ID, because the primary User ID
-    /// // bit is set.
+    /// // It should now be the primary User ID, because it is the
+    /// // newest User ID with the primary User ID bit is set.
     /// let carol = cert.with_policy(p, t2)?.primary_userid().unwrap();
     /// assert_eq!(carol.value(), b"Carol");
     /// # Ok(()) }
