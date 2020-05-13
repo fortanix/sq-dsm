@@ -356,41 +356,160 @@ impl CertValidator {
     }
 }
 
-/// An iterator over a sequence of Certs (e.g., an OpenPGP keyring).
+/// An iterator over a sequence of certificates, i.e., an OpenPGP keyring.
 ///
-/// The source of packets can either be a `PacketParser` or an
-/// iterator over `Packet`s.  (In the latter case, the underlying
-/// parser is not able to propagate errors.  Thus, this is only
-/// appropriate for in-memory structures, like a vector of `Packet`s
-/// or a `PacketPile`.)
+/// The source of packets is a fallible iterator over [`Packet`]s.  In
+/// this way, it is possible to propagate parse errors.
+///
+/// A `CertParser` returns each [`TPK`] or [`TSK`] that it encounters.
+/// Its behavior can be modeled using a simple state machine.
+///
+/// In the first and initial state, it looks for the start of a
+/// certificate, a [`Public Key`] packet or a [`Secret Key`] packet.
+/// When it encounters such a packet it buffers it, and transitions to
+/// the second state.  Any other packet or an error causes it to emit
+/// an error and stay in the same state.  When the source of packets
+/// is exhausted, it enters the `End` state.
+///
+/// In the second state, it looks for packets that belong to a
+/// certificate's body.  If it encounters a valid body packet, then it
+/// buffers it and stays in the same state.  If it encounters the
+/// start of a certificate, then it emits the buffered certificate,
+/// buffers the packet, and stays in the same state.  If it encounters
+/// an invalid packet (e.g., a [`Literal Data`] packet), it emits two
+/// items, the buffered certificate, and an error, and then it
+/// transitions back to the initial state.  When the source of packets
+/// is exhausted, it emits the buffered certificate and enters the end
+/// state.
+///
+/// In the end state, it emits `None`.
+///
+/// ```text
+///                       Invalid Packet / Error
+///                     ,------------------------.
+///                     v                        |
+///    Not a      +---------+                +---------+
+///    Start  .-> | Looking | -------------> | Looking | <-. Cert
+///  of Cert  |   |   for   |     Start      |   for   |   | Body
+///   Packet  |   |  Start  |    of Cert     |  Cert   |   | Packet
+///  / Error  `-- | of Cert |     Packet     |  Body   | --'
+///               +---------+            .-> +---------+
+///                    |                 |      |  |
+///                    |                 `------'  |
+///                    |    Start of Cert Packet   |
+///                    |                           |
+///                EOF |         +-----+           | EOF
+///                     `------> | End | <---------'
+///                              +-----+
+///                               |  ^
+///                               `--'
+/// ```
+///
+/// The parser does not recurse into containers, thus when it
+/// encounters a container like a [`Compressed Data`] Packet, it will
+/// return an error even if the container contains a valid
+/// certificate.
+///
+/// The parser considers unknown packets to be valid body packets.
+/// (In a [`Cert`], these show up as [`Unknown`] components.)  The
+/// goal is to provide some future compatibility.
+///
+/// [`Packet`]: ../packet/enum.Packet.html
+/// [`TPK`]: https://tools.ietf.org/html/rfc4880#section-11.1
+/// [`TSK`]: https://tools.ietf.org/html/rfc4880#section-11.2
+/// [`Public Key`]: ../enum.Packet.html#variant.PublicKey
+/// [`Secret Key`]: ../enum.Packet.html#variant.SecretKey
+/// [`Literal Data`]: ../enum.Packet.html#variant.Literal
+/// [`Compressed Data`]: ../enum.Packet.html#variant.CompressedData
+/// [`Cert`]: ../struct.Cert.html
+/// [`Unknown`]: ../enum.Packet.html#variant.Unknown
 ///
 /// # Example
 ///
+/// Print information about all certificates in a keyring:
+///
 /// ```rust
-/// # extern crate sequoia_openpgp as openpgp;
+/// use sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+/// use openpgp::parse::Parse;
+/// use openpgp::parse::PacketParser;
+/// # use openpgp::serialize::Serialize;
 /// use openpgp::cert::prelude::*;
 ///
 /// # fn main() { f().unwrap(); }
 /// # fn f() -> Result<()> {
-/// #     let ppr = PacketParser::from_bytes(b"")?;
+/// # let (alice, _) =
+/// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
+/// #       .generate()?;
+/// # let (bob, _) =
+/// #       CertBuilder::general_purpose(None, Some("bob@example.org"))
+/// #       .generate()?;
+/// #
+/// # let mut keyring = Vec::new();
+/// # alice.serialize(&mut keyring)?;
+/// # bob.serialize(&mut keyring)?;
+/// #
+/// # let mut count = 0;
+/// let ppr = PacketParser::from_bytes(&keyring)?;
 /// for certo in CertParser::from(ppr) {
 ///     match certo {
 ///         Ok(cert) => {
 ///             println!("Key: {}", cert.fingerprint());
-///             for ca in cert.userids() {
-///                 println!("User ID: {}", ca.userid());
+///             for ua in cert.userids() {
+///                 println!("  User ID: {}", ua.userid());
 ///             }
+/// #           count += 1;
 ///         }
 ///         Err(err) => {
 ///             eprintln!("Error reading keyring: {}", err);
+/// #           unreachable!();
 ///         }
 ///     }
 /// }
+/// # assert_eq!(count, 2);
 /// #     Ok(())
 /// # }
 /// ```
+///
+/// When an invalid packet is encountered, an error is returned and
+/// parsing continues:
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// # use openpgp::serialize::Serialize;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+/// use openpgp::types::DataFormat;
+///
+/// # fn main() { f().unwrap(); }
+/// # fn f() -> Result<()> {
+/// let mut lit = Literal::new(DataFormat::Text);
+/// lit.set_body(b"test".to_vec());
+///
+/// let (alice, _) =
+///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+///       .generate()?;
+/// let (bob, _) =
+///       CertBuilder::general_purpose(None, Some("bob@example.org"))
+///       .generate()?;
+///
+/// let mut packets : Vec<Packet> = Vec::new();
+/// packets.extend(alice.clone());
+/// packets.push(lit.clone().into());
+/// packets.push(lit.clone().into());
+/// packets.extend(bob.clone());
+///
+/// let r : Vec<Result<Cert>> = CertParser::from(packets).collect();
+/// assert_eq!(r.len(), 4);
+/// assert_eq!(r[0].as_ref().unwrap().fingerprint(), alice.fingerprint());
+/// assert!(r[1].is_err());
+/// assert!(r[2].is_err());
+/// assert_eq!(r[3].as_ref().unwrap().fingerprint(), bob.fingerprint());
+/// #     Ok(())
+/// # }
+/// ```
+
 pub struct CertParser<'a> {
     source: Option<Box<dyn Iterator<Item=Result<Packet>> + 'a>>,
     packets: Vec<Packet>,
@@ -483,6 +602,59 @@ impl<'a> Parse<'a, CertParser<'a>> for CertParser<'a>
 
 impl<'a> CertParser<'a> {
     /// Creates a `CertParser` from a `Result<Packet>` iterator.
+    ///
+    /// Note: because we implement `From<Packet>` for
+    /// `Result<Packet>`, it is possible to pass in an iterator over
+    /// `Packet`s.
+    ///
+    /// # Examples
+    ///
+    /// From a `Vec<Packet>`:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// # use openpgp::PacketPile;
+    /// # use openpgp::parse::Parse;
+    /// # use openpgp::serialize::Serialize;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// # let (alice, _) =
+    /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #       .generate()?;
+    /// # let (bob, _) =
+    /// #       CertBuilder::general_purpose(None, Some("bob@example.org"))
+    /// #       .generate()?;
+    /// #
+    /// # let mut keyring = Vec::new();
+    /// # alice.serialize(&mut keyring)?;
+    /// # bob.serialize(&mut keyring)?;
+    /// #
+    /// # let mut count = 0;
+    /// # let pp = PacketPile::from_bytes(&keyring)?;
+    /// # let packets : Vec<Packet> = pp.into();
+    /// for certo in CertParser::from_iter(packets) {
+    ///     match certo {
+    ///         Ok(cert) => {
+    ///             println!("Key: {}", cert.fingerprint());
+    ///             for ua in cert.userids() {
+    ///                 println!("  User ID: {}", ua.userid());
+    ///             }
+    /// #           count += 1;
+    ///         }
+    ///         Err(err) => {
+    ///             eprintln!("Error reading keyring: {}", err);
+    /// #           unreachable!();
+    ///         }
+    ///     }
+    /// }
+    /// # assert_eq!(count, 2);
+    /// #     Ok(())
+    /// # }
+    /// ```
     pub fn from_iter<I, J>(iter: I) -> Self
         where I: 'a + IntoIterator<Item=J>,
               J: 'a + Into<Result<Packet>>
@@ -494,44 +666,46 @@ impl<'a> CertParser<'a> {
 
     /// Filters the Certs prior to validation.
     ///
-    /// By default, the `CertParser` only returns valdiated `Cert`s.
-    /// Checking that a `Cert`'s self-signatures are valid, however, is
-    /// computationally expensive, and not always necessary.  For
-    /// example, when looking for a small number of `Cert`s in a large
-    /// keyring, most `Cert`s can be immediately discarded.  That is,
-    /// it is more efficient to filter, validate, and double check,
-    /// than to validate and filter.  (It is necessary to double
-    /// check, because the check might have been on an invalid part.
-    /// For example, if searching for a key with a particular key ID,
-    /// a matching subkey might not have any self signatures.)
+    /// By default, the `CertParser` only returns valdiated [`Cert`]s.
+    /// Checking that a certificate's self-signatures are valid,
+    /// however, is computationally expensive, and not always
+    /// necessary.  For example, when looking for a small number of
+    /// certificates in a large keyring, most certificates can be
+    /// immediately discarded.  That is, it is more efficient to
+    /// filter, validate, and double check, than to validate and
+    /// filter.  (It is necessary to double check, because the check
+    /// might have been on an invalid part.  For example, if searching
+    /// for a key with a particular Key ID, a matching key might not
+    /// have any self signatures.)
     ///
     /// If the `CertParser` gave out unvalidated `Cert`s, and provided
     /// an interface to validate them, then the caller could implement
-    /// this first-validate-double-check pattern.  Giving out
-    /// unvalidated `Cert`s, however, is too dangerous: inevitably, a
+    /// this check-validate-double-check pattern.  Giving out
+    /// unvalidated `Cert`s, however, is dangerous: inevitably, a
     /// `Cert` will be used without having been validated in a context
     /// where it should have been.
     ///
     /// This function avoids this class of bugs while still providing
     /// a mechanism to filter `Cert`s prior to validation: the caller
-    /// provides a callback, that is invoked on the *unvalidated*
+    /// provides a callback that is invoked on the *unvalidated*
     /// `Cert`.  If the callback returns `true`, then the parser
     /// validates the `Cert`, and invokes the callback *a second time*
     /// to make sure the `Cert` is really wanted.  If the callback
     /// returns false, then the `Cert` is skipped.
     ///
     /// Note: calling this function multiple times on a single
-    /// `CertParser` will install multiple filters.
+    /// `CertParser` will not replace the existing filter, but install
+    /// multiple filters.
     ///
-    /// # Example
+    /// [`Cert`]: ../struct.Cert.html
+    ///
+    /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::parse::{Parse, PacketParser};
     /// use openpgp::cert::prelude::*;
-    /// use openpgp::Cert;
-    /// use openpgp::KeyID;
     ///
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
@@ -615,6 +789,8 @@ impl<'a> CertParser<'a> {
 
     // Finalizes the current Cert and returns it.  Sets the parser up to
     // begin parsing the next Cert.
+    //
+    // `pk` is buffered for the next certificate.
     fn cert(&mut self, pk: Option<Packet>) -> Result<Option<Cert>> {
         tracer!(TRACE, "CertParser::cert", 0);
         let orig = self.reset();
