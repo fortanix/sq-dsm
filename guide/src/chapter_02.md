@@ -55,12 +55,10 @@ fn main() {
 # fn encrypt(policy: &dyn Policy,
 #            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
-#    // Build a vector of recipients to hand to Encryptor.
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
-#        .map(|ka| ka.key())
-#        .collect::<Vec<_>>();
+#        .map(|ka| ka.key());
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -203,12 +201,10 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 # fn encrypt(policy: &dyn Policy,
 #            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
-#    // Build a vector of recipients to hand to Encryptor.
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
-#        .map(|ka| ka.key())
-#        .collect::<Vec<_>>();
+#        .map(|ka| ka.key());
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);
@@ -351,12 +347,10 @@ implements [`io::Write`], and we simply write the plaintext to it.
 fn encrypt(policy: &dyn Policy,
            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
-    // Build a vector of recipients to hand to Encryptor.
     let recipients =
         recipient.keys().with_policy(policy, None).alive().revoked(false)
         .for_transport_encryption()
-        .map(|ka| ka.key())
-        .collect::<Vec<_>>();
+        .map(|ka| ka.key());
 
     // Start streaming an OpenPGP message.
     let message = Message::new(sink);
@@ -513,12 +507,10 @@ Decrypted data can be read from this using [`io::Read`].
 # fn encrypt(policy: &dyn Policy,
 #            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
-#    // Build a vector of recipients to hand to Encryptor.
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption()
-#        .map(|ka| ka.key())
-#        .collect::<Vec<_>>();
+#        .map(|ka| ka.key());
 #
 #     // Start streaming an OpenPGP message.
 #     let message = Message::new(sink);

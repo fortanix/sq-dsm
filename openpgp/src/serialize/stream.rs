@@ -97,14 +97,12 @@
 //!
 //! let recipient: Cert = // ...
 //! #     sender.clone();
-//! // Build a vector of recipients to hand to the `Encryptor`.
 //! // Note: One certificate may contain several suitable encryption keys.
 //! let recipients =
 //!     recipient.keys().with_policy(p, None).alive().revoked(false)
 //!     // Or `for_storage_encryption()`, for data at rest.
 //!     .for_transport_encryption()
-//!     .map(|ka| ka.key())
-//!     .collect::<Vec<_>>();
+//!     .map(|ka| ka.key());
 //!
 //! # let mut sink = vec![];
 //! let message = Message::new(&mut sink);
@@ -1858,13 +1856,11 @@ impl<'a> Recipient<'a> {
     /// #    */
     /// )?;
     ///
-    /// // Build a vector of recipients to hand to the `Encryptor`.
     /// let recipients =
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key())
-    ///     .collect::<Vec<_>>();
+    ///     .map(|ka| ka.key());
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -1935,7 +1931,6 @@ impl<'a> Recipient<'a> {
     /// #    */
     /// )?;
     ///
-    /// // Build a vector of recipients to hand to the `Encryptor`.
     /// let recipients =
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
@@ -2007,7 +2002,6 @@ impl<'a> Recipient<'a> {
     /// #    */
     /// )?;
     ///
-    /// // Build a vector of recipients to hand to the `Encryptor`.
     /// let recipients =
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
@@ -2017,8 +2011,7 @@ impl<'a> Recipient<'a> {
     ///         // Set the recipient keyid to the wildcard id.
     ///         r.set_keyid(KeyID::wildcard());
     ///         r
-    ///     })
-    ///     .collect::<Vec<_>>();
+    ///     });
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -2117,13 +2110,11 @@ impl<'a> Encryptor<'a> {
     /// #    */
     /// )?;
     ///
-    /// // Build a vector of recipients to hand to the `Encryptor`.
     /// let recipients =
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key())
-    ///     .collect::<Vec<_>>();
+    ///     .map(|ka| ka.key());
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -2252,13 +2243,11 @@ impl<'a> Encryptor<'a> {
     /// #    */
     /// )?;
     ///
-    /// // Build a vector of recipients to hand to the `Encryptor`.
     /// let recipients =
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key())
-    ///     .collect::<Vec<_>>();
+    ///     .map(|ka| ka.key());
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -2338,13 +2327,11 @@ impl<'a> Encryptor<'a> {
     /// #    */
     /// )?;
     ///
-    /// // Build a vector of recipients to hand to the `Encryptor`.
     /// let recipients =
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key())
-    ///     .collect::<Vec<_>>();
+    ///     .map(|ka| ka.key());
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -3082,7 +3069,7 @@ mod test {
                     let recipients = tsk
                         .keys().with_policy(p, None)
                         .for_storage_encryption().for_transport_encryption()
-                        .map(|ka| ka.key()).collect::<Vec<_>>();
+                        .map(|ka| ka.key());
                     let encryptor = Encryptor::for_recipients(m, recipients)
                         .aead_algo(AEADAlgorithm::EAX)
                         .build().unwrap();
