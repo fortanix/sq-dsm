@@ -136,10 +136,7 @@ use crate::{
     crypto::SessionKey,
     packet::prelude::*,
     packet::signature,
-    packet::key::{
-        PublicParts,
-        UnspecifiedRole,
-    },
+    packet::key,
     cert::prelude::*,
 };
 use crate::packet::header::CTB;
@@ -1791,12 +1788,15 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 #[derive(Debug)]
 pub struct Recipient<'a> {
     keyid: KeyID,
-    key: &'a Key<PublicParts, UnspecifiedRole>,
+    key: &'a Key<key::PublicParts, key::UnspecifiedRole>,
 }
 
-impl<'a> From<&'a Key<PublicParts, UnspecifiedRole>> for Recipient<'a> {
-    fn from(key: &'a Key<PublicParts, UnspecifiedRole>) -> Self {
-        Self::new(key.keyid(), key)
+impl<'a, P, R> From<&'a Key<P, R>> for Recipient<'a>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{
+    fn from(key: &'a Key<P, R>) -> Self {
+        Self::new(key.keyid(), key.parts_as_public().role_as_unspecified())
     }
 }
 
