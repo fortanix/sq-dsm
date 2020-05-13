@@ -2253,24 +2253,28 @@ impl<'a> Encryptor<'a> {
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| ka.key().into())
+    ///     .map(|ka| ka.key())
     ///     .collect::<Vec<_>>();
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
-    /// let encryptor =
+    /// let message =
     ///     Encryptor::with_passwords(message,
-    ///                               vec!["совершенно секретно".into()]);
-    /// let message = recipients.into_iter().fold(encryptor,
-    ///                                           |e, r| e.add_recipient(r))
+    ///                               vec!["совершенно секретно".into()])
+    ///     .add_recipients(recipients)
     ///     .build()?;
     /// let mut message = LiteralWriter::new(message).build()?;
     /// message.write_all(b"Hello world.")?;
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn add_recipient(mut self, recipient: Recipient<'a>) -> Self {
-        self.recipients.push(recipient);
+    pub fn add_recipients<R>(mut self, recipients: R) -> Self
+        where R: IntoIterator,
+              R::Item: Into<Recipient<'a>>,
+    {
+        for r in recipients {
+            self.recipients.push(r.into());
+        }
         self
     }
 
