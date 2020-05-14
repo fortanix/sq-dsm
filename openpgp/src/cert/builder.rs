@@ -21,7 +21,32 @@ use crate::types::{
     RevocationKey,
 };
 
-/// Groups symmetric and asymmetric algorithms
+/// Groups symmetric and asymmetric algorithms.
+///
+/// This is used to select a suite of ciphers.
+///
+/// # Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::types::PublicKeyAlgorithm;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let (ecc, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///         .set_cipher_suite(CipherSuite::Cv25519)
+///         .generate()?;
+/// assert_eq!(ecc.primary_key().pk_algo(), PublicKeyAlgorithm::EdDSA);
+///
+/// let (rsa, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///         .set_cipher_suite(CipherSuite::RSA4k)
+///         .generate()?;
+/// assert_eq!(rsa.primary_key().pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Debug)]
 pub enum CipherSuite {
     /// EdDSA and ECDH over Curve25519 with SHA512 and AES256
@@ -106,9 +131,34 @@ pub struct KeyBlueprint {
     ciphersuite: Option<CipherSuite>,
 }
 
-/// Simplifies generation of Keys.
+/// Simplifies the generation of OpenPGP certificates.
 ///
-/// Builder to generate complex Cert hierarchies with multiple user IDs.
+/// A builder to generate complex certificate hierarchies with multiple
+/// [`UserID`s], [`UserAttribute`s], and [`Key`s].
+///
+/// This builder does not aim to be as flexible as creating
+/// certificates manually, but it should be sufficiently powerful to
+/// cover most use cases.
+///
+/// [`UserID`s]: ../packet/struct.UserID.html
+/// [`UserAttribute`s]: ../packet/user_attribute/struct.UserAttribute.html
+/// [`Key`s]: ../packet/key/enum.Key.html
+///
+/// # Examples
+///
+/// Generate a general-purpose certificate with one User ID:
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let (cert, rev) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///         .generate()?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct CertBuilder {
     creation_time: Option<std::time::SystemTime>,
@@ -122,14 +172,40 @@ pub struct CertBuilder {
 }
 
 impl CertBuilder {
-    /// Returns a new CertBuilder.
+    /// Returns a new `CertBuilder`.
     ///
-    /// The returned CertBuilder is setup to only create a
-    /// certification-capable primary key using the default cipher
-    /// suite.  You'll almost certainly want to add subkeys (using
-    /// `CertBuilder::add_signing_subkey`, or
-    /// `CertBuilder::add_transport_encryption_subkey`, for instance), and user
-    /// ids (using `CertBuilder::add_userid`).
+    /// The returned builder is configured to generate a minimal
+    /// OpenPGP certificate, a certificate with just a
+    /// certification-capable primary key.  You'll typically want to
+    /// add at least one User ID (using
+    /// [`CertBuilder::add_userid`]). and some subkeys (using
+    /// [`CertBuilder::add_signing_subkey`],
+    /// [`CertBuilder::add_transport_encryption_subkey`], etc.).
+    ///
+    /// [`CertBuilder::add_signing_subkey`]: #method.add_signing_subkey
+    /// [`CertBuilder::add_transport_encryption_subkey`]: #method.add_transport_encryption_subkey
+    /// [`CertBuilder::add_userid`]: #method.add_userid
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, rev) =
+    ///     CertBuilder::new()
+    ///         .add_userid("Alice Lovelace <alice@lovelace.name>")
+    ///         .add_signing_subkey()
+    ///         .add_transport_encryption_subkey()
+    ///         .add_storage_encryption_subkey()
+    ///         .generate()?;
+    /// # assert_eq!(cert.keys().count(), 1 + 3);
+    /// # assert_eq!(cert.userids().count(), 1);
+    /// # assert_eq!(cert.user_attributes().count(), 0);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new() -> Self {
         CertBuilder {
             creation_time: None,
@@ -147,10 +223,29 @@ impl CertBuilder {
         }
     }
 
-    /// Generates a general-purpose key.
+    /// Generates a general-purpose certificate.
     ///
-    /// The key's primary key is certification- and signature-capable.
-    /// The key has one subkey, an encryption-capable subkey.
+    /// The returned builder is set to generate a certificate with a
+    /// certification- and signature-capable primary key, and an
+    /// encryption-capable subkey.  The subkey is marked as being
+    /// appropriate for both data in transit and data at rest.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None,
+    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///         .generate()?;
+    /// # assert_eq!(cert.keys().count(), 2);
+    /// # assert_eq!(cert.userids().count(), 1);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn general_purpose<C, U>(ciphersuite: C, userids: Option<U>) -> Self
         where C: Into<Option<CipherSuite>>,
               U: Into<packet::UserID>
@@ -185,8 +280,49 @@ impl CertBuilder {
 
     /// Sets the creation time.
     ///
-    /// If `creation_time` is `None`, this causes the `Builder` to use
-    /// the time when `Builder::generate` is called.
+    /// If `creation_time` is `None`, the default, this causes the
+    /// `CertBuilder` to use that time when [`CertBuilder::generate`]
+    /// is called.
+    ///
+    /// Warning: this function takes a [`SystemTime`].  A `SystemTime`
+    /// has a higher resolution, and a larger range than an OpenPGP
+    /// [`Timestamp`].  Assuming the `creation_time` is in range, it
+    /// will automatically be truncated to the nearest time that is
+    /// representable by a `Timestamp`.  If it is not in range,
+    /// [`generate`] will return an error.
+    ///
+    /// [`CertBuilder::generate`]: #method.generate
+    /// [`SystemTime`]: https://doc.rust-lang.org/stable/std/time/struct.SystemTime.html
+    /// [`Timestamp`]: ../types/struct.Timestamp.html
+    /// [`generate`]: #method.generate
+    ///
+    /// # Examples
+    ///
+    /// Generate a backdated certificate:
+    ///
+    /// ```
+    /// use std::time::{SystemTime, Duration};
+    /// use std::convert::TryFrom;
+    ///
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::Timestamp;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let t = SystemTime::now() - Duration::from_secs(365 * 24 * 60 * 60);
+    /// // Roundtrip the time so that the assert below works.
+    /// let t = SystemTime::from(Timestamp::try_from(t)?);
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None,
+    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///         .set_creation_time(t)
+    ///         .generate()?;
+    /// assert_eq!(cert.primary_key().self_signatures()[0].signature_creation_time(),
+    ///            Some(t));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_creation_time<T>(mut self, creation_time: T) -> Self
         where T: Into<Option<std::time::SystemTime>>,
     {
@@ -194,13 +330,80 @@ impl CertBuilder {
         self
     }
 
-    /// Sets the encryption and signature algorithms for primary and all subkeys.
+    /// Sets the default asymmetric algorithms.
+    ///
+    /// This method controls the set of algorithms that is used to
+    /// generate the certificate's keys.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::PublicKeyAlgorithm;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (ecc, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .set_cipher_suite(CipherSuite::Cv25519)
+    ///         .generate()?;
+    /// assert_eq!(ecc.primary_key().pk_algo(), PublicKeyAlgorithm::EdDSA);
+    ///
+    /// let (rsa, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .set_cipher_suite(CipherSuite::RSA4k)
+    ///         .generate()?;
+    /// assert_eq!(rsa.primary_key().pk_algo(), PublicKeyAlgorithm::RSAEncryptSign);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_cipher_suite(mut self, cs: CipherSuite) -> Self {
         self.ciphersuite = cs;
         self
     }
 
-    /// Adds a new user ID. The first user ID added will be the primary user ID.
+    /// Adds a User ID.
+    ///
+    /// Adds a User ID to the certificate.  The first User ID that is
+    /// added, whether via this interface or another interface, e.g.,
+    /// [`CertBuilder::general_purpose`], will have the [primary User
+    /// ID flag] set.
+    ///
+    /// [`CertBuilder::general_purpose`]: #method.general_purpose
+    /// [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None,
+    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///         .add_userid("Alice Lovelace <alice@lovelace.name>")
+    ///         .generate()?;
+    ///
+    /// assert_eq!(cert.userids().count(), 2);
+    /// let mut userids = cert.with_policy(p, None)?.userids().collect::<Vec<_>>();
+    /// // Sort lexicographically.
+    /// userids.sort_by(|a, b| a.value().cmp(b.value()));
+    /// assert_eq!(userids[0].userid(),
+    ///            &UserID::from("Alice Lovelace <alice@example.org>"));
+    /// assert_eq!(userids[1].userid(),
+    ///            &UserID::from("Alice Lovelace <alice@lovelace.name>"));
+    ///
+    /// 
+    /// assert_eq!(userids[0].binding_signature().primary_userid().unwrap_or(false), true);
+    /// assert_eq!(userids[1].binding_signature().primary_userid().unwrap_or(false), false);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add_userid<'a, U>(mut self, uid: U) -> Self
         where U: Into<packet::UserID>
     {
@@ -208,14 +411,75 @@ impl CertBuilder {
         self
     }
 
-    /// Adds a new user attribute.
+    /// Adds a new User Attribute.
     ///
     /// Adds a User Attribute to the certificate.  If there are no
-    /// user ids, the first User attribute that is added, whether via
+    /// User IDs, the first User attribute that is added, whether via
     /// this interface or another interface, will have the [primary
     /// User ID flag] set.
     ///
     /// [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    ///
+    /// # Examples
+    ///
+    /// When there are no User IDs, the first User Attribute has the
+    /// primary User ID flag set:
+    ///
+    /// ```
+    /// # use quickcheck::{Arbitrary, StdThreadGen};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let mut gen = StdThreadGen::new(16);
+    /// # let user_attribute : UserAttribute = UserAttribute::arbitrary(&mut gen);
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::new()
+    ///         .add_user_attribute(user_attribute)
+    ///         .generate()?;
+    ///
+    /// assert_eq!(cert.userids().count(), 0);
+    /// assert_eq!(cert.user_attributes().count(), 1);
+    /// let mut uas = cert.with_policy(p, None)?.user_attributes().collect::<Vec<_>>();
+    /// assert_eq!(uas[0].binding_signature().primary_userid().unwrap_or(false), true);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Where there are User IDs, then the primary User ID flag is not
+    /// set:
+    ///
+    /// ```
+    /// # use quickcheck::{Arbitrary, StdThreadGen};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let mut gen = StdThreadGen::new(16);
+    /// # let user_attribute : UserAttribute = UserAttribute::arbitrary(&mut gen);
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::new()
+    ///         .add_userid("alice@example.org")
+    ///         .add_user_attribute(user_attribute)
+    ///         .generate()?;
+    ///
+    /// assert_eq!(cert.userids().count(), 1);
+    /// assert_eq!(cert.user_attributes().count(), 1);
+    /// let mut uas = cert.with_policy(p, None)?.user_attributes().collect::<Vec<_>>();
+    /// assert_eq!(uas[0].binding_signature().primary_userid().unwrap_or(false), false);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add_user_attribute<'a, U>(mut self, ua: U) -> Self
         where U: Into<packet::UserAttribute>
     {
@@ -223,29 +487,193 @@ impl CertBuilder {
         self
     }
 
-    /// Adds a signing capable subkey.
+    /// Adds a signing-capable subkey.
+    ///
+    /// The key uses the default cipher suite (see
+    /// [`CertBuilder::set_cipher_suite`]), and is not set to expire.
+    /// Use [`CertBuilder::add_subkey`] if you need to change these
+    /// parameters.
+    ///
+    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
+    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::new()
+    ///         .add_signing_subkey()
+    ///         .generate()?;
+    ///
+    /// assert_eq!(cert.keys().count(), 2);
+    /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
+    /// assert_eq!(ka.key_flags(),
+    ///            Some(KeyFlags::empty().set_signing(true)));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add_signing_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default().set_signing(true), None, None)
     }
 
     /// Adds a subkey suitable for transport encryption.
+    ///
+    /// The key uses the default cipher suite (see
+    /// [`CertBuilder::set_cipher_suite`]), and is not set to expire.
+    /// Use [`CertBuilder::add_subkey`] if you need to change these
+    /// parameters.
+    ///
+    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
+    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::new()
+    ///         .add_transport_encryption_subkey()
+    ///         .generate()?;
+    ///
+    /// assert_eq!(cert.keys().count(), 2);
+    /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
+    /// assert_eq!(ka.key_flags(),
+    ///            Some(KeyFlags::empty().set_transport_encryption(true)));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add_transport_encryption_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default().set_transport_encryption(true),
                         None, None)
     }
 
     /// Adds a subkey suitable for storage encryption.
+    ///
+    /// The key uses the default cipher suite (see
+    /// [`CertBuilder::set_cipher_suite`]), and is not set to expire.
+    /// Use [`CertBuilder::add_subkey`] if you need to change these
+    /// parameters.
+    ///
+    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
+    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::new()
+    ///         .add_storage_encryption_subkey()
+    ///         .generate()?;
+    ///
+    /// assert_eq!(cert.keys().count(), 2);
+    /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
+    /// assert_eq!(ka.key_flags(),
+    ///            Some(KeyFlags::empty().set_storage_encryption(true)));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add_storage_encryption_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default().set_storage_encryption(true),
                         None, None)
     }
 
-    /// Adds an certification capable subkey.
+    /// Adds an certification-capable subkey.
+    ///
+    /// The key uses the default cipher suite (see
+    /// [`CertBuilder::set_cipher_suite`]), and is not set to expire.
+    /// Use [`CertBuilder::add_subkey`] if you need to change these
+    /// parameters.
+    ///
+    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
+    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::new()
+    ///         .add_certification_subkey()
+    ///         .generate()?;
+    ///
+    /// assert_eq!(cert.keys().count(), 2);
+    /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
+    /// assert_eq!(ka.key_flags(),
+    ///            Some(KeyFlags::empty().set_certification(true)));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add_certification_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default().set_certification(true), None, None)
     }
 
-    /// Adds an authentication capable subkey.
+    /// Adds an authentication-capable subkey.
+    ///
+    /// The key uses the default cipher suite (see
+    /// [`CertBuilder::set_cipher_suite`]), and is not set to expire.
+    /// Use [`CertBuilder::add_subkey`] if you need to change these
+    /// parameters.
+    ///
+    /// [`CertBuilder::set_cipher_suite`]: #method.set_cipher_suite
+    /// [`CertBuilder::add_subkey`]: #method.add_subkey
+    ///
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::new()
+    ///         .add_authentication_subkey()
+    ///         .generate()?;
+    ///
+    /// assert_eq!(cert.keys().count(), 2);
+    /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
+    /// assert_eq!(ka.key_flags(),
+    ///            Some(KeyFlags::empty().set_authentication(true)));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add_authentication_subkey(self) -> Self {
         self.add_subkey(KeyFlags::default().set_authentication(true), None, None)
     }
@@ -254,6 +682,52 @@ impl CertBuilder {
     ///
     /// If `expiration` is `None`, the subkey uses the same expiration
     /// time as the primary key.
+    ///
+    /// Likewise, if `cs` is `None`, the same cipher suite is used as
+    /// for the primary key.
+    ///
+    /// # Examples
+    ///
+    /// Generates a certificate with an encryption subkey that is for
+    /// protecting *both* data in transit and data at rest, and
+    /// expires at a different time from the primary key:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let now = std::time::SystemTime::now();
+    /// let y = std::time::Duration::new(365 * 24 * 60 * 60, 0);
+    ///
+    /// // Make the certificate expire in 2 years, and the subkey
+    /// // expire in a year.
+    /// let (cert,_) = CertBuilder::new()
+    ///     .set_creation_time(now)
+    ///     .set_expiration_time(now + 2 * y)
+    ///     .add_subkey(KeyFlags::empty()
+    ///                     .set_storage_encryption(true)
+    ///                     .set_transport_encryption(true),
+    ///                 now + y,
+    ///                 None)
+    ///     .generate()?;
+    ///
+    /// assert_eq!(cert.with_policy(p, now)?.keys().alive().count(), 2);
+    /// assert_eq!(cert.with_policy(p, now + y)?.keys().alive().count(), 1);
+    /// assert_eq!(cert.with_policy(p, now + 2 * y)?.keys().alive().count(), 0);
+    ///
+    /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
+    /// assert_eq!(ka.key_flags(),
+    ///            Some(KeyFlags::empty()
+    ///                     .set_storage_encryption(true)
+    ///                     .set_transport_encryption(true)));
+    /// # Ok(()) }
+    /// ```
     pub fn add_subkey<T, C>(mut self, flags: KeyFlags, expiration: T, cs: C)
         -> Self
         where T: Into<Option<time::SystemTime>>,
@@ -267,22 +741,101 @@ impl CertBuilder {
         self
     }
 
-    /// Sets the capabilities of the primary key. The function automatically
-    /// makes the primary key certification capable if subkeys are added.
+    /// Sets the primary key's key flags.
+    ///
+    /// By default, the primary key is set to only be certification
+    /// capable.  This allows the caller to set additional flags.
+    ///
+    /// # Examples
+    ///
+    /// Make the primary key certification and signing capable:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None,
+    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///         .set_primary_key_flags(KeyFlags::empty().set_signing(true))
+    ///         .generate()?;
+    ///
+    /// // Observe that the primary key's certification capability is
+    /// // set implicitly.
+    /// assert_eq!(cert.with_policy(p, None)?.primary_key().key_flags(),
+    ///            Some(KeyFlags::empty().set_signing(true).set_certification(true)));
+    /// # Ok(()) }
+    /// ```
     pub fn set_primary_key_flags(mut self, flags: KeyFlags) -> Self {
         self.primary.flags = flags;
         self
     }
 
     /// Sets a password to encrypt the secret keys with.
+    ///
+    /// The password is used to encrypt all secret key material.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// // Make the certificate expire in 10 minutes.
+    /// let (cert, rev) =
+    ///     CertBuilder::general_purpose(None,
+    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///         .set_password(Some("1234".into()))
+    ///         .generate()?;
+    ///
+    /// for ka in cert.keys() {
+    ///     assert!(ka.has_secret());
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn set_password(mut self, password: Option<Password>) -> Self {
         self.password = password;
         self
     }
 
-    /// Sets the expiration time.
+    /// Sets the certificate's expiration time.
     ///
     /// A value of None means never.
+    //
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::RevocationKey;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let now = std::time::SystemTime::now();
+    /// let s = std::time::Duration::new(1, 0);
+    ///
+    /// // Make the certificate expire in 10 minutes.
+    /// let (cert,_) = CertBuilder::new()
+    ///     .set_creation_time(now)
+    ///     .set_expiration_time(now + 600 * s)
+    ///     .generate()?;
+    ///
+    /// assert!(cert.with_policy(p, now)?.primary_key().alive().is_ok());
+    /// assert!(cert.with_policy(p, now + 599 * s)?.primary_key().alive().is_ok());
+    /// assert!(cert.with_policy(p, now + 600 * s)?.primary_key().alive().is_err());
+    /// # Ok(()) }
+    /// ```
     pub fn set_expiration_time<T>(mut self, expiration: T) -> Self
         where T: Into<Option<time::SystemTime>>
     {
@@ -291,12 +844,64 @@ impl CertBuilder {
     }
 
     /// Sets designated revokers.
-    pub fn set_revocation_keys(mut self, revocation_keys: Vec<RevocationKey>) -> Self {
+    ///
+    /// Adds designated revokers to the primary key.  This allows the
+    /// designated revoker to issue revocation certificates on behalf
+    /// of the primary key.
+    ///
+    /// # Examples
+    ///
+    /// Make Alice a designated revoker for Bob:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::RevocationKey;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    /// let (bob, _) =
+    ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///         .set_revocation_keys(vec![ (&alice).into() ])
+    ///         .generate()?;
+    ///
+    /// // Make sure Alice is listed as a designated revoker for Bob.
+    /// assert_eq!(bob.revocation_keys(p).collect::<Vec<&RevocationKey>>(),
+    ///            vec![ &(&alice).into() ]);
+    /// # Ok(()) }
+    /// ```
+    pub fn set_revocation_keys(mut self, revocation_keys: Vec<RevocationKey>)
+        -> Self
+    {
         self.revocation_keys = Some(revocation_keys);
         self
     }
 
-    /// Generates the actual Cert.
+    /// Generates a certificate.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::RevocationKey;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    /// # Ok(()) }
+    /// ```
     pub fn generate(mut self) -> Result<(Cert, Signature)> {
         use crate::Packet;
         use crate::types::ReasonForRevocation;
