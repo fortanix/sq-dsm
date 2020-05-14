@@ -1773,9 +1773,15 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 /// A recipient of an encrypted message.
 ///
 /// OpenPGP messages are encrypted with the subkeys of recipients,
-/// identified by the keyid of said subkeys.  The keyid may be a
-/// wildcard (as returned by [`KeyID::wildcard()`]) to obscure the
-/// identity of the recipient.
+/// identified by the keyid of said subkeys in the [`recipient`] field
+/// of [`PKESK`] packets (see [Section 5.1 of RFC 4880]).  The keyid
+/// may be a wildcard (as returned by [`KeyID::wildcard()`]) to
+/// obscure the identity of the recipient.
+///
+///   [`recipient`]: ../../packet/enum.PKESK.html#method.recipient
+///   [`PKESK`]: ../../packet/enum.PKESK.html
+///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
+///   [`KeyID::wildcard()`]: ../../../struct.KeyID.html#method.wildcard
 ///
 /// Note that several subkeys in a certificate may be suitable
 /// encryption subkeys.  OpenPGP does not specify what should happen
@@ -1783,8 +1789,6 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
 /// encryption subkey, while others use all of them.  This crate does
 /// not dictate a policy, but allows for arbitrary policies.  We do,
 /// however, suggest to encrypt to all suitable subkeys.
-///
-///   [`KeyID::wildcard()`]: ../../../struct.KeyID.html#method.wildcard
 #[derive(Debug)]
 pub struct Recipient<'a> {
     keyid: KeyID,
@@ -1815,8 +1819,12 @@ impl<'a> Recipient<'a> {
     /// Creates a new recipient with an explicit recipient keyid.
     ///
     /// Note: If you don't want to change the recipient keyid,
-    /// `Recipient`s can be created from `Key` and
-    /// `ValidKeyAmalgamation` using `From`.
+    /// `Recipient`s can be created from [`Key`] and
+    /// [`ValidKeyAmalgamation`] using [`From`].
+    ///
+    ///   [`Key`]: ../../packet/enum.Key.html
+    ///   [`ValidKeyAmalgamation`]: ../../cert/amalgamation/key/struct.ValidKeyAmalgamation.html
+    ///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
     ///
     /// # Example
     ///
@@ -1893,7 +1901,7 @@ impl<'a> Recipient<'a> {
         }
     }
 
-    /// Gets the KeyID.
+    /// Gets the recipient keyid.
     ///
     /// # Example
     ///
@@ -1961,7 +1969,7 @@ impl<'a> Recipient<'a> {
         &self.keyid
     }
 
-    /// Sets the KeyID.
+    /// Sets the recipient keyid.
     ///
     /// # Example
     ///
