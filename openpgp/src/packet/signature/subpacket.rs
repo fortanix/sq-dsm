@@ -874,9 +874,10 @@ pub struct Subpacket {
 #[cfg(any(test, feature = "quickcheck"))]
 impl ArbitraryBounded for Subpacket {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        use rand::Rng;
 
         fn encode_non_optimal(length: usize) -> SubpacketLength {
-            // calculate length the same way as Subpacket::new
+            // Calculate length the same way as Subpacket::new.
             let length = 1 /* Tag */ + length as u32;
 
             let mut len_vec = Vec::<u8>::with_capacity(5);
@@ -885,16 +886,34 @@ impl ArbitraryBounded for Subpacket {
             SubpacketLength::new(length, Some(len_vec))
         }
 
-        let use_optimal_length: bool = Arbitrary::arbitrary(g);
+        let critical = <bool>::arbitrary(g);
+        let use_nonoptimal_encoding = <bool>::arbitrary(g);
+        // We don't want to overrepresent large subpackets.
+        let create_large_subpacket = g.gen_range(0, 25) == 0;
 
-        let value: SubpacketValue = ArbitraryBounded::arbitrary_bounded(g, depth);
-        let critical: bool = Arbitrary::arbitrary(g);
-
-        if use_optimal_length {
-            Subpacket::new(value, critical).unwrap()
+        let value = if create_large_subpacket {
+            // Choose a size which makes sure the subpacket length must be
+            // encoded with 2 or 5 octets.
+            let value_size = g.gen_range(7000, 9000);
+            let nd = NotationData {
+                flags: Arbitrary::arbitrary(g),
+                name: Arbitrary::arbitrary(g),
+                value: (0..value_size)
+                    .map(|_| <u8>::arbitrary(g))
+                    .collect::<Vec<u8>>(),
+            };
+            SubpacketValue::NotationData(nd)
         } else {
+            SubpacketValue::arbitrary_bounded(g, depth)
+        };
+
+        if use_nonoptimal_encoding
+            && SubpacketLength::len_optimal_encoding(value.serialized_len() as u32) != 5
+        {
             let length = encode_non_optimal(value.serialized_len());
             Subpacket::with_length(length, value, critical)
+        } else {
+            Subpacket::new(value, critical).unwrap()
         }
     }
 }
