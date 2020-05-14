@@ -874,8 +874,28 @@ pub struct Subpacket {
 #[cfg(any(test, feature = "quickcheck"))]
 impl ArbitraryBounded for Subpacket {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
-        Subpacket::new(ArbitraryBounded::arbitrary_bounded(g, depth),
-                       Arbitrary::arbitrary(g)).unwrap()
+
+        fn encode_non_optimal(length: usize) -> SubpacketLength {
+            // calculate length the same way as Subpacket::new
+            let length = 1 /* Tag */ + length as u32;
+
+            let mut len_vec = Vec::<u8>::with_capacity(5);
+            len_vec.push(0xFF);
+            len_vec.extend_from_slice(&length.to_be_bytes());
+            SubpacketLength::new(length, Some(len_vec))
+        }
+
+        let use_optimal_length: bool = Arbitrary::arbitrary(g);
+
+        let value: SubpacketValue = ArbitraryBounded::arbitrary_bounded(g, depth);
+        let critical: bool = Arbitrary::arbitrary(g);
+
+        if use_optimal_length {
+            Subpacket::new(value, critical).unwrap()
+        } else {
+            let length = encode_non_optimal(value.serialized_len());
+            Subpacket::with_length(length, value, critical)
+        }
     }
 }
 
