@@ -1,17 +1,89 @@
 //! Packet parsing infrastructure.
 //!
-//! An OpenPGP stream is a sequence of packets.  Some of the packets
-//! contain other packets.  These containers include encrypted data
-//! packets (the SED and [SEIP] packets), and [compressed data] packets.
-//! This structure results in a tree, which is laid out in depth-first
-//! order.
+//! OpenPGP defines a binary representation suitable for storing and
+//! communicating OpenPGP data structures (see [Section 3 ff. of RFC
+//! 4880]).  Parsing is the process of interpreting the binary
+//! representation.
+//!
+//!   [Section 3 ff. of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3
+//!
+//! An OpenPGP stream represents a sequence of packets.  Some of the
+//! packets contain other packets.  These so called containers include
+//! encrypted data packets (the SED and [SEIP] packets), and
+//! [compressed data] packets.  This structure results in a tree,
+//! which is laid out in depth-first order.
 //!
 //!   [SEIP]: ../packet/enum.SEIP.html
 //!   [compressed data]: ../packet/struct.CompressedData.html
 //!
-//! This crate provide four abstractions for parsing OpenPGP streams,
-//! ordered from the most convenient but least flexible to the least
-//! convenient but most flexible:
+//! OpenPGP defines objects consisting of several packets with a
+//! specific structure.  These objects are [`Message`]s, [`Cert`]s and
+//! sequences of [`Cert`]s ("keyrings").  Verifying the structure of
+//! these objects is also an act of parsing.
+//!
+//!   [`Message`]: ../struct.Message.html
+//!   [`Cert`]: ../cert/struct.Cert.html
+//!
+//! This crate provides several interfaces to parse OpenPGP data.
+//! They fall in roughly three categories:
+//!
+//!  - First, most data structures in this crate implement the
+//!    [`Parse`] trait.  It provides a uniform interface to parse data
+//!    from an [`io::Read`]er, a file identified by its [`Path`], or
+//!    simply a byte slice.
+//!
+//!  - Second, there is a convenient interface to decrypt and/or
+//!    verify OpenPGP messages in a streaming fashion.  Encrypted
+//!    and/or signed data is read using the [`Parse`] interface, and
+//!    decrypted and/or verified data can be read using [`io::Read`].
+//!
+//!  - Finally, we expose the low-level [`PacketParser`], allowing
+//!    fine-grained control over the parsing.
+//!
+//!   [`Parse`]: trait.Parse.html
+//!   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+//!   [`Path`]: https://doc.rust-lang.org/std/path/struct.Path.html
+//!   [`PacketParser`]: struct.PacketParser.html
+//!
+//! The choice of interface depends on the specific use case.  In many
+//! circumstances, OpenPGP data can not be trusted until it has been
+//! authenticated.  Therefore, it has to be treated as attacker
+//! controlled data, and it has to be treated with great care.  See
+//! the section [Security Considerations] below.
+//!
+//!   [Security Considerations]: #security-considerations
+//!
+//! # Common Operations
+//!
+//!  - *Decrypt a message*: Use a [streaming `Decryptor`].
+//!  - *Verify a message*: Use a [streaming `Verifier`].
+//!  - *Verify a detached signature*: Use a [`DetachedVerifier`].
+//!  - *Parse a [`Cert`]*: Use [`Cert`]'s [`Parse`] interface.
+//!  - *Parse a keyring*: Use [`CertParser`]'s [`Parse`] interface.
+//!  - *Parse an unstructured sequence of small packets from a trusted
+//!     source*: Use [`PacketPile`]s [`Parse`] interface (e.g.
+//!     [`PacketPile::from_file`]).
+//!  - *Parse an unstructured sequence of packets*: Use the
+//!    [`PacketPileParser`].
+//!  - *Parse an unstructured sequence of packets with full control
+//!    over the parser*: Use a [`PacketParser`].
+//!  - *Customize the parser behavior even more*: Use a
+//!    [`PacketParserBuilder`].
+//!
+//!   [`CertParser`]: ../cert/struct.CertParser.html
+//!   [streaming `Decryptor`]: stream/struct.Decryptor.html
+//!   [streaming `Verifier`]: stream/struct.Verifier.html
+//!   [`DetachedVerifier`]: stream/struct.DetachedVerifier.html
+//!   [`PacketPile`]: ../struct.PacketPile.html
+//!   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
+//!   [`PacketPileParser`]: struct.PacketPileParser.html
+//!   [`PacketParserBuilder`]: struct.PacketParserBuilder.html
+//!
+//! # Data Structures and Interfaces
+//!
+//! This crate provides several interfaces for parsing OpenPGP
+//! streams, ordered from the most convenient but least flexible to
+//! the least convenient but most flexible:
 //!
 //!   - The streaming [`Verifier`], [`DetachedVerifier`], and
 //!     [`Decryptor`] are the most convenient way to parse OpenPGP
@@ -44,14 +116,56 @@
 //! The behavior of the [`PacketParser`] can be configured using a
 //! [`PacketParserBuilder`].
 //!
-//!   [`Verifier`]: stream/struct.Verifier.html
-//!   [`DetachedVerifier`]: stream/struct.DetachedVerifier.html
 //!   [`Decryptor`]: stream/struct.Decryptor.html
-//!   [`PacketParser`]: struct.PacketParser.html
-//!   [`PacketPileParser`]: struct.PacketPileParser.html
-//!   [`PacketPile`]: ../struct.PacketPile.html
-//!   [`PacketPile::from_file`]: ../struct.PacketPile.html#method.from_file
-//!   [`PacketParserBuilder`]: struct.PacketParserBuilder.html
+//!   [`Verifier`]: stream/struct.Verifier.html
+//!
+//! # Security Considerations
+//!
+//! In general, OpenPGP data must be considered attacker controlled
+//! and thus treated with great care.  Even though we use a
+//! memory-safe language, there are several aspects to be aware of:
+//!
+//!  - OpenPGP messages may be compressed.  Therefore, one cannot
+//!    predict the uncompressed size of a message by looking at the
+//!    compressed representation.  Operations that parse OpenPGP
+//!    streams and buffer the packet data (like using the
+//!    [`PacketPile`]'s [`Parse`] interface) are inherently unsafe and
+//!    must only be used on trusted data.
+//!
+//!  - The authenticity of an OpenPGP message can only be checked once
+//!    it has been fully processed.  Therefore, the plaintext must be
+//!    buffered and not be trusted until the whole message is
+//!    processed and signatures and/or ciphertext integrity are
+//!    verified.  On the other hand, buffering an unbounded amount of
+//!    data is problematic and can lead to out-of-memory situations
+//!    resulting in denial of service.  The streaming message
+//!    processing interfaces address this problem by buffering an
+//!    configurable amount of data before releasing any data to the
+//!    caller, and only revert to streaming unverified data if the
+//!    message exceeds the buffer.  See [`DEFAULT_BUFFER_SIZE`] for
+//!    more information.
+//!
+//!  - Not all parts of signed-then-encrypted OpenPGP messages are
+//!    authenticated.  Notably, all packets outside the encryption
+//!    container (any [`PKESK`] and [`SKESK`] packets, as well as the
+//!    encryption container itself), the [`Literal`] packet's headers,
+//!    as well as parts of the [`Signature`] are not covered by the
+//!    signatures.
+//!
+//!  - Ciphertext integrity is provided by the [`SEIP`] packet's
+//!    [`MDC`] mechanism, but the integrity can only be checked after
+//!    decrypting the whole container.  Proper authenticated
+//!    encryption is provided by the [`AED`] container, but as of this
+//!    writing it is not standardized.
+//!
+//!   [`DEFAULT_BUFFER_SIZE`]: stream/constant.DEFAULT_BUFFER_SIZE.html
+//!   [`PKESK`]: ../packet/enum.PKESK.html
+//!   [`SKESK`]: ../packet/enum.PKESK.html
+//!   [`Literal`]: ../packet/struct.Literal.html
+//!   [`Signature`]: ../packet/enum.Signature.html
+//!   [`SEIP`]: ../packet/enum.SEIP.html
+//!   [`MDC`]: ../packet/struct.MDC.html
+//!   [`AED`]: ../packet/enum.AED.html
 use std;
 use std::io;
 use std::io::prelude::*;
