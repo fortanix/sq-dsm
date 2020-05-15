@@ -21,50 +21,59 @@ use crate::packet::{
 };
 use crate::cert::prelude::*;
 
-/// A `Cert` revocation builder.
+/// A builder for revocation certificates for OpenPGP certificates.
 ///
-/// Note: a Cert revocation has two degrees of freedom: the Cert, and
-/// the key used to generate the revocation.
+/// A revocation certificate for an OpenPGP certificate (as opposed
+/// to, say, a subkey) has two degrees of freedom: the certificate,
+/// and the key used to sign the revocation certificate.
 ///
-/// Normally, the key used to generate the revocation is the Cert's
-/// primary key.  However, this is not required.
+/// Normally, the key used to sign the revocation certificate is the
+/// certificate's primary key.  However, this is not required.  For
+/// instance, if Alice has marked Robert's certificate (`R`) as a
+/// [designated revoker] for her certificate (`A`), then `R` can
+/// revoke `A` or parts of `A`.  In this case, the certificate is `A`,
+/// and the key used to sign the revocation certificate comes from
+/// `R`.
 ///
-/// If Alice has marked Robert's key (R) as a designated revoker
-/// for her key (A), then R can revoke A or parts of A.  In this
-/// case, the Cert is A, and the key used to generate the
-/// revocation comes from R.
+/// [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
 ///
-/// # Example
+/// # Examples
+///
+/// Revoke `cert`, which was compromised yesterday:
 ///
 /// ```rust
-/// # extern crate sequoia_openpgp as openpgp;
+/// use sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
-/// use openpgp::types::{ReasonForRevocation, RevocationStatus, SignatureType};
 /// use openpgp::cert::prelude::*;
-/// use openpgp::crypto::KeyPair;
-/// use openpgp::parse::Parse;
-/// use sequoia_openpgp::policy::StandardPolicy;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::ReasonForRevocation;
+/// use openpgp::types::RevocationStatus;
+/// use openpgp::types::SignatureType;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()>
-/// # {
+/// # fn main() -> Result<()> {
 /// let p = &StandardPolicy::new();
 ///
-/// let (cert, _) = CertBuilder::new()
-///     .set_cipher_suite(CipherSuite::Cv25519)
-///     .generate()?;
-/// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
-///            cert.revocation_status(p, None));
-///
+/// # let (cert, _) = CertBuilder::new()
+/// #     .generate()?;
+/// # assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+/// #            cert.revocation_status(p, None));
+/// #
+/// // Create and sign a revocation certificate.
 /// let mut signer = cert.primary_key().key().clone()
 ///     .parts_into_secret()?.into_keypair()?;
+/// # let yesterday = std::time::SystemTime::now();
 /// let sig = CertRevocationBuilder::new()
+///     // Don't use the current time, since the certificate was
+///     // actually compromised yesterday.
+///     .set_signature_creation_time(yesterday)?
 ///     .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
 ///                                b"It was the maid :/")?
 ///     .build(&mut signer, &cert, None)?;
-/// assert_eq!(sig.typ(), SignatureType::KeyRevocation);
 ///
+/// // Merge it into the certificate.
 /// let cert = cert.merge_packets(sig.clone())?;
+///
+/// // Now it's revoked.
 /// assert_eq!(RevocationStatus::Revoked(vec![&sig]),
 ///            cert.revocation_status(p, None));
 /// # Ok(())
@@ -75,6 +84,18 @@ pub struct CertRevocationBuilder {
 
 impl CertRevocationBuilder {
     /// Returns a new `CertRevocationBuilder`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new();
+    /// # Ok(())
+    /// # }
     pub fn new() -> Self {
         Self {
             builder:
@@ -83,6 +104,22 @@ impl CertRevocationBuilder {
     }
 
     /// Sets the reason for revocation.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::ReasonForRevocation;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = CertRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::KeyRetired,
+    ///                                b"I'm retiring this key.  \
+    ///                                  Please use my new OpenPGP certificate (FPR)");
+    /// # Ok(())
+    /// # }
     pub fn set_reason_for_revocation(self, code: ReasonForRevocation,
                                      reason: &[u8])
         -> Result<Self>
@@ -92,7 +129,50 @@ impl CertRevocationBuilder {
         })
     }
 
-    /// Sets the revocation signature's creation time.
+    /// Sets the revocation certificate's creation time.
+    ///
+    /// The creation time is interpreted as the time at which the
+    /// certificate should be considered revoked.  For a soft
+    /// revocation, artifacts created prior to the revocation are
+    /// still considered valid.
+    ///
+    /// You'll usually want to set this explicitly and not use the
+    /// current time.
+    ///
+    /// First, the creation time should reflect the time of the event
+    /// that triggered the revocation.  As such, if it is discovered
+    /// that a certificate was compromised a week ago, then the
+    /// revocation certificate should be backdated appropriately.
+    ///
+    /// Second, because access to secret key material can be lost, it
+    /// can be useful to create a revocation certificate in advance.
+    /// Of course, such a revocation certificate will inevitably be
+    /// outdated.  To mitigate this problem, a number of revocation
+    /// certificates can be created with different creation times.
+    /// Then should a revocation certificate be needed, the most
+    /// appropriate one can be used.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::time::{SystemTime, Duration};
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let now = SystemTime::now();
+    /// let month = Duration::from_secs(((365.24 / 12.) * 24. * 60. * 60.) as u64);
+    ///
+    /// // Pre-generate revocation certificates, one for each month
+    /// // for the next 48 months.
+    /// for i in 0..48 {
+    ///     let builder = CertRevocationBuilder::new()
+    ///         .set_signature_creation_time(now + i * month);
+    ///     // ...
+    /// }
+    /// # Ok(())
+    /// # }
     pub fn set_signature_creation_time(self, creation_time: time::SystemTime)
         -> Result<Self>
     {
@@ -101,8 +181,47 @@ impl CertRevocationBuilder {
         })
     }
 
-    /// Returns a revocation certificate for the cert `Cert` signed by
-    /// `signer`.
+    /// Returns a signed revocation certificate.
+    ///
+    /// A revocation certificate is generated for `cert` and signed
+    /// using `signer` with the specified hash algorithm.  Normally,
+    /// you should pass `None` to select the default hash algorithm.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::ReasonForRevocation;
+    /// # use openpgp::types::RevocationStatus;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .generate()?;
+    /// #
+    /// // Create and sign a revocation certificate.
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    /// let sig = CertRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::KeyRetired,
+    ///                                b"Left Foo Corp.")?
+    ///     .build(&mut signer, &cert, None)?;
+    ///
+    /// # assert_eq!(sig.typ(), SignatureType::KeyRevocation);
+    /// #
+    /// # // Merge it into the certificate.
+    /// # let cert = cert.merge_packets(sig.clone())?;
+    /// #
+    /// # // Now it's revoked.
+    /// # assert_eq!(RevocationStatus::Revoked(vec![&sig]),
+    /// #            cert.revocation_status(p, None));
+    /// # Ok(())
+    /// # }
     pub fn build<H>(self, signer: &mut dyn Signer, cert: &Cert, hash_algo: H)
         -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>
@@ -134,63 +253,75 @@ impl Deref for CertRevocationBuilder {
 }
 
 
-/// A `Subkey` revocation builder.
+/// A builder for revocation certificates for subkeys.
 ///
-/// Note: this function has three degrees of freedom: the Cert, the
-/// key used to generate the revocation, and the subkey.
+/// A revocation certificate for a subkey has three degrees of
+/// freedom: the certificate, the key used to generate the revocation
+/// certificate, and the subkey being revoked.
 ///
-/// Normally, the key used to generate the revocation is the Cert's
-/// primary key, and the subkey is a subkey that is bound to the
-/// Cert.  However, this is not required.
+/// Normally, the key used to sign the revocation certificate is the
+/// certificate's primary key, and the subkey is a subkey that is
+/// bound to the certificate.  However, this is not required.  For
+/// instance, if Alice has marked Robert's certificate (`R`) as a
+/// [designated revoker] for her certificate (`A`), then `R` can
+/// revoke `A` or parts of `A`.  In such a case, the certificate is
+/// `A`, the key used to sign the revocation certificate comes from
+/// `R`, and the subkey being revoked is bound to `A`.
 ///
-/// If Alice has marked Robert's key (R) as a designated revoker
-/// for her key (A), then R can revoke A or parts of A.  In this
-/// case, the Cert is A, the key used to generate the revocation
-/// comes from R, and the User ID is bound to A.
+/// But, the subkey doesn't technically need to be bound to the
+/// certificate either.  For instance, it is technically possible for
+/// `R` to create a revocation certificate for a subkey in the context
+/// of `A`, even if that subkey is not bound to `A`.  Semantically,
+/// such a revocation certificate is currently meaningless.
 ///
-/// But, the component doesn't technically need to be bound to the
-/// Cert.  For instance, it is possible for R to revoke the User ID
-/// "bob@example.org" in the context of A, even if
-/// "bob@example.org" is not bound to A.
+/// [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
 ///
-/// # Example
+/// # Examples
 ///
-/// ```
-/// # use sequoia_openpgp::{*, packet::*, types::*, cert::*};
-/// use sequoia_openpgp::policy::StandardPolicy;
+/// Revoke a subkey, which is now considered to be too weak:
 ///
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::ReasonForRevocation;
+/// use openpgp::types::RevocationStatus;
+/// use openpgp::types::SignatureType;
+///
+/// # fn main() -> Result<()> {
 /// let p = &StandardPolicy::new();
 ///
-/// // Generate a Cert, and create a keypair from the primary key.
-/// let (cert, _) = CertBuilder::new()
-///     .add_transport_encryption_subkey()
-///     .generate()?;
-/// let mut keypair = cert.primary_key().key().clone()
+/// # let (cert, _) = CertBuilder::new()
+/// #     .add_transport_encryption_subkey()
+/// #     .generate()?;
+/// # assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+/// #            cert.revocation_status(p, None));
+/// #
+/// // Create and sign a revocation certificate.
+/// let mut signer = cert.primary_key().key().clone()
 ///     .parts_into_secret()?.into_keypair()?;
 /// let subkey = cert.keys().subkeys().nth(0).unwrap();
+/// let sig = SubkeyRevocationBuilder::new()
+///     .set_reason_for_revocation(ReasonForRevocation::KeyRetired,
+///                                b"Revoking due to the recent crypto vulnerabilities.")?
+///     .build(&mut signer, &cert, subkey.key(), None)?;
 ///
-/// // Generate the revocation for the first and only Subkey.
-/// let revocation =
-///     SubkeyRevocationBuilder::new()
-///         .set_reason_for_revocation(
-///             ReasonForRevocation::KeyRetired,
-///             b"Smells funny.").unwrap()
-///         .build(&mut keypair, &cert, subkey.key(), None)?;
-/// assert_eq!(revocation.typ(), SignatureType::SubkeyRevocation);
+/// // Merge it into the certificate.
+/// let cert = cert.merge_packets(sig.clone())?;
 ///
-/// // Now merge the revocation signature into the Cert.
-/// let cert = cert.merge_packets(revocation.clone())?;
-///
-/// // Check that it is revoked.
+/// // Now it's revoked.
 /// let subkey = cert.keys().subkeys().nth(0).unwrap();
 /// if let RevocationStatus::Revoked(revocations) = subkey.revocation_status(p, None) {
 ///     assert_eq!(revocations.len(), 1);
-///     assert_eq!(*revocations[0], revocation);
+///     assert_eq!(*revocations[0], sig);
 /// } else {
 ///     panic!("Subkey is not revoked.");
 /// }
+///
+/// // But the certificate isn't.
+/// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+///            cert.revocation_status(p, None));
 /// # Ok(()) }
 /// ```
 pub struct SubkeyRevocationBuilder {
@@ -199,6 +330,18 @@ pub struct SubkeyRevocationBuilder {
 
 impl SubkeyRevocationBuilder {
     /// Returns a new `SubkeyRevocationBuilder`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = SubkeyRevocationBuilder::new();
+    /// # Ok(())
+    /// # }
     pub fn new() -> Self {
         Self {
             builder:
@@ -207,6 +350,23 @@ impl SubkeyRevocationBuilder {
     }
 
     /// Sets the reason for revocation.
+    ///
+    /// # Examples
+    ///
+    /// Revoke a possibly compromised subkey:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::ReasonForRevocation;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = SubkeyRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
+    ///                                b"I lost my smartcard.");
+    /// # Ok(())
+    /// # }
     pub fn set_reason_for_revocation(self, code: ReasonForRevocation,
                                      reason: &[u8])
         -> Result<Self>
@@ -216,7 +376,34 @@ impl SubkeyRevocationBuilder {
         })
     }
 
-    /// Sets the revocation signature's creation time.
+    /// Sets the revocation certificate's creation time.
+    ///
+    /// The creation time is interpreted as the time at which the
+    /// subkey should be considered revoked.  For a soft revocation,
+    /// artifacts created prior to the revocation are still considered
+    /// valid.
+    ///
+    /// You'll usually want to set this explicitly and not use the
+    /// current time.  In particular, if a subkey is compromised,
+    /// you'll want to set this to the time when the compromise
+    /// happened.
+    ///
+    /// # Examples
+    ///
+    /// Create a revocation certificate for a subkey that was
+    /// compromised yesterday:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// # let yesterday = std::time::SystemTime::now();
+    /// let builder = SubkeyRevocationBuilder::new()
+    ///     .set_signature_creation_time(yesterday);
+    /// # Ok(())
+    /// # }
     pub fn set_signature_creation_time(self, creation_time: time::SystemTime)
         -> Result<Self>
     {
@@ -225,8 +412,52 @@ impl SubkeyRevocationBuilder {
         })
     }
 
-    /// Returns a revocation certificate for the cert `Cert` signed by
-    /// `signer`.
+    /// Returns a signed revocation certificate.
+    ///
+    /// A revocation certificate is generated for `cert` and `key` and
+    /// signed using `signer` with the specified hash algorithm.
+    /// Normally, you should pass `None` to select the default hash
+    /// algorithm.
+    ///
+    /// # Examples
+    ///
+    /// Revoke a subkey, which is now considered to be too weak:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::ReasonForRevocation;
+    /// # use openpgp::types::RevocationStatus;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_transport_encryption_subkey()
+    /// #     .generate()?;
+    /// #
+    /// // Create and sign a revocation certificate.
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    /// let subkey = cert.keys().subkeys().nth(0).unwrap();
+    /// let sig = SubkeyRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::KeyRetired,
+    ///                                b"Revoking due to the recent crypto vulnerabilities.")?
+    ///     .build(&mut signer, &cert, subkey.key(), None)?;
+    ///
+    /// # assert_eq!(sig.typ(), SignatureType::SubkeyRevocation);
+    /// #
+    /// # // Merge it into the certificate.
+    /// # let cert = cert.merge_packets(sig.clone())?;
+    /// #
+    /// # // Now it's revoked.
+    /// # assert_eq!(RevocationStatus::Revoked(vec![&sig]),
+    /// #            cert.keys().subkeys().nth(0).unwrap().revocation_status(p, None));
+    /// # Ok(())
+    /// # }
     pub fn build<H, P>(mut self, signer: &mut dyn Signer,
                        cert: &Cert, key: &Key<P, key::SubordinateRole>,
                        hash_algo: H)
@@ -251,64 +482,77 @@ impl Deref for SubkeyRevocationBuilder {
     }
 }
 
-/// A `UserID` revocation builder.
+/// A builder for revocation certificates for User ID.
 ///
-/// Note: this function has three degrees of freedom: the Cert, the
-/// key used to generate the revocation, and the user id.
+/// A revocation certificate for a [User ID] has three degrees of
+/// freedom: the certificate, the key used to generate the revocation
+/// certificate, and the User ID being revoked.
 ///
-/// Normally, the key used to generate the revocation is the Cert's
-/// primary key, and the user id is a user id that is bound to the
-/// Cert.  However, this is not required.
+/// Normally, the key used to sign the revocation certificate is the
+/// certificate's primary key, and the User ID is a User ID that is
+/// bound to the certificate.  However, this is not required.  For
+/// instance, if Alice has marked Robert's certificate (`R`) as a
+/// [designated revoker] for her certificate (`A`), then `R` can
+/// revoke `A` or parts of `A`.  In such a case, the certificate is
+/// `A`, the key used to sign the revocation certificate comes from
+/// `R`, and the User ID being revoked is bound to `A`.
 ///
-/// If Alice has marked Robert's key (R) as a designated revoker
-/// for her key (A), then R can revoke A or parts of A.  In this
-/// case, the Cert is A, the key used to generate the revocation
-/// comes from R, and the User ID is bound to A.
+/// But, the User ID doesn't technically need to be bound to the
+/// certificate either.  For instance, it is technically possible for
+/// `R` to create a revocation certificate for a User ID in the
+/// context of `A`, even if that User ID is not bound to `A`.
+/// Semantically, such a revocation certificate is currently
+/// meaningless.
 ///
-/// But, the component doesn't technically need to be bound to the
-/// Cert.  For instance, it is possible for R to revoke the User ID
-/// "bob@example.org" in the context of A, even if
-/// "bob@example.org" is not bound to A.
+/// [User ID]: ../packet/struct.UserID.html
+/// [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
 ///
-/// # Example
+/// # Examples
 ///
-/// ```
-/// # use sequoia_openpgp::{*, packet::*, types::*};
-/// use sequoia_openpgp::cert::prelude::*;
-/// use sequoia_openpgp::policy::StandardPolicy;
+/// Revoke a User ID that is no longer valid:
 ///
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::ReasonForRevocation;
+/// use openpgp::types::RevocationStatus;
+/// use openpgp::types::SignatureType;
+///
+/// # fn main() -> Result<()> {
 /// let p = &StandardPolicy::new();
 ///
-/// // Generate a Cert, and create a keypair from the primary key.
-/// let (cert, _) = CertBuilder::new()
-///     .add_userid("some@example.org")
-///     .generate()?;
-/// let mut keypair = cert.primary_key().key().clone()
+/// # let (cert, _) = CertBuilder::new()
+/// #     .add_userid("some@example.org")
+/// #     .generate()?;
+/// # assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+/// #            cert.revocation_status(p, None));
+/// #
+/// // Create and sign a revocation certificate.
+/// let mut signer = cert.primary_key().key().clone()
 ///     .parts_into_secret()?.into_keypair()?;
-/// let ca = cert.userids().nth(0).unwrap();
+/// let ua = cert.userids().nth(0).unwrap();
+/// let sig = UserIDRevocationBuilder::new()
+///     .set_reason_for_revocation(ReasonForRevocation::UIDRetired,
+///                                b"Left example.org.")?
+///     .build(&mut signer, &cert, ua.userid(), None)?;
 ///
-/// // Generate the revocation for the first and only UserID.
-/// let revocation =
-///     UserIDRevocationBuilder::new()
-///         .set_reason_for_revocation(
-///             ReasonForRevocation::KeyRetired,
-///             b"Left example.org.").unwrap()
-///         .build(&mut keypair, &cert, ca.userid(), None)?;
-/// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
+/// // Merge it into the certificate.
+/// let cert = cert.merge_packets(sig.clone())?;
 ///
-/// // Now merge the revocation signature into the Cert.
-/// let cert = cert.merge_packets(revocation.clone())?;
-///
-/// // Check that it is revoked.
-/// let userid = cert.userids().with_policy(p, None).nth(0).unwrap();
-/// if let RevocationStatus::Revoked(revocations) = userid.revocation_status() {
+/// // Now it's revoked.
+/// let ua = cert.userids().nth(0).unwrap();
+/// if let RevocationStatus::Revoked(revocations) = ua.revocation_status(p, None) {
 ///     assert_eq!(revocations.len(), 1);
-///     assert_eq!(*revocations[0], revocation);
+///     assert_eq!(*revocations[0], sig);
 /// } else {
-///     panic!("UserID is not revoked.");
+///     panic!("User ID is not revoked.");
 /// }
+///
+/// // But the certificate isn't.
+/// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+///            cert.revocation_status(p, None));
 /// # Ok(()) }
 /// ```
 pub struct UserIDRevocationBuilder {
@@ -317,6 +561,18 @@ pub struct UserIDRevocationBuilder {
 
 impl UserIDRevocationBuilder {
     /// Returns a new `UserIDRevocationBuilder`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = UserIDRevocationBuilder::new();
+    /// # Ok(())
+    /// # }
     pub fn new() -> Self {
         Self {
             builder:
@@ -325,6 +581,32 @@ impl UserIDRevocationBuilder {
     }
 
     /// Sets the reason for revocation.
+    ///
+    /// Note: of the assigned reasons for revocation, only
+    /// [`ReasonForRevocation::UIDRetired`] is appropriate for User
+    /// IDs.  This parameter is not fixed, however, to allow the use
+    /// of the [private name space].
+    ///
+    /// [`ReasonForRevocation::UIDRetired`]: ../types/enum.ReasonForRevocation.html#variant.UIDRetired
+    /// [private name space]: ../types/enum.ReasonForRevocation.html#variant.Private
+    ///
+    ///
+    /// # Examples
+    ///
+    /// Revoke a User ID that is no longer valid:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::ReasonForRevocation;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = UserIDRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::UIDRetired,
+    ///                                b"Left example.org.");
+    /// # Ok(())
+    /// # }
     pub fn set_reason_for_revocation(self, code: ReasonForRevocation,
                                      reason: &[u8])
         -> Result<Self>
@@ -334,7 +616,32 @@ impl UserIDRevocationBuilder {
         })
     }
 
-    /// Sets the revocation signature's creation time.
+    /// Sets the revocation certificate's creation time.
+    ///
+    /// The creation time is interpreted as the time at which the User
+    /// ID should be considered revoked.
+    ///
+    /// You'll usually want to set this explicitly and not use the
+    /// current time.  In particular, if a User ID is retired, you'll
+    /// want to set this to the time when the User ID was actually
+    /// retired.
+    ///
+    /// # Examples
+    ///
+    /// Create a revocation certificate for a User ID that was
+    /// retired yesterday:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// # let yesterday = std::time::SystemTime::now();
+    /// let builder = UserIDRevocationBuilder::new()
+    ///     .set_signature_creation_time(yesterday);
+    /// # Ok(())
+    /// # }
     pub fn set_signature_creation_time(self, creation_time: time::SystemTime)
         -> Result<Self>
     {
@@ -343,8 +650,52 @@ impl UserIDRevocationBuilder {
         })
     }
 
-    /// Returns a revocation certificate for the cert `Cert` signed by
-    /// `signer`.
+    /// Returns a signed revocation certificate.
+    ///
+    /// A revocation certificate is generated for `cert` and `userid`
+    /// and signed using `signer` with the specified hash algorithm.
+    /// Normally, you should pass `None` to select the default hash
+    /// algorithm.
+    ///
+    /// # Examples
+    ///
+    /// Revoke a User ID, because the user has left the organization:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::ReasonForRevocation;
+    /// # use openpgp::types::RevocationStatus;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_userid("some@example.org")
+    /// #     .generate()?;
+    /// #
+    /// // Create and sign a revocation certificate.
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    /// let ua = cert.userids().nth(0).unwrap();
+    /// let sig = UserIDRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::UIDRetired,
+    ///                                b"Left example.org.")?
+    ///     .build(&mut signer, &cert, ua.userid(), None)?;
+    ///
+    /// # assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
+    /// #
+    /// # // Merge it into the certificate.
+    /// # let cert = cert.merge_packets(sig.clone())?;
+    /// #
+    /// # // Now it's revoked.
+    /// # assert_eq!(RevocationStatus::Revoked(vec![&sig]),
+    /// #            cert.userids().nth(0).unwrap().revocation_status(p, None));
+    /// # Ok(())
+    /// # }
     pub fn build<H>(mut self, signer: &mut dyn Signer,
                     cert: &Cert, userid: &UserID,
                     hash_algo: H)
@@ -368,67 +719,83 @@ impl Deref for UserIDRevocationBuilder {
     }
 }
 
-/// A `UserAttribute` revocation builder.
+/// A builder for revocation certificates for User Attributes.
 ///
-/// Note: this function has three degrees of freedom: the Cert, the
-/// key used to generate the revocation, and the user attribute.
+/// A revocation certificate for a [User Attribute] has three degrees of
+/// freedom: the certificate, the key used to generate the revocation
+/// certificate, and the User Attribute being revoked.
 ///
-/// Normally, the key used to generate the revocation is the Cert's
-/// primary key, and the user attribute is a user attribute that is
-/// bound to the Cert.  However, this is not required.
+/// Normally, the key used to sign the revocation certificate is the
+/// certificate's primary key, and the User Attribute is a User
+/// Attribute that is bound to the certificate.  However, this is not
+/// required.  For instance, if Alice has marked Robert's certificate
+/// (`R`) as a [designated revoker] for her certificate (`A`), then
+/// `R` can revoke `A` or parts of `A`.  In such a case, the
+/// certificate is `A`, the key used to sign the revocation
+/// certificate comes from `R`, and the User Attribute being revoked
+/// is bound to `A`.
 ///
-/// If Alice has marked Robert's key (R) as a designated revoker
-/// for her key (A), then R can revoke A or parts of A.  In this
-/// case, the Cert is A, the key used to generate the revocation
-/// comes from R, and the User Attribute is bound to A.
+/// But, the User Attribute doesn't technically need to be bound to
+/// the certificate either.  For instance, it is technically possible
+/// for `R` to create a revocation certificate for a User Attribute in
+/// the context of `A`, even if that User Attribute is not bound to
+/// `A`.  Semantically, such a revocation certificate is currently
+/// meaningless.
 ///
-/// But, the component doesn't technically need to be bound to the
-/// Cert.  For instance, it is possible for R to revoke the User ID
-/// "bob@example.org" in the context of A, even if
-/// "bob@example.org" is not bound to A.
+/// [User Attribute]: ../packet/user_attribute/index.html
+/// [designated revoker]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
 ///
-/// # Example
+/// # Examples
 ///
-/// ```
-/// # use sequoia_openpgp::{*, packet::*, types::*};
-/// use sequoia_openpgp::cert::prelude::*;
-/// use sequoia_openpgp::policy::StandardPolicy;
+/// Revoke a User Attribute that is no longer valid:
 ///
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
+/// ```rust
+/// # use quickcheck::{Arbitrary, StdThreadGen};
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// # use openpgp::packet::UserAttribute;
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::ReasonForRevocation;
+/// use openpgp::types::RevocationStatus;
+/// use openpgp::types::SignatureType;
+///
+/// # fn main() -> Result<()> {
 /// let p = &StandardPolicy::new();
 ///
-/// # let subpacket
-/// #     = user_attribute::Subpacket::Unknown(1, [ 1 ].to_vec().into_boxed_slice());
-/// # let some_user_attribute = UserAttribute::new(&[ subpacket ])?;
-/// // Generate a Cert, and create a keypair from the primary key.
-/// let (cert, _) = CertBuilder::new()
-///     .add_user_attribute(some_user_attribute)
-///     .generate()?;
-/// let mut keypair = cert.primary_key().key().clone()
+/// # let mut gen = StdThreadGen::new(16);
+/// # let user_attribute : UserAttribute = UserAttribute::arbitrary(&mut gen);
+/// #
+/// # let (cert, _) = CertBuilder::new()
+/// #     .add_user_attribute(user_attribute)
+/// #     .generate()?;
+/// # assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+/// #            cert.revocation_status(p, None));
+/// #
+/// // Create and sign a revocation certificate.
+/// let mut signer = cert.primary_key().key().clone()
 ///     .parts_into_secret()?.into_keypair()?;
-/// let ca = cert.user_attributes().nth(0).unwrap();
+/// let ua = cert.user_attributes().nth(0).unwrap();
+/// let sig = UserAttributeRevocationBuilder::new()
+///     .set_reason_for_revocation(ReasonForRevocation::UIDRetired,
+///                                b"Lost the beard.")?
+///     .build(&mut signer, &cert, ua.user_attribute(), None)?;
 ///
-/// // Generate the revocation for the first and only UserAttribute.
-/// let revocation =
-///     UserAttributeRevocationBuilder::new()
-///         .set_reason_for_revocation(
-///             ReasonForRevocation::KeyRetired,
-///             b"Left example.org.").unwrap()
-///         .build(&mut keypair, &cert, ca.user_attribute(), None)?;
-/// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
+/// // Merge it into the certificate.
+/// let cert = cert.merge_packets(sig.clone())?;
 ///
-/// // Now merge the revocation signature into the Cert.
-/// let cert = cert.merge_packets(revocation.clone())?;
-///
-/// // Check that it is revoked.
-/// let ua = cert.user_attributes().with_policy(p, None).nth(0).unwrap();
-/// if let RevocationStatus::Revoked(revocations) = ua.revocation_status() {
+/// // Now it's revoked.
+/// let ua = cert.user_attributes().nth(0).unwrap();
+/// if let RevocationStatus::Revoked(revocations) = ua.revocation_status(p, None) {
 ///     assert_eq!(revocations.len(), 1);
-///     assert_eq!(*revocations[0], revocation);
+///     assert_eq!(*revocations[0], sig);
 /// } else {
-///     panic!("UserAttribute is not revoked.");
+///     panic!("User Attribute is not revoked.");
 /// }
+///
+/// // But the certificate isn't.
+/// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+///            cert.revocation_status(p, None));
 /// # Ok(()) }
 /// ```
 pub struct UserAttributeRevocationBuilder {
@@ -437,6 +804,18 @@ pub struct UserAttributeRevocationBuilder {
 
 impl UserAttributeRevocationBuilder {
     /// Returns a new `UserAttributeRevocationBuilder`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = UserAttributeRevocationBuilder::new();
+    /// # Ok(())
+    /// # }
     pub fn new() -> Self {
         Self {
             builder:
@@ -445,6 +824,31 @@ impl UserAttributeRevocationBuilder {
     }
 
     /// Sets the reason for revocation.
+    ///
+    /// Note: of the assigned reasons for revocation, only
+    /// [`ReasonForRevocation::UIDRetired`] is appropriate for User
+    /// Attributes.  This parameter is not fixed, however, to allow
+    /// the use of the [private name space].
+    ///
+    /// [`ReasonForRevocation::UIDRetired`]: ../types/enum.ReasonForRevocation.html#variant.UIDRetired
+    /// [private name space]: ../types/enum.ReasonForRevocation.html#variant.Private
+    ///
+    /// # Examples
+    ///
+    /// Revoke a User Attribute that is no longer valid:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::ReasonForRevocation;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let builder = UserAttributeRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::UIDRetired,
+    ///                                b"Lost the beard.");
+    /// # Ok(())
+    /// # }
     pub fn set_reason_for_revocation(self, code: ReasonForRevocation,
                                      reason: &[u8])
         -> Result<Self>
@@ -454,7 +858,32 @@ impl UserAttributeRevocationBuilder {
         })
     }
 
-    /// Sets the revocation signature's creation time.
+    /// Sets the revocation certificate's creation time.
+    ///
+    /// The creation time is interpreted as the time at which the User
+    /// Attribute should be considered revoked.
+    ///
+    /// You'll usually want to set this explicitly and not use the
+    /// current time.  In particular, if a User Attribute is retired,
+    /// you'll want to set this to the time when the User Attribute
+    /// was actually retired.
+    ///
+    /// # Examples
+    ///
+    /// Create a revocation certificate for a User Attribute that was
+    /// retired yesterday:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> Result<()> {
+    /// # let yesterday = std::time::SystemTime::now();
+    /// let builder = UserAttributeRevocationBuilder::new()
+    ///     .set_signature_creation_time(yesterday);
+    /// # Ok(())
+    /// # }
     pub fn set_signature_creation_time(self, creation_time: time::SystemTime)
         -> Result<Self>
     {
@@ -463,8 +892,57 @@ impl UserAttributeRevocationBuilder {
         })
     }
 
-    /// Returns a revocation certificate for the cert `Cert` signed by
-    /// `signer`.
+    /// Returns a signed revocation certificate.
+    ///
+    /// A revocation certificate is generated for `cert` and `ua` and
+    /// signed using `signer` with the specified hash algorithm.
+    /// Normally, you should pass `None` to select the default hash
+    /// algorithm.
+    ///
+    /// # Examples
+    ///
+    /// Revoke a User Attribute, because the identity is no longer
+    /// valid:
+    ///
+    /// ```rust
+    /// # use quickcheck::{Arbitrary, StdThreadGen};
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::UserAttribute;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::ReasonForRevocation;
+    /// # use openpgp::types::RevocationStatus;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let mut gen = StdThreadGen::new(16);
+    /// # let user_attribute : UserAttribute = UserAttribute::arbitrary(&mut gen);
+    /// #
+    /// # let (cert, _) = CertBuilder::new()
+    /// #     .add_user_attribute(user_attribute)
+    /// #     .generate()?;
+    /// // Create and sign a revocation certificate.
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    /// let ua = cert.user_attributes().nth(0).unwrap();
+    /// let sig = UserAttributeRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::UIDRetired,
+    ///                                b"Lost the beard.")?
+    ///     .build(&mut signer, &cert, ua.user_attribute(), None)?;
+    ///
+    /// # assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
+    /// #
+    /// # // Merge it into the certificate.
+    /// # let cert = cert.merge_packets(sig.clone())?;
+    /// #
+    /// # // Now it's revoked.
+    /// # assert_eq!(RevocationStatus::Revoked(vec![&sig]),
+    /// #            cert.user_attributes().nth(0).unwrap().revocation_status(p, None));
+    /// # Ok(())
+    /// # }
     pub fn build<H>(mut self, signer: &mut dyn Signer,
                     cert: &Cert, ua: &UserAttribute,
                     hash_algo: H)
