@@ -154,10 +154,10 @@ impl SKESK4 {
             }))
     }
 
-    /// Convert the `SKESK4` struct to a `Packet`.
-    /// Derives the key inside this SKESK4 from `password`. Returns a
-    /// tuple of the symmetric cipher to use with the key and the key
-    /// itself.
+    /// Derives the key inside this SKESK4 from `password`.
+    ///
+    /// Returns a tuple of the symmetric cipher to use with the key
+    /// and the key itself.
     pub fn decrypt(&self, password: &Password)
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
