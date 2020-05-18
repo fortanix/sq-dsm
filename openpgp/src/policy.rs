@@ -1819,8 +1819,9 @@ mod test {
                     .for_transport_encryption().secret().nth(0).unwrap()
                     .key().clone().into_keypair()?;
                 pkesks[0].decrypt(&mut pair, algo)
-                    .and_then(|(algo, session_key)| decrypt(algo, &session_key))
-                    .map(|_| None)
+                    .and_then(|(algo, session_key)|
+                              decrypt(algo, &session_key).ok());
+                Ok(None)
             }
         }
 

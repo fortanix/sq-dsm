@@ -89,26 +89,22 @@ impl<'a> Helper<'a> {
                       sym_algo: Option<SymmetricAlgorithm>,
                       keypair: &mut dyn crypto::Decryptor,
                       decrypt: &mut D)
-                      -> openpgp::Result<Option<Fingerprint>>
+                      -> Option<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
         let keyid = keypair.public().fingerprint().into();
         match pkesk.decrypt(keypair, sym_algo)
             .and_then(|(algo, sk)| {
-                decrypt(algo, &sk)?; Ok(sk)
+                decrypt(algo, &sk).ok()?; Some(sk)
             })
         {
-            Ok(sk) => {
+            Some(sk) => {
                 if self.dump_session_key {
                     eprintln!("Session key: {}", hex::encode(&sk));
                 }
-                Ok(self.key_identities.get(&keyid).map(|fp| fp.clone()))
+                Some(self.key_identities.get(&keyid).map(|fp| fp.clone()))
             },
-            Err(e) => {
-                eprintln!("Decryption using {} failed:\n  {}",
-                          self.key_hints.get(&keyid).unwrap(), e);
-                Err(e)
-            },
+            None => None,
         }
     }
 }
@@ -144,7 +140,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
                 if ! key.secret().is_encrypted() {
-                    if let Ok(fp) = key.clone().into_keypair()
+                    if let Some(fp) = key.clone().into_keypair().ok()
                         .and_then(|mut k|
                                   self.try_decrypt(pkesk, sym_algo, &mut k, &mut decrypt))
                     {
@@ -183,8 +179,10 @@ impl<'a> DecryptionHelper for Helper<'a> {
                     }
                 };
 
-                if let Ok(fp) = self.try_decrypt(pkesk, sym_algo, &mut keypair,
-                                                 &mut decrypt) {
+                if let Some(fp) =
+                    self.try_decrypt(pkesk, sym_algo, &mut keypair,
+                                     &mut decrypt)
+                {
                     return Ok(fp);
                 }
             }
@@ -196,7 +194,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         for pkesk in pkesks.iter().filter(|p| p.recipient().is_wildcard()) {
             for key in self.secret_keys.values() {
                 if ! key.secret().is_encrypted() {
-                    if let Ok(fp) = key.clone().into_keypair()
+                    if let Some(fp) = key.clone().into_keypair().ok()
                         .and_then(|mut k|
                                   self.try_decrypt(pkesk, sym_algo, &mut k, &mut decrypt))
                     {
@@ -240,8 +238,10 @@ impl<'a> DecryptionHelper for Helper<'a> {
                     }
                 };
 
-                if let Ok(fp) = self.try_decrypt(pkesk, sym_algo, &mut keypair,
-                                                 &mut decrypt) {
+                if let Some(fp) =
+                    self.try_decrypt(pkesk, sym_algo, &mut keypair,
+                                     &mut decrypt)
+                {
                     return Ok(fp);
                 }
             }

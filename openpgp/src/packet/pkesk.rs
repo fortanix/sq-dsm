@@ -128,8 +128,22 @@ impl PKESK3 {
     ///
     /// Returns the session key and symmetric algorithm used to
     /// encrypt the following payload.
+    ///
+    /// Returns `None` on errors.  This prevents leaking information
+    /// to an attacker, which could lead to compromise of secret key
+    /// material with certain algorithms (RSA).  See [Section 14 of
+    /// RFC 4880].
+    ///
+    ///   [Section 14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-14
     pub fn decrypt(&self, decryptor: &mut dyn Decryptor,
                    sym_algo_hint: Option<SymmetricAlgorithm>)
+        -> Option<(SymmetricAlgorithm, SessionKey)>
+    {
+        self.decrypt_insecure(decryptor, sym_algo_hint).ok()
+    }
+
+    fn decrypt_insecure(&self, decryptor: &mut dyn Decryptor,
+                        sym_algo_hint: Option<SymmetricAlgorithm>)
         -> Result<(SymmetricAlgorithm, SessionKey)>
     {
         let plaintext_len = if let Some(s) = sym_algo_hint {

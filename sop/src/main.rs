@@ -669,18 +669,18 @@ impl<'a> Helper<'a> {
                       algo: Option<SymmetricAlgorithm>,
                       keypair: &mut dyn crypto::Decryptor,
                       decrypt: &mut D)
-                      -> openpgp::Result<(SymmetricAlgorithm,
-                                          SessionKey,
-                                          Option<Fingerprint>)>
+                      -> Option<(SymmetricAlgorithm,
+                                 SessionKey,
+                                 Option<Fingerprint>)>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
     {
         let keyid = keypair.public().fingerprint().into();
         let (algo, sk) = pkesk.decrypt(keypair, algo)
             .and_then(|(algo, sk)| {
-                decrypt(algo, &sk)?; Ok((algo, sk))
+                decrypt(algo, &sk).ok()?; Some((algo, sk))
             })?;
 
-        Ok((algo, sk, self.identities.get(&keyid).map(|fp| fp.clone())))
+        Some((algo, sk, self.identities.get(&keyid).map(|fp| fp.clone())))
     }
 
     /// Dumps the session key.
@@ -726,9 +726,10 @@ impl<'a> DecryptionHelper for Helper<'a> {
             let keyid = pkesk.recipient();
             if let Some(key) = self.secret_keys.get(&keyid) {
                 if ! key.secret().is_encrypted() {
-                    if let Ok((algo, sk, fp)) = key.clone().into_keypair()
-                        .and_then(|mut k|
-                                  self.try_decrypt(pkesk, algo, &mut k, &mut decrypt))
+                    if let Some((algo, sk, fp)) =
+                        key.clone().into_keypair().ok().and_then(|mut k| {
+                            self.try_decrypt(pkesk, algo, &mut k, &mut decrypt)
+                        })
                     {
                         self.dump_session_key(algo, &sk)?;
                         return Ok(fp);
@@ -743,9 +744,10 @@ impl<'a> DecryptionHelper for Helper<'a> {
         for pkesk in pkesks.iter().filter(|p| p.recipient().is_wildcard()) {
             for key in self.secret_keys.values() {
                 if ! key.secret().is_encrypted() {
-                    if let Ok((algo, sk, fp)) = key.clone().into_keypair()
-                        .and_then(|mut k|
-                                  self.try_decrypt(pkesk, algo, &mut k, &mut decrypt))
+                    if let Some((algo, sk, fp)) =
+                        key.clone().into_keypair().ok().and_then(|mut k| {
+                            self.try_decrypt(pkesk, algo, &mut k, &mut decrypt)
+                        })
                     {
                         self.dump_session_key(algo, &sk)?;
                         return Ok(fp);

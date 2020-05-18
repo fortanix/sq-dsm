@@ -1390,8 +1390,8 @@ pub trait DecryptionHelper {
     ///                 if ! key.secret().is_encrypted() {
     ///                     let mut keypair = key.clone().into_keypair()?;
     ///                     if pkesk.decrypt(&mut keypair, sym_algo)
-    ///                         .and_then(|(algo, sk)| decrypt(algo, &sk))
-    ///                         .is_ok()
+    ///                         .and_then(|(algo, sk)| decrypt(algo, &sk).ok())
+    ///                         .is_some()
     ///                     {
     ///                         return Ok(Some(fp));
     ///                     }
@@ -1407,8 +1407,8 @@ pub trait DecryptionHelper {
     ///                 if ! key.secret().is_encrypted() {
     ///                     let mut keypair = key.clone().into_keypair()?;
     ///                     if pkesk.decrypt(&mut keypair, sym_algo)
-    ///                         .and_then(|(algo, sk)| decrypt(algo, &sk))
-    ///                         .is_ok()
+    ///                         .and_then(|(algo, sk)| decrypt(algo, &sk).ok())
+    ///                         .is_some()
     ///                     {
     ///                         return Ok(Some(fp));
     ///                     }

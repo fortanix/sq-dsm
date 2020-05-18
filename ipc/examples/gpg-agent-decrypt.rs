@@ -106,8 +106,8 @@ impl<'a> DecryptionHelper for Helper<'a> {
         for pkesk in pkesks {
             if let Some(key) = self.keys.get(pkesk.recipient()) {
                 let mut pair = KeyPair::new(self.ctx, key)?;
-                if let Ok(_) = pkesk.decrypt(&mut pair, sym_algo)
-                    .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+                if let Some(_) = pkesk.decrypt(&mut pair, sym_algo)
+                    .and_then(|(algo, session_key)| decrypt(algo, &session_key).ok())
                 {
                     break;
                 }

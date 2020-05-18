@@ -3065,8 +3065,9 @@ mod test {
                     .clone().parts_into_secret().unwrap()
                     .into_keypair().unwrap();
                 pkesks[0].decrypt(&mut keypair, sym_algo)
-                    .and_then(|(algo, session_key)| decrypt(algo, &session_key))
-                    .map(|_| None)
+                    .and_then(|(algo, session_key)|
+                              decrypt(algo, &session_key).ok());
+                Ok(None)
             }
         }
 

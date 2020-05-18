@@ -89,8 +89,9 @@ impl DecryptionHelper for Helper {
         // Try each PKESK until we succeed.
         for pkesk in pkesks {
             if let Some(pair) = self.keys.get_mut(pkesk.recipient()) {
-                if let Ok(_) = pkesk.decrypt(pair, sym_algo)
-                    .and_then(|(algo, session_key)| decrypt(algo, &session_key))
+                if let Some(_) = pkesk.decrypt(pair, sym_algo)
+                    .and_then(|(algo, session_key)| decrypt(algo, &session_key)
+                              .ok())
                 {
                     break;
                 }

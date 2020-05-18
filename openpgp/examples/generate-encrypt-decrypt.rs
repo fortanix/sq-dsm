@@ -128,9 +128,10 @@ impl<'a> DecryptionHelper for Helper<'a> {
         let mut pair = key.into_keypair().unwrap();
 
         pkesks[0].decrypt(&mut pair, sym_algo)
-            .and_then(|(algo, session_key)| decrypt(algo, &session_key))
-            .map(|_| None)
+            .and_then(|(algo, session_key)| decrypt(algo, &session_key).ok());
+
         // XXX: In production code, return the Fingerprint of the
         // recipient's Cert here
+        Ok(None)
     }
 }
