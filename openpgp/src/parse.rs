@@ -4762,6 +4762,17 @@ impl<'a> PacketParser<'a> {
     /// }
     /// # Ok(()) }
     /// ```
+    ///
+    /// # Security Considerations
+    ///
+    /// This functions returns rich errors in case the decryption
+    /// fails.  In combination with certain asymmetric algorithms
+    /// (RSA), this may lead to compromise of secret key material.
+    /// See [Section 14 of RFC 4880].  Do not relay these errors in
+    /// situations where an attacker can request decryption of
+    /// messages in an automated fashion.
+    ///
+    ///   [Section 14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-14
     pub fn decrypt(&mut self, algo: SymmetricAlgorithm, key: &SessionKey)
         -> Result<()>
     {
