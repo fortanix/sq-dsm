@@ -1,9 +1,161 @@
-//! Packet-related types.
+//! Packet-related data types.
 //!
-//! See [Section 4 of RFC 4880] for more details.
+//! OpenPGP data structures are [packet based].  This module defines
+//! the corresponding data structures.
 //!
-//!   [Section 4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4
-
+//! Most users of this library will not need to generate these packets
+//! themselves.  Instead, the packets are instantiated as a side
+//! effect of [parsing a message], or [creating a message].  The main
+//! current exception are `Signature` packets.  Working with
+//! `Signature` packets is, however, simplified by using the
+//! [`SignatureBuilder`].
+//!
+//! # Data Types
+//!
+//! Many OpenPGP packets include a version field.  Versioning is used
+//! to make it easier to change the standard.  For instance, using
+//! versioning, it is possible to remove a field from a packet without
+//! introducing a new packet type, which would also require changing
+//! [the grammar].  Versioning also enables a degree of forward
+//! compatibility when a new version of a packet can be safely
+//! ignored.  For instance, there are currently two versions of the
+//! [`Signature`] packet with completely different layouts: [v3] and
+//! [v4].  An implementation that does not understand the latest
+//! version of the packet can still parse and display a message using
+//! them; it will just be unable to verify that signature.
+//!
+//! In Sequoia, packets that have a version field are represented by
+//! `enum`s, and each supported version of the packet has a variant,
+//! and a corresponding `struct`.  This is the case even when only one
+//! version of the packet is currently defined, as is the case with
+//! the [`OnePassSig`] packet.  The `enum`s implement forwarders for
+//! common operations.  As such, users of this library can often
+//! ignore that there are multiple versions of a given packet.
+//!
+//! # Unknown Packets
+//!
+//! Sequoia gracefully handles unsupported packets by storing them as
+//! [`Unknown`] packets.  There are several types of unknown packets:
+//!
+//!   - Packets that are known, but explicitly not supported.
+//!
+//!     The two major examples are the [`SED`] packet type and v3
+//!     `Signature` packets, which have both been considered insecure
+//!     for well over a decade.
+//!
+//!     Note: future versions of Sequoia may add limited support for
+//!     these packets to enable parsing archived messages.
+//!
+//!   - Packets that are known about, but that use unsupported
+//!     options, e.g., a [`Compressed Data`] packet using an unknown or
+//!     unsupported algorithm.
+//!
+//!   - Packets that are unknown, e.g., future or [private
+//!     extensions].
+//!
+//! When Sequoia [parses] a message containing these packets, it
+//! doesn't fail.  Instead, Sequoia stores them in the [`Unknown`]
+//! data structure.  This allows applications to not only continue to
+//! process such messages (albeit with degraded performance), but to
+//! losslessly reserialize the messages, should that be required.
+//!
+//! # Containers
+//!
+//! Packets can be divided into two categories: containers and
+//! non-containers.  A container is a packet that contains other
+//! OpenPGP packets.  For instance, by definition, a [`Compressed
+//! Data`] packet contains an [OpenPGP Message].  It is possible to
+//! iterate over a container's descendants using the
+//! [`Container::descendants`] method.  (Note: `Container`s [`Deref`]
+//! to [`Container`].)
+//!
+//! # Packet Headers and Bodies
+//!
+//! Conceptually, packets have zero or more headers and an optional
+//! body.  The headers are small, and have a known upper bound.  The
+//! version field is, for instance, 4 bytes, and although
+//! [`Signature`][] [`SubpacketArea`][] areas are variable in size,
+//! they are limited to 64 KB.  In contrast the body, can be unbounded
+//! in size.
+//!
+//! To limit memory use, and enable streaming processing (i.e.,
+//! ensuring that processing a message can be done using a fixed size
+//! buffer), Sequoia does not require that a packet's body be present
+//! in memory.  For instance, the body of a literal data packet may be
+//! streamed.  And, at the end, a [`Literal`] packet is still
+//! returned.  This allows the caller to examine the message
+//! structure, and the message headers in *in toto* even when
+//! streaming.  It is even possible to compare two streamed version of
+//! a packet: Sequoia stores a hash of the body.  See the [`Body`]
+//! data structure for more details.
+//!
+//! # Equality
+//!
+//! There are several reasonable ways to define equality for
+//! `Packet`s.  Unfortunately, none of them are appropriate in all
+//! situations.  This makes choosing a general-purpose equality
+//! function for [`Eq`] difficult.
+//!
+//! Consider defining `Eq` as the equivalence of two `Packet`s'
+//! serialized forms.  If an application naively deduplicates
+//! signatures, then an attacker can potentially perform a denial of
+//! service attack by causing the application to process many
+//! cryptographically-valid `Signature`s by varying the content of one
+//! cryptographically-valid `Signature`'s unhashed area.  This attack
+//! can be prevented by only comparing data that is protected by the
+//! signature.  But this means that naively deduplicating `Signature`
+//! packets will return in "a random" variant being used.  So, again,
+//! an attacker could create variants of a cryptographically-valid
+//! `Signature` to get the implementation to incorrectly drop a useful
+//! one.
+//!
+//! These issues are also relevant when comparing [`Key`s]: should the
+//! secret key material be compared?  Usually we want to merge the
+//! secret key material.  But, again, if done naively, the incorrect
+//! secret key material may be retained or dropped completely.
+//!
+//! Instead of trying to come up with a definition of equality that is
+//! reasonable for all situations, we use a conservative definition:
+//! two packets are considered equal if the serialized forms of their
+//! packet bodies as defined by RFC 4880 are equal.  That is, two
+//! packets are considered equal if and only if their serialized forms
+//! are equal modulo the OpenPGP framing ([`CTB`] and [length style],
+//! potential [partial body encoding]).  This definition will avoid
+//! unintentionally dropping information when naively deduplicating
+//! packets, but it will result in potential redundancies.
+//!
+//! For some packets, we provide additional variants of equality.  For
+//! instance, [`Key::public_cmp`] compares just the public parts of
+//! two keys.
+//!
+//! [packet based]: https://tools.ietf.org/html/rfc4880#section-5
+//! [the grammar]: https://tools.ietf.org/html/rfc4880#section-11
+//! [`Signature`]: enum.Signature.html
+//! [v3]: https://tools.ietf.org/html/rfc4880#section-5.2.2
+//! [v4]: https://tools.ietf.org/html/rfc4880#section-5.2.3
+//! [`OnePassSig`]: enum.OnePassSig.html
+//! [parsing a message]: ../parse/index.html
+//! [creating a message]: ../serialize/stream/index.html
+//! [`SignatureBuilder`]: signature/struct.SignatureBuilder.html
+//! [`SED`]: https://tools.ietf.org/html/rfc4880#section-5.7
+//! [`Unknown`]: struct.Unknown.html
+//! [private extensions]: https://tools.ietf.org/html/rfc4880#section-4.3
+//! [`Compressed Data`]: struct.CompressedData.html
+//! [parses]: ../parse/index.html
+//! [OpenPGP Message]: https://tools.ietf.org/html/rfc4880#section-11.3
+//! [`Container::descendants`]: struct.Container.html#method.descendants
+//! [`Deref`]: https://doc.rust-lang.org/stable/std/ops/trait.Deref.html
+//! [`Container`]: struct.Container.html
+//! [`Signature`]: enum.Signature.html
+//! [`SubpacketArea`]: signature/subpacket/struct.SubpacketArea.html
+//! [`Literal`]: struct.Literal.html
+//! [`Body`]: enum.Body.html
+//! [`Eq`]: https://doc.rust-lang.org/stable/std/cmp/trait.Eq.html
+//! [`Key`s]: enum.Key.html
+//! [`CTB`]: header/enum.CTB.html
+//! [length style]: https://tools.ietf.org/html/rfc4880#section-4.2
+//! [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
+//! [`Key::public_cmp`]: enum.Key.html#method.public_cmp
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::slice;
@@ -61,28 +213,28 @@ use super::*;
 ///
 /// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
 ///
-/// The `Unknown` packet allows Sequoia to deal with packets that it
-/// doesn't understand.  The `Unknown` packet is basically a binary
-/// blob that includes the packet's tag.
-///
-/// The unknown packet is also used for packets that are understood,
-/// but use unsupported options.  For instance, when the packet parser
-/// encounters a compressed data packet with an unknown compression
-/// algorithm, it returns the packet in an `Unknown` packet rather
-/// than a `CompressedData` packet.
-///
-///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
+/// The [`Unknown`] packet allows Sequoia to deal with packets that it
+/// doesn't understand.  It is basically a binary blob that includes
+/// the packet's [tag].  See the [module-level documentation] for
+/// details.
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 ///
 /// # A note on equality
 ///
-/// We define equality on `Packet` like equality of the serialized
-/// form of the packet bodies defined by RFC4880, i.e. two packets are
-/// considered equal if and only if their serialized form is equal,
-/// modulo the OpenPGP framing (`CTB` and length style, potential
-/// partial body encoding).
+/// We define equality on `Packet` as the equality of the serialized
+/// form of their packet bodies as defined by RFC 4880.  That is, two
+/// packets are considered equal if and only if their serialized forms
+/// are equal, modulo the OpenPGP framing ([`CTB`] and [length style],
+/// potential [partial body encoding]).
+///
+/// [`Unknown`]: struct.Unknown.html
+/// [tag]: https://tools.ietf.org/html/rfc4880#section-4.3
+/// [module-level documentation]: index.html#unknown-packets
+/// [`CTB`]: header/enum.CTB.html
+/// [length style]: https://tools.ietf.org/html/rfc4880#section-4.2
+/// [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
 #[derive(Debug)]
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {
@@ -168,7 +320,7 @@ impl_into_iterator!(Key<P, R> where P: key::KeyParts, R: key::KeyRole);
 
 // Make it easy to pass an iterator of Packets to something expecting
 // an iterator of Into<Result<Packet>> (specifically,
-// CertParser::into_iter)..
+// CertParser::into_iter).
 impl From<Packet> for Result<Packet> {
     fn from(p: Packet) -> Self {
         Ok(p)
@@ -367,8 +519,26 @@ impl std::hash::Hash for Common {
 }
 
 
-/// A `Iter` iterates over the *contents* of a packet in
-/// depth-first order.  It starts by returning the current packet.
+/// An iterator over the *contents* of a packet in depth-first order.
+///
+/// Given a [`Packet`], an `Iter` iterates over the `Packet` and any
+/// `Packet`s that it contains.  For non-container `Packet`s, this
+/// just returns a reference to the `Packet` itself.  For [container
+/// `Packet`s] like [`CompressedData`], [`SEIP`], and [`AED`], this
+/// walks the `Packet` hierarchy in depth-first order, and returns the
+/// `Packet`s the first time they are visited.  (Thus, the packet
+/// itself is always returned first.)
+///
+/// This is returned by [`PacketPile::descendants`] and
+/// [`Container::descendants`].
+///
+/// [`Packet`]: enum.Packet.html
+/// [container `Packet`s]: index.html#containers
+/// [`CompressedData`]: struct.CompressedData.html
+/// [`SEIP`]: enum.SEIP.html
+/// [`AED`]: enum.AED.html
+/// [`PacketPile::descendants`]: ../struct.PacketPile.html#method.descendants
+/// [`Container::descendants`]: struct.Container.html#method.descendants
 pub struct Iter<'a> {
     // An iterator over the current message's children.
     children: slice::Iter<'a, Packet>,
@@ -425,11 +595,71 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 impl<'a> Iter<'a> {
-    /// Extends a `Iter` to also return each packet's path.
+    /// Extends an `Iter` to also return each packet's `pathspec`.
     ///
     /// This is similar to `enumerate`, but instead of counting, this
-    /// returns each packet's path in addition to a reference to the
-    /// packet.
+    /// returns each packet's `pathspec` in addition to a reference to
+    /// the packet.
+    ///
+    /// See [`PacketPile::path_ref`] for an explanation of
+    /// `pathspec`s.
+    ///
+    /// [`PacketPile::path_ref`]: ../struct.PacketPile.html#path_ref
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::PacketPile;
+    ///
+    /// # fn main() -> Result<()> {
+    /// # let message = {
+    /// #     use openpgp::types::CompressionAlgorithm;
+    /// #     use openpgp::packet;
+    /// #     use openpgp::PacketPile;
+    /// #     use openpgp::serialize::Serialize;
+    /// #     use openpgp::parse::Parse;
+    /// #     use openpgp::types::DataFormat;
+    /// #
+    /// #     let mut lit = Literal::new(DataFormat::Text);
+    /// #     lit.set_body(b"test".to_vec());
+    /// #     let lit = Packet::from(lit);
+    /// #
+    /// #     let mut cd = CompressedData::new(
+    /// #         CompressionAlgorithm::Uncompressed);
+    /// #     cd.set_body(packet::Body::Structured(vec![ lit.clone() ]));
+    /// #     let cd = Packet::from(cd);
+    /// #
+    /// #     // Make sure we created the message correctly: serialize,
+    /// #     // parse it, and then check its form.
+    /// #     let mut bytes = Vec::new();
+    /// #     cd.serialize(&mut bytes)?;
+    /// #
+    /// #     let pp = PacketPile::from_bytes(&bytes[..])?;
+    /// #
+    /// #     assert_eq!(pp.descendants().count(), 2);
+    /// #     assert_eq!(pp.path_ref(&[ 0 ]).unwrap().tag(),
+    /// #                packet::Tag::CompressedData);
+    /// #     assert_eq!(pp.path_ref(&[ 0, 0 ]), Some(&lit));
+    /// #
+    /// #     cd
+    /// # };
+    /// #
+    /// let pp = PacketPile::from(message);
+    /// let tags: Vec<(Vec<usize>, Tag)> = pp.descendants().paths()
+    ///     .map(|(path, packet)| (path, packet.into()))
+    ///     .collect::<Vec<_>>();
+    /// assert_eq!(&tags,
+    ///            &[
+    ///               // Root.
+    ///               ([0].to_vec(), Tag::CompressedData),
+    ///               // Root's first child.
+    ///               ([0, 0].to_vec(), Tag::Literal),
+    ///             ]);
+    /// # Ok(()) }
+    /// ```
     pub fn paths(self) -> impl Iterator<Item = (Vec<usize>, &'a Packet)> {
         PacketPathIter {
             iter: self,
@@ -439,8 +669,12 @@ impl<'a> Iter<'a> {
 }
 
 
-/// Like `enumerate`, this augments the packet returned by a
-/// `Iter` with its `Path`.
+/// Augments the packet returned by `Iter` with its `pathspec`.
+///
+/// Like [`Iter::enumerate`].
+///
+/// [`Iter::enumerate`]: https://doc.rust-lang.org/stable/std/iter/trait.Iterator.html#method.enumerate
+/// [`Iter`]: struct.Iter.html
 struct PacketPathIter<'a> {
     iter: Iter<'a>,
 
@@ -546,12 +780,32 @@ fn packet_path_iter() {
 
 /// Holds a signature packet.
 ///
-/// Signature packets are used both for certification purposes as well
-/// as for document signing purposes.
-///
-/// See [Section 5.2 of RFC 4880] for details.
+/// Signature packets are used to hold all kinds of signatures
+/// including certifications, and signatures over documents.  See
+/// [Section 5.2 of RFC 4880] for details.
 ///
 ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
+///
+/// When signing a document, a `Signature` packet is typically created
+/// indirectly by the [streaming `Signer`].  Similarly, a `Signature`
+/// packet is created as a side effect of parsing a signed message
+/// using the [`PacketParser`].
+///
+/// `Signature` packets are also used for [self signatures on Keys],
+/// [self signatures on User IDs], [self signatures on User
+/// Attributes], [certifications of User IDs], and [certifications of
+/// User Attributes].  In these cases, you'll typically want to use
+/// the [`SignatureBuilder`] to create the `Signature` packet.  See
+/// the linked documentation for details, and examples.
+///
+/// [streaming `Signer`]: ../serialize/stream/struct.Signer.html
+/// [`PacketParser`]: ../parse/index.html
+/// [self signatures on Keys]: enum.Key.html#method.bind
+/// [self signatures on User IDs]: struct.UserID.html#method.bind
+/// [self signatures on User Attributes]: user_attribute/struct.UserAttribute.html#method.bind
+/// [certifications of User IDs]: struct.UserID.html#method.certify
+/// [certifications of User Attributes]: user_attribute/struct.UserAttribute.html#method.certify
+/// [`SignatureBuilder`]: signature/struct.SignatureBuilder.html
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -560,17 +814,58 @@ fn packet_path_iter() {
 ///
 /// Two `Signature` packets are considered equal if their serialized
 /// form is equal.  Notably this includes the unhashed subpacket area
-/// and the order of subpackets and notations, but excludes the
-/// computed digest and signature level.
+/// and the order of subpackets and notations.  This excludes the
+/// computed digest and signature level, which are not serialized.
 ///
 /// A consequence of considering packets in the unhashed subpacket
 /// area is that an adversary can take a valid signature and create
 /// many distinct but valid signatures by changing the unhashed
 /// subpacket area.  This has the potential of creating a denial of
-/// service vector.  To protect against this, consider using
-/// [`Signature::normalized_eq`].
+/// service vector, if `Signature`s are naively deduplicated.  To
+/// protect against this, consider using [`Signature::normalized_eq`].
 ///
 ///   [`Signature::normalized_eq`]: #method.normalized_eq
+///
+/// # Examples
+///
+/// Add a User ID to an existing certificate:
+///
+/// ```
+/// use std::time;
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let t1 = time::SystemTime::now();
+/// let t2 = t1 + time::Duration::from_secs(1);
+///
+/// let (cert, _) = CertBuilder::new()
+///     .set_creation_time(t1)
+///     .add_userid("Alice <alice@example.org>")
+///     .generate()?;
+///
+/// // Add a new User ID.
+/// let mut signer = cert
+///     .primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+///
+/// // Use the existing User ID's signature as a template.  This ensures that
+/// // we use the same
+/// let userid = UserID::from("Alice <alice@other.com>");
+/// let template: signature::SignatureBuilder
+///     = cert.with_policy(p, t1)?.primary_userid().unwrap()
+///         .binding_signature().clone().into();
+/// let sig = template.clone()
+///     .set_signature_creation_time(t2)?;
+/// let sig = userid.bind(&mut signer, &cert, sig)?;
+///
+/// let cert = cert.merge_packets(vec![ Packet::from(userid), sig.into() ])?;
+/// # assert_eq!(cert.with_policy(p, t2)?.userids().count(), 2);
+/// # Ok(()) }
+/// ```
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Signature {
     /// Signature packet version 4.
@@ -623,10 +918,17 @@ impl DerefMut for Signature {
 ///
 /// See [Section 5.4 of RFC 4880] for details.
 ///
-///   [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
+/// A `OnePassSig` packet is not normally instantiated directly.  In
+/// most cases, you'll create one as a side-effect of signing a
+/// message using the [streaming serializer], or parsing a signed
+/// message using the [`PacketParser`].
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+///
+/// [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
+/// [`PacketParser`]: ../parse/index.html
+/// [streaming serializer]: ../serialize/stream/index.html
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum OnePassSig {
     /// OnePassSig packet version 3.
@@ -677,13 +979,23 @@ impl DerefMut for OnePassSig {
 
 /// Holds an asymmetrically encrypted session key.
 ///
-/// The session key is needed to decrypt the actual ciphertext.  See
-/// [Section 5.1 of RFC 4880] for details.
+/// The session key is used to decrypt the actual ciphertext, which is
+/// typically stored in a [SEIP] or [AED] packet.  See [Section 5.1 of
+/// RFC 4880] for details.
 ///
-///   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
+/// A PKESK packet is not normally instantiated directly.  In most
+/// cases, you'll create one as a side-effect of encrypting a message
+/// using the [streaming serializer], or parsing an encrypted message
+/// using the [`PacketParser`].
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+///
+/// [SEIP]: enum.SEIP.html
+/// [AED]: enum.AED.html
+/// [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
+/// [streaming serializer]: ../serialize/stream/index.html
+/// [`PacketParser`]: ../parse/index.html
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum PKESK {
     /// PKESK packet version 3.
@@ -732,16 +1044,25 @@ impl DerefMut for PKESK {
     }
 }
 
-/// Holds an symmetrically encrypted session key.
+/// Holds a symmetrically encrypted session key.
 ///
-/// Holds an symmetrically encrypted session key.  The session key is
-/// needed to decrypt the actual ciphertext.  See [Section 5.3 of RFC
-/// 4880] for details.
+/// The session key is used to decrypt the actual ciphertext, which is
+/// typically stored in a [SEIP] or [AED] packet.  See [Section 5.3 of
+/// RFC 4880] for details.
 ///
-/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
+/// An SKESK packet is not normally instantiated directly.  In most
+/// cases, you'll create one as a side-effect of encrypting a message
+/// using the [streaming serializer], or parsing an encrypted message
+/// using the [`PacketParser`].
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+///
+/// [SEIP]: enum.SEIP.html
+/// [AED]: enum.AED.html
+/// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
+/// [streaming serializer]: ../serialize/stream/index.html
+/// [`PacketParser`]: ../parse/index.html
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SKESK {
     /// SKESK packet version 4.
@@ -779,6 +1100,31 @@ impl From<SKESK> for Packet {
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 ///
+/// `Key` is generic over two types: `P` and `R`.  These are
+/// respectively used to track the key's parts ([`key::PublicParts`]
+/// or [`key::SecretParts`]) and its role ([`key::PrimaryRole`] or
+/// [`key::SubordinateRole`]).  The types determine what methods are
+/// exposed, and the behavior of those methods, but they do not
+/// determine the content of the data structure.  That is a
+/// `Key<key::PublicParts, _>` may include secret key material, but,
+/// with a few exceptions, methods that act on it will treat it as if
+/// it didn't.  `Key<key::SecretParts, _>`, however, will always have
+/// secret key material.
+///
+/// Both of the type parameters have a third variant:
+/// [`key::UnspecifiedParts`] and [`key::UnspecifiedRole`].  These are
+/// used when the type needs to be erased.  For instance, when
+/// iterating over all keys in a certificate, we could use
+/// `key::UnspecifiedRole`, since there is potentially a mix of roles
+/// (a primary key and zero or more subkeys).
+///
+/// [`key::SecretParts`]: key/struct.SecretParts.html
+/// [`key::PublicParts`]: key/struct.PublicParts.html
+/// [`key::PrimaryRole`]: key/struct.PrimaryRole.html
+/// [`key::SubordinateRole`]: key/struct.SubordinateRole.html
+/// [`key::UnspecifiedParts`]: key/struct.UnspecifiedParts.html
+/// [`key::UnspecifiedRole`]: key/struct.UnspecifiedRole.html
+///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 ///
@@ -792,6 +1138,103 @@ impl From<SKESK> for Packet {
 /// [`Key::public_eq`].
 ///
 ///   [`Key::public_eq`]: #method.public_eq
+///
+/// # Examples
+///
+/// Changing a key's type:
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// // Generate a new certificate.  It has secret key material.
+/// let (cert, _) = CertBuilder::new()
+///     .generate()?;
+///
+/// let pk: &Key<key::PublicParts, key::PrimaryRole>
+///     = cert.primary_key().key();
+/// // `has_secret`s is one of the few methods that ignores the
+/// // parts type.
+/// assert!(pk.has_secret());
+///
+/// // Treat is like a secret key.  This only works if `pk` really
+/// // has secret key material (which it does).
+/// let sk = pk.parts_as_secret()?;
+/// assert!(sk.has_secret());
+///
+/// // And back.
+/// let pk = sk.parts_as_public();
+/// // Yes, the secret key material is still there.
+/// assert!(pk.has_secret());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Serializing a public key with secret key material drops the secret
+/// key material:
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+/// use sequoia_openpgp::parse::Parse;
+/// use openpgp::serialize::Serialize;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// // Generate a new certificate.  It has secret key material.
+/// let (cert, _) = CertBuilder::new()
+///     .generate()?;
+///
+/// let pk = cert.primary_key().key();
+/// assert!(pk.has_secret());
+///
+/// // Serializing a `Key<key::PublicParts, _>` drops the secret key
+/// // material.
+/// let mut bytes = Vec::new();
+/// Packet::from(pk.clone()).serialize(&mut bytes);
+/// let p : Packet = Packet::from_bytes(&bytes)?;
+///
+/// if let Packet::PublicKey(key) = p {
+///     assert!(! key.has_secret());
+/// } else {
+///     unreachable!();
+/// }
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Comparing keys:
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// // Generate a new certificate.  It has secret key material.
+/// let (cert, _) = CertBuilder::new()
+///     .generate()?;
+///
+/// let sk = cert.primary_key().key();
+/// assert!(sk.has_secret());
+///
+/// // Strip the secret key material.
+/// let cert = cert.clone().strip_secret_key_material();
+/// let pk = cert.primary_key().key();
+/// assert!(! pk.has_secret());
+///
+/// // Eq compares both the public and the secret bits, so it
+/// // considers pk and sk to be different.
+/// assert_ne!(pk, sk);
+///
+/// // Key::public_eq only compares the public bits, so it considers
+/// // them to be equal.
+/// assert!(Key::public_eq(pk, sk));
+/// # Ok(())
+/// # }
+/// ```
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Key<P: key::KeyParts, R: key::KeyRole> {
     /// Key packet version 4.
@@ -822,7 +1265,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
 
     /// Compares the public bits of two keys.
     ///
-    /// This returns Ordering::Equal if the public MPIs, version,
+    /// This returns `Ordering::Equal` if the public MPIs, version,
     /// creation time and algorithm of the two `Key`s match.  This
     /// does not consider the packet's encoding, packet's tag or the
     /// secret key material.
@@ -838,7 +1281,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     }
 
     /// This method tests for self and other values to be equal modulo
-    /// the secret bits.
+    /// the secret key material.
     ///
     /// This returns true if the public MPIs, creation time and
     /// algorithm of the two `Key`s match.  This does not consider
@@ -1012,12 +1455,19 @@ impl<P: key::KeyParts, R: key::KeyRole> DerefMut for Key<P, R> {
     }
 }
 
-/// Holds an encrypted data packet.
+/// Holds a SEIP packet.
 ///
-/// An encrypted data packet is a container.  See [Section 5.13 of RFC
-/// 4880] for details.
+/// A SEIP packet holds encrypted data.  The data contains additional
+/// OpenPGP packets.  See [Section 5.13 of RFC 4880] for details.
+///
+/// A SEIP packet is not normally instantiated directly.  In most
+/// cases, you'll create one as a side-effect of encrypting a message
+/// using the [streaming serializer], or parsing an encrypted message
+/// using the [`PacketParser`].
 ///
 /// [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
+/// [streaming serializer]: ../serialize/stream/index.html
+/// [`PacketParser`]: ../parse/index.html
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SEIP {
     /// SEIP packet version 1.
@@ -1061,13 +1511,21 @@ impl DerefMut for SEIP {
 
 /// Holds an AEAD encrypted data packet.
 ///
-/// An AEAD encrypted data packet is a container.  See [Section 5.16
-/// of RFC 4880bis] for details.
+/// An AEAD packet holds encrypted data.  It is contains additional
+/// OpenPGP packets.  See [Section 5.16 of RFC 4880bis] for details.
 ///
 /// [Section 5.16 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.16
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+///
+/// An AEAD packet is not normally instantiated directly.  In most
+/// cases, you'll create one as a side-effect of encrypting a message
+/// using the [streaming serializer], or parsing an encrypted message
+/// using the [`PacketParser`].
+///
+/// [streaming serializer]: ../serialize/stream/index.html
+/// [`PacketParser`]: ../parse/index.html
 ///
 /// This feature is [experimental](../index.html#experimental-features).
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
