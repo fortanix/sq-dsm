@@ -2218,6 +2218,43 @@ impl Cert {
         })
     }
 
+    /// Strips any secret key material.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    ///
+    /// // Create a new key.
+    /// let (cert, _) =
+    ///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///       .generate()?;
+    /// assert!(cert.is_tsk());
+    ///
+    /// let cert = cert.strip_secret_key_material();
+    /// assert!(! cert.is_tsk());
+    /// #     Ok(())
+    /// # }
+    /// ```
+    pub fn strip_secret_key_material(mut self) -> Cert {
+        let (pk, _sk) = self.primary.component.take_secret();
+        self.primary.component = pk;
+
+        let subkeys = self.subkeys.into_iter()
+            .map(|mut kb| {
+                let (pk, _sk) = kb.component.take_secret();
+                kb.component = pk;
+                kb
+            })
+            .collect::<Vec<_>>();
+        self.subkeys = ComponentBundles { bundles: subkeys, };
+
+        self
+    }
+
     /// Associates a policy and a reference time with the certificate.
     ///
     /// This is used to turn a `Cert` into a
