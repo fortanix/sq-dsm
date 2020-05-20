@@ -6,6 +6,10 @@ use crate::Packet;
 
 /// Holds a Trust packet.
 ///
+/// Trust packets are used to hold implementation specific information
+/// in an implementation-defined format.  Trust packets are normally
+/// not exported.
+///
 /// See [Section 5.10 of RFC 4880] for details.
 ///
 ///   [Section 5.10 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.10
