@@ -1,4 +1,17 @@
-//! OpenPGP Header.
+//! OpenPGP packet headers.
+//!
+//! An OpenPGP packet header contains packet meta-data.  Specifically,
+//! it includes the [packet's type] (its so-called *tag*), and the
+//! [packet's length].
+//!
+//! Decades ago, when OpenPGP was conceived, saving even a few bits
+//! was considered important.  As such, OpenPGP uses very compact
+//! encodings.  The encoding schemes have evolved so that there are
+//! now two families: the so-called old format, and new format
+//! encodings.
+//!
+//! [packet's type]: https://tools.ietf.org/html/rfc4880#section-4.3
+//! [packet's length]: https://tools.ietf.org/html/rfc4880#section-4.2.1
 
 use crate::{
     Error,
@@ -13,7 +26,11 @@ pub use self::ctb::{
     PacketLengthType,
 };
 
-/// An OpenPGP packet's header.
+/// A packet's header.
+///
+/// See [Section 4.2 of RFC 4880] for details.
+///
+/// [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 #[derive(Clone, Debug)]
 pub struct Header {
     /// The packet's CTB.
@@ -28,29 +45,34 @@ impl Header {
         Header { ctb, length }
     }
 
-    /// Returns the packet's CTB.
+    /// Returns the header's CTB.
     pub fn ctb(&self) -> &CTB {
         &self.ctb
     }
 
-    /// Returns the packet's length.
+    /// Returns the header's length.
     pub fn length(&self) -> &BodyLength {
         &self.length
     }
 
-    /// Syntax checks the header.
+    /// Checks the header for validity.
     ///
     /// A header is consider invalid if:
     ///
-    ///   - The tag is Tag::Reserved.
-    ///   - The tag is unknown (if future_compatible is false).
-    ///   - The [length encoding] is invalid for the packet.
+    ///   - The tag is [`Tag::Reserved`].
+    ///   - The tag is [`Tag::Unknown`] or [`Tag::Private`] and
+    ///     `future_compatible` is false.
+    ///   - The [length encoding] is invalid for the packet (e.g.,
+    ///     partial body encoding may not be used for [`PKESK`] packets)
     ///   - The lengths are unreasonable for a packet (e.g., a
-    ///     PKESK or SKESK larger than 10 kb).
+    ///     `PKESK` or [`SKESK`] larger than 10 KB).
     ///
+    /// [`Tag::Reserved`]: ../enum.Tag.html#variant.Reserved
+    /// [`Tag::Unknown`]: ../enum.Tag.html#variant.Unknown
+    /// [`Tag::Private`]: ../enum.Tag.html#variant.Private
     /// [length encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
-    ///
-    /// This function does not check the packet's content.
+    /// [`PKESK`]: ../enum.PKESK.html
+    /// [`SKESK`]: ../enum.SKESK.html
     // Note: To check the packet's content, use
     //       `PacketParser::plausible`.
     pub fn valid(&self, future_compatible: bool) -> Result<()> {
@@ -202,12 +224,12 @@ impl Header {
     }
 }
 
-/// The size of a packet.
+/// A packet's size.
 ///
 /// A packet's size can be expressed in three different ways.  Either
-/// the size of the packet is fully known (Full), the packet is
-/// chunked using OpenPGP's partial body encoding (Partial), or the
-/// packet extends to the end of the file (Indeterminate).  See
+/// the size of the packet is fully known (`Full`), the packet is
+/// chunked using OpenPGP's partial body encoding (`Partial`), or the
+/// packet extends to the end of the file (`Indeterminate`).  See
 /// [Section 4.2 of RFC 4880] for more details.
 ///
 ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
@@ -216,12 +238,14 @@ impl Header {
 #[derive(PartialEq)]
 #[derive(Clone, Copy)]
 pub enum BodyLength {
-    /// Packet size is fully known.
+    /// The packet's size is known.
     Full(u32),
     /// The parameter is the number of bytes in the current chunk.
+    ///
     /// This type is only used with new format packets.
     Partial(u32),
-    /// The packet extends until an EOF is encountered.  This type is
-    /// only used with old format packets.
+    /// The packet extends until an EOF is encountered.
+    ///
+    /// This type is only used with old format packets.
     Indeterminate,
 }
