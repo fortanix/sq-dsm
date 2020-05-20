@@ -110,7 +110,7 @@ pub struct CTBOld {
     /// Common CTB fields.
     common: CTBCommon,
     /// Type of length specifier.
-    pub length_type: PacketLengthType,
+    length_type: PacketLengthType,
 }
 
 impl CTBOld {
@@ -162,6 +162,11 @@ impl CTBOld {
     /// Returns the packet's tag.
     pub fn tag(&self) -> Tag {
         self.common.tag
+    }
+
+    /// Returns the packet's length type.
+    pub fn length_type(&self) -> PacketLengthType {
+        self.length_type
     }
 }
 

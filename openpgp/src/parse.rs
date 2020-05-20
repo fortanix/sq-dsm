@@ -1012,7 +1012,7 @@ impl Header {
         let length = match ctb {
             CTB::New(_) => BodyLength::parse_new_format(bio)?,
             CTB::Old(ref ctb) =>
-                BodyLength::parse_old_format(bio, ctb.length_type)?,
+                BodyLength::parse_old_format(bio, ctb.length_type())?,
         };
         return Ok(Header::new(ctb, length));
     }

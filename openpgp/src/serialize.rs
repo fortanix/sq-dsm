@@ -755,7 +755,7 @@ impl MarshalInto for CTBNew {
 impl Marshal for CTBOld {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag: u8 = self.tag().into();
-        let length_type: u8 = self.length_type.into();
+        let length_type: u8 = self.length_type().into();
         o.write_all(&[0b1000_0000u8 | (tag << 2) | length_type])?;
         Ok(())
     }
