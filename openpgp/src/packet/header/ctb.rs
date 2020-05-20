@@ -1,6 +1,8 @@
-//! Cipher Type Byte.
+//! Cipher Type Byte (CTB).
 //!
-//! See [Section 4.2 of RFC 4880] for more details.
+//! The CTB encodes the packet's type and some length information.  It
+//! has two variants: the so-called old format and the so-called new
+//! format.  See [Section 4.2 of RFC 4880] for more details.
 //!
 //!   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
 
@@ -13,8 +15,10 @@ use crate::{
 };
 use crate::packet::header::BodyLength;
 
-/// OpenPGP defines two packet formats: the old and the new format.
-/// They both include the packet's so-called tag.
+/// Data common to all CTB formats.
+///
+/// OpenPGP defines two packet formats: an old format and a new
+/// format.  They both include the packet's so-called tag.
 ///
 /// See [Section 4.2 of RFC 4880] for more details.
 ///
@@ -25,7 +29,7 @@ struct CTBCommon {
     tag: Tag,
 }
 
-/// The new CTB format.
+/// A CTB using the new format encoding.
 ///
 /// See [Section 4.2 of RFC 4880] for more details.
 ///
@@ -52,25 +56,38 @@ impl CTBNew {
     }
 }
 
-/// The PacketLengthType is used as part of the [old CTB], and is
+/// The length encoded for an old style CTB.
+///
+/// The `PacketLengthType` is only part of the [old CTB], and is
 /// partially used to determine the packet's size.
 ///
 /// See [Section 4.2.1 of RFC 4880] for more details.
 ///
-///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
 ///   [old CTB]: struct.CTBOld.html
+///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
 #[derive(Debug)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum PacketLengthType {
     /// A one-octet Body Length header encodes a length of 0 to 191 octets.
+    ///
+    /// The header is 2 octets long.  It contains the one byte CTB
+    /// followed by the one octet length.
     OneOctet,
     /// A two-octet Body Length header encodes a length of 192 to 8383 octets.
+    ///
+    /// The header is 3 octets long.  It contains the one byte CTB
+    /// followed by the two octet length.
     TwoOctets,
-    /// A five-octet Body Length header consists of a single octet holding
-    /// the value 255, followed by a four-octet scalar.
+    /// A four-octet Body Length.
+    ///
+    /// The header is 5 octets long.  It contains the one byte CTB
+    /// followed by the four octet length.
     FourOctets,
-    /// A Partial Body Length header is one octet long and encodes the length
-    /// of only part of the data packet.
+    /// The packet is of indeterminate length.
+    ///
+    /// Neither the packet header nor the packet itself contain any
+    /// information about the length.  The end of the packet is clear
+    /// from the context, e.g., EOF.
     Indeterminate,
 }
 
@@ -100,7 +117,7 @@ impl From<PacketLengthType> for u8 {
     }
 }
 
-/// The old CTB format.
+/// A CTB using the old format encoding.
 ///
 /// See [Section 4.2 of RFC 4880] for more details.
 ///
@@ -114,12 +131,12 @@ pub struct CTBOld {
 }
 
 impl CTBOld {
-    /// Constructs a old-style CTB.
+    /// Constructs an old-style CTB.
     ///
     /// # Errors
     ///
-    /// Returns [`Error::InvalidArgument`] if the tag or body length
-    /// cannot be expressed using an old-style CTB.
+    /// Returns [`Error::InvalidArgument`] if the tag or the body
+    /// length cannot be expressed using an old-style CTB.
     ///
     /// [`Error::InvalidArgument`]: ../../enum.Error.html#variant.InvalidArgument
     pub fn new(tag: Tag, length: BodyLength) -> Result<Self> {
@@ -151,6 +168,7 @@ impl CTBOld {
             BodyLength::Indeterminate =>
                 PacketLengthType::Indeterminate,
         };
+
         Ok(CTBOld {
             common: CTBCommon {
                 tag,
@@ -170,7 +188,7 @@ impl CTBOld {
     }
 }
 
-/// A sum type for the different CTB variants.
+/// The CTB variants.
 ///
 /// There are two CTB variants: the [old CTB format] and the [new CTB
 /// format].
