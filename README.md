@@ -112,9 +112,9 @@ clean`.
 these add `PYTHON=disable` to all `make` invocations. E.g. `make
 PYTHON=disable`.
 
-To build Sequoia, you need at least Rust 1.34 and a few
-libraries.  Please see below for OS-specific commands to install
-the needed libraries:
+To build Sequoia, you need at least Rust 1.34 and a few libraries,
+notably the Nettle cryptographic library version 3.4.1 or up.  Please
+see below for OS-specific commands to install the needed libraries:
 
 ### Debian
 
@@ -128,7 +128,7 @@ Notes:
     (Stretch) is too old.  The version from Debian 10 (Buster) works
     fine.
   - The version of Nettle in Debian 9 (Stretch), is too old.  Instead,
-    you need at least version 3.4, which is available from Debian 10
+    you need at least version 3.4.1, which is available from Debian 10
     (Buster).
 
 ### Arch Linux
