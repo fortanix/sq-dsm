@@ -64,8 +64,9 @@ pub extern "C" fn pgp_pkesk_decrypt(errp: Option<&mut *mut crate::error::Error>,
             }
         },
         Err(e) => {
-            // XXX: Better message, don't panic.
-            panic!("Secret parts not unencrypted in {:?}: {}", secret_key, e);
+            ffi_try_status!(Err::<(), anyhow::Error>(
+                    openpgp::Error::InvalidOperation(
+                        format!("Unusable secret parts: {}", e)).into()))
         },
     }
 }
