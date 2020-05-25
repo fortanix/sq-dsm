@@ -3057,7 +3057,7 @@ mod test {
             fn decrypt<D>(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
                           sym_algo: Option<SymmetricAlgorithm>,
                           mut decrypt: D) -> Result<Option<crate::Fingerprint>>
-                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
             {
                 let mut keypair = self.tsk.keys().with_policy(self.policy, None)
                     .for_transport_encryption()
@@ -3065,8 +3065,7 @@ mod test {
                     .clone().parts_into_secret().unwrap()
                     .into_keypair().unwrap();
                 pkesks[0].decrypt(&mut keypair, sym_algo)
-                    .and_then(|(algo, session_key)|
-                              decrypt(algo, &session_key).ok());
+                    .map(|(algo, session_key)| decrypt(algo, &session_key));
                 Ok(None)
             }
         }

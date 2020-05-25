@@ -84,14 +84,14 @@ impl DecryptionHelper for Helper {
                   sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D)
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         // Try each PKESK until we succeed.
         for pkesk in pkesks {
             if let Some(pair) = self.keys.get_mut(pkesk.recipient()) {
-                if let Some(_) = pkesk.decrypt(pair, sym_algo)
-                    .and_then(|(algo, session_key)| decrypt(algo, &session_key)
-                              .ok())
+                if pkesk.decrypt(pair, sym_algo)
+                    .map(|(algo, session_key)| decrypt(algo, &session_key))
+                    .unwrap_or(false)
                 {
                     break;
                 }

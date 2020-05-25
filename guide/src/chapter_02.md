@@ -126,7 +126,7 @@ fn main() {
 #                   sym_algo: Option<SymmetricAlgorithm>,
 #                   mut decrypt: D)
 #                   -> openpgp::Result<Option<openpgp::Fingerprint>>
-#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.keys().unencrypted_secret()
@@ -137,7 +137,7 @@ fn main() {
 #         let mut pair = key.into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair, sym_algo)
-#             .and_then(|(algo, session_key)| decrypt(algo, &session_key).ok());
+#             .map(|(algo, session_key)| decrypt(algo, &session_key));
 #
 #         // XXX: In production code, return the Fingerprint of the
 #         // recipient's Cert here
@@ -272,7 +272,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #                   sym_algo: Option<SymmetricAlgorithm>,
 #                   mut decrypt: D)
 #                   -> openpgp::Result<Option<openpgp::Fingerprint>>
-#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.keys().unencrypted_secret()
@@ -283,7 +283,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #         let mut pair = key.into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair, sym_algo)
-#             .and_then(|(algo, session_key)| decrypt(algo, &session_key).ok());
+#             .map(|(algo, session_key)| decrypt(algo, &session_key));
 #
 #         // XXX: In production code, return the Fingerprint of the
 #         // recipient's Cert here
@@ -418,7 +418,7 @@ fn encrypt(policy: &dyn Policy,
 #                   sym_algo: Option<SymmetricAlgorithm>,
 #                   mut decrypt: D)
 #                   -> openpgp::Result<Option<openpgp::Fingerprint>>
-#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+#         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
 #     {
 #         // The encryption key is the first and only subkey.
 #         let key = self.secret.keys().unencrypted_secret()
@@ -429,7 +429,7 @@ fn encrypt(policy: &dyn Policy,
 #         let mut pair = key.into_keypair().unwrap();
 #
 #         pkesks[0].decrypt(&mut pair, sym_algo)
-#             .and_then(|(algo, session_key)| decrypt(algo, &session_key).ok());
+#             .map(|(algo, session_key)| decrypt(algo, &session_key));
 #
 #         // XXX: In production code, return the Fingerprint of the
 #         // recipient's Cert here
@@ -578,7 +578,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                    sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D)
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         // The encryption key is the first and only subkey.
         let key = self.secret.keys().unencrypted_secret()
@@ -589,7 +589,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
         let mut pair = key.into_keypair().unwrap();
 
         pkesks[0].decrypt(&mut pair, sym_algo)
-            .and_then(|(algo, session_key)| decrypt(algo, &session_key).ok());
+            .map(|(algo, session_key)| decrypt(algo, &session_key));
 
         // XXX: In production code, return the Fingerprint of the
         // recipient's Cert here

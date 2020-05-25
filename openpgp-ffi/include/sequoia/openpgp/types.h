@@ -1,6 +1,8 @@
 #ifndef SEQUOIA_OPENPGP_TYPES_H
 #define SEQUOIA_OPENPGP_TYPES_H
 
+#include <stdbool.h>
+
 /*/
 /// Holds a session key.
 ///
@@ -524,7 +526,7 @@ typedef pgp_status_t (*pgp_decryptor_get_certs_cb_t) (void *,
     pgp_cert_t **, size_t *,
     void (**free)(void *));
 
-typedef pgp_status_t (pgp_decryptor_do_decrypt_cb_t) (
+typedef bool (pgp_decryptor_do_decrypt_cb_t) (
     void *,
     uint8_t,
     pgp_session_key_t);

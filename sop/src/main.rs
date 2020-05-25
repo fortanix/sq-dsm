@@ -672,12 +672,12 @@ impl<'a> Helper<'a> {
                       -> Option<(SymmetricAlgorithm,
                                  SessionKey,
                                  Option<Fingerprint>)>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         let keyid = keypair.public().fingerprint().into();
         let (algo, sk) = pkesk.decrypt(keypair, algo)
             .and_then(|(algo, sk)| {
-                decrypt(algo, &sk).ok()?; Some((algo, sk))
+                if decrypt(algo, &sk) { Some((algo, sk)) } else { None }
             })?;
 
         Some((algo, sk, self.identities.get(&keyid).map(|fp| fp.clone())))
@@ -705,7 +705,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         // First, try all supplied session keys.
         while let Some(sk) = self.session_keys.pop() {
@@ -713,7 +713,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
                 .filter(|a| a.key_size().map(|size| size == sk.len())
                         .unwrap_or(false))
             {
-                if decrypt(algo, &sk).is_ok() {
+                if decrypt(algo, &sk) {
                     self.dump_session_key(algo, &sk)?;
                     return Ok(None);
                 }
@@ -764,10 +764,13 @@ impl<'a> DecryptionHelper for Helper<'a> {
         // Finally, try to decrypt using the SKESKs.
         for password in self.passwords.iter() {
             for skesk in skesks {
-                if let Ok((algo, sk)) = skesk.decrypt(password)
+                if let Some((algo, sk)) = skesk.decrypt(password).ok()
                     .and_then(|(algo, sk)| {
-                        decrypt(algo, &sk)?;
-                        Ok((algo, sk))
+                        if decrypt(algo, &sk) {
+                            Some((algo, sk))
+                        } else {
+                            None
+                        }
                     })
                 {
                     self.dump_session_key(algo, &sk)?;

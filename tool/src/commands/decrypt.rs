@@ -90,12 +90,12 @@ impl<'a> Helper<'a> {
                       keypair: &mut dyn crypto::Decryptor,
                       decrypt: &mut D)
                       -> Option<Option<Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         let keyid = keypair.public().fingerprint().into();
         match pkesk.decrypt(keypair, sym_algo)
             .and_then(|(algo, sk)| {
-                decrypt(algo, &sk).ok()?; Some(sk)
+                if decrypt(algo, &sk) { Some(sk) } else { None }
             })
         {
             Some(sk) => {
@@ -132,7 +132,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         // First, we try those keys that we can use without prompting
         // for a password.
@@ -259,8 +259,8 @@ impl<'a> DecryptionHelper for Helper<'a> {
                     "Enter password to decrypt message: "))?.into();
 
             for skesk in skesks {
-                if let Ok(sk) = skesk.decrypt(&password)
-                    .and_then(|(algo, sk)| { decrypt(algo, &sk)?; Ok(sk) })
+                if let Some(sk) = skesk.decrypt(&password).ok()
+                    .and_then(|(algo, sk)| { if decrypt(algo, &sk) { Some(sk) } else { None }})
                 {
                     if self.dump_session_key {
                         eprintln!("Session key: {}", hex::encode(&sk));
@@ -320,8 +320,9 @@ pub fn decrypt_unwrap(ctx: &Context, policy: &dyn Policy,
         match pp.packet {
             Packet::SEIP(_) | Packet::AED(_) => {
                 {
-                    let decrypt =
-                        |algo, secret: &SessionKey| pp.decrypt(algo, secret);
+                    let decrypt = |algo, secret: &SessionKey| {
+                        pp.decrypt(algo, secret).is_ok()
+                    };
                     helper.decrypt(&pkesks[..], &skesks[..], sym_algo_hint,
                                    decrypt)?;
                 }

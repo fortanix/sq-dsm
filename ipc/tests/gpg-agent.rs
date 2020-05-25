@@ -276,8 +276,7 @@ fn decrypt() -> openpgp::Result<()> {
                           sym_algo: Option<SymmetricAlgorithm>,
                           mut decrypt: D)
                           -> openpgp::Result<Option<openpgp::Fingerprint>>
-                where D: FnMut(SymmetricAlgorithm, &SessionKey) ->
-                      openpgp::Result<()>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
             {
                 let mut keypair = KeyPair::new(
                     self.ctx,
@@ -287,8 +286,7 @@ fn decrypt() -> openpgp::Result<()> {
                     .unwrap();
 
                 pkesks[0].decrypt(&mut keypair, sym_algo)
-                    .and_then(
-                        |(algo, session_key)| decrypt(algo, &session_key).ok());
+                    .map(|(algo, session_key)| decrypt(algo, &session_key));
 
                 // XXX: In production code, return the Fingerprint of the
                 // recipient's Cert here

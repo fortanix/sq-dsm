@@ -667,7 +667,7 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
     fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
                   _: Option<SymmetricAlgorithm>,
                   _: D) -> Result<Option<Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         unreachable!("This is not used for verifications")
     }
@@ -1135,11 +1135,11 @@ enum Mode {
 ///     fn decrypt<D>(&mut self, _: &[PKESK], skesks: &[SKESK],
 ///                   _sym_algo: Option<SymmetricAlgorithm>,
 ///                   mut decrypt: D) -> Result<Option<openpgp::Fingerprint>>
-///         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+///         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
 ///     {
 ///         skesks[0].decrypt(&"streng geheim".into())
-///             .and_then(|(algo, session_key)| decrypt(algo, &session_key))
-///             .map(|_| None)
+///             .map(|(algo, session_key)| decrypt(algo, &session_key));
+///         Ok(None)
 ///     }
 /// }
 ///
@@ -1318,7 +1318,8 @@ pub trait DecryptionHelper {
     /// the symmetric algorithm and session key from one of the
     /// [`PKESK`] packets, the [`SKESK`] packets, or retrieve it from
     /// a cache, and then call `decrypt` with the symmetric algorithm
-    /// and session key.
+    /// and session key.  `decrypt` returns `true` if the decryption
+    /// was successful.
     ///
     ///   [`PKESK`]: ../../packet/enum.PKESK.html
     ///   [`SKESK`]: ../../packet/enum.SKESK.html
@@ -1371,14 +1372,14 @@ pub trait DecryptionHelper {
     ///     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
     ///                   sym_algo: Option<SymmetricAlgorithm>,
     ///                   mut decrypt: D) -> Result<Option<Fingerprint>>
-    ///         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+    ///         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     ///     {
     ///         // Try to decrypt, from the most convenient method to the
     ///         // least convenient one.
     ///
     ///         // First, see if it is in the cache.
     ///         if let Some((fp, algo, sk)) = lookup_cache(pkesks, skesks) {
-    ///             if decrypt(algo, &sk).is_ok() {
+    ///             if decrypt(algo, &sk) {
     ///                 return Ok(fp);
     ///             }
     ///         }
@@ -1390,8 +1391,8 @@ pub trait DecryptionHelper {
     ///                 if ! key.secret().is_encrypted() {
     ///                     let mut keypair = key.clone().into_keypair()?;
     ///                     if pkesk.decrypt(&mut keypair, sym_algo)
-    ///                         .and_then(|(algo, sk)| decrypt(algo, &sk).ok())
-    ///                         .is_some()
+    ///                         .map(|(algo, sk)| decrypt(algo, &sk))
+    ///                         .unwrap_or(false)
     ///                     {
     ///                         return Ok(Some(fp));
     ///                     }
@@ -1407,8 +1408,8 @@ pub trait DecryptionHelper {
     ///                 if ! key.secret().is_encrypted() {
     ///                     let mut keypair = key.clone().into_keypair()?;
     ///                     if pkesk.decrypt(&mut keypair, sym_algo)
-    ///                         .and_then(|(algo, sk)| decrypt(algo, &sk).ok())
-    ///                         .is_some()
+    ///                         .map(|(algo, sk)| decrypt(algo, &sk))
+    ///                         .unwrap_or(false)
     ///                     {
     ///                         return Ok(Some(fp));
     ///                     }
@@ -1438,8 +1439,8 @@ pub trait DecryptionHelper {
     ///
     ///             for skesk in skesks {
     ///                 if skesk.decrypt(&password)
-    ///                     .and_then(|(algo, sk)| decrypt(algo, &sk))
-    ///                     .is_ok()
+    ///                     .map(|(algo, sk)| decrypt(algo, &sk))
+    ///                     .unwrap_or(false)
     ///                 {
     ///                     return Ok(None);
     ///                 }
@@ -1453,7 +1454,7 @@ pub trait DecryptionHelper {
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   sym_algo: Option<SymmetricAlgorithm>,
                   decrypt: D) -> Result<Option<Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>;
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool;
 }
 
 impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
@@ -1558,8 +1559,10 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             let result = pp.decrypt(algo, secret);
                             if let Ok(_) = result {
                                 sym_algo = Some(algo);
+                                true
+                            } else {
+                                false
                             }
-                            result
                         };
 
                         v.identity =
@@ -2081,7 +2084,7 @@ mod test {
         fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
                       _: Option<SymmetricAlgorithm>, _: D)
                       -> Result<Option<Fingerprint>>
-            where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+            where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
         {
             unreachable!();
         }
@@ -2212,7 +2215,7 @@ mod test {
             fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
                           _: Option<SymmetricAlgorithm>, _: D)
                           -> Result<Option<Fingerprint>>
-                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> Result<()>
+                where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
             {
                 unreachable!();
             }

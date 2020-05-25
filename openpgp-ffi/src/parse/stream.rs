@@ -416,7 +416,7 @@ type DecryptCallback = fn(*mut HelperCookie,
                           u8, // XXX SymmetricAlgorithm
                           extern "C" fn (*mut c_void, u8,
                                               *const crypto::SessionKey)
-                                              -> Status,
+                                              -> bool,
                           *mut c_void,
                           *mut Maybe<super::super::fingerprint::Fingerprint>)
                           -> Status;
@@ -837,7 +837,7 @@ impl DecryptionHelper for DHelper {
                   sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D)
                   -> openpgp::Result<Option<openpgp::Fingerprint>>
-        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> openpgp::Result<()>
+        where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         let mut identity: Maybe<super::super::fingerprint::Fingerprint> = None;
 
@@ -860,12 +860,11 @@ impl DecryptionHelper for DHelper {
 
         extern "C" fn trampoline<D>(data: *mut c_void, algo: u8,
                                          sk: *const crypto::SessionKey)
-                                         -> Status
-            where D: FnMut(SymmetricAlgorithm, &SessionKey)
-                           -> openpgp::Result<()>
+                                         -> bool
+            where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
         {
             let closure: &mut D = unsafe { &mut *(data as *mut D) };
-            (*closure)(algo.into(), sk.ref_raw()).into()
+            (*closure)(algo.into(), sk.ref_raw())
         }
 
         let result = (self.decrypt_cb)(
@@ -954,7 +953,6 @@ impl DecryptionHelper for DHelper {
 ///             void *decrypt_cookie,
 ///             pgp_fingerprint_t *identity_out)
 /// {
-///   pgp_status_t rc;
 ///   pgp_error_t err;
 ///   struct decrypt_cookie *cookie = cookie_opaque;
 ///
@@ -989,18 +987,24 @@ impl DecryptionHelper for DHelper {
 ///     if (pgp_pkesk_decrypt (&err,
 ///                            pkesk, key, &algo,
 ///                            session_key, &session_key_len)) {
-///       error (1, 0, "pgp_pkesk_decrypt: %s", pgp_error_to_string (err));
+///       error (0, 0, "pgp_pkesk_decrypt: %s", pgp_error_to_string (err));
+///       pgp_key_free (key);
+///       pgp_key_amalgamation_free (ka);
+///       continue;
 ///     }
 ///     pgp_key_free (key);
 ///     pgp_key_amalgamation_free (ka);
 ///
 ///     pgp_session_key_t sk = pgp_session_key_from_bytes (session_key,
 ///                                                        session_key_len);
-///     rc = decrypt (decrypt_cookie, algo, sk);
-///     pgp_session_key_free (sk);
+///     if (! decrypt (decrypt_cookie, algo, sk)) {
+///       pgp_session_key_free (sk);
+///       continue;
+///     }
 ///
+///     pgp_session_key_free (sk);
 ///     *identity_out = pgp_cert_fingerprint (cookie->key);
-///     return rc;
+///     return PGP_STATUS_SUCCESS;
 ///   }
 ///
 ///   return PGP_STATUS_UNKNOWN_ERROR;
