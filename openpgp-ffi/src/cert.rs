@@ -801,7 +801,7 @@ pub struct CertParserWrapper<'a> {
 /// concatenated together.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_cert_parser_from_bytes(errp: Option<&mut *mut crate::error::Error>,
-                             buf: *mut u8, len: size_t)
+                             buf: *const u8, len: size_t)
     -> *mut CertParserWrapper<'static>
 {
     ffi_make_fry_from_errp!(errp);
