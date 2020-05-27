@@ -1479,35 +1479,42 @@ impl SecretKeyMaterial {
     ///
     /// The `SecretKeyMaterial` type does not know what kind of key it is, so
     /// `pk_algo` is needed to parse the correct number of MPIs.
+    ///
+    /// This returns an error if the secret key material is not
+    /// encrypted or the password is incorrect.
     pub fn decrypt_in_place(&mut self, pk_algo: PublicKeyAlgorithm,
                             password: &Password)
-                            -> Result<()> {
-        let new = match self {
-            SecretKeyMaterial::Encrypted(ref e) =>
-                Some(e.decrypt(pk_algo, password)?.into()),
-            SecretKeyMaterial::Unencrypted(_) => None,
-        };
-
-        if let Some(v) = new {
-            *self = v;
+        -> Result<()>
+    {
+        match self {
+            SecretKeyMaterial::Encrypted(e) => {
+                *self = e.decrypt(pk_algo, password)?.into();
+                Ok(())
+            }
+            SecretKeyMaterial::Unencrypted(_) =>
+                Err(Error::InvalidArgument(
+                    "secret key is not encrypted".into()).into()),
         }
-
-        Ok(())
     }
 
-    /// Encrypts this secret key using `password`.
+    /// Encrypts the secret key material using `password`.
+    ///
+    /// The `SecretKeyMaterial` type does not know what kind of key it
+    /// contains.  So, in order to know how many MPIs to parse, the
+    /// public key algorithm needs to be provided explicitly.
+    ///
+    /// This returns an error if the secret key material is encrypted.
     pub fn encrypt_in_place(&mut self, password: &Password) -> Result<()> {
-        let new = match self {
-            SecretKeyMaterial::Unencrypted(ref u) =>
-                Some(u.encrypt(password)?.into()),
-            SecretKeyMaterial::Encrypted(_) => None,
-        };
-
-        if let Some(v) = new {
-            *self = v;
+        match self {
+            SecretKeyMaterial::Unencrypted(ref u) => {
+                *self = SecretKeyMaterial::Encrypted(
+                    u.encrypt(password)?.into());
+                Ok(())
+            }
+            SecretKeyMaterial::Encrypted(_) =>
+                Err(Error::InvalidArgument(
+                    "secret key is encrypted".into()).into()),
         }
-
-        Ok(())
     }
 
     /// Returns true if this secret key is encrypted.
