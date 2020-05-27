@@ -2626,8 +2626,16 @@ impl AED1 {
             php_try!(php.parse_u8("sym_algo")).into();
         let aead: AEADAlgorithm =
             php_try!(php.parse_u8("aead_algo")).into();
-        let chunk_size: u64 =
-            1 << (php_try!(php.parse_u8("chunk_size")) as usize + 6);
+        let chunk_size = php_try!(php.parse_u8("chunk_size"));
+
+        // DRAFT 4880bis-08, section 5.16: "An implementation MUST
+        // support chunk size octets with values from 0 to 56.  Chunk
+        // size octets with other values are reserved for future
+        // extensions."
+        if chunk_size > 56 {
+            return php.fail("unsupported chunk size");
+        }
+        let chunk_size: u64 = 1 << (chunk_size + 6);
 
         let iv_size = php_try!(aead.iv_size());
         let iv = php_try!(php.parse_bytes("iv", iv_size));
@@ -5486,5 +5494,18 @@ mod test {
             panic!("failed to parse userid");
         }
 
+    }
+
+    /// Crash in the AED parser due to missing chunk size validation.
+    #[test]
+    fn issue_514() -> Result<()> {
+        let data = &[212, 43, 1, 0, 0, 125, 212, 0, 10, 10, 10];
+        let ppr = PacketParser::from_bytes(&data)?;
+        let packet = &ppr.unwrap().packet;
+        if let Packet::Unknown(_) = packet {
+            Ok(())
+        } else {
+            panic!("expected unknown packet, got: {:?}", packet);
+        }
     }
 }
