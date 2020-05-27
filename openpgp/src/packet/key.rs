@@ -1446,7 +1446,8 @@ impl<R> Key4<SecretParts, R>
     /// This function returns an error if the secret key material is
     /// not encrypted or the password is incorrect.
     ///
-    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-3.7
+    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
+    /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
     /// [`Key::decrypt_secret`]: enum.Key.html#method.decrypt_secret
     pub fn decrypt_secret(mut self, password: &Password) -> Result<Self> {
         let pk_algo = self.pk_algo;
