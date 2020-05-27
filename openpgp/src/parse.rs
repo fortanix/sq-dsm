@@ -3454,6 +3454,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn encrypted(&self) -> bool {
         self.encrypted
     }
@@ -3476,8 +3477,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a compressed message.
@@ -3495,6 +3494,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn last_path(&self) -> &[usize] {
         &self.last_path[..]
     }
@@ -3514,8 +3514,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a compressed message.
@@ -3533,6 +3531,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn path(&self) -> &[usize] {
         &self.path[..]
     }
@@ -3548,8 +3547,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a compressed message.
@@ -3567,6 +3564,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn recursion_depth(&self) -> isize {
         self.path.len() as isize - 1
     }
@@ -3584,8 +3582,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a compressed message.
@@ -3603,6 +3599,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn last_recursion_depth(&self) -> Option<isize> {
         if self.last_path.len() == 0 {
             assert_eq!(&self.path[..], &[ 0 ]);
@@ -3628,8 +3625,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a compressed message.
@@ -3643,6 +3638,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn possible_message(&self) -> Result<()> {
         use crate::message::MessageValidity;
 
@@ -3669,8 +3665,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a certificate.
@@ -3684,6 +3678,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn possible_keyring(&self) -> Result<()> {
         match self.state.keyring_validator.check() {
             KeyringValidity::Keyring => unreachable!(),
@@ -3708,8 +3703,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a certificate.
@@ -3723,6 +3716,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn possible_cert(&self) -> Result<()> {
         match self.state.cert_validator.check() {
             CertValidity::Cert => unreachable!(),
@@ -4064,8 +4058,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a message.
@@ -4077,6 +4069,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.next()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn next(mut self)
         -> Result<(Packet, PacketParserResult<'a>)>
     {
@@ -4182,8 +4175,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a message.
@@ -4195,6 +4186,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn recurse(self) -> Result<(Packet, PacketParserResult<'a>)> {
         let indent = self.recursion_depth();
         tracer!(TRACE, "PacketParser::recurse", indent);
@@ -4311,6 +4303,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn buffer_unread_content(&mut self) -> Result<&[u8]> {
         let rest = self.steal_eof()?;
 
@@ -4386,8 +4379,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a message.
@@ -4469,8 +4460,6 @@ impl <'a> PacketParser<'a> {
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::Packet;
-    /// use openpgp::fmt::hex;
-    /// use openpgp::types::SymmetricAlgorithm;
     /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
     ///
     /// // Parse a message.
@@ -4484,6 +4473,7 @@ impl <'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn header(&self) -> &Header {
         &self.header
     }
@@ -4763,6 +4753,7 @@ impl<'a> PacketParser<'a> {
     ///     ppr = pp.recurse()?.1;
     /// }
     /// # Ok(()) }
+    /// ```
     pub fn decrypt(&mut self, algo: SymmetricAlgorithm, key: &SessionKey)
         -> Result<()>
     {
