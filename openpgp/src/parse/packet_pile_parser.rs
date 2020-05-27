@@ -17,23 +17,30 @@ use crate::parse::{
 };
 use buffered_reader::BufferedReader;
 
-/// A `PacketPileParser` parses an OpenPGP message with the convenience
-/// of `PacketPile::from_file` and the flexibility of a `PacketParser`.
+/// Parses an OpenPGP stream with the convenience of
+/// [`PacketPile::from_file`] and the flexibility of a
+/// [`PacketParser`].
 ///
-/// Like `PacketPile::from_file` (and unlike `PacketParser`), a
-/// `PacketPileParser` parses an OpenPGP message and returns a `PacketPile`.
-/// But, unlike `PacketPile::from_file` (and like `PacketParser`), it
-/// allows the caller to inspect each packet as it is being parsed.
+///   [`PacketPile::from_file`]: ../struct.PacketPile.html#impl-Parse<%27a%2C%20PacketPile>
+///   [`PacketParser`]: struct.PacketParser.html
+///
+/// Like [`PacketPile::from_file`] (and unlike [`PacketParser`]), a
+/// `PacketPileParser` parses an OpenPGP message and returns a
+/// [`PacketPile`].  But, unlike [`PacketPile::from_file`] (and like
+/// [`PacketParser`]), it allows the caller to inspect each packet as
+/// it is being parsed.
+///
+///   [`PacketPile`]: ../struct.PacketPile.html
 ///
 /// Thus, using a `PacketPileParser`, it is possible to decide on a
 /// per-packet basis whether to stream, buffer or drop the packet's
 /// body, whether to recurse into a container, or whether to abort
 /// processing, for example.  And, `PacketPileParser` conveniently packs
-/// the packets into a `PacketPile`.
+/// the packets into a [`PacketPile`].
 ///
-/// If old packets don't need to be retained, then `PacketParser`
+/// If old packets don't need to be retained, then [`PacketParser`]
 /// should be preferred.  If no per-packet processing needs to be
-/// done, then `PacketPile::from_file` will be slightly faster.
+/// done, then [`PacketPile::from_file`] will be slightly faster.
 ///
 /// # Examples
 ///
@@ -41,16 +48,18 @@ use buffered_reader::BufferedReader;
 /// # fn main() -> sequoia_openpgp::Result<()> {
 /// use sequoia_openpgp as openpgp;
 /// use openpgp::parse::{Parse, PacketPileParser};
+///
+/// // Parse a message.
 /// let message_data: &[u8] = // ...
 /// #    include_bytes!("../../tests/data/keys/public-key.gpg");
 /// # let mut n = 0;
-///
 /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
 /// while let Some(pp) = ppp.as_ref() {
 ///     eprintln!("{:?}", pp);
 ///     ppp.recurse()?;
 /// #   n += 1;
 /// }
+///
 /// let pile = ppp.finish();
 /// pile.pretty_print();
 /// # assert_eq!(n, 61);
@@ -163,13 +172,42 @@ impl<'a> PacketPileParser<'a> {
     }
 
     /// Finishes parsing the current packet and starts parsing the
-    /// next one.  This function recurses, if possible.
+    /// next one, recursing if possible.
     ///
-    /// This function finishes parsing the current packet.  By
-    /// default, any unread content is dropped.  It then creates a new
-    /// packet parser for the next packet.  If the current packet is a
-    /// container, this function tries to recurse into it.  Otherwise,
-    /// it returns the following packet.
+    /// This method is similar to the [`next()`] method (see that
+    /// method for more details), but if the current packet is a
+    /// container (and we haven't reached the maximum recursion depth,
+    /// and the user hasn't started reading the packet's contents), we
+    /// recurse into the container, and return a `PacketParser` for
+    /// its first child.  Otherwise, we return the next packet in the
+    /// packet stream.  If this function recurses, then the new
+    /// packet's recursion depth will be `last_recursion_depth() + 1`;
+    /// because we always visit interior nodes, we can't recurse more
+    /// than one level at a time.
+    ///
+    ///   [`next()`]: #method.next
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketPileParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
+    /// while let Some(pp) = ppp.as_ref() {
+    ///     // Do something interesting with `pp` here.
+    ///
+    ///     // Start parsing the next packet, recursing.
+    ///     ppp.recurse()?;
+    /// }
+    ///
+    /// let pile = ppp.finish();
+    /// # Ok(()) }
+    /// ```
     pub fn recurse(&mut self) -> Result<()> {
         match self.ppr.take() {
             PacketParserResult::Some(pp) => {
@@ -189,13 +227,40 @@ impl<'a> PacketPileParser<'a> {
     }
 
     /// Finishes parsing the current packet and starts parsing the
-    /// next one.  This function does not recurse.
+    /// next one.
     ///
     /// This function finishes parsing the current packet.  By
-    /// default, any unread content is dropped.  It then creates a new
-    /// packet parser for the following packet.  If the current packet
-    /// is a container, this function does *not* recurse into the
-    /// container; it skips any packets that it may contain.
+    /// default, any unread content is dropped.  (See
+    /// [`PacketParsererBuilder`] for how to configure this.)  It then
+    /// creates a new packet parser for the next packet.  If the
+    /// current packet is a container, this function does *not*
+    /// recurse into the container, but skips any packets it contains.
+    /// To recurse into the container, use the [`recurse()`] method.
+    ///
+    ///   [`PacketParsererBuilder`]: struct.PacketParserBuilder.html
+    ///   [`recurse()`]: #method.recurse
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketPileParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
+    /// while let Some(pp) = ppp.as_ref() {
+    ///     // Do something interesting with `pp` here.
+    ///
+    ///     // Start parsing the next packet.
+    ///     ppp.next()?;
+    /// }
+    ///
+    /// let pile = ppp.finish();
+    /// # Ok(()) }
+    /// ```
     pub fn next(&mut self) -> Result<()> {
         match self.ppr.take() {
             PacketParserResult::Some(pp) => {
@@ -218,6 +283,39 @@ impl<'a> PacketPileParser<'a> {
     ///
     /// A top-level packet has a recursion depth of 0.  Packets in a
     /// top-level container have a recursion depth of 1.  Etc.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::parse::{Parse, PacketPileParser};
+    ///
+    /// // Parse a simple compressed message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
+    /// while let Some(pp) = ppp.as_ref() {
+    ///     match pp.packet {
+    ///         Packet::CompressedData(_) =>
+    ///             assert_eq!(ppp.recursion_depth(), Some(0)),
+    ///         Packet::Literal(_) =>
+    ///             assert_eq!(ppp.recursion_depth(), Some(1)),
+    ///         _ => unreachable!(),
+    ///     }
+    ///
+    ///     // Alternatively, the recursion depth can be queried
+    ///     // from the packet parser.
+    ///     assert_eq!(ppp.recursion_depth(), Some(pp.recursion_depth()));
+    ///
+    ///     // Start parsing the next packet.
+    ///     ppp.next()?;
+    /// }
+    ///
+    /// let pile = ppp.finish();
+    /// # Ok(()) }
+    /// ```
     pub fn recursion_depth(&self) -> Option<isize> {
         if let PacketParserResult::Some(ref pp) = self.ppr {
             Some(pp.recursion_depth())
@@ -227,6 +325,28 @@ impl<'a> PacketPileParser<'a> {
     }
 
     /// Returns whether the message has been completely parsed.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::parse::{Parse, PacketPileParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
+    /// while ppp.is_some() {
+    ///     // Start parsing the next packet.
+    ///     ppp.next()?;
+    /// }
+    ///
+    /// assert!(ppp.is_done());
+    /// let pile = ppp.finish();
+    /// # Ok(()) }
+    /// ```
     pub fn is_done(&self) -> bool {
         self.ppr.is_none()
     }
@@ -240,6 +360,25 @@ impl<'a> PacketPileParser<'a> {
     /// the returned `PacketPile` just contains those packets that were
     /// completely processed; the packet that is currently being
     /// processed is not included in the `PacketPile`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Packet;
+    /// use openpgp::parse::{Parse, PacketPileParser};
+    ///
+    /// // Parse a message.
+    /// let message_data: &[u8] = // ...
+    /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
+    /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
+    /// ppp.next()?;
+    ///
+    /// let pp = ppp.finish();
+    /// assert_eq!(pp.children().count(), 1);
+    /// # Ok(()) }
+    /// ```
     pub fn finish(self) -> PacketPile {
         return self.pile;
     }
