@@ -173,7 +173,10 @@ pub use container::Body;
 
 pub mod prelude;
 
-use crate::crypto::KeyPair;
+use crate::crypto::{
+    KeyPair,
+    Password,
+};
 
 mod tag;
 pub use self::tag::Tag;
@@ -1341,6 +1344,144 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
         };
 
         KeyPair::new(key.role_into_unspecified(), secret)
+    }
+
+    /// Decrypts the secret key material.
+    ///
+    /// In OpenPGP, secret key material can be [protected with a
+    /// password].  The password is usually hardened using a [KDF].
+    ///
+    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
+    /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
+    ///
+    /// This function takes ownership of the `Key`, decrypts the
+    /// secret key material using the password, and returns a new key
+    /// whose secret key material is not password protected.
+    ///
+    /// If the secret key material is not password protected or if the
+    /// password is wrong, this function returns an error.
+    ///
+    /// # Examples
+    ///
+    /// Sign a new revocation certificate using a password-protected
+    /// key:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::types::ReasonForRevocation;
+    ///
+    /// # fn main() -> Result<()> {
+    /// // Generate a certificate whose secret key material is
+    /// // password protected.
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None,
+    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///         .set_password(Some("1234".into()))
+    ///         .generate()?;
+    ///
+    /// // Use the secret key material to sign a revocation certificate.
+    /// let key = cert.primary_key().key().clone().parts_into_secret()?;
+    ///
+    /// // We can't turn it into a keypair without decrypting it.
+    /// assert!(key.clone().into_keypair().is_err());
+    ///
+    /// // And, we need to use the right password.
+    /// assert!(key.clone()
+    ///     .decrypt_secret(&"correct horse battery staple".into())
+    ///     .is_err());
+    ///
+    /// // Let's do it right:
+    /// let mut keypair = key.decrypt_secret(&"1234".into())?.into_keypair()?;
+    /// let rev = cert.revoke(&mut keypair,
+    ///                       ReasonForRevocation::KeyCompromised,
+    ///                       b"It was the maid :/")?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn decrypt_secret(self, password: &Password) -> Result<Self>
+    {
+        match self {
+            Key::V4(k) => Ok(Key::V4(k.decrypt_secret(password)?)),
+            // Match exhaustively so that when we add support for a
+            // new variant, the compiler reminds us to add support for
+            // it here.
+            Key::__Nonexhaustive => unreachable!(),
+        }
+    }
+
+    /// Encrypts the secret key material.
+    ///
+    /// In OpenPGP, secret key material can be [protected with a
+    /// password].  The password is usually hardened using a [KDF].
+    ///
+    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
+    /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
+    ///
+    /// This function takes ownership of the `Key`, encrypts the
+    /// secret key material using the password, and returns a new key
+    /// whose secret key material is protected with the password.
+    ///
+    /// If the secret key material is already password protected, this
+    /// function returns an error.
+    ///
+    /// # Examples
+    ///
+    /// Encrypt the primary key:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::Packet;
+    ///
+    /// # fn main() -> Result<()> {
+    /// // Generate a certificate whose secret key material is
+    /// // not password protected.
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None,
+    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///         .generate()?;
+    /// let key = cert.primary_key().key().clone().parts_into_secret()?;
+    /// assert!(key.has_unencrypted_secret());
+    ///
+    /// // Encrypt the key's secret key material.
+    /// let key = key.encrypt_secret(&"1234".into())?;
+    /// assert!(! key.has_unencrypted_secret());
+    ///
+    /// // Merge it into the certificate.  Note: `Cert::merge_packets`
+    /// // prefers added versions of keys.  So, the encrypted version
+    /// // will override the decrypted version.
+    /// let cert = cert.merge_packets(Packet::from(key))?;
+    ///
+    /// // Now the primary key's secret key material is encrypted.
+    /// let key = cert.primary_key().key().parts_as_secret()?;
+    /// assert!(! key.has_unencrypted_secret());
+    ///
+    /// // We can't turn it into a keypair without decrypting it.
+    /// assert!(key.clone().into_keypair().is_err());
+    ///
+    /// // And, we need to use the right password.
+    /// assert!(key.clone()
+    ///     .decrypt_secret(&"correct horse battery staple".into())
+    ///     .is_err());
+    ///
+    /// // Let's do it right:
+    /// let mut keypair = key.clone()
+    ///     .decrypt_secret(&"1234".into())?.into_keypair()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn encrypt_secret(self, password: &Password) -> Result<Self>
+    {
+        match self {
+            Key::V4(k) => Ok(Key::V4(k.encrypt_secret(password)?)),
+            // Match exhaustively so that when we add support for a
+            // new variant, the compiler reminds us to add support for
+            // it here.
+            Key::__Nonexhaustive => unreachable!(),
+        }
     }
 }
 
