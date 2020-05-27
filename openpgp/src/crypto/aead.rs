@@ -1,4 +1,5 @@
 use std::cmp;
+use std::convert::TryInto;
 use std::fmt;
 use std::io;
 
@@ -23,6 +24,14 @@ use crate::parse::Cookie;
 /// This is DANGEROUS, and is only useful for debugging problems with
 /// malformed AEAD-encrypted messages.
 const DANGER_DISABLE_AUTHENTICATION: bool = false;
+
+/// Converts a chunk size to a usize.
+pub(crate) fn chunk_size_usize(chunk_size: u64) -> Result<usize> {
+    chunk_size.try_into()
+        .map_err(|_| Error::InvalidOperation(
+            format!("AEAD chunk size exceeds size of \
+                     virtual memory: {}", chunk_size)).into())
+}
 
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.

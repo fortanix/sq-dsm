@@ -2626,7 +2626,7 @@ impl AED1 {
             php_try!(php.parse_u8("sym_algo")).into();
         let aead: AEADAlgorithm =
             php_try!(php.parse_u8("aead_algo")).into();
-        let chunk_size: usize =
+        let chunk_size: u64 =
             1 << (php_try!(php.parse_u8("chunk_size")) as usize + 6);
 
         let iv_size = php_try!(aead.iv_size());
@@ -4851,6 +4851,9 @@ impl<'a> PacketParser<'a> {
             },
 
             Packet::AED(AED::V1(aed)) => {
+                let chunk_size =
+                    aead::chunk_size_usize(aed.chunk_size())?;
+
                 // Read the first chunk and check whether we can
                 // decrypt it using the provided key.  Don't actually
                 // consume them in case we can't.
@@ -4859,11 +4862,13 @@ impl<'a> PacketParser<'a> {
                     // `aead::Decryptor` won't see EOF and think that
                     // it has a partial block and it needs to verify
                     // the final chunk.
-                    let amount
-                        = aed.chunk_digest_size()? + aed.aead().digest_size()?;
+                    let amount = aead::chunk_size_usize(
+                        aed.chunk_digest_size()?
+                        + aed.aead().digest_size()? as u64)?;
+
                     let data = self.data(amount)?;
                     let dec = aead::Decryptor::new(
-                        1, aed.symmetric_algo(), aed.aead(), aed.chunk_size(),
+                        1, aed.symmetric_algo(), aed.aead(), chunk_size,
                         aed.iv(), key,
                         &data[..cmp::min(data.len(), amount)])?;
                     let mut chunk = Vec::new();
@@ -4877,7 +4882,7 @@ impl<'a> PacketParser<'a> {
                 // above with the same parameters.
                 let reader = self.take_reader();
                 let mut reader = aead::BufferedReaderDecryptor::with_cookie(
-                    1, aed.symmetric_algo(), aed.aead(), aed.chunk_size(),
+                    1, aed.symmetric_algo(), aed.aead(), chunk_size,
                     aed.iv(), key, reader, Cookie::default()).unwrap();
                 reader.cookie_mut().level = Some(self.recursion_depth());
 

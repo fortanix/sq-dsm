@@ -117,7 +117,7 @@ pub struct AED1 {
     /// AEAD algorithm.
     aead: AEADAlgorithm,
     /// Chunk size.
-    chunk_size: usize,
+    chunk_size: u64,
     /// Initialization vector for the AEAD algorithm.
     iv: Box<[u8]>,
 
@@ -142,7 +142,7 @@ impl AED1 {
     /// Creates a new AED1 object.
     pub fn new(sym_algo: SymmetricAlgorithm,
                aead: AEADAlgorithm,
-               chunk_size: usize,
+               chunk_size: u64,
                iv: Box<[u8]>) -> Result<Self> {
         if chunk_size.count_ones() != 1 {
             return Err(Error::InvalidArgument(
@@ -188,12 +188,12 @@ impl AED1 {
     }
 
     /// Gets the chunk size.
-    pub fn chunk_size(&self) -> usize {
+    pub fn chunk_size(&self) -> u64 {
         self.chunk_size
     }
 
     /// Sets the chunk size.
-    pub fn set_chunk_size(&mut self, chunk_size: usize) -> Result<()> {
+    pub fn set_chunk_size(&mut self, chunk_size: u64) -> Result<()> {
         if chunk_size.count_ones() != 1 {
             return Err(Error::InvalidArgument(
                 format!("chunk size is not a power of two: {}", chunk_size))
@@ -211,8 +211,8 @@ impl AED1 {
     }
 
     /// Gets the size of a chunk with a digest.
-    pub fn chunk_digest_size(&self) -> Result<usize> {
-        Ok(self.chunk_size + self.aead.digest_size()?)
+    pub fn chunk_digest_size(&self) -> Result<u64> {
+        Ok(self.chunk_size + self.aead.digest_size()? as u64)
     }
 
     /// Gets the initialization vector for the AEAD algorithm.

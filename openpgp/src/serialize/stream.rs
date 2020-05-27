@@ -2534,7 +2534,8 @@ impl<'a> Encryptor<'a> {
             CTB::new(Tag::AED).serialize(&mut inner)?;
             let mut inner = PartialBodyFilter::new(Message::from(inner),
                                                    Cookie::new(level));
-            let aed = AED1::new(self.sym_algo, aead.algo, aead.chunk_size, aead.nonce)?;
+            let aed = AED1::new(self.sym_algo, aead.algo,
+                                aead.chunk_size as u64, aead.nonce)?;
             aed.serialize_headers(&mut inner)?;
 
             writer::AEADEncryptor::new(
@@ -2542,7 +2543,7 @@ impl<'a> Encryptor<'a> {
                 Cookie::new(level),
                 aed.symmetric_algo(),
                 aed.aead(),
-                aed.chunk_size(),
+                aead.chunk_size,
                 aed.iv(),
                 &sk,
             )
