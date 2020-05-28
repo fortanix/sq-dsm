@@ -1,5 +1,6 @@
 use std::convert::TryFrom;
 use std::io;
+use std::ops::{Deref, DerefMut};
 use std::path::Path;
 
 use crate::{
@@ -37,20 +38,23 @@ use buffered_reader::BufferedReader;
 /// # Examples
 ///
 /// ```rust
-/// # extern crate sequoia_openpgp as openpgp;
-/// # use openpgp::Result;
-/// # use openpgp::parse::{Parse, PacketPileParser};
-/// # let _ = f(include_bytes!("../../tests/data/keys/public-key.gpg"));
-/// #
-/// # fn f(message_data: &[u8]) -> Result<()> {
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::parse::{Parse, PacketPileParser};
+/// let message_data: &[u8] = // ...
+/// #    include_bytes!("../../tests/data/keys/public-key.gpg");
+/// # let mut n = 0;
+///
 /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
-/// let mut ppr = ppp.recurse()?;
-/// while let Some(pp) = ppr.as_ref() {
+/// while let Some(pp) = ppp.as_ref() {
 ///     eprintln!("{:?}", pp);
-///     ppr = ppp.recurse()?;
+///     ppp.recurse()?;
+/// #   n += 1;
 /// }
-/// let message = ppp.finish();
-/// message.pretty_print();
+/// let pile = ppp.finish();
+/// pile.pretty_print();
+/// # assert_eq!(n, 61);
+/// # assert_eq!(pile.children().len(), 61);
 /// # Ok(())
 /// # }
 /// ```
@@ -59,11 +63,22 @@ pub struct PacketPileParser<'a> {
     /// The current packet.
     ppr: PacketParserResult<'a>,
 
-    /// Whether the first packet has been returned.
-    returned_first: bool,
-
     /// The packet pile that has been assembled so far.
     pile: PacketPile,
+}
+
+impl<'a> Deref for PacketPileParser<'a> {
+    type Target = PacketParserResult<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.ppr
+    }
+}
+
+impl<'a> DerefMut for PacketPileParser<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ppr
+    }
 }
 
 impl<'a> TryFrom<PacketParserBuilder<'a>> for PacketPileParser<'a> {
@@ -112,7 +127,6 @@ impl<'a> PacketPileParser<'a> {
         Ok(PacketPileParser {
             pile: Default::default(),
             ppr: ppr,
-            returned_first: false,
         })
     }
 
@@ -156,26 +170,22 @@ impl<'a> PacketPileParser<'a> {
     /// packet parser for the next packet.  If the current packet is a
     /// container, this function tries to recurse into it.  Otherwise,
     /// it returns the following packet.
-    pub fn recurse(&mut self) -> Result<&mut PacketParserResult<'a>> {
-        if self.returned_first {
-            match self.ppr.take() {
-                PacketParserResult::Some(pp) => {
-                    let recursion_depth = pp.recursion_depth();
-                    let (packet, ppr) = pp.recurse()?;
-                    self.insert_packet(
-                        packet,
-                        recursion_depth as isize);
-                    self.ppr = ppr;
-                }
-                eof @ PacketParserResult::EOF(_) => {
-                    self.ppr = eof;
-                }
+    pub fn recurse(&mut self) -> Result<()> {
+        match self.ppr.take() {
+            PacketParserResult::Some(pp) => {
+                let recursion_depth = pp.recursion_depth();
+                let (packet, ppr) = pp.recurse()?;
+                self.insert_packet(
+                    packet,
+                    recursion_depth as isize);
+                self.ppr = ppr;
             }
-        } else {
-            self.returned_first = true;
+            eof @ PacketParserResult::EOF(_) => {
+                self.ppr = eof;
+            }
         }
 
-        Ok(&mut self.ppr)
+        Ok(())
     }
 
     /// Finishes parsing the current packet and starts parsing the
@@ -186,26 +196,22 @@ impl<'a> PacketPileParser<'a> {
     /// packet parser for the following packet.  If the current packet
     /// is a container, this function does *not* recurse into the
     /// container; it skips any packets that it may contain.
-    pub fn next(&mut self) -> Result<&mut PacketParserResult<'a>> {
-        if self.returned_first {
-            match self.ppr.take() {
-                PacketParserResult::Some(pp) => {
-                    let recursion_depth = pp.recursion_depth();
-                    let (packet, ppr) = pp.next()?;
-                    self.insert_packet(
-                        packet,
-                        recursion_depth as isize);
-                    self.ppr = ppr;
-                },
-                eof @ PacketParserResult::EOF(_) => {
-                    self.ppr = eof
-                },
-            }
-        } else {
-            self.returned_first = true;
+    pub fn next(&mut self) -> Result<()> {
+        match self.ppr.take() {
+            PacketParserResult::Some(pp) => {
+                let recursion_depth = pp.recursion_depth();
+                let (packet, ppr) = pp.next()?;
+                self.insert_packet(
+                    packet,
+                    recursion_depth as isize);
+                self.ppr = ppr;
+            },
+            eof @ PacketParserResult::EOF(_) => {
+                self.ppr = eof
+            },
         }
 
-        Ok(&mut self.ppr)
+        Ok(())
     }
 
     /// Returns the current packet's recursion depth.
@@ -244,10 +250,9 @@ fn test_recurse() -> Result<()> {
     let mut count = 0;
     let mut ppp =
         PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))?;
-    let mut ppr = ppp.recurse().unwrap();
-    while ppr.is_some() {
+    while ppp.is_some() {
         count += 1;
-        ppr = ppp.recurse().unwrap();
+        ppp.recurse().unwrap();
     }
     assert_eq!(count, 61);
     Ok(())
@@ -258,10 +263,9 @@ fn test_next() -> Result<()> {
     let mut count = 0;
     let mut ppp =
         PacketPileParser::from_bytes(crate::tests::key("public-key.gpg"))?;
-    let mut ppr = ppp.recurse().unwrap();
-    while ppr.is_some() {
+    while ppp.is_some() {
         count += 1;
-        ppr = ppp.next().unwrap();
+        ppp.next().unwrap();
     }
     assert_eq!(count, 61);
     Ok(())
@@ -281,11 +285,9 @@ fn message_parser_reader_interface() {
     let mut ppp = PacketPileParser::from_bytes(
         crate::tests::message("compressed-data-algo-1.gpg")).unwrap();
     let mut count = 0;
-    let mut ppr = ppp.recurse().unwrap();
-    while let Some(pp) = ppr.as_mut() {
-        count += 1;
+    while let Some(pp) = ppp.as_mut() {
         if let Packet::Literal(_) = pp.packet {
-            assert_eq!(count, 2);
+            assert_eq!(count, 1); // The *second* packet.
 
             // Check that we can read the packet's contents.  We do this one
             // byte at a time to exercise the cursor implementation.
@@ -300,7 +302,8 @@ fn message_parser_reader_interface() {
             let r = pp.read(&mut buf).unwrap();
             assert_eq!(r, 0);
         }
-        ppr = ppp.recurse().unwrap();
+        ppp.recurse().unwrap();
+        count += 1;
     }
     assert_eq!(count, 2);
 }

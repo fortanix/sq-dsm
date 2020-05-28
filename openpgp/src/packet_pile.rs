@@ -746,9 +746,8 @@ mod test {
             .buffer_unread_content()
             .try_into().unwrap();
 
-        let mut ppr = ppp.recurse().unwrap();
-        while ppr.is_some() {
-            ppr = ppp.recurse().unwrap();
+        while ppp.is_some() {
+            ppp.recurse().unwrap();
         }
         let pile = ppp.finish();
         //pile.pretty_print();
@@ -761,10 +760,9 @@ mod test {
             .buffer_unread_content()
             .try_into().unwrap();
 
-        let mut ppr = ppp.recurse().unwrap();
-        while let Some(pp) = ppr.as_mut() {
+        while let Some(pp) = ppp.as_ref() {
             eprintln!("{:?}", pp);
-            ppr = ppp.recurse().unwrap();
+            ppp.recurse().unwrap();
         }
         let pile = ppp.finish();
         pile.pretty_print();
