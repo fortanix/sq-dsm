@@ -567,6 +567,13 @@ use super::*;
 ///
 /// [`Cert::as_tsk()`]: #method.as_tsk
 ///
+/// Secret key material may be protected with a password.  In such
+/// cases, it needs to be decrypted before it can be used to decrypt
+/// data or generate a signature.  Refer to [`Key::decrypt_secret`]
+/// for details.
+///
+/// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
+///
 /// # Filtering Certificates
 ///
 /// To filter certificates, iterate over all components, clone what
@@ -732,7 +739,13 @@ impl Cert {
     /// [`Cert::keys`] method, this method does not erase the key's
     /// role.
     ///
+    /// A key's secret key material may be protected with a password.
+    /// In such cases, it needs to be decrypted before it can be used
+    /// to decrypt data or generate a signature.  Refer to
+    /// [`Key::decrypt_secret`] for details.
+    ///
     /// [`Cert::keys`]: #method.keys
+    /// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
     ///
     /// # Examples
     ///
@@ -1066,8 +1079,14 @@ impl Cert {
     /// subkeys, use [`KeyAmalgamationIter::subkeys`].  These
     /// functions preserve the keys' role in the type system.
     ///
+    /// A key's secret secret key material may be protected with a
+    /// password.  In such cases, it needs to be decrypted before it
+    /// can be used to decrypt data or generate a signature.  Refer to
+    /// [`Key::decrypt_secret`] for details.
+    ///
     /// [`Cert::primary_key`]: #method.primary_key
     /// [`KeyAmalgamationIter::subkeys`]: amalgamation/key/struct.KeyAmalgamationIter.html#method.subkeys
+    /// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
     ///
     /// # Examples
     ///
@@ -2746,6 +2765,13 @@ impl<'a> ValidCert<'a> {
 
     /// Returns the certificate's primary key.
     ///
+    /// A key's secret secret key material may be protected with a
+    /// password.  In such cases, it needs to be decrypted before it
+    /// can be used to decrypt data or generate a signature.  Refer to
+    /// [`Key::decrypt_secret`] for details.
+    ///
+    /// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
+    ///
     /// # Examples
     ///
     /// ```
@@ -2784,7 +2810,13 @@ impl<'a> ValidCert<'a> {
     /// instead of skipping the first key: this causes the iterator to
     /// return values with a more accurate type.
     ///
+    /// A key's secret secret key material may be protected with a
+    /// password.  In such cases, it needs to be decrypted before it
+    /// can be used to decrypt data or generate a signature.  Refer to
+    /// [`Key::decrypt_secret`] for details.
+    ///
     /// [`ValidKeyAmalgamationIter::subkeys`]: amalgamation/key/struct.ValidKeyAmalgamationIter.html#method.subkeys
+    /// [`Key::decrypt_secret`]: ../packet/enum.Key.html#method.decrypt_secret
     ///
     /// # Examples
     ///

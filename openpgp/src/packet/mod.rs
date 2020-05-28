@@ -1332,7 +1332,10 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     ///
     /// # Errors
     ///
-    /// Fails if the secret key is missing, or encrypted.
+    /// Fails if the secret key is encrypted.  You can use
+    /// [`Key::decrypt_secret`] to decrypt a key.
+    ///
+    /// [`Key::decrypt_secret`]: key.html#method.decrypt_secret
     pub fn into_keypair(self) -> Result<KeyPair> {
         use crate::packet::key::SecretKeyMaterial;
         let (key, secret) = self.take_secret();
@@ -1491,7 +1494,10 @@ impl<R: key::KeyRole> key::Key4<key::SecretParts, R> {
     ///
     /// # Errors
     ///
-    /// Fails if the secret key is missing, or encrypted.
+    /// Fails if the secret key is encrypted.  You can use
+    /// [`Key::decrypt_secret`] to decrypt a key.
+    ///
+    /// [`Key::decrypt_secret`]: key.html#method.decrypt_secret
     pub fn into_keypair(self) -> Result<KeyPair> {
         use crate::packet::key::SecretKeyMaterial;
         let (key, secret) = self.take_secret();
