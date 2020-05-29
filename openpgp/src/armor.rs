@@ -798,7 +798,7 @@ impl<'a> Reader<'a> {
             let line = if line.ends_with(&"\r\n"[..]) {
                 // \r\n.
                 &line[..line.len() - 2]
-            } else if line.len() > 0 {
+            } else if line.ends_with("\n") {
                 // \n.
                 &line[..line.len() - 1]
             } else {
@@ -1636,5 +1636,22 @@ mod test {
         let mut buf = Vec::new();
         r.read(&mut buf).unwrap();
         r.read(&mut buf).unwrap();
+    }
+
+    /// Crash in armor parser due to indexing not aligned with UTF-8
+    /// characters.
+    #[test]
+    fn issue_515() {
+        let data = [63, 9, 45, 10, 45, 10, 45, 45, 45, 45, 45, 66, 69,
+                    71, 73, 78, 32, 80, 71, 80, 32, 77, 69, 83, 83,
+                    65, 71, 69, 45, 45, 45, 45, 45, 45, 152, 152, 152,
+                    152, 152, 152, 255, 29, 152, 152, 152, 152, 152,
+                    152, 152, 152, 152, 152, 10, 91, 45, 10, 45, 14,
+                    0, 36, 0, 0, 30, 122, 4, 2, 204, 152];
+
+        let mut reader = Reader::from_bytes(&data[..], None);
+        let mut buf = Vec::new();
+        // `data` is malformed, expect an error.
+        reader.read_to_end(&mut buf).unwrap_err();
     }
 }
