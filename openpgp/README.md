@@ -31,7 +31,7 @@ one.
 
 # Experimental Features
 
-This crate implements functionality from [RFC 4880bis], notable
+This crate implements functionality from [RFC 4880bis], notably
 AEAD encryption containers.  As of this writing, this RFC is still
 a draft and the syntax or semantic defined in it may change or go
 away.  Therefore, all related functionality may change and
