@@ -1198,7 +1198,7 @@ impl<'a> Read for Reader<'a> {
             self.source.consume(consumed);
 
             // Skip any expected prefix
-            self.source.consume(self.prefix_len);
+            self.source.data_consume_hard(self.prefix_len)?;
             // Look for a footer.
             let consumed = {
                 // Skip whitespace.
@@ -1649,6 +1649,32 @@ mod test {
                     152, 152, 152, 152, 152, 10, 91, 45, 10, 45, 14,
                     0, 36, 0, 0, 30, 122, 4, 2, 204, 152];
 
+        let mut reader = Reader::from_bytes(&data[..], None);
+        let mut buf = Vec::new();
+        // `data` is malformed, expect an error.
+        reader.read_to_end(&mut buf).unwrap_err();
+    }
+
+    /// Crash in armor parser due to improper use of the buffered
+    /// reader protocol when consuming quoting prefix.
+    #[test]
+    fn issue_516() {
+        let data = [
+            144, 32, 19, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 125, 13, 125,
+            125, 93, 125, 125, 93, 125, 13, 13, 125, 125, 45, 45, 45,
+            45, 45, 66, 69, 71, 73, 78, 32, 80, 71, 80, 32, 77, 69,
+            83, 83, 65, 71, 69, 45, 45, 45, 45, 45, 125, 13, 125,
+            125, 93, 125, 125, 93, 125, 13, 13, 125, 125, 45, 0, 0,
+            0, 0, 0, 0, 0, 0, 125, 205, 21, 1, 21, 21, 21, 1, 1, 1,
+            1, 21, 149, 21, 21, 21, 21, 32, 4, 141, 141, 141, 141,
+            202, 74, 11, 125, 8, 21, 50, 50, 194, 48, 147, 93, 174,
+            23, 23, 23, 23, 23, 23, 147, 147, 147, 23, 23, 23, 23,
+            23, 23, 48, 125, 125, 93, 125, 13, 125, 125, 125, 93,
+            125, 125, 13, 13, 125, 125, 13, 13, 93, 125, 13, 125, 45,
+            125, 125, 45, 45, 66, 69, 71, 73, 78, 32, 80, 71, 45, 45,
+            125, 10, 45, 45, 0, 0, 10, 45, 45, 210, 10, 0, 0, 87, 0,
+            0, 0, 150, 10, 0, 0, 241, 87, 45, 0, 0, 121, 121, 10, 10,
+            21, 58];
         let mut reader = Reader::from_bytes(&data[..], None);
         let mut buf = Vec::new();
         // `data` is malformed, expect an error.
