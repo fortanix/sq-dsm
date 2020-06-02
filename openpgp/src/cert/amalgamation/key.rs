@@ -268,7 +268,6 @@ use crate::{
     Error,
     packet::Key,
     packet::key,
-    packet::key::KeyParts,
     packet::signature,
     packet::Signature,
     policy::Policy,
@@ -559,8 +558,7 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
         let cert = self.ca.cert();
         let vka = ValidErasedKeyAmalgamation {
             ka: KeyAmalgamation {
-                ca: key::PublicParts::convert_key_amalgamation(
-                    self.ca.parts_into_unspecified()).expect("to public"),
+                ca: self.ca.parts_into_public(),
                 primary: self.primary,
             },
             // We need some black magic to avoid infinite
