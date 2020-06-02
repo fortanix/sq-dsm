@@ -386,13 +386,6 @@ pub(crate) type UnspecifiedSecondary = Key<UnspecifiedParts, SubordinateRole>;
 pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 
 
-impl<K: key::KeyParts, R: key::KeyRole> KeyBundle<K, R>
-{
-    fn has_secret(&self) -> bool {
-        self.key().secret.is_some()
-    }
-}
-
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
 /// See [Section 5.5 of RFC 4880] for details.
