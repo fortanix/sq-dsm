@@ -766,7 +766,7 @@ impl<'a> Reader<'a> {
                 // Nope, we have actually failed to read this properly
                 return Err(
                     Error::new(ErrorKind::InvalidInput,
-                               "Reached EOF looking for Armor Header Line"));
+                               "Inconsistent quoting of armored data"));
             }
         }
 
