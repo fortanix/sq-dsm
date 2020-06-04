@@ -774,11 +774,17 @@ impl<'a> Reader<'a> {
         let mut n = 0;
         let mut lines = 0;
         loop {
-            // Skip any known prefix on lines
+            // Skip any known prefix on lines.
+            //
+            // IMPORTANT: We need to buffer the prefix so that we can
+            // consume it here.  So at every point in this loop where
+            // the control flow wraps around, we need to make sure
+            // that we buffer the prefix in addition to the line.
             self.source.consume(prefix.len());
 
             self.source.consume(n);
 
+            // Buffer the next line.
             let line = self.source.read_to('\n' as u8)?;
             n = line.len();
             lines += 1;
@@ -786,6 +792,15 @@ impl<'a> Reader<'a> {
             let line = str::from_utf8(line);
             // Ignore---don't error out---lines that are not valid UTF8.
             if line.is_err() {
+                // Buffer the next line and the prefix that is going
+                // to be consumed in the next iteration.
+                let next_prefix =
+                    &self.source.data_hard(n + prefix.len())?[n..n + prefix.len()];
+                if prefix != next_prefix {
+                    return Err(
+                        Error::new(ErrorKind::InvalidInput,
+                                   "Inconsistent quoting of armored data"));
+                }
                 continue;
             }
 
@@ -825,6 +840,16 @@ impl<'a> Reader<'a> {
                 let value = key_value[1];
 
                 self.headers.push((key.into(), value.into()));
+            }
+
+            // Buffer the next line and the prefix that is going to be
+            // consumed in the next iteration.
+            let next_prefix =
+                &self.source.data_hard(n + prefix.len())?[n..n + prefix.len()];
+            if prefix != next_prefix {
+                return Err(
+                    Error::new(ErrorKind::InvalidInput,
+                               "Inconsistent quoting of armored data"));
             }
         }
         self.source.consume(n);
@@ -1675,6 +1700,20 @@ mod test {
             125, 10, 45, 45, 0, 0, 10, 45, 45, 210, 10, 0, 0, 87, 0,
             0, 0, 150, 10, 0, 0, 241, 87, 45, 0, 0, 121, 121, 10, 10,
             21, 58];
+        let mut reader = Reader::from_bytes(&data[..], None);
+        let mut buf = Vec::new();
+        // `data` is malformed, expect an error.
+        reader.read_to_end(&mut buf).unwrap_err();
+    }
+
+    /// Crash in armor parser due to improper use of the buffered
+    /// reader protocol when consuming quoting prefix.
+    #[test]
+    fn issue_517() {
+        let data = [13, 45, 45, 45, 45, 45, 66, 69, 71, 73, 78, 32, 80,
+                    71, 80, 32, 77, 69, 83, 83, 65, 71, 69, 45, 45, 45,
+                    45, 45, 10, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13,
+                    13, 13, 139];
         let mut reader = Reader::from_bytes(&data[..], None);
         let mut buf = Vec::new();
         // `data` is malformed, expect an error.
