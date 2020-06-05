@@ -394,12 +394,7 @@ macro_rules! make_php_try {
                             Err(e) => e,
                         };
                         let e = match e.downcast::<Error>() {
-                            Ok(e) => match e {
-                                Error::MalformedMPI(_) =>
-                                    return $parser.error(e.into()),
-                                _ =>
-                                    e.into(),
-                            },
+                            Ok(e) => return $parser.error(e.into()),
                             Err(e) => e,
                         };
 
@@ -5512,6 +5507,19 @@ mod test {
     fn issue_514() -> Result<()> {
         let data = &[212, 43, 1, 0, 0, 125, 212, 0, 10, 10, 10];
         let ppr = PacketParser::from_bytes(&data)?;
+        let packet = &ppr.unwrap().packet;
+        if let Packet::Unknown(_) = packet {
+            Ok(())
+        } else {
+            panic!("expected unknown packet, got: {:?}", packet);
+        }
+    }
+
+    /// Malformed subpackets must not cause a hard parsing error.
+    #[test]
+    fn malformed_embedded_signature() -> Result<()> {
+        let ppr = PacketParser::from_bytes(
+            crate::tests::file("edge-cases/malformed-embedded-sig.pgp"))?;
         let packet = &ppr.unwrap().packet;
         if let Packet::Unknown(_) = packet {
             Ok(())
