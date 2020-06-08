@@ -2885,6 +2885,7 @@ impl PacketParserState {
 /// attack, the parsers don't recurse more than
 /// [`DEFAULT_MAX_RECURSION_DEPTH`] times, by default.
 ///
+///   [`PacketParser`]: struct.PacketParser.html
 ///   [`PacketPileParser`]: struct.PacketPileParser.html
 ///   [`DEFAULT_MAX_RECURSION_DEPTH`]: constant.DEFAULT_MAX_RECURSION_DEPTH.html
 ///
@@ -3428,6 +3429,8 @@ impl <'a> PacketParser<'a> {
     /// container before it is decrypted using
     /// [`PacketParser::decrypt`].  Once successfully decrypted, it
     /// returns `false`.
+    ///
+    ///   [`PacketParser::decrypt`]: struct.PacketParser.html#method.decrypt
     ///
     /// # Examples
     ///
@@ -4723,12 +4726,16 @@ impl<'a> PacketParser<'a> {
     /// Tries to decrypt the current packet.
     ///
     /// On success, this function pushes one or more readers onto the
-    /// `PacketParser`'s reader stack, and sets the packet's
-    /// `decrypted` flag.
+    /// `PacketParser`'s reader stack, and clears the packet parser's
+    /// `encrypted` flag (see [`PacketParser::encrypted`]).
+    ///
+    ///   [`PacketParser::encrypted`]: struct.PacketParser.html#method.encrypted
     ///
     /// If this function is called on a packet that does not contain
     /// encrypted data, or some of the data was already read, then it
-    /// returns `Error::InvalidOperation`.
+    /// returns [`Error::InvalidOperation`].
+    ///
+    ///   [`Error::InvalidOperation`]: ../enum.Error.html#variant.InvalidOperation
     ///
     /// # Examples
     ///
