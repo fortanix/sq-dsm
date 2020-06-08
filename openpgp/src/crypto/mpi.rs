@@ -469,9 +469,9 @@ pub enum SecretKeyMaterial {
     RSA {
         /// Secret exponent, inverse of e in Phi(N).
         d: ProtectedMPI,
-        /// Larger secret prime.
-        p: ProtectedMPI,
         /// Smaller secret prime.
+        p: ProtectedMPI,
+        /// Larger secret prime.
         q: ProtectedMPI,
         /// Inverse of p mod q.
         u: ProtectedMPI,
