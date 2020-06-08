@@ -309,7 +309,29 @@ impl<'a> PacketParserBuilder<'a> {
         self
     }
 
-    /// How to treat the input stream.
+    /// Controls dearmoring.
+    ///
+    /// By default, if the input does not appear to be plain binary
+    /// OpenPGP data, we assume that it is ASCII-armored.  This method
+    /// can be used to tweak the behavior.  See [`Dearmor`] for
+    /// details.
+    ///
+    ///   [`Dearmor`]: enum.Dearmor.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::parse::{Parse, PacketParserBuilder, Dearmor};
+    ///
+    /// let message_data = b"\xcb\x12t\x00\x00\x00\x00\x00Hello world.";
+    /// let pp = PacketParserBuilder::from_bytes(message_data)?
+    ///     .dearmor(Dearmor::Disabled) // Disable dearmoring.
+    ///     .build()?
+    ///     .expect("One packet, not EOF");
+    /// # Ok(()) }
+    /// ```
     pub fn dearmor(mut self, mode: Dearmor) -> Self {
         self.dearmor = mode;
         self
