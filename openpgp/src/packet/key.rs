@@ -1,54 +1,90 @@
-//! Public key, public subkey, private key and private subkey packets.
-//! Key variants.
+//! Key-related functionality.
 //!
-//! There are four variants of OpenPGP keys: public keys, public
-//! subkeys, secret keys, and secret subkeys.  These are based on
-//! the cross product of two attributes: whether the key contains
-//! any secret key material, and the key's role.
+//! # Data Types
 //!
-//! The underlying representation of these four variants is
-//! identical (even a public key and a secret key are the same:
-//! the public key variant just contains 0 bits of secret key
-//! material), and many (but not all) operations can be done on
-//! all four variants.
+//! The main data type is the [`Key`] enum.  This enum abstracts away
+//! the differences between the key formats (the deprecated [version
+//! 3], the current [version 4], and the proposed [version 5]
+//! formats).  Nevertheless, some functionality remains format
+//! specific.  For instance, the `Key` enum doesn't provide a
+//! mechanism to generate keys.  This functionality depends on the
+//! format.
 //!
-//! We separate these variants into two types: parts (public or
-//! secret) and roles (primary or secondary).  We also add
-//! unspecified variants, because sometimes we want a slice of
-//! keys, and we don't care about the key's role.  For instance,
-//! when iterating over all of the keys in a Cert, we want the
-//! primary and the subkeys.  These can't be put in the same slice
-//! without first wrapping them, which is awkward.
+//! This version of Sequoia only supports version 4 keys ([`Key4`]).
+//! However, future versions may include limited support for version 3
+//! keys to allow working with archived messages, and we intend to add
+//! support for version 5 keys once the new version of the
+//! specification has been finalized.
 //!
-//! For the most part, the user doesn't need to worry about the
-//! markers.  Occasionally, it is necessary to change a key's markers.
-//! For these cases, it is possible to just use the `From` trait to
-//! get the require markers.  But, it is also possible to explicitly
-//! set markers.  Compare:
+//! OpenPGP specifies four different types of keys: [public keys],
+//! [secret keys], [public subkeys], and [secret subkeys].  These are
+//! all represented by the `Key` enum and the `Key4` struct using
+//! marker types.  We use marker types rather than an enum, to better
+//! exploit the type checking.  For instance, type-specific methods
+//! like [`Key::secret`] are only exposed for those types that
+//! actually support them.  See the documentation for [`Key`] for an
+//! explanation of how the markers work.
 //!
-//! ```rust
-//! # extern crate sequoia_openpgp as openpgp;
-//! # use openpgp::Result;
-//! # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
-//! # use openpgp::cert::prelude::*;
-//! use openpgp::packet::{Key, key};
+//! The [`SecretKeyMaterial`] data type allows working with secret key
+//! material directly.  This enum has two variants: [`Unencrypted`],
+//! and [`Encrypted`].  It is not normally necessary to use this data
+//! structure directly.  The primary functionality that is of interest
+//! to most users is decrypting secret key material.  This is usually
+//! more conveniently done using [`Key::decrypt_secret`].
 //!
-//! # fn main() { f().unwrap(); }
-//! # fn f() -> Result<()>
-//! # {
-//! #     let (cert, _) = CertBuilder::new()
-//! #         .set_cipher_suite(CipherSuite::Cv25519)
-//! #         .generate()?;
-//! // Get a handle to the Cert's primary key that allows using the
-//! // secret key material.
-//! use std::convert::TryInto;
-//! let sk: &Key<key::SecretParts, key::PrimaryRole> = cert.primary_key().key().try_into()?;
+//! [`Key`]: ../enum.Key.html
+//! [`Key4`]: struct.Key4.html
+//! [version 3]: https://tools.ietf.org/html/rfc1991#section-6.6
+//! [version 4]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+//! [version 5]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-public-key-packet-formats
+//! [public keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.1
+//! [secret keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.3
+//! [public subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.2
+//! [secret subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.4
+//! [`Key::secret`]: ../enum.Key.html#method.secret
+//! [`SecretKeyMaterial`]: enum.SecretKeyMaterial.html
+//! [`Unencrypted`]: struct.Unencrypted.html
+//! [`Encrypted`]: struct.Encrypted.html
+//! [`Key::decrypt_secret`]: ../enum.Key.html#method.decrypt_secret
 //!
-//! // Make the conversion explicit.
-//! let sk = cert.primary_key().key().parts_as_secret()?;
-//! #     Ok(())
-//! # }
-//! ```
+//! # Key Creation
+//!
+//! Use [`Key4::generate_rsa`] or [`Key4::generate_ecc`] to create a
+//! new key.
+//!
+//! Existing key material can be turned into an OpenPGP key using
+//! [`Key4::import_public_cv25519`], [`Key4::import_public_ed25519`],
+//! [`Key4::import_public_rsa`], [`Key4::import_secret_cv25519`],
+//! [`Key4::import_secret_ed25519`], and [`Key4::import_secret_rsa`].
+//!
+//! Whether you create a new key or import existing key material, you
+//! still need to create a binding signature, and, for signing keys, a
+//! back signature for the key to be usable.
+//!
+//! [`Key4::generate_rsa`]: struct.Key4.html#method.generate_rsa
+//! [`Key4::generate_ecc`]: struct.Key4.html#method.generate_ecc
+//! [`Key4::import_public_cv25519`]: struct.Key4.html#method.import_public_cv25519
+//! [`Key4::import_public_ed25519`]: struct.Key4.html#method.import_public_ed25519
+//! [`Key4::import_public_rsa`]: struct.Key4.html#method.import_public_rsa
+//! [`Key4::import_secret_cv25519`]: struct.Key4.html#method.import_secret_cv25519
+//! [`Key4::import_secret_ed25519`]: struct.Key4.html#method.import_secret_ed25519
+//! [`Key4::import_secret_rsa`]: struct.Key4.html#method.import_secret_rsa
+//!
+//! # In-Memory Protection of Secret Key Material
+//!
+//! Whether the secret key material is protected on disk or not,
+//! Sequoia encrypts unencrypted secret key material ([`Unencrypted`])
+//! while it is memory.  This helps protect against [heartbleed]-style
+//! attacks where a buffer over-read allows an attacker to read from
+//! the process's address space.  This protection is less important
+//! for Rust programs, which are memory safe.  However, it is
+//! essential when Sequoia is used via its FFI.
+//!
+//! See [`crypto::mem::Encrypted`] for details.
+//!
+//! [`Unencrypted`]: struct.Unencrypted.html
+//! [heartbleed]: https://en.wikipedia.org/wiki/Heartbleed
+//! [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
 
 use std::fmt;
 use std::cmp::Ordering;
@@ -76,81 +112,313 @@ use crate::KeyHandle;
 
 mod conversions;
 
-/// A marker trait that indicates whether a `Key` only contains
-/// public key material or *may* also contains secret key
-/// material.
+/// A marker trait that captures whether a `Key` definitely contains
+/// secret key material.
+///
+/// A [`Key`] can be treated as if it only has public key material
+/// ([`key::PublicParts`]) or also has secret key material
+/// ([`key::SecretParts`]).  For those cases where the type
+/// information needs to be erased (e.g., interfaces like
+/// [`Cert::keys`]), we provide the [`key::UnspecifiedParts`] marker.
+///
+/// Even if a `Key` does not have the `SecretKey` marker, it may still
+/// have secret key material.  But, it will generally act as if it
+/// didn't.  In particular, when serializing a `Key` without the
+/// `SecretKey` marker, secret key material will be ignored.  See the
+/// documentation for [`Key`] for a demonstration of this behavior.
+///
+/// [`Cert::keys`]: ../../cert/struct.Cert.html#method.keys
+/// [`Key`]: ../enum.Key.html
+/// [`key::PublicParts`]: struct.PublicParts.html
+/// [`key::SecretParts`]: struct.SecretParts.html
+/// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
 pub trait KeyParts: fmt::Debug {
     /// Converts a key with unspecified parts into this kind of key.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
+    ///
+    /// Converting a key with [`key::PublicParts`] or
+    /// [`key::UnspecifiedParts`] will always succeed.  However,
+    /// converting a key to one with [`key::SecretParts`] only
+    /// succeeds if the key actually contains secret key material.
+    ///
+    /// [`key::PublicParts`]: struct.PublicParts.html
+    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
+    /// [`key::SecretParts`]: struct.SecretParts.html
+    ///
+    /// # Examples
+    ///
+    /// For a less construed example, refer to the [source code]:
+    ///
+    /// [source code]: https://gitlab.com/search?search=convert_key&project_id=4469613&search_code=true&repository_ref=master
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Result;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// fn f<P>(cert: &Cert, mut key: Key<P, key::UnspecifiedRole>)
+    ///     -> Result<Key<P, key::UnspecifiedRole>>
+    ///     where P: key::KeyParts
+    /// {
+    ///     // ...
+    ///
+    /// # let criterium = true;
+    ///     if criterium {
+    ///         // Cert::primary_key's return type is concrete
+    ///         // (Key<key::PublicParts, key::PrimaryRole>).  We need to
+    ///         // convert it to the generic type Key<P, key::UnspecifiedRole>.
+    ///         // First, we "downcast" it to have unspecified parts and an
+    ///         // unspecified role, then we use a method defined by the
+    ///         // generic type to perform the conversion to the generic
+    ///         // type P.
+    ///         key = P::convert_key(
+    ///             cert.primary_key().key().clone()
+    ///                 .parts_into_unspecified()
+    ///                 .role_into_unspecified())?;
+    ///     }
+    /// #   else { unreachable!() }
+    ///
+    ///     // ...
+    ///
+    ///     Ok(key)
+    /// }
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # f(&cert, cert.primary_key().key().clone().role_into_unspecified()).unwrap();
+    /// # Ok(())
+    /// # }
+    /// ```
     fn convert_key<R: KeyRole>(key: Key<UnspecifiedParts, R>)
                                -> Result<Key<Self, R>>
         where Self: Sized;
 
-    /// Converts a reference to a key with unspecified parts into this
-    /// kind of key reference.
+    /// Converts a key reference with unspecified parts into this kind
+    /// of key reference.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
+    ///
+    /// Converting a key with [`key::PublicParts`] or
+    /// [`key::UnspecifiedParts`] will always succeed.  However,
+    /// converting a key to one with [`key::SecretParts`] only
+    /// succeeds if the key actually contains secret key material.
+    ///
+    /// [`key::PublicParts`]: struct.PublicParts.html
+    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
+    /// [`key::SecretParts`]: struct.SecretParts.html
     fn convert_key_ref<R: KeyRole>(key: &Key<UnspecifiedParts, R>)
                                    -> Result<&Key<Self, R>>
         where Self: Sized;
 
     /// Converts a key bundle with unspecified parts into this kind of
     /// key bundle.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
+    ///
+    /// Converting a key bundle with [`key::PublicParts`] or
+    /// [`key::UnspecifiedParts`] will always succeed.  However,
+    /// converting a key bundle to one with [`key::SecretParts`] only
+    /// succeeds if the key bundle actually contains secret key
+    /// material.
+    ///
+    /// [`key::PublicParts`]: struct.PublicParts.html
+    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
+    /// [`key::SecretParts`]: struct.SecretParts.html
     fn convert_bundle<R: KeyRole>(bundle: KeyBundle<UnspecifiedParts, R>)
                                   -> Result<KeyBundle<Self, R>>
         where Self: Sized;
 
-    /// Converts a reference to a key bundle with unspecified parts
-    /// into this kind of key bundle reference.
+    /// Converts a key bundle reference with unspecified parts into
+    /// this kind of key bundle reference.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
+    ///
+    /// Converting a key bundle with [`key::PublicParts`] or
+    /// [`key::UnspecifiedParts`] will always succeed.  However,
+    /// converting a key bundle to one with [`key::SecretParts`] only
+    /// succeeds if the key bundle actually contains secret key
+    /// material.
+    ///
+    /// [`key::PublicParts`]: struct.PublicParts.html
+    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
+    /// [`key::SecretParts`]: struct.SecretParts.html
     fn convert_bundle_ref<R: KeyRole>(bundle: &KeyBundle<UnspecifiedParts, R>)
                                       -> Result<&KeyBundle<Self, R>>
         where Self: Sized;
 
     /// Converts a key amalgamation with unspecified parts into this
     /// kind of key amalgamation.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
+    ///
+    /// Converting a key amalgamation with [`key::PublicParts`] or
+    /// [`key::UnspecifiedParts`] will always succeed.  However,
+    /// converting a key amalgamation to one with [`key::SecretParts`]
+    /// only succeeds if the key amalgamation actually contains secret
+    /// key material.
+    ///
+    /// [`key::PublicParts`]: struct.PublicParts.html
+    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
+    /// [`key::SecretParts`]: struct.SecretParts.html
     fn convert_key_amalgamation<'a, R: KeyRole>(
         ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<ComponentAmalgamation<'a, Key<Self, R>>>
         where Self: Sized;
 
-    /// Converts a reference to a key amalgamation with unspecified
-    /// parts into this kind of key amalgamation reference.
+    /// Converts a key amalgamation reference with unspecified parts
+    /// into this kind of key amalgamation reference.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
+    ///
+    /// Converting a key amalgamation with [`key::PublicParts`] or
+    /// [`key::UnspecifiedParts`] will always succeed.  However,
+    /// converting a key amalgamation to one with [`key::SecretParts`]
+    /// only succeeds if the key amalgamation actually contains secret
+    /// key material.
+    ///
+    /// [`key::PublicParts`]: struct.PublicParts.html
+    /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
+    /// [`key::SecretParts`]: struct.SecretParts.html
     fn convert_key_amalgamation_ref<'a, R: KeyRole>(
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>>
         where Self: Sized;
 }
 
-/// A marker trait that indicates whether a `Key` is a primary key or
-/// subordinate key (i.e., a subkey).
+/// A marker trait that captures a `Key`'s role.
+///
+/// A [`Key`] can either be a primary key ([`key::PrimaryRole`]) or a
+/// subordinate key ([`key::SubordinateRole`]).  For those cases where
+/// the type information needs to be erased (e.g., interfaces like
+/// [`Cert::keys`]), we provide the [`key::UnspecifiedRole`] marker.
+///
+/// [`Key`]: ../enum.Key.html
+/// [`key::PrimaryRole`]: struct.PrimaryRole.html
+/// [`key::SubordinateRole`]: struct.SubordinateRole.html
+/// [`Cert::keys`]: ../../cert/struct.Cert.html#method.keys
+/// [`key::UnspecifiedRole`]: struct.UnspecifiedRole.html
 pub trait KeyRole: fmt::Debug {
-    /// Converts a key with unspecified role into this kind of key.
+    /// Converts a key with an unspecified role into this kind of key.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Result;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// fn f<R>(cert: &Cert, mut key: Key<key::UnspecifiedParts, R>)
+    ///     -> Result<Key<key::UnspecifiedParts, R>>
+    ///     where R: key::KeyRole
+    /// {
+    ///     // ...
+    ///
+    /// # let criterium = true;
+    ///     if criterium {
+    ///         // Cert::primary_key's return type is concrete
+    ///         // (Key<key::PublicParts, key::PrimaryRole>).  We need to
+    ///         // convert it to the generic type Key<key::UnspecifiedParts, R>.
+    ///         // First, we "downcast" it to have unspecified parts and an
+    ///         // unspecified role, then we use a method defined by the
+    ///         // generic type to perform the conversion to the generic
+    ///         // type R.
+    ///         key = R::convert_key(
+    ///             cert.primary_key().key().clone()
+    ///                 .parts_into_unspecified()
+    ///                 .role_into_unspecified());
+    ///     }
+    /// #   else { unreachable!() }
+    ///
+    ///     // ...
+    ///
+    ///     Ok(key)
+    /// }
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # f(&cert, cert.primary_key().key().clone().parts_into_unspecified()).unwrap();
+    /// # Ok(())
+    /// # }
+    /// ```
     fn convert_key<P: KeyParts>(key: Key<P, UnspecifiedRole>)
                                 -> Key<P, Self>
         where Self: Sized;
 
-    /// Converts a reference to a key with unspecified role into this
+    /// Converts a key reference with an unspecified role into this
     /// kind of key reference.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
     fn convert_key_ref<P: KeyParts>(key: &Key<P, UnspecifiedRole>)
                                     -> &Key<P, Self>
         where Self: Sized;
 
-    /// Converts a key bundle with unspecified role into this kind of
-    /// key bundle.
+    /// Converts a key bundle with an unspecified role into this kind
+    /// of key bundle.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
     fn convert_bundle<P: KeyParts>(bundle: KeyBundle<P, UnspecifiedRole>)
                                    -> KeyBundle<P, Self>
         where Self: Sized;
 
-    /// Converts a reference to a key bundle with unspecified role
-    /// into this kind of key bundle reference.
+    /// Converts a key bundle reference with an unspecified role into
+    /// this kind of key bundle reference.
+    ///
+    /// This function is helpful when you need to convert a concrete
+    /// type into a generic type.  Using `From` works, but requires
+    /// adding a type bound to the generic type, which is ugly and
+    /// invasive.
     fn convert_bundle_ref<P: KeyParts>(bundle: &KeyBundle<P, UnspecifiedRole>)
                                        -> &KeyBundle<P, Self>
         where Self: Sized;
 }
 
-/// Indicates that a `Key` should be treated like a public key.
+/// A marker that indicates that a `Key` should be treated like a
+/// public key.
 ///
 /// Note: this doesn't indicate whether the data structure contains
 /// secret key material; it indicates whether any secret key material
 /// should be ignored.  For instance, when exporting a key with the
 /// `PublicParts` marker, secret key material will *not* be exported.
+/// See the documentation for [`Key`] for a demonstration.
+///
+/// Refer to [`KeyParts`] for details.
+///
+/// [`Key`]: ../enum.Key.html
+/// [`KeyParts`]: trait.KeyParts.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PublicParts;
 impl KeyParts for PublicParts {
@@ -180,8 +448,6 @@ impl KeyParts for PublicParts {
         Ok(ka.into())
     }
 
-    /// Converts a reference to a key amalgamation with unspecified
-    /// parts into this kind of key amalgamation reference.
     fn convert_key_amalgamation_ref<'a, R: KeyRole>(
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
@@ -189,12 +455,19 @@ impl KeyParts for PublicParts {
     }
 }
 
-/// Indicates that a `Key` should be treated like a secret key.
+/// A marker that indicates that a `Key` should be treated like a
+/// secret key.
 ///
-/// Note: this doesn't indicate whether the data structure contains
-/// secret key material; it indicates whether any secret key material
-/// should be used.  For instance, when exporting a key with the
-/// `SecretParts` marker, secret key material will be exported.
+/// Unlike the [`key::PublicParts`] marker, this marker asserts that
+/// the [`Key`] contains secret key material.  Because secret key
+/// material is not protected by the self-signature, there is no
+/// indication that the secret key material is actually valid.
+///
+/// Refer to [`KeyParts`] for details.
+///
+/// [`key::PublicParts`]: struct.PublicParts.html
+/// [`Key`]: ../enum.Key.html
+/// [`KeyParts`]: trait.KeyParts.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SecretParts;
 impl KeyParts for SecretParts {
@@ -224,8 +497,6 @@ impl KeyParts for SecretParts {
         ka.try_into()
     }
 
-    /// Converts a reference to a key amalgamation with unspecified
-    /// parts into this kind of key amalgamation reference.
     fn convert_key_amalgamation_ref<'a, R: KeyRole>(
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
@@ -233,15 +504,27 @@ impl KeyParts for SecretParts {
     }
 }
 
-/// Indicates that a `Key`'s parts are unspecified.
+/// A marker that indicates that a `Key`'s parts are unspecified.
 ///
 /// Neither public key-specific nor secret key-specific operations are
-/// allowed on such keys.
+/// allowed on these types of keys.  For instance, it is not possible
+/// to export a key with the `UnspecifiedParts` marker, because it is
+/// unclear how to treat any secret key material.  To export such a
+/// key, you need to first change the marker to [`key::PublicParts`]
+/// or [`key::SecretParts`].
 ///
-/// For instance, it is not possible to export a key with the
-/// `UnspecifiedParts` marker, because it is unclear how to treat any
-/// secret key material.  To export such a key, you need to use a
-/// different `KeyParts` marker.
+/// This marker is used when it is necessary to erase the type.  For
+/// instance, we need to do this when mixing [`Key`]s with different
+/// markers in the same collection.  See [`Cert::keys`] for an
+/// example.
+///
+/// Refer to [`KeyParts`] for details.
+///
+/// [`key::PublicParts`]: struct.PublicParts.html
+/// [`key::SecretParts`]: struct.SecretParts.html
+/// [`KeyParts`]: trait.KeyParts.html
+/// [`Key`]: ../enum.Key.html
+/// [`Cert::keys`]: ../../struct.Cert.html#method.keys
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedParts;
 impl KeyParts for UnspecifiedParts {
@@ -271,8 +554,6 @@ impl KeyParts for UnspecifiedParts {
         Ok(ka.into())
     }
 
-    /// Converts a reference to a key amalgamation with unspecified
-    /// parts into this kind of key amalgamation reference.
     fn convert_key_amalgamation_ref<'a, R: KeyRole>(
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
@@ -280,7 +561,11 @@ impl KeyParts for UnspecifiedParts {
     }
 }
 
-/// Indicates that a `Key` should treated like a primary key.
+/// A marker that indicates the `Key` should be treated like a primary key.
+///
+/// Refer to [`KeyRole`] for details.
+///
+/// [`KeyRole`]: trait.KeyRole.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PrimaryRole;
 impl KeyRole for PrimaryRole {
@@ -305,7 +590,11 @@ impl KeyRole for PrimaryRole {
     }
 }
 
-/// Indicates that a `Key` should treated like a subkey key.
+/// A marker that indicates the `Key` should treated like a subkey.
+///
+/// Refer to [`KeyRole`] for details.
+///
+/// [`KeyRole`]: trait.KeyRole.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SubordinateRole;
 impl KeyRole for SubordinateRole {
@@ -330,10 +619,18 @@ impl KeyRole for SubordinateRole {
     }
 }
 
-/// Indicates that a `Key`'s role is unknown.
+/// A marker that indicates the `Key`'s role is unspecified.
 ///
-/// Neither primary key-specific nor subkey-specific operations
-/// are allowed.
+/// Neither primary key-specific nor subkey-specific operations are
+/// allowed.  To perform those operations, the marker first has to be
+/// changed to either [`key::PrimaryRole`] or
+/// [`key::SubordinateRole`], as appropriate.
+///
+/// Refer to [`KeyRole`] for details.
+///
+/// [`key::PrimaryRole`]: struct.PrimaryRole.html
+/// [`key::SubordinateRole`]: struct.SubordinateRole.html
+/// [`KeyRole`]: trait.KeyRole.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedRole;
 impl KeyRole for UnspecifiedRole {
@@ -388,11 +685,40 @@ pub(crate) type UnspecifiedSecondary = Key<UnspecifiedParts, SubordinateRole>;
 pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 
 
-/// Holds a public key, public subkey, private key or private subkey packet.
+/// Holds a public key, public subkey, private key or private subkey
+/// packet.
 ///
-/// See [Section 5.5 of RFC 4880] for details.
+/// Use [`Key4::generate_rsa`] or [`Key4::generate_ecc`] to create a
+/// new key.
 ///
-///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
+/// Existing key material can be turned into an OpenPGP key using
+/// [`Key4::with_secret`], [`Key4::import_public_cv25519`],
+/// [`Key4::import_public_ed25519`], [`Key4::import_public_rsa`],
+/// [`Key4::import_secret_cv25519`], [`Key4::import_secret_ed25519`],
+/// and [`Key4::import_secret_rsa`].
+///
+/// Whether you create a new key or import existing key material, you
+/// still need to create a binding signature, and, for signing keys, a
+/// back signature before integrating the key into a certificate.
+///
+/// Normally, you won't directly use `Key4`, but [`Key`], which is a
+/// relatively thin wrapper around `Key4`.
+///
+/// See [Section 5.5 of RFC 4880] and [the documentation for `Key`]
+/// for more details.
+///
+/// [`Key4::with_secret`]: #method.with_secret
+/// [`Key4::generate_rsa`]: #method.generate_rsa
+/// [`Key4::generate_ecc`]: #method.generate_ecc
+/// [`Key4::import_public_cv25519`]: #method.import_public_cv25519
+/// [`Key4::import_public_ed25519`]: #method.import_public_ed25519
+/// [`Key4::import_public_rsa`]: #method.import_public_rsa
+/// [`Key4::import_secret_cv25519`]: #method.import_secret_cv25519
+/// [`Key4::import_secret_ed25519`]: #method.import_secret_ed25519
+/// [`Key4::import_secret_rsa`]: #method.import_secret_rsa
+/// [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
+/// [the documentation for `Key`]: ../enum.Key.html
+/// [`Key`]: ../enum.Key.html
 #[derive(Clone)]
 pub struct Key4<P, R>
     where P: KeyParts, R: KeyRole
@@ -462,10 +788,10 @@ impl<P, R> Key4<P, R>
 {
     /// Compares the public bits of two keys.
     ///
-    /// This returns Ordering::Equal if the public MPIs,
-    /// creation time and algorithm of the two `Key4`s match.  This
-    /// does not consider the packet's encoding, packet's tag or the
-    /// secret key material.
+    /// This returns `Ordering::Equal` if the public MPIs, creation
+    /// time, and algorithm of the two `Key4`s match.  This does not
+    /// consider the packets' encodings, packets' tags or their secret
+    /// key material.
     pub fn public_cmp<PB, RB>(&self, b: &Key4<PB, RB>) -> Ordering
         where PB: key::KeyParts,
               RB: key::KeyRole,
@@ -483,12 +809,12 @@ impl<P, R> Key4<P, R>
         self.pk_algo.cmp(&b.pk_algo)
     }
 
-    /// This method tests for self and other values to be equal modulo
-    /// the secret bits.
+    /// Tests whether two keys are equal modulo their secret key
+    /// material.
     ///
     /// This returns true if the public MPIs, creation time and
     /// algorithm of the two `Key4`s match.  This does not consider
-    /// the packet's encoding, packet's tag or the secret key
+    /// the packets' encodings, packets' tags or their secret key
     /// material.
     pub fn public_eq<PB, RB>(&self, b: &Key4<PB, RB>) -> bool
         where PB: key::KeyParts,
@@ -501,7 +827,7 @@ impl<P, R> Key4<P, R>
 impl<R> Key4<key::PublicParts, R>
     where R: key::KeyRole,
 {
-    /// Creates a new OpenPGP key packet.
+    /// Creates an OpenPGP public key from the specified key material.
     pub fn new<T>(creation_time: T, pk_algo: PublicKeyAlgorithm,
                   mpis: mpi::PublicKey)
                   -> Result<Self>
@@ -518,11 +844,12 @@ impl<R> Key4<key::PublicParts, R>
         })
     }
 
-    /// Creates a new OpenPGP public key packet for an existing X25519 key.
+    /// Creates an OpenPGP public key packet from existing X25519 key
+    /// material.
     ///
     /// The ECDH key will use hash algorithm `hash` and symmetric
     /// algorithm `sym`.  If one or both are `None` secure defaults
-    /// will be used.  The key will have it's creation date set to
+    /// will be used.  The key will have its creation date set to
     /// `ctime` or the current time if `None` is given.
     pub fn import_public_cv25519<H, S, T>(public_key: &[u8],
                                           hash: H, sym: S, ctime: T)
@@ -544,11 +871,12 @@ impl<R> Key4<key::PublicParts, R>
             })
     }
 
-    /// Creates a new OpenPGP public key packet for an existing Ed25519 key.
+    /// Creates an OpenPGP public key packet from existing Ed25519 key
+    /// material.
     ///
     /// The ECDH key will use hash algorithm `hash` and symmetric
     /// algorithm `sym`.  If one or both are `None` secure defaults
-    /// will be used.  The key will have it's creation date set to
+    /// will be used.  The key will have its creation date set to
     /// `ctime` or the current time if `None` is given.
     pub fn import_public_ed25519<T>(public_key: &[u8], ctime: T) -> Result<Self>
         where  T: Into<Option<time::SystemTime>>
@@ -565,11 +893,12 @@ impl<R> Key4<key::PublicParts, R>
             })
     }
 
-    /// Creates a new OpenPGP public key packet for an existing RSA key.
+    /// Creates an OpenPGP public key packet from existing RSA key
+    /// material.
     ///
-    /// The RSA key will use public exponent `e` and modulo `n`. The key will
-    /// have it's creation date set to `ctime` or the current time if `None`
-    /// is given.
+    /// The RSA key will use the public exponent `e` and the modulo
+    /// `n`. The key will have its creation date set to `ctime` or the
+    /// current time if `None` is given.
     pub fn import_public_rsa<T>(e: &[u8], n: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<time::SystemTime>>
     {
@@ -586,7 +915,8 @@ impl<R> Key4<key::PublicParts, R>
 impl<R> Key4<SecretParts, R>
     where R: key::KeyRole,
 {
-    /// Creates a new OpenPGP key packet with secrets.
+    /// Creates an OpenPGP key packet from the specified secret key
+    /// material.
     pub fn with_secret<T>(creation_time: T, pk_algo: PublicKeyAlgorithm,
                           mpis: mpi::PublicKey,
                           secret: SecretKeyMaterial)
@@ -604,12 +934,13 @@ impl<R> Key4<SecretParts, R>
         })
     }
 
-    /// Creates a new OpenPGP secret key packet for an existing X25519 key.
+    /// Creates an OpenPGP secret key packet from an existing
+    /// X25519 key.
     ///
-    /// The ECDH key will use hash algorithm `hash` and symmetric
-    /// algorithm `sym`.  If one or both are `None` secure defaults
-    /// will be used.  The key will have it's creation date set to
-    /// `ctime` or the current time if `None` is given.
+    /// The ECDH key will use the hash algorithm `hash` and the
+    /// symmetric algorithm `sym`.  If one or both are `None` secure
+    /// defaults will be used.  The key will have its creation date
+    /// set to `ctime` or the current time if `None` is given.
     pub fn import_secret_cv25519<H, S, T>(private_key: &[u8],
                                           hash: H, sym: S, ctime: T)
         -> Result<Self> where H: Into<Option<HashAlgorithm>>,
@@ -638,11 +969,11 @@ impl<R> Key4<SecretParts, R>
             }.into())
     }
 
-    /// Creates a new OpenPGP secret key packet for an existing Ed25519 key.
+    /// Creates an OpenPGP secret key packet from an existing Ed25519 key.
     ///
     /// The ECDH key will use hash algorithm `hash` and symmetric
     /// algorithm `sym`.  If one or both are `None` secure defaults
-    /// will be used.  The key will have it's creation date set to
+    /// will be used.  The key will have its creation date set to
     /// `ctime` or the current time if `None` is given.
     pub fn import_secret_ed25519<T>(private_key: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<time::SystemTime>>
@@ -664,10 +995,10 @@ impl<R> Key4<SecretParts, R>
             }.into())
     }
 
-    /// Creates a new OpenPGP public key packet for an existing RSA key.
+    /// Creates an OpenPGP secret key packet from an existing RSA key.
     ///
     /// The RSA key will use public exponent `e` and modulo `n`. The key will
-    /// have it's creation date set to `ctime` or the current time if `None`
+    /// have its creation date set to `ctime` or the current time if `None`
     /// is given.
     pub fn import_secret_rsa<T>(d: &[u8], p: &[u8], q: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<time::SystemTime>>
@@ -693,7 +1024,8 @@ impl<R> Key4<SecretParts, R>
             }.into())
     }
 
-    /// Generates a new RSA key with a public modulos of size `bits`.
+    /// Generates a new RSA key whose public modulus has the specified
+    /// number of bits.
     pub fn generate_rsa(bits: usize) -> Result<Self> {
         use nettle::{rsa, random::Yarrow};
         use crate::crypto::mpi::{MPI, PublicKey};
@@ -719,13 +1051,13 @@ impl<R> Key4<SecretParts, R>
             private_mpis.into())
     }
 
-    /// Generates a new ECC key over `curve`.
+    /// Generates a new ECC key over the specified curve.
     ///
-    /// If `for_signing` is false a ECDH key, if it's true either a
-    /// EdDSA or ECDSA key is generated.  Giving `for_signing == true`
-    /// and `curve == Cv25519` will produce an error.  Similar for
-    /// `for_signing == false` and `curve == Ed25519`.
-    /// signing/encryption
+    /// If `for_signing` is false an ECDH key is generated; if it's
+    /// true either a EdDSA or ECDSA key is generated.  Giving
+    /// `for_signing == true` and `curve == Cv25519` will produce an
+    /// error.  Likewise `for_signing == false` and `curve == Ed25519`
+    /// will produce an error.
     pub fn generate_ecc(for_signing: bool, curve: Curve) -> Result<Self> {
         use nettle::{
             random::Yarrow,
@@ -875,12 +1207,22 @@ impl<P, R> Key4<P, R>
      where P: key::KeyParts,
            R: key::KeyRole,
 {
-    /// Gets the key packet's creation time field.
+    /// Gets the `Key`'s creation time.
     pub fn creation_time(&self) -> time::SystemTime {
         self.creation_time.into()
     }
 
-    /// Sets the key packet's creation time field.
+    /// Sets the `Key`'s creation time.
+    ///
+    /// `timestamp` is converted to OpenPGP's internal format,
+    /// [`Timestamp`]: a 32-bit quantity containing the number of
+    /// seconds since the Unix epoch.
+    ///
+    /// `timestamp` is silently rounded to match the internal
+    /// resolution.  An error is returned if `timestamp` is out of
+    /// range.
+    ///
+    /// [`Timestamp`]: ../../types/struct.Timestamp.html
     pub fn set_creation_time<T>(&mut self, timestamp: T)
                                 -> Result<time::SystemTime>
         where T: Into<time::SystemTime>
@@ -896,31 +1238,40 @@ impl<P, R> Key4<P, R>
     }
 
     /// Sets the public key algorithm.
-    pub fn set_pk_algo(&mut self, pk_algo: PublicKeyAlgorithm) -> PublicKeyAlgorithm {
+    ///
+    /// Returns the old public key algorithm.
+    pub fn set_pk_algo(&mut self, pk_algo: PublicKeyAlgorithm)
+        -> PublicKeyAlgorithm
+    {
         ::std::mem::replace(&mut self.pk_algo, pk_algo)
     }
 
-    /// Gets the key packet's MPIs.
+    /// Returns a reference to the `Key`'s MPIs.
     pub fn mpis(&self) -> &mpi::PublicKey {
         &self.mpis
     }
 
-    /// Gets a mutable reference to the key packet's MPIs.
+    /// Returns a mutable reference to the `Key`'s MPIs.
     pub fn mpis_mut(&mut self) -> &mut mpi::PublicKey {
         &mut self.mpis
     }
 
-    /// Sets the key packet's MPIs.
+    /// Sets the `Key`'s MPIs.
+    ///
+    /// This function returns the old MPIs, if any.
     pub fn set_mpis(&mut self, mpis: mpi::PublicKey) -> mpi::PublicKey {
         ::std::mem::replace(&mut self.mpis, mpis)
     }
 
-    /// Returns whether the key contains secret key material.
+    /// Returns whether the `Key` contains secret key material.
     pub fn has_secret(&self) -> bool {
         self.secret.is_some()
     }
 
-    /// Returns whether the key contains unencrypted secret key
+    /// Returns whether the `Key` contains unencrypted secret key
+    /// material.
+    ///
+    /// This returns false if the `Key` doesn't contain any secret key
     /// material.
     pub fn has_unencrypted_secret(&self) -> bool {
         match self.secret {
@@ -929,19 +1280,26 @@ impl<P, R> Key4<P, R>
         }
     }
 
-    /// Gets the key packet's `SecretKeyMaterial`, if any.
+    /// Returns `Key`'s secret key material, if any.
     pub fn optional_secret(&self) -> Option<&SecretKeyMaterial> {
         self.secret.as_ref()
     }
 
-    /// Computes and returns the key's fingerprint as per Section 12.2
-    /// of RFC 4880 as returns it as a KeyHandle.
+    /// Computes and returns the `Key`'s `Fingerprint` and returns it as
+    /// a `KeyHandle`.
+    ///
+    /// See [Section 12.2 of RFC 4880].
+    ///
+    /// [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
     pub fn key_handle(&self) -> KeyHandle {
         self.fingerprint().into()
     }
 
-    /// Computes and returns the key's fingerprint as per Section 12.2
-    /// of RFC 4880.
+    /// Computes and returns the `Key`'s `Fingerprint`.
+    ///
+    /// See [Section 12.2 of RFC 4880].
+    ///
+    /// [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
     pub fn fingerprint(&self) -> Fingerprint {
         let mut h = HashAlgorithm::SHA1.context().unwrap();
 
@@ -952,8 +1310,11 @@ impl<P, R> Key4<P, R>
         Fingerprint::from_bytes(digest.as_slice())
     }
 
-    /// Computes and returns the key's key ID as per Section 12.2 of
-    /// RFC 4880.
+    /// Computes and returns the `Key`'s `Key ID`.
+    ///
+    /// See [Section 12.2 of RFC 4880].
+    ///
+    /// [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
     pub fn keyid(&self) -> KeyID {
         self.fingerprint().into()
     }
@@ -961,11 +1322,11 @@ impl<P, R> Key4<P, R>
 
 macro_rules! impl_common_secret_functions {
     ($t: ident) => {
-        /// Secret key handling.
+        /// Secret key material handling.
         impl<R> Key4<$t, R>
             where R: key::KeyRole,
         {
-            /// Takes the key packet's `SecretKeyMaterial`, if any.
+            /// Takes the `Key`'s `SecretKeyMaterial`, if any.
             pub fn take_secret(mut self)
                                -> (Key4<PublicParts, R>, Option<SecretKeyMaterial>)
             {
@@ -973,8 +1334,8 @@ macro_rules! impl_common_secret_functions {
                 (self.parts_into_public(), old)
             }
 
-            /// Adds `SecretKeyMaterial` to the packet, returning the old if
-            /// any.
+            /// Adds the secret key material to the `Key`, returning
+            /// the old secret key material, if any.
             pub fn add_secret(mut self, secret: SecretKeyMaterial)
                               -> (Key4<SecretParts, R>, Option<SecretKeyMaterial>)
             {
@@ -991,18 +1352,17 @@ impl_common_secret_functions!(UnspecifiedParts);
 impl<R> Key4<SecretParts, R>
     where R: key::KeyRole,
 {
-    /// Gets the key packet's `SecretKeyMaterial`.
+    /// Gets the `Key`'s `SecretKeyMaterial`.
     pub fn secret(&self) -> &SecretKeyMaterial {
         self.secret.as_ref().expect("has secret")
     }
 
-    /// Gets a mutable reference to the key packet's
-    /// `SecretKeyMaterial`.
+    /// Gets a mutable reference to the `Key`'s `SecretKeyMaterial`.
     pub fn secret_mut(&mut self) -> &mut SecretKeyMaterial {
         self.secret.as_mut().expect("has secret")
     }
 
-    /// Takes the key packet's `SecretKeyMaterial`.
+    /// Takes the `Key`'s `SecretKeyMaterial`.
     pub fn take_secret(mut self)
                        -> (Key4<PublicParts, R>, SecretKeyMaterial)
     {
@@ -1011,8 +1371,9 @@ impl<R> Key4<SecretParts, R>
          old.expect("Key<SecretParts, _> has a secret key material"))
     }
 
-    /// Adds `SecretKeyMaterial` to the packet, returning the old if
-    /// any.
+    /// Adds `SecretKeyMaterial` to the `Key`.
+    ///
+    /// This function returns the old secret key material, if any.
     pub fn add_secret(mut self, secret: SecretKeyMaterial)
                       -> (Key4<SecretParts, R>, SecretKeyMaterial)
     {
@@ -1034,7 +1395,7 @@ impl<R> Key4<SecretParts, R>
     ///
     /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
     /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
-    /// [`Key::decrypt_secret`]: enum.Key.html#method.decrypt_secret
+    /// [`Key::decrypt_secret`]: ../enum.Key.html#method.decrypt_secret
     pub fn decrypt_secret(mut self, password: &Password) -> Result<Self> {
         let pk_algo = self.pk_algo;
         self.secret_mut().decrypt_in_place(pk_algo, password)?;
@@ -1043,8 +1404,18 @@ impl<R> Key4<SecretParts, R>
 
     /// Encrypts the secret key material using `password`.
     ///
+    /// In OpenPGP, secret key material can be [protected with a
+    /// password].  The password is usually hardened using a [KDF].
+    ///
+    /// Refer to the documentation of [`Key::encrypt_secret`] for
+    /// details.
+    ///
     /// This returns an error if the secret key material is already
     /// encrypted.
+    ///
+    /// [protected with a password]: https://tools.ietf.org/html/rfc4880#section-5.5.3
+    /// [KDF]: https://tools.ietf.org/html/rfc4880#section-3.7
+    /// [`Key::encrypt_secret`]: ../enum.Key.html#method.encrypt_secret
     pub fn encrypt_secret(mut self, password: &Password)
         -> Result<Key4<SecretParts, R>>
     {
@@ -1062,9 +1433,23 @@ impl<P, R> From<Key4<P, R>> for super::Key<P, R>
     }
 }
 
-/// Holds the secret potion of a OpenPGP secret key or secret subkey packet.
+/// Holds secret key material.
 ///
-/// This type allows postponing the decryption of the secret key until we need to use it.
+/// This type allows postponing the decryption of the secret key
+/// material until it is actually needed.
+///
+/// If the secret key material is not encrypted with a password, then
+/// we encrypt it in memory.  This helps protect against
+/// [heartbleed]-style attacks where a buffer over-read allows an
+/// attacker to read from the process's address space.  This
+/// protection is less important for Rust programs, which are memory
+/// safe.  However, it is essential when Sequoia is used via its FFI.
+///
+/// See [`crypto::mem::Encrypted`] for details.
+///
+/// [`Unencrypted`]: struct.Unencrypted.html
+/// [heartbleed]: https://en.wikipedia.org/wiki/Heartbleed
+/// [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SecretKeyMaterial {
     /// Unencrypted secret key. Can be used as-is.
@@ -1133,11 +1518,11 @@ impl SecretKeyMaterial {
 
     /// Encrypts the secret key material using `password`.
     ///
-    /// The `SecretKeyMaterial` type does not know what kind of key it
-    /// contains.  So, in order to know how many MPIs to parse, the
-    /// public key algorithm needs to be provided explicitly.
-    ///
     /// This returns an error if the secret key material is encrypted.
+    ///
+    /// See [`Unencrypted::encrypt`] for details.
+    ///
+    /// [`Unencrypted::encrypt`]: struct.Unencrypted.html#encrypt
     pub fn encrypt(mut self, password: &Password) -> Result<Self> {
         self.encrypt_in_place(password)?;
         Ok(self)
@@ -1145,11 +1530,11 @@ impl SecretKeyMaterial {
 
     /// Encrypts the secret key material using `password`.
     ///
-    /// The `SecretKeyMaterial` type does not know what kind of key it
-    /// contains.  So, in order to know how many MPIs to parse, the
-    /// public key algorithm needs to be provided explicitly.
-    ///
     /// This returns an error if the secret key material is encrypted.
+    ///
+    /// See [`Unencrypted::encrypt`] for details.
+    ///
+    /// [`Unencrypted::encrypt`]: struct.Unencrypted.html#encrypt
     pub fn encrypt_in_place(&mut self, password: &Password) -> Result<()> {
         match self {
             SecretKeyMaterial::Unencrypted(ref u) => {
@@ -1163,7 +1548,7 @@ impl SecretKeyMaterial {
         }
     }
 
-    /// Returns true if this secret key is encrypted.
+    /// Returns whether the secret key material is encrypted.
     pub fn is_encrypted(&self) -> bool {
         match self {
             SecretKeyMaterial::Encrypted(_) => true,
@@ -1172,12 +1557,25 @@ impl SecretKeyMaterial {
     }
 }
 
-/// Unencrypted secret key. Can be used as-is.
+/// Unencrypted secret key material.
+///
+/// This data structure is used by the [`SecretKeyMaterial`] enum.
+///
+/// Unlike an [`Encrypted`] key, this key an be used as-is.
 ///
 /// The secret key is encrypted in memory and only decrypted on
-/// demand.  See [`crypto::mem::Encrypted`] for details.
+/// demand.  This helps protect against [heartbleed]-style
+/// attacks where a buffer over-read allows an attacker to read from
+/// the process's address space.  This protection is less important
+/// for Rust programs, which are memory safe.  However, it is
+/// essential when Sequoia is used via its FFI.
 ///
-///  [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
+/// See [`crypto::mem::Encrypted`] for details.
+///
+/// [`SecretKeyMaterial`]: enum.SecretKeyMaterial.html
+/// [`Encrypted`]: struct.Encrypted.html
+/// [heartbleed]: https://en.wikipedia.org/wiki/Heartbleed
+/// [`crypto::mem::Encrypted`]: ../../crypto/mem/struct.Encrypted.html
 // Note: PartialEq, Eq, and Hash on mem::Encrypted does the right
 // thing.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -1212,9 +1610,16 @@ impl Unencrypted {
         })
     }
 
-    /// Encrypts this secret key using `password`.
+    /// Encrypts the secret key material using `password`.
+    ///
+    /// This encrypts the secret key material using an [AES 256] key
+    /// derived from the `password` using the default [`s2k`] scheme.
+    ///
+    /// [AES 256]: ../../types/enum.SymmetricAlgorithm.html#variant.AES256
+    /// [`s2k`]: ../../crypto/enum.S2K.html
     pub fn encrypt(&self, password: &Password)
-                   -> Result<Encrypted> {
+        -> Result<Encrypted>
+    {
         use std::io::Write;
         use crate::crypto::symmetric::Encryptor;
 
@@ -1237,12 +1642,16 @@ impl Unencrypted {
     }
 }
 
-/// The secret key is encrypted with a password.
+/// Secret key material encrypted with a password.
+///
+/// This data structure is used by the [`SecretKeyMaterial`] enum.
+///
+/// [`SecretKeyMaterial`]: enum.SecretKeyMaterial.html
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Encrypted {
     /// Key derivation mechanism to use.
     s2k: S2K,
-    /// Symmetric algorithm used for encryption the secret key.
+    /// Symmetric algorithm used to encrypt the secret key material.
     algo: SymmetricAlgorithm,
     /// Encrypted MPIs prefixed with the IV.
     ciphertext: Box<[u8]>,
@@ -1251,7 +1660,8 @@ pub struct Encrypted {
 impl Encrypted {
     /// Creates a new encrypted key object.
     pub fn new(s2k: S2K, algo: SymmetricAlgorithm, ciphertext: Box<[u8]>)
-               -> Self {
+        -> Self
+    {
         Encrypted { s2k, algo, ciphertext }
     }
 
@@ -1260,23 +1670,25 @@ impl Encrypted {
         &self.s2k
     }
 
-    /// Returns the symmetric algorithm used for encryption the secret
-    /// key.
+    /// Returns the symmetric algorithm used to encrypt the secret
+    /// key material.
     pub fn algo(&self) -> SymmetricAlgorithm {
         self.algo
     }
 
-    /// Returns the key derivation mechanism.
+    /// Returns the encrypted secret key material.
     pub fn ciphertext(&self) -> &[u8] {
         &self.ciphertext
     }
 
-    /// Decrypts this secret key using `password`.
+    /// Decrypts the secret key material using `password`.
     ///
     /// The `Encrypted` key does not know what kind of key it is, so
-    /// `pk_algo` is needed to parse the correct number of MPIs.
+    /// the public key algorithm is needed to parse the correct number
+    /// of MPIs.
     pub fn decrypt(&self, pk_algo: PublicKeyAlgorithm, password: &Password)
-                   -> Result<Unencrypted> {
+        -> Result<Unencrypted>
+    {
         use std::io::{Cursor, Read};
         use crate::crypto::symmetric::Decryptor;
 

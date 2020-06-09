@@ -189,6 +189,10 @@ pub use self::unknown::Unknown;
 pub mod signature;
 pub mod one_pass_sig;
 pub mod key;
+use key::{
+    Key4,
+    SecretKeyMaterial
+};
 mod marker;
 pub use self::marker::Marker;
 mod trust;
@@ -1102,81 +1106,72 @@ impl From<SKESK> for Packet {
 
 /// Holds a public key, public subkey, private key or private subkey packet.
 ///
-/// See [Section 5.5 of RFC 4880] for details.
+/// The different `Key` packets are described in [Section 5.5 of RFC 4880].
 ///
 ///   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
-///
-/// `Key` is generic over two types: `P` and `R`.  These are
-/// respectively used to track the key's parts ([`key::PublicParts`]
-/// or [`key::SecretParts`]) and its role ([`key::PrimaryRole`] or
-/// [`key::SubordinateRole`]).  The types determine what methods are
-/// exposed, and the behavior of those methods, but they do not
-/// determine the content of the data structure.  That is a
-/// `Key<key::PublicParts, _>` may include secret key material, but,
-/// with a few exceptions, methods that act on it will treat it as if
-/// it didn't.  `Key<key::SecretParts, _>`, however, will always have
-/// secret key material.
-///
-/// Both of the type parameters have a third variant:
-/// [`key::UnspecifiedParts`] and [`key::UnspecifiedRole`].  These are
-/// used when the type needs to be erased.  For instance, when
-/// iterating over all keys in a certificate, we could use
-/// `key::UnspecifiedRole`, since there is potentially a mix of roles
-/// (a primary key and zero or more subkeys).
-///
-/// [`key::SecretParts`]: key/struct.SecretParts.html
-/// [`key::PublicParts`]: key/struct.PublicParts.html
-/// [`key::PrimaryRole`]: key/struct.PrimaryRole.html
-/// [`key::SubordinateRole`]: key/struct.SubordinateRole.html
-/// [`key::UnspecifiedParts`]: key/struct.UnspecifiedParts.html
-/// [`key::UnspecifiedRole`]: key/struct.UnspecifiedRole.html
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 ///
-/// # A note on equality
+/// # Key Variants
 ///
-/// Two `Key` packets are considered equal if their serialized form is
-/// equal.  Notably this includes the secret key material, but
-/// excludes the `KeyParts` and `KeyRole` marker traits.
+/// There are four different types of keys in OpenPGP: [public keys],
+/// [secret keys], [public subkeys], and [secret subkeys].  Although
+/// the semantics of each type of key are slightly different, the
+/// underlying representation is identical (even a public key and a
+/// secret key are the same: the public key variant just contains 0
+/// bits of secret key material).
 ///
-/// To compare only the public bits of `Key` packets, use
-/// [`Key::public_eq`].
+/// In Sequoia, we use a single type, `Key`, for all four variants.
+/// To improve type safety, we use marker traits rather than an `enum`
+/// to distinguish them.  Specifically, we `Key` is generic over two
+/// type variables, `P` and `R`.
 ///
-///   [`Key::public_eq`]: #method.public_eq
+/// `P` and `R` take marker traits, which describe how any secret key
+/// material should be treated, and the key's role (primary or
+/// subordinate).  The markers also determine the `Key`'s behavior and
+/// the exposed functionality.  `P` can be [`key::PublicParts`],
+/// [`key::SecretParts`], or [`key::UnspecifiedParts`].  And, `R` can
+/// be [`key::PrimaryRole`], [`key::SubordinateRole`], or
+/// [`key::UnspecifiedRole`].
 ///
-/// # Examples
+/// If `P` is `key::PublicParts`, any secret key material that is
+/// present is ignored.  For instance, when serializing a key with
+/// this marker, any secret key material will be skipped.  This is
+/// illutrated in the following example.  If `P` is
+/// `key::SecretParts`, then the key definitely contains secret key
+/// material (although it is not guaranteed that the secret key
+/// material is valid), and methods that require secret key material
+/// are available.
 ///
-/// Changing a key's type:
+/// Unlike `P`, `R` does not say anything about the `Key`'s content.
+/// But, a key's role does influence's the key's semantics.  For
+/// instance, some of a primary key's meta-data is located on the
+/// primary User ID whereas a subordinate key's meta-data is located
+/// on its binding signature.
 ///
-/// ```
-/// use sequoia_openpgp as openpgp;
-/// use openpgp::cert::prelude::*;
-/// use openpgp::packet::prelude::*;
+/// The unspecified variants [`key::UnspecifiedParts`] and
+/// [`key::UnspecifiedRole`] exist to simplify type erasure, which is
+/// needed to mix different types of keys in a single collection.  For
+/// instance, [`Cert::keys`] returns an iterator over the keys in a
+/// certificate.  Since the keys have different roles (a primary key
+/// and zero or more subkeys), but the `Iterator` has to be over a
+/// single, fixed type, the returned keys use the
+/// `key::UnspecifiedRole` marker.
 ///
-/// # fn main() -> openpgp::Result<()> {
-/// // Generate a new certificate.  It has secret key material.
-/// let (cert, _) = CertBuilder::new()
-///     .generate()?;
+/// [public keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.1
+/// [secret keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.3
+/// [public subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.2
+/// [secret subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.4
+/// [`key::PublicParts`]: key/struct.PublicParts.html
+/// [`key::SecretParts`]: key/struct.SecretParts.html
+/// [`key::UnspecifiedParts`]: key/struct.UnspecifiedParts.html
+/// [`key::PrimaryRole`]: key/struct.PrimaryRole.html
+/// [`key::SubordinateRole`]: key/struct.SubordinateRole.html
+/// [`key::UnspecifiedRole`]: key/struct.UnspecifiedRole.html
+/// [`Cert::keys`]: ../struct.Cert.html#method.keys
 ///
-/// let pk: &Key<key::PublicParts, key::PrimaryRole>
-///     = cert.primary_key().key();
-/// // `has_secret`s is one of the few methods that ignores the
-/// // parts type.
-/// assert!(pk.has_secret());
-///
-/// // Treat is like a secret key.  This only works if `pk` really
-/// // has secret key material (which it does).
-/// let sk = pk.parts_as_secret()?;
-/// assert!(sk.has_secret());
-///
-/// // And back.
-/// let pk = sk.parts_as_public();
-/// // Yes, the secret key material is still there.
-/// assert!(pk.has_secret());
-/// # Ok(())
-/// # }
-/// ```
+/// ## Examples
 ///
 /// Serializing a public key with secret key material drops the secret
 /// key material:
@@ -1211,7 +1206,183 @@ impl From<SKESK> for Packet {
 /// # }
 /// ```
 ///
-/// Comparing keys:
+/// # Conversions
+///
+/// Sometimes it is necessary to change a marker.  For instance, to
+/// help prevent a user from inadvertently leaking secret key
+/// material, the [`Cert`] data structure never returns keys with the
+/// [`key::SecretParts`] marker.  This means, to use any secret key
+/// material, e.g., when creating a [`Signer`], the user needs to
+/// explicitly opt-in by changing the marker using
+/// [`Key::parts_into_secret`] or [`Key::parts_as_secret`].
+///
+/// For `P`, the conversion functions are: [`Key::parts_into_public`],
+/// [`Key::parts_as_public`], [`Key::parts_into_secret`],
+/// [`Key::parts_as_secret`], [`Key::parts_into_unspecified`], and
+/// [`Key::parts_as_unspecified`].  With the exception of converting
+/// `P` to `key::SecretParts`, these functions are infallible.
+/// Converting `P` to `key::SecretParts` may fail if the key doesn't
+/// have any secret key material.  (Note: although the secret key
+/// material is required, it not checked for validity.)
+///
+/// For `R`, the conversion functions are [`Key::role_into_primary`],
+/// [`Key::role_as_primary`], [`Key::role_into_subordinate`],
+/// [`Key::role_as_subordinate`], [`Key::role_into_unspecified`], and
+/// [`Key::role_as_unspecified`].
+///
+/// It is also possible to use `From`.
+///
+/// [`Signer`]: ../crypto/trait.Signer.html
+/// [`Key::parts_as_secret`]: enum.Key.html#method.parts_as_secret
+/// [`Key::parts_into_public`]: #method.parts_into_public
+/// [`Key::parts_as_public`]: #method.parts_as_public
+/// [`Key::parts_into_secret`]: #method.parts_into_secret
+/// [`Key::parts_as_secret`]: #method.parts_as_secret
+/// [`Key::parts_into_unspecified`]: #method.parts_into_unspecified
+/// [`Key::parts_as_unspecified`]: #method.parts_as_unspecified
+/// [`Key::role_into_primary`]: #method.role_into_primary
+/// [`Key::role_as_primary`]: #method.role_as_primary
+/// [`Key::role_into_subordinate`]: #method.role_into_subordinate
+/// [`Key::role_as_subordinate`]: #method.role_as_subordinate
+/// [`Key::role_into_unspecified`]: #method.role_into_unspecified
+/// [`Key::role_as_unspecified`]: #method.role_as_unspecified
+///
+/// ## Examples
+///
+/// Changing a marker:
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// // Generate a new certificate.  It has secret key material.
+/// let (cert, _) = CertBuilder::new()
+///     .generate()?;
+///
+/// let pk: &Key<key::PublicParts, key::PrimaryRole>
+///     = cert.primary_key().key();
+/// // `has_secret`s is one of the few methods that ignores the
+/// // parts type.
+/// assert!(pk.has_secret());
+///
+/// // Treat it like a secret key.  This only works if `pk` really
+/// // has secret key material (which it does in this case, see above).
+/// let sk = pk.parts_as_secret()?;
+/// assert!(sk.has_secret());
+///
+/// // And back.
+/// let pk = sk.parts_as_public();
+/// // Yes, the secret key material is still there.
+/// assert!(pk.has_secret());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// The [`Cert`] data structure only returns public keys.  To work
+/// with any secret key material, the `Key` first needs to be
+/// converted to a secret key.  This is necessary, for instance, when
+/// creating a [`Signer`]:
+///
+/// [`Cert`]: ../struct.Cert.html
+///
+/// ```rust
+/// use std::time;
+/// use sequoia_openpgp as openpgp;
+/// # use openpgp::Result;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::crypto::KeyPair;
+/// use openpgp::policy::StandardPolicy;
+///
+/// # fn main() -> Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let the_past = time::SystemTime::now() - time::Duration::from_secs(1);
+/// let (cert, _) = CertBuilder::new()
+///     .set_creation_time(the_past)
+///     .generate()?;
+///
+/// // Set the certificate to expire now.  To do this, we need
+/// // to create a new self-signature, and sign it using a
+/// // certification-capable key.  The primary key is always
+/// // certification capable.
+/// let mut keypair = cert.primary_key()
+///     .key().clone().parts_into_secret()?.into_keypair()?;
+/// let sigs = cert.set_expiration_time(p, None, &mut keypair,
+///                                     Some(time::SystemTime::now()))?;
+///
+/// let cert = cert.merge_packets(sigs)?;
+/// // It's expired now.
+/// assert!(cert.with_policy(p, None)?.alive().is_err());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Key Generation
+///
+/// `Key` is a wrapper around [the different key formats].
+/// (Currently, Sequoia only supports version 4 keys, however, future
+/// versions may add limited support for version 3 keys to facilitate
+/// working with achieved messages, and RFC 4880bis includes [a
+/// proposal for a new key format].)  As such, it doesn't provide a
+/// mechanism to generate keys or import existing key material.
+/// Instead, use the format-specific functions (e.g.,
+/// [`Key4::generate_ecc`]) and then convert the result into a `Key`
+/// packet, as the following example demonstrates.
+///
+/// [the different key formats]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+/// [a proposal for a new key format]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.5.2
+/// [`Key4::generate_ecc`]: key/struct.Key4.html#method.generate_ecc
+///
+///
+/// ## Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::packet::prelude::*;
+/// use openpgp::types::Curve;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let key: Key<key::SecretParts, key::PrimaryRole>
+///     = Key::from(Key4::generate_ecc(true, Curve::Ed25519)?);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Password Protection
+///
+/// OpenPGP provides a mechanism to [password protect keys].  If a key
+/// is password protected, you need to decrypt the password using
+/// [`Key::decrypt_secret`] before using its secret key material
+/// (e.g., to decrypt a message, or to generate a signature).
+///
+/// [password protect keys]: https://tools.ietf.org/html/rfc4880#section-3.7
+/// [`Key::decrypt_secret`]: #method.decrypt_secret
+///
+/// # A note on equality
+///
+/// The implementation of `Eq` for `Key` compares the serialized form
+/// of `Key`s.  Notably this includes the secret key material, but
+/// excludes the `KeyParts` and `KeyRole` marker traits.
+/// To exclude the secret key material from the comparison, use
+/// [`Key::public_cmp`] or [`Key::public_eq`].
+///
+/// When merging in secret key material from untrusted sources, you
+/// need to be very careful: secret key material is not
+/// cryptographically protected by the key's self signature.  Thus, an
+/// attacker can provide a valid key with a valid self signature, but
+/// invalid secret key material.  If naively merged, this could
+/// overwrite valid secret key material, and thereby render the key
+/// useless.  Unfortunately, the only way to find out that the secret
+/// key material is bad is to actually try using it.  But, because the
+/// secret key material is usually encrypted, this can't always be
+/// done automatically.
+///
+/// [`Key::public_cmp`]: #method.public_cmp
+/// [`Key::public_eq`]: #method.public_eq
+///
+/// Compare:
 ///
 /// ```
 /// use sequoia_openpgp as openpgp;
@@ -1243,8 +1414,8 @@ impl From<SKESK> for Packet {
 /// ```
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Key<P: key::KeyParts, R: key::KeyRole> {
-    /// Key packet version 4.
-    V4(self::key::Key4<P, R>),
+    /// A version 4 `Key` packet.
+    V4(Key4<P, R>),
 
     /// This marks this enum as non-exhaustive.  Do not use this
     /// variant.
@@ -1330,15 +1501,47 @@ impl From<Key<key::SecretParts, key::SubordinateRole>> for Packet {
 }
 
 impl<R: key::KeyRole> Key<key::SecretParts, R> {
-    /// Creates a new key pair from a Key packet with an unencrypted
+    /// Creates a new key pair from a `Key` with an unencrypted
     /// secret key.
+    ///
+    /// If the `Key` is password protected, you first need to decrypt
+    /// it using [`Key::decrypt_secret`].
+    ///
+    /// [`Key::decrypt_secret`]: #method.decrypt_secret
     ///
     /// # Errors
     ///
-    /// Fails if the secret key is encrypted.  You can use
-    /// [`Key::decrypt_secret`] to decrypt a key.
+    /// Fails if the secret key is encrypted.
     ///
-    /// [`Key::decrypt_secret`]: key.html#method.decrypt_secret
+    /// # Examples
+    ///
+    /// Revoke a certificate by signing a new revocation certificate:
+    ///
+    /// ```rust
+    /// use std::time;
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::crypto::KeyPair;
+    /// use openpgp::types::ReasonForRevocation;
+    ///
+    /// # fn main() -> Result<()> {
+    /// // Generate a certificate.
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None,
+    ///                                  Some("Alice Lovelace <alice@example.org>"))
+    ///         .generate()?;
+    ///
+    /// // Use the secret key material to sign a revocation certificate.
+    /// let mut keypair = cert.primary_key()
+    ///     .key().clone().parts_into_secret()?
+    ///     .into_keypair()?;
+    /// let rev = cert.revoke(&mut keypair,
+    ///                       ReasonForRevocation::KeyCompromised,
+    ///                       b"It was the maid :/")?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn into_keypair(self) -> Result<KeyPair> {
         match self {
             Key::V4(k) => k.into_keypair(),
@@ -1488,8 +1691,8 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     }
 }
 
-impl<R: key::KeyRole> key::Key4<key::SecretParts, R> {
-    /// Creates a new key pair from a Key packet with an unencrypted
+impl<R: key::KeyRole> Key4<key::SecretParts, R> {
+    /// Creates a new key pair from a secret `Key` with an unencrypted
     /// secret key.
     ///
     /// # Errors
@@ -1497,15 +1700,14 @@ impl<R: key::KeyRole> key::Key4<key::SecretParts, R> {
     /// Fails if the secret key is encrypted.  You can use
     /// [`Key::decrypt_secret`] to decrypt a key.
     ///
-    /// [`Key::decrypt_secret`]: key.html#method.decrypt_secret
+    /// [`Key::decrypt_secret`]: ../enum.Key.html#method.decrypt_secret
     pub fn into_keypair(self) -> Result<KeyPair> {
-        use crate::packet::key::SecretKeyMaterial;
         let (key, secret) = self.take_secret();
         let secret = match secret {
             SecretKeyMaterial::Unencrypted(secret) => secret,
             SecretKeyMaterial::Encrypted(_) =>
                 return Err(Error::InvalidArgument(
-                    "secret key is encrypted".into()).into()),
+                    "secret key material is encrypted".into()).into()),
         };
 
         KeyPair::new(key.role_into_unspecified().into(), secret)
@@ -1582,7 +1784,7 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
 
 // Trivial forwarder for singleton enum.
 impl<P: key::KeyParts, R: key::KeyRole> Deref for Key<P, R> {
-    type Target = self::key::Key4<P, R>;
+    type Target = Key4<P, R>;
 
     fn deref(&self) -> &Self::Target {
         match self {
