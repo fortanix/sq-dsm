@@ -1340,16 +1340,13 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     ///
     /// [`Key::decrypt_secret`]: key.html#method.decrypt_secret
     pub fn into_keypair(self) -> Result<KeyPair> {
-        use crate::packet::key::SecretKeyMaterial;
-        let (key, secret) = self.take_secret();
-        let secret = match secret {
-            SecretKeyMaterial::Unencrypted(secret) => secret,
-            SecretKeyMaterial::Encrypted(_) =>
-                return Err(Error::InvalidArgument(
-                    "secret key is encrypted".into()).into()),
-        };
-
-        KeyPair::new(key.role_into_unspecified(), secret)
+        match self {
+            Key::V4(k) => k.into_keypair(),
+            // Match exhaustively so that when we add support for a
+            // new variant, the compiler reminds us to add support for
+            // it here.
+            Key::__Nonexhaustive => unreachable!(),
+        }
     }
 
     /// Decrypts the secret key material.
