@@ -127,7 +127,7 @@ impl From<Packet> for Option<Token> {
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(&format!("{:?}", self)[..])
+        write!(f, "{:?}", self)
     }
 }
 
