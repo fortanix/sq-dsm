@@ -2,6 +2,7 @@
 #![allow(unused_variables)]
 
 use std::time::SystemTime;
+use std::convert::TryInto;
 
 use crate::{Error, Result};
 
@@ -25,7 +26,112 @@ impl Signer for KeyPair {
     }
 
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8]) -> Result<mpi::Signature> {
-        unimplemented!()
+        use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId};
+        use cng::asymmetric::{AsymmetricKey, Private, Rsa};
+        use cng::asymmetric::signature::{Signer, SignaturePadding};
+        use cng::key_blob::RsaKeyPrivatePayload;
+        use cng::key_blob::EccKeyPrivatePayload;
+        use cng::asymmetric::ecc::NamedCurve;
+
+        #[allow(deprecated)]
+        self.secret().map(|secret| {
+            Ok(match (self.public().pk_algo(), self.public().mpis(), secret) {
+                (PublicKeyAlgorithm::RSAEncryptSign,
+                    &mpi::PublicKey::RSA { ref e, ref n },
+                    &mpi::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) |
+                (PublicKeyAlgorithm::RSASign,
+                &mpi::PublicKey::RSA { ref e, ref n },
+                &mpi::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. }) => {
+                    let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Rsa)?;
+                    let key = AsymmetricKey::<Rsa, Private>::import_from_parts(
+                        &provider,
+                        &RsaKeyPrivatePayload {
+                            modulus: n.value(),
+                            pub_exp: e.value(),
+                            prime1: p.value(),
+                            prime2: q.value(),
+                        }
+                    )?;
+
+                    // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
+                    // to verify the signature, we need to encode the
+                    // signature data in a PKCS1-v1.5 packet.
+                    //
+                    //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
+                    //   https://tools.ietf.org/html/rfc4880#section-5.2.2
+                    let hash = hash_algo.try_into()?;
+                    let padding = SignaturePadding::pkcs1(hash);
+                    let sig = key.sign(digest, Some(padding))?;
+
+                    mpi::Signature::RSA { s: mpi::MPI::new(&*sig) }
+                },
+                (PublicKeyAlgorithm::ECDSA,
+                mpi::PublicKey::ECDSA { curve, q },
+                mpi::SecretKeyMaterial::ECDSA { scalar }) =>
+                {
+                    let (x, y) = q.decode_point(curve)?;
+
+                    // It's expected for the private key to be exactly 32/48/66
+                    // (respective curve field size) bytes long but OpenPGP
+                    // allows leading zeros to be stripped.
+                    // Padding has to be unconditional; otherwise we have a
+                    // secret-dependent branch.
+                    let curve_bits = curve.bits().ok_or_else(||
+                        Error::UnsupportedEllipticCurve(curve.clone())
+                    )?;
+                    let curve_bytes = (curve_bits + 7) / 8;
+                    let mut secret = Protected::from(vec![0u8; curve_bytes]);
+                    let missing = curve_bytes.saturating_sub(scalar.value().len());
+                    secret.as_mut()[missing..].copy_from_slice(scalar.value());
+
+                    use cng::asymmetric::{ecc::{NistP256, NistP384, NistP521}, Ecdsa};
+
+                    // TODO: Improve CNG public API
+                    let sig = match curve {
+                        Curve::NistP256 => {
+                            let provider = AsymmetricAlgorithm::open(
+                                AsymmetricAlgorithmId::Ecdsa(NamedCurve::NistP256)
+                            )?;
+                            let key = AsymmetricKey::<Ecdsa<NistP256>, Private>::import_from_parts(
+                                &provider,
+                                &EccKeyPrivatePayload { x, y, d: &secret }
+                            )?;
+                            key.sign(digest, None)?
+                        },
+                        Curve::NistP384 => {
+                            let provider = AsymmetricAlgorithm::open(
+                                AsymmetricAlgorithmId::Ecdsa(NamedCurve::NistP384)
+                            )?;
+                            let key = AsymmetricKey::<Ecdsa<NistP384>, Private>::import_from_parts(
+                                &provider,
+                                &EccKeyPrivatePayload { x, y, d: &secret }
+                            )?;
+                            key.sign(digest, None)?
+                        },
+                        Curve::NistP521 => {
+                            let provider = AsymmetricAlgorithm::open(
+                                AsymmetricAlgorithmId::Ecdsa(NamedCurve::NistP521)
+                            )?;
+                            let key = AsymmetricKey::<Ecdsa<NistP521>, Private>::import_from_parts(
+                                &provider,
+                                &EccKeyPrivatePayload { x, y, d: &secret }
+                            )?;
+                            key.sign(digest, None)?
+                        },
+                        _ => return Err(
+                            Error::UnsupportedEllipticCurve(curve.clone()).into()),
+                    };
+
+                    // CNG outputs a P1363 formatted signature - r || s
+                    let (r, s) = sig.split_at(sig.len() / 2);
+                    mpi::Signature::ECDSA {
+                        r: mpi::MPI::new(r),
+                        s: mpi::MPI::new(s),
+                    }
+                },
+                _ => todo!()
+            })
+        })
     }
 }
 
@@ -52,7 +158,121 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
 
     /// Verifies the given signature.
     pub fn verify(&self, sig: &packet::Signature, digest: &[u8]) -> Result<()> {
-        unimplemented!()
+        use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId};
+        use cng::asymmetric::{AsymmetricKey, Public, Rsa};
+        use cng::asymmetric::ecc::NamedCurve;
+        use cng::asymmetric::signature::{Verifier, SignaturePadding};
+        use cng::key_blob::RsaKeyPublicPayload;
+
+        use PublicKeyAlgorithm::*;
+
+        #[allow(deprecated)]
+        let ok = match (sig.pk_algo(), self.mpis(), sig.mpis()) {
+            (RSASign,        mpi::PublicKey::RSA { e, n }, mpi::Signature::RSA { s }) |
+            (RSAEncryptSign, mpi::PublicKey::RSA { e, n }, mpi::Signature::RSA { s }) => {
+                // CNG accepts only full-size signatures. Since for RSA it's a
+                // big-endian number, just left-pad with zeroes as necessary.
+                let sig_diff = n.value().len().saturating_sub(s.value().len());
+                let mut _s: Vec<u8> = vec![];
+                let s = if sig_diff > 0 {
+                    _s = [&vec![0u8; sig_diff], s.value()].concat();
+                    &_s
+                } else {
+                    s.value()
+                };
+
+                // CNG supports RSA keys that are at least 512 bit long.
+                // Since it just checks the MPI length rather than data itself,
+                // just pad it with zeroes as necessary.
+                let mut _n: Vec<u8> = vec![];
+                let missing_size = 512usize.saturating_sub(n.value().len());
+                let n = if missing_size > 0 {
+                    _n = [&vec![0u8; missing_size], n.value()].concat();
+                    &_n
+                } else {
+                    n.value()
+                };
+
+                let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Rsa)?;
+                let key = AsymmetricKey::<Rsa, Public>::import_from_parts(
+                    &provider,
+                    &RsaKeyPublicPayload {
+                        modulus: n,
+                        pub_exp: e.value(),
+                    }
+                )?;
+
+                // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
+                // to verify the signature, we need to encode the
+                // signature data in a PKCS1-v1.5 packet.
+                //
+                //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
+                //   https://tools.ietf.org/html/rfc4880#section-5.2.2
+                let hash = sig.hash_algo().try_into()?;
+                let padding = SignaturePadding::pkcs1(hash);
+
+                key.verify(digest, s, Some(padding)).map(|_| true)?
+            },
+            (DSA, mpi:: PublicKey::DSA { y, p, q, g }, mpi::Signature::DSA { s, r }) => todo!(),
+            (ECDSA, mpi::PublicKey::ECDSA { curve, q }, mpi::Signature::ECDSA { s, r }) =>
+            {
+                let (x, y) = q.decode_point(curve)?;
+                // CNG expects full-sized signatures
+                let field_sz = x.len();
+                let r = [&vec![0u8; field_sz - r.value().len()], r.value()].concat();
+                let s = [&vec![0u8; field_sz - s.value().len()], s.value()].concat();
+                let signature = [r, s].concat();
+
+                use cng::key_blob::EccKeyPublicPayload;
+                use cng::asymmetric::{ecc::{NistP256, NistP384, NistP521}, Ecdsa};
+
+                // TODO: Improve CNG public API
+                match curve {
+                    Curve::NistP256 => {
+                        let provider = AsymmetricAlgorithm::open(
+                            AsymmetricAlgorithmId::Ecdsa(NamedCurve::NistP256)
+                        )?;
+                        let key = AsymmetricKey::<Ecdsa<NistP256>, Public>::import_from_parts(
+                            &provider,
+                            &EccKeyPublicPayload { x, y }
+                        )?;
+                        key.verify(digest, &signature, None).map(|_| true)?
+                    },
+                    Curve::NistP384 => {
+                        let provider = AsymmetricAlgorithm::open(
+                            AsymmetricAlgorithmId::Ecdsa(NamedCurve::NistP384)
+                        )?;
+                        let key = AsymmetricKey::<Ecdsa<NistP384>, Public>::import_from_parts(
+                            &provider,
+                            &EccKeyPublicPayload { x, y }
+                        )?;
+                        key.verify(digest, &signature, None).map(|_| true)?
+                    },
+                    Curve::NistP521 => {
+                        let provider = AsymmetricAlgorithm::open(
+                            AsymmetricAlgorithmId::Ecdsa(NamedCurve::NistP521)
+                        )?;
+                        let key = AsymmetricKey::<Ecdsa<NistP521>, Public>::import_from_parts(
+                            &provider,
+                            &EccKeyPublicPayload { x, y }
+                        )?;
+                        key.verify(digest, &signature, None).map(|_| true)?
+                    },
+                    _ => return Err(
+                        Error::UnsupportedEllipticCurve(curve.clone()).into()),
+                }
+            },
+            _ => return Err(Error::MalformedPacket(format!(
+                "unsupported combination of algorithm {}, key {} and \
+                 signature {:?}.",
+                sig.pk_algo(), self.pk_algo(), sig.mpis())).into()),
+        };
+
+        if ok {
+            Ok(())
+        } else {
+            Err(Error::ManipulatedMessage.into())
+        }
     }
 }
 
@@ -81,13 +301,17 @@ where
         use cng::asymmetric::{AsymmetricKey, Export};
         use cng::asymmetric::ecc::{Curve25519, NamedCurve};
 
-        let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Ecdh(NamedCurve::Curve25519))?;
+        let provider = AsymmetricAlgorithm::open(
+            AsymmetricAlgorithmId::Ecdh(NamedCurve::Curve25519)
+        )?;
         let key = AsymmetricKey::<Ecdh<Curve25519>, Private>::import_from_parts(
             &provider,
             private_key
         )?;
         let blob = key.export()?;
 
+        // Mark MPI as compressed point with 0x40 prefix. See
+        // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
         let mut public = [0u8; 1 + CURVE25519_SIZE];
         public[0] = 0x40;
         &mut public[1..].copy_from_slice(blob.x());
@@ -240,7 +464,7 @@ where
                 };
 
                 let blob = AsymmetricKey::builder(ecc_algo).build()?.export()?;
-                let blob = match blob.try_into::<cng::key::EccKeyPrivateBlob>() {
+                let blob = match blob.try_into::<cng::key_blob::EccKeyPrivateBlob>() {
                     Ok(blob) => blob,
                     // Dynamic algorithm specified is either ECDSA or ECDH so
                     // exported blob should be of appropriate type
@@ -270,6 +494,8 @@ where
                 debug_assert!(!for_signing);
                 let blob = AsymmetricKey::builder(Ecdh(ecc::Curve25519)).build()?.export()?;
 
+                // Mark MPI as compressed point with 0x40 prefix. See
+                // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
                 let mut public = [0u8; 1 + CURVE25519_SIZE];
                 public[0] = 0x40;
                 &mut public[1..].copy_from_slice(blob.x());
