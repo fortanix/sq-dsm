@@ -18,9 +18,9 @@ use crate::Result;
 pub enum KeyID {
     /// Lower 8 byte SHA-1 hash.
     V4([u8;8]),
-    /// Used for holding fingerprints that we don't understand.  For
-    /// instance, we don't grok v3 fingerprints.  And, it is possible
-    /// that the Issuer subpacket contains the wrong number of bytes.
+    /// Used for holding keyids that we don't understand.  For
+    /// instance, we don't grok v3 keyids.  And, it is possible that
+    /// the Issuer subpacket contains the wrong number of bytes.
     Invalid(Box<[u8]>)
 }
 

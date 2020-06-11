@@ -15,8 +15,7 @@ pub enum Fingerprint {
     /// 20 byte SHA-1 hash.
     V4([u8;20]),
     /// Used for holding fingerprints that we don't understand.  For
-    /// instance, we don't grok v3 fingerprints.  And, it is possible
-    /// that the Issuer subpacket contains the wrong number of bytes.
+    /// instance, we don't grok v3 fingerprints.
     Invalid(Box<[u8]>)
 }
 
