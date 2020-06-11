@@ -79,3 +79,7 @@ enable the `x-quickcheck` feature (this feature will be called just
 
 [`quickcheck`]: https://docs.rs/quickcheck
 [this feature]: https://github.com/rust-lang/cargo/issues/5565
+
+# Minimum Supported Rust Version (MSRV)
+
+`sequoia-openpgp` requires Rust 1.34.
