@@ -108,6 +108,7 @@ impl From<&Fingerprint> for KeyID {
             Fingerprint::Invalid(fp) => {
                 KeyID::Invalid(fp.clone())
             }
+            Fingerprint::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -120,6 +121,7 @@ impl From<Fingerprint> for KeyID {
             Fingerprint::Invalid(fp) => {
                 KeyID::Invalid(fp)
             }
+            Fingerprint::__Nonexhaustive => unreachable!(),
         }
     }
 }
