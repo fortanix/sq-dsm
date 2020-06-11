@@ -103,6 +103,11 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "base64"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "bindgen"
 version = "0.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1737,7 +1742,7 @@ name = "sequoia-openpgp"
 version = "0.16.0"
 dependencies = [
  "anyhow 1.0.28 (registry+https://github.com/rust-lang/crates.io-index)",
- "base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "base64 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "buffered-reader 0.16.0",
  "bzip2 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "flate2 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2434,6 +2439,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum backtrace 0.3.46 (registry+https://github.com/rust-lang/crates.io-index)" = "b1e692897359247cc6bb902933361652380af0f1b7651ae5c5013407f30e109e"
 "checksum backtrace-sys 0.1.35 (registry+https://github.com/rust-lang/crates.io-index)" = "7de8aba10a69c8e8d7622c5710229485ec32e9d55fdad160ea559c086fdcd118"
 "checksum base64 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
+"checksum base64 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)" = "53d1ccbaf7d9ec9537465a97bf19edc1a4e158ecb49fc16178202238c569cc42"
 "checksum bindgen 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ebd71393f1ec0509b553aa012b9b58e81dadbdff7130bd3b8cba576e69b32f75"
 "checksum bit-set 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e84c238982c4b1e1ee668d136c510c67a13465279c0cb367ea6baf6310620a80"
 "checksum bit-vec 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f59bbe95d4e52a6398ec21238d31577f2b28a9d86807f06ca59d191d8440d0bb"
