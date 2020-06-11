@@ -67,10 +67,7 @@ Running the application now prints a friendly message to stdout.
 A word on the `armored` macro.  We will use this macro in this guide
 to inline OpenPGP data into the source code.  Sequoia includes filters
 for ASCII armored data.  You can use these filters to read armored
-data from any `Read`er, or write armored data to any `Write`r.  The
-`armored` macro does the same for string literals.  In order to use
-this macro, you need to use `#[macro_use]` when importing the
-`openpgp` crate.
+data from any `Read`er, or write armored data to any `Write`r.
 
 # Building the Sequoia tool
 
