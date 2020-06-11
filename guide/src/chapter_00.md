@@ -25,8 +25,15 @@ $ cd example
 Now add Sequoia to the `[dependencies]` section in `Cargo.toml`:
 
 ```toml
-sequoia-openpgp = "0.3"
+sequoia-openpgp = "*"
 ```
+
+Note: Explicitly stating a major version for dependencies is usually
+better than just using the wildcard here (read how to [specify
+dependencies]).  Also, please check that the crate's version matches
+the version of this guide.
+
+[specify dependencies]: https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html
 
 If you want to use the bleeding edge, you can instead refer to the
 version in git:
