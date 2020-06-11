@@ -3,9 +3,12 @@ name = "sequoia-openpgp"
 description = "OpenPGP data types and associated machinery"
 version = "0.16.0"
 authors = [
+    "Igor Matuszewski <igor@sequoia-pgp.org>",
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
+    "Nora Widdecke <nora@sequoia-pgp.org>",
+    "Wiktor Kwapisiewicz <wiktor@sequoia-pgp.org>",
 ]
 build = "build.rs"
 documentation = "https://docs.sequoia-pgp.org/0.16.0/sequoia_openpgp"
