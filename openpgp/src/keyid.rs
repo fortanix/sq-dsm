@@ -14,6 +14,9 @@ use crate::Result;
 /// generated, see [Section 12.2 of RFC 4880].
 ///
 ///   [Section 12.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-12.2
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum KeyID {
     /// Lower 8 byte SHA-1 hash.
@@ -21,7 +24,11 @@ pub enum KeyID {
     /// Used for holding keyids that we don't understand.  For
     /// instance, we don't grok v3 keyids.  And, it is possible that
     /// the Issuer subpacket contains the wrong number of bytes.
-    Invalid(Box<[u8]>)
+    Invalid(Box<[u8]>),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl fmt::Display for KeyID {
@@ -75,6 +82,7 @@ impl From<KeyID> for Vec<u8> {
         match id {
             KeyID::V4(ref b) => r.extend_from_slice(b),
             KeyID::Invalid(ref b) => r.extend_from_slice(b),
+            KeyID::__Nonexhaustive => unreachable!(),
         }
         r
     }
@@ -130,6 +138,7 @@ impl KeyID {
                 Ok(u64::from_be_bytes(*b)),
             KeyID::Invalid(_) =>
                 Err(Error::InvalidArgument("Invalid KeyID".into()).into()),
+            KeyID::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -149,6 +158,7 @@ impl KeyID {
         match self {
             &KeyID::V4(ref id) => id,
             &KeyID::Invalid(ref id) => id,
+            KeyID::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -206,6 +216,7 @@ impl KeyID {
         let raw = match self {
             &KeyID::V4(ref fp) => &fp[..],
             &KeyID::Invalid(ref fp) => &fp[..],
+            KeyID::__Nonexhaustive => unreachable!(),
         };
 
         // We currently only handle V4 key IDs, which look like:

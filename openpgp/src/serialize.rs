@@ -801,6 +801,7 @@ impl Marshal for KeyID {
         let raw = match self {
             &KeyID::V4(ref fp) => &fp[..],
             &KeyID::Invalid(ref fp) => &fp[..],
+            KeyID::__Nonexhaustive => unreachable!(),
         };
         o.write_all(raw)?;
         Ok(())
@@ -813,6 +814,7 @@ impl MarshalInto for KeyID {
         match self {
             &KeyID::V4(_) => 8,
             &KeyID::Invalid(ref fp) => fp.len(),
+            KeyID::__Nonexhaustive => unreachable!(),
         }
     }
 
