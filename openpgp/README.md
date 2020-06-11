@@ -43,3 +43,39 @@ which describes ECC cryptography for OpenPGP, and RFC 4880bis, the
 draft of the next OpenPGP standard).  This includes support for
 unbuffered message processing.
 
+# Feature flags
+
+This crate uses *features* to enable or disable optional
+functionality.  You can tweak the features in your `Cargo.toml` file,
+like so:
+
+```toml
+sequoia-openpgp = { version = "*", default-features = false, features = ["crypto-nettle", ...] }
+```
+
+By default, Sequoia is built using Nettle as cryptographic backend
+with all compression algorithms enabled.
+
+Note that if you use `default-features = false`, you need to
+explicitly enable a crypto backend.
+
+## Crypto backends
+
+Currently, Sequoia only supports the Nettle cryptographic library as
+crypto backend.  To enable it, use the `crypto-nettle` flag.
+
+## Compression algorithms
+
+Use the `compression` flag to enable support for all compression
+algorithms, `compression-deflate` to enable *DEFLATE* and *zlib*
+compression support, and `compression-bzip2` to enable *bzip2*
+support.
+
+## Testing, debugging, and fuzzing
+
+Sequoia uses [`quickcheck`] in tests.  To use it as a downstream user,
+enable the `x-quickcheck` feature (this feature will be called just
+`quickcheck` once [this feature] is implemented).
+
+[`quickcheck`]: https://docs.rs/quickcheck
+[this feature]: https://github.com/rust-lang/cargo/issues/5565
