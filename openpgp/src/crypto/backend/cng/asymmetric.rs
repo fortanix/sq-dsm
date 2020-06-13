@@ -129,6 +129,39 @@ impl Signer for KeyPair {
                         s: mpi::MPI::new(s),
                     }
                 },
+                (
+                    PublicKeyAlgorithm::EdDSA,
+                    mpi::PublicKey::EdDSA { curve, q },
+                    mpi::SecretKeyMaterial::EdDSA { scalar },
+                ) => {
+                    // CNG doesn't support EdDSA, use ed25519-dalek instead
+                    use ed25519_dalek::{Keypair, Signer};
+                    use ed25519_dalek::{PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH};
+
+                    let (public, ..) = q.decode_point(&Curve::Ed25519)?;
+
+                    // It's expected for the private key to be exactly
+                    // SECRET_KEY_LENGTH bytes long but OpenPGP allows leading
+                    // zeros to be stripped.
+                    // Padding has to be unconditional; otherwise we have a
+                    // secret-dependent branch.
+                    let missing = SECRET_KEY_LENGTH.saturating_sub(scalar.value().len());
+                    let mut keypair = Protected::from(
+                        vec![0u8; SECRET_KEY_LENGTH + PUBLIC_KEY_LENGTH]
+                    );
+                    keypair.as_mut()[missing..SECRET_KEY_LENGTH].copy_from_slice(scalar.value());
+                    keypair.as_mut()[SECRET_KEY_LENGTH..].copy_from_slice(&public);
+                    let pair = Keypair::from_bytes(&keypair).unwrap();
+
+                    let sig = pair.sign(digest).to_bytes();
+
+                    // https://tools.ietf.org/html/rfc8032#section-5.1.6
+                    let (r, s) = sig.split_at(sig.len() / 2);
+                    mpi::Signature::EdDSA {
+                        r: mpi::MPI::new(r),
+                        s: mpi::MPI::new(s),
+                    }
+                },
                 _ => todo!()
             })
         })
@@ -262,6 +295,35 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                         Error::UnsupportedEllipticCurve(curve.clone()).into()),
                 }
             },
+            (EdDSA, mpi::PublicKey::EdDSA { curve, q }, mpi::Signature::EdDSA { r, s }) => {
+                    // CNG doesn't support EdDSA, use ed25519-dalek instead
+                    use ed25519_dalek::{PublicKey, Signature, SIGNATURE_LENGTH};
+                    use ed25519_dalek::{Verifier};
+
+                    let (public, ..) = q.decode_point(&Curve::Ed25519)?;
+                    assert_eq!(public.len(), 32);
+
+                    let key = PublicKey::from_bytes(public).map_err(|e| {
+                        Error::InvalidKey(e.to_string())
+                    })?;
+
+                    // ed25519 expects full-sized signatures but OpenPGP allows
+                    // for stripped leading zeroes, pad each part with zeroes.
+                    let (r, s) = (r.value(), s.value());
+                    let signature = [
+                        [&vec![0u8; (SIGNATURE_LENGTH / 2) - r.len()], r].concat(),
+                        [&vec![0u8; (SIGNATURE_LENGTH / 2) - s.len()], s].concat(),
+                    ].concat();
+                    assert_eq!(signature.len(), SIGNATURE_LENGTH);
+                    let mut sig_bytes = [0u8; 64];
+                    &mut sig_bytes[..].copy_from_slice(&*signature);
+
+                    let signature = Signature::from(sig_bytes);
+
+                    key.verify(digest, &signature)
+                    .map(|_| true)
+                    .map_err(|e| Error::BadSignature(e.to_string()))?
+            },
             _ => return Err(Error::MalformedPacket(format!(
                 "unsupported combination of algorithm {}, key {} and \
                  signature {:?}.",
@@ -342,8 +404,30 @@ where
     where
         T: Into<Option<SystemTime>>,
     {
-        // CNG doesn't support Ed25519 at all
-        Err(Error::UnsupportedEllipticCurve(Curve::Ed25519).into())
+        // CNG doesn't support EdDSA, use ed25519-dalek instead
+        use ed25519_dalek::{PublicKey, SecretKey};
+
+        let private = SecretKey::from_bytes(private_key).map_err(|e| {
+            Error::InvalidKey(e.to_string())
+        })?;
+
+        // Mark MPI as compressed point with 0x40 prefix. See
+        // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
+        let mut public = [0u8; 1 + CURVE25519_SIZE];
+        public[0] = 0x40;
+        &mut public[1..].copy_from_slice(Into::<PublicKey>::into(&private).as_bytes());
+
+        Self::with_secret(
+            ctime.into().unwrap_or_else(SystemTime::now),
+            PublicKeyAlgorithm::EdDSA,
+            mpi::PublicKey::EdDSA {
+                curve: Curve::Ed25519,
+                q: mpi::MPI::new(&public)
+            },
+            mpi::SecretKeyMaterial::EdDSA {
+                scalar: mpi::MPI::new(&private_key).into(),
+            }.into()
+        )
     }
 
     /// Creates a new OpenPGP public key packet for an existing RSA key.
@@ -438,18 +522,13 @@ where
     /// `for_signing == false` and `curve == Ed25519`.
     /// signing/encryption
     pub fn generate_ecc(for_signing: bool, curve: Curve) -> Result<Self> {
-        // CNG doesn't support Ed25519 at all
-        if (for_signing && curve == Curve::Cv25519) || curve == Curve::Ed25519 {
-            return Err(Error::UnsupportedEllipticCurve(curve).into());
-        }
-
         use crate::PublicKeyAlgorithm::*;
 
         use cng::asymmetric::{ecc, Export};
         use cng::asymmetric::{AsymmetricKey, AsymmetricAlgorithmId, Ecdh};
 
-        let (algo, public, private) = match curve {
-            Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
+        let (algo, public, private) = match (curve.clone(), for_signing) {
+            (Curve::NistP256, ..) | (Curve::NistP384, ..) | (Curve::NistP521, ..) => {
                 let (cng_curve, hash) = match curve {
                     Curve::NistP256 => (ecc::NamedCurve::NistP256, HashAlgorithm::SHA256),
                     Curve::NistP384 => (ecc::NamedCurve::NistP384, HashAlgorithm::SHA384),
@@ -490,8 +569,7 @@ where
                     )
                 }
             },
-            Curve::Cv25519 => {
-                debug_assert!(!for_signing);
+            (Curve::Cv25519, false) => {
                 let blob = AsymmetricKey::builder(Ecdh(ecc::Curve25519)).build()?.export()?;
 
                 // Mark MPI as compressed point with 0x40 prefix. See
@@ -516,8 +594,29 @@ where
                     mpi::SecretKeyMaterial::ECDH { scalar: private.into() }
                 )
             },
+            (Curve::Ed25519, true) => {
+                // CNG doesn't support EdDSA, use ed25519-dalek instead
+                use ed25519_dalek::Keypair;
+
+                let mut rng = cng::random::RandomNumberGenerator::system_preferred();
+                let Keypair { public, secret } = Keypair::generate(&mut rng);
+
+                let secret: Protected = secret.as_bytes().as_ref().into();
+
+                // Mark MPI as compressed point with 0x40 prefix. See
+                // https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-07#section-13.2.
+                let mut compressed_public = [0u8; 1 + CURVE25519_SIZE];
+                compressed_public[0] = 0x40;
+                &mut compressed_public[1..].copy_from_slice(public.as_bytes());
+
+                (
+                    EdDSA,
+                    mpi::PublicKey::EdDSA { curve, q: mpi::MPI::new(&compressed_public) },
+                    mpi::SecretKeyMaterial::EdDSA { scalar: secret.into() },
+                )
+            },
             // TODO: Support Brainpool curves
-            curve => {
+            (curve, ..) => {
                 return Err(Error::UnsupportedEllipticCurve(curve).into());
             }
         };
