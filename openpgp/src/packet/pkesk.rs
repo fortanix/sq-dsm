@@ -358,46 +358,28 @@ mod tests {
     fn decrypt_with_short_cv25519_secret_key() {
         use super::PKESK3;
         use crate::crypto::SessionKey;
-        use crate::crypto::mpi::{self, MPI};
-        use crate::PublicKeyAlgorithm;
-        use crate::SymmetricAlgorithm;
-        use crate::HashAlgorithm;
-        use crate::types::Curve;
-        use crate::packet::key;
-        use crate::packet::key::Key4;
-        use nettle::curve25519;
+        use crate::{HashAlgorithm, SymmetricAlgorithm};
+        use crate::packet::key::{Key4, UnspecifiedRole};
 
         // 20 byte sec key
-        let mut sec = [
+        let secret_key = [
             0x0,0x0,
             0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
             0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,
             0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x0,0x0
         ];
-        let mut pnt = [0x40u8; curve25519::CURVE25519_SIZE + 1];
-        curve25519::mul_g(&mut pnt[1..], &sec[..]).unwrap();
-        sec.reverse();
 
-        let public_mpis = mpi::PublicKey::ECDH {
-            curve: Curve::Cv25519,
-            q: MPI::new(&pnt[..]),
-            hash: HashAlgorithm::SHA256,
-            sym: SymmetricAlgorithm::AES256,
-        };
-        let private_mpis = mpi::SecretKeyMaterial::ECDH {
-            scalar: MPI::new(&sec[..]).into(),
-        };
-        let key: key::UnspecifiedPublic
-            = Key4::new(std::time::SystemTime::now(),
-                        PublicKeyAlgorithm::ECDH,
-                        public_mpis)
-                .unwrap().into();
-        let key = key.add_secret(private_mpis.into()).0;
+        let key: Key<_, UnspecifiedRole> = Key4::import_secret_cv25519(
+            &secret_key,
+            HashAlgorithm::SHA256,
+            SymmetricAlgorithm::AES256,
+            None,
+        ).unwrap().into();
+
         let sess_key = SessionKey::new(32);
         let pkesk = PKESK3::for_recipient(SymmetricAlgorithm::AES256, &sess_key,
                                           &key).unwrap();
-        let mut keypair =
-            key.parts_into_secret().unwrap().into_keypair().unwrap();
+        let mut keypair = key.into_keypair().unwrap();
         pkesk.decrypt(&mut keypair, None).unwrap();
     }
 }

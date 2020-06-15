@@ -1281,7 +1281,6 @@ mod test {
     use crate::KeyID;
     use crate::cert::prelude::*;
     use crate::crypto;
-    use crate::crypto::mpi::MPI;
     use crate::parse::Parse;
     use crate::packet::Key;
     use crate::packet::key::Key4;
@@ -1507,28 +1506,16 @@ mod test {
     #[test]
     fn sign_with_short_ed25519_secret_key() {
         // 20 byte sec key
-        let sec = [
+        let secret_key = [
             0x0,0x0,
             0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
             0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,
             0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2
         ];
-        let mut pnt = [0x40u8; nettle::ed25519::ED25519_KEY_SIZE + 1];
-        nettle::ed25519::public_key(&mut pnt[1..], &sec[..]).unwrap();
 
-        let public_mpis = mpi::PublicKey::EdDSA {
-            curve: Curve::Ed25519,
-            q: MPI::new(&pnt[..]),
-        };
-        let private_mpis = mpi::SecretKeyMaterial::EdDSA {
-            scalar: MPI::new(&sec[..]).into(),
-        };
-        let key : key::SecretKey
-            = Key4::with_secret(std::time::SystemTime::now(),
-                                PublicKeyAlgorithm::EdDSA,
-                                public_mpis, private_mpis.into())
-            .unwrap()
-            .into();
+        let key: key::SecretKey = Key4::import_secret_ed25519(&secret_key, None)
+            .unwrap().into();
+
         let mut pair = key.into_keypair().unwrap();
         let msg = b"Hello, World";
         let mut hash = HashAlgorithm::SHA256.context().unwrap();
