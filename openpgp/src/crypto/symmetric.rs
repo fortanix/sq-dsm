@@ -559,7 +559,9 @@ mod tests {
                      SymmetricAlgorithm::Twofish,
                      SymmetricAlgorithm::Camellia128,
                      SymmetricAlgorithm::Camellia192,
-                     SymmetricAlgorithm::Camellia256].iter() {
+                     SymmetricAlgorithm::Camellia256]
+                     .iter()
+                     .filter(|x| x.is_supported()) {
             let mut key = vec![0; algo.key_size().unwrap()];
             crate::crypto::random(&mut key);
 

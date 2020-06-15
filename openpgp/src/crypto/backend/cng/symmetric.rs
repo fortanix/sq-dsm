@@ -160,8 +160,33 @@ impl TryFrom<SymmetricAlgorithm> for (cng::SymmetricAlgorithmId, usize) {
 }
 
 impl SymmetricAlgorithm {
-    /// Length of a key for this algorithm in bytes.  Fails if Sequoia
-    /// does not support this algorithm.
+    /// Returns whether this algorithm is supported by the crypto backend.
+    ///
+    /// All backends support all the AES variants.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::SymmetricAlgorithm;
+    ///
+    /// assert!(SymmetricAlgorithm::AES256.is_supported());
+    /// assert!(SymmetricAlgorithm::TripleDES.is_supported());
+    ///
+    /// assert!(!SymmetricAlgorithm::IDEA.is_supported());
+    /// assert!(!SymmetricAlgorithm::Unencrypted.is_supported());
+    /// assert!(!SymmetricAlgorithm::Private(101).is_supported());
+    /// ```
+    pub fn is_supported(&self) -> bool {
+        use self::SymmetricAlgorithm::*;
+        match self {
+            AES128 | AES192 | AES256 | TripleDES => true,
+            _ => false,
+        }
+    }
+
+    /// Length of a key for this algorithm in bytes.  Fails if the crypto
+    /// backend does not support this algorithm.
     pub fn key_size(self) -> Result<usize> {
         Ok(match self {
             SymmetricAlgorithm::TripleDES => 24,
@@ -172,8 +197,8 @@ impl SymmetricAlgorithm {
         })
     }
 
-    /// Length of a block for this algorithm in bytes.  Fails if
-    /// Sequoia does not support this algorithm.
+    /// Length of a block for this algorithm in bytes.  Fails if the crypto
+    /// backend does not support this algorithm.
     pub fn block_size(self) -> Result<usize> {
         Ok(match self {
             SymmetricAlgorithm::TripleDES => 8,

@@ -589,35 +589,6 @@ impl Default for SymmetricAlgorithm {
     }
 }
 
-impl SymmetricAlgorithm {
-    /// Returns whether this algorithm is supported.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use sequoia_openpgp as openpgp;
-    /// use openpgp::types::SymmetricAlgorithm;
-    ///
-    /// assert!(SymmetricAlgorithm::AES256.is_supported());
-    /// assert!(SymmetricAlgorithm::TripleDES.is_supported());
-    ///
-    /// assert!(!SymmetricAlgorithm::IDEA.is_supported());
-    /// assert!(!SymmetricAlgorithm::Unencrypted.is_supported());
-    /// assert!(!SymmetricAlgorithm::Private(101).is_supported());
-    /// ```
-    pub fn is_supported(&self) -> bool {
-        use self::SymmetricAlgorithm::*;
-        match &self {
-            TripleDES | CAST5 | Blowfish | AES128 | AES192 | AES256 | Twofish
-                | Camellia128 | Camellia192 | Camellia256
-                => true,
-            Unencrypted | IDEA | Private(_) | Unknown(_)
-                => false,
-            __Nonexhaustive => unreachable!(),
-        }
-    }
-}
-
 impl From<u8> for SymmetricAlgorithm {
     fn from(u: u8) -> Self {
         match u {

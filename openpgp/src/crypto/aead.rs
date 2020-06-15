@@ -775,7 +775,9 @@ mod tests {
                          SymmetricAlgorithm::Twofish,
                          SymmetricAlgorithm::Camellia128,
                          SymmetricAlgorithm::Camellia192,
-                         SymmetricAlgorithm::Camellia256].iter() {
+                         SymmetricAlgorithm::Camellia256]
+                         .iter()
+                         .filter(|algo| algo.is_supported()) {
             for aead in [AEADAlgorithm::EAX].iter() {
                 let version = 1;
                 let chunk_size = 64;

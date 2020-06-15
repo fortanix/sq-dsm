@@ -455,7 +455,7 @@ mod tests {
             },
         ];
 
-        for test in tests.iter() {
+        for test in tests.iter().filter(|t| t.cipher_algo.is_supported()) {
             let path = crate::tests::message(&format!("s2k/{}", test.filename));
             let pp = PacketParser::from_bytes(path).unwrap().unwrap();
             if let Packet::SKESK(SKESK::V4(ref skesk)) = pp.packet {

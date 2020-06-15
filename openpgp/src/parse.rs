@@ -5285,6 +5285,11 @@ mod test {
 
     fn decrypt_test_common(stream: bool) {
         for test in DECRYPT_TESTS.iter() {
+            if !test.algo.is_supported() {
+                eprintln!("Algorithm {} unsupported, skipping", test.algo);
+                continue;
+            }
+
             eprintln!("Decrypting {}, streaming content: {}",
                       test.filename, stream);
 
@@ -5358,6 +5363,11 @@ mod test {
     #[test]
     fn message_validator() {
         for test in DECRYPT_TESTS.iter() {
+            if !test.algo.is_supported() {
+                eprintln!("Algorithm {} unsupported, skipping", test.algo);
+                continue;
+            }
+
             let mut ppr = PacketParserBuilder::from_bytes(
                 crate::tests::message(test.filename)).unwrap()
                 .build()
@@ -5482,6 +5492,11 @@ mod test {
     #[test]
     fn path() {
         for test in DECRYPT_TESTS.iter() {
+            if !test.algo.is_supported() {
+                eprintln!("Algorithm {} unsupported, skipping", test.algo);
+                continue;
+            }
+
             eprintln!("Decrypting {}", test.filename);
 
             let mut ppr = PacketParserBuilder::from_bytes(

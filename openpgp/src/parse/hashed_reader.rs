@@ -321,7 +321,7 @@ mod test {
                     "5bea68c8c696bbed95e152d61c446ad0e05bf68f7df39cbfeae568bee6f6691c840fb1d5dd2599737b08dbb33eed344b"),
                     (HashAlgorithm::SHA512,
                      "5fa032487774082af5cc833c2db5f943e31cc75cd2bfaa7d9bbd0ccabf5403b6dbcb484254727a524588f20e9ef336d8ce8533332c5ac1b9d50af3003a0da8d8"),
-                ].iter().cloned().collect(),
+                ].iter().filter(|(hash, _)| hash.is_supported()).cloned().collect(),
             },
         ];
 
