@@ -270,7 +270,7 @@ fn inspect_key(policy: &dyn Policy,
         }
 
         if let Some(flags) = vka.key_flags().and_then(inspect_key_flags) {
-            writeln!(output, "{}       Key flags: {}", indent, flags)?;
+            writeln!(output, "{}      Key flags: {}", indent, flags)?;
         }
     }
     inspect_certifications(output, bundle.certifications(),
