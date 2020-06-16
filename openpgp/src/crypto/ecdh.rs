@@ -3,12 +3,102 @@
 use crate::vec_truncate;
 use crate::{Error, Result};
 
+use crate::crypto::SessionKey;
 use crate::crypto::mem::Protected;
-use crate::types::{SymmetricAlgorithm, HashAlgorithm};
+use crate::crypto::mpi::{self, MPI};
+use crate::key;
+use crate::packet::Key;
+use crate::types::{Curve, HashAlgorithm, PublicKeyAlgorithm, SymmetricAlgorithm};
 use crate::utils::{read_be_u64, write_be_u64};
 
 pub use crate::crypto::backend::ecdh::{encrypt, decrypt};
-pub use crate::crypto::backend::ecdh::{encrypt_shared, decrypt_shared};
+
+/// Wraps a session key.
+///
+/// After using Elliptic Curve Diffie-Hellman to compute a shared
+/// secret, this function deterministically encrypts the given session
+/// key.
+///
+/// `VB` is the ephemeral public key (with 0x40 prefix), `S` is the
+/// shared Diffie-Hellman secret.
+#[allow(non_snake_case)]
+pub fn encrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
+                         session_key: &SessionKey, VB: MPI,
+                         S: &Protected)
+    -> Result<mpi::Ciphertext>
+    where R: key::KeyRole
+{
+    match recipient.mpis() {
+        &mpi::PublicKey::ECDH { ref curve, ref hash, ref sym,.. } => {
+            // m = sym_alg_ID || session key || checksum || pkcs5_padding;
+            let mut m = Vec::with_capacity(40);
+            m.extend_from_slice(session_key);
+            let m = pkcs5_pad(m.into(), 40)?;
+            // Note: We always pad up to 40 bytes to obfuscate the
+            // length of the symmetric key.
+
+            // Compute KDF input.
+            let param = make_param(recipient, curve, hash, sym);
+
+            // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
+            // Compute Z = KDF( S, Z_len, Param );
+            #[allow(non_snake_case)]
+            let Z = kdf(S, sym.key_size()?, *hash, &param)?;
+
+            // Compute C = AESKeyWrap( Z, m ) as per [RFC3394]
+            #[allow(non_snake_case)]
+            let C = aes_key_wrap(*sym, &Z, &m)?;
+
+            // Output (MPI(VB) || len(C) || C).
+            Ok(mpi::Ciphertext::ECDH {
+                e: VB,
+                key: C.into_boxed_slice(),
+            })
+        }
+
+        _ =>
+            Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into()),
+    }
+}
+
+/// Unwraps a session key.
+///
+/// After using Elliptic Curve Diffie-Hellman to compute the shared
+/// secret, this function decrypts the given encrypted session key.
+///
+/// `recipient` is the message receiver's public key, `S` is the
+/// shared Diffie-Hellman secret used to encrypt `ciphertext`.
+#[allow(non_snake_case)]
+pub fn decrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
+                         S: &Protected,
+                         ciphertext: &mpi::Ciphertext)
+    -> Result<SessionKey>
+    where R: key::KeyRole
+{
+    match (recipient.mpis(), ciphertext) {
+        (mpi::PublicKey::ECDH { ref curve, ref hash, ref sym, ..},
+         mpi::Ciphertext::ECDH { ref key, .. }) => {
+            // Compute KDF input.
+            let param = make_param(recipient, curve, hash, sym);
+
+            // Z_len = the key size for the KEK_alg_ID used with AESKeyWrap
+            // Compute Z = KDF( S, Z_len, Param );
+            #[allow(non_snake_case)]
+            let Z = kdf(&S, sym.key_size()?, *hash, &param)?;
+
+            // Compute m = AESKeyUnwrap( Z, C ) as per [RFC3394]
+            let m = aes_key_unwrap(*sym, &Z, key)?;
+            let cipher = SymmetricAlgorithm::from(m[0]);
+            let m = pkcs5_unpad(m, 1 + cipher.key_size()? + 2)?;
+
+            Ok(m.into())
+        },
+
+        _ =>
+            Err(Error::InvalidArgument(
+                "Expected an ECDH key and ciphertext".into()).into()),
+    }
+}
 
 /// Derives a secret key for session key wrapping.
 ///
@@ -253,6 +343,45 @@ pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
     } else {
         Err(Error::InvalidArgument("Bad key".into()).into())
     }
+}
+
+fn make_param<P, R>(recipient: &Key<P, R>,
+              curve: &Curve, hash: &HashAlgorithm,
+              sym: &SymmetricAlgorithm)
+    -> Vec<u8>
+    where P: key::KeyParts,
+          R: key::KeyRole
+{
+    // Param = curve_OID_len || curve_OID ||
+    // public_key_alg_ID || 03 || 01 || KDF_hash_ID ||
+    // KEK_alg_ID for AESKeyWrap || "Anonymous Sender    " ||
+    // recipient_fingerprint;
+    let fp = recipient.fingerprint();
+
+    let mut param = Vec::with_capacity(
+        1 + curve.oid().len()        // Length and Curve OID,
+            + 1                      // Public key algorithm ID,
+            + 4                      // KDF parameters,
+            + 20                     // "Anonymous Sender    ",
+            + fp.as_bytes().len());  // Recipients key fingerprint.
+
+    param.push(curve.oid().len() as u8);
+    param.extend_from_slice(curve.oid());
+    param.push(PublicKeyAlgorithm::ECDH.into());
+    param.push(3);
+    param.push(1);
+    param.push((*hash).into());
+    param.push((*sym).into());
+    param.extend_from_slice(b"Anonymous Sender    ");
+    param.extend_from_slice(fp.as_bytes());
+    assert_eq!(param.len(),
+               1 + curve.oid().len()    // Length and Curve OID,
+               + 1                      // Public key algorithm ID,
+               + 4                      // KDF parameters,
+               + 20                     // "Anonymous Sender    ",
+               + fp.as_bytes().len());  // Recipients key fingerprint.
+
+    param
 }
 
 const AES_KEY_WRAP_IV: u64 = 0xa6a6a6a6a6a6a6a6;
