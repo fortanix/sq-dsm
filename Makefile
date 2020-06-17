@@ -28,6 +28,12 @@ GPG		?= gpg
 CODESPELL	?= codespell
 CODESPELL_FLAGS ?= --disable-colors --write-changes
 
+SOURCE_DATE_EPOCH = $(shell git show -s --no-show-signature --format=%cI)
+TAR_FLAGS = --sort=name \
+      --mtime="$(SOURCE_DATE_EPOCH)" \
+      --owner=0 --group=0 --numeric-owner \
+      --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime
+
 ifeq ($(shell uname -s), Darwin)
 	INSTALL	?= ginstall
 else
@@ -124,7 +130,7 @@ $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION):
 
 $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar: \
 		$(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION)
-	$(TAR) cf $@ -C $(CARGO_TARGET_DIR)/dist sequoia-$(VERSION)
+	$(TAR) $(TAR_FLAGS) -cf $@ -C $(CARGO_TARGET_DIR)/dist sequoia-$(VERSION)
 
 %.xz: %
 	$(XZ) -c $< >$@
