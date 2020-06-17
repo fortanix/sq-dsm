@@ -362,12 +362,21 @@ mod tests {
         use crate::packet::key::{Key4, UnspecifiedRole};
 
         // 20 byte sec key
-        let secret_key = [
+        let mut secret_key = [
             0x0,0x0,
             0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,
             0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x2,
             0x1,0x2,0x2,0x2,0x2,0x2,0x2,0x2,0x0,0x0
         ];
+        // Ensure that the key is at least somewhat valid, according to the
+        // generation procedure specified in "Responsibilities of the user":
+        // https://cr.yp.to/ecdh/curve25519-20060209.pdf#page=5
+        // Only perform the bit-twiddling on the last byte. This is done so that
+        // we can still have somewhat defined multiplication while still testing
+        // the "short" key logic.
+        // secret_key[0] &= 0xf8;
+        secret_key[31] &= 0x7f;
+        secret_key[31] |= 0x40;
 
         let key: Key<_, UnspecifiedRole> = Key4::import_secret_cv25519(
             &secret_key,

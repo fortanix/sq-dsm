@@ -300,14 +300,104 @@ impl Decryptor for KeyPair {
         ciphertext: &mpi::Ciphertext,
         plaintext_len: Option<usize>,
     ) -> Result<SessionKey> {
-        unimplemented!()
+        use crate::PublicKeyAlgorithm::*;
+
+        self.secret().map(
+            |secret| Ok(match (self.public().mpis(), secret, ciphertext)
+        {
+            (mpi::PublicKey::RSA { ref e, ref n },
+             mpi::SecretKeyMaterial::RSA { ref p, ref q, ref d, .. },
+             mpi::Ciphertext::RSA { ref c }) => {
+                use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId};
+                use cng::asymmetric::{AsymmetricKey, Private, Rsa};
+                use cng::asymmetric::EncryptionPadding;
+                use cng::key_blob::RsaKeyPrivatePayload;
+
+                let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Rsa)?;
+                let key = AsymmetricKey::<Rsa, Private>::import_from_parts(
+                    &provider,
+                    &RsaKeyPrivatePayload {
+                        modulus: n.value(),
+                        pub_exp: e.value(),
+                        prime1: p.value(),
+                        prime2: q.value(),
+                    }
+                )?;
+
+                let decrypted = key.decrypt(Some(EncryptionPadding::Pkcs1), c.value())?;
+
+                SessionKey::from(decrypted)
+            }
+
+            (mpi::PublicKey::ElGamal { .. },
+             mpi::SecretKeyMaterial::ElGamal { .. },
+             mpi::Ciphertext::ElGamal { .. }) =>
+                return Err(
+                    Error::UnsupportedPublicKeyAlgorithm(ElGamalEncrypt).into()),
+
+            (mpi::PublicKey::ECDH{ .. },
+             mpi::SecretKeyMaterial::ECDH { .. },
+             mpi::Ciphertext::ECDH { .. }) =>
+                crate::crypto::ecdh::decrypt(self.public(), secret, ciphertext)?,
+
+            (public, secret, ciphertext) =>
+                return Err(Error::InvalidOperation(format!(
+                    "unsupported combination of key pair {:?}/{:?} \
+                     and ciphertext {:?}",
+                    public, secret, ciphertext)).into()),
+        }))
     }
 }
 
 impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     /// Encrypts the given data with this key.
     pub fn encrypt(&self, data: &SessionKey) -> Result<mpi::Ciphertext> {
-        unimplemented!()
+        use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId};
+        use cng::asymmetric::{AsymmetricKey, Public, Rsa};
+        use cng::key_blob::RsaKeyPublicPayload;
+
+        use PublicKeyAlgorithm::*;
+
+        #[allow(deprecated)]
+        match self.pk_algo() {
+            RSAEncryptSign | RSAEncrypt => {
+                // Extract the public recipient.
+                match self.mpis() {
+                    mpi::PublicKey::RSA { e, n } => {
+                        // The ciphertext has the length of the modulus.
+                        let ciphertext_len = n.value().len();
+                        if data.len() + 11 > ciphertext_len {
+                            return Err(Error::InvalidArgument(
+                                "Plaintext data too large".into()).into());
+                        }
+
+                        let provider = AsymmetricAlgorithm::open(AsymmetricAlgorithmId::Rsa)?;
+                        let key = AsymmetricKey::<Rsa, Public>::import_from_parts(
+                            &provider,
+                            &RsaKeyPublicPayload {
+                                modulus: n.value(),
+                                pub_exp: e.value(),
+                            }
+                        )?;
+
+                        let padding = win_crypto_ng::asymmetric::EncryptionPadding::Pkcs1;
+                        let ciphertext = key.encrypt(Some(padding), data)?;
+
+                        Ok(mpi::Ciphertext::RSA {
+                            c: mpi::MPI::new(ciphertext.as_ref()),
+                        })
+                    },
+                    pk => {
+                        Err(Error::MalformedPacket(
+                            format!(
+                                "Key: Expected RSA public key, got {:?}",
+                                pk)).into())
+                    },
+                }
+            },
+            ECDH => crate::crypto::ecdh::encrypt(self.parts_as_public(), data),
+            algo => Err(Error::UnsupportedPublicKeyAlgorithm(algo).into()),
+        }
     }
 
     /// Verifies the given signature.
