@@ -819,6 +819,10 @@ impl DHelper {
 }
 
 impl VerificationHelper for DHelper {
+    fn inspect(&mut self, pp: &PacketParser) -> openpgp::Result<()> {
+        self.vhelper.inspect(pp)
+    }
+
     fn get_certs(&mut self, ids: &[openpgp::KeyHandle])
         -> Result<Vec<openpgp::Cert>, anyhow::Error>
     {
