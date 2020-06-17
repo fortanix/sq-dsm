@@ -120,11 +120,6 @@ dist: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.xz.sig
 $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION):
 	$(GIT) clone . $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION)
 	cd $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION) && \
-		mkdir .cargo && \
-		CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
-		    $(CARGO) vendor $(CARGO_FLAGS) \
-			| sed 's/^directory = ".*"$$/directory = "vendor"/' \
-			> .cargo/config && \
 		rm -rf .git
 
 $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar: \
@@ -143,7 +138,7 @@ dist-test dist-check: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.xz
 	mkdir -p $(CARGO_TARGET_DIR)/dist-check
 	$(TAR) xf $< -C $(CARGO_TARGET_DIR)/dist-check
 	cd $(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION) && \
-		CARGO_HOME=$$(mktemp -d) $(MAKE) test CARGO_FLAGS=--frozen
+		CARGO_HOME=$$(mktemp -d) $(MAKE) test CARGO_FLAGS=--locked
 	rm -rf $(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)
 
 # Housekeeping.
