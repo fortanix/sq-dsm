@@ -253,6 +253,33 @@ fn pgp_cert_revoke(errp: Option<&mut *mut crate::error::Error>,
     sig.move_into_raw(errp)
 }
 
+/// Returns a new revocation certificate for the Cert.
+///
+/// This function consumes `cert` and returns a new `Cert`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_cert_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
+                            cert: *mut Cert,
+                            primary_signer: *mut Box<dyn crypto::Signer>,
+                            code: c_int,
+                            reason: Option<&c_char>)
+                  -> Maybe<Cert>
+{
+    ffi_make_fry_from_errp!(errp);
+    let cert = cert.move_from_raw();
+    let signer = ffi_param_ref_mut!(primary_signer);
+    let code = int_to_reason_for_revocation(code);
+    let reason = if let Some(reason) = reason {
+        ffi_param_cstr!(reason as *const c_char).to_bytes()
+    } else {
+        b""
+    };
+
+    let builder = CertRevocationBuilder::new();
+    let builder = ffi_try_or!(builder.set_reason_for_revocation(code, reason), None);
+    let sig = builder.build(signer.as_mut(), &cert, None);
+    cert.merge_packets(sig).move_into_raw(errp)
+}
+
 /// Returns whether the Cert is alive at the specified time.
 ///
 /// If `when` is 0, then the current time is used.

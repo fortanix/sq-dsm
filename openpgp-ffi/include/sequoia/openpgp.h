@@ -961,6 +961,17 @@ pgp_signature_t pgp_cert_revoke (pgp_error_t *errp,
                                  const char *reason);
 
 /*/
+/// Returns a new revocation certificate for the Cert.
+///
+/// This function consumes `cert` and returns a new `Cert`.
+/*/
+pgp_cert_t pgp_cert_revoke_in_place (pgp_error_t *errp,
+                                     pgp_cert_t cert,
+                                     pgp_signer_t primary_signer,
+                                     pgp_reason_for_revocation_t code,
+                                     const char *reason);
+
+/*/
 /// Returns whether the Cert is alive at the specified time.
 ///
 /// If `when` is 0, then the current time is used.
