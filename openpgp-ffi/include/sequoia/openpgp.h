@@ -1185,8 +1185,8 @@ pgp_status_t pgp_valid_key_amalgamation_set_expiration_time
    pgp_valid_key_amalgamation_t ka,
    pgp_signer_t signer,
    time_t time,
-   pgp_packet_t **packets,
-   size_t *packet_count);
+   pgp_signature_t **sigs,
+   size_t *sig_count);
 
 /*/
 /// Changes the policy applied to the `ValidKeyAmalgamation`.
