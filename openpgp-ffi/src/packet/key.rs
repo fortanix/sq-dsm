@@ -4,10 +4,12 @@
 //!
 //!   [Section 5.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5
 
-use libc::{c_int, time_t};
+use libc::{c_int, time_t, size_t};
+use std::slice;
 
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::packet::key;
+use self::openpgp::crypto::Password;
 use super::super::fingerprint::Fingerprint;
 use super::super::keyid::KeyID;
 
@@ -84,4 +86,94 @@ fn pgp_key_into_key_pair(errp: Option<&mut *mut crate::error::Error>,
     ffi_make_fry_from_errp!(errp);
     let key = ffi_try!(key.move_from_raw().parts_into_secret());
     ffi_try_box!(key.into_keypair())
+}
+
+/// Returns whether the secret key material is unencrypted.
+///
+/// Returns false if there is no secret key material.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_key_has_unencrypted_secret(key: *const Key) -> bool
+{
+    let key = key.ref_raw();
+    key.has_unencrypted_secret()
+}
+
+/// Decrypts the secret key material.
+///
+/// `password` is a byte array.  `password_len` is its length.
+///
+/// Returns NULL if there is no secret key material, or the password
+/// is incorrect.
+///
+/// This function takes ownership of `key`.  On failure, `key` is
+/// deallocated.
+///
+/// # Example
+///
+/// ```c
+/// #include <assert.h>
+/// #include <sequoia/openpgp.h>
+///
+/// pgp_cert_builder_t builder;
+/// pgp_cert_t cert;
+/// pgp_signature_t revocation;
+/// pgp_key_t encrypted_primary_key;
+/// pgp_key_t primary_key;
+/// pgp_key_pair_t primary_keypair;
+/// const uint8_t password[] = "foobar";
+/// const size_t password_len = strlen ((char *) password);
+///
+/// builder = pgp_cert_builder_new ();
+/// pgp_cert_builder_set_cipher_suite (&builder, PGP_CERT_CIPHER_SUITE_CV25519);
+/// pgp_cert_builder_set_password (&builder, password, password_len);
+/// pgp_cert_builder_generate (NULL, builder, &cert, &revocation);
+/// assert (cert);
+/// assert (revocation);
+/// pgp_signature_free (revocation);    /* Free the generated one.  */
+///
+/// encrypted_primary_key = pgp_cert_primary_key (cert);
+/// assert(! pgp_key_has_unencrypted_secret (encrypted_primary_key));
+///
+/// // This will fail, because primary_key is password protected.
+/// primary_keypair
+///   = pgp_key_into_key_pair (NULL, pgp_key_clone (encrypted_primary_key));
+/// assert(! primary_keypair);
+///
+/// // Try decrypting it with the wrong password.
+/// primary_key
+///   = pgp_key_decrypt_secret (NULL, pgp_key_clone (encrypted_primary_key),
+///                             password, password_len - 1);
+/// assert(! primary_key);
+///
+/// // If we decrypt it, then we can create a keypair.
+/// primary_key
+///   = pgp_key_decrypt_secret (NULL, pgp_key_clone (encrypted_primary_key),
+///                             password, password_len);
+/// assert(primary_key);
+/// assert(pgp_key_has_unencrypted_secret (primary_key));
+///
+/// primary_keypair
+///   = pgp_key_into_key_pair (NULL, pgp_key_clone (primary_key));
+/// assert(primary_keypair);
+///
+/// pgp_key_pair_free(primary_keypair);
+/// pgp_key_free (primary_key);
+/// pgp_key_free (encrypted_primary_key);
+/// pgp_cert_free (cert);
+/// ```
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_key_decrypt_secret(errp: Option<&mut *mut crate::error::Error>,
+                          key: *mut Key,
+                          password: *const u8, password_len: size_t)
+    -> *mut Key
+{
+    ffi_make_fry_from_errp!(errp);
+    assert!(!password.is_null());
+    let password = unsafe {
+        slice::from_raw_parts(password, password_len as usize)
+    };
+    let password: Password = password.into();
+    let key = ffi_try!(key.move_from_raw().parts_into_secret());
+
+    ffi_try!(key.decrypt_secret(&password)).parts_into_unspecified().move_into_raw()
 }

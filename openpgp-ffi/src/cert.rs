@@ -13,6 +13,7 @@ use libc::{c_char, c_int, size_t, time_t};
 extern crate sequoia_openpgp as openpgp;
 use self::openpgp::{
     crypto,
+    crypto::Password,
     types::ReasonForRevocation,
     parse::{
         PacketParserResult,
@@ -960,6 +961,22 @@ pub extern "C" fn pgp_cert_builder_set_cipher_suite
     let certb_ = ffi_param_move!(*certb);
     let cs = int_to_cipher_suite(cs);
     let certb_ = certb_.set_cipher_suite(cs);
+    *certb = box_raw!(certb_);
+}
+
+/// Sets the password for primary and all subkeys.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle]
+pub extern "C" fn pgp_cert_builder_set_password
+    (certb: *mut *mut CertBuilder, password: *const u8, password_len: size_t)
+{
+    let certb = ffi_param_ref_mut!(certb);
+    let certb_ = ffi_param_move!(*certb);
+    assert!(!password.is_null());
+    let password = unsafe {
+        slice::from_raw_parts(password, password_len as usize)
+    };
+    let password: Password = password.into();
+    let certb_ = certb_.set_password(Some(password));
     *certb = box_raw!(certb_);
 }
 

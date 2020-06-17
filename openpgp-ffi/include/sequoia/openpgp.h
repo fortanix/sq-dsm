@@ -1096,6 +1096,15 @@ void pgp_cert_builder_set_cipher_suite(pgp_cert_builder_t *certb,
 				     pgp_cert_cipher_suite_t cs);
 
 /*/
+/// Sets the password for primary and all subkeys.
+///
+/// `password` is a byte array.  `password_len` is its length.
+/*/
+void pgp_cert_builder_set_password(pgp_cert_builder_t *certb,
+                                   const uint8_t *password,
+                                   size_t password_len);
+
+/*/
 /// Adds a new user ID. The first user ID added replaces the default
 /// ID that is just the empty string.
 /*/
@@ -1306,6 +1315,23 @@ int pgp_key_public_key_bits(pgp_key_t key);
 /// Fails if the secret key is missing, or encrypted.
 /*/
 pgp_key_pair_t pgp_key_into_key_pair (pgp_error_t *errp, pgp_key_t key);
+
+/// Returns whether the secret key material is encrypted.
+///
+/// Returns false if there is no secret key material.
+bool pgp_key_has_unencrypted_secret(pgp_key_t key);
+
+/// Decrypts the secret key material.
+///
+/// `password` is a byte array.  `password_len` is its length.
+///
+/// Returns false if there is no secret key material.
+///
+/// This function takes ownership of `key`.  On failure, `key` is
+/// deallocated.
+pgp_key_t pgp_key_decrypt_secret(pgp_error_t *errp, pgp_key_t key,
+                                 const uint8_t *password,
+                                 size_t password_len);
 
 /*/
 /// Constructs a User ID.
