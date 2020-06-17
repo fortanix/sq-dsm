@@ -573,15 +573,11 @@ void pgp_literal_free (pgp_literal_t literal);
 /* openpgp::amalgamation::UserIDAmalgamation.  */
 
 /*/
-/// Returns the user id.
-///
-/// This function may fail and return NULL if the user id contains an
-/// interior NUL byte.  We do this rather than complicate the API, as
-/// there is no valid use for such user ids; they must be malicious.
+/// Returns a copy of the user id.
 ///
 /// The caller must free the returned value.
 /*/
-char *pgp_user_id_amalgamation_user_id (pgp_user_id_amalgamation_t ua);
+pgp_packet_t pgp_user_id_amalgamation_user_id (pgp_user_id_amalgamation_t ua);
 
 /*/
 /// Frees the User ID Amalgamation.
@@ -600,15 +596,11 @@ pgp_user_id_amalgamation_t pgp_user_id_amalgamation_clone (pgp_user_id_amalgamat
 char *pgp_user_id_amalgamation_debug (const pgp_user_id_amalgamation_t ua);
 
 /*/
-/// Returns the user id.
-///
-/// This function may fail and return NULL if the user id contains an
-/// interior NUL byte.  We do this rather than complicate the API, as
-/// there is no valid use for such user ids; they must be malicious.
+/// Returns a copy of the user id.
 ///
 /// The caller must free the returned value.
 /*/
-pgp_user_id_t pgp_valid_user_id_amalgamation_user_id
+pgp_packet_t pgp_valid_user_id_amalgamation_user_id
     (pgp_valid_user_id_amalgamation_t ua);
 
 /*/

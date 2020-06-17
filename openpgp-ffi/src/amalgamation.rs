@@ -12,7 +12,7 @@ extern crate sequoia_openpgp as openpgp;
 use self::openpgp::cert::amalgamation::ValidAmalgamation as _;
 use self::openpgp::cert::amalgamation::ValidateAmalgamation as _;
 
-use super::packet::userid::UserID;
+use super::packet::Packet;
 use super::packet::signature::Signature;
 use super::policy::Policy;
 use super::revocation_status::RevocationStatus;
@@ -37,14 +37,14 @@ type UserIDAmalgamationType<'a>
                      derive = "Clone, Debug")]
 pub struct UserIDAmalgamation<'a>(UserIDAmalgamationType<'a>);
 
-/// Returns a reference to the `UserID`.
+/// Returns a copy of the `UserID`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_user_id_amalgamation_user_id<'a>(ua: *const UserIDAmalgamation<'a>)
-    -> *const UserID
+    -> *mut Packet
 {
     let ua = ua.ref_raw();
 
-    ua.userid().move_into_raw()
+    openpgp::Packet::from(ua.userid().clone()).move_into_raw()
 }
 
 /// A local alias to appease the proc macro transformation.
@@ -64,11 +64,11 @@ pub struct ValidUserIDAmalgamation<'a>(ValidUserIDAmalgamationType<'a>);
 /// Returns a reference to the `UserID`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_valid_user_id_amalgamation_user_id<'a>(ua: *const ValidUserIDAmalgamation<'a>)
-    -> *const UserID
+    -> *const Packet
 {
     let ua = ua.ref_raw();
 
-    ua.userid().move_into_raw()
+    openpgp::Packet::from(ua.userid().clone()).move_into_raw()
 }
 
 /// Returns the UserID's revocation status.
