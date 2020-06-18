@@ -23,6 +23,7 @@ SIGN_WITH	?= XXXXXXXXXXXXXXXX
 CARGO		?= cargo
 GIT		?= git
 TAR		?= tar
+GZIP		?= gzip
 XZ		?= xz
 GPG		?= gpg
 CODESPELL	?= codespell
@@ -121,7 +122,8 @@ install: build-release
 
 # Infrastructure for creating source distributions.
 .PHONY: dist
-dist: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.xz.sig
+dist:	$(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.pgp.gz \
+	$(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.pgp.xz
 
 $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION):
 	$(GIT) clone . $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION)
@@ -132,20 +134,27 @@ $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar: \
 		$(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION)
 	$(TAR) $(TAR_FLAGS) -cf $@ -C $(CARGO_TARGET_DIR)/dist sequoia-$(VERSION)
 
+%.gz: %
+	$(GZIP) -c "$<" >"$@"
+
 %.xz: %
-	$(XZ) -c $< >$@
+	$(XZ) -c "$<" >"$@"
 
-%.sig: %
-	$(GPG) --local-user $(SIGN_WITH) --detach-sign --armor $<
+%.pgp: %
+	$(GPG) --local-user "$(SIGN_WITH)" --compression-algo=none \
+		--sign --output "$@" "$<"
 
+# Testing source distributions.
 .PHONY: dist-test dist-check
-dist-test dist-check: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.xz
-	rm -rf $(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)
-	mkdir -p $(CARGO_TARGET_DIR)/dist-check
-	$(TAR) xf $< -C $(CARGO_TARGET_DIR)/dist-check
-	cd $(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION) && \
+dist-test dist-check: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.pgp.gz
+	mkdir -p "$(CARGO_TARGET_DIR)/dist-check"
+	rm -rf "$(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)"
+	$(GZIP) -d -c "$<" |\
+		$(GPG) -o - --verify |\
+		$(TAR) xf - -C "$(CARGO_TARGET_DIR)/dist-check"
+	cd "$(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)" && \
 		CARGO_HOME=$$(mktemp -d) $(MAKE) test CARGO_FLAGS=--locked
-	rm -rf $(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)
+	rm -rf "$(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)"
 
 # Housekeeping.
 .PHONY: clean
