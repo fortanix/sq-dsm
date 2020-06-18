@@ -98,7 +98,11 @@ pub struct SignatureBuilder {
     version: u8,
     /// Type of signature.
     typ: SignatureType,
-    /// Pub(Crate)lic-key algorithm used for this signature.
+    /// Public-key algorithm used for this signature.
+    ///
+    /// This field is only set when `SignatureBuilder::sign` is
+    /// called.  But, it is needed by `SignatureBuilder`'s
+    /// implementation of `Hash`.
     pk_algo: PublicKeyAlgorithm,
     /// Hash algorithm used to compute the signature.
     hash_algo: HashAlgorithm,
@@ -171,7 +175,7 @@ impl SignatureBuilder {
     }
 
     /// Gets the public key algorithm.
-    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+    pub(crate) fn pk_algo(&self) -> PublicKeyAlgorithm {
         self.pk_algo
     }
 
