@@ -24,6 +24,15 @@ build-release:
 install: build-release
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/bin
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/bin $(CARGO_TARGET_DIR)/release/sqv
+	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/zsh/site-functions
+	$(INSTALL) -t $(DESTDIR)$(PREFIX)/share/zsh/site-functions \
+	    $(CARGO_TARGET_DIR)/_sqv
+	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/bash-completion/completions
+	$(INSTALL) $(CARGO_TARGET_DIR)/sqv.bash \
+	    $(DESTDIR)$(PREFIX)/share/bash-completion/completions/sqv
+	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/fish/completions
+	$(INSTALL) -t $(DESTDIR)$(PREFIX)/share/fish/completions \
+	    $(CARGO_TARGET_DIR)/sqv.fish
 
 # Maintenance.
 .PHONY: update-usage

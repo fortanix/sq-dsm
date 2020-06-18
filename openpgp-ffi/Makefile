@@ -71,10 +71,12 @@ examples:
 # Installation.
 .PHONY: build-release
 build-release:
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
+	    $(CARGO) build $(CARGO_FLAGS) --release --package sequoia-openpgp-ffi
 	$(call sequoia_openpgp_pc,$(CARGO_TARGET_DIR)/release,true)
 
 .PHONY: install
-install:
+install: build-release
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/pkgconfig
 	$(call sequoia_openpgp_pc,$(DESTDIR)$(PREFIX)/share/pkgconfig,)
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include

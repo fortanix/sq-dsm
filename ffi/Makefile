@@ -58,11 +58,14 @@ examples:
 # Installation.
 .PHONY: build-release
 build-release:
+	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
+	    $(CARGO) build $(CARGO_FLAGS) --release --package sequoia-ffi
 	$(MAKE) -Clang/python build-release
 	$(call sequoia_pc,$(CARGO_TARGET_DIR)/release,true)
+	$(MAKE) -C../store install
 
 .PHONY: install
-install:
+install: build-release
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/share/pkgconfig
 	$(call sequoia_pc,$(DESTDIR)$(PREFIX)/share/pkgconfig,)
 	$(INSTALL) -d $(DESTDIR)$(PREFIX)/include
@@ -79,6 +82,7 @@ install:
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.$(_SEQ_LIB_EXT)
 	$(INSTALL) $(CARGO_TARGET_DIR)/release/libsequoia_ffi.a \
 		$(DESTDIR)$(PREFIX)/lib/libsequoia_ffi.a
+	$(MAKE) -C../store install
 	# Now the bindings.
 	$(MAKE) -Clang/python install
 
