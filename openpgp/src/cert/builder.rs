@@ -923,7 +923,7 @@ impl CertBuilder {
             self.primary.flags = self.primary.flags.set_certification(true);
         }
 
-        // Generate & and self-sign primary key.
+        // Generate & self-sign primary key.
         let (primary, sig) = self.primary_key(creation_time)?;
         let mut signer = primary.clone().into_keypair().unwrap();
 
@@ -936,7 +936,8 @@ impl CertBuilder {
         }));
         packets.push(sig.clone().into());
 
-        let sig = signature::SignatureBuilder::from(sig.clone());
+        let sig = signature::SignatureBuilder::from(sig.clone())
+            .set_signature_creation_time(creation_time)?;
 
         // Remove subpackets that needn't be copied into the binding
         // signatures.

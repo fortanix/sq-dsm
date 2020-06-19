@@ -782,6 +782,7 @@ mod test {
                 cert.primary_key().with_policy(p, None).unwrap()
                     .direct_key_signature().unwrap().clone())
                     .set_type(SignatureType::PositiveCertification)
+                    .preserve_signature_creation_time().unwrap()
                     .set_exportable_certification(false).unwrap()).unwrap();
 
         let ua = UserAttribute::new(&[
@@ -793,6 +794,7 @@ mod test {
                 cert.primary_key().with_policy(p, None).unwrap()
                     .direct_key_signature().unwrap().clone())
                 .set_type(SignatureType::PositiveCertification)
+                .preserve_signature_creation_time().unwrap()
                 .set_exportable_certification(false).unwrap()).unwrap();
 
         let cert = cert.merge_packets(vec![

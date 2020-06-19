@@ -172,6 +172,7 @@ impl SignatureFields {
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct SignatureBuilder {
+    overrode_creation_time: bool,
     fields: SignatureFields,
 }
 
@@ -193,6 +194,7 @@ impl SignatureBuilder {
     /// Returns a new `SignatureBuilder` object.
     pub fn new(typ: SignatureType) ->  Self {
         SignatureBuilder {
+            overrode_creation_time: false,
             fields: SignatureFields {
                 version: 4,
                 typ,
@@ -201,10 +203,6 @@ impl SignatureBuilder {
                 subpackets: SubpacketAreas::default(),
             }
         }
-        .set_signature_creation_time(
-            std::time::SystemTime::now())
-            .expect("area is empty, insertion cannot fail; \
-                     time is representable for the foreseeable future")
     }
 
     /// Sets the signature type.
@@ -400,6 +398,13 @@ impl SignatureBuilder {
     fn pre_sign(mut self, signer: &dyn Signer) -> Result<Self> {
         self.pk_algo = signer.public().pk_algo();
 
+        // Set the creation time.
+        if ! self.overrode_creation_time {
+            self = self.set_signature_creation_time(
+                std::time::SystemTime::now())?;
+        }
+
+        // Make sure we have an issuer packet.
         if self.issuer().is_none() && self.issuer_fingerprint().is_none() {
             self = self.set_issuer(signer.public().keyid())?
                 .set_issuer_fingerprint(signer.public().fingerprint())?;
@@ -438,6 +443,7 @@ impl From<Signature> for SignatureBuilder {
 impl From<Signature4> for SignatureBuilder {
     fn from(sig: Signature4) -> Self {
         SignatureBuilder {
+            overrode_creation_time: false,
             fields: sig.fields,
         }
     }

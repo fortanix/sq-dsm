@@ -2006,10 +2006,61 @@ impl signature::SignatureBuilder {
                                           -> Result<Self>
         where T: Into<time::SystemTime>
     {
+        self.overrode_creation_time = true;
+
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::SignatureCreationTime(
                 creation_time.into().try_into()?),
             true)?)?;
+
+        Ok(self)
+    }
+
+    /// Causes the builder to use an existing signature creation time
+    /// subpacket.
+    ///
+    /// Unless `SignatureBuilder::set_signature_creation_time` has
+    /// been called, `SignatureBuilder` sets the
+    /// `SignatureCreationTime` subpacket when the signature is
+    /// generated.  Calling this function causes the signature
+    /// generation code to use the existing `Signature Creation Time`
+    /// subpacket.
+    ///
+    /// This function returns an error if there is no `Signature
+    /// Creation Time` subpacket in the hashed area.
+    pub fn preserve_signature_creation_time(mut self)
+        -> Result<Self>
+    {
+        self.overrode_creation_time = true;
+
+        if self.hashed_area.lookup(SubpacketTag::SignatureCreationTime).is_none() {
+            Err(Error::InvalidOperation(
+                "Signature does not contain a Signature Creation Time subpacket".into())
+                .into())
+        } else {
+            Ok(self)
+        }
+    }
+
+    /// Causes the builder to not output a signature creation time
+    /// subpacket.
+    ///
+    /// [Section 5.2.3.4 of RFC 4880] says that the `Signature
+    /// Creation Time` subpacket must be present in the hashed area.
+    /// This function clears any `Signature Creation Time` subpackets
+    /// from both the hashed area and the unhashed are, and causes the
+    /// various `SignatureBuilder` finalizers to not emit a `Signature
+    /// Creation Time` subpacket.  This function should only be used
+    /// for testing purposes.
+    ///
+    /// [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    pub fn suppress_signature_creation_time(mut self)
+        -> Result<Self>
+    {
+        self.overrode_creation_time = true;
+
+        self.hashed_area.remove_all(SubpacketTag::SignatureCreationTime);
+        self.unhashed_area.remove_all(SubpacketTag::SignatureCreationTime);
 
         Ok(self)
     }
