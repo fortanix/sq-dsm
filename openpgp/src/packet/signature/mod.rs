@@ -228,7 +228,7 @@ impl SignatureBuilder {
     pub fn sign_standalone(mut self, signer: &mut dyn Signer)
                            -> Result<Signature>
     {
-        self.pre_sign(signer);
+        self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_standalone(&self)?;
 
@@ -244,7 +244,7 @@ impl SignatureBuilder {
     pub fn sign_timestamp(mut self, signer: &mut dyn Signer)
                           -> Result<Signature>
     {
-        self.pre_sign(signer);
+        self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_timestamp(&self)?;
 
@@ -260,7 +260,7 @@ impl SignatureBuilder {
     pub fn sign_direct_key(mut self, signer: &mut dyn Signer)
         -> Result<Signature>
     {
-        self.pre_sign(signer);
+        self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_direct_key(
             &self, signer.public().role_as_primary())?;
@@ -280,7 +280,7 @@ impl SignatureBuilder {
         -> Result<Signature>
         where P: key::KeyParts,
     {
-        self.pre_sign(signer);
+        self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_userid_binding(&self, key, userid)?;
 
@@ -300,7 +300,7 @@ impl SignatureBuilder {
         where P: key:: KeyParts,
               Q: key:: KeyParts,
     {
-        self.pre_sign(signer);
+        self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_subkey_binding(&self, primary, subkey)?;
 
@@ -322,7 +322,7 @@ impl SignatureBuilder {
         where P: key:: KeyParts,
               Q: key:: KeyParts,
     {
-        self.pre_sign(subkey_signer);
+        self = self.pre_sign(subkey_signer)?;
 
         let digest =
             Signature::hash_primary_key_binding(&self, primary, subkey)?;
@@ -343,7 +343,7 @@ impl SignatureBuilder {
         -> Result<Signature>
         where P: key::KeyParts,
     {
-        self.pre_sign(signer);
+        self = self.pre_sign(signer)?;
 
         let digest =
             Signature::hash_user_attribute_binding(&self, key, ua)?;
@@ -365,7 +365,7 @@ impl SignatureBuilder {
     {
         self.hash_algo = hash.algo();
 
-        self.pre_sign(signer);
+        self = self.pre_sign(signer)?;
 
         self.hash(&mut hash);
         let mut digest = vec![0u8; hash.digest_size()];
@@ -388,7 +388,7 @@ impl SignatureBuilder {
         let mut hash = self.hash_algo.context()?;
         hash.update(msg.as_ref());
 
-        self.pre_sign(signer);
+        self = self.pre_sign(signer)?;
 
         self.hash(&mut hash);
         let mut digest = vec![0u8; hash.digest_size()];
@@ -397,27 +397,27 @@ impl SignatureBuilder {
         self.sign(signer, digest)
     }
 
-    fn pre_sign(&mut self, signer: &dyn Signer) {
+    fn pre_sign(mut self, signer: &dyn Signer) -> Result<Self> {
         self.pk_algo = signer.public().pk_algo();
+
+        if self.issuer().is_none() && self.issuer_fingerprint().is_none() {
+            self = self.set_issuer(signer.public().keyid())?
+                .set_issuer_fingerprint(signer.public().fingerprint())?;
+        }
+
         self.sort();
+
+        Ok(self)
     }
 
     fn sign(self, signer: &mut dyn Signer, digest: Vec<u8>)
         -> Result<Signature>
     {
-        let algo = self.hash_algo;
-        let mpis = signer.sign(algo, &digest)?;
-
-        let mut builder = self;
-
-        if builder.issuer().is_none() && builder.issuer_fingerprint().is_none() {
-            builder = builder.set_issuer(signer.public().keyid())?
-                .set_issuer_fingerprint(signer.public().fingerprint())?;
-        }
+        let mpis = signer.sign(self.hash_algo, &digest)?;
 
         Ok(Signature4 {
             common: Default::default(),
-            fields: builder.fields,
+            fields: self.fields,
             digest_prefix: [digest[0], digest[1]],
             mpis,
             computed_digest: Some(digest),
