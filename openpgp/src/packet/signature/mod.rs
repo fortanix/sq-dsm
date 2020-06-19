@@ -228,9 +228,10 @@ impl SignatureBuilder {
     pub fn sign_standalone(mut self, signer: &mut dyn Signer)
                            -> Result<Signature>
     {
-        self.sort();
-        self.pk_algo = signer.public().pk_algo();
+        self.pre_sign(signer);
+
         let digest = Signature::hash_standalone(&self)?;
+
         self.sign(signer, digest)
     }
 
@@ -243,9 +244,10 @@ impl SignatureBuilder {
     pub fn sign_timestamp(mut self, signer: &mut dyn Signer)
                           -> Result<Signature>
     {
-        self.sort();
-        self.pk_algo = signer.public().pk_algo();
+        self.pre_sign(signer);
+
         let digest = Signature::hash_timestamp(&self)?;
+
         self.sign(signer, digest)
     }
 
@@ -258,12 +260,10 @@ impl SignatureBuilder {
     pub fn sign_direct_key(mut self, signer: &mut dyn Signer)
         -> Result<Signature>
     {
-        self.sort();
-        self.pk_algo = signer.public().pk_algo();
-        let digest =
-            Signature::hash_direct_key(&self,
-                                       signer.public()
-                                       .role_as_primary())?;
+        self.pre_sign(signer);
+
+        let digest = Signature::hash_direct_key(
+            &self, signer.public().role_as_primary())?;
 
         self.sign(signer, digest)
     }
@@ -280,8 +280,8 @@ impl SignatureBuilder {
         -> Result<Signature>
         where P: key::KeyParts,
     {
-        self.sort();
-        self.pk_algo = signer.public().pk_algo();
+        self.pre_sign(signer);
+
         let digest = Signature::hash_userid_binding(&self, key, userid)?;
 
         self.sign(signer, digest)
@@ -300,8 +300,8 @@ impl SignatureBuilder {
         where P: key:: KeyParts,
               Q: key:: KeyParts,
     {
-        self.sort();
-        self.pk_algo = signer.public().pk_algo();
+        self.pre_sign(signer);
+
         let digest = Signature::hash_subkey_binding(&self, primary, subkey)?;
 
         self.sign(signer, digest)
@@ -322,10 +322,11 @@ impl SignatureBuilder {
         where P: key:: KeyParts,
               Q: key:: KeyParts,
     {
-        self.sort();
-        self.pk_algo = subkey_signer.public().pk_algo();
+        self.pre_sign(subkey_signer);
+
         let digest =
             Signature::hash_primary_key_binding(&self, primary, subkey)?;
+
         self.sign(subkey_signer, digest)
     }
 
@@ -342,8 +343,8 @@ impl SignatureBuilder {
         -> Result<Signature>
         where P: key::KeyParts,
     {
-        self.sort();
-        self.pk_algo = signer.public().pk_algo();
+        self.pre_sign(signer);
+
         let digest =
             Signature::hash_user_attribute_binding(&self, key, ua)?;
 
@@ -351,6 +352,8 @@ impl SignatureBuilder {
     }
 
     /// Signs `hash` using `signer`.
+    ///
+    /// This sets the hash algorithm to whatever 'hash's algorithm is.
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
@@ -360,13 +363,11 @@ impl SignatureBuilder {
                      mut hash: hash::Context)
         -> Result<Signature>
     {
-        self.sort();
-        // Fill out some fields, then hash the packet.
-        self.pk_algo = signer.public().pk_algo();
         self.hash_algo = hash.algo();
-        self.hash(&mut hash);
 
-        // Compute the digest.
+        self.pre_sign(signer);
+
+        self.hash(&mut hash);
         let mut digest = vec![0u8; hash.digest_size()];
         hash.digest(&mut digest);
 
@@ -383,20 +384,22 @@ impl SignatureBuilder {
         -> Result<Signature>
         where M: AsRef<[u8]>
     {
-        self.sort();
         // Hash the message
         let mut hash = self.hash_algo.context()?;
         hash.update(msg.as_ref());
 
-        // Fill out some fields, then hash the packet.
-        self.pk_algo = signer.public().pk_algo();
-        self.hash(&mut hash);
+        self.pre_sign(signer);
 
-        // Compute the digest.
+        self.hash(&mut hash);
         let mut digest = vec![0u8; hash.digest_size()];
         hash.digest(&mut digest);
 
         self.sign(signer, digest)
+    }
+
+    fn pre_sign(&mut self, signer: &dyn Signer) {
+        self.pk_algo = signer.public().pk_algo();
+        self.sort();
     }
 
     fn sign(self, signer: &mut dyn Signer, digest: Vec<u8>)
