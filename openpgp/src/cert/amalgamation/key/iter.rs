@@ -16,6 +16,8 @@ use crate::{
 
 /// An iterator over `Key`s.
 ///
+/// An iterator over [`KeyAmalgamation`]s.
+///
 /// A `KeyAmalgamationIter` is like a [`ComponentAmalgamationIter`],
 /// but specialized for keys.  Refer to the [module documentation] for
 /// an explanation of why a different type is necessary.
@@ -42,6 +44,7 @@ use crate::{
 ///
 /// A `KeyAmalgamationIter` is returned by [`Cert::keys`].
 ///
+/// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
 /// [`ComponentAmalgamationIter`]: ../struct.ComponentAmalgamationIter.html
 /// [module documentation]: index.html
 /// [`KeyAmalgamationIter::with_policy`]: ../trait.ValidateAmalgamation.html
@@ -496,12 +499,14 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 
 /// An iterator over valid `Key`s.
 ///
-/// A `ValidComponentAmalgamationIter` is a [`KeyAmalgamationIter`]
+/// An iterator over [`ValidKeyAmalgamation`]s.
+///
+/// A `ValidKeyAmalgamationIter` is a [`KeyAmalgamationIter`]
 /// that includes a [`Policy`] and a reference time, which it firstly
 /// uses to only return valid `Key`s.  (For a definition of valid
 /// keys, see the documentation for [`ValidateAmalgamation`].)
 ///
-/// A `ValidComponentAmalgamationIter` also provides additional
+/// A `ValidKeyAmalgamationIter` also provides additional
 /// filters based on information available in the `Key`s' binding
 /// signatures.  For instance, [`ValidKeyAmalgamationIter::revoked`]
 /// filters the returned `Key`s by whether or not they are revoked.
@@ -564,6 +569,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 /// # }
 /// ```
 ///
+/// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
 /// [`KeyAmalgamationIter`]: struct.KeyAmalgamationIter.html
 /// [`Policy`]: ../../../policy/trait.Policy.html
 /// [`ValidateAmalgamation`]: ../trait.ValidateAmalgamation.html
