@@ -1959,7 +1959,7 @@ impl SubpacketAreas {
 }
 
 impl Deref for Signature4 {
-    type Target = signature::SignatureBuilder;
+    type Target = signature::SignatureFields;
 
     fn deref(&self) -> &Self::Target {
         &self.fields
@@ -1973,7 +1973,7 @@ impl DerefMut for Signature4 {
 }
 
 // We'd like to implement Deref for Signature4 for both
-// signature::SignatureBuilder and SubpacketArea.  Unfortunately, it is
+// signature::SignatureFields and SubpacketArea.  Unfortunately, it is
 // only possible to implement Deref for one of them.  Since
 // SubpacketArea has more methods with much more documentation,
 // implement deref for that, and write provider forwarders for

@@ -312,7 +312,7 @@ impl Hash for Signature4 {
     }
 }
 
-impl Hash for signature::SignatureBuilder {
+impl Hash for signature::SignatureFields {
     /// Adds the `Signature` to the provided hash context.
     fn hash(&self, hash: &mut Context) {
         use crate::serialize::MarshalInto;
@@ -374,7 +374,7 @@ impl Hash for signature::SignatureBuilder {
 /// Hashing-related functionality.
 impl Signature {
     /// Computes the message digest of standalone signatures.
-    pub fn hash_standalone(sig: &signature::SignatureBuilder)
+    pub fn hash_standalone(sig: &signature::SignatureFields)
         -> Result<Vec<u8>>
     {
         let mut h = sig.hash_algo().context()?;
@@ -387,7 +387,7 @@ impl Signature {
     }
 
     /// Computes the message digest of timestamp signatures.
-    pub fn hash_timestamp(sig: &signature::SignatureBuilder)
+    pub fn hash_timestamp(sig: &signature::SignatureFields)
         -> Result<Vec<u8>>
     {
         Self::hash_standalone(sig)
@@ -395,7 +395,7 @@ impl Signature {
 
     /// Returns the message digest of the direct key signature over
     /// the specified primary key.
-    pub fn hash_direct_key<P>(sig: &signature::SignatureBuilder,
+    pub fn hash_direct_key<P>(sig: &signature::SignatureFields,
                               key: &Key<P, key::PrimaryRole>)
         -> Result<Vec<u8>>
         where P: key::KeyParts,
@@ -413,14 +413,13 @@ impl Signature {
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn hash_subkey_binding<P, Q>(sig: &signature::SignatureBuilder,
+    pub fn hash_subkey_binding<P, Q>(sig: &signature::SignatureFields,
                                      key: &Key<P, key::PrimaryRole>,
                                      subkey: &Key<Q, key::SubordinateRole>)
         -> Result<Vec<u8>>
         where P: key::KeyParts,
               Q: key::KeyParts,
     {
-
         let mut h = sig.hash_algo().context()?;
 
         key.hash(&mut h);
@@ -434,7 +433,7 @@ impl Signature {
 
     /// Returns the message digest of the primary key binding over the
     /// specified primary key and subkey.
-    pub fn hash_primary_key_binding<P, Q>(sig: &signature::SignatureBuilder,
+    pub fn hash_primary_key_binding<P, Q>(sig: &signature::SignatureFields,
                                           key: &Key<P, key::PrimaryRole>,
                                           subkey: &Key<Q, key::SubordinateRole>)
         -> Result<Vec<u8>>
@@ -446,7 +445,7 @@ impl Signature {
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
-    pub fn hash_userid_binding<P>(sig: &signature::SignatureBuilder,
+    pub fn hash_userid_binding<P>(sig: &signature::SignatureFields,
                                   key: &Key<P, key::PrimaryRole>,
                                   userid: &UserID)
         -> Result<Vec<u8>>
@@ -466,7 +465,7 @@ impl Signature {
     /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
     pub fn hash_user_attribute_binding<P>(
-        sig: &signature::SignatureBuilder,
+        sig: &signature::SignatureFields,
         key: &Key<P, key::PrimaryRole>,
         ua: &UserAttribute)
         -> Result<Vec<u8>>
