@@ -713,9 +713,8 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// use std::io::Read;
 /// use sequoia_openpgp as openpgp;
 /// use openpgp::{KeyHandle, Cert, Result};
-/// use openpgp::parse::stream::*;
+/// use openpgp::parse::{Parse, stream::*};
 /// use openpgp::policy::StandardPolicy;
-/// # use sequoia_openpgp::parse::Parse;
 /// # fn lookup_cert_by_handle(_: &KeyHandle) -> Result<Cert> {
 /// #     Cert::from_bytes(
 /// #       &b"-----BEGIN PGP PUBLIC KEY BLOCK-----
