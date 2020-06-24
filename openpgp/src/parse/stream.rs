@@ -675,6 +675,12 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 
 /// Verifies a signed OpenPGP message.
 ///
+/// To create a `Verifier`, create a [`VerifierBuilder`] using
+/// [`Parse`], and customize it to your needs.
+///
+///   [`VerifierBuilder`]: struct.VerifierBuilder.html
+///   [`Parse`]: ../trait.Parse.html
+///
 /// Signature verification requires processing the whole message
 /// first.  Therefore, OpenPGP implementations supporting streaming
 /// operations necessarily must output unverified data.  This has been
@@ -692,10 +698,13 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// For a signature to be considered valid: The signature must have a
 /// `Signature Creation Time` subpacket.  The signature must be alive
 /// at the signature verification time (the time passed to
-/// `Verifier::from_reader`).  The key used to verify the signature
-/// must be alive at the signature creation time, not have been soft
-/// revoked at the signature creation time, not have ever been hard
-/// revoked, and be signing capable at the signature creation time.
+/// [`VerifierBuilder::with_policy`).  The key used to verify the
+/// signature must be alive at the signature creation time, not have
+/// been soft revoked at the signature creation time, not have ever
+/// been hard revoked, and be signing capable at the signature
+/// creation time.
+///
+///   [`VerifierBuilder::with_policy`]: struct.VerifierBuilder.html#method.with_policy
 ///
 /// # Examples
 ///
@@ -1000,6 +1009,24 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 
 /// Verifies a detached signature.
 ///
+/// To create a `DetachedVerifier`, create a
+/// [`DetachedVerifierBuilder`] using [`Parse`], and customize it to
+/// your needs.
+///
+///   [`DetachedVerifierBuilder`]: struct.DetachedVerifierBuilder.html
+///   [`Parse`]: ../trait.Parse.html
+///
+/// For a signature to be considered valid: The signature must have a
+/// `Signature Creation Time` subpacket.  The signature must be alive
+/// at the signature verification time (the time passed to
+/// [`DetachedVerifierBuilder::with_policy`).  The key used to verify
+/// the signature must be alive at the signature creation time, not
+/// have been soft revoked at the signature creation time, not have
+/// ever been hard revoked, and be signing capable at the signature
+/// creation time.
+///
+///   [`DetachedVerifierBuilder::with_policy`]: struct.DetachedVerifierBuilder.html#method.with_policy
+///
 /// # Examples
 ///
 /// ```
@@ -1182,6 +1209,12 @@ enum Mode {
 /// Decrypts and verifies an encrypted and optionally signed OpenPGP
 /// message.
 ///
+/// To create a `Decryptor`, create a [`DecryptorBuilder`] using
+/// [`Parse`], and customize it to your needs.
+///
+///   [`DecryptorBuilder`]: struct.DecryptorBuilder.html
+///   [`Parse`]: ../trait.Parse.html
+///
 /// Signature verification and detection of ciphertext tampering
 /// requires processing the whole message first.  Therefore, OpenPGP
 /// implementations supporting streaming operations necessarily must
@@ -1196,6 +1229,17 @@ enum Mode {
 ///
 ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
 ///   [`Decryptor::message_processed`]: #method.message_processed
+///
+/// For a signature to be considered valid: The signature must have a
+/// `Signature Creation Time` subpacket.  The signature must be alive
+/// at the signature verification time (the time passed to
+/// [`DecryptorBuilder::with_policy`).  The key used to verify the
+/// signature must be alive at the signature creation time, not have
+/// been soft revoked at the signature creation time, not have ever
+/// been hard revoked, and be signing capable at the signature
+/// creation time.
+///
+///   [`DecryptorBuilder::with_policy`]: struct.DecryptorBuilder.html#method.with_policy
 ///
 /// # Examples
 ///
