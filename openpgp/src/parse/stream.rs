@@ -683,9 +683,11 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 /// default, see [`DEFAULT_BUFFER_SIZE`]), and verify the signatures
 /// if the message fits into our buffer.  Nevertheless it is important
 /// to treat the data as unverified and untrustworthy until you have
-/// seen a positive verification.
+/// seen a positive verification.  See [`Verifier::message_processed`]
+/// for more information.
 ///
 ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
+///   [`Verifier::message_processed`]: #method.message_processed
 ///
 /// For a signature to be considered valid: The signature must have a
 /// `Signature Creation Time` subpacket.  The signature must be alive
@@ -892,12 +894,98 @@ impl<'a, H: VerificationHelper> Verifier<'a, H> {
         self.decryptor.into_helper().v
     }
 
-    /// Returns true if the whole message has been processed and the
-    /// verification result is ready.
+    /// Returns true if the whole message has been processed and
+    /// authenticated.
     ///
-    /// If the function returns false the message did not fit into the
-    /// internal buffer and **unverified** data must be `read()` from
-    /// the instance until EOF.
+    /// If the function returns `true`, the whole message has been
+    /// processed, the signatures are verified, and the message
+    /// structure has been passed to [`VerificationHelper::check`].
+    /// Data read from this `Verifier` using [`io::Read`] has been
+    /// authenticated.
+    ///
+    ///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
+    ///   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+    ///
+    /// If the function returns `false`, the message did not fit into
+    /// the internal buffer, and therefore data read from this
+    /// `Verifier` using [`io::Read`] has **not yet been
+    /// authenticated**.  It is important to treat this data as
+    /// attacker controlled and not use it until it has been
+    /// authenticated.
+    ///
+    /// # Examples
+    ///
+    /// This example demonstrates how to verify a message in a
+    /// streaming fashion, writing the data to a temporary file and
+    /// only commit the result once the data is authenticated.
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use std::io::{Read, Seek, SeekFrom};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # // Mock of `tempfile::tempfile`.
+    /// # mod tempfile {
+    /// #     pub fn tempfile() -> sequoia_openpgp::Result<std::fs::File> {
+    /// #         unimplemented!()
+    /// #     }
+    /// # }
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// // This fetches keys and computes the validity of the verification.
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #   fn check(&mut self, _: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    ///
+    /// let mut source =
+    ///    // ...
+    /// #  std::io::Cursor::new(&b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..]);
+    ///
+    /// fn consume(r: &mut dyn Read) -> Result<()> {
+    ///    // ...
+    /// #   let _ = r; Ok(())
+    /// }
+    ///
+    /// let h = Helper {};
+    /// let mut v = VerifierBuilder::from_reader(&mut source)?
+    ///     .with_policy(p, None, h)?;
+    ///
+    /// if v.message_processed() {
+    ///     // The data has been authenticated.
+    ///     consume(&mut v)?;
+    /// } else {
+    ///     let mut tmp = tempfile::tempfile()?;
+    ///     std::io::copy(&mut v, &mut tmp)?;
+    ///
+    ///     // If the copy succeeds, the message has been fully
+    ///     // processed and the data has been authenticated.
+    ///     assert!(v.message_processed());
+    ///
+    ///     // Rewind and consume.
+    ///     tmp.seek(SeekFrom::Start(0))?;
+    ///     consume(&mut tmp)?;
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn message_processed(&self) -> bool {
         self.decryptor.message_processed()
     }
@@ -1103,9 +1191,11 @@ enum Mode {
 /// [`DEFAULT_BUFFER_SIZE`]), and verify the signatures if the message
 /// fits into our buffer.  Nevertheless it is important to treat the
 /// data as unverified and untrustworthy until you have seen a
-/// positive verification.
+/// positive verification.  See [`Decryptor::message_processed`] for
+/// more information.
 ///
 ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
+///   [`Decryptor::message_processed`]: #method.message_processed
 ///
 /// # Examples
 ///
@@ -1473,9 +1563,98 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         self.helper
     }
 
-    /// Returns true if the whole message has been processed and the verification result is ready.
-    /// If the function returns false the message did not fit into the internal buffer and
-    /// **unverified** data must be `read()` from the instance until EOF.
+    /// Returns true if the whole message has been processed and
+    /// authenticated.
+    ///
+    /// If the function returns `true`, the whole message has been
+    /// processed, the signatures are verified, and the message
+    /// structure has been passed to [`VerificationHelper::check`].
+    /// Data read from this `Verifier` using [`io::Read`] has been
+    /// authenticated.
+    ///
+    ///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
+    ///   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
+    ///
+    /// If the function returns `false`, the message did not fit into
+    /// the internal buffer, and therefore data read from this
+    /// `Verifier` using [`io::Read`] has **not yet been
+    /// authenticated**.  It is important to treat this data as
+    /// attacker controlled and not use it until it has been
+    /// authenticated.
+    ///
+    /// # Examples
+    ///
+    /// This example demonstrates how to verify a message in a
+    /// streaming fashion, writing the data to a temporary file and
+    /// only commit the result once the data is authenticated.
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use std::io::{Read, Seek, SeekFrom};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # // Mock of `tempfile::tempfile`.
+    /// # mod tempfile {
+    /// #     pub fn tempfile() -> sequoia_openpgp::Result<std::fs::File> {
+    /// #         unimplemented!()
+    /// #     }
+    /// # }
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// // This fetches keys and computes the validity of the verification.
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #   fn check(&mut self, _: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    ///
+    /// let mut source =
+    ///    // ...
+    /// #  std::io::Cursor::new(&b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..]);
+    ///
+    /// fn consume(r: &mut dyn Read) -> Result<()> {
+    ///    // ...
+    /// #   let _ = r; Ok(())
+    /// }
+    ///
+    /// let h = Helper {};
+    /// let mut v = VerifierBuilder::from_reader(&mut source)?
+    ///     .with_policy(p, None, h)?;
+    ///
+    /// if v.message_processed() {
+    ///     // The data has been authenticated.
+    ///     consume(&mut v)?;
+    /// } else {
+    ///     let mut tmp = tempfile::tempfile()?;
+    ///     std::io::copy(&mut v, &mut tmp)?;
+    ///
+    ///     // If the copy succeeds, the message has been fully
+    ///     // processed and the data has been authenticated.
+    ///     assert!(v.message_processed());
+    ///
+    ///     // Rewind and consume.
+    ///     tmp.seek(SeekFrom::Start(0))?;
+    ///     consume(&mut tmp)?;
+    /// }
+    /// # Ok(()) }
+    /// ```
     pub fn message_processed(&self) -> bool {
         // oppr is only None after we've processed the packet sequence.
         self.oppr.is_none()
