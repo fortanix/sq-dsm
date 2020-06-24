@@ -842,6 +842,49 @@ impl<'a> VerifierBuilder<'a> {
     /// (see [`DEFAULT_BUFFER_SIZE`]).  This changes the default.
     ///
     ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #
+    /// #   fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    ///
+    /// let message =
+    ///     // ...
+    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..];
+    ///
+    /// let h = Helper {};
+    /// let mut v = VerifierBuilder::from_bytes(message)?
+    ///     .buffer_size(1 << 12)
+    ///     .with_policy(p, None, h)?;
+    /// # let _ = v;
+    /// # Ok(()) }
+    /// ```
     pub fn buffer_size(mut self, size: usize) -> Self {
         self.buffer_size = size;
         self
@@ -857,6 +900,49 @@ impl<'a> VerifierBuilder<'a> {
     ///
     ///   [`Map`]: ../map/struct.Map.html
     ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #
+    /// #   fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    ///
+    /// let message =
+    ///     // ...
+    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..];
+    ///
+    /// let h = Helper {};
+    /// let mut v = VerifierBuilder::from_bytes(message)?
+    ///     .mapping(true)
+    ///     .with_policy(p, None, h)?;
+    /// # let _ = v;
+    /// # Ok(()) }
+    /// ```
     pub fn mapping(mut self, enabled: bool) -> Self {
         self.mapping = enabled;
         self
@@ -869,6 +955,49 @@ impl<'a> VerifierBuilder<'a> {
     /// `None`.  `helper` is the [`VerificationHelper`] to use.
     ///
     ///   [`VerificationHelper`]: trait.VerificationHelper.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #
+    /// #   fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    ///
+    /// let message =
+    ///     // ...
+    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..];
+    ///
+    /// let h = Helper {};
+    /// let mut v = VerifierBuilder::from_bytes(message)?
+    ///     // Customize the `Verifier` here.
+    ///     .with_policy(p, None, h)?;
+    /// # let _ = v;
+    /// # Ok(()) }
+    /// ```
     pub fn with_policy<T, H>(self, policy: &'a dyn Policy, time: T, helper: H)
                              -> Result<Verifier<'a, H>>
         where H: VerificationHelper,
@@ -1125,6 +1254,49 @@ impl<'a> DetachedVerifierBuilder<'a> {
     ///
     ///   [`Map`]: ../map/struct.Map.html
     ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #
+    /// #   fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    ///
+    /// let message =
+    ///     // ...
+    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..];
+    ///
+    /// let h = Helper {};
+    /// let mut v = DetachedVerifierBuilder::from_bytes(message)?
+    ///     .mapping(true)
+    ///     .with_policy(p, None, h)?;
+    /// # let _ = v;
+    /// # Ok(()) }
+    /// ```
     pub fn mapping(mut self, enabled: bool) -> Self {
         self.mapping = enabled;
         self
@@ -1137,6 +1309,49 @@ impl<'a> DetachedVerifierBuilder<'a> {
     /// `None`.  `helper` is the [`VerificationHelper`] to use.
     ///
     ///   [`VerificationHelper`]: trait.VerificationHelper.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::{KeyHandle, Cert, Result};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #
+    /// #   fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    ///
+    /// let message =
+    ///     // ...
+    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..];
+    ///
+    /// let h = Helper {};
+    /// let mut v = DetachedVerifierBuilder::from_bytes(message)?
+    ///     // Customize the `DetachedVerifier` here.
+    ///     .with_policy(p, None, h)?;
+    /// # let _ = v;
+    /// # Ok(()) }
+    /// ```
     pub fn with_policy<T, H>(self, policy: &'a dyn Policy, time: T, helper: H)
                              -> Result<DetachedVerifier<'a, H>>
         where H: VerificationHelper,
@@ -1392,6 +1607,59 @@ impl<'a> DecryptorBuilder<'a> {
     /// (see [`DEFAULT_BUFFER_SIZE`]).  This changes the default.
     ///
     ///   [`DEFAULT_BUFFER_SIZE`]: constant.DEFAULT_BUFFER_SIZE.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::{*, crypto::*, packet::prelude::*, types::*};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #
+    /// #   fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    /// impl DecryptionHelper for Helper {
+    ///     // ...
+    /// #   fn decrypt<D>(&mut self, _: &[PKESK], skesks: &[SKESK],
+    /// #                 _sym_algo: Option<SymmetricAlgorithm>,
+    /// #                 mut decrypt: D) -> Result<Option<Fingerprint>>
+    /// #       where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+    /// #   {
+    /// #       Ok(None)
+    /// #   }
+    /// }
+    ///
+    /// let message =
+    ///     // ...
+    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..];
+    ///
+    /// let h = Helper {};
+    /// let mut v = DecryptorBuilder::from_bytes(message)?
+    ///     .buffer_size(1 << 12)
+    ///     .with_policy(p, None, h)?;
+    /// # let _ = v;
+    /// # Ok(()) }
+    /// ```
     pub fn buffer_size(mut self, size: usize) -> Self {
         self.buffer_size = size;
         self
@@ -1407,6 +1675,59 @@ impl<'a> DecryptorBuilder<'a> {
     ///
     ///   [`Map`]: ../map/struct.Map.html
     ///   [`VerificationHelper::inspect`]: trait.VerificationHelper.html#tymethod.inspect
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::{*, crypto::*, packet::prelude::*, types::*};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #
+    /// #   fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    /// impl DecryptionHelper for Helper {
+    ///     // ...
+    /// #   fn decrypt<D>(&mut self, _: &[PKESK], skesks: &[SKESK],
+    /// #                 _sym_algo: Option<SymmetricAlgorithm>,
+    /// #                 mut decrypt: D) -> Result<Option<Fingerprint>>
+    /// #       where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+    /// #   {
+    /// #       Ok(None)
+    /// #   }
+    /// }
+    ///
+    /// let message =
+    ///     // ...
+    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..];
+    ///
+    /// let h = Helper {};
+    /// let mut v = DecryptorBuilder::from_bytes(message)?
+    ///     .mapping(true)
+    ///     .with_policy(p, None, h)?;
+    /// # let _ = v;
+    /// # Ok(()) }
+    /// ```
     pub fn mapping(mut self, enabled: bool) -> Self {
         self.mapping = enabled;
         self
@@ -1421,6 +1742,59 @@ impl<'a> DecryptorBuilder<'a> {
     ///
     ///   [`VerificationHelper`]: trait.VerificationHelper.html
     ///   [`DecryptionHelper`]: trait.DecryptionHelper.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::{*, crypto::*, packet::prelude::*, types::*};
+    /// use openpgp::parse::{Parse, stream::*};
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// struct Helper {};
+    /// impl VerificationHelper for Helper {
+    ///     // ...
+    /// #   fn get_certs(&mut self, ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+    /// #       Ok(Vec::new())
+    /// #   }
+    /// #
+    /// #   fn check(&mut self, structure: MessageStructure) -> Result<()> {
+    /// #       Ok(())
+    /// #   }
+    /// }
+    /// impl DecryptionHelper for Helper {
+    ///     // ...
+    /// #   fn decrypt<D>(&mut self, _: &[PKESK], skesks: &[SKESK],
+    /// #                 _sym_algo: Option<SymmetricAlgorithm>,
+    /// #                 mut decrypt: D) -> Result<Option<Fingerprint>>
+    /// #       where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+    /// #   {
+    /// #       Ok(None)
+    /// #   }
+    /// }
+    ///
+    /// let message =
+    ///     // ...
+    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #
+    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
+    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
+    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
+    /// #    YmAFv/UfO0vYBw==
+    /// #    =+l94
+    /// #    -----END PGP MESSAGE-----
+    /// #    "[..];
+    ///
+    /// let h = Helper {};
+    /// let mut v = DecryptorBuilder::from_bytes(message)?
+    ///     // Customize the `Decryptor` here.
+    ///     .with_policy(p, None, h)?;
+    /// # let _ = v;
+    /// # Ok(()) }
+    /// ```
     pub fn with_policy<T, H>(self, policy: &'a dyn Policy, time: T, helper: H)
                              -> Result<Decryptor<'a, H>>
         where H: VerificationHelper + DecryptionHelper,
