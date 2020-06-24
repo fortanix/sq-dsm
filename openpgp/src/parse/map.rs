@@ -7,7 +7,7 @@
 //! # Examples
 //!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! use sequoia_openpgp as openpgp;
 //! use openpgp::parse::{Parse, PacketParserBuilder};
 //!
@@ -76,7 +76,7 @@ impl Map {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::parse::{Parse, PacketParserBuilder};
     ///
@@ -154,7 +154,7 @@ impl<'a> Field<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::parse::{Parse, PacketParserBuilder};
     ///
@@ -179,7 +179,7 @@ impl<'a> Field<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::parse::{Parse, PacketParserBuilder};
     ///
@@ -204,7 +204,7 @@ impl<'a> Field<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::parse::{Parse, PacketParserBuilder};
     ///
