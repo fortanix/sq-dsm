@@ -301,20 +301,42 @@ pub enum VerificationError<'a> {
     },
 }
 
+impl<'a> std::fmt::Display for VerificationError<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use self::VerificationError::*;
+        match self {
+            MalformedSignature { error, .. } =>
+                write!(f, "Malformed signature: {}", error),
+            MissingKey { sig } =>
+                if let Some(issuer) = sig.get_issuers().get(0) {
+                    write!(f, "Missing key: {}", issuer)
+                } else {
+                    write!(f, "Missing key")
+                },
+            UnboundKey { cert, error, .. } =>
+                write!(f, "Subkey of {} not bound: {}", cert, error),
+            BadKey { ka, error, .. } =>
+                write!(f, "Subkey of {} is bad: {}", ka.cert(), error),
+            BadSignature { error, .. } =>
+                write!(f, "Bad signature: {}", error),
+        }
+    }
+}
+
 impl<'a> From<VerificationError<'a>> for Error {
     fn from(e: VerificationError<'a>) -> Self {
         use self::VerificationError::*;
         match e {
-            MalformedSignature { error, .. } =>
-                Error::MalformedPacket(error.to_string()),
+            MalformedSignature { .. } =>
+                Error::MalformedPacket(e.to_string()),
             MissingKey { .. } =>
-                Error::InvalidKey("Could not locate signing key".into()),
-            UnboundKey { error, .. } =>
-                Error::InvalidKey(error.to_string()),
-            BadKey { error, .. } =>
-                Error::InvalidKey(error.to_string()),
-            BadSignature { error, .. } =>
-                Error::BadSignature(error.to_string()),
+                Error::InvalidKey(e.to_string()),
+            UnboundKey { .. } =>
+                Error::InvalidKey(e.to_string()),
+            BadKey { .. } =>
+                Error::InvalidKey(e.to_string()),
+            BadSignature { .. } =>
+                Error::BadSignature(e.to_string()),
         }
     }
 }
