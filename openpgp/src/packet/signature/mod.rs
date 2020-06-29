@@ -515,20 +515,9 @@ pub struct Signature4 {
 
 impl fmt::Debug for Signature4 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Get the issuer.  Prefer the issuer fingerprint to the
-        // issuer keyid, which may be stored in the unhashed area.
-        let issuer = if let Some(tmp) = self.issuer_fingerprint() {
-            tmp.to_string()
-        } else if let Some(tmp) = self.issuer() {
-            tmp.to_string()
-        } else {
-            "Unknown".to_string()
-        };
-
         f.debug_struct("Signature4")
             .field("version", &self.version())
             .field("typ", &self.typ())
-            .field("issuer", &issuer)
             .field("pk_algo", &self.pk_algo())
             .field("hash_algo", &self.hash_algo())
             .field("hashed_area", self.hashed_area())
