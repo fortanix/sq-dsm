@@ -2035,17 +2035,15 @@ impl signature::SignatureBuilder {
     ///
     /// This function returns an error if there is no `Signature
     /// Creation Time` subpacket in the hashed area.
-    pub fn preserve_signature_creation_time(mut self)
+    pub fn preserve_signature_creation_time(self)
         -> Result<Self>
     {
-        self.overrode_creation_time = true;
-
-        if self.hashed_area.lookup(SubpacketTag::SignatureCreationTime).is_none() {
+        if let Some(t) = self.original_creation_time {
+            self.set_signature_creation_time(t)
+        } else {
             Err(Error::InvalidOperation(
                 "Signature does not contain a Signature Creation Time subpacket".into())
                 .into())
-        } else {
-            Ok(self)
         }
     }
 

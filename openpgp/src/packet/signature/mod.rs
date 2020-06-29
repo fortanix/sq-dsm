@@ -2,6 +2,7 @@
 
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use std::time::SystemTime;
 
 #[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
@@ -28,6 +29,7 @@ use crate::packet;
 use crate::packet::signature::subpacket::{
     SubpacketArea,
     SubpacketAreas,
+    SubpacketTag,
 };
 
 #[cfg(any(test, feature = "quickcheck"))]
@@ -154,25 +156,39 @@ impl SignatureFields {
 ///   [`sign_standalone`]: #method.sign_standalone
 ///   [`sign_timestamp`]: #method.sign_timestamp
 ///
-/// By default, these functions add references to the signing key by adding
-/// Issuer and Issuer Fingerprint subpackets in the unhashed subpacket area.
-/// To override, use [`set_issuer`] and [`set_issuer_fingerprint`].
-/// Caution: this likely makes the signature unverifiable.
+/// When finalizing the `SignatureBuilder`, an [`Issuer`] subpacket
+/// and an [`IssuerFingerprint`] subpacket referencing the signing key
+/// are added to the unhashed subpacket area if neither an [`Issuer`]
+/// subpacket nor an [`IssuerFingerprint`] subpacket is present in
+/// either of the subpacket areas.  Note: when converting a
+/// `Signature` to a `SignatureBuilder`, any [`Issuer`] subpackets or
+/// [`IssuerFingerprint`] subpackets are removed.  Caution: using the
+/// wrong issuer, or not including an issuer at all will make the
+/// signature unverifiable by most OpenPGP implementations.
 ///
+///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+///   [`IssuerFingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
 ///   [`set_issuer`]: #method.set_issuer
 ///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
 ///
-/// Signatures must always include a creation time.  We automatically
-/// insert a creation time subpacket with the current time into the
-/// hashed subpacket area.  To override the creation time, use
-/// [`set_signature_creation_time`].
+/// According to [Section 5.2.3.4 of RFC 4880], `Signatures` must
+/// include a `Signature Creation Time` subpacket.  When finalizing a
+/// `SignatureBuilder`, we automatically insert a creation time
+/// subpacket with the current time into the hashed subpacket area.
+/// To override this behavior, use [`set_signature_creation_time`].
+/// Note: when converting an existing `Signature` into a
+/// `SignatureBuilder`, any existing `Signature Creation Time`
+/// subpackets are removed.
 ///
+///   [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
+///
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct SignatureBuilder {
     overrode_creation_time: bool,
+    original_creation_time: Option<SystemTime>,
     fields: SignatureFields,
 }
 
@@ -195,6 +211,7 @@ impl SignatureBuilder {
     pub fn new(typ: SignatureType) ->  Self {
         SignatureBuilder {
             overrode_creation_time: false,
+            original_creation_time: None,
             fields: SignatureFields {
                 version: 4,
                 typ,
@@ -442,9 +459,22 @@ impl From<Signature> for SignatureBuilder {
 
 impl From<Signature4> for SignatureBuilder {
     fn from(sig: Signature4) -> Self {
+        let mut fields = sig.fields;
+
+        let creation_time = fields.signature_creation_time();
+
+        fields.hashed_area_mut().remove_all(SubpacketTag::SignatureCreationTime);
+        fields.hashed_area_mut().remove_all(SubpacketTag::Issuer);
+        fields.hashed_area_mut().remove_all(SubpacketTag::IssuerFingerprint);
+
+        fields.unhashed_area_mut().remove_all(SubpacketTag::SignatureCreationTime);
+        fields.unhashed_area_mut().remove_all(SubpacketTag::Issuer);
+        fields.unhashed_area_mut().remove_all(SubpacketTag::IssuerFingerprint);
+
         SignatureBuilder {
             overrode_creation_time: false,
-            fields: sig.fields,
+            original_creation_time: creation_time,
+            fields: fields,
         }
     }
 }
