@@ -23,7 +23,7 @@ use std::io::{self, Write};
 const DUMP_HASHED_VALUES: Option<&str> = None;
 
 /// Hasher capable of calculating a digest for the input byte stream.
-pub trait Digest: DynClone {
+pub(crate) trait Digest: DynClone {
     /// Size of the digest in bytes
     fn digest_size(&self) -> usize;
 
