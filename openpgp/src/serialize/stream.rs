@@ -35,10 +35,16 @@
 //!   [`LiteralWriter`]: struct.LiteralWriter.html
 //!   [`ArbitraryWriter`]: struct.ArbitraryWriter.html
 //!
-//! The most common structure is an encrypted, compressed, and signed
-//! message.  This structure is [supported] by all OpenPGP
-//! implementations.  See the example below on how to create this
-//! structure.
+//! The most common structure is an optionally encrypted, optionally
+//! compressed, and optionally signed message.  This structure is
+//! [supported] by all OpenPGP implementations, and applications
+//! should only create messages of that structure to increase
+//! compatibility.  See the example below on how to create this
+//! structure.  This is a sketch of such a message:
+//!
+//! ```text
+//! [ encryption layer: [ compression layer: [ signature group: [ literal data ]]]]
+//! ```
 //!
 //!   [supported]: https://tests.sequoia-pgp.org/#Unusual_Message_Structure
 //!
