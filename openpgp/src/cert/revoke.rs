@@ -231,16 +231,7 @@ impl CertRevocationBuilder {
 
         cert.primary_key().hash(&mut hash);
 
-        let creation_time
-            = self.signature_creation_time()
-            .unwrap_or_else(time::SystemTime::now);
-
-        self.builder
-            // If not set, set it to now.
-            .set_signature_creation_time(creation_time)?
-            .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().keyid())?
-            .sign_hash(signer, hash)
+        self.builder.sign_hash(signer, hash)
     }
 }
 

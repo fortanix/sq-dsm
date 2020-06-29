@@ -4069,8 +4069,6 @@ mod test {
                 .set_key_flags(&KeyFlags::default()).unwrap()
                 .set_signature_creation_time(t1).unwrap()
                 .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
-                .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                 .sign_direct_key(&mut pair).unwrap();
 
@@ -4078,8 +4076,6 @@ mod test {
                 .set_signature_creation_time(t2).unwrap()
                 .set_reason_for_revocation(ReasonForRevocation::KeySuperseded,
                                            &b""[..]).unwrap()
-                .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                .set_issuer(key.keyid()).unwrap()
                 .sign_direct_key(&mut pair).unwrap();
 
             let bind2 = signature::SignatureBuilder::new(SignatureType::DirectKey)
@@ -4087,8 +4083,6 @@ mod test {
                 .set_key_flags(&KeyFlags::default()).unwrap()
                 .set_signature_creation_time(t3).unwrap()
                 .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
-                .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                .set_issuer(key.keyid()).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                 .sign_direct_key(&mut pair).unwrap();
 
@@ -4096,8 +4090,6 @@ mod test {
                 .set_signature_creation_time(t4).unwrap()
                 .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
                                            &b""[..]).unwrap()
-                .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                .set_issuer(key.keyid()).unwrap()
                 .sign_direct_key(&mut pair).unwrap();
 
             (bind1, rev1, bind2, rev2)
@@ -4758,8 +4750,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                     .set_key_validity_period(Some(
                         time::Duration::new((1 + i as u64) * 24 * 60 * 60, 0)))
                     .unwrap()
-                    .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                    .set_issuer(key.keyid()).unwrap()
                     .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                     .set_signature_creation_time(*t).unwrap()
                     .sign_direct_key(&mut pair).unwrap();
@@ -4937,8 +4927,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             packet::Tag::PublicSubkey, anyhow::anyhow!("fake key"));
         fake_key.set_body("fake key".into());
         let fake_binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-            .set_issuer(primary_pair.public().keyid())?
-            .set_issuer_fingerprint(primary_pair.public().fingerprint())?
             .sign_standalone(&mut primary_pair)?;
         let cert = cert.merge_packets(vec![Packet::from(fake_key),
                                            fake_binding.clone().into()])?;

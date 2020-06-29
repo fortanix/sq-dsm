@@ -1511,8 +1511,6 @@ mod test {
             = Key4::generate_rsa(4096)?.into();
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::default().set_transport_encryption(true))?
-            .set_issuer_fingerprint(cert.fingerprint())?
-            .set_issuer(cert.keyid())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  &pk, &subkey)?;
 
@@ -1536,8 +1534,6 @@ mod test {
             = key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::default().set_transport_encryption(true))?
-            .set_issuer_fingerprint(cert.fingerprint())?
-            .set_issuer(cert.keyid())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  &pk, &subkey)?;
 
@@ -1664,10 +1660,6 @@ mod test {
 
             // Create a signature.
             let sig = signature::SignatureBuilder::new(SignatureType::Binary)
-                .set_signature_creation_time(
-                    std::time::SystemTime::now()).unwrap()
-                .set_issuer_fingerprint(key.fingerprint()).unwrap()
-                .set_issuer(key.keyid()).unwrap()
                 .sign_message(&mut keypair, msg).unwrap();
 
             // Make sure the signature is ok.

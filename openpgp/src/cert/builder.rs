@@ -1013,10 +1013,6 @@ impl CertBuilder {
                     .set_signature_creation_time(creation_time)?
                     // GnuPG wants at least a 512-bit hash for P521 keys.
                     .set_hash_algo(HashAlgorithm::SHA512)
-                    .set_signature_creation_time(
-                        time::SystemTime::now())?
-                    .set_issuer_fingerprint(subkey.fingerprint())?
-                    .set_issuer(subkey.keyid())?
                     .sign_primary_key_binding(&mut subkey_signer, &primary,
                                               &subkey)?;
                 builder = builder.set_embedded_signature(backsig)?;
@@ -1058,8 +1054,6 @@ impl CertBuilder {
             .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(creation_time)?
             .set_key_expiration_time(&key, self.primary.expiration)?
-            .set_issuer_fingerprint(key.fingerprint())?
-            .set_issuer(key.keyid())?
             .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
 
         if let Some(ref revocation_keys) = self.revocation_keys {

@@ -64,11 +64,8 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
                 signature: signature::SignatureBuilder)
         -> Result<Signature>
     {
-        signature
-            .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().keyid())?
-            .sign_subkey_binding(
-                signer, cert.primary_key().key(), self)
+        signature.sign_subkey_binding(
+            signer, cert.primary_key().key(), self)
     }
 }
 
@@ -117,11 +114,8 @@ impl UserID {
                 signature: signature::SignatureBuilder)
                 -> Result<Signature>
     {
-        signature
-            .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().keyid())?
-            .sign_userid_binding(
-                signer, cert.primary_key().key(), self)
+        signature.sign_userid_binding(
+            signer, cert.primary_key().key(), self)
     }
 
     /// Returns a certificate for the user id.
@@ -256,11 +250,8 @@ impl UserAttribute {
                 signature: signature::SignatureBuilder)
         -> Result<Signature>
     {
-        signature
-            .set_issuer_fingerprint(signer.public().fingerprint())?
-            .set_issuer(signer.public().keyid())?
-            .sign_user_attribute_binding(
-                signer, cert.primary_key().key(), self)
+        signature.sign_user_attribute_binding(
+            signer, cert.primary_key().key(), self)
     }
 
     /// Returns a certificate for the user attribute.

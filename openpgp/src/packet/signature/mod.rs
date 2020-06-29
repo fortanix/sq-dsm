@@ -1524,10 +1524,6 @@ mod test {
         let msg = b"Hello, World";
         let mut pair = key.into_keypair().unwrap();
         let sig = SignatureBuilder::new(SignatureType::Binary)
-            .set_signature_creation_time(
-                std::time::SystemTime::now()).unwrap()
-            .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
-            .set_issuer(pair.public().keyid()).unwrap()
             .sign_message(&mut pair, msg).unwrap();
 
         sig.verify_message(pair.public(), msg).unwrap();
@@ -1653,10 +1649,6 @@ mod test {
         let mut pair = key.into_keypair().unwrap();
 
         let sig = SignatureBuilder::new(SignatureType::Standalone)
-            .set_signature_creation_time(
-                std::time::SystemTime::now()).unwrap()
-            .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
-            .set_issuer(pair.public().keyid()).unwrap()
             .sign_standalone(&mut pair)
             .unwrap();
 
@@ -1685,10 +1677,6 @@ mod test {
         let mut pair = key.into_keypair().unwrap();
 
         let sig = SignatureBuilder::new(SignatureType::Timestamp)
-            .set_signature_creation_time(
-                std::time::SystemTime::now()).unwrap()
-            .set_issuer_fingerprint(pair.public().fingerprint()).unwrap()
-            .set_issuer(pair.public().keyid()).unwrap()
             .sign_timestamp(&mut pair)
             .unwrap();
 
