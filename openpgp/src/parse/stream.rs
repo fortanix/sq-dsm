@@ -544,7 +544,7 @@ impl IMessageStructure {
         {
             sigs.push(sig);
         } else {
-            unreachable!()
+            unreachable!("just checked or created")
         }
     }
 
