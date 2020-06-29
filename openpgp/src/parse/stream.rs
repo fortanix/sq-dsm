@@ -2638,6 +2638,7 @@ mod test {
     use std::convert::TryFrom;
     use crate::parse::Parse;
     use crate::policy::StandardPolicy as P;
+    use crate::serialize::Serialize;
 
     #[derive(PartialEq)]
     struct VHelper {
@@ -2646,6 +2647,7 @@ mod test {
         bad: usize,
         error: usize,
         keys: Vec<Cert>,
+        error_out: bool,
     }
 
     impl std::fmt::Debug for VHelper {
@@ -2655,6 +2657,7 @@ mod test {
                 .field("unknown", &self.unknown)
                 .field("bad", &self.bad)
                 .field("error", &self.error)
+                .field("error_out", &self.error_out)
                 .finish()
         }
     }
@@ -2667,6 +2670,7 @@ mod test {
                 bad: 0,
                 error: 0,
                 keys: Vec::default(),
+                error_out: true,
             }
         }
     }
@@ -2679,6 +2683,7 @@ mod test {
                 bad,
                 error,
                 keys,
+                error_out: true,
             }
         }
     }
@@ -2711,10 +2716,10 @@ mod test {
                 }
             }
 
-            if self.good > 0 && self.bad == 0 {
+            if ! self.error_out || (self.good > 0 && self.bad == 0) {
                 Ok(())
             } else {
-                Err(anyhow::anyhow!("Verification failed"))
+                Err(anyhow::anyhow!("Verification failed: {:?}", self))
             }
         }
     }
@@ -2806,6 +2811,77 @@ mod test {
             assert_eq!(reference.len(), content.len());
             assert_eq!(reference, &content[..]);
         }
+        Ok(())
+    }
+
+    /// Tests legacy two-pass signature scheme, corner cases.
+    ///
+    /// XXX: This test needs to be adapted once
+    /// https://gitlab.com/sequoia-pgp/sequoia/-/issues/128 is
+    /// implemented.
+    #[test]
+    fn verifier_legacy() -> Result<()> {
+        let packets = crate::PacketPile::from_bytes(
+            crate::tests::message("signed-1.gpg")
+        )?
+            .into_children()
+            .collect::<Vec<_>>();
+
+        fn check(msg: &str, buf: &[u8], expect_good: usize) -> Result<()> {
+            eprintln!("{}...", msg);
+            let p = P::new();
+
+            let keys = [
+                "neal.pgp",
+            ]
+                .iter()
+                .map(|f| Cert::from_bytes(crate::tests::key(f)).unwrap())
+                .collect::<Vec<_>>();
+
+            let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
+            h.error_out = false;
+            let mut v = VerifierBuilder::from_bytes(buf)?
+                .with_policy(&p, crate::frozen_time(), h)?;
+            assert!(v.message_processed());
+            assert_eq!(v.helper_ref().good, expect_good);
+
+            let mut content = Vec::new();
+            v.read_to_end(&mut content).unwrap();
+            let reference = crate::tests::manifesto();
+            assert_eq!(reference.len(), content.len());
+            assert_eq!(reference, &content[..]);
+            Ok(())
+        }
+
+        // Bare legacy signed message: SIG Literal
+        let mut o = Vec::new();
+        packets[2].serialize(&mut o)?;
+        packets[1].serialize(&mut o)?;
+        check("bare", &o, 0 /* XXX: should be 1 once #128 is implemented.  */)?;
+
+        // Legacy signed message, two signatures: SIG SIG Literal
+        let mut o = Vec::new();
+        packets[2].serialize(&mut o)?;
+        packets[2].serialize(&mut o)?;
+        packets[1].serialize(&mut o)?;
+        check("double", &o, 0 /* XXX: should be 2 once #128 is implemented.  */)?;
+
+        // Weird legacy signed message: OPS SIG Literal SIG
+        let mut o = Vec::new();
+        packets[0].serialize(&mut o)?;
+        packets[2].serialize(&mut o)?;
+        packets[1].serialize(&mut o)?;
+        packets[2].serialize(&mut o)?;
+        check("weird", &o, 0 /* XXX: should be 2 once #128 is implemented.  */)?;
+
+        // Fubar legacy signed message: SIG OPS Literal SIG
+        let mut o = Vec::new();
+        packets[2].serialize(&mut o)?;
+        packets[0].serialize(&mut o)?;
+        packets[1].serialize(&mut o)?;
+        packets[2].serialize(&mut o)?;
+        check("fubar", &o, 1 /* XXX: should be 2 once #128 is implemented.  */)?;
+
         Ok(())
     }
 
