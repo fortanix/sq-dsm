@@ -314,7 +314,7 @@ macro_rules! impl_parse_generic_packet {
 /// Typically, we expect a message to looking like:
 ///
 /// ```text
-/// [ encryption container: [ compressioned data: [ signature: [ literal data ]]]]
+/// [ encryption container: [ compression container: [ signature: [ literal data ]]]]
 /// ```
 ///
 /// So, this should be more than enough.
