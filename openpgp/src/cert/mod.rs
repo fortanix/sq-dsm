@@ -1389,17 +1389,19 @@ impl Cert {
                    stringify!($verify_method));
                 for sig in mem::replace(&mut $binding.$sigs, Vec::new())
                     .into_iter()
-                {
-                    if let Ok(()) = sig.$verify_method(self.primary.key(),
-                                                       self.primary.key(),
-                                                       $($verify_args),*) {
-                        $binding.$sigs.push(sig);
-                    } else {
-                        t!("Sig {:02X}{:02X}, type = {} doesn't belong to {}",
-                           sig.digest_prefix()[0], sig.digest_prefix()[1],
-                           sig.typ(), $desc);
+                 {
+                     match sig.$verify_method(self.primary.key(),
+                                              self.primary.key(),
+                                              $($verify_args),*) {
+                         Ok(()) => $binding.$sigs.push(sig),
+                         Err(err) => {
+                             t!("Sig {:02X}{:02X}, type = {} \
+                                 doesn't belong to {}: {:?}",
+                                sig.digest_prefix()[0], sig.digest_prefix()[1],
+                                sig.typ(), $desc, err);
 
-                        self.bad.push(sig);
+                             self.bad.push(sig);
+                         }
                     }
                 }
             });
@@ -1454,9 +1456,10 @@ impl Cert {
                             }
                         } else {
                             t!("Sig {:02X}{:02X}, type = {} \
-                                doesn't belong to {}",
+                                doesn't belong to {} (computed hash's prefix: {:02X}{:02X})",
                                sig.digest_prefix()[0], sig.digest_prefix()[1],
-                               sig.typ(), $desc);
+                               sig.typ(), $desc,
+                               hash[0], hash[1]);
 
                             self.bad.push(sig);
                         }
