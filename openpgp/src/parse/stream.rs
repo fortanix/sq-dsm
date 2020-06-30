@@ -2261,13 +2261,11 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         //
                         // In this case, we get the issuer from the
                         // signature itself.
-                        let sig_issuers = sig.get_issuers();
+                        let mut sig_issuers = sig.get_issuers();
                         if sig_issuers.is_empty() {
                             issuers.push(KeyID::wildcard().into());
                         } else {
-                            for issuer in sig_issuers {
-                                issuers.push(issuer);
-                            }
+                            issuers.append(&mut sig_issuers);
                         }
                     }
                     v.structure.push_bare_signature(sig);
