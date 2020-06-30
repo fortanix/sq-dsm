@@ -4073,13 +4073,13 @@ mod test {
                 .set_signature_creation_time(t1).unwrap()
                 .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
-                .sign_direct_key(&mut pair).unwrap();
+                .sign_direct_key(&mut pair, &key).unwrap();
 
             let rev1 = signature::SignatureBuilder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t2).unwrap()
                 .set_reason_for_revocation(ReasonForRevocation::KeySuperseded,
                                            &b""[..]).unwrap()
-                .sign_direct_key(&mut pair).unwrap();
+                .sign_direct_key(&mut pair, &key).unwrap();
 
             let bind2 = signature::SignatureBuilder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
@@ -4087,13 +4087,13 @@ mod test {
                 .set_signature_creation_time(t3).unwrap()
                 .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
-                .sign_direct_key(&mut pair).unwrap();
+                .sign_direct_key(&mut pair, &key).unwrap();
 
             let rev2 = signature::SignatureBuilder::new(SignatureType::KeyRevocation)
                 .set_signature_creation_time(t4).unwrap()
                 .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
                                            &b""[..]).unwrap()
-                .sign_direct_key(&mut pair).unwrap();
+                .sign_direct_key(&mut pair, &key).unwrap();
 
             (bind1, rev1, bind2, rev2)
         };
@@ -4755,7 +4755,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                     .unwrap()
                     .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
                     .set_signature_creation_time(*t).unwrap()
-                    .sign_direct_key(&mut pair).unwrap();
+                    .sign_direct_key(&mut pair, &key).unwrap();
 
                 let binding : Packet = binding.into();
 

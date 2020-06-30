@@ -284,8 +284,10 @@ impl SignatureBuilder {
     /// algorithm used by `signer`.
     /// If not set before, Issuer and Issuer Fingerprint subpackets are added
     /// pointing to `signer`.
-    pub fn sign_direct_key(mut self, signer: &mut dyn Signer)
+    pub fn sign_direct_key<P>(mut self, signer: &mut dyn Signer,
+                              pk: &Key<P, key::PrimaryRole>)
         -> Result<Signature>
+        where P: key::KeyParts,
     {
         match self.typ {
             SignatureType::DirectKey => (),
@@ -296,8 +298,7 @@ impl SignatureBuilder {
 
         self = self.pre_sign(signer)?;
 
-        let digest = Signature::hash_direct_key(
-            &self, signer.public().role_as_primary())?;
+        let digest = Signature::hash_direct_key(&self, pk)?;
 
         self.sign(signer, digest)
     }
