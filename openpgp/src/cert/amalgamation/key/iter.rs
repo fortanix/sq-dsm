@@ -73,7 +73,7 @@ pub struct KeyAmalgamationIter<'a, P, R>
     unencrypted_secret: Option<bool>,
 
     // Only return keys in this set.
-    key_handles: Vec<KeyHandle>,
+    key_handles: Option<Vec<KeyHandle>>,
 
     _p: std::marker::PhantomData<P>,
     _r: std::marker::PhantomData<R>,
@@ -155,8 +155,8 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 
             t!("Considering key: {:?}", ka.key());
 
-            if self.key_handles.len() > 0 {
-                if !self.key_handles
+            if let Some(key_handles) = self.key_handles.as_ref() {
+                if !key_handles
                     .iter()
                     .any(|h| h.aliases(ka.key().key_handle()))
                 {
@@ -220,7 +220,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             // The filters.
             secret: None,
             unencrypted_secret: None,
-            key_handles: Vec::with_capacity(0),
+            key_handles: None,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -337,7 +337,10 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     pub fn key_handle<H>(mut self, h: H) -> Self
         where H: Into<KeyHandle>
     {
-        self.key_handles.push(h.into());
+        if self.key_handles.is_none() {
+            self.key_handles = Some(Vec::new());
+        }
+        self.key_handles.as_mut().unwrap().push(h.into());
         self
     }
 
@@ -380,7 +383,10 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
         -> Self
         where 'a: 'b
     {
-        self.key_handles.extend(h.map(|h| h.clone()));
+        if self.key_handles.is_none() {
+            self.key_handles = Some(Vec::new());
+        }
+        self.key_handles.as_mut().unwrap().extend(h.cloned());
         self
     }
 
@@ -601,7 +607,7 @@ pub struct ValidKeyAmalgamationIter<'a, P, R>
     unencrypted_secret: Option<bool>,
 
     // Only return keys in this set.
-    key_handles: Vec<KeyHandle>,
+    key_handles: Option<Vec<KeyHandle>>,
 
     // If not None, only returns keys with the specified flags.
     flags: Option<KeyFlags>,
@@ -725,8 +731,8 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             let key = ka.key();
             t!("Considering key: {:?}", key);
 
-            if self.key_handles.len() > 0 {
-                if !self.key_handles
+            if let Some(key_handles) = self.key_handles.as_ref() {
+                if !key_handles
                     .iter()
                     .any(|h| h.aliases(key.key_handle()))
                 {
@@ -1391,7 +1397,10 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     pub fn key_handle<H>(mut self, h: H) -> Self
         where H: Into<KeyHandle>
     {
-        self.key_handles.push(h.into());
+        if self.key_handles.is_none() {
+            self.key_handles = Some(Vec::new());
+        }
+        self.key_handles.as_mut().unwrap().push(h.into());
         self
     }
 
@@ -1438,7 +1447,10 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
         -> Self
         where 'a: 'b
     {
-        self.key_handles.extend(h.map(|h| h.clone()));
+        if self.key_handles.is_none() {
+            self.key_handles = Some(Vec::new());
+        }
+        self.key_handles.as_mut().unwrap().extend(h.cloned());
         self
     }
 
