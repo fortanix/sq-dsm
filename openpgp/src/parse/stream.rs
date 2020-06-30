@@ -344,13 +344,56 @@ impl<'a> From<VerificationError<'a>> for Error {
 /// Communicates the message structure to the VerificationHelper.
 ///
 /// A valid OpenPGP message contains one literal data packet with
-/// optional [encryption, signing, and compression layers] on top.
-/// This structure is passed to [`VerificationHelper::check`] for
-/// verification.  This method must check whether the structure is
-/// compatible with your policy.
+/// optional [encryption, signing, and compression layers] freely
+/// combined on top.  This structure is passed to
+/// [`VerificationHelper::check`] for verification.
 ///
 ///  [encryption, signing, and compression layers]: enum.MessageLayer.html
 ///  [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
+///
+/// The most common structure is an optionally encrypted, optionally
+/// compressed, and optionally signed message, i.e. if the message is
+/// encrypted, then the encryption is the outermost layer; if the
+/// message is signed, then the signature group is the innermost
+/// layer.  This is a sketch of such a message:
+///
+/// ```text
+/// [ encryption layer: [ compression layer: [ signature group: [ literal data ]]]]
+/// ```
+///
+/// However, OpenPGP allows encryption, signing, and compression
+/// operations to be freely combined (see [Section 11.3 of RFC 4880]).
+/// This is represented as a stack of [`MessageLayer`]s, where
+/// signatures of the same level (i.e. those over the same data:
+/// either directly over the literal data, or over other signatures
+/// and the literal data) are grouped into one layer.  See also
+/// [`Signature::level`].
+///
+///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+///   [`MessageLayer`]: enum.MessageLayer.html
+///   [`Signature::level`]: ../../packet/enum.Signature.html#method.level
+///
+/// Consider the following structure.  This is a set of notarizing
+/// signatures *N* over a set of signatures *S* over the literal data:
+///
+/// ```text
+/// [ signature group: [ signature group: [ literal data ]]]
+/// ```
+///
+/// The notarizing signatures *N* are said to be of level 1,
+/// i.e. signatures over the signatures *S* and the literal data.  The
+/// signatures *S* are level 0 signatures, i.e. signatures over the
+/// literal data.
+///
+/// OpenPGP's flexibility allows adaption to new use cases, but also
+/// presents a challenge to implementations and downstream users.  The
+/// message structure must be both validated, and possibly
+/// communicated to the application's user.  Note that if
+/// compatibility is a concern, generated messages must be restricted
+/// to a narrow subset of possible structures, see this [test of
+/// unusual message structures].
+///
+///   [test of unusual message structures]: https://tests.sequoia-pgp.org/#Unusual_Message_Structure
 #[derive(Debug)]
 pub struct MessageStructure<'a>(Vec<MessageLayer<'a>>);
 
@@ -430,14 +473,13 @@ pub enum MessageLayer<'a> {
     /// Represents a signature group.
     ///
     /// A signature group consists of all signatures with the same
-    /// [level].  Each [`VerificationResult`] represents the result of
+    /// level.  Each [`VerificationResult`] represents the result of
     /// a single signature verification.  In your
     /// [`VerificationHelper::check`] method, iterate over the
     /// verification results, see if it meets your policies' demands,
     /// and communicate it to the user, if applicable.
     ///
-    ///  [level]: enum.VerificationResult.html#method.level
-    ///  [`VerificationResult`]: enum.VerificationResult.html
+    ///  [`VerificationResult`]: type.VerificationResult.html
     ///  [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
     SignatureGroup {
         /// The results of the signature verifications.
@@ -646,25 +688,35 @@ pub trait VerificationHelper {
     /// ```
     fn get_certs(&mut self, ids: &[crate::KeyHandle]) -> Result<Vec<Cert>>;
 
-    /// Conveys the message structure.
+    /// Validates the message structure.
     ///
-    /// The message structure contains the results of signature
-    /// verifications.  See [`MessageStructure`] for more information.
+    /// This function must validate the message's structure according
+    /// to an application specific policy.  For example, it could
+    /// check that the required number of signatures or notarizations
+    /// were confirmed as good, and evaluate every signature's
+    /// validity under an trust model.
+    ///
+    /// A valid OpenPGP message contains one literal data packet with
+    /// optional encryption, signing, and compression layers on top.
+    /// Notably, the message structure contains the results of
+    /// signature verifications.  See [`MessageStructure`] for more
+    /// information.
     ///
     /// [`MessageStructure`]: struct.MessageStructure.html
     ///
-    /// This is called after the last signature has been verified.
-    /// This is the place to implement your verification policy.
-    /// Check that the required number of signatures or notarizations
-    /// were confirmed as valid.
+    /// When verifying a message, this callback will be called exactly
+    /// once per message *after* the last signature has been verified
+    /// and *before* all of the data has been returned.  Any error
+    /// returned by this function will abort reading, and the error
+    /// will be propagated via the [`io::Read`] operation.
     ///
-    /// When verifying a message, this callback will be called
-    /// *before* all of the data has been returned.  That is, once
-    /// `io::Read` returns EOF, this callback will not be called.  As
-    /// such, any error returned by this function will abort reading,
-    /// and the error will be propagated via the `io::Read` operation.
+    ///   [`io::Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
     ///
-    /// This method will be called exactly once per message.
+    /// After this method was called, [`Verifier::message_processed`]
+    /// and [`Decryptor::message_processed`] return `true`.
+    ///
+    ///   [`Verifier::message_processed`]: struct.Verifier.html#method.message_processed
+    ///   [`Decryptor::message_processed`]: struct.Decryptor.html#method.message_processed
     ///
     /// # Examples
     ///
