@@ -4929,7 +4929,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let mut fake_key = packet::Unknown::new(
             packet::Tag::PublicSubkey, anyhow::anyhow!("fake key"));
         fake_key.set_body("fake key".into());
-        let fake_binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
+        let fake_binding = signature::SignatureBuilder::new(
+                SignatureType::Unknown(SignatureType::SubkeyBinding.into()))
             .sign_standalone(&mut primary_pair)?;
         let cert = cert.merge_packets(vec![Packet::from(fake_key),
                                            fake_binding.clone().into()])?;

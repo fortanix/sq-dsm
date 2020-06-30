@@ -243,6 +243,12 @@ impl SignatureBuilder {
     pub fn sign_standalone(mut self, signer: &mut dyn Signer)
                            -> Result<Signature>
     {
+        match self.typ {
+            SignatureType::Standalone => (),
+            SignatureType::Unknown(_) => (),
+            _ => return Err(Error::UnsupportedSignatureType(self.typ).into()),
+        }
+
         self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_standalone(&self)?;
@@ -259,6 +265,12 @@ impl SignatureBuilder {
     pub fn sign_timestamp(mut self, signer: &mut dyn Signer)
                           -> Result<Signature>
     {
+        match self.typ {
+            SignatureType::Timestamp => (),
+            SignatureType::Unknown(_) => (),
+            _ => return Err(Error::UnsupportedSignatureType(self.typ).into()),
+        }
+
         self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_timestamp(&self)?;
@@ -275,6 +287,13 @@ impl SignatureBuilder {
     pub fn sign_direct_key(mut self, signer: &mut dyn Signer)
         -> Result<Signature>
     {
+        match self.typ {
+            SignatureType::DirectKey => (),
+            SignatureType::KeyRevocation => (),
+            SignatureType::Unknown(_) => (),
+            _ => return Err(Error::UnsupportedSignatureType(self.typ).into()),
+        }
+
         self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_direct_key(
@@ -295,6 +314,16 @@ impl SignatureBuilder {
         -> Result<Signature>
         where P: key::KeyParts,
     {
+        match self.typ {
+            SignatureType::GenericCertification => (),
+            SignatureType::PersonaCertification => (),
+            SignatureType::CasualCertification => (),
+            SignatureType::PositiveCertification => (),
+            SignatureType::CertificationRevocation => (),
+            SignatureType::Unknown(_) => (),
+            _ => return Err(Error::UnsupportedSignatureType(self.typ).into()),
+        }
+
         self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_userid_binding(&self, key, userid)?;
@@ -315,6 +344,13 @@ impl SignatureBuilder {
         where P: key:: KeyParts,
               Q: key:: KeyParts,
     {
+        match self.typ {
+            SignatureType::SubkeyBinding => (),
+            SignatureType::SubkeyRevocation => (),
+            SignatureType::Unknown(_) => (),
+            _ => return Err(Error::UnsupportedSignatureType(self.typ).into()),
+        }
+
         self = self.pre_sign(signer)?;
 
         let digest = Signature::hash_subkey_binding(&self, primary, subkey)?;
@@ -337,6 +373,12 @@ impl SignatureBuilder {
         where P: key:: KeyParts,
               Q: key:: KeyParts,
     {
+        match self.typ {
+            SignatureType::PrimaryKeyBinding => (),
+            SignatureType::Unknown(_) => (),
+            _ => return Err(Error::UnsupportedSignatureType(self.typ).into()),
+        }
+
         self = self.pre_sign(subkey_signer)?;
 
         let digest =
@@ -358,6 +400,16 @@ impl SignatureBuilder {
         -> Result<Signature>
         where P: key::KeyParts,
     {
+        match self.typ {
+            SignatureType::GenericCertification => (),
+            SignatureType::PersonaCertification => (),
+            SignatureType::CasualCertification => (),
+            SignatureType::PositiveCertification => (),
+            SignatureType::CertificationRevocation => (),
+            SignatureType::Unknown(_) => (),
+            _ => return Err(Error::UnsupportedSignatureType(self.typ).into()),
+        }
+
         self = self.pre_sign(signer)?;
 
         let digest =
@@ -399,6 +451,13 @@ impl SignatureBuilder {
         -> Result<Signature>
         where M: AsRef<[u8]>
     {
+        match self.typ {
+            SignatureType::Binary => (),
+            SignatureType::Text => (),
+            SignatureType::Unknown(_) => (),
+            _ => return Err(Error::UnsupportedSignatureType(self.typ).into()),
+        }
+
         // Hash the message
         let mut hash = self.hash_algo.context()?;
         hash.update(msg.as_ref());
