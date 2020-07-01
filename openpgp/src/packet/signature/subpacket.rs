@@ -907,9 +907,7 @@ impl ArbitraryBounded for Subpacket {
             SubpacketValue::arbitrary_bounded(g, depth)
         };
 
-        if use_nonoptimal_encoding
-            && SubpacketLength::len_optimal_encoding(value.serialized_len() as u32) != 5
-        {
+        if use_nonoptimal_encoding {
             let length = encode_non_optimal(value.serialized_len());
             Subpacket::with_length(length, value, critical)
         } else {
@@ -972,11 +970,12 @@ impl Subpacket {
     }
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, Eq)]
 pub(crate) struct SubpacketLength {
     /// The length.
     len: u32,
-    /// Stores the raw bytes in case of suboptimal encoding.
+    /// The length encoding used in the serialized form.
+    /// If this is `None`, optimal encoding will be used.
     raw: Option<Vec<u8>>,
 }
 
@@ -988,12 +987,36 @@ impl From<u32> for SubpacketLength {
     }
 }
 
+impl PartialEq for SubpacketLength {
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.raw, &other.raw) {
+            (None, None) => {
+                self.len == other.len
+            },
+            // Compare serialized representations if at least one is given
+            (Some(self_raw), Some(other_raw)) => {
+                self_raw == other_raw
+            },
+            (Some(self_raw), None) => {
+                let mut other_raw: Vec<u8> = Vec::with_capacity(5);
+                other.serialize(&mut other_raw).unwrap();
+                self_raw == &other_raw
+            },
+            (None, Some(other_raw)) => {
+                let mut self_raw: Vec<u8> = Vec::with_capacity(5);
+                self.serialize(&mut self_raw).unwrap();
+                &self_raw == other_raw
+            },
+        }
+    }
+}
+
 impl SubpacketLength {
     pub(crate) fn new(len: u32, raw: Option<Vec<u8>>) -> Self {
         Self { len, raw }
     }
 
-    /// Writes the subpacket length to `w`.
+    /// Writes the subpacket length to `sink`.
     pub(crate) fn serialize(&self, sink: &mut dyn std::io::Write)
                             -> Result<()> {
         match self.raw {
