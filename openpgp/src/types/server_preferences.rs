@@ -14,8 +14,7 @@ use quickcheck::{Arbitrary, Gen};
 ///
 /// # A note on equality
 ///
-/// `PartialEq` is implements semantic equality, i.e. it ignores
-/// padding.
+/// `PartialEq` implements semantic equality, i.e. it ignores padding.
 ///
 /// # Examples
 ///
