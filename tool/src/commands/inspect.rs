@@ -179,7 +179,8 @@ fn inspect_cert(policy: &dyn Policy,
     }
 
     for uab in cert.user_attributes() {
-        writeln!(output, "         UserID: {:?}", uab.user_attribute())?;
+        writeln!(output, "         User attribute: {:?}",
+                 uab.user_attribute())?;
         inspect_revocation(output, "", uab.revocation_status(policy, None))?;
         match uab.binding_signature(policy, None) {
             Ok(sig) => if let Err(e) =
