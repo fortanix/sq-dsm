@@ -259,9 +259,11 @@ fn create_key() {
             Key,
             key::{
                 Key4,
+                SecretParts,
                 PrimaryRole,
                 SubordinateRole,
             },
+            UserID,
         },
         serialize::Serialize,
         types::{
@@ -276,25 +278,39 @@ fn create_key() {
     use chrono::offset::TimeZone;
 
     let msg = b"Hello, World";
-    let t0 = chrono::offset::Utc.timestamp(915145200, 0); // 1999-01-01
-    let t1 = chrono::offset::Utc.timestamp(946681200, 0); // 2000-01-01
-    let t2 = chrono::offset::Utc.timestamp(978303600, 0); // 2001-01-01
-    let t3 = chrono::offset::Utc.timestamp(1009839600, 0); // 2002-01-01
+    let t0 = chrono::offset::Utc.timestamp(1483228800, 0); // 2017-01-01
+    let t1 = chrono::offset::Utc.timestamp(1514764800, 0); // 2018-01-01
+    let t2 = chrono::offset::Utc.timestamp(1546300800, 0); // 2019-01-01
+    let t3 = chrono::offset::Utc.timestamp(1577836800, 0); // 2020-01-01
     let f1: f32 = 0.4; // Chosen by fair dice roll.
     let f2: f32 = 0.7; // Likewise.
     let t12 = t1 + chrono::Duration::days((300.0 * f1) as i64);
     let t_sk_binding = t12 + chrono::Duration::days(1);
     let t23 = t2 + chrono::Duration::days((300.0 * f2) as i64);
+    let compatible = false;
+
+    let make_key = || -> Key<SecretParts, PrimaryRole> {
+        if compatible {
+            Key4::generate_rsa(2048).unwrap().into()
+        } else {
+            Key4::generate_ecc(true, Curve::Ed25519).unwrap().into()
+        }
+    };
 
     // Create primary key.
-    let mut key: Key<_, PrimaryRole> =
-        Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+    let mut key: Key<_, PrimaryRole> = make_key().into();
     key.set_creation_time(t1).unwrap();
     let mut signer = key.clone().into_keypair().unwrap();
 
+    // Create a UserID.
+    let uid: UserID = "juliet@example.org".into();
+    let uid_binding =
+        signature::SignatureBuilder::new(SignatureType::PositiveCertification)
+        .set_signature_creation_time(t1).unwrap()
+        .sign_userid_binding(&mut signer, &key, &uid).unwrap();
+
     // Create subkey.
-    let mut subkey: Key<_, SubordinateRole> =
-        Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
+    let mut subkey: Key<_, SubordinateRole> = make_key().into();
     subkey.set_creation_time(t1 + chrono::Duration::days(1)).unwrap();
     let mut sk_signer = subkey.clone().into_keypair().unwrap();
 
@@ -315,7 +331,7 @@ fn create_key() {
         .set_embedded_signature(
             signature::SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
                 .set_signature_creation_time(t_sk_binding).unwrap()
-                .sign_subkey_binding(&mut sk_signer, &key, &subkey).unwrap())
+                .sign_primary_key_binding(&mut sk_signer, &key, &subkey).unwrap())
         .unwrap();
     let sk_bind1 = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
 
@@ -336,7 +352,7 @@ fn create_key() {
         .set_embedded_signature(
             signature::SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
                 .set_signature_creation_time(t3).unwrap()
-                .sign_subkey_binding(&mut sk_signer, &key, &subkey).unwrap())
+                .sign_primary_key_binding(&mut sk_signer, &key, &subkey).unwrap())
         .unwrap();
     let sk_bind2 = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
 
@@ -344,6 +360,8 @@ fn create_key() {
         key.clone().into(),
         direct1.clone().into(),
         direct2.clone().into(),
+        uid.clone().into(),
+        uid_binding.clone().into(),
         subkey.clone().into(),
         sk_bind1.clone().into(),
         sk_bind2.clone().into(),
@@ -376,6 +394,8 @@ fn create_key() {
             direct1.clone().into(),
             rev.clone().into(),
             direct2.clone().into(),
+            uid.clone().into(),
+            uid_binding.clone().into(),
             subkey.clone().into(),
             sk_bind1.clone().into(),
             sk_bind2.clone().into(),
@@ -400,6 +420,8 @@ fn create_key() {
             key.clone().into(),
             direct1.clone().into(),
             direct2.clone().into(),
+            uid.clone().into(),
+            uid_binding.clone().into(),
             subkey.clone().into(),
             sk_bind1.clone().into(),
             rev.clone().into(),
