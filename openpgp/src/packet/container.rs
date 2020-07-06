@@ -54,7 +54,7 @@ use crate::{
 ///     the content is just an OpenPGP message.)
 ///
 ///   [`PacketParser::next`]: ../parse/struct.PacketParser.html#method.next
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Body {
     /// Unprocessed packet body.
     ///
