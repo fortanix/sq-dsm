@@ -233,6 +233,8 @@ use crate::packet::signature::subpacket::{
     SubpacketValue,
 };
 
+use crate::serialize::MarshalInto;
+
 mod packet_pile_parser;
 pub use self::packet_pile_parser::PacketPileParser;
 
@@ -1674,6 +1676,8 @@ impl SubpacketLength {
 #[cfg(test)]
 quickcheck! {
     fn length_roundtrip(l: u32) -> bool {
+        use crate::serialize::Marshal;
+
         let length = SubpacketLength::from(l);
         let mut encoded = Vec::new();
         length.serialize(&mut encoded).unwrap();

@@ -80,7 +80,7 @@ use crate::{
     Fingerprint,
     KeyID,
     SignatureType,
-    serialize::{Marshal, MarshalInto},
+    serialize::MarshalInto,
 };
 use crate::types::{
     AEADAlgorithm,
@@ -973,10 +973,10 @@ impl Subpacket {
 #[derive(Clone, Debug, Hash, Eq)]
 pub(crate) struct SubpacketLength {
     /// The length.
-    len: u32,
+    pub(crate) len: u32,
     /// The length encoding used in the serialized form.
     /// If this is `None`, optimal encoding will be used.
-    raw: Option<Vec<u8>>,
+    pub(crate) raw: Option<Vec<u8>>,
 }
 
 impl From<u32> for SubpacketLength {
@@ -998,14 +998,14 @@ impl PartialEq for SubpacketLength {
                 self_raw == other_raw
             },
             (Some(self_raw), None) => {
-                let mut other_raw: Vec<u8> = Vec::with_capacity(5);
-                other.serialize(&mut other_raw).unwrap();
-                self_raw == &other_raw
+                let mut other_raw = [0; 5];
+                other.serialize_into(&mut other_raw[..self.serialized_len()]).unwrap();
+                &self_raw[..] == &other_raw[..self.serialized_len()]
             },
             (None, Some(other_raw)) => {
-                let mut self_raw: Vec<u8> = Vec::with_capacity(5);
-                self.serialize(&mut self_raw).unwrap();
-                &self_raw == other_raw
+                let mut self_raw = [0; 5];
+                self.serialize_into(&mut self_raw[..self.serialized_len()]).unwrap();
+                &self_raw[..self.serialized_len()] == &other_raw[..]
             },
         }
     }
@@ -1016,31 +1016,9 @@ impl SubpacketLength {
         Self { len, raw }
     }
 
-    /// Writes the subpacket length to `sink`.
-    pub(crate) fn serialize(&self, sink: &mut dyn std::io::Write)
-                            -> Result<()> {
-        match self.raw {
-            Some(ref raw) => sink.write_all(raw)?,
-            None => {
-                BodyLength::serialize(&BodyLength::Full(self.len), sink)?
-            }
-        };
-
-        Ok(())
-    }
-
     /// Returns the length.
     pub(crate) fn len(&self) -> usize {
         self.len as usize
-    }
-
-    /// Returns the length of the serialized subpacket length.
-    pub(crate) fn serialized_len(&self) -> usize {
-        if let Some(ref raw) = self.raw {
-            raw.len()
-        } else {
-            Self::len_optimal_encoding(self.len)
-        }
     }
 
     /// Returns the length of the optimal encoding of `len`.

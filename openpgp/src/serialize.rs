@@ -153,7 +153,7 @@ use crate::packet::header::{
     CTBOld,
 };
 use crate::packet::signature::subpacket::{
-    SubpacketArea, Subpacket, SubpacketValue,
+    SubpacketArea, Subpacket, SubpacketValue, SubpacketLength
 };
 use crate::packet::prelude::*;
 use crate::types::{
@@ -1476,6 +1476,37 @@ impl MarshalInto for SubpacketValue {
         generic_serialize_into(self, buf)
     }
 }
+
+impl Marshal for SubpacketLength {
+    /// Writes the subpacket length to `sink`.
+    fn serialize(&self, sink: &mut dyn std::io::Write)
+                            -> Result<()> {
+        match self.raw {
+            Some(ref raw) => sink.write_all(raw)?,
+            None => {
+                BodyLength::serialize(&BodyLength::Full(self.len() as u32), sink)?
+            }
+        };
+
+        Ok(())
+    }
+}
+
+impl MarshalInto for SubpacketLength {
+    /// Returns the length of the serialized subpacket length.
+    fn serialized_len(&self) -> usize {
+        if let Some(ref raw) = self.raw {
+            raw.len()
+        } else {
+            Self::len_optimal_encoding(self.len() as u32)
+        }
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
+    }
+}
+
 
 impl Marshal for RevocationKey {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
