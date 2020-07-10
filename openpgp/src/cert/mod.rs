@@ -4127,7 +4127,7 @@ mod test {
          * [t3,t4): valid again (new self sig)
          * [t4,inf): hard revocation (hard revocation)
          *
-         * One the hard revocation is merged, then the Cert is
+         * Once the hard revocation is merged, then the Cert is
          * considered revoked at all times.
          */
         let t1 = time::UNIX_EPOCH + time::Duration::new(946681200, 0);  // 2000-1-1

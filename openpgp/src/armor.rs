@@ -1303,7 +1303,7 @@ struct CRC {
     n: u32,
 }
 
-/// Computess the CRC-24, (see [RFC 4880, section 6.1]).
+/// Computes the CRC-24, (see [RFC 4880, section 6.1]).
 ///
 /// [RFC 4880, section 6.1]: https://tools.ietf.org/html/rfc4880#section-6.1
 impl CRC {
