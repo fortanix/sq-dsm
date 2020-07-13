@@ -116,16 +116,34 @@ windows-msvc:
   before_script:
   - $env:USERNAME
   - $env:USERPROFILE
+  # Install VS 2019 VC++ Build Tools (Required for Rust on Windows)
+  - Get-Date
+  - Invoke-WebRequest https://aka.ms/vs/16/release/vs_buildtools.exe -OutFile vs_buildtools.exe
+  # Wait until the VC++ Build Tools installation is completed.
+  # See https://github.com/MicrosoftDocs/visualstudio-docs/issues/970
+  - >
+    $exitCode = Start-Process
+    -FilePath vs_buildtools.exe
+    -ArgumentList "--norestart", "--quiet", "--nocache", "--add", "Microsoft.VisualStudio.Workload.VCTools", "--includeRecommended", "--wait"
+    -Wait
+    -PassThru
   # Install Rust 1.40
+  - Get-Date
   - $env:CARGO_HOME = "$env:ProgramFiles\cargo"
   - $env:RUSTUP_HOME = "$env:ProgramFiles\rustup"
   - Invoke-WebRequest https://win.rustup.rs -OutFile rustup-init.exe
   - .\rustup-init.exe -y --default-toolchain 1.40.0 --default-host x86_64-pc-windows-msvc --profile minimal
   - $env:Path += ";$env:ProgramFiles\cargo\bin"
+  - Get-Date
   - rustup --version
   - rustc --version --verbose
-  script: cargo test -p sequoia-openpgp
+  script:
+    - cd openpgp
+    # https://github.com/rust-lang/cargo/issues/5015
+    - cargo test --no-default-features --features compression,crypto-cng
   after_script: []
+  variables:
+    CFLAGS: '' # Silence some C warnings when compiling with MSVC
 
 variables:
   DEBIAN_FRONTEND: noninteractive
