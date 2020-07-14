@@ -58,7 +58,7 @@ pub fn build() -> App<'static, 'static> {
                          .takes_value(true)
                          .value_name("CERT-FILE")
                          .number_of_values(1)
-                         .help("The sender's certificate verify signatures \
+                         .help("The sender's certificate to verify signatures \
                                 with, given as a file \
                                 (can be given multiple times)"))
                     .arg(Arg::with_name("secret-key-file")
@@ -217,7 +217,7 @@ pub fn build() -> App<'static, 'static> {
                          .takes_value(true)
                          .value_name("CERT-FILE")
                          .number_of_values(1)
-                         .help("The sender's certificate verify signatures \
+                         .help("The sender's certificate to verify signatures \
                                 with, given as a file \
                                 (can be given multiple times)")))
         .subcommand(SubCommand::with_name("enarmor")

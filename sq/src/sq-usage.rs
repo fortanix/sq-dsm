@@ -57,7 +57,7 @@
 //! OPTIONS:
 //!     -o, --output <FILE>                      Sets the output file to use
 //!         --secret-key-file <TSK-FILE>...      Secret key to decrypt with, given as a file (can be given multiple times)
-//!         --sender-cert-file <CERT-FILE>...    The sender's certificate verify signatures with, given as a file (can be
+//!         --sender-cert-file <CERT-FILE>...    The sender's certificate to verify signatures with, given as a file (can be
 //!                                              given multiple times)
 //!     -n, --signatures <N>                     The number of valid signatures required.  Default: 0
 //!
@@ -144,7 +144,7 @@
 //! OPTIONS:
 //!         --detached <SIG-FILE>                Verifies a detached signature
 //!     -o, --output <FILE>                      Sets the output file to use
-//!         --sender-cert-file <CERT-FILE>...    The sender's certificate verify signatures with, given as a file (can be
+//!         --sender-cert-file <CERT-FILE>...    The sender's certificate to verify signatures with, given as a file (can be
 //!                                              given multiple times)
 //!     -n, --signatures <N>                     The number of valid signatures required.  Default: 0
 //!
