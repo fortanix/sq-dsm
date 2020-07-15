@@ -1491,7 +1491,11 @@ impl Subpacket {
                 SubpacketValue::NotationData(
                     NotationData::new(
                         std::str::from_utf8(
-                            &php.parse_bytes("notation name", name_len)?)?,
+                            &php.parse_bytes("notation name", name_len)?)
+                            .map_err(|e| anyhow::Error::from(
+                                Error::MalformedPacket(
+                                    format!("Malformed notation name: {}", e)))
+                            )?,
                         &php.parse_bytes("notation value", value_len)?,
                         Some(flags.into())))
             },
@@ -5531,6 +5535,19 @@ mod test {
     fn malformed_embedded_signature() -> Result<()> {
         let ppr = PacketParser::from_bytes(
             crate::tests::file("edge-cases/malformed-embedded-sig.pgp"))?;
+        let packet = &ppr.unwrap().packet;
+        if let Packet::Unknown(_) = packet {
+            Ok(())
+        } else {
+            panic!("expected unknown packet, got: {:?}", packet);
+        }
+    }
+
+    /// Malformed notation names must not cause hard parsing errors.
+    #[test]
+    fn malformed_notation_name() -> Result<()> {
+        let ppr = PacketParser::from_bytes(
+            crate::tests::file("edge-cases/malformed-notation-name.pgp"))?;
         let packet = &ppr.unwrap().packet;
         if let Packet::Unknown(_) = packet {
             Ok(())
