@@ -266,8 +266,52 @@ mod tests {
 
     quickcheck! {
         fn roundtrip(p: UserAttribute) -> bool {
-            let q = UserAttribute::from_bytes(&p.to_vec().unwrap()).unwrap();
+            let buf = p.to_vec().unwrap();
+            assert_eq!(p.serialized_len(), buf.len());
+            let q = UserAttribute::from_bytes(&buf).unwrap();
             assert_eq!(p, q);
+            true
+        }
+    }
+
+    quickcheck! {
+        fn roundtrip_subpacket(sp: Subpacket) -> bool {
+            let value = sp.to_vec().unwrap();
+            assert_eq!(sp.serialized_len(), value.len());
+            let ua = UserAttribute {
+                common: Default::default(),
+                value,
+            };
+            let buf = ua.to_vec().unwrap();
+            let q = UserAttribute::from_bytes(&buf).unwrap();
+            let subpackets = q.subpackets().collect::<Vec<_>>();
+            assert_eq!(subpackets.len(), 1);
+            assert_eq!(&sp, subpackets[0].as_ref().unwrap());
+            true
+        }
+    }
+
+    quickcheck! {
+        fn roundtrip_image(img: Image) -> bool {
+            let mut body = img.to_vec().unwrap();
+            assert_eq!(img.serialized_len(), body.len());
+            let mut value =
+                BodyLength::Full(1 + body.len() as u32).to_vec().unwrap();
+            value.push(1); // Image subpacket tag.
+            value.append(&mut body);
+            let ua = UserAttribute {
+                common: Default::default(),
+                value,
+            };
+            let buf = ua.to_vec().unwrap();
+            let q = UserAttribute::from_bytes(&buf).unwrap();
+            let subpackets = q.subpackets().collect::<Vec<_>>();
+            assert_eq!(subpackets.len(), 1);
+            if let Ok(Subpacket::Image(i)) = &subpackets[0] {
+                assert_eq!(&img, i);
+            } else {
+                panic!("expected image subpacket, got {:?}", subpackets[0]);
+            }
             true
         }
     }
@@ -300,11 +344,27 @@ ABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAT8Qf//Z
         };
         assert_eq!(subpackets.len(), 1);
         if let Ok(Subpacket::Image(Image::JPEG(img))) = &subpackets[0] {
-            assert_eq!(img.len(), 539);
+            assert_eq!(img.len(), 539 /* Image data */);
             assert_eq!(&img[6..10], b"JFIF");
             assert_eq!(&img[24..41], b"Created with GIMP");
         } else {
             panic!("Expected JPEG, got {:?}", &subpackets[0]);
+        }
+
+        if let Ok(Subpacket::Image(img)) = &subpackets[0] {
+            let buf = img.to_vec().unwrap();
+            assert_eq!(buf.len(), 539 + 16 /* Image header */);
+            assert_eq!(img.serialized_len(), 539 + 16 /* Image header */);
+        } else {
+            unreachable!("decomposed fine before");
+        }
+
+        if let Ok(img) = &subpackets[0] {
+            let buf = img.to_vec().unwrap();
+            assert_eq!(buf.len(), 539 + 16 + 3 /* Subpacket header */);
+            assert_eq!(img.serialized_len(), 539 + 16 + 3 /* Subpacket header */);
+        } else {
+            unreachable!("decomposed fine before");
         }
     }
 }

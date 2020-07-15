@@ -1938,12 +1938,19 @@ impl MarshalInto for UserAttribute {
 
 impl Marshal for user_attribute::Subpacket {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
-        match self {
+        let body_len = match self {
             user_attribute::Subpacket::Image(image) =>
-                image.serialize(o)?,
+                image.serialized_len(),
+            user_attribute::Subpacket::Unknown(_tag, data) =>
+                data.len(),
+        };
+        BodyLength::Full(1 + body_len as u32).serialize(o)?;
+        match self {
+            user_attribute::Subpacket::Image(image) => {
+                write_byte(o, 1)?;
+                image.serialize(o)?;
+            },
             user_attribute::Subpacket::Unknown(tag, data) => {
-                BodyLength::Full(1 + data.len() as u32)
-                    .serialize(o)?;
                 write_byte(o, *tag)?;
                 o.write_all(&data[..])?;
             }
@@ -1955,15 +1962,15 @@ impl Marshal for user_attribute::Subpacket {
 
 impl MarshalInto for user_attribute::Subpacket {
     fn serialized_len(&self) -> usize {
-        match self {
+        let body_len = match self {
             user_attribute::Subpacket::Image(image) =>
                 image.serialized_len(),
-            user_attribute::Subpacket::Unknown(_tag, data) => {
-                let header_len = BodyLength::Full(1 + data.len() as u32)
-                    .serialized_len();
-                header_len + 1 + data.len()
-            }
-        }
+            user_attribute::Subpacket::Unknown(_tag, data) =>
+                data.len(),
+        };
+        let header_len =
+            BodyLength::Full(1 + body_len as u32).serialized_len();
+        header_len + 1 + body_len
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1973,18 +1980,20 @@ impl MarshalInto for user_attribute::Subpacket {
 
 impl Marshal for user_attribute::Image {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        const V1HEADER_TOP: [u8; 3] = [0x10, 0x00, 0x01];
+        const V1HEADER_PAD: [u8; 12] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         match self {
             user_attribute::Image::JPEG(data) => {
-                let header = BodyLength::Full(1 + data.len() as u32);
-                header.serialize(o)?;
-                write_byte(o, 0)?;
+                o.write_all(&V1HEADER_TOP[..])?;
+                write_byte(o, 1)?;
+                o.write_all(&V1HEADER_PAD[..])?;
                 o.write_all(&data[..])?;
             }
             user_attribute::Image::Unknown(tag, data)
             | user_attribute::Image::Private(tag, data) => {
-                let header = BodyLength::Full(1 + data.len() as u32);
-                header.serialize(o)?;
+                o.write_all(&V1HEADER_TOP[..])?;
                 write_byte(o, *tag)?;
+                o.write_all(&V1HEADER_PAD[..])?;
                 o.write_all(&data[..])?;
             }
         }
@@ -1995,12 +2004,16 @@ impl Marshal for user_attribute::Image {
 
 impl MarshalInto for user_attribute::Image {
     fn serialized_len(&self) -> usize {
+        const V1HEADER_LEN: usize =
+            2     /* Length */
+            + 1   /* Version */
+            + 1   /* Tag */
+            + 12; /* Reserved padding */
         match self {
             user_attribute::Image::JPEG(data)
             | user_attribute::Image::Unknown(_, data)
             | user_attribute::Image::Private(_, data) =>
-                1 + BodyLength::Full(1 + data.len() as u32).serialized_len()
-                + data.len(),
+                V1HEADER_LEN + data.len(),
         }
     }
 
