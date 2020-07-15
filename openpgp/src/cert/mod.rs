@@ -387,10 +387,10 @@ type UnknownBundles = ComponentBundles<Unknown>;
 /// requires User IDs that are unrelated to the WKD's domain be
 /// stripped from the certificate prior to publication.  As such, any
 /// User ID may be considered the primary User ID.  Consequently, if
-/// any User ID includes this packet, then all User IDs should include
-/// it.  Furthermore, RFC 4880bis allows certificates [without any
-/// User ID packets].  To handle this case, certificates should also
-/// create a direct key signature with this information.
+/// any User ID includes a particular subpacket, then all User IDs
+/// should include it.  Furthermore, RFC 4880bis allows certificates
+/// [without any User ID packets].  To handle this case, certificates
+/// should also create a direct key signature with this information.
 ///
 /// [Section 5.2.3.3]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
 /// [WKD]: https://tools.ietf.org/html/draft-koch-openpgp-webkey-service-09#section-5
