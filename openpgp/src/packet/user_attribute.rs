@@ -195,10 +195,14 @@ pub enum Subpacket {
 #[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Subpacket {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        match g.gen_range(0, 2) {
+        match g.gen_range(0, 3) {
             0 => Subpacket::Image(Image::arbitrary(g)),
             1 => Subpacket::Unknown(
-                g.gen_range(1, 256) as u8,
+                0,
+                Vec::<u8>::arbitrary(g).into_boxed_slice()
+            ),
+            2 => Subpacket::Unknown(
+                g.gen_range(2, 256) as u8,
                 Vec::<u8>::arbitrary(g).into_boxed_slice()
             ),
             _ => unreachable!(),
@@ -224,19 +228,29 @@ pub enum Image {
 #[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for Image {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        match g.gen_range(0, 3) {
+        match g.gen_range(0, 5) {
             0 =>
                 Image::JPEG(
                     Vec::<u8>::arbitrary(g).into_boxed_slice()
                 ),
             1 =>
                 Image::Unknown(
-                    g.gen_range(1, 100),
+                    g.gen_range(2, 100),
                     Vec::<u8>::arbitrary(g).into_boxed_slice()
                 ),
             2 =>
                 Image::Private(
                     g.gen_range(100, 111),
+                    Vec::<u8>::arbitrary(g).into_boxed_slice()
+                ),
+            3 =>
+                Image::Unknown(
+                    0,
+                    Vec::<u8>::arbitrary(g).into_boxed_slice()
+                ),
+            4 =>
+                Image::Unknown(
+                    g.gen_range(111, 256) as u8,
                     Vec::<u8>::arbitrary(g).into_boxed_slice()
                 ),
             _ => unreachable!(),
