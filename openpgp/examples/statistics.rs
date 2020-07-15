@@ -78,6 +78,10 @@ fn main() {
     let mut ua_unknown_count = vec![0; 256];
     let mut ua_invalid_count = 0;
 
+    // Key statistics.
+    let mut pk_algo_size: HashMap<PublicKeyAlgorithm, HashMap<usize, usize>> =
+        Default::default();
+
     // Current certificate.
     let mut current_fingerprint =
         KeyHandle::Fingerprint(Fingerprint::from_bytes(&vec![0; 20]));
@@ -242,6 +246,35 @@ fn main() {
                     }
                 },
 
+                _ => (),
+            }
+
+            // Public key algorithm and size statistics.
+            let mut handle_key = |k: &openpgp::packet::Key<_, _>| {
+                let pk = k.pk_algo();
+                let bits = k.mpis().bits().unwrap_or(0);
+                if let Some(size_hash) = pk_algo_size.get_mut(&pk) {
+                    if let Some(count) = size_hash.get_mut(&bits) {
+                        *count = *count + 1;
+                    } else {
+                        size_hash.insert(bits, 1);
+                    }
+                } else {
+                    let mut size_hash: HashMap<usize, usize>
+                        = Default::default();
+                    size_hash.insert(bits, 1);
+                    pk_algo_size.insert(pk, size_hash);
+                }
+            };
+            match packet {
+                Packet::PublicKey(ref k) =>
+                    handle_key(k.parts_as_public().role_as_unspecified()),
+                Packet::SecretKey(ref k) =>
+                    handle_key(k.parts_as_public().role_as_unspecified()),
+                Packet::PublicSubkey(ref k) =>
+                    handle_key(k.parts_as_public().role_as_unspecified()),
+                Packet::SecretSubkey(ref k) =>
+                    handle_key(k.parts_as_public().role_as_unspecified()),
                 _ => (),
             }
 
@@ -513,6 +546,22 @@ fn main() {
 
     if cert_count == 0 {
         return;
+    }
+
+    println!();
+    println!("# Key statistics\n\n\
+              {:>50} {:>9} {:>9}",
+             "Algorithm", "Key Size", "count");
+    println!("----------------------------------------------------------------------");
+    for t in 0..255u8 {
+        let pk = PublicKeyAlgorithm::from(t);
+        if let Some(size_hash) = pk_algo_size.get(&pk) {
+            let mut sizes: Vec<_> = size_hash.iter().collect();
+            sizes.sort_by_key(|(size, _count)| *size);
+            for (size, count) in sizes {
+                println!("{:>50} {:>9} {:>9}", pk.to_string(), size, count);
+            }
+        }
     }
 
     println!();
