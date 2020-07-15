@@ -272,8 +272,19 @@ impl PacketDumper {
         }
 
         if let Some(h) = header {
-            write!(output, ", {} CTB, {}",
+            write!(output, ", {} CTB, {}{}",
                    if let CTB::Old(_) = h.ctb() { "old" } else { "new" },
+                   if let Some(map) = map {
+                       format!("{} header bytes + ",
+                               map.iter().take(2).map(|f| f.as_bytes().len())
+                                   .sum::<usize>())
+                   } else {
+                       // XXX: Mapping is disabled.  No can do for
+                       // now.  Once we save the header in
+                       // packet::Common, we can use this instead of
+                       // relying on the map.
+                       "".into()
+                   },
                    match h.length() {
                        BodyLength::Full(n) =>
                            format!("{} bytes", n),
