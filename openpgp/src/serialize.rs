@@ -795,6 +795,16 @@ impl Marshal for Header {
     }
 }
 
+impl MarshalInto for Header {
+    fn serialized_len(&self) -> usize {
+        self.ctb().serialized_len() + self.length().serialized_len()
+    }
+
+    fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
+        generic_serialize_into(self, buf)
+    }
+}
+
 impl Serialize for KeyID {}
 impl Marshal for KeyID {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
