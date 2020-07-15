@@ -975,7 +975,7 @@ impl CertBuilder {
                 vec![Packet::from(ua), signature.into()])?;
         }
 
-        // sign subkeys
+        // Sign subkeys.
         for blueprint in self.subkeys {
             let flags = &blueprint.flags;
             let mut subkey = blueprint.ciphersuite
@@ -994,18 +994,7 @@ impl CertBuilder {
                     &subkey,
                     blueprint.expiration.or(self.primary.expiration))?;
 
-            if flags.for_transport_encryption() || flags.for_storage_encryption()
-            {
-                builder = builder.set_preferred_symmetric_algorithms(vec![
-                    SymmetricAlgorithm::AES256,
-                ])?;
-            }
-
             if flags.for_certification() || flags.for_signing() {
-                builder = builder.set_preferred_hash_algorithms(vec![
-                    HashAlgorithm::SHA512,
-                ])?;
-
                 // We need to create a primary key binding signature.
                 let mut subkey_signer = subkey.clone().into_keypair().unwrap();
                 let backsig =
@@ -1054,7 +1043,12 @@ impl CertBuilder {
             .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(creation_time)?
             .set_key_expiration_time(&key, self.primary.expiration)?
-            .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])?;
+            .set_preferred_hash_algorithms(vec![
+                HashAlgorithm::SHA512
+            ])?
+            .set_preferred_symmetric_algorithms(vec![
+                SymmetricAlgorithm::AES256,
+            ])?;
 
         if let Some(ref revocation_keys) = self.revocation_keys {
             sig = sig.set_revocation_key(revocation_keys.clone())?;
