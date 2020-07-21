@@ -419,7 +419,7 @@ mod tests {
 
             // Get the next packet.
             let (_, ppr) = pp.next().unwrap();
-            assert!(ppr.is_none());
+            assert!(ppr.is_eof());
         }
     }
 

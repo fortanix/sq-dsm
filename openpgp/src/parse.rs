@@ -2423,7 +2423,7 @@ fn compressed_data_parser_test () {
         }
 
         // And, we're done...
-        assert!(ppr.is_none());
+        assert!(ppr.is_eof());
     }
 }
 
@@ -3286,7 +3286,7 @@ pub enum PacketParserResult<'a> {
 
 impl<'a> PacketParserResult<'a> {
     /// Like `Option::is_none`().
-    pub fn is_none(&self) -> bool {
+    pub fn is_eof(&self) -> bool {
         if let PacketParserResult::EOF(_) = self {
             true
         } else {
@@ -3294,14 +3294,9 @@ impl<'a> PacketParserResult<'a> {
         }
     }
 
-    /// An alias for `is_none`().
-    pub fn is_eof(&self) -> bool {
-        Self::is_none(self)
-    }
-
     /// Like `Option::is_some`().
     pub fn is_some(&self) -> bool {
-        ! Self::is_none(self)
+        ! Self::is_eof(self)
     }
 
     /// Like `Option::expect`().
@@ -4725,7 +4720,7 @@ fn packet_parser_reader_interface() {
     // Make sure we can still get the next packet (which in this case
     // is just EOF).
     let (packet, ppr) = pp.recurse().unwrap();
-    assert!(ppr.is_none());
+    assert!(ppr.is_eof());
     // Since we read all of the data, we expect content to be None.
     assert_eq!(packet.unprocessed_body().unwrap().len(), 0);
 }
@@ -5205,13 +5200,13 @@ mod test {
                            "MDC doesn't match");
             }
 
-            if ppr.is_none() {
+            if ppr.is_eof() {
                 // AED packets don't have an MDC packet.
                 continue;
             }
             let ppr = consume_until(
                 ppr, true, &[][..], &[][..]);
-            assert!(ppr.is_none());
+            assert!(ppr.is_eof());
         }
     }
 

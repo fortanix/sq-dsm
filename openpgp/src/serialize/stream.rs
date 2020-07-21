@@ -2706,7 +2706,7 @@ mod test {
 
         // Make sure it is the only packet.
         let (_, ppr) = pp.recurse().unwrap();
-        assert!(ppr.is_none());
+        assert!(ppr.is_eof());
     }
 
     // Create some crazy nesting structures, serialize the messages,

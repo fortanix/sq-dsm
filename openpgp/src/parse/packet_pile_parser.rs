@@ -348,7 +348,7 @@ impl<'a> PacketPileParser<'a> {
     /// # Ok(()) }
     /// ```
     pub fn is_done(&self) -> bool {
-        self.ppr.is_none()
+        self.ppr.is_eof()
     }
 
     /// Finishes parsing the message and returns the assembled

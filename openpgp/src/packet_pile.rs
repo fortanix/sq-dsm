@@ -549,7 +549,7 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
 
         let mut last_position = 0;
 
-        if ppr.is_none() {
+        if ppr.is_eof() {
             // Empty message.
             return Ok(PacketPile::from(Vec::new()));
         }
@@ -600,7 +600,7 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
 
                 container.children_mut().unwrap().push(packet);
 
-                if ppr.is_none() {
+                if ppr.is_eof() {
                     break 'outer;
                 }
 
@@ -848,7 +848,7 @@ mod test {
         // recurse should now not recurse.  Since there is nothing
         // following the compressed packet, ppr should be EOF.
         let (packet, ppr) = pp.next().unwrap();
-        assert!(ppr.is_none());
+        assert!(ppr.is_eof());
 
         // Get the rest of the content and put the initial byte that
         // we stole back.
@@ -864,7 +864,7 @@ mod test {
 
         // And we're done...
         let ppr = pp.next().unwrap().1;
-        assert!(ppr.is_none());
+        assert!(ppr.is_eof());
     }
 
     #[test]
