@@ -57,14 +57,6 @@ pub struct Features{
     raw: Vec<u8>,
 }
 
-impl Default for Features {
-    fn default() -> Self {
-        Features {
-            raw: Vec::new(),
-        }
-    }
-}
-
 impl fmt::Debug for Features {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Print known features first.

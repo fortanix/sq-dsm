@@ -737,7 +737,7 @@ impl Arbitrary for SymmetricAlgorithm {
 /// use openpgp::types::{Features, HashAlgorithm, AEADAlgorithm, SignatureType};
 ///
 /// # fn main() -> openpgp::Result<()> {
-/// let features = Features::default().set_aead();
+/// let features = Features::empty().set_aead();
 /// let mut builder = SignatureBuilder::new(SignatureType::DirectKey)
 ///     .set_features(&features)?
 ///     .set_preferred_aead_algorithms(vec![

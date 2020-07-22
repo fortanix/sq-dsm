@@ -2699,13 +2699,13 @@ fn accessors() {
     assert_eq!(sig_.reason_for_revocation(),
                Some((ReasonForRevocation::KeyRetired, &b"foobar"[..])));
 
-    let feats = Features::default().set_mdc();
+    let feats = Features::empty().set_mdc();
     sig = sig.set_features(&feats).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.features().unwrap(), feats);
 
-    let feats = Features::default().set_aead();
+    let feats = Features::empty().set_aead();
     sig = sig.set_features(&feats).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
@@ -2981,13 +2981,13 @@ fn subpacket_test_2() {
                            KeyFlags::default().set_certification(true).set_signing(true))
                    }));
 
-        assert_eq!(sig.features().unwrap(), Features::default().set_mdc());
+        assert_eq!(sig.features().unwrap(), Features::empty().set_mdc());
         assert_eq!(sig.subpacket(SubpacketTag::Features),
                    Some(&Subpacket {
                        length: 2.into(),
                        critical: false,
                        value: SubpacketValue::Features(
-                           Features::default().set_mdc())
+                           Features::empty().set_mdc())
                    }));
 
         let keyid = "F004 B9A4 5C58 6126".parse().unwrap();
