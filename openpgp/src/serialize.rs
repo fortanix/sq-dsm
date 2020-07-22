@@ -1401,7 +1401,7 @@ impl Marshal for SubpacketValue {
                 o.write_all(reason)?;
             },
             Features(ref f) =>
-                o.write_all(&f.to_vec())?,
+                o.write_all(&f.as_slice())?,
             SignatureTarget { pk_algo, hash_algo, ref digest } => {
                 o.write_all(&[(*pk_algo).into(), (*hash_algo).into()])?;
                 o.write_all(digest)?;
@@ -1459,7 +1459,7 @@ impl MarshalInto for SubpacketValue {
             KeyFlags(ref f) => f.to_vec().len(),
             SignersUserID(ref uid) => uid.len(),
             ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
-            Features(ref f) => f.to_vec().len(),
+            Features(ref f) => f.as_slice().len(),
             SignatureTarget { ref digest, .. } => 2 + digest.len(),
             EmbeddedSignature(sig) => sig.serialized_len(),
             IssuerFingerprint(ref fp) => match fp {
