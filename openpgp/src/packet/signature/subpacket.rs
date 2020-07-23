@@ -134,7 +134,7 @@ lazy_static!{
 ///
 /// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
 #[derive(Debug)]
-#[derive(PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Clone, Copy)]
 pub enum SubpacketTag {
     /// The time the signature was made.
