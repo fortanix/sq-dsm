@@ -56,7 +56,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{TryInto, TryFrom};
 use std::hash::{Hash, Hasher};
 use std::sync::Mutex;
 use std::ops::{Deref, DerefMut};
@@ -1981,6 +1981,21 @@ impl SubpacketAreas {
             }
         } else {
             None
+        }
+    }
+}
+
+impl TryFrom<Signature> for Signature4 {
+    type Error = anyhow::Error;
+
+    fn try_from(sig: Signature) -> Result<Self> {
+        match sig {
+            Signature::V4(sig) => Ok(sig),
+            sig => Err(
+                Error::InvalidArgument(
+                    format!("Got a v{}, require a v4 signature", sig.version())
+                        .into())
+                    .into()),
         }
     }
 }
