@@ -760,7 +760,7 @@ mod test {
             .buffer_unread_content()
             .try_into().unwrap();
 
-        while let Some(pp) = ppp.as_ref() {
+        while let Ok(pp) = ppp.as_ref() {
             eprintln!("{:?}", pp);
             ppp.recurse().unwrap();
         }

@@ -175,6 +175,7 @@ use std::str;
 use std::mem;
 use std::fmt;
 use std::path::Path;
+use std::result::Result as StdResult;
 
 use ::buffered_reader::*;
 
@@ -3315,20 +3316,20 @@ impl<'a> PacketParserResult<'a> {
     }
 
     /// Like `Option::as_ref`().
-    pub fn as_ref(&self) -> Option<&PacketParser<'a>> {
-        if let PacketParserResult::Some(ref pp) = self {
-            Some(pp)
-        } else {
-            None
+    pub fn as_ref(&self)
+                  -> StdResult<&PacketParser<'a>, &PacketParserEOF> {
+        match self {
+            PacketParserResult::Some(pp) => Ok(pp),
+            PacketParserResult::EOF(eof) => Err(eof),
         }
     }
 
     /// Like `Option::as_mut`().
-    pub fn as_mut(&mut self) -> Option<&mut PacketParser<'a>> {
-        if let PacketParserResult::Some(ref mut pp) = self {
-            Some(pp)
-        } else {
-            None
+    pub fn as_mut(&mut self)
+                  -> StdResult<&mut PacketParser<'a>, &mut PacketParserEOF> {
+        match self {
+            PacketParserResult::Some(pp) => Ok(pp),
+            PacketParserResult::EOF(eof) => Err(eof),
         }
     }
 
@@ -3345,12 +3346,12 @@ impl<'a> PacketParserResult<'a> {
     }
 
     /// Like `Option::map`().
-    pub fn map<U, F>(self, f: F) -> Option<U>
+    pub fn map<U, F>(self, f: F) -> StdResult<U, PacketParserEOF>
         where F: FnOnce(PacketParser<'a>) -> U
     {
         match self {
-            PacketParserResult::Some(x) => Some(f(x)),
-            PacketParserResult::EOF(_) => None,
+            PacketParserResult::Some(x) => Ok(f(x)),
+            PacketParserResult::EOF(e) => Err(e),
         }
     }
 }

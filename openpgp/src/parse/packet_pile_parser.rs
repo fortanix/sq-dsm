@@ -54,7 +54,7 @@ use buffered_reader::BufferedReader;
 /// #    include_bytes!("../../tests/data/keys/public-key.gpg");
 /// # let mut n = 0;
 /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
-/// while let Some(pp) = ppp.as_ref() {
+/// while let Ok(pp) = ppp.as_ref() {
 ///     eprintln!("{:?}", pp);
 ///     ppp.recurse()?;
 /// #   n += 1;
@@ -198,7 +198,7 @@ impl<'a> PacketPileParser<'a> {
     /// let message_data: &[u8] = // ...
     /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
     /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
-    /// while let Some(pp) = ppp.as_ref() {
+    /// while let Ok(pp) = ppp.as_ref() {
     ///     // Do something interesting with `pp` here.
     ///
     ///     // Start parsing the next packet, recursing.
@@ -251,7 +251,7 @@ impl<'a> PacketPileParser<'a> {
     /// let message_data: &[u8] = // ...
     /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
     /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
-    /// while let Some(pp) = ppp.as_ref() {
+    /// while let Ok(pp) = ppp.as_ref() {
     ///     // Do something interesting with `pp` here.
     ///
     ///     // Start parsing the next packet.
@@ -296,7 +296,7 @@ impl<'a> PacketPileParser<'a> {
     /// let message_data: &[u8] = // ...
     /// #    include_bytes!("../../tests/data/messages/compressed-data-algo-0.pgp");
     /// let mut ppp = PacketPileParser::from_bytes(message_data)?;
-    /// while let Some(pp) = ppp.as_ref() {
+    /// while let Ok(pp) = ppp.as_ref() {
     ///     match pp.packet {
     ///         Packet::CompressedData(_) =>
     ///             assert_eq!(ppp.recursion_depth(), Some(0)),
@@ -424,7 +424,7 @@ fn message_parser_reader_interface() {
     let mut ppp = PacketPileParser::from_bytes(
         crate::tests::message("compressed-data-algo-1.gpg")).unwrap();
     let mut count = 0;
-    while let Some(pp) = ppp.as_mut() {
+    while let Ok(pp) = ppp.as_mut() {
         if let Packet::Literal(_) = pp.packet {
             assert_eq!(count, 1); // The *second* packet.
 
