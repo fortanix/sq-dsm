@@ -220,7 +220,7 @@ impl UserAttribute {
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*,
-    ///                         packet::user_attribute::*};
+    /// #                       packet::user_attribute::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
@@ -278,7 +278,7 @@ impl UserAttribute {
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*,
-    ///                         packet::user_attribute::*};
+    /// #                       packet::user_attribute::*};
     /// # f().unwrap();
     /// # fn f() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
