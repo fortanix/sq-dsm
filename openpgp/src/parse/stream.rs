@@ -453,15 +453,37 @@ impl<'a> IntoIterator for MessageStructure<'a> {
 /// Represents a layer of the message structure.
 ///
 /// A valid OpenPGP message contains one literal data packet with
-/// optional encryption, signing, and compression layers on top.
+/// optional encryption, signing, and compression layers freely
+/// combined on top (see [Section 11.3 of RFC 4880]).  This enum
+/// represents the layers.  The [`MessageStructure`] is communicated
+/// to the [`VerificationHelper::check`].  Iterating over the
+/// [`MessageStructure`] yields the individual message layers.
+///
+///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
+///   [`MessageStructure`]: struct.MessageStructure.html
+///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
 #[derive(Debug)]
 pub enum MessageLayer<'a> {
     /// Represents an compression container.
+    ///
+    /// Compression is usually transparent in OpenPGP, though it may
+    /// sometimes be interesting for advanced users to indicate that
+    /// the message was compressed, and how (see [Section 5.6 of RFC
+    /// 4880]).
+    ///
+    ///   [Section 5.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.6
     Compression {
         /// Compression algorithm used.
         algo: CompressionAlgorithm,
     },
     /// Represents an encryption container.
+    ///
+    /// Indicates the fact that the message was encrypted (see
+    /// [Section 5.13 of RFC 4880]).  If you expect encrypted
+    /// messages, make sure that there is at least one encryption
+    /// container present.
+    ///
+    ///   [Section 5.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.13
     Encryption {
         /// Symmetric algorithm used.
         sym_algo: SymmetricAlgorithm,
@@ -473,14 +495,16 @@ pub enum MessageLayer<'a> {
     /// Represents a signature group.
     ///
     /// A signature group consists of all signatures with the same
-    /// level.  Each [`VerificationResult`] represents the result of
-    /// a single signature verification.  In your
-    /// [`VerificationHelper::check`] method, iterate over the
-    /// verification results, see if it meets your policies' demands,
-    /// and communicate it to the user, if applicable.
+    /// level (see [Section 5.2 of RFC 4880]).  Each
+    /// [`VerificationResult`] represents the result of a single
+    /// signature verification.  In your [`VerificationHelper::check`]
+    /// method, iterate over the verification results, see if it meets
+    /// your policies' demands, and communicate it to the user, if
+    /// applicable.
     ///
-    ///  [`VerificationResult`]: type.VerificationResult.html
-    ///  [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
+    ///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
+    ///   [`VerificationResult`]: type.VerificationResult.html
+    ///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
     SignatureGroup {
         /// The results of the signature verifications.
         results: Vec<VerificationResult<'a>>,
