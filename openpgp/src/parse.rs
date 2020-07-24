@@ -3271,12 +3271,20 @@ impl PacketParserEOF {
     }
 }
 
-/// The return type of `PacketParser::next`() and
-/// `PacketParser::recurse`().
+/// The result of parsing a packet.
 ///
-/// We don't use an `Option`, because when we reach the end of the
-/// packet sequence, some information about the message needs to
-/// remain accessible.
+/// This type is returned by [`PacketParser::next`],
+/// [`PacketParser::recurse`], [`PacketParserBuilder::build`], and the
+/// implementation of [`PacketParser`]'s [`Parse` trait].  The result
+/// is either `Some(PacketParser)`, indicating successful parsing of a
+/// packet, or `EOF(PacketParserEOF)` if the end of the input stream
+/// has been reached.
+///
+///   [`PacketParser::next`]: struct.PacketParser.html#method.next
+///   [`PacketParser::recurse`]: struct.PacketParser.html#method.recurse
+///   [`PacketParserBuilder::build`]: struct.PacketParserBuilder.html#method.build
+///   [`PacketParser`]: struct.PacketParser.html
+///   [`Parse` trait]: struct.PacketParser.html#impl-Parse%3C%27a%2C%20PacketParserResult%3C%27a%3E%3E
 #[derive(Debug)]
 pub enum PacketParserResult<'a> {
     /// A `PacketParser` for the next packet.
@@ -3286,7 +3294,7 @@ pub enum PacketParserResult<'a> {
 }
 
 impl<'a> PacketParserResult<'a> {
-    /// Like `Option::is_none`().
+    /// Returns `true` if the result is `EOF`.
     pub fn is_eof(&self) -> bool {
         if let PacketParserResult::EOF(_) = self {
             true
@@ -3295,12 +3303,20 @@ impl<'a> PacketParserResult<'a> {
         }
     }
 
-    /// Like `Option::is_some`().
+    /// Returns `true` if the result is `Some`.
     pub fn is_some(&self) -> bool {
         ! Self::is_eof(self)
     }
 
-    /// Like `Option::expect`().
+    /// Unwraps a result, yielding the content of an `Some`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is an `EOF`, with a panic message
+    /// including the passed message, and the information in the
+    /// [`PacketParserEOF`] object.
+    ///
+    ///   [`PacketParserEOF`]: struct.PacketParserEOF.html
     pub fn expect(self, msg: &str) -> PacketParser<'a> {
         if let PacketParserResult::Some(pp) = self {
             return pp;
@@ -3309,13 +3325,24 @@ impl<'a> PacketParserResult<'a> {
         }
     }
 
-    /// Like `Option::unwrap`().
+    /// Unwraps a result, yielding the content of an `Some`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value is an `EOF`, with a panic message
+    /// including the information in the [`PacketParserEOF`] object.
+    ///
+    ///   [`PacketParserEOF`]: struct.PacketParserEOF.html
     pub fn unwrap(self) -> PacketParser<'a> {
         self.expect("called `PacketParserResult::unwrap()` on a \
                      `PacketParserResult::PacketParserEOF` value")
     }
 
-    /// Like `Option::as_ref`().
+    /// Converts from `PacketParserResult` to `Result<&PacketParser,
+    /// &PacketParserEOF>`.
+    ///
+    /// Produces a new `Result`, containing references into the
+    /// original `PacketParserResult`, leaving the original in place.
     pub fn as_ref(&self)
                   -> StdResult<&PacketParser<'a>, &PacketParserEOF> {
         match self {
@@ -3324,7 +3351,11 @@ impl<'a> PacketParserResult<'a> {
         }
     }
 
-    /// Like `Option::as_mut`().
+    /// Converts from `PacketParserResult` to `Result<&mut
+    /// PacketParser, &mut PacketParserEOF>`.
+    ///
+    /// Produces a new `Result`, containing mutable references into the
+    /// original `PacketParserResult`, leaving the original in place.
     pub fn as_mut(&mut self)
                   -> StdResult<&mut PacketParser<'a>, &mut PacketParserEOF> {
         match self {
@@ -3333,10 +3364,13 @@ impl<'a> PacketParserResult<'a> {
         }
     }
 
-    /// Like `Option::take`().
+    /// Takes the value out of the `PacketParserResult`, leaving a
+    /// `EOF` in its place.
     ///
-    /// `self` is replaced with a `PacketParserEOF` with default
-    /// values.
+    /// The `EOF` left in place carries a [`PacketParserEOF`] with
+    /// default values.
+    ///
+    ///   [`PacketParserEOF`]: struct.PacketParserEOF.html
     pub fn take(&mut self) -> Self {
         mem::replace(
             self,
@@ -3345,7 +3379,9 @@ impl<'a> PacketParserResult<'a> {
                     PacketParserState::new(Default::default()))))
     }
 
-    /// Like `Option::map`().
+    /// Maps a `PacketParserResult` to `Result<PacketParser,
+    /// PacketParserEOF>` by applying a function to a contained `Some`
+    /// value, leaving an `EOF` value untouched.
     pub fn map<U, F>(self, f: F) -> StdResult<U, PacketParserEOF>
         where F: FnOnce(PacketParser<'a>) -> U
     {
