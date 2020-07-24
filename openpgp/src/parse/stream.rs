@@ -742,6 +742,13 @@ pub trait VerificationHelper {
     ///   [`Verifier::message_processed`]: struct.Verifier.html#method.message_processed
     ///   [`Decryptor::message_processed`]: struct.Decryptor.html#method.message_processed
     ///
+    /// When verifying a detached signature using the
+    /// [`DetachedVerifier`], this method will be called with a
+    /// [`MessageStructure`] containing exactly one layer, a signature
+    /// group.
+    ///
+    ///   [`DetachedVerifier`]: struct.DetachedVerifier.html
+    ///
     /// # Examples
     ///
     /// This example demonstrates how to verify that the message is an
@@ -1276,9 +1283,14 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 ///   [`Parse`]: ../trait.Parse.html
 ///
 /// See [`GoodChecksum`] for what it means for a signature to be
-/// considered valid.
+/// considered valid.  When the signature(s) are processed,
+/// [`VerificationHelper::check`] will be called with a
+/// [`MessageStructure`] containing exactly one layer, a signature
+/// group.
 ///
 ///   [`GoodChecksum`]: struct.GoodChecksum.html
+///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
+///   [`MessageStructure`]: struct.MessageStructure.html
 ///
 /// # Examples
 ///
@@ -1432,8 +1444,13 @@ impl<'a> DetachedVerifierBuilder<'a> {
     /// Signature verifications are done under the given `policy` and
     /// relative to time `time`, or the current time, if `time` is
     /// `None`.  `helper` is the [`VerificationHelper`] to use.
+    /// [`VerificationHelper::check`] will be called with a
+    /// [`MessageStructure`] containing exactly one layer, a signature
+    /// group.
     ///
     ///   [`VerificationHelper`]: trait.VerificationHelper.html
+    ///   [`VerificationHelper::check`]: trait.VerificationHelper.html#tymethod.check
+    ///   [`MessageStructure`]: struct.MessageStructure.html
     ///
     /// # Examples
     ///
