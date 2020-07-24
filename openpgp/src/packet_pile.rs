@@ -632,8 +632,8 @@ impl<'a> PacketParserBuilder<'a> {
     /// parsed message.
     ///
     /// Note: calling this function does not change the default
-    /// settings `PacketParserSettings`.  Thus, by default, the
-    /// content of packets will *not* be buffered.
+    /// settings.  Thus, by default, the content of packets will *not*
+    /// be buffered.
     ///
     /// Note: to avoid denial of service attacks, the `PacketParser`
     /// interface should be preferred unless the size of the message
