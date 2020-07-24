@@ -4277,10 +4277,12 @@ impl <'a> PacketParser<'a> {
 
     /// Causes the PacketParser to buffer the packet's contents.
     ///
-    /// The packet's contents can be retrieved using `packet.body()`.
-    /// In general, you should avoid buffering a packet's content and
-    /// prefer streaming its content unless you are certain that the
-    /// content is small.
+    /// The packet's contents can be retrieved using
+    /// e.g. [`Container::body`].  In general, you should avoid
+    /// buffering a packet's content and prefer streaming its content
+    /// unless you are certain that the content is small.
+    ///
+    ///   [`Container::body`]: ../packet/struct.Container.html#method.body
     ///
     /// ```rust
     /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -4380,7 +4382,9 @@ impl <'a> PacketParser<'a> {
     /// Finishes parsing the current packet.
     ///
     /// By default, this drops any unread content.  Use, for instance,
-    /// `PacketParserBuild` to customize the default behavior.
+    /// [`PacketParserBuilder`] to customize the default behavior.
+    ///
+    ///   [`PacketParserBuilder`]: struct.PacketParserBuilder.html
     ///
     /// # Examples
     ///
