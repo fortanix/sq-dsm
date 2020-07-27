@@ -473,7 +473,7 @@ impl<'a> Reader<'a> {
     ///
     ///   [ASCII Armor]: https://tools.ietf.org/html/rfc4880#section-6.2
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use std::io::Read;
@@ -600,6 +600,36 @@ impl<'a> Reader<'a> {
     /// Note: if a key occurs multiple times, then there are multiple
     /// entries in the vector with the same key; values with the same
     /// key are *not* combined.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::io::Read;
+    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use openpgp::armor::{Reader, ReaderMode, Kind};
+    /// # use std::io::{self, Result};
+    /// # fn main() { f().unwrap(); }
+    /// # fn f() -> Result<()> {
+    /// let data =
+    ///     "-----BEGIN PGP ARMORED FILE-----
+    ///      First: value
+    ///      Header: value
+    ///
+    ///      SGVsbG8gd29ybGQh
+    ///      =s4Gu
+    ///      -----END PGP ARMORED FILE-----";
+    ///
+    /// let mut cursor = io::Cursor::new(&data);
+    /// let mut reader = Reader::new(&mut cursor, ReaderMode::Tolerant(Some(Kind::File)));
+    ///
+    /// let mut content = String::new();
+    /// reader.read_to_string(&mut content)?;
+    /// assert_eq!(reader.headers().unwrap(),
+    ///    &[("     First".into(), "value".into()),
+    ///      ("     Header".into(), "value".into())]);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn headers(&mut self) -> Result<&[(String, String)]> {
         self.initialize()?;
         Ok(&self.headers[..])
