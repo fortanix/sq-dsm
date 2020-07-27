@@ -158,11 +158,11 @@ impl<'a> MarshalInto for Encoder<'a> {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, self.serialized_len(), buf)
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_export_into(self, buf)
+        generic_export_into(self, self.serialized_len(), buf)
     }
 }
 

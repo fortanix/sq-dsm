@@ -37,7 +37,7 @@ impl MarshalInto for Sexp {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, self.serialized_len(), buf)
     }
 }
 
@@ -75,7 +75,7 @@ impl MarshalInto for String_ {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, self.serialized_len(), buf)
     }
 }
 

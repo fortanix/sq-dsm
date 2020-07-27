@@ -496,8 +496,9 @@ trait NetLength {
 /// For now, we express SerializeInto using Serialize.  In the future,
 /// we may provide implementations not relying on Serialize for a
 /// no_std configuration of this crate.
-fn generic_serialize_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
-                                                        -> Result<usize> {
+fn generic_serialize_into(o: &dyn Marshal, serialized_len: usize,
+                          buf: &mut [u8])
+                          -> Result<usize> {
     let buf_len = buf.len();
     let mut cursor = ::std::io::Cursor::new(buf);
     match o.serialize(&mut cursor) {
@@ -510,11 +511,11 @@ fn generic_serialize_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
                     false
                 };
             return if short_write {
-                assert!(buf_len < o.serialized_len(),
+                assert!(buf_len < serialized_len,
                         "o.serialized_len() underestimated the required space");
                 Err(Error::InvalidArgument(
                     format!("Invalid buffer size, expected {}, got {}",
-                            o.serialized_len(), buf_len)).into())
+                            serialized_len, buf_len)).into())
             } else {
                 Err(e)
             }
@@ -523,13 +524,15 @@ fn generic_serialize_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
     Ok(cursor.position() as usize)
 }
 
+
 /// Provides a generic implementation for SerializeInto::export_into.
 ///
 /// For now, we express SerializeInto using Serialize.  In the future,
 /// we may provide implementations not relying on Serialize for a
 /// no_std configuration of this crate.
-fn generic_export_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
-                                                        -> Result<usize> {
+fn generic_export_into(o: &dyn Marshal, serialized_len: usize,
+                       buf: &mut [u8])
+                       -> Result<usize> {
     let buf_len = buf.len();
     let mut cursor = ::std::io::Cursor::new(buf);
     match o.export(&mut cursor) {
@@ -542,11 +545,11 @@ fn generic_export_into<T: Marshal + MarshalInto>(o: &T, buf: &mut [u8])
                     false
                 };
             return if short_write {
-                assert!(buf_len < o.serialized_len(),
+                assert!(buf_len < serialized_len,
                         "o.serialized_len() underestimated the required space");
                 Err(Error::InvalidArgument(
                     format!("Invalid buffer size, expected {}, got {}",
-                            o.serialized_len(), buf_len)).into())
+                            serialized_len, buf_len)).into())
             } else {
                 Err(e)
             }
@@ -688,7 +691,7 @@ impl MarshalInto for BodyLength {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -748,7 +751,7 @@ impl MarshalInto for CTBNew {
     fn serialized_len(&self) -> usize { 1 }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -765,7 +768,7 @@ impl MarshalInto for CTBOld {
     fn serialized_len(&self) -> usize { 1 }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -783,7 +786,7 @@ impl MarshalInto for CTB {
     fn serialized_len(&self) -> usize { 1 }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -801,7 +804,7 @@ impl MarshalInto for Header {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -829,7 +832,7 @@ impl MarshalInto for KeyID {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -852,7 +855,7 @@ impl MarshalInto for Fingerprint {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -870,7 +873,7 @@ impl MarshalInto for crypto::mpi::MPI {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -888,7 +891,7 @@ impl MarshalInto for crypto::mpi::ProtectedMPI {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -987,7 +990,7 @@ impl MarshalInto for crypto::mpi::PublicKey {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1076,7 +1079,7 @@ impl MarshalInto for crypto::mpi::SecretKeyMaterial {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1158,7 +1161,7 @@ impl MarshalInto for crypto::mpi::Ciphertext {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1231,7 +1234,7 @@ impl MarshalInto for crypto::mpi::Signature {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1270,7 +1273,7 @@ impl MarshalInto for S2K {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1293,7 +1296,7 @@ impl MarshalInto for Unknown {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1338,7 +1341,7 @@ impl MarshalInto for Subpacket {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1483,7 +1486,7 @@ impl MarshalInto for SubpacketValue {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1513,7 +1516,7 @@ impl MarshalInto for SubpacketLength {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1533,7 +1536,7 @@ impl MarshalInto for RevocationKey {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1651,7 +1654,7 @@ impl MarshalInto for Signature4 {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -1728,7 +1731,7 @@ impl MarshalInto for OnePassSig3 {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1850,7 +1853,7 @@ impl<P, R> MarshalInto for Key4<P, R>
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1873,7 +1876,7 @@ impl MarshalInto for Marker {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1896,7 +1899,7 @@ impl MarshalInto for Trust {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1919,7 +1922,7 @@ impl MarshalInto for UserID {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1942,7 +1945,7 @@ impl MarshalInto for UserAttribute {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -1984,7 +1987,7 @@ impl MarshalInto for user_attribute::Subpacket {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2028,7 +2031,7 @@ impl MarshalInto for user_attribute::Image {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2095,7 +2098,7 @@ impl MarshalInto for Literal {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2193,7 +2196,7 @@ impl MarshalInto for CompressedData {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2216,7 +2219,8 @@ impl MarshalInto for PKESK {
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &PKESK::V3(ref p) => generic_serialize_into(p, buf),
+            PKESK::V3(p) =>
+                generic_serialize_into(p, MarshalInto::serialized_len(p), buf),
             PKESK::__Nonexhaustive => unreachable!(),
         }
     }
@@ -2248,7 +2252,7 @@ impl MarshalInto for PKESK3 {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2283,8 +2287,10 @@ impl MarshalInto for SKESK {
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
-            &SKESK::V4(ref s) => generic_serialize_into(s, buf),
-            &SKESK::V5(ref s) => generic_serialize_into(s, buf),
+            SKESK::V4(s) =>
+                generic_serialize_into(s, MarshalInto::serialized_len(s), buf),
+            SKESK::V5(s) =>
+                generic_serialize_into(s, MarshalInto::serialized_len(s), buf),
             SKESK::__Nonexhaustive => unreachable!(),
         }
     }
@@ -2318,7 +2324,7 @@ impl MarshalInto for SKESK4 {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2356,7 +2362,7 @@ impl MarshalInto for SKESK5 {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2398,7 +2404,7 @@ impl MarshalInto for SEIP {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2421,7 +2427,7 @@ impl MarshalInto for MDC {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2503,7 +2509,7 @@ impl MarshalInto for AED1 {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2649,11 +2655,11 @@ impl MarshalInto for Packet {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_export_into(self, buf)
+        generic_export_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2874,11 +2880,11 @@ impl<'a> MarshalInto for PacketRef<'a> {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_export_into(self, buf)
+        generic_export_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
@@ -2912,11 +2918,11 @@ impl MarshalInto for PacketPile {
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_serialize_into(self, buf)
+        generic_serialize_into(self, MarshalInto::serialized_len(self), buf)
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
-        generic_export_into(self, buf)
+        generic_export_into(self, MarshalInto::serialized_len(self), buf)
     }
 }
 
