@@ -15,19 +15,40 @@ use crate::parse::Cookie;
 use crate::armor;
 use crate::packet;
 
-/// How to decode the input.
+/// Controls transparent stripping of ASCII armor when parsing.
+///
+/// When parsing OpenPGP data streams, the [`PacketParser`] will by
+/// default automatically detect and remove any ASCII armor encoding
+/// (see [Section 6 of RFC 4880]).  This automatism can be disabled
+/// and fine-tuned using [`PacketParserBuilder::dearmor`].
+///
+///   [`PacketParser`]: struct.PacketParser.html
+///   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+///   [`PacketParserBuilder::dearmor`]: struct.PacketParserBuilder.html#method.dearmor
 #[derive(PartialEq)]
 pub enum Dearmor {
     /// Unconditionally treat the input as if it were an OpenPGP
     /// message encoded using ASCII armor.
+    ///
+    /// Parsing a binary encoded OpenPGP message using this mode will
+    /// fail.  The [`ReaderMode`] allow further customization of the
+    /// ASCII armor parser.
+    ///
+    ///   [`ReaderMode`]: ../armor/enum.ReaderMode.html
     Enabled(armor::ReaderMode),
     /// Unconditionally treat the input as if it were a binary OpenPGP
     /// message.
+    ///
+    /// Parsing an ASCII armor encoded OpenPGP message using this mode will
+    /// fail.
     Disabled,
     /// If input does not appear to be a binary encoded OpenPGP
     /// message, treat it as if it were encoded using ASCII armor.
     ///
-    /// This is the default.
+    /// This is the default.  The [`ReaderMode`] allow further
+    /// customization of the ASCII armor parser.
+    ///
+    ///   [`ReaderMode`]: ../armor/enum.ReaderMode.html
     Auto(armor::ReaderMode),
 }
 

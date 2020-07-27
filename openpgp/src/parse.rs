@@ -119,6 +119,16 @@
 //!   [`Decryptor`]: stream/struct.Decryptor.html
 //!   [`Verifier`]: stream/struct.Verifier.html
 //!
+//! # ASCII armored data
+//!
+//! The [`PacketParser`] will by default automatically detect and
+//! remove any ASCII armor encoding (see [Section 6 of RFC 4880]).
+//! This automatism can be disabled and fine-tuned using
+//! [`PacketParserBuilder::dearmor`].
+//!
+//!   [Section 6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-6
+//!   [`PacketParserBuilder::dearmor`]: struct.PacketParserBuilder.html#method.dearmor
+//!
 //! # Security Considerations
 //!
 //! In general, OpenPGP data must be considered attacker controlled
