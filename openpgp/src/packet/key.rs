@@ -1865,4 +1865,22 @@ mod tests {
         }
         assert!(pki == pks.len() && ski == sks.len());
     }
+
+    #[test]
+    fn encrypt_huge_plaintext() -> Result<()> {
+        let sk = crate::crypto::SessionKey::new(256);
+        let rsa2k: Key<SecretParts, UnspecifiedRole> =
+            Key4::generate_rsa(2048)?.into();
+        assert!(destructures_to!(
+            crate::Error::InvalidArgument(_) =
+                rsa2k.encrypt(&sk).unwrap_err().downcast().unwrap()));
+
+        let cv25519: Key<SecretParts, UnspecifiedRole> =
+            Key4::generate_ecc(false, Curve::Cv25519)?.into();
+        assert!(destructures_to!(
+            crate::Error::InvalidArgument(_) =
+                cv25519.encrypt(&sk).unwrap_err().downcast().unwrap()));
+
+        Ok(())
+    }
 }

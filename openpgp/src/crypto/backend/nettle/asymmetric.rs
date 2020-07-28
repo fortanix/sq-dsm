@@ -227,7 +227,13 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 match self.mpis() {
                     mpi::PublicKey::RSA { e, n } => {
                         // The ciphertext has the length of the modulus.
-                        let mut esk = vec![0u8; n.value().len()];
+                        let ciphertext_len = n.value().len();
+                        if data.len() + 11 > ciphertext_len {
+                            return Err(Error::InvalidArgument(
+                                "Plaintext data too large".into()).into());
+                        }
+
+                        let mut esk = vec![0u8; ciphertext_len];
                         let mut rng = Yarrow::default();
                         let pk = rsa::PublicKey::new(n.value(), e.value())?;
                         rsa::encrypt_pkcs1(&pk, &mut rng, data,

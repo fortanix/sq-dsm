@@ -138,7 +138,7 @@ pub fn encrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
             // m = sym_alg_ID || session key || checksum || pkcs5_padding;
             let mut m = Vec::with_capacity(40);
             m.extend_from_slice(session_key);
-            let m = pkcs5_pad(m.into(), 40);
+            let m = pkcs5_pad(m.into(), 40)?;
             // Note: We always pad up to 40 bytes to obfuscate the
             // length of the symmetric key.
 

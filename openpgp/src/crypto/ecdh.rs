@@ -38,7 +38,13 @@ pub fn kdf(x: &Protected, obits: usize, hash: HashAlgorithm, param: &[u8])
 /// See [Section 8 of RFC 6637].
 ///
 ///   [Section 8 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-8
-pub fn pkcs5_pad(sk: Protected, target_len: usize) -> Protected {
+pub fn pkcs5_pad(sk: Protected, target_len: usize) -> Result<Protected> {
+    if sk.len() > target_len {
+        return Err(Error::InvalidArgument(
+            "Plaintext data too large".into()).into());
+    }
+
+    // !!! THIS FUNCTION MUST NOT FAIL FROM THIS POINT ON !!!
     let mut buf: Vec<u8> = unsafe {
         sk.into_vec()
     };
@@ -48,7 +54,7 @@ pub fn pkcs5_pad(sk: Protected, target_len: usize) -> Protected {
         buf.push(missing as u8);
     }
     assert_eq!(buf.len(), target_len);
-    buf.into()
+    Ok(buf.into())
 }
 
 /// Removes PKCS5 padding from a session key.
@@ -257,12 +263,12 @@ mod tests {
 
     #[test]
     fn pkcs5_padding() {
-        let v = pkcs5_pad(vec![0, 0, 0].into(), 8);
+        let v = pkcs5_pad(vec![0, 0, 0].into(), 8).unwrap();
         assert_eq!(&v, &Protected::from(&[0, 0, 0, 5, 5, 5, 5, 5][..]));
         let v = pkcs5_unpad(v, 3).unwrap();
         assert_eq!(&v, &Protected::from(&[0, 0, 0][..]));
 
-        let v = pkcs5_pad(vec![].into(), 8);
+        let v = pkcs5_pad(vec![].into(), 8).unwrap();
         assert_eq!(&v, &Protected::from(&[8, 8, 8, 8, 8, 8, 8, 8][..]));
         let v = pkcs5_unpad(v, 0).unwrap();
         assert_eq!(&v, &Protected::from(&[][..]));
