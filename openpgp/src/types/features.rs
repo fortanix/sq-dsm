@@ -161,17 +161,17 @@ impl Features {
     /// // Feature flags 0 and 2.
     /// let f = Features::new(&[ 0x5 ]);
     ///
-    /// assert!(f.check(0));
-    /// assert!(! f.check(1));
-    /// assert!(f.check(2));
-    /// assert!(! f.check(3));
-    /// assert!(! f.check(8));
-    /// assert!(! f.check(80));
+    /// assert!(f.get(0));
+    /// assert!(! f.get(1));
+    /// assert!(f.get(2));
+    /// assert!(! f.get(3));
+    /// assert!(! f.get(8));
+    /// assert!(! f.get(80));
     /// # assert!(f.supports_mdc());
     /// # assert!(! f.supports_aead());
     /// # Ok(()) }
     /// ```
-    pub fn check(&self, bit: usize) -> bool {
+    pub fn get(&self, bit: usize) -> bool {
         self.0.get(bit)
     }
 
@@ -189,10 +189,10 @@ impl Features {
     /// # fn main() -> Result<()> {
     /// let f = Features::empty().set(0).set(2);
     ///
-    /// assert!(f.check(0));
-    /// assert!(! f.check(1));
-    /// assert!(f.check(2));
-    /// assert!(! f.check(3));
+    /// assert!(f.get(0));
+    /// assert!(! f.get(1));
+    /// assert!(f.get(2));
+    /// assert!(! f.get(3));
     /// # assert!(f.supports_mdc());
     /// # assert!(! f.supports_aead());
     /// # Ok(()) }
@@ -215,10 +215,10 @@ impl Features {
     /// # fn main() -> Result<()> {
     /// let f = Features::empty().set(0).set(2).clear(2);
     ///
-    /// assert!(f.check(0));
-    /// assert!(! f.check(1));
-    /// assert!(! f.check(2));
-    /// assert!(! f.check(3));
+    /// assert!(f.get(0));
+    /// assert!(! f.get(1));
+    /// assert!(! f.get(2));
+    /// assert!(! f.get(3));
     /// # assert!(f.supports_mdc());
     /// # assert!(! f.supports_aead());
     /// # Ok(()) }
@@ -243,7 +243,7 @@ impl Features {
     /// # Ok(()) }
     /// ```
     pub fn supports_mdc(&self) -> bool {
-        self.check(FEATURE_FLAG_MDC)
+        self.get(FEATURE_FLAG_MDC)
     }
 
     /// Sets the MDC feature flag.
@@ -259,7 +259,7 @@ impl Features {
     /// let f = Features::empty().set_mdc();
     ///
     /// assert!(f.supports_mdc());
-    /// # assert!(f.check(0));
+    /// # assert!(f.get(0));
     /// # Ok(()) }
     /// ```
     pub fn set_mdc(self) -> Self {
@@ -303,7 +303,7 @@ impl Features {
     /// # Ok(()) }
     /// ```
     pub fn supports_aead(&self) -> bool {
-        self.check(FEATURE_FLAG_AEAD)
+        self.get(FEATURE_FLAG_AEAD)
     }
 
     /// Sets the AEAD feature flag.
@@ -319,7 +319,7 @@ impl Features {
     /// let f = Features::empty().set_aead();
     ///
     /// assert!(f.supports_aead());
-    /// # assert!(f.check(1));
+    /// # assert!(f.get(1));
     /// # Ok(()) }
     /// ```
     pub fn set_aead(self) -> Self {
