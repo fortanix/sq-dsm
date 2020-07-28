@@ -1,8 +1,9 @@
-use std::hash::{Hash, Hasher};
 use std::fmt;
 
 #[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
+
+use crate::types::Bitfield;
 
 /// Describes preferences regarding key servers.
 ///
@@ -12,9 +13,19 @@ use quickcheck::{Arbitrary, Gen};
 /// [Section 5.2.3.17 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.17
 /// [Section 5.2.3.18 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-5.2.3.18
 ///
+/// The keyserver preferences are set by the user's OpenPGP
+/// implementation to communicate them to any peers.
+///
 /// # A note on equality
 ///
-/// `PartialEq` implements semantic equality, i.e. it ignores padding.
+/// `PartialEq` compares the serialized form of the two key server
+/// preference sets.  If you prefer to compare two key server
+/// preference sets for semantic equality, you should use
+/// [`KeyServerPreferences::normalized_eq`].  The difference between
+/// semantic equality and serialized equality is that semantic
+/// equality ignores differences in the amount of padding.
+///
+///   [`KeyServerPreferences::normalized_eq`]: #method.normalized_eq
 ///
 /// # Examples
 ///
@@ -43,13 +54,8 @@ use quickcheck::{Arbitrary, Gen};
 /// }
 /// # Ok(()) }
 /// ```
-#[derive(Clone)]
-pub struct KeyServerPreferences{
-    no_modify: bool,
-    unknown: Box<[u8]>,
-    /// Original length, including trailing zeros.
-    pad_to: usize,
-}
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct KeyServerPreferences(Bitfield);
 
 impl Default for KeyServerPreferences {
     fn default() -> Self {
@@ -59,112 +65,214 @@ impl Default for KeyServerPreferences {
 
 impl fmt::Debug for KeyServerPreferences {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut dirty = false;
+        let mut need_comma = false;
         if self.no_modify() {
             f.write_str("no modify")?;
-            dirty = true;
+            need_comma = true;
         }
-        if ! self.unknown.is_empty() {
-            if dirty { f.write_str(", ")?; }
-            f.write_str("+0x")?;
-            f.write_str(
-                &crate::fmt::hex::encode_pretty(&self.unknown))?;
-            dirty = true;
+
+        for i in self.0.iter() {
+            match i {
+                KEYSERVER_PREFERENCE_NO_MODIFY => (),
+                i => {
+                    if need_comma { f.write_str(", ")?; }
+                    write!(f, "#{}", i)?;
+                    need_comma = true;
+                },
+            }
         }
-        if self.pad_to >
-            KEYSERVER_PREFERENCES_N_KNOWN_BYTES + self.unknown.len()
-        {
-            if dirty { f.write_str(", ")?; }
-            write!(f, "+padding({} bytes)", self.pad_to - self.unknown.len())?;
+
+        // Mention any padding, as equality is sensitive to this.
+        let padding = self.0.padding_len();
+        if padding > 0 {
+            if need_comma { f.write_str(", ")?; }
+            write!(f, "+padding({} bytes)", padding)?;
         }
 
         Ok(())
     }
 }
 
-impl PartialEq for KeyServerPreferences {
-    fn eq(&self, other: &Self) -> bool {
-        self.no_modify == other.no_modify
-            && self.unknown == other.unknown
-    }
-}
-
-impl Eq for KeyServerPreferences {}
-
-impl Hash for KeyServerPreferences {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.no_modify.hash(state);
-        self.unknown.hash(state);
-    }
-}
-
 impl KeyServerPreferences {
     /// Creates a new instance from `bits`.
     pub fn new<B: AsRef<[u8]>>(bits: B) -> Self {
-        let bits = bits.as_ref();
-        let mut pad_to = 0;
-
-        let no_mod = bits.get(0)
-            .map(|x| x & KEYSERVER_PREFERENCE_NO_MODIFY != 0).unwrap_or(false);
-        let unk = if bits.is_empty() {
-            Box::default()
-        } else {
-            let mut cpy = Vec::from(bits);
-
-            cpy[0] &= KEYSERVER_PREFERENCE_NO_MODIFY ^ 0xff;
-
-            pad_to = crate::types::bitfield_remove_padding(&mut cpy);
-            cpy.into_boxed_slice()
-        };
-
-        KeyServerPreferences{
-            no_modify: no_mod, unknown: unk, pad_to,
-        }
+        KeyServerPreferences(bits.as_ref().to_vec().into())
     }
 
-    /// Returns a slice referencing the raw values.
-    pub(crate) fn to_vec(&self) -> Vec<u8> {
-        let mut ret = if self.unknown.is_empty() {
-            vec![0]
-        } else {
-            self.unknown.clone().into()
-        };
-
-        if self.no_modify { ret[0] |= KEYSERVER_PREFERENCE_NO_MODIFY; }
-
-        // Corner case: empty flag field.  We initialized ret to
-        // vec![0] for easy setting of flags.  See if any of the above
-        // was set.
-        if ret.len() == 1 && ret[0] == 0 {
-            // Nope.  Trim this byte.
-            ret.pop();
-        }
-
-        for _ in ret.len()..self.pad_to {
-            ret.push(0);
-        }
-
-        ret
+    /// Returns a slice containing the raw values.
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
     }
 
-    /// Whether or not keyservers are allowed to modify this key.
+    /// Compares two key server preference sets for semantic equality.
+    ///
+    /// `KeyServerPreferences`' implementation of `PartialEq` compares
+    /// two key server preference sets for serialized equality.  That
+    /// is, the `PartialEq` implementation considers two key server
+    /// preference sets to *not* be equal if they have different
+    /// amounts of padding.  This comparison function ignores padding.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::KeyServerPreferences;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let a = KeyServerPreferences::new(&[ 0x1 ]);
+    /// let b = KeyServerPreferences::new(&[ 0x1, 0x0 ]);
+    ///
+    /// assert!(a != b);
+    /// assert!(a.normalized_eq(&b));
+    /// # Ok(()) }
+    /// ```
+    pub fn normalized_eq(&self, other: &Self) -> bool {
+        self.0.normalized_eq(&other.0)
+    }
+
+    /// Returns whether the specified keyserver preference flag is set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::KeyServerPreferences;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// // Keyserver Preferences flags 0 and 2.
+    /// let ksp = KeyServerPreferences::new(&[ 0x5 ]);
+    ///
+    /// assert!(ksp.get(0));
+    /// assert!(! ksp.get(1));
+    /// assert!(ksp.get(2));
+    /// assert!(! ksp.get(3));
+    /// assert!(! ksp.get(8));
+    /// assert!(! ksp.get(80));
+    /// # assert!(! ksp.no_modify());
+    /// # Ok(()) }
+    /// ```
+    pub fn get(&self, bit: usize) -> bool {
+        self.0.get(bit)
+    }
+
+    /// Sets the specified keyserver preference flag.
+    ///
+    /// This also clears any padding (trailing NUL bytes).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::KeyServerPreferences;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let ksp = KeyServerPreferences::default().set(0).set(2);
+    ///
+    /// assert!(ksp.get(0));
+    /// assert!(! ksp.get(1));
+    /// assert!(ksp.get(2));
+    /// assert!(! ksp.get(3));
+    /// # assert!(! ksp.no_modify());
+    /// # Ok(()) }
+    /// ```
+    pub fn set(self, bit: usize) -> Self {
+        Self(self.0.set(bit))
+    }
+
+    /// Clears the specified keyserver preference flag.
+    ///
+    /// This also clears any padding (trailing NUL bytes).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::KeyServerPreferences;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let ksp = KeyServerPreferences::default().set(0).set(2).clear(2);
+    ///
+    /// assert!(ksp.get(0));
+    /// assert!(! ksp.get(1));
+    /// assert!(! ksp.get(2));
+    /// assert!(! ksp.get(3));
+    /// # assert!(! ksp.no_modify());
+    /// # Ok(()) }
+    /// ```
+    pub fn clear(self, bit: usize) -> Self {
+        Self(self.0.clear(bit))
+    }
+
+    /// Returns whether the certificate's owner requests that the
+    /// certificate is not modified.
+    ///
+    /// If this flag is set, the certificate's owner requests that the
+    /// certificate should only be changed by the owner and the key
+    /// server's operator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::KeyServerPreferences;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let ksp = KeyServerPreferences::default();
+    /// assert!(! ksp.no_modify());
+    /// # Ok(()) }
+    /// ```
     pub fn no_modify(&self) -> bool {
-        self.no_modify
+        self.get(KEYSERVER_PREFERENCE_NO_MODIFY)
     }
 
-    /// Sets whether or not keyservers are allowed to modify this key.
-    pub fn set_no_modify(mut self, v: bool) -> Self {
-        self.no_modify = v;
-        self
+    /// Requests that the certificate is not modified.
+    ///
+    /// See [`KeyServerPreferences::no_modify`].
+    ///
+    ///   [`KeyServerPreferences::no_modify`]: #method.no_modify
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::KeyServerPreferences;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let ksp = KeyServerPreferences::default().set_no_modify();
+    /// assert!(ksp.no_modify());
+    /// # Ok(()) }
+    /// ```
+    pub fn set_no_modify(self) -> Self {
+        self.set(KEYSERVER_PREFERENCE_NO_MODIFY)
+    }
+
+    /// Clears the request that the certificate is not modified.
+    ///
+    /// See [`KeyServerPreferences::no_modify`].
+    ///
+    ///   [`KeyServerPreferences::no_modify`]: #method.no_modify
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::KeyServerPreferences;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let ksp = KeyServerPreferences::new(&[0x80][..]);
+    /// assert!(ksp.no_modify());
+    /// let ksp = ksp.clear_no_modify();
+    /// assert!(! ksp.no_modify());
+    /// # Ok(()) }
+    /// ```
+    pub fn clear_no_modify(self) -> Self {
+        self.clear(KEYSERVER_PREFERENCE_NO_MODIFY)
     }
 }
 
-/// The private component of this key may be in the possession of more
-/// than one person.
-const KEYSERVER_PREFERENCE_NO_MODIFY: u8 = 0x80;
-
-/// Number of bytes with known flags.
-const KEYSERVER_PREFERENCES_N_KNOWN_BYTES: usize = 1;
+/// The key holder requests that this key only be modified or updated
+/// by the key holder or an administrator of the key server.
+const KEYSERVER_PREFERENCE_NO_MODIFY: usize = 7;
 
 #[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for KeyServerPreferences {
@@ -190,13 +298,18 @@ mod tests {
 
     quickcheck! {
         fn roundtrip(val: KeyServerPreferences) -> bool {
-            let q = KeyServerPreferences::new(&val.to_vec());
+            let mut q = KeyServerPreferences::new(val.as_slice());
             assert_eq!(val, q);
+            assert!(val.normalized_eq(&q));
 
-            // Check that equality ignores padding.
-            let mut val_without_padding = val.clone();
-            val_without_padding.pad_to = val.unknown.len();
-            assert_eq!(val, val_without_padding);
+            // Add some padding to q.  Make sure they are still equal.
+            q.0.raw.push(0);
+            assert!(val != q);
+            assert!(val.normalized_eq(&q));
+
+            q.0.raw.push(0);
+            assert!(val != q);
+            assert!(val.normalized_eq(&q));
 
             true
         }

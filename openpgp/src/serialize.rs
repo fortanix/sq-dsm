@@ -1388,7 +1388,7 @@ impl Marshal for SubpacketValue {
                     o.write_all(&[(*a).into()])?;
                 },
             KeyServerPreferences(ref p) =>
-                o.write_all(&p.to_vec())?,
+                o.write_all(p.as_slice())?,
             PreferredKeyServer(ref p) =>
                 o.write_all(p)?,
             PrimaryUserID(p) =>
@@ -1455,7 +1455,7 @@ impl MarshalInto for SubpacketValue {
             NotationData(nd) => 4 + 2 + 2 + nd.name().len() + nd.value().len(),
             PreferredHashAlgorithms(ref p) => p.len(),
             PreferredCompressionAlgorithms(ref p) => p.len(),
-            KeyServerPreferences(ref p) => p.to_vec().len(),
+            KeyServerPreferences(ref p) => p.as_slice().len(),
             PreferredKeyServer(ref p) => p.len(),
             PrimaryUserID(_) => 1,
             PolicyURI(ref p) => p.len(),

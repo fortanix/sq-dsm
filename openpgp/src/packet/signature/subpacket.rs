@@ -2659,7 +2659,7 @@ fn accessors() {
     assert_eq!(sig_.preferred_compression_algorithms(), Some(&pref[..]));
 
     let pref = KeyServerPreferences::default()
-        .set_no_modify(true);
+        .set_no_modify();
     sig = sig.set_key_server_preferences(pref.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
@@ -2962,13 +2962,13 @@ fn subpacket_test_2() {
                        )}));
 
         assert_eq!(sig.key_server_preferences().unwrap(),
-                   KeyServerPreferences::default().set_no_modify(true));
+                   KeyServerPreferences::default().set_no_modify());
         assert_eq!(sig.subpacket(SubpacketTag::KeyServerPreferences),
                    Some(&Subpacket {
                        length: 2.into(),
                        critical: false,
                        value: SubpacketValue::KeyServerPreferences(
-                           KeyServerPreferences::default().set_no_modify(true)),
+                           KeyServerPreferences::default().set_no_modify()),
                    }));
 
         assert!(sig.key_flags().unwrap().for_certification());
