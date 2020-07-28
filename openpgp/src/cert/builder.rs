@@ -211,7 +211,7 @@ impl CertBuilder {
             creation_time: None,
             ciphersuite: CipherSuite::default(),
             primary: KeyBlueprint{
-                flags: KeyFlags::default().set_certification(true),
+                flags: KeyFlags::default().set_certification(),
                 expiration: None,
                 ciphersuite: None,
             },
@@ -255,8 +255,8 @@ impl CertBuilder {
             ciphersuite: ciphersuite.into().unwrap_or(Default::default()),
             primary: KeyBlueprint {
                 flags: KeyFlags::default()
-                    .set_certification(true)
-                    .set_signing(true),
+                    .set_certification()
+                    .set_signing(),
                 expiration: Some(
                     time::SystemTime::now()
                         + time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
@@ -265,8 +265,8 @@ impl CertBuilder {
             subkeys: vec![
                 KeyBlueprint {
                     flags: KeyFlags::default()
-                        .set_transport_encryption(true)
-                        .set_storage_encryption(true),
+                        .set_transport_encryption()
+                        .set_storage_encryption(),
                     expiration: None,
                     ciphersuite: None,
                 }
@@ -520,12 +520,12 @@ impl CertBuilder {
     /// assert_eq!(cert.keys().count(), 2);
     /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
     /// assert_eq!(ka.key_flags(),
-    ///            Some(KeyFlags::empty().set_signing(true)));
+    ///            Some(KeyFlags::empty().set_signing()));
     /// # Ok(())
     /// # }
     /// ```
     pub fn add_signing_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_signing(true), None, None)
+        self.add_subkey(KeyFlags::default().set_signing(), None, None)
     }
 
     /// Adds a subkey suitable for transport encryption.
@@ -558,12 +558,12 @@ impl CertBuilder {
     /// assert_eq!(cert.keys().count(), 2);
     /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
     /// assert_eq!(ka.key_flags(),
-    ///            Some(KeyFlags::empty().set_transport_encryption(true)));
+    ///            Some(KeyFlags::empty().set_transport_encryption()));
     /// # Ok(())
     /// # }
     /// ```
     pub fn add_transport_encryption_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_transport_encryption(true),
+        self.add_subkey(KeyFlags::default().set_transport_encryption(),
                         None, None)
     }
 
@@ -597,12 +597,12 @@ impl CertBuilder {
     /// assert_eq!(cert.keys().count(), 2);
     /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
     /// assert_eq!(ka.key_flags(),
-    ///            Some(KeyFlags::empty().set_storage_encryption(true)));
+    ///            Some(KeyFlags::empty().set_storage_encryption()));
     /// # Ok(())
     /// # }
     /// ```
     pub fn add_storage_encryption_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_storage_encryption(true),
+        self.add_subkey(KeyFlags::default().set_storage_encryption(),
                         None, None)
     }
 
@@ -636,12 +636,12 @@ impl CertBuilder {
     /// assert_eq!(cert.keys().count(), 2);
     /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
     /// assert_eq!(ka.key_flags(),
-    ///            Some(KeyFlags::empty().set_certification(true)));
+    ///            Some(KeyFlags::empty().set_certification()));
     /// # Ok(())
     /// # }
     /// ```
     pub fn add_certification_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_certification(true), None, None)
+        self.add_subkey(KeyFlags::default().set_certification(), None, None)
     }
 
     /// Adds an authentication-capable subkey.
@@ -674,12 +674,12 @@ impl CertBuilder {
     /// assert_eq!(cert.keys().count(), 2);
     /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
     /// assert_eq!(ka.key_flags(),
-    ///            Some(KeyFlags::empty().set_authentication(true)));
+    ///            Some(KeyFlags::empty().set_authentication()));
     /// # Ok(())
     /// # }
     /// ```
     pub fn add_authentication_subkey(self) -> Self {
-        self.add_subkey(KeyFlags::default().set_authentication(true), None, None)
+        self.add_subkey(KeyFlags::default().set_authentication(), None, None)
     }
 
     /// Adds a custom subkey.
@@ -715,8 +715,8 @@ impl CertBuilder {
     ///     .set_creation_time(now)
     ///     .set_expiration_time(now + 2 * y)
     ///     .add_subkey(KeyFlags::empty()
-    ///                     .set_storage_encryption(true)
-    ///                     .set_transport_encryption(true),
+    ///                     .set_storage_encryption()
+    ///                     .set_transport_encryption(),
     ///                 now + y,
     ///                 None)
     ///     .generate()?;
@@ -728,8 +728,8 @@ impl CertBuilder {
     /// let ka = cert.with_policy(p, None)?.keys().nth(1).unwrap();
     /// assert_eq!(ka.key_flags(),
     ///            Some(KeyFlags::empty()
-    ///                     .set_storage_encryption(true)
-    ///                     .set_transport_encryption(true)));
+    ///                     .set_storage_encryption()
+    ///                     .set_transport_encryption()));
     /// # Ok(()) }
     /// ```
     pub fn add_subkey<T, C>(mut self, flags: KeyFlags, expiration: T, cs: C)
@@ -767,13 +767,13 @@ impl CertBuilder {
     /// let (cert, rev) =
     ///     CertBuilder::general_purpose(None,
     ///                                  Some("Alice Lovelace <alice@example.org>"))
-    ///         .set_primary_key_flags(KeyFlags::empty().set_signing(true))
+    ///         .set_primary_key_flags(KeyFlags::empty().set_signing())
     ///         .generate()?;
     ///
     /// // Observe that the primary key's certification capability is
     /// // set implicitly.
     /// assert_eq!(cert.with_policy(p, None)?.primary_key().key_flags(),
-    ///            Some(KeyFlags::empty().set_signing(true).set_certification(true)));
+    ///            Some(KeyFlags::empty().set_signing().set_certification()));
     /// # Ok(()) }
     /// ```
     pub fn set_primary_key_flags(mut self, flags: KeyFlags) -> Self {
@@ -920,7 +920,7 @@ impl CertBuilder {
 
         // make sure the primary key can sign subkeys
         if !self.subkeys.is_empty() {
-            self.primary.flags = self.primary.flags.set_certification(true);
+            self.primary.flags = self.primary.flags.set_certification();
         }
 
         // Generate & self-sign primary key.
@@ -1034,7 +1034,7 @@ impl CertBuilder {
     {
         let mut key = self.primary.ciphersuite
             .unwrap_or(self.ciphersuite)
-            .generate_key(&KeyFlags::default().set_certification(true))?;
+            .generate_key(&KeyFlags::default().set_certification())?;
         key.set_creation_time(creation_time)?;
         let mut sig = signature::SignatureBuilder::new(SignatureType::DirectKey)
             // GnuPG wants at least a 512-bit hash for P521 keys.
@@ -1166,7 +1166,7 @@ mod tests {
         let (cert1, _) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
             .set_primary_key_flags(KeyFlags::default())
-            .add_subkey(KeyFlags::default().set_certification(true), None, None)
+            .add_subkey(KeyFlags::default().set_certification(), None, None)
             .generate().unwrap();
         let sig_pkts = cert1.subkeys().next().unwrap().bundle().self_signatures[0].hashed_area();
 
@@ -1237,9 +1237,9 @@ mod tests {
         let (cert,_) = CertBuilder::new()
             .set_creation_time(now)
             .set_expiration_time(now + 600 * s)
-            .add_subkey(KeyFlags::default().set_signing(true),
+            .add_subkey(KeyFlags::default().set_signing(),
                         now + 300 * s, None)
-            .add_subkey(KeyFlags::default().set_authentication(true),
+            .add_subkey(KeyFlags::default().set_authentication(),
                         None, None)
             .generate().unwrap();
 

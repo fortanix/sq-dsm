@@ -1510,7 +1510,7 @@ mod test {
         let subkey: key::SecretSubkey
             = Key4::generate_rsa(4096)?.into();
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-            .set_key_flags(&KeyFlags::default().set_transport_encryption(true))?
+            .set_key_flags(&KeyFlags::default().set_transport_encryption())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  &pk, &subkey)?;
 
@@ -1533,7 +1533,7 @@ mod test {
         let subkey: key::SecretSubkey
             = key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-            .set_key_flags(&KeyFlags::default().set_transport_encryption(true))?
+            .set_key_flags(&KeyFlags::default().set_transport_encryption())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  &pk, &subkey)?;
 
@@ -1687,7 +1687,7 @@ mod test {
         eprintln!("Trying ECC primary, ECC sub:");
         let (cert,_) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
-            .add_subkey(KeyFlags::default().set_signing(true), None,
+            .add_subkey(KeyFlags::default().set_signing(), None,
                         None)
             .generate()?;
 
@@ -1704,7 +1704,7 @@ mod test {
         eprintln!("Trying RSA primary, ECC sub:");
         let (cert,_) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::RSA4k)
-            .add_subkey(KeyFlags::default().set_signing(true), None,
+            .add_subkey(KeyFlags::default().set_signing(), None,
                         CipherSuite::Cv25519)
             .generate()?;
 
@@ -1721,7 +1721,7 @@ mod test {
         eprintln!("Trying ECC primary, RSA sub:");
         let (cert,_) = CertBuilder::new()
             .set_cipher_suite(CipherSuite::Cv25519)
-            .add_subkey(KeyFlags::default().set_signing(true), None,
+            .add_subkey(KeyFlags::default().set_signing(), None,
                         CipherSuite::RSA4k)
             .generate()?;
 

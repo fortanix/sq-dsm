@@ -1396,7 +1396,7 @@ impl Marshal for SubpacketValue {
             PolicyURI(ref p) =>
                 o.write_all(p)?,
             KeyFlags(ref f) =>
-                o.write_all(&f.to_vec())?,
+                o.write_all(f.as_slice())?,
             SignersUserID(ref uid) =>
                 o.write_all(uid)?,
             ReasonForRevocation { ref code, ref reason } => {
@@ -1459,7 +1459,7 @@ impl MarshalInto for SubpacketValue {
             PreferredKeyServer(ref p) => p.len(),
             PrimaryUserID(_) => 1,
             PolicyURI(ref p) => p.len(),
-            KeyFlags(ref f) => f.to_vec().len(),
+            KeyFlags(ref f) => f.as_slice().len(),
             SignersUserID(ref uid) => uid.len(),
             ReasonForRevocation { ref reason, .. } => 1 + reason.len(),
             Features(ref f) => f.as_slice().len(),

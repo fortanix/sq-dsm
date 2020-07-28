@@ -232,12 +232,12 @@ fn main() -> Result<()> {
                 .unwrap_or(Ok(vec![]))?;
             let mode = match m.value_of("mode").expect("has default") {
                 "rest" => KeyFlags::default()
-                    .set_storage_encryption(true),
+                    .set_storage_encryption(),
                 "transport" => KeyFlags::default()
-                    .set_transport_encryption(true),
+                    .set_transport_encryption(),
                 "all" => KeyFlags::default()
-                    .set_storage_encryption(true)
-                    .set_transport_encryption(true),
+                    .set_storage_encryption()
+                    .set_transport_encryption(),
                 _ => unreachable!("uses possible_values"),
             };
             let time = if let Some(time) = m.value_of("time") {

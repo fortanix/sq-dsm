@@ -5014,7 +5014,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let subkey_pub = subkey_sec.clone().take_secret().0;
         let builder = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::default()
-                           .set_transport_encryption(true))?;
+                           .set_transport_encryption())?;
         let binding = subkey_sec.bind(&mut primary_pair, &cert, builder)?;
 
         let cert = Cert::try_from(vec![

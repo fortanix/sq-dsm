@@ -24,8 +24,8 @@ fn main() {
     }
 
     let mode = match args[1].as_ref() {
-        "at-rest" => KeyFlags::default().set_storage_encryption(true),
-        "for-transport" => KeyFlags::default().set_transport_encryption(true),
+        "at-rest" => KeyFlags::default().set_storage_encryption(),
+        "for-transport" => KeyFlags::default().set_transport_encryption(),
         x => panic!("invalid mode: {:?}, \
                      must be either 'at-rest' or 'for-transport'",
                     x),

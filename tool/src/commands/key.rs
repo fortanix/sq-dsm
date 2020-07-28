@@ -86,8 +86,8 @@ pub fn generate(m: &ArgMatches, force: bool) -> Result<()> {
     match (m.value_of("can-encrypt"), m.is_present("cannot-encrypt")) {
         (Some("universal"), false) | (None, false) => {
             builder = builder.add_subkey(KeyFlags::default()
-                                         .set_transport_encryption(true)
-                                         .set_storage_encryption(true),
+                                         .set_transport_encryption()
+                                         .set_storage_encryption(),
                                          None,
                                          None);
         }

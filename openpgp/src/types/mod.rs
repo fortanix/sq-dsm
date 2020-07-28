@@ -71,18 +71,6 @@ mod timestamp;
 pub use timestamp::{Timestamp, Duration};
 pub(crate) use timestamp::normalize_systemtime;
 
-/// Removes padding bytes from bitfields.
-///
-/// Returns the size of the original bitfield, i.e. the number of
-/// bytes the output has to be padded to when serialized.
-pub(crate) fn bitfield_remove_padding(b: &mut Vec<u8>) -> usize {
-    let pad_to = b.len();
-    while b.last() == Some(&0) {
-        b.pop();
-    }
-    pad_to
-}
-
 /// The OpenPGP public key algorithms as defined in [Section 9.1 of
 /// RFC 4880], and [Section 5 of RFC 6637].
 ///
