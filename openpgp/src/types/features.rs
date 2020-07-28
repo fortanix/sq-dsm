@@ -1,5 +1,4 @@
 use std::fmt;
-use std::hash::{Hash, Hasher};
 
 #[cfg(any(test, feature = "quickcheck"))]
 use quickcheck::{Arbitrary, Gen};
@@ -52,8 +51,8 @@ use quickcheck::{Arbitrary, Gen};
 /// }
 /// # Ok(()) }
 /// ```
-#[derive(Clone, PartialEq)]
-pub struct Features{
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct Features {
     raw: Vec<u8>,
 }
 
@@ -108,14 +107,6 @@ impl fmt::Debug for Features {
         }
 
         Ok(())
-    }
-}
-
-impl Eq for Features {}
-
-impl Hash for Features {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.raw.hash(state);
     }
 }
 
