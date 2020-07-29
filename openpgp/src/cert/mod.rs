@@ -1289,18 +1289,12 @@ impl Cert {
     /// (specifically, if it does not start with a primary key
     /// packet), then this fails.
     ///
-    /// If the sequence contains multiple keys (i.e., it is a keyring)
-    /// and you want all of the certificates, you should use
+    /// If the sequence contains multiple certificates (i.e., it is a
+    /// keyring), or the certificate is followed by an invalid packet
+    /// this function will fail.  To parse keyrings, use
     /// [`CertParser`] instead of this function.
     ///
-    /// This function does *not* fail if the certificate is followed
-    /// by an invalid packet.  In that case, the certificate is
-    /// returned and the packets starting with the first invalid
-    /// packet are ignored.  If you want to make sure that the
-    /// sequence of packets contains exactly one certificate and no
-    /// invalid packets, use [`CertParser`] instead of this function.
-    ///
-    /// [`CertParser`]: struct.CertParser.html
+    ///   [`CertParser`]: struct.CertParser.html
     ///
     /// # Examples
     ///
@@ -1328,10 +1322,16 @@ impl Cert {
     /// ```
     pub fn from_packets(p: impl Iterator<Item=Packet>) -> Result<Self> {
         let mut i = parser::CertParser::from_iter(p);
-        match i.next() {
-            Some(Ok(cert)) => Ok(cert),
-            Some(Err(err)) => Err(err),
-            None => Err(Error::MalformedCert("No data".into()).into()),
+        if let Some(cert_result) = i.next() {
+            if i.next().is_some() {
+                Err(Error::MalformedCert(
+                    "Additional packets found, is this a keyring?".into()
+                ).into())
+            } else {
+                cert_result
+            }
+        } else {
+            Err(Error::MalformedCert("No data".into()).into())
         }
     }
 
@@ -2336,9 +2336,12 @@ impl TryFrom<PacketParserResult<'_>> for Cert {
 
     /// Returns the Cert found in the packet stream.
     ///
-    /// If there are more packets after the Cert, e.g. because the
-    /// packet stream is a keyring, this function will return
-    /// `Error::MalformedCert`.
+    /// If the sequence contains multiple certificates (i.e., it is a
+    /// keyring), or the certificate is followed by an invalid packet
+    /// this function will fail.  To parse keyrings, use
+    /// [`CertParser`] instead of this function.
+    ///
+    ///   [`CertParser`]: struct.CertParser.html
     fn try_from(ppr: PacketParserResult) -> Result<Self> {
         let mut parser = parser::CertParser::from(ppr);
         if let Some(cert_result) = parser.next() {
@@ -2374,14 +2377,15 @@ impl TryFrom<Packet> for Cert {
 impl TryFrom<PacketPile> for Cert {
     type Error = anyhow::Error;
 
-    /// Returns the first certificate found in the `PacketPile`.
+    /// Returns the certificate found in the `PacketPile`.
     ///
     /// If the [`PacketPile`] does not start with a certificate
     /// (specifically, if it does not start with a primary key
     /// packet), then this fails.
     ///
-    /// If the `PacketPile` contains multiple keys (i.e., it is a key
-    /// ring) and you want all of the certificates, you should use
+    /// If the sequence contains multiple certificates (i.e., it is a
+    /// keyring), or the certificate is followed by an invalid packet
+    /// this function will fail.  To parse keyrings, use
     /// [`CertParser`] instead of this function.
     ///
     /// [`PacketPile`]: ../struct.PacketPile.html
@@ -5236,6 +5240,37 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         assert_eq!(cert.keys().count(), 1 + 4);
         assert_eq!(cert.keys().with_policy(p, None).count(), 1 + 2);
+        Ok(())
+    }
+
+    #[test]
+    fn issue_504() -> Result<()> {
+        let mut keyring = crate::tests::key("testy.pgp").to_vec();
+        keyring.extend_from_slice(crate::tests::key("testy-new.pgp"));
+
+        // TryFrom<PacketPile>
+        let pp = PacketPile::from_bytes(&keyring)?;
+        assert!(destructures_to!(
+            Error::MalformedCert(_) =
+                Cert::try_from(pp.clone()).unwrap_err().downcast().unwrap()));
+
+        // Cert::TryFrom<Vec<Packet>>
+        let v: Vec<Packet> = pp.into();
+        assert!(destructures_to!(
+            Error::MalformedCert(_) =
+                Cert::try_from(v.clone()).unwrap_err().downcast().unwrap()));
+
+        // Cert::from_packet
+        assert!(destructures_to!(
+            Error::MalformedCert(_) =
+                Cert::from_packets(v.into_iter()).unwrap_err()
+                .downcast().unwrap()));
+
+        // Cert::TryFrom<PacketParserResult>
+        let ppr = PacketParser::from_bytes(&keyring)?;
+        assert!(destructures_to!(
+            Error::MalformedCert(_) =
+                Cert::try_from(ppr).unwrap_err().downcast().unwrap()));
         Ok(())
     }
 }
