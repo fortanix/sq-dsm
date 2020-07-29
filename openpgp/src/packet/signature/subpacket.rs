@@ -2043,6 +2043,346 @@ impl Signature4 {
 }
 
 impl signature::SignatureBuilder {
+    /// Modifies the unhashed subpacket area.
+    ///
+    /// This method provides a builder-style interface for modifying
+    /// the unhashed subpacket area.
+    ///
+    /// Normally, to modify a subpacket area in a non-standard way
+    /// (that is, when there are no subpacket-specific function like
+    /// [`SignatureBuilder::set_signature_validity_period`] that
+    /// implement the required functionality), you need to do
+    /// something like the following:
+    ///
+    ///   [`SignatureBuilder::set_signature_validity_period`]: #method.set_signature_validity_period
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::types::Curve;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::{
+    /// #     Subpacket,
+    /// #     SubpacketTag,
+    /// #     SubpacketValue,
+    /// # };
+    /// # use openpgp::types::SignatureType;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let key: Key<key::SecretParts, key::PrimaryRole>
+    /// #     = Key4::generate_ecc(true, Curve::Ed25519)?.into();
+    /// # let mut signer = key.into_keypair()?;
+    /// # let msg = b"Hello, World";
+    /// #
+    /// let mut builder = SignatureBuilder::new(SignatureType::Binary)
+    ///     // Build up the signature.
+    ///     ;
+    /// builder.unhashed_area_mut().add(Subpacket::new(
+    ///         SubpacketValue::Unknown {
+    ///             tag: SubpacketTag::Private(61),
+    ///             body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///         },
+    ///         true)?)?;
+    /// let sig = builder.sign_message(&mut signer, msg)?;
+    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// This is necessary, because modifying the subpacket area
+    /// doesn't follow the builder pattern like the surrounding code.
+    /// Using this function, you can instead do:
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::{
+    /// #     Subpacket,
+    /// #     SubpacketTag,
+    /// #     SubpacketValue,
+    /// # };
+    /// # use openpgp::types::Curve;
+    /// # use openpgp::types::SignatureType;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let key: Key<key::SecretParts, key::PrimaryRole>
+    /// #     = Key4::generate_ecc(true, Curve::Ed25519)?.into();
+    /// # let mut signer = key.into_keypair()?;
+    /// # let msg = b"Hello, World";
+    /// #
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     // Call some setters.
+    ///     .modify_unhashed_area(|mut a| {
+    ///         a.add(Subpacket::new(
+    ///             SubpacketValue::Unknown {
+    ///                 tag: SubpacketTag::Private(61),
+    ///                 body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///             },
+    ///             true)?);
+    ///         Ok(a)
+    ///     })?
+    ///    .sign_message(&mut signer, msg)?;
+    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// If you are only interested in modifying an existing
+    /// signature's unhashed area, it may be better to simply modify
+    /// the signature in place using
+    /// [`Signature4::modify_unhashed_area`] rather than to create a
+    /// new signature, because modifying the unhashed area doesn't
+    /// invalidate any existing signature.
+    ///
+    ///   [`Signature4::modify_unhashed_area`]: struct.Signature4.html#method.modify_unhashed_area
+    ///
+    /// # Examples
+    ///
+    /// Create a signature with a custom, non-critical subpacket in
+    /// the unhashed area:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::{
+    ///     Subpacket,
+    ///     SubpacketTag,
+    ///     SubpacketValue,
+    /// };
+    /// use openpgp::types::SignatureType;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    ///
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    /// let mut signer = cert.primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let msg = b"Hello, World";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     // Call some setters.
+    ///     .modify_unhashed_area(|mut a| {
+    ///         a.add(Subpacket::new(
+    ///             SubpacketValue::Unknown {
+    ///                 tag: SubpacketTag::Private(61),
+    ///                 body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///             },
+    ///             true)?);
+    ///         Ok(a)
+    ///     })?
+    ///    .sign_message(&mut signer, msg)?;
+    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # Ok(()) }
+    /// ```
+    pub fn modify_unhashed_area<F>(mut self, f: F)
+        -> Result<Self>
+        where F: FnOnce(SubpacketArea) -> Result<SubpacketArea>
+    {
+        self.fields.subpackets.unhashed_area
+            = f(self.fields.subpackets.unhashed_area)?;
+        Ok(self)
+    }
+
+    /// Modifies the hashed subpacket area.
+    ///
+    /// This method provides a builder-style interface for modifying
+    /// the hashed subpacket area.
+    ///
+    /// Normally, to modify a subpacket area in a non-standard way
+    /// (that is, when there are no subpacket-specific function like
+    /// [`SignatureBuilder::set_signature_validity_period`] that
+    /// implement the required functionality), you need to do
+    /// something like the following:
+    ///
+    ///   [`SignatureBuilder::set_signature_validity_period`]: #method.set_signature_validity_period
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::types::Curve;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::{
+    /// #     Subpacket,
+    /// #     SubpacketTag,
+    /// #     SubpacketValue,
+    /// # };
+    /// # use openpgp::types::SignatureType;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let key: Key<key::SecretParts, key::PrimaryRole>
+    /// #     = Key4::generate_ecc(true, Curve::Ed25519)?.into();
+    /// # let mut signer = key.into_keypair()?;
+    /// # let msg = b"Hello, World";
+    /// #
+    /// let mut builder = SignatureBuilder::new(SignatureType::Binary)
+    ///     // Build up the signature.
+    ///     ;
+    /// builder.hashed_area_mut().add(Subpacket::new(
+    ///         SubpacketValue::Unknown {
+    ///             tag: SubpacketTag::Private(61),
+    ///             body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///         },
+    ///         true)?)?;
+    /// let sig = builder.sign_message(&mut signer, msg)?;
+    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// This is necessary, because modifying the subpacket area
+    /// doesn't follow the builder pattern like the surrounding code.
+    /// Using this function, you can instead do:
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::{
+    /// #     Subpacket,
+    /// #     SubpacketTag,
+    /// #     SubpacketValue,
+    /// # };
+    /// # use openpgp::types::Curve;
+    /// # use openpgp::types::SignatureType;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let key: Key<key::SecretParts, key::PrimaryRole>
+    /// #     = Key4::generate_ecc(true, Curve::Ed25519)?.into();
+    /// # let mut signer = key.into_keypair()?;
+    /// # let msg = b"Hello, World";
+    /// #
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     // Call some setters.
+    ///     .modify_hashed_area(|mut a| {
+    ///         a.add(Subpacket::new(
+    ///             SubpacketValue::Unknown {
+    ///                 tag: SubpacketTag::Private(61),
+    ///                 body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///             },
+    ///             true)?);
+    ///         Ok(a)
+    ///     })?
+    ///    .sign_message(&mut signer, msg)?;
+    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// # Examples
+    ///
+    /// Add a critical, custom subpacket to a certificate's direct key
+    /// signature:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::{
+    ///     Subpacket,
+    ///     SubpacketTag,
+    ///     SubpacketValue,
+    /// };
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::Features;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    ///
+    /// // Derive a signer (the primary key is always certification capable).
+    /// let pk = cert.primary_key().key();
+    /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// let sig = vc.direct_key_signature().expect("direct key signature");
+    /// let sig = SignatureBuilder::from(sig.clone())
+    ///     .modify_hashed_area(|mut a| {
+    ///         a.add(Subpacket::new(
+    ///             SubpacketValue::Unknown {
+    ///                 tag: SubpacketTag::Private(61),
+    ///                 body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///             },
+    ///             true)?)?;
+    ///         Ok(a)
+    ///     })?
+    ///     .sign_direct_key(&mut signer, pk)?;
+    ///
+    /// // Merge in the new signature.
+    /// let cert = cert.merge_packets(sig)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Update a certificate's feature set by updating the `Features`
+    /// subpacket on any direct key signature, and any User ID binding
+    /// signatures:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::Features;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    ///
+    /// // Derive a signer (the primary key is always certification capable).
+    /// let pk = cert.primary_key().key();
+    /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let mut sigs = Vec::new();
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// if let Ok(sig) = vc.direct_key_signature() {
+    ///     sigs.push(SignatureBuilder::from(sig.clone())
+    ///         .modify_hashed_area(|mut a| {
+    ///             a.replace(Subpacket::new(
+    ///                 SubpacketValue::Features(Features::sequoia().set(10)),
+    ///                 false)?)?;
+    ///             Ok(a)
+    ///         })?
+    ///         // Update the direct key signature.
+    ///         .sign_direct_key(&mut signer, pk)?);
+    /// }
+    ///
+    /// for ua in vc.userids() {
+    ///     sigs.push(SignatureBuilder::from(ua.binding_signature().clone())
+    ///         .modify_hashed_area(|mut a| {
+    ///             a.replace(Subpacket::new(
+    ///                 SubpacketValue::Features(Features::sequoia().set(10)),
+    ///                 false)?)?;
+    ///             Ok(a)
+    ///         })?
+    ///         // Update the direct key signature.
+    ///         .sign_userid_binding(&mut signer, pk, ua.userid())?);
+    /// }
+    ///
+    /// // Merge in the new signatures.
+    /// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn modify_hashed_area<F>(mut self, f: F)
+        -> Result<Self>
+        where F: FnOnce(SubpacketArea) -> Result<SubpacketArea>
+    {
+        self.fields.subpackets.hashed_area
+            = f(self.fields.subpackets.hashed_area)?;
+        Ok(self)
+    }
+
     /// Sets the value of the Creation Time subpacket.
     pub fn set_signature_creation_time<T>(mut self, creation_time: T)
                                           -> Result<Self>
