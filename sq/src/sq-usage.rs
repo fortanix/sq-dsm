@@ -22,21 +22,22 @@
 //!     -p, --policy <NETWORK-POLICY>         Sets the network policy to use
 //!
 //! SUBCOMMANDS:
-//!     decrypt      Decrypts an OpenPGP message
-//!     encrypt      Encrypts a message
-//!     sign         Signs a message
-//!     verify       Verifies a message
-//!     mapping      Interacts with key mappings
-//!     keyserver    Interacts with keyservers
-//!     autocrypt    Autocrypt support
-//!     dearmor      Removes ASCII Armor from a file
-//!     enarmor      Applies ASCII Armor to a file
-//!     help         Prints this message or the help of the given subcommand(s)
-//!     inspect      Inspects a sequence of OpenPGP packets
-//!     key          Manipulates keys
-//!     list         Lists key mappings and known keys
-//!     packet       OpenPGP Packet manipulation
-//!     wkd          Interacts with Web Key Directories
+//!     decrypt             Decrypts an OpenPGP message
+//!     encrypt             Encrypts a message
+//!     sign                Signs a message
+//!     verify              Verifies a message
+//!     mapping             Interacts with key mappings
+//!     merge-signatures    Merges two signatures
+//!     keyserver           Interacts with keyservers
+//!     autocrypt           Autocrypt support
+//!     dearmor             Removes ASCII Armor from a file
+//!     enarmor             Applies ASCII Armor to a file
+//!     help                Prints this message or the help of the given subcommand(s)
+//!     inspect             Inspects a sequence of OpenPGP packets
+//!     key                 Manipulates keys
+//!     list                Lists key mappings and known keys
+//!     packet              OpenPGP Packet manipulation
+//!     wkd                 Interacts with Web Key Directories
 //! ```
 //!
 //! ## Subcommand decrypt
@@ -289,6 +290,26 @@
 //!
 //! ARGS:
 //!     <LABEL>    Label to use
+//! ```
+//!
+//! ## Subcommand merge-signatures
+//!
+//! ```text
+//! Merges two signatures
+//!
+//! USAGE:
+//!     sq merge-signatures [OPTIONS] [ARGS]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>    Sets the first input file to use
+//!     <FILE>    Sets the second input file to use
 //! ```
 //!
 //! ## Subcommand keyserver

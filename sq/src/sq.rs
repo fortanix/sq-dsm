@@ -345,6 +345,12 @@ fn main() -> Result<()> {
                               m.is_present("use-expired-subkey"),
             )?;
         },
+        ("merge-signatures",  Some(m)) => {
+            let mut input1 = open_or_stdin(m.value_of("input1"))?;
+            let mut input2 = open_or_stdin(m.value_of("input2"))?;
+            let output = m.value_of("output");
+            commands::merge_signatures(&mut input1, &mut input2, output)?;
+        },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let output = m.value_of("output");
