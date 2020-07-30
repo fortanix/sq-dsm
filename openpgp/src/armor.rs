@@ -608,8 +608,7 @@ impl<'a> Reader<'a> {
     /// # extern crate sequoia_openpgp as openpgp;
     /// # use openpgp::armor::{Reader, ReaderMode, Kind};
     /// # use std::io::{self, Result};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let data =
     ///     "-----BEGIN PGP ARMORED FILE-----
     ///      First: value
@@ -625,8 +624,8 @@ impl<'a> Reader<'a> {
     /// let mut content = String::new();
     /// reader.read_to_string(&mut content)?;
     /// assert_eq!(reader.headers().unwrap(),
-    ///    &[("     First".into(), "value".into()),
-    ///      ("     Header".into(), "value".into())]);
+    ///    &[("First".into(), "value".into()),
+    ///      ("Header".into(), "value".into())]);
     /// # Ok(())
     /// # }
     /// ```
@@ -869,7 +868,7 @@ impl<'a> Reader<'a> {
                     break;
                 }
             } else {
-                let key = key_value[0];
+                let key = key_value[0].trim_start();
                 let value = key_value[1];
 
                 self.headers.push((key.into(), value.into()));
@@ -1751,5 +1750,28 @@ mod test {
         let mut buf = Vec::new();
         // `data` is malformed, expect an error.
         reader.read_to_end(&mut buf).unwrap_err();
+    }
+
+    #[test]
+    fn test_headers() -> std::io::Result<()> {
+        use crate::armor::{Reader, ReaderMode, Kind};
+        let data =
+            "-----BEGIN PGP ARMORED FILE-----
+             First: value
+             Header: value
+
+             SGVsbG8gd29ybGQh
+             =s4Gu
+             -----END PGP ARMORED FILE-----";
+
+        let mut cursor = std::io::Cursor::new(&data);
+        let mut reader = Reader::new(&mut cursor, ReaderMode::Tolerant(Some(Kind::File)));
+
+        let mut content = String::new();
+        reader.read_to_string(&mut content)?;
+        assert_eq!(reader.headers().unwrap(),
+           &[("First".into(), "value".into()),
+             ("Header".into(), "value".into())]);
+        Ok(())
     }
 }
