@@ -263,9 +263,7 @@ impl<W: Write> Writer<W> {
 
     /// Writes the footer.
     ///
-    /// No more data can be written after this call.  If this is not
-    /// called explicitly, the footer is written once the writer is
-    /// dropped.
+    /// This function needs to be called explicitly before the writer is dropped.
     pub fn finalize(mut self) -> Result<W> {
         if ! self.dirty {
             // No data was written to us, don't emit anything.
