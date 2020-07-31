@@ -27,12 +27,48 @@ pub(crate) mod symmetric;
 
 /// Holds a session key.
 ///
-/// The session key is cleared when dropped.
+/// The session key is cleared when dropped.  Sequoia uses this type
+/// to ensure that session keys are not left in memory returned to the
+/// allocator.
+///
+/// Session keys can be generated using [`SessionKey::new`], or
+/// converted from various types using [`From`].
+///
+///   [`SessionKey::new`]: #method.new
+///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
 #[derive(Clone, PartialEq, Eq)]
 pub struct SessionKey(mem::Protected);
 
 impl SessionKey {
     /// Creates a new session key.
+    ///
+    /// Creates a new session key `size` bytes in length initialized
+    /// using a strong cryptographic number generator.
+    ///
+    /// # Examples
+    ///
+    /// This creates a session key and encrypts it for a given
+    /// recipient key producing a [`PKESK`] packet.
+    ///
+    ///   [`PKESK`]: ../packet/enum.PKESK.html
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::types::{Curve, SymmetricAlgorithm};
+    /// use openpgp::crypto::SessionKey;
+    /// use openpgp::packet::prelude::*;
+    ///
+    /// let cipher = SymmetricAlgorithm::AES256;
+    /// let sk = SessionKey::new(cipher.key_size().unwrap());
+    ///
+    /// let key: Key<key::SecretParts, key::UnspecifiedRole> =
+    ///     Key4::generate_ecc(false, Curve::Cv25519)?.into();
+    ///
+    /// let pkesk: PKESK =
+    ///     PKESK3::for_recipient(cipher, &sk, &key)?.into();
+    /// # Ok(()) }
+    /// ```
     pub fn new(size: usize) -> Self {
         let mut sk: mem::Protected = vec![0; size].into();
         random(&mut sk);
