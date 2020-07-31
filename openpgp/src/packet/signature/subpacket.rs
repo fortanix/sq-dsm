@@ -2888,6 +2888,26 @@ impl signature::SignatureBuilder {
 
         Ok(self)
     }
+
+    /// Adds an Intended Recipient subpacket.
+    ///
+    /// Adds any [Intended Recipient subpacket] to the hashed
+    /// subpacket area.  Unlike [`set_intended_recipients`], this
+    /// function does not first removes any Intended Recipient
+    /// subpackets from the hashed subpacket area.
+    ///
+    ///   [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
+    ///   [`set_intended_recipients`]: #method.set_intended_recipients
+    pub fn add_intended_recipient<T>(mut self, recipient: T)
+        -> Result<Self>
+        where T: AsRef<Fingerprint>
+    {
+        self.hashed_area.add(
+            Subpacket::new(SubpacketValue::IntendedRecipient(
+                recipient.as_ref().clone()), false)?)?;
+
+        Ok(self)
+    }
 }
 
 #[test]
