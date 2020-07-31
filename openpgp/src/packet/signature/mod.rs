@@ -805,7 +805,12 @@ impl crate::packet::Signature {
         }
         sig
     }
+}
 
+/// Verification-related functionality.
+///
+/// <a name="verification-functions"></a>
+impl Signature {
     /// Verifies the signature against `hash`.
     ///
     /// Note: Due to limited context, this only verifies the

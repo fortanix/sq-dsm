@@ -179,7 +179,6 @@ impl fmt::Debug for MPI {
 }
 
 impl Hash for MPI {
-    /// Update the Hash with a hash of the MPIs.
     fn hash(&self, hash: &mut hash::Context) {
         let len = self.bits() as u16;
 
@@ -408,7 +407,6 @@ impl PublicKey {
 }
 
 impl Hash for PublicKey {
-    /// Update the Hash with a hash of the MPIs.
     fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }
@@ -678,7 +676,6 @@ impl SecretKeyMaterial {
 }
 
 impl Hash for SecretKeyMaterial {
-    /// Update the Hash with a hash of the MPIs.
     fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }
@@ -781,7 +778,6 @@ impl Ciphertext {
 }
 
 impl Hash for Ciphertext {
-    /// Update the Hash with a hash of the MPIs.
     fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }
@@ -867,7 +863,6 @@ pub enum Signature {
 }
 
 impl Hash for Signature {
-    /// Update the Hash with a hash of the MPIs.
     fn hash(&self, hash: &mut hash::Context) {
         self.serialize(hash).expect("hashing does not fail")
     }

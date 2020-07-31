@@ -1,4 +1,12 @@
-//! Functionality to hash packets, and generate hashes.
+//! Cryptographic hash functions and hashing of OpenPGP data
+//! structures.
+//!
+//! This module provides [`Context`] representing a hash function
+//! context independent of the cryptographic backend, as well as trait
+//! [`Hash`] that handles hashing of OpenPGP data structures.
+//!
+//!   [`Context`]: struct.Context.html
+//!   [`Hash`]: trait.Hash.html
 
 use std::convert::TryFrom;
 
@@ -45,7 +53,11 @@ dyn_clone::clone_trait_object!(Digest);
 /// State of a hash function.
 ///
 /// This provides an abstract interface to the hash functions used in
-/// OpenPGP.
+/// OpenPGP.  `Context`s are created using [`HashAlgorithm::context`].
+///
+///   [`HashAlgorithm::context`]: ../../types/enum.HashAlgorithm.html#method.context
+///
+/// # Examples
 ///
 /// ```rust
 /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -94,8 +106,10 @@ impl Context {
     ///
     /// Resets the hash function contexts.
     ///
-    /// `digest` must be at least `self.digest_size()` bytes large,
+    /// `digest` must be at least [`self.digest_size()`] bytes large,
     /// otherwise the digest will be truncated.
+    ///
+    ///   [`self.digest_size()`]: #method.digest_size
     pub fn digest<D: AsMut<[u8]>>(&mut self, mut digest: D) {
         self.ctx.digest(digest.as_mut());
     }
@@ -198,13 +212,31 @@ impl Digest for HashDumper {
 }
 
 /// Hashes OpenPGP packets and related types.
+///
+/// Some OpenPGP data structures need to be hashed to be covered by
+/// OpenPGP signatures.  Hashing is often based on the serialized
+/// form, with some aspects fixed to ensure consistent results.  This
+/// trait implements hashing as specified by OpenPGP.
+///
+/// Most of the time it is not necessary to manually compute hashes.
+/// Instead, higher level functionality, like the streaming
+/// [`Verifier`], [`DetachedVerifier`], or [`Signature`'s verification
+/// functions] should be used, which handle the hashing internally.
+///
+///   [`Verifier`]: ../../parse/stream/struct.Verifier.html
+///   [`DetachedVerifier`]: ../../parse/stream/struct.DetachedVerifier.html
+///   [`Signature`'s verification functions]: ../../packet/enum.Signature.html#verification-functions
+///
+/// This is a low-level mechanism.  See [`Signature`'s hashing
+/// functions] for how to hash compounds like (Key,UserID)-bindings.
+///
+///   [`Signature`'s hashing functions]: ../../packet/enum.Signature.html#hashing-functions
 pub trait Hash {
     /// Updates the given hash with this object.
     fn hash(&self, hash: &mut Context);
 }
 
 impl Hash for UserID {
-    /// Update the Hash with a hash of the user id.
     fn hash(&self, hash: &mut Context) {
         let len = self.value().len() as u32;
 
@@ -218,7 +250,6 @@ impl Hash for UserID {
 }
 
 impl Hash for UserAttribute {
-    /// Update the Hash with a hash of the user attribute.
     fn hash(&self, hash: &mut Context) {
         let len = self.value().len() as u32;
 
@@ -235,7 +266,6 @@ impl<P, R> Hash for Key4<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
-    /// Update the Hash with a hash of the key.
     fn hash(&self, hash: &mut Context) {
         use crate::serialize::MarshalInto;
 
@@ -272,7 +302,6 @@ impl<P, R> Hash for Key4<P, R>
 }
 
 impl Hash for Signature {
-    /// Adds the `Signature` to the provided hash context.
     fn hash(&self, hash: &mut Context) {
         match self {
             Signature::V4(sig) => sig.hash(hash),
@@ -282,14 +311,12 @@ impl Hash for Signature {
 }
 
 impl Hash for Signature4 {
-    /// Adds the `Signature` to the provided hash context.
     fn hash(&self, hash: &mut Context) {
         self.fields.hash(hash);
     }
 }
 
 impl Hash for signature::SignatureFields {
-    /// Adds the `Signature` to the provided hash context.
     fn hash(&self, hash: &mut Context) {
         use crate::serialize::MarshalInto;
 
@@ -348,6 +375,8 @@ impl Hash for signature::SignatureFields {
 }
 
 /// Hashing-related functionality.
+///
+/// <a name="hashing-functions"></a>
 impl Signature {
     /// Computes the message digest of standalone signatures.
     pub fn hash_standalone(sig: &signature::SignatureFields)
