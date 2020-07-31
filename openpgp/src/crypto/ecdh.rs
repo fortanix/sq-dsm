@@ -19,8 +19,9 @@ pub use crate::crypto::backend::ecdh::{encrypt, decrypt};
 /// secret, this function deterministically encrypts the given session
 /// key.
 ///
-/// `VB` is the ephemeral public key (with 0x40 prefix), `S` is the
-/// shared Diffie-Hellman secret.
+/// `VB` is the ephemeral public key encoded appropriately as MPI
+/// (i.e. with the 0x40 prefix for X25519, or 0x04 for the NIST
+/// curves), `S` is the shared Diffie-Hellman secret.
 #[allow(non_snake_case)]
 pub fn encrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
                          session_key: &SessionKey, VB: MPI,
