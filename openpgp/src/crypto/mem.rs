@@ -1,4 +1,25 @@
 //! Memory protection and encryption.
+//!
+//! Sequoia makes an effort to protect secrets stored in memory.  Even
+//! though a process' memory should be protected from being read by an
+//! adversary, there may be bugs in the program or the architecture
+//! the program is running on that allow (partial) recovery of data.
+//! Or, the process may be serialized to persistent storage, and its
+//! memory may be inspected while it is not running.
+//!
+//! To reduce the window for these kind of exfiltrations, we use
+//! [`Protected`] to clear the memory once it is no longer in use, and
+//! [`Encrypted`] to protect long-term secrets like passwords and
+//! secret keys.
+//!
+//!   [`Protected`]: struct.Protected.html
+//!   [`Encrypted`]: struct.Encrypted.html
+//!
+//! Furthermore, operations involving secrets must be carried out in a
+//! way that avoids leaking information.  For example, comparison
+//! must be done in constant time with [`secure_cmp`].
+//!
+//!   [`secure_cmp`]: fn.secure_cmp.html
 
 use std::cmp::{min, Ordering};
 use std::fmt;
@@ -12,6 +33,8 @@ use memsec;
 ///
 /// The memory is guaranteed not to be copied around, and is cleared
 /// when the object is dropped.
+///
+/// # Examples
 ///
 /// ```rust
 /// use sequoia_openpgp::crypto::mem::Protected;
@@ -133,7 +156,7 @@ impl fmt::Debug for Protected {
 /// adding it can be found
 /// [here](https://marc.info/?l=openbsd-cvs&m=156109087822676).
 ///
-/// # Example
+/// # Examples
 ///
 /// ```rust
 /// use sequoia_openpgp::crypto::mem::Encrypted;
