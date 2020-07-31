@@ -2447,17 +2447,14 @@ impl signature::SignatureBuilder {
 
     /// Sets the value of the Signature Expiration Time subpacket.
     ///
-    /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_signature_validity_period(mut self,
-                                         expiration: Option<time::Duration>)
-                                         -> Result<Self> {
-        if let Some(e) = expiration {
-            self.hashed_area.replace(Subpacket::new(
-                SubpacketValue::SignatureExpirationTime(e.try_into()?),
-                true)?)?;
-        } else {
-            self.hashed_area.remove_all(SubpacketTag::SignatureExpirationTime);
-        }
+    pub fn set_signature_validity_period<D>(mut self, expires_in: D)
+        -> Result<Self>
+        where D: Into<time::Duration>
+    {
+        self.hashed_area.replace(Subpacket::new(
+            SubpacketValue::SignatureExpirationTime(
+                Duration::try_from(expires_in.into())?),
+            true)?)?;
 
         Ok(self)
     }
@@ -2465,26 +2462,24 @@ impl signature::SignatureBuilder {
     /// Sets the value of the Signature Expiration Time subpacket.
     ///
     /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_signature_expiration_time(self,
-                                         expiration: Option<time::SystemTime>)
-                                         -> Result<Self> {
-        if let Some(e) = expiration.map(crate::types::normalize_systemtime) {
-            let vp = if let Some(ct) = self.signature_creation_time() {
-                match e.duration_since(ct) {
-                    Ok(v) => v,
-                    Err(_) => return Err(Error::InvalidArgument(
-                        format!("Expiration time {:?} predates creation time \
-                                 {:?}", e, ct)).into()),
-                }
-            } else {
-                return Err(Error::MalformedPacket(
-                    "No creation time subpacket".into()).into());
-            };
-
-            self.set_signature_validity_period(Some(vp))
+    pub fn set_signature_expiration_time<D>(self, expiration: D)
+        -> Result<Self>
+        where D: Into<time::SystemTime>
+    {
+        let expiration = expiration.into();
+        let vp = if let Some(ct) = self.signature_creation_time() {
+            match expiration.duration_since(ct) {
+                Ok(v) => v,
+                Err(_) => return Err(Error::InvalidArgument(
+                    format!("Expiration time {:?} predates creation time \
+                             {:?}", expiration, ct)).into()),
+            }
         } else {
-            self.set_signature_validity_period(None)
-        }
+            return Err(Error::MalformedPacket(
+                "No creation time subpacket".into()).into());
+        };
+
+        self.set_signature_validity_period(vp)
     }
 
     /// Sets the value of the Exportable Certification subpacket,
@@ -2908,7 +2903,7 @@ fn accessors() {
     let minute = time::Duration::new(60, 0);
     let five_minutes = 5 * minute;
     let ten_minutes = 10 * minute;
-    sig = sig.set_signature_validity_period(Some(five_minutes)).unwrap();
+    sig = sig.set_signature_validity_period(five_minutes).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.signature_validity_period(), Some(five_minutes));
@@ -2918,7 +2913,10 @@ fn accessors() {
     assert!(!sig_.signature_alive(now - five_minutes, zero_s).is_ok());
     assert!(!sig_.signature_alive(now + ten_minutes, zero_s).is_ok());
 
-    sig = sig.set_signature_validity_period(None).unwrap();
+    sig = sig.modify_hashed_area(|mut a| {
+        a.remove_all(SubpacketTag::SignatureExpirationTime);
+        Ok(a)
+    }).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.signature_validity_period(), None);
