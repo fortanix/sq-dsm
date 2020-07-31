@@ -376,8 +376,8 @@ impl<R> Key4<SecretParts, R>
                               S: Into<Option<SymmetricAlgorithm>>,
                               T: Into<Option<SystemTime>>
     {
-        let mut public_key = [0x40u8; curve25519::CURVE25519_SIZE + 1];
-        curve25519::mul_g(&mut public_key[1..], private_key).unwrap();
+        let mut public_key = [0; curve25519::CURVE25519_SIZE];
+        curve25519::mul_g(&mut public_key, private_key).unwrap();
 
         let mut private_key = Vec::from(private_key);
         private_key.reverse();
@@ -389,7 +389,7 @@ impl<R> Key4<SecretParts, R>
                 curve: Curve::Cv25519,
                 hash: hash.into().unwrap_or(HashAlgorithm::SHA512),
                 sym: sym.into().unwrap_or(SymmetricAlgorithm::AES256),
-                q: mpi::MPI::new(&public_key),
+                q: MPI::new_compressed_point(&public_key),
             },
             mpi::SecretKeyMaterial::ECDH {
                 scalar: private_key.into(),
@@ -405,15 +405,15 @@ impl<R> Key4<SecretParts, R>
     pub fn import_secret_ed25519<T>(private_key: &[u8], ctime: T)
         -> Result<Self> where T: Into<Option<SystemTime>>
     {
-        let mut public_key = [0x40u8; ed25519::ED25519_KEY_SIZE + 1];
-        ed25519::public_key(&mut public_key[1..], private_key).unwrap();
+        let mut public_key = [0; ed25519::ED25519_KEY_SIZE];
+        ed25519::public_key(&mut public_key, private_key).unwrap();
 
         Self::with_secret(
             ctime.into().unwrap_or_else(SystemTime::now),
             PublicKeyAlgorithm::EdDSA,
             mpi::PublicKey::EdDSA {
                 curve: Curve::Ed25519,
-                q: mpi::MPI::new(&public_key),
+                q: MPI::new_compressed_point(&public_key),
             },
             mpi::SecretKeyMaterial::EdDSA {
                 scalar: mpi::MPI::new(private_key).into(),
@@ -484,16 +484,14 @@ impl<R> Key4<SecretParts, R>
 
         let (mpis, secret, pk_algo) = match (curve.clone(), for_signing) {
             (Curve::Ed25519, true) => {
-                let mut public = [0u8; ed25519::ED25519_KEY_SIZE + 1];
+                let mut public = [0; ed25519::ED25519_KEY_SIZE];
                 let private: Protected =
                     ed25519::private_key(&mut rng).into();
-
-                public[0] = 0x40;
-                ed25519::public_key(&mut public[1..], &private)?;
+                ed25519::public_key(&mut public, &private)?;
 
                 let public_mpis = PublicKey::EdDSA {
                     curve: Curve::Ed25519,
-                    q: MPI::new(&public),
+                    q: MPI::new_compressed_point(&public),
                 };
                 let private_mpis = mpi::SecretKeyMaterial::EdDSA {
                     scalar: private.into(),
@@ -504,13 +502,10 @@ impl<R> Key4<SecretParts, R>
             }
 
             (Curve::Cv25519, false) => {
-                let mut public = [0u8; curve25519::CURVE25519_SIZE + 1];
+                let mut public = [0; curve25519::CURVE25519_SIZE];
                 let mut private: Protected =
                     curve25519::private_key(&mut rng).into();
-
-                public[0] = 0x40;
-
-                curve25519::mul_g(&mut public[1..], &private)?;
+                curve25519::mul_g(&mut public, &private)?;
 
                 // Reverse the scalar.  See
                 // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
@@ -518,7 +513,7 @@ impl<R> Key4<SecretParts, R>
 
                 let public_mpis = PublicKey::ECDH {
                     curve: Curve::Cv25519,
-                    q: MPI::new(&public),
+                    q: MPI::new_compressed_point(&public),
                     hash: HashAlgorithm::SHA256,
                     sym: SymmetricAlgorithm::AES256,
                 };

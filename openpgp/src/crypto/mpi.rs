@@ -71,6 +71,25 @@ impl MPI {
         }
     }
 
+    /// Creates new MPI encoding a compressed EC point using native
+    /// encoding.
+    ///
+    /// Encodes the given point on a elliptic curve (see [Section 13.2
+    /// of RFC4880bis] for details).  This is used to encode public
+    /// keys and ciphertexts for the Bernstein curves (currently
+    /// `X25519`).
+    ///
+    ///   [Section 13.2 of RFC4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-13.2
+    pub fn new_compressed_point(x: &[u8]) -> Self {
+        let mut val = vec![0; 1 + x.len()];
+        val[0] = 0x40;
+        val[1..].copy_from_slice(x);
+
+        MPI {
+            value: val.into_boxed_slice(),
+        }
+    }
+
     /// Returns the length of the MPI in bits.
     pub fn bits(&self) -> usize {
         self.value.len() * 8

@@ -31,12 +31,11 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
                 let v: Protected =
                     curve25519::private_key(&mut rng).into();
 
-                // Compute the public key.  We need to add an encoding
-                // octet in front of the key.
-                let mut VB = [0x40; 1 + curve25519::CURVE25519_SIZE];
-                curve25519::mul_g(&mut VB[1..], &v)
+                // Compute the public key.
+                let mut VB = [0; curve25519::CURVE25519_SIZE];
+                curve25519::mul_g(&mut VB, &v)
                     .expect("buffers are of the wrong size");
-                let VB = MPI::new(&VB);
+                let VB = MPI::new_compressed_point(&VB);
 
                 // Compute the shared point S = vR;
                 let mut S: Protected =
