@@ -2459,29 +2459,6 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Signature Expiration Time subpacket.
-    ///
-    /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_signature_expiration_time<D>(self, expiration: D)
-        -> Result<Self>
-        where D: Into<time::SystemTime>
-    {
-        let expiration = expiration.into();
-        let vp = if let Some(ct) = self.signature_creation_time() {
-            match expiration.duration_since(ct) {
-                Ok(v) => v,
-                Err(_) => return Err(Error::InvalidArgument(
-                    format!("Expiration time {:?} predates creation time \
-                             {:?}", expiration, ct)).into()),
-            }
-        } else {
-            return Err(Error::MalformedPacket(
-                "No creation time subpacket".into()).into());
-        };
-
-        self.set_signature_validity_period(vp)
-    }
-
     /// Sets the value of the Exportable Certification subpacket,
     /// which contains whether the certification should be exported
     /// (i.e., whether the packet is *not* a local signature).
