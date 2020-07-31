@@ -281,6 +281,26 @@ impl From<MPI> for ProtectedMPI {
     }
 }
 
+impl PartialOrd for ProtectedMPI {
+    fn partial_cmp(&self, other: &ProtectedMPI) -> Option<Ordering> {
+        Some(self.secure_memcmp(other))
+    }
+}
+
+impl Ord for ProtectedMPI {
+    fn cmp(&self, other: &ProtectedMPI) -> Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
+impl PartialEq for ProtectedMPI {
+    fn eq(&self, other: &ProtectedMPI) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
+impl Eq for ProtectedMPI {}
+
 impl std::hash::Hash for ProtectedMPI {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.value.hash(state);
@@ -298,6 +318,14 @@ impl ProtectedMPI {
     /// Returns the value of this MPI.
     pub fn value(&self) -> &[u8] {
         &self.value
+    }
+
+    /// Securely compares two MPIs in constant time.
+    fn secure_memcmp(&self, other: &Self) -> Ordering {
+        (self.value.len() as i32).cmp(&(other.value.len() as i32))
+            .then(
+                // Protected compares in constant time.
+                self.value.cmp(&other.value))
     }
 }
 
