@@ -616,13 +616,6 @@ impl fmt::Debug for SecretKeyMaterial {
     }
 }
 
-fn secure_mpi_cmp(a: &ProtectedMPI, b: &ProtectedMPI) -> Ordering {
-    let ord1 = a.bits().cmp(&b.bits());
-    let ord2 = secure_cmp(&a.value, &b.value);
-
-    if ord1 == Ordering::Equal { ord2 } else { ord1 }
-}
-
 impl PartialOrd for SecretKeyMaterial {
     fn partial_cmp(&self, other: &SecretKeyMaterial) -> Option<Ordering> {
         use std::iter;
@@ -643,10 +636,10 @@ impl PartialOrd for SecretKeyMaterial {
         let ret = match (self, other) {
             (&SecretKeyMaterial::RSA{ d: ref d1, p: ref p1, q: ref q1, u: ref u1 }
             ,&SecretKeyMaterial::RSA{ d: ref d2, p: ref p2, q: ref q2, u: ref u2 }) => {
-                let o1 = secure_mpi_cmp(d1, d2);
-                let o2 = secure_mpi_cmp(p1, p2);
-                let o3 = secure_mpi_cmp(q1, q2);
-                let o4 = secure_mpi_cmp(u1, u2);
+                let o1 = d1.cmp(d2);
+                let o2 = p1.cmp(p2);
+                let o3 = q1.cmp(q2);
+                let o4 = u1.cmp(u2);
 
                 if o1 != Ordering::Equal { return Some(o1); }
                 if o2 != Ordering::Equal { return Some(o2); }
@@ -655,29 +648,29 @@ impl PartialOrd for SecretKeyMaterial {
             }
             (&SecretKeyMaterial::DSA{ x: ref x1 }
             ,&SecretKeyMaterial::DSA{ x: ref x2 }) => {
-                secure_mpi_cmp(x1, x2)
+                x1.cmp(x2)
             }
             (&SecretKeyMaterial::ElGamal{ x: ref x1 }
             ,&SecretKeyMaterial::ElGamal{ x: ref x2 }) => {
-                secure_mpi_cmp(x1, x2)
+                x1.cmp(x2)
             }
             (&SecretKeyMaterial::EdDSA{ scalar: ref scalar1 }
             ,&SecretKeyMaterial::EdDSA{ scalar: ref scalar2 }) => {
-                secure_mpi_cmp(scalar1, scalar2)
+                scalar1.cmp(scalar2)
             }
             (&SecretKeyMaterial::ECDSA{ scalar: ref scalar1 }
             ,&SecretKeyMaterial::ECDSA{ scalar: ref scalar2 }) => {
-                secure_mpi_cmp(scalar1, scalar2)
+                scalar1.cmp(scalar2)
             }
             (&SecretKeyMaterial::ECDH{ scalar: ref scalar1 }
             ,&SecretKeyMaterial::ECDH{ scalar: ref scalar2 }) => {
-                secure_mpi_cmp(scalar1, scalar2)
+                scalar1.cmp(scalar2)
             }
             (&SecretKeyMaterial::Unknown{ mpis: ref mpis1, rest: ref rest1 }
             ,&SecretKeyMaterial::Unknown{ mpis: ref mpis2, rest: ref rest2 }) => {
                 let o1 = secure_cmp(rest1, rest2);
                 let on = mpis1.iter().zip(mpis2.iter()).map(|(a,b)| {
-                    secure_mpi_cmp(a, b)
+                    a.cmp(b)
                 }).collect::<Vec<_>>();
 
                 iter::once(&o1)
