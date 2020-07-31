@@ -1,4 +1,21 @@
 //! Cryptographic primitives.
+//!
+//! This module contains cryptographic primitives as defined and used
+//! by OpenPGP.  It abstracts over the cryptographic library chosen at
+//! compile time.  Most of the time, it will not be necessary to
+//! explicitly use types from this module directly, but they are used
+//! in the API (e.g. [`Password`]).  Advanced users may use these
+//! primitives to provide custom extensions to OpenPGP.
+//!
+//!   [`Password`]: struct.Password.html
+//!
+//! # Common Operations
+//!
+//!  - *Converting a string to a `Password`*: Use [`Password::from`].
+//!  - *Create a session key*: Use [`SessionKey::new`].
+//!
+//!   [`Password::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
+//!   [`SessionKey::new`]: struct.SessionKey.html#method.new
 
 use std::io::Read;
 use std::ops::{Deref, DerefMut};
