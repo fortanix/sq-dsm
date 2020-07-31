@@ -1125,7 +1125,7 @@ impl<'a> Signer<'a> {
             // signature packet.
             for (i, keypair) in self.signers.iter().enumerate() {
                 let key = keypair.public();
-                let mut ops = OnePassSig3::new(SignatureType::Binary);
+                let mut ops = OnePassSig3::new(self.template.typ());
                 ops.set_pk_algo(key.pk_algo());
                 ops.set_hash_algo(self.hash.algo());
                 ops.set_issuer(key.keyid());
