@@ -548,7 +548,7 @@ impl<R> Key4<SecretParts, R>
                 let (pub_x, pub_y) = public.as_bytes();
                 let public_mpis =  mpi::PublicKey::ECDSA{
                     curve,
-                    q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
+                    q: MPI::new_point(&pub_x, &pub_y, field_sz),
                 };
                 let private_mpis = mpi::SecretKeyMaterial::ECDSA{
                     scalar: MPI::new(&private.as_bytes()).into(),
@@ -585,7 +585,7 @@ impl<R> Key4<SecretParts, R>
                     let (pub_x, pub_y) = public.as_bytes();
                     let public_mpis = mpi::PublicKey::ECDH{
                         curve,
-                        q: MPI::new_weierstrass(&pub_x, &pub_y, field_sz),
+                        q: MPI::new_point(&pub_x, &pub_y, field_sz),
                         hash,
                         sym: SymmetricAlgorithm::AES256,
                     };

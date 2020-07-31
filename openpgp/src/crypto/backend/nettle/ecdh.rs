@@ -83,7 +83,7 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
                 // Compute the public key.
                 let VB = ecdh::point_mul_g(&v);
                 let (VBx, VBy) = VB.as_bytes();
-                let VB = MPI::new_weierstrass(&VBx, &VBy, field_sz);
+                let VB = MPI::new_point(&VBx, &VBy, field_sz);
 
                 // Compute the shared point S = vR;
                 let S = ecdh::point_mul(&v, &R)?;

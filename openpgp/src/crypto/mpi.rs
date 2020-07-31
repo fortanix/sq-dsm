@@ -55,8 +55,15 @@ impl MPI {
         }
     }
 
-    /// Creates new MPI for EC point.
-    pub fn new_weierstrass(x: &[u8], y: &[u8], field_bits: usize) -> Self {
+    /// Creates new MPI encoding an uncompressed EC point.
+    ///
+    /// Encodes the given point on a elliptic curve (see [Section 6 of
+    /// RFC 6637] for details).  This is used to encode public keys
+    /// and ciphertexts for the NIST curves (`NistP256`, `NistP384`,
+    /// and `NistP521`).
+    ///
+    ///   [Section 6 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-6
+    pub fn new_point(x: &[u8], y: &[u8], field_bits: usize) -> Self {
         let field_sz = if field_bits % 8 > 0 { 1 } else { 0 } + field_bits / 8;
         let mut val = vec![0x0u8; 1 + 2 * field_sz];
         let x_missing = field_sz - x.len();
