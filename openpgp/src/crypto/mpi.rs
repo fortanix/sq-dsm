@@ -1,4 +1,19 @@
-//! Multi Precision Integers.
+//! Multiprecision Integers.
+//!
+//! Cryptographic objects like [public keys], [secret keys],
+//! [ciphertexts], and [signatures] are scalar numbers of arbitrary
+//! precision.  OpenPGP specifies that these are stored encoded as
+//! big-endian integers with leading zeros stripped (See [Section 3.2
+//! of RFC 4880]).  Multiprecision integers in OpenPGP are extended by
+//! [RFC 6637] to store curves and coordinates used in elliptic curve
+//! cryptography (ECC).
+//!
+//!   [public keys]: enum.PublicKey.html
+//!   [secret keys]: enum.SecretKeyMaterial.html
+//!   [ciphertexts]: enum.Ciphertext.html
+//!   [signatures]: enum.Signature.html
+//!   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
+//!   [RFC 6637]: https://tools.ietf.org/html/rfc6637
 
 use std::fmt;
 use std::cmp::Ordering;
@@ -21,10 +36,10 @@ use crate::serialize::Marshal;
 use crate::Error;
 use crate::Result;
 
-/// Holds a single MPI.
+/// A Multiprecision Integer.
 #[derive(Clone)]
 pub struct MPI {
-    /// Integer value as big-endian.
+    /// Integer value as big-endian with leading zeros stripped.
     value: Box<[u8]>,
 }
 
@@ -37,7 +52,7 @@ impl From<Vec<u8>> for MPI {
 impl MPI {
     /// Creates a new MPI.
     ///
-    /// This function takes care of leading zeros.
+    /// This function takes care of removing leading zeros.
     pub fn new(value: &[u8]) -> Self {
         let mut leading_zeros = 0;
         for b in value {
@@ -98,6 +113,8 @@ impl MPI {
     }
 
     /// Returns the length of the MPI in bits.
+    ///
+    /// Leading zero-bits are not included in the returned size.
     pub fn bits(&self) -> usize {
         self.value.len() * 8
             - self.value.get(0).map(|&b| b.leading_zeros() as usize)
@@ -105,12 +122,22 @@ impl MPI {
     }
 
     /// Returns the value of this MPI.
+    ///
+    /// Note that due to stripping of zero-bytes, the returned value
+    /// may be shorter than expected.
     pub fn value(&self) -> &[u8] {
         &self.value
     }
 
-    /// Dissects this MPI describing a point into the individual
-    /// coordinates.
+    /// Decodes an EC point encoded as MPI.
+    ///
+    /// Decodes the MPI into a point on an elliptic curve (see
+    /// [Section 6 of RFC 6637] and [Section 13.2 of RFC4880bis] for
+    /// details).  If the point is not compressed, the function
+    /// returns `(x, y)`.  If it is compressed, `y` will be empty.
+    ///
+    ///   [Section 6 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-6
+    ///   [Section 13.2 of RFC4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-13.2
     ///
     /// # Errors
     ///
@@ -172,12 +199,14 @@ impl MPI {
         }
     }
 
+    /// Securely overwrites the stored value.
     pub(crate) fn secure_memzero(&mut self) {
         unsafe {
             ::memsec::memzero(self.value.as_mut_ptr(), self.value.len());
         }
     }
 
+    /// Securely compares two MPIs in constant time.
     fn secure_memcmp(&self, other: &Self) -> Ordering {
         let cmp = unsafe {
             if self.value.len() == other.value.len() {
@@ -254,7 +283,10 @@ impl std::hash::Hash for MPI {
 
 /// Holds a single MPI containing secrets.
 ///
-/// The memory will be cleared when the object is dropped.
+/// The memory will be cleared when the object is dropped.  Used by
+/// [`SecretKeyMaterial`] to protect secret keys.
+///
+///   [`SecretKeyMaterial`]: enum.SecretKeyMaterial.html
 #[derive(Clone)]
 pub struct ProtectedMPI {
     /// Integer value as big-endian.
@@ -309,6 +341,8 @@ impl std::hash::Hash for ProtectedMPI {
 
 impl ProtectedMPI {
     /// Returns the length of the MPI in bits.
+    ///
+    /// Leading zero-bits are not included in the returned size.
     pub fn bits(&self) -> usize {
         self.value.len() * 8
             - self.value.get(0).map(|&b| b.leading_zeros() as usize)
@@ -316,6 +350,9 @@ impl ProtectedMPI {
     }
 
     /// Returns the value of this MPI.
+    ///
+    /// Note that due to stripping of zero-bytes, the returned value
+    /// may be shorter than expected.
     pub fn value(&self) -> &[u8] {
         &self.value
     }
@@ -341,10 +378,12 @@ impl fmt::Debug for ProtectedMPI {
     }
 }
 
-/// Holds a public key.
+/// A public key.
 ///
 /// Provides a typed and structured way of storing multiple MPIs (and
-/// the occasional elliptic curve) in packets.
+/// the occasional elliptic curve) in [`Key`] packets.
+///
+///   [`Key`]: ../../packet/enum.Key.html
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum PublicKey {
     /// RSA public key.
@@ -511,10 +550,14 @@ impl Arbitrary for PublicKey {
     }
 }
 
-/// Holds a secret key.
+/// A secret key.
 ///
 /// Provides a typed and structured way of storing multiple MPIs in
-/// packets.
+/// [`Key`] packets.  Secret key components are protected by storing
+/// them using [`ProtectedMPI`].
+///
+///   [`Key`]: ../../packet/enum.Key.html
+///   [`ProtectedMPI`]: struct.ProtectedMPI.html
 // Deriving Hash here is okay: PartialEq is manually implemented to
 // ensure that secrets are compared in constant-time.
 #[derive(Clone, Hash)]
@@ -762,10 +805,12 @@ impl Arbitrary for SecretKeyMaterial {
     }
 }
 
-/// Holds a ciphertext.
+/// An encrypted session key.
 ///
 /// Provides a typed and structured way of storing multiple MPIs in
-/// packets.
+/// [`PKESK`] packets.
+///
+///   [`PKESK`]: ../../packet/enum.PKESK.html
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum Ciphertext {
     /// RSA ciphertext.
@@ -774,7 +819,7 @@ pub enum Ciphertext {
         c: MPI,
     },
 
-    /// ElGamal ciphertext
+    /// ElGamal ciphertext.
     ElGamal {
         /// Ephemeral key.
         e: MPI,
@@ -850,10 +895,12 @@ impl Arbitrary for Ciphertext {
     }
 }
 
-/// Holds a signature.
+/// A cryptographic signature.
 ///
 /// Provides a typed and structured way of storing multiple MPIs in
-/// packets.
+/// [`Signature`] packets.
+///
+///   [`Signature`]: ../../packet/enum.Signature.html
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum Signature {
     /// RSA signature.
