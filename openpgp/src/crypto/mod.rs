@@ -134,10 +134,12 @@ impl fmt::Debug for SessionKey {
 
 /// Holds a password.
 ///
+/// `Password`s can be converted from various types using [`From`].
 /// The password is encrypted in memory and only decrypted on demand.
 /// See [`mem::Encrypted`] for details.
 ///
-///  [`mem::Encrypted`]: mem/struct.Encrypted.html
+///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
+///   [`mem::Encrypted`]: mem/struct.Encrypted.html
 #[derive(Clone, PartialEq, Eq)]
 pub struct Password(mem::Encrypted);
 
