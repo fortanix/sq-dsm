@@ -673,11 +673,9 @@ impl PartialOrd for SecretKeyMaterial {
                     a.cmp(b)
                 }).collect::<Vec<_>>();
 
-                iter::once(&o1)
-                    .chain(on.iter())
-                    .find(|&&x| x != Ordering::Equal)
-                    .cloned()
-                    .unwrap_or(Ordering::Equal)
+                iter::once(o1)
+                    .chain(on.iter().cloned())
+                    .fold(Ordering::Equal, |acc, x| acc.then(x))
             }
 
             (a, b) => {
