@@ -2595,6 +2595,25 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
+    /// Adds an Issuer subpacket.
+    ///
+    /// Adds an [Issuer subpacket] to the unhashed subpacket area.
+    /// Unlike [`set_issuer`], this function does not first remove any
+    /// Issuer subpackets from the unhashed subpacket area.
+    ///
+    /// Caution: By default, the issuer is set correctly when creating
+    /// the signature. Only use this function to override it.
+    ///
+    /// [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+    /// [`set_issuer`]: #method.set_issuer
+    pub fn add_issuer(mut self, id: KeyID) -> Result<Self> {
+        self.unhashed_area.add(Subpacket::new(
+            SubpacketValue::Issuer(id),
+            false)?)?;
+
+        Ok(self)
+    }
+
     /// Sets the value of the Notation Data subpacket with the given
     /// name.
     ///
@@ -2822,6 +2841,23 @@ impl signature::SignatureBuilder {
     /// creating the signature. Only use this function to override it.
     pub fn set_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
+            SubpacketValue::IssuerFingerprint(fp),
+            false)?)?;
+
+        Ok(self)
+    }
+
+    /// Adds an Issuer Fingerprint subpacket.
+    ///
+    /// Adds an [Issuer Fingerprint subpacket] to the unhashed
+    /// subpacket area.  Unlike [`set_issuer_fingerprint`], this
+    /// function does not first remove any existing Issuer Fingerprint
+    /// subpackets from the unhashed subpacket area.
+    ///
+    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    pub fn add_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
+        self.unhashed_area.add(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),
             false)?)?;
 
