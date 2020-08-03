@@ -264,7 +264,7 @@ use crate::{
         ValidateAmalgamation,
     },
     cert::ValidCert,
-    crypto::{hash::Hash, Signer},
+    crypto::Signer,
     Error,
     packet::Key,
     packet::key,
@@ -272,8 +272,6 @@ use crate::{
     packet::Signature,
     policy::Policy,
     Result,
-    SignatureType,
-    types::HashAlgorithm,
     types::KeyFlags,
     types::RevocationStatus,
 };
@@ -1306,7 +1304,6 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                                             now: time::SystemTime)
         -> Result<Vec<Signature>>
     {
-        let hash_algo = HashAlgorithm::SHA512;
         let mut sigs = Vec::new();
 
         // There are two cases to consider.  If we are extending the
@@ -1319,17 +1316,14 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                 .clone();
 
             let mut builder = signature::SignatureBuilder::from(template)
-                .set_type(SignatureType::DirectKey);
+                .set_signature_creation_time(now)?
+                .set_key_validity_period(expiration)?;
             builder.remove_all(
                 signature::subpacket::SubpacketTag::PrimaryUserID);
 
             // Generate the signature.
-            let mut hash = hash_algo.context()?;
-            self.cert().primary_key().hash(&mut hash);
-            sigs.push(builder
-                      .set_key_validity_period(expiration)?
-                      .set_signature_creation_time(now)?
-                      .sign_hash(primary_signer, hash)?);
+            sigs.push(builder.sign_direct_key(primary_signer,
+                                              &self.cert().primary_key())?);
 
             // Second, generate a new binding signature for every
             // userid.  We need to be careful not to change the
@@ -1339,28 +1333,31 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
                 // To extend the validity of the subkey, create a new
                 // binding signature with updated key validity period.
                 let binding_signature = userid.binding_signature();
-                let mut hash = hash_algo.context()?;
-                self.cert().primary.key().hash(&mut hash);
-                userid.hash(&mut hash);
-                sigs.push(signature::SignatureBuilder::from(binding_signature.clone())
-                          .set_key_validity_period(expiration)?
-                          .set_signature_creation_time(now)?
-                          .set_primary_userid(
-                              self.cert().primary_userid().map(|primary| {
-                                  userid.userid() == primary.userid()
-                              }).unwrap_or(false))?
-                          .sign_hash(primary_signer, hash)?);
+
+                let builder = signature::SignatureBuilder::from(binding_signature.clone())
+                    .set_signature_creation_time(now)?
+                    .set_key_validity_period(expiration)?
+                    .set_primary_userid(
+                        self.cert().primary_userid().map(|primary| {
+                            userid.userid() == primary.userid()
+                        }).unwrap_or(false))?;
+
+                sigs.push(builder.sign_userid_binding(primary_signer,
+                                                      &self.cert().primary_key(),
+                                                      &userid)?);
             }
         } else {
             // To extend the validity of the subkey, create a new
             // binding signature with updated key validity period.
-            let mut hash = hash_algo.context()?;
-            self.cert().primary.key().hash(&mut hash);
-            self.key().hash(&mut hash);
-            sigs.push(signature::SignatureBuilder::from(self.binding_signature().clone())
-                      .set_key_validity_period(expiration)?
-                      .set_signature_creation_time(now)?
-                      .sign_hash(primary_signer, hash)?);
+            sigs.push(
+                signature::SignatureBuilder::from(
+                        self.binding_signature().clone())
+                    .set_signature_creation_time(now)?
+                    .set_key_validity_period(expiration)?
+                    .sign_subkey_binding(
+                        primary_signer,
+                        &self.cert().primary_key(),
+                        self.key().role_as_subordinate())?);
         }
 
         Ok(sigs)
