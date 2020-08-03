@@ -2529,32 +2529,6 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Key Expiration Time subpacket.
-    ///
-    /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_key_expiration_time<P, R>(
-        self,
-        key: &Key<P, R>,
-        expiration: Option<time::SystemTime>)
-        -> Result<Self>
-        where P: key::KeyParts,
-              R: key::KeyRole,
-    {
-        if let Some(e) = expiration.map(crate::types::normalize_systemtime) {
-            let ct = key.creation_time();
-            let vp = match e.duration_since(ct) {
-                Ok(v) => v,
-                Err(_) => return Err(Error::InvalidArgument(
-                    format!("Expiration time {:?} predates creation time \
-                             {:?}", e, ct)).into()),
-            };
-
-            self.set_key_validity_period(Some(vp))
-        } else {
-            self.set_key_validity_period(None)
-        }
-    }
-
     /// Sets the value of the Preferred Symmetric Algorithms
     /// subpacket, which contains the list of symmetric algorithms
     /// that the key holder prefers, ordered according by the key
