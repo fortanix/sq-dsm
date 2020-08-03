@@ -359,22 +359,22 @@ fn $fn_name<'a>(
     }
 }
 
-/// Decomposes a
-/// `VerificationResult::Err(VerificationError::BadKey { .. })`.
-///
-/// Returns `true` iff the given value is a
-/// `VerificationResult::Err(VerificationError::BadKey { .. })`,
-/// and returns the variants members in `sig_r` and the like iff
-/// `sig_r != NULL`.
+// Decomposes a
+// `VerificationResult::Err(VerificationError::BadKey { .. })`.
+//
+// Returns `true` iff the given value is a
+// `VerificationResult::Err(VerificationError::BadKey { .. })`,
+// and returns the variants members in `sig_r` and the like iff
+// `sig_r != NULL`.
 make_decomposition_fn!(pgp_verification_result_bad_key, BadKey);
 
-/// Decomposes a
-/// `VerificationResult::Err(VerificationError::BadSignature { .. })`.
-///
-/// Returns `true` iff the given value is a
-/// `VerificationResult::Err(VerificationError::BadSignature { .. })`,
-/// and returns the variants members in `sig_r` and the like iff
-/// `sig_r != NULL`.
+// Decomposes a
+// `VerificationResult::Err(VerificationError::BadSignature { .. })`.
+//
+// Returns `true` iff the given value is a
+// `VerificationResult::Err(VerificationError::BadSignature { .. })`,
+// and returns the variants members in `sig_r` and the like iff
+// `sig_r != NULL`.
 make_decomposition_fn!(pgp_verification_result_bad_signature, BadSignature);
 
 /// Passed as the first argument to the callbacks used by pgp_verify
