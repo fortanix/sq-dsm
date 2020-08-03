@@ -330,6 +330,34 @@ impl CertBuilder {
         self
     }
 
+    /// Returns the configured creation time, if any.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::time::SystemTime;
+    ///
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let mut builder = CertBuilder::new();
+    /// assert!(builder.creation_time().is_none());
+    ///
+    /// let now = std::time::SystemTime::now();
+    /// builder = builder.set_creation_time(Some(now));
+    /// assert_eq!(builder.creation_time(), Some(now));
+    ///
+    /// builder = builder.set_creation_time(None);
+    /// assert!(builder.creation_time().is_none());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn creation_time(&self) -> Option<std::time::SystemTime>
+    {
+        self.creation_time
+    }
+
     /// Sets the default asymmetric algorithms.
     ///
     /// This method controls the set of algorithms that is used to
