@@ -1793,12 +1793,11 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// let now: time::SystemTime = now.try_into()?;
     ///
     /// let a_week = time::Duration::from_secs(7 * 24 * 60 * 60);
-    /// let a_week_later = now + a_week;
     ///
     /// let (cert, _) =
     ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
     ///     .set_creation_time(now)
-    ///     .set_expiration_time(a_week_later)
+    ///     .set_validity_period(a_week)
     ///     .generate()?;
     ///
     /// assert_eq!(cert.primary_key().with_policy(p, None)?.key_validity_period(),
@@ -1849,7 +1848,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// let (cert, _) =
     ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
     ///     .set_creation_time(now)
-    ///     .set_expiration_time(a_week_later)
+    ///     .set_validity_period(a_week)
     ///     .generate()?;
     ///
     /// assert_eq!(cert.primary_key().with_policy(p, None)?.key_expiration_time(),

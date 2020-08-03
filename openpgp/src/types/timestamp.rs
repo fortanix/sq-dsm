@@ -267,11 +267,11 @@ impl Arbitrary for Timestamp {
 /// let p = &StandardPolicy::new();
 ///
 /// let now = Timestamp::now();
-/// let then = now.checked_add(Duration::days(365)?).unwrap();
+/// let validity_period = Duration::days(365)?;
 ///
 /// let (cert,_) = CertBuilder::new()
 ///     .set_creation_time(now)
-///     .set_expiration_time(then)
+///     .set_validity_period(validity_period)
 ///     .generate()?;
 ///
 /// let vc = cert.with_policy(p, now)?;

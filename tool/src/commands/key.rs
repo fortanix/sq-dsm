@@ -33,22 +33,24 @@ pub fn generate(m: &ArgMatches, force: bool) -> Result<()> {
     // Expiration.
     match (m.value_of("expires"), m.value_of("expires-in")) {
         (None, None) => // Default expiration.
-            builder = builder.set_expiration_time(
-                Some(SystemTime::now()
-                     + Duration::new(3 * SECONDS_IN_YEAR, 0))),
+            builder = builder.set_validity_period(
+                Some(Duration::new(3 * SECONDS_IN_YEAR, 0))),
         (Some(t), None) if t == "never" =>
-            builder = builder.set_expiration_time(None),
+            builder = builder.set_validity_period(None),
         (Some(t), None) => {
-            let t =
-                crate::parse_iso8601(t, chrono::NaiveTime::from_hms(0, 0, 0))?;
-            builder = builder.set_expiration_time(Some(t.into()));
+            let now = builder.creation_time()
+                .unwrap_or_else(std::time::SystemTime::now);
+            let expiration = SystemTime::from(
+                crate::parse_iso8601(t, chrono::NaiveTime::from_hms(0, 0, 0))?);
+            let validity = expiration.duration_since(now)?;
+            builder = builder.set_creation_time(now)
+                .set_validity_period(validity);
         },
         (None, Some(d)) if d == "never" =>
-            builder = builder.set_expiration_time(None),
+            builder = builder.set_validity_period(None),
         (None, Some(d)) => {
             let d = parse_duration(d)?;
-            builder = builder.set_expiration_time(
-                Some(SystemTime::now() + d));
+            builder = builder.set_validity_period(Some(d));
         },
         (Some(_), Some(_)) => unreachable!("conflicting args"),
     }

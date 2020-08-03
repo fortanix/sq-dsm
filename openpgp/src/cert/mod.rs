@@ -2749,13 +2749,15 @@ impl<'a> ValidCert<'a> {
     ///
     /// let creation_time = time::SystemTime::now();
     /// let before_creation = creation_time - a_second;
-    /// let expiration_time = creation_time + 60 * a_second;
+    /// let validity_period = 60 * a_second;
+    /// let expiration_time = creation_time + validity_period;
     /// let before_expiration_time = expiration_time - a_second;
     /// let after_expiration_time = expiration_time + a_second;
     ///
     /// let (cert, _) = CertBuilder::new()
     ///     .add_userid("Alice")
-    ///     .set_expiration_time(expiration_time)
+    ///     .set_creation_time(creation_time)
+    ///     .set_validity_period(validity_period)
     ///     .generate()?;
     ///
     /// // There is no binding signature before the certificate was created.
@@ -3732,14 +3734,12 @@ mod test {
 
     #[test]
     fn set_validity_period_uidless() {
-        use crate::types::{Duration, Timestamp};
+        use crate::types::Duration;
         let p = &P::new();
 
         let (cert, _) = CertBuilder::new()
-            .set_expiration_time(None) // Just to assert this works.
-            .set_expiration_time(
-                Some(Timestamp::now().checked_add(
-                    Duration::weeks(52).unwrap()).unwrap().into()))
+            .set_validity_period(None) // Just to assert this works.
+            .set_validity_period(Some(Duration::weeks(52).unwrap().try_into().unwrap()))
             .generate().unwrap();
         assert_eq!(cert.clone().into_packet_pile().children().count(),
                    1 // primary key

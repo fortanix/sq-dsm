@@ -125,7 +125,7 @@ impl CipherSuite {
 #[derive(Clone, Debug)]
 pub struct KeyBlueprint {
     flags: KeyFlags,
-    expiration: Option<time::SystemTime>,
+    validity: Option<time::Duration>,
     // If not None, uses the specified ciphersuite.  Otherwise, uses
     // CertBuilder::ciphersuite.
     ciphersuite: Option<CipherSuite>,
@@ -212,7 +212,7 @@ impl CertBuilder {
             ciphersuite: CipherSuite::default(),
             primary: KeyBlueprint{
                 flags: KeyFlags::default().set_certification(),
-                expiration: None,
+                validity: None,
                 ciphersuite: None,
             },
             subkeys: vec![],
@@ -257,9 +257,7 @@ impl CertBuilder {
                 flags: KeyFlags::default()
                     .set_certification()
                     .set_signing(),
-                expiration: Some(
-                    time::SystemTime::now()
-                        + time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
+                validity: Some(time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
                 ciphersuite: None,
             },
             subkeys: vec![
@@ -267,7 +265,7 @@ impl CertBuilder {
                     flags: KeyFlags::default()
                         .set_transport_encryption()
                         .set_storage_encryption(),
-                    expiration: None,
+                    validity: None,
                     ciphersuite: None,
                 }
             ],
@@ -741,11 +739,11 @@ impl CertBuilder {
     /// // expire in a year.
     /// let (cert,_) = CertBuilder::new()
     ///     .set_creation_time(now)
-    ///     .set_expiration_time(now + 2 * y)
+    ///     .set_validity_period(2 * y)
     ///     .add_subkey(KeyFlags::empty()
     ///                     .set_storage_encryption()
     ///                     .set_transport_encryption(),
-    ///                 now + y,
+    ///                 y,
     ///                 None)
     ///     .generate()?;
     ///
@@ -760,14 +758,14 @@ impl CertBuilder {
     ///                     .set_transport_encryption()));
     /// # Ok(()) }
     /// ```
-    pub fn add_subkey<T, C>(mut self, flags: KeyFlags, expiration: T, cs: C)
+    pub fn add_subkey<T, C>(mut self, flags: KeyFlags, validity: T, cs: C)
         -> Self
-        where T: Into<Option<time::SystemTime>>,
+        where T: Into<Option<time::Duration>>,
               C: Into<Option<CipherSuite>>,
     {
         self.subkeys.push(KeyBlueprint {
             flags,
-            expiration: expiration.into(),
+            validity: validity.into(),
             ciphersuite: cs.into(),
         });
         self
@@ -838,9 +836,13 @@ impl CertBuilder {
         self
     }
 
-    /// Sets the certificate's expiration time.
+    /// Sets the certificate's validity period.
     ///
-    /// A value of None means never.
+    /// The determines how long the certificate is valid.  That is,
+    /// after the validity period, the certificate is considered to be
+    /// expired.
+    ///
+    /// A value of None means that the certificate never expires.
     //
     /// # Examples
     ///
@@ -860,7 +862,7 @@ impl CertBuilder {
     /// // Make the certificate expire in 10 minutes.
     /// let (cert,_) = CertBuilder::new()
     ///     .set_creation_time(now)
-    ///     .set_expiration_time(now + 600 * s)
+    ///     .set_validity_period(600 * s)
     ///     .generate()?;
     ///
     /// assert!(cert.with_policy(p, now)?.primary_key().alive().is_ok());
@@ -868,10 +870,10 @@ impl CertBuilder {
     /// assert!(cert.with_policy(p, now + 600 * s)?.primary_key().alive().is_err());
     /// # Ok(()) }
     /// ```
-    pub fn set_expiration_time<T>(mut self, expiration: T) -> Self
-        where T: Into<Option<time::SystemTime>>
+    pub fn set_validity_period<T>(mut self, validity: T) -> Self
+        where T: Into<Option<time::Duration>>
     {
-        self.primary.expiration = expiration.into();
+        self.primary.validity = validity.into();
         self
     }
 
@@ -1018,9 +1020,7 @@ impl CertBuilder {
                 .set_hash_algo(HashAlgorithm::SHA512)
                 .set_features(&Features::sequoia())?
                 .set_key_flags(flags)?
-                .set_key_expiration_time(
-                    &subkey,
-                    blueprint.expiration.or(self.primary.expiration))?;
+                .set_key_validity_period(blueprint.validity.or(self.primary.validity))?;
 
             if flags.for_certification() || flags.for_signing() {
                 // We need to create a primary key binding signature.
@@ -1070,7 +1070,7 @@ impl CertBuilder {
             .set_features(&Features::sequoia())?
             .set_key_flags(&self.primary.flags)?
             .set_signature_creation_time(creation_time)?
-            .set_key_expiration_time(&key, self.primary.expiration)?
+            .set_key_validity_period(self.primary.validity)?
             .set_preferred_hash_algorithms(vec![
                 HashAlgorithm::SHA512
             ])?
@@ -1264,9 +1264,9 @@ mod tests {
 
         let (cert,_) = CertBuilder::new()
             .set_creation_time(now)
-            .set_expiration_time(now + 600 * s)
+            .set_validity_period(600 * s)
             .add_subkey(KeyFlags::default().set_signing(),
-                        now + 300 * s, None)
+                        300 * s, None)
             .add_subkey(KeyFlags::default().set_authentication(),
                         None, None)
             .generate().unwrap();
