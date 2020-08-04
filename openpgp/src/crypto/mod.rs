@@ -13,9 +13,11 @@
 //!
 //!  - *Converting a string to a `Password`*: Use [`Password::from`].
 //!  - *Create a session key*: Use [`SessionKey::new`].
+//!  - *Use secret keys*: See the [`KeyPair` example].
 //!
 //!   [`Password::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
 //!   [`SessionKey::new`]: struct.SessionKey.html#method.new
+//!   [`KeyPair` example]: struct.KeyPair.html#examples
 
 use std::io::Read;
 use std::ops::{Deref, DerefMut};

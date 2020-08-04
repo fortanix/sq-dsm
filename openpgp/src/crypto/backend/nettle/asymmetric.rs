@@ -146,7 +146,6 @@ impl Decryptor for KeyPair {
         KeyPair::public(self)
     }
 
-    /// Creates a signature over the `digest` produced by `hash_algo`.
     fn decrypt(&mut self, ciphertext: &mpi::Ciphertext,
                plaintext_len: Option<usize>)
                -> Result<SessionKey>

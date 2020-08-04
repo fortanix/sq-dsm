@@ -1,4 +1,4 @@
-//! Asymmetric crypt operations.
+//! Asymmetric crypto operations.
 
 use crate::packet::{self, key, Key};
 use crate::crypto::SessionKey;
@@ -9,10 +9,33 @@ use crate::Result;
 
 /// Creates a signature.
 ///
+/// Used in the streaming [`Signer`], the methods binding components
+/// to certificates (e.g. [`UserID::bind`]), [`SignatureBuilder`]'s
+/// signing functions (e.g. [`SignatureBuilder::sign_standalone`]),
+/// and likely many more places.
+///
+///   [`Signer`]: ../serialize/stream/struct.Signer.html
+///   [`UserID::bind`]: ../packet/struct.UserID.html#method.bind
+///   [`SignatureBuilder`]: ../packet/signature/struct.SignatureBuilder.html
+///   [`SignatureBuilder::sign_standalone`]: ../packet/signature/struct.SignatureBuilder.html#method.sign_standalone
+///
 /// This is a low-level mechanism to produce an arbitrary OpenPGP
 /// signature.  Using this trait allows Sequoia to perform all
 /// operations involving signing to use a variety of secret key
 /// storage mechanisms (e.g. smart cards).
+///
+/// A signer consists of the public key and a way of creating a
+/// signature.  This crate implements `Signer` for [`KeyPair`], which
+/// is a tuple containing the public and unencrypted secret key in
+/// memory.  Other crates my provide their own implementations of
+/// `Signer` to utilize keys stored in various places.  Currently, the
+/// following implementations exist:
+///
+///   - [`KeyPair`]: In-memory keys.
+///   - [`sequoia_rpc::gnupg::KeyPair`]: Connects to the `gpg-agent`.
+///
+///   [`KeyPair`]: struct.KeyPair.html
+///   [`sequoia_rpc::gnupg::KeyPair`]: https://docs.sequoia-pgp.org/sequoia_ipc/gnupg/struct.KeyPair.html
 pub trait Signer {
     /// Returns a reference to the public key.
     fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole>;
@@ -35,10 +58,27 @@ impl Signer for Box<dyn Signer> {
 
 /// Decrypts a message.
 ///
+/// Used by [`PKESK::decrypt`] to decrypt session keys.
+///
+///   [`PKESK::decrypt`]: ../packet/enum.PKESK.html#method.decrypt
+///
 /// This is a low-level mechanism to decrypt an arbitrary OpenPGP
 /// ciphertext.  Using this trait allows Sequoia to perform all
 /// operations involving decryption to use a variety of secret key
 /// storage mechanisms (e.g. smart cards).
+///
+/// A decryptor consists of the public key and a way of decrypting a
+/// session key.  This crate implements `Decryptor` for [`KeyPair`],
+/// which is a tuple containing the public and unencrypted secret key
+/// in memory.  Other crates my provide their own implementations of
+/// `Signer` to utilize keys stored in various places.  Currently, the
+/// following implementations exist:
+///
+///   - [`KeyPair`]: In-memory keys.
+///   - [`sequoia_rpc::gnupg::KeyPair`]: Connects to the `gpg-agent`.
+///
+///   [`KeyPair`]: struct.KeyPair.html
+///   [`sequoia_rpc::gnupg::KeyPair`]: https://docs.sequoia-pgp.org/sequoia_ipc/gnupg/struct.KeyPair.html
 pub trait Decryptor {
     /// Returns a reference to the public key.
     fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole>;
@@ -57,6 +97,30 @@ pub trait Decryptor {
 ///
 /// [`Signer`]: trait.Signer.html
 /// [`Decryptor`]: trait.Decryptor.html
+///
+/// # Examples
+///
+/// ```
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::types::Curve;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+///
+/// // Conveniently create a KeyPair from a bare key:
+/// let keypair =
+///     Key4::<_, key::UnspecifiedRole>::generate_ecc(false, Curve::Cv25519)?
+///         .into_keypair()?;
+///
+/// // Or from a query over a certificate:
+/// let (cert, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///         .generate()?;
+/// let keypair =
+///     cert.keys().unencrypted_secret().nth(0).unwrap().key().clone()
+///         .into_keypair()?;
+/// # Ok(()) }
+/// ```
 #[derive(Clone)]
 pub struct KeyPair {
     public: Key<key::PublicParts, key::UnspecifiedRole>,
