@@ -278,7 +278,7 @@ impl SignatureBuilder {
         self.sign(signer, digest)
     }
 
-    /// Signs `signer` using itself.
+    /// Signs `pk` using `signer`.
     ///
     /// The Signature's public-key algorithm field is set to the
     /// algorithm used by `signer`.
