@@ -11,7 +11,7 @@
 //!
 //! # Common Operations
 //!
-//!  - *Converting a string to a `Password`*: Use [`Password::from`].
+//!  - *Converting a string to a [`Password`]*: Use [`Password::from`].
 //!  - *Create a session key*: Use [`SessionKey::new`].
 //!  - *Use secret keys*: See the [`KeyPair` example].
 //!

@@ -60,7 +60,7 @@ dyn_clone::clone_trait_object!(Digest);
 /// # Examples
 ///
 /// ```rust
-/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// # fn main() -> sequoia_openpgp::Result<()> {
 /// use sequoia_openpgp::types::HashAlgorithm;
 ///
 /// // Create a context and feed data to it.
