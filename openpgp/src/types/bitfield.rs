@@ -62,7 +62,7 @@ impl Bitfield {
         &self.raw
     }
 
-    /// Returns whether the specified keyserver preferences flag is set.
+    /// Returns whether the specified flag is set.
     pub fn get(&self, bit: usize) -> bool {
         let byte = bit / 8;
 
@@ -83,7 +83,7 @@ impl Bitfield {
         self
     }
 
-    /// Sets the specified keyserver preferences flag.
+    /// Sets the specified flag.
     ///
     /// This also clears any padding (trailing NUL bytes).
     pub fn set(mut self, bit: usize) -> Self {
@@ -96,7 +96,7 @@ impl Bitfield {
         self.clear_padding()
     }
 
-    /// Clears the specified keyserver preferences flag.
+    /// Clears the specified flag.
     ///
     /// This also clears any padding (trailing NUL bytes).
     pub fn clear(mut self, bit: usize) -> Self {
@@ -108,4 +108,3 @@ impl Bitfield {
         self.clear_padding()
     }
 }
-
