@@ -237,6 +237,7 @@ use self::partial_body::BufferedReaderPartialBodyFilter;
 
 use crate::packet::signature::subpacket::{
     NotationData,
+    NotationDataFlags,
     Subpacket,
     SubpacketArea,
     SubpacketLength,
@@ -1488,7 +1489,7 @@ impl Subpacket {
                 SubpacketValue::Issuer(
                     KeyID::from_bytes(&php.parse_bytes("issuer", len)?)),
             SubpacketTag::NotationData => {
-                let flags = php.parse_be_u32("flags")?;
+                let flags = php.parse_bytes("flags", 4)?;
                 let name_len = php.parse_be_u16("name len")? as usize;
                 let value_len = php.parse_be_u16("value len")? as usize;
 
@@ -1508,7 +1509,7 @@ impl Subpacket {
                                     format!("Malformed notation name: {}", e)))
                             )?,
                         &php.parse_bytes("notation value", value_len)?,
-                        Some(flags.into())))
+                        Some(NotationDataFlags::new(&flags)?)))
             },
             SubpacketTag::PreferredHashAlgorithms =>
                 SubpacketValue::PreferredHashAlgorithms(

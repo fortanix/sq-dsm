@@ -1373,7 +1373,7 @@ impl Marshal for SubpacketValue {
             Issuer(ref id) =>
                 o.write_all(id.as_bytes())?,
             NotationData(nd) => {
-                write_be_u32(o, nd.flags().raw())?;
+                o.write_all(nd.flags().as_slice())?;
                 write_be_u16(o, nd.name().len() as u16)?;
                 write_be_u16(o, nd.value().len() as u16)?;
                 o.write_all(nd.name().as_bytes())?;

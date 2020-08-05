@@ -56,7 +56,7 @@ use crate::Error;
 use crate::Result;
 
 mod bitfield;
-use bitfield::Bitfield;
+pub(crate) use bitfield::Bitfield;
 mod compression_level;
 pub use compression_level::CompressionLevel;
 mod features;

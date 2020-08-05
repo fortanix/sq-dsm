@@ -556,15 +556,15 @@ impl NotationData {
               F: Into<Option<NotationDataFlags>>,
     {
         Self {
-            flags: flags.into().unwrap_or_default(),
+            flags: flags.into().unwrap_or_else(NotationDataFlags::empty),
             name: name.as_ref().into(),
             value: value.as_ref().into(),
         }
     }
 
     /// Returns the flags.
-    pub fn flags(&self) -> NotationDataFlags {
-        self.flags
+    pub fn flags(&self) -> &NotationDataFlags {
+        &self.flags
     }
 
     /// Returns the name.
@@ -579,64 +579,165 @@ impl NotationData {
 }
 
 /// Flags for the Notation Data subpacket.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct NotationDataFlags(u32);
-
-impl Default for NotationDataFlags {
-    fn default() -> Self {
-        NotationDataFlags(0)
-    }
-}
-
-impl From<u32> for NotationDataFlags {
-    fn from(v: u32) -> Self {
-        Self(v)
-    }
-}
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct NotationDataFlags(crate::types::Bitfield);
 
 #[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for NotationDataFlags {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        u32::arbitrary(g).into()
+        NotationDataFlags(vec![u8::arbitrary(g), u8::arbitrary(g),
+                               u8::arbitrary(g), u8::arbitrary(g)].into())
     }
 }
 
 impl fmt::Debug for NotationDataFlags {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut d = f.debug_struct("NotationDataFlags");
-        d.field("human_readable", &self.human_readable());
-        let other = self.0 & !NOTATION_DATA_FLAG_HUMAN_READABLE;
-        if other > 0 {
-            d.field("other", &crate::fmt::hex::encode(&other.to_be_bytes()));
+        let mut need_comma = false;
+        if self.human_readable() {
+            f.write_str("human readable")?;
+            need_comma = true;
         }
-        d.finish()
+
+        for i in self.0.iter() {
+            match i {
+                NOTATION_DATA_FLAG_HUMAN_READABLE => (),
+                i => {
+                    if need_comma { f.write_str(", ")?; }
+                    write!(f, "#{}", i)?;
+                    need_comma = true;
+                },
+            }
+        }
+
+        // Don't mention padding, the bit field always has the same
+        // size.
+
+        Ok(())
     }
 }
 
-const NOTATION_DATA_FLAG_HUMAN_READABLE: u32 = 0x80000000;
+const NOTATION_DATA_FLAG_HUMAN_READABLE: usize = 7;
 
 impl NotationDataFlags {
+    /// Creates a new instance from `bits`.
+    pub fn new<B: AsRef<[u8]>>(bits: B) -> Result<Self> {
+        if bits.as_ref().len() == 4 {
+            Ok(Self(bits.as_ref().to_vec().into()))
+        } else {
+            Err(Error::InvalidArgument(
+                format!("Need four bytes of flags, got: {:?}", bits.as_ref()))
+                .into())
+        }
+    }
+
+    /// Returns an empty key server preference set.
+    pub fn empty() -> Self {
+        Self::new(&[0, 0, 0, 0]).unwrap()
+    }
+
+    /// Returns a slice containing the raw values.
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+
+    /// Returns whether the specified notation data flag is set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// // Notation Data flags 0 and 2.
+    /// let ndf = NotationDataFlags::new(&[5, 0, 0, 0])?;
+    ///
+    /// assert!(ndf.get(0));
+    /// assert!(! ndf.get(1));
+    /// assert!(ndf.get(2));
+    /// assert!(! ndf.get(3));
+    /// assert!(! ndf.get(8));
+    /// assert!(! ndf.get(80));
+    /// # assert!(! ndf.human_readable());
+    /// # Ok(()) }
+    /// ```
+    pub fn get(&self, bit: usize) -> bool {
+        self.0.get(bit)
+    }
+
+    /// Sets the specified notation data flag.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let ndf = NotationDataFlags::empty().set(0)?.set(2)?;
+    ///
+    /// assert!(ndf.get(0));
+    /// assert!(! ndf.get(1));
+    /// assert!(ndf.get(2));
+    /// assert!(! ndf.get(3));
+    /// # assert!(! ndf.human_readable());
+    /// # Ok(()) }
+    /// ```
+    pub fn set(mut self, bit: usize) -> Result<Self> {
+        assert_eq!(self.0.raw.len(), 4);
+        let byte = bit / 8;
+        if byte < 4 {
+            self.0.raw[byte] |= 1 << (bit % 8);
+            Ok(self)
+        } else {
+            Err(Error::InvalidArgument(
+                format!("flag index out of bounds: {}", bit)).into())
+        }
+    }
+
+    /// Clears the specified notation data flag.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let ndf = NotationDataFlags::empty().set(0)?.set(2)?.clear(2)?;
+    ///
+    /// assert!(ndf.get(0));
+    /// assert!(! ndf.get(1));
+    /// assert!(! ndf.get(2));
+    /// assert!(! ndf.get(3));
+    /// # assert!(! ndf.human_readable());
+    /// # Ok(()) }
+    /// ```
+    pub fn clear(mut self, bit: usize) -> Result<Self> {
+        assert_eq!(self.0.raw.len(), 4);
+        let byte = bit / 8;
+        if byte < 4 {
+            self.0.raw[byte] &= !(1 << (bit % 8));
+            Ok(self)
+        } else {
+            Err(Error::InvalidArgument(
+                format!("flag index out of bounds: {}", bit)).into())
+        }
+    }
+
     /// Returns whether the value is human-readable.
     pub fn human_readable(&self) -> bool {
-        self.0 & NOTATION_DATA_FLAG_HUMAN_READABLE > 0
+        self.get(NOTATION_DATA_FLAG_HUMAN_READABLE)
     }
 
-    /// Asserts that the value is human-readable or not.
-    pub fn set_human_readable(mut self, value: bool) -> Self {
-        if value {
-            self.0 |= NOTATION_DATA_FLAG_HUMAN_READABLE;
-        } else {
-            self.0 &= ! NOTATION_DATA_FLAG_HUMAN_READABLE;
-        }
-        self
+    /// Asserts that the value is human-readable.
+    pub fn set_human_readable(self) -> Self {
+        self.set(NOTATION_DATA_FLAG_HUMAN_READABLE).unwrap()
     }
 
-    /// Returns the raw value.
-    ///
-    /// XXX: This is for the serialization code, which we will have to
-    /// move here eventually.
-    pub(crate) fn raw(&self) -> u32 {
-        self.0
+    /// Clear the assertion that the value is human-readable.
+    pub fn clear_human_readable(self) -> Self {
+        self.clear(NOTATION_DATA_FLAG_HUMAN_READABLE).unwrap()
     }
 }
 
@@ -2617,7 +2718,7 @@ impl signature::SignatureBuilder {
             }
         });
         self.add_notation(name.as_ref(), value.as_ref(),
-                          flags.into().unwrap_or_default(),
+                          flags.into().unwrap_or_else(NotationDataFlags::empty),
                           critical)
     }
 
@@ -2644,7 +2745,7 @@ impl signature::SignatureBuilder {
     {
         self.hashed_area.add(Subpacket::new(SubpacketValue::NotationData(
             NotationData::new(name.as_ref(), value.as_ref(),
-                              flags.into().unwrap_or_default())),
+                              flags.into().unwrap_or_else(NotationDataFlags::empty))),
                                             critical)?)?;
         Ok(self)
     }
@@ -3369,7 +3470,7 @@ fn subpacket_test_2() {
                    }));
 
         let n = NotationData {
-            flags: NotationDataFlags::default().set_human_readable(true),
+            flags: NotationDataFlags::empty().set_human_readable(),
             name: "rank@navy.mil".into(),
             value: b"midshipman".to_vec()
         };
@@ -3546,17 +3647,17 @@ fn subpacket_test_2() {
                    }));
 
         let n1 = NotationData {
-            flags: NotationDataFlags::default().set_human_readable(true),
+            flags: NotationDataFlags::empty().set_human_readable(),
             name: "rank@navy.mil".into(),
             value: b"third lieutenant".to_vec()
         };
         let n2 = NotationData {
-            flags: NotationDataFlags::default().set_human_readable(true),
+            flags: NotationDataFlags::empty().set_human_readable(),
             name: "foo@navy.mil".into(),
             value: b"bar".to_vec()
         };
         let n3 = NotationData {
-            flags: NotationDataFlags::default().set_human_readable(true),
+            flags: NotationDataFlags::empty().set_human_readable(),
             name: "whistleblower@navy.mil".into(),
             value: b"true".to_vec()
         };
