@@ -3018,7 +3018,7 @@ fn accessors() {
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.preferred_compression_algorithms(), Some(&pref[..]));
 
-    let pref = KeyServerPreferences::default()
+    let pref = KeyServerPreferences::empty()
         .set_no_modify();
     sig = sig.set_key_server_preferences(pref.clone()).unwrap();
     let sig_ =
@@ -3039,7 +3039,7 @@ fn accessors() {
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.policy_uri(), Some(&b"foobar"[..]));
 
-    let key_flags = KeyFlags::default()
+    let key_flags = KeyFlags::empty()
         .set_certification()
         .set_signing();
     sig = sig.set_key_flags(&key_flags).unwrap();
@@ -3322,13 +3322,13 @@ fn subpacket_test_2() {
                        )}));
 
         assert_eq!(sig.key_server_preferences().unwrap(),
-                   KeyServerPreferences::default().set_no_modify());
+                   KeyServerPreferences::empty().set_no_modify());
         assert_eq!(sig.subpacket(SubpacketTag::KeyServerPreferences),
                    Some(&Subpacket {
                        length: 2.into(),
                        critical: false,
                        value: SubpacketValue::KeyServerPreferences(
-                           KeyServerPreferences::default().set_no_modify()),
+                           KeyServerPreferences::empty().set_no_modify()),
                    }));
 
         assert!(sig.key_flags().unwrap().for_certification());
@@ -3338,7 +3338,7 @@ fn subpacket_test_2() {
                        length: 2.into(),
                        critical: false,
                        value: SubpacketValue::KeyFlags(
-                           KeyFlags::default().set_certification().set_signing())
+                           KeyFlags::empty().set_certification().set_signing())
                    }));
 
         assert_eq!(sig.features().unwrap(), Features::empty().set_mdc());

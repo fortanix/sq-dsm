@@ -231,11 +231,11 @@ fn main() -> Result<()> {
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             let mode = match m.value_of("mode").expect("has default") {
-                "rest" => KeyFlags::default()
+                "rest" => KeyFlags::empty()
                     .set_storage_encryption(),
-                "transport" => KeyFlags::default()
+                "transport" => KeyFlags::empty()
                     .set_transport_encryption(),
-                "all" => KeyFlags::default()
+                "all" => KeyFlags::empty()
                     .set_storage_encryption()
                     .set_transport_encryption(),
                 _ => unreachable!("uses possible_values"),

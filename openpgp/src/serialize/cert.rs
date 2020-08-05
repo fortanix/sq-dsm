@@ -771,7 +771,7 @@ mod test {
             &mut keypair, &cert,
             signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
                 .set_key_flags(
-                    &KeyFlags::default().set_transport_encryption())
+                    &KeyFlags::empty().set_transport_encryption())
                 .unwrap()
                 .set_exportable_certification(false).unwrap()).unwrap();
 

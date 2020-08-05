@@ -185,14 +185,14 @@ impl Timestamp {
     /// // Generate a Cert for Alice.
     /// let (alice, _) = CertBuilder::new()
     ///     .set_creation_time(cert_creation_alice)
-    ///     .set_primary_key_flags(KeyFlags::default().set_certification())
+    ///     .set_primary_key_flags(KeyFlags::empty().set_certification())
     ///     .add_userid("alice@example.org")
     ///     .generate()?;
     ///
     /// // Generate a Cert for Bob.
     /// let (bob, _) = CertBuilder::new()
     ///     .set_creation_time(cert_creation_bob)
-    ///     .set_primary_key_flags(KeyFlags::default().set_certification())
+    ///     .set_primary_key_flags(KeyFlags::empty().set_certification())
     ///     .add_userid("bob@example.org")
     ///     .generate()?;
     ///

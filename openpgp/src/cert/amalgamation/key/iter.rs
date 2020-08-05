@@ -947,7 +947,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///   [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
     ///   [`ValidKeyAmalgamation::key_flags`]: struct.ValidKeyAmalgamation.html#method.key_flags
     pub fn for_certification(self) -> Self {
-        self.key_flags(KeyFlags::default().set_certification())
+        self.key_flags(KeyFlags::empty().set_certification())
     }
 
     /// Returns signing-capable keys.
@@ -990,7 +990,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///
     ///   [`ValidKeyAmalgamation::for_signing`]: struct.ValidKeyAmalgamation.html#method.for_signing
     pub fn for_signing(self) -> Self {
-        self.key_flags(KeyFlags::default().set_signing())
+        self.key_flags(KeyFlags::empty().set_signing())
     }
 
     /// Returns authentication-capable keys.
@@ -1033,7 +1033,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///
     ///   [`ValidKeyAmalgamation::for_authentication`]: struct.ValidKeyAmalgamation.html#method.for_authentication
     pub fn for_authentication(self) -> Self {
-        self.key_flags(KeyFlags::default().set_authentication())
+        self.key_flags(KeyFlags::empty().set_authentication())
     }
 
     /// Returns encryption-capable keys for data at rest.
@@ -1076,7 +1076,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///
     ///   [`ValidKeyAmalgamation::for_storage_encryption`]: struct.ValidKeyAmalgamation.html#method.for_storage_encryption
     pub fn for_storage_encryption(self) -> Self {
-        self.key_flags(KeyFlags::default().set_storage_encryption())
+        self.key_flags(KeyFlags::empty().set_storage_encryption())
     }
 
     /// Returns encryption-capable keys for data in transit.
@@ -1119,7 +1119,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///
     ///   [`ValidKeyAmalgamation::for_transport_encryption`]: struct.ValidKeyAmalgamation.html#method.for_transport_encryption
     pub fn for_transport_encryption(self) -> Self {
-        self.key_flags(KeyFlags::default().set_transport_encryption())
+        self.key_flags(KeyFlags::empty().set_transport_encryption())
     }
 
     /// Returns keys that are alive.
@@ -1533,7 +1533,7 @@ mod test {
         let p = &P::new();
         let (cert, _) = CertBuilder::new()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_transport_encryption();
+        let flags = KeyFlags::empty().set_transport_encryption();
 
         assert_eq!(cert.keys().with_policy(p, None).key_flags(flags).count(), 0);
     }
@@ -1544,7 +1544,7 @@ mod test {
         let (cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_transport_encryption();
+        let flags = KeyFlags::empty().set_transport_encryption();
 
         assert_eq!(cert.keys().with_policy(p, None).key_flags(flags).count(), 1);
     }
@@ -1556,7 +1556,7 @@ mod test {
             .add_transport_encryption_subkey()
             .add_signing_subkey()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_transport_encryption();
+        let flags = KeyFlags::empty().set_transport_encryption();
 
         assert_eq!(cert.keys().with_policy(p, None).key_flags(flags).count(), 1);
     }
@@ -1567,7 +1567,7 @@ mod test {
         let (cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_transport_encryption();
+        let flags = KeyFlags::empty().set_transport_encryption();
 
         let now = SystemTime::now()
             - std::time::Duration::new(52 * 7 * 24 * 60 * 60, 0);
@@ -1581,7 +1581,7 @@ mod test {
         let (cert, _) = CertBuilder::new()
             .add_certification_subkey()
             .generate().unwrap();
-        let flags = KeyFlags::default().set_certification();
+        let flags = KeyFlags::empty().set_certification();
 
         assert_eq!(cert.keys().with_policy(p, None).key_flags(flags).count(),
                    2);
@@ -1611,7 +1611,7 @@ mod test {
                        .for_signing().count(),
                    1);
         assert_eq!(cert.keys().with_policy(p, None).alive().revoked(false)
-                       .key_flags(KeyFlags::default().set_authentication())
+                       .key_flags(KeyFlags::empty().set_authentication())
                        .count(),
                    1);
     }

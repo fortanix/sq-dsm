@@ -4073,7 +4073,7 @@ mod test {
         let (bind1, rev1, bind2, rev2) = {
             let bind1 = signature::SignatureBuilder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
-                .set_key_flags(&KeyFlags::default()).unwrap()
+                .set_key_flags(&KeyFlags::empty()).unwrap()
                 .set_signature_creation_time(t1).unwrap()
                 .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
@@ -4087,7 +4087,7 @@ mod test {
 
             let bind2 = signature::SignatureBuilder::new(SignatureType::DirectKey)
                 .set_features(&Features::sequoia()).unwrap()
-                .set_key_flags(&KeyFlags::default()).unwrap()
+                .set_key_flags(&KeyFlags::empty()).unwrap()
                 .set_signature_creation_time(t3).unwrap()
                 .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
                 .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512]).unwrap()
@@ -4751,7 +4751,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             for i in 0..N {
                 let binding = signature::SignatureBuilder::new(SignatureType::DirectKey)
                     .set_features(&Features::sequoia()).unwrap()
-                    .set_key_flags(&KeyFlags::default()).unwrap()
+                    .set_key_flags(&KeyFlags::empty()).unwrap()
                     .set_signature_creation_time(t1).unwrap()
                     // Vary this...
                     .set_key_validity_period(Some(
@@ -5017,7 +5017,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             key::Key4::generate_ecc(false, Curve::Cv25519)?.into();
         let subkey_pub = subkey_sec.clone().take_secret().0;
         let builder = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-            .set_key_flags(&KeyFlags::default()
+            .set_key_flags(&KeyFlags::empty()
                            .set_transport_encryption())?;
         let binding = subkey_sec.bind(&mut primary_pair, &cert, builder)?;
 

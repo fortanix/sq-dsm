@@ -317,7 +317,7 @@ fn create_key() {
     // 1st direct key signature valid from t1 on
     let mut b = signature::SignatureBuilder::new(SignatureType::DirectKey)
         .set_features(&Features::sequoia()).unwrap()
-        .set_key_flags(&KeyFlags::default()
+        .set_key_flags(&KeyFlags::empty()
                        .set_signing().set_certification()).unwrap()
         .set_signature_creation_time(t1).unwrap()
         .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])
@@ -326,7 +326,7 @@ fn create_key() {
 
     // 1st subkey binding signature valid from t_sk_binding on
     b = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-        .set_key_flags(&KeyFlags::default().set_signing()).unwrap()
+        .set_key_flags(&KeyFlags::empty().set_signing()).unwrap()
         .set_signature_creation_time(t_sk_binding).unwrap()
         .set_embedded_signature(
             signature::SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
@@ -338,7 +338,7 @@ fn create_key() {
     // 2nd direct key signature valid from t3 on
     b = signature::SignatureBuilder::new(SignatureType::DirectKey)
         .set_features(&Features::sequoia()).unwrap()
-        .set_key_flags(&KeyFlags::default()
+        .set_key_flags(&KeyFlags::empty()
                        .set_signing().set_certification()).unwrap()
         .set_signature_creation_time(t3).unwrap()
         .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])
@@ -347,7 +347,7 @@ fn create_key() {
 
     // 2nd subkey binding signature valid from t3 on
     let mut b = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-        .set_key_flags(&KeyFlags::default().set_signing()).unwrap()
+        .set_key_flags(&KeyFlags::empty().set_signing()).unwrap()
         .set_signature_creation_time(t3).unwrap()
         .set_embedded_signature(
             signature::SignatureBuilder::new(SignatureType::PrimaryKeyBinding)

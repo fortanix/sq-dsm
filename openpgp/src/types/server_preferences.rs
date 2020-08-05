@@ -57,12 +57,6 @@ use crate::types::Bitfield;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct KeyServerPreferences(Bitfield);
 
-impl Default for KeyServerPreferences {
-    fn default() -> Self {
-        KeyServerPreferences::new(&[0])
-    }
-}
-
 impl fmt::Debug for KeyServerPreferences {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut need_comma = false;
@@ -97,6 +91,11 @@ impl KeyServerPreferences {
     /// Creates a new instance from `bits`.
     pub fn new<B: AsRef<[u8]>>(bits: B) -> Self {
         KeyServerPreferences(bits.as_ref().to_vec().into())
+    }
+
+    /// Returns an empty key server preference set.
+    pub fn empty() -> Self {
+        Self::new(&[])
     }
 
     /// Returns a slice containing the raw values.
@@ -166,7 +165,7 @@ impl KeyServerPreferences {
     /// use openpgp::types::KeyServerPreferences;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// let ksp = KeyServerPreferences::default().set(0).set(2);
+    /// let ksp = KeyServerPreferences::empty().set(0).set(2);
     ///
     /// assert!(ksp.get(0));
     /// assert!(! ksp.get(1));
@@ -190,7 +189,7 @@ impl KeyServerPreferences {
     /// use openpgp::types::KeyServerPreferences;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// let ksp = KeyServerPreferences::default().set(0).set(2).clear(2);
+    /// let ksp = KeyServerPreferences::empty().set(0).set(2).clear(2);
     ///
     /// assert!(ksp.get(0));
     /// assert!(! ksp.get(1));
@@ -217,7 +216,7 @@ impl KeyServerPreferences {
     /// use openpgp::types::KeyServerPreferences;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// let ksp = KeyServerPreferences::default();
+    /// let ksp = KeyServerPreferences::empty();
     /// assert!(! ksp.no_modify());
     /// # Ok(()) }
     /// ```
@@ -238,7 +237,7 @@ impl KeyServerPreferences {
     /// use openpgp::types::KeyServerPreferences;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// let ksp = KeyServerPreferences::default().set_no_modify();
+    /// let ksp = KeyServerPreferences::empty().set_no_modify();
     /// assert!(ksp.no_modify());
     /// # Ok(()) }
     /// ```
@@ -287,7 +286,7 @@ mod tests {
 
     #[test]
     fn basics() -> crate::Result<()> {
-        let p = KeyServerPreferences::default();
+        let p = KeyServerPreferences::empty();
         assert_eq!(p.no_modify(), false);
         let p = KeyServerPreferences::new(&[]);
         assert_eq!(p.no_modify(), false);

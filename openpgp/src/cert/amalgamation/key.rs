@@ -1548,7 +1548,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     pub fn has_any_key_flag<F>(&self, flags: F) -> bool
         where F: Borrow<KeyFlags>
     {
-        let our_flags = self.key_flags().unwrap_or_default();
+        let our_flags = self.key_flags().unwrap_or_else(KeyFlags::empty);
         !(&our_flags & flags.borrow()).is_empty()
     }
 
@@ -1599,7 +1599,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// [Section 12.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
     /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_certification(&self) -> bool {
-        self.has_any_key_flag(KeyFlags::default().set_certification())
+        self.has_any_key_flag(KeyFlags::empty().set_certification())
     }
 
     /// Returns whether the key is signing capable.
@@ -1632,7 +1632,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     ///
     /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_signing(&self) -> bool {
-        self.has_any_key_flag(KeyFlags::default().set_signing())
+        self.has_any_key_flag(KeyFlags::empty().set_signing())
     }
 
     /// Returns whether the key is authentication capable.
@@ -1666,7 +1666,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_authentication(&self) -> bool
     {
-        self.has_any_key_flag(KeyFlags::default().set_authentication())
+        self.has_any_key_flag(KeyFlags::empty().set_authentication())
     }
 
     /// Returns whether the key is storage-encryption capable.
@@ -1713,7 +1713,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_storage_encryption(&self) -> bool
     {
-        self.has_any_key_flag(KeyFlags::default().set_storage_encryption())
+        self.has_any_key_flag(KeyFlags::empty().set_storage_encryption())
     }
 
     /// Returns whether the key is transport-encryption capable.
@@ -1760,7 +1760,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// [`ValidKeyAmalgamation::key_flags`]: #method.key_flags
     pub fn for_transport_encryption(&self) -> bool
     {
-        self.has_any_key_flag(KeyFlags::default().set_transport_encryption())
+        self.has_any_key_flag(KeyFlags::empty().set_transport_encryption())
     }
 
     /// Returns how long the key is live.

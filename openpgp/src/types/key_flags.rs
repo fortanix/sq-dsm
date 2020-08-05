@@ -50,12 +50,6 @@ use crate::types::Bitfield;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct KeyFlags(Bitfield);
 
-impl Default for KeyFlags {
-    fn default() -> Self {
-        KeyFlags::new(&[])
-    }
-}
-
 impl fmt::Debug for KeyFlags {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.for_certification() {
@@ -157,7 +151,7 @@ impl KeyFlags {
 
     /// Returns a new `KeyFlags` with all capabilities disabled.
     pub fn empty() -> Self {
-        KeyFlags::default()
+        KeyFlags::new(&[])
     }
 
     /// Returns a slice containing the raw values.
@@ -227,7 +221,7 @@ impl KeyFlags {
     /// use openpgp::types::KeyFlags;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// let kf = KeyFlags::default().set(0).set(2);
+    /// let kf = KeyFlags::empty().set(0).set(2);
     ///
     /// assert!(kf.get(0));
     /// assert!(! kf.get(1));
@@ -251,7 +245,7 @@ impl KeyFlags {
     /// use openpgp::types::KeyFlags;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// let kf = KeyFlags::default().set(0).set(2).clear(2);
+    /// let kf = KeyFlags::empty().set(0).set(2).clear(2);
     ///
     /// assert!(kf.get(0));
     /// assert!(! kf.get(1));
