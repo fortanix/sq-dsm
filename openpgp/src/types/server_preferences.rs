@@ -118,8 +118,8 @@ impl KeyServerPreferences {
     /// use openpgp::types::KeyServerPreferences;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// let a = KeyServerPreferences::new(&[ 0x1 ]);
-    /// let b = KeyServerPreferences::new(&[ 0x1, 0x0 ]);
+    /// let a = KeyServerPreferences::new(&[0x1]);
+    /// let b = KeyServerPreferences::new(&[0x1, 0x0]);
     ///
     /// assert!(a != b);
     /// assert!(a.normalized_eq(&b));
@@ -139,7 +139,7 @@ impl KeyServerPreferences {
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// // Keyserver Preferences flags 0 and 2.
-    /// let ksp = KeyServerPreferences::new(&[ 0x5 ]);
+    /// let ksp = KeyServerPreferences::new(&[0x5]);
     ///
     /// assert!(ksp.get(0));
     /// assert!(! ksp.get(1));

@@ -174,8 +174,8 @@ impl KeyFlags {
     /// use openpgp::types::KeyFlags;
     ///
     /// # fn main() -> openpgp::Result<()> {
-    /// let a = KeyFlags::new(&[ 0x1 ]);
-    /// let b = KeyFlags::new(&[ 0x1, 0x0 ]);
+    /// let a = KeyFlags::new(&[0x1]);
+    /// let b = KeyFlags::new(&[0x1, 0x0]);
     ///
     /// assert!(a != b);
     /// assert!(a.normalized_eq(&b));
@@ -195,7 +195,7 @@ impl KeyFlags {
     ///
     /// # fn main() -> openpgp::Result<()> {
     /// // Key flags 0 and 2.
-    /// let kf = KeyFlags::new(&[ 0x5 ]);
+    /// let kf = KeyFlags::new(&[0x5]);
     ///
     /// assert!(kf.get(0));
     /// assert!(! kf.get(1));

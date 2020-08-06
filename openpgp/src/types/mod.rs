@@ -1455,7 +1455,7 @@ impl Arbitrary for ReasonForRevocation {
 /// let t1 = t0 + Duration::from_secs(1200);
 /// let cert1 = cert.clone().merge_packets(sig.clone())?;
 /// assert_eq!(cert1.revocation_status(p, Some(t1)),
-///            RevocationStatus::Revoked(vec![ &sig.into() ]));
+///            RevocationStatus::Revoked(vec![&sig.into()]));
 ///
 /// // Create a soft revocation (KeySuperseded):
 /// let sig = CertRevocationBuilder::new()

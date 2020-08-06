@@ -167,8 +167,8 @@ impl MessageValidator {
 
     /// Add the token `token` at position `path` to the token stream.
     ///
-    /// Note: top-level packets are at `[ n ]`, their immediate
-    /// children are at `[ n, m ]`, etc.
+    /// Note: top-level packets are at `[n]`, their immediate
+    /// children are at `[n, m]`, etc.
     ///
     /// This function pushes any required `Token::Pop` tokens based on
     /// changes in the `path`.
@@ -200,8 +200,8 @@ impl MessageValidator {
     /// Add a packet of type `tag` at position `path` to the token
     /// stream.
     ///
-    /// Note: top-level packets are at `[ n ]`, their immediate
-    /// children are at `[ n, m ]`, etc.
+    /// Note: top-level packets are at `[n]`, their immediate
+    /// children are at `[n, m]`, etc.
     ///
     /// Unlike `push_token`, this function does not automatically
     /// account for changes in the depth.  If you use this function

@@ -132,8 +132,8 @@ impl Features {
     /// use openpgp::types::Features;
     ///
     /// # fn main() -> Result<()> {
-    /// let a = Features::new(&[ 0x1 ]);
-    /// let b = Features::new(&[ 0x1, 0x0 ]);
+    /// let a = Features::new(&[0x1]);
+    /// let b = Features::new(&[0x1, 0x0]);
     ///
     /// assert!(a != b);
     /// assert!(a.normalized_eq(&b));
@@ -159,7 +159,7 @@ impl Features {
     ///
     /// # fn main() -> Result<()> {
     /// // Feature flags 0 and 2.
-    /// let f = Features::new(&[ 0x5 ]);
+    /// let f = Features::new(&[0x5]);
     ///
     /// assert!(f.get(0));
     /// assert!(! f.get(1));
@@ -276,7 +276,7 @@ impl Features {
     /// use openpgp::types::Features;
     ///
     /// # fn main() -> Result<()> {
-    /// let f = Features::new(&[ 0x1 ]);
+    /// let f = Features::new(&[0x1]);
     /// assert!(f.supports_mdc());
     ///
     /// let f = f.clear_mdc();
@@ -336,7 +336,7 @@ impl Features {
     /// use openpgp::types::Features;
     ///
     /// # fn main() -> Result<()> {
-    /// let f = Features::new(&[ 0x2 ]);
+    /// let f = Features::new(&[0x2]);
     /// assert!(f.supports_aead());
     ///
     /// let f = f.clear_aead();

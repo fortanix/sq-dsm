@@ -2182,7 +2182,7 @@ impl signature::SignatureBuilder {
     /// builder.unhashed_area_mut().add(Subpacket::new(
     ///         SubpacketValue::Unknown {
     ///             tag: SubpacketTag::Private(61),
-    ///             body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///             body: [0x6D, 0x6F, 0x6F].to_vec(),
     ///         },
     ///         true)?)?;
     /// let sig = builder.sign_message(&mut signer, msg)?;
@@ -2219,7 +2219,7 @@ impl signature::SignatureBuilder {
     ///         a.add(Subpacket::new(
     ///             SubpacketValue::Unknown {
     ///                 tag: SubpacketTag::Private(61),
-    ///                 body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///                 body: [0x6D, 0x6F, 0x6F].to_vec(),
     ///             },
     ///             true)?);
     ///         Ok(a)
@@ -2269,7 +2269,7 @@ impl signature::SignatureBuilder {
     ///         a.add(Subpacket::new(
     ///             SubpacketValue::Unknown {
     ///                 tag: SubpacketTag::Private(61),
-    ///                 body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///                 body: [0x6D, 0x6F, 0x6F].to_vec(),
     ///             },
     ///             true)?);
     ///         Ok(a)
@@ -2325,7 +2325,7 @@ impl signature::SignatureBuilder {
     /// builder.hashed_area_mut().add(Subpacket::new(
     ///         SubpacketValue::Unknown {
     ///             tag: SubpacketTag::Private(61),
-    ///             body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///             body: [0x6D, 0x6F, 0x6F].to_vec(),
     ///         },
     ///         true)?)?;
     /// let sig = builder.sign_message(&mut signer, msg)?;
@@ -2362,7 +2362,7 @@ impl signature::SignatureBuilder {
     ///         a.add(Subpacket::new(
     ///             SubpacketValue::Unknown {
     ///                 tag: SubpacketTag::Private(61),
-    ///                 body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///                 body: [0x6D, 0x6F, 0x6F].to_vec(),
     ///             },
     ///             true)?);
     ///         Ok(a)
@@ -2406,7 +2406,7 @@ impl signature::SignatureBuilder {
     ///         a.add(Subpacket::new(
     ///             SubpacketValue::Unknown {
     ///                 tag: SubpacketTag::Private(61),
-    ///                 body: [ 0x6D, 0x6F, 0x6F ].to_vec(),
+    ///                 body: [0x6D, 0x6F, 0x6F].to_vec(),
     ///             },
     ///             true)?)?;
     ///         Ok(a)

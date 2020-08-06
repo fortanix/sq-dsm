@@ -639,7 +639,7 @@ impl<'a> Iter<'a> {
     /// #
     /// #     let mut cd = CompressedData::new(
     /// #         CompressionAlgorithm::Uncompressed);
-    /// #     cd.set_body(packet::Body::Structured(vec![ lit.clone() ]));
+    /// #     cd.set_body(packet::Body::Structured(vec![lit.clone()]));
     /// #     let cd = Packet::from(cd);
     /// #
     /// #     // Make sure we created the message correctly: serialize,
@@ -650,9 +650,9 @@ impl<'a> Iter<'a> {
     /// #     let pp = PacketPile::from_bytes(&bytes[..])?;
     /// #
     /// #     assert_eq!(pp.descendants().count(), 2);
-    /// #     assert_eq!(pp.path_ref(&[ 0 ]).unwrap().tag(),
+    /// #     assert_eq!(pp.path_ref(&[0]).unwrap().tag(),
     /// #                packet::Tag::CompressedData);
-    /// #     assert_eq!(pp.path_ref(&[ 0, 0 ]), Some(&lit));
+    /// #     assert_eq!(pp.path_ref(&[0, 0]), Some(&lit));
     /// #
     /// #     cd
     /// # };
@@ -872,7 +872,7 @@ fn packet_path_iter() {
 ///     .set_signature_creation_time(t2)?;
 /// let sig = userid.bind(&mut signer, &cert, sig)?;
 ///
-/// let cert = cert.merge_packets(vec![ Packet::from(userid), sig.into() ])?;
+/// let cert = cert.merge_packets(vec![Packet::from(userid), sig.into()])?;
 /// # assert_eq!(cert.with_policy(p, t2)?.userids().count(), 2);
 /// # Ok(()) }
 /// ```

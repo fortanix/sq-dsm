@@ -193,7 +193,7 @@ impl<W: Write> Writer<W> {
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> std::io::Result<()> {
     /// let mut writer = Writer::with_headers(Vec::new(), Kind::File,
-    ///     vec![ ("Key", "Value") ])?;
+    ///     vec![("Key", "Value")])?;
     /// writer.write_all(b"Hello world!")?;
     /// let buffer = writer.finalize()?;
     /// assert_eq!(

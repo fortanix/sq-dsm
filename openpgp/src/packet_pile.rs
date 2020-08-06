@@ -205,7 +205,7 @@ impl PacketPile {
     /// Returns a reference to the packet at the location described by
     /// `pathspec`.
     ///
-    /// `pathspec` is a slice of the form `[ 0, 1, 2 ]`.  Each element
+    /// `pathspec` is a slice of the form `[0, 1, 2]`.  Each element
     /// is the index of packet in a container.  Thus, the previous
     /// path specification means: return the third child of the second
     /// child of the first top-level packet.  In other words, the
@@ -223,7 +223,7 @@ impl PacketPile {
     ///                 *
     /// ```
     ///
-    /// And, `[ 10 ]` means return the 11th top-level packet.
+    /// And, `[10]` means return the 11th top-level packet.
     ///
     /// Note: there is no packet at the root.  Thus, the path `[]`
     /// returns None.
@@ -238,7 +238,7 @@ impl PacketPile {
     /// # fn f() -> Result<()> {
     /// # let mut lit = Literal::new(DataFormat::Text);
     /// # lit.set_body(b"test".to_vec());
-    /// # let packets = vec![ lit.into() ];
+    /// # let packets = vec![lit.into()];
     /// let pile = PacketPile::from(packets);
     ///
     /// if let Some(packet) = pile.path_ref(&[0]) {
@@ -293,7 +293,7 @@ impl PacketPile {
     /// # fn f() -> Result<()> {
     /// # let mut lit = Literal::new(DataFormat::Text);
     /// # lit.set_body(b"test".to_vec());
-    /// # let packets = vec![ lit.into() ];
+    /// # let packets = vec![lit.into()];
     /// let mut pile = PacketPile::from(packets);
     ///
     /// if let Some(ref packet) = pile.path_ref_mut(&[0]) {
@@ -364,8 +364,8 @@ impl PacketPile {
     /// let mut literal = Literal::new(DataFormat::Text);
     /// literal.set_body(b"new".to_vec());
     /// pile.replace(
-    ///     &[ 0, 0 ], 1,
-    ///     [ literal.into() ].to_vec())
+    ///     &[0, 0], 1,
+    ///     [literal.into()].to_vec())
     ///     .unwrap();
     /// # if let Some(Packet::Literal(lit)) = pile.path_ref(&[0, 0]) {
     /// #     assert_eq!(lit.body(), &b"new"[..], "{:#?}", lit);
@@ -444,7 +444,7 @@ impl PacketPile {
     /// let mut lit = Literal::new(DataFormat::Text);
     /// lit.set_body(b"test".to_vec());
     ///
-    /// let pile = PacketPile::from(vec![ lit.into() ]);
+    /// let pile = PacketPile::from(vec![lit.into()]);
     ///
     /// for packet in pile.descendants() {
     ///     assert_eq!(packet.tag(), Tag::Literal);
@@ -467,7 +467,7 @@ impl PacketPile {
     /// let mut lit = Literal::new(DataFormat::Text);
     /// lit.set_body(b"test".to_vec());
     ///
-    /// let pile = PacketPile::from(vec![ lit.into() ]);
+    /// let pile = PacketPile::from(vec![lit.into()]);
     ///
     /// assert_eq!(pile.children().len(), 1);
     /// # Ok(())
@@ -490,7 +490,7 @@ impl PacketPile {
     /// let mut lit = Literal::new(DataFormat::Text);
     /// lit.set_body(b"test".to_vec());
     ///
-    /// let pile = PacketPile::from(vec![ lit.into() ]);
+    /// let pile = PacketPile::from(vec![lit.into()]);
     ///
     /// for packet in pile.into_children() {
     ///     assert_eq!(packet.tag(), Tag::Literal);

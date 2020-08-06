@@ -819,7 +819,7 @@ impl Cert {
     /// // to be revoked.
     /// let cert = cert.merge_packets(rev.clone())?;
     /// assert_eq!(cert.revocation_status(p, None),
-    ///            RevocationStatus::Revoked(vec![ &rev.into() ]));
+    ///            RevocationStatus::Revoked(vec![&rev.into()]));
     /// #     Ok(())
     /// # }
     /// ```
@@ -1228,12 +1228,12 @@ impl Cert {
     /// // Make Alice a designated revoker for Bob.
     /// let (bob, _) =
     ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
-    ///     .set_revocation_keys(vec![ (&alice).into() ])
+    ///     .set_revocation_keys(vec![(&alice).into()])
     ///     .generate()?;
     ///
     /// // Make sure Alice is listed as a designated revoker for Bob.
     /// assert_eq!(bob.revocation_keys(p).collect::<Vec<&RevocationKey>>(),
-    ///            vec![ &(&alice).into() ]);
+    ///            vec![&(&alice).into()]);
     /// # Ok(()) }
     /// ```
     pub fn revocation_keys<'a>(&'a self, policy: &dyn Policy)
@@ -1315,7 +1315,7 @@ impl Cert {
     ///
     /// // But a revocation certificate is not a certificate, so this
     /// // will fail.
-    /// let p : Vec<Packet> = vec![ rev.into() ];
+    /// let p : Vec<Packet> = vec![rev.into()];
     /// assert!(Cert::from_packets(p.into_iter()).is_err());
     /// # Ok(())
     /// # }
@@ -2713,7 +2713,7 @@ impl<'a> ValidCert<'a> {
     /// // to be revoked.
     /// let cert = cert.merge_packets(rev.clone())?;
     /// assert_eq!(cert.with_policy(p, None)?.revocation_status(),
-    ///            RevocationStatus::Revoked(vec![ &rev.into() ]));
+    ///            RevocationStatus::Revoked(vec![&rev.into()]));
     /// #     Ok(())
     /// # }
     /// ```
@@ -2920,7 +2920,7 @@ impl<'a> ValidCert<'a> {
     ///     .set_primary_userid(false)?;
     /// let bob: UserID = "Bob".into();
     /// let sig = bob.bind(&mut signer, &cert, sig)?;
-    /// let cert = cert.merge_packets(vec![ Packet::from(bob), sig.into() ])?;
+    /// let cert = cert.merge_packets(vec![Packet::from(bob), sig.into()])?;
     /// # assert_eq!(cert.userids().count(), 2);
     ///
     /// // Alice should still be the primary User ID, because it has the
@@ -2935,7 +2935,7 @@ impl<'a> ValidCert<'a> {
     ///    .set_signature_creation_time(t2)?;
     /// let carol: UserID = "Carol".into();
     /// let sig = carol.bind(&mut signer, &cert, sig)?;
-    /// let cert = cert.merge_packets(vec![ Packet::from(carol), sig.into() ])?;
+    /// let cert = cert.merge_packets(vec![Packet::from(carol), sig.into()])?;
     /// # assert_eq!(cert.userids().count(), 3);
     ///
     /// // It should now be the primary User ID, because it is the

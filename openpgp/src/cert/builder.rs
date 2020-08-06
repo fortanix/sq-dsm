@@ -902,12 +902,12 @@ impl CertBuilder {
     ///         .generate()?;
     /// let (bob, _) =
     ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
-    ///         .set_revocation_keys(vec![ (&alice).into() ])
+    ///         .set_revocation_keys(vec![(&alice).into()])
     ///         .generate()?;
     ///
     /// // Make sure Alice is listed as a designated revoker for Bob.
     /// assert_eq!(bob.revocation_keys(p).collect::<Vec<&RevocationKey>>(),
-    ///            vec![ &(&alice).into() ]);
+    ///            vec![&(&alice).into()]);
     /// # Ok(()) }
     /// ```
     pub fn set_revocation_keys(mut self, revocation_keys: Vec<RevocationKey>)

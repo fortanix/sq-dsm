@@ -858,14 +858,14 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// // Make Alice a designated revoker for Bob.
     /// let (bob, _) =
     ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
-    ///     .set_revocation_keys(vec![ (&alice).into() ])
+    ///     .set_revocation_keys(vec![(&alice).into()])
     ///     .generate()?;
     ///
     /// // Make sure Alice is listed as a designated revoker for Bob
     /// // on a component.
     /// assert_eq!(bob.with_policy(p, None)?.primary_userid()?.revocation_keys(p)
     ///                .collect::<Vec<&RevocationKey>>(),
-    ///            vec![ &(&alice).into() ]);
+    ///            vec![&(&alice).into()]);
     /// # Ok(()) }
     /// ```
     pub fn revocation_keys(&self, policy: &dyn Policy)
