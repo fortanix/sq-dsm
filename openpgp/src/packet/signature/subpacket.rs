@@ -433,7 +433,7 @@ impl SubpacketArea {
     }
 
     /// Iterates over the subpackets.
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = &'a Subpacket> {
+    pub fn iter(&self) -> impl Iterator<Item = &Subpacket> {
         self.packets.iter()
     }
 
