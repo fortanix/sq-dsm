@@ -138,11 +138,19 @@ pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
         let map = pp.take_map();
 
         let recursion_depth = pp.recursion_depth();
-        let (packet, ppr_) = pp.recurse()?;
-        ppr = ppr_;
+        let packet = pp.packet.clone();
 
         dumper.packet(output, recursion_depth as usize,
                       header, packet, map, additional_fields)?;
+
+        let (_, ppr_) = match pp.recurse() {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                let _ = dumper.flush(output);
+                Err(e)
+            },
+        }?;
+        ppr = ppr_;
     }
 
     dumper.flush(output)?;
