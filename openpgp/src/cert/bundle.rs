@@ -314,6 +314,17 @@ impl<C> ComponentBundle<C> {
                 s.key_flags().map(|kf| kf.for_signing()).unwrap_or(false)
             {
                 if let Some(backsig) = s.embedded_signature() {
+                    if let Err(e) = backsig.signature_alive(
+                        t, time::Duration::new(0, 0))
+                    {
+                        // The primary key binding signature is not
+                        // alive.
+                        if error.is_none() {
+                            error = Some(e);
+                        }
+                        continue;
+                    }
+
                     if let Err(e) = policy.signature(backsig) {
                         if error.is_none() {
                             error = Some(e);
