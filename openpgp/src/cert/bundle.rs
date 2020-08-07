@@ -308,6 +308,31 @@ impl<C> ComponentBundle<C> {
                 continue;
             }
 
+            // The signature is good, but we may still need to verify the
+            // back sig.
+            if s.typ() == crate::types::SignatureType::SubkeyBinding &&
+                s.key_flags().map(|kf| kf.for_signing()).unwrap_or(false)
+            {
+                if let Some(backsig) = s.embedded_signature() {
+                    if let Err(e) = policy.signature(backsig) {
+                        if error.is_none() {
+                            error = Some(e);
+                        }
+                        continue;
+                    }
+                } else {
+                    // This shouldn't happen because
+                    // Signature::verify_subkey_binding checks for the
+                    // primary key signature.  But, better be safe.
+                    if error.is_none() {
+                        error = Some(Error::BadSignature(
+                            "Primary key binding signature missing".into())
+                                     .into());
+                    }
+                    continue;
+                }
+            }
+
             sig = Some(s);
             break;
         }

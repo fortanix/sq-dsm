@@ -5273,4 +5273,17 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 Cert::try_from(ppr).unwrap_err().downcast().unwrap()));
         Ok(())
     }
+
+    /// Tests whether the policy is applied to primary key binding
+    /// signatures.
+    #[test]
+    fn issue_531() -> Result<()> {
+        let cert =
+            Cert::from_bytes(crate::tests::key("peter-sha1-backsig.pgp"))?;
+        let p = &crate::policy::NullPolicy::new();
+        assert_eq!(cert.with_policy(p, None)?.keys().for_signing().count(), 1);
+        let p = &crate::policy::StandardPolicy::new();
+        assert_eq!(cert.with_policy(p, None)?.keys().for_signing().count(), 0);
+        Ok(())
+    }
 }
