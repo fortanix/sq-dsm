@@ -4983,20 +4983,20 @@ impl signature::SignatureBuilder {
     /// let msg = b"Let's do it!";
     ///
     /// let sig = SignatureBuilder::new(SignatureType::Binary)
-    ///     .set_intended_recipients(vec![ bob.fingerprint(), carol.fingerprint() ])?
+    ///     .set_intended_recipients(&[ bob.fingerprint(), carol.fingerprint() ])?
     ///     .sign_message(&mut alices_signer, msg)?;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig.intended_recipients().iter().count(), 2);
     /// # Ok(()) }
     /// ```
-    /// Sets the intended recipients.
-    pub fn set_intended_recipients(mut self, recipients: Vec<Fingerprint>)
+    pub fn set_intended_recipients<T>(mut self, recipients: T)
         -> Result<Self>
+        where T: AsRef<[Fingerprint]>
     {
         self.hashed_area.remove_all(SubpacketTag::IntendedRecipient);
-        for fp in recipients.into_iter() {
+        for fp in recipients.as_ref().into_iter() {
             self.hashed_area.add(
-                Subpacket::new(SubpacketValue::IntendedRecipient(fp), false)?)?;
+                Subpacket::new(SubpacketValue::IntendedRecipient(fp.clone()), false)?)?;
         }
 
         Ok(self)
