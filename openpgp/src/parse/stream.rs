@@ -138,6 +138,7 @@ use crate::{
 };
 use crate::parse::{
     Cookie,
+    HashingMode,
     PacketParser,
     PacketParserBuilder,
     PacketParserResult,
@@ -2400,18 +2401,23 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         };
 
         // Compute the necessary hashes.
-        let algos: Vec<_> = sigs.iter().map(|s| s.hash_algo()).collect();
+        let algos: Vec<_> = sigs.iter().map(|s| {
+            HashingMode::for_signature(s.hash_algo(), s.typ())
+        }).collect();
         let hashes = crate::crypto::hash_buffered_reader(data, &algos)?;
 
         // Attach the digests.
         for sig in sigs.iter_mut() {
-            let algo = sig.hash_algo();
+            let need_hash =
+                HashingMode::for_signature(sig.hash_algo(), sig.typ());
             // Note: |hashes| < 10, most likely 1.
-            for hash in hashes.iter().filter(|c| c.algo() == algo) {
+            for mode in hashes.iter()
+                .filter(|m| m.map(|c| c.algo()) == need_hash)
+            {
                 // Clone the hash context, update it with the
                 // signature.
                 use crate::crypto::hash::Hash;
-                let mut hash = hash.clone();
+                let mut hash = mode.as_ref().clone();
                 sig.hash(&mut hash);
 
                 // Attach digest to the signature.

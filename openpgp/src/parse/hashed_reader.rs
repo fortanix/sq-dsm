@@ -7,7 +7,7 @@ use buffered_reader::BufferedReader;
 use buffered_reader::buffered_reader_generic_read_impl;
 
 use crate::HashAlgorithm;
-use crate::parse::{Cookie, HashesFor, Hashing};
+use crate::parse::{Cookie, HashesFor, Hashing, HashingMode};
 
 const TRACE : bool = false;
 
@@ -35,18 +35,49 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
     /// Instantiates a new hashed reader.  `hashes_for` is the hash's
     /// purpose.  `algos` is a list of algorithms for which we should
     /// compute the hash.
-    pub fn new(reader: R, hashes_for: HashesFor, algos: Vec<HashAlgorithm>)
+    pub fn new(reader: R, hashes_for: HashesFor,
+               algos: Vec<HashingMode<HashAlgorithm>>)
             -> Self {
         let mut cookie = Cookie::default();
-        for &algo in &algos {
+        for mode in &algos {
             cookie.sig_group_mut().hashes
-                .push(algo.context().unwrap());
+                .push(mode.map(|algo| algo.context().unwrap())); // XXX: Don't unwrap.
         }
         cookie.hashes_for = hashes_for;
 
         HashedReader {
             reader,
             cookie,
+        }
+    }
+}
+
+/// Updates the given hash context normalizing line endings to "\r\n"
+/// on the fly.
+fn hash_update_text(h: &mut crate::crypto::hash::Context, text: &[u8]) {
+    let mut line = text;
+    while ! line.is_empty() {
+        let mut next = 0;
+        for (i, c) in line.iter().cloned().enumerate() {
+            match c {
+                b'\r' | b'\n' => {
+                    h.update(&line[..i]);
+                    h.update(b"\r\n");
+                    next = i + 1;
+                    if c == b'\r' && line.get(next) == Some(&b'\n') {
+                        next += 1;
+                    }
+                    break;
+                },
+                _ => (),
+            }
+        }
+
+        if next > 0 {
+            line = &line[next..];
+        } else {
+            h.update(line);
+            break;
         }
     }
 }
@@ -69,12 +100,16 @@ impl Cookie {
             // We fix that here by hashing the stashed data into the
             // former topmost signature-group's hash.
             assert!(ngroups > 1);
-            for h in self.sig_groups[ngroups-2].hashes.iter_mut()
+            for mode in self.sig_groups[ngroups-2].hashes.iter_mut()
             {
                 t!("({:?}): group {} {:?} hashing {} stashed bytes.",
-                   hashes_for, ngroups-2, h.algo(), data.len());
+                   hashes_for, ngroups-2, mode.map(|ctx| ctx.algo()),
+                   data.len());
 
-                h.update(&stashed_data);
+                match mode {
+                    HashingMode::Binary(h) => h.update(&stashed_data),
+                    HashingMode::Text(h) => hash_update_text(h, &stashed_data),
+                }
             }
         }
 
@@ -100,10 +135,13 @@ impl Cookie {
                 return;
             }
 
-            for h in sig_group.hashes.iter_mut() {
+            for mode in sig_group.hashes.iter_mut() {
                 t!("{:?}): group {} {:?} hashing {} bytes.",
-                   hashes_for, i, h.algo(), data.len());
-                h.update(data);
+                   hashes_for, i, mode.map(|ctx| ctx.algo()), data.len());
+                match mode {
+                    HashingMode::Binary(h) => h.update(&data),
+                    HashingMode::Text(h) => hash_update_text(h, &data),
+                }
             }
         }
     }
@@ -266,7 +304,9 @@ mod test {
                     test.data, None, Default::default());
             let mut reader
                 = HashedReader::new(reader, HashesFor::MDC,
-                                    test.expected.keys().cloned().collect());
+                                    test.expected.keys().cloned()
+                                    .map(|algo| HashingMode::Binary(algo))
+                                    .collect());
 
             assert_eq!(reader.steal_eof().unwrap(), test.data);
 
@@ -274,7 +314,8 @@ mod test {
 
             let mut hashes = mem::replace(&mut cookie.sig_group_mut().hashes,
                                           Default::default());
-            for hash in hashes.iter_mut() {
+            for mode in hashes.iter_mut() {
+                let hash = mode.as_mut();
                 let algo = hash.algo();
                 let mut digest = vec![0u8; hash.digest_size()];
                 hash.digest(&mut digest);
@@ -286,5 +327,24 @@ mod test {
                            "Algo: {:?}", algo);
             }
         }
+    }
+
+    #[test]
+    fn hash_update_text() -> crate::Result<()> {
+        for text in &[
+            "one\r\ntwo\r\nthree",
+            "one\ntwo\nthree",
+            "one\rtwo\rthree",
+            "one\ntwo\r\nthree",
+        ] {
+            let mut ctx = HashAlgorithm::SHA256.context()?;
+            super::hash_update_text(&mut ctx, text.as_bytes());
+            let mut digest = vec![0; ctx.digest_size()];
+            ctx.digest(&mut digest);
+            assert_eq!(
+                &crate::fmt::hex::encode(&digest),
+                "5536758151607BB81CE8D6F49189B2E84763DA9EA84965AB7327E704DAE415EB");
+        }
+        Ok(())
     }
 }

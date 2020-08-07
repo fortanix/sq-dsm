@@ -27,6 +27,7 @@ use buffered_reader::BufferedReader;
 
 use crate::types::HashAlgorithm;
 use crate::Result;
+use crate::parse::HashingMode;
 
 pub(crate) mod aead;
 mod asymmetric;
@@ -218,8 +219,8 @@ impl Password {
 /// convenient method, see [`DetachedVerifier`].
 ///
 ///  [`DetachedVerifier`]: ../parse/stream/struct.DetachedVerifier.html
-pub fn hash_reader<R: Read>(reader: R, algos: &[HashAlgorithm])
-    -> Result<Vec<hash::Context>>
+pub fn hash_reader<R: Read>(reader: R, algos: &[HashingMode<HashAlgorithm>])
+    -> Result<Vec<HashingMode<hash::Context>>>
 {
     let reader
         = buffered_reader::Generic::with_cookie(
@@ -233,8 +234,9 @@ pub fn hash_reader<R: Read>(reader: R, algos: &[HashAlgorithm])
 /// convenient method, see [`DetachedVerifier`].
 ///
 ///  [`DetachedVerifier`]: ../parse/stream/struct.DetachedVerifier.html
-pub(crate) fn hash_buffered_reader<R>(reader: R, algos: &[HashAlgorithm])
-    -> Result<Vec<hash::Context>>
+pub(crate) fn hash_buffered_reader<R>(reader: R,
+                                      algos: &[HashingMode<HashAlgorithm>])
+    -> Result<Vec<HashingMode<hash::Context>>>
     where R: BufferedReader<crate::parse::Cookie>,
 {
     use std::mem;
@@ -266,10 +268,13 @@ fn hash_reader_test() {
 
     let result =
         hash_reader(std::io::Cursor::new(crate::tests::manifesto()),
-                    &expected.keys().cloned().collect::<Vec<HashAlgorithm>>())
+                    &expected.keys().cloned()
+                    .map(|algo| HashingMode::Binary(algo)).
+                    collect::<Vec<_>>())
         .unwrap();
 
-    for mut hash in result.into_iter() {
+    for mut mode in result.into_iter() {
+        let hash = mode.as_mut();
         let algo = hash.algo();
         let mut digest = vec![0u8; hash.digest_size()];
         hash.digest(&mut digest);

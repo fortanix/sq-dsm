@@ -713,12 +713,95 @@ pub(crate) struct SignatureGroup {
     ops_count: usize,
 
     /// The hash contexts.
-    pub(crate) hashes: Vec<crypto::hash::Context>,
+    pub(crate) hashes: Vec<HashingMode<crypto::hash::Context>>,
+}
+
+/// Controls line-ending normalization during hashing.
+///
+/// OpenPGP normalizes line endings when signing or verifying text
+/// signatures.
+pub enum HashingMode<T> {
+    /// Hash for a binary signature.
+    ///
+    /// The data is hashed as-is.
+    Binary(T),
+
+    /// Hash for a text signature.
+    ///
+    /// The data is hashed with line endings normalized to `\r\n`.
+    Text(T),
+}
+
+impl<T: Clone> Clone for HashingMode<T> {
+    fn clone(&self) -> Self {
+        use self::HashingMode::*;
+        match self {
+            Binary(t) => Binary(t.clone()),
+            Text(t) => Text(t.clone()),
+        }
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for HashingMode<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use self::HashingMode::*;
+        match self {
+            Binary(t) => write!(f, "Binary({:?})", t),
+            Text(t) => write!(f, "Text({:?})", t),
+        }
+    }
+}
+
+impl<T: PartialEq> PartialEq for HashingMode<T> {
+    fn eq(&self, other: &Self) -> bool {
+        use self::HashingMode::*;
+        match (self, other) {
+            (Binary(s), Binary(o)) => s.eq(o),
+            (Text(s), Text(o)) => s.eq(o),
+            _ => false,
+        }
+    }
+}
+
+impl<T: Eq> Eq for HashingMode<T> { }
+
+impl<T> HashingMode<T> {
+    fn map<U, F: Fn(&T) -> U>(&self, f: F) -> HashingMode<U> {
+        use self::HashingMode::*;
+        match self {
+            Binary(t) => Binary(f(t)),
+            Text(t) => Text(f(t)),
+        }
+    }
+
+    pub(crate) fn as_ref(&self) -> &T {
+        use self::HashingMode::*;
+        match self {
+            Binary(t) => t,
+            Text(t) => t,
+        }
+    }
+
+    pub(crate) fn as_mut(&mut self) -> &mut T {
+        use self::HashingMode::*;
+        match self {
+            Binary(t) => t,
+            Text(t) => t,
+        }
+    }
+
+    fn for_signature(t: T, typ: SignatureType) -> Self {
+        if typ == SignatureType::Text {
+            HashingMode::Text(t)
+        } else {
+            HashingMode::Binary(t)
+        }
+    }
 }
 
 impl fmt::Debug for SignatureGroup {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let algos = self.hashes.iter().map(|ctx| ctx.algo())
+        let algos = self.hashes.iter().map(|mode| mode.map(|ctx| ctx.algo()))
             .collect::<Vec<_>>();
 
         f.debug_struct("Cookie")
@@ -1244,8 +1327,10 @@ impl Signature4 {
             crypto::mpi::Signature::_parse(pk_algo, &mut php));
 
         let hash_algo = hash_algo.into();
+        let typ = typ.into();
+        let need_hash = HashingMode::for_signature(hash_algo, typ);
         let mut pp = php.ok(Packet::Signature(Signature4::new(
-            typ.into(), pk_algo.into(), hash_algo,
+            typ, pk_algo.into(), hash_algo,
             hashed_area,
             unhashed_area,
             [digest_prefix1, digest_prefix2],
@@ -1277,13 +1362,14 @@ impl Signature4 {
                         cookie.sig_group_mut().ops_count -= 1;
                         if let Some(hash) =
                             cookie.sig_group().hashes.iter().find_map(
-                                |ctx| if ctx.algo() == hash_algo {
-                                    Some(ctx)
+                                |mode|
+                                if mode.map(|ctx| ctx.algo()) == need_hash {
+                                    Some(mode.as_ref())
                                 } else {
                                     None
                                 })
                         {
-                            t!("popped a {:?} HashedReader", hash_algo);
+                            t!("found a {:?} HashedReader", need_hash);
                             computed_digest = Some((cookie.signature_level(),
                                                     hash.clone()));
                         }
@@ -1738,11 +1824,13 @@ impl OnePassSig3 {
         let last = php_try!(php.parse_u8("last"));
 
         let hash_algo = hash_algo.into();
-        let mut sig = OnePassSig3::new(typ.into());
+        let typ = typ.into();
+        let mut sig = OnePassSig3::new(typ);
         sig.set_hash_algo(hash_algo);
         sig.set_pk_algo(pk_algo.into());
         sig.set_issuer(KeyID::from_bytes(&issuer));
         sig.set_last_raw(last);
+        let need_hash = HashingMode::for_signature(hash_algo, typ);
 
         let recursion_depth = php.recursion_depth();
 
@@ -1772,11 +1860,14 @@ impl OnePassSig3 {
                                 // Make sure that it uses the required
                                 // hash algorithm.
                                 if ! cookie.sig_group().hashes.iter()
-                                    .any(|ctx| ctx.algo() == hash_algo)
+                                    .any(|mode| {
+                                        mode.map(|ctx| ctx.algo()) == need_hash
+                                    })
                                 {
                                     if let Ok(ctx) = hash_algo.context() {
-                                        cookie.sig_group_mut()
-                                            .hashes.push(ctx);
+                                        cookie.sig_group_mut().hashes.push(
+                                            HashingMode::for_signature(ctx, typ)
+                                        );
                                     }
                                 }
 
@@ -1808,10 +1899,8 @@ impl OnePassSig3 {
         // the hash algorithm so that we have something to match
         // against when we get to the Signature packet.
         let mut algos = Vec::new();
-        let hash_algo = HashAlgorithm::from(hash_algo);
-
         if hash_algo.is_supported() {
-            algos.push(hash_algo);
+            algos.push(HashingMode::for_signature(hash_algo, typ));
         }
 
         // We can't push the HashedReader on the BufferedReader stack:
@@ -2589,9 +2678,11 @@ impl MDC {
                         if state.sig_group().hashes.len() > 0 {
                             let h = state.sig_group_mut().hashes
                                 .iter_mut().find_map(
-                                    |ctx|
-                                    if ctx.algo() == HashAlgorithm::SHA1 {
-                                        Some(ctx)
+                                    |mode|
+                                    if mode.map(|ctx| ctx.algo()) ==
+                                        HashingMode::Binary(HashAlgorithm::SHA1)
+                                    {
+                                        Some(mode.as_mut())
                                     } else {
                                         None
                                     }).unwrap();
@@ -4888,7 +4979,8 @@ impl<'a> PacketParser<'a> {
 
                 // And the hasher.
                 let mut reader = HashedReader::new(
-                    reader, HashesFor::MDC, vec![HashAlgorithm::SHA1]);
+                    reader, HashesFor::MDC,
+                    vec![HashingMode::Binary(HashAlgorithm::SHA1)]);
                 reader.cookie_mut().level = Some(self.recursion_depth());
 
                 t!("Pushing HashedReader, level {:?}.",
@@ -5640,6 +5732,78 @@ mod test {
         assert_eq!(packet0, packet1);
         assert_eq!(packet1, packet2);
         assert_eq!(packet2, packet3);
+        Ok(())
+    }
+
+    /// Checks that newlines are properly normalized when verifying
+    /// text signatures.
+    #[test]
+    fn issue_530_verifying() -> Result<()> {
+        use std::io::Write;
+        use crate::*;
+        use crate::packet::signature;
+        use crate::serialize::stream::{Message, Signer};
+
+        use crate::policy::StandardPolicy;
+        use crate::{Result, Cert};
+        use crate::parse::Parse;
+        use crate::parse::stream::*;
+
+        let data = b"one\r\ntwo\r\nthree";
+
+        let p = &StandardPolicy::new();
+        let cert: Cert =
+            Cert::from_bytes(crate::tests::key("testy-new-private.pgp"))?;
+        let signing_keypair = cert.keys().secret()
+            .with_policy(p, None).alive().revoked(false).for_signing()
+            .nth(0).unwrap()
+            .key().clone().into_keypair()?;
+        let mut signature = vec![];
+        {
+            let message = Message::new(&mut signature);
+            let mut message = Signer::with_template(
+                message, signing_keypair,
+                signature::SignatureBuilder::new(SignatureType::Text)
+            ).detached().build()?;
+            message.write_all(data)?;
+            message.finalize()?;
+        }
+
+        struct Helper {};
+        impl VerificationHelper for Helper {
+            fn get_certs(&mut self, _ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+                Ok(vec![Cert::from_bytes(crate::tests::key("testy-new.pgp"))?])
+            }
+            fn check(&mut self, structure: MessageStructure) -> Result<()> {
+                for (i, layer) in structure.iter().enumerate() {
+                    assert_eq!(i, 0);
+                    if let MessageLayer::SignatureGroup { results } = layer {
+                        assert_eq!(results.len(), 1);
+                        results[0].as_ref().unwrap();
+                        assert!(results[0].is_ok());
+                        return Ok(());
+                    } else {
+                        unreachable!();
+                    }
+                }
+                unreachable!()
+            }
+        }
+
+        let h = Helper {};
+        let mut v = DetachedVerifierBuilder::from_bytes(&signature)?
+            .with_policy(p, None, h)?;
+
+        for data in &[
+            &b"one\r\ntwo\r\nthree"[..], // dos
+            b"one\ntwo\nthree",          // unix
+            b"one\ntwo\r\nthree",        // mixed
+            b"one\r\ntwo\nthree",
+            b"one\rtwo\rthree",          // classic mac
+        ] {
+            v.verify_bytes(data)?;
+        }
+
         Ok(())
     }
 }
