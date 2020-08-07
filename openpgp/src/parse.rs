@@ -4598,9 +4598,9 @@ impl <'a> PacketParser<'a> {
 /// `BufferedReader` interfaces.
 impl<'a> io::Read for PacketParser<'a> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let v = buffered_reader_generic_read_impl(self, buf)?;
-        self.hash_read_content(&buf[..v]);
-        Ok(v)
+        // The BufferedReader interface takes care of hashing the read
+        // values.
+        buffered_reader_generic_read_impl(self, buf)
     }
 }
 
@@ -5601,5 +5601,45 @@ mod test {
         } else {
             panic!("expected unknown packet, got: {:?}", packet);
         }
+    }
+
+    /// Checks that the content hash is correctly computed whether or
+    /// not the content has been (fully) read.
+    #[test]
+    fn issue_537() -> Result<()> {
+        // Buffer unread content.
+        let ppr0 = PacketParserBuilder::from_bytes(
+            crate::tests::message("literal-mode-b.gpg"))?
+            .buffer_unread_content()
+            .build()?;
+        let pp0 = ppr0.unwrap();
+        let (packet0, _) = pp0.recurse()?;
+
+        // Drop unread content.
+        let ppr1 = PacketParser::from_bytes(
+            crate::tests::message("literal-mode-b.gpg"))?;
+        let pp1 = ppr1.unwrap();
+        let (packet1, _) = pp1.recurse()?;
+
+        // Read content.
+        let ppr2 = PacketParser::from_bytes(
+            crate::tests::message("literal-mode-b.gpg"))?;
+        let mut pp2 = ppr2.unwrap();
+        io::copy(&mut pp2, &mut io::sink())?;
+        let (packet2, _) = pp2.recurse()?;
+
+        // Partially read content.
+        let ppr3 = PacketParser::from_bytes(
+            crate::tests::message("literal-mode-b.gpg"))?;
+        let mut pp3 = ppr3.unwrap();
+        let mut buf = [0];
+        let nread = pp3.read(&mut buf)?;
+        assert_eq!(buf.len(), nread);
+        let (packet3, _) = pp3.recurse()?;
+
+        assert_eq!(packet0, packet1);
+        assert_eq!(packet1, packet2);
+        assert_eq!(packet2, packet3);
+        Ok(())
     }
 }
