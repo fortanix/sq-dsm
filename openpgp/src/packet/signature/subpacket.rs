@@ -2119,7 +2119,7 @@ impl DerefMut for Signature4 {
 // signature::SignatureFields and SubpacketArea.  Unfortunately, it is
 // only possible to implement Deref for one of them.  Since
 // SubpacketArea has more methods with much more documentation,
-// implement deref for that, and write provider forwarders for
+// implement deref for that, and provide forwarders for
 // signature::SignatureBuilder.
 impl Signature4 {
     /// Gets the version.
@@ -2465,7 +2465,7 @@ impl signature::SignatureBuilder {
     ///                 false)?)?;
     ///             Ok(a)
     ///         })?
-    ///         // Update the direct key signature.
+    ///         // Update the binding signature.
     ///         .sign_userid_binding(&mut signer, pk, ua.userid())?);
     /// }
     ///
@@ -2484,9 +2484,61 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Creation Time subpacket.
+    /// Sets the Signature Creation Time subpacket.
+    ///
+    /// Adds a [Signature Creation Time subpacket] to the hashed
+    /// subpacket area.  This function first removes any Signature
+    /// Creation Time subpacket from the hashed subpacket area.
+    ///
+    /// The Signature Creation Time subpacket specifies when the
+    /// signature was created.  According to the standard, all
+    /// signatures must include a Signature Creation Time subpacket in
+    /// the signature's hashed area.  This doesn't mean that the time
+    /// stamp is correct: the issuer can always forge it.
+    ///
+    /// When creating a signature using a SignatureBuilder or the
+    /// [streaming `Signer`], it is not necessary to explicitly set
+    /// this subpacket: those functions automatically set both the
+    /// [Issuer Fingerprint subpacket] and the Issuer subpacket, if
+    /// they have not been set explicitly.
+    ///
+    /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    ///
+    /// # Examples
+    ///
+    /// Create a backdated signature:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     // We also need to backdate the certificate.
+    /// #     .set_creation_time(
+    /// #         std::time::SystemTime::now()
+    /// #             - std::time::Duration::new(2 * 24 * 60 * 60, 0))
+    /// #     .generate()?;
+    /// # let mut signer = cert.primary_key().key().clone()
+    /// #     .parts_into_secret()?.into_keypair()?;
+    /// let msg = "hiermit kündige ich den mit Ihnen bestehenden Vertrag fristgerecht.";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_signature_creation_time(
+    ///         std::time::SystemTime::now()
+    ///         - std::time::Duration::new(24 * 60 * 60, 0))?
+    ///     .sign_message(&mut signer, msg)?;
+    ///
+    /// assert!(sig.verify_message(signer.public(), msg).is_ok());
+    /// # Ok(()) }
+    /// ```
     pub fn set_signature_creation_time<T>(mut self, creation_time: T)
-                                          -> Result<Self>
+        -> Result<Self>
         where T: Into<time::SystemTime>
     {
         self.overrode_creation_time = true;
@@ -2502,15 +2554,57 @@ impl signature::SignatureBuilder {
     /// Causes the builder to use an existing signature creation time
     /// subpacket.
     ///
-    /// Unless `SignatureBuilder::set_signature_creation_time` has
-    /// been called, `SignatureBuilder` sets the
-    /// `SignatureCreationTime` subpacket when the signature is
-    /// generated.  Calling this function causes the signature
-    /// generation code to use the existing `Signature Creation Time`
-    /// subpacket.
+    /// When converting a [`Signature`] to a `SignatureBuilder`, the
+    /// [Signature Creation Time subpacket] is removed from the hashed
+    /// area, and saved internally.  When creating the signature, a
+    /// Signature Creation Time subpacket with the current time is
+    /// normally added to the hashed area.  Calling this function
+    /// instead causes the signature generation code to use the cached
+    /// `Signature Creation Time` subpacket.
     ///
-    /// This function returns an error if there is no `Signature
-    /// Creation Time` subpacket in the hashed area.
+    /// [`Signature`]: ../enum.Signature.html
+    /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    ///
+    /// This function returns an error if there is no cached
+    /// `Signature Creation Time` subpacket.
+    ///
+    /// # Examples
+    ///
+    /// Alice signs a message.  Shortly thereafter, Bob signs the
+    /// message using a nearly identical Signature packet:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (alice, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut alices_signer = alice.primary_key().key().clone()
+    /// #     .parts_into_secret()?.into_keypair()?;
+    /// # let (bob, _) =
+    /// #     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    /// #     .generate()?;
+    /// # let mut bobs_signer = bob.primary_key().key().clone()
+    /// #     .parts_into_secret()?.into_keypair()?;
+    /// let msg = "Version 489 of Foo has the SHA256 sum e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    ///
+    /// let siga = SignatureBuilder::new(SignatureType::Binary)
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// let sigb = SignatureBuilder::from(siga.clone())
+    ///     .preserve_signature_creation_time()?
+    ///     .sign_message(&mut bobs_signer, msg)?;
+    /// #
+    /// # assert!(siga.verify_message(alices_signer.public(), msg).is_ok());
+    /// # assert!(sigb.verify_message(bobs_signer.public(), msg).is_ok());
+    /// # assert_eq!(siga.signature_creation_time(),
+    /// #            sigb.signature_creation_time());
+    /// # Ok(()) }
+    /// ```
     pub fn preserve_signature_creation_time(self)
         -> Result<Self>
     {
@@ -2523,18 +2617,60 @@ impl signature::SignatureBuilder {
         }
     }
 
-    /// Causes the builder to not output a signature creation time
+    /// Causes the builder to not output a Signature Creation Time
     /// subpacket.
+    ///
+    /// When creating a signature, a [Signature Creation Time
+    /// subpacket] is added to the hashed area if one hasn't been
+    /// added already.  This function suppresses that behavior.
+    ///
+    /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     ///
     /// [Section 5.2.3.4 of RFC 4880] says that the `Signature
     /// Creation Time` subpacket must be present in the hashed area.
     /// This function clears any `Signature Creation Time` subpackets
-    /// from both the hashed area and the unhashed are, and causes the
-    /// various `SignatureBuilder` finalizers to not emit a `Signature
-    /// Creation Time` subpacket.  This function should only be used
-    /// for testing purposes.
+    /// from both the hashed area and the unhashed area, and causes
+    /// the various `SignatureBuilder` finalizers to not emit a
+    /// `Signature Creation Time` subpacket.  This function should
+    /// only be used for generating test data.
     ///
     /// [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    ///
+    /// # Examples
+    ///
+    /// Create a signature without a Signature Creation Time
+    /// subpacket.  As per the specification, Sequoia considers such
+    /// signatures to be invalid:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut signer = cert.primary_key().key().clone()
+    /// #     .parts_into_secret()?.into_keypair()?;
+    /// let msg = "Some things are timeless.";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .suppress_signature_creation_time()?
+    ///     .sign_message(&mut signer, msg)?;
+    ///
+    /// assert!(sig.verify_message(signer.public(), msg).is_err());
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::SignatureCreationTime)
+    /// #    .count(),
+    /// #    0);
+    /// # Ok(()) }
+    /// ```
     pub fn suppress_signature_creation_time(mut self)
         -> Result<Self>
     {
@@ -2546,8 +2682,151 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Signature Expiration Time subpacket.
+    /// Sets the Signature Expiration Time subpacket.
     ///
+    /// Adds a [Signature Expiration Time subpacket] to the hashed
+    /// subpacket area.  This function first removes any Signature
+    /// Expiration Time subpacket from the hashed subpacket area.
+    ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    ///
+    /// This function is called `set_signature_validity_period` and
+    /// not `set_signature_expiration_time`, which would be more
+    /// consistent with the subpacket's name, because the latter
+    /// suggests an absolute time, but the time is actually relative
+    /// to the signature's creation time, which is stored in the
+    /// signature's [Signature Creation Time subpacket] and set using
+    /// [`SignatureBuilder::set_signature_creation_time`].
+    ///
+    /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    /// [`SignatureBuilder::set_signature_creation_time`]: #method.set_signature_creation_time
+    ///
+    /// A Signature Expiration Time subpacket specifies when the
+    /// signature expires.  This is different from the [Key Expiration
+    /// Time subpacket], which is set using
+    /// [`SignatureBuilder::set_key_validity_period`], and used to
+    /// specify when an associated key expires.  The difference is
+    /// that in the former case, the signature itself expires, but in
+    /// the latter case, only the associated key expires.  This
+    /// difference is critical: if a binding signature expires, then
+    /// an OpenPGP implementation will still consider the associated
+    /// key to be valid if there is another valid binding signature,
+    /// even if it is older than the expired signature; if the active
+    /// binding signature indicates that the key has expired, then
+    /// OpenPGP implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SignatureBuilder::set_key_validity_period`]: #method.set_key_validity_period
+    ///
+    /// There are several cases where having a signature expire is
+    /// useful.  Say Alice certifies Bob's certificate for
+    /// `bob@example.org`.  She can limit the lifetime of the
+    /// certification to force her to reevaluate the certification
+    /// shortly before it expires.  For instance, is Bob still
+    /// associated with `example.org`?  Does she have reason to
+    /// believe that his key has been compromised?  Using an
+    /// expiration is common in the X.509 ecosystem.  For instance,
+    /// [Let's Encrypt] issues certificates with 90-day lifetimes.
+    ///
+    /// [Let's Encrypt]: https://letsencrypt.org/2015/11/09/why-90-days.html
+    ///
+    /// Having signatures expire can also be useful when deploying
+    /// software.  For instance, you might have a service that
+    /// installs an update if it has been signed by a trusted
+    /// certificate.  To prevent an adversary from coercing the
+    /// service to install an older version, you could limit the
+    /// signature's lifetime to just a few minutes.
+    ///
+    /// # Examples
+    ///
+    /// Create a signature that expires in 10 minutes:
+    ///
+    /// ```
+    /// use std::convert::TryFrom;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// let msg = "install e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_signature_validity_period(
+    ///         std::time::Duration::new(10 * 60, 0))?
+    ///     .sign_message(&mut signer, msg)?;
+    ///
+    /// assert!(sig.verify_message(signer.public(), msg).is_ok());
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::SignatureExpirationTime)
+    /// #    .count(),
+    /// #    1);
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// Create a certification that expires at the end of the year
+    /// (give or take a few seconds) unless the new year is in a
+    /// month, then have it expire at the end of the following year:
+    ///
+    /// ```
+    /// use std::time::{SystemTime, UNIX_EPOCH, Duration};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// let msg = "message.";
+    ///
+    /// // Average number of seconds in a year.  See:
+    /// // https://en.wikipedia.org/wiki/Year .
+    /// const SECONDS_IN_YEAR: u64 = (365.2425 * 24. * 60. * 60.) as u64;
+    ///
+    /// let now = SystemTime::now();
+    /// let since_epoch = now.duration_since(UNIX_EPOCH)?.as_secs();
+    /// let next_year
+    ///     = (since_epoch + SECONDS_IN_YEAR) - (since_epoch % SECONDS_IN_YEAR);
+    /// // Make sure the expiration is at least a month in the future.
+    /// let next_year = if next_year - since_epoch < SECONDS_IN_YEAR / 12 {
+    ///     next_year + SECONDS_IN_YEAR
+    /// } else {
+    ///     next_year
+    /// };
+    /// let next_year = UNIX_EPOCH + Duration::new(next_year, 0);
+    /// let next_year = next_year.duration_since(now)?;
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_signature_creation_time(now)?
+    ///     .set_signature_validity_period(next_year)?
+    ///     .sign_message(&mut signer, msg)?;
+    /// #
+    /// # assert!(sig.verify_message(signer.public(), msg).is_ok());
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::SignatureExpirationTime)
+    /// #    .count(),
+    /// #    1);
+    /// # Ok(()) }
+    /// ```
     pub fn set_signature_validity_period<D>(mut self, expires_in: D)
         -> Result<Self>
         where D: Into<time::Duration>
@@ -2560,9 +2839,70 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Exportable Certification subpacket,
-    /// which contains whether the certification should be exported
-    /// (i.e., whether the packet is *not* a local signature).
+    /// Sets the Exportable Certification subpacket.
+    ///
+    /// Adds an [Exportable Certification subpacket] to the hashed
+    /// subpacket area.  This function first removes any Exportable
+    /// Certification subpacket from the hashed subpacket area.
+    ///
+    /// [Exportable Certification subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.11
+    ///
+    /// The Exportable Certification subpacket indicates whether the
+    /// signature should be exported (e.g., published on a public key
+    /// server) or not.  When using [`Serialize::export`] to export a
+    /// certificate, signatures that have this subpacket present and
+    /// set to false are not serialized.
+    ///
+    /// [`Serialize::export`]: https://docs.sequoia-pgp.org/sequoia_openpgp/serialize/trait.Serialize.html#method.export
+    ///
+    /// # Examples
+    ///
+    /// Alice certificates Bob's certificate, but because she doesn't
+    /// want to publish it, she creates a so-called local signature by
+    /// adding an Exportable Certification subpacket set to `false` to
+    /// the signature:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _)
+    ///     = CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    /// let mut alices_signer = alice.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// let (bob, _)
+    ///     = CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///         .generate()?;
+    /// let bobs_userid
+    ///     = bob.with_policy(p, None)?.userids().nth(0).expect("Added a User ID").userid();
+    ///
+    /// let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+    ///     .set_exportable_certification(false)?
+    ///     .sign_userid_binding(
+    ///         &mut alices_signer, &bob.primary_key(), bobs_userid)?;
+    /// # assert_eq!(certification
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::ExportableCertification)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let bob = bob.merge_packets(certification)?;
+    /// # assert_eq!(bob.bad_signatures().len(), 0);
+    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # Ok(()) }
+    /// ```
     pub fn set_exportable_certification(mut self, exportable: bool)
                                         -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
@@ -2572,7 +2912,78 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Trust Signature subpacket.
+    /// Sets the Trust Signature subpacket.
+    ///
+    /// Adds a [Trust Signature subpacket] to the hashed subpacket
+    /// area.  This function first removes any Trust Signature
+    /// subpacket from the hashed subpacket area.
+    ///
+    /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+    ///
+    /// The Trust Signature subpacket indicates to what degree a
+    /// certificate holder is trusted to certify other keys.
+    ///
+    /// A level of 0 means that the certificate holder is not trusted
+    /// to certificate other keys, a level of 1 means that the
+    /// certificate holder is a trusted introducer (a [certificate
+    /// authority]) and any certifications that they make should be
+    /// considered valid.  A level of 2 means the certificate holder
+    /// can designate level 1 trusted introducers, etc.
+    ///
+    /// [certificate authority]: https://en.wikipedia.org/wiki/Certificate_authority
+    ///
+    /// The trust indicates the degree of confidence.  A value of 120
+    /// means that a certification should be considered valid.  A
+    /// value of 60 means that a certification should only be
+    /// considered partially valid.  In the latter case, typically
+    /// three such certifications are required for a binding to be
+    /// considered authenticated.
+    ///
+    /// # Examples
+    ///
+    /// Alice designates Bob as a fully trusted, trusted introducer:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _)
+    ///     = CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    /// let mut alices_signer = alice.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// let (bob, _)
+    ///     = CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///         .generate()?;
+    /// let bobs_userid
+    ///     = bob.with_policy(p, None)?.userids().nth(0).expect("Added a User ID").userid();
+    ///
+    /// let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+    ///     .set_trust_signature(1, 120)?
+    ///     .sign_userid_binding(
+    ///         &mut alices_signer, &bob.primary_key(), bobs_userid)?;
+    /// # assert_eq!(certification
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::TrustSignature)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let bob = bob.merge_packets(certification)?;
+    /// # assert_eq!(bob.bad_signatures().len(), 0);
+    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # Ok(()) }
+    /// ```
     pub fn set_trust_signature(mut self, level: u8, trust: u8)
                                -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
@@ -2585,11 +2996,88 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Regular Expression subpacket.
+    /// Sets the Regular Expression subpacket.
     ///
-    /// Note: The serialized form includes a trailing NUL byte.
-    /// Sequoia adds this NUL when serializing the signature.  Adding
-    /// it yourself will result in two trailing NUL bytes.
+    /// Adds a [Regular Expression subpacket] to the hashed subpacket
+    /// area.  This function first removes any Regular Expression
+    /// subpacket from the hashed subpacket area.
+    ///
+    /// [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
+    ///
+    /// The Regular Expression subpacket is used in conjunction with a
+    /// [Trust Signature subpacket], which is set using
+    /// [`SignatureBuilder::set_trust_signature`], to limit the scope
+    /// of a trusted introducer.  This is useful, for instance, when a
+    /// company has a CA and you only want to trust them to certify
+    /// their own employees.
+    ///
+    /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+    /// [`SignatureBuilder::set_trust_signature`]: #method.set_trust_signature
+    ///
+    /// GnuPG only supports [a limited form of regular expressions].
+    ///
+    /// [a limited form of regular expressions]: https://git.gnupg.org/cgi-bin/gitweb.cgi?p=gnupg.git;a=blob;f=g10/trustdb.c;h=c4b996a9685486b2095608f6685727022120505f;hb=refs/heads/master#l1537
+    ///
+    /// Note: The serialized form includes a trailing `NUL` byte.
+    /// Sequoia adds this `NUL` when serializing the signature.
+    /// Adding it yourself will result in two trailing NUL bytes.
+    ///
+    /// # Examples
+    ///
+    /// Alice designates ``openpgp-ca@example.com`` as a fully
+    /// trusted, trusted introducer, but only for users from the
+    /// ``example.com`` domain:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _)
+    ///     = CertBuilder::general_purpose(None, Some("Alice <alice@example.org>"))
+    ///         .generate()?;
+    /// let mut alices_signer = alice.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// let (example_com, _)
+    ///     = CertBuilder::general_purpose(None, Some("OpenPGP CA <openpgp-ca@example.com>"))
+    ///         .generate()?;
+    /// let example_com_userid = example_com.with_policy(p, None)?
+    ///     .userids().nth(0).expect("Added a User ID").userid();
+    ///
+    /// let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+    ///     .set_trust_signature(1, 120)?
+    ///     .set_regular_expression("<[^>]+[@.]example\\.com>$")?
+    ///     .sign_userid_binding(
+    ///         &mut alices_signer,
+    ///         &example_com.primary_key(),
+    ///         example_com_userid)?;
+    /// # assert_eq!(certification
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::TrustSignature)
+    /// #    .count(),
+    /// #    1);
+    /// # assert_eq!(certification
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::RegularExpression)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let example_com = example_com.merge_packets(certification)?;
+    /// # assert_eq!(example_com.bad_signatures().len(), 0);
+    /// # assert_eq!(example_com.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # Ok(()) }
+    /// ```
     pub fn set_regular_expression<R>(mut self, re: R) -> Result<Self>
         where R: AsRef<[u8]>
     {
@@ -2600,9 +3088,78 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Revocable subpacket, which indicates
-    /// whether the signature is revocable, i.e., whether revocation
-    /// certificates for this signature should be ignored.
+    /// Sets the Revocable subpacket.
+    ///
+    /// Adds a [Revocable subpacket] to the hashed subpacket area.
+    /// This function first removes any Revocable subpacket from the
+    /// hashed subpacket area.
+    ///
+    /// [Revocable subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.12
+    ///
+    /// The Revocable subpacket indicates whether a certification may
+    /// be later revoked by creating a [Certification revocation
+    /// signature] (0x30) that targets the signature using the
+    /// [Signature Target subpacket] (set using the
+    /// [`SignatureBuilder::set_signature_target`] method).
+    ///
+    /// [Certification revocation signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+    /// [Signature Target subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
+    /// [`SignatureBuilder::set_signature_target`]: #method.set_signature_target
+    ///
+    /// # Examples
+    ///
+    /// Alice certifies Bob's key and marks the certification as
+    /// irrevocable.  Since she can't revoke the signature, she limits
+    /// the scope of misuse by setting the signature to expire in a
+    /// year:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _)
+    ///     = CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    /// let mut alices_signer = alice.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// let (bob, _)
+    ///     = CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///         .generate()?;
+    /// let bobs_userid
+    ///     = bob.with_policy(p, None)?.userids().nth(0).expect("Added a User ID").userid();
+    ///
+    /// // Average number of seconds in a year.  See:
+    /// // https://en.wikipedia.org/wiki/Year .
+    /// const SECONDS_IN_YEAR: u64 = (365.2425 * 24. * 60. * 60.) as u64;
+    ///
+    /// let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+    ///     .set_revocable(false)?
+    ///     .set_signature_validity_period(
+    ///         std::time::Duration::new(SECONDS_IN_YEAR, 0))?
+    ///     .sign_userid_binding(
+    ///         &mut alices_signer, &bob.primary_key(), bobs_userid)?;
+    /// # assert_eq!(certification
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Revocable)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let bob = bob.merge_packets(certification)?;
+    /// # assert_eq!(bob.bad_signatures().len(), 0);
+    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # Ok(()) }
+    /// ```
     pub fn set_revocable(mut self, revocable: bool) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::Revocable(revocable),
@@ -2611,15 +3168,108 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Key Expiration Time subpacket, which
-    /// contains when the referenced key expires as the number of
-    /// seconds after the key's creation.
+    /// Sets the Key Expiration Time subpacket.
+    ///
+    /// Adds a [Key Expiration Time subpacket] to the hashed subpacket
+    /// area.  This function first removes any Key Expiration Time
+    /// subpacket from the hashed subpacket area.
     ///
     /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_key_validity_period(mut self,
-                                   expiration: Option<time::Duration>)
-                                   -> Result<Self> {
-        if let Some(e) = expiration {
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    ///
+    /// This function is called `set_key_validity_period` and not
+    /// `set_key_expiration_time`, which would be more consistent with
+    /// the subpacket's name, because the latter suggests an absolute
+    /// time, but the time is actually relative to the associated
+    /// key's (*not* the signature's) creation time, which is stored
+    /// in the [Key].
+    ///
+    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+    ///
+    /// A Key Expiration Time subpacket specifies when the associated
+    /// key expires.  This is different from the [Signature Expiration
+    /// Time subpacket] (set using
+    /// [`SignatureBuilder::set_signature_validity_period`]), which is
+    /// used to specify when the signature expires.  That is, in the
+    /// former case, the associated key expires, but in the latter
+    /// case, the signature itself expires.  This difference is
+    /// critical: if a binding signature expires, then an OpenPGP
+    /// implementation will still consider the associated key to be
+    /// valid if there is another valid binding signature, even if it
+    /// is older than the expired signature; if the active binding
+    /// signature indicates that the key has expired, then OpenPGP
+    /// implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SignatureBuilder::set_signature_validity_period`]: #method.set_signature_validity_period
+    ///
+    /// # Examples
+    ///
+    /// Change all subkeys to expire 10 minutes after their (not the
+    /// new binding signature's) creation time.
+    ///
+    /// ```
+    /// use std::convert::TryFrom;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #       // Make sure the new signatures are younger.
+    /// #       .set_creation_time(std::time::SystemTime::now()
+    /// #                          - std::time::Duration::new(10, 0))
+    ///         .generate()?;
+    /// let pk = cert.primary_key().key();
+    /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// // Create the binding signatures.
+    /// let mut sigs = Vec::new();
+    ///
+    /// for key in cert.with_policy(p, None)?.keys().subkeys() {
+    ///     // This reuses any existing backsignature.
+    ///     let sig = SignatureBuilder::from(key.binding_signature().clone())
+    ///         .set_key_validity_period(std::time::Duration::new(10 * 60, 0))?
+    ///         .sign_subkey_binding(&mut signer, &pk, &key)?;
+    ///     sigs.push(sig);
+    /// }
+    ///
+    /// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// #
+    /// # // "Before"
+    /// # for key in cert
+    /// #     .with_policy(p, std::time::SystemTime::now()
+    /// #         - std::time::Duration::new(5, 0))?
+    /// #     .keys().subkeys()
+    /// # {
+    /// #     assert_eq!(key.bundle().self_signatures().len(), 2);
+    /// #     assert!(key.alive().is_ok());
+    /// # }
+    /// #
+    /// # // "After"
+    /// # for key in cert
+    /// #     .with_policy(p, std::time::SystemTime::now()
+    /// #         + std::time::Duration::new(20 * 60, 0))?
+    /// #     .keys().subkeys()
+    /// # {
+    /// #     assert!(key.alive().is_err());
+    /// # }
+    /// # Ok(()) }
+    /// ```
+    pub fn set_key_validity_period<D>(mut self, expires_in: D)
+        -> Result<Self>
+        where D: Into<Option<time::Duration>>
+    {
+        if let Some(e) = expires_in.into() {
             self.hashed_area.replace(Subpacket::new(
                 SubpacketValue::KeyExpirationTime(e.try_into()?),
                 true)?)?;
@@ -2630,10 +3280,76 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Preferred Symmetric Algorithms
-    /// subpacket, which contains the list of symmetric algorithms
-    /// that the key holder prefers, ordered according by the key
-    /// holder's preference.
+    /// Sets the Preferred Symmetric Algorithms subpacket.
+    ///
+    /// Replaces any [Preferred Symmetric Algorithms subpacket] in the
+    /// hashed subpacket area with a new subpacket containing the
+    /// specified value.  That is, this function first removes any
+    /// Preferred Symmetric Algorithms subpacket from the hashed
+    /// subpacket area, and then adds a new one.
+    ///
+    /// A Preferred Symmetric Algorithms subpacket lists what
+    /// symmetric algorithms the user prefers.  When encrypting a
+    /// message for a recipient, the OpenPGP implementation should not
+    /// use an algorithm that is not on this list.
+    ///
+    /// [Preferred Symmetric Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation first looks for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature is checked.  See the [`Preferences`]
+    /// trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SymmetricAlgorithm;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    /// let mut signer = cert.primary_key().key()
+    ///     .clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// let template = vc.direct_key_signature()
+    ///     .expect("CertBuilder always includes a direct key signature");
+    /// let sig = SignatureBuilder::from(template.clone())
+    ///     .set_preferred_symmetric_algorithms(
+    ///         vec![ SymmetricAlgorithm::AES256,
+    ///               SymmetricAlgorithm::AES128,
+    ///         ])?
+    ///     .sign_direct_key(&mut signer, &cert.primary_key())?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::PreferredSymmetricAlgorithms)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let cert = cert.merge_packets(sig)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(()) }
+    /// ```
     pub fn set_preferred_symmetric_algorithms(mut self,
                                               preferences: Vec<SymmetricAlgorithm>)
                                               -> Result<Self> {
@@ -2644,8 +3360,66 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Revocation Key subpacket, which contains
-    /// a designated revoker.
+    /// Sets the Revocation Key subpacket.
+    ///
+    /// Replaces any [Revocation Key subpacket] in the hashed
+    /// subpacket area with a new subpacket containing the specified
+    /// value.  That is, this function first removes any Revocation
+    /// Key subpacket from the hashed subpacket area, and then adds a
+    /// new one.
+    ///
+    /// [Revocation Key subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
+    ///
+    /// A Revocation Key subpacket indicates certificates (so-called
+    /// designated revokers) that are allowed to revoke the signer's
+    /// certificate.  For instance, if Alice trusts Bob, she can set
+    /// him as a designated revoker.  This is useful if Alice loses
+    /// access to her key, and therefore is unable to generate a
+    /// revocation certificate on her own.  In this case, she can
+    /// still Bob to generate one on her behalf.
+    ///
+    /// Due to the complexity of verifying such signatures, many
+    /// OpenPGP implementations do not support this feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::RevocationKey;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    /// let mut alices_signer = alice.primary_key().key()
+    ///     .clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let (bob, _) = CertBuilder::new().add_userid("Bob").generate()?;
+    ///
+    /// let template = alice.with_policy(p, None)?.direct_key_signature()
+    ///     .expect("CertBuilder always includes a direct key signature");
+    /// let sig = SignatureBuilder::from(template.clone())
+    ///     .set_revocation_key(vec![
+    ///         RevocationKey::new(bob.primary_key().pk_algo(), bob.fingerprint(), false),
+    ///     ])?
+    ///     .sign_direct_key(&mut alices_signer, &alice.primary_key())?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::RevocationKey)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let alice = alice.merge_packets(sig)?;
+    /// # assert_eq!(alice.bad_signatures().len(), 0);
+    /// # assert_eq!(alice.primary_key().self_signatures().len(), 2);
+    /// # Ok(()) }
+    /// ```
     pub fn set_revocation_key(mut self, rk: Vec<RevocationKey>) -> Result<Self> {
         self.hashed_area.remove_all(SubpacketTag::RevocationKey);
         for rk in rk.into_iter() {
@@ -2657,11 +3431,79 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Issuer subpacket, which contains the
-    /// KeyID of the key that allegedly created this signature.
+    /// Adds the Issuer subpacket.
     ///
-    /// Caution: By default, the issuer is set correctly when creating
-    /// the signature. Only use this function to override it.
+    /// Adds an [Issuer subpacket] to the unhashed subpacket area.
+    /// Unlike [`add_issuer`], this function first removes any
+    /// existing Issuer subpackets from the unhashed subpacket area.
+    ///
+    ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+    ///   [`add_issuer`]: #method.add_issuer
+    ///
+    /// The Issuer subpacket is used when processing a signature to
+    /// identify which certificate created the signature.  Since this
+    /// information is self-authenticating (the act of validating the
+    /// signature authenticates the subpacket), it is stored in the
+    /// unhashed subpacket area.
+    ///
+    /// When creating a signature using a SignatureBuilder or the
+    /// [streaming `Signer`], it is not necessary to explicitly set
+    /// this subpacket: those functions automatically set both the
+    /// [Issuer Fingerprint subpacket] (set using
+    /// [`SignatureBuilder::set_issuer_fingerprint`]) and the Issuer
+    /// subpacket, if they have not been set explicitly.
+    ///
+    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    /// [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///
+    /// # Examples
+    ///
+    /// It is possible to use the same key material with different
+    /// OpenPGP keys.  This is useful when the OpenPGP format is
+    /// upgraded, but not all deployed implementations support the new
+    /// format.  Here, Alice signs a message, and adds the fingerprint
+    /// of her v4 key and her v5 key indicating that the recipient can
+    /// use either key to verify the message:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (alicev4, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut alices_signer = alicev4.primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    /// # let (alicev5, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// let msg = b"Hi!";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_issuer(alicev4.keyid())?
+    ///     .add_issuer(alicev5.keyid())?
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
+    /// #    .count(),
+    /// #    2);
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::IssuerFingerprint)
+    /// #    .count(),
+    /// #    0);
+    /// # Ok(()) }
+    /// ```
     pub fn set_issuer(mut self, id: KeyID) -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
             SubpacketValue::Issuer(id),
@@ -2674,13 +3516,75 @@ impl signature::SignatureBuilder {
     ///
     /// Adds an [Issuer subpacket] to the unhashed subpacket area.
     /// Unlike [`set_issuer`], this function does not first remove any
-    /// Issuer subpackets from the unhashed subpacket area.
+    /// existing Issuer subpacket from the unhashed subpacket area.
     ///
-    /// Caution: By default, the issuer is set correctly when creating
-    /// the signature. Only use this function to override it.
+    ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+    ///   [`set_issuer`]: #method.set_issuer
     ///
-    /// [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    /// [`set_issuer`]: #method.set_issuer
+    /// The Issuer subpacket is used when processing a signature to
+    /// identify which certificate created the signature.  Since this
+    /// information is self-authenticating (the act of validating the
+    /// signature authenticates the subpacket), it is stored in the
+    /// unhashed subpacket area.
+    ///
+    /// When creating a signature using a SignatureBuilder or the
+    /// [streaming `Signer`], it is not necessary to explicitly set
+    /// this subpacket: those functions automatically set both the
+    /// [Issuer Fingerprint subpacket] (set using
+    /// [`SignatureBuilder::set_issuer_fingerprint`]) and the Issuer
+    /// subpacket, if they have not been set explicitly.
+    ///
+    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    /// [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///
+    /// # Examples
+    ///
+    /// It is possible to use the same key material with different
+    /// OpenPGP keys.  This is useful when the OpenPGP format is
+    /// upgraded, but not all deployed implementations support the new
+    /// format.  Here, Alice signs a message, and adds the fingerprint
+    /// of her v4 key and her v5 key indicating that the recipient can
+    /// use either key to verify the message:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (alicev4, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut alices_signer = alicev4.primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    /// # let (alicev5, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// let msg = b"Hi!";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_issuer(alicev4.keyid())?
+    ///     .add_issuer(alicev5.keyid())?
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
+    /// #    .count(),
+    /// #    2);
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::IssuerFingerprint)
+    /// #    .count(),
+    /// #    0);
+    /// # Ok(()) }
+    /// ```
     pub fn add_issuer(mut self, id: KeyID) -> Result<Self> {
         self.unhashed_area.add(Subpacket::new(
             SubpacketValue::Issuer(id),
@@ -2689,20 +3593,81 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Notation Data subpacket with the given
-    /// name.
+    /// Sets a Notation Data subpacket.
     ///
-    /// Any existing Notation Data subpackets with the given name are
-    /// replaced.
+    /// Adds a [Notation Data subpacket] to the hashed subpacket area.
+    /// Unlike the [`SignatureBuilder::add_notation`] method, this
+    /// function first removes any existing Notation Data subpacket
+    /// with the specified name from the hashed subpacket area.
     ///
-    /// The name falls into two namespaces: The user namespace and the
-    /// IETF namespace.  Names in the user namespace have the form
-    /// `name@example.org` and are managed by the owner of the domain.
-    /// Names in the IETF namespace may not contain an `@` and are
-    /// managed by IANA.  See [Section 5.2.3.16 of RFC 4880] for
-    /// details.
+    /// [Notation Data subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    /// [`SignatureBuilder::add_notation`]: #method.add_notation
     ///
-    ///   [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    /// Notations are key-value pairs.  They can be used by
+    /// applications to annotate signatures in a structured way.  For
+    /// instance, they can define additional, application-specific
+    /// security requirements.  Because they are functionally
+    /// equivalent to subpackets, they can also be used for OpenPGP
+    /// extensions.  This is how the [Intended Recipient subpacket]
+    /// started life.
+    ///
+    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr 
+    ///
+    /// Notation names are structured, and are divided into two
+    /// namespaces: the user namespace and the IETF namespace.  Names
+    /// in the user namespace have the form `name@example.org` and
+    /// their meaning is defined by the owner of the domain.  The
+    /// meaning of the notation `name@example.org`, for instance, is
+    /// defined by whoever controls `example.org`.  Names in the IETF
+    /// namespace do not contain an `@` and are managed by IANA.  See
+    /// [Section 5.2.3.16 of RFC 4880] for details.
+    ///
+    /// [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    ///
+    /// # Examples
+    ///
+    /// Adds two [social proofs] to a certificate's primary User ID.
+    /// This first clears any social proofs.
+    ///
+    /// [social proofs]: https://metacode.biz/openpgp/proofs
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Wiktor").generate()?;
+    /// let mut signer = cert.primary_key().key()
+    ///     .clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    /// let userid = vc.primary_userid().expect("Added a User ID");
+    ///
+    /// let template = userid.binding_signature();
+    /// let sig = SignatureBuilder::from(template.clone())
+    ///     .set_notation("proof@metacode.biz", "https://metacode.biz/@wiktor",
+    ///                   NotationDataFlags::empty().set_human_readable(), false)?
+    ///     .add_notation("proof@metacode.biz", "https://news.ycombinator.com/user?id=wiktor-k",
+    ///                   NotationDataFlags::empty().set_human_readable(), false)?
+    ///     .sign_userid_binding(&mut signer, &cert.primary_key(), &userid)?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::NotationData)
+    /// #    .count(),
+    /// #    2);
+    ///
+    /// // Merge in the new signature.
+    /// let cert = cert.merge_packets(sig)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(()) }
+    /// ```
     pub fn set_notation<N, V, F>(mut self, name: N, value: V, flags: F,
                                  critical: bool)
                                  -> Result<Self>
@@ -2722,20 +3687,83 @@ impl signature::SignatureBuilder {
                           critical)
     }
 
-    /// Adds a Notation Data subpacket with the given name, value, and
-    /// flags.
+    /// Adds a Notation Data subpacket.
     ///
-    /// Any existing Notation Data subpackets with the given name are
-    /// kept.
+    /// Adds a [Notation Data subpacket] to the hashed subpacket area.
+    /// Unlike the [`SignatureBuilder::set_notation`] method, this
+    /// function does not first remove any existing Notation Data
+    /// subpacket with the specified name from the hashed subpacket
+    /// area.
     ///
-    /// The name falls into two namespaces: The user namespace and the
-    /// IETF namespace.  Names in the user namespace have the form
-    /// `name@example.org` and are managed by the owner of the domain.
-    /// Names in the IETF namespace may not contain an `@` and are
-    /// managed by IANA.  See [Section 5.2.3.16 of RFC 4880] for
-    /// details.
+    /// [Notation Data subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    /// [`SignatureBuilder::set_notation`]: #method.set_notation
     ///
-    ///   [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    /// Notations are key-value pairs.  They can be used by
+    /// applications to annotate signatures in a structured way.  For
+    /// instance, they can define additional, application-specific
+    /// security requirements.  Because they are functionally
+    /// equivalent to subpackets, they can also be used for OpenPGP
+    /// extensions.  This is how the [Intended Recipient subpacket]
+    /// started life.
+    ///
+    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr 
+    ///
+    /// Notation names are structured, and are divided into two
+    /// namespaces: the user namespace and the IETF namespace.  Names
+    /// in the user namespace have the form `name@example.org` and
+    /// their meaning is defined by the owner of the domain.  The
+    /// meaning of the notation `name@example.org`, for instance, is
+    /// defined by whoever controls `example.org`.  Names in the IETF
+    /// namespace do not contain an `@` and are managed by IANA.  See
+    /// [Section 5.2.3.16 of RFC 4880] for details.
+    ///
+    /// [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    ///
+    /// # Examples
+    ///
+    /// Adds two new [social proofs] to a certificate's primary User
+    /// ID.  A more sophisticated program will check that the new
+    /// notations aren't already present.
+    ///
+    /// [social proofs]: https://metacode.biz/openpgp/proofs
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::NotationDataFlags;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Wiktor").generate()?;
+    /// let mut signer = cert.primary_key().key()
+    ///     .clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    /// let userid = vc.primary_userid().expect("Added a User ID");
+    ///
+    /// let template = userid.binding_signature();
+    /// let sig = SignatureBuilder::from(template.clone())
+    ///     .add_notation("proof@metacode.biz", "https://metacode.biz/@wiktor",
+    ///                   NotationDataFlags::empty().set_human_readable(), false)?
+    ///     .add_notation("proof@metacode.biz", "https://news.ycombinator.com/user?id=wiktor-k",
+    ///                   NotationDataFlags::empty().set_human_readable(), false)?
+    ///     .sign_userid_binding(&mut signer, &cert.primary_key(), &userid)?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::NotationData)
+    /// #    .count(),
+    /// #    2);
+    ///
+    /// // Merge in the new signature.
+    /// let cert = cert.merge_packets(sig)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(()) }
+    /// ```
     pub fn add_notation<N, V, F>(mut self, name: N, value: V, flags: F,
                            critical: bool)
                            -> Result<Self>
@@ -2750,10 +3778,77 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Preferred Hash Algorithms subpacket,
-    /// which contains the list of hash algorithms that the key
-    /// holders prefers, ordered according by the key holder's
-    /// preference.
+    /// Sets the Preferred Hash Algorithms subpacket.
+    ///
+    /// Replaces any [Preferred Hash Algorithms subpacket] in the
+    /// hashed subpacket area with a new subpacket containing the
+    /// specified value.  That is, this function first removes any
+    /// Preferred Hash Algorithms subpacket from the hashed subpacket
+    /// area, and then adds a new one.
+    ///
+    /// A Preferred Hash Algorithms subpacket lists what hash
+    /// algorithms the user prefers.  When signing a message that
+    /// should be verified by a particular recipient, the OpenPGP
+    /// implementation should not use an algorithm that is not on this
+    /// list.
+    ///
+    /// [Preferred Hash Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.8
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation first looks for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature is checked.  See the [`Preferences`]
+    /// trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::HashAlgorithm;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    /// let mut signer = cert.primary_key().key()
+    ///     .clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// let template = vc.direct_key_signature()
+    ///     .expect("CertBuilder always includes a direct key signature");
+    /// let sig = SignatureBuilder::from(template.clone())
+    ///     .set_preferred_hash_algorithms(
+    ///         vec![ HashAlgorithm::SHA512,
+    ///               HashAlgorithm::SHA256,
+    ///         ])?
+    ///     .sign_direct_key(&mut signer, &cert.primary_key())?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::PreferredHashAlgorithms)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let cert = cert.merge_packets(sig)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(()) }
+    /// ```
     pub fn set_preferred_hash_algorithms(mut self,
                                          preferences: Vec<HashAlgorithm>)
                                          -> Result<Self> {
@@ -2764,10 +3859,77 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Preferred Compression Algorithms
-    /// subpacket, which contains the list of compression algorithms
-    /// that the key holder prefers, ordered according by the key
-    /// holder's preference.
+    /// Sets the Preferred Compression Algorithms subpacket.
+    ///
+    /// Replaces any [Preferred Compression Algorithms subpacket] in
+    /// the hashed subpacket area with a new subpacket containing the
+    /// specified value.  That is, this function first removes any
+    /// Preferred Compression Algorithms subpacket from the hashed
+    /// subpacket area, and then adds a new one.
+    ///
+    /// A Preferred Compression Algorithms subpacket lists what
+    /// compression algorithms the user prefers.  When compressing a
+    /// message for a recipient, the OpenPGP implementation should not
+    /// use an algorithm that is not on the list.
+    ///
+    /// [Preferred Compression Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.9
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation first looks for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature is checked.  See the [`Preferences`]
+    /// trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::CompressionAlgorithm;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    /// let mut signer = cert.primary_key().key()
+    ///     .clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// let template = vc.direct_key_signature()
+    ///     .expect("CertBuilder always includes a direct key signature");
+    /// let sig = SignatureBuilder::from(template.clone())
+    ///     .set_preferred_compression_algorithms(
+    ///         vec![ CompressionAlgorithm::Zlib,
+    ///               CompressionAlgorithm::Zip,
+    ///               CompressionAlgorithm::BZip2,
+    ///         ])?
+    ///     .sign_direct_key(&mut signer, &cert.primary_key())?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::PreferredCompressionAlgorithms)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let cert = cert.merge_packets(sig)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(()) }
+    /// ```
     pub fn set_preferred_compression_algorithms(mut self,
                                                 preferences: Vec<CompressionAlgorithm>)
                                                 -> Result<Self> {
@@ -2778,8 +3940,73 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Key Server Preferences subpacket, which
-    /// contains the key holder's key server preferences.
+    /// Sets the Key Server Preferences subpacket.
+    ///
+    /// Replaces any [Key Server Preferences subpacket] in the hashed
+    /// subpacket area with a new subpacket containing the specified
+    /// value.  That is, this function first removes any Key Server
+    /// Preferences subpacket from the hashed subpacket area, and then
+    /// adds a new one.
+    ///
+    /// The Key Server Preferences subpacket indicates to key servers
+    /// how they should handle the certificate.
+    ///
+    /// [Key Server Preferences subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.17
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation first looks for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature is checked.  See the [`Preferences`]
+    /// trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyServerPreferences;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    /// let mut signer = cert.primary_key().key()
+    ///     .clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// let sig = vc.direct_key_signature()
+    ///     .expect("CertBuilder always includes a direct key signature");
+    /// let sig =
+    ///     SignatureBuilder::from(sig.clone())
+    ///         .set_key_server_preferences(
+    ///             KeyServerPreferences::empty().set_no_modify())?
+    ///         .sign_direct_key(&mut signer, &cert.primary_key())?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::KeyServerPreferences)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let cert = cert.merge_packets(sig)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(()) }
+    /// ```
     pub fn set_key_server_preferences(mut self,
                                       preferences: KeyServerPreferences)
                                       -> Result<Self> {
@@ -2790,8 +4017,71 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Preferred Key Server subpacket, which
-    /// contains the user's preferred key server for updates.
+    /// Sets the Preferred Key Server subpacket.
+    ///
+    /// Adds a [Preferred Key Server subpacket] to the hashed
+    /// subpacket area.  This function first removes any Preferred Key
+    /// Server subpacket from the hashed subpacket area.
+    ///
+    /// [Preferred Key Server subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.18
+    ///
+    /// Contains a link to a key server where the certificate holder
+    /// plans to publish updates to their certificate (e.g.,
+    /// extensions to the expiration time, new subkeys, revocation
+    /// certificates).
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation first looks for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature is checked.  See the [`Preferences`]
+    /// trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    /// let mut signer = cert.primary_key().key()
+    ///     .clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// let sig = vc.direct_key_signature()
+    ///     .expect("CertBuilder always includes a direct key signature");
+    /// let sig =
+    ///     SignatureBuilder::from(sig.clone())
+    ///         .set_preferred_key_server(&"https://keys.openpgp.org")?
+    ///         .sign_direct_key(&mut signer, &cert.primary_key())?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::PreferredKeyServer)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge in the new signature.
+    /// let cert = cert.merge_packets(sig)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(()) }
+    /// ```
     pub fn set_preferred_key_server<U>(mut self, uri: U)
                                        -> Result<Self>
         where U: AsRef<[u8]>,
@@ -2803,9 +4093,81 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Primary UserID subpacket, which
-    /// indicates whether the referenced UserID should be considered
-    /// the user's primary User ID.
+    /// Sets the Primary User ID subpacket.
+    ///
+    /// Adds a [Primary User ID subpacket] to the hashed subpacket
+    /// area.  This function first removes any Primary User ID
+    /// subpacket from the hashed subpacket area.
+    ///
+    /// [Primary User ID subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    ///
+    /// The Primary User ID subpacket indicates whether the associated
+    /// User ID or User Attribute should be considered the primary
+    /// User ID.  It is possible that this is set on multiple User
+    /// IDs.  See the documentation for [`ValidCert::primary_userid`] for
+    /// an explanation of how Sequoia resolves this ambiguity.
+    ///
+    /// [`ValidCert::primary_userid`]: ../../cert/struct.ValidCert.html#method.primary_userid
+    ///
+    /// # Examples
+    ///
+    /// Change the primary User ID:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let club = "Alice <alice@club.org>";
+    /// let home = "Alice <alice@home.org>";
+    ///
+    /// // CertBuilder makes the first User ID (club) the primary User ID.
+    /// let (cert, _) = CertBuilder::new()
+    /// #   // Create it in the past.
+    /// #   .set_creation_time(std::time::SystemTime::now()
+    /// #       - std::time::Duration::new(10, 0))
+    ///     .add_userid(club)
+    ///     .add_userid(home)
+    ///     .generate()?;
+    /// # assert_eq!(cert.userids().count(), 2);
+    /// assert_eq!(cert.with_policy(p, None)?.primary_userid().unwrap().userid(),
+    ///            &UserID::from(club));
+    ///
+    /// // Make the `home` User ID the primary User ID.
+    ///
+    /// // Derive a signer.
+    /// let pk = cert.primary_key().key();
+    /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let mut sig = None;
+    /// for ua in cert.with_policy(p, None)?.userids() {
+    ///     if ua.userid() == &UserID::from(home) {
+    ///         sig = Some(SignatureBuilder::from(ua.binding_signature().clone())
+    ///             .set_primary_userid(true)?
+    ///             .sign_userid_binding(&mut signer, pk, ua.userid())?);
+    ///         # assert_eq!(sig.as_ref().unwrap()
+    ///         #    .hashed_area()
+    ///         #    .iter()
+    ///         #    .filter(|sp| sp.tag() == SubpacketTag::PrimaryUserID)
+    ///         #    .count(),
+    ///         #    1);
+    ///         break;
+    ///     }
+    /// }
+    /// assert!(sig.is_some());
+    ///
+    /// let cert = cert.merge_packets(sig)?;
+    ///
+    /// assert_eq!(cert.with_policy(p, None)?.primary_userid().unwrap().userid(),
+    ///            &UserID::from(home));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_primary_userid(mut self, primary: bool) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PrimaryUserID(primary),
@@ -2814,7 +4176,76 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Policy URI subpacket.
+    /// Sets the Policy URI subpacket.
+    ///
+    /// Adds a [Policy URI subpacket] to the hashed subpacket area.
+    /// This function first removes any Policy URI subpacket from the
+    /// hashed subpacket area.
+    ///
+    /// [Policy URI subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.20
+    ///
+    /// The Policy URI subpacket contains a link to a policy document,
+    /// which contains information about the conditions under which
+    /// the signature was made.
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation first looks for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature is checked.  See the [`Preferences`]
+    /// trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    ///
+    /// # Examples
+    ///
+    /// Alice updates her direct key signature to include a Policy URI
+    /// subpacket:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    /// let pk = alice.primary_key().key();
+    /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let sig = SignatureBuilder::from(
+    ///     alice
+    ///         .with_policy(p, None)?
+    ///         .direct_key_signature().expect("Direct key siganture")
+    ///         .clone()
+    ///     )
+    ///     .set_policy_uri("https://example.org/~alice/signing-policy.txt")?
+    ///     .sign_direct_key(&mut signer, pk)?;
+    /// # sig.verify_direct_key(signer.public(), pk)?;
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::PolicyURI)
+    /// #    .count(),
+    /// #    1);
+    ///
+    /// // Merge it into the certificate.
+    /// let alice = alice.merge_packets(sig)?;
+    /// #
+    /// # assert_eq!(alice.bad_signatures().len(), 0);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_policy_uri<U>(mut self, uri: U) -> Result<Self>
         where U: AsRef<[u8]>,
     {
@@ -2825,10 +4256,69 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Key Flags subpacket, which contains
-    /// information about the referenced key, in particular, how it is
-    /// used (certification, signing, encryption, authentication), and
-    /// how it is stored (split, held by multiple people).
+    /// Sets the Key Flags subpacket.
+    ///
+    /// Adds a [Key Flags subpacket] to the hashed subpacket area.
+    /// This function first removes any Key Flags subpacket from the
+    /// hashed subpacket area.
+    ///
+    /// [Key Flags subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
+    ///
+    /// The Key Flags subpacket describes a key's capabilities
+    /// (certification capable, signing capable, etc.).  In the case
+    /// of subkeys, the Key Flags are located on the subkey's binding
+    /// signature.  For primary keys, locating the correct Key Flags
+    /// subpacket is more complex: First, the primary User ID is
+    /// consulted.  If the primary User ID contains a Key Flags
+    /// subpacket, that is used.  Otherwise, any direct key signature
+    /// is considered.  If that still doesn't contain a Key Flags
+    /// packet, then the primary key should be assumed to be
+    /// certification capable.
+    ///
+    /// # Examples
+    ///
+    /// Adds a new subkey, which is intended for encrypting data at
+    /// rest, to a certificate:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::{
+    ///     Curve,
+    ///     KeyFlags,
+    ///     SignatureType
+    /// };
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// // Generate a Cert, and create a keypair from the primary key.
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    /// # assert_eq!(cert.keys().with_policy(p, None).alive().revoked(false)
+    /// #                .key_flags(&KeyFlags::empty().set_storage_encryption()).count(),
+    /// #            0);
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// // Generate a subkey and a binding signature.
+    /// let subkey: Key<_, key::SubordinateRole>
+    ///     = Key4::generate_ecc(false, Curve::Cv25519)?
+    ///         .into();
+    /// let builder = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
+    ///     .set_key_flags(&KeyFlags::empty().set_storage_encryption())?;
+    /// let binding = subkey.bind(&mut signer, &cert, builder)?;
+    ///
+    /// // Now merge the key and binding signature into the Cert.
+    /// let cert = cert.merge_packets(vec![Packet::from(subkey),
+    ///                                    binding.into()])?;
+    ///
+    /// # assert_eq!(cert.keys().with_policy(p, None).alive().revoked(false)
+    /// #                .key_flags(&KeyFlags::empty().set_storage_encryption()).count(),
+    /// #            1);
+    /// # Ok(()) }
+    /// ```
     pub fn set_key_flags(mut self, flags: &KeyFlags) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::KeyFlags(flags.clone()),
@@ -2837,9 +4327,55 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Signer's UserID subpacket, which
-    /// contains the User ID that the key holder considers responsible
-    /// for the signature.
+    /// Sets the Signer's User ID subpacket.
+    ///
+    /// Adds a [Signer's User ID subpacket] to the hashed subpacket
+    /// area.  This function first removes any Signer's User ID
+    /// subpacket from the hashed subpacket area.
+    ///
+    /// [Signer's User ID subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.22
+    ///
+    /// The Signer's User ID subpacket indicates, which User ID made
+    /// the signature.  This is useful when a key has multiple User
+    /// IDs, which correspond to different roles.  For instance, it is
+    /// not uncommon to use the same certificate in private as well as
+    /// for a club.
+    ///
+    /// # Examples
+    ///
+    /// Sign a message being careful to set the Signer's User ID
+    /// subpacket to the user's private identity and not their club
+    /// identity:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, _) = CertBuilder::new()
+    ///     .add_userid("Alice <alice@home.org>")
+    ///     .add_userid("Alice (President) <alice@club.org>")
+    ///     .generate()?;
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// let msg = "Speaking for myself, I agree.";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_signers_user_id(&b"Alice <alice@home.org>"[..])?
+    ///     .sign_message(&mut signer, msg)?;
+    /// # assert!(sig.verify_message(signer.public(), msg).is_ok());
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::SignersUserID)
+    /// #    .count(),
+    /// #    1);
+    /// # Ok(()) }
+    /// ```
     pub fn set_signers_user_id<U>(mut self, uid: U) -> Result<Self>
         where U: AsRef<[u8]>,
     {
@@ -2851,6 +4387,67 @@ impl signature::SignatureBuilder {
     }
 
     /// Sets the value of the Reason for Revocation subpacket.
+    ///
+    /// Adds a [Reason For Revocation subpacket] to the hashed
+    /// subpacket area.  This function first removes any Reason For
+    /// Revocation subpacket from the hashed subpacket
+    /// area.
+    ///
+    /// [Reason For Revocation subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
+    ///
+    /// The reason for revocation indicates why a key, User ID, or
+    /// User Attribute is being revoked.  It includes both a machine
+    /// readable code, and a human-readable string.  The code is
+    /// essential as it indicates to any OpenPGP implementation that
+    /// reads the certificate whether the key was compromised (a hard
+    /// revocation), or is no longer used (a soft revocation).  In the
+    /// former case, the OpenPGP implementation must conservatively
+    /// consider all past signatures as suspect whereas in the latter
+    /// case, past signatures can still be considered valid.
+    ///
+    /// # Examples
+    ///
+    /// Revoke a certificate whose private key material has been
+    /// compromised:
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::ReasonForRevocation;
+    /// use openpgp::types::RevocationStatus;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    /// assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
+    ///            cert.revocation_status(p, None));
+    ///
+    /// // Create and sign a revocation certificate.
+    /// let mut signer = cert.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    /// let sig = CertRevocationBuilder::new()
+    ///     .set_reason_for_revocation(ReasonForRevocation::KeyCompromised,
+    ///                                b"It was the maid :/")?
+    ///     .build(&mut signer, &cert, None)?;
+    ///
+    /// // Merge it into the certificate.
+    /// let cert = cert.merge_packets(sig.clone())?;
+    ///
+    /// // Now it's revoked.
+    /// assert_eq!(RevocationStatus::Revoked(vec![ &sig ]),
+    ///            cert.revocation_status(p, None));
+    /// # assert_eq!(sig
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::ReasonForRevocation)
+    /// #    .count(),
+    /// #    1);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_reason_for_revocation<R>(mut self, code: ReasonForRevocation,
                                         reason: R)
                                         -> Result<Self>
@@ -2866,9 +4463,90 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Features subpacket, which contains a
-    /// list of features that the user's OpenPGP implementation
-    /// supports.
+    /// Sets the Features subpacket.
+    ///
+    /// Adds a [Feature subpacket] to the hashed subpacket area.  This
+    /// function first removes any Feature subpacket from the hashed
+    /// subpacket area.
+    ///
+    /// A Feature subpacket lists what OpenPGP features the user wants
+    /// to use.  When creating a message, features that the intended
+    /// recipients do not support should not be used.  However,
+    /// because this information is rarely held up to date in
+    /// practice, this information is only advisory, and
+    /// implementations are allowed to infer what features the
+    /// recipients support from their past behavior.
+    ///
+    /// [Feature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.24
+    /// [features]: ../../types/struct.Features.html
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation first looks for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature is checked.  See the [`Preferences`]
+    /// trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    ///
+    /// # Examples
+    ///
+    /// Update a certificate's binding signatures to indicate support for AEAD:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::{AEADAlgorithm, Features};
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    ///
+    /// // Derive a signer (the primary key is always certification capable).
+    /// let pk = cert.primary_key().key();
+    /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let mut sigs = Vec::new();
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// if let Ok(sig) = vc.direct_key_signature() {
+    ///     sigs.push(
+    ///         SignatureBuilder::from(sig.clone())
+    ///             .set_preferred_aead_algorithms(vec![ AEADAlgorithm::EAX ])?
+    ///             .set_features(
+    ///                 &sig.features().unwrap_or_else(Features::sequoia)
+    ///                     .set_aead())?
+    ///             .sign_direct_key(&mut signer, pk)?);
+    /// }
+    ///
+    /// for ua in vc.userids() {
+    ///     let sig = ua.binding_signature();
+    ///     sigs.push(
+    ///         SignatureBuilder::from(sig.clone())
+    ///             .set_preferred_aead_algorithms(vec![ AEADAlgorithm::EAX ])?
+    ///             .set_features(
+    ///                 &sig.features().unwrap_or_else(Features::sequoia)
+    ///                     .set_aead())?
+    ///             .sign_userid_binding(&mut signer, pk, ua.userid())?);
+    /// }
+    ///
+    /// // Merge in the new signatures.
+    /// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_features(mut self, features: &Features) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::Features(features.clone()),
@@ -2877,8 +4555,18 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Signature Target subpacket, which
-    /// contains the hash of the referenced signature packet.
+    /// Sets the Signature Target subpacket.
+    ///
+    /// Adds a [Signature Target subpacket] to the hashed subpacket
+    /// area.  This function first removes any Signature Target
+    /// subpacket from the hashed subpacket area.
+    ///
+    /// The Signature Target subpacket is used to identify the target
+    /// of a signature.  This is used when revoking a signature, and
+    /// by timestamp signatures.  It contains a hash of the target
+    /// signature.
+    ///
+    ///   [Signature Target subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
     pub fn set_signature_target<D>(mut self,
                                    pk_algo: PublicKeyAlgorithm,
                                    hash_algo: HashAlgorithm,
@@ -2897,8 +4585,66 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Embedded Signature subpacket, which
-    /// contains a signature.
+    /// Sets the value of the Embedded Signature subpacket.
+    ///
+    /// Adds an [Embedded Signature subpacket] to the unhashed
+    /// subpacket area.  This function first removes any Embedded
+    /// Signature subpacket from the unhashed subpacket area.
+    ///
+    /// [Embedded Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.26
+    ///
+    /// The Embedded Signature subpacket is normally used to hold a
+    /// [Primary Key Binding signature], which binds a
+    /// signing-capable, authentication-capable, or
+    /// certification-capable subkey to the primary key.  Since this
+    /// information is self-authenticating, it is usually stored in the
+    /// unhashed subpacket area.
+    ///
+    /// [Primary Key Binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+    ///
+    /// # Examples
+    ///
+    /// Add a new signing-capable subkey to a certificate:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::KeyFlags;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    /// # assert_eq!(cert.keys().count(), 1);
+    ///
+    /// let pk = cert.primary_key().key().clone().parts_into_secret()?;
+    /// // Derive a signer.
+    /// let mut pk_signer = pk.clone().into_keypair()?;
+    ///
+    /// // Generate a new signing subkey.
+    /// let mut subkey: Key<_, _> = Key4::generate_rsa(3072)?.into();
+    /// // Derive a signer.
+    /// let mut sk_signer = subkey.clone().into_keypair()?;
+    ///
+    /// // Create the binding signature.
+    /// let sig = SignatureBuilder::new(SignatureType::SubkeyBinding)
+    ///     .set_key_flags(&KeyFlags::empty().set_signing())?
+    ///     // And, the backsig.  This is essential for subkeys that create signatures!
+    ///     .set_embedded_signature(
+    ///         SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
+    ///             .sign_primary_key_binding(&mut sk_signer, &pk, &subkey)?)?
+    ///     .sign_subkey_binding(&mut pk_signer, &pk, &subkey)?;
+    ///
+    /// let cert = cert.merge_packets(vec![Packet::SecretSubkey(subkey),
+    ///                                    sig.into()])?;
+    ///
+    /// assert_eq!(cert.keys().count(), 2);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_embedded_signature(mut self, signature: Signature)
                                   -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
@@ -2908,12 +4654,80 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Issuer Fingerprint subpacket, which
-    /// contains the fingerprint of the key that allegedly created
-    /// this signature.
+    /// Sets the Issuer Fingerprint subpacket.
     ///
-    /// Caution: By default, the issuer fingerprint is set correctly when
-    /// creating the signature. Only use this function to override it.
+    /// Adds an [Issuer Fingerprint subpacket] to the unhashed
+    /// subpacket area.  Unlike [`add_issuer_fingerprint`], this
+    /// function first removes any existing Issuer Fingerprint
+    /// subpackets from the unhashed subpacket area.
+    ///
+    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`add_issuer_fingerprint`]: #method.add_issuer_fingerprint
+    ///
+    /// The Issuer Fingerprint subpacket is used when processing a
+    /// signature to identify which certificate created the signature.
+    /// Since this information is self-authenticating (the act of
+    /// validating the signature authenticates the subpacket), it is
+    /// stored in the unhashed subpacket area.
+    ///
+    /// When creating a signature using a SignatureBuilder or the
+    /// [streaming `Signer`], it is not necessary to explicitly set
+    /// this subpacket: those functions automatically set both the
+    /// Issuer Fingerprint subpacket, and the [Issuer subpacket] (set
+    /// using [`SignatureBuilder::set_issuer`]), if they have not been
+    /// set explicitly.
+    ///
+    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+    /// [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///
+    /// # Examples
+    ///
+    /// It is possible to use the same key material with different
+    /// OpenPGP keys.  This is useful when the OpenPGP format is
+    /// upgraded, but not all deployed implementations support the new
+    /// format.  Here, Alice signs a message, and adds the fingerprint
+    /// of her v4 key and her v5 key indicating that the recipient can
+    /// use either key to verify the message:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (alicev4, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut alices_signer = alicev4.primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    /// # let (alicev5, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// let msg = b"Hi!";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_issuer_fingerprint(alicev4.fingerprint())?
+    ///     .add_issuer_fingerprint(alicev5.fingerprint())?
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
+    /// #    .count(),
+    /// #    0);
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::IssuerFingerprint)
+    /// #    .count(),
+    /// #    2);
+    /// # Ok(()) }
+    /// ```
     pub fn set_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
         self.unhashed_area.replace(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),
@@ -2927,10 +4741,76 @@ impl signature::SignatureBuilder {
     /// Adds an [Issuer Fingerprint subpacket] to the unhashed
     /// subpacket area.  Unlike [`set_issuer_fingerprint`], this
     /// function does not first remove any existing Issuer Fingerprint
-    /// subpackets from the unhashed subpacket area.
+    /// subpacket from the unhashed subpacket area.
     ///
     ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+    ///
+    /// The Issuer Fingerprint subpacket is used when processing a
+    /// signature to identify which certificate created the signature.
+    /// Since this information is self-authenticating (the act of
+    /// validating the signature authenticates the subpacket), it is
+    /// stored in the unhashed subpacket area.
+    ///
+    ///
+    /// When creating a signature using a SignatureBuilder or the
+    /// [streaming `Signer`], it is not necessary to explicitly set
+    /// this subpacket: those functions automatically set both the
+    /// Issuer Fingerprint subpacket, and the [Issuer subpacket] (set
+    /// using [`SignatureBuilder::set_issuer`]), if they have not been
+    /// set explicitly.
+    ///
+    /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+    /// [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+    /// [`SignatureBuilder::set_issuer`]: #method.set_issuer
+    ///
+    /// # Examples
+    ///
+    /// It is possible to use the same key material with different
+    /// OpenPGP keys.  This is useful when the OpenPGP format is
+    /// upgraded, but not all deployed implementations support the new
+    /// format.  Here, Alice signs a message, and adds the fingerprint
+    /// of her v4 key and her v5 key indicating that the recipient can
+    /// use either key to verify the message:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (alicev4, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut alices_signer = alicev4.primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    /// # let (alicev5, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// let msg = b"Hi!";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_issuer_fingerprint(alicev4.fingerprint())?
+    ///     .add_issuer_fingerprint(alicev5.fingerprint())?
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
+    /// #    .count(),
+    /// #    0);
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::IssuerFingerprint)
+    /// #    .count(),
+    /// #    2);
+    /// # Ok(()) }
+    /// ```
     pub fn add_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
         self.unhashed_area.add(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),
@@ -2939,12 +4819,97 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Preferred AEAD Algorithms subpacket,
-    /// which contains the list of AEAD algorithms that the key holder
-    /// prefers, ordered according by the key holder's preference.
+    /// Sets the Preferred AEAD Algorithms subpacket.
+    ///
+    /// Replaces any [Preferred AEAD Algorithms subpacket] in the
+    /// hashed subpacket area with a new subpacket containing the
+    /// specified value.  That is, this function first removes any
+    /// Preferred AEAD Algorithms subpacket from the hashed subpacket
+    /// area, and then adds a Preferred AEAD Algorithms subpacket.
+    ///
+    /// [Preferred AEAD Algorithms subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
+    ///
+    /// The Preferred AEAD Algorithms subpacket indicates what AEAD
+    /// algorithms the key holder prefers ordered by preference.  If
+    /// this is set, then the AEAD feature flag should in the
+    /// [Features] subpacket should also be set.
+    ///
+    /// Note: because support for AEAD has not yet been standardized,
+    /// we recommend not yet advertising support for it.
+    ///
+    /// [Features]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation first looks for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature is checked.  See the [`Preferences`]
+    /// trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../cert/trait.Preferences.html
+    ///
+    /// # Examples
+    ///
+    /// Update a certificate's binding signatures to indicate support for AEAD:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::{AEADAlgorithm, Features};
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+    ///
+    /// // Derive a signer (the primary key is always certification capable).
+    /// let pk = cert.primary_key().key();
+    /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// let mut sigs = Vec::new();
+    ///
+    /// let vc = cert.with_policy(p, None)?;
+    ///
+    /// if let Ok(sig) = vc.direct_key_signature() {
+    ///     sigs.push(
+    ///         SignatureBuilder::from(sig.clone())
+    ///             .set_preferred_aead_algorithms(vec![ AEADAlgorithm::EAX ])?
+    ///             .set_features(
+    ///                 &sig.features().unwrap_or_else(Features::sequoia)
+    ///                     .set_aead())?
+    ///             .sign_direct_key(&mut signer, pk)?);
+    /// }
+    ///
+    /// for ua in vc.userids() {
+    ///     let sig = ua.binding_signature();
+    ///     sigs.push(
+    ///         SignatureBuilder::from(sig.clone())
+    ///             .set_preferred_aead_algorithms(vec![ AEADAlgorithm::EAX ])?
+    ///             .set_features(
+    ///                 &sig.features().unwrap_or_else(Features::sequoia)
+    ///                     .set_aead())?
+    ///             .sign_userid_binding(&mut signer, pk, ua.userid())?);
+    /// }
+    ///
+    /// // Merge in the new signatures.
+    /// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn set_preferred_aead_algorithms(mut self,
                                          preferences: Vec<AEADAlgorithm>)
-                                         -> Result<Self> {
+        -> Result<Self>
+    {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::PreferredAEADAlgorithms(preferences),
             false)?)?;
@@ -2952,9 +4917,82 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
+    /// Sets the Intended Recipient subpacket.
+    ///
+    /// Replaces any [Intended Recipient subpacket] in the hashed
+    /// subpacket area with one new subpacket for each of the
+    /// specified values.  That is, unlike
+    /// [`SignatureBuilder::add_intended_recipient`], this function
+    /// first removes any Intended Recipient subpackets from the
+    /// hashed subpacket area, and then adds new ones.
+    ///
+    ///   [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
+    ///   [`SignatureBuilder::add_intended_recipient`]: #method.add_intended_recipient
+    ///
+    /// The Intended Recipient subpacket holds the fingerprint of a
+    /// certificate.
+    ///
+    /// When signing a message, the message should include one such
+    /// subpacket for each intended recipient.  Note: not all messages
+    /// have intended recipients.  For instance, when signing an open
+    /// letter, or a software release, the message is intended for
+    /// anyone.
+    ///
+    /// When processing a signature, the application should ensure
+    /// that if there are any such subpackets, then one of the
+    /// subpackets identifies the recipient's certificate (or user
+    /// signed the message).  If this is not the case, then an
+    /// attacker may have taken the message out of its original
+    /// context.  For instance, if Alice sends a signed email to Bob,
+    /// with the content: "I agree to the contract", and Bob forwards
+    /// that message to Carol, then Carol may think that Alice agreed
+    /// to a contract with her if the signature appears to be valid!
+    /// By adding an intended recipient, it is possible for Carol's
+    /// mail client to warn her that although Alice signed the
+    /// message, the content was intended for Bob and not for her.
+    ///
+    /// # Examples
+    ///
+    /// To create a signed message intended for both Bob and Carol,
+    /// Alice adds an intended recipient subpacket for each of their
+    /// certificates.  Because this function first removes any
+    /// existing Intended Recipient subpackets both recipients must be
+    /// added at once (cf. [`SignatureBuilder::add_intended_recipient`]):
+    ///
+    /// [`SignatureBuilder::add_intended_recipient`]: #method.add_intended_recipient
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (alice, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut alices_signer = alice.primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    /// # let (bob, _) =
+    /// #     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    /// #     .generate()?;
+    /// # let (carol, _) =
+    /// #     CertBuilder::general_purpose(None, Some("carol@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// let msg = b"Let's do it!";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_intended_recipients(vec![ bob.fingerprint(), carol.fingerprint() ])?
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
+    /// # assert_eq!(sig.intended_recipients().iter().count(), 2);
+    /// # Ok(()) }
+    /// ```
     /// Sets the intended recipients.
     pub fn set_intended_recipients(mut self, recipients: Vec<Fingerprint>)
-                                   -> Result<Self> {
+        -> Result<Self>
+    {
         self.hashed_area.remove_all(SubpacketTag::IntendedRecipient);
         for fp in recipients.into_iter() {
             self.hashed_area.add(
@@ -2966,20 +5004,82 @@ impl signature::SignatureBuilder {
 
     /// Adds an Intended Recipient subpacket.
     ///
-    /// Adds any [Intended Recipient subpacket] to the hashed
-    /// subpacket area.  Unlike [`set_intended_recipients`], this
-    /// function does not first removes any Intended Recipient
-    /// subpackets from the hashed subpacket area.
+    /// Adds an [Intended Recipient subpacket] to the hashed subpacket
+    /// area.  Unlike [`SignatureBuilder::set_intended_recipients`], this function does
+    /// not first remove any Intended Recipient subpackets from the
+    /// hashed subpacket area.
     ///
     ///   [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
-    ///   [`set_intended_recipients`]: #method.set_intended_recipients
-    pub fn add_intended_recipient<T>(mut self, recipient: T)
+    ///   [`SignatureBuilder::set_intended_recipients`]: #method.set_intended_recipients
+    ///
+    /// The Intended Recipient subpacket holds the fingerprint of a
+    /// certificate.
+    ///
+    /// When signing a message, the message should include one such
+    /// subpacket for each intended recipient.  Note: not all messages
+    /// have intended recipients.  For instance, when signing an open
+    /// letter, or a software release, the message is intended for
+    /// anyone.
+    ///
+    /// When processing a signature, the application should ensure
+    /// that if there are any such subpackets, then one of the
+    /// subpackets identifies the recipient's certificate (or user
+    /// signed the message).  If this is not the case, then an
+    /// attacker may have taken the message out of its original
+    /// context.  For instance, if Alice sends a signed email to Bob,
+    /// with the content: "I agree to the contract", and Bob forwards
+    /// that message to Carol, then Carol may think that Alice agreed
+    /// to a contract with her if the signature appears to be valid!
+    /// By adding an intended recipient, it is possible for Carol's
+    /// mail client to warn her that although Alice signed the
+    /// message, the content was intended for Bob and not for her.
+    ///
+    /// # Examples
+    ///
+    /// To create a signed message intended for both Bob and Carol,
+    /// Alice adds an Intended Recipient subpacket for each of their
+    /// certificates.  Unlike
+    /// [`SignatureBuilder::set_intended_recipients`], which first
+    /// removes any existing Intended Recipient subpackets, with this
+    /// function we can add one recipient after the other:
+    ///
+    /// [`SignatureBuilder::set_intended_recipients`]: #method.set_intended_recipients
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// # let (alice, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// # let mut alices_signer = alice.primary_key().key().clone().parts_into_secret()?.into_keypair()?;
+    /// # let (bob, _) =
+    /// #     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    /// #     .generate()?;
+    /// # let (carol, _) =
+    /// #     CertBuilder::general_purpose(None, Some("carol@example.org"))
+    /// #     .generate()?;
+    /// #
+    /// let msg = b"Let's do it!";
+    ///
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .add_intended_recipient(bob.fingerprint())?
+    ///     .add_intended_recipient(carol.fingerprint())?
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
+    /// # assert_eq!(sig.intended_recipients().iter().count(), 2);
+    /// # Ok(()) }
+    /// ```
+    pub fn add_intended_recipient(mut self, recipient: Fingerprint)
         -> Result<Self>
-        where T: AsRef<Fingerprint>
     {
         self.hashed_area.add(
-            Subpacket::new(SubpacketValue::IntendedRecipient(
-                recipient.as_ref().clone()), false)?)?;
+            Subpacket::new(SubpacketValue::IntendedRecipient(recipient),
+                           false)?)?;
 
         Ok(self)
     }
