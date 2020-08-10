@@ -251,7 +251,7 @@ mod packet_pile_parser;
 pub use self::packet_pile_parser::PacketPileParser;
 
 mod hashed_reader;
-pub(crate) use self::hashed_reader::HashedReader;
+pub(crate) use self::hashed_reader::{HashedReader, hash_update_text};
 
 mod packet_parser_builder;
 pub use self::packet_parser_builder::{Dearmor, PacketParserBuilder};

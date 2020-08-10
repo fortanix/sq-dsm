@@ -1194,7 +1194,11 @@ impl<'a> Write for Signer<'a> {
         };
 
         if let Ok(amount) = written {
-            self.hash.update(&buf[..amount]);
+            if self.template.typ() == SignatureType::Text {
+                crate::parse::hash_update_text(&mut self.hash, &buf[..amount]);
+            } else {
+                self.hash.update(&buf[..amount]);
+            }
             self.position += amount as u64;
         }
 
@@ -3219,5 +3223,83 @@ mod test {
             ppr = pp.recurse().unwrap().1;
         }
         assert_eq!(good, 1);
+    }
+
+    /// Checks that newlines are properly normalized when verifying
+    /// text signatures.
+    #[test]
+    fn issue_530_signing() -> Result<()> {
+        use std::io::Write;
+        use crate::*;
+        use crate::packet::signature;
+        use crate::serialize::stream::{Message, Signer};
+
+        use crate::policy::StandardPolicy;
+        use crate::{Result, Cert};
+        use crate::parse::Parse;
+        use crate::parse::stream::*;
+
+        let normalized_data = b"one\r\ntwo\r\nthree";
+
+        let p = &StandardPolicy::new();
+        let cert: Cert =
+            Cert::from_bytes(crate::tests::key("testy-new-private.pgp"))?;
+
+        for data in &[
+            &b"one\r\ntwo\r\nthree"[..], // dos
+            b"one\ntwo\nthree",          // unix
+            b"one\ntwo\r\nthree",        // mixed
+            b"one\r\ntwo\nthree",
+            b"one\rtwo\rthree",          // classic mac
+        ] {
+            eprintln!("{:?}", String::from_utf8(data.to_vec())?);
+            let signing_keypair = cert.keys().secret()
+                .with_policy(p, None).alive().revoked(false).for_signing()
+                .nth(0).unwrap()
+                .key().clone().into_keypair()?;
+            let mut signature = vec![];
+            {
+                let message = Message::new(&mut signature);
+                let mut message = Signer::with_template(
+                    message, signing_keypair,
+                    signature::SignatureBuilder::new(SignatureType::Text)
+                ).detached().build()?;
+                message.write_all(data)?;
+                message.finalize()?;
+            }
+
+            struct Helper {};
+            impl VerificationHelper for Helper {
+                fn get_certs(&mut self, _ids: &[KeyHandle]) -> Result<Vec<Cert>>
+                {
+                    Ok(vec![
+                        Cert::from_bytes(crate::tests::key("testy-new.pgp"))?])
+                }
+                fn check(&mut self, structure: MessageStructure) -> Result<()> {
+                    for (i, layer) in structure.iter().enumerate() {
+                        assert_eq!(i, 0);
+                        if let MessageLayer::SignatureGroup { results } = layer
+                        {
+                            assert_eq!(results.len(), 1);
+                            results[0].as_ref().unwrap();
+                            assert!(results[0].is_ok());
+                            return Ok(());
+                        } else {
+                            unreachable!();
+                        }
+                    }
+                    unreachable!()
+                }
+            }
+
+            let h = Helper {};
+            let mut v = DetachedVerifierBuilder::from_bytes(&signature)?
+                .with_policy(p, None, h)?;
+
+            v.verify_bytes(data)?;
+            v.verify_bytes(normalized_data)?;
+        }
+
+        Ok(())
     }
 }

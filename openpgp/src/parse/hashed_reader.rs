@@ -54,7 +54,8 @@ impl<R: BufferedReader<Cookie>> HashedReader<R> {
 
 /// Updates the given hash context normalizing line endings to "\r\n"
 /// on the fly.
-fn hash_update_text(h: &mut crate::crypto::hash::Context, text: &[u8]) {
+pub(crate) fn hash_update_text(h: &mut crate::crypto::hash::Context,
+                               text: &[u8]) {
     let mut line = text;
     while ! line.is_empty() {
         let mut next = 0;
