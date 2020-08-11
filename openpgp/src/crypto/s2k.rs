@@ -35,29 +35,6 @@ use rand::Rng;
 /// extensions.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum S2K {
-    /// Simply hashes the password.
-    ///
-    /// This mechanism uses neither iteration to increase the time it
-    /// takes to derive the key from the password nor does it salt the
-    /// password.  This makes dictionary attacks more feasible.  Do
-    /// not use this variant.
-    #[deprecated(since = "rfc4880", note = "Use `S2K::Iterated`.")]
-    Simple {
-        /// Hash used for key derivation.
-        hash: HashAlgorithm
-    },
-    /// Hashes the password with a public `salt` value.
-    ///
-    /// This mechanism does not use iteration to increase the time it
-    /// takes to derive the key from the password.  This makes
-    /// dictionary attacks more feasible.  Do not use this variant.
-    #[deprecated(note = "Use `S2K::Iterated`.")]
-    Salted {
-        /// Hash used for key derivation.
-        hash: HashAlgorithm,
-        /// Public salt value mixed into the password.
-        salt: [u8; 8],
-    },
     /// Repeatently hashes the password with a public `salt` value.
     Iterated {
         /// Hash used for key derivation.
@@ -73,6 +50,32 @@ pub enum S2K {
         ///   [`S2K::new_iterated`]: #method.new_iterated
         hash_bytes: u32,
     },
+
+    /// Hashes the password with a public `salt` value.
+    ///
+    /// This mechanism does not use iteration to increase the time it
+    /// takes to derive the key from the password.  This makes
+    /// dictionary attacks more feasible.  Do not use this variant.
+    #[deprecated(note = "Use `S2K::Iterated`.")]
+    Salted {
+        /// Hash used for key derivation.
+        hash: HashAlgorithm,
+        /// Public salt value mixed into the password.
+        salt: [u8; 8],
+    },
+
+    /// Simply hashes the password.
+    ///
+    /// This mechanism uses neither iteration to increase the time it
+    /// takes to derive the key from the password nor does it salt the
+    /// password.  This makes dictionary attacks more feasible.  Do
+    /// not use this variant.
+    #[deprecated(since = "rfc4880", note = "Use `S2K::Iterated`.")]
+    Simple {
+        /// Hash used for key derivation.
+        hash: HashAlgorithm
+    },
+
     /// Private S2K algorithm
     Private(u8),
     /// Unknown S2K algorithm
