@@ -328,7 +328,7 @@ use super::*;
 ///
 /// # Examples
 ///
-/// Creating a Messaage encrypted with a password.
+/// Creating a Message encrypted with a password.
 ///
 /// ```
 /// # use sequoia_openpgp as openpgp;
