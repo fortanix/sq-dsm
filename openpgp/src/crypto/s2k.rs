@@ -164,35 +164,28 @@ impl S2K {
         }
     }
 
-    /// This function returns an encodabled iteration count larger or
-    /// equal `hash_bytes`.
+    /// This function returns an encodable iteration count.
     ///
     /// Not all iteration counts are encodable as *Iterated and Salted
     /// S2K*.  The largest encodable hash count is `0x3e00000`.
+    ///
+    /// The returned value is larger or equal `hash_bytes`, or
+    /// `0x3e00000` if `hash_bytes` is larger than or equal
+    /// `0x3e00000`.
     pub fn nearest_hash_count(hash_bytes: usize) -> u32 {
         use std::usize;
 
         match hash_bytes {
             0..=1024 => 1024,
-            1025..=2048 => hash_bytes as u32,
             0x3e00001..=usize::MAX => 0x3e00000,
             hash_bytes => {
-                let hash_bytes = hash_bytes as u32;
-                let msb = 32 - hash_bytes.leading_zeros();
-                let mantissa_mask = 0b1111_000000 << (msb - 11);
-                let tail_mask = (1 << (msb - 11)) - 1;
-                let mantissa = (hash_bytes & mantissa_mask) >> (msb - 5);
-                let exp = if msb < 11 { 0 } else { msb - 11 };
-
-                if hash_bytes & tail_mask != 0 {
-                    if mantissa < 0b1111 {
-                        Self::decode_count((mantissa as u8 + 1) | exp as u8)
-                    } else {
-                        Self::decode_count(mantissa as u8 | (exp as u8 + 1))
+                for i in 0..256 {
+                    let n = Self::decode_count(i as u8);
+                    if n as usize >= hash_bytes {
+                        return n;
                     }
-                } else {
-                    hash_bytes
                 }
+                0x3e00000
             }
         }
      }
@@ -495,5 +488,25 @@ mod tests {
 
             (approx >= i || i > 0x3e00000) && S2K::decode_count(cc) == approx
         }
+    }
+
+    #[test]
+    fn s2k_coded_count_approx_1025() {
+        let i = 1025;
+        let approx = S2K::nearest_hash_count(i);
+        let cc = S2K::encode_count(approx).unwrap();
+
+        assert!(approx as usize >= i || i > 0x3e00000);
+        assert_eq!(S2K::decode_count(cc), approx);
+    }
+
+    #[test]
+    fn s2k_coded_count_approx_0x3e00000() {
+        let i = 0x3e00000;
+        let approx = S2K::nearest_hash_count(i);
+        let cc = S2K::encode_count(approx).unwrap();
+
+        assert!(approx as usize >= i || i > 0x3e00000);
+        assert_eq!(S2K::decode_count(cc), approx);
     }
 }
