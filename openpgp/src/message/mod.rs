@@ -1052,10 +1052,11 @@ mod tests {
         // 0: SK-ESK
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
-        let sk = crate::crypto::SessionKey::new(8);
+        let cipher = SymmetricAlgorithm::AES256;
+        let sk = crate::crypto::SessionKey::new(cipher.key_size().unwrap());
         #[allow(deprecated)]
         packets.push(SKESK4::with_password(
-            SymmetricAlgorithm::AES256,
+            cipher,
             S2K::Simple { hash: HashAlgorithm::SHA256 },
             &sk,
             &"12345678".into()).unwrap().into());

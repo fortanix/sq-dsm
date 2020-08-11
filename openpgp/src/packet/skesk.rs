@@ -103,6 +103,12 @@ impl SKESK4 {
     pub fn with_password(algo: SymmetricAlgorithm, s2k: S2K,
                          session_key: &SessionKey, password: &Password)
                          -> Result<SKESK4> {
+        if session_key.len() != algo.key_size()? {
+            return Err(Error::InvalidArgument(format!(
+                "Invalid size of session key, got {} want {}",
+                session_key.len(), algo.key_size()?)).into());
+        }
+
         // Derive key and make a cipher.
         let key = s2k.derive_key(password, algo.key_size()?)?;
         let mut cipher = algo.make_encrypt_cfb(&key[..])?;
@@ -290,6 +296,12 @@ impl SKESK5 {
                          aead: AEADAlgorithm, s2k: S2K,
                          session_key: &SessionKey, password: &Password)
                          -> Result<Self> {
+        if session_key.len() != cipher.key_size()? {
+            return Err(Error::InvalidArgument(format!(
+                "Invalid size of session key, got {} want {}",
+                session_key.len(), cipher.key_size()?)).into());
+        }
+
         // Derive key and make a cipher.
         let key = s2k.derive_key(password, cipher.key_size()?)?;
         let mut iv = vec![0u8; aead.iv_size()?];
