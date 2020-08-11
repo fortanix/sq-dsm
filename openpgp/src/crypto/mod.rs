@@ -19,15 +19,8 @@
 //!   [`SessionKey::new`]: struct.SessionKey.html#method.new
 //!   [`KeyPair` example]: struct.KeyPair.html#examples
 
-use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::fmt;
-
-use buffered_reader::BufferedReader;
-
-use crate::types::HashAlgorithm;
-use crate::Result;
-use crate::parse::HashingMode;
 
 pub(crate) mod aead;
 mod asymmetric;
@@ -209,77 +202,5 @@ impl Password {
         where F: FnMut(&mem::Protected) -> T
     {
         self.0.map(fun)
-    }
-}
-
-
-/// Hashes the given reader.
-///
-/// This can be used to verify detached signatures.  For a more
-/// convenient method, see [`DetachedVerifier`].
-///
-///  [`DetachedVerifier`]: ../parse/stream/struct.DetachedVerifier.html
-pub fn hash_reader<R: Read>(reader: R, algos: &[HashingMode<HashAlgorithm>])
-    -> Result<Vec<HashingMode<hash::Context>>>
-{
-    let reader
-        = buffered_reader::Generic::with_cookie(
-            reader, None, Default::default());
-    hash_buffered_reader(reader, algos)
-}
-
-/// Hashes the given buffered reader.
-///
-/// This can be used to verify detached signatures.  For a more
-/// convenient method, see [`DetachedVerifier`].
-///
-///  [`DetachedVerifier`]: ../parse/stream/struct.DetachedVerifier.html
-pub(crate) fn hash_buffered_reader<R>(reader: R,
-                                      algos: &[HashingMode<HashAlgorithm>])
-    -> Result<Vec<HashingMode<hash::Context>>>
-    where R: BufferedReader<crate::parse::Cookie>,
-{
-    use std::mem;
-
-    use crate::parse::HashedReader;
-    use crate::parse::HashesFor;
-
-    let mut reader
-        = HashedReader::new(reader, HashesFor::Signature, algos.to_vec());
-
-    // Hash all of the data.
-    reader.drop_eof()?;
-
-    let hashes =
-        mem::replace(&mut reader.cookie_mut().sig_group_mut().hashes,
-                     Default::default());
-    Ok(hashes)
-}
-
-
-#[test]
-fn hash_reader_test() {
-    use std::collections::HashMap;
-
-    let expected: HashMap<HashAlgorithm, &str> = [
-        (HashAlgorithm::SHA1, "7945E3DA269C25C04F9EF435A5C0F25D9662C771"),
-        (HashAlgorithm::SHA512, "DDE60DB05C3958AF1E576CD006A7F3D2C343DD8C8DECE789A15D148DF90E6E0D1454DE734F8343502CA93759F22C8F6221BE35B6BDE9728BD12D289122437CB1"),
-    ].iter().cloned().collect();
-
-    let result =
-        hash_reader(std::io::Cursor::new(crate::tests::manifesto()),
-                    &expected.keys().cloned()
-                    .map(|algo| HashingMode::Binary(algo)).
-                    collect::<Vec<_>>())
-        .unwrap();
-
-    for mut mode in result.into_iter() {
-        let hash = mode.as_mut();
-        let algo = hash.algo();
-        let mut digest = vec![0u8; hash.digest_size()];
-        hash.digest(&mut digest);
-
-        assert_eq!(*expected.get(&algo).unwrap(),
-                   &crate::fmt::to_hex(&digest[..], false));
     }
 }

@@ -6,7 +6,10 @@ use std::fmt;
 use buffered_reader::BufferedReader;
 use buffered_reader::buffered_reader_generic_read_impl;
 
-use crate::HashAlgorithm;
+use crate::{
+    Result,
+    types::HashAlgorithm,
+};
 use crate::parse::{Cookie, HashesFor, Hashing, HashingMode};
 
 const TRACE : bool = false;
@@ -260,6 +263,29 @@ impl<R: BufferedReader<Cookie>>
     }
 }
 
+/// Hashes the given buffered reader.
+///
+/// This can be used to verify detached signatures.  For a more
+/// convenient method, see [`DetachedVerifier`].
+///
+///  [`DetachedVerifier`]: ../parse/stream/struct.DetachedVerifier.html
+pub(crate) fn hash_buffered_reader<R>(reader: R,
+                                      algos: &[HashingMode<HashAlgorithm>])
+    -> Result<Vec<HashingMode<crate::crypto::hash::Context>>>
+    where R: BufferedReader<crate::parse::Cookie>,
+{
+    let mut reader
+        = HashedReader::new(reader, HashesFor::Signature, algos.to_vec());
+
+    // Hash all of the data.
+    reader.drop_eof()?;
+
+    let hashes =
+        mem::replace(&mut reader.cookie_mut().sig_group_mut().hashes,
+                     Default::default());
+    Ok(hashes)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -347,5 +373,40 @@ mod test {
                 "5536758151607BB81CE8D6F49189B2E84763DA9EA84965AB7327E704DAE415EB");
         }
         Ok(())
+    }
+
+    #[test]
+    fn hash_reader_test() {
+        use std::collections::HashMap;
+
+        let expected: HashMap<HashAlgorithm, &str> = [
+            (HashAlgorithm::SHA1, "7945E3DA269C25C04F9EF435A5C0F25D9662C771"),
+            (HashAlgorithm::SHA512, "DDE60DB05C3958AF1E576CD006A7F3D2C343DD8C\
+                                     8DECE789A15D148DF90E6E0D1454DE734F834350\
+                                     2CA93759F22C8F6221BE35B6BDE9728BD12D2891\
+                                     22437CB1"),
+        ].iter().cloned().collect();
+
+        let reader
+            = buffered_reader::Generic::with_cookie(
+                std::io::Cursor::new(crate::tests::manifesto()),
+                None, Default::default());
+        let result =
+            hash_buffered_reader(
+                reader,
+                &expected.keys().cloned()
+                    .map(|algo| HashingMode::Binary(algo)).
+                    collect::<Vec<_>>())
+            .unwrap();
+
+        for mut mode in result.into_iter() {
+            let hash = mode.as_mut();
+            let algo = hash.algo();
+            let mut digest = vec![0u8; hash.digest_size()];
+            hash.digest(&mut digest);
+
+            assert_eq!(*expected.get(&algo).unwrap(),
+                       &crate::fmt::to_hex(&digest[..], false));
+        }
     }
 }
