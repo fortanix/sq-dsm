@@ -23,21 +23,34 @@ use rand::Rng;
 ///
 /// String-to-key (S2K) specifiers are used to convert password
 /// strings into symmetric-key encryption/decryption keys.  See
-/// [Section 3.7 of RFC 4880].
+/// [Section 3.7 of RFC 4880].  This is used to encrypt messages with
+/// a password (see [`SKESK`]), and to protect secret keys (see
+/// [`key::Encrypted`]).
 ///
 ///   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
+///   [`SKESK`]: ../../packet/enum.SKESK.html
+///   [`key::Encrypted`]: ../../packet/key/struct.Encrypted.html
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum S2K {
     /// Simply hashes the password.
+    ///
+    /// This mechanism uses neither iteration to increase the time it
+    /// takes to derive the key from the password nor does it salt the
+    /// password.  This makes dictionary attacks more feasible.  Do
+    /// not use this variant.
     #[deprecated(since = "rfc4880", note = "Use `S2K::Iterated`.")]
     Simple {
         /// Hash used for key derivation.
         hash: HashAlgorithm
     },
     /// Hashes the password with a public `salt` value.
+    ///
+    /// This mechanism does not use iteration to increase the time it
+    /// takes to derive the key from the password.  This makes
+    /// dictionary attacks more feasible.  Do not use this variant.
     #[deprecated(note = "Use `S2K::Iterated`.")]
     Salted {
         /// Hash used for key derivation.
@@ -52,6 +65,12 @@ pub enum S2K {
         /// Public salt value mixed into the password.
         salt: [u8; 8],
         /// Number of bytes to hash.
+        ///
+        /// This parameter increases the workload for an attacker
+        /// doing a dictionary attack.  Note that not all values are
+        /// representable.  See [`S2K::new_iterated`].
+        ///
+        ///   [`S2K::new_iterated`]: #method.new_iterated
         hash_bytes: u32,
     },
     /// Private S2K algorithm
@@ -112,7 +131,7 @@ impl S2K {
         }
     }
 
-    /// Convert the string to a key using the S2K's parameters.
+    /// Derives a key of the given size from a password.
     pub fn derive_key(&self, password: &Password, key_size: usize)
     -> Result<SessionKey> {
         #[allow(deprecated)]
