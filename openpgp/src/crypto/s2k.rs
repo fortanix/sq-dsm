@@ -199,7 +199,7 @@ impl S2K {
     /// The returned value is larger or equal `hash_bytes`, or
     /// `0x3e00000` if `hash_bytes` is larger than or equal
     /// `0x3e00000`.
-    pub fn nearest_hash_count(hash_bytes: usize) -> u32 {
+    fn nearest_hash_count(hash_bytes: usize) -> u32 {
         use std::usize;
 
         match hash_bytes {
@@ -218,7 +218,7 @@ impl S2K {
      }
 
     /// Decodes the OpenPGP encoding of the number of bytes to hash.
-    pub fn decode_count(coded: u8) -> u32 {
+    pub(crate) fn decode_count(coded: u8) -> u32 {
         use std::cmp;
 
         let mantissa = 16 + (coded as u32 & 15);
@@ -235,7 +235,7 @@ impl S2K {
     /// encoded. See also [`S2K::nearest_hash_count()`].
     ///
     /// [`S2K::nearest_hash_count()`]: #method.nearest_hash_count
-    pub fn encode_count(hash_bytes: u32) -> Result<u8> {
+    pub(crate) fn encode_count(hash_bytes: u32) -> Result<u8> {
         // eeee.mmmm -> (16 + mmmm) * 2^(6 + e)
 
         let msb = 32 - hash_bytes.leading_zeros();
