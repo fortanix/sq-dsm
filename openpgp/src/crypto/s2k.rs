@@ -66,25 +66,52 @@ pub enum S2K {
 
 impl Default for S2K {
     fn default() -> Self {
-        let mut salt = [0u8; 8];
-        crate::crypto::random(&mut salt);
-        S2K::Iterated {
+        S2K::new_iterated(
             // SHA2-256, being optimized for implementations on
             // architectures with a word size of 32 bit, has a more
             // consistent runtime across different architectures than
             // SHA2-512.  Furthermore, the digest size is large enough
             // for every cipher algorithm currently in use.
-            hash: HashAlgorithm::SHA256,
-            salt,
+            HashAlgorithm::SHA256,
             // This is the largest count that OpenPGP can represent.
             // On moderate machines, like my Intel(R) Core(TM) i5-2400
             // CPU @ 3.10GHz, it takes ~354ms to derive a key.
-            hash_bytes: 65_011_712,
-        }
+            0x3e00000,
+        ).expect("0x3e00000 is representable")
     }
 }
 
 impl S2K {
+    /// Creates a new iterated `S2K` object.
+    ///
+    /// Usually, you should use `S2K`s [`Default`] implementation to
+    /// create `S2K` objects with sane default parameters.  The
+    /// parameters are chosen with contemporary machines in mind, and
+    /// should also be usable on lower-end devices like smart phones.
+    ///
+    ///   [`Default`]: https://doc.rust-lang.org/std/default/trait.Default.html
+    ///
+    /// Using this method, you can tune the parameters for embedded
+    /// devices.  Note, however, that this also decreases the work
+    /// factor for attackers doing dictionary attacks.
+    pub fn new_iterated(hash: HashAlgorithm, approx_hash_bytes: u32)
+                        -> Result<Self> {
+        if approx_hash_bytes > 0x3e00000 {
+            Err(Error::InvalidArgument(format!(
+                "Number of bytes to hash not representable: {}",
+                approx_hash_bytes)).into())
+        } else {
+            let mut salt = [0u8; 8];
+            crate::crypto::random(&mut salt);
+            Ok(S2K::Iterated {
+                hash,
+                salt,
+                hash_bytes:
+                Self::nearest_hash_count(approx_hash_bytes as usize),
+            })
+        }
+    }
+
     /// Convert the string to a key using the S2K's parameters.
     pub fn derive_key(&self, password: &Password, key_size: usize)
     -> Result<SessionKey> {
