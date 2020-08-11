@@ -29,11 +29,13 @@ use rand::Rng;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum S2K {
     /// Simply hashes the password.
+    #[deprecated(since = "rfc4880", note = "Use `S2K::Iterated`.")]
     Simple {
         /// Hash used for key derivation.
         hash: HashAlgorithm
     },
     /// Hashes the password with a public `salt` value.
+    #[deprecated(note = "Use `S2K::Iterated`.")]
     Salted {
         /// Hash used for key derivation.
         hash: HashAlgorithm,
@@ -79,6 +81,7 @@ impl S2K {
     /// Convert the string to a key using the S2K's parameters.
     pub fn derive_key(&self, password: &Password, key_size: usize)
     -> Result<SessionKey> {
+        #[allow(deprecated)]
         match self {
             &S2K::Simple { hash } | &S2K::Salted { hash, .. }
             | &S2K::Iterated { hash, .. } => password.map(|string| {
@@ -236,6 +239,7 @@ impl S2K {
 
 impl fmt::Display for S2K {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        #[allow(deprecated)]
         match *self {
             S2K::Simple{ hash } =>
                 f.write_fmt(format_args!("Simple S2K with {}", hash)),
@@ -267,6 +271,7 @@ impl fmt::Display for S2K {
 #[cfg(any(test, feature = "quickcheck"))]
 impl Arbitrary for S2K {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        #[allow(deprecated)]
         match g.gen_range(0, 5) {
             0 => S2K::Simple{ hash: HashAlgorithm::arbitrary(g) },
             1 => S2K::Salted{
@@ -312,6 +317,7 @@ mod tests {
         // SK-ESK packet when invoked with -c, but not -e.  (When
         // invoked with -c and -e, it generates SK-ESK packets that
         // include an encrypted session key.)
+        #[allow(deprecated)]
         let tests = [
             Test {
                 filename: "mode-0-password-1234.gpg",

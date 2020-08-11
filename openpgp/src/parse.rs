@@ -1058,6 +1058,7 @@ impl S2K {
     fn parse<T: BufferedReader<Cookie>>(php: &mut PacketHeaderParser<T>) -> Result<Self>
     {
         let s2k = php.parse_u8("s2k_type")?;
+        #[allow(deprecated)]
         let ret = match s2k {
             0 => S2K::Simple {
                 hash: HashAlgorithm::from(php.parse_u8("s2k_hash_algo")?),

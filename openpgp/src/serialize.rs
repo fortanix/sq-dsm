@@ -1240,6 +1240,7 @@ impl MarshalInto for crypto::mpi::Signature {
 
 impl Marshal for S2K {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
+        #[allow(deprecated)]
         match self {
             &S2K::Simple{ hash } => {
                 w.write_all(&[0, hash.into()])?;
@@ -1264,6 +1265,7 @@ impl Marshal for S2K {
 
 impl MarshalInto for S2K {
     fn serialized_len(&self) -> usize {
+        #[allow(deprecated)]
         match self {
             &S2K::Simple{ .. } => 2,
             &S2K::Salted{ .. } => 2 + 8,

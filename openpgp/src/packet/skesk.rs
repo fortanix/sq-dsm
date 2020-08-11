@@ -191,6 +191,7 @@ impl SKESK4 {
         } else {
             // No ESK, we return the derived key.
 
+            #[allow(deprecated)]
             match self.s2k {
                 S2K::Simple{ .. } =>
                     Err(Error::InvalidOperation(

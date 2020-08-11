@@ -865,6 +865,7 @@ impl PacketDumper {
     fn dump_s2k(&self, output: &mut dyn io::Write, i: &str, s2k: &S2K)
                 -> Result<()> {
         use self::S2K::*;
+        #[allow(deprecated)]
         match s2k {
             Simple { hash } => {
                 writeln!(output, "Simple")?;

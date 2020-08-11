@@ -1053,6 +1053,7 @@ mod tests {
         // => bad.
         let mut packets : Vec<Packet> = Vec::new();
         let sk = crate::crypto::SessionKey::new(8);
+        #[allow(deprecated)]
         packets.push(SKESK4::with_password(
             SymmetricAlgorithm::AES256,
             S2K::Simple { hash: HashAlgorithm::SHA256 },
