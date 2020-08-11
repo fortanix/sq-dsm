@@ -720,7 +720,7 @@ pub(crate) struct SignatureGroup {
 ///
 /// OpenPGP normalizes line endings when signing or verifying text
 /// signatures.
-pub enum HashingMode<T> {
+pub(crate) enum HashingMode<T> {
     /// Hash for a binary signature.
     ///
     /// The data is hashed as-is.
