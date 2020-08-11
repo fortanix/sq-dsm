@@ -26,6 +26,9 @@ use rand::Rng;
 /// [Section 3.7 of RFC 4880].
 ///
 ///   [Section 3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.7
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum S2K {
     /// Simply hashes the password.
@@ -55,6 +58,10 @@ pub enum S2K {
     Private(u8),
     /// Unknown S2K algorithm
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for S2K {
@@ -141,6 +148,7 @@ impl S2K {
                             }
                         }
                         &S2K::Unknown(_) | &S2K::Private(_) => unreachable!(),
+                        S2K::__Nonexhaustive => unreachable!(),
                     }
 
                     hash.digest(data);
@@ -152,6 +160,7 @@ impl S2K {
             &S2K::Unknown(u) | &S2K::Private(u) =>
                 Err(Error::MalformedPacket(
                         format!("Unknown S2K type {:#x}", u)).into()),
+            S2K::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -264,6 +273,7 @@ impl fmt::Display for S2K {
             S2K::Private(u) =>
                 f.write_fmt(format_args!("Private/Experimental S2K {}", u)),
             S2K::Unknown(u) => f.write_fmt(format_args!("Unknown S2K {}", u)),
+            S2K::__Nonexhaustive => unreachable!(),
         }
     }
 }

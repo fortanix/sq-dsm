@@ -886,6 +886,7 @@ impl PacketDumper {
                 writeln!(output, "Private({})", n)?,
             Unknown(n) =>
                 writeln!(output, "Unknown({})", n)?,
+            __Nonexhaustive => unreachable!(),
         }
         Ok(())
     }

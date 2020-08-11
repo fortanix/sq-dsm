@@ -1257,6 +1257,7 @@ impl Marshal for S2K {
             &S2K::Private(s2k) | &S2K::Unknown(s2k) => {
                 w.write_all(&[s2k])?;
             }
+            S2K::__Nonexhaustive => unreachable!(),
         }
 
         Ok(())
@@ -1271,6 +1272,7 @@ impl MarshalInto for S2K {
             &S2K::Salted{ .. } => 2 + 8,
             &S2K::Iterated{ .. } => 2 + 8 + 1,
             &S2K::Private(_) | &S2K::Unknown(_) => 1,
+            S2K::__Nonexhaustive => unreachable!(),
         }
     }
 
