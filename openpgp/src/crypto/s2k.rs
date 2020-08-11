@@ -489,11 +489,11 @@ mod tests {
     }
 
     quickcheck!{
-        fn s2k_coded_count_approx(i: usize) -> bool {
-            let approx = S2K::nearest_hash_count(i);
+        fn s2k_coded_count_approx(i: u32) -> bool {
+            let approx = S2K::nearest_hash_count(i as usize);
             let cc = S2K::encode_count(approx).unwrap();
 
-            (approx as usize >= i || i > 0x3e00000) && S2K::decode_count(cc) == approx
+            (approx >= i || i > 0x3e00000) && S2K::decode_count(cc) == approx
         }
     }
 }
