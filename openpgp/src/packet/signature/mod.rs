@@ -137,14 +137,71 @@ impl SignatureFields {
     }
 }
 
-/// Builds a signature packet.
+/// A [`Signature`] builder.
 ///
-/// This is the mutable version of a `Signature4` packet.  To convert
-/// it to one, use [`sign_hash`], [`sign_message`],
+/// The `SignatureBuilder` is used to create signatures.  Although it
+/// can be used to generate a signature over a document (using
+/// [`SignatureBuilder::sign_message`]), it is usually better to use
+/// the [streaming `Signer`] for that.
+///
+///   [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+///   [`SignatureBuilder::sign_message`]: #method.sign_message
+///
+/// Oftentimes, you won't want to create a new signature from scratch,
+/// but modify a copy of an existing signature.  This is
+/// straightforward to do since `SignatureBuilder` implements [`From`]
+/// for [`Signature`].
+///
+///   [`From`]: https://doc.rust-lang.org/stable/std/convert/trait.From.html
+///   [`Signature`]: ../enum.Signature.html
+///
+/// According to [Section 5.2.3.4 of RFC 4880], `Signatures` must
+/// include a [`Signature Creation Time`] subpacket.  Since this should
+/// usually be set to the current time, and is easy to forget to
+/// update, we remove any `Signature Creation Time` subpackets from
+/// both the hashed subpacket area and the unhashed subpacket area
+/// when converting a `Signature` to a `SignatureBuilder`, and when the
+/// `SignatureBuilder` is finalized, we automatically insert a
+/// `Signature Creation Time` subpacket with the current time into the
+/// hashed subpacket area unless the `Signature Creation Time`
+/// subpacket has been set using the [`set_signature_creation_time`]
+/// method or the [`preserve_signature_creation_time`] method or
+/// suppressed using the [`suppress_signature_creation_time`] method.
+///
+///   [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+///   [`set_signature_creation_time`]: #method.set_signature_creation_time
+///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
+///   [`suppress_signature_creation_time`]: #method.suppress_signature_creation_time
+///
+/// Similarly, most OpenPGP implementations cannot verify a signature
+/// if neither the [`Issuer`] subpacket nor the [`Issuer Fingerprint`]
+/// subpacket has been correctly set.  To avoid subtle bugs due to the
+/// use of a stale `Issuer` subpacket or a stale `Issuer Fingerprint`
+/// subpacket, we remove any `Issuer` subpackets, and `Issuer
+/// Fingerprint` subpackets from both the hashed and unhashed areas
+/// when converting a `Signature` to a `SigantureBuilder`.  Since the
+/// [`Signer`] passed to the finalization routine contains the
+/// required information, we also automatically add appropriate
+/// `Issuer` and `IssuerFingerprint` subpackets to the unhashed
+/// subpacket area when the `SignatureBuilder` is finalized unless an
+/// `Issuer` subpacket or an `IssuerFingerprint` subpacket has been
+/// added to either of the subpacket areas (which can be done using
+/// the [`set_issuer`] method and the [`set_issuer_fingerprint`]
+/// method, respectively).
+///
+///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+///   [`Signer`]: ../../crypto/trait.Signer.html
+///   [`set_issuer`]: #method.set_issuer
+///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+///
+/// To finalize the builder, call [`sign_hash`], [`sign_message`],
 /// [`sign_direct_key`], [`sign_subkey_binding`],
 /// [`sign_primary_key_binding`], [`sign_userid_binding`],
 /// [`sign_user_attribute_binding`], [`sign_standalone`], or
-/// [`sign_timestamp`],
+/// [`sign_timestamp`], as appropriate.  These functions turn the
+/// `SignatureBuilder` into a valid `Signature`.
 ///
 ///   [`sign_hash`]: #method.sign_hash
 ///   [`sign_message`]: #method.sign_message
@@ -156,33 +213,75 @@ impl SignatureFields {
 ///   [`sign_standalone`]: #method.sign_standalone
 ///   [`sign_timestamp`]: #method.sign_timestamp
 ///
-/// When finalizing the `SignatureBuilder`, an [`Issuer`] subpacket
-/// and an [`IssuerFingerprint`] subpacket referencing the signing key
-/// are added to the unhashed subpacket area if neither an [`Issuer`]
-/// subpacket nor an [`IssuerFingerprint`] subpacket is present in
-/// either of the subpacket areas.  Note: when converting a
-/// `Signature` to a `SignatureBuilder`, any [`Issuer`] subpackets or
-/// [`IssuerFingerprint`] subpackets are removed.  Caution: using the
-/// wrong issuer, or not including an issuer at all will make the
-/// signature unverifiable by most OpenPGP implementations.
+/// This structure `Deref`s to its containing [`SignatureFields`]
+/// structure, which in turn `Deref`s to its subpacket areas
+/// ([`SubpacketAreas`]), which in turn `Deref`s to its hashed area (a
+/// [`SubpacketArea`]).
 ///
-///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-///   [`IssuerFingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-///   [`set_issuer`]: #method.set_issuer
-///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
+///   [`SignatureFields`]: struct.SignatureFields.html
+///   [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
+///   [`SubpacketArea`]: subpacket/struct.SubpacketArea.html
 ///
-/// According to [Section 5.2.3.4 of RFC 4880], `Signatures` must
-/// include a `Signature Creation Time` subpacket.  When finalizing a
-/// `SignatureBuilder`, we automatically insert a creation time
-/// subpacket with the current time into the hashed subpacket area.
-/// To override this behavior, use [`set_signature_creation_time`].
-/// Note: when converting an existing `Signature` into a
-/// `SignatureBuilder`, any existing `Signature Creation Time`
-/// subpackets are removed.
+/// # Examples
 ///
-///   [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-///   [`set_signature_creation_time`]: #method.set_signature_creation_time
+/// Update a certificate's feature set by updating the `Features`
+/// subpacket on any direct key signature, and any User ID binding
+/// signatures.  See the [`Preferences`] trait for how preferences
+/// like these are looked up.
 ///
+/// [`Preferences`]: ../../cert/trait.Preferences.html
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+/// use openpgp::packet::prelude::*;
+/// use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
+/// use openpgp::policy::StandardPolicy;
+/// use openpgp::types::Features;
+///
+/// # fn main() -> openpgp::Result<()> {
+/// let p = &StandardPolicy::new();
+///
+/// let (cert, _) = CertBuilder::new().add_userid("Alice").generate()?;
+///
+/// // Derive a signer (the primary key is always certification capable).
+/// let pk = cert.primary_key().key();
+/// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+///
+/// let mut sigs = Vec::new();
+///
+/// let vc = cert.with_policy(p, None)?;
+///
+/// if let Ok(sig) = vc.direct_key_signature() {
+///     sigs.push(SignatureBuilder::from(sig.clone())
+///         .modify_hashed_area(|mut a| {
+///             a.replace(Subpacket::new(
+///                 SubpacketValue::Features(Features::sequoia().set(10)),
+///                 false)?)?;
+///             Ok(a)
+///         })?
+///         // Update the direct key signature.
+///         .sign_direct_key(&mut signer, pk)?);
+/// }
+///
+/// for ua in vc.userids() {
+///     sigs.push(SignatureBuilder::from(ua.binding_signature().clone())
+///         .modify_hashed_area(|mut a| {
+///             a.replace(Subpacket::new(
+///                 SubpacketValue::Features(Features::sequoia().set(10)),
+///                 false)?)?;
+///             Ok(a)
+///         })?
+///         // Update the binding signature.
+///         .sign_userid_binding(&mut signer, pk, ua.userid())?);
+/// }
+///
+/// // Merge in the new signatures.
+/// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+/// # assert_eq!(cert.bad_signatures().len(), 0);
+/// # Ok(())
+/// # }
+/// ```
 // IMPORTANT: If you add fields to this struct, you need to explicitly
 // IMPORTANT: implement PartialEq, Eq, and Hash.
 #[derive(Clone, Hash, PartialEq, Eq)]
