@@ -1409,8 +1409,8 @@ impl Encrypted {
     }
 
     /// Returns the encrypted secret key material.
-    pub fn ciphertext(&self) -> &[u8] {
-        &self.ciphertext
+    pub fn ciphertext(&self) -> Result<&[u8]> {
+        Ok(&self.ciphertext)
     }
 
     /// Decrypts the secret key material using `password`.

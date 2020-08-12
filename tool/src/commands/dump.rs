@@ -440,8 +440,10 @@ impl PacketDumper {
                         writeln!(output, "{}  Sym. algo: {}", ii,
                                  e.algo())?;
                         if pd.mpis {
-                            pd.dump_mpis(output, &ii, &[e.ciphertext()],
-                                         &["ciphertext"])?;
+                            if let Ok(ciphertext) = e.ciphertext() {
+                                pd.dump_mpis(output, &ii, &[ciphertext],
+                                             &["ciphertext"])?;
+                            }
                         }
                     },
                 }
