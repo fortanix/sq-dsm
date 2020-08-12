@@ -1255,26 +1255,20 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Regular Expression subpacket.
+    /// Returns the value of any Regular Expression subpackets.
     ///
     /// Note: the serialized form includes a trailing NUL byte.  This
     /// returns the value without the trailing NUL.
     ///
-    /// If the subpacket is not present, this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
-    pub fn regular_expression(&self) -> Option<&[u8]> {
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::RegularExpression) {
-            if let SubpacketValue::RegularExpression(ref v) = sb.value {
-                Some(v)
-            } else {
-                None
+    /// This returns all instances of the Regular Expression subpacket
+    /// in the hashed subpacket area.
+    pub fn regular_expressions(&self) -> impl Iterator<Item=&[u8]> {
+        self.subpackets(SubpacketTag::RegularExpression).map(|sb| {
+            match sb.value {
+                SubpacketValue::RegularExpression(ref v) => &v[..],
+                _ => unreachable!(),
             }
-        } else {
-            None
-        }
+        })
     }
 
     /// Returns the value of the Revocable subpacket, which indicates
@@ -5098,7 +5092,8 @@ fn accessors() {
     sig = sig.set_regular_expression(b"foobar").unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.regular_expression(), Some(&b"foobar"[..]));
+    assert_eq!(sig_.regular_expressions().collect::<Vec<&[u8]>>(),
+               vec![ &b"foobar"[..] ]);
 
     sig = sig.set_revocable(true).unwrap();
     let sig_ =
@@ -5789,7 +5784,8 @@ fn subpacket_test_2() {
 
         // Note: our parser strips the trailing NUL.
         let regex = &b"<[^>]+[@.]navy\\.mil>$"[..];
-        assert_eq!(sig.regular_expression(), Some(regex));
+        assert_eq!(sig.regular_expressions().collect::<Vec<&[u8]>>(),
+                   vec![ regex ]);
         assert_eq!(sig.subpacket(SubpacketTag::RegularExpression),
                    Some(&Subpacket {
                        length: 23.into(),
