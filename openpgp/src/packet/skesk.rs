@@ -160,8 +160,8 @@ impl SKESK4 {
     }
 
     /// Gets the encrypted session key.
-    pub fn esk(&self) -> Option<&[u8]> {
-        self.esk.as_ref().map(|esk| &esk[..])
+    pub fn esk(&self) -> Result<Option<&[u8]>> {
+        Ok(self.esk.as_ref().map(|esk| &esk[..]))
     }
 
     /// Sets the encrypted session key.
@@ -359,7 +359,7 @@ impl SKESK5 {
         let key = self.s2k().derive_key(password,
                                         self.symmetric_algo().key_size()?)?;
 
-        if let Some(ref esk) = self.esk() {
+        if let Some(ref esk) = self.esk()? {
             // Use the derived key to decrypt the ESK.
             let mut cipher = self.aead_algo.context(
                 self.symmetric_algo(), &key, &self.aead_iv)?;
@@ -394,8 +394,8 @@ impl SKESK5 {
     }
 
     /// Gets the AEAD initialization vector.
-    pub fn aead_iv(&self) -> &[u8] {
-        &self.aead_iv
+    pub fn aead_iv(&self) -> Result<&[u8]> {
+        Ok(&self.aead_iv)
     }
 
     /// Sets the AEAD initialization vector.

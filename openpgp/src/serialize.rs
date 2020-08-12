@@ -2313,7 +2313,7 @@ impl Marshal for SKESK4 {
         write_byte(o, 4)?; // Version.
         write_byte(o, self.symmetric_algo().into())?;
         self.s2k().serialize(o)?;
-        if let Some(ref esk) = self.esk() {
+        if let Some(ref esk) = self.esk()? {
             o.write_all(&esk[..])?;
         }
 
@@ -2326,7 +2326,7 @@ impl NetLength for SKESK4 {
         1 // Version.
             + 1 // Algo.
             + self.s2k().serialized_len()
-            + self.esk().map(|esk| esk.len()).unwrap_or(0)
+            + self.esk().unwrap().map(|esk| esk.len()).unwrap_or(0)
     }
 }
 
@@ -2346,8 +2346,8 @@ impl Marshal for SKESK5 {
         write_byte(o, self.symmetric_algo().into())?;
         write_byte(o, self.aead_algo().into())?;
         self.s2k().serialize(o)?;
-        o.write_all(self.aead_iv())?;
-        if let Some(ref esk) = self.esk() {
+        o.write_all(self.aead_iv()?)?;
+        if let Some(ref esk) = self.esk()? {
             o.write_all(&esk[..])?;
         }
         o.write_all(self.aead_digest())?;
@@ -2362,8 +2362,8 @@ impl NetLength for SKESK5 {
             + 1 // Cipher algo.
             + 1 // AEAD algo.
             + self.s2k().serialized_len()
-            + self.aead_iv().len()
-            + self.esk().map(|esk| esk.len()).unwrap_or(0)
+            + self.aead_iv().unwrap().len()
+            + self.esk().unwrap().map(|esk| esk.len()).unwrap_or(0)
             + self.aead_digest().len()
     }
 }
