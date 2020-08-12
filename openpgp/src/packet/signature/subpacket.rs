@@ -1143,7 +1143,9 @@ impl SubpacketArea {
                   -> impl Iterator<Item = &Subpacket> {
         self.iter().filter(move |sp| sp.tag() == target)
     }
+}
 
+impl SubpacketAreas {
     /// Returns the value of the Creation Time subpacket, which
     /// contains the time when the signature was created as a unix
     /// timestamp.
@@ -1852,7 +1854,7 @@ impl SubpacketAreas {
 
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<&Subpacket> {
-        if let Some(sb) = self.hashed_area().lookup(tag) {
+        if let Some(sb) = self.hashed_area().subpacket(tag) {
             return Some(sb);
         }
 
@@ -1865,7 +1867,7 @@ impl SubpacketAreas {
             return None;
         }
 
-        self.unhashed_area().lookup(tag)
+        self.unhashed_area().subpacket(tag)
     }
 
 
@@ -2012,76 +2014,6 @@ impl SubpacketAreas {
             _ if key.creation_time() > t =>
                 Err(Error::NotYetLive(key.creation_time()).into()),
             _ => Ok(()),
-        }
-    }
-
-    /// Returns the value of the Issuer subpacket, which contains the
-    /// KeyID of the key that allegedly created this signature.
-    ///
-    /// If the subpacket is not present, this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
-    pub fn issuer(&self) -> Option<&KeyID> {
-        // 8-octet Key ID
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::Issuer) {
-            if let SubpacketValue::Issuer(v) = &sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Returns the value of the Embedded Signature subpacket, which
-    /// contains a signature.
-    ///
-    /// This is used, for instance, to store a subkey's primary key
-    /// binding signature (0x19).
-    ///
-    /// If the subpacket is not present, this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
-    pub fn embedded_signature(&self) -> Option<&Signature> {
-        // 1 signature packet body
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::EmbeddedSignature) {
-            if let SubpacketValue::EmbeddedSignature(v) = &sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Returns the value of the Issuer Fingerprint subpacket, which
-    /// contains the fingerprint of the key that allegedly created
-    /// this signature.
-    ///
-    /// This subpacket should be preferred to the Issuer subpacket,
-    /// because Fingerprints are not subject to collisions.
-    ///
-    /// If the subpacket is not present, this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
-    pub fn issuer_fingerprint(&self) -> Option<&Fingerprint> {
-        // 1 octet key version number, N octets of fingerprint
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::IssuerFingerprint) {
-            if let SubpacketValue::IssuerFingerprint(v) = &sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
         }
     }
 }
