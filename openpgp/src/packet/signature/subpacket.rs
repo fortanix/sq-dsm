@@ -1403,16 +1403,21 @@ impl SubpacketAreas {
 
     /// Returns the value of all Notation Data subpackets with the
     /// given name.
-    pub fn notation<N>(&self, name: N) -> Vec<&[u8]>
-        where N: AsRef<str>
+    ///
+    /// This function only considers Notation Data subpackets in the
+    /// hashed area.
+    // name needs 'a, because the closure outlives the function call.
+    pub fn notation<'a, N>(&'a self, name: N) -> impl Iterator<Item=&'a [u8]>
+        where N: 'a + AsRef<str>
     {
-        self.hashed_area().subpackets(SubpacketTag::NotationData)
-            .into_iter().filter_map(|s| match s.value {
-                SubpacketValue::NotationData(ref v)
-                    if v.name == name.as_ref() => Some(&v.value[..]),
-                _ => None,
+        self.notation_data()
+            .filter_map(move |n| {
+                if n.name == name.as_ref() {
+                    Some(&n.value[..])
+                } else {
+                    None
+                }
             })
-            .collect()
     }
 
     /// Returns the value of the Preferred Hash Algorithms subpacket,
@@ -5255,20 +5260,22 @@ fn accessors() {
         .unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.notation("test@example.org"), vec![&[0, 1, 2]]);
+    assert_eq!(sig_.notation("test@example.org").collect::<Vec<&[u8]>>(),
+               vec![&[0, 1, 2]]);
 
     sig = sig.add_notation("test@example.org", &[3, 4, 5], None, false)
         .unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.notation("test@example.org"), vec![&[0, 1, 2],
-                                                       &[3, 4, 5]]);
+    assert_eq!(sig_.notation("test@example.org").collect::<Vec<&[u8]>>(),
+               vec![&[0, 1, 2], &[3, 4, 5]]);
 
     sig = sig.set_notation("test@example.org", &[6, 7, 8], None, false)
         .unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.notation("test@example.org"), vec![&[6, 7, 8]]);
+    assert_eq!(sig_.notation("test@example.org").collect::<Vec<&[u8]>>(),
+               vec![&[6, 7, 8]]);
 }
 
 #[cfg(feature = "compression-deflate")]
