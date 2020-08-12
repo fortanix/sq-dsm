@@ -1454,7 +1454,7 @@ pub struct Signature4 {
     /// Fields as configured using the SignatureBuilder.
     pub(crate) fields: SignatureFields,
 
-    /// Lower 16 bits of the signed hash value.
+    /// Upper 16 bits of the signed hash value.
     digest_prefix: [u8; 2],
     /// Signature MPIs.
     mpis: mpi::Signature,
