@@ -2635,8 +2635,16 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     error: err,
                                 }
                             } else if self.identity.as_ref().map(|identity| {
-                                let ir = sig.intended_recipients();
-                                ! ir.is_empty() && ! ir.contains(identity)
+                                let (have_one, contains_identity) =
+                                    sig.intended_recipients()
+                                        .fold((false, false),
+                                              |(_, contains_one), ir| {
+                                                  (
+                                                      true,
+                                                      contains_one || identity == ir
+                                                  )
+                                              });
+                                have_one && ! contains_identity
                             }).unwrap_or(false) {
                                 // The signature contains intended
                                 // recipients, but we are not one.

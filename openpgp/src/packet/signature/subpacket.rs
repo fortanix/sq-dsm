@@ -1733,11 +1733,14 @@ impl SubpacketAreas {
     }
 
     /// Returns the intended recipients.
-    pub fn intended_recipients(&self) -> Vec<Fingerprint> {
-        self.hashed_area().iter().filter_map(|sp| match sp.value() {
-            SubpacketValue::IntendedRecipient(fp) => Some(fp.clone()),
-            _ => None,
-        }).collect()
+    pub fn intended_recipients(&self) -> impl Iterator<Item=&Fingerprint> {
+        self.subpackets(SubpacketTag::IntendedRecipient)
+            .map(|sb| {
+                match sb.value() {
+                    SubpacketValue::IntendedRecipient(ref fp) => fp,
+                    _ => unreachable!(),
+                }
+            })
     }
 }
 
@@ -4926,7 +4929,7 @@ impl signature::SignatureBuilder {
     ///     .set_intended_recipients(&[ bob.fingerprint(), carol.fingerprint() ])?
     ///     .sign_message(&mut alices_signer, msg)?;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
-    /// # assert_eq!(sig.intended_recipients().iter().count(), 2);
+    /// # assert_eq!(sig.intended_recipients().count(), 2);
     /// # Ok(()) }
     /// ```
     pub fn set_intended_recipients<T>(mut self, recipients: T)
@@ -5011,7 +5014,7 @@ impl signature::SignatureBuilder {
     ///     .add_intended_recipient(carol.fingerprint())?
     ///     .sign_message(&mut alices_signer, msg)?;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
-    /// # assert_eq!(sig.intended_recipients().iter().count(), 2);
+    /// # assert_eq!(sig.intended_recipients().count(), 2);
     /// # Ok(()) }
     /// ```
     pub fn add_intended_recipient(mut self, recipient: Fingerprint)
@@ -5248,7 +5251,8 @@ fn accessors() {
     sig = sig.set_intended_recipients(fps.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.intended_recipients(), fps);
+    assert_eq!(sig_.intended_recipients().collect::<Vec<&Fingerprint>>(),
+               fps.iter().collect::<Vec<&Fingerprint>>());
 
     sig = sig.set_notation("test@example.org", &[0, 1, 2], None, false)
         .unwrap();
