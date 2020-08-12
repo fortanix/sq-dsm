@@ -127,9 +127,9 @@ impl SKESK4 {
         let mut iv = vec![0u8; block_size];
 
         // We need to prefix the cipher specifier to the session key.
-        let mut psk = Vec::with_capacity(1 + session_key.len());
-        psk.push(payload_algo.into());
-        psk.extend_from_slice(session_key);
+        let mut psk: SessionKey = vec![0; 1 + session_key.len()].into();
+        psk[0] = payload_algo.into();
+        psk[1..].copy_from_slice(&session_key);
         let mut esk = vec![0u8; psk.len()];
 
         for (pt, ct) in psk[..].chunks(block_size)
@@ -189,7 +189,7 @@ impl SKESK4 {
             let blk_sz = self.sym_algo.block_size()?;
             let mut iv = vec![0u8; blk_sz];
             let mut dec  = self.sym_algo.make_decrypt_cfb(&key[..])?;
-            let mut plain = vec![0u8; esk.len()];
+            let mut plain: SessionKey = vec![0u8; esk.len()].into();
             let cipher = &esk[..];
 
             for (pl, ct)
@@ -198,13 +198,9 @@ impl SKESK4 {
                 dec.decrypt(&mut iv[..], pl, ct)?;
             }
 
-            // Get the algorithm from the front.  While doing that,
-            // push and pop a value to overwrite the position formerly
-            // occupied by last byte of the session key.
-            plain.push(0);
-            let sym = SymmetricAlgorithm::from(plain.remove(0));
-            plain.pop();
-            Ok((sym, plain.into()))
+            // Get the algorithm from the front.
+            let sym = SymmetricAlgorithm::from(plain[0]);
+            Ok((sym, plain[1..].into()))
         } else {
             // No ESK, we return the derived key.
 
@@ -365,10 +361,9 @@ impl SKESK5 {
             let ad = [0xc3, 5 /* Version.  */, self.symmetric_algo().into(),
                       self.aead_algo.into()];
             cipher.update(&ad);
-            let mut plain = vec![0; esk.len()];
+            let mut plain: SessionKey = vec![0; esk.len()].into();
             let mut digest = vec![0; self.aead_algo.digest_size()?];
             cipher.decrypt(&mut plain, esk);
-            let plain = SessionKey::from(plain);
             cipher.digest(&mut digest);
             if &digest[..] == &self.aead_digest[..] {
                 Ok((self.symmetric_algo(), plain))
