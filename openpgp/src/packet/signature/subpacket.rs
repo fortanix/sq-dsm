@@ -1350,16 +1350,15 @@ impl SubpacketAreas {
     ///
     /// Note: if the signature contains multiple instances of this
     /// subpacket, only the last one is considered.
-    pub fn revocation_keys(&self)
-                           -> impl Iterator<Item = &RevocationKey>
+    pub fn revocation_keys(&self) -> impl Iterator<Item=&RevocationKey>
     {
-        self.hashed_area().subpackets(SubpacketTag::RevocationKey).filter_map(|sb| {
-            if let SubpacketValue::RevocationKey(rk) = &sb.value {
-                Some(rk)
-            } else {
-                None
-            }
-        })
+        self.subpackets(SubpacketTag::RevocationKey)
+            .map(|sb| {
+                match sb.value {
+                    SubpacketValue::RevocationKey(ref rk) => rk,
+                    _ => unreachable!(),
+                }
+            })
     }
 
     /// Returns the value of any Issuer subpackets.
