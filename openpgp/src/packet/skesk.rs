@@ -97,27 +97,38 @@ impl SKESK4 {
 
     /// Creates a new SKESK4 packet with the given password.
     ///
-    /// The given symmetric algorithm must match the algorithm that is
-    /// used to encrypt the payload, and is also used to encrypt the
-    /// given session key.
-    pub fn with_password(algo: SymmetricAlgorithm, s2k: S2K,
+    /// This function takes two [`SymmetricAlgorithm`] arguments: The
+    /// first, `payload_algo`, is the algorithm used to encrypt the
+    /// message's payload (i.e. the one used in the [`SEIP`] or
+    /// [`AED`] packet), and the second, `esk_algo`, is used to
+    /// encrypt the session key.  Usually, one should use the same
+    /// algorithm, but if they differ, the `esk_algo` should be at
+    /// least as strong as the `payload_algo` as not to weaken the
+    /// security of the payload encryption.
+    ///
+    ///   [`SymmetricAlgorithm`]: ../../types/enum.SymmetricAlgorithm.html
+    ///   [`SEIP`]: ../enum.SEIP.html
+    ///   [`AED`]: ../enum.AED.html
+    pub fn with_password(payload_algo: SymmetricAlgorithm,
+                         esk_algo: SymmetricAlgorithm,
+                         s2k: S2K,
                          session_key: &SessionKey, password: &Password)
                          -> Result<SKESK4> {
-        if session_key.len() != algo.key_size()? {
+        if session_key.len() != payload_algo.key_size()? {
             return Err(Error::InvalidArgument(format!(
                 "Invalid size of session key, got {} want {}",
-                session_key.len(), algo.key_size()?)).into());
+                session_key.len(), payload_algo.key_size()?)).into());
         }
 
         // Derive key and make a cipher.
-        let key = s2k.derive_key(password, algo.key_size()?)?;
-        let mut cipher = algo.make_encrypt_cfb(&key[..])?;
-        let block_size = algo.block_size()?;
+        let key = s2k.derive_key(password, esk_algo.key_size()?)?;
+        let mut cipher = esk_algo.make_encrypt_cfb(&key[..])?;
+        let block_size = esk_algo.block_size()?;
         let mut iv = vec![0u8; block_size];
 
         // We need to prefix the cipher specifier to the session key.
         let mut psk = Vec::with_capacity(1 + session_key.len());
-        psk.push(algo.into());
+        psk.push(payload_algo.into());
         psk.extend_from_slice(session_key);
         let mut esk = vec![0u8; psk.len()];
 
@@ -126,7 +137,7 @@ impl SKESK4 {
                 cipher.encrypt(&mut iv[..], ct, pt)?;
         }
 
-        SKESK4::new(algo, s2k, Some(esk))
+        SKESK4::new(esk_algo, s2k, Some(esk))
     }
 
     /// Gets the symmetric encryption algorithm.
@@ -292,24 +303,38 @@ impl SKESK5 {
     }
 
     /// Creates a new SKESK version 5 packet with the given password.
-    pub fn with_password(cipher: SymmetricAlgorithm,
-                         aead: AEADAlgorithm, s2k: S2K,
+    ///
+    /// This function takes two [`SymmetricAlgorithm`] arguments: The
+    /// first, `payload_algo`, is the algorithm used to encrypt the
+    /// message's payload (i.e. the one used in the [`SEIP`] or
+    /// [`AED`] packet), and the second, `esk_algo`, is used to
+    /// encrypt the session key.  Usually, one should use the same
+    /// algorithm, but if they differ, the `esk_algo` should be at
+    /// least as strong as the `payload_algo` as not to weaken the
+    /// security of the payload encryption.
+    ///
+    ///   [`SymmetricAlgorithm`]: ../../types/enum.SymmetricAlgorithm.html
+    ///   [`SEIP`]: ../enum.SEIP.html
+    ///   [`AED`]: ../enum.AED.html
+    pub fn with_password(payload_algo: SymmetricAlgorithm,
+                         esk_algo: SymmetricAlgorithm,
+                         esk_aead: AEADAlgorithm, s2k: S2K,
                          session_key: &SessionKey, password: &Password)
                          -> Result<Self> {
-        if session_key.len() != cipher.key_size()? {
+        if session_key.len() != payload_algo.key_size()? {
             return Err(Error::InvalidArgument(format!(
                 "Invalid size of session key, got {} want {}",
-                session_key.len(), cipher.key_size()?)).into());
+                session_key.len(), payload_algo.key_size()?)).into());
         }
 
         // Derive key and make a cipher.
-        let key = s2k.derive_key(password, cipher.key_size()?)?;
-        let mut iv = vec![0u8; aead.iv_size()?];
+        let key = s2k.derive_key(password, esk_algo.key_size()?)?;
+        let mut iv = vec![0u8; esk_aead.iv_size()?];
         crypto::random(&mut iv);
-        let mut ctx = aead.context(cipher, &key, &iv)?;
+        let mut ctx = esk_aead.context(esk_algo, &key, &iv)?;
 
         // Prepare associated data.
-        let ad = [0xc3, 5, cipher.into(), aead.into()];
+        let ad = [0xc3, 5, esk_algo.into(), esk_aead.into()];
         ctx.update(&ad);
 
         // We need to prefix the cipher specifier to the session key.
@@ -317,10 +342,10 @@ impl SKESK5 {
         ctx.encrypt(&mut esk, &session_key);
 
         // Digest.
-        let mut digest = vec![0u8; aead.digest_size()?];
+        let mut digest = vec![0u8; esk_aead.digest_size()?];
         ctx.digest(&mut digest);
 
-        SKESK5::new(cipher, aead, s2k, iv.into_boxed_slice(), esk,
+        SKESK5::new(esk_algo, esk_aead, s2k, iv.into_boxed_slice(), esk,
                     digest.into_boxed_slice())
     }
 

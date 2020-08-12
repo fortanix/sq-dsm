@@ -2523,12 +2523,15 @@ impl<'a> Encryptor<'a> {
         // Write the SKESK packet(s).
         for password in self.passwords.iter() {
             if let Some(aead) = aead.as_ref() {
-                let skesk = SKESK5::with_password(self.sym_algo, aead.algo,
+                let skesk = SKESK5::with_password(self.sym_algo,
+                                                  self.sym_algo,
+                                                  aead.algo,
                                                   Default::default(),
                                                   &sk, password).unwrap();
                 Packet::SKESK(skesk.into()).serialize(&mut inner)?;
             } else {
                 let skesk = SKESK4::with_password(self.sym_algo,
+                                                  self.sym_algo,
                                                   Default::default(),
                                                   &sk, password).unwrap();
                 Packet::SKESK(skesk.into()).serialize(&mut inner)?;

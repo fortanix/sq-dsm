@@ -1057,6 +1057,7 @@ mod tests {
         #[allow(deprecated)]
         packets.push(SKESK4::with_password(
             cipher,
+            cipher,
             S2K::Simple { hash: HashAlgorithm::SHA256 },
             &sk,
             &"12345678".into()).unwrap().into());
