@@ -1360,7 +1360,7 @@ impl SubpacketAreas {
     pub fn revocation_keys(&self)
                            -> impl Iterator<Item = &RevocationKey>
     {
-        self.subpackets(SubpacketTag::RevocationKey).filter_map(|sb| {
+        self.hashed_area().subpackets(SubpacketTag::RevocationKey).filter_map(|sb| {
             if let SubpacketValue::RevocationKey(rk) = &sb.value {
                 Some(rk)
             } else {
@@ -1403,7 +1403,7 @@ impl SubpacketAreas {
         // 2 octets of value length (N),
         // M octets of name data,
         // N octets of value data
-        self.iter().filter_map(|sb| {
+        self.hashed_area().iter().filter_map(|sb| {
             if let SubpacketValue::NotationData(v) = &sb.value {
                 Some(v)
             } else {
@@ -1417,7 +1417,7 @@ impl SubpacketAreas {
     pub fn notation<N>(&self, name: N) -> Vec<&[u8]>
         where N: AsRef<str>
     {
-        self.subpackets(SubpacketTag::NotationData)
+        self.hashed_area().subpackets(SubpacketTag::NotationData)
             .into_iter().filter_map(|s| match s.value {
                 SubpacketValue::NotationData(ref v)
                     if v.name == name.as_ref() => Some(&v.value[..]),
@@ -1755,7 +1755,7 @@ impl SubpacketAreas {
 
     /// Returns the intended recipients.
     pub fn intended_recipients(&self) -> Vec<Fingerprint> {
-        self.iter().filter_map(|sp| match sp.value() {
+        self.hashed_area().iter().filter_map(|sp| match sp.value() {
             SubpacketValue::IntendedRecipient(fp) => Some(fp.clone()),
             _ => None,
         }).collect()
@@ -1797,20 +1797,6 @@ impl ArbitraryBounded for SubpacketAreas {
 
 #[cfg(any(test, feature = "quickcheck"))]
 impl_arbitrary_with_bound!(SubpacketAreas);
-
-impl Deref for SubpacketAreas {
-    type Target = SubpacketArea;
-
-    fn deref(&self) -> &Self::Target {
-        &self.hashed_area
-    }
-}
-
-impl DerefMut for SubpacketAreas {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.hashed_area
-    }
-}
 
 impl SubpacketAreas {
     /// Returns a new `SubpacketAreas` object.
@@ -1868,6 +1854,50 @@ impl SubpacketAreas {
         }
 
         self.unhashed_area().subpacket(tag)
+    }
+
+    /// Returns an iterator over all instances of the specified
+    /// subpacket.
+    ///
+    /// This returns an iterator over all instances of the specified
+    /// subpacket in the subpacket areas in which it can occur.  Thus,
+    /// when looking for the `Issuer` subpacket, the iterator includes
+    /// instances of the subpacket from both the hashed subpacket area
+    /// and the unhashed subpacket area, but when looking for the
+    /// `Signature Creation Time` subpacket, the iterator only
+    /// includes instances of the subpacket from the hashed subpacket
+    /// area; any instances of the subpacket in the unhashed subpacket
+    /// area are ignored.
+    ///
+    /// Unknown subpackets are assumed to only safely occur in the
+    /// hashed subpacket area.  Thus, any instances of them in the
+    /// unhashed area are ignored.
+    #[cfg(test)]
+    fn subpackets(&self, tag: SubpacketTag) -> impl Iterator<Item = &Subpacket>
+    {
+        // It would be nice to do:
+        //
+        //     let iter = self.hashed_area().subpackets(tag);
+        //     if (subpacket allowed in unhashed area) {
+        //         iter.chain(self.unhashed_area().subpackets(tag))
+        //     } else {
+        //         iter
+        //     }
+        //
+        // but then we have different types.  Instead, we need to
+        // inline SubpacketArea::subpackets, add the additional
+        // constraint in the closure, and hope that the optimizer is
+        // smart enough to not unnecessarily iterate over the unhashed
+        // area.
+        self.hashed_area().subpackets(tag).chain(
+            self.unhashed_area()
+                .iter()
+                .filter(move |sp| {
+                    (tag == SubpacketTag::Issuer
+                     || tag == SubpacketTag::IssuerFingerprint
+                     || tag == SubpacketTag::EmbeddedSignature)
+                        && sp.tag() == tag
+            }))
     }
 
 
@@ -5513,7 +5543,7 @@ fn subpacket_test_2() {
                        critical: false,
                        value: SubpacketValue::NotationData(n.clone())
                    }));
-        assert_eq!(sig.subpackets(SubpacketTag::NotationData)
+        assert_eq!(sig.hashed_area().subpackets(SubpacketTag::NotationData)
                    .collect::<Vec<_>>(),
                    vec![&Subpacket {
                        length: 32.into(),

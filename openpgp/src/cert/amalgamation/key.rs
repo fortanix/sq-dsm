@@ -1318,7 +1318,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
             let mut builder = signature::SignatureBuilder::from(template)
                 .set_signature_creation_time(now)?
                 .set_key_validity_period(expiration)?;
-            builder.remove_all(
+            builder.hashed_area_mut().remove_all(
                 signature::subpacket::SubpacketTag::PrimaryUserID);
 
             // Generate the signature.
