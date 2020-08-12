@@ -1388,21 +1388,17 @@ impl SubpacketAreas {
     /// If the subpacket is not present or malformed, this returns
     /// an empty vector.
     ///
-    /// Note: unlike other subpacket accessor functions, this function
-    /// returns all the Notation Data subpackets, not just the last
-    /// one.
-    pub fn notation_data(&self) -> Vec<&NotationData> {
-        // 4 octets of flags, 2 octets of name length (M),
-        // 2 octets of value length (N),
-        // M octets of name data,
-        // N octets of value data
-        self.hashed_area().iter().filter_map(|sb| {
-            if let SubpacketValue::NotationData(v) = &sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        }).collect()
+    /// This function only considers Notation Data subpackets in the
+    /// hashed area.
+    pub fn notation_data(&self) -> impl Iterator<Item=&NotationData>
+    {
+        self.subpackets(SubpacketTag::NotationData)
+            .map(|sb| {
+                match sb.value {
+                    SubpacketValue::NotationData(ref v) => v,
+                    _ => unreachable!(),
+                }
+            })
     }
 
     /// Returns the value of all Notation Data subpackets with the
@@ -5522,7 +5518,8 @@ fn subpacket_test_2() {
             name: "rank@navy.mil".into(),
             value: b"midshipman".to_vec()
         };
-        assert_eq!(sig.notation_data(), vec![&n]);
+        assert_eq!(sig.notation_data().collect::<Vec<&NotationData>>(),
+                   vec![&n]);
         assert_eq!(sig.subpacket(SubpacketTag::NotationData),
                    Some(&Subpacket {
                        length: 32.into(),
@@ -5640,7 +5637,7 @@ fn subpacket_test_2() {
                    }));
 
         // This signature does not contain any notation data.
-        assert_eq!(sig.notation_data().len(), 0);
+        assert_eq!(sig.notation_data().count(), 0);
         assert_eq!(sig.subpacket(SubpacketTag::NotationData),
                    None);
         assert_eq!(sig.subpackets(SubpacketTag::NotationData).count(), 0);
@@ -5713,7 +5710,8 @@ fn subpacket_test_2() {
         };
 
         // We expect all three notations, in order.
-        assert_eq!(sig.notation_data(), vec![&n1, &n2, &n3]);
+        assert_eq!(sig.notation_data().collect::<Vec<&NotationData>>(),
+                   vec![&n1, &n2, &n3]);
 
         // We expect only the last notation.
         assert_eq!(sig.subpacket(SubpacketTag::NotationData),
