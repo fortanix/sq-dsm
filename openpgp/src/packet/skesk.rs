@@ -345,9 +345,17 @@ impl SKESK5 {
                     digest.into_boxed_slice())
     }
 
-    /// Derives the key inside this SKESK4 from `password`. Returns a
-    /// tuple of the symmetric cipher to use with the key and the key
-    /// itself.
+    /// Derives the key inside this `SKESK5` from `password`.
+    ///
+    /// Returns a tuple containing a placeholder symmetric cipher and
+    /// the key itself.  `SKESK5` packets do not contain the symmetric
+    /// cipher algorithm and instead rely on the `AED` packet that
+    /// contains it.
+    // XXX: This function should return Result<SessionKey>, but then
+    // SKESK::decrypt must return an
+    // Result<(Option<SymmetricAlgorithm>, _)> and
+    // DecryptionHelper::decrypt and PacketParser::decrypt must be
+    // adapted as well.
     pub fn decrypt(&self, password: &Password)
                    -> Result<(SymmetricAlgorithm, SessionKey)> {
         let key = self.s2k().derive_key(password,
@@ -366,7 +374,7 @@ impl SKESK5 {
             cipher.decrypt(&mut plain, esk);
             cipher.digest(&mut digest);
             if &digest[..] == &self.aead_digest[..] {
-                Ok((self.symmetric_algo(), plain))
+                Ok((SymmetricAlgorithm::Unencrypted, plain))
             } else {
                 Err(Error::ManipulatedMessage.into())
             }
