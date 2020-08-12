@@ -2128,11 +2128,19 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                 254 => {
                     let sk: SymmetricAlgorithm = php_try!(php.parse_u8("sym_algo")).into();
                     let s2k = php_try!(S2K::parse(&mut php));
+                    let s2k_supported = s2k.is_supported();
                     let cipher =
-                        php_try!(php.parse_bytes_eof("encrypted_mpis"));
+                        php_try!(php.parse_bytes_eof("encrypted_mpis"))
+                        .into_boxed_slice();
 
-                    crate::packet::key::Encrypted::new(
-                        s2k, sk, cipher.into_boxed_slice()).into()
+                    crate::packet::key::Encrypted::new_raw(
+                        s2k, sk,
+                        if s2k_supported {
+                            Ok(cipher)
+                        } else {
+                            Err(cipher)
+                        },
+                    ).into()
                 }
                 // Encrypted, S2K & mod 65536 checksum: unsupported
                 255 => {
