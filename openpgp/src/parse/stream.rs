@@ -3028,7 +3028,7 @@ mod test {
                                 sig, ..
                             }) = &results[0] {
                                 assert_eq!(
-                                    &sig.issuer_fingerprint().unwrap()
+                                    &sig.issuer_fingerprints().nth(0).unwrap()
                                         .to_string(),
                                     match i {
                                         0 => "8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19",

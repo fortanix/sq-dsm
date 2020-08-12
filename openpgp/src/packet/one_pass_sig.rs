@@ -150,7 +150,7 @@ impl<'a> std::convert::TryFrom<&'a Signature> for OnePassSig3 {
     type Error = anyhow::Error;
 
     fn try_from(s: &'a Signature) -> Result<Self> {
-        let issuer = match s.issuer() {
+        let issuer = match s.issuers().nth(0) {
             Some(i) => i.clone(),
             None =>
                 return Err(Error::InvalidArgument(

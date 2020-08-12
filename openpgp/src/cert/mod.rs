@@ -3949,9 +3949,10 @@ mod test {
             .build(&mut keypair, &cert, None)
             .unwrap();
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-        assert_eq!(sig.issuer(), Some(&cert.keyid()));
-        assert_eq!(sig.issuer_fingerprint(),
-                   Some(&cert.fingerprint()));
+        assert_eq!(sig.issuers().collect::<Vec<_>>(),
+                   vec![ &cert.keyid() ]);
+        assert_eq!(sig.issuer_fingerprints().collect::<Vec<_>>(),
+                   vec![ &cert.fingerprint() ]);
 
         let cert = cert.merge_packets(sig).unwrap();
         assert_match!(RevocationStatus::Revoked(_) = cert.revocation_status(p, None));
@@ -3972,9 +3973,10 @@ mod test {
             .unwrap();
 
         assert_eq!(sig.typ(), SignatureType::KeyRevocation);
-        assert_eq!(sig.issuer(), Some(&other.keyid()));
-        assert_eq!(sig.issuer_fingerprint(),
-                   Some(&other.fingerprint()));
+        assert_eq!(sig.issuers().collect::<Vec<_>>(),
+                   vec![ &other.keyid() ]);
+        assert_eq!(sig.issuer_fingerprints().collect::<Vec<_>>(),
+                   vec![ &other.fingerprint() ]);
     }
 
     #[test]

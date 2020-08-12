@@ -2892,7 +2892,7 @@ mod test {
         let mut good = 0;
         while let PacketParserResult::Some(pp) = ppr {
             if let Packet::Signature(ref sig) = pp.packet {
-                let key = keys.get(&sig.issuer_fingerprint().unwrap())
+                let key = keys.get(&sig.issuer_fingerprints().nth(0).unwrap())
                     .unwrap();
                 sig.verify(key).unwrap();
                 good += 1;

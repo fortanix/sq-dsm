@@ -27,8 +27,7 @@
 //!
 //! # Examples
 //!
-//! If a signature packet includes an issuer fingerprint subpacket,
-//! print it:
+//! Print any Issuer Fingerprint subpackets:
 //!
 //! ```rust
 //! # extern crate sequoia_openpgp as openpgp;
@@ -42,8 +41,8 @@
 //! let mut ppr = PacketParser::from_bytes(message_data)?;
 //! while let PacketParserResult::Some(mut pp) = ppr {
 //!     if let Packet::Signature(ref sig) = pp.packet {
-//!         if let Some(fp) = sig.issuer_fingerprint() {
-//!             eprintln!("Signature issued by: {}", fp.to_string());
+//!         for fp in sig.issuer_fingerprints() {
+//!             eprintln!("Signature allegedly issued by: {}", fp.to_string());
 //!         }
 //!     }
 //!
@@ -1369,25 +1368,19 @@ impl SubpacketAreas {
         })
     }
 
-    /// Returns the value of the Issuer subpacket, which contains the
-    /// KeyID of the key that allegedly created this signature.
+    /// Returns the value of any Issuer subpackets.
     ///
-    /// If the subpacket is not present, this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
-    pub fn issuer(&self) -> Option<&KeyID> {
+    /// This returns all instances of the Issuer subpacket in both the
+    /// hashed subpacket area and the unhashed subpacket area.
+    pub fn issuers(&self) -> impl Iterator<Item=&KeyID> {
         // 8-octet Key ID
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::Issuer) {
-            if let SubpacketValue::Issuer(v) = &sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+        self.subpackets(SubpacketTag::Issuer)
+            .map(|sb| {
+                match sb.value {
+                    SubpacketValue::Issuer(ref keyid) => keyid,
+                    _ => unreachable!(),
+                }
+            })
     }
 
     /// Returns the value of all Notation Data packets.
@@ -1703,29 +1696,21 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Issuer Fingerprint subpacket, which
-    /// contains the fingerprint of the key that allegedly created
-    /// this signature.
+    /// Returns the value of any Issuer Fingerprint subpackets.
     ///
-    /// This subpacket should be preferred to the Issuer subpacket,
-    /// because Fingerprints are not subject to collisions.
-    ///
-    /// If the subpacket is not present, this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
-    pub fn issuer_fingerprint(&self) -> Option<&Fingerprint> {
+    /// This returns all instances of the Issuer Fingerprint subpacket
+    /// in both the hashed subpacket area and the unhashed subpacket
+    /// area.
+    pub fn issuer_fingerprints(&self) -> impl Iterator<Item=&Fingerprint>
+    {
         // 1 octet key version number, N octets of fingerprint
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::IssuerFingerprint) {
-            if let SubpacketValue::IssuerFingerprint(v) = &sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+        self.subpackets(SubpacketTag::IssuerFingerprint)
+            .map(|sb| {
+                match sb.value {
+                    SubpacketValue::IssuerFingerprint(ref fpr) => fpr,
+                    _ => unreachable!(),
+                }
+            })
     }
 
     /// Returns the value of the Preferred AEAD Algorithms subpacket,
@@ -1872,7 +1857,6 @@ impl SubpacketAreas {
     /// Unknown subpackets are assumed to only safely occur in the
     /// hashed subpacket area.  Thus, any instances of them in the
     /// unhashed area are ignored.
-    #[cfg(test)]
     fn subpackets(&self, tag: SubpacketTag) -> impl Iterator<Item = &Subpacket>
     {
         // It would be nice to do:
@@ -5163,7 +5147,8 @@ fn accessors() {
     sig = sig.set_issuer(fp.clone().into()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.issuer(), Some(&fp.clone().into()));
+    assert_eq!(sig_.issuers().collect::<Vec<_>>(),
+               vec![ &fp.clone().into() ]);
 
     let pref = vec![HashAlgorithm::SHA512,
                     HashAlgorithm::SHA384,
@@ -5251,7 +5236,8 @@ fn accessors() {
     sig = sig.set_issuer_fingerprint(fp.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.issuer_fingerprint(), Some(&fp));
+    assert_eq!(sig_.issuer_fingerprints().collect::<Vec<_>>(),
+               vec![ &fp ]);
 
     let pref = vec![AEADAlgorithm::EAX,
                     AEADAlgorithm::OCB];
@@ -5328,13 +5314,13 @@ fn subpacket_test_1 () {
 
             assert!(got2 && got16 && got33);
 
-            let fp = sig.issuer_fingerprint().unwrap().to_string();
+            let fp = sig.issuer_fingerprints().nth(0).unwrap().to_string();
             // eprintln!("Issuer: {}", fp);
             assert!(
                 fp == "7FAF 6ED7 2381 4355 7BDF  7ED2 6863 C9AD 5B4D 22D3"
                 || fp == "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528");
 
-            let hex = format!("{:X}", sig.issuer_fingerprint().unwrap());
+            let hex = format!("{:X}", sig.issuer_fingerprints().nth(0).unwrap());
             assert!(
                 hex == "7FAF6ED7238143557BDF7ED26863C9AD5B4D22D3"
                 || hex == "C03FA6411B03AE12576461187223B56678E02528");
@@ -5514,7 +5500,7 @@ fn subpacket_test_2() {
                    }));
 
         let keyid = "F004 B9A4 5C58 6126".parse().unwrap();
-        assert_eq!(sig.issuer(), Some(&keyid));
+        assert_eq!(sig.issuers().collect::<Vec<_>>(), vec![ &keyid ]);
         assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(&Subpacket {
                        length: 9.into(),
@@ -5523,7 +5509,7 @@ fn subpacket_test_2() {
                    }));
 
         let fp = "361A96BDE1A65B6D6C25AE9FF004B9A45C586126".parse().unwrap();
-        assert_eq!(sig.issuer_fingerprint(), Some(&fp));
+        assert_eq!(sig.issuer_fingerprints().collect::<Vec<_>>(), vec![ &fp ]);
         assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint),
                    Some(&Subpacket {
                        length: 22.into(),
@@ -5634,7 +5620,8 @@ fn subpacket_test_2() {
 
 
         let keyid = "CEAD 0621 0934 7957".parse().unwrap();
-        assert_eq!(sig.issuer(), Some(&keyid));
+        assert_eq!(sig.issuers().collect::<Vec<_>>(),
+                   vec![ &keyid ]);
         assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(&Subpacket {
                        length: 9.into(),
@@ -5643,7 +5630,8 @@ fn subpacket_test_2() {
                    }));
 
         let fp = "B59B8817F519DCE10AFD85E4CEAD062109347957".parse().unwrap();
-        assert_eq!(sig.issuer_fingerprint(), Some(&fp));
+        assert_eq!(sig.issuer_fingerprints().collect::<Vec<_>>(),
+                   vec![ &fp ]);
         assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint),
                    Some(&Subpacket {
                        length: 22.into(),
@@ -5837,7 +5825,7 @@ fn subpacket_test_2() {
                    }));
 
         let keyid = "CEAD 0621 0934 7957".parse().unwrap();
-        assert_eq!(sig.issuer(), Some(&keyid));
+        assert_eq!(sig.issuers().collect::<Vec<_>>(), vec! [&keyid ]);
         assert_eq!(sig.subpacket(SubpacketTag::Issuer),
                    Some(&Subpacket {
                        length: 9.into(),
@@ -5846,7 +5834,8 @@ fn subpacket_test_2() {
                    }));
 
         let fp = "B59B8817F519DCE10AFD85E4CEAD062109347957".parse().unwrap();
-        assert_eq!(sig.issuer_fingerprint(), Some(&fp));
+        assert_eq!(sig.issuer_fingerprints().collect::<Vec<_>>(),
+                   vec![ &fp ]);
         assert_eq!(sig.subpacket(SubpacketTag::IssuerFingerprint),
                    Some(&Subpacket {
                        length: 22.into(),
@@ -5886,8 +5875,10 @@ fn issuer_default() -> Result<()> {
     // no issuer or issuer_fingerprint present, use default
     let sig_ = sig.sign_hash(&mut keypair, hash.clone())?;
 
-    assert_eq!(sig_.issuer(), Some(&keypair.public().keyid()));
-    assert_eq!(sig_.issuer_fingerprint(), Some(&keypair.public().fingerprint()));
+    assert_eq!(sig_.issuers().collect::<Vec<_>>(),
+               vec![ &keypair.public().keyid() ]);
+    assert_eq!(sig_.issuer_fingerprints().collect::<Vec<_>>(),
+               vec![ &keypair.public().fingerprint() ]);
 
     let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
 
@@ -5897,8 +5888,9 @@ fn issuer_default() -> Result<()> {
     sig = sig.set_issuer(fp.clone().into())?;
     let sig_ = sig.clone().sign_hash(&mut keypair, hash.clone())?;
 
-    assert_eq!(sig_.issuer(), Some(&fp.clone().into()));
-    assert!(sig_.issuer_fingerprint().is_none());
+    assert_eq!(sig_.issuers().collect::<Vec<_>>(),
+               vec![ &fp.clone().into() ]);
+    assert_eq!(sig_.issuer_fingerprints().count(), 0);
 
     // issuer_fingerprint subpacket present, do not override
     let mut sig = signature::SignatureBuilder::new(crate::types::SignatureType::Binary);
@@ -5906,7 +5898,8 @@ fn issuer_default() -> Result<()> {
     sig = sig.set_issuer_fingerprint(fp.clone())?;
     let sig_ = sig.clone().sign_hash(&mut keypair, hash.clone())?;
 
-    assert_eq!(sig_.issuer_fingerprint(), Some(&fp));
-    assert!(sig_.issuer().is_none());
+    assert_eq!(sig_.issuer_fingerprints().collect::<Vec<_>>(),
+               vec![ &fp ]);
+    assert_eq!(sig_.issuers().count(), 0);
     Ok(())
 }

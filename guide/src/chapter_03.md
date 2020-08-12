@@ -142,7 +142,7 @@ fn main() {
 
     // Finally, we expect the signature itself.
     if let openpgp::Packet::Signature(ref signature) = packets[2] {
-        assert_eq!(signature.issuer_fingerprint().unwrap().to_string(),
+        assert_eq!(signature.issuer_fingerprints().nth(0).unwrap().to_string(),
                    "67A4 8753 A380 A6B3 B7DF  7DC5 E6C6 897A 4CEF 8924");
     } else {
         panic!("expected signature packet");

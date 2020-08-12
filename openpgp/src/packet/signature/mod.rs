@@ -1380,7 +1380,9 @@ impl SignatureBuilder {
         }
 
         // Make sure we have an issuer packet.
-        if self.issuer().is_none() && self.issuer_fingerprint().is_none() {
+        if self.issuers().next().is_none()
+            && self.issuer_fingerprints().next().is_none()
+        {
             self = self.set_issuer(signer.public().keyid())?
                 .set_issuer_fingerprint(signer.public().fingerprint())?;
         }

@@ -4,7 +4,7 @@ use std::io::{self, Read};
 use clap;
 
 extern crate sequoia_openpgp as openpgp;
-use crate::openpgp::{Packet, Result};
+use crate::openpgp::{KeyHandle, Packet, Result};
 use crate::openpgp::cert::prelude::*;
 use openpgp::packet::{
     Signature,
@@ -351,10 +351,20 @@ fn inspect_signatures(output: &mut dyn io::Write,
                 writeln!(output, "           Kind: {}", signature_type)?,
         }
 
-        if let Some(fp) = sig.issuer_fingerprint() {
-            writeln!(output, "      Signed by: {}", fp)?;
-        } else if let Some(kid) = sig.issuer() {
-            writeln!(output, "      Signed by: {}", kid)?;
+        let mut fps: Vec<_> = sig.issuer_fingerprints().collect();
+        fps.sort();
+        fps.dedup();
+        let fps: Vec<KeyHandle> = fps.into_iter().map(|fp| fp.into()).collect();
+        for fp in fps.iter() {
+            writeln!(output, " Alleged signer: {}", fp)?;
+        }
+        let mut keyids: Vec<_> = sig.issuers().collect();
+        keyids.sort();
+        keyids.dedup();
+        for keyid in keyids {
+            if ! fps.iter().any(|fp| fp.aliases(&keyid.into())) {
+                writeln!(output, " Alleged signer: {}", keyid)?;
+            }
         }
     }
     if ! sigs.is_empty() {
@@ -370,10 +380,20 @@ fn inspect_certifications(output: &mut dyn io::Write,
                           print_certifications: bool) -> Result<()> {
     if print_certifications {
         for sig in certs {
-            if let Some(fp) = sig.issuer_fingerprint() {
-                writeln!(output, "   Certified by: {}", fp)?;
-            } else if let Some(kid) = sig.issuer() {
-                writeln!(output, "   Certified by: {}", kid)?;
+            let mut fps: Vec<_> = sig.issuer_fingerprints().collect();
+            fps.sort();
+            fps.dedup();
+            let fps: Vec<KeyHandle> = fps.into_iter().map(|fp| fp.into()).collect();
+            for fp in fps.iter() {
+                writeln!(output, "Alleged certifier: {}", fp)?;
+            }
+            let mut keyids: Vec<_> = sig.issuers().collect();
+            keyids.sort();
+            keyids.dedup();
+            for keyid in keyids {
+                if ! fps.iter().any(|fp| fp.aliases(&keyid.into())) {
+                    writeln!(output, "Alleged certifier: {}", keyid)?;
+                }
             }
         }
         if ! certs.is_empty() {
