@@ -8,6 +8,35 @@ use crate::crypto::mpi::{MPI, PublicKey};
 /// A proprietary, protocol agnostic identifier for public keys.
 ///
 /// This is defined and used by GnuPG.
+///
+/// # Examples
+///
+/// ```
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::crypto::Keygrip;
+///
+/// let k: Keygrip = "DD143ABA8D1D7D09875D6209E01BCF020788FF77".parse()?;
+/// assert_eq!(&k.to_string(), "DD143ABA8D1D7D09875D6209E01BCF020788FF77");
+///
+/// let cert: openpgp::Cert = // ...
+/// #   "-----BEGIN PGP PUBLIC KEY BLOCK-----
+/// #
+/// #   xjMEWlNvABYJKwYBBAHaRw8BAQdA+EC2pvebpEbzPA9YplVgVXzkIG5eK+7wEAez
+/// #   lcBgLJrNMVRlc3R5IE1jVGVzdGZhY2UgKG15IG5ldyBrZXkpIDx0ZXN0eUBleGFt
+/// #   cGxlLm9yZz7CkAQTFggAOBYhBDnRAKtn1b2MBAECBfs3UfFYfa7xBQJaU28AAhsD
+/// #   BQsJCAcCBhUICQoLAgQWAgMBAh4BAheAAAoJEPs3UfFYfa7xJHQBAO4/GABMWUcJ
+/// #   5D/DZ9b+6YiFnysSjCT/gILJgxMgl7uoAPwJherI1pAAh49RnPHBR1IkWDtwzX65
+/// #   CJG8sDyO2FhzDs44BFpTbwASCisGAQQBl1UBBQEBB0B+A0GRHuBgdDX50T1nePjb
+/// #   mKQ5PeqXJbWEtVrUtVJaPwMBCAfCeAQYFggAIBYhBDnRAKtn1b2MBAECBfs3UfFY
+/// #   fa7xBQJaU28AAhsMAAoJEPs3UfFYfa7xzjIBANX2/FgDX3WkmvwpEHg/sn40zACM
+/// #   W2hrBY5x0sZ8H7JlAP47mCfCuRVBqyaePuzKbxLJeLe2BpDdc0n2izMVj8t9Cg==
+/// #   =QetZ
+/// #   -----END PGP PUBLIC KEY BLOCK-----".parse()?;
+/// assert_eq!(&cert.primary_key().mpis().keygrip()?.to_string(),
+///            "DD143ABA8D1D7D09875D6209E01BCF020788FF77");
+/// # Ok(()) }
+/// ```
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Keygrip([u8; 20]);
 
