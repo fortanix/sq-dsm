@@ -153,6 +153,24 @@ impl fmt::Debug for SessionKey {
 ///
 ///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
 ///   [`mem::Encrypted`]: mem/struct.Encrypted.html
+///
+/// # Examples
+///
+/// ```
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::crypto::Password;
+///
+/// // Convert from a &str.
+/// let p: Password = "hunter2".into();
+///
+/// // Convert from a &[u8].
+/// let p: Password = b"hunter2"[..].into();
+///
+/// // Convert from a String.
+/// let p: Password = String::from("hunter2").into();
+///
+/// // ...
+/// ```
 #[derive(Clone, PartialEq, Eq)]
 pub struct Password(mem::Encrypted);
 
@@ -198,6 +216,19 @@ impl fmt::Debug for Password {
 
 impl Password {
     /// Maps the given function over the password.
+    ///
+    /// The password is stored encrypted in memory.  This function
+    /// temporarily decrypts it for the given function to use.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::crypto::Password;
+    ///
+    /// let p: Password = "hunter2".into();
+    /// p.map(|p| assert_eq!(p.as_ref(), &b"hunter2"[..]));
+    /// ```
     pub fn map<F, T>(&self, fun: F) -> T
         where F: FnMut(&mem::Protected) -> T
     {
