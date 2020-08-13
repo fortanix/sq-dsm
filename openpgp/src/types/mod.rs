@@ -74,6 +74,9 @@ pub(crate) use timestamp::normalize_systemtime;
 /// The OpenPGP public key algorithms as defined in [Section 9.1 of
 /// RFC 4880], and [Section 5 of RFC 6637].
 ///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
+///
 /// # Examples
 ///
 /// ```rust
@@ -296,6 +299,9 @@ impl PublicKeyAlgorithm {
 /// curves.  Instead, the curve is specified using an OID prepended to
 /// the key material.  We provide this type to be able to match on the
 /// curves.
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Curve {
     /// NIST curve P-256.
@@ -530,6 +536,9 @@ impl Arbitrary for Curve {
 ///
 ///   [`SymmetricAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
 ///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
+///
 /// # Examples
 ///
 /// Use `SymmetricAlgorithm` to set the preferred symmetric algorithms on a signature:
@@ -686,6 +695,9 @@ impl Arbitrary for SymmetricAlgorithm {
 ///
 ///   [`AEADAlgorithm::from`]: https://doc.rust-lang.org/std/convert/trait.From.html
 ///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
+///
 /// This feature is [experimental](../index.html#experimental-features).
 ///
 /// # Examples
@@ -795,6 +807,9 @@ impl Arbitrary for AEADAlgorithm {
 /// The OpenPGP compression algorithms as defined in [Section 9.3 of RFC 4880].
 ///
 ///   [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 ///
 /// # Examples
 ///
@@ -938,6 +953,9 @@ impl Arbitrary for CompressionAlgorithm {
 
 /// The OpenPGP hash algorithms as defined in [Section 9.4 of RFC 4880].
 ///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
+///
 /// # Examples
 ///
 /// Use `HashAlgorithm` to set the preferred hash algorithms on a signature:
@@ -1074,6 +1092,9 @@ impl Arbitrary for HashAlgorithm {
 /// Signature type as defined in [Section 5.2.1 of RFC 4880].
 ///
 ///   [Section 5.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 ///
 /// # Examples
 ///
@@ -1234,6 +1255,9 @@ impl Arbitrary for SignatureType {
 /// See the description of revocation subpackets [Section 5.2.3.23 of RFC 4880].
 ///
 ///   [Section 5.2.3.23 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 ///
 /// # Examples
 ///
@@ -1495,6 +1519,9 @@ impl ReasonForRevocation {
 /// See the description of literal data packets [Section 5.9 of RFC 4880].
 ///
 ///   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 ///
 /// # Examples
 ///

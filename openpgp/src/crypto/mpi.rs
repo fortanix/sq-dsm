@@ -384,6 +384,9 @@ impl fmt::Debug for ProtectedMPI {
 /// the occasional elliptic curve) in [`Key`] packets.
 ///
 ///   [`Key`]: ../../packet/enum.Key.html
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum PublicKey {
     /// RSA public key.
@@ -558,6 +561,9 @@ impl Arbitrary for PublicKey {
 ///
 ///   [`Key`]: ../../packet/enum.Key.html
 ///   [`ProtectedMPI`]: struct.ProtectedMPI.html
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 // Deriving Hash here is okay: PartialEq is manually implemented to
 // ensure that secrets are compared in constant-time.
 #[derive(Clone, Hash)]
@@ -811,6 +817,9 @@ impl Arbitrary for SecretKeyMaterial {
 /// [`PKESK`] packets.
 ///
 ///   [`PKESK`]: ../../packet/enum.PKESK.html
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum Ciphertext {
     /// RSA ciphertext.
@@ -901,6 +910,9 @@ impl Arbitrary for Ciphertext {
 /// [`Signature`] packets.
 ///
 ///   [`Signature`]: ../../packet/enum.Signature.html
+///
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum Signature {
     /// RSA signature.
