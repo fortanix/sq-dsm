@@ -1733,14 +1733,22 @@ impl SubpacketLength {
 }
 
 impl SubpacketAreas {
-    /// Returns the value of the Creation Time subpacket, which
-    /// contains the time when the signature was created as a unix
-    /// timestamp.
+    /// Returns the value of the Signature Creation Time subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Signature Creation Time subpacket] specifies when the
+    /// signature was created.  According to the standard, all
+    /// signatures must include a Signature Creation Time subpacket in
+    /// the signature's hashed area.  This doesn't mean that the time
+    /// stamp is correct: the issuer can always forge it.
+    ///
+    /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn signature_creation_time(&self) -> Option<time::SystemTime> {
         // 4-octet time field
         if let Some(sb)
@@ -1755,16 +1763,61 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Signature Expiration Time subpacket,
-    /// which contains when the signature expires as the number of
-    /// seconds after its creation.
+    /// Returns the value of the Signature Expiration Time subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.  If this
-    /// function returns `None`, or the returned period is `0`, the
-    /// signature does not expire.
+    /// This function is called `signature_validity_period` and not
+    /// `signature_expiration_time`, which would be more consistent
+    /// with the subpacket's name, because the latter suggests an
+    /// absolute time, but the time is actually relative to the
+    /// signature's creation time, which is stored in the signature's
+    /// [Signature Creation Time subpacket].
+    ///
+    /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    ///
+    /// A Signature Expiration Time subpacket specifies when the
+    /// signature expires.  This is different from the [Key Expiration
+    /// Time subpacket], which is accessed using
+    /// [`SubpacketAreas::key_validity_period`], and used to
+    /// specify when an associated key expires.  The difference is
+    /// that in the former case, the signature itself expires, but in
+    /// the latter case, only the associated key expires.  This
+    /// difference is critical: if a binding signature expires, then
+    /// an OpenPGP implementation will still consider the associated
+    /// key to be valid if there is another valid binding signature,
+    /// even if it is older than the expired signature; if the active
+    /// binding signature indicates that the key has expired, then
+    /// OpenPGP implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
+    ///
+    /// There are several cases where having a signature expire is
+    /// useful.  Say Alice certifies Bob's certificate for
+    /// `bob@example.org`.  She can limit the lifetime of the
+    /// certification to force her to reevaluate the certification
+    /// shortly before it expires.  For instance, is Bob still
+    /// associated with `example.org`?  Does she have reason to
+    /// believe that his key has been compromised?  Using an
+    /// expiration is common in the X.509 ecosystem.  For instance,
+    /// [Let's Encrypt] issues certificates with 90-day lifetimes.
+    ///
+    /// [Let's Encrypt]: https://letsencrypt.org/2015/11/09/why-90-days.html
+    ///
+    /// Having signatures expire can also be useful when deploying
+    /// software.  For instance, you might have a service that
+    /// installs an update if it has been signed by a trusted
+    /// certificate.  To prevent an adversary from coercing the
+    /// service to install an older version, you could limit the
+    /// signature's lifetime to just a few minutes.
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.  If this function returns `None`, or the
+    /// returned period is `0`, the signature does not expire.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn signature_validity_period(&self) -> Option<time::Duration> {
         // 4-octet time field
         if let Some(sb)
@@ -1779,14 +1832,23 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Exportable Certification subpacket,
-    /// which contains whether the certification should be exported
-    /// (i.e., whether the packet is *not* a local signature).
+    /// Returns the value of the Exportable Certification subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Exportable Certification subpacket] indicates whether the
+    /// signature should be exported (e.g., published on a public key
+    /// server) or not.  When using [`Serialize::export`] to export a
+    /// certificate, signatures that have this subpacket present and
+    /// set to false are not serialized.
+    ///
+    /// [Exportable Certification subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.11
+    /// [`Serialize::export`]: https://docs.sequoia-pgp.org/sequoia_openpgp/serialize/trait.Serialize.html#method.export
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn exportable_certification(&self) -> Option<bool> {
         // 1 octet of exportability, 0 for not, 1 for exportable
         if let Some(sb)
@@ -1803,33 +1865,33 @@ impl SubpacketAreas {
 
     /// Returns the value of the Trust Signature subpacket.
     ///
-    /// The return value is a tuple consisting of the level or depth
-    /// and the trust amount.
+    /// The [Trust Signature subpacket] indicates the degree to which
+    /// a certificate holder is trusted to certify other keys.
     ///
-    /// Recall from [Section 5.2.3.13 of RFC 4880]:
+    /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
     ///
-    /// ```text
-    /// Level 0 has the same meaning as an ordinary
-    /// validity signature.  Level 1 means that the signed key is asserted to
-    /// be a valid trusted introducer, with the 2nd octet of the body
-    /// specifying the degree of trust.  Level 2 means that the signed key is
-    /// asserted to be trusted to issue level 1 trust signatures, i.e., that
-    /// it is a "meta introducer".
-    /// ```
+    /// A level of 0 means that the certificate holder is not trusted
+    /// to certificate other keys, a level of 1 means that the
+    /// certificate holder is a trusted introducer (a [certificate
+    /// authority]) and any certifications that they make should be
+    /// considered valid.  A level of 2 means the certificate holder
+    /// can designate level 1 trusted introducers, etc.
     ///
-    /// And, the trust amount is:
+    /// [certificate authority]: https://en.wikipedia.org/wiki/Certificate_authority
     ///
-    /// ```text
-    /// interpreted such that values less than 120 indicate partial
-    /// trust and values of 120 or greater indicate complete trust.
-    /// Implementations SHOULD emit values of 60 for partial trust and
-    /// 120 for complete trust.
-    /// ```
+    /// The trust indicates the degree of confidence.  A value of 120
+    /// means that a certification should be considered valid.  A
+    /// value of 60 means that a certification should only be
+    /// considered partially valid.  In the latter case, typically
+    /// three such certifications are required for a binding to be
+    /// considered authenticated.
     ///
-    ///   [Section 5.2.3.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn trust_signature(&self) -> Option<(u8, u8)> {
         // 1 octet "level" (depth), 1 octet of trust amount
         if let Some(sb) = self.subpacket(SubpacketTag::TrustSignature) {
@@ -1845,8 +1907,19 @@ impl SubpacketAreas {
 
     /// Returns the value of any Regular Expression subpackets.
     ///
-    /// Note: the serialized form includes a trailing NUL byte.  This
-    /// returns the value without the trailing NUL.
+    /// The [Regular Expression subpacket] is used in conjunction with
+    /// a [Trust Signature subpacket], which is accessed using
+    /// [`SubpacketAreas::trust_signature`], to limit the scope
+    /// of a trusted introducer.  This is useful, for instance, when a
+    /// company has a CA and you only want to trust them to certify
+    /// their own employees.
+    ///
+    /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+    /// [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
+    /// [`SubpacketAreas::trust_signature`]: #method.trust_signature
+    ///
+    /// Note: The serialized form includes a trailing `NUL` byte.
+    /// Sequoia strips the `NUL` when parsing the subpacket.
     ///
     /// This returns all instances of the Regular Expression subpacket
     /// in the hashed subpacket area.
@@ -1859,14 +1932,26 @@ impl SubpacketAreas {
         })
     }
 
-    /// Returns the value of the Revocable subpacket, which indicates
-    /// whether the signature is revocable, i.e., whether revocation
-    /// certificates for this signature should be ignored.
+    /// Returns the value of the Revocable subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    ///
+    /// The [Revocable subpacket] indicates whether a certification
+    /// may be later revoked by creating a [Certification revocation
+    /// signature] (0x30) that targets the signature using the
+    /// [Signature Target subpacket] (accessed using the
+    /// [`SubpacketAreas::signature_target`] method).
+    ///
+    /// [Revocable subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.12
+    /// [Certification revocation signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+    /// [Signature Target subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
+    /// [`SubpacketAreas::signature_target`]: #method.signature_target
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn revocable(&self) -> Option<bool> {
         // 1 octet of revocability, 0 for not, 1 for revocable
         if let Some(sb)
@@ -1881,16 +1966,43 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Key Expiration Time subpacket, which
-    /// contains when the referenced key expires as the number of
-    /// seconds after the key's creation.
+    /// Returns the value of the Key Expiration Time subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.  If this
-    /// function returns `None`, or the returned period is `0`, the
-    /// key does not expire.
+    /// This function is called `key_validity_period` and not
+    /// `key_expiration_time`, which would be more consistent with
+    /// the subpacket's name, because the latter suggests an absolute
+    /// time, but the time is actually relative to the associated
+    /// key's (*not* the signature's) creation time, which is stored
+    /// in the [Key].
+    ///
+    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+    ///
+    /// A [Key Expiration Time subpacket] specifies when the
+    /// associated key expires.  This is different from the [Signature
+    /// Expiration Time subpacket] (accessed using
+    /// [`SubpacketAreas::signature_validity_period`]), which is
+    /// used to specify when the signature expires.  That is, in the
+    /// former case, the associated key expires, but in the latter
+    /// case, the signature itself expires.  This difference is
+    /// critical: if a binding signature expires, then an OpenPGP
+    /// implementation will still consider the associated key to be
+    /// valid if there is another valid binding signature, even if it
+    /// is older than the expired signature; if the active binding
+    /// signature indicates that the key has expired, then OpenPGP
+    /// implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.  If this function returns `None`, or the
+    /// returned period is `0`, the key does not expire.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn key_validity_period(&self) -> Option<time::Duration> {
         // 4-octet time field
         if let Some(sb)
@@ -1906,14 +2018,37 @@ impl SubpacketAreas {
     }
 
     /// Returns the value of the Preferred Symmetric Algorithms
-    /// subpacket, which contains the list of symmetric algorithms
-    /// that the key holder prefers, ordered according by the key
-    /// holder's preference.
+    /// subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// A [Preferred Symmetric Algorithms subpacket] lists what
+    /// symmetric algorithms the user prefers.  When encrypting a
+    /// message for a recipient, the OpenPGP implementation should not
+    /// use an algorithm that is not on this list.
+    ///
+    /// [Preferred Symmetric Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn preferred_symmetric_algorithms(&self)
                                           -> Option<&[SymmetricAlgorithm]> {
         // array of one-octet values
@@ -1931,13 +2066,30 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Revocation Key subpacket, which
-    /// contains a designated revoker.
+    /// Returns the value of the Revocation Key subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// A [Revocation Key subpacket] indicates certificates (so-called
+    /// designated revokers) that are allowed to revoke the signer's
+    /// certificate.  For instance, if Alice trusts Bob, she can set
+    /// him as a designated revoker.  This is useful if Alice loses
+    /// access to her key, and therefore is unable to generate a
+    /// revocation certificate on her own.  In this case, she can
+    /// still Bob to generate one on her behalf.
     ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// When getting a certificate's revocation keys, all valid
+    /// self-signatures should be checked, not only the active
+    /// self-signature.  This prevents an attacker who has gained
+    /// access to the private key material from invalidating a
+    /// third-party revocation by publishing a new self signature that
+    /// doesn't include any revocation keys.
+    ///
+    /// Due to the complexity of verifying such signatures, many
+    /// OpenPGP implementations do not support this feature.
+    ///
+    /// [Revocation Key subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
+    ///
+    /// This returns all instance of the Revocation Key subpacket in
+    /// the hashed subpacket area.
     pub fn revocation_keys(&self) -> impl Iterator<Item=&RevocationKey>
     {
         self.subpackets(SubpacketTag::RevocationKey)
@@ -1950,6 +2102,14 @@ impl SubpacketAreas {
     }
 
     /// Returns the value of any Issuer subpackets.
+    ///
+    /// The [Issuer subpacket] is used when processing a signature to
+    /// identify which certificate created the signature.  Since this
+    /// information is self-authenticating (the act of validating the
+    /// signature authenticates the subpacket), it is stored in the
+    /// unhashed subpacket area.
+    ///
+    ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///
     /// This returns all instances of the Issuer subpacket in both the
     /// hashed subpacket area and the unhashed subpacket area.
@@ -1964,13 +2124,32 @@ impl SubpacketAreas {
             })
     }
 
-    /// Returns the value of all Notation Data packets.
+    /// Returns all Notation Data subpackets.
     ///
-    /// If the subpacket is not present or malformed, this returns
-    /// an empty vector.
+    /// [Notation Data subpackets] are key-value pairs.  They can be
+    /// used by applications to annotate signatures in a structured
+    /// way.  For instance, they can define additional,
+    /// application-specific security requirements.  Because they are
+    /// functionally equivalent to subpackets, they can also be used
+    /// for OpenPGP extensions.  This is how the [Intended Recipient
+    /// subpacket] started life.
     ///
-    /// This function only considers Notation Data subpackets in the
-    /// hashed area.
+    /// [Notation Data subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr 
+    ///
+    /// Notation names are structured, and are divided into two
+    /// namespaces: the user namespace and the IETF namespace.  Names
+    /// in the user namespace have the form `name@example.org` and
+    /// their meaning is defined by the owner of the domain.  The
+    /// meaning of the notation `name@example.org`, for instance, is
+    /// defined by whoever controls `example.org`.  Names in the IETF
+    /// namespace do not contain an `@` and are managed by IANA.  See
+    /// [Section 5.2.3.16 of RFC 4880] for details.
+    ///
+    /// [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    ///
+    /// This returns all instances of the Notation Data subpacket in
+    /// the hashed subpacket area.
     pub fn notation_data(&self) -> impl Iterator<Item=&NotationData>
     {
         self.subpackets(SubpacketTag::NotationData)
@@ -1985,8 +2164,30 @@ impl SubpacketAreas {
     /// Returns the value of all Notation Data subpackets with the
     /// given name.
     ///
-    /// This function only considers Notation Data subpackets in the
-    /// hashed area.
+    /// [Notation Data subpackets] are key-value pairs.  They can be
+    /// used by applications to annotate signatures in a structured
+    /// way.  For instance, they can define additional,
+    /// application-specific security requirements.  Because they are
+    /// functionally equivalent to subpackets, they can also be used
+    /// for OpenPGP extensions.  This is how the [Intended Recipient
+    /// subpacket] started life.
+    ///
+    /// [Notation Data subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr 
+    ///
+    /// Notation names are structured, and are divided into two
+    /// namespaces: the user namespace and the IETF namespace.  Names
+    /// in the user namespace have the form `name@example.org` and
+    /// their meaning is defined by the owner of the domain.  The
+    /// meaning of the notation `name@example.org`, for instance, is
+    /// defined by whoever controls `example.org`.  Names in the IETF
+    /// namespace do not contain an `@` and are managed by IANA.  See
+    /// [Section 5.2.3.16 of RFC 4880] for details.
+    ///
+    /// [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    ///
+    /// This returns the values of all instances of the Notation Data
+    /// subpacket with the specified name in the hashed subpacket area.
     // name needs 'a, because the closure outlives the function call.
     pub fn notation<'a, N>(&'a self, name: N) -> impl Iterator<Item=&'a [u8]>
         where N: 'a + AsRef<str>
@@ -2001,15 +2202,38 @@ impl SubpacketAreas {
             })
     }
 
-    /// Returns the value of the Preferred Hash Algorithms subpacket,
-    /// which contains the list of hash algorithms that the key
-    /// holders prefers, ordered according by the key holder's
-    /// preference.
+    /// Returns the value of the Preferred Hash Algorithms subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// A [Preferred Hash Algorithms subpacket] lists what hash
+    /// algorithms the user prefers.  When signing a message that
+    /// should be verified by a particular recipient, the OpenPGP
+    /// implementation should not use an algorithm that is not on this
+    /// list.
+    ///
+    /// [Preferred Hash Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.8
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn preferred_hash_algorithms(&self) -> Option<&[HashAlgorithm]> {
         // array of one-octet values
         if let Some(sb)
@@ -2026,14 +2250,37 @@ impl SubpacketAreas {
     }
 
     /// Returns the value of the Preferred Compression Algorithms
-    /// subpacket, which contains the list of compression algorithms
-    /// that the key holder prefers, ordered according by the key
-    /// holder's preference.
+    /// subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// A [Preferred Compression Algorithms subpacket] lists what
+    /// compression algorithms the user prefers.  When compressing a
+    /// message for a recipient, the OpenPGP implementation should not
+    /// use an algorithm that is not on the list.
+    ///
+    /// [Preferred Compression Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.9
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn preferred_compression_algorithms(&self)
                                             -> Option<&[CompressionAlgorithm]>
     {
@@ -2052,13 +2299,35 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Key Server Preferences subpacket,
-    /// which contains the key holder's key server preferences.
+    /// Returns the value of the Key Server Preferences subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Key Server Preferences subpacket] indicates to key
+    /// servers how they should handle the certificate.
+    ///
+    /// [Key Server Preferences subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.17
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first for the
+    /// subpacket on the binding signature of the User ID or the User
+    /// Attribute used to locate the certificate (or the primary User
+    /// ID, if it was addressed by Key ID or fingerprint).  If the
+    /// binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn key_server_preferences(&self) -> Option<KeyServerPreferences> {
         // N octets of flags
         if let Some(sb) = self.subpacket(SubpacketTag::KeyServerPreferences) {
@@ -2072,16 +2341,41 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Preferred Key Server subpacket, which
-    /// contains the user's preferred key server for updates.
+    /// Returns the value of the Preferred Key Server subpacket.
     ///
-    /// Note: this packet should be ignored, because it acts as key
-    /// tracker.
+    /// The [Preferred Key Server subpacket] contains a link to a key
+    /// server where the certificate holder plans to publish updates
+    /// to their certificate (e.g., extensions to the expiration time,
+    /// new subkeys, revocation certificates).
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The Preferred Key Server subpacket should be handled
+    /// cautiously, because it can be used by a certificate holder to
+    /// track communication partners.
+    ///
+    /// [Preferred Key Server subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.18
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn preferred_key_server(&self) -> Option<&[u8]> {
         // String
         if let Some(sb)
@@ -2096,14 +2390,24 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Primary UserID subpacket, which
-    /// indicates whether the referenced UserID should be considered
-    /// the user's primary User ID.
+    /// Returns the value of the Primary UserID subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Primary User ID subpacket] indicates whether the
+    /// associated User ID or User Attribute should be considered the
+    /// primary User ID.  It is possible that this is set on multiple
+    /// User IDs.  See the documentation for
+    /// [`ValidCert::primary_userid`] for an explanation of how
+    /// Sequoia resolves this ambiguity.
+    ///
+    /// [Primary User ID subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    /// [`ValidCert::primary_userid`]: ../../../cert/struct.ValidCert.html#method.primary_userid
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn primary_userid(&self) -> Option<bool> {
         // 1 octet, Boolean
         if let Some(sb)
@@ -2120,10 +2424,34 @@ impl SubpacketAreas {
 
     /// Returns the value of the Policy URI subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Policy URI subpacket] contains a link to a policy document,
+    /// which contains information about the conditions under which
+    /// the signature was made.
+    ///
+    /// [Policy URI subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.20
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn policy_uri(&self) -> Option<&[u8]> {
         // String
         if let Some(sb)
@@ -2138,15 +2466,27 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Key Flags subpacket, which contains
-    /// information about the referenced key, in particular, how it is
-    /// used (certification, signing, encryption, authentication), and
-    /// how it is stored (split, held by multiple people).
+    /// Returns the value of the Key Flags subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Key Flags subpacket] describes a key's capabilities
+    /// (certification capable, signing capable, etc.).  In the case
+    /// of subkeys, the Key Flags are located on the subkey's binding
+    /// signature.  For primary keys, locating the correct Key Flags
+    /// subpacket is more complex: First, the primary User ID is
+    /// consulted.  If the primary User ID contains a Key Flags
+    /// subpacket, that is used.  Otherwise, any direct key signature
+    /// is considered.  If that still doesn't contain a Key Flags
+    /// packet, then the primary key should be assumed to be
+    /// certification capable.
+    ///
+    /// [Key Flags subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn key_flags(&self) -> Option<KeyFlags> {
         // N octets of flags
         if let Some(sb) = self.subpacket(SubpacketTag::KeyFlags) {
@@ -2160,14 +2500,22 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Signer's UserID subpacket, which
-    /// contains the User ID that the key holder considers responsible
-    /// for the signature.
+    /// Returns the value of the Signer's UserID subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Signer's User ID subpacket] indicates, which User ID made
+    /// the signature.  This is useful when a key has multiple User
+    /// IDs, which correspond to different roles.  For instance, it is
+    /// not uncommon to use the same certificate in private as well as
+    /// for a club.
+    ///
+    /// [Signer's User ID subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.22
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn signers_user_id(&self) -> Option<&[u8]> {
         // String
         if let Some(sb)
@@ -2184,10 +2532,25 @@ impl SubpacketAreas {
 
     /// Returns the value of the Reason for Revocation subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Reason For Revocation subpacket] indicates why a key,
+    /// User ID, or User Attribute is being revoked.  It includes both
+    /// a machine readable code, and a human-readable string.  The
+    /// code is essential as it indicates to the OpenPGP
+    /// implementation that reads the certificate whether the key was
+    /// compromised (a hard revocation), or is no longer used (a soft
+    /// revocation).  In the former case, the OpenPGP implementation
+    /// must conservatively consider all past signatures as suspect
+    /// whereas in the latter case, past signatures can still be
+    /// considered valid.
+    ///
+    /// [Reason For Revocation subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn reason_for_revocation(&self)
                                  -> Option<(ReasonForRevocation, &[u8])> {
         // 1 octet of revocation code, N octets of reason string
@@ -2204,14 +2567,42 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Features subpacket, which contains a
-    /// list of features that the user's OpenPGP implementation
-    /// supports.
+    /// Returns the value of the Features subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// A [Features subpacket] lists what OpenPGP features the user
+    /// wants to use.  When creating a message, features that the
+    /// intended recipients do not support should not be used.
+    /// However, because this information is rarely held up to date in
+    /// practice, this information is only advisory, and
+    /// implementations are allowed to infer what features the
+    /// recipients support from contextual clues, e.g., their past
+    /// behavior.
+    ///
+    /// [Features subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.24
+    /// [features]: ../../types/struct.Features.html
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn features(&self) -> Option<Features> {
         // N octets of flags
         if let Some(sb) = self.subpacket(SubpacketTag::Features) {
@@ -2225,17 +2616,21 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Signature Target subpacket, which
-    /// contains the hash of the referenced signature packet.
+    /// Returns the value of the Signature Target subpacket.
     ///
-    /// This is used, for instance, by a signature revocation
-    /// certification to designate the signature that is being
-    /// revoked.
+    /// The [Signature Target subpacket] is used to identify the target
+    /// of a signature.  This is used when revoking a signature, and
+    /// by timestamp signatures.  It contains a hash of the target
+    /// signature.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    ///   [Signature Target subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn signature_target(&self) -> Option<(PublicKeyAlgorithm,
                                               HashAlgorithm,
                                               &[u8])> {
@@ -2254,16 +2649,25 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Embedded Signature subpacket, which
-    /// contains a signature.
+    /// Returns the value of the Embedded Signature subpacket.
     ///
-    /// This is used, for instance, to store a subkey's primary key
-    /// binding signature (0x19).
+    /// The [Embedded Signature subpacket] is normally used to hold a
+    /// [Primary Key Binding signature], which binds a
+    /// signing-capable, authentication-capable, or
+    /// certification-capable subkey to the primary key.  Since this
+    /// information is self-authenticating, it is usually stored in
+    /// the unhashed subpacket area.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// [Embedded Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.26
+    /// [Primary Key Binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+    ///
+    /// If the subpacket is not present in the hashed subpacket area
+    /// or in the unhashed subpacket area, this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.  Otherwise, the last one is returned from the
+    /// unhashed subpacket area.
     pub fn embedded_signature(&self) -> Option<&Signature> {
         // 1 signature packet body
         if let Some(sb)
@@ -2280,6 +2684,14 @@ impl SubpacketAreas {
 
     /// Returns the value of any Issuer Fingerprint subpackets.
     ///
+    /// The [Issuer Fingerprint subpacket] is used when processing a
+    /// signature to identify which certificate created the signature.
+    /// Since this information is self-authenticating (the act of
+    /// validating the signature authenticates the subpacket), it is
+    /// normally stored in the unhashed subpacket area.
+    ///
+    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///
     /// This returns all instances of the Issuer Fingerprint subpacket
     /// in both the hashed subpacket area and the unhashed subpacket
     /// area.
@@ -2295,14 +2707,41 @@ impl SubpacketAreas {
             })
     }
 
-    /// Returns the value of the Preferred AEAD Algorithms subpacket,
-    /// which contains the list of AEAD algorithms that the key holder
-    /// prefers, ordered according by the key holder's preference.
+    /// Returns the value of the Preferred AEAD Algorithms subpacket.
     ///
-    /// If the subpacket is not present, this returns `None`.
+    /// The [Preferred AEAD Algorithms subpacket] indicates what AEAD
+    /// algorithms the key holder prefers ordered by preference.  If
+    /// this is set, then the AEAD feature flag should in the
+    /// [Features subpacket] should also be set.
+    ///
+    /// Note: because support for AEAD has not yet been standardized,
+    /// we recommend not yet advertising support for it.
+    ///
+    /// [Preferred AEAD Algorithms subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
+    /// [Features subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
     ///
     /// Note: if the signature contains multiple instances of this
-    /// subpacket, only the last one is considered.
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn preferred_aead_algorithms(&self)
                                      -> Option<&[AEADAlgorithm]> {
         // array of one-octet values
@@ -2321,6 +2760,33 @@ impl SubpacketAreas {
     }
 
     /// Returns the intended recipients.
+    ///
+    /// The [Intended Recipient subpacket] holds the fingerprint of a
+    /// certificate.
+    ///
+    ///   [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
+    ///
+    /// When signing a message, the message should include one such
+    /// subpacket for each intended recipient.  Note: not all messages
+    /// have intended recipients.  For instance, when signing an open
+    /// letter, or a software release, the message is intended for
+    /// anyone.
+    ///
+    /// When processing a signature, the application should ensure
+    /// that if there are any such subpackets, then one of the
+    /// subpackets identifies the recipient's certificate (or user
+    /// signed the message).  If this is not the case, then an
+    /// attacker may have taken the message out of its original
+    /// context.  For instance, if Alice sends a signed email to Bob,
+    /// with the content: "I agree to the contract", and Bob forwards
+    /// that message to Carol, then Carol may think that Alice agreed
+    /// to a contract with her if the signature appears to be valid!
+    /// By adding an intended recipient, it is possible for Carol's
+    /// mail client to warn her that although Alice signed the
+    /// message, the content was intended for Bob and not for her.
+    ///
+    /// This returns all instances of the Intended Recipient subpacket
+    /// in the hashed subpacket area.
     pub fn intended_recipients(&self) -> impl Iterator<Item=&Fingerprint> {
         self.subpackets(SubpacketTag::IntendedRecipient)
             .map(|sb| {
@@ -2384,6 +2850,11 @@ impl SubpacketAreas {
     }
 
     /// Gets a mutable reference to the hashed area.
+    ///
+    /// Note: if you modify the hashed area of a [`Signature4`], this
+    /// will invalidate the signature.  Instead, you should normally
+    /// convert the [`Signature4`] into a [`SignatureBuilder`], modify
+    /// that, and then create a new signature.
     pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
         &mut self.hashed_area
     }
@@ -3451,7 +3922,7 @@ impl signature::SignatureBuilder {
     ///
     /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
     ///
-    /// The Trust Signature subpacket indicates to what degree a
+    /// The Trust Signature subpacket indicates to degree to which a
     /// certificate holder is trusted to certify other keys.
     ///
     /// A level of 0 means that the certificate holder is not trusted
