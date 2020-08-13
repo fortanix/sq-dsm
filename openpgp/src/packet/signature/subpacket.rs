@@ -1128,11 +1128,6 @@ impl SubpacketLength {
 }
 
 impl SubpacketArea {
-    /// Returns the *last* instance of the specified subpacket.
-    fn subpacket(&self, tag: SubpacketTag) -> Option<&Subpacket> {
-        self.lookup(tag)
-    }
-
     /// Returns all instances of the specified subpacket.
     ///
     /// In general, you only want to do this for NotationData.
@@ -1823,7 +1818,7 @@ impl SubpacketAreas {
 
     /// Returns the *last* instance of the specified subpacket.
     fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<&Subpacket> {
-        if let Some(sb) = self.hashed_area().subpacket(tag) {
+        if let Some(sb) = self.hashed_area().lookup(tag) {
             return Some(sb);
         }
 
@@ -1836,7 +1831,7 @@ impl SubpacketAreas {
             return None;
         }
 
-        self.unhashed_area().subpacket(tag)
+        self.unhashed_area().lookup(tag)
     }
 
     /// Returns an iterator over all instances of the specified
