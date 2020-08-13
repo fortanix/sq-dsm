@@ -1554,6 +1554,14 @@ impl Signature4 {
         }
     }
 
+    /// Gets the public key algorithm.
+    // SigantureFields::pk_algo is private, because we don't want it
+    // available on SignatureBuilder, which also derefs to
+    // &SignatureFields.
+    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
+        self.fields.pk_algo()
+    }
+
     /// Gets the hash prefix.
     pub fn digest_prefix(&self) -> &[u8; 2] {
         &self.digest_prefix

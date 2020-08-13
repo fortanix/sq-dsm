@@ -78,7 +78,6 @@ use crate::{
     packet::Key,
     Fingerprint,
     KeyID,
-    SignatureType,
     serialize::MarshalInto,
 };
 use crate::types::{
@@ -3114,34 +3113,6 @@ impl Deref for Signature4 {
 impl DerefMut for Signature4 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.fields
-    }
-}
-
-// We'd like to implement Deref for Signature4 for both
-// signature::SignatureFields and SubpacketArea.  Unfortunately, it is
-// only possible to implement Deref for one of them.  Since
-// SubpacketArea has more methods with much more documentation,
-// implement deref for that, and provide forwarders for
-// signature::SignatureBuilder.
-impl Signature4 {
-    /// Gets the version.
-    pub fn version(&self) -> u8 {
-        self.fields.version()
-    }
-
-    /// Gets the signature type.
-    pub fn typ(&self) -> SignatureType {
-        self.fields.typ()
-    }
-
-    /// Gets the public key algorithm.
-    pub fn pk_algo(&self) -> PublicKeyAlgorithm {
-        self.fields.pk_algo()
-    }
-
-    /// Gets the hash algorithm.
-    pub fn hash_algo(&self) -> HashAlgorithm {
-        self.fields.hash_algo()
     }
 }
 
