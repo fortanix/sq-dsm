@@ -328,6 +328,54 @@ mod tests {
 }
 
 /// Subpacket area.
+///
+/// A version 4 Signature contains two areas that can stored
+/// [signature subpackets]: a so-called hashed subpacket area, and a
+/// so-called unhashed subpacket area.  The hashed subpacket area is
+/// protected by the signature; the unhashed area is not.  This makes
+/// the unhashed subpacket area only appropriate for
+/// self-authenticating data, like the [`Issuer`] subpacket.  The
+/// [`SubpacketAreas`] data structure understands these nuances and
+/// routes lookups appropriately.  As such, it is usually better to
+/// work with subpackets using that interface.
+///
+/// [signature subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
+/// [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+/// [`SubpacketAreas`]: struct.SubpacketAreas.html
+///
+/// # Examples
+///
+/// ```
+/// # use sequoia_openpgp as openpgp;
+/// # use openpgp::cert::prelude::*;
+/// # use openpgp::packet::prelude::*;
+/// # use openpgp::policy::StandardPolicy;
+/// # use openpgp::types::SignatureType;
+/// #
+/// # fn main() -> openpgp::Result<()> {
+/// # let p = &StandardPolicy::new();
+/// #
+/// # let (cert, _) = CertBuilder::new().generate()?;
+/// #
+/// # let key : &Key<_, _> = cert.primary_key().key();
+/// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
+/// #
+/// # let msg = b"Hello, world!";
+/// # let sig = SignatureBuilder::new(SignatureType::Binary)
+/// #     .sign_message(&mut signer, msg)?;
+/// #
+/// # // Verify it.
+/// # sig.verify_message(signer.public(), msg)?;
+/// fn sig_stats(sig: &Signature) {
+///     eprintln!("Hashed subpacket area has {} subpackets",
+///               sig.hashed_area().iter().count());
+///     eprintln!("Unhashed subpacket area has {} subpackets",
+///               sig.unhashed_area().iter().count());
+/// }
+/// # sig_stats(&sig);
+/// # Ok(())
+/// # }
+/// ```
 pub struct SubpacketArea {
     /// The subpackets.
     packets: Vec<Subpacket>,
@@ -432,17 +480,96 @@ impl SubpacketArea {
     }
 
     /// Iterates over the subpackets.
+    ///
+    /// # Examples
+    ///
+    /// Print the number of different types of subpackets in a
+    /// Signature's hashed subpacket area:
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::types::SignatureType;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) = CertBuilder::new().generate()?;
+    /// #
+    /// # let key : &Key<_, _> = cert.primary_key().key();
+    /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
+    /// #
+    /// # let msg = b"Hello, world!";
+    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// #     .sign_message(&mut signer, msg)?;
+    /// #
+    /// # // Verify it.
+    /// # sig.verify_message(signer.public(), msg)?;
+    /// #
+    /// let mut tags: Vec<_> = sig.hashed_area().iter().map(|sb| {
+    ///     sb.tag()
+    /// }).collect();
+    /// tags.sort();
+    /// tags.dedup();
+    ///
+    /// eprintln!("The hashed area contains {} types of subpackets",
+    ///           tags.len());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn iter(&self) -> impl Iterator<Item = &Subpacket> {
         self.packets.iter()
     }
 
-    /// Returns the last subpacket, if any, with the specified tag.
+    /// Returns the subpacket, if any, with the specified tag.
     ///
-    /// This is the recommended strategy of dealing with multiple,
-    /// possibly conflicting, subpackets.  See [Section 5.2.4.1 of RFC
-    /// 4880].
+    /// A given subpacket may occur multiple times.  For some, like
+    /// the [`Notation Data`] subpacket, this is reasonable.  For
+    /// others, like the [`Signature Creation Time`] subpacket, this
+    /// results in an ambiguity.  [Section 5.2.4.1 of RFC 4880] says:
     ///
+    /// > a signature may contain multiple copies of a preference or
+    /// > multiple expiration times.  In most cases, an implementation
+    /// > SHOULD use the last subpacket in the signature, but MAY use
+    /// > any conflict resolution scheme that makes more sense.
+    ///
+    ///   [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     ///   [Section 5.2.4.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.4.1
+    ///
+    /// This function implements the recommended strategy of returning
+    /// the last subpacket.
+    ///
+    /// # Examples
+    ///
+    /// All signatures must have a `Signature Creation Time` subpacket
+    /// in the hashed subpacket area:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) = CertBuilder::new().generate()?;
+    /// #
+    /// # let key : &Key<_, _> = cert.primary_key().key();
+    /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
+    /// #
+    /// # let msg = b"Hello, world!";
+    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// #     .sign_message(&mut signer, msg)?;
+    /// #
+    /// # // Verify it.
+    /// # sig.verify_message(signer.public(), msg)?;
+    /// #
+    /// if sig.hashed_area().lookup(SubpacketTag::SignatureCreationTime).is_none() {
+    ///     eprintln!("Invalid signature.");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn lookup(&self, tag: SubpacketTag) -> Option<&Subpacket> {
         self.cache_init();
 
@@ -452,12 +579,123 @@ impl SubpacketArea {
         }
     }
 
+    /// Returns all instances of the specified subpacket.
+    ///
+    /// For most subpackets, only a single instance of the subpacket
+    /// makes sense.  [`SubpacketArea::lookup`] resolves this
+    /// ambiguity by returning the last instance of the request
+    /// subpacket type.  But, for some subpackets, like the [`Notation
+    /// Data`] subpacket, multiple instances of the subpacket are
+    /// reasonable.
+    ///
+    /// [`SubpacketArea::lookup`]: #method.lookup
+    /// [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    ///
+    /// # Examples
+    ///
+    /// Count the number of `Notation Data` subpackets in the hashed
+    /// subpacket area:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) = CertBuilder::new().generate()?;
+    /// #
+    /// # let key : &Key<_, _> = cert.primary_key().key();
+    /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
+    /// #
+    /// # let msg = b"Hello, world!";
+    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// #     .sign_message(&mut signer, msg)?;
+    /// #
+    /// # // Verify it.
+    /// # sig.verify_message(signer.public(), msg)?;
+    /// #
+    /// eprintln!("Signature has {} notations.",
+    ///           sig.hashed_area().subpackets(SubpacketTag::NotationData).count());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn subpackets(&self, target: SubpacketTag)
+        -> impl Iterator<Item = &Subpacket>
+    {
+        self.iter().filter(move |sp| sp.tag() == target)
+    }
+
     /// Adds the given subpacket.
+    ///
+    /// Adds the given subpacket to the subpacket area.  If the
+    /// subpacket area already contains subpackets with the same tag,
+    /// they are left in place.  If you want to replace them, you
+    /// should instead use the [`SubpacketArea::replace`] method.
+    ///
+    /// [`SubpacketArea::replace`]: #method.replace
     ///
     /// # Errors
     ///
     /// Returns `Error::MalformedPacket` if adding the packet makes
     /// the subpacket area exceed the size limit.
+    ///
+    /// # Examples
+    ///
+    /// Adds an additional `Issuer` subpacket to the unhashed
+    /// subpacket area.  (This is useful if the key material is
+    /// associated with multiple certificates, e.g., a v4 and a v5
+    /// certificate.)  Because the subpacket is added to the unhashed
+    /// area, the signature remains valid.
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::KeyID;
+    /// # use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::{
+    ///     Subpacket,
+    ///     SubpacketTag,
+    ///     SubpacketValue,
+    /// };
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) = CertBuilder::new().generate()?;
+    /// #
+    /// # let key : &Key<_, _> = cert.primary_key().key();
+    /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
+    /// #
+    /// # let msg = b"Hello, world!";
+    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// #     .sign_message(&mut signer, msg)?;
+    /// #
+    /// # // Verify it.
+    /// # sig.verify_message(signer.public(), msg)?;
+    /// #
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
+    /// #    .count(),
+    /// #    1);
+    /// let mut sig: Signature = sig;
+    /// sig.unhashed_area_mut().add(
+    ///     Subpacket::new(
+    ///         SubpacketValue::Issuer(KeyID::from_hex("AAAA BBBB CCCC DDDD")?),
+    ///     false)?);
+    ///
+    /// sig.verify_message(signer.public(), msg)?;
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
+    /// #    .count(),
+    /// #    2);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn add(&mut self, packet: Subpacket) -> Result<()> {
         if self.serialized_len() + packet.serialized_len()
             > ::std::u16::MAX as usize
@@ -474,10 +712,71 @@ impl SubpacketArea {
     /// Adds the given subpacket, replacing all other subpackets with
     /// the same tag.
     ///
+    /// Adds the given subpacket to the subpacket area.  If the
+    /// subpacket area already contains subpackets with the same tag,
+    /// they are first removed.  If you want to preserve them, you
+    /// should instead use the [`SubpacketArea::add`] method.
+    ///
+    /// [`SubpacketArea::add`]: #method.add
+    ///
     /// # Errors
     ///
     /// Returns `Error::MalformedPacket` if adding the packet makes
     /// the subpacket area exceed the size limit.
+    ///
+    /// # Examples
+    ///
+    /// Replaces the `Issuer` subpacket in the unhashed area.  Because
+    /// the unhashed area is not protected by the signature, the
+    /// signature remains valid:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::KeyID;
+    /// # use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::{
+    ///     Subpacket,
+    ///     SubpacketTag,
+    ///     SubpacketValue,
+    /// };
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) = CertBuilder::new().generate()?;
+    /// #
+    /// # let key : &Key<_, _> = cert.primary_key().key();
+    /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
+    /// #
+    /// # let msg = b"Hello, world!";
+    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// #     .sign_message(&mut signer, msg)?;
+    /// #
+    /// # // Verify it.
+    /// # sig.verify_message(signer.public(), msg)?;
+    /// #
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
+    /// #    .count(),
+    /// #    1);
+    /// let mut sig: Signature = sig;
+    /// sig.unhashed_area_mut().replace(
+    ///     Subpacket::new(
+    ///         SubpacketValue::Issuer(KeyID::from_hex("AAAA BBBB CCCC DDDD")?),
+    ///     false)?);
+    ///
+    /// sig.verify_message(signer.public(), msg)?;
+    /// # assert_eq!(sig
+    /// #    .unhashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
+    /// #    .count(),
+    /// #    1);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn replace(&mut self, packet: Subpacket) -> Result<()> {
         if self.iter().filter_map(|sp| if sp.tag() != packet.tag() {
             Some(sp.serialized_len())
@@ -493,9 +792,6 @@ impl SubpacketArea {
     }
 
     /// Removes all subpackets with the given tag.
-    ///
-    /// Returns the old subpacket area, so that it can be restored if
-    /// necessary.
     pub fn remove_all(&mut self, tag: SubpacketTag) {
         self.cache_invalidate();
         self.packets.retain(|sp| sp.tag() != tag);
@@ -512,6 +808,16 @@ impl SubpacketArea {
     /// This normalizes the subpacket area, and accelerates lookups in
     /// implementations that sort the in-core representation and use
     /// binary search for lookups.
+    ///
+    /// The subpackets are sorted by the numeric value of their tag.
+    /// The sort is stable.  So, if there are multiple [`Notation Data`]
+    /// subpackets, for instance, they will remain in the same order.
+    ///
+    /// The [`SignatureBuilder`] sorts the subpacket areas just before
+    /// creating the signature.
+    ///
+    /// [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    /// [`SignatureBuilder`]: ../struct.SignatureBuilder.html
     pub fn sort(&mut self) {
         self.cache_invalidate();
         // slice::sort_by is stable.
@@ -1124,19 +1430,6 @@ impl SubpacketLength {
     /// Returns the length of the optimal encoding of `len`.
     pub(crate) fn len_optimal_encoding(len: u32) -> usize {
         BodyLength::serialized_len(&BodyLength::Full(len))
-    }
-}
-
-impl SubpacketArea {
-    /// Returns all instances of the specified subpacket.
-    ///
-    /// In general, you only want to do this for NotationData.
-    /// Otherwise, taking the last instance of a specified subpacket
-    /// is a reasonable approach for dealing with ambiguity.
-    pub fn subpackets(&self, target: SubpacketTag)
-        -> impl Iterator<Item = &Subpacket>
-    {
-        self.iter().filter(move |sp| sp.tag() == target)
     }
 }
 
