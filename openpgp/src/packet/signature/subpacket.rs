@@ -1181,10 +1181,17 @@ impl NotationDataFlags {
     }
 }
 
-/// Struct holding an arbitrary subpacket.
+/// Holds an arbitrary, well-structured subpacket.
 ///
-/// The value is well structured.  See `SubpacketTag` for a
-/// description of these tags.
+/// The `SubpacketValue` enum holds a [`Subpacket`]'s value.  The
+/// values are well structured in the sense that they have been parsed
+/// into Sequoia's native data types rather than just holding the raw
+/// byte vector.  For instance, the [`Issuer`] variant holds a
+/// [`KeyID`].
+///
+/// [`Subpacket`]: struct.Subpacket.html
+/// [`Issuer`]: #variant.Issuer
+/// [`KeyID`]: ../../../enum.KeyID.html
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
@@ -1198,13 +1205,33 @@ pub enum SubpacketValue {
         body: Vec<u8>
     },
 
-    /// 4-octet time field
+    /// The time the signature was made.
+    ///
+    /// See [Section 5.2.3.4 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     SignatureCreationTime(Timestamp),
-    /// 4-octet time field
+    /// The validity period of the signature.
+    ///
+    /// The validity is relative to the time stored in the signature's
+    /// Signature Creation Time subpacket.
+    ///
+    /// See [Section 5.2.3.10 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.10 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
     SignatureExpirationTime(Duration),
-    /// 1 octet of exportability, 0 for not, 1 for exportable
+    /// Whether a signature should be published.
+    ///
+    /// See [Section 5.2.3.11 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.11
     ExportableCertification(bool),
-    /// 1 octet "level" (depth), 1 octet of trust amount
+    /// Signer asserts that the key is not only valid but also trustworthy at
+    /// the specified level.
+    ///
+    /// See [Section 5.2.3.13 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
     TrustSignature {
         /// Trust level, or depth.
         ///
@@ -1225,7 +1252,12 @@ pub enum SubpacketValue {
         /// values of 60 for partial trust and 120 for complete trust.
         trust: u8,
     },
-    /// A regular expression.
+    /// Used in conjunction with Trust Signature packets (of level > 0) to
+    /// limit the scope of trust that is extended.
+    ///
+    /// See [Section 5.2.3.14 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
     ///
     /// Note: The RFC requires that the serialized form includes a
     /// trailing NUL byte.  When Sequoia parses the regular expression
@@ -1233,37 +1265,103 @@ pub enum SubpacketValue {
     /// a NUL, then parsing fails.)  Likewise, when it serializes a
     /// regular expression subpacket, it unconditionally adds a NUL.
     RegularExpression(Vec<u8>),
-    /// 1 octet of revocability, 0 for not, 1 for revocable
+    /// Whether a signature can later be revoked.
+    ///
+    /// See [Section 5.2.3.12 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.12
     Revocable(bool),
-    /// 4-octet time field.
+    /// The validity period of the key.
+    ///
+    /// The validity period is relative to the key's (not the signature's) creation time.
+    ///
+    /// See [Section 5.2.3.6 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
     KeyExpirationTime(Duration),
-    /// Array of one-octet values
+    /// The Symmetric algorithms that the certificate holder prefers.
+    ///
+    /// See [Section 5.2.3.7 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
     PreferredSymmetricAlgorithms(Vec<SymmetricAlgorithm>),
-    /// 1 octet of class, 1 octet of public-key algorithm ID, 20 octets of
-    /// fingerprint
+    /// Authorizes the specified key to issue revocation signatures for this
+    /// certificate.
+    ///
+    /// See [Section 5.2.3.15 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.15 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
     RevocationKey(RevocationKey),
-    /// 8-octet Key ID
+    /// The OpenPGP Key ID of the key issuing the signature.
+    ///
+    /// See [Section 5.2.3.5 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     Issuer(KeyID),
-    /// The notation has a name and a value, each of
-    /// which are strings of octets..
+    /// A "notation" on the signature.
+    ///
+    /// See [Section 5.2.3.16 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
     NotationData(NotationData),
-    /// Array of one-octet values
+    /// The Hash algorithms that the certificate holder prefers.
+    ///
+    /// See [Section 5.2.3.8 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.8
     PreferredHashAlgorithms(Vec<HashAlgorithm>),
-    /// Array of one-octet values
+    /// The compression algorithms that the certificate holder prefers.
+    ///
+    /// See [Section 5.2.3.9 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.9
     PreferredCompressionAlgorithms(Vec<CompressionAlgorithm>),
-    /// N octets of flags
+    /// A list of flags that indicate preferences that the certificate
+    /// holder has about how the key is handled by a key server.
+    ///
+    /// See [Section 5.2.3.17 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.17 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.17
     KeyServerPreferences(KeyServerPreferences),
-    /// String (URL)
+    /// The URI of a key server where the certificate holder keeps
+    /// their certificate up to date.
+    ///
+    /// See [Section 5.2.3.18 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.18 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.18
     PreferredKeyServer(Vec<u8>),
-    /// 1 octet, Boolean
+    /// A flag in a User ID's self-signature that states whether this
+    /// User ID is the primary User ID for this certificate.
+    ///
+    /// See [Section 5.2.3.19 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.19 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
     PrimaryUserID(bool),
-    /// String (URL)
+    /// The URI of a document that describes the policy under which
+    /// the signature was issued.
+    ///
+    /// See [Section 5.2.3.20 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.20 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.20
     PolicyURI(Vec<u8>),
-    /// N octets of flags
+    /// A list of flags that hold information about a key.
+    ///
+    /// See [Section 5.2.3.21 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.21 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
     KeyFlags(KeyFlags),
-    /// String
+    /// The User ID that is responsible for the signature.
+    ///
+    /// See [Section 5.2.3.22 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.22 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.22
     SignersUserID(Vec<u8>),
-    /// 1 octet of revocation code, N octets of reason string
+    /// The reason for a revocation, used in key revocations and
+    /// certification revocation signatures.
+    ///
+    /// See [Section 5.2.3.23 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.23 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
     ReasonForRevocation {
         /// Machine-readable reason for revocation.
         code: ReasonForRevocation,
@@ -1271,9 +1369,17 @@ pub enum SubpacketValue {
         /// Human-readable reason for revocation.
         reason: Vec<u8>,
     },
-    /// N octets of flags
+    /// The OpenPGP features a user's implementation supports.
+    ///
+    /// See [Section 5.2.3.24 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.24 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.24
     Features(Features),
-    /// 1-octet public-key algorithm, 1 octet hash algorithm, N octets hash
+    /// A signature to which this signature refers.
+    ///
+    /// See [Section 5.2.3.25 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.25 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
     SignatureTarget {
         /// Public-key algorithm of the target signature.
         pk_algo: PublicKeyAlgorithm,
@@ -1282,13 +1388,31 @@ pub enum SubpacketValue {
         /// Hash digest of the target signature.
         digest: Vec<u8>,
     },
-    /// An embedded signature.
+    /// A complete Signature packet body.
+    ///
+    /// This is used to store a backsig in a subkey binding signature.
+    ///
+    /// See [Section 5.2.3.26 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.26 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.26
     EmbeddedSignature(Signature),
-    /// 20-octet V4 fingerprint.
+    /// The Fingerprint of the key that issued the signature (proposed).
+    ///
+    /// See [Section 5.2.3.28 of RFC 4880bis] for details.
+    ///
+    ///  [Section 5.2.3.28 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     IssuerFingerprint(Fingerprint),
-    /// Preferred AEAD Algorithms.
+    /// The AEAD algorithms that the certificate holder prefers (proposed).
+    ///
+    /// See [Section 5.2.3.8 of RFC 4880bis] for details.
+    ///
+    ///  [Section 5.2.3.8 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
     PreferredAEADAlgorithms(Vec<AEADAlgorithm>),
-    /// Intended Recipient Fingerprint (proposed).
+    /// Who the signed message was intended for (proposed).
+    ///
+    /// See [Section 5.2.3.29 of RFC 4880bis] for details.
+    ///
+    ///  [Section 5.2.3.29 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     IntendedRecipient(Fingerprint),
 
     /// This marks this enum as non-exhaustive.  Do not use this
