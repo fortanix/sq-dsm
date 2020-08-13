@@ -129,9 +129,14 @@ lazy_static!{
         = time::Duration::new(30 * 60, 0);
 
 }
-/// The subpacket types specified by [Section 5.2.3.1 of RFC 4880].
+
+/// The subpacket types.
 ///
-/// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
+/// The `SubpacketTag` enum holds a [`Subpacket`]'s identifier, the
+/// so-called tag.
+///
+/// [`Subpacket`]: struct.Subpacket.html
+///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
 #[derive(Debug)]
@@ -139,75 +144,177 @@ lazy_static!{
 #[derive(Clone, Copy)]
 pub enum SubpacketTag {
     /// The time the signature was made.
+    ///
+    /// See [Section 5.2.3.4 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     SignatureCreationTime,
     /// The validity period of the signature.
+    ///
+    /// The validity is relative to the time stored in the signature's
+    /// Signature Creation Time subpacket.
+    ///
+    /// See [Section 5.2.3.10 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.10 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
     SignatureExpirationTime,
-    /// This subpacket denotes whether a certification signature is
-    /// "exportable", to be used by other users than the signature's issuer.
+    /// Whether a signature should be published.
+    ///
+    /// See [Section 5.2.3.11 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.11
     ExportableCertification,
     /// Signer asserts that the key is not only valid but also trustworthy at
     /// the specified level.
+    ///
+    /// See [Section 5.2.3.13 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.13 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
     TrustSignature,
-    /// Used in conjunction with trust Signature packets (of level > 0) to
+    /// Used in conjunction with Trust Signature packets (of level > 0) to
     /// limit the scope of trust that is extended.
+    ///
+    /// See [Section 5.2.3.14 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.14 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
     RegularExpression,
-    /// Signature's revocability status.
+    /// Whether a signature can later be revoked.
+    ///
+    /// See [Section 5.2.3.12 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.12
     Revocable,
     /// The validity period of the key.
+    ///
+    /// The validity period is relative to the key's (not the signature's) creation time.
+    ///
+    /// See [Section 5.2.3.6 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
     KeyExpirationTime,
     /// Deprecated
     PlaceholderForBackwardCompatibility,
-    /// Symmetric algorithm numbers that indicate which algorithms the key
-    /// holder prefers to use.
+    /// The Symmetric algorithms that the certificate holder prefers.
+    ///
+    /// See [Section 5.2.3.7 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
     PreferredSymmetricAlgorithms,
     /// Authorizes the specified key to issue revocation signatures for this
-    /// key.
+    /// certificate.
+    ///
+    /// See [Section 5.2.3.15 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.15 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
     RevocationKey,
     /// The OpenPGP Key ID of the key issuing the signature.
+    ///
+    /// See [Section 5.2.3.5 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     Issuer,
-    /// This subpacket describes a "notation" on the signature that the
-    /// issuer wishes to make.
+    /// A "notation" on the signature.
+    ///
+    /// See [Section 5.2.3.16 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
     NotationData,
-    /// Message digest algorithm numbers that indicate which algorithms the
-    /// key holder prefers to receive.
+    /// The Hash algorithms that the certificate holder prefers.
+    ///
+    /// See [Section 5.2.3.8 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.8 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.8
     PreferredHashAlgorithms,
-    /// Compression algorithm numbers that indicate which algorithms the key
-    /// holder prefers to use.
+    /// The compression algorithms that the certificate holder prefers.
+    ///
+    /// See [Section 5.2.3.9 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.9
     PreferredCompressionAlgorithms,
-    /// This is a list of one-bit flags that indicate preferences that the
-    /// key holder has about how the key is handled on a key server.
+    /// A list of flags that indicate preferences that the certificate
+    /// holder has about how the key is handled by a key server.
+    ///
+    /// See [Section 5.2.3.17 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.17 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.17
     KeyServerPreferences,
-    /// This is a URI of a key server that the key holder prefers be used for
-    /// updates.
+    /// The URI of a key server where the certificate holder keeps
+    /// their certificate up to date.
+    ///
+    /// See [Section 5.2.3.18 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.18 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.18
     PreferredKeyServer,
-    /// This is a flag in a User ID's self-signature that states whether this
-    /// User ID is the main User ID for this key.
+    /// A flag in a User ID's self-signature that states whether this
+    /// User ID is the primary User ID for this certificate.
+    ///
+    /// See [Section 5.2.3.19 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.19 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
     PrimaryUserID,
-    /// This subpacket contains a URI of a document that describes the policy
-    /// under which the signature was issued.
+    /// The URI of a document that describes the policy under which
+    /// the signature was issued.
+    ///
+    /// See [Section 5.2.3.20 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.20 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.20
     PolicyURI,
-    /// This subpacket contains a list of binary flags that hold information
-    /// about a key.
+    /// A list of flags that hold information about a key.
+    ///
+    /// See [Section 5.2.3.21 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.21 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.21
     KeyFlags,
-    /// This subpacket allows a keyholder to state which User ID is
-    /// responsible for the signing.
+    /// The User ID that is responsible for the signature.
+    ///
+    /// See [Section 5.2.3.22 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.22 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.22
     SignersUserID,
-    /// This subpacket is used only in key revocation and certification
-    /// revocation signatures.
+    /// The reason for a revocation, used in key revocations and
+    /// certification revocation signatures.
+    ///
+    /// See [Section 5.2.3.23 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.23 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
     ReasonForRevocation,
-    /// The Features subpacket denotes which advanced OpenPGP features a
-    /// user's implementation supports.
+    /// The OpenPGP features a user's implementation supports.
+    ///
+    /// See [Section 5.2.3.24 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.24 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.24
     Features,
-    /// This subpacket identifies a specific target signature to which a
-    /// signature refers.
+    /// A signature to which this signature refers.
+    ///
+    /// See [Section 5.2.3.25 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.25 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.25
     SignatureTarget,
-    /// This subpacket contains a complete Signature packet body
+    /// A complete Signature packet body.
+    ///
+    /// This is used to store a backsig in a subkey binding signature.
+    ///
+    /// See [Section 5.2.3.26 of RFC 4880] for details.
+    ///
+    ///  [Section 5.2.3.26 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.26
     EmbeddedSignature,
-    /// Added in RFC 4880bis.
+    /// The Fingerprint of the key that issued the signature (proposed).
+    ///
+    /// See [Section 5.2.3.28 of RFC 4880bis] for details.
+    ///
+    ///  [Section 5.2.3.28 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     IssuerFingerprint,
-    /// Preferred AEAD Algorithms.
+    /// The AEAD algorithms that the certificate holder prefers (proposed).
+    ///
+    /// See [Section 5.2.3.8 of RFC 4880bis] for details.
+    ///
+    ///  [Section 5.2.3.8 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
     PreferredAEADAlgorithms,
-    /// Intended Recipient Fingerprint (proposed).
+    /// Who the signed message was intended for (proposed).
+    ///
+    /// See [Section 5.2.3.29 of RFC 4880bis] for details.
+    ///
+    ///  [Section 5.2.3.29 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     IntendedRecipient,
     /// Reserved subpacket tag.
     Reserved(u8),
