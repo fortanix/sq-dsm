@@ -5,6 +5,19 @@ set -e
 # (mainly Clang and LLVM). Until that's resolved, just test the
 # `sequoia_openpgp` crate using the CNG backend
 
+# FIXME: Try to mitigate the download speed by sorting the mirrors by fastest
+cat /etc/pacman.d/mirrorlist.msys
+cat /etc/pacman.d/mirrorlist.mingw64
+
+cp /etc/pacman.d/mirrorlist.msys /etc/pacman.d/mirrorlist.msys.backup
+rankmirrors /etc/pacman.d/mirrorlist.msys.backup > /etc/pacman.d/mirrorlist.msys
+
+cp /etc/pacman.d/mirrorlist.mingw64 /etc/pacman.d/mirrorlist.mingw64.backup
+rankmirrors /etc/pacman.d/mirrorlist.mingw64.backup > /etc/pacman.d/mirrorlist.mingw64
+
+cat /etc/pacman.d/mirrorlist.msys
+cat /etc/pacman.d/mirrorlist.mingw64
+
 date
 pacman --noconfirm -S --needed \
     base-devel \
