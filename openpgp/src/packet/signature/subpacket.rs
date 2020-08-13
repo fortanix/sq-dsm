@@ -1138,8 +1138,9 @@ impl SubpacketArea {
     /// In general, you only want to do this for NotationData.
     /// Otherwise, taking the last instance of a specified subpacket
     /// is a reasonable approach for dealing with ambiguity.
-    fn subpackets(&self, target: SubpacketTag)
-                  -> impl Iterator<Item = &Subpacket> {
+    pub fn subpackets(&self, target: SubpacketTag)
+        -> impl Iterator<Item = &Subpacket>
+    {
         self.iter().filter(move |sp| sp.tag() == target)
     }
 }
