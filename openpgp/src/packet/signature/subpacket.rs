@@ -483,7 +483,7 @@ impl SubpacketArea {
             Some(sp.serialized_len())
         } else {
             None
-        }).sum::<usize>() > std::u16::MAX as usize {
+        }).sum::<usize>() + packet.serialized_len() > std::u16::MAX as usize {
             return Err(Error::MalformedPacket(
                 "Subpacket area exceeds maximum size".into()).into());
         }
