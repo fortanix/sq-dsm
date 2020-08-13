@@ -1517,9 +1517,49 @@ impl SubpacketValue {
     }
 }
 
-/// Signature subpacket specified by [Section 5.2.3.1 of RFC 4880].
+/// Signature subpackets.
 ///
-/// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
+/// Most of a signature's attributes are not stored in fixed fields,
+/// but in so-called subpackets.  These subpackets are stored in a
+/// [`Signature`]'s so-called subpacket areas, which are effectively
+/// small key-value stores.  The keys are subpacket tags
+/// ([`SubpacketTag`]).  The values are well-structured
+/// ([`SubpacketValue`]).
+///
+/// [`Signature`]: ../../enum.Signature.html
+/// [`SubpacketTag`]: enum.SubpacketTag.html
+/// [`SubpacketValue`]: enum.SubpacketValue.html
+///
+/// In addition to their key and value, subpackets also include a
+/// critical flag.  When set, this flag indicates to the OpenPGP
+/// implementation that if it doesn't understand the subpacket, it
+/// must consider the signature to be invalid.  (Likewise, if it isn't
+/// set, then it means that it is safe for the implementation to
+/// ignore the subpacket.)  This enables forward compatibility with
+/// security-relevant extensions.
+///
+/// It is possible to control how Sequoia's higher-level functionality
+/// handles unknown, critical subpackets using a [`Policy`] object.
+/// Depending on the degree of control required, it may be sufficient
+/// to customize a [`StandardPolicy`] object using, for instance, the
+/// [`StandardPolicy::accept_critical_subpacket`] method.
+///
+/// [`Policy`]: ../../../policy/trait.Policy.html
+/// [`StandardPolicy`]: ../../../policy/struct.StandardPolicy.html
+/// [`StandardPolicy::accept_critical_subpacket`]: ../../../policy/struct.StandardPolicy.html#method.accept_critical_subpacket
+///
+/// The subpacket system is extensible in two ways.  First, although
+/// limited, the subpacket name space is not exhausted.  So, it is
+/// possible to introduce new packets.  Second, one of the subpackets,
+/// the [`Notation Data`] subpacket ([`NotationData`]), is explicitly
+/// designed for adding arbitrary data to signatures.
+///
+///   [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+///   [`NotationData`]: struct.NotationData.html
+///
+/// Subpackets are described in [Section 5.2.3.1 of RFC 4880].
+///
+///   [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct Subpacket {
     /// The length.
@@ -1599,7 +1639,7 @@ impl fmt::Debug for Subpacket {
 }
 
 impl Subpacket {
-    /// Creates a new subpacket.
+    /// Creates a new Subpacket.
     pub fn new(value: SubpacketValue, critical: bool)
                -> Result<Subpacket> {
         Ok(Self::with_length(
@@ -1619,17 +1659,17 @@ impl Subpacket {
         }
     }
 
-    /// Returns whether this subpacket is critical.
+    /// Returns whether the critical bit is set.
     pub fn critical(&self) -> bool {
         self.critical
     }
 
-    /// Returns the subpacket tag.
+    /// Returns the Subpacket's tag.
     pub fn tag(&self) -> SubpacketTag {
         self.value.tag()
     }
 
-    /// Returns the subpackets value.
+    /// Returns the Subpacket's value.
     pub fn value(&self) -> &SubpacketValue {
         &self.value
     }
