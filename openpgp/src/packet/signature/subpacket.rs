@@ -132,6 +132,8 @@ lazy_static!{
 /// The subpacket types specified by [Section 5.2.3.1 of RFC 4880].
 ///
 /// [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
+/// Note: This enum cannot be exhaustively matched to allow future
+/// extensions.
 #[derive(Debug)]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Clone, Copy)]
@@ -213,6 +215,10 @@ pub enum SubpacketTag {
     Private(u8),
     /// Unknown subpacket tag.
     Unknown(u8),
+
+    /// This marks this enum as non-exhaustive.  Do not use this
+    /// variant.
+    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl fmt::Display for SubpacketTag {
@@ -291,6 +297,7 @@ impl From<SubpacketTag> for u8 {
             SubpacketTag::Reserved(u) => u,
             SubpacketTag::Private(u) => u,
             SubpacketTag::Unknown(u) => u,
+            SubpacketTag::__Nonexhaustive => unreachable!(),
         }
     }
 }

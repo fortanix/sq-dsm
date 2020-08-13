@@ -1719,6 +1719,7 @@ impl Subpacket {
                     tag,
                     body: php.parse_bytes("unknown subpacket", len)?,
                 },
+            SubpacketTag::__Nonexhaustive => unreachable!(),
         };
 
         let total_out = php.reader.total_out();
