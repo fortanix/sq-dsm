@@ -939,14 +939,35 @@ impl SubpacketArea {
     }
 }
 
-/// Payload of a NotationData subpacket.
+/// Payload of a Notation Data subpacket.
 ///
-/// The name falls into two namespaces: The user namespace and the
-/// IETF namespace.  Names in the user namespace have the form
-/// `name@example.org` and are managed by the owner of the domain.
-/// Names in the IETF namespace may not contain an `@` and are
-/// managed by IANA.  See [Section 5.2.3.16 of RFC 4880] for
-/// details.
+/// The [`Notation Data`] subpacket provides a mechanism for a
+/// message's signer to insert nearly arbitrary data into the
+/// signature.  Because notations can be marked as critical, it is
+/// possible to add security relevant notations, which the receiving
+/// OpenPGP implementation will respect (in the sense that an
+/// implementation will reject signatures that include unknown,
+/// critical notations), even if they don't understand the notations
+/// themselves.
+///
+///   [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+///
+/// It is possible to control how Sequoia's higher-level functionality
+/// handles unknown, critical notations using a [`Policy`] object.
+/// Depending on the degree of control required, it may be sufficient
+/// to customize a [`StandardPolicy`] object using, for instance, the
+/// [`StandardPolicy::good_critical_notations`] method.
+///
+/// [`Policy`]: ../../../policy/trait.Policy.html
+/// [`StandardPolicy`]: ../../../policy/struct.StandardPolicy.html
+/// [`StandardPolicy::good_critical_notations`]: ../../../policy/struct.StandardPolicy.html#method.good_critical_notations
+///
+/// Notation names are human-readable UTF-8 strings.  There are two
+/// namespaces: The user namespace and the IETF namespace.  Names in
+/// the user namespace have the form `name@example.org` and are
+/// managed by the owner of the domain.  Names in the IETF namespace
+/// may not contain an `@` and are managed by IANA.  See [Section
+/// 5.2.3.16 of RFC 4880] for details.
 ///
 ///   [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
