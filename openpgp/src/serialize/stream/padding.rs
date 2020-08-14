@@ -354,10 +354,20 @@ mod test {
         (c - p) / p
     }
 
+    /// Experimentally, we observe the maximum overhead to be ~11.63%
+    /// when padding 129 bytes to 144.
+    const MAX_OVERHEAD: f32 = 0.1163;
+
     #[test]
     fn padme_max_overhead() {
+        // The paper says the maximum multiplicative overhead is
+        // 11.(11)% when padding 9 bytes to 10.
         assert!(0.111 < padme_multiplicative_overhead(9));
         assert!(padme_multiplicative_overhead(9) < 0.112);
+
+        // Contrary to that, we observe the maximum overhead to be
+        // ~11.63% when padding 129 bytes to 144.
+        assert!(padme_multiplicative_overhead(129) < MAX_OVERHEAD);
     }
 
     quickcheck! {
@@ -372,10 +382,12 @@ mod test {
             let s = e.log2().floor() + 1.; // # of bits to represent e
             let max_overhead = (2.0_f32.powf(e-s) - 1.) / l_;
 
-            assert!(o < 0.112);
+            assert!(o < MAX_OVERHEAD,
+                    "padme({}) => {}: overhead {} exceeds maximum overhead {}",
+                    l, padme(l.into()), o, MAX_OVERHEAD);
             assert!(o <= max_overhead,
-                    "padme({}): overhead {} exceeds maximum overhead {}",
-                    l, o, max_overhead);
+                    "padme({}) => {}: overhead {} exceeds maximum overhead {}",
+                    l, padme(l.into()), o, max_overhead);
             true
         }
     }
