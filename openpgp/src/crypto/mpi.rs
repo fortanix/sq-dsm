@@ -897,7 +897,11 @@ impl Arbitrary for Ciphertext {
 
             2 => Ciphertext::ECDH {
                 e: MPI::arbitrary(g),
-                key: <Vec<u8>>::arbitrary(g).into_boxed_slice()
+                key: {
+                    let mut k = <Vec<u8>>::arbitrary(g);
+                    k.truncate(255);
+                    k.into_boxed_slice()
+                },
             },
             _ => unreachable!(),
         }
