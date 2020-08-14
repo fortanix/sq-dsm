@@ -519,7 +519,11 @@ impl Arbitrary for Curve {
             4 => Curve::BrainpoolP512,
             5 => Curve::Ed25519,
             6 => Curve::Cv25519,
-            7 => Curve::Unknown(Vec::<u8>::arbitrary(g).into_boxed_slice()),
+            7 => Curve::Unknown({
+                let mut k = <Vec<u8>>::arbitrary(g);
+                k.truncate(255);
+                k.into_boxed_slice()
+            }),
             _ => unreachable!(),
         }
     }
