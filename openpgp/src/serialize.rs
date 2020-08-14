@@ -136,7 +136,7 @@
 
 use std::io::{self, Write};
 use std::cmp;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use super::*;
 
@@ -895,6 +895,19 @@ impl MarshalInto for crypto::mpi::ProtectedMPI {
     }
 }
 
+/// Writes `buf` into `w` prefixed by the length as u8, bailing out if
+/// the length exceeds 256 bytes.
+fn write_field_with_u8_size(w: &mut dyn Write, name: &str, buf: &[u8])
+                            -> Result<()> {
+    w.write_all(&[buf.len().try_into()
+                  .map_err(|_| anyhow::Error::from(
+                      Error::InvalidArgument(
+                          format!("{} exceeds 255 bytes: {:?}",
+                                  name, buf))))?])?;
+    w.write_all(buf)?;
+    Ok(())
+}
+
 impl Marshal for crypto::mpi::PublicKey {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpi::PublicKey::*;
@@ -919,20 +932,17 @@ impl Marshal for crypto::mpi::PublicKey {
             }
 
             &EdDSA { ref curve, ref q } => {
-                w.write_all(&[curve.oid().len() as u8])?;
-                w.write_all(curve.oid())?;
+                write_field_with_u8_size(w, "Curve's OID", curve.oid())?;
                 q.serialize(w)?;
             }
 
             &ECDSA { ref curve, ref q } => {
-                w.write_all(&[curve.oid().len() as u8])?;
-                w.write_all(curve.oid())?;
+                write_field_with_u8_size(w, "Curve's OID", curve.oid())?;
                 q.serialize(w)?;
             }
 
             &ECDH { ref curve, ref q, hash, sym } => {
-                w.write_all(&[curve.oid().len() as u8])?;
-                w.write_all(curve.oid())?;
+                write_field_with_u8_size(w, "Curve's OID", curve.oid())?;
                 q.serialize(w)?;
                 w.write_all(&[3u8, 1u8, u8::from(hash), u8::from(sym)])?;
             }
@@ -1116,9 +1126,7 @@ impl Marshal for crypto::mpi::Ciphertext {
 
             &ECDH{ ref e, ref key } => {
                 e.serialize(w)?;
-
-                w.write_all(&[key.len() as u8])?;
-                w.write_all(&key)?;
+                write_field_with_u8_size(w, "Key", key)?;
             }
 
             &Unknown { ref mpis, ref rest } => {
