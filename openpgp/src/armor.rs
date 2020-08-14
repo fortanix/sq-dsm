@@ -903,7 +903,7 @@ impl<'a> Reader<'a> {
 // This function returns ("abcd", 6), because the 'd' is the last
 // character in the last complete base64 chunk, and it is at offset 5.
 //
-// If 'd' is follow by whitespace, it is undefined whether that
+// If 'd' is followed by whitespace, it is undefined whether that
 // whitespace is included in the count.
 //
 // This function only returns full chunks of base64 data.  As a
@@ -1684,6 +1684,8 @@ mod test {
     }
 
     /// Tests issue #404, zero-sized reads break reader.
+    ///
+    /// See: https://gitlab.com/sequoia-pgp/sequoia/-/issues/404
     #[test]
     fn zero_sized_read() {
         let mut r = Reader::from_bytes(crate::tests::file("armor/test-1.asc"),
@@ -1695,6 +1697,8 @@ mod test {
 
     /// Crash in armor parser due to indexing not aligned with UTF-8
     /// characters.
+    ///
+    /// See: https://gitlab.com/sequoia-pgp/sequoia/-/issues/515
     #[test]
     fn issue_515() {
         let data = [63, 9, 45, 10, 45, 10, 45, 45, 45, 45, 45, 66, 69,
@@ -1712,6 +1716,8 @@ mod test {
 
     /// Crash in armor parser due to improper use of the buffered
     /// reader protocol when consuming quoting prefix.
+    ///
+    /// See: https://gitlab.com/sequoia-pgp/sequoia/-/issues/516
     #[test]
     fn issue_516() {
         let data = [
@@ -1738,6 +1744,8 @@ mod test {
 
     /// Crash in armor parser due to improper use of the buffered
     /// reader protocol when consuming quoting prefix.
+    ///
+    /// See: https://gitlab.com/sequoia-pgp/sequoia/-/issues/517
     #[test]
     fn issue_517() {
         let data = [13, 45, 45, 45, 45, 45, 66, 69, 71, 73, 78, 32, 80,
