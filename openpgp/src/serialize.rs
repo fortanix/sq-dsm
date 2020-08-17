@@ -140,7 +140,6 @@ use std::convert::{TryFrom, TryInto};
 
 use super::*;
 
-mod sexp;
 mod cert;
 pub use self::cert::TSK;
 mod cert_armored;

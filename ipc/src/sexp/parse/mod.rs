@@ -11,17 +11,18 @@ use std::path::Path;
 
 use buffered_reader::{self, BufferedReader};
 use lalrpop_util::{lalrpop_mod, ParseError};
+use sequoia_openpgp as openpgp;
+use openpgp::parse::Parse;
 
-use crate::Error;
+use openpgp::Error;
 use crate::Result;
-use crate::crypto::sexp::Sexp;
-use crate::parse::Parse;
+use crate::sexp::Sexp;
 
 mod lexer;
 use self::lexer::Lexer;
 
 // Load the generated code.
-lalrpop_mod!(#[allow(missing_docs, unused_parens)] grammar, "/parse/sexp/grammar.rs");
+lalrpop_mod!(#[allow(missing_docs, unused_parens)] grammar, "/sexp/parse/grammar.rs");
 
 impl<'a> Parse<'a, Sexp> for Sexp {
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Sexp> {
@@ -79,8 +80,8 @@ impl Sexp {
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto::sexp::{Sexp, String_};
-    use crate::parse::Parse;
+    use crate::sexp::{Sexp, String_};
+    use sequoia_openpgp::parse::Parse;
 
     #[test]
     fn basics() {

@@ -35,7 +35,6 @@ pub mod mem;
 pub mod mpi;
 mod s2k;
 pub use s2k::S2K;
-pub mod sexp;
 pub(crate) mod symmetric;
 
 /// Holds a session key.

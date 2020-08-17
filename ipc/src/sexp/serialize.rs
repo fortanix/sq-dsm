@@ -1,13 +1,18 @@
-use crate::Result;
-use crate::serialize::{
-    Marshal,
-    MarshalInto,
-    generic_serialize_into,
+use std::io;
+
+use sequoia_openpgp as openpgp;
+use openpgp::{
+    Result,
+    Error,
+    serialize::{
+        Marshal,
+        MarshalInto,
+    },
 };
 
-use crate::crypto::sexp::{Sexp, String_};
+use crate::sexp::{Sexp, String_};
 
-impl crate::serialize::Serialize for Sexp {}
+impl openpgp::serialize::Serialize for Sexp {}
 
 impl Marshal for Sexp {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
@@ -25,7 +30,7 @@ impl Marshal for Sexp {
     }
 }
 
-impl crate::serialize::SerializeInto for Sexp {}
+impl openpgp::serialize::SerializeInto for Sexp {}
 
 impl MarshalInto for Sexp {
     fn serialized_len(&self) -> usize {
@@ -77,6 +82,39 @@ impl MarshalInto for String_ {
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         generic_serialize_into(self, self.serialized_len(), buf)
     }
+}
+
+/// Provides a generic implementation for SerializeInto::serialize_into.
+///
+/// For now, we express SerializeInto using Serialize.  In the future,
+/// we may provide implementations not relying on Serialize for a
+/// no_std configuration of this crate.
+fn generic_serialize_into(o: &dyn Marshal, serialized_len: usize,
+                          buf: &mut [u8])
+                          -> Result<usize> {
+    let buf_len = buf.len();
+    let mut cursor = ::std::io::Cursor::new(buf);
+    match o.serialize(&mut cursor) {
+        Ok(_) => (),
+        Err(e) => {
+            let short_write =
+                if let Some(ioe) = e.downcast_ref::<io::Error>() {
+                    ioe.kind() == io::ErrorKind::WriteZero
+                } else {
+                    false
+                };
+            return if short_write {
+                assert!(buf_len < serialized_len,
+                        "o.serialized_len() underestimated the required space");
+                Err(Error::InvalidArgument(
+                    format!("Invalid buffer size, expected {}, got {}",
+                            serialized_len, buf_len)).into())
+            } else {
+                Err(e)
+            }
+        }
+    };
+    Ok(cursor.position() as usize)
 }
 
 #[cfg(test)]

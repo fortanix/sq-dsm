@@ -1778,6 +1778,7 @@ name = "sequoia-ipc"
 version = "0.18.0"
 dependencies = [
  "anyhow 1.0.32 (registry+https://github.com/rust-lang/crates.io-index)",
+ "buffered-reader 0.18.0",
  "capnp-rpc 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ctor 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1785,9 +1786,11 @@ dependencies = [
  "futures 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "lalrpop 0.17.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lalrpop-util 0.17.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.74 (registry+https://github.com/rust-lang/crates.io-index)",
  "memsec 0.5.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-tokio-ipc 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quickcheck 0.9.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "sequoia-core 0.18.0",
  "sequoia-openpgp 0.18.0",

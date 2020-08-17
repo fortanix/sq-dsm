@@ -10,14 +10,18 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::ops::Deref;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
-use crate::crypto::{self, mpi, SessionKey};
-use crate::crypto::mem::Protected;
+use sequoia_openpgp as openpgp;
+use openpgp::crypto::{mpi, SessionKey};
+use openpgp::crypto::mem::Protected;
 
-use crate::Error;
-use crate::Result;
+use openpgp::Error;
+use openpgp::Result;
+
+mod parse;
+mod serialize;
 
 /// An *S-Expression*.
 ///
@@ -47,14 +51,14 @@ impl Sexp {
     /// command.  `padding` must be set according to the status
     /// messages sent.
     pub fn finish_decryption<R>(&self,
-                                recipient: &crate::packet::Key<
-                                        crate::packet::key::PublicParts, R>,
+                                recipient: &openpgp::packet::Key<
+                                        openpgp::packet::key::PublicParts, R>,
                                 ciphertext: &mpi::Ciphertext,
                                 padding: bool)
         -> Result<SessionKey>
-        where R: crate::packet::key::KeyRole
+        where R: openpgp::packet::key::KeyRole
     {
-        use crate::crypto::mpi::PublicKey;
+        use openpgp::crypto::mpi::PublicKey;
         let not_a_session_key = || -> anyhow::Error {
             Error::MalformedMPI(
                 format!("Not a session key: {:?}", self)).into()
@@ -114,7 +118,7 @@ impl Sexp {
                     // The session key is not padded.  Currently, this
                     // happens if the session key is decrypted using
                     // scdaemon.
-                    assert!(! padding);
+                    assert!(! padding); // XXX: Don't assert that.
                     Ok(s.to_vec().into())
                 },
 
@@ -127,7 +131,7 @@ impl Sexp {
                     // XXX: Erase shared point from s.
 
                     // Now finish the decryption.
-                    crypto::ecdh::decrypt_shared(recipient, &S, ciphertext)
+                    openpgp::crypto::ecdh::decrypt_shared(recipient, &S, ciphertext)
                 },
 
                 _ =>
@@ -250,7 +254,7 @@ impl TryFrom<&mpi::Ciphertext> for Sexp {
     /// The resulting expression is suitable for gpg-agent's `INQUIRE
     /// CIPHERTEXT` inquiry.
     fn try_from(ciphertext: &mpi::Ciphertext) -> Result<Self> {
-        use crate::crypto::mpi::Ciphertext::*;
+        use openpgp::crypto::mpi::Ciphertext::*;
         match ciphertext {
             RSA { ref c } =>
                 Ok(Sexp::List(vec![
@@ -400,10 +404,10 @@ impl Arbitrary for String_ {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::Parse;
-    use crate::serialize::Serialize;
+    use openpgp::parse::Parse;
+    use openpgp::serialize::Serialize;
 
-    quickcheck! {
+    quickcheck::quickcheck! {
         fn roundtrip(s: Sexp) -> bool {
             let mut buf = Vec::new();
             s.serialize(&mut buf).unwrap();
@@ -415,18 +419,18 @@ mod tests {
 
     #[test]
     fn to_signature() {
-        use crate::crypto::mpi::Signature::*;
-        assert_match!(DSA { .. } = Sexp::from_bytes(
+        use openpgp::crypto::mpi::Signature::*;
+        assert!(destructures_to!(DSA { .. } = Sexp::from_bytes(
             crate::tests::file("sexp/dsa-signature.sexp")).unwrap()
-                      .to_signature().unwrap());
-        assert_match!(ECDSA { .. } = Sexp::from_bytes(
+                      .to_signature().unwrap()));
+        assert!(destructures_to!(ECDSA { .. } = Sexp::from_bytes(
             crate::tests::file("sexp/ecdsa-signature.sexp")).unwrap()
-                      .to_signature().unwrap());
-        assert_match!(EdDSA { .. } = Sexp::from_bytes(
+                      .to_signature().unwrap()));
+        assert!(destructures_to!(EdDSA { .. } = Sexp::from_bytes(
             crate::tests::file("sexp/eddsa-signature.sexp")).unwrap()
-                      .to_signature().unwrap());
-        assert_match!(RSA { .. } = Sexp::from_bytes(
+                      .to_signature().unwrap()));
+        assert!(destructures_to!(RSA { .. } = Sexp::from_bytes(
             crate::tests::file("sexp/rsa-signature.sexp")).unwrap()
-                      .to_signature().unwrap());
+                      .to_signature().unwrap()));
     }
 }
