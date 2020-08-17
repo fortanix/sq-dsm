@@ -1757,27 +1757,4 @@ mod test {
         // `data` is malformed, expect an error.
         reader.read_to_end(&mut buf).unwrap_err();
     }
-
-    #[test]
-    fn test_headers() -> std::io::Result<()> {
-        use crate::armor::{Reader, ReaderMode, Kind};
-        let data =
-            "-----BEGIN PGP ARMORED FILE-----
-             First: value
-             Header: value
-
-             SGVsbG8gd29ybGQh
-             =s4Gu
-             -----END PGP ARMORED FILE-----";
-
-        let mut cursor = std::io::Cursor::new(&data);
-        let mut reader = Reader::new(&mut cursor, ReaderMode::Tolerant(Some(Kind::File)));
-
-        let mut content = String::new();
-        reader.read_to_string(&mut content)?;
-        assert_eq!(reader.headers().unwrap(),
-           &[("First".into(), "value".into()),
-             ("Header".into(), "value".into())]);
-        Ok(())
-    }
 }
