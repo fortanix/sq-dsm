@@ -7,7 +7,7 @@ use crate::packet::{key, Key};
 use crate::types::Curve;
 use crate::{Error, Result};
 
-use crate::crypto::ecdh::{encrypt_shared, decrypt_shared};
+use crate::crypto::ecdh::{encrypt_wrap, decrypt_unwrap};
 
 use win_crypto_ng as cng;
 use cng::asymmetric::{Ecdh, AsymmetricKey, Export};
@@ -56,7 +56,7 @@ where
             // Returned secret is little-endian, flip it to big-endian
             S.reverse();
 
-            encrypt_shared(recipient, session_key, VB, &S)
+            encrypt_wrap(recipient, session_key, VB, &S)
         }
         Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
             let (Rx, Ry) = q.decode_point(curve)?;
@@ -132,7 +132,7 @@ where
                 _ => unreachable!(),
             };
 
-            encrypt_shared(recipient, session_key, VB, &S)
+            encrypt_wrap(recipient, session_key, VB, &S)
         }
 
         // Not implemented in Nettle
@@ -280,5 +280,5 @@ where
         }
     };
 
-    decrypt_shared(recipient, &S, ciphertext)
+    decrypt_unwrap(recipient, &S, ciphertext)
 }

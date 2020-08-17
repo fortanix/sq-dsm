@@ -1709,7 +1709,7 @@ mod tests {
         let sk = SessionKey::from(Vec::from(&dek[..]));
 
         // Expected
-        let got_enc = ecdh::encrypt_shared(&key.parts_into_public(),
+        let got_enc = ecdh::encrypt_wrap(&key.parts_into_public(),
                                            &sk, eph_pubkey, &shared_sec)
             .unwrap();
 

@@ -4,7 +4,7 @@ use nettle::{curve25519, ecc, ecdh, random::Yarrow};
 
 use crate::{Error, Result};
 use crate::crypto::SessionKey;
-use crate::crypto::ecdh::{encrypt_shared, decrypt_shared};
+use crate::crypto::ecdh::{encrypt_wrap, decrypt_unwrap};
 use crate::crypto::mem::Protected;
 use crate::crypto::mpi::{MPI, PublicKey, SecretKeyMaterial, Ciphertext};
 use crate::packet::{key, Key};
@@ -43,7 +43,7 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
                 curve25519::mul(&mut S, &v, R)
                     .expect("buffers are of the wrong size");
 
-                encrypt_shared(recipient, session_key, VB, &S)
+                encrypt_wrap(recipient, session_key, VB, &S)
             }
             Curve::NistP256 | Curve::NistP384 | Curve::NistP521 => {
                 // Obtain the authenticated recipient public key R and
@@ -99,7 +99,7 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
                     Sx.insert(0, 0);
                 }
 
-                encrypt_shared(recipient, session_key, VB, &Sx.into())
+                encrypt_wrap(recipient, session_key, VB, &Sx.into())
             }
 
             // Not implemented in Nettle
@@ -217,7 +217,7 @@ pub fn decrypt<R>(recipient: &Key<key::PublicParts, R>,
                 }
             };
 
-            decrypt_shared(recipient, &S, ciphertext)
+            decrypt_unwrap(recipient, &S, ciphertext)
         }
 
         _ =>

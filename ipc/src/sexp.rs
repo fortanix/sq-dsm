@@ -131,7 +131,7 @@ impl Sexp {
                     // XXX: Erase shared point from s.
 
                     // Now finish the decryption.
-                    openpgp::crypto::ecdh::decrypt_shared(recipient, &S, ciphertext)
+                    openpgp::crypto::ecdh::decrypt_unwrap(recipient, &S, ciphertext)
                 },
 
                 _ =>

@@ -23,9 +23,9 @@ pub(crate) use crate::crypto::backend::ecdh::{encrypt, decrypt};
 /// (i.e. with the 0x40 prefix for X25519, or 0x04 for the NIST
 /// curves), `S` is the shared Diffie-Hellman secret.
 #[allow(non_snake_case)]
-pub(crate) fn encrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
-                                session_key: &SessionKey, VB: MPI,
-                                S: &Protected)
+pub(crate) fn encrypt_wrap<R>(recipient: &Key<key::PublicParts, R>,
+                              session_key: &SessionKey, VB: MPI,
+                              S: &Protected)
     -> Result<mpi::Ciphertext>
     where R: key::KeyRole
 {
@@ -70,7 +70,7 @@ pub(crate) fn encrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
 /// `recipient` is the message receiver's public key, `S` is the
 /// shared Diffie-Hellman secret used to encrypt `ciphertext`.
 #[allow(non_snake_case)]
-pub fn decrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
+pub fn decrypt_unwrap<R>(recipient: &Key<key::PublicParts, R>,
                          S: &Protected,
                          ciphertext: &mpi::Ciphertext)
     -> Result<SessionKey>
