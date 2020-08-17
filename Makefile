@@ -35,6 +35,7 @@ SOURCE_DATE_EPOCH = $(shell git show -s --no-show-signature --format=%cI)
 TAR_FLAGS = --sort=name \
       --mtime="$(SOURCE_DATE_EPOCH)" \
       --owner=0 --group=0 --numeric-owner \
+      --mode=go=rX,u+rw,a-s \
       --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime
 
 ifeq ($(shell uname -s), Darwin)
