@@ -2852,8 +2852,8 @@ impl SubpacketAreas {
     ///
     /// Note: if you modify the hashed area of a [`Signature4`], this
     /// will invalidate the signature.  Instead, you should normally
-    /// convert the [`Signature4`] into a [`SignatureBuilder`], modify
-    /// that, and then create a new signature.
+    /// convert the [`Signature4`] into a [`signature::SignatureBuilder`],
+    /// modify that, and then create a new signature.
     pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
         &mut self.hashed_area
     }
