@@ -1,4 +1,12 @@
-//! Elliptic Curve Diffie-Hellman.
+//! Elliptic-curve Diffie-Hellman.
+//!
+//! Sequoia implements the Elliptic-curve Diffie-Hellman key agreement
+//! protocol for use in OpenPGP as described by [RFC 6637].  In short,
+//! a shared secret is derived using Elliptic-curve Diffie-Hellman, a
+//! wrapping key is derived from that shared secret, and the message's
+//! session key is wrapped using that wrapping key.
+//!
+//!   [RFC 6637]: https://tools.ietf.org/html/rfc6637
 
 use crate::vec_truncate;
 use crate::{Error, Result};
@@ -15,9 +23,10 @@ pub(crate) use crate::crypto::backend::ecdh::{encrypt, decrypt};
 
 /// Wraps a session key.
 ///
-/// After using Elliptic Curve Diffie-Hellman to compute a shared
-/// secret, this function deterministically encrypts the given session
-/// key.
+/// After using Elliptic-curve Diffie-Hellman to compute the shared
+/// secret, this function deterministically derives the wrapping key
+/// from the shared secret, and uses it to wrap (i.e. encrypt) the
+/// given session key.
 ///
 /// `VB` is the ephemeral public key encoded appropriately as MPI
 /// (i.e. with the 0x40 prefix for X25519, or 0x04 for the NIST
@@ -64,8 +73,10 @@ pub(crate) fn encrypt_wrap<R>(recipient: &Key<key::PublicParts, R>,
 
 /// Unwraps a session key.
 ///
-/// After using Elliptic Curve Diffie-Hellman to compute the shared
-/// secret, this function decrypts the given encrypted session key.
+/// After using Elliptic-curve Diffie-Hellman to compute the shared
+/// secret, this function deterministically derives the wrapping key
+/// from the shared secret, and uses it to unwrap (i.e. decrypt) the
+/// session key.
 ///
 /// `recipient` is the message receiver's public key, `S` is the
 /// shared Diffie-Hellman secret used to encrypt `ciphertext`.
