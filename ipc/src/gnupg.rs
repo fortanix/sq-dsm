@@ -14,6 +14,7 @@ use sequoia_openpgp as openpgp;
 use openpgp::types::HashAlgorithm;
 use openpgp::fmt::hex;
 use openpgp::crypto;
+use openpgp::crypto::Keygrip;
 use openpgp::packet::prelude::*;
 use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
@@ -417,7 +418,7 @@ impl<'a, 'b, 'c, R> Future for SigningRequest<'a, 'b, 'c, R>
                 Start => {
                     if self.options.is_empty() {
                         self.c.send(format!("SIGKEY {}",
-                                            self.key.mpis().keygrip()?))?;
+                                            Keygrip::of(self.key.mpis())?))?;
                         self.state = SigKey;
                     } else {
                         self.c.send(self.options.pop().unwrap())?;
@@ -441,7 +442,7 @@ impl<'a, 'b, 'c, R> Future for SigningRequest<'a, 'b, 'c, R>
                             self.c.send(option)?;
                         } else {
                             self.c.send(format!("SIGKEY {}",
-                                                self.key.mpis().keygrip()?))?;
+                                                Keygrip::of(self.key.mpis())?))?;
                             self.state = SigKey;
                         }
                     },
@@ -565,7 +566,7 @@ impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
                 Start => {
                     if self.options.is_empty() {
                         self.c.send(format!("SETKEY {}",
-                                            self.key.mpis().keygrip()?))?;
+                                            Keygrip::of(self.key.mpis())?))?;
                         self.state = SetKey;
                     } else {
                         self.c.send(self.options.pop().unwrap())?;
@@ -589,7 +590,7 @@ impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
                             self.c.send(option)?;
                         } else {
                             self.c.send(format!("SETKEY {}",
-                                                self.key.mpis().keygrip()?))?;
+                                                Keygrip::of(self.key.mpis())?))?;
                             self.state = SetKey;
                         }
                     },

@@ -246,8 +246,9 @@ fn inspect_key(policy: &dyn Policy,
     };
 
     if print_keygrips {
+        use openpgp::crypto::Keygrip;
         writeln!(output, "{}        Keygrip: {}", indent,
-                 key.mpis().keygrip()?)?;
+                 Keygrip::of(key.mpis())?)?;
     }
     writeln!(output, "{}Public-key algo: {}", indent, key.pk_algo())?;
     if let Some(bits) = key.mpis().bits() {

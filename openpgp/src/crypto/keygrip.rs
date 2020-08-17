@@ -18,23 +18,6 @@ use crate::crypto::mpi::{MPI, PublicKey};
 ///
 /// let k: Keygrip = "DD143ABA8D1D7D09875D6209E01BCF020788FF77".parse()?;
 /// assert_eq!(&k.to_string(), "DD143ABA8D1D7D09875D6209E01BCF020788FF77");
-///
-/// let cert: openpgp::Cert = // ...
-/// #   "-----BEGIN PGP PUBLIC KEY BLOCK-----
-/// #
-/// #   xjMEWlNvABYJKwYBBAHaRw8BAQdA+EC2pvebpEbzPA9YplVgVXzkIG5eK+7wEAez
-/// #   lcBgLJrNMVRlc3R5IE1jVGVzdGZhY2UgKG15IG5ldyBrZXkpIDx0ZXN0eUBleGFt
-/// #   cGxlLm9yZz7CkAQTFggAOBYhBDnRAKtn1b2MBAECBfs3UfFYfa7xBQJaU28AAhsD
-/// #   BQsJCAcCBhUICQoLAgQWAgMBAh4BAheAAAoJEPs3UfFYfa7xJHQBAO4/GABMWUcJ
-/// #   5D/DZ9b+6YiFnysSjCT/gILJgxMgl7uoAPwJherI1pAAh49RnPHBR1IkWDtwzX65
-/// #   CJG8sDyO2FhzDs44BFpTbwASCisGAQQBl1UBBQEBB0B+A0GRHuBgdDX50T1nePjb
-/// #   mKQ5PeqXJbWEtVrUtVJaPwMBCAfCeAQYFggAIBYhBDnRAKtn1b2MBAECBfs3UfFY
-/// #   fa7xBQJaU28AAhsMAAoJEPs3UfFYfa7xzjIBANX2/FgDX3WkmvwpEHg/sn40zACM
-/// #   W2hrBY5x0sZ8H7JlAP47mCfCuRVBqyaePuzKbxLJeLe2BpDdc0n2izMVj8t9Cg==
-/// #   =QetZ
-/// #   -----END PGP PUBLIC KEY BLOCK-----".parse()?;
-/// assert_eq!(&cert.primary_key().mpis().keygrip()?.to_string(),
-///            "DD143ABA8D1D7D09875D6209E01BCF020788FF77");
 /// # Ok(()) }
 /// ```
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -74,9 +57,35 @@ impl std::str::FromStr for Keygrip {
     }
 }
 
-impl PublicKey {
-    /// Computes the keygrip.
-    pub fn keygrip(&self) -> Result<Keygrip> {
+impl Keygrip {
+    /// Computes the keygrip of the given public key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::crypto::Keygrip;
+    ///
+    /// let cert: openpgp::Cert = // ...
+    /// #   "-----BEGIN PGP PUBLIC KEY BLOCK-----
+    /// #
+    /// #   xjMEWlNvABYJKwYBBAHaRw8BAQdA+EC2pvebpEbzPA9YplVgVXzkIG5eK+7wEAez
+    /// #   lcBgLJrNMVRlc3R5IE1jVGVzdGZhY2UgKG15IG5ldyBrZXkpIDx0ZXN0eUBleGFt
+    /// #   cGxlLm9yZz7CkAQTFggAOBYhBDnRAKtn1b2MBAECBfs3UfFYfa7xBQJaU28AAhsD
+    /// #   BQsJCAcCBhUICQoLAgQWAgMBAh4BAheAAAoJEPs3UfFYfa7xJHQBAO4/GABMWUcJ
+    /// #   5D/DZ9b+6YiFnysSjCT/gILJgxMgl7uoAPwJherI1pAAh49RnPHBR1IkWDtwzX65
+    /// #   CJG8sDyO2FhzDs44BFpTbwASCisGAQQBl1UBBQEBB0B+A0GRHuBgdDX50T1nePjb
+    /// #   mKQ5PeqXJbWEtVrUtVJaPwMBCAfCeAQYFggAIBYhBDnRAKtn1b2MBAECBfs3UfFY
+    /// #   fa7xBQJaU28AAhsMAAoJEPs3UfFYfa7xzjIBANX2/FgDX3WkmvwpEHg/sn40zACM
+    /// #   W2hrBY5x0sZ8H7JlAP47mCfCuRVBqyaePuzKbxLJeLe2BpDdc0n2izMVj8t9Cg==
+    /// #   =QetZ
+    /// #   -----END PGP PUBLIC KEY BLOCK-----".parse()?;
+    /// assert_eq!(Keygrip::of(cert.primary_key().mpis())?.to_string(),
+    ///            "DD143ABA8D1D7D09875D6209E01BCF020788FF77");
+    /// # Ok(()) }
+    /// ```
+    pub fn of(key: &PublicKey) -> Result<Keygrip> {
         use crate::crypto::hash;
         use std::io::Write;
         use self::PublicKey::*;
@@ -123,7 +132,7 @@ impl PublicKey {
             }
         }
 
-        match self {
+        match key {
             // From libgcrypt/cipher/rsa.c:
             //
             //     PKCS-15 says that for RSA only the modulus should be
@@ -309,7 +318,7 @@ mod tests {
         ];
 
         for (key, keygrip) in tests {
-            assert_eq!(key.keygrip().unwrap(), keygrip);
+            assert_eq!(Keygrip::of(&key).unwrap(), keygrip);
         }
     }
 
@@ -382,7 +391,7 @@ mod tests {
             for key in cert.keys().map(|a| a.key()) {
                 let fp = key.fingerprint();
                 eprintln!("(sub)key: {}", fp);
-                assert_eq!(&key.mpis().keygrip().unwrap(),
+                assert_eq!(&Keygrip::of(key.mpis()).unwrap(),
                            keygrips.get(&fp).unwrap());
             }
         }
