@@ -246,7 +246,7 @@ fn inspect_key(policy: &dyn Policy,
     };
 
     if print_keygrips {
-        use openpgp::crypto::Keygrip;
+        use sequoia_ipc::Keygrip;
         writeln!(output, "{}        Keygrip: {}", indent,
                  Keygrip::of(key.mpis())?)?;
     }

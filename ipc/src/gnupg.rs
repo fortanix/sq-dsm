@@ -14,13 +14,13 @@ use sequoia_openpgp as openpgp;
 use openpgp::types::HashAlgorithm;
 use openpgp::fmt::hex;
 use openpgp::crypto;
-use openpgp::crypto::Keygrip;
 use openpgp::packet::prelude::*;
 use openpgp::parse::Parse;
 use openpgp::serialize::Serialize;
 
 use crate::Result;
 use crate::assuan;
+use crate::Keygrip;
 use crate::sexp::Sexp;
 
 /// A GnuPG context.

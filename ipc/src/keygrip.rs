@@ -1,9 +1,10 @@
 use std::fmt;
 
-use crate::Error;
-use crate::Result;
-use crate::types::{Curve, HashAlgorithm};
-use crate::crypto::mpi::{MPI, PublicKey};
+use sequoia_openpgp as openpgp;
+use openpgp::Error;
+use openpgp::Result;
+use openpgp::crypto::mpi::{MPI, PublicKey};
+use openpgp::types::{Curve, HashAlgorithm};
 
 /// A proprietary, protocol agnostic identifier for public keys.
 ///
@@ -13,8 +14,8 @@ use crate::crypto::mpi::{MPI, PublicKey};
 ///
 /// ```
 /// # fn main() -> sequoia_openpgp::Result<()> {
-/// use sequoia_openpgp as openpgp;
-/// use openpgp::crypto::Keygrip;
+/// use sequoia_ipc as ipc;
+/// use ipc::Keygrip;
 ///
 /// let k: Keygrip = "DD143ABA8D1D7D09875D6209E01BCF020788FF77".parse()?;
 /// assert_eq!(&k.to_string(), "DD143ABA8D1D7D09875D6209E01BCF020788FF77");
@@ -45,7 +46,7 @@ impl std::str::FromStr for Keygrip {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let bytes = crate::fmt::hex::decode_pretty(s)?;
+        let bytes = openpgp::fmt::hex::decode_pretty(s)?;
         if bytes.len() == 20 {
             let mut digest = [0; 20];
             &mut digest[..].copy_from_slice(&bytes[..]);
@@ -65,7 +66,8 @@ impl Keygrip {
     /// ```
     /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
-    /// use openpgp::crypto::Keygrip;
+    /// use sequoia_ipc as ipc;
+    /// use ipc::Keygrip;
     ///
     /// let cert: openpgp::Cert = // ...
     /// #   "-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -86,7 +88,7 @@ impl Keygrip {
     /// # Ok(()) }
     /// ```
     pub fn of(key: &PublicKey) -> Result<Keygrip> {
-        use crate::crypto::hash;
+        use openpgp::crypto::hash;
         use std::io::Write;
         use self::PublicKey::*;
         let mut hash = HashAlgorithm::SHA1.context().unwrap();
@@ -254,65 +256,65 @@ fn ecc_param(curve: &Curve, i: usize) -> MPI {
         (_, _) => unreachable!(),
     };
 
-    crate::fmt::from_hex(hex, true).unwrap().into()
+    openpgp::fmt::hex::decode_pretty(hex).unwrap().into()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fmt::from_hex;
+    use openpgp::fmt::hex;
 
     /// Test vectors from libgcrypt/tests/basic.c.
     #[test]
     fn libgcrypt_basic() {
         let tests = vec![
             (PublicKey::RSA {
-                n: from_hex(
+                n: hex::decode(
                     "00e0ce96f90b6c9e02f3922beada93fe50a875eac6bcc18bb9a9cf2e84965caa\
                      2d1ff95a7f542465c6c0c19d276e4526ce048868a7a914fd343cc3a87dd74291\
                      ffc565506d5bbb25cbac6a0e2dd1f8bcaab0d4a29c2f37c950f363484bf269f7\
                      891440464baf79827e03a36e70b814938eebdc63e964247be75dc58b014b7ea2\
-                     51", false).unwrap().into(),
-                e: from_hex("010001", false).unwrap().into(),
+                     51").unwrap().into(),
+                e: hex::decode("010001").unwrap().into(),
             }, Keygrip(*b"\x32\x10\x0c\x27\x17\x3e\xf6\xe9\xc4\xe9\
                           \xa2\x5d\x3d\x69\xf8\x6d\x37\xa4\xf9\x39")),
             (PublicKey::DSA {
-                p: from_hex(
+                p: hex::decode(
                     "00AD7C0025BA1A15F775F3F2D673718391D00456978D347B33D7B49E7F32EDAB\
                      96273899DD8B2BB46CD6ECA263FAF04A28903503D59062A8865D2AE8ADFB5191\
                      CF36FFB562D0E2F5809801A1F675DAE59698A9E01EFE8D7DCFCA084F4C6F5A44\
                      44D499A06FFAEA5E8EF5E01F2FD20A7B7EF3F6968AFBA1FB8D91F1559D52D877\
-                     7B", false).unwrap().into(),
-                q: from_hex(
-                    "00EB7B5751D25EBBB7BD59D920315FD840E19AEBF9", false).unwrap().into(),
-                g: from_hex(
+                     7B").unwrap().into(),
+                q: hex::decode(
+                    "00EB7B5751D25EBBB7BD59D920315FD840E19AEBF9").unwrap().into(),
+                g: hex::decode(
                     "1574363387FDFD1DDF38F4FBE135BB20C7EE4772FB94C337AF86EA8E49666503\
                      AE04B6BE81A2F8DD095311E0217ACA698A11E6C5D33CCDAE71498ED35D13991E\
                      B02F09AB40BD8F4C5ED8C75DA779D0AE104BC34C960B002377068AB4B5A1F984\
                      3FBA91F537F1B7CAC4D8DD6D89B0D863AF7025D549F9C765D2FC07EE208F8D15\
-                     ", false).unwrap().into(),
-                y: from_hex(
+                     ").unwrap().into(),
+                y: hex::decode(
                     "64B11EF8871BE4AB572AA810D5D3CA11A6CDBC637A8014602C72960DB135BF46\
                      A1816A724C34F87330FC9E187C5D66897A04535CC2AC9164A7150ABFA8179827\
                      6E45831AB811EEE848EBB24D9F5F2883B6E5DDC4C659DEF944DCFD80BF4D0A20\
                      42CAA7DC289F0C5A9D155F02D3D551DB741A81695B74D4C8F477F9C7838EB0FB\
-                     ", false).unwrap().into(),
+                     ").unwrap().into(),
             }, Keygrip(*b"\xc6\x39\x83\x1a\x43\xe5\x05\x5d\xc6\xd8\
                           \x4a\xa6\xf9\xeb\x23\xbf\xa9\x12\x2d\x5b")),
             (PublicKey::ElGamal {
-                p: from_hex(
+                p: hex::decode(
                     "00B93B93386375F06C2D38560F3B9C6D6D7B7506B20C1773F73F8DE56E6CD65D\
                      F48DFAAA1E93F57A2789B168362A0F787320499F0B2461D3A4268757A7B27517\
                      B7D203654A0CD484DEC6AF60C85FEB84AAC382EAF2047061FE5DAB81A20A0797\
                      6E87359889BAE3B3600ED718BE61D4FC993CC8098A703DD0DC942E965E8F18D2\
-                     A7", false).unwrap().into(),
-                g: from_hex("05", false).unwrap().into(),
-                y: from_hex(
+                     A7").unwrap().into(),
+                g: hex::decode("05").unwrap().into(),
+                y: hex::decode(
                     "72DAB3E83C9F7DD9A931FDECDC6522C0D36A6F0A0FEC955C5AC3C09175BBFF2B\
                      E588DB593DC2E420201BEB3AC17536918417C497AC0F8657855380C1FCF11C5B\
                      D20DB4BEE9BDF916648DE6D6E419FA446C513AAB81C30CB7B34D6007637BE675\
                      56CE6473E9F9EE9B9FADD275D001563336F2186F424DEC6199A0F758F6A00FF4\
-                     ", false).unwrap().into(),
+                     ").unwrap().into(),
             }, Keygrip(*b"\xa7\x99\x61\xeb\x88\x83\xd2\xf4\x05\xc8\
                           \x4f\xba\x06\xf8\x78\x09\xbc\x1e\x20\xe5")),
         ];
@@ -326,9 +328,9 @@ mod tests {
     #[test]
     fn our_keys() {
         use std::collections::HashMap;
-        use crate::Fingerprint as FP;
+        use openpgp::Fingerprint as FP;
         use super::Keygrip as KG;
-        use crate::parse::Parse;
+        use openpgp::parse::Parse;
 
         let keygrips: HashMap<FP, KG> = [
             // testy.pgp
@@ -385,7 +387,7 @@ mod tests {
             "erika-corinna-daniela-simone-antonia-nistp521.pgp",
             "keygrip-issue-439.pgp",
         ]
-            .iter().map(|n| (n, crate::Cert::from_bytes(crate::tests::key(n)).unwrap()))
+            .iter().map(|n| (n, openpgp::Cert::from_bytes(crate::tests::key(n)).unwrap()))
         {
             eprintln!("{}", name);
             for key in cert.keys().map(|a| a.key()) {

@@ -90,6 +90,8 @@ macro_rules! destructures_to {
 #[macro_use] mod trace;
 pub mod assuan;
 pub mod gnupg;
+mod keygrip;
+pub use self::keygrip::Keygrip;
 pub mod sexp;
 
 #[cfg(test)]

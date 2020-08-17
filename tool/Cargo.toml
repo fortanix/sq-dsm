@@ -25,6 +25,7 @@ maintenance = { status = "actively-developed" }
 sequoia-openpgp = { path = "../openpgp", version = "0.18" }
 sequoia-autocrypt = { path = "../autocrypt", version = "0.18" }
 sequoia-core = { path = "../core", version = "0.18" }
+sequoia-ipc = { path = "../ipc", version = "0.18" }
 sequoia-net = { path = "../net", version = "0.18" }
 sequoia-store = { path = "../store", version = "0.18" }
 anyhow = "1"

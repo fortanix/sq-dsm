@@ -1927,6 +1927,7 @@ dependencies = [
  "rpassword 4.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "sequoia-autocrypt 0.18.0",
  "sequoia-core 0.18.0",
+ "sequoia-ipc 0.18.0",
  "sequoia-net 0.18.0",
  "sequoia-openpgp 0.18.0",
  "sequoia-store 0.18.0",
