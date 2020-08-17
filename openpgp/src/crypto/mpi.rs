@@ -209,13 +209,6 @@ impl MPI {
         }
     }
 
-    /// Securely overwrites the stored value.
-    pub(crate) fn secure_memzero(&mut self) {
-        unsafe {
-            ::memsec::memzero(self.value.as_mut_ptr(), self.value.len());
-        }
-    }
-
     /// Securely compares two MPIs in constant time.
     fn secure_memcmp(&self, other: &Self) -> Ordering {
         let cmp = unsafe {

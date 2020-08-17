@@ -121,10 +121,10 @@ impl Sexp {
                 PublicKey::ECDH { curve, .. } => {
                     // The shared point has been computed by the
                     // remote agent.  The shared point is not padded.
-                    let mut s = mpi::MPI::new(s);
+                    let s_: mpi::ProtectedMPI = s.to_vec().into();
                     #[allow(non_snake_case)]
-                    let S: Protected = s.decode_point(curve)?.0.into();
-                    s.secure_memzero();
+                    let S: Protected = s_.decode_point(curve)?.0.into();
+                    // XXX: Erase shared point from s.
 
                     // Now finish the decryption.
                     crypto::ecdh::decrypt_shared(recipient, &S, ciphertext)
