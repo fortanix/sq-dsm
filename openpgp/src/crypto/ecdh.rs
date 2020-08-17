@@ -11,7 +11,7 @@ use crate::packet::Key;
 use crate::types::{Curve, HashAlgorithm, PublicKeyAlgorithm, SymmetricAlgorithm};
 use crate::utils::{read_be_u64, write_be_u64};
 
-pub use crate::crypto::backend::ecdh::{encrypt, decrypt};
+pub(crate) use crate::crypto::backend::ecdh::{encrypt, decrypt};
 
 /// Wraps a session key.
 ///
@@ -23,9 +23,9 @@ pub use crate::crypto::backend::ecdh::{encrypt, decrypt};
 /// (i.e. with the 0x40 prefix for X25519, or 0x04 for the NIST
 /// curves), `S` is the shared Diffie-Hellman secret.
 #[allow(non_snake_case)]
-pub fn encrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
-                         session_key: &SessionKey, VB: MPI,
-                         S: &Protected)
+pub(crate) fn encrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
+                                session_key: &SessionKey, VB: MPI,
+                                S: &Protected)
     -> Result<mpi::Ciphertext>
     where R: key::KeyRole
 {
@@ -106,7 +106,7 @@ pub fn decrypt_shared<R>(recipient: &Key<key::PublicParts, R>,
 /// See [Section 7 of RFC 6637].
 ///
 ///   [Section 7 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-7
-pub fn kdf(x: &Protected, obits: usize, hash: HashAlgorithm, param: &[u8])
+fn kdf(x: &Protected, obits: usize, hash: HashAlgorithm, param: &[u8])
            -> Result<Protected> {
     let mut hash = hash.context()?;
     if obits > hash.digest_size() {
@@ -129,7 +129,7 @@ pub fn kdf(x: &Protected, obits: usize, hash: HashAlgorithm, param: &[u8])
 /// See [Section 8 of RFC 6637].
 ///
 ///   [Section 8 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-8
-pub fn pkcs5_pad(sk: Protected, target_len: usize) -> Result<Protected> {
+fn pkcs5_pad(sk: Protected, target_len: usize) -> Result<Protected> {
     if sk.len() > target_len {
         return Err(Error::InvalidArgument(
             "Plaintext data too large".into()).into());
@@ -153,7 +153,7 @@ pub fn pkcs5_pad(sk: Protected, target_len: usize) -> Result<Protected> {
 /// See [Section 8 of RFC 6637].
 ///
 ///   [Section 8 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-8
-pub fn pkcs5_unpad(sk: Protected, target_len: usize) -> Result<Protected> {
+fn pkcs5_unpad(sk: Protected, target_len: usize) -> Result<Protected> {
     if sk.len() > 0xff {
         return Err(Error::InvalidArgument("message too large".into()).into());
     }
@@ -187,9 +187,9 @@ pub fn pkcs5_unpad(sk: Protected, target_len: usize) -> Result<Protected> {
 /// See [RFC 3394].
 ///
 ///  [RFC 3394]: https://tools.ietf.org/html/rfc3394
-pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
-                    plaintext: &Protected)
-                    -> Result<Vec<u8>> {
+fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
+                plaintext: &Protected)
+                -> Result<Vec<u8>> {
     use crate::SymmetricAlgorithm::*;
 
     if plaintext.len() % 8 != 0 {
@@ -266,9 +266,9 @@ pub fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
 /// See [RFC 3394].
 ///
 ///  [RFC 3394]: https://tools.ietf.org/html/rfc3394
-pub fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
-                      ciphertext: &[u8])
-                      -> Result<Protected> {
+fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
+                  ciphertext: &[u8])
+                  -> Result<Protected> {
     use crate::SymmetricAlgorithm::*;
 
     if ciphertext.len() % 8 != 0 {

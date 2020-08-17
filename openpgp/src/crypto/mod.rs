@@ -27,7 +27,7 @@ mod asymmetric;
 pub use self::asymmetric::{Signer, Decryptor, KeyPair};
 mod backend;
 pub use backend::random;
-pub(crate) mod ecdh;
+pub mod ecdh;
 pub mod hash;
 mod keygrip;
 pub use self::keygrip::Keygrip;
