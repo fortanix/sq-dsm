@@ -79,6 +79,11 @@ impl MPI {
     ///
     ///   [Section 6 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-6
     pub fn new_point(x: &[u8], y: &[u8], field_bits: usize) -> Self {
+        Self::new_point_common(x, y, field_bits).into()
+    }
+
+    /// Common implementation shared between MPI and ProtectedMPI.
+    fn new_point_common(x: &[u8], y: &[u8], field_bits: usize) -> Vec<u8> {
         let field_sz = if field_bits % 8 > 0 { 1 } else { 0 } + field_bits / 8;
         let mut val = vec![0x0u8; 1 + 2 * field_sz];
         let x_missing = field_sz - x.len();
@@ -87,10 +92,7 @@ impl MPI {
         val[0] = 0x4;
         val[1 + x_missing..1 + field_sz].copy_from_slice(x);
         val[1 + field_sz + y_missing..].copy_from_slice(y);
-
-        MPI{
-            value: val.into_boxed_slice(),
-        }
+        val
     }
 
     /// Creates new MPI encoding a compressed EC point using native
@@ -103,13 +105,15 @@ impl MPI {
     ///
     ///   [Section 13.2 of RFC4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-13.2
     pub fn new_compressed_point(x: &[u8]) -> Self {
+        Self::new_compressed_point_common(x).into()
+    }
+
+    /// Common implementation shared between MPI and ProtectedMPI.
+    fn new_compressed_point_common(x: &[u8]) -> Vec<u8> {
         let mut val = vec![0; 1 + x.len()];
         val[0] = 0x40;
         val[1..].copy_from_slice(x);
-
-        MPI {
-            value: val.into_boxed_slice(),
-        }
+        val
     }
 
     /// Returns the length of the MPI in bits.
@@ -145,6 +149,12 @@ impl MPI {
     /// supported, `Error::MalformedMPI` if the point is formatted
     /// incorrectly.
     pub fn decode_point(&self, curve: &Curve) -> Result<(&[u8], &[u8])> {
+        Self::decode_point_common(self.value(), curve)
+    }
+
+    /// Common implementation shared between MPI and ProtectedMPI.
+    fn decode_point_common<'a>(value: &'a [u8], curve: &Curve)
+                               -> Result<(&'a [u8], &'a [u8])> {
         const ED25519_KEY_SIZE: usize = 32;
         const CURVE25519_SIZE: usize = 32;
         use self::Curve::*;
@@ -153,21 +163,21 @@ impl MPI {
                 assert_eq!(CURVE25519_SIZE, ED25519_KEY_SIZE);
                 // This curve uses a custom compression format which
                 // only contains the X coordinate.
-                if self.value().len() != 1 + CURVE25519_SIZE {
+                if value.len() != 1 + CURVE25519_SIZE {
                     return Err(Error::MalformedMPI(
                         format!("Bad size of Curve25519 key: {} expected: {}",
-                                self.value().len(),
+                                value.len(),
                                 1 + CURVE25519_SIZE
                         )
                     ).into());
                 }
 
-                if self.value().get(0).map(|&b| b != 0x40).unwrap_or(true) {
+                if value.get(0).map(|&b| b != 0x40).unwrap_or(true) {
                     return Err(Error::MalformedMPI(
                         "Bad encoding of Curve25519 key".into()).into());
                 }
 
-                Ok((&self.value()[1..], &[]))
+                Ok((&value[1..], &[]))
             },
 
             _ => {
@@ -181,20 +191,20 @@ impl MPI {
                     + (2 // (x, y)
                        * coordinate_length);
 
-                if self.value().len() != expected_length {
+                if value.len() != expected_length {
                     return Err(Error::MalformedMPI(
                         format!("Invalid length of MPI: {} (expected {})",
-                                self.value().len(), expected_length)).into());
+                                value.len(), expected_length)).into());
                 }
 
-                if self.value().get(0).map(|&b| b != 0x04).unwrap_or(true) {
+                if value.get(0).map(|&b| b != 0x04).unwrap_or(true) {
                     return Err(Error::MalformedMPI(
                         format!("Bad prefix: {:?} (expected Some(0x04))",
-                                self.value().get(0))).into());
+                                value.get(0))).into());
                 }
 
-                Ok((&self.value()[1..1 + coordinate_length],
-                    &self.value()[1 + coordinate_length..]))
+                Ok((&value[1..1 + coordinate_length],
+                    &value[1 + coordinate_length..]))
             },
         }
     }
@@ -340,6 +350,31 @@ impl std::hash::Hash for ProtectedMPI {
 }
 
 impl ProtectedMPI {
+    /// Creates new MPI encoding an uncompressed EC point.
+    ///
+    /// Encodes the given point on a elliptic curve (see [Section 6 of
+    /// RFC 6637] for details).  This is used to encode public keys
+    /// and ciphertexts for the NIST curves (`NistP256`, `NistP384`,
+    /// and `NistP521`).
+    ///
+    ///   [Section 6 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-6
+    pub fn new_point(x: &[u8], y: &[u8], field_bits: usize) -> Self {
+        MPI::new_point_common(x, y, field_bits).into()
+    }
+
+    /// Creates new MPI encoding a compressed EC point using native
+    /// encoding.
+    ///
+    /// Encodes the given point on a elliptic curve (see [Section 13.2
+    /// of RFC4880bis] for details).  This is used to encode public
+    /// keys and ciphertexts for the Bernstein curves (currently
+    /// `X25519`).
+    ///
+    ///   [Section 13.2 of RFC4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-13.2
+    pub fn new_compressed_point(x: &[u8]) -> Self {
+        MPI::new_compressed_point_common(x).into()
+    }
+
     /// Returns the length of the MPI in bits.
     ///
     /// Leading zero-bits are not included in the returned size.
@@ -355,6 +390,25 @@ impl ProtectedMPI {
     /// may be shorter than expected.
     pub fn value(&self) -> &[u8] {
         &self.value
+    }
+
+    /// Decodes an EC point encoded as MPI.
+    ///
+    /// Decodes the MPI into a point on an elliptic curve (see
+    /// [Section 6 of RFC 6637] and [Section 13.2 of RFC4880bis] for
+    /// details).  If the point is not compressed, the function
+    /// returns `(x, y)`.  If it is compressed, `y` will be empty.
+    ///
+    ///   [Section 6 of RFC 6637]: https://tools.ietf.org/html/rfc6637#section-6
+    ///   [Section 13.2 of RFC4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09#section-13.2
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::UnsupportedEllipticCurve` if the curve is not
+    /// supported, `Error::MalformedMPI` if the point is formatted
+    /// incorrectly.
+    pub fn decode_point(&self, curve: &Curve) -> Result<(&[u8], &[u8])> {
+        MPI::decode_point_common(self.value(), curve)
     }
 
     /// Securely compares two MPIs in constant time.
