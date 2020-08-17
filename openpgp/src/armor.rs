@@ -15,10 +15,10 @@
 //! Both the reader and the writer allocate memory in the order of the
 //! size of chunks read or written.
 //!
-//! # Example
+//! # Examples
 //!
 //! ```rust, no_run
-//! extern crate sequoia_openpgp as openpgp;
+//! use sequoia_openpgp as openpgp;
 //! use std::fs::File;
 //! use openpgp::armor::{Reader, ReaderMode, Kind};
 //!
@@ -156,14 +156,14 @@ pub struct Writer<W: Write> {
 impl<W: Write> Writer<W> {
     /// Constructs a new filter for the given type of data.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use std::io::{Read, Write, Cursor};
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::armor::{Writer, Kind};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> std::io::Result<()> {
+    ///
+    /// # fn main() -> std::io::Result<()> {
     /// let mut writer = Writer::new(Vec::new(), Kind::File)?;
     /// writer.write_all(b"Hello world!")?;
     /// let buffer = writer.finalize()?;
@@ -184,14 +184,14 @@ impl<W: Write> Writer<W> {
 
     /// Constructs a new filter for the given type of data.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// use std::io::{Read, Write, Cursor};
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::armor::{Writer, Kind};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> std::io::Result<()> {
+    ///
+    /// # fn main() -> std::io::Result<()> {
     /// let mut writer = Writer::with_headers(Vec::new(), Kind::File,
     ///     vec![("Key", "Value")])?;
     /// writer.write_all(b"Hello world!")?;
@@ -474,14 +474,13 @@ impl<'a> Reader<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use std::io::Read;
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::{Result, Message};
-    /// # use openpgp::armor::{Reader, ReaderMode};
-    /// # use openpgp::parse::Parse;
-    /// # use std::io;
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// use std::io::{self, Read};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Message;
+    /// use openpgp::armor::{Reader, ReaderMode};
+    /// use openpgp::parse::Parse;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
     /// let data = "yxJiAAAAAABIZWxsbyB3b3JsZCE="; // base64 over literal data packet
     ///
     /// let mut cursor = io::Cursor::new(&data);
@@ -500,12 +499,11 @@ impl<'a> Reader<'a> {
     /// Or, in strict mode:
     ///
     /// ```
-    /// # use std::io::Read;
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::armor::{Reader, ReaderMode, Kind};
-    /// # use std::io::{self, Result};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// use std::io::{self, Result, Read};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::armor::{Reader, ReaderMode, Kind};
+    ///
+    /// # fn main() -> Result<()> {
     /// let data =
     ///     "-----BEGIN PGP ARMORED FILE-----
     ///
@@ -602,11 +600,11 @@ impl<'a> Reader<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use std::io::Read;
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # use openpgp::armor::{Reader, ReaderMode, Kind};
-    /// # use std::io::{self, Result};
-    /// # fn main() -> Result<()> {
+    /// use std::io::{self, Read};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::armor::{Reader, ReaderMode, Kind};
+    ///
+    /// # fn main() -> std::io::Result<()> {
     /// let data =
     ///     "-----BEGIN PGP ARMORED FILE-----
     ///      First: value
