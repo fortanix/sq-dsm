@@ -2940,14 +2940,63 @@ impl SubpacketAreas {
     }
 
 
-    /// Returns the time when the signature expires.
+    /// Returns the value of the Signature Expiration Time subpacket
+    /// as an absolute time.
     ///
-    /// If the signature expiration time subpacket is not present,
-    /// this returns `None`.
+    /// A [Signature Expiration Time subpacket] specifies when the
+    /// signature expires.  The value stored is not an absolute time,
+    /// but a duration, which is relative to the Signature's creation
+    /// time.  To better reflect the subpacket's name, this method
+    /// returns the absolute expiry time, and the
+    /// [`SubpacketAreas::signature_validity_period`] method returns
+    /// the subpacket's raw value.
     ///
-    /// Note: if the signature contains multiple instances of the
-    /// signature expiration time subpacket, only the last one is
-    /// considered.
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    ///
+    /// The Signature Expiration Time subpacket is different from the
+    /// [Key Expiration Time subpacket], which is accessed using
+    /// [`SubpacketAreas::key_validity_period`], and used specifies
+    /// when an associated key expires.  The difference is that in the
+    /// former case, the signature itself expires, but in the latter
+    /// case, only the associated key expires.  This difference is
+    /// critical: if a binding signature expires, then an OpenPGP
+    /// implementation will still consider the associated key to be
+    /// valid if there is another valid binding signature, even if it
+    /// is older than the expired signature; if the active binding
+    /// signature indicates that the key has expired, then OpenPGP
+    /// implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
+    ///
+    /// There are several cases where having a signature expire is
+    /// useful.  Say Alice certifies Bob's certificate for
+    /// `bob@example.org`.  She can limit the lifetime of the
+    /// certification to force her to reevaluate the certification
+    /// shortly before it expires.  For instance, is Bob still
+    /// associated with `example.org`?  Does she have reason to
+    /// believe that his key has been compromised?  Using an
+    /// expiration is common in the X.509 ecosystem.  For instance,
+    /// [Let's Encrypt] issues certificates with 90-day lifetimes.
+    ///
+    /// [Let's Encrypt]: https://letsencrypt.org/2015/11/09/why-90-days.html
+    ///
+    /// Having signatures expire can also be useful when deploying
+    /// software.  For instance, you might have a service that
+    /// installs an update if it has been signed by a trusted
+    /// certificate.  To prevent an adversary from coercing the
+    /// service to install an older version, you could limit the
+    /// signature's lifetime to just a few minutes.
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.  If this function returns `None`, the
+    /// signature does not expire.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn signature_expiration_time(&self) -> Option<time::SystemTime> {
         match (self.signature_creation_time(), self.signature_validity_period())
         {
@@ -2962,17 +3011,26 @@ impl SubpacketAreas {
     /// A signature is considered to be alive if `creation time -
     /// tolerance <= time` and `time < expiration time`.
     ///
-    /// If `time` is None, uses the current time.
+    /// This function does not check whether the key is revoked.
     ///
-    /// If `time` is None, and `clock_skew_tolerance` is None, then
-    /// uses `CLOCK_SKEW_TOLERANCE`.  If `time` is not None, but
-    /// `clock_skew_tolerance` is None, uses no tolerance.
+    /// If `time` is `None`, then this function uses the current time
+    /// for `time`.
     ///
-    /// Some tolerance for clock skew is sometimes necessary, because
-    /// although most computers synchronize their clock with a time
-    /// server, up to a few seconds of clock skew are not unusual in
-    /// practice.  And, even worse, several minutes of clock skew
-    /// appear to be not uncommon on virtual machines.
+    /// If `time` is `None`, and `clock_skew_tolerance` is `None`,
+    /// then this function uses [`CLOCK_SKEW_TOLERANCE`] for the
+    /// tolerance.  If `time` is not `None `and `clock_skew_tolerance`
+    /// is `None`, it uses no tolerance.  The intuition here is that
+    /// we only need a tolerance when checking if a signature is alive
+    /// right now; if we are checking at a specific time, we don't
+    /// want to use a tolerance.
+    ///
+    /// [`CLOCK_SKEW_TOLERANCE`]: struct.CLOCK_SKEW_TOLERANCE.html
+    ///
+    /// A small amount of tolerance for clock skew is necessary,
+    /// because although most computers synchronize their clocks with
+    /// a time server, up to a few seconds of clock skew are not
+    /// unusual in practice.  And, even worse, several minutes of
+    /// clock skew appear to be not uncommon on virtual machines.
     ///
     /// Not accounting for clock skew can result in signatures being
     /// unexpectedly considered invalid.  Consider: computer A sends a
@@ -2980,7 +3038,7 @@ impl SubpacketAreas {
     /// says the current time is 8:59, rejects it, because the
     /// signature appears to have been made in the future.  This is
     /// particularly problematic for low-latency protocols built on
-    /// top of OpenPGP, e.g., state synchronization between two MUAs
+    /// top of OpenPGP, e.g., when two MUAs synchronize their state
     /// via a shared IMAP folder.
     ///
     /// Being tolerant to potential clock skew is not always
@@ -2996,17 +3054,67 @@ impl SubpacketAreas {
     /// Unfortunately, in many cases, whether we should account for
     /// clock skew or not depends on application-specific context.  As
     /// a rule of thumb, if the time and the timestamp come from
-    /// different sources, you probably want to account for clock
-    /// skew.
+    /// different clocks, you probably want to account for clock skew.
     ///
-    /// Note that [Section 5.2.3.4 of RFC 4880] states that "[[A
-    /// Signature Creation Time subpacket]] MUST be present in the
-    /// hashed area."  Consequently, if such a packet does not exist,
-    /// but a "Signature Expiration Time" subpacket exists, we
-    /// conservatively treat the signature as expired, because there
-    /// is no way to evaluate the expiration time.
+    /// # Errors
+    ///
+    /// [Section 5.2.3.4 of RFC 4880] states that a Signature Creation
+    /// Time subpacket "MUST be present in the hashed area."
+    /// Consequently, if such a packet does not exist, this function
+    /// returns [`Error::MalformedPacket`].
     ///
     ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    ///  [`Error::MalformedPacket`]: ../../../enum.Error.html#variant.MalformedPacket
+    ///
+    /// # Examples
+    ///
+    /// Alice's desktop computer and laptop exchange messages in real
+    /// time via a shared IMAP folder.  Unfortunately, the clocks are
+    /// not perfectly synchronized: the desktop computer's clock is a
+    /// few seconds ahead of the laptop's clock.  When there is little
+    /// or no propagation delay, this means that the laptop will
+    /// consider the signatures to be invalid, because they appear to
+    /// have been created in the future.  Using a tolerance prevents
+    /// this from happening.
+    ///
+    /// ```
+    /// use std::time::{SystemTime, Duration};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let (alice, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    ///
+    /// // Alice's Desktop computer signs a message.  Its clock is a
+    /// // few seconds fast.
+    /// let now = SystemTime::now() + Duration::new(5, 0);
+    ///
+    /// let mut alices_signer = alice.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    /// let msg = "START PROTOCOL";
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_signature_creation_time(now)?
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
+    ///
+    /// // The desktop computer transfers the message to the laptop
+    /// // via the shared IMAP folder.  Because the laptop receives a
+    /// // push notification, it immediately processes it.
+    /// // Unfortunately, it is considered to be invalid: the message
+    /// // appears to be from the future!
+    /// assert!(sig.signature_alive(None, Duration::new(0, 0)).is_err());
+    ///
+    /// // But, using the small default tolerance causes the laptop
+    /// // to consider the signature to be alive.
+    /// assert!(sig.signature_alive(None, None).is_ok());
+    /// # Ok(()) }
+    /// ```
     pub fn signature_alive<T, U>(&self, time: T, clock_skew_tolerance: U)
         -> Result<()>
         where T: Into<Option<time::SystemTime>>,
@@ -3042,13 +3150,54 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the time when the key expires.
+    /// Returns the value of the Key Expiration Time subpacket
+    /// as an absolute time.
     ///
-    /// If the key expiration time subpacket is not present, this
-    /// returns `None`.
+    /// A [Key Expiration Time subpacket] specifies when a key
+    /// expires.  The value stored is not an absolute time, but a
+    /// duration, which is relative to the associated [Key]'s creation
+    /// time, which is stored in the Key packet, not the binding
+    /// signature.  As such, the Key Expiration Time subpacket is only
+    /// meaningful on a key's binding signature.  To better reflect
+    /// the subpacket's name, this method returns the absolute expiry
+    /// time, and the [`SubpacketAreas::key_validity_period`] method
+    /// returns the subpacket's raw value.
     ///
-    /// Note: if the key contains multiple instances of the key
-    /// expiration time subpacket, only the last one is considered.
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
+    ///
+    /// The Key Expiration Time subpacket is different from the
+    /// [Signature Expiration Time subpacket], which is accessed using
+    /// [`SubpacketAreas::signature_validity_period`], and specifies
+    /// when a signature expires.  The difference is that in the
+    /// former case, only the associated key expires, but in the
+    /// latter case, the signature itself expires.  This difference is
+    /// critical: if a binding signature expires, then an OpenPGP
+    /// implementation will still consider the associated key to be
+    /// valid if there is another valid binding signature, even if it
+    /// is older than the expired signature; if the active binding
+    /// signature indicates that the key has expired, then OpenPGP
+    /// implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    ///
+    /// Because the absolute time is relative to the key's creation
+    /// time, which is stored in the key itself, this function needs
+    /// the associated key.  Since there is no way to get the
+    /// associated key from a signature, the key must be passed to
+    /// this function.  This function does not check that the key is
+    /// in fact associated with this signature.
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.  If this function returns `None`, the
+    /// signature does not expire.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
     pub fn key_expiration_time<P, R>(&self, key: &Key<P, R>)
                                      -> Option<time::SystemTime>
         where P: key::KeyParts,
@@ -3060,16 +3209,59 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns whether or not the given key is alive at `t`.
+    /// Returns whether or not a key is alive at the specified
+    /// time.
     ///
-    /// A key is considered to be alive if `creation time <= t` and `t
-    /// < expiration time`.
+    /// A [Key] is considered to be alive if `creation time -
+    /// tolerance <= time` and `time < expiration time`.
     ///
-    /// This function does not check whether the key was revoked.
+    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
     ///
-    /// See [Section 5.2.3.6 of RFC 4880].
+    /// This function does not check whether the signature is alive
+    /// (cf. [`SubpacketAreas::signature_alive`]), or whether the key
+    /// is revoked (cf. [`ValidKeyAmalgamation::revoked`]).
     ///
-    ///  [Section 5.2.3.6 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SubpacketAreas::signature_alive`]: #method.signature_alive
+    /// [`ValidKeyAmalgamation::revoked`]: ../../../cert/amalgamation/key/struct.ValidKeyAmalgamationIter.html#method.revoked
+    ///
+    /// If `time` is `None`, then this function uses the current time
+    /// for `time`.
+    ///
+    /// Whereas a Key's expiration time is stored in the Key's active
+    /// binding signature in the [Signature Expiration Time
+    /// subpacket], its creation time is stored in the Key packet.  As
+    /// such, the associated Key must be passed to this function.
+    /// This function, however, has no way to check that the signature
+    /// is actually a binding signature for the specified Key.
+    ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    ///
+    /// # Examples
+    ///
+    /// Even keys that don't expire may not be considered alive.  This
+    /// is the case if they were created after the specified time.
+    ///
+    /// ```
+    /// use std::time::{SystemTime, Duration};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    ///
+    /// let mut pk = cert.primary_key().key();
+    /// let sig = cert.primary_key().with_policy(p, None)?.binding_signature();
+    ///
+    /// assert!(sig.key_alive(pk, None).is_ok());
+    /// // A key is not considered alive prior to its creation time.
+    /// let the_past = SystemTime::now() - Duration::new(10, 0);
+    /// assert!(sig.key_alive(pk, the_past).is_err());
+    /// # Ok(()) }
+    /// ```
     pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
