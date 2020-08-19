@@ -2879,7 +2879,21 @@ impl SubpacketAreas {
     }
 
     /// Returns the *last* instance of the specified subpacket.
-    fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<&Subpacket> {
+    ///
+    /// This function returns the last instance of the specified
+    /// subpacket in the subpacket areas in which it can occur.  Thus,
+    /// when looking for the `Signature Creation Time` subpacket, this
+    /// function only considers the hashed subpacket area.  But, when
+    /// looking for the `Embedded Signature` subpacket, this function
+    /// considers both subpacket areas.
+    ///
+    /// Unknown subpackets are assumed to only safely occur in the
+    /// hashed subpacket area.  Thus, any instances of them in the
+    /// unhashed area are ignored.
+    ///
+    /// For subpackets that can safely occur in both subpacket areas,
+    /// this function prefers instances in the hashed subpacket area.
+    pub fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<&Subpacket> {
         if let Some(sb) = self.hashed_area().lookup(tag) {
             return Some(sb);
         }
@@ -2899,20 +2913,21 @@ impl SubpacketAreas {
     /// Returns an iterator over all instances of the specified
     /// subpacket.
     ///
-    /// This returns an iterator over all instances of the specified
-    /// subpacket in the subpacket areas in which it can occur.  Thus,
-    /// when looking for the `Issuer` subpacket, the iterator includes
-    /// instances of the subpacket from both the hashed subpacket area
-    /// and the unhashed subpacket area, but when looking for the
-    /// `Signature Creation Time` subpacket, the iterator only
-    /// includes instances of the subpacket from the hashed subpacket
-    /// area; any instances of the subpacket in the unhashed subpacket
-    /// area are ignored.
+    /// This function returns an iterator over all instances of the
+    /// specified subpacket in the subpacket areas in which it can
+    /// occur.  Thus, when looking for the `Issuer` subpacket, the
+    /// iterator includes instances of the subpacket from both the
+    /// hashed subpacket area and the unhashed subpacket area, but
+    /// when looking for the `Signature Creation Time` subpacket, the
+    /// iterator only includes instances of the subpacket from the
+    /// hashed subpacket area; any instances of the subpacket in the
+    /// unhashed subpacket area are ignored.
     ///
     /// Unknown subpackets are assumed to only safely occur in the
     /// hashed subpacket area.  Thus, any instances of them in the
     /// unhashed area are ignored.
-    fn subpackets(&self, tag: SubpacketTag) -> impl Iterator<Item = &Subpacket>
+    pub fn subpackets(&self, tag: SubpacketTag)
+        -> impl Iterator<Item = &Subpacket>
     {
         // It would be nice to do:
         //
