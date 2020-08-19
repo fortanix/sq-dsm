@@ -1448,15 +1448,16 @@ impl From<Signature4> for SignatureBuilder {
     }
 }
 
-/// Holds a signature packet.
+/// Holds a v4 Signature packet.
 ///
-/// Signature packets are used both for certification purposes as well
-/// as for document signing purposes.
+/// This holds a [version 4] Signature packet.  Normally, you won't
+/// directly work with this data structure, but with the [`Signature`]
+/// enum, which is version agnostic.  An exception is when you need to
+/// do version-specific operations.  But currently, there aren't any
+/// version-specific methods.
 ///
-/// See [Section 5.2 of RFC 4880] for details.
-///
-///   [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
-// Note: we can't derive PartialEq, because it includes the cached data.
+///   [version 4]: https://tools.ietf.org/html/rfc4880#section-5.2
+///   [`Signature`]: ../enum.Signature.html
 #[derive(Clone)]
 pub struct Signature4 {
     /// CTB packet header fields.
@@ -1509,14 +1510,20 @@ impl PartialEq for Signature4 {
     /// This method tests for self and other values to be equal, and
     /// is used by ==.
     ///
-    /// Note: We ignore the unhashed subpacket area when comparing
-    /// signatures.  This prevents a malicious party to take valid
-    /// signatures, add subpackets to the unhashed area, yielding
-    /// valid but distinct signatures.
+    /// This method compares the serialized version of the two
+    /// packets.  Thus, the computed values are ignored ([`level`],
+    /// [`computed_digest`]).
     ///
-    /// The problem we are trying to avoid here is signature spamming.
-    /// Ignoring the unhashed subpackets means that we can deduplicate
-    /// signatures using this predicate.
+    /// Note: because this function also compares the unhashed
+    /// subpacket area, it is possible for a malicious party to take
+    /// valid signatures, add subpackets to the unhashed area,
+    /// yielding valid but distinct signatures.  If you want to ignore
+    /// the unhashed area, you should instead use the
+    /// [`Signature4::normalized_eq`] method.
+    ///
+    /// [`level`]: #method.level
+    /// [`computed_digest`]: #method.computed_digest
+    /// [`Signature4::normalized_eq`]: #method.normalized_eq
     fn eq(&self, other: &Signature4) -> bool {
         self.mpis == other.mpis
             && self.fields == other.fields
@@ -1595,6 +1602,10 @@ impl Signature4 {
     }
 
     /// Gets the computed hash value.
+    ///
+    /// This is set by the [`PacketParser`] when parsing the message.
+    ///
+    /// [`PacketParser`]: ../../parse/struct.PacketParser.html
     pub fn computed_digest(&self) -> Option<&[u8]> {
         self.computed_digest.as_ref().map(|d| &d[..])
     }
@@ -1624,7 +1635,15 @@ impl Signature4 {
         ::std::mem::replace(&mut self.level, level)
     }
 
-    /// Tests whether or not this signature is exportable.
+    /// Returns whether or not this signature should be exported.
+    ///
+    /// This checks whether the [`Exportable Certification`] subpacket
+    /// is absent or present and 1, and that the signature does not
+    /// include any sensitive [`Revocation Key`] (designated revokers)
+    /// subpackets.
+    ///
+    ///   [`Exportable Certification`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.11
+    ///   [`Revocation Key`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
     pub fn exportable(&self) -> Result<()> {
         if ! self.exportable_certification().unwrap_or(true) {
             return Err(Error::InvalidOperation(
