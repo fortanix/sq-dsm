@@ -2389,6 +2389,14 @@ impl SubpacketAreas {
     /// [Exportable Certification subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.11
     /// [`Serialize::export`]: https://docs.sequoia-pgp.org/sequoia_openpgp/serialize/trait.Serialize.html#method.export
     ///
+    /// Normally, you'll want to use [`Signature4::exportable`] to
+    /// check if a signature should be exported.  That function also
+    /// checks whether the signature includes any sensitive
+    /// [Revocation Key subpackets], which also shouldn't be exported.
+    ///
+    /// [`Signature4::exportable`]: ../struct.Signature4.html#method.exportable
+    /// [Revocation Key subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.15
+    ///
     /// If the subpacket is not present in the hashed subpacket area,
     /// this returns `None`.
     ///
