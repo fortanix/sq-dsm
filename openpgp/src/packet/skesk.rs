@@ -57,9 +57,7 @@ impl Arbitrary for SKESK {
 /// 4880] for details.
 ///
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
-// IMPORTANT: If you add fields to this struct, you need to explicitly
-// IMPORTANT: implement PartialEq, Eq, and Hash.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug)]
 pub struct SKESK4 {
     /// CTB header fields.
     pub(crate) common: packet::Common,
@@ -73,7 +71,39 @@ pub struct SKESK4 {
     /// Key derivation method for the symmetric key.
     s2k: S2K,
     /// The encrypted session key.
-    esk: Option<Box<[u8]>>,
+    ///
+    /// If we recognized the S2K object during parsing, we can
+    /// successfully parse the data into S2K and ciphertext.  However,
+    /// if we do not recognize the S2K type, we do not know how large
+    /// its parameters are, so we cannot cleanly parse it, and have to
+    /// accept that the S2K's body bleeds into the rest of the data.
+    esk: std::result::Result<Option<Box<[u8]>>, // optional ciphertext.
+                             Box<[u8]>>,        // S2K body + maybe ciphertext.
+}
+
+// Because the S2K and ESK cannot be cleanly separated at parse time,
+// we need to carefully compare and hash SKESK4 packets.
+
+impl PartialEq for SKESK4 {
+    fn eq(&self, other: &SKESK4) -> bool {
+        self.version == other.version
+            && self.sym_algo == other.sym_algo
+            // Treat S2K and ESK as opaque blob.
+            && self.s2k == other.s2k
+            && self.raw_esk() == other.raw_esk()
+    }
+}
+
+impl Eq for SKESK4 {}
+
+impl std::hash::Hash for SKESK4 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.version.hash(state);
+        self.sym_algo.hash(state);
+        // Treat S2K and ESK as opaque blob.
+        self.s2k.hash(state);
+        self.raw_esk().hash(state);
+    }
 }
 
 impl SKESK4 {
@@ -83,14 +113,25 @@ impl SKESK4 {
     /// session key.
     pub fn new(esk_algo: SymmetricAlgorithm, s2k: S2K,
                esk: Option<Box<[u8]>>) -> Result<SKESK4> {
+        Self::new_raw(esk_algo, s2k, Ok(esk.and_then(|esk| {
+            if esk.len() == 0 { None } else { Some(esk) }
+        })))
+    }
+
+    /// Creates a new SKESK version 4 packet.
+    ///
+    /// The given symmetric algorithm is the one used to encrypt the
+    /// session key.
+    pub(crate) fn new_raw(esk_algo: SymmetricAlgorithm, s2k: S2K,
+                          esk: std::result::Result<Option<Box<[u8]>>,
+                                                   Box<[u8]>>)
+                          -> Result<SKESK4> {
         Ok(SKESK4{
             common: Default::default(),
             version: 4,
             sym_algo: esk_algo,
             s2k,
-            esk: esk.and_then(|esk| {
-                if esk.len() == 0 { None } else { Some(esk) }
-            }),
+            esk,
         })
     }
 
@@ -160,17 +201,38 @@ impl SKESK4 {
     }
 
     /// Gets the encrypted session key.
+    ///
+    /// If the [`S2K`] mechanism is not supported by Sequoia, this
+    /// function will fail.  Note that the information is not lost,
+    /// but stored in the packet.  If the packet is serialized again,
+    /// it is written out.
+    ///
+    ///   [`S2K`]: ../../crypto/enum.S2K.html
     pub fn esk(&self) -> Result<Option<&[u8]>> {
-        Ok(self.esk.as_ref().map(|esk| &esk[..]))
+        self.esk.as_ref()
+            .map(|esko| esko.as_ref().map(|esk| &esk[..]))
+            .map_err(|_| Error::MalformedPacket(
+                format!("Unknown S2K: {:?}", self.s2k)).into())
+    }
+
+    /// Returns the encrypted session key, possibly including the body
+    /// of the S2K object.
+    pub(crate) fn raw_esk(&self) -> &[u8] {
+        match self.esk.as_ref() {
+            Ok(Some(esk)) => &esk[..],
+            Ok(None) => &[][..],
+            Err(s2k_esk) => &s2k_esk[..],
+        }
     }
 
     /// Sets the encrypted session key.
     pub fn set_esk(&mut self, esk: Option<Box<[u8]>>) -> Option<Box<[u8]>> {
         ::std::mem::replace(
             &mut self.esk,
-            esk.and_then(|esk| {
+            Ok(esk.and_then(|esk| {
                 if esk.len() == 0 { None } else { Some(esk) }
-            }))
+            })))
+            .unwrap_or(None)
     }
 
     /// Derives the key inside this SKESK4 from `password`.
@@ -182,7 +244,7 @@ impl SKESK4 {
     {
         let key = self.s2k.derive_key(password, self.sym_algo.key_size()?)?;
 
-        if let Some(ref esk) = self.esk {
+        if let Some(ref esk) = self.esk()? {
             // Use the derived key to decrypt the ESK. Unlike SEP &
             // SEIP we have to use plain CFB here.
             let blk_sz = self.sym_algo.block_size()?;
@@ -288,7 +350,7 @@ impl SKESK5 {
                 version: 5,
                 sym_algo: esk_algo,
                 s2k,
-                esk: Some(esk),
+                esk: Ok(Some(esk)),
             },
             aead_algo: esk_aead,
             aead_iv: iv,

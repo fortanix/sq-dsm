@@ -2313,10 +2313,7 @@ impl Marshal for SKESK4 {
         write_byte(o, 4)?; // Version.
         write_byte(o, self.symmetric_algo().into())?;
         self.s2k().serialize(o)?;
-        if let Some(ref esk) = self.esk()? {
-            o.write_all(&esk[..])?;
-        }
-
+        o.write_all(self.raw_esk())?;
         Ok(())
     }
 }
@@ -2326,7 +2323,7 @@ impl NetLength for SKESK4 {
         1 // Version.
             + 1 // Algo.
             + self.s2k().serialized_len()
-            + self.esk().unwrap().map(|esk| esk.len()).unwrap_or(0)
+            + self.raw_esk().len()
     }
 }
 

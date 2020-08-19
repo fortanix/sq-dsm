@@ -2546,12 +2546,21 @@ impl SKESK {
             4 => {
                 let sym_algo = php_try!(php.parse_u8("sym_algo"));
                 let s2k = php_try!(S2K::parse(&mut php));
+                let s2k_supported = s2k.is_supported();
                 let esk = php_try!(php.parse_bytes_eof("esk"));
 
-                SKESK::V4(php_try!(SKESK4::new(
+                SKESK::V4(php_try!(SKESK4::new_raw(
                     sym_algo.into(),
                     s2k,
-                    if esk.len() > 0 { Some(esk.into()) } else { None },
+                    if s2k_supported || esk.is_empty() {
+                        Ok(if ! esk.is_empty() {
+                            Some(esk.into())
+                        } else {
+                            None
+                        })
+                    } else {
+                        Err(esk.into())
+                    },
                 )))
             },
 
