@@ -4267,6 +4267,102 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
+    /// Sets a Regular Expression subpacket.
+    ///
+    /// Adds a [Regular Expression subpacket] to the hashed subpacket
+    /// area.  Unlike [`SignatureBuilder::set_regular_expression`],
+    /// this function does not first remove any Regular Expression
+    /// subpacket from the hashed subpacket area, but adds an
+    /// additional Regular Expression subpacket to the hashed
+    /// subpacket area.
+    ///
+    /// [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
+    ///
+    /// The Regular Expression subpacket is used in conjunction with a
+    /// [Trust Signature subpacket], which is set using
+    /// [`SignatureBuilder::set_trust_signature`], to limit the scope
+    /// of a trusted introducer.  This is useful, for instance, when a
+    /// company has a CA and you only want to trust them to certify
+    /// their own employees.
+    ///
+    /// [Trust Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.13
+    /// [`SignatureBuilder::set_trust_signature`]: #method.set_trust_signature
+    ///
+    /// GnuPG only supports [a limited form of regular expressions].
+    ///
+    /// [a limited form of regular expressions]: https://git.gnupg.org/cgi-bin/gitweb.cgi?p=gnupg.git;a=blob;f=g10/trustdb.c;h=c4b996a9685486b2095608f6685727022120505f;hb=refs/heads/master#l1537
+    ///
+    /// Note: The serialized form includes a trailing `NUL` byte.
+    /// Sequoia adds this `NUL` when serializing the signature.
+    /// Adding it yourself will result in two trailing NUL bytes.
+    ///
+    /// # Examples
+    ///
+    /// Alice designates ``openpgp-ca@example.com`` as a fully
+    /// trusted, trusted introducer, but only for users from the
+    /// ``example.com`` and ``example.net`` domains:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _)
+    ///     = CertBuilder::general_purpose(None, Some("Alice <alice@example.org>"))
+    ///         .generate()?;
+    /// let mut alices_signer = alice.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    ///
+    /// let (example_com, _)
+    ///     = CertBuilder::general_purpose(None, Some("OpenPGP CA <openpgp-ca@example.com>"))
+    ///         .generate()?;
+    /// let example_com_userid = example_com.with_policy(p, None)?
+    ///     .userids().nth(0).expect("Added a User ID").userid();
+    ///
+    /// let certification = SignatureBuilder::new(SignatureType::GenericCertification)
+    ///     .set_trust_signature(1, 120)?
+    ///     .set_regular_expression("<[^>]+[@.]example\\.com>$")?
+    ///     .add_regular_expression("<[^>]+[@.]example\\.net>$")?
+    ///     .sign_userid_binding(
+    ///         &mut alices_signer,
+    ///         &example_com.primary_key(),
+    ///         example_com_userid)?;
+    /// # assert_eq!(certification
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::TrustSignature)
+    /// #    .count(),
+    /// #    1);
+    /// # assert_eq!(certification
+    /// #    .hashed_area()
+    /// #    .iter()
+    /// #    .filter(|sp| sp.tag() == SubpacketTag::RegularExpression)
+    /// #    .count(),
+    /// #    2);
+    ///
+    /// // Merge in the new signature.
+    /// let example_com = example_com.merge_packets(certification)?;
+    /// # assert_eq!(example_com.bad_signatures().len(), 0);
+    /// # assert_eq!(example_com.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # Ok(()) }
+    /// ```
+    pub fn add_regular_expression<R>(mut self, re: R) -> Result<Self>
+        where R: AsRef<[u8]>
+    {
+        self.hashed_area.add(Subpacket::new(
+            SubpacketValue::RegularExpression(re.as_ref().to_vec()),
+            true)?)?;
+
+        Ok(self)
+    }
+
     /// Sets the Revocable subpacket.
     ///
     /// Adds a [Revocable subpacket] to the hashed subpacket area.
