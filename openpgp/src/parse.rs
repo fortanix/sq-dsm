@@ -2543,7 +2543,7 @@ impl SKESK {
                 SKESK::V4(php_try!(SKESK4::new(
                     sym_algo.into(),
                     s2k,
-                    if esk.len() > 0 { Some(esk) } else { None },
+                    if esk.len() > 0 { Some(esk.into()) } else { None },
                 )))
             },
 
@@ -2573,7 +2573,7 @@ impl SKESK {
                     aead_algo,
                     s2k,
                     aead_iv.into_boxed_slice(),
-                    esk,
+                    esk.into(),
                     aead_digest.into_boxed_slice(),
                 )))
             },

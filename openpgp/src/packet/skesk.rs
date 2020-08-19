@@ -73,7 +73,7 @@ pub struct SKESK4 {
     /// Key derivation method for the symmetric key.
     s2k: S2K,
     /// The encrypted session key.
-    esk: Option<Vec<u8>>,
+    esk: Option<Box<[u8]>>,
 }
 
 impl SKESK4 {
@@ -82,7 +82,7 @@ impl SKESK4 {
     /// The given symmetric algorithm is the one used to encrypt the
     /// session key.
     pub fn new(esk_algo: SymmetricAlgorithm, s2k: S2K,
-               esk: Option<Vec<u8>>) -> Result<SKESK4> {
+               esk: Option<Box<[u8]>>) -> Result<SKESK4> {
         Ok(SKESK4{
             common: Default::default(),
             version: 4,
@@ -136,7 +136,7 @@ impl SKESK4 {
                 cipher.encrypt(&mut iv[..], ct, pt)?;
         }
 
-        SKESK4::new(esk_algo, s2k, Some(esk))
+        SKESK4::new(esk_algo, s2k, Some(esk.into()))
     }
 
     /// Gets the symmetric encryption algorithm.
@@ -161,11 +161,11 @@ impl SKESK4 {
 
     /// Gets the encrypted session key.
     pub fn esk(&self) -> Option<&[u8]> {
-        self.esk.as_ref().map(|esk| esk.as_slice())
+        self.esk.as_ref().map(|esk| &esk[..])
     }
 
     /// Sets the encrypted session key.
-    pub fn set_esk(&mut self, esk: Option<Vec<u8>>) -> Option<Vec<u8>> {
+    pub fn set_esk(&mut self, esk: Option<Box<[u8]>>) -> Option<Box<[u8]>> {
         ::std::mem::replace(
             &mut self.esk,
             esk.and_then(|esk| {
@@ -232,7 +232,7 @@ impl Arbitrary for SKESK4 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         SKESK4::new(SymmetricAlgorithm::arbitrary(g),
                     S2K::arbitrary(g),
-                    Option::<Vec<u8>>::arbitrary(g))
+                    Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()))
             .unwrap()
     }
 }
@@ -280,7 +280,7 @@ impl SKESK5 {
     /// The given symmetric algorithm is the one used to encrypt the
     /// session key.
     pub fn new(esk_algo: SymmetricAlgorithm, esk_aead: AEADAlgorithm,
-               s2k: S2K, iv: Box<[u8]>, esk: Vec<u8>, digest: Box<[u8]>)
+               s2k: S2K, iv: Box<[u8]>, esk: Box<[u8]>, digest: Box<[u8]>)
                -> Result<Self> {
         Ok(SKESK5{
             skesk4: SKESK4{
@@ -339,7 +339,7 @@ impl SKESK5 {
         let mut digest = vec![0u8; esk_aead.digest_size()?];
         ctx.digest(&mut digest);
 
-        SKESK5::new(esk_algo, esk_aead, s2k, iv.into_boxed_slice(), esk,
+        SKESK5::new(esk_algo, esk_aead, s2k, iv.into_boxed_slice(), esk.into(),
                     digest.into_boxed_slice())
     }
 
@@ -442,7 +442,7 @@ impl Arbitrary for SKESK5 {
                     algo,
                     S2K::arbitrary(g),
                     iv.into_boxed_slice(),
-                    Vec::<u8>::arbitrary(g),
+                    Vec::<u8>::arbitrary(g).into(),
                     digest.into_boxed_slice())
             .unwrap()
     }
