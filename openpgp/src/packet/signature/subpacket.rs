@@ -677,13 +677,13 @@ impl SubpacketArea {
     /// # // Verify it.
     /// # sig.verify_message(signer.public(), msg)?;
     /// #
-    /// if sig.hashed_area().lookup(SubpacketTag::SignatureCreationTime).is_none() {
+    /// if sig.hashed_area().subpacket(SubpacketTag::SignatureCreationTime).is_none() {
     ///     eprintln!("Invalid signature.");
     /// }
     /// # Ok(())
     /// # }
     /// ```
-    pub fn lookup(&self, tag: SubpacketTag) -> Option<&Subpacket> {
+    pub fn subpacket(&self, tag: SubpacketTag) -> Option<&Subpacket> {
         self.cache_init();
 
         match self.parsed.lock().unwrap().borrow().as_ref().unwrap().get(&tag) {
@@ -695,13 +695,13 @@ impl SubpacketArea {
     /// Returns all instances of the specified subpacket.
     ///
     /// For most subpackets, only a single instance of the subpacket
-    /// makes sense.  [`SubpacketArea::lookup`] resolves this
+    /// makes sense.  [`SubpacketArea::subpacket`] resolves this
     /// ambiguity by returning the last instance of the request
     /// subpacket type.  But, for some subpackets, like the [`Notation
     /// Data`] subpacket, multiple instances of the subpacket are
     /// reasonable.
     ///
-    /// [`SubpacketArea::lookup`]: #method.lookup
+    /// [`SubpacketArea::subpacket`]: #method.subpacket
     /// [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
     ///
     /// # Examples
@@ -2895,7 +2895,7 @@ impl SubpacketAreas {
     /// For subpackets that can safely occur in both subpacket areas,
     /// this function prefers instances in the hashed subpacket area.
     pub fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<&Subpacket> {
-        if let Some(sb) = self.hashed_area().lookup(tag) {
+        if let Some(sb) = self.hashed_area().subpacket(tag) {
             return Some(sb);
         }
 
@@ -2908,7 +2908,7 @@ impl SubpacketAreas {
             return None;
         }
 
-        self.unhashed_area().lookup(tag)
+        self.unhashed_area().subpacket(tag)
     }
 
     /// Returns an iterator over all instances of the specified

@@ -47,7 +47,7 @@ use crate::{
 /// let subkey = cert.keys().subkeys().next().unwrap();
 /// let packets = subkey.bundle().self_signatures()[0].hashed_area();
 ///
-/// match packets.lookup(SubpacketTag::SignatureCreationTime).unwrap().value() {
+/// match packets.subpacket(SubpacketTag::SignatureCreationTime).unwrap().value() {
 ///     SubpacketValue::SignatureCreationTime(ts) => assert!(u32::from(*ts) > 0),
 ///     v => panic!("Unexpected subpacket: {:?}", v),
 /// }

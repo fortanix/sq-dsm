@@ -1198,7 +1198,7 @@ mod tests {
             .generate().unwrap();
         let sig_pkts = cert1.subkeys().next().unwrap().bundle().self_signatures[0].hashed_area();
 
-        match sig_pkts.lookup(SubpacketTag::KeyFlags).unwrap().value() {
+        match sig_pkts.subpacket(SubpacketTag::KeyFlags).unwrap().value() {
             SubpacketValue::KeyFlags(ref ks) => assert!(ks.for_certification()),
             v => panic!("Unexpected subpacket: {:?}", v),
         }
