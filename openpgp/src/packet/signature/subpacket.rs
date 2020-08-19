@@ -1731,7 +1731,164 @@ impl SubpacketLength {
     }
 }
 
+/// Subpacket storage.
+///
+/// Subpackets are stored either in a so-called hashed area or a
+/// so-called unhashed area.  Packets stored in the hashed area are
+/// protected by the signature's hash whereas packets stored in the
+/// unhashed area are not.  Generally, two types of information are
+/// stored in the unhashed area: self-authenticating data (the
+/// `Issuer` subpacket, the `Issuer Fingerprint` subpacket, and the
+/// `Embedded Signature` subpacket), and hints, like the features
+/// subpacket.
+///
+/// When accessing subpackets directly via `SubpacketArea`s, the
+/// subpackets are only looked up in the hashed area unless the
+/// packets are self-authenticating in which case subpackets from the
+/// hash area are preferred.  To return packets from a specific area,
+/// use the `hashed_area` and `unhashed_area` methods to get the
+/// specific methods and then use their accessors.
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
+pub struct SubpacketAreas {
+    /// Subpackets that are part of the signature.
+    hashed_area: SubpacketArea,
+    /// Subpackets that are _not_ part of the signature.
+    unhashed_area: SubpacketArea,
+}
+
+#[cfg(any(test, feature = "quickcheck"))]
+impl ArbitraryBounded for SubpacketAreas {
+    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+        SubpacketAreas::new(ArbitraryBounded::arbitrary_bounded(g, depth),
+                            ArbitraryBounded::arbitrary_bounded(g, depth))
+    }
+}
+
+#[cfg(any(test, feature = "quickcheck"))]
+impl_arbitrary_with_bound!(SubpacketAreas);
+
 impl SubpacketAreas {
+    /// Returns a new `SubpacketAreas` object.
+    pub fn new(hashed_area: SubpacketArea,
+               unhashed_area: SubpacketArea) ->  Self {
+        Self {
+            hashed_area,
+            unhashed_area,
+        }
+    }
+
+    /// Gets a reference to the hashed area.
+    pub fn hashed_area(&self) -> &SubpacketArea {
+        &self.hashed_area
+    }
+
+    /// Gets a mutable reference to the hashed area.
+    ///
+    /// Note: if you modify the hashed area of a [`Signature4`], this
+    /// will invalidate the signature.  Instead, you should normally
+    /// convert the [`Signature4`] into a [`signature::SignatureBuilder`],
+    /// modify that, and then create a new signature.
+    pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
+        &mut self.hashed_area
+    }
+
+    /// Gets a reference to the unhashed area.
+    pub fn unhashed_area(&self) -> &SubpacketArea {
+        &self.unhashed_area
+    }
+
+    /// Gets a mutable reference to the unhashed area.
+    pub fn unhashed_area_mut(&mut self) -> &mut SubpacketArea {
+        &mut self.unhashed_area
+    }
+
+    /// Sorts the subpacket areas.
+    ///
+    /// See [`SubpacketArea::sort()`].
+    ///
+    ///   [`SubpacketArea::sort()`]: struct.SubpacketArea.html#method.sort
+    pub fn sort(&mut self) {
+        self.hashed_area.sort();
+        self.unhashed_area.sort();
+    }
+
+    /// Returns the *last* instance of the specified subpacket.
+    ///
+    /// This function returns the last instance of the specified
+    /// subpacket in the subpacket areas in which it can occur.  Thus,
+    /// when looking for the `Signature Creation Time` subpacket, this
+    /// function only considers the hashed subpacket area.  But, when
+    /// looking for the `Embedded Signature` subpacket, this function
+    /// considers both subpacket areas.
+    ///
+    /// Unknown subpackets are assumed to only safely occur in the
+    /// hashed subpacket area.  Thus, any instances of them in the
+    /// unhashed area are ignored.
+    ///
+    /// For subpackets that can safely occur in both subpacket areas,
+    /// this function prefers instances in the hashed subpacket area.
+    pub fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<&Subpacket> {
+        if let Some(sb) = self.hashed_area().subpacket(tag) {
+            return Some(sb);
+        }
+
+        // There are a couple of subpackets that we are willing to
+        // take from the unhashed area.  The others we ignore
+        // completely.
+        if !(tag == SubpacketTag::Issuer
+             || tag == SubpacketTag::IssuerFingerprint
+             || tag == SubpacketTag::EmbeddedSignature) {
+            return None;
+        }
+
+        self.unhashed_area().subpacket(tag)
+    }
+
+    /// Returns an iterator over all instances of the specified
+    /// subpacket.
+    ///
+    /// This function returns an iterator over all instances of the
+    /// specified subpacket in the subpacket areas in which it can
+    /// occur.  Thus, when looking for the `Issuer` subpacket, the
+    /// iterator includes instances of the subpacket from both the
+    /// hashed subpacket area and the unhashed subpacket area, but
+    /// when looking for the `Signature Creation Time` subpacket, the
+    /// iterator only includes instances of the subpacket from the
+    /// hashed subpacket area; any instances of the subpacket in the
+    /// unhashed subpacket area are ignored.
+    ///
+    /// Unknown subpackets are assumed to only safely occur in the
+    /// hashed subpacket area.  Thus, any instances of them in the
+    /// unhashed area are ignored.
+    pub fn subpackets(&self, tag: SubpacketTag)
+        -> impl Iterator<Item = &Subpacket>
+    {
+        // It would be nice to do:
+        //
+        //     let iter = self.hashed_area().subpackets(tag);
+        //     if (subpacket allowed in unhashed area) {
+        //         iter.chain(self.unhashed_area().subpackets(tag))
+        //     } else {
+        //         iter
+        //     }
+        //
+        // but then we have different types.  Instead, we need to
+        // inline SubpacketArea::subpackets, add the additional
+        // constraint in the closure, and hope that the optimizer is
+        // smart enough to not unnecessarily iterate over the unhashed
+        // area.
+        self.hashed_area().subpackets(tag).chain(
+            self.unhashed_area()
+                .iter()
+                .filter(move |sp| {
+                    (tag == SubpacketTag::Issuer
+                     || tag == SubpacketTag::IssuerFingerprint
+                     || tag == SubpacketTag::EmbeddedSignature)
+                        && sp.tag() == tag
+            }))
+    }
+
+
     /// Returns the value of the Signature Creation Time subpacket.
     ///
     /// The [Signature Creation Time subpacket] specifies when the
@@ -1829,6 +1986,395 @@ impl SubpacketAreas {
             }
         } else {
             None
+        }
+    }
+
+    /// Returns the value of the Signature Expiration Time subpacket
+    /// as an absolute time.
+    ///
+    /// A [Signature Expiration Time subpacket] specifies when the
+    /// signature expires.  The value stored is not an absolute time,
+    /// but a duration, which is relative to the Signature's creation
+    /// time.  To better reflect the subpacket's name, this method
+    /// returns the absolute expiry time, and the
+    /// [`SubpacketAreas::signature_validity_period`] method returns
+    /// the subpacket's raw value.
+    ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    ///
+    /// The Signature Expiration Time subpacket is different from the
+    /// [Key Expiration Time subpacket], which is accessed using
+    /// [`SubpacketAreas::key_validity_period`], and used specifies
+    /// when an associated key expires.  The difference is that in the
+    /// former case, the signature itself expires, but in the latter
+    /// case, only the associated key expires.  This difference is
+    /// critical: if a binding signature expires, then an OpenPGP
+    /// implementation will still consider the associated key to be
+    /// valid if there is another valid binding signature, even if it
+    /// is older than the expired signature; if the active binding
+    /// signature indicates that the key has expired, then OpenPGP
+    /// implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
+    ///
+    /// There are several cases where having a signature expire is
+    /// useful.  Say Alice certifies Bob's certificate for
+    /// `bob@example.org`.  She can limit the lifetime of the
+    /// certification to force her to reevaluate the certification
+    /// shortly before it expires.  For instance, is Bob still
+    /// associated with `example.org`?  Does she have reason to
+    /// believe that his key has been compromised?  Using an
+    /// expiration is common in the X.509 ecosystem.  For instance,
+    /// [Let's Encrypt] issues certificates with 90-day lifetimes.
+    ///
+    /// [Let's Encrypt]: https://letsencrypt.org/2015/11/09/why-90-days.html
+    ///
+    /// Having signatures expire can also be useful when deploying
+    /// software.  For instance, you might have a service that
+    /// installs an update if it has been signed by a trusted
+    /// certificate.  To prevent an adversary from coercing the
+    /// service to install an older version, you could limit the
+    /// signature's lifetime to just a few minutes.
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.  If this function returns `None`, the
+    /// signature does not expire.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
+    pub fn signature_expiration_time(&self) -> Option<time::SystemTime> {
+        match (self.signature_creation_time(), self.signature_validity_period())
+        {
+            (Some(ct), Some(vp)) if vp.as_secs() > 0 => Some(ct + vp),
+            _ => None,
+        }
+    }
+
+    /// Returns whether or not the signature is alive at the specified
+    /// time.
+    ///
+    /// A signature is considered to be alive if `creation time -
+    /// tolerance <= time` and `time < expiration time`.
+    ///
+    /// This function does not check whether the key is revoked.
+    ///
+    /// If `time` is `None`, then this function uses the current time
+    /// for `time`.
+    ///
+    /// If `time` is `None`, and `clock_skew_tolerance` is `None`,
+    /// then this function uses [`CLOCK_SKEW_TOLERANCE`] for the
+    /// tolerance.  If `time` is not `None `and `clock_skew_tolerance`
+    /// is `None`, it uses no tolerance.  The intuition here is that
+    /// we only need a tolerance when checking if a signature is alive
+    /// right now; if we are checking at a specific time, we don't
+    /// want to use a tolerance.
+    ///
+    /// [`CLOCK_SKEW_TOLERANCE`]: struct.CLOCK_SKEW_TOLERANCE.html
+    ///
+    /// A small amount of tolerance for clock skew is necessary,
+    /// because although most computers synchronize their clocks with
+    /// a time server, up to a few seconds of clock skew are not
+    /// unusual in practice.  And, even worse, several minutes of
+    /// clock skew appear to be not uncommon on virtual machines.
+    ///
+    /// Not accounting for clock skew can result in signatures being
+    /// unexpectedly considered invalid.  Consider: computer A sends a
+    /// message to computer B at 9:00, but computer B, whose clock
+    /// says the current time is 8:59, rejects it, because the
+    /// signature appears to have been made in the future.  This is
+    /// particularly problematic for low-latency protocols built on
+    /// top of OpenPGP, e.g., when two MUAs synchronize their state
+    /// via a shared IMAP folder.
+    ///
+    /// Being tolerant to potential clock skew is not always
+    /// appropriate.  For instance, when determining a User ID's
+    /// current self signature at time `t`, we don't ever want to
+    /// consider a self-signature made after `t` to be valid, even if
+    /// it was made just a few moments after `t`.  This goes doubly so
+    /// for soft revocation certificates: the user might send a
+    /// message that she is retiring, and then immediately create a
+    /// soft revocation.  The soft revocation should not invalidate
+    /// the message.
+    ///
+    /// Unfortunately, in many cases, whether we should account for
+    /// clock skew or not depends on application-specific context.  As
+    /// a rule of thumb, if the time and the timestamp come from
+    /// different clocks, you probably want to account for clock skew.
+    ///
+    /// # Errors
+    ///
+    /// [Section 5.2.3.4 of RFC 4880] states that a Signature Creation
+    /// Time subpacket "MUST be present in the hashed area."
+    /// Consequently, if such a packet does not exist, this function
+    /// returns [`Error::MalformedPacket`].
+    ///
+    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    ///  [`Error::MalformedPacket`]: ../../../enum.Error.html#variant.MalformedPacket
+    ///
+    /// # Examples
+    ///
+    /// Alice's desktop computer and laptop exchange messages in real
+    /// time via a shared IMAP folder.  Unfortunately, the clocks are
+    /// not perfectly synchronized: the desktop computer's clock is a
+    /// few seconds ahead of the laptop's clock.  When there is little
+    /// or no propagation delay, this means that the laptop will
+    /// consider the signatures to be invalid, because they appear to
+    /// have been created in the future.  Using a tolerance prevents
+    /// this from happening.
+    ///
+    /// ```
+    /// use std::time::{SystemTime, Duration};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let (alice, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    ///
+    /// // Alice's Desktop computer signs a message.  Its clock is a
+    /// // few seconds fast.
+    /// let now = SystemTime::now() + Duration::new(5, 0);
+    ///
+    /// let mut alices_signer = alice.primary_key().key().clone()
+    ///     .parts_into_secret()?.into_keypair()?;
+    /// let msg = "START PROTOCOL";
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .set_signature_creation_time(now)?
+    ///     .sign_message(&mut alices_signer, msg)?;
+    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
+    ///
+    /// // The desktop computer transfers the message to the laptop
+    /// // via the shared IMAP folder.  Because the laptop receives a
+    /// // push notification, it immediately processes it.
+    /// // Unfortunately, it is considered to be invalid: the message
+    /// // appears to be from the future!
+    /// assert!(sig.signature_alive(None, Duration::new(0, 0)).is_err());
+    ///
+    /// // But, using the small default tolerance causes the laptop
+    /// // to consider the signature to be alive.
+    /// assert!(sig.signature_alive(None, None).is_ok());
+    /// # Ok(()) }
+    /// ```
+    pub fn signature_alive<T, U>(&self, time: T, clock_skew_tolerance: U)
+        -> Result<()>
+        where T: Into<Option<time::SystemTime>>,
+              U: Into<Option<time::Duration>>
+    {
+        let (time, tolerance)
+            = match (time.into(), clock_skew_tolerance.into()) {
+                (None, None) =>
+                    (time::SystemTime::now(),
+                     *CLOCK_SKEW_TOLERANCE),
+                (None, Some(tolerance)) =>
+                    (time::SystemTime::now(),
+                     tolerance),
+                (Some(time), None) =>
+                    (time, time::Duration::new(0, 0)),
+                (Some(time), Some(tolerance)) =>
+                    (time, tolerance)
+            };
+
+        match (self.signature_creation_time(), self.signature_validity_period())
+        {
+            (None, _) =>
+                Err(Error::MalformedPacket("no signature creation time".into())
+                    .into()),
+            (Some(c), Some(e)) if e.as_secs() > 0 && (c + e) <= time =>
+                Err(Error::Expired(c + e).into()),
+            // Be careful to avoid underflow.
+            (Some(c), _) if cmp::max(c, time::UNIX_EPOCH + tolerance)
+                - tolerance > time =>
+                Err(Error::NotYetLive(cmp::max(c, time::UNIX_EPOCH + tolerance)
+                                      - tolerance).into()),
+            _ => Ok(()),
+        }
+    }
+
+    /// Returns the value of the Key Expiration Time subpacket.
+    ///
+    /// This function is called `key_validity_period` and not
+    /// `key_expiration_time`, which would be more consistent with
+    /// the subpacket's name, because the latter suggests an absolute
+    /// time, but the time is actually relative to the associated
+    /// key's (*not* the signature's) creation time, which is stored
+    /// in the [Key].
+    ///
+    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+    ///
+    /// A [Key Expiration Time subpacket] specifies when the
+    /// associated key expires.  This is different from the [Signature
+    /// Expiration Time subpacket] (accessed using
+    /// [`SubpacketAreas::signature_validity_period`]), which is
+    /// used to specify when the signature expires.  That is, in the
+    /// former case, the associated key expires, but in the latter
+    /// case, the signature itself expires.  This difference is
+    /// critical: if a binding signature expires, then an OpenPGP
+    /// implementation will still consider the associated key to be
+    /// valid if there is another valid binding signature, even if it
+    /// is older than the expired signature; if the active binding
+    /// signature indicates that the key has expired, then OpenPGP
+    /// implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.  If this function returns `None`, or the
+    /// returned period is `0`, the key does not expire.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
+    pub fn key_validity_period(&self) -> Option<time::Duration> {
+        // 4-octet time field
+        if let Some(sb)
+                = self.subpacket(SubpacketTag::KeyExpirationTime) {
+            if let SubpacketValue::KeyExpirationTime(v) = sb.value {
+                Some(v.into())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns the value of the Key Expiration Time subpacket
+    /// as an absolute time.
+    ///
+    /// A [Key Expiration Time subpacket] specifies when a key
+    /// expires.  The value stored is not an absolute time, but a
+    /// duration, which is relative to the associated [Key]'s creation
+    /// time, which is stored in the Key packet, not the binding
+    /// signature.  As such, the Key Expiration Time subpacket is only
+    /// meaningful on a key's binding signature.  To better reflect
+    /// the subpacket's name, this method returns the absolute expiry
+    /// time, and the [`SubpacketAreas::key_validity_period`] method
+    /// returns the subpacket's raw value.
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
+    ///
+    /// The Key Expiration Time subpacket is different from the
+    /// [Signature Expiration Time subpacket], which is accessed using
+    /// [`SubpacketAreas::signature_validity_period`], and specifies
+    /// when a signature expires.  The difference is that in the
+    /// former case, only the associated key expires, but in the
+    /// latter case, the signature itself expires.  This difference is
+    /// critical: if a binding signature expires, then an OpenPGP
+    /// implementation will still consider the associated key to be
+    /// valid if there is another valid binding signature, even if it
+    /// is older than the expired signature; if the active binding
+    /// signature indicates that the key has expired, then OpenPGP
+    /// implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
+    ///
+    /// Because the absolute time is relative to the key's creation
+    /// time, which is stored in the key itself, this function needs
+    /// the associated key.  Since there is no way to get the
+    /// associated key from a signature, the key must be passed to
+    /// this function.  This function does not check that the key is
+    /// in fact associated with this signature.
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.  If this function returns `None`, the
+    /// signature does not expire.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
+    pub fn key_expiration_time<P, R>(&self, key: &Key<P, R>)
+                                     -> Option<time::SystemTime>
+        where P: key::KeyParts,
+              R: key::KeyRole,
+    {
+        match self.key_validity_period() {
+            Some(vp) if vp.as_secs() > 0 => Some(key.creation_time() + vp),
+            _ => None,
+        }
+    }
+
+    /// Returns whether or not a key is alive at the specified
+    /// time.
+    ///
+    /// A [Key] is considered to be alive if `creation time -
+    /// tolerance <= time` and `time < expiration time`.
+    ///
+    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+    ///
+    /// This function does not check whether the signature is alive
+    /// (cf. [`SubpacketAreas::signature_alive`]), or whether the key
+    /// is revoked (cf. [`ValidKeyAmalgamation::revoked`]).
+    ///
+    /// [`SubpacketAreas::signature_alive`]: #method.signature_alive
+    /// [`ValidKeyAmalgamation::revoked`]: ../../../cert/amalgamation/key/struct.ValidKeyAmalgamationIter.html#method.revoked
+    ///
+    /// If `time` is `None`, then this function uses the current time
+    /// for `time`.
+    ///
+    /// Whereas a Key's expiration time is stored in the Key's active
+    /// binding signature in the [Signature Expiration Time
+    /// subpacket], its creation time is stored in the Key packet.  As
+    /// such, the associated Key must be passed to this function.
+    /// This function, however, has no way to check that the signature
+    /// is actually a binding signature for the specified Key.
+    ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    ///
+    /// # Examples
+    ///
+    /// Even keys that don't expire may not be considered alive.  This
+    /// is the case if they were created after the specified time.
+    ///
+    /// ```
+    /// use std::time::{SystemTime, Duration};
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    ///
+    /// let mut pk = cert.primary_key().key();
+    /// let sig = cert.primary_key().with_policy(p, None)?.binding_signature();
+    ///
+    /// assert!(sig.key_alive(pk, None).is_ok());
+    /// // A key is not considered alive prior to its creation time.
+    /// let the_past = SystemTime::now() - Duration::new(10, 0);
+    /// assert!(sig.key_alive(pk, the_past).is_err());
+    /// # Ok(()) }
+    /// ```
+    pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> Result<()>
+        where P: key::KeyParts,
+              R: key::KeyRole,
+              T: Into<Option<time::SystemTime>>
+    {
+        let t = t.into().unwrap_or_else(time::SystemTime::now);
+
+        match self.key_validity_period() {
+            Some(e) if e.as_secs() > 0 && key.creation_time() + e <= t =>
+                Err(Error::Expired(key.creation_time() + e).into()),
+            _ if key.creation_time() > t =>
+                Err(Error::NotYetLive(key.creation_time()).into()),
+            _ => Ok(()),
         }
     }
 
@@ -1966,106 +2512,6 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Key Expiration Time subpacket.
-    ///
-    /// This function is called `key_validity_period` and not
-    /// `key_expiration_time`, which would be more consistent with
-    /// the subpacket's name, because the latter suggests an absolute
-    /// time, but the time is actually relative to the associated
-    /// key's (*not* the signature's) creation time, which is stored
-    /// in the [Key].
-    ///
-    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
-    ///
-    /// A [Key Expiration Time subpacket] specifies when the
-    /// associated key expires.  This is different from the [Signature
-    /// Expiration Time subpacket] (accessed using
-    /// [`SubpacketAreas::signature_validity_period`]), which is
-    /// used to specify when the signature expires.  That is, in the
-    /// former case, the associated key expires, but in the latter
-    /// case, the signature itself expires.  This difference is
-    /// critical: if a binding signature expires, then an OpenPGP
-    /// implementation will still consider the associated key to be
-    /// valid if there is another valid binding signature, even if it
-    /// is older than the expired signature; if the active binding
-    /// signature indicates that the key has expired, then OpenPGP
-    /// implementations will not fallback to an older binding
-    /// signature.
-    ///
-    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
-    ///
-    /// If the subpacket is not present in the hashed subpacket area,
-    /// this returns `None`.  If this function returns `None`, or the
-    /// returned period is `0`, the key does not expire.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket in the hashed subpacket area, the last one is
-    /// returned.
-    pub fn key_validity_period(&self) -> Option<time::Duration> {
-        // 4-octet time field
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::KeyExpirationTime) {
-            if let SubpacketValue::KeyExpirationTime(v) = sb.value {
-                Some(v.into())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
-    /// Returns the value of the Preferred Symmetric Algorithms
-    /// subpacket.
-    ///
-    /// A [Preferred Symmetric Algorithms subpacket] lists what
-    /// symmetric algorithms the user prefers.  When encrypting a
-    /// message for a recipient, the OpenPGP implementation should not
-    /// use an algorithm that is not on this list.
-    ///
-    /// [Preferred Symmetric Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
-    ///
-    /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation should first look for
-    /// the subpacket on the binding signature of the User ID or the
-    /// User Attribute used to locate the certificate (or the primary
-    /// User ID, if it was addressed by Key ID or fingerprint).  If
-    /// the binding signature doesn't contain the subpacket, then the
-    /// direct key signature should be checked.  See the
-    /// [`Preferences`] trait for details.
-    ///
-    /// Unless addressing different User IDs really should result in
-    /// different behavior, it is best to only set this preference on
-    /// the direct key signature.  This guarantees that even if some
-    /// or all User IDs are stripped, the behavior remains consistent.
-    ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
-    ///
-    /// If the subpacket is not present in the hashed subpacket area,
-    /// this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket in the hashed subpacket area, the last one is
-    /// returned.
-    pub fn preferred_symmetric_algorithms(&self)
-                                          -> Option<&[SymmetricAlgorithm]> {
-        // array of one-octet values
-        if let Some(sb)
-                = self.subpacket(
-                    SubpacketTag::PreferredSymmetricAlgorithms) {
-            if let SubpacketValue::PreferredSymmetricAlgorithms(v)
-                    = &sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
     /// Returns the value of the Revocation Key subpacket.
     ///
     /// A [Revocation Key subpacket] indicates certificates (so-called
@@ -2119,6 +2565,31 @@ impl SubpacketAreas {
             .map(|sb| {
                 match sb.value {
                     SubpacketValue::Issuer(ref keyid) => keyid,
+                    _ => unreachable!(),
+                }
+            })
+    }
+
+    /// Returns the value of any Issuer Fingerprint subpackets.
+    ///
+    /// The [Issuer Fingerprint subpacket] is used when processing a
+    /// signature to identify which certificate created the signature.
+    /// Since this information is self-authenticating (the act of
+    /// validating the signature authenticates the subpacket), it is
+    /// normally stored in the unhashed subpacket area.
+    ///
+    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///
+    /// This returns all instances of the Issuer Fingerprint subpacket
+    /// in both the hashed subpacket area and the unhashed subpacket
+    /// area.
+    pub fn issuer_fingerprints(&self) -> impl Iterator<Item=&Fingerprint>
+    {
+        // 1 octet key version number, N octets of fingerprint
+        self.subpackets(SubpacketTag::IssuerFingerprint)
+            .map(|sb| {
+                match sb.value {
+                    SubpacketValue::IssuerFingerprint(ref fpr) => fpr,
                     _ => unreachable!(),
                 }
             })
@@ -2200,6 +2671,55 @@ impl SubpacketAreas {
                     None
                 }
             })
+    }
+
+    /// Returns the value of the Preferred Symmetric Algorithms
+    /// subpacket.
+    ///
+    /// A [Preferred Symmetric Algorithms subpacket] lists what
+    /// symmetric algorithms the user prefers.  When encrypting a
+    /// message for a recipient, the OpenPGP implementation should not
+    /// use an algorithm that is not on this list.
+    ///
+    /// [Preferred Symmetric Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
+    pub fn preferred_symmetric_algorithms(&self)
+                                          -> Option<&[SymmetricAlgorithm]> {
+        // array of one-octet values
+        if let Some(sb)
+                = self.subpacket(
+                    SubpacketTag::PreferredSymmetricAlgorithms) {
+            if let SubpacketValue::PreferredSymmetricAlgorithms(v)
+                    = &sb.value {
+                Some(v)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     }
 
     /// Returns the value of the Preferred Hash Algorithms subpacket.
@@ -2289,6 +2809,58 @@ impl SubpacketAreas {
                 = self.subpacket(
                     SubpacketTag::PreferredCompressionAlgorithms) {
             if let SubpacketValue::PreferredCompressionAlgorithms(v)
+                    = &sb.value {
+                Some(v)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns the value of the Preferred AEAD Algorithms subpacket.
+    ///
+    /// The [Preferred AEAD Algorithms subpacket] indicates what AEAD
+    /// algorithms the key holder prefers ordered by preference.  If
+    /// this is set, then the AEAD feature flag should in the
+    /// [Features subpacket] should also be set.
+    ///
+    /// Note: because support for AEAD has not yet been standardized,
+    /// we recommend not yet advertising support for it.
+    ///
+    /// [Preferred AEAD Algorithms subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
+    /// [Features subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
+    ///
+    /// This subpacket is a type of preference.  When looking up a
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
+    ///
+    /// Unless addressing different User IDs really should result in
+    /// different behavior, it is best to only set this preference on
+    /// the direct key signature.  This guarantees that even if some
+    /// or all User IDs are stripped, the behavior remains consistent.
+    ///
+    /// [`Preferences`]: ../../../cert/trait.Preferences.html
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
+    pub fn preferred_aead_algorithms(&self)
+                                     -> Option<&[AEADAlgorithm]> {
+        // array of one-octet values
+        if let Some(sb)
+                = self.subpacket(
+                    SubpacketTag::PreferredAEADAlgorithms) {
+            if let SubpacketValue::PreferredAEADAlgorithms(v)
                     = &sb.value {
                 Some(v)
             } else {
@@ -2390,38 +2962,6 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Primary UserID subpacket.
-    ///
-    /// The [Primary User ID subpacket] indicates whether the
-    /// associated User ID or User Attribute should be considered the
-    /// primary User ID.  It is possible that this is set on multiple
-    /// User IDs.  See the documentation for
-    /// [`ValidCert::primary_userid`] for an explanation of how
-    /// Sequoia resolves this ambiguity.
-    ///
-    /// [Primary User ID subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
-    /// [`ValidCert::primary_userid`]: ../../../cert/struct.ValidCert.html#method.primary_userid
-    ///
-    /// If the subpacket is not present in the hashed subpacket area,
-    /// this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket in the hashed subpacket area, the last one is
-    /// returned.
-    pub fn primary_userid(&self) -> Option<bool> {
-        // 1 octet, Boolean
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::PrimaryUserID) {
-            if let SubpacketValue::PrimaryUserID(v) = sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
     /// Returns the value of the Policy URI subpacket.
     ///
     /// The [Policy URI subpacket] contains a link to a policy document,
@@ -2457,6 +2997,38 @@ impl SubpacketAreas {
         if let Some(sb)
                 = self.subpacket(SubpacketTag::PolicyURI) {
             if let SubpacketValue::PolicyURI(v) = &sb.value {
+                Some(v)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns the value of the Primary UserID subpacket.
+    ///
+    /// The [Primary User ID subpacket] indicates whether the
+    /// associated User ID or User Attribute should be considered the
+    /// primary User ID.  It is possible that this is set on multiple
+    /// User IDs.  See the documentation for
+    /// [`ValidCert::primary_userid`] for an explanation of how
+    /// Sequoia resolves this ambiguity.
+    ///
+    /// [Primary User ID subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    /// [`ValidCert::primary_userid`]: ../../../cert/struct.ValidCert.html#method.primary_userid
+    ///
+    /// If the subpacket is not present in the hashed subpacket area,
+    /// this returns `None`.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.
+    pub fn primary_userid(&self) -> Option<bool> {
+        // 1 octet, Boolean
+        if let Some(sb)
+                = self.subpacket(SubpacketTag::PrimaryUserID) {
+            if let SubpacketValue::PrimaryUserID(v) = sb.value {
                 Some(v)
             } else {
                 None
@@ -2682,83 +3254,6 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of any Issuer Fingerprint subpackets.
-    ///
-    /// The [Issuer Fingerprint subpacket] is used when processing a
-    /// signature to identify which certificate created the signature.
-    /// Since this information is self-authenticating (the act of
-    /// validating the signature authenticates the subpacket), it is
-    /// normally stored in the unhashed subpacket area.
-    ///
-    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
-    ///
-    /// This returns all instances of the Issuer Fingerprint subpacket
-    /// in both the hashed subpacket area and the unhashed subpacket
-    /// area.
-    pub fn issuer_fingerprints(&self) -> impl Iterator<Item=&Fingerprint>
-    {
-        // 1 octet key version number, N octets of fingerprint
-        self.subpackets(SubpacketTag::IssuerFingerprint)
-            .map(|sb| {
-                match sb.value {
-                    SubpacketValue::IssuerFingerprint(ref fpr) => fpr,
-                    _ => unreachable!(),
-                }
-            })
-    }
-
-    /// Returns the value of the Preferred AEAD Algorithms subpacket.
-    ///
-    /// The [Preferred AEAD Algorithms subpacket] indicates what AEAD
-    /// algorithms the key holder prefers ordered by preference.  If
-    /// this is set, then the AEAD feature flag should in the
-    /// [Features subpacket] should also be set.
-    ///
-    /// Note: because support for AEAD has not yet been standardized,
-    /// we recommend not yet advertising support for it.
-    ///
-    /// [Preferred AEAD Algorithms subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
-    /// [Features subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
-    ///
-    /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation should first look for
-    /// the subpacket on the binding signature of the User ID or the
-    /// User Attribute used to locate the certificate (or the primary
-    /// User ID, if it was addressed by Key ID or fingerprint).  If
-    /// the binding signature doesn't contain the subpacket, then the
-    /// direct key signature should be checked.  See the
-    /// [`Preferences`] trait for details.
-    ///
-    /// Unless addressing different User IDs really should result in
-    /// different behavior, it is best to only set this preference on
-    /// the direct key signature.  This guarantees that even if some
-    /// or all User IDs are stripped, the behavior remains consistent.
-    ///
-    /// [`Preferences`]: ../../../cert/trait.Preferences.html
-    ///
-    /// If the subpacket is not present in the hashed subpacket area,
-    /// this returns `None`.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket in the hashed subpacket area, the last one is
-    /// returned.
-    pub fn preferred_aead_algorithms(&self)
-                                     -> Option<&[AEADAlgorithm]> {
-        // array of one-octet values
-        if let Some(sb)
-                = self.subpacket(
-                    SubpacketTag::PreferredAEADAlgorithms) {
-            if let SubpacketValue::PreferredAEADAlgorithms(v)
-                    = &sb.value {
-                Some(v)
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }
-
     /// Returns the intended recipients.
     ///
     /// The [Intended Recipient subpacket] holds the fingerprint of a
@@ -2795,503 +3290,6 @@ impl SubpacketAreas {
                     _ => unreachable!(),
                 }
             })
-    }
-}
-
-/// Subpacket storage.
-///
-/// Subpackets are stored either in a so-called hashed area or a
-/// so-called unhashed area.  Packets stored in the hashed area are
-/// protected by the signature's hash whereas packets stored in the
-/// unhashed area are not.  Generally, two types of information are
-/// stored in the unhashed area: self-authenticating data (the
-/// `Issuer` subpacket, the `Issuer Fingerprint` subpacket, and the
-/// `Embedded Signature` subpacket), and hints, like the features
-/// subpacket.
-///
-/// When accessing subpackets directly via `SubpacketArea`s, the
-/// subpackets are only looked up in the hashed area unless the
-/// packets are self-authenticating in which case subpackets from the
-/// hash area are preferred.  To return packets from a specific area,
-/// use the `hashed_area` and `unhashed_area` methods to get the
-/// specific methods and then use their accessors.
-#[derive(Clone, Default, PartialEq, Eq, Hash)]
-pub struct SubpacketAreas {
-    /// Subpackets that are part of the signature.
-    hashed_area: SubpacketArea,
-    /// Subpackets that are _not_ part of the signature.
-    unhashed_area: SubpacketArea,
-}
-
-#[cfg(any(test, feature = "quickcheck"))]
-impl ArbitraryBounded for SubpacketAreas {
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
-        SubpacketAreas::new(ArbitraryBounded::arbitrary_bounded(g, depth),
-                            ArbitraryBounded::arbitrary_bounded(g, depth))
-    }
-}
-
-#[cfg(any(test, feature = "quickcheck"))]
-impl_arbitrary_with_bound!(SubpacketAreas);
-
-impl SubpacketAreas {
-    /// Returns a new `SubpacketAreas` object.
-    pub fn new(hashed_area: SubpacketArea,
-               unhashed_area: SubpacketArea) ->  Self {
-        Self {
-            hashed_area,
-            unhashed_area,
-        }
-    }
-
-    /// Gets a reference to the hashed area.
-    pub fn hashed_area(&self) -> &SubpacketArea {
-        &self.hashed_area
-    }
-
-    /// Gets a mutable reference to the hashed area.
-    ///
-    /// Note: if you modify the hashed area of a [`Signature4`], this
-    /// will invalidate the signature.  Instead, you should normally
-    /// convert the [`Signature4`] into a [`signature::SignatureBuilder`],
-    /// modify that, and then create a new signature.
-    pub fn hashed_area_mut(&mut self) -> &mut SubpacketArea {
-        &mut self.hashed_area
-    }
-
-    /// Gets a reference to the unhashed area.
-    pub fn unhashed_area(&self) -> &SubpacketArea {
-        &self.unhashed_area
-    }
-
-    /// Gets a mutable reference to the unhashed area.
-    pub fn unhashed_area_mut(&mut self) -> &mut SubpacketArea {
-        &mut self.unhashed_area
-    }
-
-    /// Sorts the subpacket areas.
-    ///
-    /// See [`SubpacketArea::sort()`].
-    ///
-    ///   [`SubpacketArea::sort()`]: struct.SubpacketArea.html#method.sort
-    pub fn sort(&mut self) {
-        self.hashed_area.sort();
-        self.unhashed_area.sort();
-    }
-
-    /// Returns the *last* instance of the specified subpacket.
-    ///
-    /// This function returns the last instance of the specified
-    /// subpacket in the subpacket areas in which it can occur.  Thus,
-    /// when looking for the `Signature Creation Time` subpacket, this
-    /// function only considers the hashed subpacket area.  But, when
-    /// looking for the `Embedded Signature` subpacket, this function
-    /// considers both subpacket areas.
-    ///
-    /// Unknown subpackets are assumed to only safely occur in the
-    /// hashed subpacket area.  Thus, any instances of them in the
-    /// unhashed area are ignored.
-    ///
-    /// For subpackets that can safely occur in both subpacket areas,
-    /// this function prefers instances in the hashed subpacket area.
-    pub fn subpacket<'a>(&'a self, tag: SubpacketTag) -> Option<&Subpacket> {
-        if let Some(sb) = self.hashed_area().subpacket(tag) {
-            return Some(sb);
-        }
-
-        // There are a couple of subpackets that we are willing to
-        // take from the unhashed area.  The others we ignore
-        // completely.
-        if !(tag == SubpacketTag::Issuer
-             || tag == SubpacketTag::IssuerFingerprint
-             || tag == SubpacketTag::EmbeddedSignature) {
-            return None;
-        }
-
-        self.unhashed_area().subpacket(tag)
-    }
-
-    /// Returns an iterator over all instances of the specified
-    /// subpacket.
-    ///
-    /// This function returns an iterator over all instances of the
-    /// specified subpacket in the subpacket areas in which it can
-    /// occur.  Thus, when looking for the `Issuer` subpacket, the
-    /// iterator includes instances of the subpacket from both the
-    /// hashed subpacket area and the unhashed subpacket area, but
-    /// when looking for the `Signature Creation Time` subpacket, the
-    /// iterator only includes instances of the subpacket from the
-    /// hashed subpacket area; any instances of the subpacket in the
-    /// unhashed subpacket area are ignored.
-    ///
-    /// Unknown subpackets are assumed to only safely occur in the
-    /// hashed subpacket area.  Thus, any instances of them in the
-    /// unhashed area are ignored.
-    pub fn subpackets(&self, tag: SubpacketTag)
-        -> impl Iterator<Item = &Subpacket>
-    {
-        // It would be nice to do:
-        //
-        //     let iter = self.hashed_area().subpackets(tag);
-        //     if (subpacket allowed in unhashed area) {
-        //         iter.chain(self.unhashed_area().subpackets(tag))
-        //     } else {
-        //         iter
-        //     }
-        //
-        // but then we have different types.  Instead, we need to
-        // inline SubpacketArea::subpackets, add the additional
-        // constraint in the closure, and hope that the optimizer is
-        // smart enough to not unnecessarily iterate over the unhashed
-        // area.
-        self.hashed_area().subpackets(tag).chain(
-            self.unhashed_area()
-                .iter()
-                .filter(move |sp| {
-                    (tag == SubpacketTag::Issuer
-                     || tag == SubpacketTag::IssuerFingerprint
-                     || tag == SubpacketTag::EmbeddedSignature)
-                        && sp.tag() == tag
-            }))
-    }
-
-
-    /// Returns the value of the Signature Expiration Time subpacket
-    /// as an absolute time.
-    ///
-    /// A [Signature Expiration Time subpacket] specifies when the
-    /// signature expires.  The value stored is not an absolute time,
-    /// but a duration, which is relative to the Signature's creation
-    /// time.  To better reflect the subpacket's name, this method
-    /// returns the absolute expiry time, and the
-    /// [`SubpacketAreas::signature_validity_period`] method returns
-    /// the subpacket's raw value.
-    ///
-    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
-    ///
-    /// The Signature Expiration Time subpacket is different from the
-    /// [Key Expiration Time subpacket], which is accessed using
-    /// [`SubpacketAreas::key_validity_period`], and used specifies
-    /// when an associated key expires.  The difference is that in the
-    /// former case, the signature itself expires, but in the latter
-    /// case, only the associated key expires.  This difference is
-    /// critical: if a binding signature expires, then an OpenPGP
-    /// implementation will still consider the associated key to be
-    /// valid if there is another valid binding signature, even if it
-    /// is older than the expired signature; if the active binding
-    /// signature indicates that the key has expired, then OpenPGP
-    /// implementations will not fallback to an older binding
-    /// signature.
-    ///
-    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
-    ///
-    /// There are several cases where having a signature expire is
-    /// useful.  Say Alice certifies Bob's certificate for
-    /// `bob@example.org`.  She can limit the lifetime of the
-    /// certification to force her to reevaluate the certification
-    /// shortly before it expires.  For instance, is Bob still
-    /// associated with `example.org`?  Does she have reason to
-    /// believe that his key has been compromised?  Using an
-    /// expiration is common in the X.509 ecosystem.  For instance,
-    /// [Let's Encrypt] issues certificates with 90-day lifetimes.
-    ///
-    /// [Let's Encrypt]: https://letsencrypt.org/2015/11/09/why-90-days.html
-    ///
-    /// Having signatures expire can also be useful when deploying
-    /// software.  For instance, you might have a service that
-    /// installs an update if it has been signed by a trusted
-    /// certificate.  To prevent an adversary from coercing the
-    /// service to install an older version, you could limit the
-    /// signature's lifetime to just a few minutes.
-    ///
-    /// If the subpacket is not present in the hashed subpacket area,
-    /// this returns `None`.  If this function returns `None`, the
-    /// signature does not expire.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket in the hashed subpacket area, the last one is
-    /// returned.
-    pub fn signature_expiration_time(&self) -> Option<time::SystemTime> {
-        match (self.signature_creation_time(), self.signature_validity_period())
-        {
-            (Some(ct), Some(vp)) if vp.as_secs() > 0 => Some(ct + vp),
-            _ => None,
-        }
-    }
-
-    /// Returns whether or not the signature is alive at the specified
-    /// time.
-    ///
-    /// A signature is considered to be alive if `creation time -
-    /// tolerance <= time` and `time < expiration time`.
-    ///
-    /// This function does not check whether the key is revoked.
-    ///
-    /// If `time` is `None`, then this function uses the current time
-    /// for `time`.
-    ///
-    /// If `time` is `None`, and `clock_skew_tolerance` is `None`,
-    /// then this function uses [`CLOCK_SKEW_TOLERANCE`] for the
-    /// tolerance.  If `time` is not `None `and `clock_skew_tolerance`
-    /// is `None`, it uses no tolerance.  The intuition here is that
-    /// we only need a tolerance when checking if a signature is alive
-    /// right now; if we are checking at a specific time, we don't
-    /// want to use a tolerance.
-    ///
-    /// [`CLOCK_SKEW_TOLERANCE`]: struct.CLOCK_SKEW_TOLERANCE.html
-    ///
-    /// A small amount of tolerance for clock skew is necessary,
-    /// because although most computers synchronize their clocks with
-    /// a time server, up to a few seconds of clock skew are not
-    /// unusual in practice.  And, even worse, several minutes of
-    /// clock skew appear to be not uncommon on virtual machines.
-    ///
-    /// Not accounting for clock skew can result in signatures being
-    /// unexpectedly considered invalid.  Consider: computer A sends a
-    /// message to computer B at 9:00, but computer B, whose clock
-    /// says the current time is 8:59, rejects it, because the
-    /// signature appears to have been made in the future.  This is
-    /// particularly problematic for low-latency protocols built on
-    /// top of OpenPGP, e.g., when two MUAs synchronize their state
-    /// via a shared IMAP folder.
-    ///
-    /// Being tolerant to potential clock skew is not always
-    /// appropriate.  For instance, when determining a User ID's
-    /// current self signature at time `t`, we don't ever want to
-    /// consider a self-signature made after `t` to be valid, even if
-    /// it was made just a few moments after `t`.  This goes doubly so
-    /// for soft revocation certificates: the user might send a
-    /// message that she is retiring, and then immediately create a
-    /// soft revocation.  The soft revocation should not invalidate
-    /// the message.
-    ///
-    /// Unfortunately, in many cases, whether we should account for
-    /// clock skew or not depends on application-specific context.  As
-    /// a rule of thumb, if the time and the timestamp come from
-    /// different clocks, you probably want to account for clock skew.
-    ///
-    /// # Errors
-    ///
-    /// [Section 5.2.3.4 of RFC 4880] states that a Signature Creation
-    /// Time subpacket "MUST be present in the hashed area."
-    /// Consequently, if such a packet does not exist, this function
-    /// returns [`Error::MalformedPacket`].
-    ///
-    ///  [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
-    ///  [`Error::MalformedPacket`]: ../../../enum.Error.html#variant.MalformedPacket
-    ///
-    /// # Examples
-    ///
-    /// Alice's desktop computer and laptop exchange messages in real
-    /// time via a shared IMAP folder.  Unfortunately, the clocks are
-    /// not perfectly synchronized: the desktop computer's clock is a
-    /// few seconds ahead of the laptop's clock.  When there is little
-    /// or no propagation delay, this means that the laptop will
-    /// consider the signatures to be invalid, because they appear to
-    /// have been created in the future.  Using a tolerance prevents
-    /// this from happening.
-    ///
-    /// ```
-    /// use std::time::{SystemTime, Duration};
-    /// use sequoia_openpgp as openpgp;
-    /// use openpgp::cert::prelude::*;
-    /// use openpgp::packet::signature::SignatureBuilder;
-    /// # use openpgp::packet::signature::subpacket::SubpacketTag;
-    /// use openpgp::types::SignatureType;
-    ///
-    /// # fn main() -> openpgp::Result<()> {
-    /// #
-    /// let (alice, _) =
-    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
-    ///         .generate()?;
-    ///
-    /// // Alice's Desktop computer signs a message.  Its clock is a
-    /// // few seconds fast.
-    /// let now = SystemTime::now() + Duration::new(5, 0);
-    ///
-    /// let mut alices_signer = alice.primary_key().key().clone()
-    ///     .parts_into_secret()?.into_keypair()?;
-    /// let msg = "START PROTOCOL";
-    /// let sig = SignatureBuilder::new(SignatureType::Binary)
-    ///     .set_signature_creation_time(now)?
-    ///     .sign_message(&mut alices_signer, msg)?;
-    /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
-    ///
-    /// // The desktop computer transfers the message to the laptop
-    /// // via the shared IMAP folder.  Because the laptop receives a
-    /// // push notification, it immediately processes it.
-    /// // Unfortunately, it is considered to be invalid: the message
-    /// // appears to be from the future!
-    /// assert!(sig.signature_alive(None, Duration::new(0, 0)).is_err());
-    ///
-    /// // But, using the small default tolerance causes the laptop
-    /// // to consider the signature to be alive.
-    /// assert!(sig.signature_alive(None, None).is_ok());
-    /// # Ok(()) }
-    /// ```
-    pub fn signature_alive<T, U>(&self, time: T, clock_skew_tolerance: U)
-        -> Result<()>
-        where T: Into<Option<time::SystemTime>>,
-              U: Into<Option<time::Duration>>
-    {
-        let (time, tolerance)
-            = match (time.into(), clock_skew_tolerance.into()) {
-                (None, None) =>
-                    (time::SystemTime::now(),
-                     *CLOCK_SKEW_TOLERANCE),
-                (None, Some(tolerance)) =>
-                    (time::SystemTime::now(),
-                     tolerance),
-                (Some(time), None) =>
-                    (time, time::Duration::new(0, 0)),
-                (Some(time), Some(tolerance)) =>
-                    (time, tolerance)
-            };
-
-        match (self.signature_creation_time(), self.signature_validity_period())
-        {
-            (None, _) =>
-                Err(Error::MalformedPacket("no signature creation time".into())
-                    .into()),
-            (Some(c), Some(e)) if e.as_secs() > 0 && (c + e) <= time =>
-                Err(Error::Expired(c + e).into()),
-            // Be careful to avoid underflow.
-            (Some(c), _) if cmp::max(c, time::UNIX_EPOCH + tolerance)
-                - tolerance > time =>
-                Err(Error::NotYetLive(cmp::max(c, time::UNIX_EPOCH + tolerance)
-                                      - tolerance).into()),
-            _ => Ok(()),
-        }
-    }
-
-    /// Returns the value of the Key Expiration Time subpacket
-    /// as an absolute time.
-    ///
-    /// A [Key Expiration Time subpacket] specifies when a key
-    /// expires.  The value stored is not an absolute time, but a
-    /// duration, which is relative to the associated [Key]'s creation
-    /// time, which is stored in the Key packet, not the binding
-    /// signature.  As such, the Key Expiration Time subpacket is only
-    /// meaningful on a key's binding signature.  To better reflect
-    /// the subpacket's name, this method returns the absolute expiry
-    /// time, and the [`SubpacketAreas::key_validity_period`] method
-    /// returns the subpacket's raw value.
-    ///
-    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
-    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
-    /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
-    ///
-    /// The Key Expiration Time subpacket is different from the
-    /// [Signature Expiration Time subpacket], which is accessed using
-    /// [`SubpacketAreas::signature_validity_period`], and specifies
-    /// when a signature expires.  The difference is that in the
-    /// former case, only the associated key expires, but in the
-    /// latter case, the signature itself expires.  This difference is
-    /// critical: if a binding signature expires, then an OpenPGP
-    /// implementation will still consider the associated key to be
-    /// valid if there is another valid binding signature, even if it
-    /// is older than the expired signature; if the active binding
-    /// signature indicates that the key has expired, then OpenPGP
-    /// implementations will not fallback to an older binding
-    /// signature.
-    ///
-    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-    /// [`SubpacketAreas::signature_validity_period`]: #method.signature_validity_period
-    ///
-    /// Because the absolute time is relative to the key's creation
-    /// time, which is stored in the key itself, this function needs
-    /// the associated key.  Since there is no way to get the
-    /// associated key from a signature, the key must be passed to
-    /// this function.  This function does not check that the key is
-    /// in fact associated with this signature.
-    ///
-    /// If the subpacket is not present in the hashed subpacket area,
-    /// this returns `None`.  If this function returns `None`, the
-    /// signature does not expire.
-    ///
-    /// Note: if the signature contains multiple instances of this
-    /// subpacket in the hashed subpacket area, the last one is
-    /// returned.
-    pub fn key_expiration_time<P, R>(&self, key: &Key<P, R>)
-                                     -> Option<time::SystemTime>
-        where P: key::KeyParts,
-              R: key::KeyRole,
-    {
-        match self.key_validity_period() {
-            Some(vp) if vp.as_secs() > 0 => Some(key.creation_time() + vp),
-            _ => None,
-        }
-    }
-
-    /// Returns whether or not a key is alive at the specified
-    /// time.
-    ///
-    /// A [Key] is considered to be alive if `creation time -
-    /// tolerance <= time` and `time < expiration time`.
-    ///
-    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
-    ///
-    /// This function does not check whether the signature is alive
-    /// (cf. [`SubpacketAreas::signature_alive`]), or whether the key
-    /// is revoked (cf. [`ValidKeyAmalgamation::revoked`]).
-    ///
-    /// [`SubpacketAreas::signature_alive`]: #method.signature_alive
-    /// [`ValidKeyAmalgamation::revoked`]: ../../../cert/amalgamation/key/struct.ValidKeyAmalgamationIter.html#method.revoked
-    ///
-    /// If `time` is `None`, then this function uses the current time
-    /// for `time`.
-    ///
-    /// Whereas a Key's expiration time is stored in the Key's active
-    /// binding signature in the [Signature Expiration Time
-    /// subpacket], its creation time is stored in the Key packet.  As
-    /// such, the associated Key must be passed to this function.
-    /// This function, however, has no way to check that the signature
-    /// is actually a binding signature for the specified Key.
-    ///
-    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
-    ///
-    /// # Examples
-    ///
-    /// Even keys that don't expire may not be considered alive.  This
-    /// is the case if they were created after the specified time.
-    ///
-    /// ```
-    /// use std::time::{SystemTime, Duration};
-    /// use sequoia_openpgp as openpgp;
-    /// use openpgp::cert::prelude::*;
-    /// use openpgp::policy::StandardPolicy;
-    ///
-    /// # fn main() -> openpgp::Result<()> {
-    /// #
-    /// let p = &StandardPolicy::new();
-    ///
-    /// let (cert, _) = CertBuilder::new().generate()?;
-    ///
-    /// let mut pk = cert.primary_key().key();
-    /// let sig = cert.primary_key().with_policy(p, None)?.binding_signature();
-    ///
-    /// assert!(sig.key_alive(pk, None).is_ok());
-    /// // A key is not considered alive prior to its creation time.
-    /// let the_past = SystemTime::now() - Duration::new(10, 0);
-    /// assert!(sig.key_alive(pk, the_past).is_err());
-    /// # Ok(()) }
-    /// ```
-    pub fn key_alive<P, R, T>(&self, key: &Key<P, R>, t: T) -> Result<()>
-        where P: key::KeyParts,
-              R: key::KeyRole,
-              T: Into<Option<time::SystemTime>>
-    {
-        let t = t.into().unwrap_or_else(time::SystemTime::now);
-
-        match self.key_validity_period() {
-            Some(e) if e.as_secs() > 0 && key.creation_time() + e <= t =>
-                Err(Error::Expired(key.creation_time() + e).into()),
-            _ if key.creation_time() > t =>
-                Err(Error::NotYetLive(key.creation_time()).into()),
-            _ => Ok(()),
-        }
     }
 }
 
