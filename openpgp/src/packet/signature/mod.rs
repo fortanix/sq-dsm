@@ -62,10 +62,17 @@ pub mod subpacket;
 /// The data stored in a `Signature` packet.
 ///
 /// This data structure contains exactly those fields that appear in a
-/// `Signature` packet.  It is used by both `Signature4` and
-/// `SignatureBuilder`, which include auxiliary information.  This
-/// data structure is public so that `Signature4` and
-/// `SignatureBuilder` can deref to it.
+/// [`Signature` packet].  It is used by both the [`Signature4`] and
+/// the [`SignatureBuilder`] data structures, which include other
+/// auxiliary information.  This data structure is public so that
+/// `Signature4` and `SignatureBuilder` can deref to it.
+///
+/// A `SignatureField` derefs to a [`SubpacketAreas`].
+///
+/// [`Signature`]: https://tools.ietf.org/html/rfc4880#section-5.2
+/// [`Signature4`]: struct.Signature4.html
+/// [`SignatureBuilder`]: struct.SignatureBuilder.html
+/// [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct SignatureFields {
     /// Version of the signature packet. Must be 4.
@@ -119,6 +126,9 @@ impl SignatureFields {
     }
 
     /// Gets the signature type.
+    ///
+    /// This function is called `typ` and not `type`, because `type`
+    /// is a reserved word.
     pub fn typ(&self) -> SignatureType {
         self.typ
     }
