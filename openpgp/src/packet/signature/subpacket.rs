@@ -1773,7 +1773,7 @@ impl SubpacketAreas {
     ///
     /// [Signature Creation Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
     ///
-    /// A Signature Expiration Time subpacket specifies when the
+    /// A [Signature Expiration Time subpacket] specifies when the
     /// signature expires.  This is different from the [Key Expiration
     /// Time subpacket], which is accessed using
     /// [`SubpacketAreas::key_validity_period`], and used to
@@ -1788,6 +1788,7 @@ impl SubpacketAreas {
     /// OpenPGP implementations will not fallback to an older binding
     /// signature.
     ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
     /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
     /// [`SubpacketAreas::key_validity_period`]: #method.key_validity_period
     ///
@@ -2134,7 +2135,7 @@ impl SubpacketAreas {
     /// subpacket] started life.
     ///
     /// [Notation Data subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr 
+    /// [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
     ///
     /// Notation names are structured, and are divided into two
     /// namespaces: the user namespace and the IETF namespace.  Names
@@ -2172,7 +2173,7 @@ impl SubpacketAreas {
     /// subpacket] started life.
     ///
     /// [Notation Data subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr 
+    /// [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
     ///
     /// Notation names are structured, and are divided into two
     /// namespaces: the user namespace and the IETF namespace.  Names
@@ -2818,7 +2819,7 @@ impl SubpacketAreas {
 pub struct SubpacketAreas {
     /// Subpackets that are part of the signature.
     hashed_area: SubpacketArea,
-    /// Subpackets _not_ that are part of the signature.
+    /// Subpackets that are _not_ part of the signature.
     unhashed_area: SubpacketArea,
 }
 
@@ -4476,13 +4477,13 @@ impl signature::SignatureBuilder {
     /// [Preferred Symmetric Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.7
     ///
     /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation first looks for the
-    /// subpacket on the binding signature of the User ID or the User
-    /// Attribute used to locate the certificate (or the primary User
-    /// ID, if it was addressed by Key ID or fingerprint).  If the
-    /// binding signature doesn't contain the subpacket, then the
-    /// direct key signature is checked.  See the [`Preferences`]
-    /// trait for details.
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
     ///
     /// Unless addressing different User IDs really should result in
     /// different behavior, it is best to only set this preference on
@@ -4975,13 +4976,13 @@ impl signature::SignatureBuilder {
     /// [Preferred Hash Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.8
     ///
     /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation first looks for the
-    /// subpacket on the binding signature of the User ID or the User
-    /// Attribute used to locate the certificate (or the primary User
-    /// ID, if it was addressed by Key ID or fingerprint).  If the
-    /// binding signature doesn't contain the subpacket, then the
-    /// direct key signature is checked.  See the [`Preferences`]
-    /// trait for details.
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
     ///
     /// Unless addressing different User IDs really should result in
     /// different behavior, it is best to only set this preference on
@@ -5055,13 +5056,13 @@ impl signature::SignatureBuilder {
     /// [Preferred Compression Algorithms subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.9
     ///
     /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation first looks for the
-    /// subpacket on the binding signature of the User ID or the User
-    /// Attribute used to locate the certificate (or the primary User
-    /// ID, if it was addressed by Key ID or fingerprint).  If the
-    /// binding signature doesn't contain the subpacket, then the
-    /// direct key signature is checked.  See the [`Preferences`]
-    /// trait for details.
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
     ///
     /// Unless addressing different User IDs really should result in
     /// different behavior, it is best to only set this preference on
@@ -5134,13 +5135,13 @@ impl signature::SignatureBuilder {
     /// [Key Server Preferences subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.17
     ///
     /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation first looks for the
-    /// subpacket on the binding signature of the User ID or the User
-    /// Attribute used to locate the certificate (or the primary User
-    /// ID, if it was addressed by Key ID or fingerprint).  If the
-    /// binding signature doesn't contain the subpacket, then the
-    /// direct key signature is checked.  See the [`Preferences`]
-    /// trait for details.
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
     ///
     /// Unless addressing different User IDs really should result in
     /// different behavior, it is best to only set this preference on
@@ -5205,19 +5206,23 @@ impl signature::SignatureBuilder {
     ///
     /// [Preferred Key Server subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.18
     ///
-    /// Contains a link to a key server where the certificate holder
-    /// plans to publish updates to their certificate (e.g.,
-    /// extensions to the expiration time, new subkeys, revocation
-    /// certificates).
+    /// The Preferred Key Server subpacket contains a link to a key
+    /// server where the certificate holder plans to publish updates
+    /// to their certificate (e.g., extensions to the expiration time,
+    /// new subkeys, revocation certificates).
+    ///
+    /// The Preferred Key Server subpacket should be handled
+    /// cautiously, because it can be used by a certificate holder to
+    /// track communication partners.
     ///
     /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation first looks for the
-    /// subpacket on the binding signature of the User ID or the User
-    /// Attribute used to locate the certificate (or the primary User
-    /// ID, if it was addressed by Key ID or fingerprint).  If the
-    /// binding signature doesn't contain the subpacket, then the
-    /// direct key signature is checked.  See the [`Preferences`]
-    /// trait for details.
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
     ///
     /// Unless addressing different User IDs really should result in
     /// different behavior, it is best to only set this preference on
@@ -5369,13 +5374,13 @@ impl signature::SignatureBuilder {
     /// the signature was made.
     ///
     /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation first looks for the
-    /// subpacket on the binding signature of the User ID or the User
-    /// Attribute used to locate the certificate (or the primary User
-    /// ID, if it was addressed by Key ID or fingerprint).  If the
-    /// binding signature doesn't contain the subpacket, then the
-    /// direct key signature is checked.  See the [`Preferences`]
-    /// trait for details.
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
     ///
     /// Unless addressing different User IDs really should result in
     /// different behavior, it is best to only set this preference on
@@ -5575,15 +5580,16 @@ impl signature::SignatureBuilder {
     ///
     /// [Reason For Revocation subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.23
     ///
-    /// The reason for revocation indicates why a key, User ID, or
-    /// User Attribute is being revoked.  It includes both a machine
-    /// readable code, and a human-readable string.  The code is
-    /// essential as it indicates to any OpenPGP implementation that
-    /// reads the certificate whether the key was compromised (a hard
-    /// revocation), or is no longer used (a soft revocation).  In the
-    /// former case, the OpenPGP implementation must conservatively
-    /// consider all past signatures as suspect whereas in the latter
-    /// case, past signatures can still be considered valid.
+    /// The Reason For Revocation subpacket indicates why a key, User
+    /// ID, or User Attribute is being revoked.  It includes both a
+    /// machine readable code, and a human-readable string.  The code
+    /// is essential as it indicates to the OpenPGP implementation
+    /// that reads the certificate whether the key was compromised (a
+    /// hard revocation), or is no longer used (a soft revocation).
+    /// In the former case, the OpenPGP implementation must
+    /// conservatively consider all past signatures as suspect whereas
+    /// in the latter case, past signatures can still be considered
+    /// valid.
     ///
     /// # Examples
     ///
@@ -5655,19 +5661,20 @@ impl signature::SignatureBuilder {
     /// because this information is rarely held up to date in
     /// practice, this information is only advisory, and
     /// implementations are allowed to infer what features the
-    /// recipients support from their past behavior.
+    /// recipients support from contextual clues, e.g., their past
+    /// behavior.
     ///
     /// [Feature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.24
     /// [features]: ../../types/struct.Features.html
     ///
     /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation first looks for the
-    /// subpacket on the binding signature of the User ID or the User
-    /// Attribute used to locate the certificate (or the primary User
-    /// ID, if it was addressed by Key ID or fingerprint).  If the
-    /// binding signature doesn't contain the subpacket, then the
-    /// direct key signature is checked.  See the [`Preferences`]
-    /// trait for details.
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
     ///
     /// Unless addressing different User IDs really should result in
     /// different behavior, it is best to only set this preference on
@@ -6012,21 +6019,21 @@ impl signature::SignatureBuilder {
     /// The Preferred AEAD Algorithms subpacket indicates what AEAD
     /// algorithms the key holder prefers ordered by preference.  If
     /// this is set, then the AEAD feature flag should in the
-    /// [Features] subpacket should also be set.
+    /// [Features subpacket] should also be set.
     ///
     /// Note: because support for AEAD has not yet been standardized,
     /// we recommend not yet advertising support for it.
     ///
-    /// [Features]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
+    /// [Features subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
     ///
     /// This subpacket is a type of preference.  When looking up a
-    /// preference, an OpenPGP implementation first looks for the
-    /// subpacket on the binding signature of the User ID or the User
-    /// Attribute used to locate the certificate (or the primary User
-    /// ID, if it was addressed by Key ID or fingerprint).  If the
-    /// binding signature doesn't contain the subpacket, then the
-    /// direct key signature is checked.  See the [`Preferences`]
-    /// trait for details.
+    /// preference, an OpenPGP implementation should first look for
+    /// the subpacket on the binding signature of the User ID or the
+    /// User Attribute used to locate the certificate (or the primary
+    /// User ID, if it was addressed by Key ID or fingerprint).  If
+    /// the binding signature doesn't contain the subpacket, then the
+    /// direct key signature should be checked.  See the
+    /// [`Preferences`] trait for details.
     ///
     /// Unless addressing different User IDs really should result in
     /// different behavior, it is best to only set this preference on
