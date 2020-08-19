@@ -1,4 +1,118 @@
-//! Types for signatures.
+//! Signature-related functionality.
+//!
+//! Signatures are one of the central data structures in OpenPGP.
+//! They are used to protect the integrity of both structured
+//! documents (e.g., timestamps) and unstructured documents (arbitrary
+//! byte sequences) as well as cryptographic data structures.
+//!
+//! The use of signatures to protect cryptographic data structures is
+//! central to making it easy to change an OpenPGP certificate.
+//! Consider how a certificate is initially authenticated.  A user,
+//! say Alice, securely communicates her certificate's fingerprint to
+//! another user, say Bob.  Alice might do this by personally handing
+//! Bob a business card with her fingerprint on it.  When Bob is in
+//! front of his computer, he may then record that Alice uses the
+//! specified key.  Technically, the fingerprint that he used only
+//! identifies the primary key: a fingerprint is the hash of the
+//! primary key; it does not say anything about any of the rest of the
+//! certificate---the subkeys, the User IDs, and the User Attributes.
+//! But, because these components are signed by the primary key, we
+//! know that the controller of the key intended that they be
+//! associated with the certificate.  This mechanism makes it not only
+//! possible to add and revoke components, but also to change
+//! meta-data, such as a key's expiration time.  If the fingerprint
+//! were instead computed over the whole OpenPGP certificate, then
+//! changing the certificate would result in a new fingerprint.  In
+//! that case, the fingerprint could not be used as a long-term,
+//! unique, and stable identifier.
+//!
+//! Signatures are described in [Section 5.2 of RFC 4880].
+//!
+//! # Data Types
+//!
+//! The main signature-related data type is the [`Signature`] enum.
+//! This enum abstracts away the differences between the signature
+//! formats (the deprecated [version 3], the current [version 4], and
+//! the proposed [version 5] formats).  Nevertheless some
+//! functionality remains format specific.  For instance, version 4
+//! signatures introduced support for storing arbitrary key-value
+//! pairs (so-called [notations]).
+//!
+//! This version of Sequoia only supports version 4 signatures
+//! ([`Signature4`]).  However, future versions may include limited
+//! support for version 3 signatures to allow working with archived
+//! messages, and we intend to add support for version 5 signatures
+//! once the new version of the specification has been finalized.
+//!
+//! When signing a document, a `Signature` is typically created
+//! indirectly by the [streaming `Signer`].  Similarly, a `Signature`
+//! packet is created as a side effect of parsing a signed message
+//! using the [`PacketParser`].
+//!
+//! The [`SigntaureBuilder`] can be used to create a binding
+//! signature, a certification, etc.  The motivation for having a
+//! separate data structure for creating signatures is that it
+//! decreases the chance that a half-constructed signature is
+//! accidentally exported.  When modifying an existing signature, you
+//! can use, for instance, `SignatureBuilder::from` to convert a
+//! `Signtaure` into a `SigntaureBuilder`:
+//!
+//! ```
+//! use sequoia_openpgp as openpgp;
+//! use openpgp::policy::StandardPolicy;
+//! # use openpgp::cert::prelude::*;
+//! # use openpgp::packet::prelude::*;
+//!
+//! # fn main() -> openpgp::Result<()> {
+//! let p = &StandardPolicy::new();
+//!
+//! # // Generate a new certificate.  It has secret key material.
+//! # let (cert, _) = CertBuilder::new()
+//! #     .generate()?;
+//! #
+//! // Create a new direct key signature using the current one as a template.
+//! let pk = cert.with_policy(p, None)?.primary_key();
+//! let sig = pk.direct_key_signature()?;
+//! let builder: SignatureBuilder = sig.clone().into();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! For version 4 signatures, attributes are set using so-called
+//! subpackets.  Subpackets can be stored in two places: either in the
+//! so-called hashed area or in the so-called unhashed area.  Whereas
+//! the hashed area's integrity is protected by the signature, the
+//! unhashed area is not.  Because an attacker can modify the unhashed
+//! area without detection, the unhashed area should only be used for
+//! storing self-authenticating data, e.g., the issuer, or a back
+//! signature.  It is also sometimes used for [hints].
+//! [`Signature::normalize`] removes unexpected subpackets from the
+//! unhashed area.  However, due to a lack of context, it does not
+//! validate the remaining subpackets.
+//!
+//! In Sequoia, each subpacket area is represented by a
+//! [`SubpacketArea`] data structure.  The two subpacket areas are
+//! unified by the [`SubpacketAreas`] data structure, which implements
+//! a reasonable policy for looking up subpackets.  In particular, it
+//! prefers subpackets from the hashed subpacket area, and only
+//! consults the unhashed subpacket area for certain packets.  See
+//! [its documentation] for details.
+//!
+//! [Section 5.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2
+//! [`Signature`]: ../enum.Signature.html
+//! [version 3]: https://tools.ietf.org/html/rfc1991#section-5.2.2
+//! [version 4]: https://tools.ietf.org/html/rfc4880#section-5.2.3
+//! [version 5]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-version-4-and-5-signature-p
+//! [notations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+//! [`Signature4`]: struct.Signature4.html
+//! [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
+//! [`PacketParser`]: ../../parse/index.html
+//! [`SigntaureBuilder`]: struct.SignatureBuilder.html
+//! [hints]: https://tools.ietf.org/html/rfc4880#section-5.13
+//! [`Signature::normalize`]: ../enum.Signature.html#method.normalize
+//! [`SubpacketArea`]: subpacket/struct.SubpacketArea.html
+//! [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
+//! [its documentation]: subpacket/struct.SubpacketAreas.html
 
 use std::fmt;
 use std::ops::{Deref, DerefMut};
