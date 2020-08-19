@@ -79,15 +79,14 @@ pub struct SKESK4 {
 impl SKESK4 {
     /// Creates a new SKESK version 4 packet.
     ///
-    /// The given symmetric algorithm must match the algorithm that is
-    /// used to encrypt the payload, and is also used to encrypt the
-    /// given session key.
-    pub fn new(cipher: SymmetricAlgorithm, s2k: S2K,
+    /// The given symmetric algorithm is the one used to encrypt the
+    /// session key.
+    pub fn new(esk_algo: SymmetricAlgorithm, s2k: S2K,
                esk: Option<Vec<u8>>) -> Result<SKESK4> {
         Ok(SKESK4{
             common: Default::default(),
             version: 4,
-            sym_algo: cipher,
+            sym_algo: esk_algo,
             s2k,
             esk: esk.and_then(|esk| {
                 if esk.len() == 0 { None } else { Some(esk) }
@@ -278,21 +277,20 @@ impl DerefMut for SKESK5 {
 impl SKESK5 {
     /// Creates a new SKESK version 5 packet.
     ///
-    /// The given symmetric algorithm must match the algorithm that is
-    /// used to encrypt the payload, and is also used to encrypt the
-    /// given session key.
-    pub fn new(cipher: SymmetricAlgorithm, aead: AEADAlgorithm,
+    /// The given symmetric algorithm is the one used to encrypt the
+    /// session key.
+    pub fn new(esk_algo: SymmetricAlgorithm, esk_aead: AEADAlgorithm,
                s2k: S2K, iv: Box<[u8]>, esk: Vec<u8>, digest: Box<[u8]>)
                -> Result<Self> {
         Ok(SKESK5{
             skesk4: SKESK4{
                 common: Default::default(),
                 version: 5,
-                sym_algo: cipher,
+                sym_algo: esk_algo,
                 s2k,
                 esk: Some(esk),
             },
-            aead_algo: aead,
+            aead_algo: esk_aead,
             aead_iv: iv,
             aead_digest: digest,
         })
