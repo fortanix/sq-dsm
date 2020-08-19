@@ -137,36 +137,37 @@ impl SignatureFields {
     }
 }
 
-/// A [`Signature`] builder.
+/// A Signature builder.
 ///
-/// The `SignatureBuilder` is used to create signatures.  Although it
-/// can be used to generate a signature over a document (using
+/// The `SignatureBuilder` is used to create [`Signature`]s.  Although
+/// it can be used to generate a signature over a document (using
 /// [`SignatureBuilder::sign_message`]), it is usually better to use
 /// the [streaming `Signer`] for that.
 ///
+///   [`Signature`]: ../enum.Signature.html
 ///   [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
 ///   [`SignatureBuilder::sign_message`]: #method.sign_message
 ///
 /// Oftentimes, you won't want to create a new signature from scratch,
 /// but modify a copy of an existing signature.  This is
 /// straightforward to do since `SignatureBuilder` implements [`From`]
-/// for [`Signature`].
+/// for Signature.
 ///
 ///   [`From`]: https://doc.rust-lang.org/stable/std/convert/trait.From.html
-///   [`Signature`]: ../enum.Signature.html
 ///
 /// According to [Section 5.2.3.4 of RFC 4880], `Signatures` must
-/// include a [`Signature Creation Time`] subpacket.  Since this should
-/// usually be set to the current time, and is easy to forget to
-/// update, we remove any `Signature Creation Time` subpackets from
-/// both the hashed subpacket area and the unhashed subpacket area
-/// when converting a `Signature` to a `SignatureBuilder`, and when the
-/// `SignatureBuilder` is finalized, we automatically insert a
-/// `Signature Creation Time` subpacket with the current time into the
-/// hashed subpacket area unless the `Signature Creation Time`
+/// include a [`Signature Creation Time`] subpacket.  Since this
+/// should usually be set to the current time, and is easy to forget
+/// to update, we remove any `Signature Creation Time` subpackets
+/// from both the hashed subpacket area and the unhashed subpacket
+/// area when converting a `Signature` to a `SignatureBuilder`, and
+/// when the `SignatureBuilder` is finalized, we automatically insert
+/// a `Signature Creation Time` subpacket with the current time into
+/// the hashed subpacket area unless the `Signature Creation Time`
 /// subpacket has been set using the [`set_signature_creation_time`]
-/// method or the [`preserve_signature_creation_time`] method or
-/// suppressed using the [`suppress_signature_creation_time`] method.
+/// method or preserved using the [`preserve_signature_creation_time`]
+/// method or suppressed using the
+/// [`suppress_signature_creation_time`] method.
 ///
 ///   [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
@@ -183,7 +184,7 @@ impl SignatureFields {
 /// when converting a `Signature` to a `SigantureBuilder`.  Since the
 /// [`Signer`] passed to the finalization routine contains the
 /// required information, we also automatically add appropriate
-/// `Issuer` and `IssuerFingerprint` subpackets to the unhashed
+/// `Issuer` and `Issuer Fingerprint` subpackets to the unhashed
 /// subpacket area when the `SignatureBuilder` is finalized unless an
 /// `Issuer` subpacket or an `IssuerFingerprint` subpacket has been
 /// added to either of the subpacket areas (which can be done using
@@ -215,12 +216,10 @@ impl SignatureFields {
 ///
 /// This structure `Deref`s to its containing [`SignatureFields`]
 /// structure, which in turn `Deref`s to its subpacket areas
-/// ([`SubpacketAreas`]), which in turn `Deref`s to its hashed area (a
-/// [`SubpacketArea`]).
+/// (a [`SubpacketAreas`]).
 ///
 ///   [`SignatureFields`]: struct.SignatureFields.html
 ///   [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
-///   [`SubpacketArea`]: subpacket/struct.SubpacketArea.html
 ///
 /// # Examples
 ///
