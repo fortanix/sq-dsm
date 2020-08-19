@@ -1661,10 +1661,26 @@ impl Signature4 {
 }
 
 impl crate::packet::Signature {
-    /// Collects all the issuers.
+    /// Returns the value of any Issuer and Issuer Fingerprint subpackets.
     ///
-    /// A signature can contain multiple hints as to who issued the
-    /// signature.
+    /// The [Issuer subpacket] and [Issuer Fingerprint subpacket] are
+    /// used when processing a signature to identify which certificate
+    /// created the signature.  Since this information is
+    /// self-authenticating (the act of validating the signature
+    /// authenticates the subpacket), it is typically stored in the
+    /// unhashed subpacket area.
+    ///
+    ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
+    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///
+    /// This function returns all instances of the Issuer subpacket
+    /// and the Issuer Fingerprint subpacket in both the hashed
+    /// subpacket area and the unhashed subpacket area.
+    ///
+    /// The issuers are sorted so that the `Fingerprints` come before
+    /// `KeyID`s.  The `Fingerprint`s and `KeyID`s are not further
+    /// sorted, but are returned in the order that they are
+    /// encountered.
     pub fn get_issuers(&self) -> Vec<crate::KeyHandle> {
         use crate::packet::signature::subpacket:: SubpacketValue;
 
@@ -1691,19 +1707,54 @@ impl crate::packet::Signature {
                 (KeyID(_), KeyID(_)) => Equal,
             }
         });
+
         issuers
     }
 
     /// Compares Signatures ignoring the unhashed subpacket area.
     ///
-    /// We ignore the unhashed subpacket area when comparing
-    /// signatures.  This prevents a malicious party to take valid
-    /// signatures, add subpackets to the unhashed area, yielding
-    /// valid but distinct signatures.
+    /// This comparison function ignores the unhashed subpacket area
+    /// when comparing two signatures.  This prevents a malicious
+    /// party from taking valid signatures, adding subpackets to the
+    /// unhashed area, and deriving valid but distinct signatures,
+    /// which could be used to perform a denial of service attack.
+    /// For instance, an attacker could create a lot of signatures,
+    /// which need to be validated.  Ignoring the unhashed subpackets
+    /// means that we can deduplicate signatures using this predicate.
     ///
-    /// The problem we are trying to avoid here is signature spamming.
-    /// Ignoring the unhashed subpackets means that we can deduplicate
-    /// signatures using this predicate.
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    /// use openpgp::types::Features;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    ///
+    /// let orig = cert.with_policy(p, None)?.direct_key_signature()?;
+    ///
+    /// // Add an inconspicuous subpacket to the unhashed area.
+    /// let sb = Subpacket::new(SubpacketValue::Features(Features::empty()), false)?;
+    /// let mut modified = orig.clone();
+    /// modified.unhashed_area_mut().add(sb);
+    ///
+    /// // We modified the signature, but the signature is still valid.
+    /// modified.verify_direct_key(cert.primary_key().key(), cert.primary_key().key());
+    ///
+    /// // PartialEq considers the packets to not be equal...
+    /// assert!(orig != &modified);
+    /// // ... but normalized_eq does.
+    /// assert!(orig.normalized_eq(&modified));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn normalized_eq(&self, other: &Signature) -> bool {
         self.mpis() == other.mpis()
             && self.version() == other.version()
@@ -1723,6 +1774,8 @@ impl crate::packet::Signature {
     ///   - `SubpacketValue::Issuer`
     ///   - `SubpacketValue::IssuerFingerprint`
     ///   - `SubpacketValue::EmbeddedSignature`
+    ///
+    /// Note: the retained subpackets are not checked for validity.
     pub fn normalize(&self) -> Self {
         use crate::packet::signature::subpacket::SubpacketTag::*;
         let mut sig = self.clone();
