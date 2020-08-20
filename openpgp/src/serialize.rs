@@ -1261,8 +1261,12 @@ impl Marshal for S2K {
                 w.write_all(&salt[..])?;
                 w.write_all(&[S2K::encode_count(hash_bytes)?])?;
             }
-            &S2K::Private(s2k) | &S2K::Unknown(s2k) => {
-                w.write_all(&[s2k])?;
+            S2K::Private { tag, parameters }
+            | S2K::Unknown { tag, parameters} => {
+                w.write_all(&[*tag])?;
+                if let Some(p) = parameters.as_ref() {
+                    w.write_all(p)?;
+                }
             }
             S2K::__Nonexhaustive => unreachable!(),
         }
@@ -1278,7 +1282,9 @@ impl MarshalInto for S2K {
             &S2K::Simple{ .. } => 2,
             &S2K::Salted{ .. } => 2 + 8,
             &S2K::Iterated{ .. } => 2 + 8 + 1,
-            &S2K::Private(_) | &S2K::Unknown(_) => 1,
+            S2K::Private { parameters, .. }
+            | S2K::Unknown { parameters, .. } =>
+                1 + parameters.as_ref().map(|p| p.len()).unwrap_or(0),
             S2K::__Nonexhaustive => unreachable!(),
         }
     }

@@ -1071,8 +1071,14 @@ impl S2K {
                 salt: Self::read_salt(php)?,
                 hash_bytes: S2K::decode_count(php.parse_u8("s2k_count")?),
             },
-            100..=110 => S2K::Private(s2k),
-            u => S2K::Unknown(u),
+            100..=110 => S2K::Private {
+                tag: s2k,
+                parameters: None,
+            },
+            u => S2K::Unknown {
+                tag: u,
+                parameters: None,
+            },
         };
 
         Ok(ret)

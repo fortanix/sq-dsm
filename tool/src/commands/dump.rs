@@ -886,10 +886,20 @@ impl PacketDumper {
                 writeln!(output, "{}    Salt: {}", i, hex::encode(salt))?;
                 writeln!(output, "{}    Hash bytes: {}", i, hash_bytes)?;
             },
-            Private(n) =>
-                writeln!(output, "Private({})", n)?,
-            Unknown(n) =>
-                writeln!(output, "Unknown({})", n)?,
+            Private { tag, parameters } => {
+                writeln!(output, "Private")?;
+                writeln!(output, "{}    Tag: {}", i, tag)?;
+                if let Some(p) = parameters.as_ref() {
+                    writeln!(output, "{}    Parameters: {:?}", i, p)?;
+                }
+            },
+            Unknown { tag, parameters } => {
+                writeln!(output, "Unknown")?;
+                writeln!(output, "{}    Tag: {}", i, tag)?;
+                if let Some(p) = parameters.as_ref() {
+                    writeln!(output, "{}    Parameters: {:?}", i, p)?;
+                }
+            },
             __Nonexhaustive => unreachable!(),
         }
         Ok(())

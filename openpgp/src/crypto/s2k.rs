@@ -76,10 +76,39 @@ pub enum S2K {
         hash: HashAlgorithm
     },
 
-    /// Private S2K algorithm
-    Private(u8),
-    /// Unknown S2K algorithm
-    Unknown(u8),
+    /// Private S2K algorithm.
+    Private {
+        /// Tag identifying the private algorithm.
+        ///
+        /// Tags 100 to 110 are reserved for private use.
+        tag: u8,
+
+        /// The parameters for the private algorithm.
+        ///
+        /// This is optional, because when we parse a packet
+        /// containing an unknown S2K algorithm, we do not know how
+        /// many octets to attribute to the S2K's parameters.  In this
+        /// case, `parameters` is set to `None`.  Note that the
+        /// information is not lost, but stored in the packet.  If the
+        /// packet is serialized again, it is written out.
+        parameters: Option<Box<[u8]>>,
+    },
+
+    /// Unknown S2K algorithm.
+    Unknown {
+        /// Tag identifying the unknown algorithm.
+        tag: u8,
+
+        /// The parameters for the unknown algorithm.
+        ///
+        /// This is optional, because when we parse a packet
+        /// containing an unknown S2K algorithm, we do not know how
+        /// many octets to attribute to the S2K's parameters.  In this
+        /// case, `parameters` is set to `None`.  Note that the
+        /// information is not lost, but stored in the packet.  If the
+        /// packet is serialized again, it is written out.
+        parameters: Option<Box<[u8]>>,
+    },
 
     /// This marks this enum as non-exhaustive.  Do not use this
     /// variant.
@@ -196,7 +225,8 @@ impl S2K {
                                 hash.update(&data[0..tail]);
                             }
                         }
-                        &S2K::Unknown(_) | &S2K::Private(_) => unreachable!(),
+                        S2K::Unknown { .. } | &S2K::Private { .. } =>
+                            unreachable!(),
                         S2K::__Nonexhaustive => unreachable!(),
                     }
 
@@ -206,9 +236,9 @@ impl S2K {
 
                 Ok(ret.into())
             }),
-            &S2K::Unknown(u) | &S2K::Private(u) =>
+            S2K::Unknown { tag, .. } | S2K::Private { tag, .. } =>
                 Err(Error::MalformedPacket(
-                        format!("Unknown S2K type {:#x}", u)).into()),
+                        format!("Unknown S2K type {:#x}", tag)).into()),
             S2K::__Nonexhaustive => unreachable!(),
         }
     }
@@ -323,9 +353,18 @@ impl fmt::Display for S2K {
                     salt[4], salt[5], salt[6], salt[7],
                     hash_bytes))
             }
-            S2K::Private(u) =>
-                f.write_fmt(format_args!("Private/Experimental S2K {}", u)),
-            S2K::Unknown(u) => f.write_fmt(format_args!("Unknown S2K {}", u)),
+            S2K::Private { tag, parameters } =>
+                if let Some(p) = parameters.as_ref() {
+                    write!(f, "Private/Experimental S2K {}:{:?}", tag, p)
+                } else {
+                    write!(f, "Private/Experimental S2K {}", tag)
+                },
+            S2K::Unknown { tag, parameters } =>
+                if let Some(p) = parameters.as_ref() {
+                    write!(f, "Unknown S2K {}:{:?}", tag, p)
+                } else {
+                    write!(f, "Unknown S2K {}", tag)
+                },
             S2K::__Nonexhaustive => unreachable!(),
         }
     }
@@ -335,7 +374,7 @@ impl fmt::Display for S2K {
 impl Arbitrary for S2K {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         #[allow(deprecated)]
-        match g.gen_range(0, 5) {
+        match g.gen_range(0, 7) {
             0 => S2K::Simple{ hash: HashAlgorithm::arbitrary(g) },
             1 => S2K::Salted{
                 hash: HashAlgorithm::arbitrary(g),
@@ -346,8 +385,22 @@ impl Arbitrary for S2K {
                 salt: g.gen(),
                 hash_bytes: S2K::nearest_hash_count(g.gen()),
             },
-            3 => S2K::Private(g.gen_range(100, 111)),
-            4 => S2K::Unknown(g.gen_range(4, 100)),
+            3 => S2K::Private {
+                tag: g.gen_range(100, 111),
+                parameters: Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()),
+            },
+            4 => S2K::Unknown {
+                tag: 2,
+                parameters: Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()),
+            },
+            5 => S2K::Unknown {
+                tag: g.gen_range(4, 100),
+                parameters: Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()),
+            },
+            6 => S2K::Unknown {
+                tag: g.gen_range(111, 256) as u8,
+                parameters: Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()),
+            },
             _ => unreachable!(),
         }
     }
@@ -493,29 +546,6 @@ mod tests {
     }
 
     quickcheck! {
-        fn s2k_roundtrip(s2k: S2K) -> bool {
-            use crate::serialize::Marshal;
-            use crate::serialize::MarshalInto;
-
-            eprintln!("in {:?}", s2k);
-            use std::io::Cursor;
-
-            let mut w = Cursor::new(Vec::new());
-            let l = s2k.serialized_len();
-            s2k.serialize(&mut w).unwrap();
-            let buf = w.into_inner();
-            eprintln!("raw: {:?}", buf);
-
-            assert_eq!(buf.len(), l);
-            let mut r = Cursor::new(buf.into_boxed_slice());
-            let s = S2K::from_reader(&mut r).unwrap();
-            eprintln!("out {:?}", s);
-
-            s2k == s
-        }
-    }
-
-    quickcheck! {
         fn s2k_display(s2k: S2K) -> bool {
             let s = format!("{}", s2k);
             !s.is_empty()
@@ -525,8 +555,10 @@ mod tests {
     quickcheck! {
         fn s2k_parse(s2k: S2K) -> bool {
             match s2k {
-                S2K::Unknown(u) => (u > 3 && u < 100) || u == 2 || u > 110,
-                S2K::Private(u) => u >= 100 && u <= 110,
+                S2K::Unknown { tag, .. } =>
+                    (tag > 3 && tag < 100) || tag == 2 || tag > 110,
+                S2K::Private { tag, .. } =>
+                    tag >= 100 && tag <= 110,
                 _ => true
             }
         }

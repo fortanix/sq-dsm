@@ -1404,8 +1404,15 @@ impl PartialEq for Encrypted {
     fn eq(&self, other: &Encrypted) -> bool {
         self.algo == other.algo
             // Treat S2K and ciphertext as opaque blob.
-            && self.s2k == other.s2k
-            && self.raw_ciphertext() == other.raw_ciphertext()
+            && {
+                // XXX: This would be nicer without the allocations.
+                use crate::serialize::MarshalInto;
+                let mut a = self.s2k.to_vec().unwrap();
+                let mut b = other.s2k.to_vec().unwrap();
+                a.extend_from_slice(self.raw_ciphertext());
+                b.extend_from_slice(other.raw_ciphertext());
+                a == b
+            }
     }
 }
 
@@ -1415,8 +1422,11 @@ impl std::hash::Hash for Encrypted {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.algo.hash(state);
         // Treat S2K and ciphertext as opaque blob.
-        self.s2k.hash(state);
-        self.raw_ciphertext().hash(state);
+        // XXX: This would be nicer without the allocations.
+        use crate::serialize::MarshalInto;
+        let mut a = self.s2k.to_vec().unwrap();
+        a.extend_from_slice(self.raw_ciphertext());
+        a.hash(state);
     }
 }
 

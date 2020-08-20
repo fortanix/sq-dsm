@@ -89,8 +89,15 @@ impl PartialEq for SKESK4 {
         self.version == other.version
             && self.sym_algo == other.sym_algo
             // Treat S2K and ESK as opaque blob.
-            && self.s2k == other.s2k
-            && self.raw_esk() == other.raw_esk()
+            && {
+                // XXX: This would be nicer without the allocations.
+                use crate::serialize::MarshalInto;
+                let mut a = self.s2k.to_vec().unwrap();
+                let mut b = other.s2k.to_vec().unwrap();
+                a.extend_from_slice(self.raw_esk());
+                b.extend_from_slice(other.raw_esk());
+                a == b
+            }
     }
 }
 
@@ -101,8 +108,11 @@ impl std::hash::Hash for SKESK4 {
         self.version.hash(state);
         self.sym_algo.hash(state);
         // Treat S2K and ESK as opaque blob.
-        self.s2k.hash(state);
-        self.raw_esk().hash(state);
+        // XXX: This would be nicer without the allocations.
+        use crate::serialize::MarshalInto;
+        let mut a = self.s2k.to_vec().unwrap();
+        a.extend_from_slice(self.raw_esk());
+        a.hash(state);
     }
 }
 
@@ -337,11 +347,11 @@ impl PartialEq for SKESK5 {
             && self.skesk4.sym_algo == other.skesk4.sym_algo
             && self.aead_digest == other.aead_digest
             // Treat S2K, IV, and ESK as opaque blob.
-            && self.skesk4.s2k == other.skesk4.s2k
             && {
                 // XXX: This would be nicer without the allocations.
-                let mut a = Vec::new();
-                let mut b = Vec::new();
+                use crate::serialize::MarshalInto;
+                let mut a = self.skesk4.s2k.to_vec().unwrap();
+                let mut b = other.skesk4.s2k.to_vec().unwrap();
                 if let Ok(iv) = self.aead_iv() {
                     a.extend_from_slice(iv);
                 }
@@ -363,11 +373,14 @@ impl std::hash::Hash for SKESK5 {
         self.skesk4.sym_algo.hash(state);
         self.aead_digest.hash(state);
         // Treat S2K, IV, and ESK as opaque blob.
-        self.skesk4.s2k.hash(state);
+        // XXX: This would be nicer without the allocations.
+        use crate::serialize::MarshalInto;
+        let mut a = self.skesk4.s2k.to_vec().unwrap();
         if let Some(iv) = self.aead_iv.as_ref() {
-            iv.hash(state);
+            a.extend_from_slice(iv);
         }
-        self.skesk4.raw_esk().hash(state);
+        a.extend_from_slice(self.skesk4.raw_esk());
+        a.hash(state);
     }
 }
 
