@@ -153,3 +153,4 @@ variables:
   RUST_BACKTRACE: full
   RUSTFLAGS: -D warnings
   CFLAGS: -Werror
+  QUICKCHECK_GENERATOR_SIZE: 500 # https://github.com/BurntSushi/quickcheck/pull/240
