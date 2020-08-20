@@ -2343,10 +2343,10 @@ impl Marshal for SKESK5 {
         write_byte(o, self.symmetric_algo().into())?;
         write_byte(o, self.aead_algo().into())?;
         self.s2k().serialize(o)?;
-        o.write_all(self.aead_iv()?)?;
-        if let Some(ref esk) = self.esk()? {
-            o.write_all(&esk[..])?;
+        if let Ok(iv) = self.aead_iv() {
+            o.write_all(iv)?;
         }
+        o.write_all(self.raw_esk())?;
         o.write_all(self.aead_digest())?;
 
         Ok(())
@@ -2359,8 +2359,8 @@ impl NetLength for SKESK5 {
             + 1 // Cipher algo.
             + 1 // AEAD algo.
             + self.s2k().serialized_len()
-            + self.aead_iv().unwrap().len()
-            + self.esk().unwrap().map(|esk| esk.len()).unwrap_or(0)
+            + self.aead_iv().map(|iv| iv.len()).unwrap_or(0)
+            + self.raw_esk().len()
             + self.aead_digest().len()
     }
 }

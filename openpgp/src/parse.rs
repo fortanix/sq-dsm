@@ -2570,27 +2570,46 @@ impl SKESK {
                 let aead_algo: AEADAlgorithm =
                     php_try!(php.parse_u8("aead_algo")).into();
                 let s2k = php_try!(S2K::parse(&mut php));
+                let s2k_supported = s2k.is_supported();
                 let iv_size = php_try!(aead_algo.iv_size());
                 let digest_size = php_try!(aead_algo.digest_size());
-                let aead_iv = php_try!(php.parse_bytes("aead_iv", iv_size));
 
-                // The rest of the packet is the ESK, and the AEAD
-                // digest.  We don't know the size of the former, but
-                // we know the size of the latter.
+                // The rest of the packet is (potentially) the S2K
+                // parameters, the AEAD IV, the ESK, and the AEAD
+                // digest.  We don't know the size of the S2K
+                // parameters if the S2K method is not supported, and
+                // we don't know the size of the ESK.
                 let mut esk = php_try!(php.reader.steal_eof()
                                        .map_err(|e| anyhow::Error::from(e)));
+                let aead_iv = if s2k_supported {
+                    // We know the S2K method, so the parameters have
+                    // been parsed into the S2K object.  So, `esk`
+                    // starts with iv_size bytes of IV.
+                    let mut iv = esk;
+                    esk = iv.split_off(iv_size);
+                    iv
+                } else {
+                    Vec::with_capacity(0) // A dummy value.
+                };
+
                 let l = esk.len();
                 let aead_digest = esk.split_off(l.saturating_sub(digest_size));
                 // Now fix the map.
+                if s2k_supported {
+                    php.field("aead_iv", iv_size);
+                }
                 php.field("esk", esk.len());
                 php.field("aead_digest", aead_digest.len());
 
-                SKESK::V5(php_try!(SKESK5::new(
+                SKESK::V5(php_try!(SKESK5::new_raw(
                     sym_algo,
                     aead_algo,
                     s2k,
-                    aead_iv.into_boxed_slice(),
-                    esk.into(),
+                    if s2k_supported {
+                        Ok((aead_iv.into(), esk.into()))
+                    } else {
+                        Err(esk.into())
+                    },
                     aead_digest.into_boxed_slice(),
                 )))
             },

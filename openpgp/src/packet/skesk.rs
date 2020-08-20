@@ -308,18 +308,67 @@ impl Arbitrary for SKESK4 {
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-05#section-5.3
 ///
 /// This feature is [experimental](../../index.html#experimental-features).
-// IMPORTANT: If you add fields to this struct, you need to explicitly
-// IMPORTANT: implement PartialEq, Eq, and Hash.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct SKESK5 {
     /// Common fields.
     pub(crate) skesk4: SKESK4,
     /// AEAD algorithm.
     aead_algo: AEADAlgorithm,
     /// Initialization vector for the AEAD algorithm.
-    aead_iv: Box<[u8]>,
+    ///
+    /// If we recognized the S2K object during parsing, we can
+    /// successfully parse the data into S2K, AEAED IV, and
+    /// ciphertext.  However, if we do not recognize the S2K type, we
+    /// do not know how large its parameters are, so we cannot cleanly
+    /// parse it, and have to accept that the S2K's body bleeds into
+    /// the rest of the data.  In this case, the raw data is put into
+    /// the `esk` field, and `aead_iv` is set to `None`.
+    aead_iv: Option<Box<[u8]>>,
     /// Digest for the AEAD algorithm.
     aead_digest: Box<[u8]>,
+}
+
+// Because the S2K, IV, and ESK cannot be cleanly separated at parse
+// time, we need to carefully compare and hash SKESK5 packets.
+
+impl PartialEq for SKESK5 {
+    fn eq(&self, other: &SKESK5) -> bool {
+        self.skesk4.version == other.skesk4.version
+            && self.skesk4.sym_algo == other.skesk4.sym_algo
+            && self.aead_digest == other.aead_digest
+            // Treat S2K, IV, and ESK as opaque blob.
+            && self.skesk4.s2k == other.skesk4.s2k
+            && {
+                // XXX: This would be nicer without the allocations.
+                let mut a = Vec::new();
+                let mut b = Vec::new();
+                if let Ok(iv) = self.aead_iv() {
+                    a.extend_from_slice(iv);
+                }
+                if let Ok(iv) = other.aead_iv() {
+                    b.extend_from_slice(iv);
+                }
+                a.extend_from_slice(self.skesk4.raw_esk());
+                b.extend_from_slice(other.skesk4.raw_esk());
+                a == b
+            }
+    }
+}
+
+impl Eq for SKESK5 {}
+
+impl std::hash::Hash for SKESK5 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.skesk4.version.hash(state);
+        self.skesk4.sym_algo.hash(state);
+        self.aead_digest.hash(state);
+        // Treat S2K, IV, and ESK as opaque blob.
+        self.skesk4.s2k.hash(state);
+        if let Some(iv) = self.aead_iv.as_ref() {
+            iv.hash(state);
+        }
+        self.skesk4.raw_esk().hash(state);
+    }
 }
 
 impl Deref for SKESK5 {
@@ -344,13 +393,31 @@ impl SKESK5 {
     pub fn new(esk_algo: SymmetricAlgorithm, esk_aead: AEADAlgorithm,
                s2k: S2K, iv: Box<[u8]>, esk: Box<[u8]>, digest: Box<[u8]>)
                -> Result<Self> {
+        Self::new_raw(esk_algo, esk_aead, s2k, Ok((iv, esk)), digest)
+    }
+
+    /// Creates a new SKESK version 5 packet.
+    ///
+    /// The given symmetric algorithm is the one used to encrypt the
+    /// session key.
+    pub(crate) fn new_raw(esk_algo: SymmetricAlgorithm, esk_aead: AEADAlgorithm,
+                          s2k: S2K,
+                          iv_esk: std::result::Result<(Box<[u8]>, Box<[u8]>),
+                                                      Box<[u8]>>,
+                          digest: Box<[u8]>)
+                          -> Result<Self> {
+        let (iv, esk) = match iv_esk {
+            Ok((iv, esk)) => (Some(iv), Ok(Some(esk))),
+            Err(raw) => (None, Err(raw)),
+        };
+
         Ok(SKESK5{
             skesk4: SKESK4{
                 common: Default::default(),
                 version: 5,
                 sym_algo: esk_algo,
                 s2k,
-                esk: Ok(Some(esk)),
+                esk,
             },
             aead_algo: esk_aead,
             aead_iv: iv,
@@ -424,7 +491,7 @@ impl SKESK5 {
         if let Some(ref esk) = self.esk()? {
             // Use the derived key to decrypt the ESK.
             let mut cipher = self.aead_algo.context(
-                self.symmetric_algo(), &key, &self.aead_iv)?;
+                self.symmetric_algo(), &key, &self.aead_iv()?)?;
 
             let ad = [0xc3, 5 /* Version.  */, self.symmetric_algo().into(),
                       self.aead_algo.into()];
@@ -456,13 +523,23 @@ impl SKESK5 {
     }
 
     /// Gets the AEAD initialization vector.
+    ///
+    /// If the [`S2K`] mechanism is not supported by Sequoia, this
+    /// function will fail.  Note that the information is not lost,
+    /// but stored in the packet.  If the packet is serialized again,
+    /// it is written out.
+    ///
+    ///   [`S2K`]: ../../crypto/enum.S2K.html
     pub fn aead_iv(&self) -> Result<&[u8]> {
-        Ok(&self.aead_iv)
+        self.aead_iv.as_ref()
+            .map(|iv| &iv[..])
+            .ok_or_else(|| Error::MalformedPacket(
+                format!("Unknown S2K: {:?}", self.s2k)).into())
     }
 
     /// Sets the AEAD initialization vector.
-    pub fn set_aead_iv(&mut self, iv: Box<[u8]>) -> Box<[u8]> {
-        ::std::mem::replace(&mut self.aead_iv, iv)
+    pub fn set_aead_iv(&mut self, iv: Box<[u8]>) -> Option<Box<[u8]>> {
+        ::std::mem::replace(&mut self.aead_iv, Some(iv))
     }
 
     /// Gets the AEAD digest.
