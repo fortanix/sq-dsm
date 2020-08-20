@@ -33,7 +33,7 @@ use rand::Rng;
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum S2K {
     /// Repeatently hashes the password with a public `salt` value.
     Iterated {
@@ -302,7 +302,7 @@ impl S2K {
 impl fmt::Display for S2K {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         #[allow(deprecated)]
-        match *self {
+        match self {
             S2K::Simple{ hash } =>
                 f.write_fmt(format_args!("Simple S2K with {}", hash)),
             S2K::Salted{ hash, salt } => {
