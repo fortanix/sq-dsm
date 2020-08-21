@@ -52,8 +52,8 @@ unicode-normalization = "= 0.1.9"
 [target.'cfg(windows)'.dependencies]
 win-crypto-ng = { version = "0.2", features = ["rand"], optional = true }
 num-bigint-dig = { version = "0.6", default-features = false, optional = true }
-# rand feature is unnecessarily required, see https://github.com/dalek-cryptography/ed25519-dalek/pull/110
-ed25519-dalek = { version = "1.0.0-pre.4", default-features = false, features = ["rand", "u64_backend"], optional = true }
+# rand feature is unnecessarily required, see https://github.com/dalek-cryptography/ed25519-dalek/pull/139
+ed25519-dalek = { version = "1", default-features = false, features = ["rand", "u64_backend"], optional = true }
 winapi = { version = "0.3", default-features = false, features = ["bcrypt"], optional = true }
 
 [build-dependencies]
