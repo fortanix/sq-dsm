@@ -5,7 +5,8 @@ CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 
 # Tools.
 CARGO	?= cargo
-ifeq ($(shell uname -s), Darwin)
+
+ifneq ($(filter Darwin FreeBSD,$(shell uname -s)),"")
 	INSTALL		?= ginstall
 else
 	INSTALL		?= install

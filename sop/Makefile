@@ -6,7 +6,8 @@ SOP			?= $(CARGO_TARGET_DIR)/debug/sqop
 
 # Tools.
 CARGO	?= cargo
-ifeq ($(shell uname -s), Darwin)
+
+ifneq ($(filter Darwin FreeBSD,$(shell uname -s)),"")
 	INSTALL		?= ginstall
 else
 	INSTALL		?= install

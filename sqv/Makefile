@@ -6,7 +6,8 @@ SQV	?= $(CARGO_TARGET_DIR)/debug/sqv
 
 # Tools.
 CARGO	?= cargo
-ifeq ($(shell uname -s), Darwin)
+
+ifneq ($(filter Darwin FreeBSD,$(shell uname -s)),"")
 	INSTALL		?= ginstall
 else
 	INSTALL		?= install

@@ -9,7 +9,8 @@ CFLAGS		+= -I../../include -I../../../openpgp-ffi/include
 PYTHON		?= python3
 IPYTHON		?= ipython3
 PYTEST		?= pytest-3
-ifeq ($(shell uname -s), Darwin)
+
+ifneq ($(filter Darwin FreeBSD,$(shell uname -s)),"")
         INSTALL ?= ginstall
 else
         INSTALL ?= install
