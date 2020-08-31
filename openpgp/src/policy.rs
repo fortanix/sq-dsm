@@ -13,7 +13,7 @@
 //! to ignore keys using MD5, even though [RFC 4880] deprecates MD5.
 //!
 //! Rather than not provide this mid-level functionality, the `Policy`
-//! trait allows callers to specify their prefer policy.  This can be
+//! trait allows callers to specify their preferred policy.  This can be
 //! highly customized by providing a custom implementation of the
 //! `Policy` trait, or it can be slightly refined by tweaking the
 //! `StandardPolicy`'s parameters.
@@ -77,10 +77,8 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// signatures, one should be more liberal when considering
     /// revocations: if you reject a revocation certificate, it may
     /// inadvertently make something else valid!
-    fn signature(&self, _sig: &Signature, _sec: HashAlgoSecurity)
-        -> Result<()>
-    {
-        Ok(())
+    fn signature(&self, _sig: &Signature, _sec: HashAlgoSecurity) -> Result<()> {
+        Err(anyhow::anyhow!("By default all signatures are rejected."))
     }
 
     /// Returns an error if the key violates the policy.
@@ -101,7 +99,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
     fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
         -> Result<()>
     {
-        Ok(())
+        Err(anyhow::anyhow!("By default all keys are rejected."))
     }
 
     /// Returns an error if the symmetric encryption algorithm
@@ -113,7 +111,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// With this function, you can prevent the use of insecure
     /// symmetric encryption algorithms.
     fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
-        Ok(())
+        Err(anyhow::anyhow!("By default all symmetric algorithms are rejected."))
     }
 
     /// Returns an error if the AEAD mode violates the policy.
@@ -126,7 +124,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
     ///
     /// This feature is [experimental](../index.html#experimental-features).
     fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
-        Ok(())
+        Err(anyhow::anyhow!("By default all AEAD algorithms are rejected."))
     }
 
     /// Returns an error if the packet violates the policy.
@@ -138,7 +136,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// encryption containers, notably the *Symmetrically Encrypted
     /// Data Packet*.
     fn packet(&self, _packet: &Packet) -> Result<()> {
-        Ok(())
+        Err(anyhow::anyhow!("By default all packets are rejected."))
     }
 }
 
@@ -724,7 +722,9 @@ impl<'a> StandardPolicy<'a> {
     ///
     /// The current time is None.
     ///
-    /// See `StandardPolicy::at` for details.
+    /// See [`StandardPolicy::at`] for details.
+    ///
+    /// [`StandardPolicy::at`]: struct.StandardPolicy.html#method.at
     pub fn time(&self) -> Option<SystemTime> {
         self.time.map(Into::into)
     }
@@ -1263,6 +1263,28 @@ impl NullPolicy {
 }
 
 impl Policy for NullPolicy {
+    fn signature(&self, _sig: &Signature, _sec: HashAlgoSecurity) -> Result<()> {
+        Ok(())
+    }
+
+    fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
+        -> Result<()>
+    {
+        Ok(())
+    }
+
+    fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+        Ok(())
+    }
+
+    fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+        Ok(())
+    }
+
+    fn packet(&self, _packet: &Packet) -> Result<()> {
+        Ok(())
+    }
+
 }
 
 #[cfg(test)]
@@ -1319,6 +1341,24 @@ mod test {
                     _ => Ok(()),
                 }
             }
+
+            fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
+                -> Result<()>
+            {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
+            }
         }
 
         let p = &NoDirectKeySigs {};
@@ -1337,6 +1377,24 @@ mod test {
                     SubkeyBinding => Err(anyhow::anyhow!("subkey signature!")),
                     _ => Ok(()),
                 }
+            }
+
+            fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
+                -> Result<()>
+            {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
             }
         }
 
@@ -1377,6 +1435,24 @@ mod test {
                     _ => Ok(()),
                 }
             }
+
+            fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
+                -> Result<()>
+            {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
+            }
         }
         let p = &NoPositiveCertifications {};
         assert_eq!(cert.userids().with_policy(p, None).count(), 0);
@@ -1416,6 +1492,24 @@ mod test {
                     _ => Ok(()),
                 }
             }
+
+            fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
+                -> Result<()>
+            {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
+            }
         }
         let p = &NoCertificationRevocation {};
 
@@ -1451,6 +1545,24 @@ mod test {
                         Err(anyhow::anyhow!("subkey revocation!")),
                     _ => Ok(()),
                 }
+            }
+
+            fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
+                -> Result<()>
+            {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
             }
         }
         let p = &NoSubkeyRevocation {};
@@ -1534,6 +1646,24 @@ mod test {
                     _ => Ok(()),
                 }
             }
+
+            fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
+                -> Result<()>
+            {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
+            }
         }
         let no_binary_signatures = &NoBinarySigantures {};
 
@@ -1550,6 +1680,24 @@ mod test {
                     SubkeyBinding => Err(anyhow::anyhow!("subkey signature!")),
                     _ => Ok(()),
                 }
+            }
+
+            fn key(&self, _ka: &ValidErasedKeyAmalgamation<key::PublicParts>)
+                -> Result<()>
+            {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
             }
         }
         let no_subkey_signatures = &NoSubkeySigs {};
@@ -1800,6 +1948,22 @@ mod test {
                     Ok(())
                 }
             }
+
+            fn signature(&self, _sig: &Signature, _sec: HashAlgoSecurity) -> Result<()> {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
+            }
         }
         let norsa = &NoRsa {};
 
@@ -1900,6 +2064,22 @@ mod test {
                 } else {
                     Ok(())
                 }
+            }
+
+            fn signature(&self, _sig: &Signature, _sec: HashAlgoSecurity) -> Result<()> {
+                Ok(())
+            }
+
+            fn symmetric_algorithm(&self, _algo: SymmetricAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn aead_algorithm(&self, _algo: AEADAlgorithm) -> Result<()> {
+                Ok(())
+            }
+
+            fn packet(&self, _packet: &Packet) -> Result<()> {
+                Ok(())
             }
         }
         let norsa = &NoRsa {};
