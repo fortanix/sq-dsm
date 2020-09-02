@@ -276,7 +276,7 @@ impl PacketDumper {
         if let Some(tag) = p.kind() {
             write!(output, "{}", tag)?;
         } else {
-            write!(output, "Unknown Packet")?;
+            write!(output, "Unknown or Unsupported Packet")?;
         }
 
         if let Some(h) = header {
