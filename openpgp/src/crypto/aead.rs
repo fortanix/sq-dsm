@@ -160,7 +160,7 @@ impl<'a> Decryptor<'a> {
 
     fn make_aead(&mut self) -> Result<Box<dyn Aead>> {
         // The chunk index is XORed into the IV.
-        let chunk_index_be64 = self.chunk_index.to_be_bytes();
+        let chunk_index: [u8; 8] = self.chunk_index.to_be_bytes();
 
         match self.aead {
             AEADAlgorithm::EAX => {
@@ -175,7 +175,7 @@ impl<'a> Decryptor<'a> {
                     // The lower eight octets of the associated data
                     // are the big endian representation of the chunk
                     // index.
-                    *o ^= chunk_index_be64[i];
+                    *o ^= chunk_index[i];
                 }
 
                 // Instantiate the AEAD cipher.
@@ -185,7 +185,7 @@ impl<'a> Decryptor<'a> {
                 for (i, o) in &mut self.iv[iv_len - 8..].iter_mut()
                     .enumerate()
                 {
-                    *o ^= chunk_index_be64[i];
+                    *o ^= chunk_index[i];
                 }
 
                 Ok(aead)
@@ -575,7 +575,7 @@ impl<W: io::Write> Encryptor<W> {
 
     fn make_aead(&mut self) -> Result<Box<dyn Aead>> {
         // The chunk index is XORed into the IV.
-        let chunk_index_be64 = self.chunk_index.to_be_bytes();
+        let chunk_index: [u8; 8] = self.chunk_index.to_be_bytes();
 
         match self.aead {
             AEADAlgorithm::EAX => {
@@ -590,7 +590,7 @@ impl<W: io::Write> Encryptor<W> {
                     // The lower eight octets of the associated data
                     // are the big endian representation of the chunk
                     // index.
-                    *o ^= chunk_index_be64[i];
+                    *o ^= chunk_index[i];
                 }
 
                 // Instantiate the AEAD cipher.
@@ -600,7 +600,7 @@ impl<W: io::Write> Encryptor<W> {
                 for (i, o) in &mut self.iv[iv_len - 8..].iter_mut()
                     .enumerate()
                 {
-                    *o ^= chunk_index_be64[i];
+                    *o ^= chunk_index[i];
                 }
 
                 Ok(aead)
