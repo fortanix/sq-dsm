@@ -349,8 +349,6 @@ impl<'a> Decryptor<'a> {
                 let mut aead = self.make_aead()?;
                 self.hash_associated_data(&mut aead, true);
 
-                let mut nada = [0; 0];
-                aead.decrypt(&mut nada, b"");
                 aead.digest(&mut digest);
 
                 let final_digest = self.source.data(final_digest_size)?;
@@ -698,8 +696,6 @@ impl<W: io::Write> Encryptor<W> {
             // Write final digest.
             let mut aead = self.make_aead()?;
             self.hash_associated_data(&mut aead, true);
-            let mut nada = [0; 0];
-            aead.encrypt(&mut nada, b"");
             aead.digest(&mut self.scratch[..self.digest_size]);
             inner.write_all(&self.scratch[..self.digest_size])?;
 
