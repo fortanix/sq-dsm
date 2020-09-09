@@ -160,8 +160,7 @@ impl<'a> Decryptor<'a> {
 
     fn make_aead(&mut self) -> Result<Box<dyn Aead>> {
         // The chunk index is XORed into the IV.
-        let mut chunk_index_be64 = vec![0u8; 8];
-        write_be_u64(&mut chunk_index_be64, self.chunk_index);
+        let chunk_index_be64 = self.chunk_index.to_be_bytes();
 
         match self.aead {
             AEADAlgorithm::EAX => {
@@ -578,8 +577,7 @@ impl<W: io::Write> Encryptor<W> {
 
     fn make_aead(&mut self) -> Result<Box<dyn Aead>> {
         // The chunk index is XORed into the IV.
-        let mut chunk_index_be64 = vec![0u8; 8];
-        write_be_u64(&mut chunk_index_be64, self.chunk_index);
+        let chunk_index_be64 = self.chunk_index.to_be_bytes();
 
         match self.aead {
             AEADAlgorithm::EAX => {
