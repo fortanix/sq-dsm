@@ -233,7 +233,10 @@ use crate::{
         UserID,
     },
     Result,
-    policy::Policy,
+    policy::{
+        HashAlgoSecurity,
+        Policy,
+    },
     seal,
     types::{
         AEADAlgorithm,
@@ -1134,7 +1137,7 @@ impl<'a, C: 'a> From<ValidComponentAmalgamation<'a, C>>
 }
 
 impl<'a, C> ValidComponentAmalgamation<'a, C>
-    where C: Ord
+    where C: Ord + Send + Sync
 {
     /// Returns the amalgamated primary component at time `time`
     ///
@@ -1244,6 +1247,44 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
             })
             .and_then(|c| ComponentAmalgamation::new(cert, (c.0).0)
                       .with_policy_relaxed(policy, t, valid_cert))
+    }
+
+    /// The component's self-signatures.
+    ///
+    /// This method only returns signatures that are valid under the current policy.
+    pub fn self_signatures(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
+        std::ops::Deref::deref(self).self_signatures().iter()
+          .filter(move |sig| self.cert.policy().signature(sig,
+            HashAlgoSecurity::SecondPreImageResistance).is_ok())
+    }
+
+    /// The component's third-party certifications.
+    ///
+    /// This method only returns signatures that are valid under the current policy.
+    pub fn certifications(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
+        std::ops::Deref::deref(self).certifications().iter()
+          .filter(move |sig| self.cert.policy().signature(sig,
+            HashAlgoSecurity::CollisionResistance).is_ok())
+    }
+
+    /// The component's revocations that were issued by the
+    /// certificate holder.
+    ///
+    /// This method only returns signatures that are valid under the current policy.
+    pub fn self_revocations(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
+        std::ops::Deref::deref(self).self_revocations().iter()
+          .filter(move |sig|self.cert.policy().signature(sig,
+            HashAlgoSecurity::SecondPreImageResistance).is_ok())
+    }
+
+    /// The component's revocations that were issued by other
+    /// certificates.
+    ///
+    /// This method only returns signatures that are valid under the current policy.
+    pub fn other_revocations(&self) -> impl Iterator<Item=&Signature> + Send + Sync {
+        std::ops::Deref::deref(self).other_revocations().iter()
+          .filter(move |sig| self.cert.policy().signature(sig,
+            HashAlgoSecurity::CollisionResistance).is_ok())
     }
 }
 

@@ -3240,7 +3240,7 @@ mod test {
         let test2 = Cert::from_bytes(
             crate::tests::key("test2-signed-by-test1.pgp")).unwrap();
         let uid = test2.userids().with_policy(p, None).nth(0).unwrap();
-        let mut cert = uid.certifications()[0].clone();
+        let mut cert = uid.certifications().nth(0).unwrap().clone();
 
         cert.verify_userid_binding(cert_key1,
                                    test2.primary_key().key(),
