@@ -4284,6 +4284,7 @@ impl signature::SignatureBuilder {
     /// additional Regular Expression subpacket to the hashed
     /// subpacket area.
     ///
+    /// [`SignatureBuilder::set_regular_expression`]: #method.set_regular_expression
     /// [Regular Expression subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.14
     ///
     /// The Regular Expression subpacket is used in conjunction with a
