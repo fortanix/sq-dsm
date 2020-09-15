@@ -2059,6 +2059,10 @@ impl Cert {
     /// replaces the existing key.  This way, secret key material can
     /// be added, removed, encrypted, or decrypted.
     ///
+    /// Similarly, if a signature is merged that already exists in the
+    /// certificate, it replaces the existing signature.  This way,
+    /// the unhashed subpacket area can be updated.
+    ///
     /// [Known packets that don't belong in a cert or TSK]: https://tools.ietf.org/html/rfc4880#section-11
     /// [unknown components]: #method.unknowns
     ///
@@ -2142,6 +2146,47 @@ impl Cert {
     /// #     Ok(())
     /// # }
     /// ```
+    ///
+    /// Update a binding signature's unhashed subpacket area:
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::*;
+    ///
+    /// // Create a new key.
+    /// let (cert, _) =
+    ///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///       .generate()?;
+    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
+    ///
+    /// // Grab the binding signature so that we can modify it.
+    /// let mut sig =
+    ///     cert.userids().nth(0).unwrap().self_signatures()[0].clone();
+    ///
+    /// // Add a notation subpacket.  Note that the information is not
+    /// // authenticated, therefore it may only be trusted if the
+    /// // certificate with the signature is placed in a trusted store.
+    /// let notation = NotationData::new("retrieved-from@example.org",
+    ///                                  "generated-locally",
+    ///                                  NotationDataFlags::empty()
+    ///                                      .set_human_readable());
+    /// sig.unhashed_area_mut().add(
+    ///     Subpacket::new(SubpacketValue::NotationData(notation), false)?)?;
+    ///
+    /// // Merge in the signature.  Recall: the packets that are
+    /// // being merged into the certificate take precedence.
+    /// let cert = cert.merge_packets(sig)?;
+    ///
+    /// // The old binding signature is replaced.
+    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
+    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures()[0]
+    ///                .unhashed_area()
+    ///                .subpackets(SubpacketTag::NotationData).count(), 1);
+    /// # Ok(()) }
+    /// ```
     pub fn merge_packets<I>(self, packets: I)
         -> Result<Self>
         where I: IntoIterator,
@@ -2175,6 +2220,27 @@ impl Cert {
             acc.push(k.into());
         };
 
+        /// Replaces or pushes a signature.
+        ///
+        /// If `sig` is equal to an existing signature modulo unhashed
+        /// subpacket area, replaces the existing signature with it.
+        /// Otherwise, `sig` is pushed to the vector.
+        fn rop_sig(acc: &mut Vec<Packet>, sig: Signature)
+        {
+            for q in acc.iter_mut() {
+                let replace = match q {
+                    Packet::Signature(s) => s.normalized_eq(&sig),
+                    _ => false,
+                };
+
+                if replace {
+                    *q = sig.into();
+                    return;
+                }
+            }
+            acc.push(sig.into());
+        };
+
         for p in packets {
             let p = p.into();
             Cert::valid_packet(&p)?;
@@ -2183,6 +2249,7 @@ impl Cert {
                 Packet::SecretKey(k) => replace_or_push(&mut combined, k),
                 Packet::PublicSubkey(k) => replace_or_push(&mut combined, k),
                 Packet::SecretSubkey(k) => replace_or_push(&mut combined, k),
+                Packet::Signature(sig) => rop_sig(&mut combined, sig),
                 p => combined.push(p),
             }
         }
