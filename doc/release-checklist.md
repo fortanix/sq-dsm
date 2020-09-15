@@ -33,8 +33,10 @@ This is a checklist for doing Sequoia releases.
 10. In case of errors, correct them, and go back to 6.
 11. Merge the branch to master by merging the merge request created in
     step 6, push the tag.
-12. Regenerate docs.sequoia-pgp.org.
-13. Announce the release.
+12. Make a source distribution, put it on
+    https://sequoia-pgp.org/dist/, collect and merge signatures.
+13. Regenerate docs.sequoia-pgp.org.
+14. Announce the release.
        - IRC
        - mailing list
        - web site
