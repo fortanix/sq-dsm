@@ -1940,10 +1940,10 @@ impl Cert {
     /// returned.
     ///
     /// This routine merges duplicate packets.  This is different from
-    /// [Cert::merge_packets], which prefers keys in the packets that
+    /// [`Cert::merge_packets`], which prefers keys in the packets that
     /// are being merged into the certificate.
     ///
-    /// [Cert::merge_packets]: #method.merge_packets
+    /// [`Cert::merge_packets`]: #method.merge_packets
     ///
     /// # Examples
     ///
