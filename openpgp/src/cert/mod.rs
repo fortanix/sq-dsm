@@ -5122,7 +5122,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let p = &P::new();
         let cert_at = cert.with_policy(p,
                                        cert.primary_key().creation_time()
-                                       + time::Duration::new(60, 0))
+                                       + time::Duration::new(300, 0))
             .unwrap();
         assert_eq!(cert_at.userids().count(), 0);
         assert_eq!(cert_at.keys().count(), 2);
@@ -5140,7 +5140,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         let cert_at = cert.with_policy(p,
                                        cert.primary_key().creation_time()
-                                       + time::Duration::new(60, 0))
+                                       + time::Duration::new(300, 0))
             .unwrap();
         assert_eq!(cert_at.userids().count(), 1);
         assert_eq!(cert_at.keys().count(), 2);
