@@ -305,12 +305,21 @@ impl SignatureFields {
 /// from both the hashed subpacket area and the unhashed subpacket
 /// area when converting a `Signature` to a `SignatureBuilder`, and
 /// when the `SignatureBuilder` is finalized, we automatically insert
-/// a `Signature Creation Time` subpacket with the current time into
-/// the hashed subpacket area unless the `Signature Creation Time`
-/// subpacket has been set using the [`set_signature_creation_time`]
-/// method or preserved using the [`preserve_signature_creation_time`]
-/// method or suppressed using the
-/// [`suppress_signature_creation_time`] method.
+/// a `Signature Creation Time` subpacket into the hashed subpacket
+/// area unless the `Signature Creation Time` subpacket has been set
+/// using the [`set_signature_creation_time`] method or preserved
+/// using the [`preserve_signature_creation_time`] method or
+/// suppressed using the [`suppress_signature_creation_time`] method.
+///
+/// If the `SignatureBuilder` has been created from scratch, the
+/// current time is used as signature creation time.  If it has been
+/// created from a template, we make sure that the generated signature
+/// is newer.  If that is not possible (i.e. the generated signature
+/// would have a future creation time), the signing operation fails.
+/// This ensures that binding signatures can be updated by deriving a
+/// `SignatureBuilder` from the existing binding.  To disable this,
+/// explicitly set a signature creation time, or preserve the original
+/// one, or suppress the insertion of a timestamp.
 ///
 ///   [Section 5.2.3.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
 ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
@@ -1513,12 +1522,29 @@ impl SignatureBuilder {
     }
 
     fn pre_sign(mut self, signer: &dyn Signer) -> Result<Self> {
+        use std::time;
         self.pk_algo = signer.public().pk_algo();
 
         // Set the creation time.
         if ! self.overrode_creation_time {
-            self = self.set_signature_creation_time(
-                std::time::SystemTime::now())?;
+            self =
+                // See if we want to backdate the signature.
+                if let Some(oct) = self.original_creation_time.clone() {
+                    let t =
+                        (oct + time::Duration::new(1, 0)).max(
+                            time::SystemTime::now() -
+                                time::Duration::new(SIG_BACKDATE_BY, 0));
+
+                    if t > time::SystemTime::now() {
+                        return Err(Error::InvalidOperation(
+                            "Cannot create valid signature newer than template"
+                                .into()).into());
+                    }
+
+                    self.set_signature_creation_time(t)?
+                } else {
+                    self.set_signature_creation_time(time::SystemTime::now())?
+                };
         }
 
         // Make sure we have an issuer packet.
@@ -2890,5 +2916,71 @@ mod test {
             }
         }
         Ok(())
+    }
+
+    /// Checks that binding signatures of newly created certificates
+    /// can be conveniently and robustly be overwritten without
+    /// fiddling with creation timestamps.
+    #[test]
+    fn binding_signatures_are_overrideable() -> Result<()> {
+        use crate::packet::signature::subpacket::NotationDataFlags;
+        let notation_key = "override-test@sequoia-pgp.org";
+        let p = &P::new();
+
+        // Create a certificate and try to update the userid's binding
+        // signature.
+        let (mut alice, _) =
+            CertBuilder::general_purpose(None, Some("alice@example.org"))
+            .generate()?;
+        let mut primary_signer = alice.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+        assert_eq!(alice.userids().len(), 1);
+        assert_eq!(alice.userids().nth(0).unwrap().self_signatures().len(), 1);
+        let creation_time =
+            alice.userids().nth(0).unwrap().self_signatures()[0]
+                .signature_creation_time().unwrap();
+
+        for i in 0..2 * SIG_BACKDATE_BY {
+            assert_eq!(alice.userids().nth(0).unwrap().self_signatures().len(),
+                       1 + i as usize);
+
+            // Get the binding signature so that we can modify it.
+            let sig = alice.with_policy(p, None)?.userids().nth(0).unwrap()
+                .binding_signature().clone();
+            assert_eq!(sig.signature_creation_time().unwrap(),
+                       creation_time + std::time::Duration::new(i, 0));
+
+            let new_sig = match
+                SignatureBuilder::from(sig)
+                .set_notation(notation_key,
+                              i.to_string().as_bytes(),
+                              NotationDataFlags::empty().set_human_readable(),
+                              false)?
+                .sign_userid_binding(&mut primary_signer,
+                                     &alice.primary_key(),
+                                     &alice.userids().nth(0).unwrap()) {
+                    Ok(v) => v,
+                    Err(e) => if i < SIG_BACKDATE_BY {
+                        return Err(e); // Not cool.
+                    } else {
+                        assert!(e.to_string().contains(
+                            "Cannot create valid signature newer than \
+                             template"));
+                        return Ok(()); // Cool.
+                    },
+                };
+
+            // Merge it and check that the new binding signature is
+            // the current one.
+            alice = alice.merge_packets(new_sig.clone())?;
+            let sig = alice.with_policy(p, None)?.userids().nth(0).unwrap()
+                .binding_signature();
+            assert_eq!(sig, &new_sig);
+        }
+
+        panic!("We were unexpectedly able to update binding signatures {} \
+                times.  This is either a very slow build environment, or \
+                there is a bug.  Please get in contact.",
+               2 * SIG_BACKDATE_BY);
     }
 }
