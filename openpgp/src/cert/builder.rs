@@ -278,9 +278,21 @@ impl CertBuilder {
 
     /// Sets the creation time.
     ///
-    /// If `creation_time` is `None`, the default, this causes the
+    /// If `creation_time` is not `None`, this causes the
     /// `CertBuilder` to use that time when [`CertBuilder::generate`]
-    /// is called.
+    /// is called.  If it is `None`, the default, then the current
+    /// time minus 60 seconds is used as creation time.  Backdating
+    /// the certificate by a minute has the advantage that the
+    /// certificate can immediately be customized:
+    ///
+    /// In order to reliably override a binding signature, the
+    /// overriding binding signature must be newer than the existing
+    /// signature.  If, however, the existing signature is created
+    /// `now`, any newer signature must have a future creation time,
+    /// and is considered invalid by Sequoia.  To avoid this, we
+    /// backdate certificate creation times (and hence binding
+    /// signature creation times), so that there is "space" between
+    /// the creation time and now for signature updates.
     ///
     /// Warning: this function takes a [`SystemTime`].  A `SystemTime`
     /// has a higher resolution, and a larger range than an OpenPGP
@@ -942,7 +954,11 @@ impl CertBuilder {
         use std::convert::TryFrom;
 
         let creation_time =
-            self.creation_time.unwrap_or_else(std::time::SystemTime::now);
+            self.creation_time.unwrap_or_else(|| {
+                use crate::packet::signature::SIG_BACKDATE_BY;
+                time::SystemTime::now() -
+                    time::Duration::new(SIG_BACKDATE_BY, 0)
+            });
 
         let mut packets = Vec::<Packet>::with_capacity(
             1 + 1 + self.subkeys.len() + self.userids.len()

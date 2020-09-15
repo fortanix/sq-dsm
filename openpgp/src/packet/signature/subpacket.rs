@@ -2358,7 +2358,7 @@ impl SubpacketAreas {
     ///
     /// assert!(sig.key_alive(pk, None).is_ok());
     /// // A key is not considered alive prior to its creation time.
-    /// let the_past = SystemTime::now() - Duration::new(10, 0);
+    /// let the_past = SystemTime::now() - Duration::new(300, 0);
     /// assert!(sig.key_alive(pk, the_past).is_err());
     /// # Ok(()) }
     /// ```

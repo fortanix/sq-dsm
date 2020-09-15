@@ -173,6 +173,25 @@ macro_rules! impl_arbitrary_with_bound {
 
 pub mod subpacket;
 
+/// How many seconds to backdate signatures.
+///
+/// When creating certificates (more specifically, binding
+/// signatures), and when updating binding signatures (creating
+/// signatures from templates), we backdate the signatures by this
+/// amount if no creation time is explicitly given.  Backdating the
+/// certificate by a minute has the advantage that the certificate can
+/// immediately be customized:
+///
+/// In order to reliably override a binding signature, the
+/// overriding binding signature must be newer than the existing
+/// signature.  If, however, the existing signature is created
+/// `now`, any newer signature must have a future creation time,
+/// and is considered invalid by Sequoia.  To avoid this, we
+/// backdate certificate creation times (and hence binding
+/// signature creation times), so that there is "space" between
+/// the creation time and now for signature updates.
+pub(crate) const SIG_BACKDATE_BY: u64 = 60;
+
 /// The data stored in a `Signature` packet.
 ///
 /// This data structure contains exactly those fields that appear in a
