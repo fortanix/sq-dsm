@@ -2050,7 +2050,7 @@ impl Cert {
     /// This function turns the certificate into a sequence of
     /// packets, appends the packets to the end of it, and
     /// canonicalizes the result.  [Known packets that don't belong in
-    /// a cert or TSK] cause this function to return an error.  Unknown
+    /// a TPK or TSK] cause this function to return an error.  Unknown
     /// packets are retained and added to the list of [unknown
     /// components].  The goal is to provide some future
     /// compatibility.
@@ -2063,7 +2063,7 @@ impl Cert {
     /// certificate, it replaces the existing signature.  This way,
     /// the unhashed subpacket area can be updated.
     ///
-    /// [Known packets that don't belong in a cert or TSK]: https://tools.ietf.org/html/rfc4880#section-11
+    /// [Known packets that don't belong in a TPK or TSK]: https://tools.ietf.org/html/rfc4880#section-11
     /// [unknown components]: #method.unknowns
     ///
     /// # Examples
