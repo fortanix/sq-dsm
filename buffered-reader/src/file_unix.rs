@@ -10,10 +10,11 @@ use std::fs;
 use std::io;
 use std::os::unix::io::AsRawFd;
 use std::slice;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::ptr;
 
 use super::*;
+use crate::file_error::FileError;
 
 // For small files, the overhead of manipulating the page table is not
 // worth the gain.  This threshold has been chosen so that on my
@@ -24,11 +25,11 @@ const MMAP_THRESHOLD: u64 = 16 * 4096;
 ///
 /// This implementation tries to mmap the file, falling back to
 /// just using a generic reader.
-pub struct File<'a, C>(Imp<'a, C>);
+pub struct File<'a, C>(Imp<'a, C>, PathBuf);
 
 impl<'a, C> fmt::Display for File<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{} {:?}", self.0, self.1.display())
     }
 }
 
@@ -36,6 +37,7 @@ impl<'a, C> fmt::Debug for File<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("File")
             .field(&self.0)
+            .field(&self.1)
             .finish()
     }
 }
@@ -100,14 +102,17 @@ impl<'a> File<'a, ()> {
 impl<'a, C> File<'a, C> {
     /// Like `open()`, but sets a cookie.
     pub fn with_cookie<P: AsRef<Path>>(path: P, cookie: C) -> io::Result<Self> {
+        let path = path.as_ref();
+
         // As fallback, we use a generic reader.
         let generic = |file, cookie| {
             Ok(File(
                 Imp::Generic(
-                    Generic::with_cookie(file, None, cookie))))
+                    Generic::with_cookie(file, None, cookie)),
+                path.into()))
         };
 
-        let file = fs::File::open(path)?;
+        let file = fs::File::open(path).map_err(|e| FileError::new(path, e))?;
 
         // For testing and benchmarking purposes, we use the variable
         // SEQUOIA_DONT_MMAP to turn off mmapping.
@@ -115,7 +120,8 @@ impl<'a, C> File<'a, C> {
             return generic(file, cookie);
         }
 
-        let length = file.metadata()?.len();
+        let length =
+            file.metadata().map_err(|e| FileError::new(path, e))?.len();
 
         // For small files, the overhead of manipulating the page
         // table is not worth the gain.
@@ -147,7 +153,8 @@ impl<'a, C> File<'a, C> {
                 addr,
                 length,
                 reader: Memory::with_cookie(slice, cookie),
-            }
+            },
+            path.into(),
         ))
     }
 }
@@ -157,7 +164,7 @@ impl<'a, C> io::Read for File<'a, C> {
         match self.0 {
             Imp::Generic(ref mut reader) => reader.read(buf),
             Imp::MMAP { ref mut reader, .. } => reader.read(buf),
-        }
+        }.map_err(|e| FileError::new(&self.1, e))
     }
 }
 
@@ -170,17 +177,19 @@ impl<'a, C> BufferedReader<C> for File<'a, C> {
     }
 
     fn data(&mut self, amount: usize) -> io::Result<&[u8]> {
+        let path = &self.1;
         match self.0 {
             Imp::Generic(ref mut reader) => reader.data(amount),
             Imp::MMAP { ref mut reader, .. } => reader.data(amount),
-        }
+        }.map_err(|e| FileError::new(path, e))
     }
 
     fn data_hard(&mut self, amount: usize) -> io::Result<&[u8]> {
+        let path = &self.1;
         match self.0 {
             Imp::Generic(ref mut reader) => reader.data_hard(amount),
             Imp::MMAP { ref mut reader, .. } => reader.data_hard(amount),
-        }
+        }.map_err(|e| FileError::new(path, e))
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
@@ -191,17 +200,19 @@ impl<'a, C> BufferedReader<C> for File<'a, C> {
     }
 
     fn data_consume(&mut self, amount: usize) -> io::Result<&[u8]> {
+        let path = &self.1;
         match self.0 {
             Imp::Generic(ref mut reader) => reader.data_consume(amount),
             Imp::MMAP { ref mut reader, .. } => reader.data_consume(amount),
-        }
+        }.map_err(|e| FileError::new(path, e))
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> io::Result<&[u8]> {
+        let path = &self.1;
         match self.0 {
             Imp::Generic(ref mut reader) => reader.data_consume_hard(amount),
             Imp::MMAP { ref mut reader, .. } => reader.data_consume_hard(amount),
-        }
+        }.map_err(|e| FileError::new(path, e))
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
@@ -236,5 +247,17 @@ impl<'a, C> BufferedReader<C> for File<'a, C> {
             Imp::Generic(ref mut reader) => reader.cookie_mut(),
             Imp::MMAP { ref mut reader, .. } => reader.cookie_mut(),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn error_contains_path() {
+        let p = "/i/do/not/exist";
+        let e = File::open(p).unwrap_err();
+        assert!(e.to_string().contains(p));
     }
 }

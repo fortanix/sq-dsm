@@ -259,6 +259,9 @@ pub use self::decompress_deflate::Zlib;
 #[cfg(feature = "compression-bzip2")]
 pub use self::decompress_bzip2::Bzip;
 
+// Common error type for file operations.
+mod file_error;
+
 // These are the different File implementations.  We
 // include the modules unconditionally, so that we catch bitrot early.
 #[allow(dead_code)]

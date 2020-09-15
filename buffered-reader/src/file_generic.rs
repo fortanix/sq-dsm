@@ -1,19 +1,20 @@
 use std::fmt;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::*;
+use crate::file_error::FileError;
 
 /// Wraps files.
 ///
 /// This is a generic implementation that may be replaced by
 /// platform-specific versions.
-pub struct File<C>(Generic<fs::File, C>);
+pub struct File<C>(Generic<fs::File, C>, PathBuf);
 
 impl<C> fmt::Display for File<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "File")
+        write!(f, "File {:?}", self.1.display())
     }
 }
 
@@ -21,6 +22,7 @@ impl<C> fmt::Debug for File<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("File")
             .field(&self.0)
+            .field(&self.1)
             .finish()
     }
 }
@@ -35,14 +37,16 @@ impl File<()> {
 impl<C> File<C> {
     /// Like `open()`, but sets a cookie.
     pub fn with_cookie<P: AsRef<Path>>(path: P, cookie: C) -> io::Result<Self> {
-        Ok(File(Generic::with_cookie(fs::File::open(path)?,
-                                     None, cookie)))
+        let path = path.as_ref();
+        let file = fs::File::open(path).map_err(|e| FileError::new(path, e))?;
+        Ok(File(Generic::with_cookie(file, None, cookie), path.into()))
     }
 }
 
 impl<C> io::Read for File<C> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.read(buf)
+            .map_err(|e| FileError::new(&self.1, e))
     }
 }
 
@@ -52,11 +56,15 @@ impl<C> BufferedReader<C> for File<C> {
     }
 
     fn data(&mut self, amount: usize) -> io::Result<&[u8]> {
+        let path = &self.1;
         self.0.data(amount)
+            .map_err(|e| FileError::new(path, e))
     }
 
     fn data_hard(&mut self, amount: usize) -> io::Result<&[u8]> {
+        let path = &self.1;
         self.0.data_hard(amount)
+            .map_err(|e| FileError::new(path, e))
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
@@ -64,11 +72,15 @@ impl<C> BufferedReader<C> for File<C> {
     }
 
     fn data_consume(&mut self, amount: usize) -> io::Result<&[u8]> {
+        let path = &self.1;
         self.0.data_consume(amount)
+            .map_err(|e| FileError::new(path, e))
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> io::Result<&[u8]> {
+        let path = &self.1;
         self.0.data_consume_hard(amount)
+            .map_err(|e| FileError::new(path, e))
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
@@ -94,5 +106,17 @@ impl<C> BufferedReader<C> for File<C> {
 
     fn cookie_mut(&mut self) -> &mut C {
         self.0.cookie_mut()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn error_contains_path() {
+        let p = "/i/do/not/exist";
+        let e = File::open(p).unwrap_err();
+        assert!(e.to_string().contains(p));
     }
 }
