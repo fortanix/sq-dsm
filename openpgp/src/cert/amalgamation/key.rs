@@ -980,6 +980,19 @@ impl<'a, P: 'a + key::KeyParts> From<ValidPrimaryKeyAmalgamation<'a, P>>
     }
 }
 
+impl<'a, P: 'a + key::KeyParts> From<&ValidPrimaryKeyAmalgamation<'a, P>>
+    for ValidErasedKeyAmalgamation<'a, P>
+{
+    fn from(vka: &ValidPrimaryKeyAmalgamation<'a, P>) -> Self {
+        assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
+        ValidErasedKeyAmalgamation {
+            ka: vka.ka.clone().into(),
+            cert: vka.cert.clone(),
+            binding_signature: vka.binding_signature,
+        }
+    }
+}
+
 impl<'a, P: 'a + key::KeyParts> From<ValidSubordinateKeyAmalgamation<'a, P>>
     for ValidErasedKeyAmalgamation<'a, P>
 {
@@ -988,6 +1001,19 @@ impl<'a, P: 'a + key::KeyParts> From<ValidSubordinateKeyAmalgamation<'a, P>>
         ValidErasedKeyAmalgamation {
             ka: vka.ka.into(),
             cert: vka.cert,
+            binding_signature: vka.binding_signature,
+        }
+    }
+}
+
+impl<'a, P: 'a + key::KeyParts> From<&ValidSubordinateKeyAmalgamation<'a, P>>
+    for ValidErasedKeyAmalgamation<'a, P>
+{
+    fn from(vka: &ValidSubordinateKeyAmalgamation<'a, P>) -> Self {
+        assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
+        ValidErasedKeyAmalgamation {
+            ka: vka.ka.clone().into(),
+            cert: vka.cert.clone(),
             binding_signature: vka.binding_signature,
         }
     }
@@ -1005,6 +1031,19 @@ macro_rules! impl_conversion {
                 ValidErasedKeyAmalgamation {
                     ka: vka.ka.into(),
                     cert: vka.cert,
+                    binding_signature: vka.binding_signature,
+                }
+            }
+        }
+
+        impl<'a> From<&$s<'a, $p1>>
+            for ValidErasedKeyAmalgamation<'a, $p2>
+        {
+            fn from(vka: &$s<'a, $p1>) -> Self {
+                assert!(std::ptr::eq(vka.ka.cert(), vka.cert.cert()));
+                ValidErasedKeyAmalgamation {
+                    ka: vka.ka.clone().into(),
+                    cert: vka.cert.clone(),
                     binding_signature: vka.binding_signature,
                 }
             }
