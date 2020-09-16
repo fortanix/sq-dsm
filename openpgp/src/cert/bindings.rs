@@ -10,10 +10,20 @@ use crate::packet::{UserID, UserAttribute, key, Key, signature, Signature};
 impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// Creates a binding signature.
     ///
-    /// The signature binds this userid to `cert`. `signer` will be used
+    /// The signature binds this subkey to `cert`. `signer` will be used
     /// to create a signature using `signature` as builder.
     /// The`hash_algo` defaults to SHA512, `creation_time` to the
     /// current time.
+    ///
+    /// Note that subkeys with signing capabilities need a [primary
+    /// key binding signature].  If you are creating this binding
+    /// signature from a previous binding signature, you can reuse the
+    /// primary key binding signature if it is still valid and meets
+    /// current algorithm requirements.  Otherwise, you can create one
+    /// using [`SignatureBuilder::sign_primary_key_binding`].
+    ///
+    ///   [primary key binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+    ///   [`SignatureBuilder::sign_primary_key_binding`]: signature/struct.SignatureBuilder.html#method.sign_primary_key_binding
     ///
     /// This function adds a creation time subpacket, a issuer
     /// fingerprint subpacket, and a issuer subpacket to the
