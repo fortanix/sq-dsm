@@ -1187,12 +1187,17 @@ pgp_signature_t pgp_valid_key_amalgamation_binding_signature (pgp_valid_key_amal
 /// Creates one or more self-signatures that when merged with the
 /// certificate cause the key to expire at the specified time.
 ///
+/// `subkey_signer` must be `NULL` when updating the expiration of the
+/// primary key, or updating the expiration of a non-signing capable
+/// subkey.  Otherwise, a signer for the subkey must be given.
+///
 /// The returned buffer must be freed using libc's allocator.
 /*/
 pgp_status_t pgp_valid_key_amalgamation_set_expiration_time
   (pgp_error_t *errp,
    pgp_valid_key_amalgamation_t ka,
    pgp_signer_t signer,
+   pgp_signer_t subkey_signer,
    time_t time,
    pgp_signature_t **sigs,
    size_t *sig_count);
