@@ -5,7 +5,7 @@ use std::convert::TryFrom;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::policy::StandardPolicy as P;
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let p = &P::new();
 
     let cert =
@@ -41,7 +41,7 @@ fn main() {
          -----END PGP PUBLIC KEY BLOCK-----";
 
     // Parse the Cert.
-    let pile = openpgp::PacketPile::from_bytes(cert).unwrap();
+    let pile = openpgp::PacketPile::from_bytes(cert)?;
 
     // Iterate over children.
     for (i, p) in pile.children().enumerate() {
@@ -52,7 +52,7 @@ fn main() {
     println!();
 
     // Parse into Cert.
-    let cert = openpgp::Cert::try_from(pile).unwrap();
+    let cert = openpgp::Cert::try_from(pile)?;
     println!("Fingerprint: {}", cert.fingerprint());
 
     // List userids.
@@ -70,4 +70,6 @@ fn main() {
                  ka.bundle().self_signatures().len(),
                  ka.bundle().certifications().len());
     }
+
+    Ok(())
 }
