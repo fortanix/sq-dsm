@@ -12,12 +12,13 @@ extern crate tokio_core;
 use crossterm::terminal;
 use anyhow::Context as _;
 use prettytable::{Table, Cell, Row};
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use chrono::{DateTime, offset::Utc};
 
+use buffered_reader::File;
 extern crate sequoia_openpgp as openpgp;
 extern crate sequoia_core;
 extern crate sequoia_net;

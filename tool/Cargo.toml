@@ -22,6 +22,7 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
+buffered-reader = { path = "../buffered-reader", version = "0.18" }
 sequoia-openpgp = { path = "../openpgp", version = "0.19" }
 sequoia-autocrypt = { path = "../autocrypt", version = "0.19" }
 sequoia-core = { path = "../core", version = "0.19" }
