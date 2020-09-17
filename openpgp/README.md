@@ -92,4 +92,4 @@ enable the `x-quickcheck` feature (this feature will be called just
 
 # Minimum Supported Rust Version (MSRV)
 
-`sequoia-openpgp` requires Rust 1.34.
+`sequoia-openpgp` requires Rust 1.46.0.
