@@ -74,7 +74,7 @@ pub extern "C" fn pgp_reader_from_bytes(buf: *const u8,
 }
 
 /// The callback type for the generic callback-based reader interface.
-type ReaderCallbackFn = fn(*mut c_void, *const c_void, size_t) -> ssize_t;
+type ReaderCallbackFn = extern fn(*mut c_void, *const c_void, size_t) -> ssize_t;
 
 /// Creates an reader from a callback and cookie.
 ///
@@ -293,7 +293,7 @@ impl Write for WriterAlloc {
 }
 
 /// The callback type for the generic callback-based writer interface.
-type WriterCallbackFn = fn(*mut c_void, *const c_void, size_t) -> ssize_t;
+type WriterCallbackFn = extern fn(*mut c_void, *const c_void, size_t) -> ssize_t;
 
 /// Creates an writer from a callback and cookie.
 ///
