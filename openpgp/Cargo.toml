@@ -46,7 +46,7 @@ thiserror = "1"
 # XXX: We need to pin some dependencies to keep our MSRV at 1.34.  If
 # you are packaging Sequoia, feel free to drop these pins if your
 # compiler is newer.
-backtrace = "= 0.3.46"
+backtrace = "0.3.46"
 unicode-normalization = "= 0.1.9"
 
 [target.'cfg(windows)'.dependencies]
