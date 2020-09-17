@@ -3027,7 +3027,15 @@ impl PacketParserState {
 ///
 /// # Examples
 ///
-/// Parse an OpenPGP message using a `PacketParser`:
+/// These examples demonstrate how to process packet bodies by parsing
+/// the simplest possible OpenPGP message containing just a single
+/// literal data packet with the body "Hello world.".  There are three
+/// options.  First, the body can be dropped.  Second, it can be
+/// buffered.  Lastly, the body can be streamed.  In general,
+/// streaming should be preferred, because it avoids buffering in
+/// Sequoia.
+///
+/// This example demonstrates simply ignoring the packet body:
 ///
 /// ```rust
 /// # fn main() -> sequoia_openpgp::Result<()> {
@@ -3035,19 +3043,127 @@ impl PacketParserState {
 /// use openpgp::Packet;
 /// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 ///
-/// let message_data: &[u8] = // ...
-/// #    include_bytes!("../tests/data/keys/public-key.gpg");
-/// let mut ppr = PacketParser::from_bytes(message_data)?;
-/// while let PacketParserResult::Some(mut pp) = ppr {
-///     // Process the packet.
+/// // By default, the `PacketParser` will drop packet bodies.
+/// let mut ppr =
+///     PacketParser::from_bytes(b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.")?;
+/// while let PacketParserResult::Some(pp) = ppr {
+///     // Get the packet out of the parser and start parsing the next
+///     // packet, recursing.
+///     let (packet, next_ppr) = pp.recurse()?;
+///     ppr = next_ppr;
 ///
+///     // Process the packet.
+///     if let Packet::Literal(literal) = packet {
+///         // The body was dropped.
+///         assert_eq!(literal.body(), b"");
+///     } else {
+///         unreachable!("We know it is a literal packet.");
+///     }
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// This example demonstrates how the body can be buffered by
+/// configuring the `PacketParser` to buffer all packet bodies:
+///
+/// ```rust
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::Packet;
+/// use openpgp::parse::{Parse, PacketParserResult, PacketParserBuilder};
+///
+/// // By default, the `PacketParser` will drop packet bodies.  Use a
+/// // `PacketParserBuilder` to change that.
+/// let mut ppr =
+///     PacketParserBuilder::from_bytes(
+///         b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.")?
+///     .buffer_unread_content()
+///     .build()?;
+/// while let PacketParserResult::Some(pp) = ppr {
+///     // Get the packet out of the parser and start parsing the next
+///     // packet, recursing.
+///     let (packet, next_ppr) = pp.recurse()?;
+///     ppr = next_ppr;
+///
+///     // Process the packet.
+///     if let Packet::Literal(literal) = packet {
+///         // The body was buffered.
+///         assert_eq!(literal.body(), b"Hello world.");
+///     } else {
+///         unreachable!("We know it is a literal packet.");
+///     }
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// This example demonstrates how the body can be buffered by
+/// buffering an individual packet:
+///
+/// ```rust
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::Packet;
+/// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+///
+/// // By default, the `PacketParser` will drop packet bodies.
+/// let mut ppr =
+///     PacketParser::from_bytes(b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.")?;
+/// while let PacketParserResult::Some(mut pp) = ppr {
 ///     if let Packet::Literal(_) = pp.packet {
-///         // Stream the content of any literal packets to stdout.
-///         std::io::copy(&mut pp, &mut std::io::stdout());
+///         // Buffer this packet's body.
+///         pp.buffer_unread_content()?;
 ///     }
 ///
-///     // Start parsing the next packet, recursing.
-///     ppr = pp.recurse()?.1;
+///     // Get the packet out of the parser and start parsing the next
+///     // packet, recursing.
+///     let (packet, next_ppr) = pp.recurse()?;
+///     ppr = next_ppr;
+///
+///     // Process the packet.
+///     if let Packet::Literal(literal) = packet {
+///         // The body was buffered.
+///         assert_eq!(literal.body(), b"Hello world.");
+///     } else {
+///         unreachable!("We know it is a literal packet.");
+///     }
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// This example demonstrates how to stream the packet body:
+///
+/// ```rust
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use std::io::Read;
+///
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::Packet;
+/// use openpgp::parse::{Parse, PacketParserResult, PacketParser};
+///
+/// let mut ppr =
+///     PacketParser::from_bytes(b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.")?;
+/// while let PacketParserResult::Some(mut pp) = ppr {
+///     if let Packet::Literal(_) = pp.packet {
+///         // Stream the body.
+///         let mut buf = Vec::new();
+///         pp.read_to_end(&mut buf)?;
+///         assert_eq!(buf, b"Hello world.");
+///     } else {
+///         unreachable!("We know it is a literal packet.");
+///     }
+///
+///     // Get the packet out of the parser and start parsing the next
+///     // packet, recursing.
+///     let (packet, next_ppr) = pp.recurse()?;
+///     ppr = next_ppr;
+///
+///     // Process the packet.
+///     if let Packet::Literal(literal) = packet {
+///         // The body was streamed, not buffered.
+///         assert_eq!(literal.body(), b"");
+///     } else {
+///         unreachable!("We know it is a literal packet.");
+///     }
 /// }
 /// # Ok(()) }
 /// ```

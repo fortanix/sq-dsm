@@ -44,28 +44,145 @@ use buffered_reader::BufferedReader;
 ///
 /// # Examples
 ///
+/// These examples demonstrate how to process packet bodies by parsing
+/// the simplest possible OpenPGP message containing just a single
+/// literal data packet with the body "Hello world.".  There are three
+/// options.  First, the body can be dropped.  Second, it can be
+/// buffered.  Lastly, the body can be streamed.  In general,
+/// streaming should be preferred, because it avoids buffering in
+/// Sequoia.
+///
+/// This example demonstrates simply ignoring the packet body:
+///
 /// ```rust
 /// # fn main() -> sequoia_openpgp::Result<()> {
 /// use sequoia_openpgp as openpgp;
+/// use openpgp::Packet;
 /// use openpgp::parse::{Parse, PacketPileParser};
 ///
-/// // Parse a message.
-/// let message_data: &[u8] = // ...
-/// #    include_bytes!("../../tests/data/keys/public-key.gpg");
-/// # let mut n = 0;
-/// let mut ppp = PacketPileParser::from_bytes(message_data)?;
-/// while let Ok(pp) = ppp.as_ref() {
-///     eprintln!("{:?}", pp);
+/// // By default, the `PacketPileParser` will drop packet bodies.
+/// let mut ppp =
+///     PacketPileParser::from_bytes(
+///         b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.")?;
+/// while ppp.is_some() {
+///     // Start parsing the next packet, recursing.
 ///     ppp.recurse()?;
-/// #   n += 1;
 /// }
 ///
 /// let pile = ppp.finish();
-/// pile.pretty_print();
-/// # assert_eq!(n, 61);
-/// # assert_eq!(pile.children().len(), 61);
-/// # Ok(())
-/// # }
+/// // Process the packet.
+/// if let Some(Packet::Literal(literal)) = pile.path_ref(&[0]) {
+///     // The body was dropped.
+///     assert_eq!(literal.body(), b"");
+/// } else {
+///     unreachable!("We know it is a literal packet.");
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// This example demonstrates how the body can be buffered by
+/// configuring the `PacketPileParser` to buffer all packet bodies:
+///
+/// ```rust
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use std::convert::TryFrom;
+///
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::Packet;
+/// use openpgp::parse::{Parse, PacketPileParser, PacketParserBuilder};
+///
+/// // By default, the `PacketPileParser` will drop packet bodies.
+/// // Use a `PacketParserBuilder` to change that.
+/// let mut ppb =
+///     PacketParserBuilder::from_bytes(
+///         b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.")?
+///     .buffer_unread_content();
+/// let mut ppp = PacketPileParser::try_from(ppb)?;
+/// while ppp.is_some() {
+///     // Start parsing the next packet, recursing.
+///     ppp.recurse()?;
+/// }
+///
+/// let pile = ppp.finish();
+/// // Process the packet.
+/// if let Some(Packet::Literal(literal)) = pile.path_ref(&[0]) {
+///     // The body was buffered.
+///     assert_eq!(literal.body(), b"Hello world.");
+/// } else {
+///     unreachable!("We know it is a literal packet.");
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// This example demonstrates how the body can be buffered by
+/// buffering an individual packet:
+///
+/// ```rust
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::Packet;
+/// use openpgp::parse::{Parse, PacketPileParser};
+///
+/// // By default, the `PacketPileParser` will drop packet bodies.
+/// let mut ppp =
+///     PacketPileParser::from_bytes(
+///         b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.")?;
+/// while let Ok(pp) = ppp.as_mut() {
+///     if let Packet::Literal(_) = pp.packet {
+///         // Buffer this packet's body.
+///         pp.buffer_unread_content()?;
+///     }
+///
+///     // Start parsing the next packet, recursing.
+///     ppp.recurse()?;
+/// }
+///
+/// let pile = ppp.finish();
+/// // Process the packet.
+/// if let Some(Packet::Literal(literal)) = pile.path_ref(&[0]) {
+///     // The body was buffered.
+///     assert_eq!(literal.body(), b"Hello world.");
+/// } else {
+///     unreachable!("We know it is a literal packet.");
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// This example demonstrates how to stream the packet body:
+///
+/// ```rust
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// use std::io::Read;
+///
+/// use sequoia_openpgp as openpgp;
+/// use openpgp::Packet;
+/// use openpgp::parse::{Parse, PacketPileParser};
+///
+/// // By default, the `PacketPileParser` will drop packet bodies.
+/// let mut ppp =
+///     PacketPileParser::from_bytes(
+///         b"\xcb\x12b\x00\x00\x00\x00\x00Hello world.")?;
+/// while let Ok(pp) = ppp.as_mut() {
+///     if let Packet::Literal(_) = pp.packet {
+///         // Stream the body.
+///         let mut buf = Vec::new();
+///         pp.read_to_end(&mut buf)?;
+///         assert_eq!(buf, b"Hello world.");
+///     }
+///
+///     // Start parsing the next packet, recursing.
+///     ppp.recurse()?;
+/// }
+///
+/// let pile = ppp.finish();
+/// // Process the packet.
+/// if let Some(Packet::Literal(literal)) = pile.path_ref(&[0]) {
+///     // The body was streamed, not buffered.
+///     assert_eq!(literal.body(), b"");
+/// } else {
+///     unreachable!("We know it is a literal packet.");
+/// }
+/// # Ok(()) }
 /// ```
 #[derive(Debug)]
 pub struct PacketPileParser<'a> {
@@ -394,6 +511,8 @@ fn test_recurse() -> Result<()> {
         ppp.recurse().unwrap();
     }
     assert_eq!(count, 61);
+    let pp = ppp.finish();
+    assert_eq!(pp.children().count(), 61);
     Ok(())
 }
 
@@ -407,6 +526,8 @@ fn test_next() -> Result<()> {
         ppp.next().unwrap();
     }
     assert_eq!(count, 61);
+    let pp = ppp.finish();
+    assert_eq!(pp.children().count(), 61);
     Ok(())
 }
 
