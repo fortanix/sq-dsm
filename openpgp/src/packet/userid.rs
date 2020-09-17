@@ -548,16 +548,14 @@ impl Clone for UserID {
 }
 
 impl UserID {
-    fn assemble<S>(name: Option<S>, comment: Option<S>,
-                   address: S, check_address: bool)
+    fn assemble(name: Option<&str>, comment: Option<&str>,
+                address: &str, check_address: bool)
         -> Result<Self>
-        where S: AsRef<str>,
     {
         let mut value = String::with_capacity(64);
 
         // Make sure the individual components are valid.
         if let Some(ref name) = name {
-            let name = name.as_ref();
             match ConventionallyParsedUserID::new(name.to_string()) {
                 Err(err) =>
                     return Err(err.context(format!(
@@ -578,7 +576,6 @@ impl UserID {
         }
 
         if let Some(ref comment) = comment {
-            let comment = comment.as_ref();
             match ConventionallyParsedUserID::new(
                 format!("x ({})", comment))
             {
@@ -606,7 +603,6 @@ impl UserID {
         }
 
         if check_address {
-            let address = address.as_ref();
             match ConventionallyParsedUserID::new(
                 format!("<{}>", address))
             {
@@ -630,7 +626,7 @@ impl UserID {
         if something {
             value.push_str(" <");
         }
-        value.push_str(address.as_ref());
+        value.push_str(address);
         if something {
             value.push_str(">");
         }
@@ -682,7 +678,10 @@ impl UserID {
         where S: AsRef<str>,
               O: Into<Option<S>>
     {
-        Self::assemble(name.into(), comment.into(), email, true)
+        Self::assemble(name.into().as_ref().map(|s| s.as_ref()),
+                       comment.into().as_ref().map(|s| s.as_ref()),
+                       email.as_ref(),
+                       true)
     }
 
     /// Constructs a User ID.
@@ -709,7 +708,10 @@ impl UserID {
         where S: AsRef<str>,
               O: Into<Option<S>>
     {
-        Self::assemble(name.into(), comment.into(), address, false)
+        Self::assemble(name.into().as_ref().map(|s| s.as_ref()),
+                       comment.into().as_ref().map(|s| s.as_ref()),
+                       address.as_ref(),
+                       false)
     }
 
     /// Gets the user ID packet's value.
