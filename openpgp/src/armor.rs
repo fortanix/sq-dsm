@@ -643,7 +643,9 @@ impl<'a> Reader<'a> {
                 for &tag in &[ Tag::PKESK, Tag::SKESK,
                               Tag::OnePassSig, Tag::Signature,
                               Tag::PublicKey, Tag::SecretKey,
-                              Tag::CompressedData, Tag::Literal ] {
+                              Tag::CompressedData, Tag::Literal,
+                              Tag::Marker,
+                ] {
                     let mut ctb = [ 0u8; 1 ];
                     let mut o = [ 0u8; 4 ];
 

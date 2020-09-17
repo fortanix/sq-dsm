@@ -2336,6 +2336,36 @@ impl Marker {
             php.fail("invalid marker")
         }
     }
+
+    /// Returns whether the data is a marker packet.
+    fn plausible<T>(bio: &mut buffered_reader::Dup<T, Cookie>, header: &Header)
+                    -> Result<()>
+        where T: BufferedReader<Cookie>,
+    {
+        if let &BodyLength::Full(len) = header.length() {
+            if len as usize != Marker::BODY.len() {
+                return Err(Error::MalformedPacket(
+                    format!("Unexpected packet length {}", len)).into());
+            }
+        } else {
+            return Err(Error::MalformedPacket(
+                format!("Unexpected body length encoding: {:?}",
+                        header.length()).into()).into());
+        }
+
+        // Check the body.
+        let data = bio.data(Marker::BODY.len())?;
+        if data.len() < Marker::BODY.len() {
+            return Err(Error::MalformedPacket("Short read".into()).into());
+        }
+
+        if data == Marker::BODY {
+            Ok(())
+        } else {
+            Err(Error::MalformedPacket("Invalid or unsupported data".into())
+                .into())
+        }
+    }
 }
 
 impl_parse_generic_packet!(Marker);
@@ -3940,10 +3970,11 @@ impl <'a> PacketParser<'a> {
             Error::MalformedPacket("Can't make an educated case".into()).into());
 
         match header.ctb().tag() {
-            Tag::Reserved | Tag::Marker
+            Tag::Reserved
             | Tag::Unknown(_) | Tag::Private(_) =>
                 Err(Error::MalformedPacket("Looks like garbage".into()).into()),
 
+            Tag::Marker => Marker::plausible(bio, &header),
             Tag::Signature => Signature::plausible(bio, &header),
 
             Tag::SecretKey => Key::plausible(bio, &header),
