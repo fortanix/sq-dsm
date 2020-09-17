@@ -40,7 +40,7 @@ tokio-core = "0.1"
 rpassword = "5.0"
 
 [build-dependencies]
-clap = "2.27.1"
+clap = "2.32.0"
 
 [dev-dependencies]
 assert_cli = "0.6"
