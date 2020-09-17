@@ -61,22 +61,22 @@ fn main() -> openpgp::Result<()> {
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption();
 #
-#     // Start streaming an OpenPGP message.
-#     let message = Message::new(sink);
+#    // Start streaming an OpenPGP message.
+#    let message = Message::new(sink);
 #
 #    // We want to encrypt a literal data packet.
-#    let encryptor = Encryptor::for_recipients(message, recipients)
+#    let message = Encryptor::for_recipients(message, recipients)
 #        .build()?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
+#     let mut message = LiteralWriter::new(message).build()?;
 #
 #     // Encrypt the data.
-#     literal_writer.write_all(plaintext.as_bytes())?;
+#     message.write_all(plaintext.as_bytes())?;
 #
 #     // Finalize the OpenPGP message to make sure that all data is
 #     // written.
-#     literal_writer.finalize()?;
+#     message.finalize()?;
 #
 #     Ok(())
 # }
@@ -209,22 +209,22 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption();
 #
-#     // Start streaming an OpenPGP message.
-#     let message = Message::new(sink);
+#    // Start streaming an OpenPGP message.
+#    let message = Message::new(sink);
 #
 #    // We want to encrypt a literal data packet.
-#    let encryptor = Encryptor::for_recipients(message, recipients)
+#    let message = Encryptor::for_recipients(message, recipients)
 #        .build()?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
+#     let mut message = LiteralWriter::new(message).build()?;
 #
 #     // Encrypt the data.
-#     literal_writer.write_all(plaintext.as_bytes())?;
+#     message.write_all(plaintext.as_bytes())?;
 #
 #     // Finalize the OpenPGP message to make sure that all data is
 #     // written.
-#     literal_writer.finalize()?;
+#     message.finalize()?;
 #
 #     Ok(())
 # }
@@ -361,18 +361,18 @@ fn encrypt(policy: &dyn Policy,
     let message = Message::new(sink);
 
     // We want to encrypt a literal data packet.
-    let encryptor = Encryptor::for_recipients(message, recipients)
+    let message = Encryptor::for_recipients(message, recipients)
         .build()?;
 
     // Emit a literal data packet.
-    let mut literal_writer = LiteralWriter::new(encryptor).build()?;
+    let mut message = LiteralWriter::new(message).build()?;
 
     // Encrypt the data.
-    literal_writer.write_all(plaintext.as_bytes())?;
+    message.write_all(plaintext.as_bytes())?;
 
     // Finalize the OpenPGP message to make sure that all data is
     // written.
-    literal_writer.finalize()?;
+    message.finalize()?;
 
     Ok(())
 }
@@ -519,22 +519,22 @@ Decrypted data can be read from this using [`io::Read`].
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
 #        .for_transport_encryption();
 #
-#     // Start streaming an OpenPGP message.
-#     let message = Message::new(sink);
+#    // Start streaming an OpenPGP message.
+#    let message = Message::new(sink);
 #
 #    // We want to encrypt a literal data packet.
-#    let encryptor = Encryptor::for_recipients(message, recipients)
+#    let message = Encryptor::for_recipients(message, recipients)
 #        .build()?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(encryptor).build()?;
+#     let mut message = LiteralWriter::new(message).build()?;
 #
 #     // Encrypt the data.
-#     literal_writer.write_all(plaintext.as_bytes())?;
+#     message.write_all(plaintext.as_bytes())?;
 #
 #     // Finalize the OpenPGP message to make sure that all data is
 #     // written.
-#     literal_writer.finalize()?;
+#     message.finalize()?;
 #
 #     Ok(())
 # }

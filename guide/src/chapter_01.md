@@ -68,17 +68,17 @@ fn main() -> openpgp::Result<()> {
 #     let message = Message::new(sink);
 #
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, keypair).build()?;
+#     let message = Signer::new(message, keypair).build()?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(signer).build()?;
+#     let mut message = LiteralWriter::new(message).build()?;
 #
 #     // Sign the data.
-#     literal_writer.write_all(plaintext.as_bytes())?;
+#     message.write_all(plaintext.as_bytes())?;
 #
 #     // Finalize the OpenPGP message to make sure that all data is
 #     // written.
-#     literal_writer.finalize()?;
+#     message.finalize()?;
 #
 #     Ok(())
 # }
@@ -219,17 +219,17 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #     let message = Message::new(sink);
 #
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, keypair).build()?;
+#     let message = Signer::new(message, keypair).build()?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(signer).build()?;
+#     let mut message = LiteralWriter::new(message).build()?;
 #
 #     // Sign the data.
-#     literal_writer.write_all(plaintext.as_bytes())?;
+#     message.write_all(plaintext.as_bytes())?;
 #
 #     // Finalize the OpenPGP message to make sure that all data is
 #     // written.
-#     literal_writer.finalize()?;
+#     message.finalize()?;
 #
 #     Ok(())
 # }
@@ -370,17 +370,17 @@ fn sign(policy: &dyn Policy,
     let message = Message::new(sink);
 
     // We want to sign a literal data packet.
-    let signer = Signer::new(message, keypair).build()?;
+    let message = Signer::new(message, keypair).build()?;
 
     // Emit a literal data packet.
-    let mut literal_writer = LiteralWriter::new(signer).build()?;
+    let mut message = LiteralWriter::new(message).build()?;
 
     // Sign the data.
-    literal_writer.write_all(plaintext.as_bytes())?;
+    message.write_all(plaintext.as_bytes())?;
 
     // Finalize the OpenPGP message to make sure that all data is
     // written.
-    literal_writer.finalize()?;
+    message.finalize()?;
 
     Ok(())
 }
@@ -532,17 +532,17 @@ Verified data can be read from this using [`io::Read`].
 #     let message = Message::new(sink);
 #
 #     // We want to sign a literal data packet.
-#     let signer = Signer::new(message, keypair).build()?;
+#     let message = Signer::new(message, keypair).build()?;
 #
 #     // Emit a literal data packet.
-#     let mut literal_writer = LiteralWriter::new(signer).build()?;
+#     let mut message = LiteralWriter::new(message).build()?;
 #
 #     // Sign the data.
-#     literal_writer.write_all(plaintext.as_bytes())?;
+#     message.write_all(plaintext.as_bytes())?;
 #
 #     // Finalize the OpenPGP message to make sure that all data is
 #     // written.
-#     literal_writer.finalize()?;
+#     message.finalize()?;
 #
 #     Ok(())
 # }
