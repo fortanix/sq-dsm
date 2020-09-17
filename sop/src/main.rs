@@ -300,14 +300,12 @@ fn real_main() -> Result<()> {
             let message = stdout(no_armor, armor::Kind::Message)?;
 
             // Encrypt the message.
-            let mut encryptor =
+            let encryptor =
                 Encryptor::for_recipients(message, recipients)
                 .add_passwords(passwords)
                 .symmetric_algo(
                     symmetric_algos.get(0).cloned().unwrap_or_default());
-            if let Some(&a) = aead_algos.get(0) {
-                encryptor = encryptor.aead_algo(a);
-            }
+
             let message = encryptor.build()
                 .context("Failed to create encryptor")?;
 

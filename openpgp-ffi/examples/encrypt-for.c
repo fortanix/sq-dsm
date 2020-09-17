@@ -57,8 +57,7 @@ main (int argc, char **argv)
                               writer,
                               NULL, 0, /* no passwords */
                               recipients, recipients_len,
-                              9 /* AES256 */,
-                              0 /* No AEAD */);
+                              9 /* AES256 */);
   if (writer == NULL)
     error (1, 0, "pgp_encryptor_new: %s", pgp_error_to_string (err));
 

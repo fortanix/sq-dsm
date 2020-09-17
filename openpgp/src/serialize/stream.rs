@@ -2435,6 +2435,10 @@ impl<'a> Encryptor<'a> {
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
+    // Function hidden from the public API due to
+    // https://gitlab.com/sequoia-pgp/sequoia/-/issues/550
+    // It is used only for tests so that it does not bit-rot.
+    #[cfg(test)]
     pub fn aead_algo(mut self, algo: AEADAlgorithm) -> Self {
         self.aead_algo = Some(algo);
         self
