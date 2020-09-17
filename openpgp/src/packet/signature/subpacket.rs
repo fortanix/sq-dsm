@@ -4567,15 +4567,18 @@ impl signature::SignatureBuilder {
     /// Sets the value of the Key Expiration Time subpacket.
     ///
     /// If `None` is given, any expiration subpacket is removed.
-    pub fn set_key_expiration_time<P, R>(
+    pub fn set_key_expiration_time<P, R, E>(
         self,
         key: &Key<P, R>,
-        expiration: Option<time::SystemTime>)
+        expiration: E)
         -> Result<Self>
         where P: key::KeyParts,
               R: key::KeyRole,
+              E: Into<Option<time::SystemTime>>,
     {
-        if let Some(e) = expiration.map(crate::types::normalize_systemtime) {
+        if let Some(e) = expiration.into()
+            .map(crate::types::normalize_systemtime)
+        {
             let ct = key.creation_time();
             let vp = match e.duration_since(ct) {
                 Ok(v) => v,
