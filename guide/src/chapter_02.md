@@ -22,21 +22,23 @@ use openpgp::policy::StandardPolicy as P;
 
 const MESSAGE: &'static str = "дружба";
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let p = &P::new();
 
     // Generate a key.
-    let key = generate().unwrap();
+    let key = generate()?;
 
     // Encrypt the message.
     let mut ciphertext = Vec::new();
-    encrypt(p, &mut ciphertext, MESSAGE, &key).unwrap();
+    encrypt(p, &mut ciphertext, MESSAGE, &key)?;
 
     // Decrypt the message.
     let mut plaintext = Vec::new();
-    decrypt(p, &mut plaintext, &ciphertext, &key).unwrap();
+    decrypt(p, &mut plaintext, &ciphertext, &key)?;
 
     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
+
+    Ok(())
 }
 #
 # /// Generates an encryption-capable key.
@@ -168,21 +170,23 @@ create it:
 #
 # const MESSAGE: &'static str = "дружба";
 #
-# fn main() {
+# fn main() -> openpgp::Result<()> {
 #     let p = &P::new();
 #
 #     // Generate a key.
-#     let key = generate().unwrap();
+#     let key = generate()?;
 #
 #     // Encrypt the message.
 #     let mut ciphertext = Vec::new();
-#     encrypt(p, &mut ciphertext, MESSAGE, &key).unwrap();
+#     encrypt(p, &mut ciphertext, MESSAGE, &key)?;
 #
 #     // Decrypt the message.
 #     let mut plaintext = Vec::new();
-#     decrypt(p, &mut plaintext, &ciphertext, &key).unwrap();
+#     decrypt(p, &mut plaintext, &ciphertext, &key)?;
 #
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
+#
+#     Ok(())
 # }
 #
 /// Generates an encryption-capable key.
@@ -314,21 +318,23 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 # const MESSAGE: &'static str = "дружба";
 #
-# fn main() {
+# fn main() -> openpgp::Result<()> {
 #     let p = &P::new();
 #
 #     // Generate a key.
-#     let key = generate().unwrap();
+#     let key = generate()?;
 #
 #     // Encrypt the message.
 #     let mut ciphertext = Vec::new();
-#     encrypt(p, &mut ciphertext, MESSAGE, &key).unwrap();
+#     encrypt(p, &mut ciphertext, MESSAGE, &key)?;
 #
 #     // Decrypt the message.
 #     let mut plaintext = Vec::new();
-#     decrypt(p, &mut plaintext, &ciphertext, &key).unwrap();
+#     decrypt(p, &mut plaintext, &ciphertext, &key)?;
 #
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
+#
+#     Ok(())
 # }
 #
 # /// Generates an encryption-capable key.
@@ -474,21 +480,23 @@ Decrypted data can be read from this using [`io::Read`].
 #
 # const MESSAGE: &'static str = "дружба";
 #
-# fn main() {
+# fn main() -> openpgp::Result<()> {
 #     let p = &P::new();
 #
 #     // Generate a key.
-#     let key = generate().unwrap();
+#     let key = generate()?;
 #
 #     // Encrypt the message.
 #     let mut ciphertext = Vec::new();
-#     encrypt(p, &mut ciphertext, MESSAGE, &key).unwrap();
+#     encrypt(p, &mut ciphertext, MESSAGE, &key)?;
 #
 #     // Decrypt the message.
 #     let mut plaintext = Vec::new();
-#     decrypt(p, &mut plaintext, &ciphertext, &key).unwrap();
+#     decrypt(p, &mut plaintext, &ciphertext, &key)?;
 #
 #     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
+#
+#     Ok(())
 # }
 #
 # /// Generates an encryption-capable key.

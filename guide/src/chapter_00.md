@@ -57,7 +57,7 @@ your favorite editor, and enter:
 extern crate sequoia_openpgp as openpgp;
 use std::io;
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let mut reader = openpgp::armor::Reader::from_bytes(
        b"-----BEGIN PGP ARMORED FILE-----
 
@@ -65,7 +65,9 @@ fn main() {
          =XLsG
          -----END PGP ARMORED FILE-----", None);
 
-    io::copy(&mut reader, &mut io::stdout()).unwrap();
+    io::copy(&mut reader, &mut io::stdout())?;
+
+    Ok(())
 }
 ```
 

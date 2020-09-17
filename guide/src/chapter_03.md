@@ -40,8 +40,8 @@ const KEY: &str =
      =MHBq
      -----END PGP PUBLIC KEY BLOCK-----";
 
-fn main() {
-    let cert = openpgp::Cert::from_bytes(KEY.as_bytes()).unwrap();
+fn main() -> openpgp::Result<()> {
+    let cert = openpgp::Cert::from_bytes(KEY.as_bytes())?;
 
     assert_eq!(cert.fingerprint().to_string(),
                "C087 4478 A65C 540A 1F73  72B4 A22E AD61 4D11 744A");
@@ -56,6 +56,8 @@ fn main() {
                "67A4 8753 A380 A6B3 B7DF  7DC5 E6C6 897A 4CEF 8924");
     assert_eq!(cert.keys().subkeys().nth(1).unwrap().key().fingerprint().to_string(),
                "185C DAA1 2723 0423 19E4  7F67 108F 2CAF 9034 356D");
+
+    Ok(())
 }
 ```
 
@@ -83,10 +85,12 @@ const MESSAGE: &str =
      =AqoO
      -----END PGP MESSAGE-----";
 
-fn main() {
-    let message = openpgp::Message::from_bytes(MESSAGE.as_bytes()).unwrap();
+fn main() -> openpgp::Result<()> {
+    let message = openpgp::Message::from_bytes(MESSAGE.as_bytes())?;
 
     assert_eq!(message.body().unwrap().body(), "صداقة".as_bytes());
+
+    Ok(())
 }
 ```
 
@@ -117,8 +121,8 @@ const MESSAGE: &str =
      =AqoO
      -----END PGP MESSAGE-----";
 
-fn main() {
-    let pile = openpgp::PacketPile::from_bytes(MESSAGE.as_bytes()).unwrap();
+fn main() -> openpgp::Result<()> {
+    let pile = openpgp::PacketPile::from_bytes(MESSAGE.as_bytes())?;
 
     // For simplicity, turn the pile into a vector of packets.
     let packets: Vec<openpgp::Packet> = pile.into_children().collect();
@@ -147,6 +151,8 @@ fn main() {
     } else {
         panic!("expected signature packet");
     }
+
+    Ok(())
 }
 ```
 
@@ -196,11 +202,11 @@ const MESSAGE: &str =
      =eySo
      -----END PGP MESSAGE-----";
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let mut bytes_read = 0;
     let mut buf = vec![0; 1024 * 1024];
 
-    let mut ppr = PacketParser::from_bytes(MESSAGE.as_bytes()).unwrap();
+    let mut ppr = PacketParser::from_bytes(MESSAGE.as_bytes())?;
     while let PacketParserResult::Some(mut pp) = ppr {
         // Match on the kind of packet here while it is in the parser.
         if let openpgp::Packet::Literal(_) = pp.packet {
@@ -211,9 +217,11 @@ fn main() {
         }
 
         // Start parsing the next packet.
-        ppr = pp.recurse().unwrap().1;
+        ppr = pp.recurse()?.1;
     }
 
     assert_eq!(bytes_read, 128 * 1024 * 1024);    // 128 megabytes
+
+    Ok(())
 }
 ```
