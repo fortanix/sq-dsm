@@ -3657,7 +3657,7 @@ impl signature::SignatureBuilder {
     /// }
     ///
     /// // Merge in the new signatures.
-    /// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+    /// let cert = cert.merge_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(())
     /// # }
@@ -3930,7 +3930,6 @@ impl signature::SignatureBuilder {
     /// Create a signature that expires in 10 minutes:
     ///
     /// ```
-    /// use std::convert::TryFrom;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::signature::SignatureBuilder;
@@ -4501,7 +4500,6 @@ impl signature::SignatureBuilder {
     /// new binding signature's) creation time.
     ///
     /// ```
-    /// use std::convert::TryFrom;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;
@@ -4514,9 +4512,6 @@ impl signature::SignatureBuilder {
     ///
     /// let (cert, _) =
     ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
-    /// #       // Make sure the new signatures are younger.
-    /// #       .set_creation_time(std::time::SystemTime::now()
-    /// #                          - std::time::Duration::new(10, 0))
     ///         .generate()?;
     /// let pk = cert.primary_key().key();
     /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
@@ -4532,15 +4527,11 @@ impl signature::SignatureBuilder {
     ///     sigs.push(sig);
     /// }
     ///
-    /// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+    /// let cert = cert.merge_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// #
     /// # // "Before"
-    /// # for key in cert
-    /// #     .with_policy(p, std::time::SystemTime::now()
-    /// #         - std::time::Duration::new(5, 0))?
-    /// #     .keys().subkeys()
-    /// # {
+    /// # for key in cert.with_policy(p, None)?.keys().subkeys() {
     /// #     assert_eq!(key.bundle().self_signatures().len(), 2);
     /// #     assert!(key.alive().is_ok());
     /// # }
@@ -5960,7 +5951,7 @@ impl signature::SignatureBuilder {
     /// }
     ///
     /// // Merge in the new signatures.
-    /// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+    /// let cert = cert.merge_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(())
     /// # }
@@ -6319,7 +6310,7 @@ impl signature::SignatureBuilder {
     /// }
     ///
     /// // Merge in the new signatures.
-    /// let cert = cert.merge_packets(sigs.into_iter().map(Packet::from))?;
+    /// let cert = cert.merge_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(())
     /// # }
