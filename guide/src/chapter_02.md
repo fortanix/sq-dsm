@@ -55,7 +55,7 @@ fn main() -> openpgp::Result<()> {
 #
 # /// Encrypts the given message.
 # fn encrypt(policy: &dyn Policy,
-#            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
+#            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
@@ -83,7 +83,7 @@ fn main() -> openpgp::Result<()> {
 #
 # /// Decrypts the given message.
 # fn decrypt(policy: &dyn Policy,
-#            sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
+#            sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
@@ -203,7 +203,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #
 # /// Encrypts the given message.
 # fn encrypt(policy: &dyn Policy,
-#            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
+#            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
@@ -231,7 +231,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #
 # /// Decrypts the given message.
 # fn decrypt(policy: &dyn Policy,
-#            sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
+#            sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
@@ -351,7 +351,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 /// Encrypts the given message.
 fn encrypt(policy: &dyn Policy,
-           sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
+           sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     let recipients =
         recipient.keys().with_policy(policy, None).alive().revoked(false)
@@ -379,7 +379,7 @@ fn encrypt(policy: &dyn Policy,
 #
 # /// Decrypts the given message.
 # fn decrypt(policy: &dyn Policy,
-#            sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
+#            sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #     // Make a helper that that feeds the recipient's secret key to the
 #     // decryptor.
@@ -513,7 +513,7 @@ Decrypted data can be read from this using [`io::Read`].
 #
 # /// Encrypts the given message.
 # fn encrypt(policy: &dyn Policy,
-#            sink: &mut Write, plaintext: &str, recipient: &openpgp::Cert)
+#            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).alive().revoked(false)
@@ -541,7 +541,7 @@ Decrypted data can be read from this using [`io::Read`].
 #
 /// Decrypts the given message.
 fn decrypt(policy: &dyn Policy,
-           sink: &mut Write, ciphertext: &[u8], recipient: &openpgp::Cert)
+           sink: &mut dyn Write, ciphertext: &[u8], recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Make a helper that that feeds the recipient's secret key to the
     // decryptor.

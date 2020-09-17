@@ -55,7 +55,7 @@ fn main() -> openpgp::Result<()> {
 #
 # /// Signs the given message.
 # fn sign(policy: &dyn Policy,
-#         sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
+#         sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
@@ -85,7 +85,7 @@ fn main() -> openpgp::Result<()> {
 #
 # /// Verifies the given message.
 # fn verify(policy: &dyn Policy,
-#           sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
+#           sink: &mut dyn Write, signed_message: &[u8], sender: &openpgp::Cert)
 #           -> openpgp::Result<()> {
 #     // Make a helper that that feeds the sender's public key to the
 #     // verifier.
@@ -206,7 +206,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #
 # /// Signs the given message.
 # fn sign(policy: &dyn Policy,
-#         sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
+#         sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
@@ -236,7 +236,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #
 # /// Verifies the given message.
 # fn verify(policy: &dyn Policy,
-#           sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
+#           sink: &mut dyn Write, signed_message: &[u8], sender: &openpgp::Cert)
 #           -> openpgp::Result<()> {
 #     // Make a helper that that feeds the sender's public key to the
 #     // verifier.
@@ -357,7 +357,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 /// Signs the given message.
 fn sign(policy: &dyn Policy,
-        sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
+        sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
     -> openpgp::Result<()>
 {
     // Get the keypair to do the signing from the Cert.
@@ -387,7 +387,7 @@ fn sign(policy: &dyn Policy,
 #
 # /// Verifies the given message.
 # fn verify(policy: &dyn Policy,
-#           sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
+#           sink: &mut dyn Write, signed_message: &[u8], sender: &openpgp::Cert)
 #           -> openpgp::Result<()> {
 #     // Make a helper that that feeds the sender's public key to the
 #     // verifier.
@@ -519,7 +519,7 @@ Verified data can be read from this using [`io::Read`].
 #
 # /// Signs the given message.
 # fn sign(policy: &dyn Policy,
-#         sink: &mut Write, plaintext: &str, tsk: &openpgp::Cert)
+#         sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
@@ -549,7 +549,7 @@ Verified data can be read from this using [`io::Read`].
 #
 /// Verifies the given message.
 fn verify(policy: &dyn Policy,
-          sink: &mut Write, signed_message: &[u8], sender: &openpgp::Cert)
+          sink: &mut dyn Write, signed_message: &[u8], sender: &openpgp::Cert)
           -> openpgp::Result<()> {
     // Make a helper that that feeds the sender's public key to the
     // verifier.
