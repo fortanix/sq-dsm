@@ -37,11 +37,7 @@ prettytable-rs = "0.8.0"
 tempfile = "3.0.4"
 crossterm = "0.13"
 tokio-core = "0.1"
-
-# XXX: We need to pin some dependencies to keep our MSRV at 1.34.  If
-# you are packaging Sequoia, feel free to drop these pins if your
-# compiler is newer.
-rpassword = "=4.0.3"
+rpassword = "5.0"
 
 [build-dependencies]
 clap = "2.27.1"
