@@ -17,136 +17,6 @@ use crate::Packet;
 use crate::Error;
 
 /// A conventionally parsed UserID.
-///
-/// Informally, conventional UserIDs are of the form:
-///
-///   - First Last (Comment) <name@example.org>
-///   - First Last <name@example.org>
-///   - First Last
-///   - name@example.org <name@example.org>
-///   - <name@example.org>
-///   - name@example.org
-///
-///   - Name (Comment) <scheme://hostname/path>
-///   - Name (Comment) <mailto:user@example.org>
-///   - Name <scheme://hostname/path>
-///   - <scheme://hostname/path>
-///   - scheme://hostname/path
-///
-/// Names consist of UTF-8 non-control characters and may include
-/// punctuation.  For instance, the following names are valid:
-///
-///   - Acme Industries, Inc.
-///   - Michael O'Brian
-///   - Smith, John
-///   - e.e. cummings
-///
-/// (Note: according to RFC 2822 and its successors, all of these
-/// would need to be quoted.  Conventionally, no implementation quotes
-/// names.)
-///
-/// Conventional User IDs are UTF-8.  RFC 2822 only covers US-ASCII
-/// and allows character set switching using RFC 2047.  For example,
-/// an RFC 2822 parser would parse:
-///
-///    - Bj=?utf-8?q?=C3=B6?=rn Bj=?utf-8?q?=C3=B6?=rnson
-///
-/// "Björn Björnson".  Nobody uses this in practice, and, as such,
-/// this extension is not supported by this parser.
-///
-/// Comments can include any UTF-8 text except parentheses.  Thus, the
-/// following is not a valid comment even though the parentheses are
-/// balanced:
-///
-///   - (foo (bar))
-///
-/// URIs
-/// ----
-///
-/// The URI parser recognizes URIs using a regular expression similar
-/// to the one recommended in [RFC 3986] with the following extensions
-/// and restrictions:
-///
-///   - UTF-8 characters are in the range \u{80}-\u{10ffff} are
-///     allowed wherever percent-encoded characters are allowed (i.e.,
-///     everywhere but the schema).
-///
-///   - The scheme component and its trailing ":" are required.
-///
-///   - The URI must have an authority component ("//domain") or a
-///     path component ("/path/to/resource").
-///
-///   - Although the RFC does not allow it, in practice, the '[' and
-///     ']' characters are allowed wherever percent-encoded characters
-///     are allowed (i.e., everywhere but the schema).
-///
-/// URIs are neither normalized nor interpreted.  For instance, dot
-/// segments are not removed, escape sequences are not decoded, etc.
-///
-/// Note: the recommended regular expression is less strict than the
-/// grammar.  For instance, a percent encoded character must consist
-/// of three characters: the percent character followed by two hex
-/// digits.  The parser that we use does not enforce this either.
-///
-///   [RFC 3986]: https://tools.ietf.org/html/rfc3986
-///
-/// Formal Grammar
-/// --------------
-///
-/// Formally, the following grammar is used to decompose a User ID:
-///
-///   WS                 = 0x20 (space character)
-///
-///   comment-specials   = "<" / ">" /   ; RFC 2822 specials - "(" and ")"
-///                        "[" / "]" /
-///                        ":" / ";" /
-///                        "@" / "\" /
-///                        "," / "." /
-///                        DQUOTE
-///
-///   atext-specials     = "(" / ")" /   ; RFC 2822 specials - "<" and ">".
-///                        "[" / "]" /
-///                        ":" / ";" /
-///                        "@" / "\" /
-///                        "," / "." /
-///                        DQUOTE
-///
-///   atext              = ALPHA / DIGIT /   ; Any character except controls,
-///                        "!" / "#" /       ;  SP, and specials.
-///                        "$" / "%" /       ;  Used for atoms
-///                        "&" / "'" /
-///                        "*" / "+" /
-///                        "-" / "/" /
-///                        "=" / "?" /
-///                        "^" / "_" /
-///                        "`" / "{" /
-///                        "|" / "}" /
-///                        "~" /
-///                        \u{80}-\u{10ffff} ; Non-ascii, non-control UTF-8
-///
-///   dot_atom_text      = 1*atext *("." *atext)
-///
-///   name-char-start    = atext / atext-specials
-///
-///   name-char-rest     = atext / atext-specials / WS
-///
-///   name               = name-char-start *name-char-rest
-///
-///   comment-char       = atext / comment-specials / WS
-///
-///   comment-content    = *comment-char
-///
-///   comment            = "(" *WS comment-content *WS ")"
-///
-///   addr-spec          = dot-atom-text "@" dot-atom-text
-///
-///   uri                = See [RFC 3986] and the note on URIs above.
-///
-///   pgp-uid-convention = addr-spec /
-///                        uri /
-///                        *WS [name] *WS [comment] *WS "<" addr-spec ">" /
-///                        *WS [name] *WS [comment] *WS "<" uri ">" /
-///                        *WS name *WS [comment] *WS
 #[derive(Clone, Debug)]
 pub struct ConventionallyParsedUserID {
     userid: String,
@@ -428,9 +298,167 @@ impl ConventionallyParsedUserID {
 
 /// Holds a UserID packet.
 ///
-/// See [Section 5.11 of RFC 4880] for details.
+/// The standard imposes no structure on UserIDs, but suggests to
+/// follow [RFC 2822].  See [Section 5.11 of RFC 4880] for details.
+/// In practice though, implementations do not follow [RFC 2822], or
+/// do not even help their users in producing well-formed User IDs.
+/// Experience has shown that parsing User IDs using [RFC 2822] does
+/// not work, so we are taking a more pragmatic approach and define
+/// what we call *Conventional User IDs*.
 ///
+///   [RFC 2822]: https://tools.ietf.org/html/rfc2822
 ///   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
+///
+/// Using this definition, we provide methods to extract the [name],
+/// [comment], [email address], or [URI] from `UserID` packets.
+/// Furthermore, we provide a way to [canonicalize the email address]
+/// found in a `UserID` packet.  we provide [two] [constructors] that
+/// create well-formed User IDs from email address, and optional name
+/// and comment.
+///
+///   [name]: #method.name
+///   [comment]: #method.comment
+///   [email address]: #method.email
+///   [URI]: #method.uri
+///   [canonicalize the email address]: #method.email_normalized
+///   [two]: #method.from_address
+///   [constructors]: #method.from_unchecked_address
+///
+/// # Conventional User IDs
+///
+/// Informally, conventional User IDs are of the form:
+///
+///   - `First Last (Comment) <name@example.org>`
+///   - `First Last <name@example.org>`
+///   - `First Last`
+///   - `name@example.org <name@example.org>`
+///   - `<name@example.org>`
+///   - `name@example.org`
+///
+///   - `Name (Comment) <scheme://hostname/path>`
+///   - `Name (Comment) <mailto:user@example.org>`
+///   - `Name <scheme://hostname/path>`
+///   - `<scheme://hostname/path>`
+///   - `scheme://hostname/path`
+///
+/// Names consist of UTF-8 non-control characters and may include
+/// punctuation.  For instance, the following names are valid:
+///
+///   - `Acme Industries, Inc.`
+///   - `Michael O'Brian`
+///   - `Smith, John`
+///   - `e.e. cummings`
+///
+/// (Note: according to [RFC 2822] and its successors, all of these
+/// would need to be quoted.  Conventionally, no implementation quotes
+/// names.)
+///
+/// Conventional User IDs are UTF-8.  [RFC 2822] only covers US-ASCII
+/// and allows character set switching using [RFC 2047].  For example,
+/// an [RFC 2822] parser would parse:
+///
+///    - <code>Bj=?utf-8?q?=C3=B6?=rn Bj=?utf-8?q?=C3=B6?=rnson</code>
+///
+///   [RFC 2047]: https://tools.ietf.org/html/rfc2047
+///
+/// "Björn Björnson".  Nobody uses this in practice, and, as such,
+/// this extension is not supported by this parser.
+///
+/// Comments can include any UTF-8 text except parentheses.  Thus, the
+/// following is not a valid comment even though the parentheses are
+/// balanced:
+///
+///   - `(foo (bar))`
+///
+/// URIs
+/// ----
+///
+/// The URI parser recognizes URIs using a regular expression similar
+/// to the one recommended in [RFC 3986] with the following extensions
+/// and restrictions:
+///
+///   - UTF-8 characters are in the range `\u{80}-\u{10ffff}` are
+///     allowed wherever percent-encoded characters are allowed (i.e.,
+///     everywhere but the schema).
+///
+///   - The scheme component and its trailing `:` are required.
+///
+///   - The URI must have an authority component (`//domain`) or a
+///     path component (`/path/to/resource`).
+///
+///   - Although the RFC does not allow it, in practice, the `[` and
+///     `]` characters are allowed wherever percent-encoded characters
+///     are allowed (i.e., everywhere but the schema).
+///
+/// URIs are neither normalized nor interpreted.  For instance, dot
+/// segments are not removed, escape sequences are not decoded, etc.
+///
+/// Note: the recommended regular expression is less strict than the
+/// grammar.  For instance, a percent encoded character must consist
+/// of three characters: the percent character followed by two hex
+/// digits.  The parser that we use does not enforce this either.
+///
+///   [RFC 3986]: https://tools.ietf.org/html/rfc3986
+///
+/// Formal Grammar
+/// --------------
+///
+/// Formally, the following grammar is used to decompose a User ID:
+///
+/// ```text
+///   WS                 = 0x20 (space character)
+///
+///   comment-specials   = "<" / ">" /   ; RFC 2822 specials - "(" and ")"
+///                        "[" / "]" /
+///                        ":" / ";" /
+///                        "@" / "\" /
+///                        "," / "." /
+///                        DQUOTE
+///
+///   atext-specials     = "(" / ")" /   ; RFC 2822 specials - "<" and ">".
+///                        "[" / "]" /
+///                        ":" / ";" /
+///                        "@" / "\" /
+///                        "," / "." /
+///                        DQUOTE
+///
+///   atext              = ALPHA / DIGIT /   ; Any character except controls,
+///                        "!" / "#" /       ;  SP, and specials.
+///                        "$" / "%" /       ;  Used for atoms
+///                        "&" / "'" /
+///                        "*" / "+" /
+///                        "-" / "/" /
+///                        "=" / "?" /
+///                        "^" / "_" /
+///                        "`" / "{" /
+///                        "|" / "}" /
+///                        "~" /
+///                        \u{80}-\u{10ffff} ; Non-ascii, non-control UTF-8
+///
+///   dot_atom_text      = 1*atext *("." *atext)
+///
+///   name-char-start    = atext / atext-specials
+///
+///   name-char-rest     = atext / atext-specials / WS
+///
+///   name               = name-char-start *name-char-rest
+///
+///   comment-char       = atext / comment-specials / WS
+///
+///   comment-content    = *comment-char
+///
+///   comment            = "(" *WS comment-content *WS ")"
+///
+///   addr-spec          = dot-atom-text "@" dot-atom-text
+///
+///   uri                = See [RFC 3986] and the note on URIs above.
+///
+///   pgp-uid-convention = addr-spec /
+///                        uri /
+///                        *WS [name] *WS [comment] *WS "<" addr-spec ">" /
+///                        *WS [name] *WS [comment] *WS "<" uri ">" /
+///                        *WS name *WS [comment] *WS
+/// ```
 pub struct UserID {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
@@ -656,14 +684,16 @@ impl UserID {
 
     /// Constructs a User ID.
     ///
-    /// This does a basic check and any necessary escaping to form a de
-    /// facto User ID.
+    /// This does a basic check and any necessary escaping to form a
+    /// [conventional User ID].
     ///
     /// Only the address is required.  If a comment is supplied, then
     /// a name is also required.
     ///
     /// If you already have a User ID value, then you can just
     /// use `UserID::from()`.
+    ///
+    ///   [conventional User ID]: #conventional-user-ids
     ///
     /// ```
     /// # extern crate sequoia_openpgp as openpgp;
@@ -686,14 +716,17 @@ impl UserID {
 
     /// Constructs a User ID.
     ///
-    /// This does a basic check and any necessary escaping to form a de
-    /// facto User ID modulo the address, which is not checked.
+    /// This does a basic check and any necessary escaping to form a
+    /// [conventional User ID] modulo the address, which is not
+    /// checked.
     ///
     /// This is useful when you want to specify a URI instead of an
     /// email address.
     ///
     /// If you already have a User ID value, then you can just
     /// use `UserID::from()`.
+    ///
+    ///   [conventional User ID]: #conventional-user-ids
     ///
     /// ```
     /// # extern crate sequoia_openpgp as openpgp;
@@ -715,6 +748,19 @@ impl UserID {
     }
 
     /// Gets the user ID packet's value.
+    ///
+    /// This returns the raw, uninterpreted value.  See
+    /// [`UserID::name`], [`UserID::email`],
+    /// [`UserID::email_normalized`], [`UserID::uri`], and
+    /// [`UserID::comment`] for how to extract parts of [conventional
+    /// User ID]s.
+    ///
+    ///   [`UserID::name`]: #method.name
+    ///   [`UserID::email`]: #method.email
+    ///   [`UserID::email_normalized`]: #method.email_normalized
+    ///   [`UserID::uri`]: #method.uri
+    ///   [`UserID::comment`]: #method.comment
+    ///   [conventional User ID]: #conventional-user-ids
     pub fn value(&self) -> &[u8] {
         self.value.as_slice()
     }
@@ -739,6 +785,10 @@ impl UserID {
 
     /// Parses the User ID according to de facto conventions, and
     /// returns the name component, if any.
+    ///
+    /// See [conventional User ID] for more information.
+    ///
+    ///   [conventional User ID]: #conventional-user-ids
     pub fn name(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.lock().unwrap().borrow() {
@@ -749,6 +799,10 @@ impl UserID {
 
     /// Parses the User ID according to de facto conventions, and
     /// returns the comment field, if any.
+    ///
+    /// See [conventional User ID] for more information.
+    ///
+    ///   [conventional User ID]: #conventional-user-ids
     pub fn comment(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.lock().unwrap().borrow() {
@@ -759,6 +813,10 @@ impl UserID {
 
     /// Parses the User ID according to de facto conventions, and
     /// returns the email address, if any.
+    ///
+    /// See [conventional User ID] for more information.
+    ///
+    ///   [conventional User ID]: #conventional-user-ids
     pub fn email(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.lock().unwrap().borrow() {
@@ -769,6 +827,10 @@ impl UserID {
 
     /// Parses the User ID according to de facto conventions, and
     /// returns the URI, if any.
+    ///
+    /// See [conventional User ID] for more information.
+    ///
+    ///   [conventional User ID]: #conventional-user-ids
     pub fn uri(&self) -> Result<Option<String>> {
         self.do_parse()?;
         match *self.parsed.lock().unwrap().borrow() {
