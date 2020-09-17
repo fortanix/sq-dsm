@@ -4471,6 +4471,12 @@ impl signature::SignatureBuilder {
     ///
     /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
     ///
+    /// There is a more convenient function
+    /// [`SignatureBuilder::set_key_expiration_time`] that takes an
+    /// absolute expiration time.
+    ///
+    /// [`SignatureBuilder::set_key_expiration_time`]: #method.set_key_expiration_time
+    ///
     /// A Key Expiration Time subpacket specifies when the associated
     /// key expires.  This is different from the [Signature Expiration
     /// Time subpacket] (set using
@@ -4564,9 +4570,102 @@ impl signature::SignatureBuilder {
         Ok(self)
     }
 
-    /// Sets the value of the Key Expiration Time subpacket.
+    /// Sets the Key Expiration Time subpacket.
+    ///
+    /// Adds a [Key Expiration Time subpacket] to the hashed subpacket
+    /// area.  This function first removes any Key Expiration Time
+    /// subpacket from the hashed subpacket area.
     ///
     /// If `None` is given, any expiration subpacket is removed.
+    ///
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    ///
+    /// This function is called `set_key_expiration_time` similar to
+    /// the subpacket's name, but it takes an absolute time, whereas
+    /// the subpacket stores a time relative to the associated key's
+    /// (*not* the signature's) creation time, which is stored in the
+    /// [Key].
+    ///
+    /// [Key]: https://tools.ietf.org/html/rfc4880#section-5.5.2
+    ///
+    /// This is a more convenient function than
+    /// [`SignatureBuilder::set_key_validity_period`] that takes a
+    /// relative expiration time.
+    ///
+    /// [`SignatureBuilder::set_key_validity_period`]: #method.set_key_validity_period
+    ///
+    /// A Key Expiration Time subpacket specifies when the associated
+    /// key expires.  This is different from the [Signature Expiration
+    /// Time subpacket] (set using
+    /// [`SignatureBuilder::set_signature_validity_period`]), which is
+    /// used to specify when the signature expires.  That is, in the
+    /// former case, the associated key expires, but in the latter
+    /// case, the signature itself expires.  This difference is
+    /// critical: if a binding signature expires, then an OpenPGP
+    /// implementation will still consider the associated key to be
+    /// valid if there is another valid binding signature, even if it
+    /// is older than the expired signature; if the active binding
+    /// signature indicates that the key has expired, then OpenPGP
+    /// implementations will not fallback to an older binding
+    /// signature.
+    ///
+    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+    /// [`SignatureBuilder::set_signature_validity_period`]: #method.set_signature_validity_period
+    ///
+    /// # Examples
+    ///
+    /// Change all subkeys to expire 10 minutes after their (not the
+    /// new binding signature's) creation time.
+    ///
+    /// ```
+    /// use std::time;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// #
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///         .generate()?;
+    /// let pk = cert.primary_key().key();
+    /// let mut signer = pk.clone().parts_into_secret()?.into_keypair()?;
+    ///
+    /// // Create the binding signatures.
+    /// let mut sigs = Vec::new();
+    ///
+    /// for key in cert.with_policy(p, None)?.keys().subkeys() {
+    ///     // This reuses any existing backsignature.
+    ///     let sig = SignatureBuilder::from(key.binding_signature().clone())
+    ///         .set_key_expiration_time(&key,
+    ///                                  time::SystemTime::now()
+    ///                                  + time::Duration::new(10 * 60, 0))?
+    ///         .sign_subkey_binding(&mut signer, &pk, &key)?;
+    ///     sigs.push(sig);
+    /// }
+    ///
+    /// let cert = cert.merge_packets(sigs)?;
+    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// #
+    /// # // "Before"
+    /// # for key in cert.with_policy(p, None)?.keys().subkeys() {
+    /// #     assert_eq!(key.bundle().self_signatures().len(), 2);
+    /// #     assert!(key.alive().is_ok());
+    /// # }
+    /// #
+    /// # // "After"
+    /// # for key in cert.with_policy(p, time::SystemTime::now()
+    /// #         + time::Duration::new(20 * 60, 0))?
+    /// #     .keys().subkeys()
+    /// # {
+    /// #     assert!(key.alive().is_err());
+    /// # }
+    /// # Ok(()) }
+    /// ```
     pub fn set_key_expiration_time<P, R, E>(
         self,
         key: &Key<P, R>,
