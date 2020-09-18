@@ -10,19 +10,6 @@ after_script:
   - du -sh $CARGO_TARGET_DIR
   - du -sh $CARGO_HOME
 
-buster:
-  tags:
-    - linux
-  stage: build
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/buster:latest
-
-  script:
-    - make codespell CODESPELL_FLAGS=--summary
-    - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind cargo test -p buffered-reader -p sequoia-openpgp -p sequoia-sqv -p sequoia-openpgp-ffi
-
-  variables:
-    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target.$CI_CONCURRENT_ID.buster
-
 bullseye:
   tags:
     - linux
@@ -30,7 +17,9 @@ bullseye:
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye:latest
 
   script:
-    - make test # XXX: We cannot currently use valgrind, https://github.com/rust-lang/rust/issues/68979
+    - make codespell CODESPELL_FLAGS=--summary
+    - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind cargo test -p buffered-reader -p sequoia-openpgp -p sequoia-sqv -p sequoia-openpgp-ffi
+      #- make test # XXX: We cannot currently use valgrind, https://github.com/rust-lang/rust/issues/68979
     - make
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
     - make -C tool update-usage
