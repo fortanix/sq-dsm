@@ -32,7 +32,6 @@ clap = "2.27.1"
 
 [dev-dependencies]
 assert_cli = "0.6"
-colored = "< 1.9.2"
 
 [[bin]]
 name = "sqv"

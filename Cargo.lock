@@ -379,9 +379,9 @@ dependencies = [
 
 [[package]]
 name = "colored"
-version = "1.9.1"
+version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f930f8b286023ed451756fe2527d73484d667adf9e905e9932e81d52996a343a"
+checksum = "f4ffc801dacf156c5854b9df4f425a626539c3a6ef7893cc0c5084a23f0b6c59"
 dependencies = [
  "atty",
  "lazy_static",
@@ -2014,7 +2014,6 @@ dependencies = [
  "assert_cli",
  "chrono",
  "clap",
- "colored",
  "sequoia-openpgp",
 ]
 
@@ -2047,7 +2046,6 @@ dependencies = [
  "buffered-reader",
  "chrono",
  "clap",
- "colored",
  "crossterm",
  "itertools 0.8.2",
  "prettytable-rs",
