@@ -33,7 +33,7 @@ bzip2 = { version = "0.3.2", optional = true }
 dyn-clone = ">= 1.0.1, < 1.0.2" # Pinned, see below.
 flate2 = { version = "1.0.1", optional = true }
 idna = "0.2"
-lalrpop-util = "0.17"
+lalrpop-util = "0.19"
 lazy_static = "1.3"
 libc = "0.2"
 memsec = "0.5.6"
@@ -53,7 +53,7 @@ ed25519-dalek = { version = "1", default-features = false, features = ["rand", "
 winapi = { version = "0.3", default-features = false, features = ["bcrypt"], optional = true }
 
 [build-dependencies]
-lalrpop = "0.17"
+lalrpop = "0.19"
 
 [dev-dependencies]
 quickcheck = { version = "0.9", default-features = false }
