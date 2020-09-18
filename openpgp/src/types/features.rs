@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::types::Bitfield;
@@ -355,7 +355,7 @@ const FEATURE_FLAG_MDC: usize = 0;
 /// Encrypted Session Key Packets (packet 3).
 const FEATURE_FLAG_AEAD: usize = 1;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Features {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Self::new(Vec::arbitrary(g))

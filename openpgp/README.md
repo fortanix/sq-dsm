@@ -81,15 +81,6 @@ algorithms, `compression-deflate` to enable *DEFLATE* and *zlib*
 compression support, and `compression-bzip2` to enable *bzip2*
 support.
 
-## Testing, debugging, and fuzzing
-
-Sequoia uses [`quickcheck`] in tests.  To use it as a downstream user,
-enable the `x-quickcheck` feature (this feature will be called just
-`quickcheck` once [this feature] is implemented).
-
-[`quickcheck`]: https://docs.rs/quickcheck
-[this feature]: https://github.com/rust-lang/cargo/issues/5565
-
 # Minimum Supported Rust Version (MSRV)
 
 `sequoia-openpgp` requires Rust 1.46.0.

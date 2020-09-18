@@ -35,7 +35,7 @@ use std::cmp;
 use std::str;
 use std::borrow::Cow;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::vec_truncate;
@@ -70,7 +70,7 @@ pub enum Kind {
     File,
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Kind {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use self::Kind::*;

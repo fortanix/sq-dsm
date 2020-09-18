@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::types::Bitfield;
@@ -273,7 +273,7 @@ impl KeyServerPreferences {
 /// by the key holder or an administrator of the key server.
 const KEYSERVER_PREFERENCE_NO_MODIFY: usize = 7;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for KeyServerPreferences {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Self::new(Vec::arbitrary(g))

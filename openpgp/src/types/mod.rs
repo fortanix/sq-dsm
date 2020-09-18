@@ -49,7 +49,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::result;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -267,14 +267,14 @@ impl fmt::Display for PublicKeyAlgorithm {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for PublicKeyAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl PublicKeyAlgorithm {
     pub(crate) fn arbitrary_for_signing<G: Gen>(g: &mut G) -> Self {
         use rand::Rng;
@@ -508,7 +508,7 @@ impl Curve {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Curve {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match u8::arbitrary(g) % 8 {
@@ -681,7 +681,7 @@ impl fmt::Display for SymmetricAlgorithm {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for SymmetricAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
@@ -801,7 +801,7 @@ impl fmt::Display for AEADAlgorithm {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for AEADAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
@@ -948,7 +948,7 @@ impl fmt::Display for CompressionAlgorithm {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for CompressionAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
@@ -1086,7 +1086,7 @@ impl fmt::Display for HashAlgorithm {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for HashAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
@@ -1247,7 +1247,7 @@ impl fmt::Display for SignatureType {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for SignatureType {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
@@ -1395,7 +1395,7 @@ impl fmt::Display for ReasonForRevocation {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for ReasonForRevocation {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
@@ -1646,7 +1646,7 @@ impl fmt::Display for DataFormat {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for DataFormat {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()

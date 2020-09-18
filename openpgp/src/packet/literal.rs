@@ -3,7 +3,7 @@ use std::cmp;
 use std::convert::TryInto;
 use std::time;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::types::{DataFormat, Timestamp};
@@ -174,7 +174,7 @@ impl From<Literal> for Packet {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Literal {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let mut l = Literal::new(DataFormat::arbitrary(g));

@@ -63,9 +63,9 @@ use std::fmt;
 use std::cmp;
 use std::time;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use crate::packet::signature::ArbitraryBounded;
 
 use crate::{
@@ -408,7 +408,7 @@ impl From<SubpacketTag> for u8 {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for SubpacketTag {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()
@@ -504,7 +504,7 @@ pub struct SubpacketArea {
     parsed: Mutex<RefCell<Option<HashMap<SubpacketTag, usize>>>>,
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl ArbitraryBounded for SubpacketArea {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
         use rand::Rng;
@@ -518,7 +518,7 @@ impl ArbitraryBounded for SubpacketArea {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl_arbitrary_with_bound!(SubpacketArea);
 
 impl Default for SubpacketArea {
@@ -976,7 +976,7 @@ pub struct NotationData {
     value: Vec<u8>,
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for NotationData {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         NotationData {
@@ -1021,7 +1021,7 @@ impl NotationData {
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct NotationDataFlags(crate::types::Bitfield);
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for NotationDataFlags {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         NotationDataFlags(vec![u8::arbitrary(g), u8::arbitrary(g),
@@ -1419,7 +1419,7 @@ pub enum SubpacketValue {
     #[doc(hidden)] __Nonexhaustive,
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl ArbitraryBounded for SubpacketValue {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
         use rand::Rng;
@@ -1470,7 +1470,7 @@ impl ArbitraryBounded for SubpacketValue {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl_arbitrary_with_bound!(SubpacketValue);
 
 impl SubpacketValue {
@@ -1575,7 +1575,7 @@ pub struct Subpacket {
     value: SubpacketValue,
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl ArbitraryBounded for Subpacket {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
         use rand::Rng;
@@ -1620,7 +1620,7 @@ impl ArbitraryBounded for Subpacket {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl_arbitrary_with_bound!(Subpacket);
 
 impl fmt::Debug for Subpacket {
@@ -1756,7 +1756,7 @@ pub struct SubpacketAreas {
     unhashed_area: SubpacketArea,
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl ArbitraryBounded for SubpacketAreas {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
         SubpacketAreas::new(ArbitraryBounded::arbitrary_bounded(g, depth),
@@ -1764,7 +1764,7 @@ impl ArbitraryBounded for SubpacketAreas {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl_arbitrary_with_bound!(SubpacketAreas);
 
 impl SubpacketAreas {

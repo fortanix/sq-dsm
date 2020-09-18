@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::{BitAnd, BitOr};
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::types::Bitfield;
@@ -392,7 +392,7 @@ const KEY_FLAG_AUTHENTICATE: usize = 5;
 /// than one person.
 const KEY_FLAG_GROUP_KEY: usize = 7;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for KeyFlags {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         Self::new(Vec::arbitrary(g))

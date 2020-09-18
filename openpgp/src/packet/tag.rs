@@ -2,7 +2,7 @@ use std::fmt;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::packet::Packet;
@@ -216,7 +216,7 @@ impl fmt::Display for Tag {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Tag {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         u8::arbitrary(g).into()

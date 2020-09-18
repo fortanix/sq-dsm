@@ -1,4 +1,4 @@
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::packet;
@@ -35,7 +35,7 @@ impl From<Marker> for Packet {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Marker {
     fn arbitrary<G: Gen>(_: &mut G) -> Self {
         Self::default()

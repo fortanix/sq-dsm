@@ -161,7 +161,7 @@ use std::ops::{Deref, DerefMut};
 use std::slice;
 use std::iter::IntoIterator;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -439,7 +439,7 @@ impl<'a> DerefMut for Packet {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Packet {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use rand::Rng;
@@ -485,7 +485,7 @@ pub struct Common {
     dummy: std::marker::PhantomData<()>,
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Common {
     fn arbitrary<G: Gen>(_: &mut G) -> Self {
         // XXX: Change if this gets interesting fields.

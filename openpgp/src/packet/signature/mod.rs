@@ -118,7 +118,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::time::SystemTime;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -146,7 +146,7 @@ use crate::packet::signature::subpacket::{
     SubpacketTag,
 };
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 /// Like quickcheck::Arbitrary, but bounded.
 trait ArbitraryBounded {
     /// Generates an arbitrary value, but only recurses if `depth >
@@ -154,11 +154,11 @@ trait ArbitraryBounded {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self;
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 /// Default depth when implementing Arbitrary using ArbitraryBounded.
 const DEFAULT_ARBITRARY_DEPTH: usize = 2;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 macro_rules! impl_arbitrary_with_bound {
     ($typ:path) => {
         impl Arbitrary for $typ {
@@ -220,7 +220,7 @@ pub struct SignatureFields {
     subpackets: SubpacketAreas,
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl ArbitraryBounded for SignatureFields {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
         SignatureFields {
@@ -235,7 +235,7 @@ impl ArbitraryBounded for SignatureFields {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl_arbitrary_with_bound!(SignatureFields);
 
 impl Deref for SignatureFields {
@@ -2479,17 +2479,17 @@ impl From<Signature4> for super::Signature {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl ArbitraryBounded for super::Signature {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
         Signature4::arbitrary_bounded(g, depth).into()
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl_arbitrary_with_bound!(super::Signature);
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl ArbitraryBounded for Signature4 {
     fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
         use mpi::MPI;
@@ -2532,7 +2532,7 @@ impl ArbitraryBounded for Signature4 {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl_arbitrary_with_bound!(Signature4);
 
 #[cfg(test)]

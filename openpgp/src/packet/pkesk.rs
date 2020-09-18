@@ -5,7 +5,7 @@
 //!
 //!   [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -190,14 +190,14 @@ impl From<PKESK3> for Packet {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for super::PKESK {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         PKESK3::arbitrary(g).into()
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for PKESK3 {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let (ciphertext, pk_algo) = loop {

@@ -38,8 +38,6 @@ lazy_static = "1.3"
 libc = "0.2"
 memsec = "0.5.6"
 nettle = { version = "7", optional = true }
-quickcheck = { version = "0.9", default-features = false, optional = true }
-rand = { version = "0.7", default-features = false, optional = true }
 regex = "1"
 thiserror = "1"
 backtrace = "0.3.46"
@@ -74,14 +72,6 @@ compression-bzip2 = ["bzip2", "buffered-reader/compression-bzip2"]
 # Vendoring.
 vendored = ["vendored-nettle"]
 vendored-nettle = ["nettle/vendored"]
-
-# Testing, debugging, and fuzzing.
-
-# XXX: This feature should just be called 'quickcheck'.  However, this
-# currently collides with the implicitly created feature for the
-# optional dependency 'quickcheck'.  Blocker:
-# https://github.com/rust-lang/cargo/issues/5565
-x-quickcheck = ["quickcheck", "rand"]
 
 [[example]]
 name = "pad"

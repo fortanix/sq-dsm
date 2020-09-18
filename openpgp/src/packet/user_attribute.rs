@@ -6,9 +6,9 @@
 
 use std::fmt;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use rand::Rng;
 
 use buffered_reader::BufferedReader;
@@ -103,7 +103,7 @@ impl From<UserAttribute> for Packet {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for UserAttribute {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         UserAttribute::new(
@@ -192,7 +192,7 @@ pub enum Subpacket {
     Unknown(u8, Box<[u8]>),
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Subpacket {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 3) {
@@ -225,7 +225,7 @@ pub enum Image {
     Unknown(u8, Box<[u8]>),
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Image {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         match g.gen_range(0, 5) {

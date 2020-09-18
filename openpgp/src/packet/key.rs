@@ -91,7 +91,7 @@ use std::cmp::Ordering;
 use std::convert::TryInto;
 use std::time;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
@@ -1506,7 +1506,7 @@ impl Encrypted {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl<P, R> Arbitrary for super::Key<P, R>
     where P: KeyParts, P: Clone,
           R: KeyRole, R: Clone,
@@ -1517,7 +1517,7 @@ impl<P, R> Arbitrary for super::Key<P, R>
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let mpis = mpi::PublicKey::arbitrary(g);
@@ -1534,7 +1534,7 @@ impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Key4<SecretParts, UnspecifiedRole> {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use rand::Rng;

@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 /// A long identifier for certificates and keys.
@@ -216,7 +216,7 @@ impl Fingerprint {
     }
 }
 
-#[cfg(any(test, feature = "quickcheck"))]
+#[cfg(test)]
 impl Arbitrary for Fingerprint {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use rand::Rng;
