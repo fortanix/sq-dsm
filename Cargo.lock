@@ -1083,9 +1083,9 @@ checksum = "c7d73b3f436185384286bd8098d17ec07c9a7d2388a6599f824d8502b529702a"
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.15.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b1e07fcc60484f42e246f0cf1f133940c98117c81b2cefcdf71be288069680"
+checksum = "e3a245984b1b06c291f46e27ebda9f369a94a1ab8461d0e845e23f9ced01f5db"
 dependencies = [
  "cc",
  "pkg-config",
@@ -1703,9 +1703,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.19.0"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ebca2e7e3deb7241b7fa5929c088548c590728b1b740c479594c23f813eb8a7"
+checksum = "4c78c3275d9d6eb684d2db4b2388546b32fdae0586c20a82f3905d21ea78b9ef"
 dependencies = [
  "bitflags",
  "fallible-iterator",
@@ -1713,7 +1713,7 @@ dependencies = [
  "libsqlite3-sys",
  "lru-cache",
  "memchr",
- "time",
+ "smallvec 1.4.2",
 ]
 
 [[package]]
