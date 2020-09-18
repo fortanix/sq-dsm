@@ -9,6 +9,9 @@
 
 use std::env;
 use std::collections::HashMap;
+
+use anyhow::Context;
+
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, Fingerprint, KeyID, KeyHandle};
 use crate::openpgp::types::*;
@@ -17,11 +20,11 @@ use crate::openpgp::packet::signature::subpacket::SubpacketTag;
 use crate::openpgp::parse::{Parse, PacketParserResult, PacketParser};
 use crate::openpgp::serialize::MarshalInto;
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        panic!("Collects statistics about OpenPGP packet dumps.\n\n\
-                Usage: {} <packet-dump> [<packet-dump>...]\n", args[0]);
+        return Err(anyhow::anyhow!("Collects statistics about OpenPGP packet dumps.\n\n\
+                Usage: {} <packet-dump> [<packet-dump>...]\n", args[0]));
     }
 
     // Global stats.
@@ -91,7 +94,7 @@ fn main() {
     for input in &args[1..] {
         eprintln!("Parsing {}...", input);
         let mut ppr = PacketParser::from_file(input)
-            .expect("Failed to create reader");
+            .context("Failed to create reader")?;
 
         // Iterate over all packets.
         while let PacketParserResult::Some(pp) = ppr {
@@ -102,7 +105,7 @@ fn main() {
             };
 
             // Get the packet and advance the parser.
-            let (packet, tmp) = pp.next().expect("Failed to get next packet");
+            let (packet, tmp) = pp.next().context("Failed to get next packet")?;
             ppr = tmp;
 
             packet_count += 1;
@@ -545,7 +548,7 @@ fn main() {
     }
 
     if cert_count == 0 {
-        return;
+        return Ok(());
     }
 
     println!();
@@ -612,6 +615,8 @@ fn main() {
                      max);
         }
     }
+
+    Ok(())
 }
 
 fn subpacket_short_name(t: usize) -> String {

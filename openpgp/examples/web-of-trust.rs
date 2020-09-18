@@ -9,16 +9,18 @@
 
 use std::env;
 
+use anyhow::Context;
+
 extern crate sequoia_openpgp as openpgp;
 use crate::openpgp::KeyID;
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::parse::Parse;
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        panic!("Extracts the certification relation from OpenPGP packet dumps.\
-                \n\nUsage: {} <packet-dump> [<packet-dump> ...]\n", args[0]);
+        return Err(anyhow::anyhow!("Extracts the certification relation from OpenPGP packet dumps.\
+                \n\nUsage: {} <packet-dump> [<packet-dump> ...]\n", args[0]));
     }
 
     // The issuer refers to a (sub)key, but we want to use the primary
@@ -32,7 +34,7 @@ fn main() {
     for input in &args[1..] {
         eprintln!("Parsing {}...", input);
         let parser = CertParser::from_file(input)
-            .expect("Failed to create reader");
+            .context("Failed to create reader")?;
 
         for cert in parser {
             match cert {
@@ -42,10 +44,10 @@ fn main() {
                         for tps in uidb.certifications() {
                             for issuer in tps.get_issuers() {
                                 println!("{}, {:?}, {}",
-                                         KeyID::from(issuer).as_u64().unwrap(),
+                                         KeyID::from(issuer).as_u64()?,
                                          String::from_utf8_lossy(
                                              uidb.userid().value()),
-                                         keyid.as_u64().unwrap());
+                                         keyid.as_u64()?);
                             }
                         }
                     }
@@ -55,4 +57,6 @@ fn main() {
             }
         }
     }
+
+    Ok(())
 }

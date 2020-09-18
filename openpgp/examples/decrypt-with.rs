@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use std::env;
 use std::io;
 
+use anyhow::Context;
+
 extern crate sequoia_openpgp as openpgp;
 
 use crate::openpgp::cert::prelude::*;
@@ -24,30 +26,32 @@ use crate::openpgp::parse::{
 use crate::openpgp::policy::Policy;
 use crate::openpgp::policy::StandardPolicy as P;
 
-pub fn main() {
+pub fn main() -> openpgp::Result<()> {
     let p = &P::new();
 
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        panic!("A simple decryption filter.\n\n\
-                Usage: {} <keyfile> [<keyfile>...] <input >output\n", args[0]);
+        return Err(anyhow::anyhow!("A simple decryption filter.\n\n\
+                Usage: {} <keyfile> [<keyfile>...] <input >output\n", args[0]));
     }
 
     // Read the transferable secret keys from the given files.
     let certs =
         args[1..].iter().map(|f| {
             openpgp::Cert::from_file(f)
-                .expect("Failed to read key")
-        }).collect();
+        }).collect::<openpgp::Result<Vec<_>>>()
+        .context("Failed to read key")?;
 
     // Now, create a decryptor with a helper using the given Certs.
     let mut decryptor =
         DecryptorBuilder::from_reader(io::stdin()).unwrap()
-        .with_policy(p, None, Helper::new(p, certs)).unwrap();
+        .with_policy(p, None, Helper::new(p, certs))?;
 
     // Finally, stream the decrypted data to stdout.
     io::copy(&mut decryptor, &mut io::stdout())
-        .expect("Decryption failed");
+        .context("Decryption failed")?;
+
+    Ok(())
 }
 
 /// This helper provides secrets for the decryption, fetches public

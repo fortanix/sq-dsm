@@ -11,21 +11,23 @@ use crate::openpgp::policy::StandardPolicy as P;
 
 const MESSAGE: &'static str = "дружба";
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let p = &P::new();
 
     // Generate a key.
-    let key = generate().unwrap();
+    let key = generate()?;
 
     // Sign the message.
     let mut signed_message = Vec::new();
-    sign(p, &mut signed_message, MESSAGE, &key).unwrap();
+    sign(p, &mut signed_message, MESSAGE, &key)?;
 
     // Verify the message.
     let mut plaintext = Vec::new();
-    verify(p, &mut plaintext, &signed_message, &key).unwrap();
+    verify(p, &mut plaintext, &signed_message, &key)?;
 
     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
+
+    Ok(())
 }
 
 /// Generates an signing-capable key.
