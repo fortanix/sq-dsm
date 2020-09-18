@@ -996,15 +996,6 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
@@ -1040,7 +1031,7 @@ dependencies = [
  "diff",
  "docopt",
  "ena",
- "itertools 0.9.0",
+ "itertools",
  "lalrpop-util",
  "petgraph",
  "regex",
@@ -2047,7 +2038,7 @@ dependencies = [
  "chrono",
  "clap",
  "crossterm",
- "itertools 0.8.2",
+ "itertools",
  "prettytable-rs",
  "rpassword",
  "sequoia-autocrypt",
