@@ -799,123 +799,10 @@ mod test {
 
     #[test]
     fn decode_test() {
-        const HPK : &'static [u8] = b"\
-Cc: autocrypt@lists.mayfirst.org, delta@codespeak.net
-Subject: Re: [Autocrypt] [delta-chat] DeltaX gathering 16-24th july ongoings
-From: holger krekel <holger@merlinux.eu>
-Delivery-date: Mon, 18 Jun 2018 19:21:24 +0200
-DMARC-Filter: OpenDMARC Filter v1.2.0 mail.merlinux.eu 3E7561006EB
-Date: Mon, 18 Jun 2018 19:21:10 +0200
-Message-ID: <20180618172110.GB21885@beto>
-Autocrypt: addr=holger@merlinux.eu; prefer-encrypt=mutual; keydata= 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 1CvHBWNRmnPMaFMeSpgJ
-List-Archive: <http://lists.mayfirst.org/pipermail/autocrypt/>
-Errors-To: autocrypt-bounces+neal=walfield.org@lists.mayfirst.org
-
-On Mon, Jun 18, 2018 at 10:11 -0700, Karissa McKelvey wrote:
-...
-"
-;
-
-        const VINCENT : &'static [u8] = b"\
-To: gnupg-devel <gnupg-devel@gnupg.org>, sks-devel@nongnu.org,
- Autocrypt <autocrypt@lists.mayfirst.org>, openpgp-email <openpgp-email@enigmail.net>
-Subject: Keyservers and GDPR
-From: Vincent Breitmoser <look@my.amazin.horse>
-Delivery-date: Tue, 22 May 2018 21:45:08 +0200
-Date: Tue, 22 May 2018 21:44:09 +0200
-Message-ID: <20180522194409.tmrteipcsoorisns@calamity>
-Autocrypt: addr=look@my.amazin.horse; keydata=mQINBFAB3UABEADCyB/vbIBA3m1Bwc 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 lJcO6TtHWnElS3pACbTQM0RHJox3zqU3q6K3c=
-User-Agent: NeoMutt/20180323
-List-Archive: <https://lists.gnupg.org/pipermail/gnupg-devel/>
-Errors-To: gnupg-devel-bounces@gnupg.org
-
-";
-
-        const PATRICK : &'static [u8] = b"\
-To: GnuPG Users List <gnupg-users@gnupg.org>, openpgp-email@enigmail.net
-Subject: [openpgp-email] Efail - Possible Measures?
-From: Patrick Brunschwig <patrick@enigmail.net>
-Delivery-date: Sat, 19 May 2018 18:47:34 +0200
-X-Authenticated-Sender-Id: patrick@enigmail.net
-Openpgp: id=4F9F89F5505AC1D1A260631CDB1187B9DD5F693B
-Autocrypt: addr=patrick@enigmail.net; prefer-encrypt=mutual; keydata= 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
-Message-ID: <f45adfe2-7d2b-50d1-f88d-5efbe878cf7f@enigmail.net>
-Date: Sat, 19 May 2018 18:47:08 +0200
-User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:60.0)
- Gecko/20100101 Thunderbird/60.0
-List-Archive: <https://lists.enigmail.net/pipermail/openpgp-email_enigmail.net/>
-Reply-To: OpenPGP-based Email Encryption <openpgp-email@enigmail.net>
-Errors-To: openpgp-email-bounces@enigmail.net
-
-In the light of the Efail vulnerability I am asking myself if it's
-...
-";
-
-        const PATRICK_UNFOLDED : &'static [u8] = b"\
-To: GnuPG Users List <gnupg-users@gnupg.org>, openpgp-email@enigmail.net
-Subject: [openpgp-email] Efail - Possible Measures?
-From: Patrick Brunschwig <patrick@enigmail.net>
-Delivery-date: Sat, 19 May 2018 18:47:34 +0200
-X-Authenticated-Sender-Id: patrick@enigmail.net
-Openpgp: id=4F9F89F5505AC1D1A260631CDB1187B9DD5F693B
-Autocrypt: addr=patrick@enigmail.net;
- prefer-encrypt=mutual;
- keydata=
- xsFNBFS6eEEBEAC56tAm82tgg5BJE0dA4c5UNUDQ7SKLIsleh7TrwsKocEp1b34EHTmLJQG9
- Zqoia0mnywG1IYzyZdFwQ0JjXwd9LbiTfLcxYrJ1i+fMw6+mlg2boIXNrnh8lYwFus0z63/K
- LglIPdJ8LzXyq03iy/WwEhJvxUs3dmURPslWZTjgDl7SuGJ4BU9A/egc/Rfe5+LQqnQ6M9yb
- +QuEUGJEQBxPLt0C2wX3b3e1k8E7H9Ho4wbXtz+qjBZ5Hwkd6yB3QE56uRVwvpEhbQhhQJJF
- edQKeQTfpi8Z5Nb/d4wQODT8wWyph+2Ur8b8gJwghs7oHaDZ4JQbJsCmkasWo2iVi+cr/cqp
- 6aohqoP/FK0B8Mh2Li6VqhVnkZGXtbQhALSmzdOkJLniuQJYNkFNww1SlCU3s3XR2Kf3MiRD
- lXvn+SJp2/JmDbKYeDnzp9r2ZgfpZgMAES5nFlF7Jov+N5iMO5kFtPYOD1ZwUB1aBYyWHwiF
- Gbz+V3ZN/5YpSy3i6qvS2pOF6EZuEI2ceujroh+r2APK6PsgC0gQAVAEh8mdiXsBGhWh4RMj
- ue5CEzATqjsXD2mP5gf9/ub2i39X6p2PnXwoE2KbAz+KGPOve6mtAnbE/Aq6n2OPB9ZRn5+W
- 21ZHyJEhGYyx0oizn0DPC0lbQcw05AQiH3oS0mg6l01oI1akrQARAQABzSlQYXRyaWNrIEJy
- dW5zY2h3aWcgPHBhdHJpY2tAZW5pZ21haWwubmV0PsLBgAQTAQoAKgIbAwULCQgHAgYVCAkK
- CwIEFgIDAQIeAQIXgAUJEswDcQUCVLp7MgIZAQAKCRDbEYe53V9pO+ZgD/4ypGOX+I5THJz5
- 5OGVs1BEpm0lIF0uBfcAvvdsYK9j5qn3D1eWFmEw9fjHZMzhvFa7GooI4+GM8TaDub5bHJso
- QrwnXc7DkJAXQkxKhg9TmZaOObqyxyEf8AihdSVtjnn+xyDBI7/EAcBKwD65Jav8WMagvcYF
- JIxr94FWqJLH7AelrioyEUifURtrZvGeuk0H/y95yaBW79fBN18VAFxxcmOSf9ogbN2WQF2r
- mBkQf4pEZmzY2LBP1HvCgHz76xtGojVP4w0Eg/hUqkLx/SWLClnFDUly1IFuiPVe+gJkgmDE
- cwaR8YBrnSA8AGzObAdxzAUQVenr+qmJ8+x37BZWBXSWiwryT+bPx4EUtXa4F+2CMjzYP0pv
- iEzC+sdDDmqNwLiwHVJBB/IclNGB8+qlgQKWSHS3UXqT32OHUToq1RVsFJxcRl2ceb5pD70q
- IqI0OFHRpjXGrVLB6QYy580YmhAoUfiB825gsVzwcjgB/PrxqivsJX4o9hB8lUa7AEtMaZpz
- WVGPZgWAHnntRYglVTVeWw6I1SQb9HI/U4wQJOPHDZHhqilLJaCL43hN8nRBY3S7sNah0caV
- tsggZ/thGbeSE10my2qKbTMoiQHsNJupYNtZLtQ0a0cgvVg5rNfEGzscW+4mDhK+gKCBx33K
- bA/d4vuGWcky8ZwsmsfTPM7BTQRaXvoHARAAvRcltgkPKCd8KumZ9jftGZU6Nqm1bpjhCDXj
- oF/KaBpTUHDkA5JQcQ/HRogrMyQ932pV3diAi6O1uWuGfUWbEHm0B1Brncw5r2Q1rbrVMArL
- aROENxQ2MEuKsMLpMiemXtukJ1br6yVgvHke0/ewpS1H6OZJrtgEGxE4HUnV5h4ynlCs6HgK
- WVc5wppPjtsaA4AdvD5ZhlR+INF7GtrA6+U2YfxqR8qwnnkjx6kU+heJ6Juwe08PVoM5EP17
- L6nwqxkZhn2f1fMOzAfmUtVAX7eJez3t0q5vVqo9nBBk90HhTplDysXWMxgrvSWBuJNf9ovq
- xb+PAfDrZMvmZYFEtn+orPF0K7mVYJY5f+n8PBZw/IPkm+3778HkOrb/9ekFwXwqB5XE8CL2
- 1Ds6xy5b3KmgyijEC6bm6Y1hzJ4HACDZgpDk7qNEwrdWoAU8qSExtgh/VoR87M78FLnAU5At
- cpbz9TdQae861tGOO03GKJK1S3Qju/9qZdOe6ECehbJfOH5Qu7QxX135fyZXGhrijv7CeAIn
- M6Ccrh4xymjYZOoXl289C3Kc9phn03ip4C+LC+34drD7NkYGtTtnh8rFQoq9KxBRGVAwLl6T
- +GiRAg2CCa4URCmShz0rrlMtRx/ZSZZU9WL1iQOomNhfhMODMhBC6VpoZ8BXtVQfd/+e8KEA
- EQEAAcLBfAQYAQoAJhYhBE+fifVQWsHRomBjHNsRh7ndX2k7BQJaXvoHAhsMBQkHhM4AAAoJ
- ENsRh7ndX2k7QTcQAI3HTbo1XmqZvRFurnVt4zOo60PCbEctpaMmyliExYZCq++QK4cJDMFC
- EyicR8NYXq2F6/dScch8NazmKbCzFu6dpyfBf2BlAqa9rSkzuuCeBjig5+4+7auuuF8cEGp8
- 7BXKTdPydF84FUzEQ+YX7y0qiRnNl9ztw5+4JUNB17yp/IPoUG+5ehQZ/i4gtmdL7JoXcaNz
- AmNhlJhPFFOJO/lUw0mssL7KdoGZSFVtRoiWbc17XOLdCYKPO9IYM5Q20CF28YeThJyo/G9H
- +Femtvpgev9GW9XU59Rz+mCymMiduU20RbX82MqWlNSD9c75G1l2iS2NscSWrzPpK9/KB0Kr
- kUh3pt66UqYgycEw5Lkjy0L+l6bDOf9o0GB3uLoUYxWYNkF5vl2buKSaDu7gavwOnhO4Pv9q
- t0jjOp99Z2dJXXHJqvUYSbID9xYk66/1Rz1GmOIoF7fXmXlSua4l/cG3/dyKeY88WlpuULfj
- YZYSazM12WaxUnk0KFYXLJMEeWvgKuaG8wWBHUlwqZll776iyEYH/sBCkchuwwmiFk/t7wzY
- 1WYJhI8juvI7QJVOovmd1CBHhj9Y9UxgPOPpfsjUD6dZ42I+WnY+hRRS90IuKxjVpTXDJMlr
- vAGwsBGyuFeTn9HWlC0GWT4InvK0fLoSfznjZsH/IL5n3/NZtW6G
-Message-ID: <f45adfe2-7d2b-50d1-f88d-5efbe878cf7f@enigmail.net>
-Date: Sat, 19 May 2018 18:47:08 +0200
-User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:60.0)
- Gecko/20100101 Thunderbird/60.0
-List-Archive: <https://lists.enigmail.net/pipermail/openpgp-email_enigmail.net/>
-Reply-To: OpenPGP-based Email Encryption <openpgp-email@enigmail.net>
-Errors-To: openpgp-email-bounces@enigmail.net
-
-In the light of the Efail vulnerability I am asking myself if it's
-...
-";
-
-        let ac = AutocryptHeaders::from_bytes(&HPK[..]).unwrap();
+        let ac = AutocryptHeaders::from_bytes(
+            &include_bytes!("../tests/data/hpk.txt")[..]
+        )
+        .unwrap();
         //eprintln!("ac: {:#?}", ac);
 
         // We expect exactly one Autocrypt header.
@@ -936,7 +823,10 @@ In the light of the Efail vulnerability I am asking myself if it's
                    &b"holger krekel <holger@merlinux.eu>"[..]);
 
 
-        let ac = AutocryptHeaders::from_bytes(&VINCENT[..]).unwrap();
+        let ac = AutocryptHeaders::from_bytes(
+            &include_bytes!("../tests/data/vincent.txt")[..]
+        )
+        .unwrap();
         //eprintln!("ac: {:#?}", ac);
 
         assert_eq!(ac.from,
@@ -958,7 +848,10 @@ In the light of the Efail vulnerability I am asking myself if it's
                    &b"Vincent Breitmoser <look@my.amazin.horse>"[..]);
 
 
-        let ac = AutocryptHeaders::from_bytes(&PATRICK[..]).unwrap();
+        let ac = AutocryptHeaders::from_bytes(
+            &include_bytes!("../tests/data/patrick.txt")[..]
+        )
+        .unwrap();
         //eprintln!("ac: {:#?}", ac);
 
         assert_eq!(ac.from,
@@ -979,90 +872,20 @@ In the light of the Efail vulnerability I am asking myself if it's
         assert_eq!(cert.userids().next().unwrap().value(),
                    &b"Patrick Brunschwig <patrick@enigmail.net>"[..]);
 
-        let ac2 = AutocryptHeaders::from_bytes(&PATRICK_UNFOLDED[..]).unwrap();
+        let ac2 = AutocryptHeaders::from_bytes(
+            &include_bytes!("../tests/data/patrick_unfolded.txt")[..]
+        )
+        .unwrap();
         assert_eq!(ac, ac2);
     }
 
 
     #[test]
     fn decode_gossip() {
-        const GOSSIP : &'static [u8] = b"\
-Autocrypt-Gossip: addr=dkg@fifthhorseman.net; keydata=
- mDMEXEK/AhYJKwYBBAHaRw8BAQdAr/gSROcn+6m8ijTN0DV9AahoHGafy52RRkhCZVwxhEe0
- K0RhbmllbCBLYWhuIEdpbGxtb3IgPGRrZ0BmaWZ0aGhvcnNlbWFuLm5ldD6ImQQTFggAQQIb
- AQUJA8JnAAULCQgHAgYVCgkICwIEFgIDAQIeAQIXgBYhBMS8Lds4zOlkhevpwvIGkReQOOXG
- BQJcQsbzAhkBAAoJEPIGkReQOOXG4fkBAO1joRxqAZY57PjdzGieXLpluk9RkWa3ufkt3YUV
- EpH/AP9c+pgIxtyW+FwMQRjlqljuj8amdN4zuEqaCy4hhz/1DbgzBFxCv4sWCSsGAQQB2kcP
- AQEHQERSZxSPmgtdw6nNu7uxY7bzb9TnPrGAOp9kClBLRwGfiPUEGBYIACYWIQTEvC3bOMzp
- ZIXr6cLyBpEXkDjlxgUCXEK/iwIbAgUJAeEzgACBCRDyBpEXkDjlxnYgBBkWCAAdFiEEyQ5t
- NiAKG5IqFQnndhgZZSmuX/gFAlxCv4sACgkQdhgZZSmuX/iVWgD/fCU4ONzgy8w8UCHGmrmI
- ZfDvdhg512NIBfx+Mz9ls5kA/Rq97vz4z48MFuBdCuu0W/fVqVjnY7LN5n+CQJwGC0MIA7QA
- /RyY7Sz2gFIOcrns0RpoHr+3WI+won3xCD8+sVXSHZvCAP98HCjDnw/b0lGuCR7coTXKLIM4
- 4/LFWgXAdZjm1wjODbg4BFxCv50SCisGAQQBl1UBBQEBB0BG4iXnHX/fs35NWKMWQTQoRI7o
- iAUt0wJHFFJbomxXbAMBCAeIfgQYFggAJhYhBMS8Lds4zOlkhevpwvIGkReQOOXGBQJcQr+d
- AhsMBQkB4TOAAAoJEPIGkReQOOXGe/cBAPlek5d9xzcXUn/DkY6jKmxe26CTws3ZkbK6Aa5E
- y/qKAP0VuPQSCRxA7RKfcB/XrEphfUFkraL06Xn/xGwJ+D0hCw==
-Autocrypt-Gossip: addr=neal@walfield.org; keydata=
- mQHhBFUjmukBDqCpmVI7Ve+2xTFSTG+mXMFHml63/Yai2nqxBk9gBfQfRFIjMt74whGG3LA1
- ccH2vtsUMbm+F9d+hmzfiErloOVeamfSTCXVPHl4vuVRGXoH5tL09bbmLE7cidDj49GelOxb
- fqHKVw3+Fd2zLlQdiaWYJ7CdRDZOT22zEx+6n59/gO5WNnymaib+nXWAbXJ+pU7fzHU4PlhD
- XT/FfV2mzyQg6AiToColG5/CfOBp+WP6pAU4eNIxIlKYxzLnyAPUy+nuqojTJ+Ni16Jve/hp
- KM7G1TGAzjzdC5zSVMELi/5kdldCD9Hg7sqw6RPlxbH52bryenYfLyfIaInHCHKmqWRAu3fx
- McZ65qo8khYrzZngYewVAafRi/GSZmKxzntmP0GYziceGsbF8dEFF1scfebGKuDqtBhQ0MMu
- xTbTLg1+KKN8rhqWTeikrt0JPbD1viaVX7Z7G12fZ8lBU4sjd3HGO5EK+3Cs8bjLXbzb8UIz
- 7u28u7DqVQB4jhgh+IXyZzaeELV9KPr5IVNjT9K9gX6JJlVSi5BnxUVY0pEhtKiiLO6PCC2N
- PenWkWpp3UEZ5ILnLhlmPe7ICiBCK1IQtNHEAfDalKO1t/gWKi0JlOqv2j9ER68AEQEAAbQk
- TmVhbCBILiBXYWxmaWVsZCA8bmVhbEB3YWxmaWVsZC5vcmc+iQIoBBMBCgA+AhsDCAsJCAcN
- DAsKBRUKCQgLAh4BAheAAhkBFiEEjxd3cRijPdqbpI5iqssyQ2MAUtkFAlywiLoFCQtPVNEA
- CgkQqssyQ2MAUtnvpg6cDmDQGM+osZ4qF8R2e0NUKzpi3Zu5ti9eee3XUmUKYfwD4Mp1xpuc
- +mmGsc86t0EaWy2b/4qFUnai1XTLsulnSaJ35+hf+dzVhWOosJN4gMo74RLpi3v/Tx7++dAo
- +AHGUXqoaxSwfpyR0FLNEkgiesU3OIFuIep0okXD3e9hVMn2bkgY/xtEneWxLuU7LrcMQcwk
- NeqT2rr5jvJWrPb7AfiWGAnQomWVipAZP/RW/ah3jtyNFKKYJsshvdYmdsZ1K59e1QoquLPb
- vZ40YL1E1DuZjGq+b5daIxTNd4MRp6BpQ/kEY+xMa7qFGNlgcqNtwDICliaT/w5S8rZ/QUlp
- kdGwikOy/ZYFAApfCSBqnWebc+Jh9JLR1o/0qhtPM/ab6Wv+vh3m6LEMuvKJadQraMIDE427
- LaA3B3StEnEx6w5L/WRX0qinjEikZ3H/DNOHzp+rZsNGZkqm/Y11mQ1H6A493tXBnImZU2gA
- g0o/8w3jyjbD6PzFVGFWQlT9Kmo5cvunJHx1Rycv2XJLhnyvF66T64dfKlrZMaWxafSO50rQ
- +QtIt91l2ZepYc92Z8Urywcy3vb4jhG1oPRet37Z/ZTmPkSdCNBGNsWGw9Wc9liPIKdHuQEN
- BFUjppYBCACnNVEkX+6074zvfHCgfOuiQ3j1VIFzGQEeHsbobHNfo3kO8EGGSHiYZVnzWrh2
- UwUy2mrXEFvXseDDmJaaO/g/H/asB4J87OTXNILg4yXktvLfr8KaIONwkaqBHS2peImJ/gHz
- YwGAkg2JtpuIYb76IdCb2SaRZJWq4AyyrtgjJN2AB1u5J3kFWKHWGOrMGsHsAzJ9HMNIJogM
- z/O0qNuoOewP9z20W8xAUwxJjMZ+Rx1QPcdMsHHJ7VcPkhq/0AY/ko0y5iSjYz9ycp6bGXco
- hmWlxlH5oSuPlTldo6E636S4BTALpFwu08rhiE4Dm0JN72Uc4N1uT+TsEZdd5JBVABEBAAGJ
- Ay8EGAEKACYCGwIWIQSPF3dxGKM92pukjmKqyzJDYwBS2QUCXLCI3AUJC09JRgEpwF0gBBkB
- CgAGBQJVI6aWAAoJEHIjtWZ44CUoppQH/3kEzoY+2kigIIjGCtyWjF3eV2vGBz4tTiSs3mC1
- hCQ0OP9i1uintq9Gt+m05LlSTFuKu91Q0Y3ArCDANAbagDmS7RVShbINhPZX7I3CF/O89Tb3
- DKDTCdaDhueOrmTpKX6J29c2o5TDbVIjGcjVMsvQQyM/o6/y7DXP8BdkyI/ewdsEt8uk9T4V
- pZTBV1ig49980YzRaykpYFoOn0L+MXcf/8okApjtMehRIzNRejYT303w1R8XfQIKDWRRGDwQ
- XO9eVSaiw+Z2EbE4oROkY5ImalD+sK4FYnsxnK4w3O74fGlYCd3Q2cAjSSfyVEqcjyuUog6W
- gcmWeKMxCTLZpO8JEKrLMkNjAFLZZZoOniqm+87OELpGHg3/DgaXibZ91OA/FrW4JniOeax2
- eZwoFiaMW98en1u7hA6uFKOKBGiBIOZOxESFOTSNf3AQGawUJRImZ7O4+p0sm7g37p5vVVLb
- pcjZNZ+3MPtUkX/suZIqiMJ0khmo6x5Ce0QwjegKXRDu1xXTywnVlzb77OGciP63J0jqpUyf
- 1haEb0rm4+OEDyB18PjG/8RSqUXHKsg26HlPmvYeeyRhcFAKf1yq9Ozaw0FGZ+UIUb630PA9
- DtewUsqnKcRo2TpYl67sxc+7eRvgslK76Zvvih5la7SQBgSLVByRhcIIVxVnvDX0cvoO16Hf
- xLCZlTlzTi0np44yvqlR+SmzBq8vgJXrvAkVpHlGckdupFDKrA9Awy9aWYO4WSpX8nLdAkf8
- VvHee+rxYS+RBOs6j4IG4PiHydvTWasNUcnpVxsQ0/GKRzNkPg2VdW2IrU6hFgnt0U5diq+3
- KqFVzTHgnYOne12FDTasYk1AwadVZJkkgXBPywe7HMY8I3HOIuXj8Uk49t8G67x/8MBGx0ab
- HxZ++NnMAzKwlMILkErv+280k5FPv+Vr8qk6LuZtYtd9twX21j2hm7mk+3lKCABUY7ga6L1P
- JGP0idNjMrkBDQRVI6a4AQgAtJXjUkflDqtXShIkeSZJo6dN2owSlFC81OE9qber6gAsCAbA
- c3rlevzL6NkxnElQfecxPtYoVBORDk+X0bvbwW6WHvllci+r8yYIpKUzuNQZ/5DnE1vJA1MI
- Y0xUXYIMfaSTlzQLKDPvRkMQJ6g4AMMBBMt9OX2f00LOMMGJ0Tb7PhDYwCk5jw2jMqseIl4y
- RLVXiWLvjnms6TihDxGIQzpNU9CTZGps348GM6mr7LGG8CnW5D4Cv/g++p2uDFN2dNixs+UF
- ddzgVpCgAp7QorK5HOFCEvwMGxYjBcI6IYbKbzj93O98L4Mnr0OUqK6p4USdwgCRoS1gKMZm
- yi2vMwARAQABiQIQBBgBCgAmAhsMFiEEjxd3cRijPdqbpI5iqssyQ2MAUtkFAlywiP0FCQtP
- SUUACgkQqssyQ2MAUtnA1g6fVRvQE+lSZ5Yb4w6QSG6CCGsjUDuZvwh2P24fGUdQaWQsi929
- FZoYQ9Hd3t5MkAPqNCZcpjds7z16jZE2sqHESzP6wgOCKi69uYGuvTzRpUpXEmYsa0l7OIk+
- 88ebRU/Kj1KX+PxbCyDj1B9Mk7Zx3M0/v87/+jtHCILVL/ZxIOJTB/f/bHGSDTuHfbcItOjh
- eS6TYm2i6tQPewGiateLQ25hLPjVt+tIVAcgnzGTERfXjGeSnY1hODYBam7ynorwcItAElg5
- TXHVDCJ7xli3H8MnLpLFpPfY+e3krqJWRVwL39fwah/2Y60hM4J/byeiBKzz3u/Zi5NgHWOn
- 0I+Vm/c0AdmA/LxmrCz1WbF0MYPq09pvuxkXg4NptUxn8lIFYUlLWL5Qv4WR0ocLS67Iieny
- XlIwbe3T2SPqISVLWBJBdsw2p9TqqS7T0i41daYcFyPrLAILLEs2Zrh88i/0bXZDMTV6E/6a
- GWluAV36k0QziinMPpeKyuGiZf3ELBqeAoJ0YdWH62HXpnaEm+lGxxAzsitf3QENEMmda621
- BQFYapg16oofuQT17e0wTCPAvEIhFk6leoDZz9HPXA7b3sncMFSJ9jlGKAOSZURbxHOwin6l
-
-...
-"
-;
-        let ac = AutocryptHeaders::from_bytes(&GOSSIP[..]).unwrap();
+        let ac = AutocryptHeaders::from_bytes(
+            &include_bytes!("../tests/data/gossip.txt")[..]
+        )
+        .unwrap();
         //eprintln!("ac: {:#?}", ac);
 
         // We expect exactly two Autocrypt headers.

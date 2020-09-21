@@ -1,0 +1,61 @@
+To: GnuPG Users List <gnupg-users@gnupg.org>, openpgp-email@enigmail.net
+Subject: [openpgp-email] Efail - Possible Measures?
+From: Patrick Brunschwig <patrick@enigmail.net>
+Delivery-date: Sat, 19 May 2018 18:47:34 +0200
+X-Authenticated-Sender-Id: patrick@enigmail.net
+Openpgp: id=4F9F89F5505AC1D1A260631CDB1187B9DD5F693B
+Autocrypt: addr=patrick@enigmail.net;
+ prefer-encrypt=mutual;
+ keydata=
+ xsFNBFS6eEEBEAC56tAm82tgg5BJE0dA4c5UNUDQ7SKLIsleh7TrwsKocEp1b34EHTmLJQG9
+ Zqoia0mnywG1IYzyZdFwQ0JjXwd9LbiTfLcxYrJ1i+fMw6+mlg2boIXNrnh8lYwFus0z63/K
+ LglIPdJ8LzXyq03iy/WwEhJvxUs3dmURPslWZTjgDl7SuGJ4BU9A/egc/Rfe5+LQqnQ6M9yb
+ +QuEUGJEQBxPLt0C2wX3b3e1k8E7H9Ho4wbXtz+qjBZ5Hwkd6yB3QE56uRVwvpEhbQhhQJJF
+ edQKeQTfpi8Z5Nb/d4wQODT8wWyph+2Ur8b8gJwghs7oHaDZ4JQbJsCmkasWo2iVi+cr/cqp
+ 6aohqoP/FK0B8Mh2Li6VqhVnkZGXtbQhALSmzdOkJLniuQJYNkFNww1SlCU3s3XR2Kf3MiRD
+ lXvn+SJp2/JmDbKYeDnzp9r2ZgfpZgMAES5nFlF7Jov+N5iMO5kFtPYOD1ZwUB1aBYyWHwiF
+ Gbz+V3ZN/5YpSy3i6qvS2pOF6EZuEI2ceujroh+r2APK6PsgC0gQAVAEh8mdiXsBGhWh4RMj
+ ue5CEzATqjsXD2mP5gf9/ub2i39X6p2PnXwoE2KbAz+KGPOve6mtAnbE/Aq6n2OPB9ZRn5+W
+ 21ZHyJEhGYyx0oizn0DPC0lbQcw05AQiH3oS0mg6l01oI1akrQARAQABzSlQYXRyaWNrIEJy
+ dW5zY2h3aWcgPHBhdHJpY2tAZW5pZ21haWwubmV0PsLBgAQTAQoAKgIbAwULCQgHAgYVCAkK
+ CwIEFgIDAQIeAQIXgAUJEswDcQUCVLp7MgIZAQAKCRDbEYe53V9pO+ZgD/4ypGOX+I5THJz5
+ 5OGVs1BEpm0lIF0uBfcAvvdsYK9j5qn3D1eWFmEw9fjHZMzhvFa7GooI4+GM8TaDub5bHJso
+ QrwnXc7DkJAXQkxKhg9TmZaOObqyxyEf8AihdSVtjnn+xyDBI7/EAcBKwD65Jav8WMagvcYF
+ JIxr94FWqJLH7AelrioyEUifURtrZvGeuk0H/y95yaBW79fBN18VAFxxcmOSf9ogbN2WQF2r
+ mBkQf4pEZmzY2LBP1HvCgHz76xtGojVP4w0Eg/hUqkLx/SWLClnFDUly1IFuiPVe+gJkgmDE
+ cwaR8YBrnSA8AGzObAdxzAUQVenr+qmJ8+x37BZWBXSWiwryT+bPx4EUtXa4F+2CMjzYP0pv
+ iEzC+sdDDmqNwLiwHVJBB/IclNGB8+qlgQKWSHS3UXqT32OHUToq1RVsFJxcRl2ceb5pD70q
+ IqI0OFHRpjXGrVLB6QYy580YmhAoUfiB825gsVzwcjgB/PrxqivsJX4o9hB8lUa7AEtMaZpz
+ WVGPZgWAHnntRYglVTVeWw6I1SQb9HI/U4wQJOPHDZHhqilLJaCL43hN8nRBY3S7sNah0caV
+ tsggZ/thGbeSE10my2qKbTMoiQHsNJupYNtZLtQ0a0cgvVg5rNfEGzscW+4mDhK+gKCBx33K
+ bA/d4vuGWcky8ZwsmsfTPM7BTQRaXvoHARAAvRcltgkPKCd8KumZ9jftGZU6Nqm1bpjhCDXj
+ oF/KaBpTUHDkA5JQcQ/HRogrMyQ932pV3diAi6O1uWuGfUWbEHm0B1Brncw5r2Q1rbrVMArL
+ aROENxQ2MEuKsMLpMiemXtukJ1br6yVgvHke0/ewpS1H6OZJrtgEGxE4HUnV5h4ynlCs6HgK
+ WVc5wppPjtsaA4AdvD5ZhlR+INF7GtrA6+U2YfxqR8qwnnkjx6kU+heJ6Juwe08PVoM5EP17
+ L6nwqxkZhn2f1fMOzAfmUtVAX7eJez3t0q5vVqo9nBBk90HhTplDysXWMxgrvSWBuJNf9ovq
+ xb+PAfDrZMvmZYFEtn+orPF0K7mVYJY5f+n8PBZw/IPkm+3778HkOrb/9ekFwXwqB5XE8CL2
+ 1Ds6xy5b3KmgyijEC6bm6Y1hzJ4HACDZgpDk7qNEwrdWoAU8qSExtgh/VoR87M78FLnAU5At
+ cpbz9TdQae861tGOO03GKJK1S3Qju/9qZdOe6ECehbJfOH5Qu7QxX135fyZXGhrijv7CeAIn
+ M6Ccrh4xymjYZOoXl289C3Kc9phn03ip4C+LC+34drD7NkYGtTtnh8rFQoq9KxBRGVAwLl6T
+ +GiRAg2CCa4URCmShz0rrlMtRx/ZSZZU9WL1iQOomNhfhMODMhBC6VpoZ8BXtVQfd/+e8KEA
+ EQEAAcLBfAQYAQoAJhYhBE+fifVQWsHRomBjHNsRh7ndX2k7BQJaXvoHAhsMBQkHhM4AAAoJ
+ ENsRh7ndX2k7QTcQAI3HTbo1XmqZvRFurnVt4zOo60PCbEctpaMmyliExYZCq++QK4cJDMFC
+ EyicR8NYXq2F6/dScch8NazmKbCzFu6dpyfBf2BlAqa9rSkzuuCeBjig5+4+7auuuF8cEGp8
+ 7BXKTdPydF84FUzEQ+YX7y0qiRnNl9ztw5+4JUNB17yp/IPoUG+5ehQZ/i4gtmdL7JoXcaNz
+ AmNhlJhPFFOJO/lUw0mssL7KdoGZSFVtRoiWbc17XOLdCYKPO9IYM5Q20CF28YeThJyo/G9H
+ +Femtvpgev9GW9XU59Rz+mCymMiduU20RbX82MqWlNSD9c75G1l2iS2NscSWrzPpK9/KB0Kr
+ kUh3pt66UqYgycEw5Lkjy0L+l6bDOf9o0GB3uLoUYxWYNkF5vl2buKSaDu7gavwOnhO4Pv9q
+ t0jjOp99Z2dJXXHJqvUYSbID9xYk66/1Rz1GmOIoF7fXmXlSua4l/cG3/dyKeY88WlpuULfj
+ YZYSazM12WaxUnk0KFYXLJMEeWvgKuaG8wWBHUlwqZll776iyEYH/sBCkchuwwmiFk/t7wzY
+ 1WYJhI8juvI7QJVOovmd1CBHhj9Y9UxgPOPpfsjUD6dZ42I+WnY+hRRS90IuKxjVpTXDJMlr
+ vAGwsBGyuFeTn9HWlC0GWT4InvK0fLoSfznjZsH/IL5n3/NZtW6G
+Message-ID: <f45adfe2-7d2b-50d1-f88d-5efbe878cf7f@enigmail.net>
+Date: Sat, 19 May 2018 18:47:08 +0200
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:60.0)
+ Gecko/20100101 Thunderbird/60.0
+List-Archive: <https://lists.enigmail.net/pipermail/openpgp-email_enigmail.net/>
+Reply-To: OpenPGP-based Email Encryption <openpgp-email@enigmail.net>
+Errors-To: openpgp-email-bounces@enigmail.net
+
+In the light of the Efail vulnerability I am asking myself if it's
+...
