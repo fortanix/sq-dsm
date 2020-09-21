@@ -6,9 +6,9 @@ use std::io;
 use anyhow::Context;
 
 extern crate sequoia_openpgp as openpgp;
-use crate::openpgp::armor;
+
 use crate::openpgp::parse::Parse;
-use crate::openpgp::serialize::stream::{Message, LiteralWriter, Signer};
+use crate::openpgp::serialize::stream::{Armorer, Message, LiteralWriter, Signer};
 use crate::openpgp::policy::StandardPolicy as P;
 
 fn main() -> openpgp::Result<()> {
@@ -53,13 +53,13 @@ fn main() -> openpgp::Result<()> {
     }
 
     // Compose a writer stack corresponding to the output format and
-    // packet structure we want.  First, we want the output to be
-    // ASCII armored.
-    let mut sink = armor::Writer::new(io::stdout(), armor::Kind::Message)
-        .context("Failed to create an armored writer.")?;
+    // packet structure we want.
+    let mut sink = io::stdout();
 
     // Stream an OpenPGP message.
     let message = Message::new(&mut sink);
+
+    let message = Armorer::new(message).build()?;
 
     // Now, create a signer that emits the signature(s).
     let mut signer =
@@ -80,10 +80,6 @@ fn main() -> openpgp::Result<()> {
 
     // Finally, teardown the stack to ensure all the data is written.
     literal.finalize()
-        .context("Failed to write data")?;
-
-    // Finalize the armor writer.
-    sink.finalize()
         .context("Failed to write data")?;
 
     Ok(())
