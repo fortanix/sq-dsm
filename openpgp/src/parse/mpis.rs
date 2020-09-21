@@ -118,7 +118,12 @@ impl mpi::PublicKey {
                             "wrong kdf length".into()).into());
                 }
 
-                let _reserved = php.parse_u8("kdf_reserved")?;
+                let reserved = php.parse_u8("kdf_reserved")?;
+                if reserved != 1 {
+                    return Err(Error::MalformedPacket(
+                            format!("Reserved kdf field must be 0x01, \
+                                     got 0x{:x}", reserved)).into());
+                }
                 let hash: HashAlgorithm = php.parse_u8("kdf_hash")?.into();
                 let sym: SymmetricAlgorithm = php.parse_u8("kek_symm")?.into();
 
