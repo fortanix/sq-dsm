@@ -139,6 +139,7 @@ lazy_static::lazy_static!{
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Debug)]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Clone, Copy)]
@@ -322,10 +323,6 @@ pub enum SubpacketTag {
     Private(u8),
     /// Unknown subpacket tag.
     Unknown(u8),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl fmt::Display for SubpacketTag {
@@ -404,7 +401,6 @@ impl From<SubpacketTag> for u8 {
             SubpacketTag::Reserved(u) => u,
             SubpacketTag::Private(u) => u,
             SubpacketTag::Unknown(u) => u,
-            SubpacketTag::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1298,6 +1294,7 @@ impl NotationDataFlags {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub enum SubpacketValue {
     /// An unknown subpacket.
@@ -1517,10 +1514,6 @@ pub enum SubpacketValue {
     ///
     ///  [Section 5.2.3.29 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     IntendedRecipient(Fingerprint),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 #[cfg(test)]
@@ -1615,7 +1608,6 @@ impl SubpacketValue {
                 SubpacketTag::PreferredAEADAlgorithms,
             IntendedRecipient(_) => SubpacketTag::IntendedRecipient,
             Unknown { tag, .. } => *tag,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -3594,11 +3586,12 @@ impl TryFrom<Signature> for Signature4 {
     fn try_from(sig: Signature) -> Result<Self> {
         match sig {
             Signature::V4(sig) => Ok(sig),
-            sig => Err(
-                Error::InvalidArgument(
-                    format!("Got a v{}, require a v4 signature", sig.version())
-                        .into())
-                    .into()),
+            // XXX: Once there are more signature variants:
+            //sig => Err(
+            //    Error::InvalidArgument(
+            //        format!("Got a v{}, require a v4 signature", sig.version())
+            //            .into())
+            //        .into()),
         }
     }
 }

@@ -142,8 +142,6 @@ where
         // N/A
         Curve::Unknown(_) | Curve::Ed25519 =>
             Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
-
-        Curve::__Nonexhaustive => unreachable!(),
     }
 }
 

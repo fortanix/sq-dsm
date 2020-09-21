@@ -434,6 +434,7 @@ impl fmt::Debug for ProtectedMPI {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum PublicKey {
     /// RSA public key.
@@ -501,10 +502,6 @@ pub enum PublicKey {
         /// Any data that failed to parse.
         rest: Box<[u8]>,
     },
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl PublicKey {
@@ -528,7 +525,6 @@ impl PublicKey {
             &ECDSA { ref curve,.. } => curve.bits(),
             &ECDH { ref curve,.. } => curve.bits(),
             &Unknown { .. } => None,
-            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -544,7 +540,6 @@ impl PublicKey {
             ECDSA { .. } => Some(PublicKeyAlgorithm::ECDSA),
             ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
             Unknown { .. } => None,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -614,6 +609,7 @@ impl Arbitrary for PublicKey {
 // Deriving Hash here is okay: PartialEq is manually implemented to
 // ensure that secrets are compared in constant-time.
 #[allow(clippy::derive_hash_xor_eq)]
+#[non_exhaustive]
 #[derive(Clone, Hash)]
 pub enum SecretKeyMaterial {
     /// RSA secret key.
@@ -665,10 +661,6 @@ pub enum SecretKeyMaterial {
         /// Any data that failed to parse.
         rest: Protected,
     },
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl fmt::Debug for SecretKeyMaterial {
@@ -689,7 +681,6 @@ impl fmt::Debug for SecretKeyMaterial {
                     write!(f, "ECDH {{ scalar: {:?} }}", scalar),
                 &SecretKeyMaterial::Unknown{ ref mpis, ref rest } =>
                     write!(f, "Unknown {{ mips: {:?}, rest: {:?} }}", mpis, rest),
-                SecretKeyMaterial::__Nonexhaustive => unreachable!(),
             }
         } else {
             match self {
@@ -707,7 +698,6 @@ impl fmt::Debug for SecretKeyMaterial {
                     f.write_str("ECDH { <Redacted> }"),
                 &SecretKeyMaterial::Unknown{ .. } =>
                     f.write_str("Unknown { <Redacted> }"),
-                SecretKeyMaterial::__Nonexhaustive => unreachable!(),
             }
         }
     }
@@ -726,7 +716,6 @@ impl PartialOrd for SecretKeyMaterial {
                 &SecretKeyMaterial::ECDSA{ .. } => 4,
                 &SecretKeyMaterial::ECDH{ .. } => 5,
                 &SecretKeyMaterial::Unknown{ .. } => 6,
-                SecretKeyMaterial::__Nonexhaustive => unreachable!(),
             }
         }
 
@@ -812,7 +801,6 @@ impl SecretKeyMaterial {
             ECDSA { .. } => Some(PublicKeyAlgorithm::ECDSA),
             ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
             Unknown { .. } => None,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -889,6 +877,7 @@ impl Default for SecretKeyChecksum {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum Ciphertext {
     /// RSA ciphertext.
@@ -920,10 +909,6 @@ pub enum Ciphertext {
         /// Any data that failed to parse.
         rest: Box<[u8]>,
     },
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Ciphertext {
@@ -940,7 +925,6 @@ impl Ciphertext {
             &ElGamal { .. } => Some(PublicKeyAlgorithm::ElGamalEncrypt),
             &ECDH { .. } => Some(PublicKeyAlgorithm::ECDH),
             &Unknown { .. } => None,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -986,6 +970,7 @@ impl Arbitrary for Ciphertext {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Clone, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub enum Signature {
     /// RSA signature.
@@ -1033,10 +1018,6 @@ pub enum Signature {
         /// Any data that failed to parse.
         rest: Box<[u8]>,
     },
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Hash for Signature {
@@ -1111,7 +1092,6 @@ mod tests {
                     PublicKey::parse(ECDH, cur).unwrap(),
 
                 PublicKey::Unknown { .. } => unreachable!(),
-                PublicKey::__Nonexhaustive => unreachable!(),
             };
 
             pk == pk_
@@ -1162,7 +1142,6 @@ mod tests {
                     SecretKeyMaterial::parse(ElGamalEncrypt, cur).unwrap(),
 
                 SecretKeyMaterial::Unknown { .. } => unreachable!(),
-                SecretKeyMaterial::__Nonexhaustive => unreachable!(),
             };
 
             sk == sk_
@@ -1188,7 +1167,6 @@ mod tests {
                     Ciphertext::parse(ECDH, cur).unwrap(),
 
                 Ciphertext::Unknown { .. } => unreachable!(),
-                Ciphertext::__Nonexhaustive => unreachable!(),
             };
 
             ct == ct_
@@ -1218,7 +1196,6 @@ mod tests {
                     Signature::parse(ECDSA, cur).unwrap(),
 
                 Signature::Unknown { .. } => unreachable!(),
-                Signature::__Nonexhaustive => unreachable!(),
             };
 
             sig == sig_

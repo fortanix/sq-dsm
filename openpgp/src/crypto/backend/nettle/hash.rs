@@ -29,7 +29,6 @@ impl HashAlgorithm {
             HashAlgorithm::MD5 => true,
             HashAlgorithm::Private(_) => false,
             HashAlgorithm::Unknown(_) => false,
-            HashAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -60,7 +59,6 @@ impl HashAlgorithm {
             HashAlgorithm::RipeMD => Ok(Box::new(Ripemd160::default())),
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
                 Err(Error::UnsupportedHashAlgorithm(self).into()),
-            HashAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -78,7 +76,6 @@ impl HashAlgorithm {
             HashAlgorithm::RipeMD => Ok(rsa::ASN1_OID_RIPEMD160),
             HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) =>
                 Err(Error::UnsupportedHashAlgorithm(self).into()),
-            HashAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }

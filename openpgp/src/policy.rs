@@ -821,7 +821,6 @@ impl<'a> Policy for StandardPolicy<'a> {
                     Curve::Ed25519 => Cv25519,
                     Curve::Cv25519 => Cv25519,
                     Curve::Unknown(_) => Unknown,
-                    Curve::__Nonexhaustive => unreachable!(),
                 }
             },
 
@@ -868,6 +867,7 @@ impl<'a> Policy for StandardPolicy<'a> {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Clone, Debug)]
 pub enum AsymmetricAlgorithm {
     /// RSA with key sizes up to 2048-1 bit.
@@ -908,10 +908,6 @@ pub enum AsymmetricAlgorithm {
     Cv25519,
     /// Unknown algorithm.
     Unknown,
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl std::fmt::Display for AsymmetricAlgorithm {
@@ -943,7 +939,6 @@ impl From<AsymmetricAlgorithm> for u8 {
             BrainpoolP512 => 16,
             Cv25519 => 17,
             Unknown => 255,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }

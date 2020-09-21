@@ -93,6 +93,7 @@ pub(crate) use timestamp::normalize_systemtime;
 ///
 ///   [Section 9.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.1
 ///   [Section 5 of RFC 6637]: https://tools.ietf.org/html/rfc6637
+#[non_exhaustive]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum PublicKeyAlgorithm {
     /// RSA (Encrypt or Sign)
@@ -121,10 +122,6 @@ pub enum PublicKeyAlgorithm {
     Private(u8),
     /// Unknown algorithm identifier.
     Unknown(u8),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl PublicKeyAlgorithm {
@@ -146,7 +143,6 @@ impl PublicKeyAlgorithm {
         match &self {
             RSAEncryptSign | RSASign | DSA | ECDSA | ElGamalEncryptSign
                 | EdDSA => true,
-            __Nonexhaustive => unreachable!(),
             _ => false,
         }
     }
@@ -169,7 +165,6 @@ impl PublicKeyAlgorithm {
         match &self {
             RSAEncryptSign | RSAEncrypt | ElGamalEncrypt | ECDH
                 | ElGamalEncryptSign => true,
-            __Nonexhaustive => unreachable!(),
             _ => false,
         }
     }
@@ -195,7 +190,6 @@ impl PublicKeyAlgorithm {
                 => true,
             ElGamalEncrypt | ElGamalEncryptSign | Private(_) | Unknown(_)
                 => false,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -236,7 +230,6 @@ impl From<PublicKeyAlgorithm> for u8 {
             EdDSA => 22,
             Private(u) => u,
             Unknown(u) => u,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -259,7 +252,6 @@ impl fmt::Display for PublicKeyAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental public key algorithm {}", u)),
             Unknown(u) =>
                 f.write_fmt(format_args!("Unknown public key algorithm {}", u)),
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -317,10 +309,6 @@ pub enum Curve {
     Cv25519,
     /// Unknown curve.
     Unknown(Box<[u8]>),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Curve {
@@ -358,7 +346,6 @@ impl Curve {
             Ed25519 => Some(256),
             Cv25519 => Some(256),
             Unknown(_) => None,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -378,7 +365,6 @@ impl fmt::Display for Curve {
                 => f.write_str("Elliptic curve Diffie-Hellman using D.J. Bernstein's Curve25519"),
             Unknown(ref oid)
              => write!(f, "Unknown curve (OID: {:?})", oid),
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -442,7 +428,6 @@ impl Curve {
             &Curve::Ed25519 => ED25519_OID,
             &Curve::Cv25519 => CV25519_OID,
             &Curve::Unknown(ref oid) => oid,
-            Curve::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -476,7 +461,6 @@ impl Curve {
             &Curve::Unknown(_) =>
                 Err(Error::UnsupportedEllipticCurve(self.clone())
                     .into()),
-            Curve::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -500,7 +484,6 @@ impl Curve {
                 => true,
             BrainpoolP256 | BrainpoolP512 | Unknown(_)
                 => false,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -557,6 +540,7 @@ impl Arbitrary for Curve {
 ///     ])?;
 /// # Ok(()) }
 /// ```
+#[non_exhaustive]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum SymmetricAlgorithm {
     /// Null encryption.
@@ -587,10 +571,6 @@ pub enum SymmetricAlgorithm {
     Private(u8),
     /// Unknown algorithm identifier.
     Unknown(u8),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for SymmetricAlgorithm {
@@ -637,7 +617,6 @@ impl From<SymmetricAlgorithm> for u8 {
             SymmetricAlgorithm::Camellia256 => 13,
             SymmetricAlgorithm::Private(u) => u,
             SymmetricAlgorithm::Unknown(u) => u,
-            SymmetricAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -673,7 +652,6 @@ impl fmt::Display for SymmetricAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental symmetric key algorithm {}", u)),
             SymmetricAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown symmetric key algorithm {}", u)),
-            SymmetricAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -718,6 +696,7 @@ impl Arbitrary for SymmetricAlgorithm {
 ///         AEADAlgorithm::EAX,
 ///     ])?;
 /// # Ok(()) }
+#[non_exhaustive]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum AEADAlgorithm {
     /// EAX mode.
@@ -728,10 +707,6 @@ pub enum AEADAlgorithm {
     Private(u8),
     /// Unknown algorithm identifier.
     Unknown(u8),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl AEADAlgorithm {
@@ -754,7 +729,6 @@ impl AEADAlgorithm {
                 => true,
             OCB | Private(_) | Unknown(_)
                 => false,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -777,7 +751,6 @@ impl From<AEADAlgorithm> for u8 {
             AEADAlgorithm::OCB => 2,
             AEADAlgorithm::Private(u) => u,
             AEADAlgorithm::Unknown(u) => u,
-            AEADAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -793,7 +766,6 @@ impl fmt::Display for AEADAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental AEAD algorithm {}", u)),
             AEADAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown AEAD algorithm {}", u)),
-            AEADAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -830,6 +802,7 @@ impl Arbitrary for AEADAlgorithm {
 ///         CompressionAlgorithm::BZip2,
 ///     ])?;
 /// # Ok(()) }
+#[non_exhaustive]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum CompressionAlgorithm {
     /// Null compression.
@@ -854,10 +827,6 @@ pub enum CompressionAlgorithm {
     Private(u8),
     /// Unknown compression algorithm identifier.
     Unknown(u8),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for CompressionAlgorithm {
@@ -896,7 +865,6 @@ impl CompressionAlgorithm {
             Zip | Zlib => true,
             #[cfg(feature = "compression-bzip2")]
             BZip2 => true,
-            __Nonexhaustive => unreachable!(),
             _ => false,
         }
     }
@@ -924,7 +892,6 @@ impl From<CompressionAlgorithm> for u8 {
             CompressionAlgorithm::BZip2 => 3,
             CompressionAlgorithm::Private(u) => u,
             CompressionAlgorithm::Unknown(u) => u,
-            CompressionAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -940,7 +907,6 @@ impl fmt::Display for CompressionAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental compression algorithm {}", u)),
             CompressionAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown comppression algorithm {}", u)),
-            CompressionAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -973,6 +939,7 @@ impl Arbitrary for CompressionAlgorithm {
 /// ```
 ///
 /// [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
+#[non_exhaustive]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum HashAlgorithm {
     /// Rivest et.al. message digest 5.
@@ -993,10 +960,6 @@ pub enum HashAlgorithm {
     Private(u8),
     /// Unknown hash algorithm identifier.
     Unknown(u8),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for HashAlgorithm {
@@ -1035,7 +998,6 @@ impl From<HashAlgorithm> for u8 {
             HashAlgorithm::SHA224 => 11,
             HashAlgorithm::Private(u) => u,
             HashAlgorithm::Unknown(u) => u,
-            HashAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1078,7 +1040,6 @@ impl fmt::Display for HashAlgorithm {
                 f.write_fmt(format_args!("Private/Experimental hash algorithm {}", u)),
             HashAlgorithm::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown hash algorithm {}", u)),
-            HashAlgorithm::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1112,6 +1073,7 @@ impl Arbitrary for HashAlgorithm {
 ///     .set_signature_creation_time(SystemTime::now())?;
 /// # Ok(()) }
 /// ```
+#[non_exhaustive]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum SignatureType {
     /// Signature over a binary document.
@@ -1151,10 +1113,6 @@ pub enum SignatureType {
 
     /// Catchall.
     Unknown(u8),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl From<u8> for SignatureType {
@@ -1199,7 +1157,6 @@ impl From<SignatureType> for u8 {
             SignatureType::Timestamp => 0x40,
             SignatureType::Confirmation => 0x50,
             SignatureType::Unknown(u) => u,
-            SignatureType::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1239,7 +1196,6 @@ impl fmt::Display for SignatureType {
                 f.write_str("Confirmation"),
             SignatureType::Unknown(u) =>
                 f.write_fmt(format_args!("Unknown signature type 0x{:x}", u)),
-            SignatureType::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1308,6 +1264,7 @@ impl Arbitrary for SignatureType {
 /// # else { unreachable!(); }
 /// # Ok(()) }
 /// ```
+#[non_exhaustive]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum ReasonForRevocation {
     /// No reason specified (key revocations or cert revocations)
@@ -1330,10 +1287,6 @@ pub enum ReasonForRevocation {
 
     /// Unknown reason identifier.
     Unknown(u8),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl From<u8> for ReasonForRevocation {
@@ -1362,7 +1315,6 @@ impl From<ReasonForRevocation> for u8 {
             UIDRetired => 32,
             Private(u) => u,
             Unknown(u) => u,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1387,7 +1339,6 @@ impl fmt::Display for ReasonForRevocation {
             Unknown(u) =>
                 f.write_fmt(format_args!(
                     "Unknown revocation reason {}", u)),
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1510,7 +1461,6 @@ impl ReasonForRevocation {
             ReasonForRevocation::UIDRetired => RevocationType::Soft,
             ReasonForRevocation::Private(_) => RevocationType::Hard,
             ReasonForRevocation::Unknown(_) => RevocationType::Hard,
-            ReasonForRevocation::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1545,6 +1495,7 @@ impl ReasonForRevocation {
 /// let message = Message::try_from(packets);
 /// assert!(message.is_ok(), "{:?}", message);
 /// ```
+#[non_exhaustive]
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub enum DataFormat {
     /// Binary data.
@@ -1572,10 +1523,6 @@ pub enum DataFormat {
 
     /// Unknown format specifier.
     Unknown(char),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for DataFormat {
@@ -1618,7 +1565,6 @@ impl From<DataFormat> for char {
             Unicode => 'u',
             MIME => 'm',
             Unknown(c) => c,
-            __Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1638,7 +1584,6 @@ impl fmt::Display for DataFormat {
             Unknown(c) =>
                 f.write_fmt(format_args!(
                     "Unknown data format identifier {:?}", c)),
-            __Nonexhaustive => unreachable!(),
         }
     }
 }

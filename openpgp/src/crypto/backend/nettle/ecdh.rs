@@ -109,8 +109,6 @@ pub fn encrypt<R>(recipient: &Key<key::PublicParts, R>,
             // N/A
             Curve::Unknown(_) | Curve::Ed25519 =>
                 Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
-
-            Curve::__Nonexhaustive => unreachable!(),
         }
     } else {
         Err(Error::InvalidArgument("Expected an ECDHPublicKey".into()).into())

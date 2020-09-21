@@ -11,6 +11,7 @@ pub(crate) type LexerItem<Tok, Loc, Error>
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Token {
     /// A Literal data packet.
@@ -40,10 +41,6 @@ pub enum Token {
 
     /// A container's unparsed content.
     OpaqueContent,
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl fmt::Display for Token {

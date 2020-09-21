@@ -294,7 +294,7 @@ impl TryFrom<&mpi::Ciphertext> for Sexp {
                     format!("Don't know how to convert {:?}", ciphertext))
                     .into()),
 
-            __Nonexhaustive => unreachable!(),
+            &_ => unreachable!(), // Ciphertext is non-exhaustive.
         }
     }
 }

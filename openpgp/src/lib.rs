@@ -177,6 +177,7 @@ pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(thiserror::Error, Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// Invalid argument.
@@ -296,8 +297,4 @@ pub enum Error {
             .1.as_ref().map(|t| format!(" since {}", crate::fmt::time(t)))
             .unwrap_or("".into()))]
     PolicyViolation(String, Option<std::time::SystemTime>),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] #[error("__Nonexhaustive")] __Nonexhaustive,
 }

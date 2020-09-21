@@ -305,7 +305,6 @@ impl Hash for Signature {
     fn hash(&self, hash: &mut Context) {
         match self {
             Signature::V4(sig) => sig.hash(hash),
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }

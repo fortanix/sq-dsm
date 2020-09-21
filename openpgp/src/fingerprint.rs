@@ -13,6 +13,7 @@ use quickcheck::{Arbitrary, Gen};
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub enum Fingerprint {
     /// 20 byte SHA-1 hash.
@@ -20,10 +21,6 @@ pub enum Fingerprint {
     /// Used for holding fingerprints that we don't understand.  For
     /// instance, we don't grok v3 fingerprints.
     Invalid(Box<[u8]>),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl fmt::Display for Fingerprint {
@@ -79,7 +76,6 @@ impl Fingerprint {
         match self {
             &Fingerprint::V4(ref fp) => fp,
             &Fingerprint::Invalid(ref fp) => fp,
-            Fingerprint::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -131,7 +127,6 @@ impl Fingerprint {
         let raw = match self {
             &Fingerprint::V4(ref fp) => &fp[..],
             &Fingerprint::Invalid(ref fp) => &fp[..],
-            Fingerprint::__Nonexhaustive => unreachable!(),
         };
 
         // We currently only handle V4 fingerprints, which look like:

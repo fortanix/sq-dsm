@@ -1586,7 +1586,6 @@ impl From<Signature> for SignatureBuilder {
     fn from(sig: Signature) -> Self {
         match sig {
             Signature::V4(sig) => sig.into(),
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2185,7 +2184,6 @@ impl crate::packet::Signature {
                     | Private(_)
                     | Unknown(_)
                     => true,
-                __Nonexhaustive => unreachable!(),
             }
         }
 

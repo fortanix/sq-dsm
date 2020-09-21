@@ -243,6 +243,7 @@ use super::*;
 /// [`CTB`]: header/enum.CTB.html
 /// [length style]: https://tools.ietf.org/html/rfc4880#section-4.2
 /// [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
+#[non_exhaustive]
 #[derive(Debug)]
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {
@@ -282,10 +283,6 @@ pub enum Packet {
     MDC(MDC),
     /// AEAD Encrypted Data Packet.
     AED(AED),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 } // doc-hack, see above
 
@@ -361,7 +358,6 @@ impl Packet {
             &Packet::SEIP(_) => Tag::SEIP,
             &Packet::MDC(_) => Tag::MDC,
             &Packet::AED(_) => Tag::AED,
-            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -402,11 +398,9 @@ impl<'a> Deref for Packet {
             &Packet::PKESK(ref packet) => &packet.common,
             &Packet::SKESK(SKESK::V4(ref packet)) => &packet.common,
             &Packet::SKESK(SKESK::V5(ref packet)) => &packet.skesk4.common,
-            Packet::SKESK(SKESK::__Nonexhaustive) => unreachable!(),
             &Packet::SEIP(ref packet) => &packet.common,
             &Packet::MDC(ref packet) => &packet.common,
             &Packet::AED(ref packet) => &packet.common,
-            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -430,11 +424,9 @@ impl<'a> DerefMut for Packet {
             &mut Packet::PKESK(ref mut packet) => &mut packet.common,
             &mut Packet::SKESK(SKESK::V4(ref mut packet)) => &mut packet.common,
             &mut Packet::SKESK(SKESK::V5(ref mut packet)) => &mut packet.skesk4.common,
-            Packet::SKESK(SKESK::__Nonexhaustive) => unreachable!(),
             &mut Packet::SEIP(ref mut packet) => &mut packet.common,
             &mut Packet::MDC(ref mut packet) => &mut packet.common,
             &mut Packet::AED(ref mut packet) => &mut packet.common,
-            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -876,14 +868,11 @@ fn packet_path_iter() {
 /// # assert_eq!(cert.with_policy(p, t2)?.userids().count(), 2);
 /// # Ok(()) }
 /// ```
+#[non_exhaustive]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Debug)]
 pub enum Signature {
     /// Signature packet version 4.
     V4(self::signature::Signature4),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Signature {
@@ -891,7 +880,6 @@ impl Signature {
     pub fn version(&self) -> u8 {
         match self {
             &Signature::V4(_) => 4,
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -909,7 +897,6 @@ impl Deref for Signature {
     fn deref(&self) -> &Self::Target {
         match self {
             Signature::V4(sig) => sig,
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -919,7 +906,6 @@ impl DerefMut for Signature {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             Signature::V4(ref mut sig) => sig,
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -939,14 +925,11 @@ impl DerefMut for Signature {
 /// [Section 5.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.4
 /// [`PacketParser`]: ../parse/index.html
 /// [streaming serializer]: ../serialize/stream/index.html
+#[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum OnePassSig {
     /// OnePassSig packet version 3.
     V3(self::one_pass_sig::OnePassSig3),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl OnePassSig {
@@ -954,7 +937,6 @@ impl OnePassSig {
     pub fn version(&self) -> u8 {
         match self {
             &OnePassSig::V3(_) => 3,
-            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -972,7 +954,6 @@ impl Deref for OnePassSig {
     fn deref(&self) -> &Self::Target {
         match self {
             OnePassSig::V3(ops) => ops,
-            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -982,7 +963,6 @@ impl DerefMut for OnePassSig {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             OnePassSig::V3(ref mut ops) => ops,
-            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1006,14 +986,11 @@ impl DerefMut for OnePassSig {
 /// [Section 5.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.1
 /// [streaming serializer]: ../serialize/stream/index.html
 /// [`PacketParser`]: ../parse/index.html
+#[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum PKESK {
     /// PKESK packet version 3.
     V3(self::pkesk::PKESK3),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl PKESK {
@@ -1021,7 +998,6 @@ impl PKESK {
     pub fn version(&self) -> u8 {
         match self {
             PKESK::V3(_) => 3,
-            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1039,7 +1015,6 @@ impl Deref for PKESK {
     fn deref(&self) -> &Self::Target {
         match self {
             PKESK::V3(ref p) => p,
-            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1049,7 +1024,6 @@ impl DerefMut for PKESK {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             PKESK::V3(ref mut p) => p,
-            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1073,6 +1047,7 @@ impl DerefMut for PKESK {
 /// [Section 5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.3
 /// [streaming serializer]: ../serialize/stream/index.html
 /// [`PacketParser`]: ../parse/index.html
+#[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum SKESK {
     /// SKESK packet version 4.
@@ -1081,10 +1056,6 @@ pub enum SKESK {
     ///
     /// This feature is [experimental](../index.html#experimental-features).
     V5(self::skesk::SKESK5),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl SKESK {
@@ -1093,7 +1064,6 @@ impl SKESK {
         match self {
             &SKESK::V4(_) => 4,
             &SKESK::V5(_) => 5,
-            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1412,21 +1382,17 @@ impl From<SKESK> for Packet {
 /// # Ok(())
 /// # }
 /// ```
+#[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum Key<P: key::KeyParts, R: key::KeyRole> {
     /// A version 4 `Key` packet.
     V4(Key4<P, R>),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl<P: key::KeyParts, R: key::KeyRole> fmt::Display for Key<P, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Key::V4(k) => k.fmt(f),
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1436,7 +1402,6 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     pub fn version(&self) -> u8 {
         match self {
             Key::V4(_) => 4,
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1452,8 +1417,6 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     {
         match (self, b) {
             (Key::V4(a), Key::V4(b)) => a.public_cmp(b),
-            (Key::__Nonexhaustive, _) => unreachable!(),
-            (_, Key::__Nonexhaustive) => unreachable!(),
         }
     }
 
@@ -1545,10 +1508,6 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     pub fn into_keypair(self) -> Result<KeyPair> {
         match self {
             Key::V4(k) => k.into_keypair(),
-            // Match exhaustively so that when we add support for a
-            // new variant, the compiler reminds us to add support for
-            // it here.
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1610,10 +1569,6 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     {
         match self {
             Key::V4(k) => Ok(Key::V4(k.decrypt_secret(password)?)),
-            // Match exhaustively so that when we add support for a
-            // new variant, the compiler reminds us to add support for
-            // it here.
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1683,10 +1638,6 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     {
         match self {
             Key::V4(k) => Ok(Key::V4(k.encrypt_secret(password)?)),
-            // Match exhaustively so that when we add support for a
-            // new variant, the compiler reminds us to add support for
-            // it here.
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1728,7 +1679,6 @@ macro_rules! impl_common_secret_functions {
                         let (k, s) = k.take_secret();
                         (k.into(), s)
                     },
-                    Key::__Nonexhaustive => unreachable!(),
                 }
             }
 
@@ -1743,7 +1693,6 @@ macro_rules! impl_common_secret_functions {
                         let (k, s) = k.add_secret(secret);
                         (k.into(), s)
                     },
-                    Key::__Nonexhaustive => unreachable!(),
                 }
             }
         }
@@ -1763,7 +1712,6 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
                 let (k, s) = k.take_secret();
                 (k.into(), s)
             },
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1776,7 +1724,6 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
                 let (k, s) = k.add_secret(secret);
                 (k.into(), s)
             },
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1789,7 +1736,6 @@ impl<P: key::KeyParts, R: key::KeyRole> Deref for Key<P, R> {
     fn deref(&self) -> &Self::Target {
         match self {
             Key::V4(ref p) => p,
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1799,7 +1745,6 @@ impl<P: key::KeyParts, R: key::KeyRole> DerefMut for Key<P, R> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             Key::V4(ref mut p) => p,
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1877,14 +1822,11 @@ impl DerefMut for SEIP {
 /// [`PacketParser`]: ../parse/index.html
 ///
 /// This feature is [experimental](../index.html#experimental-features).
+#[non_exhaustive]
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub enum AED {
     /// AED packet version 1.
     V1(self::aed::AED1),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl AED {
@@ -1892,7 +1834,6 @@ impl AED {
     pub fn version(&self) -> u8 {
         match self {
             AED::V1(_) => 1,
-            AED::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1910,7 +1851,6 @@ impl Deref for AED {
     fn deref(&self) -> &Self::Target {
         match self {
             AED::V1(ref p) => p,
-            AED::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1920,7 +1860,6 @@ impl DerefMut for AED {
     fn deref_mut(&mut self) -> &mut Self::Target {
         match self {
             AED::V1(ref mut p) => p,
-            AED::__Nonexhaustive => unreachable!(),
         }
     }
 }

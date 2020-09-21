@@ -33,6 +33,7 @@ use rand::Rng;
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum S2K {
     /// Repeatently hashes the password with a public `salt` value.
@@ -111,10 +112,6 @@ pub enum S2K {
         /// packet is serialized again, it is written out.
         parameters: Option<Box<[u8]>>,
     },
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl Default for S2K {
@@ -229,7 +226,6 @@ impl S2K {
                         }
                         S2K::Unknown { .. } | &S2K::Private { .. } =>
                             unreachable!(),
-                        S2K::__Nonexhaustive => unreachable!(),
                     }
 
                     hash.digest(data);
@@ -241,7 +237,6 @@ impl S2K {
             S2K::Unknown { tag, .. } | S2K::Private { tag, .. } =>
                 Err(Error::MalformedPacket(
                         format!("Unknown S2K type {:#x}", tag)).into()),
-            S2K::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -251,7 +246,6 @@ impl S2K {
         #[allow(deprecated)]
         match self {
             Simple { .. } | Salted { .. } | Iterated { .. } => true,
-            __Nonexhaustive => unreachable!(),
             _ => false,
         }
     }
@@ -367,7 +361,6 @@ impl fmt::Display for S2K {
                 } else {
                     write!(f, "Unknown S2K {}", tag)
                 },
-            S2K::__Nonexhaustive => unreachable!(),
         }
     }
 }

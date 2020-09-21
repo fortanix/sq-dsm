@@ -1733,7 +1733,6 @@ impl Subpacket {
                     tag,
                     body: php.parse_bytes("unknown subpacket", len)?,
                 },
-            SubpacketTag::__Nonexhaustive => unreachable!(),
         };
 
         let total_out = php.reader.total_out();
@@ -1993,7 +1992,6 @@ impl<'a> Parse<'a, OnePassSig3> for OnePassSig3 {
             //
             // p => Err(Error::InvalidOperation(
             //     format!("Not a OnePassSig::V3 packet: {:?}", p)).into()),
-            OnePassSig::__Nonexhaustive => unreachable!(),
         })
     }
 }
@@ -2934,7 +2932,6 @@ impl<'a> Parse<'a, PKESK3> for PKESK3 {
             //
             // p => Err(Error::InvalidOperation(
             //     format!("Not a PKESKv3 packet: {:?}", p)).into()),
-            PKESK::__Nonexhaustive => unreachable!(),
         })
     }
 }
@@ -4607,7 +4604,6 @@ impl <'a> PacketParser<'a> {
                 t!("A {:?} packet is not a container, not recursing.",
                    self.packet.tag());
             },
-            Packet::__Nonexhaustive => unreachable!(),
         }
 
         // No recursion.

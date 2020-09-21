@@ -174,7 +174,7 @@ impl Keygrip {
                     "Keygrip not defined for this kind of public key".into())
                            .into()),
 
-            __Nonexhaustive => unreachable!(),
+            &_ => unreachable!(), // Ciphertext is non-exhaustive.
         }
 
         let mut digest = [0; 20];

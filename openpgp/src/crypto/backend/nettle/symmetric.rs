@@ -58,7 +58,6 @@ impl SymmetricAlgorithm {
                 => true,
             Unencrypted | IDEA | Private(_) | Unknown(_)
                 => false,
-            __Nonexhaustive => unreachable!(),
         }
     }
 

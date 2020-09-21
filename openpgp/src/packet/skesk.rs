@@ -34,7 +34,6 @@ impl SKESK {
         match self {
             &SKESK::V4(ref s) => s.decrypt(password),
             &SKESK::V5(ref s) => s.decrypt(password),
-            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }

@@ -369,7 +369,9 @@ impl PacketDumper {
 
                         pd.dump_mpis(output, &ii, &[&rest[..]], &["rest"])?;
                     },
-                    mpi::PublicKey::__Nonexhaustive => unreachable!(),
+
+                    // crypto::mpi:Publickey is non-exhaustive
+                    _ => writeln!(output, "{}  Unknown variant", ii)?,
                 }
             }
 
@@ -425,8 +427,9 @@ impl PacketDumper {
                                         pd.dump_mpis(output, &ii, &[rest],
                                                      &["rest"])?;
                                     },
-                                    mpi::SecretKeyMaterial::__Nonexhaustive =>
-                                        unreachable!(),
+
+                                    // crypto::mpi::SecretKeyMaterial is non-exhaustive.
+                                    _ => writeln!(output, "{}  Unknown variant", ii)?,
                                 }
                                 Ok(())
                             })?;
@@ -531,8 +534,9 @@ impl PacketDumper {
 
                             self.dump_mpis(output, &ii, &[&rest[..]], &["rest"])?;
                         },
-                        mpi::Signature::__Nonexhaustive => unreachable!(),
 
+                        // crypto::mpi::Signature is non-exhaustive.
+                        _ => writeln!(output, "{}  Unknown variant", ii)?,
                     }
                 }
             },
@@ -641,7 +645,9 @@ impl PacketDumper {
 
                             self.dump_mpis(output, &ii, &[rest], &["rest"])?;
                         },
-                        mpi::Ciphertext::__Nonexhaustive => unreachable!(),
+
+                        // crypto::mpi::Ciphertext is non-exhaustive.
+                        _ => writeln!(output, "{}  Unknown variant", ii)?,
                     }
                 }
             },
@@ -679,8 +685,8 @@ impl PacketDumper {
                                  hex::encode(s.aead_digest()))?;
                     },
 
-                    self::openpgp::packet::SKESK::__Nonexhaustive =>
-                        unreachable!(),
+                    // SKESK is non-exhaustive.
+                    _ => writeln!(output, "{}  Unknown variant", i)?,
                 }
             },
 
@@ -703,7 +709,8 @@ impl PacketDumper {
                 writeln!(output, "{}  IV: {}", i, hex::encode(a.iv()))?;
             },
 
-            __Nonexhaustive => unreachable!(),
+            // openpgp::Packet is non-exhaustive.
+            _ => writeln!(output, "{}  Unknown variant", i)?,
         }
 
         if let Some(fields) = additional_fields {
@@ -840,7 +847,9 @@ impl PacketDumper {
                        .collect::<Vec<String>>().join(", "))?,
             IntendedRecipient(ref fp) =>
                 write!(output, "{}    Intended Recipient: {}", i, fp)?,
-            __Nonexhaustive => unreachable!(),
+
+            // SubpacketValue is non-exhaustive.
+            _ => writeln!(output, "{}  Unknown variant", i)?,
         }
 
         match s.value() {
@@ -900,7 +909,9 @@ impl PacketDumper {
                     writeln!(output, "{}    Parameters: {:?}", i, p)?;
                 }
             },
-            __Nonexhaustive => unreachable!(),
+
+            // S2K is non-exhaustive
+            _ => writeln!(output, "{}  Unknown variant", i)?,
         }
         Ok(())
     }

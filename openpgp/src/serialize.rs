@@ -813,7 +813,6 @@ impl Marshal for KeyID {
         let raw = match self {
             &KeyID::V4(ref fp) => &fp[..],
             &KeyID::Invalid(ref fp) => &fp[..],
-            KeyID::__Nonexhaustive => unreachable!(),
         };
         o.write_all(raw)?;
         Ok(())
@@ -826,7 +825,6 @@ impl MarshalInto for KeyID {
         match self {
             &KeyID::V4(_) => 8,
             &KeyID::Invalid(ref fp) => fp.len(),
-            KeyID::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -849,7 +847,6 @@ impl MarshalInto for Fingerprint {
         match self {
             Fingerprint::V4(_) => 20,
             Fingerprint::Invalid(ref fp) => fp.len(),
-            Fingerprint::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -952,8 +949,6 @@ impl Marshal for crypto::mpi::PublicKey {
                 }
                 w.write_all(rest)?;
             }
-
-            __Nonexhaustive => unreachable!(),
         }
 
         Ok(())
@@ -993,8 +988,6 @@ impl MarshalInto for crypto::mpi::PublicKey {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
-
-            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1041,8 +1034,6 @@ impl Marshal for crypto::mpi::SecretKeyMaterial {
                 }
                 w.write_all(rest)?;
             }
-
-            __Nonexhaustive => unreachable!(),
         }
 
         Ok(())
@@ -1082,8 +1073,6 @@ impl MarshalInto for crypto::mpi::SecretKeyMaterial {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
-
-            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1147,8 +1136,6 @@ impl Marshal for crypto::mpi::Ciphertext {
                 }
                 w.write_all(rest)?;
             }
-
-            __Nonexhaustive => unreachable!(),
         }
 
         Ok(())
@@ -1175,8 +1162,6 @@ impl MarshalInto for crypto::mpi::Ciphertext {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
-
-            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1216,8 +1201,6 @@ impl Marshal for crypto::mpi::Signature {
                 }
                 w.write_all(rest)?;
             }
-
-            __Nonexhaustive => unreachable!(),
         }
 
         Ok(())
@@ -1248,8 +1231,6 @@ impl MarshalInto for crypto::mpi::Signature {
                 mpis.iter().map(|mpi| mpi.serialized_len()).sum::<usize>()
                     + rest.len()
             }
-
-            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1281,7 +1262,6 @@ impl Marshal for S2K {
                     w.write_all(p)?;
                 }
             }
-            S2K::__Nonexhaustive => unreachable!(),
         }
 
         Ok(())
@@ -1298,7 +1278,6 @@ impl MarshalInto for S2K {
             S2K::Private { parameters, .. }
             | S2K::Unknown { parameters, .. } =>
                 1 + parameters.as_ref().map(|p| p.len()).unwrap_or(0),
-            S2K::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1462,7 +1441,6 @@ impl Marshal for SubpacketValue {
             }
             Unknown { body, .. } =>
                 o.write_all(body)?,
-            __Nonexhaustive => unreachable!(),
         }
         Ok(())
     }
@@ -1500,7 +1478,6 @@ impl MarshalInto for SubpacketValue {
                     1 + (fp as &dyn MarshalInto).serialized_len(),
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_bytes().len(),
-                Fingerprint::__Nonexhaustive => unreachable!(),
             },
             PreferredAEADAlgorithms(ref p) => p.len(),
             IntendedRecipient(ref fp) => match fp {
@@ -1508,10 +1485,8 @@ impl MarshalInto for SubpacketValue {
                     1 + (fp as &dyn MarshalInto).serialized_len(),
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_bytes().len(),
-                Fingerprint::__Nonexhaustive => unreachable!(),
             },
             Unknown { body, .. } => body.len(),
-            __Nonexhaustive => unreachable!(),
         }
     }
 
@@ -1574,14 +1549,12 @@ impl Marshal for Signature {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &Signature::V4(ref s) => s.serialize(o),
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn export(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &Signature::V4(ref s) => s.export(o),
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1590,28 +1563,24 @@ impl MarshalInto for Signature {
     fn serialized_len(&self) -> usize {
         match self {
             &Signature::V4(ref s) => s.serialized_len(),
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &Signature::V4(ref s) => s.serialize_into(buf),
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &Signature::V4(ref s) => s.export_into(buf),
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn export_to_vec(&self) -> Result<Vec<u8>> {
         match self {
             &Signature::V4(ref s) => s.export_to_vec(),
-            Signature::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1710,7 +1679,6 @@ impl Marshal for OnePassSig {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &OnePassSig::V3(ref s) => s.serialize(o),
-            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1719,14 +1687,12 @@ impl MarshalInto for OnePassSig {
     fn serialized_len(&self) -> usize {
         match self {
             &OnePassSig::V3(ref s) => s.serialized_len(),
-            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &OnePassSig::V3(ref s) => s.serialize_into(buf),
-            OnePassSig::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1769,7 +1735,6 @@ impl<P: key::KeyParts, R: key::KeyRole> Marshal for Key<P, R> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         match self {
             &Key::V4(ref p) => p.serialize(o),
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1778,7 +1743,6 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     fn net_len_key(&self, serialize_secrets: bool) -> usize {
         match self {
             &Key::V4(ref p) => p.net_len_key(serialize_secrets),
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -1787,14 +1751,12 @@ impl<P: key::KeyParts, R: key::KeyRole> MarshalInto for Key<P, R> {
     fn serialized_len(&self) -> usize {
         match self {
             &Key::V4(ref p) => p.serialized_len(),
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &Key::V4(ref p) => p.serialize_into(buf),
-            Key::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2230,7 +2192,6 @@ impl Marshal for PKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &PKESK::V3(ref p) => p.serialize(o),
-            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2239,7 +2200,6 @@ impl MarshalInto for PKESK {
     fn serialized_len(&self) -> usize {
         match self {
             &PKESK::V3(ref p) => p.serialized_len(),
-            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -2247,7 +2207,6 @@ impl MarshalInto for PKESK {
         match self {
             PKESK::V3(p) =>
                 generic_serialize_into(p, MarshalInto::serialized_len(p), buf),
-            PKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2287,7 +2246,6 @@ impl Marshal for SKESK {
         match self {
             &SKESK::V4(ref s) => s.serialize(o),
             &SKESK::V5(ref s) => s.serialize(o),
-            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2297,7 +2255,6 @@ impl NetLength for SKESK {
         match self {
             &SKESK::V4(ref s) => s.net_len(),
             &SKESK::V5(ref s) => s.net_len(),
-            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2307,7 +2264,6 @@ impl MarshalInto for SKESK {
         match self {
             &SKESK::V4(ref s) => s.serialized_len(),
             &SKESK::V5(ref s) => s.serialized_len(),
-            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -2317,7 +2273,6 @@ impl MarshalInto for SKESK {
                 generic_serialize_into(s, MarshalInto::serialized_len(s), buf),
             SKESK::V5(s) =>
                 generic_serialize_into(s, MarshalInto::serialized_len(s), buf),
-            SKESK::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2458,7 +2413,6 @@ impl Marshal for AED {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             &AED::V1(ref p) => p.serialize(o),
-            AED::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2467,14 +2421,12 @@ impl MarshalInto for AED {
     fn serialized_len(&self) -> usize {
         match self {
             &AED::V1(ref p) => p.serialized_len(),
-            AED::__Nonexhaustive => unreachable!(),
         }
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
         match self {
             &AED::V1(ref p) => p.serialize_into(buf),
-            AED::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2576,7 +2528,6 @@ impl Marshal for Packet {
             &Packet::SEIP(ref p) => p.serialize(o),
             &Packet::MDC(ref p) => p.serialize(o),
             &Packet::AED(ref p) => p.serialize(o),
-            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 
@@ -2618,7 +2569,6 @@ impl Marshal for Packet {
             &Packet::SEIP(ref p) => p.export(o),
             &Packet::MDC(ref p) => p.export(o),
             &Packet::AED(ref p) => p.export(o),
-            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2644,7 +2594,6 @@ impl NetLength for Packet {
             &Packet::SEIP(ref p) => p.net_len(),
             &Packet::MDC(ref p) => p.net_len(),
             &Packet::AED(ref p) => p.net_len(),
-            Packet::__Nonexhaustive => unreachable!(),
         }
     }
 }
@@ -2671,7 +2620,6 @@ impl MarshalInto for Packet {
             &Packet::SEIP(ref p) => p.serialized_len(),
             &Packet::MDC(ref p) => p.serialized_len(),
             &Packet::AED(ref p) => p.serialized_len(),
-            Packet::__Nonexhaustive => unreachable!(),
         })
             + 1 // CTB.
             + BodyLength::Full(self.net_len() as u32).serialized_len()

@@ -48,16 +48,13 @@ use self::grammar::MessageParser;
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
+#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum MessageParserError {
     /// A parser error.
     Parser(ParseError<usize, Token, LexicalError>),
     /// An OpenPGP error.
     OpenPGP(Error),
-
-    /// This marks this enum as non-exhaustive.  Do not use this
-    /// variant.
-    #[doc(hidden)] __Nonexhaustive,
 }
 
 impl From<MessageParserError> for anyhow::Error {
@@ -65,7 +62,6 @@ impl From<MessageParserError> for anyhow::Error {
         match err {
             MessageParserError::Parser(p) => p.into(),
             MessageParserError::OpenPGP(p) => p.into(),
-            MessageParserError::__Nonexhaustive => unreachable!(),
         }
     }
 }
