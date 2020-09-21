@@ -5633,7 +5633,7 @@ impl signature::SignatureBuilder {
     /// let sig = SignatureBuilder::from(
     ///     alice
     ///         .with_policy(p, None)?
-    ///         .direct_key_signature().expect("Direct key siganture")
+    ///         .direct_key_signature().expect("Direct key signature")
     ///         .clone()
     ///     )
     ///     .set_policy_uri("https://example.org/~alice/signing-policy.txt")?

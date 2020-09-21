@@ -34,7 +34,7 @@ pub fn build() -> App<'static, 'static> {
              .value_name("NOTATION")
              .number_of_values(1)
              .help("The notation name is considered known. \
-               This is used when validating sigantures. \
+               This is used when validating signatures. \
                Signatures that have unknown notations with the \
                critical bit set are considered invalid."))
         .subcommand(SubCommand::with_name("decrypt")

@@ -4394,7 +4394,7 @@ mod test {
             check(p, &cert, false, selfsig0);
             check(p, &cert, true, now);
 
-            // A newer self siganture.
+            // A newer self signature.
             let cert = cert.merge(
                 Cert::from_bytes(
                     crate::tests::key(
@@ -4663,7 +4663,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                    .primary_userid().unwrap().userid().value(),
                    b"Eminem");
 
-        // A newer self siganture for "Slim Shady". Unlike for Certs, this
+        // A newer self signature for "Slim Shady". Unlike for Certs, this
         // does NOT trump everything.
         let cert = cert.merge(
             Cert::from_bytes(

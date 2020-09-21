@@ -16,7 +16,7 @@
 //! OPTIONS:
 //!         --home <DIRECTORY>                Sets the home directory to use
 //!         --known-notation <NOTATION>...    The notation name is considered known. This is used when validating
-//!                                           sigantures. Signatures that have unknown notations with the critical bit set
+//!                                           signatures. Signatures that have unknown notations with the critical bit set
 //!                                           are considered invalid.
 //!     -m, --mapping <MAPPING>               Sets the realm and mapping to use [default: org.sequoia-pgp.contacts/default]
 //!     -p, --policy <NETWORK-POLICY>         Sets the network policy to use

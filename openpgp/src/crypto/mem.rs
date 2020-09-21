@@ -1,7 +1,7 @@
 //! Memory protection and encryption.
 //!
 //! Sequoia makes an effort to protect secrets stored in memory.  Even
-//! though a process' memory should be protected from being read by an
+//! though a process's memory should be protected from being read by an
 //! adversary, there may be bugs in the program or the architecture
 //! the program is running on that allow (partial) recovery of data.
 //! Or, the process may be serialized to persistent storage, and its
