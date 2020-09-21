@@ -172,5 +172,5 @@ sanity-check-versions:
 .PHONY: codespell
 codespell:
 	$(CODESPELL) $(CODESPELL_FLAGS) \
-	  -L "ede,iff,mut,nd,te,uint" \
-	  -S "*.bin,*.gpg,*.pgp,./.git,./target,data,highlight.js"
+	  -L "ede,iff,mut,nd,te,uint,KeyServer,keyserver,Keyserver,keyservers,Keyservers,keypair,keypairs,KeyPair,fpr,dedup" \
+	  -S "*.bin,*.gpg,*.pgp,./.git,data,highlight.js,*/target,Makefile"
