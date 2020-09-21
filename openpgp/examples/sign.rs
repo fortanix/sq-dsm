@@ -5,7 +5,7 @@ use std::io;
 
 use anyhow::Context;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{Armorer, Message, LiteralWriter, Signer};

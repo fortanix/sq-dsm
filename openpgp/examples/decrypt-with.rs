@@ -7,7 +7,7 @@ use std::io;
 
 use anyhow::Context;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto::{KeyPair, SessionKey};

@@ -2,7 +2,8 @@
 
 use std::io::{self, Write};
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
+
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::serialize::stream::*;
 use crate::openpgp::parse::{Parse, stream::*};

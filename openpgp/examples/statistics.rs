@@ -12,7 +12,8 @@ use std::collections::HashMap;
 
 use anyhow::Context;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
+
 use crate::openpgp::{Packet, Fingerprint, KeyID, KeyHandle};
 use crate::openpgp::types::*;
 use crate::openpgp::packet::{user_attribute, header::BodyLength, Tag};
