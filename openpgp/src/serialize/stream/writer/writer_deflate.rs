@@ -6,7 +6,7 @@ use crate::Result;
 use crate::types::CompressionLevel;
 use super::{Generic, Message, BoxStack, Stackable, Cookie};
 
-/// ZIPing writer.
+/// ZIP compressing writer.
 pub struct ZIP<'a, C: 'a> {
     inner: Generic<DeflateEncoder<BoxStack<'a, C>>, C>,
 }
@@ -74,7 +74,7 @@ impl<'a, C: 'a> Stackable<'a, C> for ZIP<'a, C> {
     }
 }
 
-/// ZLIBing writer.
+/// ZLIB compressing writer.
 pub struct ZLIB<'a, C: 'a> {
     inner: Generic<ZlibEncoder<BoxStack<'a, C>>, C>,
 }
