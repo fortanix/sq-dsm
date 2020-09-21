@@ -312,7 +312,7 @@ impl ConventionallyParsedUserID {
 /// Using this definition, we provide methods to extract the [name],
 /// [comment], [email address], or [URI] from `UserID` packets.
 /// Furthermore, we provide a way to [canonicalize the email address]
-/// found in a `UserID` packet.  we provide [two] [constructors] that
+/// found in a `UserID` packet.  We provide [two] [constructors] that
 /// create well-formed User IDs from email address, and optional name
 /// and comment.
 ///
