@@ -54,24 +54,22 @@ fn main() -> openpgp::Result<()> {
     // Stream an OpenPGP message.
     let message = Message::new(&mut sink);
 
-    let message = Armorer::new(message)
-        // Customize the `Armorer` here.
-        .build()?;
+    let message = Armorer::new(message).build()?;
 
     // We want to encrypt a literal data packet.
-    let encryptor = Encryptor::for_recipients(message, recipients)
+    let message = Encryptor::for_recipients(message, recipients)
         .build().context("Failed to create encryptor")?;
 
-    let mut literal_writer = LiteralWriter::new(encryptor).build()
+    let mut message = LiteralWriter::new(message).build()
         .context("Failed to create literal writer")?;
 
     // Copy stdin to our writer stack to encrypt the data.
-    io::copy(&mut io::stdin(), &mut literal_writer)
+    io::copy(&mut io::stdin(), &mut message)
         .context("Failed to encrypt")?;
 
     // Finally, finalize the OpenPGP message by tearing down the
     // writer stack.
-    literal_writer.finalize()?;
+    message.finalize()?;
 
     Ok(())
 }

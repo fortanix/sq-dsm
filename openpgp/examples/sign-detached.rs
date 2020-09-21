@@ -69,15 +69,15 @@ fn main() -> openpgp::Result<()> {
     for s in keys {
         signer = signer.add_signer(s);
     }
-    let mut signer =
+    let mut message =
         signer.detached().build().context("Failed to create signer")?;
 
     // Copy all the data.
-    io::copy(&mut io::stdin(), &mut signer)
+    io::copy(&mut io::stdin(), &mut message)
         .context("Failed to sign data")?;
 
     // Finally, teardown the stack to ensure all the data is written.
-    signer.finalize()
+    message.finalize()
         .context("Failed to write data")?;
 
     Ok(())

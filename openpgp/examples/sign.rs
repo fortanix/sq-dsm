@@ -67,19 +67,19 @@ fn main() -> openpgp::Result<()> {
     for s in keys {
         signer = signer.add_signer(s);
     }
-    let signer = signer.build().context("Failed to create signer")?;
+    let message = signer.build().context("Failed to create signer")?;
 
     // Then, create a literal writer to wrap the data in a literal
     // message packet.
-    let mut literal = LiteralWriter::new(signer).build()
+    let mut message = LiteralWriter::new(message).build()
         .context("Failed to create literal writer")?;
 
     // Copy all the data.
-    io::copy(&mut io::stdin(), &mut literal)
+    io::copy(&mut io::stdin(), &mut message)
         .context("Failed to sign data")?;
 
     // Finally, teardown the stack to ensure all the data is written.
-    literal.finalize()
+    message.finalize()
         .context("Failed to write data")?;
 
     Ok(())

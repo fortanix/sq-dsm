@@ -72,7 +72,7 @@ fn main() -> openpgp::Result<()> {
     for s in keys {
         signer = signer.add_signer(s);
     }
-    let mut signer = signer.build().context("Failed to create signer")?;
+    let mut message = signer.build().context("Failed to create signer")?;
 
     // Create a parser for the message to be notarized.
     let mut input = io::stdin();
@@ -89,24 +89,24 @@ fn main() -> openpgp::Result<()> {
             Packet::PKESK(_) | Packet::SKESK(_) =>
                 return Err(anyhow::anyhow!("Encrypted messages are not supported")),
             Packet::OnePassSig(ref ops) =>
-                ops.serialize(&mut signer).context("Failed to serialize")?,
+                ops.serialize(&mut message).context("Failed to serialize")?,
             Packet::Literal(_) => {
                 // Then, create a literal writer to wrap the data in a
                 // literal message packet.
                 let mut literal =
-                    LiteralWriter::new(signer).build()
+                    LiteralWriter::new(message).build()
                     .context("Failed to create literal writer")?;
 
                 // Copy all the data.
                 io::copy(&mut pp, &mut literal)
                     .context("Failed to sign data")?;
 
-                signer = literal.finalize_one()
+                    message = literal.finalize_one()
                     .context("Failed to sign data")?
                     .unwrap();
             },
             Packet::Signature(ref sig) =>
-                sig.serialize(&mut signer).context("Failed to serialize")?,
+                sig.serialize(&mut message).context("Failed to serialize")?,
             _ => (),
         }
 
@@ -121,7 +121,7 @@ fn main() -> openpgp::Result<()> {
     }
 
     // Finally, teardown the stack to ensure all the data is written.
-    signer.finalize()
+    message.finalize()
         .context("Failed to write data")?;
 
     Ok(())
