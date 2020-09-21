@@ -91,7 +91,7 @@ windows-gnu:
   - $env:CARGO_HOME = "$env:ProgramFiles\cargo"
   - $env:RUSTUP_HOME = "$env:ProgramFiles\rustup"
   - Invoke-WebRequest https://win.rustup.rs -OutFile rustup-init.exe
-  - .\rustup-init.exe -y --default-toolchain 1.40.0 --default-host x86_64-pc-windows-gnu --profile minimal
+  - .\rustup-init.exe -y --default-toolchain 1.46.0 --default-host x86_64-pc-windows-gnu --profile minimal
   - $env:Path += ";$env:ProgramFiles\cargo\bin"
   - rustup --version
   - rustc --version --verbose
@@ -139,7 +139,7 @@ windows-msvc:
   - $env:CARGO_HOME = "$env:ProgramFiles\cargo"
   - $env:RUSTUP_HOME = "$env:ProgramFiles\rustup"
   - Invoke-WebRequest https://win.rustup.rs -OutFile rustup-init.exe
-  - .\rustup-init.exe -y --default-toolchain 1.40.0 --default-host x86_64-pc-windows-msvc --profile minimal
+  - .\rustup-init.exe -y --default-toolchain 1.46.0 --default-host x86_64-pc-windows-msvc --profile minimal
   - $env:Path += ";$env:ProgramFiles\cargo\bin"
   - Get-Date
   - rustup --version
