@@ -62,7 +62,7 @@ build-release:
 	    $(CARGO) build $(CARGO_FLAGS) --release --package sequoia-ffi
 	$(MAKE) -Clang/python build-release
 	$(call sequoia_pc,$(CARGO_TARGET_DIR)/release,true)
-	$(MAKE) -C../store install
+	$(MAKE) -C../store build-release
 
 .PHONY: install
 install: build-release
