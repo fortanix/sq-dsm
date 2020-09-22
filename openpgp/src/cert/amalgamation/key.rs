@@ -1234,7 +1234,8 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     where P: 'a + key::KeyParts,
           R: 'a + key::KeyRole,
           R2: Copy,
-          Self: ValidAmalgamation<'a, Key<P, R>>
+          Self: ValidAmalgamation<'a, Key<P, R>>,
+          Self: PrimaryKey<'a, P, R>,
 {
     /// Returns whether the key is alive as of the amalgamation's
     /// reference time.
@@ -1242,6 +1243,9 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// A `ValidKeyAmalgamation` is guaranteed to have a live binding
     /// signature.  This is independent of whether the component is
     /// live.
+    ///
+    /// If the certificate is not alive as of the reference time, no
+    /// subkey can be alive.
     ///
     /// This function considers both the binding signature and the
     /// direct key signature.  Information in the binding signature
@@ -1278,6 +1282,11 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// ```
     pub fn alive(&self) -> Result<()>
     {
+        if ! self.primary() {
+            // First, check the certificate.
+            self.cert().alive()?;
+        }
+
         let sig = {
             let binding : &Signature = self.binding_signature();
             if binding.key_validity_period().is_some() {
@@ -2243,5 +2252,21 @@ mod test {
         for ka in cert.keys().subkeys().with_policy(p, in_two_years) {
             assert!(ka.alive().is_err());
         }
+    }
+
+    /// Test that subkeys of expired certificates are also considered
+    /// expired.
+    #[test]
+    fn issue_564() -> Result<()> {
+        use crate::parse::Parse;
+        use crate::packet::signature::subpacket::SubpacketTag;
+        let p = &P::new();
+        let cert = Cert::from_bytes(crate::tests::key("testy.pgp"))?;
+        assert!(cert.with_policy(p, None)?.alive().is_err());
+        let subkey = cert.with_policy(p, None)?.keys().nth(1).unwrap();
+        assert!(subkey.binding_signature().hashed_area()
+                .subpacket(SubpacketTag::KeyExpirationTime).is_none());
+        assert!(subkey.alive().is_err());
+        Ok(())
     }
 }
