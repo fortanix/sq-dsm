@@ -5014,7 +5014,7 @@ impl signature::SignatureBuilder {
     /// extensions.  This is how the [Intended Recipient subpacket]
     /// started life.
     ///
-    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr 
+    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
     ///
     /// Notation names are structured, and are divided into two
     /// namespaces: the user namespace and the IETF namespace.  Names
@@ -5109,7 +5109,7 @@ impl signature::SignatureBuilder {
     /// extensions.  This is how the [Intended Recipient subpacket]
     /// started life.
     ///
-    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr 
+    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
     ///
     /// Notation names are structured, and are divided into two
     /// namespaces: the user namespace and the IETF namespace.  Names
