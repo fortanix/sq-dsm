@@ -4423,11 +4423,6 @@ impl <'a> PacketParser<'a> {
                          Box::new(buffered_reader::EOF::with_cookie(
                              Default::default()))),
             self.recursion_depth())?;
-        // At this point, next() has to point to a non-container
-        // packet or an opaque container (due to the maximum recursion
-        // level being reaching).  In this case, there can't be a fake
-        // EOF.
-        assert!(! fake_eof);
 
         self.last_path.clear();
         self.last_path.extend_from_slice(&self.path[..]);
@@ -5859,6 +5854,55 @@ mod test {
             panic!("failed to parse userid");
         }
 
+    }
+
+    /// We erroneously assumed that when BufferedReader::next() is
+    /// called, a SEIP container be opaque and hence there cannot be a
+    /// buffered_reader::Reserve on the stack with Cookie::fake_eof
+    /// set.  But, we could simply call BufferedReader::next() after
+    /// the SEIP packet is decrypted, or buffer a SEIP packet's body,
+    /// then call BufferedReader::recurse(), which falls back to
+    /// BufferedReader::next() because some data has been read.
+    #[test]
+    fn issue_455() -> Result<()> {
+        let sk: SessionKey =
+            crate::fmt::hex::decode("3E99593760EE241488462BAFAE4FA268\
+                                     260B14B82D310D196DCEC82FD4F67678")?.into();
+        let algo = SymmetricAlgorithm::AES256;
+
+        // Decrypt, then call BufferedReader::next().
+        eprintln!("Decrypt, then next():\n");
+        let mut ppr = PacketParser::from_bytes(
+            crate::tests::message("encrypted-to-testy.gpg"))?;
+        while let PacketParserResult::Some(mut pp) = ppr {
+            match &pp.packet {
+                Packet::SEIP(_) => {
+                    pp.decrypt(algo, &sk)?;
+                },
+                _ => (),
+            }
+            // Used to trigger the assertion failure on the SEIP
+            // packet:
+            ppr = pp.next()?.1;
+        }
+
+        // Decrypt, buffer, then call BufferedReader::recurse().
+        eprintln!("\nDecrypt, buffer, then recurse():\n");
+        let mut ppr = PacketParser::from_bytes(
+            crate::tests::message("encrypted-to-testy.gpg"))?;
+        while let PacketParserResult::Some(mut pp) = ppr {
+            match &pp.packet {
+                Packet::SEIP(_) => {
+                    pp.decrypt(algo, &sk)?;
+                    pp.buffer_unread_content()?;
+                },
+                _ => (),
+            }
+            // Used to trigger the assertion failure on the SEIP
+            // packet:
+            ppr = pp.recurse()?.1;
+        }
+        Ok(())
     }
 
     /// Crash in the AED parser due to missing chunk size validation.
