@@ -31,7 +31,7 @@ lalrpop_util::lalrpop_mod!(
 /// A connection to an Assuan server.
 ///
 /// Commands may be issued using [`Connection::send`].  Note that the
-/// command is sent lazily, i.e. it is only send if you poll for the
+/// command is sent lazily, i.e. it is only sent if you poll for the
 /// responses.
 ///
 /// [`Connection::send`]: #method.send
