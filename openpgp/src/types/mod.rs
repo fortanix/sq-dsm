@@ -97,13 +97,11 @@ pub(crate) use timestamp::normalize_systemtime;
 pub enum PublicKeyAlgorithm {
     /// RSA (Encrypt or Sign)
     RSAEncryptSign,
-    /// RSA Encrypt-Only
-    #[deprecated(since = "rfc4880",
-                 note = "Use `PublicKeyAlgorithm::RSAEncryptSign`.")]
+    /// RSA Encrypt-Only, deprecated in RFC 4880.
+    #[deprecated(note = "Use `PublicKeyAlgorithm::RSAEncryptSign`.")]
     RSAEncrypt,
-    /// RSA Sign-Only
-    #[deprecated(since = "rfc4880",
-                 note = "Use `PublicKeyAlgorithm::RSAEncryptSign`.")]
+    /// RSA Sign-Only, deprecated in RFC 4880.
+    #[deprecated(note = "Use `PublicKeyAlgorithm::RSAEncryptSign`.")]
     RSASign,
     /// ElGamal (Encrypt-Only)
     ElGamalEncrypt,
@@ -113,9 +111,8 @@ pub enum PublicKeyAlgorithm {
     ECDH,
     /// Elliptic curve DSA
     ECDSA,
-    /// ElGamal (Encrypt or Sign)
-    #[deprecated(since = "rfc4880",
-                 note = "If you really must, use \
+    /// ElGamal (Encrypt or Sign), deprecated in RFC 4880.
+    #[deprecated(note = "If you really must, use \
                          `PublicKeyAlgorithm::ElGamalEncrypt`.")]
     ElGamalEncryptSign,
     /// "Twisted" Edwards curve DSA

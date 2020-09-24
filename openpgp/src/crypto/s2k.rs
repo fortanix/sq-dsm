@@ -68,9 +68,11 @@ pub enum S2K {
     ///
     /// This mechanism uses neither iteration to increase the time it
     /// takes to derive the key from the password nor does it salt the
-    /// password.  This makes dictionary attacks more feasible.  Do
-    /// not use this variant.
-    #[deprecated(since = "rfc4880", note = "Use `S2K::Iterated`.")]
+    /// password.  This makes dictionary attacks more feasible.
+    ///
+    /// This mechanism has been deprecated in RFC 4880. Do not use this
+    /// variant.
+    #[deprecated(note = "Use `S2K::Iterated`.")]
     Simple {
         /// Hash used for key derivation.
         hash: HashAlgorithm
