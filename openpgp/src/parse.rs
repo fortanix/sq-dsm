@@ -5138,7 +5138,7 @@ impl<'a> PacketParser<'a> {
                     let mut dec = Decryptor::new(
                         algo, key, &self.data_hard(bl + 2)?[..bl + 2])?;
                     let mut header = vec![ 0u8; bl + 2 ];
-                    dec.read(&mut header)?;
+                    dec.read_exact(&mut header)?;
 
                     if !(header[bl - 2] == header[bl]
                          && header[bl - 1] == header[bl + 1]) {
