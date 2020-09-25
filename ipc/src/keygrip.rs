@@ -169,12 +169,12 @@ impl Keygrip {
             &ECDSA { ref curve, ref q } => hash_ecc(&mut hash, curve, q),
             &ECDH { ref curve, ref q, .. } => hash_ecc(&mut hash, curve, q),
 
-            &Unknown { .. } =>
+            // crypto::mpi::PublicKey is non_exhaustive, match on &_ to handle
+            // future additions.
+            &Unknown { .. } | &_ =>
                 return Err(Error::InvalidOperation(
                     "Keygrip not defined for this kind of public key".into())
                            .into()),
-
-            &_ => unreachable!(), // Ciphertext is non-exhaustive.
         }
 
         let mut digest = [0; 20];

@@ -289,12 +289,12 @@ impl TryFrom<&mpi::Ciphertext> for Sexp {
                             Sexp::String("e".into()),
                             Sexp::String(e.value().into())])])])),
 
-            &Unknown { .. } =>
+            // crypto::mpi::Ciphertext is non_exhaustive, match on &_ to handle
+            // future additions.
+            &Unknown { .. } | &_ =>
                 Err(Error::InvalidArgument(
                     format!("Don't know how to convert {:?}", ciphertext))
                     .into()),
-
-            &_ => unreachable!(), // Ciphertext is non-exhaustive.
         }
     }
 }
