@@ -13,7 +13,7 @@ use crate::{
 /// Identifies certificates and keys.
 ///
 /// A `KeyHandle` is either a `Fingerprint` or a `KeyID`.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone)]
 pub enum KeyHandle {
     /// A Fingerprint.
     Fingerprint(Fingerprint),

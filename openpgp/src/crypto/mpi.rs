@@ -613,6 +613,7 @@ impl Arbitrary for PublicKey {
 /// extensions.
 // Deriving Hash here is okay: PartialEq is manually implemented to
 // ensure that secrets are compared in constant-time.
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(Clone, Hash)]
 pub enum SecretKeyMaterial {
     /// RSA secret key.

@@ -1674,7 +1674,7 @@ impl Subpacket {
     }
 }
 
-#[derive(Clone, Debug, Hash, Eq)]
+#[derive(Clone, Debug)]
 pub(crate) struct SubpacketLength {
     /// The length.
     pub(crate) len: u32,
@@ -1710,6 +1710,22 @@ impl PartialEq for SubpacketLength {
                 let mut self_raw = [0; 5];
                 self.serialize_into(&mut self_raw[..self.serialized_len()]).unwrap();
                 &self_raw[..self.serialized_len()] == &other_raw[..]
+            },
+        }
+    }
+}
+
+impl Eq for SubpacketLength {}
+
+impl Hash for SubpacketLength {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match &self.raw {
+            Some(raw) => raw.hash(state),
+            None => {
+                let l = self.serialized_len();
+                let mut raw = [0; 5];
+                self.serialize_into(&mut raw[..l]).unwrap();
+                raw[..l].hash(state);
             },
         }
     }
