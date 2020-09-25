@@ -1088,10 +1088,12 @@ impl CertBuilder {
             .set_signature_creation_time(creation_time)?
             .set_key_validity_period(self.primary.validity)?
             .set_preferred_hash_algorithms(vec![
-                HashAlgorithm::SHA512
+                HashAlgorithm::SHA512,
+                HashAlgorithm::SHA256,
             ])?
             .set_preferred_symmetric_algorithms(vec![
                 SymmetricAlgorithm::AES256,
+                SymmetricAlgorithm::AES128,
             ])?;
 
         if let Some(ref revocation_keys) = self.revocation_keys {
