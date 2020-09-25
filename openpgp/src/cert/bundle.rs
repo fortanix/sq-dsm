@@ -604,26 +604,26 @@ impl<C> ComponentBundle<C> {
     // This function assumes that the signatures have already been
     // cryptographically checked.
     //
-    // Note: this uses Signature::eq to compare signatures.  That
-    // function ignores unhashed packets.  If there are two signatures
-    // that only differ in their unhashed subpackets, they will be
-    // deduped.  The unhashed areas are *not* merged; the one that is
-    // kept is undefined.
+    // Note: this uses Signature::normalized_eq to compare signatures.
+    // That function ignores unhashed packets.  If there are two
+    // signatures that only differ in their unhashed subpackets, they
+    // will be deduped.  The unhashed areas are *not* merged; the one
+    // that is kept is undefined.
     pub(crate) fn sort_and_dedup(&mut self)
     {
         self.self_signatures.sort_by(sig_cmp);
-        self.self_signatures.dedup();
+        self.self_signatures.dedup_by(|a, b| a.normalized_eq(b));
 
         // There is no need to sort the certifications, but we do
         // want to remove dups and sorting is a prerequisite.
         self.certifications.sort_by(sig_cmp);
-        self.certifications.dedup();
+        self.certifications.dedup_by(|a, b| a.normalized_eq(b));
 
         self.self_revocations.sort_by(sig_cmp);
-        self.self_revocations.dedup();
+        self.self_revocations.dedup_by(|a, b| a.normalized_eq(b));
 
         self.other_revocations.sort_by(sig_cmp);
-        self.other_revocations.dedup();
+        self.other_revocations.dedup_by(|a, b| a.normalized_eq(b));
     }
 }
 

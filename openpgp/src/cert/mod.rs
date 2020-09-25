@@ -1806,7 +1806,7 @@ impl Cert {
         self.primary.sort_and_dedup();
 
         self.bad.sort_by(sig_cmp);
-        self.bad.dedup();
+        self.bad.dedup_by(|a, b| a.normalized_eq(b));
 
         self.userids.sort_and_dedup(UserID::cmp, |_, _| {});
         self.user_attributes.sort_and_dedup(UserAttribute::cmp, |_, _| {});
@@ -5366,6 +5366,46 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.with_policy(p, None)?.keys().for_signing().count(), 0);
         let p = &crate::policy::StandardPolicy::new();
         assert_eq!(cert.with_policy(p, None)?.keys().for_signing().count(), 0);
+        Ok(())
+    }
+
+    /// Tests whether signatures are properly deduplicated.
+    #[test]
+    fn issue_568() -> Result<()> {
+        use crate::packet::signature::subpacket::*;
+
+        let (cert, _) = CertBuilder::general_purpose(
+            None, Some("alice@example.org")).generate().unwrap();
+        assert_eq!(cert.userids().count(), 1);
+        assert_eq!(cert.subkeys().count(), 1);
+        assert_eq!(cert.unknowns().count(), 0);
+        assert_eq!(cert.bad_signatures().len(), 0);
+        assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
+        assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
+
+        // Create a variant of cert where the signatures are stripped
+        // off their IssuerFingerprint subpackets.
+        let cert_b = cert.clone();
+        let mut packets = crate::PacketPile::from(cert_b).into_children()
+            .collect::<Vec<_>>();
+        for p in packets.iter_mut() {
+            if let Packet::Signature(sig) = p {
+                assert_eq!(sig.unhashed_area().subpackets(
+                    SubpacketTag::IssuerFingerprint).count(),
+                           1);
+                sig.unhashed_area_mut().remove_all(
+                    SubpacketTag::IssuerFingerprint);
+            }
+        }
+        let cert_b = Cert::from_packets(packets.into_iter())?;
+        let cert = cert.merge(cert_b)?;
+        assert_eq!(cert.userids().count(), 1);
+        assert_eq!(cert.subkeys().count(), 1);
+        assert_eq!(cert.unknowns().count(), 0);
+        assert_eq!(cert.bad_signatures().len(), 0);
+        assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
+        assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
+
         Ok(())
     }
 }
