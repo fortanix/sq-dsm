@@ -26,7 +26,11 @@ const MAX_LINE_LENGTH: usize = 1000;
 
 // Load the generated code.
 lalrpop_util::lalrpop_mod!(
-    #[allow(missing_docs, unused_parens)] grammar, "/assuan/grammar.rs");
+    #[allow(clippy::all)]
+    #[allow(missing_docs, unused_parens)]
+    grammar,
+    "/assuan/grammar.rs"
+);
 
 /// A connection to an Assuan server.
 ///

@@ -6,7 +6,12 @@ use crate::{
 };
 
 pub(crate) mod lexer;
-mod grammar;
+lalrpop_util::lalrpop_mod!(
+    #[allow(clippy::all)]
+    #[allow(unused_parens)]
+    grammar,
+    "/cert/parser/low_level/grammar.rs"
+);
 
 pub(crate) use self::lexer::Token;
 pub(crate) use self::lexer::Lexer;

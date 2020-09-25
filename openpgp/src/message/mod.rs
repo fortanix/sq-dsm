@@ -35,7 +35,7 @@ use crate::packet::Tag;
 use crate::parse::Parse;
 
 mod lexer;
-mod grammar;
+lalrpop_util::lalrpop_mod!(#[allow(clippy::all)] grammar, "/message/grammar.rs");
 
 use self::lexer::{Lexer, LexicalError};
 pub use self::lexer::Token;

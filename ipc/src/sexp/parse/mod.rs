@@ -22,7 +22,12 @@ mod lexer;
 use self::lexer::Lexer;
 
 // Load the generated code.
-lalrpop_mod!(#[allow(missing_docs, unused_parens)] grammar, "/sexp/parse/grammar.rs");
+lalrpop_mod!(
+    #[allow(clippy::all)]
+    #[allow(missing_docs, unused_parens)]
+    grammar,
+    "/sexp/parse/grammar.rs"
+);
 
 impl<'a> Parse<'a, Sexp> for Sexp {
     fn from_reader<R: 'a + Read>(reader: R) -> Result<Sexp> {
