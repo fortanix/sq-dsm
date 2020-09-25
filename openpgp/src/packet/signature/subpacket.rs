@@ -566,7 +566,7 @@ impl<'a> IntoIterator for &'a SubpacketArea {
 }
 
 impl SubpacketArea {
-    /// Returns a new subpacket area based on `data`.
+    /// Returns a new subpacket area containing the given `packets`.
     pub fn new(packets: Vec<Subpacket>) -> SubpacketArea {
         SubpacketArea {
             packets,
@@ -797,7 +797,7 @@ impl SubpacketArea {
     /// sig.unhashed_area_mut().add(
     ///     Subpacket::new(
     ///         SubpacketValue::Issuer(KeyID::from_hex("AAAA BBBB CCCC DDDD")?),
-    ///     false)?);
+    ///         false)?);
     ///
     /// sig.verify_message(signer.public(), msg)?;
     /// # assert_eq!(sig
