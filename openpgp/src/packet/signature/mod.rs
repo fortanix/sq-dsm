@@ -1983,13 +1983,13 @@ impl crate::packet::Signature {
     /// ```
     pub fn normalized_cmp(&self, other: &Signature)
                           -> Ordering {
-        self.mpis().cmp(other.mpis())
-            .then_with(|| self.version().cmp(&other.version()))
+        self.version().cmp(&other.version())
             .then_with(|| self.typ().cmp(&other.typ()))
             .then_with(|| self.pk_algo().cmp(&other.pk_algo()))
             .then_with(|| self.hash_algo().cmp(&other.hash_algo()))
             .then_with(|| self.hashed_area().cmp(other.hashed_area()))
             .then_with(|| self.digest_prefix().cmp(other.digest_prefix()))
+            .then_with(|| self.mpis().cmp(other.mpis()))
     }
 
     /// Normalizes the signature.
