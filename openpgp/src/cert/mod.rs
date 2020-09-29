@@ -227,6 +227,11 @@ fn canonical_signature_order(a: Option<time::SystemTime>, b: Option<time::System
     a.cmp(&b).reverse()
 }
 
+/// Compares two signatures by creation time using the MPIs as tie
+/// breaker.
+///
+/// Useful to sort signatures so that the most recent ones are at the
+/// front.
 fn sig_cmp(a: &Signature, b: &Signature) -> Ordering {
     match canonical_signature_order(a.signature_creation_time(),
                                     b.signature_creation_time()) {
