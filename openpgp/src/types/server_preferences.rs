@@ -54,7 +54,7 @@ use crate::types::Bitfield;
 /// }
 /// # Ok(()) }
 /// ```
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyServerPreferences(Bitfield);
 
 impl fmt::Debug for KeyServerPreferences {

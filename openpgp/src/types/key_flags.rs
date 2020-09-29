@@ -47,7 +47,7 @@ use crate::types::Bitfield;
 /// }
 /// # Ok(()) }
 /// ```
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyFlags(Bitfield);
 
 impl fmt::Debug for KeyFlags {

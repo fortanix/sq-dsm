@@ -54,6 +54,7 @@
 //! ```
 
 use std::cell::RefCell;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::convert::{TryInto, TryFrom};
 use std::hash::{Hash, Hasher};
@@ -535,10 +536,23 @@ impl Clone for SubpacketArea {
 
 impl PartialEq for SubpacketArea {
     fn eq(&self, other: &SubpacketArea) -> bool {
-        self.packets == other.packets
+        self.cmp(other) == Ordering::Equal
     }
 }
+
 impl Eq for SubpacketArea {}
+
+impl PartialOrd for SubpacketArea {
+    fn partial_cmp(&self, other: &SubpacketArea) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SubpacketArea {
+    fn cmp(&self, other: &SubpacketArea) -> Ordering {
+        self.packets.cmp(&other.packets)
+    }
+}
 
 impl Hash for SubpacketArea {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -969,7 +983,7 @@ impl SubpacketArea {
 /// 5.2.3.16 of RFC 4880] for details.
 ///
 ///   [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NotationData {
     flags: NotationDataFlags,
     name: String,
@@ -1018,7 +1032,7 @@ impl NotationData {
 }
 
 /// Flags for the Notation Data subpacket.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NotationDataFlags(crate::types::Bitfield);
 
 #[cfg(test)]
@@ -1194,7 +1208,7 @@ impl NotationDataFlags {
 ///
 /// Note: This enum cannot be exhaustively matched to allow future
 /// extensions.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub enum SubpacketValue {
     /// An unknown subpacket.
     Unknown {
@@ -1559,7 +1573,7 @@ impl SubpacketValue {
 /// Subpackets are described in [Section 5.2.3.1 of RFC 4880].
 ///
 ///   [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct Subpacket {
     /// The length.
     ///
@@ -1693,25 +1707,7 @@ impl From<u32> for SubpacketLength {
 
 impl PartialEq for SubpacketLength {
     fn eq(&self, other: &Self) -> bool {
-        match (&self.raw, &other.raw) {
-            (None, None) => {
-                self.len == other.len
-            },
-            // Compare serialized representations if at least one is given
-            (Some(self_raw), Some(other_raw)) => {
-                self_raw == other_raw
-            },
-            (Some(self_raw), None) => {
-                let mut other_raw = [0; 5];
-                other.serialize_into(&mut other_raw[..self.serialized_len()]).unwrap();
-                &self_raw[..] == &other_raw[..self.serialized_len()]
-            },
-            (None, Some(other_raw)) => {
-                let mut self_raw = [0; 5];
-                self.serialize_into(&mut self_raw[..self.serialized_len()]).unwrap();
-                &self_raw[..self.serialized_len()] == &other_raw[..]
-            },
-        }
+        self.cmp(other) == Ordering::Equal
     }
 }
 
@@ -1726,6 +1722,38 @@ impl Hash for SubpacketLength {
                 let mut raw = [0; 5];
                 self.serialize_into(&mut raw[..l]).unwrap();
                 raw[..l].hash(state);
+            },
+        }
+    }
+}
+
+impl PartialOrd for SubpacketLength {
+    fn partial_cmp(&self, other: &SubpacketLength) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SubpacketLength {
+    fn cmp(&self, other: &SubpacketLength) -> Ordering {
+        match (&self.raw, &other.raw) {
+            (None, None) => {
+                self.len.cmp(&other.len)
+            },
+            // Compare serialized representations if at least one is given
+            (Some(self_raw), Some(other_raw)) => {
+                self_raw.cmp(other_raw)
+            },
+            (Some(self_raw), None) => {
+                let mut other_raw = [0; 5];
+                other.serialize_into(&mut other_raw[..self.serialized_len()])
+                    .unwrap();
+                self_raw[..].cmp(&other_raw[..self.serialized_len()])
+            },
+            (None, Some(other_raw)) => {
+                let mut self_raw = [0; 5];
+                self.serialize_into(&mut self_raw[..self.serialized_len()])
+                    .unwrap();
+                self_raw[..self.serialized_len()].cmp(&other_raw[..])
             },
         }
     }
@@ -1764,7 +1792,7 @@ impl SubpacketLength {
 /// hash area are preferred.  To return packets from a specific area,
 /// use the `hashed_area` and `unhashed_area` methods to get the
 /// specific methods and then use their accessors.
-#[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SubpacketAreas {
     /// Subpackets that are part of the signature.
     hashed_area: SubpacketArea,

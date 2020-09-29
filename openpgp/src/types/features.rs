@@ -53,7 +53,7 @@ use crate::types::Bitfield;
 /// }
 /// # Ok(()) }
 /// ```
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Features(Bitfield);
 
 impl fmt::Debug for Features {

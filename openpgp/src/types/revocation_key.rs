@@ -52,7 +52,7 @@ use crate::{
 ///            vec![&(&alice).into()]);
 /// # Ok(()) }
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RevocationKey {
     /// The public key algorithm used by the authorized key.
     pk_algo: PublicKeyAlgorithm,

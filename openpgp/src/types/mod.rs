@@ -1112,7 +1112,7 @@ impl Arbitrary for HashAlgorithm {
 ///     .set_signature_creation_time(SystemTime::now())?;
 /// # Ok(()) }
 /// ```
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum SignatureType {
     /// Signature over a binary document.
     Binary,

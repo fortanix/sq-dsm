@@ -876,7 +876,7 @@ fn packet_path_iter() {
 /// # assert_eq!(cert.with_policy(p, t2)?.userids().count(), 2);
 /// # Ok(()) }
 /// ```
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Debug)]
 pub enum Signature {
     /// Signature packet version 4.
     V4(self::signature::Signature4),

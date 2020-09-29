@@ -114,6 +114,7 @@
 //! [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
 //! [its documentation]: subpacket/struct.SubpacketAreas.html
 
+use std::cmp::Ordering;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::time::SystemTime;
@@ -206,7 +207,7 @@ pub(crate) const SIG_BACKDATE_BY: u64 = 60;
 /// [`Signature4`]: struct.Signature4.html
 /// [`SignatureBuilder`]: struct.SignatureBuilder.html
 /// [`SubpacketAreas`]: subpacket/struct.SubpacketAreas.html
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SignatureFields {
     /// Version of the signature packet. Must be 4.
     version: u8,
@@ -1684,13 +1685,25 @@ impl PartialEq for Signature4 {
     /// [`computed_digest`]: #method.computed_digest
     /// [`Signature4::normalized_eq`]: #method.normalized_eq
     fn eq(&self, other: &Signature4) -> bool {
-        self.mpis == other.mpis
-            && self.fields == other.fields
-            && self.digest_prefix == other.digest_prefix
+        self.cmp(other) == Ordering::Equal
     }
 }
 
 impl Eq for Signature4 {}
+
+impl PartialOrd for Signature4 {
+    fn partial_cmp(&self, other: &Signature4) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Signature4 {
+    fn cmp(&self, other: &Signature4) -> Ordering {
+        self.mpis.cmp(&other.mpis)
+            .then_with(|| self.fields.cmp(&other.fields))
+            .then_with(|| self.digest_prefix.cmp(&other.digest_prefix))
+    }
+}
 
 impl std::hash::Hash for Signature4 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
