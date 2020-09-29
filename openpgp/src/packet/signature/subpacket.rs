@@ -802,7 +802,7 @@ impl SubpacketArea {
     /// # sig.verify_message(signer.public(), msg)?;
     /// #
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
     /// #    .count(),
@@ -819,7 +819,7 @@ impl SubpacketArea {
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
     /// #    .count(),
-    /// #    2);
+    /// #    1);
     /// # Ok(())
     /// # }
     /// ```
@@ -853,9 +853,11 @@ impl SubpacketArea {
     ///
     /// # Examples
     ///
-    /// Replaces the `Issuer` subpacket in the unhashed area.  Because
-    /// the unhashed area is not protected by the signature, the
-    /// signature remains valid:
+    /// Assuming we have a signature with an additional `Issuer`
+    /// subpacket in the unhashed area (see the example for
+    /// [`SubpacketArea::add`], this replaces the `Issuer` subpacket
+    /// in the unhashed area.  Because the unhashed area is not
+    /// protected by the signature, the signature remains valid:
     ///
     /// ```
     /// use sequoia_openpgp as openpgp;
@@ -883,12 +885,19 @@ impl SubpacketArea {
     /// # sig.verify_message(signer.public(), msg)?;
     /// #
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
     /// #    .count(),
     /// #    1);
+    /// // First, add a subpacket to the unhashed area.
     /// let mut sig: Signature = sig;
+    /// sig.unhashed_area_mut().add(
+    ///     Subpacket::new(
+    ///         SubpacketValue::Issuer(KeyID::from_hex("DDDD CCCC BBBB AAAA")?),
+    ///         false)?);
+    ///
+    /// // Now, replace it.
     /// sig.unhashed_area_mut().replace(
     ///     Subpacket::new(
     ///         SubpacketValue::Issuer(KeyID::from_hex("AAAA BBBB CCCC DDDD")?),
@@ -4880,18 +4889,25 @@ impl signature::SignatureBuilder {
 
     /// Adds the Issuer subpacket.
     ///
-    /// Adds an [Issuer subpacket] to the unhashed subpacket area.
+    /// Adds an [Issuer subpacket] to the hashed subpacket area.
     /// Unlike [`add_issuer`], this function first removes any
-    /// existing Issuer subpackets from the unhashed subpacket area.
+    /// existing Issuer subpackets from the hashed and unhashed
+    /// subpacket area.
     ///
     ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`add_issuer`]: #method.add_issuer
     ///
     /// The Issuer subpacket is used when processing a signature to
-    /// identify which certificate created the signature.  Since this
+    /// identify which certificate created the signature.  Even though this
     /// information is self-authenticating (the act of validating the
     /// signature authenticates the subpacket), it is stored in the
-    /// unhashed subpacket area.
+    /// hashed subpacket area.  This has the advantage that the signer
+    /// authenticates the set of issuers.  Furthermore, it makes
+    /// handling of the resulting signatures more robust: If there are
+    /// two two signatures that are equal modulo the contents of the
+    /// unhashed area, there is the question of how to merge the
+    /// information in the unhashed areas.  Storing issuer information
+    /// in the hashed area avoids this problem.
     ///
     /// When creating a signature using a SignatureBuilder or the
     /// [streaming `Signer`], it is not necessary to explicitly set
@@ -4938,13 +4954,13 @@ impl signature::SignatureBuilder {
     ///     .sign_message(&mut alices_signer, msg)?;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
     /// #    .count(),
     /// #    2);
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::IssuerFingerprint)
     /// #    .count(),
@@ -4952,27 +4968,35 @@ impl signature::SignatureBuilder {
     /// # Ok(()) }
     /// ```
     pub fn set_issuer(mut self, id: KeyID) -> Result<Self> {
-        self.unhashed_area.replace(Subpacket::new(
+        self.hashed_area.replace(Subpacket::new(
             SubpacketValue::Issuer(id),
             false)?)?;
+        self.unhashed_area.remove_all(SubpacketTag::Issuer);
 
         Ok(self)
     }
 
     /// Adds an Issuer subpacket.
     ///
-    /// Adds an [Issuer subpacket] to the unhashed subpacket area.
+    /// Adds an [Issuer subpacket] to the hashed subpacket area.
     /// Unlike [`set_issuer`], this function does not first remove any
-    /// existing Issuer subpacket from the unhashed subpacket area.
+    /// existing Issuer subpacket from neither the hashed nor the
+    /// unhashed subpacket area.
     ///
     ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`set_issuer`]: #method.set_issuer
     ///
     /// The Issuer subpacket is used when processing a signature to
-    /// identify which certificate created the signature.  Since this
+    /// identify which certificate created the signature.  Even though this
     /// information is self-authenticating (the act of validating the
     /// signature authenticates the subpacket), it is stored in the
-    /// unhashed subpacket area.
+    /// unhashed subpacket area.  This has the advantage that the signer
+    /// authenticates the set of issuers.  Furthermore, it makes
+    /// handling of the resulting signatures more robust: If there are
+    /// two two signatures that are equal modulo the contents of the
+    /// unhashed area, there is the question of how to merge the
+    /// information in the unhashed areas.  Storing issuer information
+    /// in the hashed area avoids this problem.
     ///
     /// When creating a signature using a SignatureBuilder or the
     /// [streaming `Signer`], it is not necessary to explicitly set
@@ -5019,13 +5043,13 @@ impl signature::SignatureBuilder {
     ///     .sign_message(&mut alices_signer, msg)?;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
     /// #    .count(),
     /// #    2);
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::IssuerFingerprint)
     /// #    .count(),
@@ -5033,7 +5057,7 @@ impl signature::SignatureBuilder {
     /// # Ok(()) }
     /// ```
     pub fn add_issuer(mut self, id: KeyID) -> Result<Self> {
-        self.unhashed_area.add(Subpacket::new(
+        self.hashed_area.add(Subpacket::new(
             SubpacketValue::Issuer(id),
             false)?)?;
 
@@ -6040,9 +6064,10 @@ impl signature::SignatureBuilder {
 
     /// Sets the value of the Embedded Signature subpacket.
     ///
-    /// Adds an [Embedded Signature subpacket] to the unhashed
+    /// Adds an [Embedded Signature subpacket] to the hashed
     /// subpacket area.  This function first removes any Embedded
-    /// Signature subpacket from the unhashed subpacket area.
+    /// Signature subpacket from both the hashed and the unhashed
+    /// subpacket area.
     ///
     /// [Embedded Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.26
     ///
@@ -6100,28 +6125,36 @@ impl signature::SignatureBuilder {
     /// ```
     pub fn set_embedded_signature(mut self, signature: Signature)
                                   -> Result<Self> {
-        self.unhashed_area.replace(Subpacket::new(
+        self.hashed_area.replace(Subpacket::new(
             SubpacketValue::EmbeddedSignature(signature),
             true)?)?;
+        self.unhashed_area.remove_all(SubpacketTag::EmbeddedSignature);
 
         Ok(self)
     }
 
     /// Sets the Issuer Fingerprint subpacket.
     ///
-    /// Adds an [Issuer Fingerprint subpacket] to the unhashed
+    /// Adds an [Issuer Fingerprint subpacket] to the hashed
     /// subpacket area.  Unlike [`add_issuer_fingerprint`], this
     /// function first removes any existing Issuer Fingerprint
-    /// subpackets from the unhashed subpacket area.
+    /// subpackets from the hashed and unhashed subpacket area.
     ///
     ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`add_issuer_fingerprint`]: #method.add_issuer_fingerprint
     ///
     /// The Issuer Fingerprint subpacket is used when processing a
     /// signature to identify which certificate created the signature.
-    /// Since this information is self-authenticating (the act of
+    /// Even though this information is self-authenticating (the act of
     /// validating the signature authenticates the subpacket), it is
-    /// stored in the unhashed subpacket area.
+    /// stored in the unhashed subpacket area.  This has the advantage
+    /// that the signer authenticates the set of issuers.
+    /// Furthermore, it makes handling of the resulting signatures
+    /// more robust: If there are two two signatures that are equal
+    /// modulo the contents of the unhashed area, there is the
+    /// question of how to merge the information in the unhashed
+    /// areas.  Storing issuer information in the hashed area avoids
+    /// this problem.
     ///
     /// When creating a signature using a SignatureBuilder or the
     /// [streaming `Signer`], it is not necessary to explicitly set
@@ -6168,13 +6201,13 @@ impl signature::SignatureBuilder {
     ///     .sign_message(&mut alices_signer, msg)?;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
     /// #    .count(),
     /// #    0);
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::IssuerFingerprint)
     /// #    .count(),
@@ -6182,29 +6215,37 @@ impl signature::SignatureBuilder {
     /// # Ok(()) }
     /// ```
     pub fn set_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
-        self.unhashed_area.replace(Subpacket::new(
+        self.hashed_area.replace(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),
             false)?)?;
+        self.unhashed_area.remove_all(SubpacketTag::IssuerFingerprint);
 
         Ok(self)
     }
 
     /// Adds an Issuer Fingerprint subpacket.
     ///
-    /// Adds an [Issuer Fingerprint subpacket] to the unhashed
+    /// Adds an [Issuer Fingerprint subpacket] to the hashed
     /// subpacket area.  Unlike [`set_issuer_fingerprint`], this
     /// function does not first remove any existing Issuer Fingerprint
-    /// subpacket from the unhashed subpacket area.
+    /// subpacket from neither the hashed nor the unhashed subpacket
+    /// area.
     ///
     ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// The Issuer Fingerprint subpacket is used when processing a
     /// signature to identify which certificate created the signature.
-    /// Since this information is self-authenticating (the act of
+    /// Even though this information is self-authenticating (the act of
     /// validating the signature authenticates the subpacket), it is
-    /// stored in the unhashed subpacket area.
-    ///
+    /// stored in the unhashed subpacket area.  This has the advantage
+    /// that the signer authenticates the set of issuers.
+    /// Furthermore, it makes handling of the resulting signatures
+    /// more robust: If there are two two signatures that are equal
+    /// modulo the contents of the unhashed area, there is the
+    /// question of how to merge the information in the unhashed
+    /// areas.  Storing issuer information in the hashed area avoids
+    /// this problem.
     ///
     /// When creating a signature using a SignatureBuilder or the
     /// [streaming `Signer`], it is not necessary to explicitly set
@@ -6251,13 +6292,13 @@ impl signature::SignatureBuilder {
     ///     .sign_message(&mut alices_signer, msg)?;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::Issuer)
     /// #    .count(),
     /// #    0);
     /// # assert_eq!(sig
-    /// #    .unhashed_area()
+    /// #    .hashed_area()
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::IssuerFingerprint)
     /// #    .count(),
@@ -6265,7 +6306,7 @@ impl signature::SignatureBuilder {
     /// # Ok(()) }
     /// ```
     pub fn add_issuer_fingerprint(mut self, fp: Fingerprint) -> Result<Self> {
-        self.unhashed_area.add(Subpacket::new(
+        self.hashed_area.add(Subpacket::new(
             SubpacketValue::IssuerFingerprint(fp),
             false)?)?;
 

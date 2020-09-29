@@ -5391,18 +5391,19 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
         assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
 
-        // Create a variant of cert where the signatures are stripped
-        // off their IssuerFingerprint subpackets.
+        // Create a variant of cert where the signatures have
+        // additional information in the unhashed area.
         let cert_b = cert.clone();
         let mut packets = crate::PacketPile::from(cert_b).into_children()
             .collect::<Vec<_>>();
         for p in packets.iter_mut() {
             if let Packet::Signature(sig) = p {
-                assert_eq!(sig.unhashed_area().subpackets(
+                assert_eq!(sig.hashed_area().subpackets(
                     SubpacketTag::IssuerFingerprint).count(),
                            1);
-                sig.unhashed_area_mut().remove_all(
-                    SubpacketTag::IssuerFingerprint);
+                sig.unhashed_area_mut().add(Subpacket::new(
+                    SubpacketValue::Issuer("AAAA BBBB CCCC DDDD".parse()?),
+                    false)?)?;
             }
         }
         let cert_b = Cert::from_packets(packets.into_iter())?;
