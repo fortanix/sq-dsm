@@ -1928,13 +1928,68 @@ impl crate::packet::Signature {
     /// # }
     /// ```
     pub fn normalized_eq(&self, other: &Signature) -> bool {
-        self.mpis() == other.mpis()
-            && self.version() == other.version()
-            && self.typ() == other.typ()
-            && self.pk_algo() == other.pk_algo()
-            && self.hash_algo() == other.hash_algo()
-            && self.hashed_area() == other.hashed_area()
-            && self.digest_prefix() == other.digest_prefix()
+        self.normalized_cmp(other) == Ordering::Equal
+    }
+
+    /// Compares Signatures ignoring the unhashed subpacket area.
+    ///
+    /// This is useful to deduplicate signatures by first sorting them
+    /// using this function, and then deduplicating using the
+    /// [`Signature::normalized_eq`] predicate.
+    ///
+    ///   [`Signature::normalized_eq`]: #method.normalized_eq
+    ///
+    /// This comparison function ignores the unhashed subpacket area
+    /// when comparing two signatures.  This prevents a malicious
+    /// party from taking valid signatures, adding subpackets to the
+    /// unhashed area, and deriving valid but distinct signatures,
+    /// which could be used to perform a denial of service attack.
+    /// For instance, an attacker could create a lot of signatures,
+    /// which need to be validated.  Ignoring the unhashed subpackets
+    /// means that we can deduplicate signatures using this predicate.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::cmp::Ordering;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::{Subpacket, SubpacketValue};
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::SignatureType;
+    /// use openpgp::types::Features;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().generate()?;
+    ///
+    /// let orig = cert.with_policy(p, None)?.direct_key_signature()?;
+    ///
+    /// // Add an inconspicuous subpacket to the unhashed area.
+    /// let sb = Subpacket::new(SubpacketValue::Features(Features::empty()), false)?;
+    /// let mut modified = orig.clone();
+    /// modified.unhashed_area_mut().add(sb);
+    ///
+    /// // We modified the signature, but the signature is still valid.
+    /// modified.verify_direct_key(cert.primary_key().key(), cert.primary_key().key());
+    ///
+    /// // PartialEq considers the packets to not be equal...
+    /// assert!(orig != &modified);
+    /// // ... but normalized_partial_cmp does.
+    /// assert!(orig.normalized_cmp(&modified) == Ordering::Equal);
+    /// # Ok(()) }
+    /// ```
+    pub fn normalized_cmp(&self, other: &Signature)
+                          -> Ordering {
+        self.mpis().cmp(other.mpis())
+            .then_with(|| self.version().cmp(&other.version()))
+            .then_with(|| self.typ().cmp(&other.typ()))
+            .then_with(|| self.pk_algo().cmp(&other.pk_algo()))
+            .then_with(|| self.hash_algo().cmp(&other.hash_algo()))
+            .then_with(|| self.hashed_area().cmp(other.hashed_area()))
+            .then_with(|| self.digest_prefix().cmp(other.digest_prefix()))
     }
 
     /// Normalizes the signature.

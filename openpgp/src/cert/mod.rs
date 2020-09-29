@@ -1805,8 +1805,11 @@ impl Cert {
 
         self.primary.sort_and_dedup();
 
-        self.bad.sort_by(sig_cmp);
+        self.bad.sort_by(Signature::normalized_cmp);
         self.bad.dedup_by(|a, b| a.normalized_eq(b));
+        // Order bad signatures so that the most recent one comes
+        // first.
+        self.bad.sort_by(sig_cmp);
 
         self.userids.sort_and_dedup(UserID::cmp, |_, _| {});
         self.user_attributes.sort_and_dedup(UserAttribute::cmp, |_, _| {});

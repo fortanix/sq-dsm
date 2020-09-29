@@ -611,19 +611,28 @@ impl<C> ComponentBundle<C> {
     // that is kept is undefined.
     pub(crate) fn sort_and_dedup(&mut self)
     {
-        self.self_signatures.sort_by(sig_cmp);
+        self.self_signatures.sort_by(Signature::normalized_cmp);
         self.self_signatures.dedup_by(|a, b| a.normalized_eq(b));
+        // Order self signatures so that the most recent one comes
+        // first.
+        self.self_signatures.sort_by(sig_cmp);
 
-        // There is no need to sort the certifications, but we do
-        // want to remove dups and sorting is a prerequisite.
-        self.certifications.sort_by(sig_cmp);
+        self.certifications.sort_by(Signature::normalized_cmp);
         self.certifications.dedup_by(|a, b| a.normalized_eq(b));
+        // There is no need to sort the certifications, but doing so
+        // has the advantage that the most recent ones (and therefore
+        // presumably the more relevant ones) come first.  Also,
+        // cert::test::signature_order checks that the signatures are
+        // sorted.
+        self.certifications.sort_by(sig_cmp);
 
-        self.self_revocations.sort_by(sig_cmp);
+        self.self_revocations.sort_by(Signature::normalized_cmp);
         self.self_revocations.dedup_by(|a, b| a.normalized_eq(b));
+        self.self_revocations.sort_by(sig_cmp);
 
-        self.other_revocations.sort_by(sig_cmp);
+        self.other_revocations.sort_by(Signature::normalized_cmp);
         self.other_revocations.dedup_by(|a, b| a.normalized_eq(b));
+        self.other_revocations.sort_by(sig_cmp);
     }
 }
 
