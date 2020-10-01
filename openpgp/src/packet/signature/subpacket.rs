@@ -1644,7 +1644,7 @@ impl SubpacketValue {
 /// Subpackets are described in [Section 5.2.3.1 of RFC 4880].
 ///
 ///   [Section 5.2.3.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.1
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+#[derive(Clone)]
 pub struct Subpacket {
     /// The length.
     ///
@@ -1658,6 +1658,36 @@ pub struct Subpacket {
     critical: bool,
     /// Packet value, must match packet type.
     value: SubpacketValue,
+}
+
+impl PartialEq for Subpacket {
+    fn eq(&self, other: &Subpacket) -> bool {
+        self.cmp(other) == Ordering::Equal
+    }
+}
+
+impl Eq for Subpacket {}
+
+impl PartialOrd for Subpacket {
+    fn partial_cmp(&self, other: &Subpacket) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Subpacket {
+    fn cmp(&self, other: &Subpacket) -> Ordering {
+        self.length.cmp(&other.length)
+            .then_with(|| self.critical.cmp(&other.critical))
+            .then_with(|| self.value.cmp(&other.value))
+    }
+}
+
+impl Hash for Subpacket {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.length.hash(state);
+        self.critical.hash(state);
+        self.value.hash(state);
+    }
 }
 
 #[cfg(test)]
