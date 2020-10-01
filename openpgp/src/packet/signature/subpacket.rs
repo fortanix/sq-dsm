@@ -647,7 +647,8 @@ impl SubpacketArea {
         self.packets.iter()
     }
 
-    /// Returns the subpacket, if any, with the specified tag.
+    /// Returns a reference to the *last* instance of the specified
+    /// subpacket, if any.
     ///
     /// A given subpacket may occur multiple times.  For some, like
     /// the [`Notation Data`] subpacket, this is reasonable.  For
@@ -702,6 +703,67 @@ impl SubpacketArea {
 
         match self.parsed.lock().unwrap().borrow().as_ref().unwrap().get(&tag) {
             Some(&n) => Some(&self.packets[n]),
+            None => None,
+        }
+    }
+
+    /// Returns a mutable reference to the *last* instance of the
+    /// specified subpacket, if any.
+    ///
+    /// A given subpacket may occur multiple times.  For some, like
+    /// the [`Notation Data`] subpacket, this is reasonable.  For
+    /// others, like the [`Signature Creation Time`] subpacket, this
+    /// results in an ambiguity.  [Section 5.2.4.1 of RFC 4880] says:
+    ///
+    /// > a signature may contain multiple copies of a preference or
+    /// > multiple expiration times.  In most cases, an implementation
+    /// > SHOULD use the last subpacket in the signature, but MAY use
+    /// > any conflict resolution scheme that makes more sense.
+    ///
+    ///   [`Notation Data`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
+    ///   [`Signature Creation Time`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.4
+    ///   [Section 5.2.4.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.4.1
+    ///
+    /// This function implements the recommended strategy of returning
+    /// the last subpacket.
+    ///
+    /// # Examples
+    ///
+    /// All signatures must have a `Signature Creation Time` subpacket
+    /// in the hashed subpacket area:
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::prelude::*;
+    /// use openpgp::packet::signature::subpacket::SubpacketTag;
+    /// # use openpgp::types::SignatureType;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (cert, _) = CertBuilder::new().generate()?;
+    /// #
+    /// # let key : &Key<_, _> = cert.primary_key().key();
+    /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
+    /// #
+    /// # let msg = b"Hello, world!";
+    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// #     .sign_message(&mut signer, msg)?;
+    /// #
+    /// # // Verify it.
+    /// # sig.verify_message(signer.public(), msg)?;
+    /// #
+    /// if sig.hashed_area().subpacket(SubpacketTag::SignatureCreationTime).is_none() {
+    ///     eprintln!("Invalid signature.");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn subpacket_mut(&mut self, tag: SubpacketTag)
+                         -> Option<&mut Subpacket> {
+        self.cache_init();
+
+        match self.parsed.lock().unwrap().borrow().as_ref().unwrap().get(&tag) {
+            Some(&n) => Some(&mut self.packets[n]),
             None => None,
         }
     }
@@ -1865,7 +1927,8 @@ impl SubpacketAreas {
         self.unhashed_area.sort();
     }
 
-    /// Returns the *last* instance of the specified subpacket.
+    /// Returns a reference to the *last* instance of the specified
+    /// subpacket, if any.
     ///
     /// This function returns the last instance of the specified
     /// subpacket in the subpacket areas in which it can occur.  Thus,
@@ -1895,6 +1958,40 @@ impl SubpacketAreas {
         }
 
         self.unhashed_area().subpacket(tag)
+    }
+
+    /// Returns a mutable reference to the *last* instance of the
+    /// specified subpacket, if any.
+    ///
+    /// This function returns the last instance of the specified
+    /// subpacket in the subpacket areas in which it can occur.  Thus,
+    /// when looking for the `Signature Creation Time` subpacket, this
+    /// function only considers the hashed subpacket area.  But, when
+    /// looking for the `Embedded Signature` subpacket, this function
+    /// considers both subpacket areas.
+    ///
+    /// Unknown subpackets are assumed to only safely occur in the
+    /// hashed subpacket area.  Thus, any instances of them in the
+    /// unhashed area are ignored.
+    ///
+    /// For subpackets that can safely occur in both subpacket areas,
+    /// this function prefers instances in the hashed subpacket area.
+    pub fn subpacket_mut<'a>(&'a mut self, tag: SubpacketTag)
+                             -> Option<&mut Subpacket> {
+        if let Some(_) = self.hashed_area().subpacket(tag) {
+            return self.hashed_area_mut().subpacket_mut(tag);
+        }
+
+        // There are a couple of subpackets that we are willing to
+        // take from the unhashed area.  The others we ignore
+        // completely.
+        if !(tag == SubpacketTag::Issuer
+             || tag == SubpacketTag::IssuerFingerprint
+             || tag == SubpacketTag::EmbeddedSignature) {
+            return None;
+        }
+
+        self.unhashed_area_mut().subpacket_mut(tag)
     }
 
     /// Returns an iterator over all instances of the specified
