@@ -199,6 +199,12 @@ $ sudo dnf install python3-devel python3-setuptools python3-cffi python3-pytest
 $ sudo port install py37-setuptools
 ```
 
+#### BSD
+
+```shell
+# pkg install capnproto coreutils gmake lang/rust llvm nettle pkgconf py37-setuptools python3 sqlite
+```
+
 Getting help
 ============
 
