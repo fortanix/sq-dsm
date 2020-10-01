@@ -62,7 +62,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// let binding = subkey.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the key and binding signature into the Cert.
-    /// let cert = cert.merge_packets(vec![Packet::from(subkey),
+    /// let cert = cert.insert_packets(vec![Packet::from(subkey),
     ///                                    binding.into()])?;
     ///
     /// // Check that we have an encryption subkey.
@@ -114,7 +114,7 @@ impl UserID {
     /// let binding = userid.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the userid and binding signature into the Cert.
-    /// let cert = cert.merge_packets(vec![Packet::from(userid),
+    /// let cert = cert.insert_packets(vec![Packet::from(userid),
     ///                                    binding.into()])?;
     ///
     /// // Check that we have a userid.
@@ -175,7 +175,7 @@ impl UserID {
     ///              None, None)?;
     ///
     /// // `certificate` can now be used, e.g. by merging it into `bob`.
-    /// let bob = bob.merge_packets(certificate)?;
+    /// let bob = bob.insert_packets(certificate)?;
     ///
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.userids().nth(0).unwrap()
@@ -250,7 +250,7 @@ impl UserAttribute {
     /// let binding = user_attr.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the user attribute and binding signature into the Cert.
-    /// let cert = cert.merge_packets(vec![Packet::from(user_attr),
+    /// let cert = cert.insert_packets(vec![Packet::from(user_attr),
     ///                                    binding.into()])?;
     ///
     /// // Check that we have a user attribute.
@@ -315,7 +315,7 @@ impl UserAttribute {
     ///              None, None)?;
     ///
     /// // `certificate` can now be used, e.g. by merging it into `bob`.
-    /// let bob = bob.merge_packets(certificate)?;
+    /// let bob = bob.insert_packets(certificate)?;
     ///
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.user_attributes().nth(0).unwrap()

@@ -3654,7 +3654,7 @@ impl signature::SignatureBuilder {
     ///     .sign_direct_key(&mut signer, pk)?;
     ///
     /// // Merge in the new signature.
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(())
     /// # }
@@ -3710,7 +3710,7 @@ impl signature::SignatureBuilder {
     /// }
     ///
     /// // Merge in the new signatures.
-    /// let cert = cert.merge_packets(sigs)?;
+    /// let cert = cert.insert_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(())
     /// # }
@@ -4137,7 +4137,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let bob = bob.merge_packets(certification)?;
+    /// let bob = bob.insert_packets(certification)?;
     /// # assert_eq!(bob.bad_signatures().len(), 0);
     /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
@@ -4218,7 +4218,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let bob = bob.merge_packets(certification)?;
+    /// let bob = bob.insert_packets(certification)?;
     /// # assert_eq!(bob.bad_signatures().len(), 0);
     /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
@@ -4312,7 +4312,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let example_com = example_com.merge_packets(certification)?;
+    /// let example_com = example_com.insert_packets(certification)?;
     /// # assert_eq!(example_com.bad_signatures().len(), 0);
     /// # assert_eq!(example_com.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
@@ -4409,7 +4409,7 @@ impl signature::SignatureBuilder {
     /// #    2);
     ///
     /// // Merge in the new signature.
-    /// let example_com = example_com.merge_packets(certification)?;
+    /// let example_com = example_com.insert_packets(certification)?;
     /// # assert_eq!(example_com.bad_signatures().len(), 0);
     /// # assert_eq!(example_com.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
@@ -4491,7 +4491,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let bob = bob.merge_packets(certification)?;
+    /// let bob = bob.insert_packets(certification)?;
     /// # assert_eq!(bob.bad_signatures().len(), 0);
     /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
     /// # Ok(()) }
@@ -4580,7 +4580,7 @@ impl signature::SignatureBuilder {
     ///     sigs.push(sig);
     /// }
     ///
-    /// let cert = cert.merge_packets(sigs)?;
+    /// let cert = cert.insert_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// #
     /// # // "Before"
@@ -4692,7 +4692,7 @@ impl signature::SignatureBuilder {
     ///     sigs.push(sig);
     /// }
     ///
-    /// let cert = cert.merge_packets(sigs)?;
+    /// let cert = cert.insert_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// #
     /// # // "Before"
@@ -4802,7 +4802,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(()) }
     /// ```
@@ -4871,7 +4871,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let alice = alice.merge_packets(sig)?;
+    /// let alice = alice.insert_packets(sig)?;
     /// # assert_eq!(alice.bad_signatures().len(), 0);
     /// # assert_eq!(alice.primary_key().self_signatures().len(), 2);
     /// # Ok(()) }
@@ -5135,7 +5135,7 @@ impl signature::SignatureBuilder {
     /// #    2);
     ///
     /// // Merge in the new signature.
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(()) }
     /// ```
@@ -5231,7 +5231,7 @@ impl signature::SignatureBuilder {
     /// #    2);
     ///
     /// // Merge in the new signature.
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(()) }
     /// ```
@@ -5316,7 +5316,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(()) }
     /// ```
@@ -5397,7 +5397,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(()) }
     /// ```
@@ -5474,7 +5474,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(()) }
     /// ```
@@ -5553,7 +5553,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge in the new signature.
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(()) }
     /// ```
@@ -5636,7 +5636,7 @@ impl signature::SignatureBuilder {
     /// }
     /// assert!(sig.is_some());
     ///
-    /// let cert = cert.merge_packets(sig)?;
+    /// let cert = cert.insert_packets(sig)?;
     ///
     /// assert_eq!(cert.with_policy(p, None)?.primary_userid().unwrap().userid(),
     ///            &UserID::from(home));
@@ -5715,7 +5715,7 @@ impl signature::SignatureBuilder {
     /// #    1);
     ///
     /// // Merge it into the certificate.
-    /// let alice = alice.merge_packets(sig)?;
+    /// let alice = alice.insert_packets(sig)?;
     /// #
     /// # assert_eq!(alice.bad_signatures().len(), 0);
     /// # Ok(())
@@ -5786,7 +5786,7 @@ impl signature::SignatureBuilder {
     /// let binding = subkey.bind(&mut signer, &cert, builder)?;
     ///
     /// // Now merge the key and binding signature into the Cert.
-    /// let cert = cert.merge_packets(vec![Packet::from(subkey),
+    /// let cert = cert.insert_packets(vec![Packet::from(subkey),
     ///                                    binding.into()])?;
     ///
     /// # assert_eq!(cert.keys().with_policy(p, None).alive().revoked(false)
@@ -5910,7 +5910,7 @@ impl signature::SignatureBuilder {
     ///     .build(&mut signer, &cert, None)?;
     ///
     /// // Merge it into the certificate.
-    /// let cert = cert.merge_packets(sig.clone())?;
+    /// let cert = cert.insert_packets(sig.clone())?;
     ///
     /// // Now it's revoked.
     /// assert_eq!(RevocationStatus::Revoked(vec![ &sig ]),
@@ -6019,7 +6019,7 @@ impl signature::SignatureBuilder {
     /// }
     ///
     /// // Merge in the new signatures.
-    /// let cert = cert.merge_packets(sigs)?;
+    /// let cert = cert.insert_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(())
     /// # }
@@ -6116,7 +6116,7 @@ impl signature::SignatureBuilder {
     ///             .sign_primary_key_binding(&mut sk_signer, &pk, &subkey)?)?
     ///     .sign_subkey_binding(&mut pk_signer, &pk, &subkey)?;
     ///
-    /// let cert = cert.merge_packets(vec![Packet::SecretSubkey(subkey),
+    /// let cert = cert.insert_packets(vec![Packet::SecretSubkey(subkey),
     ///                                    sig.into()])?;
     ///
     /// assert_eq!(cert.keys().count(), 2);
@@ -6395,7 +6395,7 @@ impl signature::SignatureBuilder {
     /// }
     ///
     /// // Merge in the new signatures.
-    /// let cert = cert.merge_packets(sigs)?;
+    /// let cert = cert.insert_packets(sigs)?;
     /// # assert_eq!(cert.bad_signatures().len(), 0);
     /// # Ok(())
     /// # }

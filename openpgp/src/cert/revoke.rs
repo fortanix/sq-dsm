@@ -71,7 +71,7 @@ use crate::cert::prelude::*;
 ///     .build(&mut signer, &cert, None)?;
 ///
 /// // Merge it into the certificate.
-/// let cert = cert.merge_packets(sig.clone())?;
+/// let cert = cert.insert_packets(sig.clone())?;
 ///
 /// // Now it's revoked.
 /// assert_eq!(RevocationStatus::Revoked(vec![&sig]),
@@ -215,7 +215,7 @@ impl CertRevocationBuilder {
     /// # assert_eq!(sig.typ(), SignatureType::KeyRevocation);
     /// #
     /// # // Merge it into the certificate.
-    /// # let cert = cert.merge_packets(sig.clone())?;
+    /// # let cert = cert.insert_packets(sig.clone())?;
     /// #
     /// # // Now it's revoked.
     /// # assert_eq!(RevocationStatus::Revoked(vec![&sig]),
@@ -299,7 +299,7 @@ impl Deref for CertRevocationBuilder {
 ///     .build(&mut signer, &cert, subkey.key(), None)?;
 ///
 /// // Merge it into the certificate.
-/// let cert = cert.merge_packets(sig.clone())?;
+/// let cert = cert.insert_packets(sig.clone())?;
 ///
 /// // Now it's revoked.
 /// let subkey = cert.keys().subkeys().nth(0).unwrap();
@@ -442,7 +442,7 @@ impl SubkeyRevocationBuilder {
     /// # assert_eq!(sig.typ(), SignatureType::SubkeyRevocation);
     /// #
     /// # // Merge it into the certificate.
-    /// # let cert = cert.merge_packets(sig.clone())?;
+    /// # let cert = cert.insert_packets(sig.clone())?;
     /// #
     /// # // Now it's revoked.
     /// # assert_eq!(RevocationStatus::Revoked(vec![&sig]),
@@ -530,7 +530,7 @@ impl Deref for SubkeyRevocationBuilder {
 ///     .build(&mut signer, &cert, ua.userid(), None)?;
 ///
 /// // Merge it into the certificate.
-/// let cert = cert.merge_packets(sig.clone())?;
+/// let cert = cert.insert_packets(sig.clone())?;
 ///
 /// // Now it's revoked.
 /// let ua = cert.userids().nth(0).unwrap();
@@ -680,7 +680,7 @@ impl UserIDRevocationBuilder {
     /// # assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
     /// #
     /// # // Merge it into the certificate.
-    /// # let cert = cert.merge_packets(sig.clone())?;
+    /// # let cert = cert.insert_packets(sig.clone())?;
     /// #
     /// # // Now it's revoked.
     /// # assert_eq!(RevocationStatus::Revoked(vec![&sig]),
@@ -775,7 +775,7 @@ impl Deref for UserIDRevocationBuilder {
 ///     .build(&mut signer, &cert, ua.user_attribute(), None)?;
 ///
 /// // Merge it into the certificate.
-/// let cert = cert.merge_packets(sig.clone())?;
+/// let cert = cert.insert_packets(sig.clone())?;
 ///
 /// // Now it's revoked.
 /// let ua = cert.user_attributes().nth(0).unwrap();
@@ -931,7 +931,7 @@ impl UserAttributeRevocationBuilder {
     /// # assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
     /// #
     /// # // Merge it into the certificate.
-    /// # let cert = cert.merge_packets(sig.clone())?;
+    /// # let cert = cert.insert_packets(sig.clone())?;
     /// #
     /// # // Now it's revoked.
     /// # assert_eq!(RevocationStatus::Revoked(vec![&sig]),

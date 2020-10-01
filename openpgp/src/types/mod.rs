@@ -1290,7 +1290,7 @@ impl Arbitrary for SignatureType {
 /// assert_eq!(revocation.typ(), SignatureType::CertificationRevocation);
 ///
 /// // Now merge the revocation signature into the Cert.
-/// let cert = cert.merge_packets(revocation.clone())?;
+/// let cert = cert.insert_packets(revocation.clone())?;
 ///
 /// // Check that it is revoked.
 /// let ca = cert.userids().nth(0).unwrap();
@@ -1449,7 +1449,7 @@ impl Arbitrary for ReasonForRevocation {
 ///     .build(&mut signer, &cert, None)?;
 ///
 /// let t1 = t0 + Duration::from_secs(1200);
-/// let cert1 = cert.clone().merge_packets(sig.clone())?;
+/// let cert1 = cert.clone().insert_packets(sig.clone())?;
 /// assert_eq!(cert1.revocation_status(p, Some(t1)),
 ///            RevocationStatus::Revoked(vec![&sig.into()]));
 ///
@@ -1461,7 +1461,7 @@ impl Arbitrary for ReasonForRevocation {
 ///     .build(&mut signer, &cert, None)?;
 ///
 /// let t1 = t0 + Duration::from_secs(1200);
-/// let cert2 = cert.clone().merge_packets(sig.clone())?;
+/// let cert2 = cert.clone().insert_packets(sig.clone())?;
 /// assert_eq!(cert2.revocation_status(p, Some(t1)),
 ///            RevocationStatus::NotAsFarAsWeKnow);
 /// #     Ok(())

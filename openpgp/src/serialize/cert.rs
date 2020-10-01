@@ -797,7 +797,7 @@ mod test {
                 .preserve_signature_creation_time().unwrap()
                 .set_exportable_certification(false).unwrap()).unwrap();
 
-        let cert = cert.merge_packets(vec![
+        let cert = cert.insert_packets(vec![
             Packet::SecretSubkey(key), key_binding.into(),
             uid.into(), uid_binding.into(),
             ua.into(), ua_binding.into(),

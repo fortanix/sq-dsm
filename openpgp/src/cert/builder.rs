@@ -1003,7 +1003,7 @@ impl CertBuilder {
                 builder = builder.set_primary_userid(true)?;
             }
             let signature = uid.bind(&mut signer, &cert, builder)?;
-            cert = cert.merge_packets(
+            cert = cert.insert_packets(
                 vec![Packet::from(uid), signature.into()])?;
         }
 
@@ -1017,7 +1017,7 @@ impl CertBuilder {
                 builder = builder.set_primary_userid(true)?;
             }
             let signature = ua.bind(&mut signer, &cert, builder)?;
-            cert = cert.merge_packets(
+            cert = cert.insert_packets(
                 vec![Packet::from(ua), signature.into()])?;
         }
 
@@ -1056,7 +1056,7 @@ impl CertBuilder {
             if let Some(ref password) = self.password {
                 subkey.secret_mut().encrypt_in_place(password)?;
             }
-            cert = cert.merge_packets(vec![Packet::SecretSubkey(subkey),
+            cert = cert.insert_packets(vec![Packet::SecretSubkey(subkey),
                                            signature.into()])?;
         }
 
@@ -1234,7 +1234,7 @@ mod tests {
         assert_eq!(cert.revocation_status(p, None),
                    RevocationStatus::NotAsFarAsWeKnow);
 
-        let cert = cert.merge_packets(revocation.clone()).unwrap();
+        let cert = cert.insert_packets(revocation.clone()).unwrap();
         assert_eq!(cert.revocation_status(p, None),
                    RevocationStatus::Revoked(vec![ &revocation ]));
     }
@@ -1420,7 +1420,7 @@ mod tests {
         let sig = signature::SignatureBuilder::new(SignatureType::DirectKey)
             .set_signature_creation_time(then)?
             .sign_hash(&mut primary_signer, hash)?;
-        let cert = cert.merge_packets(sig)?;
+        let cert = cert.insert_packets(sig)?;
 
         assert!(cert.with_policy(p, then)?.primary_userid().is_err());
         assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),

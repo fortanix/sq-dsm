@@ -908,7 +908,7 @@ pgp_cert_t pgp_cert_merge (pgp_error_t *errp,
 /// Consumes `cert` and the packets in `packets`.  The buffer, however,
 /// must be freed by the caller.
 /*/
-pgp_cert_t pgp_cert_merge_packets (pgp_error_t *errp,
+pgp_cert_t pgp_cert_insert_packets (pgp_error_t *errp,
                                pgp_cert_t cert,
                                pgp_packet_t *packets,
                                size_t packets_len);

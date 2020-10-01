@@ -1408,7 +1408,7 @@ impl<'a, P> ValidPrimaryKeyAmalgamation<'a, P>
     ///     .key().clone().parts_into_secret()?.into_keypair()?;
     ///
     /// let sigs = vc.primary_key().set_expiration_time(&mut signer, Some(t))?;
-    /// let cert = cert.merge_packets(sigs)?;
+    /// let cert = cert.insert_packets(sigs)?;
     ///
     /// // The primary key isn't expired yet.
     /// let vc = cert.with_policy(p, None)?;
@@ -1511,7 +1511,7 @@ impl<'a, P> ValidSubordinateKeyAmalgamation<'a, P>
     ///                                                 Some(t))?);
     ///     }
     /// }
-    /// let cert = cert.merge_packets(sigs)?;
+    /// let cert = cert.insert_packets(sigs)?;
     ///
     /// // They aren't expired yet.
     /// let vc = cert.with_policy(p, None)?;
@@ -1729,7 +1729,7 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
     ///                                                 Some(t))?);
     ///     }
     /// }
-    /// let cert = cert.merge_packets(sigs)?;
+    /// let cert = cert.insert_packets(sigs)?;
     ///
     /// // They aren't expired yet.
     /// let vc = cert.with_policy(p, None)?;
@@ -2239,7 +2239,7 @@ mod test {
                     .map(Into::into)
             })
             .collect::<Vec<Packet>>();
-        let cert = cert.merge_packets(sigs).unwrap();
+        let cert = cert.insert_packets(sigs).unwrap();
 
         for ka in cert.keys().with_policy(p, None) {
             assert!(ka.alive().is_ok());

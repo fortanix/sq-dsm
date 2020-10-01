@@ -109,7 +109,7 @@ fn pgp_cert_merge(errp: Option<&mut *mut crate::error::Error>,
 /// Consumes `cert` and the packets in `packets`.  The buffer, however,
 /// must be managed by the caller.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_merge_packets(errp: Option<&mut *mut crate::error::Error>,
+fn pgp_cert_insert_packets(errp: Option<&mut *mut crate::error::Error>,
                          cert: *mut Cert,
                          packets: *mut *mut Packet,
                          packets_len: size_t)
@@ -120,7 +120,7 @@ fn pgp_cert_merge_packets(errp: Option<&mut *mut crate::error::Error>,
     };
     let packets =
         packets.iter_mut().map(|&mut p| p.move_from_raw());
-    cert.merge_packets(packets).move_into_raw(errp)
+    cert.insert_packets(packets).move_into_raw(errp)
 }
 
 /// Returns the fingerprint.
@@ -220,7 +220,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 /// pgp_key_pair_free (primary_keypair);
 ///
 /// pgp_packet_t packet = pgp_signature_into_packet (revocation);
-/// cert = pgp_cert_merge_packets (NULL, cert, &packet, 1);
+/// cert = pgp_cert_insert_packets (NULL, cert, &packet, 1);
 /// assert (cert);
 ///
 /// pgp_revocation_status_t rs = pgp_cert_revocation_status (cert, policy, 0);
@@ -278,7 +278,7 @@ fn pgp_cert_revoke_in_place(errp: Option<&mut *mut crate::error::Error>,
     let builder = CertRevocationBuilder::new();
     let builder = ffi_try_or!(builder.set_reason_for_revocation(code, reason), None);
     let sig = builder.build(signer.as_mut(), &cert, None);
-    cert.merge_packets(sig).move_into_raw(errp)
+    cert.insert_packets(sig).move_into_raw(errp)
 }
 
 /// Returns whether the Cert is alive at the specified time.
@@ -314,7 +314,7 @@ fn pgp_cert_set_expiration_time(errp: Option<&mut *mut crate::error::Error>,
 
     let sigs = ffi_try_or!(cert.set_expiration_time(policy, None, signer.as_mut(),
                                                     maybe_time(expiry)), None);
-    cert.merge_packets(sigs).move_into_raw(errp)
+    cert.insert_packets(sigs).move_into_raw(errp)
 }
 
 /// Returns whether the Cert includes any secret key material.

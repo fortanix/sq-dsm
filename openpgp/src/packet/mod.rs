@@ -295,7 +295,7 @@ macro_rules! impl_into_iterator {
     };
     ($t:ty where $( $w:ident: $c:path ),*) => {
         /// Implement `IntoIterator` so that
-        /// `cert::merge_packets(sig)` just works.
+        /// `cert::insert_packets(sig)` just works.
         impl<$($w),*> IntoIterator for $t
             where $($w: $c ),*
         {
@@ -872,7 +872,7 @@ fn packet_path_iter() {
 ///     .set_signature_creation_time(t2)?;
 /// let sig = userid.bind(&mut signer, &cert, sig)?;
 ///
-/// let cert = cert.merge_packets(vec![Packet::from(userid), sig.into()])?;
+/// let cert = cert.insert_packets(vec![Packet::from(userid), sig.into()])?;
 /// # assert_eq!(cert.with_policy(p, t2)?.userids().count(), 2);
 /// # Ok(()) }
 /// ```
@@ -1312,7 +1312,7 @@ impl From<SKESK> for Packet {
 /// let sigs = cert.set_expiration_time(p, None, &mut keypair,
 ///                                     Some(time::SystemTime::now()))?;
 ///
-/// let cert = cert.merge_packets(sigs)?;
+/// let cert = cert.insert_packets(sigs)?;
 /// // It's expired now.
 /// assert!(cert.with_policy(p, None)?.alive().is_err());
 /// # Ok(())
@@ -1656,10 +1656,10 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     /// let key = key.encrypt_secret(&"1234".into())?;
     /// assert!(! key.has_unencrypted_secret());
     ///
-    /// // Merge it into the certificate.  Note: `Cert::merge_packets`
+    /// // Merge it into the certificate.  Note: `Cert::insert_packets`
     /// // prefers added versions of keys.  So, the encrypted version
     /// // will override the decrypted version.
-    /// let cert = cert.merge_packets(Packet::from(key))?;
+    /// let cert = cert.insert_packets(Packet::from(key))?;
     ///
     /// // Now the primary key's secret key material is encrypted.
     /// let key = cert.primary_key().key().parts_as_secret()?;
