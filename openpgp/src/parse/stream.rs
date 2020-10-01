@@ -342,6 +342,63 @@ impl<'a> From<VerificationError<'a>> for Error {
     }
 }
 
+/// Like VerificationError, but without referencing the signature.
+///
+/// This avoids borrowing the signature, so that we can continue to
+/// mutably borrow the signature trying other keys.  After all keys
+/// are tried, we attach the reference to the signature, yielding a
+/// `VerificationError`.
+enum VerificationErrorInternal<'a> {
+    // MalformedSignature is not used, so it is omitted here.
+
+    /// Missing Key
+    MissingKey {
+    },
+    /// Unbound key.
+    ///
+    /// There is no valid binding signature at the time the signature
+    /// was created under the given policy.
+    UnboundKey {
+        /// The certificate that made the signature.
+        cert: &'a Cert,
+
+        /// The reason why the key is not bound.
+        error: anyhow::Error,
+    },
+    /// Bad key (have a key, but it is not alive, etc.)
+    BadKey {
+        /// The signing key that made the signature.
+        ka: ValidErasedKeyAmalgamation<'a, key::PublicParts>,
+
+        /// The reason why the key is bad.
+        error: anyhow::Error,
+    },
+    /// Bad signature (have a valid key, but the signature didn't check out)
+    BadSignature {
+        /// The signing key that made the signature.
+        ka: ValidErasedKeyAmalgamation<'a, key::PublicParts>,
+
+        /// The reason why the signature is bad.
+        error: anyhow::Error,
+    },
+}
+
+impl<'a> VerificationErrorInternal<'a> {
+    fn attach_sig(self, sig: &'a Signature) -> VerificationError<'a> {
+        use self::VerificationErrorInternal::*;
+        match self {
+            MissingKey {} =>
+                VerificationError::MissingKey { sig },
+            UnboundKey { cert, error } =>
+                VerificationError::UnboundKey { sig, cert, error },
+            BadKey { ka, error } =>
+                VerificationError::BadKey { sig, ka, error },
+            BadSignature { ka, error } =>
+                VerificationError::BadSignature { sig, ka, error },
+        }
+    }
+}
+
 /// Communicates the message structure to the VerificationHelper.
 ///
 /// A valid OpenPGP message contains one literal data packet with
@@ -2529,9 +2586,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             continue;
                         };
 
-                        let mut err = VerificationError::MissingKey {
-                            sig,
-                        };
+                        let mut err = VerificationErrorInternal::MissingKey {};
 
                         let issuers = sig.get_issuers();
                         // Note: If there are no issuers, the only way
@@ -2560,8 +2615,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 Err(policy_err) => {
                                     t!("{:02X}{:02X}: key {} rejected by policy: {}",
                                        sigid[0], sigid[1], fingerprint, policy_err);
-                                    err = VerificationError::UnboundKey {
-                                        sig,
+                                    err = VerificationErrorInternal::UnboundKey {
                                         cert,
                                         error: policy_err,
                                     };
@@ -2577,16 +2631,14 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             err = if let Err(error) = ka.cert().alive() {
                                 t!("{:02X}{:02X}: cert {} not alive: {}",
                                    sigid[0], sigid[1], ka.cert().fingerprint(), error);
-                                VerificationError::BadKey {
-                                    sig,
+                                VerificationErrorInternal::BadKey {
                                     ka,
                                     error,
                                 }
                             } else if let Err(error) = ka.alive() {
                                 t!("{:02X}{:02X}: key {} not alive: {}",
                                    sigid[0], sigid[1], ka.fingerprint(), error);
-                                VerificationError::BadKey {
-                                    sig,
+                                VerificationErrorInternal::BadKey {
                                     ka,
                                     error,
                                 }
@@ -2595,8 +2647,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             {
                                 t!("{:02X}{:02X}: cert {} revoked: {:?}",
                                    sigid[0], sigid[1], ka.cert().fingerprint(), rev);
-                                VerificationError::BadKey {
-                                    sig,
+                                VerificationErrorInternal::BadKey {
                                     ka,
                                     error: Error::InvalidKey(
                                         "certificate is revoked".into())
@@ -2607,8 +2658,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             {
                                 t!("{:02X}{:02X}: key {} revoked: {:?}",
                                    sigid[0], sigid[1], ka.fingerprint(), rev);
-                                VerificationError::BadKey {
-                                    sig,
+                                VerificationErrorInternal::BadKey {
                                     ka,
                                     error: Error::InvalidKey(
                                         "signing key is revoked".into())
@@ -2617,8 +2667,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             } else if ! ka.for_signing() {
                                 t!("{:02X}{:02X}: key {} not signing capable",
                                    sigid[0], sigid[1], ka.fingerprint());
-                                VerificationError::BadKey {
-                                    sig,
+                                VerificationErrorInternal::BadKey {
                                     ka,
                                     error: Error::InvalidKey(
                                         "key is not signing capable".into())
@@ -2629,8 +2678,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             {
                                 t!("{:02X}{:02X}: Signature not alive: {}",
                                    sigid[0], sigid[1], error);
-                                VerificationError::BadSignature {
-                                    sig,
+                                VerificationErrorInternal::BadSignature {
                                     ka,
                                     error,
                                 }
@@ -2651,8 +2699,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 // Treat the signature as bad.
                                 t!("{:02X}{:02X}: not an intended recipient",
                                    sigid[0], sigid[1]);
-                                VerificationError::BadSignature {
-                                    sig,
+                                VerificationErrorInternal::BadSignature {
                                     ka,
                                     error: Error::BadSignature(
                                         "Not an intended recipient".into())
@@ -2664,8 +2711,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         if let Err(error) = self.policy.signature(&sig) {
                                             t!("{:02X}{:02X}: signature rejected by policy: {}",
                                                sigid[0], sigid[1], error);
-                                            VerificationError::BadSignature {
-                                                sig,
+                                            VerificationErrorInternal::BadSignature {
                                                 ka,
                                                 error,
                                             }
@@ -2684,8 +2730,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                     Err(error) => {
                                         t!("{:02X}{:02X} using {}: error: {}",
                                            sigid[0], sigid[1], ka.fingerprint(), error);
-                                        VerificationError::BadSignature {
-                                            sig,
+                                        VerificationErrorInternal::BadSignature {
                                             ka,
                                             error,
                                         }
@@ -2694,6 +2739,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             }
                         }
 
+                        let err = err.attach_sig(sig);
                         t!("{:02X}{:02X}: returning: {:?}", sigid[0], sigid[1], err);
                         results.push_verification_result(Err(err));
                     }
