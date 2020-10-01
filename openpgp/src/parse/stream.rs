@@ -2574,21 +2574,21 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                 }
                             };
 
-                            err = if let Err(err) = ka.cert().alive() {
+                            err = if let Err(error) = ka.cert().alive() {
                                 t!("{:02X}{:02X}: cert {} not alive: {}",
-                                   sigid[0], sigid[1], ka.cert().fingerprint(), err);
+                                   sigid[0], sigid[1], ka.cert().fingerprint(), error);
                                 VerificationError::BadKey {
                                     sig,
                                     ka,
-                                    error: err,
+                                    error,
                                 }
-                            } else if let Err(err) = ka.alive() {
+                            } else if let Err(error) = ka.alive() {
                                 t!("{:02X}{:02X}: key {} not alive: {}",
-                                   sigid[0], sigid[1], ka.fingerprint(), err);
+                                   sigid[0], sigid[1], ka.fingerprint(), error);
                                 VerificationError::BadKey {
                                     sig,
                                     ka,
-                                    error: err,
+                                    error,
                                 }
                             } else if let
                                 RevocationStatus::Revoked(rev) = ka.cert().revocation_status()
@@ -2624,15 +2624,15 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                         "key is not signing capable".into())
                                         .into(),
                                 }
-                            } else if let Err(err) = sig.signature_alive(
+                            } else if let Err(error) = sig.signature_alive(
                                 self.time, self.clock_skew_tolerance)
                             {
                                 t!("{:02X}{:02X}: Signature not alive: {}",
-                                   sigid[0], sigid[1], err);
+                                   sigid[0], sigid[1], error);
                                 VerificationError::BadSignature {
                                     sig,
                                     ka,
-                                    error: err,
+                                    error,
                                 }
                             } else if self.identity.as_ref().map(|identity| {
                                 let (have_one, contains_identity) =
@@ -2661,13 +2661,13 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             } else {
                                 match sig.verify(ka.key()) {
                                     Ok(()) => {
-                                        if let Err(err) = self.policy.signature(&sig) {
+                                        if let Err(error) = self.policy.signature(&sig) {
                                             t!("{:02X}{:02X}: signature rejected by policy: {}",
-                                               sigid[0], sigid[1], err);
+                                               sigid[0], sigid[1], error);
                                             VerificationError::BadSignature {
                                                 sig,
                                                 ka,
-                                                error: err,
+                                                error,
                                             }
                                         } else {
                                             t!("{:02X}{:02X}: good checksum using {}",
@@ -2681,13 +2681,13 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                                             continue 'sigs;
                                         }
                                     }
-                                    Err(err) => {
+                                    Err(error) => {
                                         t!("{:02X}{:02X} using {}: error: {}",
-                                           sigid[0], sigid[1], ka.fingerprint(), err);
+                                           sigid[0], sigid[1], ka.fingerprint(), error);
                                         VerificationError::BadSignature {
                                             sig,
                                             ka,
-                                            error: err,
+                                            error,
                                         }
                                     }
                                 }
