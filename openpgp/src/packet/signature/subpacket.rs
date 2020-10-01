@@ -3379,7 +3379,7 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Embedded Signature subpacket.
+    /// Returns a reference to the Embedded Signature subpacket.
     ///
     /// The [Embedded Signature subpacket] is normally used to hold a
     /// [Primary Key Binding signature], which binds a
@@ -3403,6 +3403,40 @@ impl SubpacketAreas {
         if let Some(sb)
                 = self.subpacket(SubpacketTag::EmbeddedSignature) {
             if let SubpacketValue::EmbeddedSignature(v) = &sb.value {
+                Some(v)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable reference to the Embedded Signature
+    /// subpacket.
+    ///
+    /// The [Embedded Signature subpacket] is normally used to hold a
+    /// [Primary Key Binding signature], which binds a
+    /// signing-capable, authentication-capable, or
+    /// certification-capable subkey to the primary key.  Since this
+    /// information is self-authenticating, it is usually stored in
+    /// the unhashed subpacket area.
+    ///
+    /// [Embedded Signature subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.26
+    /// [Primary Key Binding signature]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+    ///
+    /// If the subpacket is not present in the hashed subpacket area
+    /// or in the unhashed subpacket area, this returns `None`.
+    ///
+    /// Note: if the signature contains multiple instances of this
+    /// subpacket in the hashed subpacket area, the last one is
+    /// returned.  Otherwise, the last one is returned from the
+    /// unhashed subpacket area.
+    pub fn embedded_signature_mut(&mut self) -> Option<&mut Signature> {
+        // 1 signature packet body
+        if let Some(sb)
+                = self.subpacket_mut(SubpacketTag::EmbeddedSignature) {
+            if let SubpacketValue::EmbeddedSignature(v) = &mut sb.value {
                 Some(v)
             } else {
                 None
