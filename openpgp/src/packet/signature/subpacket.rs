@@ -647,6 +647,10 @@ impl SubpacketArea {
         self.packets.iter()
     }
 
+    pub(crate) fn iter_mut(&mut self) -> impl Iterator<Item = &mut Subpacket> {
+        self.packets.iter_mut()
+    }
+
     /// Returns a reference to the *last* instance of the specified
     /// subpacket, if any.
     ///

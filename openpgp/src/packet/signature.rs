@@ -2058,7 +2058,31 @@ impl Signature {
                 "Signature has no creation time subpacket".into()).into());
         }
 
-        key.verify(self, digest.as_ref())
+        let result = key.verify(self, digest.as_ref());
+        if result.is_ok() {
+            // Mark information in this signature as authenticated.
+
+            // The hashed subpackets are authenticated by the
+            // signature.
+            self.hashed_area_mut().iter_mut().for_each(|p| {
+                p.set_authenticated(true);
+            });
+
+            // The self-authenticating unhashed subpackets are
+            // authenticated by the key's identity.
+            self.unhashed_area_mut().iter_mut().for_each(|p| {
+                use subpacket::SubpacketValue;
+                let authenticated = match p.value() {
+                    SubpacketValue::Issuer(id) =>
+                        id == &key.keyid(),
+                    SubpacketValue::IssuerFingerprint(fp) =>
+                        fp == &key.fingerprint(),
+                    _ => false,
+                };
+                p.set_authenticated(authenticated);
+            });
+        }
+        result
     }
 
     /// Verifies the signature over text or binary documents using
@@ -2262,12 +2286,20 @@ impl Signature {
         // The signature is good, but we may still need to verify the
         // back sig.
         if self.key_flags().map(|kf| kf.for_signing()).unwrap_or(false) {
-            if let Some(backsig) = self.embedded_signature_mut() {
+            let result = if let Some(backsig) = self.embedded_signature_mut() {
                 backsig.verify_primary_key_binding(pk, subkey)
             } else {
                 Err(Error::BadSignature(
                     "Primary key binding signature missing".into()).into())
+            };
+            if result.is_ok() {
+                // Mark the subpacket as authenticated by the embedded
+                // signature.
+                self.subpacket_mut(subpacket::SubpacketTag::EmbeddedSignature)
+                    .expect("must exist, we verified the signature above")
+                    .set_authenticated(true);
             }
+            result
         } else {
             // No backsig required.
             Ok(())
@@ -3053,5 +3085,82 @@ mod test {
                 times.  This is either a very slow build environment, or \
                 there is a bug.  Please get in contact.",
                2 * SIG_BACKDATE_BY);
+    }
+
+    /// Checks that subpackets are marked as authentic on signature
+    /// verification.
+    #[test]
+    fn subpacket_authentication() -> Result<()> {
+        use subpacket::{Subpacket, SubpacketValue};
+
+        // We'll study this certificate, because it contains a
+        // signing-capable subkey.
+        let mut pp = crate::PacketPile::from_bytes(crate::tests::key(
+            "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))?;
+        assert_eq!(pp.children().count(), 5);
+
+        // The signatures have not been verified, hence no subpacket
+        // is authenticated.
+        if let Some(Packet::Signature(sig)) = pp.path_ref_mut(&[4]) {
+            assert!(sig.hashed_area().iter().all(|p| ! p.authenticated()));
+            assert!(sig.unhashed_area().iter().all(|p| ! p.authenticated()));
+
+            // Add a bogus issuer subpacket.
+            sig.unhashed_area_mut().add(Subpacket::new(
+                SubpacketValue::Issuer("AAAA BBBB CCCC DDDD".parse()?),
+                false)?)?;
+        } else {
+            panic!("expected a signature");
+        }
+
+        // Break the userid binding signature.
+        if let Some(Packet::Signature(sig)) = pp.path_ref_mut(&[2]) {
+            assert!(sig.hashed_area().iter().all(|p| ! p.authenticated()));
+            assert!(sig.unhashed_area().iter().all(|p| ! p.authenticated()));
+
+            // Add a bogus issuer subpacket to the hashed area
+            // breaking the signature.
+            sig.hashed_area_mut().add(Subpacket::new(
+                SubpacketValue::Issuer("AAAA BBBB CCCC DDDD".parse()?),
+                false)?)?;
+        } else {
+            panic!("expected a signature");
+        }
+
+        // Parse into cert verifying the signatures.
+        use std::convert::TryFrom;
+        let cert = Cert::try_from(pp)?;
+        assert_eq!(cert.bad_signatures().len(), 1);
+        assert_eq!(cert.keys().subkeys().count(), 1);
+        let subkey = cert.keys().subkeys().nth(0).unwrap();
+        assert_eq!(subkey.self_signatures().len(), 1);
+
+        // All the authentic information in the self signature has
+        // been authenticated by the verification process.
+        let sig = &subkey.self_signatures()[0];
+        assert!(sig.hashed_area().iter().all(|p| p.authenticated()));
+        // All but our fake issuer information.
+        assert!(sig.unhashed_area().iter().all(|p| {
+            if let SubpacketValue::Issuer(id) = p.value() {
+                if id == &"AAAA BBBB CCCC DDDD".parse().unwrap() {
+                    // Our fake id...
+                    true
+                } else {
+                    p.authenticated()
+                }
+            } else {
+                p.authenticated()
+            }
+        }));
+        // Check the subpackets in the embedded signature.
+        let sig = sig.embedded_signature().unwrap();
+        assert!(sig.hashed_area().iter().all(|p| p.authenticated()));
+        assert!(sig.unhashed_area().iter().all(|p| p.authenticated()));
+
+        // No information in the bad signature has been authenticated.
+        let sig = &cert.bad_signatures()[0];
+        assert!(sig.hashed_area().iter().all(|p| ! p.authenticated()));
+        assert!(sig.unhashed_area().iter().all(|p| ! p.authenticated()));
+        Ok(())
     }
 }
