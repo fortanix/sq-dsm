@@ -607,18 +607,32 @@ impl<C> ComponentBundle<C> {
     // Note: this uses Signature::normalized_eq to compare signatures.
     // That function ignores unhashed packets.  If there are two
     // signatures that only differ in their unhashed subpackets, they
-    // will be deduped.  The unhashed areas are *not* merged; the one
-    // that is kept is undefined.
+    // will be deduped.  The unhashed areas are merged as discussed in
+    // Signature::merge.
     pub(crate) fn sort_and_dedup(&mut self)
     {
+        // `same_bucket` function for Vec::dedup_by that compares
+        // signatures and merges them if they are equal modulo
+        // unhashed subpackets.
+        fn sig_merge(a: &mut Signature, b: &mut Signature) -> bool {
+            // If a == b, a is removed.  Hence, we merge into b.
+            if a.normalized_eq(b) {
+                b.merge_internal(a)
+                    .expect("checked for equality above");
+                true
+            } else {
+                false
+            }
+        }
+
         self.self_signatures.sort_by(Signature::normalized_cmp);
-        self.self_signatures.dedup_by(|a, b| a.normalized_eq(b));
+        self.self_signatures.dedup_by(sig_merge);
         // Order self signatures so that the most recent one comes
         // first.
         self.self_signatures.sort_by(sig_cmp);
 
         self.certifications.sort_by(Signature::normalized_cmp);
-        self.certifications.dedup_by(|a, b| a.normalized_eq(b));
+        self.certifications.dedup_by(sig_merge);
         // There is no need to sort the certifications, but doing so
         // has the advantage that the most recent ones (and therefore
         // presumably the more relevant ones) come first.  Also,
@@ -627,11 +641,11 @@ impl<C> ComponentBundle<C> {
         self.certifications.sort_by(sig_cmp);
 
         self.self_revocations.sort_by(Signature::normalized_cmp);
-        self.self_revocations.dedup_by(|a, b| a.normalized_eq(b));
+        self.self_revocations.dedup_by(sig_merge);
         self.self_revocations.sort_by(sig_cmp);
 
         self.other_revocations.sort_by(Signature::normalized_cmp);
-        self.other_revocations.dedup_by(|a, b| a.normalized_eq(b));
+        self.other_revocations.dedup_by(sig_merge);
         self.other_revocations.sort_by(sig_cmp);
     }
 }
