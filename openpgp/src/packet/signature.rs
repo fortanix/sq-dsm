@@ -2070,6 +2070,170 @@ impl crate::packet::Signature {
 
         Ok(())
     }
+
+    /// Merges two signatures.
+    ///
+    /// Two signatures that are equal according to
+    /// [`Signature::normalized_eq`] may differ in the contents of the
+    /// unhashed subpacket areas.  This function merges two signatures
+    /// trying hard to incorporate all the information into one
+    /// signature while avoiding denial of service attacks by merging
+    /// in bad information.
+    ///
+    ///   [`Signature::normalized_eq`]: #method.normalized_eq
+    ///
+    /// The merge strategy is as follows:
+    ///
+    ///   - If the signatures differ according to
+    ///     [`Signature::normalized_eq`], the merge fails.
+    ///
+    ///   - Do not consider any subpacket that does not belong into
+    ///     the unhashed subpacket area.
+    ///
+    ///   - Consider all remaining subpackets, in the following order.
+    ///     If we run out of space, all remaining subpackets are
+    ///     ignored.
+    ///
+    ///     - Authenticated subpackets from `self`
+    ///     - Authenticated subpackets from `other`
+    ///     - Unauthenticated subpackets from `self` commonly found in
+    ///       unhashed areas
+    ///     - Unauthenticated subpackets from `other` commonly found in
+    ///       unhashed areas
+    ///     - Remaining subpackets from `self`
+    ///     - Remaining subpackets from `other`
+    ///
+    ///     See [`Subpacket::authenticated`] for how subpackets are
+    ///     authenticated.  Subpackets commonly found in unhashed
+    ///     areas are issuer information and embedded signatures.
+    ///
+    ///       [`Subpacket::authenticated`]: signature/subpacket/struct.SubPacket.html#method.authenticated
+    pub fn merge(mut self, other: Signature) -> Result<Signature> {
+        self.merge_internal(&other)?;
+        Ok(self)
+    }
+
+    /// Same as Signature::merge, but non-consuming for use with
+    /// Vec::dedup_by.
+    pub(crate) fn merge_internal(&mut self, other: &Signature) -> Result<()>
+    {
+        use subpacket::{Subpacket, SubpacketValue};
+        use crate::serialize::MarshalInto;
+
+        if ! self.normalized_eq(other) {
+            return Err(Error::InvalidArgument(
+                "Signatures are not equal modulo unhashed subpackets".into())
+                       .into());
+        }
+
+        // Filters subpackets that plausibly could be in the unhashed
+        // area.
+        fn eligible(p: &Subpacket) -> bool {
+            use SubpacketTag::*;
+            match p.tag() {
+                SignatureCreationTime
+                    | SignatureExpirationTime
+                    | ExportableCertification
+                    | TrustSignature
+                    | RegularExpression
+                    | Revocable
+                    | KeyExpirationTime
+                    | PlaceholderForBackwardCompatibility
+                    | PreferredSymmetricAlgorithms
+                    | RevocationKey
+                    | PreferredHashAlgorithms
+                    | PreferredCompressionAlgorithms
+                    | KeyServerPreferences
+                    | PreferredKeyServer
+                    | PrimaryUserID
+                    | PolicyURI
+                    | KeyFlags
+                    | SignersUserID
+                    | ReasonForRevocation
+                    | Features
+                    | SignatureTarget
+                    | PreferredAEADAlgorithms
+                    | IntendedRecipient
+                    | Reserved(_)
+                    => false,
+                Issuer
+                    | NotationData
+                    | EmbeddedSignature
+                    | IssuerFingerprint
+                    | Private(_)
+                    | Unknown(_)
+                    => true,
+                __Nonexhaustive => unreachable!(),
+            }
+        }
+
+        // Filters subpackets that usually are in the unhashed area.
+        fn prefer(p: &Subpacket) -> bool {
+            use SubpacketTag::*;
+            match p.tag() {
+                Issuer | EmbeddedSignature | IssuerFingerprint => true,
+                _ => false,
+            }
+        }
+
+        // Collect subpackets keeping track of the size.
+        let mut acc = std::collections::HashSet::new();
+        let mut size = 0;
+
+        // Start with missing issuer information.
+        for id in std::mem::replace(&mut self.additional_issuers,
+                                    Vec::with_capacity(0)).into_iter()
+            .chain(other.additional_issuers.iter().cloned())
+        {
+            let p = match id {
+                KeyHandle::KeyID(id) => Subpacket::new(
+                    SubpacketValue::Issuer(id), false)?,
+                KeyHandle::Fingerprint(fp) => Subpacket::new(
+                    SubpacketValue::IssuerFingerprint(fp), false)?,
+            };
+
+            let l = p.serialized_len();
+            if size + l <= std::u16::MAX as usize {
+                if acc.insert(p.clone()) {
+                    size += l;
+                }
+            }
+        }
+
+        // Make multiple passes over the subpacket areas.  Always
+        // start with self, then other.  Only consider eligible
+        // packets.  Consider authenticated ones first, then plausible
+        // unauthenticated ones, then the rest.  If inserting fails at
+        // any moment, stop.
+        for p in
+            self.unhashed_area().iter()
+                   .filter(|p| eligible(p) && p.authenticated())
+            .chain(other.unhashed_area().iter()
+                   .filter(|p| eligible(p) && p.authenticated()))
+            .chain(self.unhashed_area().iter()
+                   .filter(|p| eligible(p) && ! p.authenticated() && prefer(p)))
+            .chain(other.unhashed_area().iter()
+                   .filter(|p| eligible(p) && ! p.authenticated() && prefer(p)))
+            .chain(self.unhashed_area().iter()
+                   .filter(|p| eligible(p) && ! p.authenticated() && ! prefer(p)))
+            .chain(other.unhashed_area().iter()
+                   .filter(|p| eligible(p) && ! p.authenticated() && ! prefer(p)))
+        {
+            let l = p.serialized_len();
+            if size + l <= std::u16::MAX as usize {
+                if acc.insert(p.clone()) {
+                    size += l;
+                }
+            }
+        }
+        assert!(size <= std::u16::MAX as usize);
+        let mut a = SubpacketArea::new(acc.into_iter().collect())
+            .expect("must fit");
+        a.sort();
+        *self.unhashed_area_mut() = a;
+
+        Ok(())
+    }
 }
 
 /// Verification-related functionality.
@@ -3290,6 +3454,130 @@ mod test {
         // information.
         let normalized_sig = sig.normalize();
         assert_eq!(normalized_sig.subpackets(SubpacketTag::Issuer).count(), 1);
+        Ok(())
+    }
+
+    /// Tests signature merging.
+    #[test]
+    fn merging() -> Result<()> {
+        use crate::packet::signature::subpacket::*;
+
+        let key: key::SecretKey
+            = Key4::generate_ecc(true, Curve::Ed25519)?.into();
+        let mut pair = key.into_keypair()?;
+        let msg = b"Hello, World";
+        let mut hash = HashAlgorithm::SHA256.context()?;
+        hash.update(&msg[..]);
+
+        let fp = pair.public().fingerprint();
+        let keyid = KeyID::from(&fp);
+
+        // Make a feeble signature with issuer information in the
+        // unhashed area.
+        let sig = SignatureBuilder::new(SignatureType::Text)
+            .modify_unhashed_area(|mut a| {
+                a.add(Subpacket::new(
+                    SubpacketValue::IssuerFingerprint(fp.clone()), false)?)?;
+                a.add(Subpacket::new(
+                    SubpacketValue::Issuer(keyid.clone()), false)?)?;
+                Ok(a)
+            })?
+            .sign_hash(&mut pair, hash.clone())?;
+
+        // Try to displace the issuer information.
+        let dummy: crate::KeyID = "AAAA BBBB CCCC DDDD".parse()?;
+        let mut malicious = sig.clone();
+        malicious.unhashed_area_mut().clear();
+        loop {
+            let r = malicious.unhashed_area_mut().add(Subpacket::new(
+                SubpacketValue::Issuer(dummy.clone()), false)?);
+            if r.is_err() {
+                break;
+            }
+        }
+
+        // Merge and check that the issuer information is intact.
+        // This works without any issuer being authenticated because
+        // of the deduplicating nature of the merge.
+        let merged = sig.clone().merge(malicious.clone())?;
+        let issuers = merged.get_issuers();
+        assert_eq!(issuers.len(), 3);
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&dummy)));
+
+        // Same, but the other way around.
+        let merged = malicious.clone().merge(sig.clone())?;
+        let issuers = merged.get_issuers();
+        assert_eq!(issuers.len(), 3);
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&dummy)));
+
+        // Try to displace the issuer information using garbage
+        // packets.
+        let mut malicious = sig.clone();
+        malicious.unhashed_area_mut().clear();
+        let mut i: u64 = 0;
+        loop {
+            let r = malicious.unhashed_area_mut().add(Subpacket::new(
+                SubpacketValue::Unknown {
+                    tag: SubpacketTag::Unknown(231),
+                    body: i.to_be_bytes().iter().cloned().collect(),
+                }, false)?);
+            if r.is_err() {
+                break;
+            }
+            i += 1;
+        }
+
+        // Merge and check that the issuer information is intact.
+        // This works without any issuer being authenticated because
+        // the merge prefers plausible packets.
+        let merged = sig.clone().merge(malicious.clone())?;
+        let issuers = merged.get_issuers();
+        assert_eq!(issuers.len(), 2);
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+
+        // Same, but the other way around.
+        let merged = malicious.clone().merge(sig.clone())?;
+        let issuers = merged.get_issuers();
+        assert_eq!(issuers.len(), 2);
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+
+        // Try to displace the issuer information by using random keyids.
+        let mut malicious = sig.clone();
+        malicious.unhashed_area_mut().clear();
+        let mut i: u64 = 1;
+        loop {
+            let r = malicious.unhashed_area_mut().add(Subpacket::new(
+                SubpacketValue::Issuer(i.into()), false)?);
+            if r.is_err() {
+                break;
+            }
+            i += 1;
+        }
+
+        // Merge and check that the issuer information is intact.
+        // This works because the issuer information is being
+        // authenticated by the verification, and the merge process
+        // prefers authenticated information.
+        let mut verified = sig.clone();
+        verified.verify_hash(pair.public(), hash.clone())?;
+
+        let merged = verified.clone().merge(malicious.clone())?;
+        let issuers = merged.get_issuers();
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+
+        // Same, but the other way around.
+        let merged = malicious.clone().merge(verified.clone())?;
+        let issuers = merged.get_issuers();
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
+        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+
         Ok(())
     }
 }
