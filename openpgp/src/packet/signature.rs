@@ -129,6 +129,7 @@ use crate::crypto::{
     hash::{self, Hash},
     Signer,
 };
+use crate::KeyHandle;
 use crate::HashAlgorithm;
 use crate::PublicKeyAlgorithm;
 use crate::SignatureType;
@@ -1574,6 +1575,7 @@ impl SignatureBuilder {
             mpis,
             computed_digest: Some(digest),
             level: 0,
+            additional_issuers: Vec::with_capacity(0),
         }.into())
     }
 }
@@ -1642,6 +1644,18 @@ pub struct Signature4 {
     /// data, a level of 1 means that the signature is a notarization
     /// over all level 0 signatures and the data, and so on.
     level: usize,
+
+    /// Additional issuer information.
+    ///
+    /// When we verify a signature successfully, we know the key that
+    /// made the signature.  Hence, we can compute the fingerprint,
+    /// either a V4 one or a later one.  If this information is
+    /// missing from the signature, we can add it to the unhashed
+    /// subpacket area at a convenient time.  We don't add it when
+    /// verifying, because that would mean that verifying a signature
+    /// would change the serialized representation, and signature
+    /// verification is usually expected to be idempotent.
+    additional_issuers: Vec<KeyHandle>,
 }
 
 impl fmt::Debug for Signature4 {
@@ -1653,6 +1667,7 @@ impl fmt::Debug for Signature4 {
             .field("hash_algo", &self.hash_algo())
             .field("hashed_area", self.hashed_area())
             .field("unhashed_area", self.unhashed_area())
+            .field("additional_issuers", &self.additional_issuers)
             .field("digest_prefix",
                    &crate::fmt::to_hex(&self.digest_prefix, false))
             .field("computed_digest",
@@ -1740,6 +1755,7 @@ impl Signature4 {
             mpis,
             computed_digest: None,
             level: 0,
+            additional_issuers: Vec::with_capacity(0),
         }
     }
 
@@ -1996,7 +2012,8 @@ impl crate::packet::Signature {
     /// Normalizes the signature.
     ///
     /// This function normalizes the *unhashed* signature subpackets.
-    /// It removes all but the following self-authenticating
+    ///
+    /// First, it removes all but the following self-authenticating
     /// subpackets:
     ///
     ///   - `SubpacketValue::Issuer`
@@ -2004,8 +2021,12 @@ impl crate::packet::Signature {
     ///   - `SubpacketValue::EmbeddedSignature`
     ///
     /// Note: the retained subpackets are not checked for validity.
+    ///
+    /// Then, it adds any missing issuer information to the unhashed
+    /// subpacket area that has been computed when verifying the
+    /// signature.
     pub fn normalize(&self) -> Self {
-        use crate::packet::signature::subpacket::SubpacketTag::*;
+        use subpacket::SubpacketTag::*;
         let mut sig = self.clone();
         {
             let area = sig.unhashed_area_mut();
@@ -2019,8 +2040,35 @@ impl crate::packet::Signature {
                 area.add(spkt.clone())
                     .expect("it did fit into the old area");
             }
+
+            // Add missing issuer information.  This is icing on the
+            // cake, hence it is only a best-effort mechanism that
+            // silently fails.
+            let _ = sig.add_missing_issuers();
         }
         sig
+    }
+
+    /// Adds missing issuer information from `additional_issuers` to
+    /// the unhashed subpacket area.
+    fn add_missing_issuers(&mut self) -> Result<()> {
+        use subpacket::{Subpacket, SubpacketValue};
+        let issuers = self.get_issuers();
+        for id in std::mem::replace(&mut self.additional_issuers,
+                                    Vec::with_capacity(0)) {
+            if ! issuers.iter().any(|i| i == &id) {
+                match id {
+                    KeyHandle::KeyID(id) =>
+                        self.unhashed_area_mut().add(Subpacket::new(
+                            SubpacketValue::Issuer(id), false)?)?,
+                    KeyHandle::Fingerprint(fp) =>
+                        self.unhashed_area_mut().add(Subpacket::new(
+                            SubpacketValue::IssuerFingerprint(fp), false)?)?,
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -2081,6 +2129,21 @@ impl Signature {
                 };
                 p.set_authenticated(authenticated);
             });
+
+            // Compute and record any issuer information not yet
+            // contained in the signature.
+            let issuers = self.get_issuers();
+            let id = KeyHandle::from(key.keyid());
+            if ! (issuers.iter().any(|i| i == &id)
+                  || self.additional_issuers.iter().any(|i| i == &id)) {
+                self.additional_issuers.push(id);
+            }
+
+            let fp = KeyHandle::from(key.fingerprint());
+            if ! (issuers.iter().any(|i| i == &fp)
+                  || self.additional_issuers.iter().any(|i| i == &fp)) {
+                self.additional_issuers.push(fp);
+            }
         }
         result
     }
@@ -2631,6 +2694,7 @@ impl ArbitraryBounded for Signature4 {
             mpis,
             computed_digest: None,
             level: 0,
+            additional_issuers: Vec::with_capacity(0),
         }
     }
 }
@@ -3161,6 +3225,43 @@ mod test {
         let sig = &cert.bad_signatures()[0];
         assert!(sig.hashed_area().iter().all(|p| ! p.authenticated()));
         assert!(sig.unhashed_area().iter().all(|p| ! p.authenticated()));
+        Ok(())
+    }
+
+    /// Checks that signature normalization adds missing issuer
+    /// information.
+    #[test]
+    fn normalization_adds_missing_issuers() -> Result<()> {
+        use subpacket::SubpacketTag;
+
+        let mut pp = crate::PacketPile::from_bytes(crate::tests::key(
+            "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))?;
+        assert_eq!(pp.children().count(), 5);
+
+        // Remove the issuer subpacket from a binding signature.
+        if let Some(Packet::Signature(sig)) = pp.path_ref_mut(&[4]) {
+            sig.unhashed_area_mut().remove_all(SubpacketTag::Issuer);
+            assert_eq!(sig.get_issuers().len(), 1);
+        } else {
+            panic!("expected a signature");
+        }
+
+        // Parse into cert verifying the signatures.
+        use std::convert::TryFrom;
+        let cert = Cert::try_from(pp)?;
+        assert_eq!(cert.bad_signatures().len(), 0);
+        assert_eq!(cert.keys().subkeys().count(), 1);
+        let subkey = cert.keys().subkeys().nth(0).unwrap();
+        assert_eq!(subkey.self_signatures().len(), 1);
+        let sig = &subkey.self_signatures()[0];
+
+        // The signature has only an issuer fingerprint.
+        assert_eq!(sig.get_issuers().len(), 1);
+        assert_eq!(sig.subpackets(SubpacketTag::Issuer).count(), 0);
+        // But normalization after verification adds the missing
+        // information.
+        let normalized_sig = sig.normalize();
+        assert_eq!(normalized_sig.subpackets(SubpacketTag::Issuer).count(), 1);
         Ok(())
     }
 }
