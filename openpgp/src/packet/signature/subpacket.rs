@@ -885,7 +885,7 @@ impl SubpacketArea {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn add(&mut self, packet: Subpacket) -> Result<()> {
+    pub fn add(&mut self, mut packet: Subpacket) -> Result<()> {
         if self.serialized_len() + packet.serialized_len()
             > ::std::u16::MAX as usize
         {
@@ -894,6 +894,7 @@ impl SubpacketArea {
         }
 
         self.cache_invalidate();
+        packet.set_authenticated(false);
         self.packets.push(packet);
         Ok(())
     }
@@ -975,7 +976,7 @@ impl SubpacketArea {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn replace(&mut self, packet: Subpacket) -> Result<()> {
+    pub fn replace(&mut self, mut packet: Subpacket) -> Result<()> {
         if self.iter().filter_map(|sp| if sp.tag() != packet.tag() {
             Some(sp.serialized_len())
         } else {
@@ -985,6 +986,7 @@ impl SubpacketArea {
                 "Subpacket area exceeds maximum size".into()).into());
         }
         self.remove_all(packet.tag());
+        packet.set_authenticated(false);
         self.packets.push(packet);
         Ok(())
     }
@@ -1658,6 +1660,9 @@ pub struct Subpacket {
     critical: bool,
     /// Packet value, must match packet type.
     value: SubpacketValue,
+    /// Whether or not the information in this subpacket are
+    /// authenticated in the context of its signature.
+    authenticated: bool,
 }
 
 impl PartialEq for Subpacket {
@@ -1748,6 +1753,7 @@ impl fmt::Debug for Subpacket {
             s.field("critical", &self.critical);
         }
         s.field("value", &self.value);
+        s.field("authenticated", &self.authenticated);
         s.finish()
     }
 }
@@ -1770,6 +1776,7 @@ impl Subpacket {
             length,
             critical,
             value,
+            authenticated: false,
         }
     }
 
@@ -1786,6 +1793,41 @@ impl Subpacket {
     /// Returns the Subpacket's value.
     pub fn value(&self) -> &SubpacketValue {
         &self.value
+    }
+
+    /// Returns whether the information in this subpacket has been
+    /// authenticated.
+    ///
+    /// There are three ways a subpacket can be authenticated:
+    ///
+    ///   - It is in the hashed subpacket area and the signature has
+    ///     been verified.
+    ///   - It is in the unhashed subpacket area and the information
+    ///     is self-authenticating and has been authenticated by
+    ///     Sequoia.  This is can be done for issuer information and
+    ///     embedded Signatures.
+    ///   - The subpacket has been authenticated by the user and
+    ///     marked as such using [`Subpacket::set_authenticated`].
+    ///
+    /// Note: The authentication is only valid in the context of the
+    /// signature the subpacket is in.  If the `Subpacket` is cloned,
+    /// or a `Subpacket` is added to a [`SubpacketArea`], the flag is
+    /// cleared.
+    ///
+    ///   [`Subpacket::set_authenticated`]: #method.set_authenticated
+    ///   [`SubpacketArea`]: struct.SubpacketArea.html
+    pub fn authenticated(&self) -> bool {
+        self.authenticated
+    }
+
+    /// Marks the information in this subpacket as authenticated or
+    /// not.
+    ///
+    /// See [`Subpacket::authenticated`] for more information.
+    ///
+    ///   [`Subpacket::authenticated`]: #method.authenticated
+    pub fn set_authenticated(&mut self, authenticated: bool) -> bool {
+        std::mem::replace(&mut self.authenticated, authenticated)
     }
 }
 
@@ -7125,7 +7167,8 @@ fn subpacket_test_2() {
                        length: 5.into(),
                        critical: false,
                        value: SubpacketValue::SignatureCreationTime(
-                           1515791508.into())
+                           1515791508.into()),
+                       authenticated: false,
                    }));
 
         // The signature does not expire.
@@ -7138,7 +7181,8 @@ fn subpacket_test_2() {
                        length: 5.into(),
                        critical: false,
                        value: SubpacketValue::KeyExpirationTime(
-                           63072000.into())
+                           63072000.into()),
+                       authenticated: false,
                    }));
 
         // Check key expiration.
@@ -7165,7 +7209,9 @@ fn subpacket_test_2() {
                                 SymmetricAlgorithm::AES192,
                                 SymmetricAlgorithm::AES128,
                                 SymmetricAlgorithm::TripleDES]
-                       )}));
+                       ),
+                       authenticated: false,
+                   }));
 
         assert_eq!(sig.preferred_hash_algorithms(),
                    Some(&[HashAlgorithm::SHA256,
@@ -7183,7 +7229,9 @@ fn subpacket_test_2() {
                                 HashAlgorithm::SHA512,
                                 HashAlgorithm::SHA224,
                                 HashAlgorithm::SHA1]
-                       )}));
+                       ),
+                       authenticated: false,
+                   }));
 
         assert_eq!(sig.preferred_compression_algorithms(),
                    Some(&[CompressionAlgorithm::Zlib,
@@ -7197,7 +7245,9 @@ fn subpacket_test_2() {
                            vec![CompressionAlgorithm::Zlib,
                                 CompressionAlgorithm::BZip2,
                                 CompressionAlgorithm::Zip]
-                       )}));
+                       ),
+                       authenticated: false,
+                   }));
 
         assert_eq!(sig.key_server_preferences().unwrap(),
                    KeyServerPreferences::empty().set_no_modify());
@@ -7207,6 +7257,7 @@ fn subpacket_test_2() {
                        critical: false,
                        value: SubpacketValue::KeyServerPreferences(
                            KeyServerPreferences::empty().set_no_modify()),
+                       authenticated: false,
                    }));
 
         assert!(sig.key_flags().unwrap().for_certification());
@@ -7216,7 +7267,8 @@ fn subpacket_test_2() {
                        length: 2.into(),
                        critical: false,
                        value: SubpacketValue::KeyFlags(
-                           KeyFlags::empty().set_certification().set_signing())
+                           KeyFlags::empty().set_certification().set_signing()),
+                       authenticated: false,
                    }));
 
         assert_eq!(sig.features().unwrap(), Features::empty().set_mdc());
@@ -7225,7 +7277,8 @@ fn subpacket_test_2() {
                        length: 2.into(),
                        critical: false,
                        value: SubpacketValue::Features(
-                           Features::empty().set_mdc())
+                           Features::empty().set_mdc()),
+                       authenticated: false,
                    }));
 
         let keyid = "F004 B9A4 5C58 6126".parse().unwrap();
@@ -7234,7 +7287,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 9.into(),
                        critical: false,
-                       value: SubpacketValue::Issuer(keyid)
+                       value: SubpacketValue::Issuer(keyid),
+                       authenticated: false,
                    }));
 
         let fp = "361A96BDE1A65B6D6C25AE9FF004B9A45C586126".parse().unwrap();
@@ -7243,7 +7297,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 22.into(),
                        critical: false,
-                       value: SubpacketValue::IssuerFingerprint(fp)
+                       value: SubpacketValue::IssuerFingerprint(fp),
+                       authenticated: false,
                    }));
 
         let n = NotationData {
@@ -7257,14 +7312,16 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 32.into(),
                        critical: false,
-                       value: SubpacketValue::NotationData(n.clone())
+                       value: SubpacketValue::NotationData(n.clone()),
+                       authenticated: false,
                    }));
         assert_eq!(sig.hashed_area().subpackets(SubpacketTag::NotationData)
                    .collect::<Vec<_>>(),
                    vec![&Subpacket {
                        length: 32.into(),
                        critical: false,
-                       value: SubpacketValue::NotationData(n.clone())
+                       value: SubpacketValue::NotationData(n.clone()),
+                       authenticated: false,
                    }]);
     } else {
         panic!("Expected signature!");
@@ -7290,7 +7347,8 @@ fn subpacket_test_2() {
                        length: 5.into(),
                        critical: false,
                        value: SubpacketValue::SignatureCreationTime(
-                           1515791490.into())
+                           1515791490.into()),
+                       authenticated: false,
                    }));
 
         assert_eq!(sig.exportable_certification(), Some(false));
@@ -7298,7 +7356,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 2.into(),
                        critical: false,
-                       value: SubpacketValue::ExportableCertification(false)
+                       value: SubpacketValue::ExportableCertification(false),
+                       authenticated: false,
                    }));
     }
 
@@ -7326,7 +7385,8 @@ fn subpacket_test_2() {
                        length: 5.into(),
                        critical: false,
                        value: SubpacketValue::SignatureCreationTime(
-                           1515791376.into())
+                           1515791376.into()),
+                       authenticated: false,
                    }));
 
         assert_eq!(sig.revocable(), Some(false));
@@ -7334,7 +7394,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 2.into(),
                        critical: false,
-                       value: SubpacketValue::Revocable(false)
+                       value: SubpacketValue::Revocable(false),
+                       authenticated: false,
                    }));
 
         let fp = "361A96BDE1A65B6D6C25AE9FF004B9A45C586126".parse().unwrap();
@@ -7346,6 +7407,7 @@ fn subpacket_test_2() {
                        length: 23.into(),
                        critical: false,
                        value: SubpacketValue::RevocationKey(rk),
+                       authenticated: false,
                    }));
 
 
@@ -7356,7 +7418,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 9.into(),
                        critical: false,
-                       value: SubpacketValue::Issuer(keyid)
+                       value: SubpacketValue::Issuer(keyid),
+                       authenticated: false,
                    }));
 
         let fp = "B59B8817F519DCE10AFD85E4CEAD062109347957".parse().unwrap();
@@ -7366,7 +7429,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 22.into(),
                        critical: false,
-                       value: SubpacketValue::IssuerFingerprint(fp)
+                       value: SubpacketValue::IssuerFingerprint(fp),
+                       authenticated: false,
                    }));
 
         // This signature does not contain any notation data.
@@ -7393,7 +7457,8 @@ fn subpacket_test_2() {
                        length: 5.into(),
                        critical: false,
                        value: SubpacketValue::SignatureCreationTime(
-                           1515886658.into())
+                           1515886658.into()),
+                       authenticated: false,
                    }));
 
         assert_eq!(sig.reason_for_revocation(),
@@ -7407,6 +7472,7 @@ fn subpacket_test_2() {
                            code: ReasonForRevocation::Unspecified,
                            reason: b"Forgot to set a sig expiration.".to_vec(),
                        },
+                       authenticated: false,
                    }));
     }
 
@@ -7423,7 +7489,8 @@ fn subpacket_test_2() {
                        length: 5.into(),
                        critical: false,
                        value: SubpacketValue::SignatureCreationTime(
-                           1515791467.into())
+                           1515791467.into()),
+                       authenticated: false,
                    }));
 
         let n1 = NotationData {
@@ -7451,7 +7518,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 35.into(),
                        critical: false,
-                       value: SubpacketValue::NotationData(n3.clone())
+                       value: SubpacketValue::NotationData(n3.clone()),
+                       authenticated: false,
                    }));
 
         // We expect all three notations, in order.
@@ -7461,17 +7529,20 @@ fn subpacket_test_2() {
                        &Subpacket {
                            length: 38.into(),
                            critical: false,
-                           value: SubpacketValue::NotationData(n1)
+                           value: SubpacketValue::NotationData(n1),
+                           authenticated: false,
                        },
                        &Subpacket {
                            length: 24.into(),
                            critical: false,
-                           value: SubpacketValue::NotationData(n2)
+                           value: SubpacketValue::NotationData(n2),
+                           authenticated: false,
                        },
                        &Subpacket {
                            length: 35.into(),
                            critical: false,
-                           value: SubpacketValue::NotationData(n3)
+                           value: SubpacketValue::NotationData(n3),
+                           authenticated: false,
                        },
                    ]);
     }
@@ -7499,7 +7570,8 @@ fn subpacket_test_2() {
                        length: 5.into(),
                        critical: false,
                        value: SubpacketValue::SignatureCreationTime(
-                           1515791223.into())
+                           1515791223.into()),
+                       authenticated: false,
                    }));
 
         assert_eq!(sig.trust_signature(), Some((2, 120)));
@@ -7511,6 +7583,7 @@ fn subpacket_test_2() {
                            level: 2,
                            trust: 120,
                        },
+                       authenticated: false,
                    }));
 
         // Note: our parser strips the trailing NUL.
@@ -7521,7 +7594,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 23.into(),
                        critical: true,
-                       value: SubpacketValue::RegularExpression(regex.to_vec())
+                       value: SubpacketValue::RegularExpression(regex.to_vec()),
+                       authenticated: false,
                    }));
     }
 
@@ -7553,7 +7627,8 @@ fn subpacket_test_2() {
                        length: 5.into(),
                        critical: false,
                        value: SubpacketValue::KeyExpirationTime(
-                           63072000.into())
+                           63072000.into()),
+                       authenticated: false,
                    }));
 
         let keyid = "CEAD 0621 0934 7957".parse().unwrap();
@@ -7562,7 +7637,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 9.into(),
                        critical: false,
-                       value: SubpacketValue::Issuer(keyid)
+                       value: SubpacketValue::Issuer(keyid),
+                       authenticated: false,
                    }));
 
         let fp = "B59B8817F519DCE10AFD85E4CEAD062109347957".parse().unwrap();
@@ -7572,7 +7648,8 @@ fn subpacket_test_2() {
                    Some(&Subpacket {
                        length: 22.into(),
                        critical: false,
-                       value: SubpacketValue::IssuerFingerprint(fp)
+                       value: SubpacketValue::IssuerFingerprint(fp),
+                       authenticated: false,
                    }));
 
         assert!(sig.embedded_signature().is_some());
