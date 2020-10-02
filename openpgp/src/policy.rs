@@ -1662,7 +1662,8 @@ mod test {
                 .into_keypair().unwrap();
 
             // Create a signature.
-            let sig = signature::SignatureBuilder::new(SignatureType::Binary)
+            let mut sig =
+                signature::SignatureBuilder::new(SignatureType::Binary)
                 .sign_message(&mut keypair, msg).unwrap();
 
             // Make sure the signature is ok.

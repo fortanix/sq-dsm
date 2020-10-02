@@ -1896,7 +1896,7 @@ mod tests {
                                   mpi::Signature::EdDSA{
                                       r: mpi::MPI::new(r), s: mpi::MPI::new(s)
                                   });
-        let sig: Signature = sig.into();
+        let mut sig: Signature = sig.into();
         sig.verify_message(&key, b"Hello, World\n").unwrap();
     }
 

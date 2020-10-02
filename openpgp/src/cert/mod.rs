@@ -1392,7 +1392,7 @@ impl Cert {
                 t!("check!({}, {}, {:?}, {}, ...)",
                    $desc, stringify!($binding), $binding.$sigs,
                    stringify!($verify_method));
-                for sig in mem::replace(&mut $binding.$sigs, Vec::new())
+                for mut sig in mem::replace(&mut $binding.$sigs, Vec::new())
                     .into_iter()
                  {
                      match sig.$verify_method(self.primary.key(),
@@ -1432,7 +1432,7 @@ impl Cert {
                 t!("check_3rd_party!({}, {}, {:?}, {}, {}, ...)",
                    $desc, stringify!($binding), $binding.$sigs,
                    stringify!($verify_method), stringify!($hash_method));
-                for sig in mem::replace(&mut $binding.$sigs, Vec::new())
+                for mut sig in mem::replace(&mut $binding.$sigs, Vec::new())
                     .into_iter()
                 {
                     // Use hash prefix as heuristic.
@@ -1579,7 +1579,7 @@ impl Cert {
             }
         }
 
-        'outer: for (unknown_idx, sig) in bad_sigs {
+        'outer: for (unknown_idx, mut sig) in bad_sigs {
             // Did we find a new place for sig?
             let mut found_component = false;
 
@@ -4897,7 +4897,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                       .unwrap();
 
             // Have alice cerify the binding "bob@bar.com" and bob's key.
-            let alice_certifies_bob
+            let mut alice_certifies_bob
                 = bob_userid_binding.userid().bind(
                     &mut alice.primary_key().key().clone().parts_into_secret()
                         .unwrap().into_keypair().unwrap(),

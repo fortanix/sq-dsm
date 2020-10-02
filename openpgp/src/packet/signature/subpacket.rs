@@ -475,7 +475,7 @@ mod tests {
 /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
 /// #
 /// # let msg = b"Hello, world!";
-/// # let sig = SignatureBuilder::new(SignatureType::Binary)
+/// # let mut sig = SignatureBuilder::new(SignatureType::Binary)
 /// #     .sign_message(&mut signer, msg)?;
 /// #
 /// # // Verify it.
@@ -626,7 +626,7 @@ impl SubpacketArea {
     /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     /// #
     /// # let msg = b"Hello, world!";
-    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// # let mut sig = SignatureBuilder::new(SignatureType::Binary)
     /// #     .sign_message(&mut signer, msg)?;
     /// #
     /// # // Verify it.
@@ -686,7 +686,7 @@ impl SubpacketArea {
     /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     /// #
     /// # let msg = b"Hello, world!";
-    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// # let mut sig = SignatureBuilder::new(SignatureType::Binary)
     /// #     .sign_message(&mut signer, msg)?;
     /// #
     /// # // Verify it.
@@ -746,7 +746,7 @@ impl SubpacketArea {
     /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     /// #
     /// # let msg = b"Hello, world!";
-    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// # let mut sig = SignatureBuilder::new(SignatureType::Binary)
     /// #     .sign_message(&mut signer, msg)?;
     /// #
     /// # // Verify it.
@@ -799,7 +799,7 @@ impl SubpacketArea {
     /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     /// #
     /// # let msg = b"Hello, world!";
-    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// # let mut sig = SignatureBuilder::new(SignatureType::Binary)
     /// #     .sign_message(&mut signer, msg)?;
     /// #
     /// # // Verify it.
@@ -857,7 +857,7 @@ impl SubpacketArea {
     /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     /// #
     /// # let msg = b"Hello, world!";
-    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// # let mut sig = SignatureBuilder::new(SignatureType::Binary)
     /// #     .sign_message(&mut signer, msg)?;
     /// #
     /// # // Verify it.
@@ -940,7 +940,7 @@ impl SubpacketArea {
     /// # let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     /// #
     /// # let msg = b"Hello, world!";
-    /// # let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// # let mut sig = SignatureBuilder::new(SignatureType::Binary)
     /// #     .sign_message(&mut signer, msg)?;
     /// #
     /// # // Verify it.
@@ -2327,7 +2327,7 @@ impl SubpacketAreas {
     /// let mut alices_signer = alice.primary_key().key().clone()
     ///     .parts_into_secret()?.into_keypair()?;
     /// let msg = "START PROTOCOL";
-    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// let mut sig = SignatureBuilder::new(SignatureType::Binary)
     ///     .set_signature_creation_time(now)?
     ///     .sign_message(&mut alices_signer, msg)?;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
@@ -3587,6 +3587,7 @@ impl signature::SignatureBuilder {
     ///         },
     ///         true)?)?;
     /// let sig = builder.sign_message(&mut signer, msg)?;
+    /// # let mut sig = sig;
     /// # sig.verify_message(signer.public(), msg).unwrap();
     /// # Ok(()) }
     /// ```
@@ -3626,6 +3627,7 @@ impl signature::SignatureBuilder {
     ///         Ok(a)
     ///     })?
     ///    .sign_message(&mut signer, msg)?;
+    /// # let mut sig = sig;
     /// # sig.verify_message(signer.public(), msg).unwrap();
     /// # Ok(()) }
     /// ```
@@ -3676,6 +3678,7 @@ impl signature::SignatureBuilder {
     ///         Ok(a)
     ///     })?
     ///    .sign_message(&mut signer, msg)?;
+    /// # let mut sig = sig;
     /// # sig.verify_message(signer.public(), msg).unwrap();
     /// # Ok(()) }
     /// ```
@@ -3730,6 +3733,7 @@ impl signature::SignatureBuilder {
     ///         },
     ///         true)?)?;
     /// let sig = builder.sign_message(&mut signer, msg)?;
+    /// # let mut sig = sig;
     /// # sig.verify_message(signer.public(), msg).unwrap();
     /// # Ok(()) }
     /// ```
@@ -3769,6 +3773,7 @@ impl signature::SignatureBuilder {
     ///         Ok(a)
     ///     })?
     ///    .sign_message(&mut signer, msg)?;
+    /// # let mut sig = sig;
     /// # sig.verify_message(signer.public(), msg).unwrap();
     /// # Ok(()) }
     /// ```
@@ -3929,7 +3934,7 @@ impl signature::SignatureBuilder {
     /// #     .parts_into_secret()?.into_keypair()?;
     /// let msg = "hiermit kündige ich den mit Ihnen bestehenden Vertrag fristgerecht.";
     ///
-    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// let mut sig = SignatureBuilder::new(SignatureType::Binary)
     ///     .set_signature_creation_time(
     ///         std::time::SystemTime::now()
     ///         - std::time::Duration::new(24 * 60 * 60, 0))?
@@ -4000,6 +4005,8 @@ impl signature::SignatureBuilder {
     ///     .preserve_signature_creation_time()?
     ///     .sign_message(&mut bobs_signer, msg)?;
     /// #
+    /// # let mut siga = siga;
+    /// # let mut sigb = sigb;
     /// # assert!(siga.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert!(sigb.verify_message(bobs_signer.public(), msg).is_ok());
     /// # assert_eq!(siga.signature_creation_time(),
@@ -4059,7 +4066,7 @@ impl signature::SignatureBuilder {
     /// #     .parts_into_secret()?.into_keypair()?;
     /// let msg = "Some things are timeless.";
     ///
-    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// let mut sig = SignatureBuilder::new(SignatureType::Binary)
     ///     .suppress_signature_creation_time()?
     ///     .sign_message(&mut signer, msg)?;
     ///
@@ -4160,7 +4167,7 @@ impl signature::SignatureBuilder {
     ///
     /// let msg = "install e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     ///
-    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// let mut sig = SignatureBuilder::new(SignatureType::Binary)
     ///     .set_signature_validity_period(
     ///         std::time::Duration::new(10 * 60, 0))?
     ///     .sign_message(&mut signer, msg)?;
@@ -4218,6 +4225,7 @@ impl signature::SignatureBuilder {
     ///     .set_signature_validity_period(next_year)?
     ///     .sign_message(&mut signer, msg)?;
     /// #
+    /// # let mut sig = sig;
     /// # assert!(sig.verify_message(signer.public(), msg).is_ok());
     /// # assert_eq!(sig
     /// #    .hashed_area()
@@ -5113,6 +5121,7 @@ impl signature::SignatureBuilder {
     ///     .set_issuer(alicev4.keyid())?
     ///     .add_issuer(alicev5.keyid())?
     ///     .sign_message(&mut alices_signer, msg)?;
+    /// # let mut sig = sig;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig
     /// #    .hashed_area()
@@ -5202,6 +5211,7 @@ impl signature::SignatureBuilder {
     ///     .set_issuer(alicev4.keyid())?
     ///     .add_issuer(alicev5.keyid())?
     ///     .sign_message(&mut alices_signer, msg)?;
+    /// # let mut sig = sig;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig
     /// #    .hashed_area()
@@ -5867,6 +5877,7 @@ impl signature::SignatureBuilder {
     ///     )
     ///     .set_policy_uri("https://example.org/~alice/signing-policy.txt")?
     ///     .sign_direct_key(&mut signer, pk)?;
+    /// # let mut sig = sig;
     /// # sig.verify_direct_key(signer.public(), pk)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
@@ -6003,6 +6014,7 @@ impl signature::SignatureBuilder {
     /// let sig = SignatureBuilder::new(SignatureType::Binary)
     ///     .set_signers_user_id(&b"Alice <alice@home.org>"[..])?
     ///     .sign_message(&mut signer, msg)?;
+    /// # let mut sig = sig;
     /// # assert!(sig.verify_message(signer.public(), msg).is_ok());
     /// # assert_eq!(sig
     /// #    .hashed_area()
@@ -6360,6 +6372,7 @@ impl signature::SignatureBuilder {
     ///     .set_issuer_fingerprint(alicev4.fingerprint())?
     ///     .add_issuer_fingerprint(alicev5.fingerprint())?
     ///     .sign_message(&mut alices_signer, msg)?;
+    /// # let mut sig = sig;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig
     /// #    .hashed_area()
@@ -6451,6 +6464,7 @@ impl signature::SignatureBuilder {
     ///     .set_issuer_fingerprint(alicev4.fingerprint())?
     ///     .add_issuer_fingerprint(alicev5.fingerprint())?
     ///     .sign_message(&mut alices_signer, msg)?;
+    /// # let mut sig = sig;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig
     /// #    .hashed_area()
@@ -6640,6 +6654,7 @@ impl signature::SignatureBuilder {
     /// let sig = SignatureBuilder::new(SignatureType::Binary)
     ///     .set_intended_recipients(&[ bob.fingerprint(), carol.fingerprint() ])?
     ///     .sign_message(&mut alices_signer, msg)?;
+    /// # let mut sig = sig;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig.intended_recipients().count(), 2);
     /// # Ok(()) }
@@ -6725,6 +6740,7 @@ impl signature::SignatureBuilder {
     ///     .add_intended_recipient(bob.fingerprint())?
     ///     .add_intended_recipient(carol.fingerprint())?
     ///     .sign_message(&mut alices_signer, msg)?;
+    /// # let mut sig = sig;
     /// # assert!(sig.verify_message(alices_signer.public(), msg).is_ok());
     /// # assert_eq!(sig.intended_recipients().count(), 2);
     /// # Ok(()) }

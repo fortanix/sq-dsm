@@ -555,7 +555,7 @@ impl SignatureBuilder {
     /// // Derive a signer.
     /// let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     ///
-    /// let sig = SignatureBuilder::new(SignatureType::Standalone)
+    /// let mut sig = SignatureBuilder::new(SignatureType::Standalone)
     ///     .sign_standalone(&mut signer)?;
     ///
     /// // Verify it.
@@ -668,7 +668,7 @@ impl SignatureBuilder {
     /// // Derive a signer.
     /// let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     ///
-    /// let sig = SignatureBuilder::new(SignatureType::Timestamp)
+    /// let mut sig = SignatureBuilder::new(SignatureType::Timestamp)
     ///     .sign_timestamp(&mut signer)?;
     ///
     /// // Verify it.
@@ -783,7 +783,7 @@ impl SignatureBuilder {
     /// let pk = cert.primary_key().key();
     ///
     /// // Modify the existing direct key signature.
-    /// let sig = SignatureBuilder::from(
+    /// let mut sig = SignatureBuilder::from(
     ///         cert.with_policy(p, None)?.direct_key_signature()?.clone())
     ///     .set_preferred_symmetric_algorithms(
     ///         vec![ SymmetricAlgorithm::AES256,
@@ -916,7 +916,7 @@ impl SignatureBuilder {
     ///
     /// // Update the User ID's binding signature.
     /// let ua = cert.with_policy(p, None)?.userids().nth(0).unwrap();
-    /// let new_sig = SignatureBuilder::from(
+    /// let mut new_sig = SignatureBuilder::from(
     ///         ua.binding_signature().clone())
     ///     .set_preferred_symmetric_algorithms(
     ///         vec![ SymmetricAlgorithm::AES256,
@@ -1320,7 +1320,8 @@ impl SignatureBuilder {
     ///
     /// let pk = cert.primary_key().key();
     ///
-    /// let sig = SignatureBuilder::new(SignatureType::PositiveCertification)
+    /// let mut sig =
+    ///     SignatureBuilder::new(SignatureType::PositiveCertification)
     ///     .sign_user_attribute_binding(&mut signer, pk, &ua)?;
     ///
     /// // Verify it.
@@ -1490,7 +1491,7 @@ impl SignatureBuilder {
     /// // For large messages, you should use openpgp::serialize::stream::Signer,
     /// // which streams the message's content.
     /// let msg = b"Hello, world!";
-    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    /// let mut sig = SignatureBuilder::new(SignatureType::Binary)
     ///     .sign_message(&mut signer, msg)?;
     ///
     /// // Verify it.
@@ -2040,7 +2041,7 @@ impl Signature {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_digest<P, R, D>(&self, key: &Key<P, R>, digest: D)
+    pub fn verify_digest<P, R, D>(&mut self, key: &Key<P, R>, digest: D)
         -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
@@ -2074,7 +2075,7 @@ impl Signature {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify<P, R>(&self, key: &Key<P, R>) -> Result<()>
+    pub fn verify<P, R>(&mut self, key: &Key<P, R>) -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
     {
@@ -2083,8 +2084,10 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        if let Some(ref hash) = self.computed_digest {
-            self.verify_digest(key, hash)
+        if let Some(hash) = self.computed_digest.take() {
+            let result = self.verify_digest(key, &hash);
+            self.computed_digest = Some(hash);
+            result
         } else {
             Err(Error::BadSignature("Hash not computed.".to_string()).into())
         }
@@ -2103,7 +2106,7 @@ impl Signature {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_standalone<P, R>(&self, key: &Key<P, R>) -> Result<()>
+    pub fn verify_standalone<P, R>(&mut self, key: &Key<P, R>) -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
     {
@@ -2130,7 +2133,7 @@ impl Signature {
     /// is not revoked, not expired, has a valid self-signature, has a
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
-    pub fn verify_timestamp<P, R>(&self, key: &Key<P, R>) -> Result<()>
+    pub fn verify_timestamp<P, R>(&mut self, key: &Key<P, R>) -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,
     {
@@ -2163,7 +2166,7 @@ impl Signature {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_direct_key<P, Q, R>(&self,
+    pub fn verify_direct_key<P, Q, R>(&mut self,
                                       signer: &Key<P, R>,
                                       pk: &Key<Q, key::PrimaryRole>)
         -> Result<()>
@@ -2198,7 +2201,7 @@ impl Signature {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_primary_key_revocation<P, Q, R>(&self,
+    pub fn verify_primary_key_revocation<P, Q, R>(&mut self,
                                                   signer: &Key<P, R>,
                                                   pk: &Key<Q, key::PrimaryRole>)
         -> Result<()>
@@ -2239,7 +2242,7 @@ impl Signature {
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
     pub fn verify_subkey_binding<P, Q, R, S>(
-        &self,
+        &mut self,
         signer: &Key<P, R>,
         pk: &Key<Q, key::PrimaryRole>,
         subkey: &Key<S, key::SubordinateRole>)
@@ -2259,7 +2262,7 @@ impl Signature {
         // The signature is good, but we may still need to verify the
         // back sig.
         if self.key_flags().map(|kf| kf.for_signing()).unwrap_or(false) {
-            if let Some(backsig) = self.embedded_signature() {
+            if let Some(backsig) = self.embedded_signature_mut() {
                 backsig.verify_primary_key_binding(pk, subkey)
             } else {
                 Err(Error::BadSignature(
@@ -2288,7 +2291,7 @@ impl Signature {
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
     pub fn verify_primary_key_binding<P, Q>(
-        &self,
+        &mut self,
         pk: &Key<P, key::PrimaryRole>,
         subkey: &Key<Q, key::SubordinateRole>)
         -> Result<()>
@@ -2323,7 +2326,7 @@ impl Signature {
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
     pub fn verify_subkey_revocation<P, Q, R, S>(
-        &self,
+        &mut self,
         signer: &Key<P, R>,
         pk: &Key<Q, key::PrimaryRole>,
         subkey: &Key<S, key::SubordinateRole>)
@@ -2360,7 +2363,7 @@ impl Signature {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_userid_binding<P, Q, R>(&self,
+    pub fn verify_userid_binding<P, Q, R>(&mut self,
                                           signer: &Key<P, R>,
                                           pk: &Key<Q, key::PrimaryRole>,
                                           userid: &UserID)
@@ -2399,7 +2402,7 @@ impl Signature {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_userid_revocation<P, Q, R>(&self,
+    pub fn verify_userid_revocation<P, Q, R>(&mut self,
                                              signer: &Key<P, R>,
                                              pk: &Key<Q, key::PrimaryRole>,
                                              userid: &UserID)
@@ -2435,7 +2438,7 @@ impl Signature {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_user_attribute_binding<P, Q, R>(&self,
+    pub fn verify_user_attribute_binding<P, Q, R>(&mut self,
                                                   signer: &Key<P, R>,
                                                   pk: &Key<Q, key::PrimaryRole>,
                                                   ua: &UserAttribute)
@@ -2475,7 +2478,7 @@ impl Signature {
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
     pub fn verify_user_attribute_revocation<P, Q, R>(
-        &self,
+        &mut self,
         signer: &Key<P, R>,
         pk: &Key<Q, key::PrimaryRole>,
         ua: &UserAttribute)
@@ -2511,7 +2514,7 @@ impl Signature {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    pub fn verify_message<M, P, R>(&self, signer: &Key<P, R>,
+    pub fn verify_message<M, P, R>(&mut self, signer: &Key<P, R>,
                                    msg: M)
         -> Result<()>
         where M: AsRef<[u8]>,
@@ -2707,8 +2710,8 @@ mod test {
             let mut good = 0;
             let mut ppr = PacketParser::from_bytes(
                 crate::tests::message(test.data)).unwrap();
-            while let PacketParserResult::Some(pp) = ppr {
-                if let Packet::Signature(ref sig) = pp.packet {
+            while let PacketParserResult::Some(mut pp) = ppr {
+                if let Packet::Signature(sig) = &mut pp.packet {
                     let result = sig.verify(cert.primary_key().key())
                         .map(|_| true).unwrap_or(false);
                     eprintln!("  Primary {:?}: {:?}",
@@ -2780,7 +2783,7 @@ mod test {
             let hash = hash_algo.context().unwrap();
 
             // Make signature.
-            let sig = sig.sign_hash(&mut pair, hash).unwrap();
+            let mut sig = sig.sign_hash(&mut pair, hash).unwrap();
 
             // Good signature.
             let mut hash = hash_algo.context().unwrap();
@@ -2804,7 +2807,7 @@ mod test {
             .unwrap().into();
         let msg = b"Hello, World";
         let mut pair = key.into_keypair().unwrap();
-        let sig = SignatureBuilder::new(SignatureType::Binary)
+        let mut sig = SignatureBuilder::new(SignatureType::Binary)
             .sign_message(&mut pair, msg).unwrap();
 
         sig.verify_message(pair.public(), msg).unwrap();
@@ -2818,7 +2821,7 @@ mod test {
         let p = Packet::from_bytes(
             crate::tests::message("a-cypherpunks-manifesto.txt.ed25519.sig"))
             .unwrap();
-        let sig = if let Packet::Signature(s) = p {
+        let mut sig = if let Packet::Signature(s) = p {
             s
         } else {
             panic!("Expected a Signature, got: {:?}", p);
@@ -2866,7 +2869,7 @@ mod test {
         let test2 = Cert::from_bytes(
             crate::tests::key("test2-signed-by-test1.pgp")).unwrap();
         let uid = test2.userids().with_policy(p, None).nth(0).unwrap();
-        let cert = &uid.certifications()[0];
+        let mut cert = uid.certifications()[0].clone();
 
         cert.verify_userid_binding(cert_key1,
                                    test2.primary_key().key(),
@@ -2929,7 +2932,7 @@ mod test {
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
         let mut pair = key.into_keypair().unwrap();
 
-        let sig = SignatureBuilder::new(SignatureType::Standalone)
+        let mut sig = SignatureBuilder::new(SignatureType::Standalone)
             .sign_standalone(&mut pair)
             .unwrap();
 
@@ -2942,7 +2945,7 @@ mod test {
             "contrib/gnupg/keys/alpha.pgp")).unwrap();
         let p = Packet::from_bytes(crate::tests::file(
             "contrib/gnupg/timestamp-signature-by-alice.asc")).unwrap();
-        if let Packet::Signature(sig) = p {
+        if let Packet::Signature(mut sig) = p {
             let digest = Signature::hash_standalone(&sig).unwrap();
             eprintln!("{}", crate::fmt::hex::encode(&digest));
             sig.verify_timestamp(alpha.primary_key().key()).unwrap();
@@ -2957,7 +2960,7 @@ mod test {
             = Key4::generate_ecc(true, Curve::Ed25519).unwrap().into();
         let mut pair = key.into_keypair().unwrap();
 
-        let sig = SignatureBuilder::new(SignatureType::Timestamp)
+        let mut sig = SignatureBuilder::new(SignatureType::Timestamp)
             .sign_timestamp(&mut pair)
             .unwrap();
 

@@ -2558,7 +2558,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         t!("called");
 
         let mut results = MessageStructure::new();
-        for layer in self.structure.layers.iter() {
+        for layer in self.structure.layers.iter_mut() {
             match layer {
                 IMessageLayer::Compression { algo } =>
                     results.new_compression_layer(*algo),
@@ -2566,7 +2566,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     results.new_encryption_layer(*sym_algo, *aead_algo),
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
-                    'sigs: for sig in sigs.iter() {
+                    'sigs: for sig in sigs.iter_mut() {
                         let sigid = sig.digest_prefix().clone();
 
                         let sig_time = if let Some(t) = sig.signature_creation_time() {

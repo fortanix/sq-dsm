@@ -2826,8 +2826,8 @@ mod test {
 
         let mut ppr = PacketParser::from_bytes(&o).unwrap();
         let mut good = 0;
-        while let PacketParserResult::Some(pp) = ppr {
-            if let Packet::Signature(ref sig) = pp.packet {
+        while let PacketParserResult::Some(mut pp) = ppr {
+            if let Packet::Signature(sig) = &mut pp.packet {
                 let key = keys.get(&sig.issuer_fingerprints().nth(0).unwrap())
                     .unwrap();
                 sig.verify(key).unwrap();
@@ -3151,8 +3151,8 @@ mod test {
 
         let mut ppr = PacketParser::from_bytes(&o).unwrap();
         let mut good = 0;
-        while let PacketParserResult::Some(pp) = ppr {
-            if let Packet::Signature(ref sig) = pp.packet {
+        while let PacketParserResult::Some(mut pp) = ppr {
+            if let Packet::Signature(sig) = &mut pp.packet {
                 assert_eq!(sig.signature_creation_time(), Some(timestamp));
                 sig.verify(ka.key()).unwrap();
                 good += 1;
