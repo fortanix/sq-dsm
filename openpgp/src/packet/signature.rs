@@ -2078,6 +2078,34 @@ impl crate::packet::Signature {
 impl Signature {
     /// Verifies the signature against `hash`.
     ///
+    /// The `hash` should only be computed over the payload, this
+    /// function hashes in the signature itself before verifying it.
+    ///
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature and checks that the key predates the
+    /// signature.  Further constraints on the signature, like
+    /// creation and expiration time, or signature revocations must be
+    /// checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `key` can made
+    /// valid signatures; it is up to the caller to make sure the key
+    /// is not revoked, not expired, has a valid self-signature, has a
+    /// subkey binding signature (if appropriate), has the signing
+    /// capability, etc.
+    pub fn verify_hash<P, R>(&mut self, key: &Key<P, R>,
+                             mut hash: hash::Context)
+        -> Result<()>
+        where P: key::KeyParts,
+              R: key::KeyRole,
+    {
+        self.hash(&mut hash);
+        let mut digest = vec![0u8; hash.digest_size()];
+        hash.digest(&mut digest);
+        self.verify_digest(key, digest)
+    }
+
+    /// Verifies the signature against `digest`.
+    ///
     /// Note: Due to limited context, this only verifies the
     /// cryptographic signature and checks that the key predates the
     /// signature.  Further constraints on the signature, like
