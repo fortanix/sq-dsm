@@ -524,13 +524,13 @@ impl_arbitrary_with_bound!(SubpacketArea);
 
 impl Default for SubpacketArea {
     fn default() -> Self {
-        Self::new(Default::default())
+        Self::new(Default::default()).unwrap()
     }
 }
 
 impl Clone for SubpacketArea {
     fn clone(&self) -> Self {
-        Self::new(self.packets.clone())
+        Self::new(self.packets.clone()).unwrap()
     }
 }
 
@@ -581,10 +581,17 @@ impl<'a> IntoIterator for &'a SubpacketArea {
 
 impl SubpacketArea {
     /// Returns a new subpacket area containing the given `packets`.
-    pub fn new(packets: Vec<Subpacket>) -> SubpacketArea {
-        SubpacketArea {
+    pub fn new(packets: Vec<Subpacket>) -> Result<SubpacketArea> {
+        let area = SubpacketArea {
             packets,
             parsed: Mutex::new(RefCell::new(None)),
+        };
+        if area.serialized_len() > std::u16::MAX as usize {
+            Err(Error::InvalidArgument(
+                format!("Subpacket area exceeds maximum size: {}",
+                        area.serialized_len())).into())
+        } else {
+            Ok(area)
         }
     }
 

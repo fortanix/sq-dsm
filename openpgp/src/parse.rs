@@ -1493,7 +1493,7 @@ impl SubpacketArea {
             packets.push(p);
         }
         assert!(limit == 0);
-        Ok(Self::new(packets))
+        Self::new(packets)
     }
 }
 
