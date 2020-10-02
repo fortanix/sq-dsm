@@ -1700,9 +1700,9 @@ impl PartialOrd for Signature4 {
 
 impl Ord for Signature4 {
     fn cmp(&self, other: &Signature4) -> Ordering {
-        self.mpis.cmp(&other.mpis)
-            .then_with(|| self.fields.cmp(&other.fields))
+        self.fields.cmp(&other.fields)
             .then_with(|| self.digest_prefix.cmp(&other.digest_prefix))
+            .then_with(|| self.mpis.cmp(&other.mpis))
     }
 }
 
