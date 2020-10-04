@@ -12,8 +12,8 @@ use std::ops::{Deref, DerefMut};
 use quickcheck::{Arbitrary, Gen};
 
 use crate::Result;
-use crate::crypto;
-use crate::crypto::S2K;
+use crate::crypto::{self, S2K, Password, SessionKey};
+use crate::crypto::aead::CipherOp;
 use crate::Error;
 use crate::types::{
     AEADAlgorithm,
@@ -21,8 +21,6 @@ use crate::types::{
 };
 use crate::packet::{self, SKESK};
 use crate::Packet;
-use crate::crypto::Password;
-use crate::crypto::SessionKey;
 
 impl SKESK {
     /// Derives the key inside this SKESK from `password`. Returns a
@@ -466,7 +464,7 @@ impl SKESK5 {
         let key = s2k.derive_key(password, esk_algo.key_size()?)?;
         let mut iv = vec![0u8; esk_aead.iv_size()?];
         crypto::random(&mut iv);
-        let mut ctx = esk_aead.context(esk_algo, &key, &iv)?;
+        let mut ctx = esk_aead.context(esk_algo, &key, &iv, CipherOp::Encrypt)?;
 
         // Prepare associated data.
         let ad = [0xc3, 5, esk_algo.into(), esk_aead.into()];
@@ -503,7 +501,7 @@ impl SKESK5 {
         if let Some(ref esk) = self.esk()? {
             // Use the derived key to decrypt the ESK.
             let mut cipher = self.aead_algo.context(
-                self.symmetric_algo(), &key, &self.aead_iv()?)?;
+                self.symmetric_algo(), &key, &self.aead_iv()?, CipherOp::Decrypt)?;
 
             let ad = [0xc3, 5 /* Version.  */, self.symmetric_algo().into(),
                       self.aead_algo.into()];

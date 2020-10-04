@@ -3,7 +3,7 @@ use nettle::{aead, cipher};
 
 use crate::{Error, Result};
 
-use crate::crypto::aead::Aead;
+use crate::crypto::aead::{Aead, CipherOp};
 use crate::seal;
 use crate::types::{AEADAlgorithm, SymmetricAlgorithm};
 
@@ -32,6 +32,7 @@ impl AEADAlgorithm {
         sym_algo: SymmetricAlgorithm,
         key: &[u8],
         nonce: &[u8],
+        _op: CipherOp,
     ) -> Result<Box<dyn Aead>> {
         match self {
             AEADAlgorithm::EAX => match sym_algo {

@@ -59,6 +59,14 @@ pub trait Aead : seal::Sealed {
     fn digest_size(&self) -> usize;
 }
 
+/// Whether AEAD cipher is used for data encryption or decryption.
+pub(crate) enum CipherOp {
+    /// Cipher is used for data encryption.
+    Encrypt,
+    /// Cipher is used for data decryption.
+    Decrypt,
+}
+
 impl AEADAlgorithm {
     /// Returns the digest size of the AEAD algorithm.
     pub fn digest_size(&self) -> Result<usize> {
@@ -168,7 +176,7 @@ impl<'a> Decryptor<'a> {
         }
     }
 
-    fn make_aead(&mut self) -> Result<Box<dyn Aead>> {
+    fn make_aead(&mut self, op: CipherOp) -> Result<Box<dyn Aead>> {
         // The chunk index is XORed into the IV.
         let chunk_index: [u8; 8] = self.chunk_index.to_be_bytes();
 
@@ -189,7 +197,7 @@ impl<'a> Decryptor<'a> {
                 }
 
                 // Instantiate the AEAD cipher.
-                let aead = self.aead.context(self.sym_algo, &self.key, &self.iv)?;
+                let aead = self.aead.context(self.sym_algo, &self.key, &self.iv, op)?;
 
                 // Restore the IV.
                 for (i, o) in &mut self.iv[iv_len - 8..].iter_mut()
@@ -265,7 +273,7 @@ impl<'a> Decryptor<'a> {
         let final_digest_size = self.digest_size;
 
         for _ in 0..n_chunks {
-            let mut aead = self.make_aead()?;
+            let mut aead = self.make_aead(CipherOp::Decrypt)?;
             // Digest the associated data.
             self.hash_associated_data(&mut aead, false);
 
@@ -356,7 +364,7 @@ impl<'a> Decryptor<'a> {
 
             if check_final_tag {
                 // We read the whole ciphertext, now check the final digest.
-                let mut aead = self.make_aead()?;
+                let mut aead = self.make_aead(CipherOp::Decrypt)?;
                 self.hash_associated_data(&mut aead, true);
 
                 aead.digest(&mut digest);
@@ -583,7 +591,7 @@ impl<W: io::Write> Encryptor<W> {
         }
     }
 
-    fn make_aead(&mut self) -> Result<Box<dyn Aead>> {
+    fn make_aead(&mut self, op: CipherOp) -> Result<Box<dyn Aead>> {
         // The chunk index is XORed into the IV.
         let chunk_index: [u8; 8] = self.chunk_index.to_be_bytes();
 
@@ -604,7 +612,7 @@ impl<W: io::Write> Encryptor<W> {
                 }
 
                 // Instantiate the AEAD cipher.
-                let aead = self.aead.context(self.sym_algo, &self.key, &self.iv)?;
+                let aead = self.aead.context(self.sym_algo, &self.key, &self.iv, op)?;
 
                 // Restore the IV.
                 for (i, o) in &mut self.iv[iv_len - 8..].iter_mut()
@@ -636,7 +644,7 @@ impl<W: io::Write> Encryptor<W> {
 
             // And possibly encrypt the chunk.
             if self.buffer.len() == self.chunk_size {
-                let mut aead = self.make_aead()?;
+                let mut aead = self.make_aead(CipherOp::Encrypt)?;
                 self.hash_associated_data(&mut aead, false);
 
                 let inner = self.inner.as_mut().unwrap();
@@ -658,7 +666,7 @@ impl<W: io::Write> Encryptor<W> {
         for chunk in buf.chunks(self.chunk_size) {
             if chunk.len() == self.chunk_size {
                 // Complete chunk.
-                let mut aead = self.make_aead()?;
+                let mut aead = self.make_aead(CipherOp::Encrypt)?;
                 self.hash_associated_data(&mut aead, false);
 
                 let inner = self.inner.as_mut().unwrap();
@@ -686,7 +694,7 @@ impl<W: io::Write> Encryptor<W> {
     pub fn finish(&mut self) -> Result<W> {
         if let Some(mut inner) = self.inner.take() {
             if self.buffer.len() > 0 {
-                let mut aead = self.make_aead()?;
+                let mut aead = self.make_aead(CipherOp::Encrypt)?;
                 self.hash_associated_data(&mut aead, false);
 
                 // Encrypt the chunk.
@@ -704,7 +712,7 @@ impl<W: io::Write> Encryptor<W> {
             }
 
             // Write final digest.
-            let mut aead = self.make_aead()?;
+            let mut aead = self.make_aead(CipherOp::Decrypt)?;
             self.hash_associated_data(&mut aead, true);
             aead.digest(&mut self.scratch[..self.digest_size]);
             inner.write_all(&self.scratch[..self.digest_size])?;

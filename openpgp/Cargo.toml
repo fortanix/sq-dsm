@@ -44,10 +44,11 @@ backtrace = "0.3.46"
 unicode-normalization = "0.1.9"
 
 [target.'cfg(windows)'.dependencies]
-win-crypto-ng = { version = "0.2", features = ["rand"], optional = true }
+win-crypto-ng = { version = "0.3", features = ["rand", "block-cipher"], optional = true }
 num-bigint-dig = { version = "0.6", default-features = false, optional = true }
 ed25519-dalek = { version = "1", default-features = false, features = ["rand", "u64_backend"], optional = true }
 winapi = { version = "0.3", default-features = false, features = ["bcrypt"], optional = true }
+eax = "0.2"
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["std"] }
