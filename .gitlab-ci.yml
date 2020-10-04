@@ -107,7 +107,6 @@ windows-msvc:
     - rustc --version --verbose
     - cargo --version
   script:
-    - cargo check --all --exclude sequoia-openpgp-ffi
     # https://github.com/rust-lang/cargo/issues/5015
     - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
   after_script: []
