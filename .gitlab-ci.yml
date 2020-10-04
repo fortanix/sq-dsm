@@ -74,17 +74,17 @@ rust-stable:
 
 windows-gnu:
   tags:
-  - win
-  - win2019
+    - win
+    - win2019
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/windows-gnu
   # This job takes ~20 minutes to run, let's only execute it manually or for
   # scheduled builds, otherwise this will stall MRs often not related to Windows
   only:
-  - /windows/i # refs containing 'windows' keyword
-  - tags
-  - web
-  - scheduled
+    - /windows/i # refs containing 'windows' keyword
+    - tags
+    - web
+    - scheduled
   before_script:
     - clang -v
     - rustc --version --verbose
@@ -95,12 +95,12 @@ windows-gnu:
     - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
   after_script: []
   variables:
-    CFLAGS: '' # Silence some C warnings when compiling under Windows
+    CFLAGS: "" # Silence some C warnings when compiling under Windows
 
 windows-msvc:
   tags:
-  - win
-  - win2019
+    - win
+    - win2019
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/windows-msvc
   before_script:
@@ -112,7 +112,7 @@ windows-msvc:
     - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
   after_script: []
   variables:
-    CFLAGS: '' # Silence some C warnings when compiling with MSVC
+    CFLAGS: "" # Silence some C warnings when compiling with MSVC
 
 variables:
   DEBIAN_FRONTEND: noninteractive
