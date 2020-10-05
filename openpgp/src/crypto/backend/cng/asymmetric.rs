@@ -324,7 +324,19 @@ impl Decryptor for KeyPair {
                     }
                 )?;
 
-                let decrypted = key.decrypt(Some(EncryptionPadding::Pkcs1), c.value())?;
+                // CNG expects RSA ciphertexts to be aligned to 8 bytes. Since
+                // this is a big endian MPI, left-pad with zeroes as necessary
+                let mut _c: Protected = Protected::from(Vec::new());
+                let missing = (8 - (c.value().len() % 8)) % 8;
+                let c = if missing > 0 {
+                    _c = Protected::from(vec![0u8; missing + c.value().len()]);
+                    &mut _c[missing..].copy_from_slice(c.value());
+                    &_c
+                } else {
+                    c.value()
+                };
+
+                let decrypted = key.decrypt(Some(EncryptionPadding::Pkcs1), c)?;
 
                 SessionKey::from(decrypted)
             }

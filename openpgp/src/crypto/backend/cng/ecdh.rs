@@ -175,11 +175,7 @@ where
                 V,
             )?;
 
-            // We strip trailing zeroes so make sure to pad them back when
-            // importing via CNG
-            let scalar = scalar.value();
-            let scalar = [&*vec![0; 32 - scalar.len()], scalar].concat();
-            let mut scalar = Protected::from(scalar);
+            let mut scalar = pad_secret_to(scalar.value(), 32).into_owned();
             // Reverse the scalar.  See
             // https://lists.gnupg.org/pipermail/gnupg-devel/2018-February/033437.html.
             scalar.reverse();
@@ -213,7 +209,7 @@ where
                         &EccKeyPrivatePayload {
                             x: &[0; 32],
                             y: &[0; 32],
-                            d: scalar.value(),
+                            d: pad_secret_to(scalar.value(), 32).as_ref(),
                         }
                     )?;
 
@@ -234,7 +230,7 @@ where
                         &EccKeyPrivatePayload {
                             x: &[0; 48],
                             y: &[0; 48],
-                            d: scalar.value(),
+                            d: pad_secret_to(scalar.value(), 48).as_ref(),
                         }
                     )?;
 
@@ -251,18 +247,12 @@ where
                         &EccKeyPublicPayload { x: Vx, y: Vy },
                     )?;
 
-                    // We strip trailing zeroes so make sure to pad them back
-                    // when importing via CNG
-                    let scalar = scalar.value();
-                    let scalar = [&*vec![0; 66 - scalar.len()], scalar].concat();
-                    let scalar = Protected::from(scalar);
-
                     let r = AsymmetricKey::<Ecdh<NistP521>, Private>::import_from_parts(
                         &provider,
                         &EccKeyPrivatePayload {
                             x: &[0; 66],
                             y: &[0; 66],
-                            d: scalar.as_ref(),
+                            d: pad_secret_to(scalar.value(), 66).as_ref(),
                         }
                     )?;
 
@@ -281,4 +271,42 @@ where
     };
 
     decrypt_unwrap(recipient, &S, ciphertext)
+}
+
+/// Secret value that's zero-padded in order to interface with CNG.
+enum PaddedSecret<'a> {
+    Ref(&'a [u8]),
+    Own(Protected),
+}
+
+/// Left-pad secret with zeroes if necessary. In general we strip zeroes in MPIs
+/// so make sure to add them back when interacting with CNG as it expects
+/// full-length values.
+fn pad_secret_to(value: &[u8], n: usize) -> PaddedSecret<'_> {
+    let missing = n.saturating_sub(value.len());
+    if missing > 0 {
+        let mut vec = vec![0u8; missing + value.len()];
+        vec[missing..].copy_from_slice(value);
+        PaddedSecret::Own(Protected::from(vec))
+    } else {
+        PaddedSecret::Ref(value)
+    }
+}
+
+impl AsRef<[u8]> for PaddedSecret<'_> {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            PaddedSecret::Ref(value) => value,
+            PaddedSecret::Own(value) => value.as_ref(),
+        }
+    }
+}
+
+impl PaddedSecret<'_> {
+    fn into_owned(self) -> Protected {
+        match self {
+            PaddedSecret::Ref(value) => Protected::from(value),
+            PaddedSecret::Own(value) => value,
+        }
+    }
 }
