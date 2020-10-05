@@ -143,9 +143,11 @@ use crate::packet::UserAttribute;
 use crate::Packet;
 use crate::packet;
 use crate::packet::signature::subpacket::{
+    Subpacket,
     SubpacketArea,
     SubpacketAreas,
     SubpacketTag,
+    SubpacketValue,
 };
 
 #[cfg(test)]
@@ -1871,8 +1873,6 @@ impl crate::packet::Signature {
     /// sorted, but are returned in the order that they are
     /// encountered.
     pub fn get_issuers(&self) -> Vec<crate::KeyHandle> {
-        use crate::packet::signature::subpacket:: SubpacketValue;
-
         let mut issuers: Vec<_> =
             self.hashed_area().iter()
             .chain(self.unhashed_area().iter())
@@ -2052,7 +2052,6 @@ impl crate::packet::Signature {
     /// Adds missing issuer information from `additional_issuers` to
     /// the unhashed subpacket area.
     fn add_missing_issuers(&mut self) -> Result<()> {
-        use subpacket::{Subpacket, SubpacketValue};
         let issuers = self.get_issuers();
         for id in std::mem::replace(&mut self.additional_issuers,
                                     Vec::with_capacity(0)) {
@@ -2117,7 +2116,6 @@ impl crate::packet::Signature {
     /// Vec::dedup_by.
     pub(crate) fn merge_internal(&mut self, other: &Signature) -> Result<()>
     {
-        use subpacket::{Subpacket, SubpacketValue};
         use crate::serialize::MarshalInto;
 
         if ! self.normalized_eq(other) {
@@ -2311,7 +2309,6 @@ impl Signature {
             // The self-authenticating unhashed subpackets are
             // authenticated by the key's identity.
             self.unhashed_area_mut().iter_mut().for_each(|p| {
-                use subpacket::SubpacketValue;
                 let authenticated = match p.value() {
                     SubpacketValue::Issuer(id) =>
                         id == &key.keyid(),
