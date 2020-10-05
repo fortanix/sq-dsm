@@ -1579,13 +1579,24 @@ impl Cert {
             }
         }
 
+        let primary_fp: KeyHandle = self.key_handle();
+        let primary_keyid = KeyHandle::KeyID(primary_fp.clone().into());
+
         'outer: for (unknown_idx, mut sig) in bad_sigs {
             // Did we find a new place for sig?
             let mut found_component = false;
 
+            // Is this signature a self-signature?
+            let issuers =
+                sig.get_issuers();
+            let is_selfsig =
+                issuers.contains(&primary_fp)
+                || issuers.contains(&primary_keyid);
+
             macro_rules! check_one {
                 ($desc:expr, $sigs:expr, $sig:expr,
                  $verify_method:ident, $($verify_args:expr),*) => ({
+                   if is_selfsig {
                      t!("check_one!({}, {:?}, {:?}, {}, ...)",
                         $desc, $sigs, $sig,
                         stringify!($verify_method));
@@ -1603,6 +1614,7 @@ impl Cert {
                          $sigs.push($sig);
                          continue 'outer;
                      }
+                   }
                  });
                 ($desc:expr, $sigs:expr, $sig:expr,
                  $verify_method:ident) => ({
@@ -1623,6 +1635,7 @@ impl Cert {
                  $hash_method:ident,    // the method to compute the hash
                  $($verify_args:expr),* // additional arguments for the above
                 ) => ({
+                  if ! is_selfsig {
                     t!("check_one_3rd_party!({}, {}, {:?}, {}, {}, ...)",
                        $desc, stringify!($sigs), $sig,
                        stringify!($verify_method), stringify!($hash_method));
@@ -1664,6 +1677,7 @@ impl Cert {
                             }
                         }
                     }
+                  }
                 });
                 ($desc:expr, $sigs:expr, $sig:ident, $lookup_fn:expr,
                  $verify_method:ident, $hash_method:ident) => ({
@@ -1791,8 +1805,9 @@ impl Cert {
             }
 
             // Keep them for later.
-            t!("Self-sig {:02X}{:02X}, {:?} doesn't belong \
+            t!("{} {:02X}{:02X}, {:?} doesn't belong \
                 to any known component or is bad.",
+               if is_selfsig { "Self-sig" } else { "3rd-party-sig" },
                sig.digest_prefix()[0], sig.digest_prefix()[1],
                sig.typ());
 
@@ -5415,6 +5430,56 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
         assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
 
+        Ok(())
+    }
+
+    /// Checks that missing or bad embedded signatures cause the
+    /// signature to be considered bad.
+    #[test]
+    fn missing_backsig_is_bad() -> Result<()> {
+        use crate::packet::{
+            key::Key4,
+            signature::{
+                SignatureBuilder,
+                subpacket::{Subpacket, SubpacketValue},
+            },
+        };
+
+        // We'll study this certificate, because it contains a
+        // signing-capable subkey.
+        let cert = crate::Cert::from_bytes(crate::tests::key(
+            "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))?;
+        let mut pp = crate::PacketPile::from_bytes(crate::tests::key(
+            "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))?;
+        assert_eq!(pp.children().count(), 5);
+
+        if let Some(Packet::Signature(sig)) = pp.path_ref_mut(&[4]) {
+            // Add a bogus but plausible embedded signature subpacket.
+            let key: key::SecretKey
+                = Key4::generate_ecc(true, Curve::Ed25519)?.into();
+            let mut pair = key.into_keypair()?;
+
+            sig.unhashed_area_mut().replace(Subpacket::new(
+                SubpacketValue::EmbeddedSignature(
+                    SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
+                        .sign_primary_key_binding(
+                            &mut pair,
+                            cert.primary_key().key(),
+                            cert.keys().subkeys().nth(0).unwrap().key())?),
+                false)?)?;
+        } else {
+            panic!("expected a signature");
+        }
+
+        // Parse into cert.
+        use std::convert::TryFrom;
+        let malicious_cert = Cert::try_from(pp)?;
+        // The subkey binding signature should no longer check out.
+        let p = &crate::policy::StandardPolicy::new();
+        assert_eq!(malicious_cert.with_policy(p, None)?.keys().subkeys()
+                   .for_signing().count(), 0);
+        // Instead, it should be considered bad.
+        assert_eq!(malicious_cert.bad_signatures().len(), 1);
         Ok(())
     }
 }

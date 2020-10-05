@@ -83,8 +83,9 @@ use crate::parse::Cookie;
 /// }
 ///
 /// let cert = Cert::try_from(pp)?;
-/// if let CouldBe(_) = cert.revocation_status(policy, None) {
+/// if let NotAsFarAsWeKnow = cert.revocation_status(policy, None) {
 ///     // revocation signature is broken and the key is not definitely revoked
+///     assert_eq!(cert.bad_signatures().len(), 1);
 /// }
 /// # else {
 /// #   unreachable!();
