@@ -290,7 +290,7 @@ impl<C> ComponentBundle<C> {
         // `t`.
         let mut error = None;
 
-        for s in self.self_signatures[i..].iter() {
+        'next_sig: for s in self.self_signatures[i..].iter() {
             if let Err(e) = s.signature_alive(t, time::Duration::new(0, 0)) {
                 // We know that t >= signature's creation time.  So,
                 // it is expired.  But an older signature might not
@@ -313,7 +313,10 @@ impl<C> ComponentBundle<C> {
             if s.typ() == crate::types::SignatureType::SubkeyBinding &&
                 s.key_flags().map(|kf| kf.for_signing()).unwrap_or(false)
             {
-                if let Some(backsig) = s.embedded_signature() {
+                let mut n = 0;
+                let mut one_good_backsig = false;
+                'next_backsig: for backsig in s.embedded_signatures() {
+                    n += 1;
                     if let Err(e) = backsig.signature_alive(
                         t, time::Duration::new(0, 0))
                     {
@@ -322,25 +325,34 @@ impl<C> ComponentBundle<C> {
                         if error.is_none() {
                             error = Some(e);
                         }
-                        continue;
+                        continue 'next_backsig;
                     }
 
                     if let Err(e) = policy.signature(backsig) {
                         if error.is_none() {
                             error = Some(e);
                         }
-                        continue;
+                        continue 'next_backsig;
                     }
-                } else {
+
+                    one_good_backsig = true;
+                }
+
+                if n == 0 {
                     // This shouldn't happen because
                     // Signature::verify_subkey_binding checks for the
-                    // primary key signature.  But, better be safe.
+                    // primary key binding signature.  But, better be
+                    // safe.
                     if error.is_none() {
                         error = Some(Error::BadSignature(
                             "Primary key binding signature missing".into())
                                      .into());
                     }
-                    continue;
+                    continue 'next_sig;
+                }
+
+                if ! one_good_backsig {
+                    continue 'next_sig;
                 }
             }
 

@@ -827,6 +827,12 @@ impl SubpacketArea {
         self.iter().filter(move |sp| sp.tag() == target)
     }
 
+    pub(crate) fn subpackets_mut(&mut self, target: SubpacketTag)
+        -> impl Iterator<Item = &mut Subpacket>
+    {
+        self.iter_mut().filter(move |sp| sp.tag() == target)
+    }
+
     /// Adds the given subpacket.
     ///
     /// Adds the given subpacket to the subpacket area.  If the
@@ -1806,6 +1812,11 @@ impl Subpacket {
         &self.value
     }
 
+    /// Returns the Subpacket's value.
+    pub(crate) fn value_mut(&mut self) -> &mut SubpacketValue {
+        &mut self.value
+    }
+
     /// Returns whether the information in this subpacket has been
     /// authenticated.
     ///
@@ -2121,6 +2132,19 @@ impl SubpacketAreas {
             }))
     }
 
+    pub(crate) fn subpackets_mut(&mut self, tag: SubpacketTag)
+        -> impl Iterator<Item = &mut Subpacket>
+    {
+        self.hashed_area.subpackets_mut(tag).chain(
+            self.unhashed_area
+                .iter_mut()
+                .filter(move |sp| {
+                    (tag == SubpacketTag::Issuer
+                     || tag == SubpacketTag::IssuerFingerprint
+                     || tag == SubpacketTag::EmbeddedSignature)
+                        && sp.tag() == tag
+            }))
+    }
 
     /// Returns the value of the Signature Creation Time subpacket.
     ///
@@ -3481,18 +3505,16 @@ impl SubpacketAreas {
     /// subpacket in the hashed subpacket area, the last one is
     /// returned.  Otherwise, the last one is returned from the
     /// unhashed subpacket area.
-    pub fn embedded_signature(&self) -> Option<&Signature> {
-        // 1 signature packet body
-        if let Some(sb)
-                = self.subpacket(SubpacketTag::EmbeddedSignature) {
+    pub fn embedded_signatures(&self) -> impl Iterator<Item = &Signature> {
+        self.subpackets(SubpacketTag::EmbeddedSignature).map(|sb| {
             if let SubpacketValue::EmbeddedSignature(v) = &sb.value {
-                Some(v)
+                v
             } else {
-                None
+                unreachable!(
+                    "subpackets(EmbeddedSignature) returns EmbeddedSignatures"
+                );
             }
-        } else {
-            None
-        }
+        })
     }
 
     /// Returns a mutable reference to the Embedded Signature
@@ -3515,18 +3537,17 @@ impl SubpacketAreas {
     /// subpacket in the hashed subpacket area, the last one is
     /// returned.  Otherwise, the last one is returned from the
     /// unhashed subpacket area.
-    pub fn embedded_signature_mut(&mut self) -> Option<&mut Signature> {
-        // 1 signature packet body
-        if let Some(sb)
-                = self.subpacket_mut(SubpacketTag::EmbeddedSignature) {
+    pub fn embedded_signatures_mut(&mut self)
+                                   -> impl Iterator<Item = &mut Signature> {
+        self.subpackets_mut(SubpacketTag::EmbeddedSignature).map(|sb| {
             if let SubpacketValue::EmbeddedSignature(v) = &mut sb.value {
-                Some(v)
+                v
             } else {
-                None
+                unreachable!(
+                    "subpackets_mut(EmbeddedSignature) returns EmbeddedSignatures"
+                );
             }
-        } else {
-            None
-        }
+        })
     }
 
     /// Returns the intended recipients.
@@ -7010,7 +7031,7 @@ fn accessors() {
     sig = sig.set_embedded_signature(embedded_sig.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.embedded_signature(), Some(&embedded_sig));
+    assert_eq!(sig_.embedded_signatures().nth(0), Some(&embedded_sig));
 
     sig = sig.set_issuer_fingerprint(fp.clone()).unwrap();
     let sig_ =
@@ -7663,7 +7684,7 @@ fn subpacket_test_2() {
                        authenticated: false,
                    }));
 
-        assert!(sig.embedded_signature().is_some());
+        assert_eq!(sig.embedded_signatures().count(), 1);
         assert!(sig.subpacket(SubpacketTag::EmbeddedSignature)
                 .is_some());
     }

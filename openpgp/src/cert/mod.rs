@@ -5482,4 +5482,78 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(malicious_cert.bad_signatures().len(), 1);
         Ok(())
     }
+
+    /// Checks that multiple embedded signatures are correctly
+    /// handled.
+    #[test]
+    fn multiple_embedded_signatures() -> Result<()> {
+        use crate::packet::{
+            key::Key4,
+            signature::{
+                SignatureBuilder,
+                subpacket::{Subpacket, SubpacketValue},
+            },
+        };
+
+        // We'll study this certificate, because it contains a
+        // signing-capable subkey.
+        let cert = crate::Cert::from_bytes(crate::tests::key(
+            "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))?;
+
+        // Add a bogus but plausible embedded signature subpacket with
+        // this key.
+        let key: key::SecretKey
+            = Key4::generate_ecc(true, Curve::Ed25519)?.into();
+        let mut pair = key.into_keypair()?;
+
+        // Create a malicious cert to merge in.
+        let mut pp = crate::PacketPile::from_bytes(crate::tests::key(
+            "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"))?;
+        assert_eq!(pp.children().count(), 5);
+
+        if let Some(Packet::Signature(sig)) = pp.path_ref_mut(&[4]) {
+            // Prepend a bad backsig.
+            let backsig = sig.embedded_signatures().nth(0).unwrap().clone();
+            sig.unhashed_area_mut().replace(Subpacket::new(
+                SubpacketValue::EmbeddedSignature(
+                    SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
+                        .sign_primary_key_binding(
+                            &mut pair,
+                            cert.primary_key().key(),
+                            cert.keys().subkeys().nth(0).unwrap().key())?),
+                false)?)?;
+            sig.unhashed_area_mut().add(Subpacket::new(
+                SubpacketValue::EmbeddedSignature(backsig), false)?)?;
+        } else {
+            panic!("expected a signature");
+        }
+
+        // Parse into cert.
+        use std::convert::TryFrom;
+        let malicious_cert = Cert::try_from(pp)?;
+        // The subkey binding signature should still be fine.
+        let p = &crate::policy::StandardPolicy::new();
+        assert_eq!(malicious_cert.with_policy(p, None)?.keys().subkeys()
+                   .for_signing().count(), 1);
+        assert_eq!(malicious_cert.bad_signatures().len(), 0);
+
+        // Now try to merge it in.
+        let merged = cert.clone().merge(malicious_cert.clone())?;
+        // The subkey binding signature should still be fine.
+        assert_eq!(merged.with_policy(p, None)?.keys().subkeys()
+                   .for_signing().count(), 1);
+        let sig = merged.with_policy(p, None)?.keys().subkeys()
+            .for_signing().nth(0).unwrap().binding_signature();
+        assert_eq!(sig.embedded_signatures().count(), 2);
+
+        // Now the other way around.
+        let merged = malicious_cert.clone().merge(cert.clone())?;
+        // The subkey binding signature should still be fine.
+        assert_eq!(merged.with_policy(p, None)?.keys().subkeys()
+                   .for_signing().count(), 1);
+        let sig = merged.with_policy(p, None)?.keys().subkeys()
+            .for_signing().nth(0).unwrap().binding_signature();
+        assert_eq!(sig.embedded_signatures().count(), 2);
+        Ok(())
+    }
 }

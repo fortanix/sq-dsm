@@ -2538,20 +2538,29 @@ impl Signature {
         // The signature is good, but we may still need to verify the
         // back sig.
         if self.key_flags().map(|kf| kf.for_signing()).unwrap_or(false) {
-            let result = if let Some(backsig) = self.embedded_signature_mut() {
-                backsig.verify_primary_key_binding(pk, subkey)
-            } else {
-                Err(Error::BadSignature(
-                    "Primary key binding signature missing".into()).into())
-            };
-            if result.is_ok() {
-                // Mark the subpacket as authenticated by the embedded
-                // signature.
-                self.subpacket_mut(subpacket::SubpacketTag::EmbeddedSignature)
-                    .expect("must exist, we verified the signature above")
-                    .set_authenticated(true);
+            let mut last_result = Err(Error::BadSignature(
+                "Primary key binding signature missing".into()).into());
+
+            for backsig in self.subpackets_mut(SubpacketTag::EmbeddedSignature)
+            {
+                let result =
+                    if let SubpacketValue::EmbeddedSignature(sig) =
+                        backsig.value_mut()
+                {
+                    sig.verify_primary_key_binding(pk, subkey)
+                } else {
+                    unreachable!("subpackets_mut(EmbeddedSignature) returns \
+                                  EmbeddedSignatures");
+                };
+                if result.is_ok() {
+                    // Mark the subpacket as authenticated by the
+                    // embedded signature.
+                    backsig.set_authenticated(true);
+                    return result;
+                }
+                last_result = result;
             }
-            result
+            last_result
         } else {
             // No backsig required.
             Ok(())
@@ -3406,7 +3415,7 @@ mod test {
             }
         }));
         // Check the subpackets in the embedded signature.
-        let sig = sig.embedded_signature().unwrap();
+        let sig = sig.embedded_signatures().nth(0).unwrap();
         assert!(sig.hashed_area().iter().all(|p| p.authenticated()));
         assert!(sig.unhashed_area().iter().all(|p| p.authenticated()));
 
