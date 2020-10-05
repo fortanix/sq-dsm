@@ -878,12 +878,12 @@ impl<'a> CertParser<'a> {
 pub(crate) fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
                             b: &mut ComponentBundle<C>)
 {
-    let mut self_signatures = vec![];
-    let mut certifications = vec![];
-    let mut self_revs = vec![];
-    let mut other_revs = vec![];
+    let mut self_signatures = Vec::with_capacity(0);
+    let mut certifications = Vec::with_capacity(0);
+    let mut self_revs = Vec::with_capacity(0);
+    let mut other_revs = Vec::with_capacity(0);
 
-    for sig in mem::replace(&mut b.certifications, vec![]) {
+    for sig in mem::replace(&mut b.certifications, Vec::with_capacity(0)) {
         let typ = sig.typ();
 
         let issuers =
