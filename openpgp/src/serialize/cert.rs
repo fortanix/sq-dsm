@@ -495,8 +495,13 @@ impl<'a> TSK<'a> {
                 };
                 let key_with_stub = key.clone()
                     .add_secret(key::SecretKeyMaterial::Encrypted(
-                        key::Encrypted::new(stub, 0.into(),
-                                            vec![].into()))).0;
+                        key::Encrypted::new(
+                            stub, 0.into(),
+                            // Mirrors more closely what GnuPG 2.1
+                            // does (oddly, GnuPG 1.4 emits 0xfe
+                            // here).
+                            Some(crate::crypto::mpi::SecretKeyChecksum::Sum16),
+                            vec![].into()))).0;
                 return match tag {
                     Tag::PublicKey =>
                         crate::Packet::SecretKey(key_with_stub.into())

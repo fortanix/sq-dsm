@@ -2120,7 +2120,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                     return php.fail("unsupported secret key encryption");
                 }
                 // Encrypted, S2K & SHA-1 checksum
-                254 => {
+                254 | 255 => {
                     let sk: SymmetricAlgorithm = php_try!(php.parse_u8("sym_algo")).into();
                     let s2k = php_try!(S2K::parse(&mut php));
                     let s2k_supported = s2k.is_supported();
@@ -2130,16 +2130,17 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
 
                     crate::packet::key::Encrypted::new_raw(
                         s2k, sk,
+                        if s2k_usage == 254 {
+                            Some(mpi::SecretKeyChecksum::SHA1)
+                        } else {
+                            Some(mpi::SecretKeyChecksum::Sum16)
+                        },
                         if s2k_supported {
                             Ok(cipher)
                         } else {
                             Err(cipher)
                         },
                     ).into()
-                }
-                // Encrypted, S2K & mod 65536 checksum: unsupported
-                255 => {
-                    return php.fail("unsupported secret key encryption");
                 }
             };
 

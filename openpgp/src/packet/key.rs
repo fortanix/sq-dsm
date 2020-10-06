@@ -1363,15 +1363,16 @@ impl Unencrypted {
         let mut trash = vec![0u8; algo.block_size()?];
         crypto::random(&mut trash);
 
+        let checksum = Default::default();
         let mut esk = Vec::new();
         {
             let mut encryptor = Encryptor::new(algo, &key, &mut esk)?;
             encryptor.write_all(&trash)?;
             self.map(|mpis| mpis.serialize_with_checksum(&mut encryptor,
-                                                         Default::default()))?;
+                                                         checksum))?;
         }
 
-        Ok(Encrypted::new(s2k, algo, esk.into_boxed_slice()))
+        Ok(Encrypted::new(s2k, algo, Some(checksum), esk.into_boxed_slice()))
     }
 }
 
@@ -1386,6 +1387,8 @@ pub struct Encrypted {
     s2k: S2K,
     /// Symmetric algorithm used to encrypt the secret key material.
     algo: SymmetricAlgorithm,
+    /// Checksum method.
+    checksum: Option<mpi::SecretKeyChecksum>,
     /// Encrypted MPIs prefixed with the IV.
     ///
     /// If we recognized the S2K object during parsing, we can
@@ -1433,19 +1436,21 @@ impl std::hash::Hash for Encrypted {
 
 impl Encrypted {
     /// Creates a new encrypted key object.
-    pub fn new(s2k: S2K, algo: SymmetricAlgorithm, ciphertext: Box<[u8]>)
+    pub fn new(s2k: S2K, algo: SymmetricAlgorithm,
+               checksum: Option<mpi::SecretKeyChecksum>, ciphertext: Box<[u8]>)
         -> Self
     {
-        Self::new_raw(s2k, algo, Ok(ciphertext))
+        Self::new_raw(s2k, algo, checksum, Ok(ciphertext))
     }
 
     /// Creates a new encrypted key object.
     pub(crate) fn new_raw(s2k: S2K, algo: SymmetricAlgorithm,
+                          checksum: Option<mpi::SecretKeyChecksum>,
                           ciphertext: std::result::Result<Box<[u8]>,
                                                           Box<[u8]>>)
         -> Self
     {
-        Encrypted { s2k, algo, ciphertext }
+        Encrypted { s2k, algo, checksum, ciphertext }
     }
 
     /// Returns the key derivation mechanism.
@@ -1457,6 +1462,12 @@ impl Encrypted {
     /// key material.
     pub fn algo(&self) -> SymmetricAlgorithm {
         self.algo
+    }
+
+    /// Returns the checksum method used to protect the encrypted
+    /// secret key material, if any.
+    pub fn checksum(&self) -> Option<mpi::SecretKeyChecksum> {
+        self.checksum
     }
 
     /// Returns the encrypted secret key material.

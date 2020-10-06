@@ -1831,7 +1831,13 @@ impl<P, R> Key4<P, R>
                 })?,
                 SecretKeyMaterial::Encrypted(ref e) => {
                     // S2K usage.
-                    write_byte(o, 254)?;
+                    write_byte(o, match e.checksum() {
+                        Some(SecretKeyChecksum::SHA1) => 254,
+                        Some(SecretKeyChecksum::Sum16) => 255,
+                        None => return Err(Error::InvalidOperation(
+                            "In Key4 packets, encrypted secret keys must be \
+                             checksummed".into()).into()),
+                    })?;
                     write_byte(o, e.algo().into())?;
                     e.s2k().serialize(o)?;
                     o.write_all(e.raw_ciphertext())?;
