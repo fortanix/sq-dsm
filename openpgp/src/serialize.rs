@@ -1094,8 +1094,8 @@ impl MarshalInto for crypto::mpi::SecretKeyMaterial {
 
 impl crypto::mpi::SecretKeyMaterial {
     /// Writes this secret key with a checksum to `w`.
-    pub fn serialize_with_checksum<W: io::Write>(
-        &self, w: &mut W,
+    pub fn serialize_with_checksum(
+        &self, w: &mut dyn io::Write,
         checksum: crypto::mpi::SecretKeyChecksum)
         -> Result<()>
     {
