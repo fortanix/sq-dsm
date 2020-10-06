@@ -147,9 +147,7 @@ fn pkcs5_pad(sk: Protected, target_len: usize) -> Result<Protected> {
     }
 
     // !!! THIS FUNCTION MUST NOT FAIL FROM THIS POINT ON !!!
-    let mut buf: Vec<u8> = unsafe {
-        sk.into_vec()
-    };
+    let mut buf: Vec<u8> = sk.expose_into_unprotected_vec();
     let missing = target_len - buf.len();
     assert!(missing <= 0xff);
     for _ in 0..missing {
@@ -173,9 +171,7 @@ fn pkcs5_unpad(sk: Protected, target_len: usize) -> Result<Protected> {
         return Err(Error::InvalidArgument("message too small".into()).into());
     }
 
-    let mut buf: Vec<u8> = unsafe {
-        sk.into_vec()
-    };
+    let mut buf: Vec<u8> = sk.expose_into_unprotected_vec();
     let mut good = true;
     let missing = (buf.len() - target_len) as u8;
     for &b in &buf[target_len..] {

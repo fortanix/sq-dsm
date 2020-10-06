@@ -64,8 +64,10 @@ impl Hash for Protected {
 
 impl Protected {
     /// Converts to a buffer for modification.
-    pub(crate) unsafe fn into_vec(self) -> Vec<u8> {
-        self.iter().cloned().collect()
+    ///
+    /// Don't expose `Protected` values unless you know what you're doing.
+    pub(crate) fn expose_into_unprotected_vec(self) -> Vec<u8> {
+        self.0.clone().into()
     }
 }
 
