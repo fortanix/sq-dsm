@@ -4,7 +4,7 @@ This directory contains test vectors for the armor module.
 
 These files are generated using:
 
-  (cd ../../../.. && cargo build -p openpgp --example wrap-literal)
+  (cd ../../../.. && cargo build -p sequoia-openpgp --example wrap-literal)
   for n in 0 1 2 3 47 48 49 50 51
   do
     dd if=/dev/urandom bs=1 count=$n \

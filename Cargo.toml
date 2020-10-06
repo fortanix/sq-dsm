@@ -1,46 +1,20 @@
-[package]
-name = "sequoia"
-description = "A cool new OpenPGP implementation"
-version = "0.19.0"
-authors = [
-    "Justus Winter <justus@sequoia-pgp.org>",
-    "Kai Michaelis <kai@sequoia-pgp.org>",
-    "Neal H. Walfield <neal@sequoia-pgp.org>",
-]
-documentation = "https://docs.sequoia-pgp.org/0.19.0/"
-homepage = "https://sequoia-pgp.org/"
-repository = "https://gitlab.com/sequoia-pgp/sequoia"
-readme = "README.md"
-keywords = ["cryptography", "openpgp", "pgp", "encryption", "signing"]
-categories = ["cryptography", "authentication", "email"]
-license = "GPL-2.0-or-later"
-edition = "2018"
-
-[badges]
-gitlab = { repository = "sequoia-pgp/sequoia" }
-maintenance = { status = "actively-developed" }
-
 [workspace]
-
-[dependencies]
-buffered-reader = { path = "buffered-reader", version = "0.18" }
-sequoia-openpgp = { path = "openpgp", version = "0.19" }
-sequoia-openpgp-ffi = { path = "openpgp-ffi", version = "0.19" }
-sequoia-autocrypt = { path = "autocrypt", version = "0.19" }
-sequoia-core = { path = "core", version = "0.19" }
-sequoia-ffi = { path = "ffi", version = "0.19" }
-sequoia-ffi-macros = { path = "ffi-macros", version = "0.19" }
-sequoia-ipc = { path = "ipc", version = "0.19" }
-sequoia-net = { path = "net", version = "0.19" }
-sequoia-store = { path = "store", version = "0.19" }
-sequoia-tool = { path = "tool", version = "0.19" }
-sequoia-sop = { path = "sop", version = "0.19" }
-sequoia-sqv = { path = "sqv", version = "0.19" }
-sequoia-guide = { path = "guide", version = "0.19" }
-
-[lib]
-name = "sequoia"
-path = "src/lib.rs"
+members = [
+    "autocrypt",
+    "buffered-reader",
+    "core",
+    "ffi",
+    "ffi-macros",
+    "guide",
+    "ipc",
+    "net",
+    "openpgp",
+    "openpgp-ffi",
+    "sop",
+    "sqv",
+    "store",
+    "tool",
+]
 
 [profile.release]
 debug = true

@@ -1804,26 +1804,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
-name = "sequoia"
-version = "0.19.0"
-dependencies = [
- "buffered-reader",
- "sequoia-autocrypt",
- "sequoia-core",
- "sequoia-ffi",
- "sequoia-ffi-macros",
- "sequoia-guide",
- "sequoia-ipc",
- "sequoia-net",
- "sequoia-openpgp",
- "sequoia-openpgp-ffi",
- "sequoia-sop",
- "sequoia-sqv",
- "sequoia-store",
- "sequoia-tool",
-]
-
-[[package]]
 name = "sequoia-autocrypt"
 version = "0.19.0"
 dependencies = [
