@@ -85,7 +85,7 @@ fn real_main() -> Result<()> {
 
         SOP::ExtractCert { no_armor, } => {
             let cert = Cert::from_reader(&mut io::stdin())?;
-            let mut sink = stdout(no_armor, armor::Kind::SecretKey)?;
+            let mut sink = stdout(no_armor, armor::Kind::PublicKey)?;
             cert.serialize(&mut sink)?;
             sink.finalize()?;
         },
