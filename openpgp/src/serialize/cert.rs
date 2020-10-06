@@ -1,6 +1,6 @@
 use crate::Result;
 use crate::cert::prelude::*;
-use crate::packet::{key, Signature, Tag};
+use crate::packet::{header::BodyLength, key, Signature, Tag};
 use crate::serialize::{
     PacketRef,
     Marshal, MarshalInto,
@@ -319,6 +319,7 @@ impl Cert {
 pub struct TSK<'a> {
     cert: &'a Cert,
     filter: Option<Box<dyn Fn(&'a key::UnspecifiedSecret) -> bool + 'a>>,
+    emit_stubs: bool,
 }
 
 impl<'a> TSK<'a> {
@@ -327,6 +328,7 @@ impl<'a> TSK<'a> {
         Self {
             cert,
             filter: None,
+            emit_stubs: false,
         }
     }
 
@@ -367,6 +369,83 @@ impl<'a> TSK<'a> {
         self
     }
 
+    /// Changes `TSK` to emit secret key stubs.
+    ///
+    /// If [`TSK::set_filter`] is used to selectively export secret
+    /// keys, or if the cert contains both keys without secret key
+    /// material and with secret key material, then are two ways to
+    /// serialize this cert.  Neither is sanctioned by the OpenPGP
+    /// standard.
+    ///
+    /// The default way is to simply emit public key packets when no
+    /// secret key material is available.  While straight forward,
+    /// this may be in violation of [Section 11.2 of RFC 4880].
+    ///
+    /// The alternative is to emit a secret key packet with a
+    /// placeholder secret key value.  GnuPG uses this variant with a
+    /// private [`S2K`] format.  If interoperability with GnuPG is a
+    /// concern, use this variant.
+    ///
+    /// See [this test] for support in other implementations.
+    ///
+    ///   [`TSK::set_filter`]: #method.set_filter
+    ///   [Section 11.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.2
+    ///   [`S2K`]: ../crypto/enum.S2K.html
+    ///   [this test]: https://tests.sequoia-pgp.org/#Detached_primary_key
+    ///
+    /// # Example
+    ///
+    /// This example demonstrates how to create a TSK with a detached
+    /// primary secret key, serializing it using secret key stubs.
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use std::convert::TryFrom;
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::packet::key::*;
+    /// # use openpgp::{types::*, crypto::S2K};
+    /// # use openpgp::{*, cert::*, parse::Parse, serialize::Serialize};
+    ///
+    /// let p = &openpgp::policy::StandardPolicy::new();
+    ///
+    /// let (cert, _) = CertBuilder::new().add_signing_subkey().generate()?;
+    /// assert_eq!(cert.keys().with_policy(p, None)
+    ///            .alive().revoked(false).unencrypted_secret().count(), 2);
+    ///
+    /// // Only write out the primary key's secret.
+    /// let mut buf = Vec::new();
+    /// cert.as_tsk()
+    ///     .set_filter(|k| k.fingerprint() != cert.fingerprint())
+    ///     .emit_secret_key_stubs(true)
+    ///     .serialize(&mut buf)?;
+    ///
+    /// # let pp = PacketPile::from_bytes(&buf)?;
+    /// # assert_eq!(pp.path_ref(&[0]).unwrap().kind(),
+    /// #            Some(packet::Tag::SecretKey));
+    /// let cert_ = Cert::from_bytes(&buf)?;
+    /// // The primary key has an "encrypted" stub.
+    /// assert!(cert_.primary_key().has_secret());
+    /// assert_eq!(cert_.keys().with_policy(p, None)
+    ///            .alive().revoked(false).unencrypted_secret().count(), 1);
+    /// # if let Some(SecretKeyMaterial::Encrypted(sec)) =
+    /// #     cert_.primary_key().optional_secret()
+    /// # {
+    /// #     assert_eq!(sec.algo(), SymmetricAlgorithm::Unencrypted);
+    /// #     if let S2K::Private { tag, .. } = sec.s2k() {
+    /// #         assert_eq!(*tag, 101);
+    /// #     } else {
+    /// #         panic!("expected proprietary S2K type");
+    /// #     }
+    /// # } else {
+    /// #     panic!("expected ''encrypted'' secret key stub");
+    /// # }
+    /// # Ok(()) }
+    /// ```
+    pub fn emit_secret_key_stubs(mut self, emit_stubs: bool) -> Self {
+        self.emit_stubs = emit_stubs;
+        self
+    }
+
     /// Serializes or exports the Cert.
     ///
     /// If `export` is true, then non-exportable signatures are not
@@ -400,6 +479,34 @@ impl<'a> TSK<'a> {
             } else {
                 tag_public
             };
+
+            if self.emit_stubs && (tag == Tag::PublicKey
+                                   || tag == Tag::PublicSubkey) {
+                // Emit a GnuPG-style secret key stub.
+                let stub = crate::crypto::S2K::Private {
+                    tag: 101,
+                    parameters: Some(vec![
+                        0,    // "hash algo"
+                        0x47, // 'G'
+                        0x4e, // 'N'
+                        0x55, // 'U'
+                        1     // "mode"
+                    ].into()),
+                };
+                let key_with_stub = key.clone()
+                    .add_secret(key::SecretKeyMaterial::Encrypted(
+                        key::Encrypted::new(stub, 0.into(),
+                                            vec![].into()))).0;
+                return match tag {
+                    Tag::PublicKey =>
+                        crate::Packet::SecretKey(key_with_stub.into())
+                            .serialize(o),
+                    Tag::PublicSubkey =>
+                        crate::Packet::SecretSubkey(key_with_stub.into())
+                            .serialize(o),
+                    _ => unreachable!(),
+                };
+            }
 
             match tag {
                 Tag::PublicKey =>
@@ -561,6 +668,16 @@ impl<'a> MarshalInto for TSK<'a> {
             } else {
                 tag_public
             };
+
+            if self.emit_stubs && (tag == Tag::PublicKey
+                                   || tag == Tag::PublicSubkey) {
+                // Emit a GnuPG-style secret key stub.  The stub
+                // extends the public key by 8 bytes.
+                let l = key.net_len_key(false) + 8;
+                return 1 // CTB
+                    + BodyLength::Full(l as u32).serialized_len()
+                    + l;
+            }
 
             let packet = match tag {
                 Tag::PublicKey => PacketRef::PublicKey(key.into()),
