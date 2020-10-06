@@ -1157,11 +1157,6 @@ name = "memsec"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af4f95d8737f4ffafbd1fb3c703cdc898868a244a59786793cba0520ebdcbdd"
-dependencies = [
- "getrandom",
- "libc",
- "winapi 0.3.9",
-]
 
 [[package]]
 name = "miniz_oxide"
