@@ -1126,12 +1126,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mach_o_sys"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e854583a83f20cf329bb9283366335387f7db59d640d1412167e05fedb98826"
-
-[[package]]
 name = "matches"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1160,13 +1154,12 @@ dependencies = [
 
 [[package]]
 name = "memsec"
-version = "0.5.7"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cb9280f8c37546661083aa45eb0318d8469253d31e87649faed25522428398e"
+checksum = "2af4f95d8737f4ffafbd1fb3c703cdc898868a244a59786793cba0520ebdcbdd"
 dependencies = [
  "getrandom",
  "libc",
- "mach_o_sys",
  "winapi 0.3.9",
 ]
 

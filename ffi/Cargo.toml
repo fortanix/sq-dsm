@@ -30,7 +30,7 @@ sequoia-net = { path = "../net", version = "0.19" }
 anyhow = "1"
 lazy_static = "1.0.0"
 libc = "0.2.33"
-memsec = "0.5.6"
+memsec = "0.6"
 native-tls = "0.2.0"
 tokio-core = "0.1"
 
