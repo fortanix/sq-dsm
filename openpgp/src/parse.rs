@@ -2093,9 +2093,6 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
     /// Parses the body of a public key, public subkey, secret key or
     /// secret subkey packet.
     fn parse<'a, T: 'a + BufferedReader<Cookie>>(mut php: PacketHeaderParser<T>) -> Result<PacketParser<'a>> {
-        use std::io::Cursor;
-        use crate::serialize::Marshal;
-
         make_php_try!(php);
         let tag = php.header.ctb().tag();
         assert!(tag == Tag::Reserved
@@ -2108,22 +2105,14 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
         let mpis = php_try!(PublicKey::_parse(pk_algo, &mut php));
         let secret = if let Ok(s2k_usage) = php.parse_u8("s2k_usage") {
+            use crypto::mpi;
             let sec = match s2k_usage {
                 // Unencrypted
                 0 => {
                     let sec = php_try!(
-                        crypto::mpi::SecretKeyMaterial::_parse(pk_algo, &mut php, None));
-                    let their_chksum = php_try!(php.parse_be_u16("checksum"));
-                    let mut cur = Cursor::new(Vec::default());
-
-                    sec.serialize(&mut cur)?;
-                    let our_chksum: usize = cur.into_inner()
-                        .into_iter().map(|x| x as usize).sum();
-
-                    if our_chksum as u16 & 0xffff != their_chksum {
-                        return php.fail("wrong secret key checksum");
-                    }
-
+                        mpi::SecretKeyMaterial::_parse(
+                            pk_algo, &mut php,
+                            Some(mpi::SecretKeyChecksum::Sum16)));
                     sec.into()
                 }
                 // Encrypted & MD5 for key derivation: unsupported
