@@ -25,7 +25,6 @@ use std::cmp::{min, Ordering};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
 
 use memsec;
 
@@ -47,7 +46,7 @@ use memsec;
 /// // p is cleared once it goes out of scope.
 /// ```
 #[derive(Clone)]
-pub struct Protected(Pin<Box<[u8]>>);
+pub struct Protected(Box<[u8]>);
 
 impl PartialEq for Protected {
     fn eq(&self, other: &Self) -> bool {
@@ -98,13 +97,13 @@ impl DerefMut for Protected {
 
 impl From<Vec<u8>> for Protected {
     fn from(v: Vec<u8>) -> Self {
-        Protected(Pin::new(v.into_boxed_slice()))
+        Protected(v.into_boxed_slice())
     }
 }
 
 impl From<Box<[u8]>> for Protected {
     fn from(v: Box<[u8]>) -> Self {
-        Protected(Pin::new(v))
+        Protected(v)
     }
 }
 
