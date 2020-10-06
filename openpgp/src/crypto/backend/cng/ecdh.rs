@@ -285,9 +285,10 @@ enum PaddedSecret<'a> {
 fn pad_secret_to(value: &[u8], n: usize) -> PaddedSecret<'_> {
     let missing = n.saturating_sub(value.len());
     if missing > 0 {
-        let mut vec = vec![0u8; missing + value.len()];
-        vec[missing..].copy_from_slice(value);
-        PaddedSecret::Own(Protected::from(vec))
+        let mut secret = Protected::from(vec![0u8; missing + value.len()]);
+        secret[missing..].copy_from_slice(value);
+
+        PaddedSecret::Own(secret)
     } else {
         PaddedSecret::Ref(value)
     }
