@@ -1345,10 +1345,10 @@ impl Unencrypted {
     /// Encrypts the secret key material using `password`.
     ///
     /// This encrypts the secret key material using an [AES 256] key
-    /// derived from the `password` using the default [`s2k`] scheme.
+    /// derived from the `password` using the default [`S2K`] scheme.
     ///
     /// [AES 256]: ../../types/enum.SymmetricAlgorithm.html#variant.AES256
-    /// [`s2k`]: ../../crypto/enum.S2K.html
+    /// [`S2K`]: ../../crypto/enum.S2K.html
     pub fn encrypt(&self, password: &Password)
         -> Result<Encrypted>
     {
