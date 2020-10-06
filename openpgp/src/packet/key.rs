@@ -1367,7 +1367,8 @@ impl Unencrypted {
         {
             let mut encryptor = Encryptor::new(algo, &key, &mut esk)?;
             encryptor.write_all(&trash)?;
-            self.map(|mpis| mpis.serialize_chksumd(&mut encryptor))?;
+            self.map(|mpis| mpis.serialize_with_checksum(&mut encryptor,
+                                                         Default::default()))?;
         }
 
         Ok(Encrypted::new(s2k, algo, esk.into_boxed_slice()))
@@ -1502,7 +1503,9 @@ impl Encrypted {
         let mut trash = vec![0u8; self.algo.block_size()?];
         dec.read_exact(&mut trash)?;
 
-        mpi::SecretKeyMaterial::parse_chksumd(pk_algo, &mut dec).map(|m| m.into())
+        mpi::SecretKeyMaterial::parse_with_checksum(pk_algo, &mut dec,
+                                                    Default::default())
+            .map(|m| m.into())
     }
 }
 

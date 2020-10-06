@@ -155,12 +155,14 @@ impl mpi::PublicKey {
 }
 
 impl mpi::SecretKeyMaterial {
-    /// Parses secret key MPIs for `algo` plus their SHA1 checksum. Fails if the
-    /// checksum is wrong.
-    pub fn parse_chksumd<T: Read>(algo: PublicKeyAlgorithm, cur: T)
-                                  -> Result<Self> {
-        use std::io::Cursor;
-        use crate::serialize::Marshal;
+    /// Parses secret key MPIs for `algo` plus their SHA1 checksum.
+    ///
+    /// Fails if the checksum is wrong.
+    pub fn parse_with_checksum<T: Read>(algo: PublicKeyAlgorithm,
+                                        cur: T,
+                                        checksum: mpi::SecretKeyChecksum)
+                                        -> Result<Self> {
+        use crate::serialize::{Marshal, MarshalInto};
 
         // read mpis
         let bio = buffered_reader::Generic::with_cookie(
@@ -168,23 +170,37 @@ impl mpi::SecretKeyMaterial {
         let mut php = PacketHeaderParser::new_naked(bio);
         let mpis = Self::_parse(algo, &mut php)?;
 
-        // read expected sha1 hash of the mpis
-        let their_chksum = php.parse_bytes("checksum", 20)?;
-        let mut cur = Cursor::new(vec![]);
+        let good = match checksum {
+            mpi::SecretKeyChecksum::SHA1 => {
+                // Read expected SHA1 hash of the MPIs.
+                let their_chksum = php.parse_bytes("checksum", 20)?;
 
-        // compute sha1 hash
-        mpis.serialize(&mut cur)?;
-        let buf = cur.into_inner();
-        let mut hsh = HashAlgorithm::SHA1.context().unwrap();
+                // Compute SHA1 hash.
+                let mut hsh = HashAlgorithm::SHA1.context().unwrap();
+                mpis.serialize(&mut hsh)?;
+                let mut our_chksum = [0u8; 20];
+                hsh.digest(&mut our_chksum);
 
-        hsh.update(&buf);
-        let mut our_chksum = [0u8; 20];
-        hsh.digest(&mut our_chksum);
+                our_chksum == their_chksum[..]
+            },
 
-        if our_chksum != their_chksum[..] {
-            Err(Error::MalformedMPI("checksum wrong".to_string()).into())
-        } else {
+            mpi::SecretKeyChecksum::Sum16 => {
+                // Read expected sum of the MPIs.
+                let their_chksum = php.parse_bytes("checksum", 2)?;
+
+                // Compute sum.
+                let our_chksum = mpis.to_vec()?.iter()
+                    .fold(0u16, |acc, v| acc.wrapping_add(*v as u16))
+                    .to_be_bytes();
+
+                our_chksum == their_chksum[..]
+            },
+        };
+
+        if good {
             Ok(mpis)
+        } else {
+            Err(Error::MalformedMPI("checksum wrong".to_string()).into())
         }
     }
 

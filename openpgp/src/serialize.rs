@@ -1094,16 +1094,29 @@ impl MarshalInto for crypto::mpi::SecretKeyMaterial {
 
 impl crypto::mpi::SecretKeyMaterial {
     /// Writes this secret key with a checksum to `w`.
-    pub fn serialize_chksumd<W: io::Write>(&self, w: &mut W) -> Result<()> {
+    pub fn serialize_with_checksum<W: io::Write>(
+        &self, w: &mut W,
+        checksum: crypto::mpi::SecretKeyChecksum)
+        -> Result<()>
+    {
         // First, the MPIs.
         self.serialize(w)?;
 
-        // The checksum is SHA1 over the serialized MPIs.
-        let mut hash = HashAlgorithm::SHA1.context().unwrap();
-        self.serialize(&mut hash)?;
-        let mut digest = [0u8; 20];
-        hash.digest(&mut digest);
-        w.write_all(&digest)?;
+        match checksum {
+            crypto::mpi::SecretKeyChecksum::SHA1 => {
+                // The checksum is SHA1 over the serialized MPIs.
+                let mut hash = HashAlgorithm::SHA1.context().unwrap();
+                self.serialize(&mut hash)?;
+                let mut digest = [0u8; 20];
+                hash.digest(&mut digest);
+                w.write_all(&digest)?;
+            },
+            crypto::mpi::SecretKeyChecksum::Sum16 => {
+                w.write_all(&self.to_vec()?.iter()
+                            .fold(0u16, |acc, v| acc.wrapping_add(*v as u16))
+                            .to_be_bytes())?;
+            },
+        }
 
         Ok(())
     }

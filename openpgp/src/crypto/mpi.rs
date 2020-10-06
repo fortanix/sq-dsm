@@ -859,6 +859,27 @@ impl Arbitrary for SecretKeyMaterial {
     }
 }
 
+/// Checksum method for secret key material.
+///
+/// Secret key material may be protected by a checksum.  See [Section
+/// 5.5.3 of RFC 4880] for details.
+///
+///   [Section 5.5.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.5.3
+#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+pub enum SecretKeyChecksum {
+    /// SHA1 over the decrypted secret key.
+    SHA1,
+
+    /// Sum of the decrypted secret key octets modulo 65536.
+    Sum16,
+}
+
+impl Default for SecretKeyChecksum {
+    fn default() -> Self {
+        SecretKeyChecksum::SHA1
+    }
+}
+
 /// An encrypted session key.
 ///
 /// Provides a typed and structured way of storing multiple MPIs in
