@@ -1823,22 +1823,11 @@ impl<P, R> Key4<P, R>
         self.mpis().serialize(o)?;
 
         if have_secret_key {
+            use crypto::mpi::SecretKeyChecksum;
             match self.optional_secret().unwrap() {
                 SecretKeyMaterial::Unencrypted(ref u) => u.map(|mpis| -> Result<()> {
-                    // S2K usage.
-                    write_byte(o, 0)?;
-
-                    // To compute the checksum, serialize to a buffer first.
-                    let mut buf = Vec::new();
-                    mpis.serialize(&mut buf)?;
-                    let buf: crate::crypto::mem::Protected = buf.into();
-                    let checksum: usize = buf.iter().map(|x| *x as usize)
-                        .sum();
-
-                    // Then, just write out the buffer.
-                    o.write_all(&buf)?;
-                    write_be_u16(o, checksum as u16)?;
-                    Ok(())
+                    write_byte(o, 0)?; // S2K usage.
+                    mpis.serialize_with_checksum(o, SecretKeyChecksum::Sum16)
                 })?,
                 SecretKeyMaterial::Encrypted(ref e) => {
                     // S2K usage.
