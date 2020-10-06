@@ -324,8 +324,8 @@ impl Decryptor for KeyPair {
                     }
                 )?;
 
-                // CNG expects RSA ciphertexts to be aligned to 8 bytes. Since
-                // this is a big endian MPI, left-pad with zeroes as necessary
+                // CNG expects RSA ciphertext length to be a multiple of 8
+                // bytes. Since this is a big endian MPI, left-pad it with zeros
                 let mut _c: Protected = Protected::from(Vec::new());
                 let missing = (8 - (c.value().len() % 8)) % 8;
                 let c = if missing > 0 {
