@@ -2112,7 +2112,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
                 // Unencrypted
                 0 => {
                     let sec = php_try!(
-                        crypto::mpi::SecretKeyMaterial::_parse(pk_algo, &mut php));
+                        crypto::mpi::SecretKeyMaterial::_parse(pk_algo, &mut php, None));
                     let their_chksum = php_try!(php.parse_be_u16("checksum"));
                     let mut cur = Cursor::new(Vec::default());
 

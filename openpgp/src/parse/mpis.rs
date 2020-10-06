@@ -162,46 +162,10 @@ impl mpi::SecretKeyMaterial {
                                         cur: T,
                                         checksum: mpi::SecretKeyChecksum)
                                         -> Result<Self> {
-        use crate::serialize::{Marshal, MarshalInto};
-
-        // read mpis
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(bio);
-        let mpis = Self::_parse(algo, &mut php)?;
-
-        let good = match checksum {
-            mpi::SecretKeyChecksum::SHA1 => {
-                // Read expected SHA1 hash of the MPIs.
-                let their_chksum = php.parse_bytes("checksum", 20)?;
-
-                // Compute SHA1 hash.
-                let mut hsh = HashAlgorithm::SHA1.context().unwrap();
-                mpis.serialize(&mut hsh)?;
-                let mut our_chksum = [0u8; 20];
-                hsh.digest(&mut our_chksum);
-
-                our_chksum == their_chksum[..]
-            },
-
-            mpi::SecretKeyChecksum::Sum16 => {
-                // Read expected sum of the MPIs.
-                let their_chksum = php.parse_bytes("checksum", 2)?;
-
-                // Compute sum.
-                let our_chksum = mpis.to_vec()?.iter()
-                    .fold(0u16, |acc, v| acc.wrapping_add(*v as u16))
-                    .to_be_bytes();
-
-                our_chksum == their_chksum[..]
-            },
-        };
-
-        if good {
-            Ok(mpis)
-        } else {
-            Err(Error::MalformedMPI("checksum wrong".to_string()).into())
-        }
+        Self::_parse(algo, &mut php, Some(checksum))
     }
 
     /// Parses a set of OpenPGP MPIs representing a secret key.
@@ -218,7 +182,7 @@ impl mpi::SecretKeyMaterial {
         let bio = buffered_reader::Generic::with_cookie(
             cur, None, Cookie::default());
         let mut php = PacketHeaderParser::new_naked(bio);
-        Self::_parse(algo, &mut php)
+        Self::_parse(algo, &mut php, None)
     }
 
     /// Parses a set of OpenPGP MPIs representing a secret key.
@@ -228,13 +192,15 @@ impl mpi::SecretKeyMaterial {
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
     pub(crate) fn _parse<'a, T: 'a + BufferedReader<Cookie>>(
         algo: PublicKeyAlgorithm,
-        php: &mut PacketHeaderParser<T>)
+        php: &mut PacketHeaderParser<T>,
+        checksum: Option<mpi::SecretKeyChecksum>,
+    )
         -> Result<Self>
     {
         use crate::PublicKeyAlgorithm::*;
 
         #[allow(deprecated)]
-        match algo {
+        let mpis: Result<Self> = match algo {
             RSAEncryptSign | RSAEncrypt | RSASign => {
                 let d = MPI::parse("rsa_secret_d_len", "rsa_secret_d", php)?;
                 let p = MPI::parse("rsa_secret_p_len", "rsa_secret_p", php)?;
@@ -302,6 +268,45 @@ impl mpi::SecretKeyMaterial {
             }
 
             __Nonexhaustive => unreachable!(),
+        };
+        let mpis = mpis?;
+
+        if let Some(checksum) = checksum {
+            use crate::serialize::{Marshal, MarshalInto};
+            let good = match checksum {
+                mpi::SecretKeyChecksum::SHA1 => {
+                    // Read expected SHA1 hash of the MPIs.
+                    let their_chksum = php.parse_bytes("checksum", 20)?;
+
+                    // Compute SHA1 hash.
+                    let mut hsh = HashAlgorithm::SHA1.context().unwrap();
+                    mpis.serialize(&mut hsh)?;
+                    let mut our_chksum = [0u8; 20];
+                    hsh.digest(&mut our_chksum);
+
+                    our_chksum == their_chksum[..]
+                },
+
+                mpi::SecretKeyChecksum::Sum16 => {
+                    // Read expected sum of the MPIs.
+                    let their_chksum = php.parse_bytes("checksum", 2)?;
+
+                    // Compute sum.
+                    let our_chksum = mpis.to_vec()?.iter()
+                        .fold(0u16, |acc, v| acc.wrapping_add(*v as u16))
+                        .to_be_bytes();
+
+                    our_chksum == their_chksum[..]
+                },
+            };
+
+            if good {
+                Ok(mpis)
+            } else {
+                Err(Error::MalformedMPI("checksum wrong".to_string()).into())
+            }
+        } else {
+            Ok(mpis)
         }
     }
 }
