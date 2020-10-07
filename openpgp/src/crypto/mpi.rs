@@ -1091,31 +1091,24 @@ mod tests {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
 
-            let buf = Vec::<u8>::default();
-            let mut cur = Cursor::new(buf);
-
-            pk.serialize(&mut cur).unwrap();
+            let mut buf = Vec::new();
+            pk.serialize(&mut buf).unwrap();
+            let cur = Cursor::new(buf);
 
             #[allow(deprecated)]
             let pk_ = match &pk {
                 PublicKey::RSA { .. } =>
-                    PublicKey::parse(
-                        RSAEncryptSign, cur.into_inner()).unwrap(),
+                    PublicKey::parse(RSAEncryptSign, cur).unwrap(),
                 PublicKey::DSA { .. } =>
-                    PublicKey::parse(
-                        DSA, cur.into_inner()).unwrap(),
+                    PublicKey::parse(DSA, cur).unwrap(),
                 PublicKey::ElGamal { .. } =>
-                    PublicKey::parse(
-                        ElGamalEncrypt, cur.into_inner()).unwrap(),
+                    PublicKey::parse(ElGamalEncrypt, cur).unwrap(),
                 PublicKey::EdDSA { .. } =>
-                    PublicKey::parse(
-                        EdDSA, cur.into_inner()).unwrap(),
+                    PublicKey::parse(EdDSA, cur).unwrap(),
                 PublicKey::ECDSA { .. } =>
-                    PublicKey::parse(
-                        ECDSA, cur.into_inner()).unwrap(),
+                    PublicKey::parse(ECDSA, cur).unwrap(),
                 PublicKey::ECDH { .. } =>
-                    PublicKey::parse(
-                        ECDH, cur.into_inner()).unwrap(),
+                    PublicKey::parse(ECDH, cur).unwrap(),
 
                 PublicKey::Unknown { .. } => unreachable!(),
                 PublicKey::__Nonexhaustive => unreachable!(),
@@ -1149,31 +1142,24 @@ mod tests {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
 
-            let buf = Vec::<u8>::default();
-            let mut cur = Cursor::new(buf);
-
-            sk.serialize(&mut cur).unwrap();
+            let mut buf = Vec::new();
+            sk.serialize(&mut buf).unwrap();
+            let cur = Cursor::new(buf);
 
             #[allow(deprecated)]
             let sk_ = match &sk {
                 SecretKeyMaterial::RSA { .. } =>
-                    SecretKeyMaterial::parse(
-                        RSAEncryptSign, cur.into_inner()).unwrap(),
+                    SecretKeyMaterial::parse(RSAEncryptSign, cur).unwrap(),
                 SecretKeyMaterial::DSA { .. } =>
-                    SecretKeyMaterial::parse(
-                        DSA, cur.into_inner()).unwrap(),
+                    SecretKeyMaterial::parse(DSA, cur).unwrap(),
                 SecretKeyMaterial::EdDSA { .. } =>
-                    SecretKeyMaterial::parse(
-                        EdDSA, cur.into_inner()).unwrap(),
+                    SecretKeyMaterial::parse(EdDSA, cur).unwrap(),
                 SecretKeyMaterial::ECDSA { .. } =>
-                    SecretKeyMaterial::parse(
-                        ECDSA, cur.into_inner()).unwrap(),
+                    SecretKeyMaterial::parse(ECDSA, cur).unwrap(),
                 SecretKeyMaterial::ECDH { .. } =>
-                    SecretKeyMaterial::parse(
-                        ECDH, cur.into_inner()).unwrap(),
+                    SecretKeyMaterial::parse(ECDH, cur).unwrap(),
                 SecretKeyMaterial::ElGamal { .. } =>
-                    SecretKeyMaterial::parse(
-                        ElGamalEncrypt, cur.into_inner()).unwrap(),
+                    SecretKeyMaterial::parse(ElGamalEncrypt, cur).unwrap(),
 
                 SecretKeyMaterial::Unknown { .. } => unreachable!(),
                 SecretKeyMaterial::__Nonexhaustive => unreachable!(),
@@ -1188,22 +1174,18 @@ mod tests {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
 
-            let buf = Vec::<u8>::default();
-            let mut cur = Cursor::new(buf);
-
-            ct.serialize(&mut cur).unwrap();
+            let mut buf = Vec::new();
+            ct.serialize(&mut buf).unwrap();
+            let cur = Cursor::new(buf);
 
             #[allow(deprecated)]
             let ct_ = match &ct {
                 Ciphertext::RSA { .. } =>
-                    Ciphertext::parse(
-                        RSAEncryptSign, cur.into_inner()).unwrap(),
+                    Ciphertext::parse(RSAEncryptSign, cur).unwrap(),
                 Ciphertext::ElGamal { .. } =>
-                    Ciphertext::parse(
-                        ElGamalEncrypt, cur.into_inner()).unwrap(),
+                    Ciphertext::parse(ElGamalEncrypt, cur).unwrap(),
                 Ciphertext::ECDH { .. } =>
-                    Ciphertext::parse(
-                        ECDH, cur.into_inner()).unwrap(),
+                    Ciphertext::parse(ECDH, cur).unwrap(),
 
                 Ciphertext::Unknown { .. } => unreachable!(),
                 Ciphertext::__Nonexhaustive => unreachable!(),
@@ -1218,28 +1200,22 @@ mod tests {
             use std::io::Cursor;
             use crate::PublicKeyAlgorithm::*;
 
-            let buf = Vec::<u8>::default();
-            let mut cur = Cursor::new(buf);
-
-            sig.serialize(&mut cur).unwrap();
+            let mut buf = Vec::new();
+            sig.serialize(&mut buf).unwrap();
+            let cur = Cursor::new(buf);
 
             #[allow(deprecated)]
             let sig_ = match &sig {
                 Signature::RSA { .. } =>
-                    Signature::parse(
-                        RSAEncryptSign, cur.into_inner()).unwrap(),
+                    Signature::parse(RSAEncryptSign, cur).unwrap(),
                 Signature::DSA { .. } =>
-                    Signature::parse(
-                        DSA, cur.into_inner()).unwrap(),
+                    Signature::parse(DSA, cur).unwrap(),
                 Signature::ElGamal { .. } =>
-                    Signature::parse(
-                        ElGamalEncryptSign, cur.into_inner()).unwrap(),
+                    Signature::parse(ElGamalEncryptSign, cur).unwrap(),
                 Signature::EdDSA { .. } =>
-                    Signature::parse(
-                        EdDSA, cur.into_inner()).unwrap(),
+                    Signature::parse(EdDSA, cur).unwrap(),
                 Signature::ECDSA { .. } =>
-                    Signature::parse(
-                        ECDSA, cur.into_inner()).unwrap(),
+                    Signature::parse(ECDSA, cur).unwrap(),
 
                 Signature::Unknown { .. } => unreachable!(),
                 Signature::__Nonexhaustive => unreachable!(),
