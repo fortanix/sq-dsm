@@ -1590,7 +1590,8 @@ impl Cert {
             let issuers =
                 sig.get_issuers();
             let is_selfsig =
-                issuers.contains(&primary_fp)
+                issuers.is_empty()
+                || issuers.contains(&primary_fp)
                 || issuers.contains(&primary_keyid);
 
             macro_rules! check_one {
