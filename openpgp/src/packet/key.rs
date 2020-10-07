@@ -1514,8 +1514,8 @@ impl Encrypted {
         let mut trash = vec![0u8; self.algo.block_size()?];
         dec.read_exact(&mut trash)?;
 
-        mpi::SecretKeyMaterial::parse_with_checksum(pk_algo, &mut dec,
-                                                    Default::default())
+        mpi::SecretKeyMaterial::parse_with_checksum(
+            pk_algo, &mut dec, self.checksum.unwrap_or_default())
             .map(|m| m.into())
     }
 }
