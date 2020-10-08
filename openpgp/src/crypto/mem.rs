@@ -99,6 +99,9 @@ impl DerefMut for Protected {
 
 impl From<Vec<u8>> for Protected {
     fn from(v: Vec<u8>) -> Self {
+        // FIXME(xanewok): This can potentially realloc and leave a lingering
+        // copy of the secret somewhere. It'd be great to explicitly move the
+        // source data by copying it and zeroing it explicitly afterwards.
         Protected(v.into_boxed_slice())
     }
 }
