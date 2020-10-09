@@ -268,8 +268,9 @@ use crate::{
     Error,
     packet::Key,
     packet::key,
-    packet::signature,
     packet::Signature,
+    packet::signature,
+    packet::signature::subpacket::SubpacketTag,
     policy::Policy,
     Result,
     types::{
@@ -1564,10 +1565,31 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
         if self.primary() {
             // First, update or create a direct key signature.
             let template = self.direct_key_signature()
-                .unwrap_or_else(|_| self.binding_signature())
-                .clone();
+                .map(|sig| {
+                    signature::SignatureBuilder::from(sig.clone())
+                })
+                .unwrap_or_else(|_| {
+                    let mut template = signature::SignatureBuilder::from(
+                        self.binding_signature().clone())
+                        .set_type(SignatureType::DirectKey);
 
-            let mut builder = signature::SignatureBuilder::from(template)
+                    // We're creating a direct signature from a User
+                    // ID self signature.  Remove irrelevant packets.
+                    use SubpacketTag::*;
+                    let ha = template.hashed_area_mut();
+                    ha.remove_all(ExportableCertification);
+                    ha.remove_all(Revocable);
+                    ha.remove_all(TrustSignature);
+                    ha.remove_all(RegularExpression);
+                    ha.remove_all(PrimaryUserID);
+                    ha.remove_all(SignersUserID);
+                    ha.remove_all(ReasonForRevocation);
+                    ha.remove_all(SignatureTarget);
+                    ha.remove_all(EmbeddedSignature);
+
+                    template
+                });
+            let mut builder = template
                 .set_signature_creation_time(now)?
                 .set_key_validity_period(expiration)?;
             builder.hashed_area_mut().remove_all(
@@ -2267,6 +2289,68 @@ mod test {
         assert!(subkey.binding_signature().hashed_area()
                 .subpacket(SubpacketTag::KeyExpirationTime).is_none());
         assert!(subkey.alive().is_err());
+        Ok(())
+    }
+
+    /// When setting the primary key's validity period, we create a
+    /// direct key signature.  Check that this works even when the
+    /// original certificate doesn't have a direct key signature.
+    #[test]
+    fn set_expiry_on_certificate_without_direct_signature() -> Result<()> {
+        use crate::policy::StandardPolicy;
+
+        let p = &StandardPolicy::new();
+
+        let (cert, _) =
+            CertBuilder::general_purpose(None, Some("alice@example.org"))
+            .set_validity_period(None)
+            .generate()?;
+
+        // Remove the direct key signatures.
+        let cert = Cert::from_packets(Vec::from(cert)
+            .into_iter()
+            .filter(|p| {
+                match p {
+                    Packet::Signature(s)
+                        if s.typ() == SignatureType::DirectKey => false,
+                    _ => true,
+                }
+            }))?;
+
+        let vc = cert.with_policy(p, None)?;
+
+        // Assert that the keys are not expired.
+        for ka in vc.keys() {
+            assert!(ka.alive().is_ok());
+        }
+
+        // Make the primary key expire in a week.
+        let t = time::SystemTime::now()
+            + time::Duration::from_secs(7 * 24 * 60 * 60);
+
+        let mut signer = vc
+            .primary_key().key().clone().parts_into_secret()?
+            .into_keypair()?;
+        let sigs = vc.primary_key()
+            .set_expiration_time(&mut signer, Some(t))?;
+
+        assert!(sigs.iter().any(|s| {
+            s.typ() == SignatureType::DirectKey
+        }));
+
+        let cert = cert.insert_packets(sigs)?;
+
+        // Make sure the primary key *and* all subkeys expire in a
+        // week: the subkeys inherit the KeyExpirationTime subpacket
+        // from the direct key signature.
+        for ka in cert.keys() {
+            let ka = ka.with_policy(p, None)?;
+            assert!(ka.alive().is_ok());
+
+            let ka = ka.with_policy(p, t + std::time::Duration::new(1, 0))?;
+            assert!(ka.alive().is_err());
+        }
+
         Ok(())
     }
 }
