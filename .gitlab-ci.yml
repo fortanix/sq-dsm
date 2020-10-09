@@ -54,7 +54,6 @@ rust-stable:
     - linux
   stage: build
   image: rust:1-slim-buster
-  needs: []
 
   before_script:
     - apt update -y -qq
