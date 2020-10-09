@@ -437,8 +437,15 @@ type UnknownBundles = ComponentBundles<Unknown>;
 /// # Ok(()) }
 /// ```
 ///
-/// [Section 5.2.3.3]: https://tools.ietf.org/html/rfc4880#section-5.2.3.3
-pub trait Preferences<'a> {
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait Preferences<'a>: crate::seal::Sealed {
     /// Returns the supported symmetric algorithms ordered by
     /// preference.
     ///
@@ -2786,6 +2793,8 @@ pub struct ValidCert<'a> {
     // The reference time.
     time: time::SystemTime,
 }
+
+impl<'a> crate::seal::Sealed for ValidCert<'a> {}
 
 impl<'a> std::ops::Deref for ValidCert<'a> {
     type Target = Cert;

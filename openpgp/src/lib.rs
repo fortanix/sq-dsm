@@ -152,6 +152,7 @@ mod keyhandle;
 pub use keyhandle::KeyHandle;
 pub mod policy;
 
+pub(crate) mod seal;
 pub(crate) mod utils;
 
 #[cfg(test)]

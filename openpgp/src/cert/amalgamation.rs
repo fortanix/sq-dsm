@@ -1057,6 +1057,8 @@ pub struct ValidComponentAmalgamation<'a, C> {
     binding_signature: &'a Signature,
 }
 
+impl<'a, C> crate::seal::Sealed for ValidComponentAmalgamation<'a, C> {}
+
 /// A Valid User ID and its associated data.
 ///
 /// A specialized version of [`ValidComponentAmalgamation`].
