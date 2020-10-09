@@ -98,11 +98,23 @@ impl DerefMut for Protected {
 }
 
 impl From<Vec<u8>> for Protected {
-    fn from(v: Vec<u8>) -> Self {
-        // FIXME(xanewok): This can potentially realloc and leave a lingering
-        // copy of the secret somewhere. It'd be great to explicitly move the
-        // source data by copying it and zeroing it explicitly afterwards.
-        Protected(v.into_boxed_slice())
+    fn from(mut v: Vec<u8>) -> Self {
+        // Make a vector with the correct size to avoid potential
+        // reallocations when turning it into a `Protected`.
+        let mut p = Vec::with_capacity(v.len());
+        p.extend_from_slice(&v);
+
+        // Now clear the previous allocation.  Just to be safe, we
+        // clear the whole allocation.
+        let capacity = v.capacity();
+        unsafe {
+            // Safety: New size is equal to the capacity, and we
+            // initialize all elements.
+            v.set_len(capacity);
+            memsec::memzero(v.as_mut_ptr(), capacity);
+        }
+
+        p.into_boxed_slice().into()
     }
 }
 
