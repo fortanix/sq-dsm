@@ -300,9 +300,9 @@ pub fn secure_cmp(a: &[u8], b: &[u8]) -> Ordering {
         memsec::memcmp(a.as_ptr(), b.as_ptr(), min(a.len(), b.len()))
     };
     let ord2 = match ord2 {
-        1..=i32::MAX => Ordering::Greater,
+        1..=std::i32::MAX => Ordering::Greater,
         0 => Ordering::Equal,
-        i32::MIN..=-1 => Ordering::Less,
+        std::i32::MIN..=-1 => Ordering::Less,
     };
 
     if ord1 == Ordering::Equal { ord2 } else { ord1 }
