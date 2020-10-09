@@ -45,8 +45,17 @@ use memsec;
 ///
 /// // p is cleared once it goes out of scope.
 /// ```
-#[derive(Clone)]
 pub struct Protected(Box<[u8]>);
+
+impl Clone for Protected {
+    fn clone(&self) -> Self {
+        // Make a vector with the correct size to avoid potential
+        // reallocations when turning it into a `Protected`.
+        let mut p = Vec::with_capacity(self.len());
+        p.extend_from_slice(&self);
+        p.into_boxed_slice().into()
+    }
+}
 
 impl PartialEq for Protected {
     fn eq(&self, other: &Self) -> bool {
