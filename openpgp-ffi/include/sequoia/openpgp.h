@@ -1184,6 +1184,31 @@ pgp_revocation_status_t pgp_valid_key_amalgamation_revocation_status (pgp_valid_
 pgp_signature_t pgp_valid_key_amalgamation_binding_signature (pgp_valid_key_amalgamation_t ka);
 
 /*/
+/// Returns whether the key is certification capable.
+/*/
+bool pgp_valid_key_amalgamation_for_certification (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Returns whether the key is signing capable.
+/*/
+bool pgp_valid_key_amalgamation_for_signing (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Returns whether the key is authentication capable.
+/*/
+bool pgp_valid_key_amalgamation_for_authentication (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Returns whether the key is intended for encrypting data at rest.
+/*/
+bool pgp_valid_key_amalgamation_for_storage_encryption (pgp_valid_key_amalgamation_t ka);
+
+/*/
+/// Returns whether the key is intended for encrypting data in transit.
+/*/
+bool pgp_valid_key_amalgamation_for_transport_encryption (pgp_valid_key_amalgamation_t ka);
+
+/*/
 /// Creates one or more self-signatures that when merged with the
 /// certificate cause the key to expire at the specified time.
 ///
