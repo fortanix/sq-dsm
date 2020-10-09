@@ -107,8 +107,7 @@
 //! let recipients =
 //!     recipient.keys().with_policy(p, None).alive().revoked(false)
 //!     // Or `for_storage_encryption()`, for data at rest.
-//!     .for_transport_encryption()
-//!     .map(|ka| ka.key());
+//!     .for_transport_encryption();
 //!
 //! # let mut sink = vec![];
 //! let message = Message::new(&mut sink);
@@ -1984,12 +1983,10 @@ impl<'a> Recipient<'a> {
     ///     cert.keys().with_policy(p, None).alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
-    ///     .map(|ka| {
-    ///         let mut r: Recipient = ka.into();
+    ///     .map(|ka| Recipient::from(ka)
     ///         // Set the recipient keyid to the wildcard id.
-    ///         r.set_keyid(KeyID::wildcard());
-    ///         r
-    ///     });
+    ///         .set_keyid(KeyID::wildcard())
+    ///     );
     ///
     /// # let mut sink = vec![];
     /// let message = Message::new(&mut sink);
@@ -1997,8 +1994,9 @@ impl<'a> Recipient<'a> {
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
-    pub fn set_keyid(&mut self, keyid: KeyID) -> KeyID {
-        std::mem::replace(&mut self.keyid, keyid)
+    pub fn set_keyid(mut self, keyid: KeyID) -> Self {
+        self.keyid = keyid;
+        self
     }
 }
 

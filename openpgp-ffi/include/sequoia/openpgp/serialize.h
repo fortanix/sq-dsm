@@ -27,7 +27,7 @@ pgp_keyid_t pgp_recipient_keyid (const pgp_recipient_t);
 /*/
 /// Sets the KeyID.
 /*/
-void pgp_recipient_set_keyid (pgp_recipient_t, pgp_keyid_t);
+void pgp_recipient_set_keyid (pgp_recipient_t *, pgp_keyid_t);
 
 /*/
 /// Collects recipients from a `pgp_cert_key_iter_t`.

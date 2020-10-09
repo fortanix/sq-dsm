@@ -266,8 +266,14 @@ fn pgp_recipient_keyid(recipient: *const Recipient) -> *mut KeyID {
 ///
 /// Consumes `keyid`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_recipient_set_keyid(recipient: *mut Recipient, keyid: *mut KeyID) {
-    recipient.ref_mut_raw().set_keyid(keyid.move_from_raw());
+fn pgp_recipient_set_keyid(recipient: *mut *mut Recipient, keyid: *mut KeyID) {
+    assert!(! recipient.is_null());
+    unsafe {
+        *recipient =
+            (*recipient).move_from_raw()
+            .set_keyid(keyid.move_from_raw())
+            .move_into_raw();
+    }
 }
 
 /// Collects recipients from a `pgp_cert_key_iter_t`.
