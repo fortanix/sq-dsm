@@ -2175,6 +2175,11 @@ impl crate::packet::Signature {
         }
 
         // Collect subpackets keeping track of the size.
+        #[allow(clippy::mutable_key_type)]
+        // In general, the keys of a HashSet should not have interior mutability.
+        // This particular use should be safe:  The hash set is only constructed
+        // for the merge, we own all objects we put into the set, and we don't
+        // modify them while they are in the set.
         let mut acc = std::collections::HashSet::new();
         let mut size = 0;
 
