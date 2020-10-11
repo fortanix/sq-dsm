@@ -134,6 +134,8 @@ windows-msvc:
     - cargo --version
   script:
     # https://github.com/rust-lang/cargo/issues/5015
+    - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression
+    - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression
     - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
   after_script: []
   variables:
