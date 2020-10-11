@@ -22,14 +22,20 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["background-services"]
+default = ["background-services", "sequoia-openpgp/default"]
 background-services = []
 
+crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
+crypto-cng = ["sequoia-openpgp/crypto-cng"]
+compression = ["sequoia-openpgp/compression"]
+compression-deflate = ["sequoia-openpgp/compression-deflate"]
+compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
+
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.19" }
+sequoia-openpgp = { path = "../openpgp", version = "0.19", default-features = false }
 sequoia-core = { path = "../core", version = "0.19" }
-sequoia-ipc = { path = "../ipc", version = "0.19" }
-sequoia-net = { path = "../net", version = "0.19" }
+sequoia-ipc = { path = "../ipc", version = "0.19", default-features = false }
+sequoia-net = { path = "../net", version = "0.19", default-features = false }
 anyhow = "1"
 capnp = "0.10"
 capnp-rpc = "0.10"

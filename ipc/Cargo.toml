@@ -20,7 +20,7 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.19" }
+sequoia-openpgp = { path = "../openpgp", version = "0.19", default-features = false }
 sequoia-core = { path = "../core", version = "0.19" }
 
 anyhow = "1"
@@ -51,3 +51,11 @@ lalrpop = "0.19"
 [dev-dependencies]
 clap = "2.32.0"
 quickcheck = { version = "0.9", default-features = false }
+
+[features]
+default = ["sequoia-openpgp/default"]
+crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
+crypto-cng = ["sequoia-openpgp/crypto-cng"]
+compression = ["sequoia-openpgp/compression"]
+compression-deflate = ["sequoia-openpgp/compression-deflate"]
+compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
