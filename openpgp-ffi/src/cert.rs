@@ -376,7 +376,7 @@ pub extern "C" fn pgp_cert_user_id_iter_policy<'a>(
     -> *mut ValidUserIDIterWrapper<'static>
 {
     let policy = policy.ref_raw();
-    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    let mut iter_wrapper = ffi_param_move!(iter_wrapper);
     if iter_wrapper.next_called {
         panic!("Can't change UserIDIter filter after iterating.");
     }
@@ -547,7 +547,7 @@ pub extern "C" fn pgp_cert_key_iter_policy<'a>(
     -> *mut ValidKeyAmalgamationIterWrapper<'static>
 {
     let policy = policy.ref_raw();
-    let iter_wrapper = ffi_param_ref_mut!(iter_wrapper);
+    let mut iter_wrapper = ffi_param_move!(iter_wrapper);
     if iter_wrapper.next_called {
         panic!("Can't change KeyAmalgamationIter filter after iterating.");
     }
