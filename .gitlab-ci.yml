@@ -43,6 +43,9 @@ all_commits:
   stage: test
   image: rust:1-slim-buster
   needs: ["rust-stable"]
+  except:
+    # Do not run for pushes to the pep-engine branch.
+    - /^pep-engine$/
 
   before_script:
     - apt update -y -qq
