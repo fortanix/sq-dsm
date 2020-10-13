@@ -637,11 +637,26 @@ impl<C> ComponentBundle<C> {
             }
         }
 
+        // If two signatures are merged, we also do some fixups.  Make
+        // sure we also do this to signatures that are not merged, so
+        // that `cert.merge(cert) == cert`.
+        fn sig_fixup(sig: &mut Signature) {
+            // Add missing issuer information.  This is a best effort
+            // though.  If the unhashed area is full, there is nothing
+            // we can do.
+            let _ = sig.add_missing_issuers();
+
+            // Merging Signatures sorts the unhashed subpacket area.
+            // Do the same.
+            sig.unhashed_area_mut().sort();
+        }
+
         self.self_signatures.sort_by(Signature::normalized_cmp);
         self.self_signatures.dedup_by(sig_merge);
         // Order self signatures so that the most recent one comes
         // first.
         self.self_signatures.sort_by(sig_cmp);
+        self.self_signatures.iter_mut().for_each(sig_fixup);
 
         self.certifications.sort_by(Signature::normalized_cmp);
         self.certifications.dedup_by(sig_merge);
@@ -651,14 +666,17 @@ impl<C> ComponentBundle<C> {
         // cert::test::signature_order checks that the signatures are
         // sorted.
         self.certifications.sort_by(sig_cmp);
+        self.certifications.iter_mut().for_each(sig_fixup);
 
         self.self_revocations.sort_by(Signature::normalized_cmp);
         self.self_revocations.dedup_by(sig_merge);
         self.self_revocations.sort_by(sig_cmp);
+        self.self_revocations.iter_mut().for_each(sig_fixup);
 
         self.other_revocations.sort_by(Signature::normalized_cmp);
         self.other_revocations.dedup_by(sig_merge);
         self.other_revocations.sort_by(sig_cmp);
+        self.other_revocations.iter_mut().for_each(sig_fixup);
     }
 }
 

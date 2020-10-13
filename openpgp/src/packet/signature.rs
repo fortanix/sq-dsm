@@ -3463,20 +3463,33 @@ mod test {
             panic!("expected a signature");
         }
 
-        // Parse into cert verifying the signatures.
-        use std::convert::TryFrom;
-        let cert = Cert::try_from(pp)?;
-        assert_eq!(cert.bad_signatures().len(), 0);
-        assert_eq!(cert.keys().subkeys().count(), 1);
-        let subkey = cert.keys().subkeys().nth(0).unwrap();
-        assert_eq!(subkey.self_signatures().len(), 1);
-        let sig = &subkey.self_signatures()[0];
+        // Verify the subkey binding without parsing into cert.
+        let primary_key =
+            if let Some(Packet::PublicKey(key)) = pp.path_ref(&[0]) {
+                key
+            } else {
+                panic!("Expected a primary key");
+            };
+        let subkey =
+            if let Some(Packet::PublicSubkey(key)) = pp.path_ref(&[3]) {
+                key
+            } else {
+                panic!("Expected a subkey");
+            };
+        let mut sig =
+            if let Some(Packet::Signature(sig)) = pp.path_ref(&[4]) {
+                sig.clone()
+            } else {
+                panic!("expected a signature");
+            };
+
 
         // The signature has only an issuer fingerprint.
         assert_eq!(sig.get_issuers().len(), 1);
         assert_eq!(sig.subpackets(SubpacketTag::Issuer).count(), 0);
         // But normalization after verification adds the missing
         // information.
+        sig.verify_subkey_binding(&primary_key, &primary_key, &subkey)?;
         let normalized_sig = sig.normalize();
         assert_eq!(normalized_sig.subpackets(SubpacketTag::Issuer).count(), 1);
         Ok(())
