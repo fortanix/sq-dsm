@@ -2069,17 +2069,24 @@ impl crate::packet::Signature {
             return Ok(());
         }
 
+        /// Makes an authenticated subpacket.
+        fn authenticated_subpacket(v: SubpacketValue) -> Result<Subpacket> {
+            let mut p = Subpacket::new(v, false)?;
+            p.set_authenticated(true);
+            Ok(p)
+        }
+
         let issuers = self.get_issuers();
         for id in std::mem::replace(&mut self.additional_issuers,
                                     Vec::with_capacity(0)) {
             if ! issuers.contains(&id) {
                 match id {
                     KeyHandle::KeyID(id) =>
-                        self.unhashed_area_mut().add(Subpacket::new(
-                            SubpacketValue::Issuer(id), false)?)?,
+                        self.unhashed_area_mut().add(authenticated_subpacket(
+                            SubpacketValue::Issuer(id))?)?,
                     KeyHandle::Fingerprint(fp) =>
-                        self.unhashed_area_mut().add(Subpacket::new(
-                            SubpacketValue::IssuerFingerprint(fp), false)?)?,
+                        self.unhashed_area_mut().add(authenticated_subpacket(
+                            SubpacketValue::IssuerFingerprint(fp))?)?,
                 }
             }
         }
