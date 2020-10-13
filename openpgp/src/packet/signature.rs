@@ -2049,9 +2049,19 @@ impl crate::packet::Signature {
         sig
     }
 
-    /// Adds missing issuer information from `additional_issuers` to
+    /// Adds missing issuer information.
+    ///
+    /// Calling this function adds any missing issuer information to
     /// the unhashed subpacket area.
-    fn add_missing_issuers(&mut self) -> Result<()> {
+    ///
+    /// When a signature is verified, the identity of the signing key
+    /// is computed and stored in the `Signature` struct.  This
+    /// information can be used to complement the issuer information
+    /// stored in the signature.  Note that we don't do this
+    /// automatically when verifying signatures, because that would
+    /// change the serialized representation of the signature as a
+    /// side-effect of verifying the signature.
+    pub fn add_missing_issuers(&mut self) -> Result<()> {
         let issuers = self.get_issuers();
         for id in std::mem::replace(&mut self.additional_issuers,
                                     Vec::with_capacity(0)) {
