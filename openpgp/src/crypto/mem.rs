@@ -59,7 +59,7 @@ impl Clone for Protected {
 
 impl PartialEq for Protected {
     fn eq(&self, other: &Self) -> bool {
-        secure_cmp(&self.0, &other.0) == Ordering::Equal
+        secure_cmp(&self, &other) == Ordering::Equal
     }
 }
 
@@ -67,7 +67,7 @@ impl Eq for Protected {}
 
 impl Hash for Protected {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
+        self.as_ref().hash(state);
     }
 }
 
@@ -76,7 +76,9 @@ impl Protected {
     ///
     /// Don't expose `Protected` values unless you know what you're doing.
     pub(crate) fn expose_into_unprotected_vec(self) -> Vec<u8> {
-        self.0.clone().into()
+        let mut p = Vec::with_capacity(self.len());
+        p.extend_from_slice(&self);
+        p
     }
 }
 
@@ -84,7 +86,7 @@ impl Deref for Protected {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.as_ref()
     }
 }
 
@@ -102,7 +104,7 @@ impl AsMut<[u8]> for Protected {
 
 impl DerefMut for Protected {
     fn deref_mut(&mut self) -> &mut [u8] {
-        &mut self.0
+        self.as_mut()
     }
 }
 
@@ -142,7 +144,8 @@ impl From<&[u8]> for Protected {
 impl Drop for Protected {
     fn drop(&mut self) {
         unsafe {
-            memsec::memzero(self.0.as_mut_ptr(), self.0.len());
+            let len = self.len();
+            memsec::memzero(self.as_mut().as_mut_ptr(), len);
         }
     }
 }
