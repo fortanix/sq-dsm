@@ -2062,6 +2062,10 @@ impl crate::packet::Signature {
     /// change the serialized representation of the signature as a
     /// side-effect of verifying the signature.
     pub fn add_missing_issuers(&mut self) -> Result<()> {
+        if self.additional_issuers.is_empty() {
+            return Ok(());
+        }
+
         let issuers = self.get_issuers();
         for id in std::mem::replace(&mut self.additional_issuers,
                                     Vec::with_capacity(0)) {
