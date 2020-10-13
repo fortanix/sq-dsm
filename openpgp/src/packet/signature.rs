@@ -2045,6 +2045,9 @@ impl crate::packet::Signature {
             // cake, hence it is only a best-effort mechanism that
             // silently fails.
             let _ = sig.add_missing_issuers();
+
+            // Normalize the order of subpackets.
+            sig.unhashed_area_mut().sort();
         }
         sig
     }
