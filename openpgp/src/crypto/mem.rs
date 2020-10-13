@@ -45,7 +45,23 @@ use memsec;
 ///
 /// // p is cleared once it goes out of scope.
 /// ```
-pub struct Protected(Box<[u8]>);
+// # Note on the implementation
+//
+// We use a boxed slice, then Box::leak the Box.  This takes the
+// knowledge about the shape of the heap allocation away from Rust,
+// preventing any optimization based on that.
+//
+// For example, Rust could conceivably compact the heap: The borrow
+// checker knows when no references exist, and this is an excellent
+// opportunity to move the object on the heap because only one pointer
+// needs to be updated.
+pub struct Protected(*mut [u8]);
+
+// Safety: Box<[u8]> is Send and Sync, we do not expose any
+// functionality that was not possible before, hence Protected may
+// still be Send and Sync.
+unsafe impl Send for Protected {}
+unsafe impl Sync for Protected {}
 
 impl Clone for Protected {
     fn clone(&self) -> Self {
@@ -92,13 +108,13 @@ impl Deref for Protected {
 
 impl AsRef<[u8]> for Protected {
     fn as_ref(&self) -> &[u8] {
-        &self.0
+        unsafe { &*self.0 }
     }
 }
 
 impl AsMut<[u8]> for Protected {
     fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.0
+        unsafe { &mut *self.0 }
     }
 }
 
@@ -131,7 +147,7 @@ impl From<Vec<u8>> for Protected {
 
 impl From<Box<[u8]>> for Protected {
     fn from(v: Box<[u8]>) -> Self {
-        Protected(v)
+        Protected(Box::leak(v))
     }
 }
 
@@ -146,6 +162,7 @@ impl Drop for Protected {
         unsafe {
             let len = self.len();
             memsec::memzero(self.as_mut().as_mut_ptr(), len);
+            Box::from_raw(self.0);
         }
     }
 }
