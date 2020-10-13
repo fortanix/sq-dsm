@@ -58,7 +58,7 @@ fn pgp_password_from_bytes(buf: *const u8, size: size_t) -> *mut Password {
 /// Frees a signer.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_signer_free
-    (s: Option<&mut &'static mut dyn crypto::Signer>)
+    (s: Option<&mut Box<dyn crypto::Signer>>)
 {
     ffi_free!(s)
 }
@@ -86,15 +86,16 @@ pub extern "C" fn pgp_key_pair_free
 
 /// Creates a signer from a key pair.
 ///
-/// Note that the returned object merely references the key pair, and
-/// must not outlive the key pair.
+/// Consumes the key pair.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_key_pair_as_signer
     (kp: *mut crypto::KeyPair)
-     -> *mut &'static mut dyn crypto::Signer
+     -> *mut Box<dyn crypto::Signer>
 {
-    let kp = ffi_param_ref_mut!(kp);
-    let signer: &mut dyn crypto::Signer = kp;
+    let kp = ffi_param_move!(kp);
+    let signer: Box<dyn crypto::Signer> = Box::new(*kp);
+    // We cannot give out a raw pointer to the trait object, because
+    // Rust insists they are not "FFI-safe".  So we need to box it
+    // again.  Yuck.
     box_raw!(signer)
-    //box_raw!(kp)
 }

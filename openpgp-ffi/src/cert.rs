@@ -217,7 +217,6 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 ///                              "It was the maid :/");
 /// assert (revocation);
 /// pgp_signer_free (primary_signer);
-/// pgp_key_pair_free (primary_keypair);
 ///
 /// pgp_packet_t packet = pgp_signature_into_packet (revocation);
 /// cert = pgp_cert_insert_packets (NULL, cert, &packet, 1);

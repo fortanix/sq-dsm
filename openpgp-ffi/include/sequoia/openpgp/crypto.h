@@ -99,8 +99,7 @@ void pgp_key_pair_free (pgp_key_pair_t kp);
 /*/
 /// Creates a signer from a key pair.
 ///
-/// Note that the returned object merely references the key pair, and
-/// must not outlive the key pair.
+/// Consumes the key pair.
 /*/
 pgp_signer_t pgp_key_pair_as_signer (pgp_key_pair_t kp);
 
