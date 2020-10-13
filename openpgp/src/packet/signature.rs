@@ -2055,7 +2055,7 @@ impl crate::packet::Signature {
         let issuers = self.get_issuers();
         for id in std::mem::replace(&mut self.additional_issuers,
                                     Vec::with_capacity(0)) {
-            if ! issuers.iter().any(|i| i == &id) {
+            if ! issuers.contains(&id) {
                 match id {
                     KeyHandle::KeyID(id) =>
                         self.unhashed_area_mut().add(Subpacket::new(
@@ -2328,14 +2328,14 @@ impl Signature {
             // contained in the signature.
             let issuers = self.get_issuers();
             let id = KeyHandle::from(key.keyid());
-            if ! (issuers.iter().any(|i| i == &id)
-                  || self.additional_issuers.iter().any(|i| i == &id)) {
+            if ! (issuers.contains(&id)
+                  || self.additional_issuers.contains(&id)) {
                 self.additional_issuers.push(id);
             }
 
             let fp = KeyHandle::from(key.fingerprint());
-            if ! (issuers.iter().any(|i| i == &fp)
-                  || self.additional_issuers.iter().any(|i| i == &fp)) {
+            if ! (issuers.contains(&fp)
+                  || self.additional_issuers.contains(&fp)) {
                 self.additional_issuers.push(fp);
             }
         }
@@ -3513,17 +3513,17 @@ mod test {
         let merged = sig.clone().merge(malicious.clone())?;
         let issuers = merged.get_issuers();
         assert_eq!(issuers.len(), 3);
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&dummy)));
+        assert!(issuers.contains(&KeyHandle::from(&fp)));
+        assert!(issuers.contains(&KeyHandle::from(&keyid)));
+        assert!(issuers.contains(&KeyHandle::from(&dummy)));
 
         // Same, but the other way around.
         let merged = malicious.clone().merge(sig.clone())?;
         let issuers = merged.get_issuers();
         assert_eq!(issuers.len(), 3);
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&dummy)));
+        assert!(issuers.contains(&KeyHandle::from(&fp)));
+        assert!(issuers.contains(&KeyHandle::from(&keyid)));
+        assert!(issuers.contains(&KeyHandle::from(&dummy)));
 
         // Try to displace the issuer information using garbage
         // packets.
@@ -3548,15 +3548,15 @@ mod test {
         let merged = sig.clone().merge(malicious.clone())?;
         let issuers = merged.get_issuers();
         assert_eq!(issuers.len(), 2);
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+        assert!(issuers.contains(&KeyHandle::from(&fp)));
+        assert!(issuers.contains(&KeyHandle::from(&keyid)));
 
         // Same, but the other way around.
         let merged = malicious.clone().merge(sig.clone())?;
         let issuers = merged.get_issuers();
         assert_eq!(issuers.len(), 2);
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+        assert!(issuers.contains(&KeyHandle::from(&fp)));
+        assert!(issuers.contains(&KeyHandle::from(&keyid)));
 
         // Try to displace the issuer information by using random keyids.
         let mut malicious = sig.clone();
@@ -3580,14 +3580,14 @@ mod test {
 
         let merged = verified.clone().merge(malicious.clone())?;
         let issuers = merged.get_issuers();
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+        assert!(issuers.contains(&KeyHandle::from(&fp)));
+        assert!(issuers.contains(&KeyHandle::from(&keyid)));
 
         // Same, but the other way around.
         let merged = malicious.clone().merge(verified.clone())?;
         let issuers = merged.get_issuers();
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&fp)));
-        assert!(issuers.iter().any(|i| i == &KeyHandle::from(&keyid)));
+        assert!(issuers.contains(&KeyHandle::from(&fp)));
+        assert!(issuers.contains(&KeyHandle::from(&keyid)));
 
         Ok(())
     }
