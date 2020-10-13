@@ -613,9 +613,6 @@ impl<C> ComponentBundle<C> {
 
     // Sorts and dedups the binding's signatures.
     //
-    // This function assumes that the signatures have already been
-    // cryptographically checked.
-    //
     // Note: this uses Signature::normalized_eq to compare signatures.
     // That function ignores unhashed packets.  If there are two
     // signatures that only differ in their unhashed subpackets, they
