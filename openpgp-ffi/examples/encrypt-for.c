@@ -22,11 +22,10 @@
 int
 main (int argc, char **argv)
 {
-  pgp_status_t rc;
   pgp_error_t err;
-  int use_armor = 1;
   pgp_cert_t cert;
   pgp_writer_t sink;
+  pgp_writer_t armor_writer;
   pgp_writer_stack_t writer = NULL;
   pgp_policy_t policy = pgp_standard_policy ();
 
@@ -47,17 +46,16 @@ main (int argc, char **argv)
     pgp_recipients_from_valid_key_iter (iter, &recipients_len);
 
   sink = pgp_writer_from_fd (STDOUT_FILENO);
+  armor_writer = pgp_armor_writer_new (&err, sink, PGP_ARMOR_KIND_MESSAGE,
+                                       NULL, 0);
 
-  if (use_armor)
-    sink = pgp_armor_writer_new (&err, sink, PGP_ARMOR_KIND_MESSAGE,
-                                NULL, 0);
-
-  writer = pgp_writer_stack_message (sink);
+  writer = pgp_writer_stack_message (armor_writer);
   writer = pgp_encryptor_new (&err,
                               writer,
                               NULL, 0, /* no passwords */
-                              recipients, recipients_len,
+                              /* consumes */ recipients, recipients_len,
                               9 /* AES256 */);
+  free (recipients);
   if (writer == NULL)
     error (1, 0, "pgp_encryptor_new: %s", pgp_error_to_string (err));
 
@@ -82,14 +80,12 @@ main (int argc, char **argv)
 	}
     }
 
-  rc = pgp_writer_stack_finalize (&err, writer);
-  writer = NULL;
-  if (rc)
+  if (pgp_writer_stack_finalize (&err, writer))
     error (1, 0, "pgp_writer_stack_write: %s", pgp_error_to_string (err));
 
-  for (size_t i = 0; i < recipients_len; i++)
-    pgp_recipient_free (recipients[i]);
-  free (recipients);
+  if (pgp_armor_writer_finalize (&err, armor_writer))
+    error (1, 0, "pgp_armor_writer_finalize: %s", pgp_error_to_string (err));
+  pgp_writer_free (sink);
   pgp_cert_free (cert);
   pgp_policy_free (policy);
   return 0;
