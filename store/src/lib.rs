@@ -16,7 +16,7 @@
 //!
 //! [network policy]: ../sequoia_core/enum.NetworkPolicy.html
 //!
-//! # Example
+//! # Examples
 //!
 //! ```
 //! # use sequoia_openpgp as openpgp;
@@ -126,7 +126,7 @@ impl Store {
 
     /// Imports a key into the common key pool.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -160,7 +160,7 @@ impl Store {
 
     /// Looks up a key in the common key pool.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -193,7 +193,7 @@ impl Store {
 
     /// Looks up a key in the common key pool by KeyID.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -227,7 +227,7 @@ impl Store {
     ///
     /// The KeyID may also reference a subkey.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -342,7 +342,7 @@ impl Mapping {
 
     /// Adds a key identified by fingerprint to the mapping.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -371,7 +371,7 @@ impl Mapping {
 
     /// Imports a key into the mapping.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -404,7 +404,7 @@ impl Mapping {
 
     /// Returns the binding for the given label.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -438,7 +438,7 @@ impl Mapping {
     ///
     /// The KeyID may also reference a subkey.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -481,7 +481,7 @@ impl Mapping {
 
     /// Deletes this mapping.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -572,7 +572,7 @@ impl Binding {
 
     /// Returns stats for this binding.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -633,7 +633,7 @@ impl Binding {
     /// conflict, either by ignoring the new key, or by using
     /// `Binding::rotate` to force a rotation.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -687,7 +687,7 @@ impl Binding {
     /// You could simply ask Alice to call her communication partner
     /// Bob and confirm that he rotated his keys.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -731,7 +731,7 @@ impl Binding {
 
     /// Deletes this binding.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
@@ -836,7 +836,7 @@ impl Key {
     /// If the new key does not match the current key,
     /// `Error::Conflict` is returned.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;

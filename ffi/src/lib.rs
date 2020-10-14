@@ -89,7 +89,7 @@
 //! `Context` return complex errors.  Complex errors are stored in the
 //! `Context`, and can be retrieved using `sq_last_strerror`.
 //!
-//! # Example
+//! # Examples
 //!
 //! ```c
 //! #include <sequoia.h>

@@ -66,7 +66,7 @@ impl Cert {
     /// the Cert's userids are added as comments, so that it is easier
     /// to identify the Cert when looking at the armored data.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```rust
     /// use sequoia_openpgp as openpgp;

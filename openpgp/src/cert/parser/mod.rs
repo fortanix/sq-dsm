@@ -424,7 +424,7 @@ impl CertValidator {
 /// [`Cert`]: ../struct.Cert.html
 /// [`Unknown`]: ../enum.Packet.html#variant.Unknown
 ///
-/// # Example
+/// # Examples
 ///
 /// Print information about all certificates in a keyring:
 ///

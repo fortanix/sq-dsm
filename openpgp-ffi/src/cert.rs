@@ -186,7 +186,7 @@ fn int_to_reason_for_revocation(code: c_int) -> ReasonForRevocation {
 ///
 /// This function does *not* consume `cert`.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #include <assert.h>
@@ -881,7 +881,7 @@ pub extern "C" fn pgp_cert_parser_free(parser: Option<&mut CertParserWrapper>)
 
 /// Creates a default `pgp_cert_builder_t`.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #include <assert.h>

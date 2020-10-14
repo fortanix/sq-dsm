@@ -37,7 +37,7 @@ pub mod hex {
 
     /// Writes annotated hex dumps, like hd(1).
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```rust
     ///  use sequoia_openpgp::fmt::hex;

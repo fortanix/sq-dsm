@@ -27,7 +27,7 @@ use crate::parse::Cookie;
 /// Normally, you'll want to convert the `PacketPile` to a Cert or a
 /// `Message`.
 ///
-/// # Example
+/// # Examples
 ///
 /// This example shows how to modify packets in PacketPile using [`pathspec`]s.
 ///
@@ -229,7 +229,7 @@ impl PacketPile {
     /// Note: there is no packet at the root.  Thus, the path `[]`
     /// returns None.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```rust
     /// # use sequoia_openpgp as openpgp;
@@ -284,7 +284,7 @@ impl PacketPile {
     ///
     /// See the description of the `path_spec` for more details.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```rust
     /// # use sequoia_openpgp as openpgp;
@@ -345,7 +345,7 @@ impl PacketPile {
     /// If the path was invalid, then `Error::IndexOutOfRange` is
     /// returned instead.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```rust
     /// # use sequoia_openpgp as openpgp;

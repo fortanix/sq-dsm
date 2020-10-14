@@ -16,7 +16,7 @@
 //!
 //! [network policy]: ../../sequoia_core/enum.NetworkPolicy.html
 //!
-//! # Example
+//! # Examples
 //!
 //! ```c, ignore
 //! XXX

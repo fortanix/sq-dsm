@@ -68,7 +68,7 @@ fn int_to_reader_mode(mode: c_int) -> armor::ReaderMode {
 ///
 /// A filter that strips ASCII Armor from a stream of data.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #include <assert.h>
@@ -149,7 +149,7 @@ pub extern "C" fn pgp_armor_reader_from_file(errp: Option<&mut *mut crate::error
 
 /// Creates a `Reader` from a buffer.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #include <assert.h>
@@ -220,7 +220,7 @@ fn pgp_armor_reader_from_bytes(b: *const u8, len: size_t,
 /// has not been encountered yet (try reading some data first!), this
 /// function returns PGP_ARMOR_KIND_ANY.
 ///
-/// # Example
+/// # Examples
 ///
 /// See [this] example.
 ///
@@ -250,7 +250,7 @@ pub extern "C" fn pgp_armor_reader_kind(reader: *const Reader)
 /// allocated with `malloc`, and the caller is responsible for freeing
 /// both the array and the strings.
 ///
-/// # Example
+/// # Examples
 ///
 /// See [this] example.
 ///
@@ -306,7 +306,7 @@ pub extern "C" fn pgp_armor_reader_headers(errp: Option<&mut *mut crate::error::
 /// Note: You must call `pgp_armor_writer_finalize` to deallocate this
 /// writer.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #define _GNU_SOURCE

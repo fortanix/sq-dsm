@@ -108,7 +108,7 @@ fn pgp_key_has_unencrypted_secret(key: *const Key) -> bool
 /// This function takes ownership of `key`.  On failure, `key` is
 /// deallocated.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #include <assert.h>

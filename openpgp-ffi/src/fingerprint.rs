@@ -48,7 +48,7 @@ fn pgp_fingerprint_from_bytes(buf: *const u8,
 
 /// Reads a hexadecimal fingerprint.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #include <assert.h>

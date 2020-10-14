@@ -300,7 +300,7 @@ impl Cert {
 /// [`Cert`]: ../cert/struct.Cert.html
 /// [`Cert::as_tsk()`]: ../cert/struct.Cert.html#method.as_tsk
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
 /// # use sequoia_openpgp::{*, cert::*, parse::Parse, serialize::Serialize};
@@ -336,7 +336,7 @@ impl<'a> TSK<'a> {
     ///
     /// Note that the given filter replaces any existing filter.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example demonstrates how to create a TSK with a detached
     /// primary secret key.
@@ -393,7 +393,7 @@ impl<'a> TSK<'a> {
     ///   [`S2K`]: ../crypto/enum.S2K.html
     ///   [this test]: https://tests.sequoia-pgp.org/#Detached_primary_key
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example demonstrates how to create a TSK with a detached
     /// primary secret key, serializing it using secret key stubs.

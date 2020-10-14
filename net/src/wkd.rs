@@ -261,7 +261,7 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
 /// ```
 ///
 /// [draft-koch]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service/#section-3.1
-/// # Example
+/// # Examples
 ///
 /// ```no_run
 /// use tokio_core::reactor::Core;

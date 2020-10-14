@@ -4,7 +4,7 @@
 //!
 //! [HKP]: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
 //!
-//! # Example
+//! # Examples
 //!
 //! We provide a very reasonable default key server backed by
 //! `hkps.pool.sks-keyservers.net`, the subset of the [SKS keyserver]

@@ -99,7 +99,7 @@ use crate::types::{
 ///
 /// [Section 9.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.3
 ///
-/// # Example
+/// # Examples
 ///
 /// This example illustrates the use of `Padder` with the [Padmé]
 /// policy.  Note that for brevity, the encryption and signature
@@ -148,7 +148,7 @@ pub struct Padder<'a, P: Fn(u64) -> u64 + 'a> {
 impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
     /// Creates a new padder with the given policy.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example illustrates the use of `Padder` with the [Padmé]
     /// policy.

@@ -209,7 +209,7 @@ pub struct Message<'a>(writer::BoxStack<'a, Cookie>);
 impl<'a> Message<'a> {
     /// Starts streaming an OpenPGP message.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -238,7 +238,7 @@ impl<'a> Message<'a> {
     /// care.  If done improperly, the resulting message may be
     /// malformed.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This demonstrates how to create a compressed, signed message
     /// from a detached signature.
@@ -296,7 +296,7 @@ impl<'a> Message<'a> {
     /// Failing to finalize the message may result in corrupted
     /// messages.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -537,7 +537,7 @@ pub struct ArbitraryWriter<'a> {
 impl<'a> ArbitraryWriter<'a> {
     /// Creates a new writer with the given tag.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -661,7 +661,7 @@ impl<'a> Signer<'a> {
     ///   [`Signer::detached`]: #method.detached
     ///   [`Signer::with_template`]: #method.with_template
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -750,7 +750,7 @@ impl<'a> Signer<'a> {
     ///   [`Signer::hash_algo`]: #method.hash_algo
     ///   [`Signer::add_intended_recipient`]: #method.add_intended_recipient
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -820,7 +820,7 @@ impl<'a> Signer<'a> {
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
     ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -891,7 +891,7 @@ impl<'a> Signer<'a> {
     ///
     /// Can be used multiple times.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -943,7 +943,7 @@ impl<'a> Signer<'a> {
     ///
     ///   [*Surreptitious Forwarding*]: http://world.std.com/~dtd/sign_encrypt/sign_encrypt7.html
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -985,7 +985,7 @@ impl<'a> Signer<'a> {
 
     /// Sets the hash algorithm to use for the signatures.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1027,7 +1027,7 @@ impl<'a> Signer<'a> {
     /// Note: it is up to the caller to make sure the signing keys are
     /// actually valid as of `time`.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1083,7 +1083,7 @@ impl<'a> Signer<'a> {
     ///   [Section 11.3 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.3
     ///   [Section 11.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-11.4
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1280,7 +1280,7 @@ pub struct LiteralWriter<'a> {
 impl<'a> LiteralWriter<'a> {
     /// Creates a new literal writer.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1311,7 +1311,7 @@ impl<'a> LiteralWriter<'a> {
 
     /// Sets the data format.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1344,7 +1344,7 @@ impl<'a> LiteralWriter<'a> {
     /// not be longer than 255 bytes.  Returns an error if the given
     /// name is longer than that.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1376,7 +1376,7 @@ impl<'a> LiteralWriter<'a> {
     /// Returns an error if the given date is not representable by
     /// OpenPGP.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1408,7 +1408,7 @@ impl<'a> LiteralWriter<'a> {
     ///
     /// The next step is to write the payload to the writer stack.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1559,7 +1559,7 @@ impl<'a> Compressor<'a> {
     ///   [`Compressor::algo`]: #method.algo
     ///   [`Compressor::level`]: #method.level
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1589,7 +1589,7 @@ impl<'a> Compressor<'a> {
 
     /// Sets the compression algorithm.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1619,7 +1619,7 @@ impl<'a> Compressor<'a> {
 
     /// Sets the compression level.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1653,7 +1653,7 @@ impl<'a> Compressor<'a> {
     ///   [`Signer`]: struct.Signer.html
     ///   [`LiteralWriter`]: struct.LiteralWriter.html
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1831,7 +1831,7 @@ impl<'a> Recipient<'a> {
     ///   [`ValidKeyAmalgamation`]: ../../cert/amalgamation/key/struct.ValidKeyAmalgamation.html
     ///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1891,7 +1891,7 @@ impl<'a> Recipient<'a> {
 
     /// Gets the recipient keyid.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -1942,7 +1942,7 @@ impl<'a> Recipient<'a> {
 
     /// Sets the recipient keyid.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -2034,7 +2034,7 @@ impl<'a> Encryptor<'a> {
     ///   [`Encryptor::sym_algo`]: #method.sym_algo
     ///   [`Encryptor::aead_algo`]: #method.aead_algo
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -2110,7 +2110,7 @@ impl<'a> Encryptor<'a> {
     ///   [`Encryptor::sym_algo`]: #method.sym_algo
     ///   [`Encryptor::aead_algo`]: #method.aead_algo
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -2149,7 +2149,7 @@ impl<'a> Encryptor<'a> {
     /// The resulting message can be encrypted by any recipient and
     /// with any password.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -2232,7 +2232,7 @@ impl<'a> Encryptor<'a> {
     /// The resulting message can be encrypted with any password and
     /// by any recipient.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -2312,7 +2312,7 @@ impl<'a> Encryptor<'a> {
 
     /// Sets the symmetric algorithm to use.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -2343,7 +2343,7 @@ impl<'a> Encryptor<'a> {
     ///
     /// This feature is [experimental](../../index.html#experimental-features).
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
@@ -2391,7 +2391,7 @@ impl<'a> Encryptor<'a> {
     ///   [`Signer`]: struct.Signer.html
     ///   [`LiteralWriter`]: struct.LiteralWriter.html
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {

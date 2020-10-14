@@ -106,7 +106,7 @@ fn doc(s: &str, ts: &mut TokenStream2) {
 /// [undefined behavior]: https://doc.rust-lang.org/nomicon/unwinding.html
 /// [catch_unwind]: https://doc.rust-lang.org/std/panic/fn.catch_unwind.html
 ///
-/// # Example
+/// # Examples
 ///
 /// ```rust,ignore
 /// #[ffi_catch_abort]
@@ -175,7 +175,7 @@ pub fn ffi_catch_abort(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Derives FFI functions for a wrapper type.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```rust,ignore
 /// /// Holds a fingerprint.

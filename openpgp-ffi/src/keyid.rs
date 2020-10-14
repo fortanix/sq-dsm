@@ -36,7 +36,7 @@ pub struct KeyID(openpgp::KeyID);
 
 /// Reads a binary key ID.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #include <assert.h>
@@ -62,7 +62,7 @@ fn pgp_keyid_from_bytes(id: *const u8) -> *mut KeyID {
 
 /// Reads a hex-encoded Key ID.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```c
 /// #include <assert.h>

@@ -29,7 +29,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     /// fingerprint subpacket, and a issuer subpacket to the
     /// signature.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example demonstrates how to bind this key to a Cert.  Note
     /// that in general, the `CertBuilder` is a better way to add
@@ -91,7 +91,7 @@ impl UserID {
     /// fingerprint subpacket, and a issuer subpacket to the
     /// signature.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example demonstrates how to bind this userid to a Cert.
     /// Note that in general, the `CertBuilder` is a better way to add
@@ -146,7 +146,7 @@ impl UserID {
     /// one of `SignatureType::{Generic, Persona, Casual,
     /// Positive}Certificate`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example demonstrates how to certify a userid.
     ///
@@ -222,7 +222,7 @@ impl UserAttribute {
     /// fingerprint subpacket, and a issuer subpacket to the
     /// signature.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example demonstrates how to bind this user attribute to a
     /// Cert.  Note that in general, the `CertBuilder` is a better way
@@ -282,7 +282,7 @@ impl UserAttribute {
     /// one of `SignatureType::{Generic, Persona, Casual,
     /// Positive}Certificate`
     ///
-    /// # Example
+    /// # Examples
     ///
     /// This example demonstrates how to certify a userid.
     ///
