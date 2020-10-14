@@ -267,7 +267,9 @@ impl<'a> From<&'a anyhow::Error> for Status {
                     Status::InvalidKey,
                 &openpgp::Error::PolicyViolation(_, _) =>
                     Status::PolicyViolation,
-                &_ => unreachable!(), // openpgp::Error is non-exhaustive.
+                // openpgp::Error is non_exhaustive, match on &_ to handle
+                // future additions.
+                &_ => Status::UnknownError
             }
         }
 
