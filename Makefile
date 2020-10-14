@@ -38,7 +38,7 @@ TAR_FLAGS = --sort=name \
       --mode=go=rX,u+rw,a-s \
       --pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime
 
-ifneq ($(filter Darwin FreeBSD,$(shell uname -s)),"")
+ifneq ($(filter Darwin BSD,$(shell uname -s)),"")
 	INSTALL	?= ginstall
 else
 	INSTALL	?= install
