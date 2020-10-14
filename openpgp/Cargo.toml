@@ -28,7 +28,7 @@ maintenance = { status = "actively-developed" }
 anyhow = "1"
 buffered-reader = { path = "../buffered-reader", version = "0.18", default-features = false }
 base64 = "0.12"
-bzip2 = { version = "0.3.2", optional = true }
+bzip2 = { version = "0.4", optional = true }
 dyn-clone = "1"
 flate2 = { version = "1.0.1", optional = true }
 idna = "0.2"

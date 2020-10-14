@@ -106,13 +106,7 @@ mod into_bzip2_compression {
 
     impl From<CompressionLevel> for Compression {
         fn from(l: CompressionLevel) -> Self {
-            if l <= CompressionLevel::fastest() {
-                Compression::Fastest
-            } else if l <= CompressionLevel::default() {
-                Compression::Default
-            } else {
-                Compression::Best
-            }
+            Compression::new(l.0 as u32)
         }
     }
 }
