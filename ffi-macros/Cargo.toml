@@ -1,13 +1,13 @@
 [package]
 name = "sequoia-ffi-macros"
 description = "Macros for writing the C API for Sequoia"
-version = "0.19.0"
+version = "0.20.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.19.0/sequoia_ffi"
+documentation = "https://docs.sequoia-pgp.org/0.20.0/sequoia_ffi"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "README.md"

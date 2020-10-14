@@ -18,9 +18,7 @@ This is a checklist for doing Sequoia releases.
          --release -- ../sks-dump-*.pgp' and update
          https://sequoia-pgp.org/tmp/stats.txt .
  6. Make a commit with the message "Release XXX.".
-       - Push this to a branch on gitlab with the word 'windows' in
-         it, e.g. XXX-also-test-on-windows-please, and create a merge
-         request.
+       - Push this to gitlab, and create a merge request.
  7. Make a tag vXXX with the message "Release XXX." signed with an
     offline-key.
  8. Make a clean clone of the repository.
