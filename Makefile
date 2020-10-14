@@ -15,7 +15,7 @@ CARGO_PACKAGES	?= --all
 # Additional arguments to pass to cargo test, e.g., "--doc".
 CARGO_TEST_ARGS	?=
 # Version as stated in the top-level Cargo.toml.
-VERSION		?= $(shell grep '^version[[:space:]]*=[[:space:]]*' Cargo.toml\
+VERSION		?= $(shell grep '^version[[:space:]]*=[[:space:]]*' openpgp/Cargo.toml\
                            | cut -d'"' -f2)
 
 # Signing source distributions.
@@ -158,7 +158,7 @@ clean:
 sanity-check-versions:
 	set -e ; V=$(VERSION) ; VV=$(shell echo $(VERSION) | cut -d. -f1-2) ;\
         bad() { echo "bad $$*." ; exit 1 ; } ;\
-	find . -name Cargo.toml | while read TOML ; do \
+	for TOML in */Cargo.toml ; do \
 	  echo -n "$$TOML " ;\
 	  grep '^version *=' $$TOML | grep -q $$V || bad version ;\
 	  grep '^documentation *=' $$TOML \
