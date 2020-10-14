@@ -7,7 +7,7 @@ SQ	?= $(CARGO_TARGET_DIR)/debug/sq
 # Tools.
 CARGO	?= cargo
 
-ifneq ($(filter Darwin BSD,$(shell uname -s)),"")
+ifneq ($(filter Darwin %BSD,$(shell uname -s)),)
 	INSTALL		?= ginstall
 else
 	INSTALL		?= install

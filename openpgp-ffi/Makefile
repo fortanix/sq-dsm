@@ -20,7 +20,7 @@ else
 endif
 
 # Tools.
-ifneq ($(filter Darwin BSD,$(shell uname -s)),"")
+ifneq ($(filter Darwin %BSD,$(shell uname -s)),)
 	INSTALL		?= ginstall
 else
 	INSTALL		?= install

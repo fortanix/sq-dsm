@@ -10,7 +10,7 @@ PYTHON		?= python3
 IPYTHON		?= ipython3
 PYTEST		?= pytest-3
 
-ifneq ($(filter Darwin BSD,$(shell uname -s)),"")
+ifneq ($(filter Darwin %BSD,$(shell uname -s)),)
         INSTALL ?= ginstall
 else
         INSTALL ?= install
