@@ -21,20 +21,19 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use futures::{future, Future, Stream};
+use futures_util::future::TryFutureExt;
 use hyper::{Uri, Client};
 use hyper_tls::HttpsConnector;
-use url;
 
-use crate::openpgp::{
-    self,
+use sequoia_openpgp::{
+    self as openpgp,
     Fingerprint,
     Cert,
+    parse::Parse,
+    serialize::Marshal,
+    types::HashAlgorithm,
+    cert::prelude::*,
 };
-use crate::openpgp::parse::Parse;
-use crate::openpgp::serialize::Marshal;
-use crate::openpgp::types::HashAlgorithm;
-use crate::openpgp::cert::prelude::*;
 
 use super::{Result, Error};
 
@@ -264,46 +263,37 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
 /// # Examples
 ///
 /// ```no_run
-/// use tokio_core::reactor::Core;
-/// use sequoia_net::wkd;
-///
+/// # use sequoia_net::{Result, wkd};
+/// # use sequoia_openpgp::Cert;
+/// # async fn f() -> Result<()> {
 /// let email_address = "foo@bar.baz";
-/// let mut core = Core::new().unwrap();
-/// let certs = core.run(wkd::get(&email_address)).unwrap();
+/// let certs: Vec<Cert> = wkd::get(&email_address).await?;
+/// # Ok(())
+/// # }
 /// ```
 
 // XXX: Maybe the direct method should be tried on other errors too.
 // https://mailarchive.ietf.org/arch/msg/openpgp/6TxZc2dQFLKXtS0Hzmrk963EteE
-pub fn get<S: AsRef<str>>(email_address: S)
-                          -> impl Future<Item=Vec<Cert>, Error=anyhow::Error> {
+pub async fn get<S: AsRef<str>>(email_address: S) -> Result<Vec<Cert>> {
     let email = email_address.as_ref().to_string();
-    future::lazy(move || -> Result<_> {
-        // First, prepare URIs and client.
-        let wkd_url = Url::from(&email)?;
+    // First, prepare URIs and client.
+    let wkd_url = Url::from(&email)?;
 
-        // WKD must use TLS, so build a client for that.
-        let https = HttpsConnector::new(4)?;
-        let client = Client::builder().build::<_, hyper::Body>(https);
+    // WKD must use TLS, so build a client for that.
+    let https = HttpsConnector::new();
+    let client = Client::builder().build::<_, hyper::Body>(https);
+    let advanced_uri = wkd_url.to_uri(Variant::Advanced)?;
+    let direct_uri = wkd_url.to_uri(Variant::Direct)?;
 
-        use self::Variant::*;
-        Ok((email, client, wkd_url.to_uri(Advanced)?, wkd_url.to_uri(Direct)?))
-    }).and_then(|(email, client, advanced_uri, direct_uri)| {
+    let res = client
         // First, try the Advanced Method.
-        client.get(advanced_uri)
+        .get(advanced_uri)
         // Fall back to the Direct Method.
-            .or_else(move |_| {
-                client.get(direct_uri)
-            })
-            .from_err()
-            .map(|res| (email, res))
-    }).and_then(|(email, res)| {
-        // Join the response body.
-        res.into_body().concat2().from_err()
-            .map(|body| (email, body))
-    }).and_then(|(email, body)| {
-        // And parse the response.
-        parse_body(&body, &email)
-    })
+        .or_else(|_| client.get(direct_uri))
+        .await?;
+    let body = hyper::body::to_bytes(res.into_body()).await?;
+
+    parse_body(&body, &email)
 }
 
 /// Inserts a key into a Web Key Directory.
@@ -403,7 +393,7 @@ impl KeyRing {
     }
 }
 
-impl crate::openpgp::serialize::Serialize for KeyRing {}
+impl openpgp::serialize::Serialize for KeyRing {}
 
 impl Marshal for KeyRing {
     fn serialize(&self, o: &mut dyn std::io::Write) -> openpgp::Result<()> {

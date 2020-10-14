@@ -1,32 +1,15 @@
-use futures;
-use http;
-use hyper;
-use rand;
-use tokio_core;
-use url;
-
-use futures::Stream;
-use futures::future::Future;
-use futures::sync::oneshot;
-
 use http::{Request, Response};
 use hyper::{Server, Body};
-use hyper::service::service_fn;
+use hyper::service::{make_service_fn, service_fn};
 use hyper::{Method, StatusCode};
 use rand::RngCore;
 use rand::rngs::OsRng;
 use std::io::Cursor;
 use std::net::{SocketAddr, IpAddr, Ipv4Addr};
-use std::thread;
-use tokio_core::reactor::Core;
 
-use sequoia_openpgp as openpgp;
-use sequoia_core;
-use sequoia_net;
-
-use crate::openpgp::armor::Reader;
-use crate::openpgp::Cert;
-use crate::openpgp::parse::Parse;
+use sequoia_openpgp::armor::Reader;
+use sequoia_openpgp::Cert;
+use sequoia_openpgp::parse::Parse;
 use sequoia_core::{Context, NetworkPolicy};
 use sequoia_net::KeyServer;
 
@@ -65,8 +48,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 const FP: &'static str = "3E8877C877274692975189F5D03F6F865226FE8B";
 const ID: &'static str = "D03F6F865226FE8B";
 
-fn service(req: Request<Body>)
-           -> Box<dyn Future<Item=Response<Body>, Error=hyper::Error> + Send> {
+async fn service(req: Request<Body>)
+           -> Result<Response<Body>, Box<dyn std::error::Error + Send + Sync>> {
     let (parts, body) = req.into_parts();
     match (parts.method, parts.uri.path()) {
         (Method::GET, "/pks/lookup") => {
@@ -83,34 +66,32 @@ fn service(req: Request<Body>)
                 panic!("Expected query string");
             }
 
-            Box::new(futures::future::ok(Response::new(Body::from(RESPONSE))))
+            Ok(Response::new(Body::from(RESPONSE)))
         },
         (Method::POST, "/pks/add") => {
-            Box::new(
-                body.concat2()
-		    .map(|b| {
-                        for (key, value) in url::form_urlencoded::parse(b.as_ref()) {
-                            match key.clone().into_owned().as_ref() {
-                                "keytext" => {
-			            let key = Cert::from_reader(
-                                        Reader::new(Cursor::new(value.into_owned()),
-                                                    None)).unwrap();
-                                    assert_eq!(
-                                        key.fingerprint(),
-                                        FP.parse()
-                                            .unwrap());
-                                },
-                                _ => panic!("Bad post: {}:{}", key, value),
-                            }
-		        }
+            let b = hyper::body::to_bytes(body).await?;
 
-                        Response::new(Body::from("Ok"))
-                    }))
+            for (key, value) in url::form_urlencoded::parse(b.as_ref()) {
+                match key.clone().into_owned().as_ref() {
+                    "keytext" => {
+			let key = Cert::from_reader(
+                            Reader::new(Cursor::new(value.into_owned()),
+                                        None)).unwrap();
+                        assert_eq!(
+                            key.fingerprint(),
+                            FP.parse()
+                                .unwrap());
+                    },
+                    _ => panic!("Bad post: {}:{}", key, value),
+                }
+	    }
+
+            Ok(Response::new(Body::from("Ok")))
         },
         _ => {
-            Box::new(futures::future::ok(Response::builder()
-                                         .status(StatusCode::NOT_FOUND)
-                                         .body(Body::from("Not found")).unwrap()))
+            Ok(Response::builder()
+               .status(StatusCode::NOT_FOUND)
+               .body(Body::from("Not found")).unwrap())
         },
     }
 }
@@ -120,61 +101,55 @@ fn service(req: Request<Body>)
 /// Returns the address, a channel to drop() to kill the server, and
 /// the thread handle to join the server thread.
 fn start_server() -> SocketAddr {
-    let (tx, rx) = oneshot::channel::<SocketAddr>();
-    thread::spawn(move || {
-        let (addr, server) = loop {
-            let port = OsRng.next_u32() as u16;
-            let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                                       port);
-            if let Ok(s) = Server::try_bind(&addr) {
-                break (addr, s);
-            }
-        };
+    let (addr, server) = loop {
+        let port = OsRng.next_u32() as u16;
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+        if let Ok(s) = Server::try_bind(&addr) {
+            break (addr, s);
+        }
+    };
 
-        tx.send(addr).unwrap();
-        hyper::rt::run(server
-                       .serve(|| service_fn(service))
-                       .map_err(|e| panic!("{}", e)));
-    });
+    let start_server = server.serve(make_service_fn(|_| async {
+        Ok::<_, hyper::Error>(service_fn(service))
+    }));
+    tokio::spawn(start_server);
 
-    let addr = rx.wait().unwrap();
     addr
 }
 
-#[test]
-fn get() {
-    let mut core = Core::new().unwrap();
+#[tokio::test]
+async fn get() -> anyhow::Result<()> {
     let ctx = Context::configure()
         .ephemeral()
         .network_policy(NetworkPolicy::Insecure)
-        .build().unwrap();
+        .build()?;
 
     // Start server.
     let addr = start_server();
 
-    let mut keyserver =
-        KeyServer::new(&ctx, &format!("hkp://{}", addr)).unwrap();
-    let keyid = ID.parse().unwrap();
-    let key = core.run(keyserver.get(&keyid)).unwrap();
+    let mut keyserver = KeyServer::new(&ctx, &format!("hkp://{}", addr))?;
+    let keyid = ID.parse()?;
+    let key = keyserver.get(&keyid).await?;
 
     assert_eq!(key.fingerprint(),
                FP.parse().unwrap());
+    Ok(())
 }
 
-#[test]
-fn send() {
-    let mut core = Core::new().unwrap();
+#[tokio::test]
+async fn send() -> anyhow::Result<()> {
     let ctx = Context::configure()
         .ephemeral()
         .network_policy(NetworkPolicy::Insecure)
-        .build().unwrap();
+        .build()?;
 
     // Start server.
     let addr = start_server();
     eprintln!("{}", format!("hkp://{}", addr));
     let mut keyserver =
-        KeyServer::new(&ctx, &format!("hkp://{}", addr)).unwrap();
-    let key = Cert::from_reader(Reader::new(Cursor::new(RESPONSE),
-                                           None)).unwrap();
-    core.run(keyserver.send(&key)).unwrap();
+        KeyServer::new(&ctx, &format!("hkp://{}", addr))?;
+    let key = Cert::from_reader(Reader::new(Cursor::new(RESPONSE), None))?;
+    keyserver.send(&key).await?;
+
+    Ok(())
 }

@@ -14,37 +14,20 @@
 //! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
 //!
 //! ```no_run
-//! # use tokio_core;
-//! # use sequoia_openpgp as openpgp;
-//! # use openpgp::KeyID;
+//! # use sequoia_openpgp::KeyID;
 //! # use sequoia_core::Context;
 //! # use sequoia_net::{KeyServer, Result};
-//! # use tokio_core::reactor::Core;
-//! # fn main() { f().unwrap(); }
-//! # fn f() -> Result<()> {
-//! let mut core = Core::new().unwrap();
+//! # async fn f() -> Result<()> {
 //! let ctx = Context::new()?;
 //! let mut ks = KeyServer::keys_openpgp_org(&ctx)?;
-//! let keyid = "31855247603831FD".parse().unwrap();
-//! println!("{:?}", core.run(ks.get(&keyid)));
-//! Ok(())
+//! let keyid = "31855247603831FD".parse()?;
+//! println!("{:?}", ks.get(&keyid).await?);
+//! # Ok(())
 //! # }
 //! ```
 
 #![warn(missing_docs)]
 
-use sequoia_openpgp as openpgp;
-use sequoia_core;
-
-use futures;
-use http;
-use hyper;
-use hyper_tls;
-use native_tls;
-use percent_encoding;
-use url;
-
-use futures::{future, Future, Stream};
 use hyper::client::{ResponseFuture, HttpConnector};
 use hyper::header::{CONTENT_LENGTH, CONTENT_TYPE, HeaderValue};
 use hyper::{Client, Body, StatusCode, Request};
@@ -56,9 +39,9 @@ use std::convert::From;
 use std::io::Cursor;
 use url::Url;
 
-use crate::openpgp::Cert;
-use crate::openpgp::parse::Parse;
-use crate::openpgp::{KeyID, armor, serialize::Serialize};
+use sequoia_openpgp::Cert;
+use sequoia_openpgp::parse::Parse;
+use sequoia_openpgp::{KeyID, armor, serialize::Serialize};
 use sequoia_core::{Context, NetworkPolicy};
 
 pub mod wkd;
@@ -78,8 +61,6 @@ pub struct KeyServer {
     uri: Url,
 }
 
-const DNS_WORKER: usize = 4;
-
 impl KeyServer {
     /// Returns a handle for the given URI.
     pub fn new(ctx: &Context, uri: &str) -> Result<Self> {
@@ -90,7 +71,7 @@ impl KeyServer {
             "hkp" => Box::new(Client::new()),
             "hkps" => {
                 Box::new(Client::builder()
-                         .build(HttpsConnector::new(DNS_WORKER)?))
+                         .build(HttpsConnector::new()))
             },
             _ => return Err(Error::MalformedUri.into()),
         };
@@ -110,10 +91,10 @@ impl KeyServer {
             tls.add_root_certificate(cert);
             let tls = tls.build()?;
 
-            let mut http = HttpConnector::new(DNS_WORKER);
+            let mut http = HttpConnector::new();
             http.enforce_http(false);
             Box::new(Client::builder()
-                     .build(HttpsConnector::from((http, tls))))
+                     .build(HttpsConnector::from((http, tls.into()))))
         };
 
         Self::make(ctx, client, uri)
@@ -150,78 +131,40 @@ impl KeyServer {
     }
 
     /// Retrieves the key with the given `keyid`.
-    pub fn get(&mut self, keyid: &KeyID)
-               -> Box<dyn Future<Item=Cert, Error=anyhow::Error> + 'static> {
+    pub async fn get(&mut self, keyid: &KeyID) -> Result<Cert> {
         let keyid_want = keyid.clone();
         let uri = self.uri.join(
-            &format!("pks/lookup?op=get&options=mr&search=0x{:X}", keyid));
-        if let Err(e) = uri {
-            // This shouldn't happen, but better safe than sorry.
-            return Box::new(future::err(Error::from(e).into()));
-        }
+            &format!("pks/lookup?op=get&options=mr&search=0x{:X}", keyid))?;
 
-        Box::new(self.client.do_get(uri.unwrap())
-                 .from_err()
-                 .and_then(|res| {
-                     let status = res.status();
-                     res.into_body().concat2().from_err()
-                         .and_then(move |body| match status {
-                             StatusCode::OK => {
-                                 let c = Cursor::new(body.as_ref());
-                                 let r = armor::Reader::new(
-                                     c,
-                                     armor::ReaderMode::Tolerant(
-                                         Some(armor::Kind::PublicKey)));
-                                 match Cert::from_reader(r) {
-                                     Ok(cert) => {
-                                         if cert.keys().any(|ka| {
-                                             KeyID::from(ka.fingerprint())
-                                                 == keyid_want
-                                         }) {
-                                             future::done(Ok(cert))
-                                         } else {
-                                             future::err(Error::MismatchedKeyID(
-                                                 keyid_want, cert).into())
-                                         }
-                                     },
-                                     Err(e) => {
-                                         future::err(e.into())
-                                     }
-                                 }
-                             },
-                             StatusCode::NOT_FOUND =>
-                                 future::err(Error::NotFound.into()),
-                             n => future::err(Error::HttpStatus(n).into()),
-                         })
-                 }))
+        let res = self.client.do_get(uri).await?;
+        match res.status() {
+            StatusCode::OK => {
+                let body = hyper::body::to_bytes(res.into_body()).await?;
+                let r = armor::Reader::new(
+                    Cursor::new(body),
+                    armor::ReaderMode::Tolerant(Some(armor::Kind::PublicKey)),
+                );
+                let cert = Cert::from_reader(r)?;
+                if cert.keys().any(|ka| KeyID::from(ka.fingerprint()) == keyid_want) {
+                    Ok(cert)
+                } else {
+                    Err(Error::MismatchedKeyID(keyid_want, cert).into())
+                }
+            }
+            StatusCode::NOT_FOUND => Err(Error::NotFound.into()),
+            n => Err(Error::HttpStatus(n).into()),
+        }
     }
 
     /// Sends the given key to the server.
-    pub fn send(&mut self, key: &Cert)
-                -> Box<dyn Future<Item=(), Error=anyhow::Error> + 'static> {
-        use crate::openpgp::armor::{Writer, Kind};
+    pub async fn send(&mut self, key: &Cert) -> Result<()> {
+        use sequoia_openpgp::armor::{Writer, Kind};
 
-        let uri =
-            match self.uri.join("pks/add") {
-                Err(e) =>
-                // This shouldn't happen, but better safe than sorry.
-                    return Box::new(future::err(Error::from(e).into())),
-                Ok(u) => u,
-            };
+        let uri = self.uri.join("pks/add")?;
+        let mut w =  Writer::new(Vec::new(), Kind::PublicKey)?;
+        key.serialize(&mut w)?;
 
-        let mut w = match Writer::new(Vec::new(), Kind::PublicKey) {
-            Ok(v) => v,
-            Err(e) => return Box::new(future::err(e.into())),
-        };
-
-        if let Err(e) = key.serialize(&mut w) {
-            return Box::new(future::err(e));
-        }
-
-        let armored_blob = match w.finalize() {
-            Ok(v) => v,
-            Err(e) => return Box::new(future::err(e.into())),
-        };
+        let armored_blob = w.finalize()?;
 
         // Prepare to send url-encoded data.
         let mut post_data = b"keytext=".to_vec();
@@ -229,12 +172,7 @@ impl KeyServer {
                                     .collect::<String>().as_bytes());
         let length = post_data.len();
 
-        let mut request = match Request::post(url2uri(uri))
-            .body(Body::from(post_data))
-        {
-            Ok(r) => r,
-            Err(e) => return Box::new(future::err(Error::from(e).into())),
-        };
+        let mut request = Request::post(url2uri(uri)).body(Body::from(post_data))?;
         request.headers_mut().insert(
             CONTENT_TYPE,
             HeaderValue::from_static("application/x-www-form-urlencoded"));
@@ -243,15 +181,12 @@ impl KeyServer {
             HeaderValue::from_str(&format!("{}", length))
                 .expect("cannot fail: only ASCII characters"));
 
-        Box::new(self.client.do_request(request)
-                 .from_err()
-                 .and_then(|res| {
-                     match res.status() {
-                         StatusCode::OK => future::ok(()),
-                         StatusCode::NOT_FOUND => future::err(Error::ProtocolViolation.into()),
-                         n => future::err(Error::HttpStatus(n).into()),
-                     }
-                 }))
+        let res = self.client.do_request(request).await?;
+        match res.status() {
+            StatusCode::OK => Ok(()),
+            StatusCode::NOT_FOUND => Err(Error::ProtocolViolation.into()),
+            n => Err(Error::HttpStatus(n).into()),
+        }
     }
 }
 
