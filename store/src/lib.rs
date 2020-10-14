@@ -19,9 +19,7 @@
 //! # Example
 //!
 //! ```
-//! # extern crate sequoia_openpgp as openpgp;
-//! # extern crate sequoia_core;
-//! # extern crate sequoia_store;
+//! # use sequoia_openpgp as openpgp;
 //! # use openpgp::Fingerprint;
 //! # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
 //! # use sequoia_store::*;
@@ -50,14 +48,11 @@
 
 #![warn(missing_docs)]
 
-extern crate capnp;
+use capnp;
 #[macro_use]
 extern crate capnp_rpc;
-extern crate futures;
-extern crate rand;
-extern crate rusqlite;
-extern crate tokio_core;
-extern crate tokio_io;
+use futures;
+use tokio_core;
 
 use std::cell::RefCell;
 use std::fmt;
@@ -69,12 +64,10 @@ use futures::{Future};
 use std::time;
 use tokio_core::reactor::Core;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 #[allow(unused_imports)]
-#[macro_use]
-extern crate sequoia_core;
-extern crate sequoia_ipc;
-extern crate sequoia_net;
+use sequoia_core;
+use sequoia_ipc;
 
 use crate::openpgp::Fingerprint;
 use crate::openpgp::KeyID;
@@ -136,9 +129,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
@@ -172,9 +163,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
@@ -207,9 +196,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
@@ -243,9 +230,7 @@ impl Store {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Cert, KeyID};
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
@@ -360,9 +345,7 @@ impl Mapping {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -391,9 +374,7 @@ impl Mapping {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
@@ -426,9 +407,7 @@ impl Mapping {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -462,9 +441,7 @@ impl Mapping {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Cert, KeyID};
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
@@ -507,9 +484,8 @@ impl Mapping {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # #[macro_use] extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
+    /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -599,9 +575,7 @@ impl Binding {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -662,9 +636,8 @@ impl Binding {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # #[macro_use] extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
+    /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
@@ -717,9 +690,8 @@ impl Binding {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # #[macro_use] extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
+    /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
@@ -762,9 +734,8 @@ impl Binding {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # #[macro_use] extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
+    /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Fingerprint;
     /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
     /// # use sequoia_store::*;
@@ -868,9 +839,8 @@ impl Key {
     /// # Example
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
-    /// # #[macro_use] extern crate sequoia_core;
-    /// # extern crate sequoia_store;
+    /// # use sequoia_openpgp as openpgp;
+    /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Fingerprint;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
@@ -1211,6 +1181,33 @@ impl From<capnp::NotInSchema> for Error {
 mod test {
     use super::*;
     use crate::openpgp::parse::Parse;
+
+    // Like assert!, but checks a pattern.
+    //
+    //   assert_match!(Some(_) = x);
+    //
+    // Note: For modules to see this macro, we need to define it before we
+    // declare the modules.
+    #[allow(unused_macros)]
+    macro_rules! assert_match {
+        ( $error: pat = $expr:expr, $fmt:expr, $($pargs:expr),* ) => {{
+            let x = $expr;
+            if let $error = x {
+                /* Pass.  */
+            } else {
+                let extra = format!($fmt, $($pargs),*);
+                panic!("Expected {}, got {:?}{}{}",
+                       stringify!($error), x,
+                       if $fmt.len() > 0 { ": " } else { "." }, extra);
+            }
+        }};
+        ( $error: pat = $expr: expr, $fmt:expr ) => {
+            assert_match!($error = $expr, $fmt, );
+        };
+        ( $error: pat = $expr: expr ) => {
+            assert_match!($error = $expr, "");
+        };
+    }
 
     macro_rules! bytes {
         ( $x:expr ) => { include_bytes!(concat!("../../openpgp/tests/data/keys/", $x)) };

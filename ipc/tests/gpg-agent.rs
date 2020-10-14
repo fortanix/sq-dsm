@@ -2,11 +2,11 @@
 
 use std::io::{self, Write};
 
-extern crate futures;
+use futures;
 use futures::future::Future;
 use futures::stream::Stream;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use crate::openpgp::types::{
     HashAlgorithm,
     SymmetricAlgorithm,
@@ -17,7 +17,7 @@ use crate::openpgp::serialize::{Serialize, stream::*};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::Policy;
 
-extern crate sequoia_ipc as ipc;
+use sequoia_ipc as ipc;
 use crate::ipc::gnupg::{Context, Agent, KeyPair};
 
 macro_rules! make_context {

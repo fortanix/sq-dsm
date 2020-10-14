@@ -2,9 +2,9 @@
 
 use std::io;
 
-extern crate clap;
-extern crate sequoia_openpgp as openpgp;
-extern crate sequoia_ipc as ipc;
+use clap;
+use sequoia_openpgp as openpgp;
+use sequoia_ipc as ipc;
 
 use crate::openpgp::armor;
 use crate::openpgp::parse::Parse;

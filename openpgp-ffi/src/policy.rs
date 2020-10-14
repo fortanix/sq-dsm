@@ -8,7 +8,7 @@
 //!
 //! [`sequoia-openpgp::policy`]: ../../sequoia_openpgp/policy/index.html
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use crate::MoveIntoRaw;
 

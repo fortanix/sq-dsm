@@ -107,20 +107,10 @@
 
 #![warn(missing_docs)]
 
-#[macro_use]
-extern crate lazy_static;
-extern crate libc;
-extern crate native_tls;
-extern crate memsec;
-
-extern crate sequoia_ffi_macros;
+use sequoia_ffi_macros;
 use sequoia_ffi_macros::{
     ffi_wrapper_type,
 };
-extern crate sequoia_openpgp;
-extern crate sequoia_core;
-extern crate sequoia_net;
-extern crate sequoia_store;
 
 #[macro_use]
 pub mod openpgp {

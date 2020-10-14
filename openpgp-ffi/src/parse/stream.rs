@@ -13,7 +13,7 @@
 use std::ptr;
 use libc::{c_int, c_void, time_t};
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use self::openpgp::{
     cert::prelude::*,

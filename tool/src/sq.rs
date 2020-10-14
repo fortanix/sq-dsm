@@ -1,17 +1,11 @@
 /// A command-line frontend for Sequoia.
 
-extern crate clap;
-#[macro_use]
-extern crate prettytable;
-extern crate rpassword;
-extern crate tempfile;
-extern crate crossterm;
-extern crate itertools;
-extern crate tokio_core;
+use crossterm;
+use tokio_core;
 
 use crossterm::terminal;
 use anyhow::Context as _;
-use prettytable::{Table, Cell, Row};
+use prettytable::{Table, Cell, Row, row, cell};
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -19,10 +13,10 @@ use std::process::exit;
 use chrono::{DateTime, offset::Utc};
 
 use buffered_reader::File;
-extern crate sequoia_openpgp as openpgp;
-extern crate sequoia_core;
-extern crate sequoia_net;
-extern crate sequoia_store as store;
+use sequoia_openpgp as openpgp;
+use sequoia_core;
+use sequoia_net;
+use sequoia_store as store;
 
 use crate::openpgp::Result;
 use crate::openpgp::{armor, Cert};

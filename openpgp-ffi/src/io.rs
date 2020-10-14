@@ -9,7 +9,7 @@ use libc::{c_void, c_char, size_t, ssize_t, realloc};
 #[cfg(unix)]
 use std::os::unix::io::FromRawFd;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use crate::Maybe;
 use crate::RefMutRaw;

@@ -49,9 +49,6 @@
 extern crate quickcheck;
 
 #[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
 mod macros;
 
 // On debug builds, Vec<u8>::truncate is very, very slow.  For

@@ -1,6 +1,5 @@
-extern crate sequoia_core;
-extern crate sequoia_ipc;
-extern crate sequoia_store;
+use sequoia_ipc;
+use sequoia_store;
 
 use sequoia_ipc::Server;
 

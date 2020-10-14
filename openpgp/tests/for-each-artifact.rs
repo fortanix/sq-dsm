@@ -3,7 +3,7 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use crate::openpgp::parse::*;
 // Rustc 1.34 thinks SerializeInto is unused, but if we don't import
 // it, it correctly complains about no trait being in scope providing

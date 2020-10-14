@@ -188,7 +188,7 @@ const TRACE : bool = false;
 /// it:
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::Packet;
@@ -213,7 +213,7 @@ const TRACE : bool = false;
 /// on those objects, for example:
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::cert::prelude::*;
 /// # use openpgp::Packet;

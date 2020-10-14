@@ -2,7 +2,7 @@
 
 use libc::c_int;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use crate::RefRaw;
 

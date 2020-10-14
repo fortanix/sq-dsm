@@ -30,7 +30,7 @@
 //! Print any Issuer Fingerprint subpackets:
 //!
 //! ```rust
-//! # extern crate sequoia_openpgp as openpgp;
+//! # use sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::Packet;
 //! # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
@@ -96,7 +96,7 @@ use crate::types::{
     Timestamp,
 };
 
-lazy_static!{
+lazy_static::lazy_static!{
     /// The default amount of tolerance to use when comparing
     /// some timestamps.
     ///

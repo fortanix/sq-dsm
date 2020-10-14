@@ -359,9 +359,9 @@ impl Server {
     ///
     /// ```compile_fail
     /// // We cannot run this because sequoia-store is not built yet.
-    /// extern crate sequoia_core;
-    /// extern crate sequoia_net;
-    /// extern crate sequoia_store;
+    /// use sequoia_core;
+    /// use sequoia_net;
+    /// use sequoia_store;
     ///
     /// use sequoia_ipc::Server;
     ///

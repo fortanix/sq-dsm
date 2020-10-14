@@ -59,7 +59,7 @@ impl ConventionallyParsedUserID {
     }
 
     fn parse(userid: String) -> Result<Self> {
-        lazy_static!{
+        lazy_static::lazy_static!{
             static ref USER_ID_PARSER: Regex = {
                 // Whitespace.
                 let ws_bare = " ";
@@ -696,7 +696,7 @@ impl UserID {
     ///   [conventional User ID]: #conventional-user-ids
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_address(
     ///                "John Smith".into(),
@@ -729,7 +729,7 @@ impl UserID {
     ///   [conventional User ID]: #conventional-user-ids
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_unchecked_address(
     ///                "NAS".into(),

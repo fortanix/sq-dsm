@@ -55,7 +55,7 @@ pub const TSKS: &[&Test] = &[
 
 /// Returns the content of the given file below `openpgp/tests/data`.
 pub fn file(name: &str) -> &'static [u8] {
-    lazy_static! {
+    lazy_static::lazy_static! {
         static ref FILES: BTreeMap<&'static str, &'static [u8]> = {
             let mut m: BTreeMap<&'static str, &'static [u8]> =
                 Default::default();

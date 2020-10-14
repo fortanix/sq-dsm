@@ -7,7 +7,7 @@
 
 use libc::time_t;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use self::openpgp::cert::amalgamation::ValidAmalgamation as _;
 use self::openpgp::cert::amalgamation::ValidateAmalgamation as _;

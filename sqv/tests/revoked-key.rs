@@ -38,8 +38,6 @@
 //!        now -|
 //!             v
 
-extern crate assert_cli;
-
 #[cfg(test)]
 mod integration {
     use assert_cli::Assert;

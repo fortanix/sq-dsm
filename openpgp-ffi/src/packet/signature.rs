@@ -10,7 +10,7 @@
 use libc::time_t;
 use libc::c_uint;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use openpgp::types::KeyFlags;
 use super::Packet;
 use super::super::fingerprint::Fingerprint;

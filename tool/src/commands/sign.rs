@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 use tempfile::NamedTempFile;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use crate::openpgp::armor;
 use crate::openpgp::{Packet, Result};
 use crate::openpgp::packet::Signature;

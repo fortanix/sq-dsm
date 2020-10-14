@@ -411,7 +411,7 @@ type UnknownBundles = ComponentBundles<Unknown>;
 /// # Examples
 ///
 /// ```
-/// extern crate sequoia_openpgp as openpgp;
+/// use sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// use openpgp::cert::prelude::*;
 /// use sequoia_openpgp::policy::StandardPolicy;
@@ -587,7 +587,7 @@ use super::*;
 /// adapted to suit your policy:
 ///
 /// ```rust
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::Result;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 /// use std::convert::TryFrom;

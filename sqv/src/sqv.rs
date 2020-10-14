@@ -6,10 +6,10 @@
 use std::process::exit;
 
 use chrono::{DateTime, offset::Utc};
-extern crate clap;
+use clap;
 use anyhow::Context;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use crate::openpgp::{
     Cert,

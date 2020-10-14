@@ -297,7 +297,7 @@ pub type Maybe<T> = Option<::std::ptr::NonNull<T>>;
 /// This is used to derive Hasher instances for computing hashes of
 /// objects so that they can be used in hash tables by foreign code.
 pub(crate) fn build_hasher() -> DefaultHasher {
-    lazy_static! {
+    lazy_static::lazy_static! {
         static ref RANDOM_STATE: RandomState = RandomState::new();
     }
     RANDOM_STATE.build_hasher()

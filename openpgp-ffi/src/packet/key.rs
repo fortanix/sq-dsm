@@ -7,7 +7,7 @@
 use libc::{c_int, time_t, size_t};
 use std::slice;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use self::openpgp::packet::key;
 use self::openpgp::crypto::Password;
 use super::super::fingerprint::Fingerprint;

@@ -37,7 +37,7 @@ use crate::{
 /// Iterate over the User IDs in a certificate:
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 ///
 /// #
@@ -57,7 +57,7 @@ use crate::{
 /// Only return valid User IDs.
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::policy::StandardPolicy;
 /// #
@@ -154,7 +154,7 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -209,7 +209,7 @@ impl<'a, C> ComponentAmalgamationIter<'a, C> {
 /// # Examples
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::policy::StandardPolicy;
 /// #
@@ -333,7 +333,7 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     /// `revoked(false)`) is equivalent to:
     ///
     /// ```rust
-    /// extern crate sequoia_openpgp as openpgp;
+    /// use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::types::RevocationStatus;

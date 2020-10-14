@@ -4,7 +4,7 @@
 //!
 //! [`sequoia-openpgp::serialize::TSK`]: ../../../sequoia_openpgp/serialize/struct.TSK.html
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 /// A transferable secret key (TSK).
 ///

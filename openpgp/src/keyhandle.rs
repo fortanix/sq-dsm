@@ -185,7 +185,7 @@ impl KeyHandle {
     /// non-transitive equality relation:
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
     /// # use openpgp::KeyID;
     /// # use openpgp::KeyHandle;

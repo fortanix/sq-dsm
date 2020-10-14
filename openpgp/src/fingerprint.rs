@@ -92,7 +92,7 @@ impl Fingerprint {
     /// object with the `:X` format specifier.
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// use openpgp::Fingerprint;
     ///
     /// let fpr = "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567".parse::<Fingerprint>().unwrap();
@@ -111,7 +111,7 @@ impl Fingerprint {
     /// optional leading `0x`.
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// use openpgp::Fingerprint;
     ///
     /// let fpr = Fingerprint::from_hex("0123456789ABCDEF0123456789ABCDEF01234567").unwrap();

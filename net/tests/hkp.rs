@@ -1,9 +1,9 @@
-extern crate futures;
-extern crate http;
-extern crate hyper;
-extern crate rand;
-extern crate tokio_core;
-extern crate url;
+use futures;
+use http;
+use hyper;
+use rand;
+use tokio_core;
+use url;
 
 use futures::Stream;
 use futures::future::Future;
@@ -20,9 +20,9 @@ use std::net::{SocketAddr, IpAddr, Ipv4Addr};
 use std::thread;
 use tokio_core::reactor::Core;
 
-extern crate sequoia_openpgp as openpgp;
-extern crate sequoia_core;
-extern crate sequoia_net;
+use sequoia_openpgp as openpgp;
+use sequoia_core;
+use sequoia_net;
 
 use crate::openpgp::armor::Reader;
 use crate::openpgp::Cert;

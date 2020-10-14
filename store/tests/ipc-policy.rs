@@ -1,5 +1,5 @@
-extern crate sequoia_core;
-extern crate sequoia_store;
+use sequoia_core;
+use sequoia_store;
 
 use std::env::current_exe;
 use std::path::PathBuf;

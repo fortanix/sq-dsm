@@ -11,7 +11,7 @@ use std::ptr;
 use std::slice;
 use libc::{c_char, c_int, size_t};
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use super::packet::{
     Packet,

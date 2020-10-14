@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io;
 use rpassword;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::fmt::hex;
@@ -21,7 +21,7 @@ use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
 use crate::openpgp::policy::Policy;
-extern crate sequoia_store as store;
+use sequoia_store as store;
 
 use super::{dump::PacketDumper, VHelper};
 

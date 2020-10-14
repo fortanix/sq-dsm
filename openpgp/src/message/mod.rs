@@ -405,7 +405,7 @@ impl Message {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> openpgp::Result<()> {
     /// use std::io;

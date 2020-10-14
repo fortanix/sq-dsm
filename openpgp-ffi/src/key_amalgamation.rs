@@ -8,7 +8,7 @@
 use std::slice;
 use libc::{size_t, time_t};
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use self::openpgp::packet::key;
 use self::openpgp::cert::amalgamation::ValidAmalgamation;
 use self::openpgp::cert::amalgamation::ValidateAmalgamation;

@@ -1,6 +1,6 @@
-extern crate syn;
+use syn;
 use syn::export::ToTokens;
-extern crate proc_macro2;
+use proc_macro2;
 
 const PREFIX: &'static str = "pgp_";
 

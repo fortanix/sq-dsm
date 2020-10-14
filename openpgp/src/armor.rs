@@ -26,7 +26,7 @@
 //! let mut r = Reader::new(&mut file, ReaderMode::Tolerant(Some(Kind::File)));
 //! ```
 
-extern crate base64;
+use base64;
 use buffered_reader::BufferedReader;
 use std::io::{Cursor, Read, Write};
 use std::io::{Result, Error, ErrorKind};
@@ -637,7 +637,7 @@ impl<'a> Reader<'a> {
         // The range of the first 6 bits of a message is limited.
         // Save cpu cycles by only considering base64 data that starts
         // with one of those characters.
-        lazy_static!{
+        lazy_static::lazy_static!{
             static ref START_CHARS : Vec<u8> = {
                 let mut valid_start = Vec::new();
                 for &tag in &[ Tag::PKESK, Tag::SKESK,

@@ -6,7 +6,7 @@
 
 use libc::size_t;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use self::openpgp::{
     crypto,
 };

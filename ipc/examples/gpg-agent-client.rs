@@ -1,10 +1,10 @@
 /// Connects to and sends commands to gpg-agent.
 
-extern crate futures;
+use futures;
 use futures::future::Future;
 use futures::stream::Stream;
-extern crate clap;
-extern crate sequoia_ipc as ipc;
+use clap;
+use sequoia_ipc as ipc;
 use crate::ipc::gnupg::{Context, Agent};
 
 fn main() {

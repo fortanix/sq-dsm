@@ -46,7 +46,7 @@
 //!
 //! ```
 //! # use std::convert::TryInto;
-//! # extern crate sequoia_openpgp as openpgp;
+//! # use sequoia_openpgp as openpgp;
 //! # use openpgp::cert::prelude::*;
 //! # use openpgp::packet::prelude::*;
 //! # let (cert, _) = CertBuilder::new()
@@ -81,7 +81,7 @@
 //! message:
 //!
 //! ```rust
-//! # extern crate sequoia_openpgp as openpgp;
+//! # use sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::cert::prelude::*;
 //! use openpgp::types::RevocationStatus;
@@ -140,7 +140,7 @@
 //! is not valid, then forging the time stamp won't help an attacker.
 //!
 //! ```rust
-//! # extern crate sequoia_openpgp as openpgp;
+//! # use sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::cert::prelude::*;
 //! use openpgp::types::RevocationStatus;
@@ -217,7 +217,7 @@
 //! approach.
 //!
 //! ```rust
-//! # extern crate sequoia_openpgp as openpgp;
+//! # use sequoia_openpgp as openpgp;
 //! # use openpgp::Result;
 //! # use openpgp::cert::prelude::*;
 //! use sequoia_openpgp::policy::StandardPolicy;
@@ -305,7 +305,7 @@ pub trait PrimaryKey<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::policy::StandardPolicy;
     /// #
@@ -360,7 +360,7 @@ pub trait PrimaryKey<'a, P, R>
 /// Iterating over all keys:
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::cert::prelude::*;
 /// # use openpgp::policy::StandardPolicy;
 /// #
@@ -380,7 +380,7 @@ pub trait PrimaryKey<'a, P, R>
 /// Getting the primary key:
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::cert::prelude::*;
 /// # use openpgp::policy::StandardPolicy;
 /// #
@@ -398,7 +398,7 @@ pub trait PrimaryKey<'a, P, R>
 /// Iterating over just the subkeys:
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::cert::prelude::*;
 /// # use openpgp::policy::StandardPolicy;
 /// #
@@ -841,7 +841,7 @@ impl<'a, P, R, R2> KeyAmalgamation<'a, P, R, R2>
 /// Find all non-revoked, live, signing-capable keys:
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::cert::prelude::*;
 /// use openpgp::policy::StandardPolicy;
 /// use openpgp::types::RevocationStatus;
@@ -1262,7 +1262,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1310,7 +1310,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1380,7 +1380,7 @@ impl<'a, P> ValidPrimaryKeyAmalgamation<'a, P>
     ///
     /// ```
     /// use std::time;
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1462,7 +1462,7 @@ impl<'a, P> ValidSubordinateKeyAmalgamation<'a, P>
     ///
     /// ```
     /// use std::time;
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1701,7 +1701,7 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
     ///
     /// ```
     /// use std::time;
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1825,7 +1825,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::policy::{Policy, StandardPolicy};
     /// #
@@ -1856,7 +1856,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// motion) *or* storage encryption (data at rest):
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// use openpgp::types::KeyFlags;
@@ -1912,7 +1912,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// Finds keys that are certification capable:
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1946,7 +1946,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// Finds keys that are signing capable:
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1979,7 +1979,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// Finds keys that are authentication capable:
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -2024,7 +2024,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// Finds keys that are storage-encryption capable:
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -2071,7 +2071,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// Finds keys that are transport-encryption capable:
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -2113,7 +2113,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// ```
     /// use std::time;
     /// use std::convert::TryInto;
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// use openpgp::types::Timestamp;
@@ -2163,7 +2163,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// ```
     /// use std::time;
     /// use std::convert::TryInto;
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// use openpgp::types::Timestamp;

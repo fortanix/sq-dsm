@@ -9,7 +9,7 @@ use std::ptr;
 use std::slice;
 use libc::{self, c_char, c_int, size_t};
 
-extern crate sequoia_openpgp;
+use sequoia_openpgp;
 use self::sequoia_openpgp::armor;
 
 use super::io::{Reader, ReaderKind, WriterKind};

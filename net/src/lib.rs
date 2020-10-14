@@ -14,10 +14,8 @@
 //! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
 //!
 //! ```no_run
-//! # extern crate tokio_core;
-//! # extern crate sequoia_openpgp as openpgp;
-//! # extern crate sequoia_core;
-//! # extern crate sequoia_net;
+//! # use tokio_core;
+//! # use sequoia_openpgp as openpgp;
 //! # use openpgp::KeyID;
 //! # use sequoia_core::Context;
 //! # use sequoia_net::{KeyServer, Result};
@@ -35,19 +33,16 @@
 
 #![warn(missing_docs)]
 
-extern crate sequoia_openpgp as openpgp;
-extern crate sequoia_core;
+use sequoia_openpgp as openpgp;
+use sequoia_core;
 
-extern crate futures;
-extern crate http;
-extern crate hyper;
-extern crate hyper_tls;
-extern crate native_tls;
-extern crate tokio_core;
-extern crate tokio_io;
-extern crate percent_encoding;
-extern crate url;
-extern crate zbase32;
+use futures;
+use http;
+use hyper;
+use hyper_tls;
+use native_tls;
+use percent_encoding;
+use url;
 
 use futures::{future, Future, Stream};
 use hyper::client::{ResponseFuture, HttpConnector};

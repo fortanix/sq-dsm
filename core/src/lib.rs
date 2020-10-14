@@ -18,8 +18,8 @@
 /// # }
 /// ```
 
-extern crate dirs;
-extern crate tempfile;
+use dirs;
+use tempfile;
 
 use std::fmt;
 use std::io;

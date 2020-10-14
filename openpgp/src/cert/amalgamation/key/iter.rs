@@ -233,7 +233,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// # fn main() { f().unwrap(); }
@@ -269,7 +269,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// # fn main() { f().unwrap(); }
@@ -312,7 +312,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// # fn main() { f().unwrap(); }
@@ -357,7 +357,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// # fn main() { f().unwrap(); }
@@ -399,7 +399,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// #
@@ -454,7 +454,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -531,7 +531,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
 /// Find a key that we can use to sign a document:
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::cert::prelude::*;
 /// use openpgp::policy::StandardPolicy;
 /// use openpgp::types::RevocationStatus;
@@ -846,7 +846,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// use openpgp::types::KeyFlags;
@@ -917,7 +917,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -962,7 +962,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1005,7 +1005,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1048,7 +1048,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1091,7 +1091,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1134,7 +1134,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1181,7 +1181,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
@@ -1210,7 +1210,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// `ValidKeyAmalgamationIter::revoked(false)` is equivalent to:
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// use openpgp::types::RevocationStatus;
     /// # use openpgp::cert::prelude::*;
@@ -1269,7 +1269,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
@@ -1315,7 +1315,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
@@ -1368,7 +1368,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
@@ -1417,7 +1417,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
@@ -1463,7 +1463,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///

@@ -223,12 +223,6 @@
 //! [`BufReader`]: https://doc.rust-lang.org/stable/std/io/struct.BufReader.html
 //! [HTTP's chunk transfer encoding]: https://en.wikipedia.org/wiki/Chunked_transfer_encoding
 
-#[cfg(feature = "compression-deflate")]
-extern crate flate2;
-#[cfg(feature = "compression-bzip2")]
-extern crate bzip2;
-extern crate libc;
-
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::cmp;

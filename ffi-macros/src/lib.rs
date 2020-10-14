@@ -5,15 +5,13 @@
 use std::collections::HashMap;
 use std::io::Write;
 
-extern crate lazy_static;
 use lazy_static::lazy_static;
-extern crate syn;
+use syn;
 use syn::parse_quote;
 use syn::spanned::Spanned;
-extern crate quote;
-extern crate proc_macro;
-extern crate proc_macro2;
-extern crate sha2;
+use proc_macro;
+use proc_macro2;
+use sha2;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;

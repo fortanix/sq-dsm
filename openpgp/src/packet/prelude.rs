@@ -17,7 +17,7 @@
 //!
 //! ```
 //! # #![allow(unused_imports)]
-//! # extern crate sequoia_openpgp as openpgp;
+//! # use sequoia_openpgp as openpgp;
 //! use openpgp::packet::prelude::*;
 //! ```
 

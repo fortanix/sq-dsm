@@ -1,5 +1,5 @@
 use anyhow::{Result, Context};
-extern crate filetime;
+use filetime;
 
 use std::cmp::min;
 use std::env::{self, var_os};

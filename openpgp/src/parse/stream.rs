@@ -3126,7 +3126,7 @@ mod test {
 
     #[test]
     fn detached_verifier() {
-        lazy_static! {
+        lazy_static::lazy_static! {
             static ref ZEROS: Vec<u8> = vec![0; 100 * 1024 * 1024];
         }
 

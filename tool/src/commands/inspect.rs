@@ -3,7 +3,7 @@ use std::io::{self, Read};
 
 use clap;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use crate::openpgp::{KeyHandle, Packet, Result};
 use crate::openpgp::cert::prelude::*;
 use openpgp::packet::{

@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::time::SystemTime;
 use rpassword;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use sequoia_core::Context;
 use crate::openpgp::types::{
     CompressionAlgorithm,
@@ -29,7 +29,7 @@ use crate::openpgp::serialize::stream::{
     },
 };
 use crate::openpgp::policy::Policy;
-extern crate sequoia_store as store;
+use sequoia_store as store;
 
 pub mod decrypt;
 pub use self::decrypt::decrypt;

@@ -37,8 +37,7 @@ use native_tls::Certificate;
 use std::ptr;
 use std::slice;
 
-extern crate sequoia_openpgp as openpgp;
-extern crate tokio_core;
+use tokio_core;
 
 use sequoia_net::KeyServer;
 

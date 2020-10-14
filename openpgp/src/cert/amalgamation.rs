@@ -153,7 +153,7 @@
 //! code, which doesn't compile:
 //!
 //! ```compile_fail
-//! # extern crate sequoia_openpgp as openpgp;
+//! # use sequoia_openpgp as openpgp;
 //! use openpgp::cert::prelude::*;
 //! use openpgp::packet::prelude::*;
 //!
@@ -186,7 +186,7 @@
 //! below for the [`ComponentAmalgamation::component`] method:
 //!
 //! ```
-//! # extern crate sequoia_openpgp as openpgp;
+//! # use sequoia_openpgp as openpgp;
 //! use openpgp::cert::prelude::*;
 //! use openpgp::packet::prelude::*;
 //!
@@ -276,7 +276,7 @@ pub mod key;
 /// # Examples
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::policy::{Policy, StandardPolicy};
 ///
@@ -386,7 +386,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::policy::StandardPolicy;
     /// #
@@ -415,7 +415,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// ```
     /// # use std::time::{SystemTime, Duration, UNIX_EPOCH};
     /// #
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::policy::StandardPolicy;
     /// fn f(ua: &ValidUserIDAmalgamation) {
@@ -443,7 +443,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::policy::{Policy, StandardPolicy};
     /// #
@@ -470,7 +470,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::policy::{Policy, StandardPolicy};
     /// #
@@ -502,7 +502,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::policy::{Policy, StandardPolicy};
     /// #
@@ -546,7 +546,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// # use openpgp::policy::StandardPolicy;
     /// use openpgp::types::RevocationStatus;
@@ -595,7 +595,7 @@ pub trait ValidAmalgamation<'a, C: 'a>
 /// # Examples
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// # use openpgp::cert::prelude::*;
 /// # use openpgp::policy::StandardPolicy;
 /// #
@@ -686,7 +686,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// Returns the component's associated certificate.
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// #
     /// # fn main() -> openpgp::Result<()> {
@@ -730,7 +730,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;
     ///
@@ -843,7 +843,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
@@ -996,7 +996,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
 /// Print out information about all non-revoked User IDs.
 ///
 /// ```
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::packet::prelude::*;
 /// use openpgp::policy::StandardPolicy;

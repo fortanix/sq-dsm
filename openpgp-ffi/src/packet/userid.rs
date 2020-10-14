@@ -4,7 +4,7 @@
 //!
 //!   [Section 5.11 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.11
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use libc::{c_char, size_t};
 use crate::error::Status;
 use super::Packet;

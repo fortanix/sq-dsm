@@ -177,7 +177,7 @@ impl<C> ComponentBundle<C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// #
     /// # fn main() -> openpgp::Result<()> {
@@ -210,7 +210,7 @@ impl<C> ComponentBundle<C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -377,7 +377,7 @@ impl<C> ComponentBundle<C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -406,7 +406,7 @@ impl<C> ComponentBundle<C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -436,7 +436,7 @@ impl<C> ComponentBundle<C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -466,7 +466,7 @@ impl<C> ComponentBundle<C> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -688,7 +688,7 @@ impl<P: key::KeyParts, R: key::KeyRole> ComponentBundle<Key<P, R>> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// #
     /// # fn main() -> openpgp::Result<()> {
@@ -731,7 +731,7 @@ impl<P: key::KeyParts> ComponentBundle<Key<P, key::SubordinateRole>> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -769,7 +769,7 @@ impl ComponentBundle<UserID> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// #
     /// # fn main() -> openpgp::Result<()> {
@@ -806,7 +806,7 @@ impl ComponentBundle<UserID> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -844,7 +844,7 @@ impl ComponentBundle<UserAttribute> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// #
     /// # fn main() -> openpgp::Result<()> {
@@ -877,7 +877,7 @@ impl ComponentBundle<UserAttribute> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     /// #
@@ -915,7 +915,7 @@ impl ComponentBundle<Unknown> {
     /// # Examples
     ///
     /// ```
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// #
     /// # fn main() -> openpgp::Result<()> {

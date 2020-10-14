@@ -3,7 +3,7 @@
 use std::io;
 use libc::c_char;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use crate::MoveIntoRaw;
 use crate::RefRaw;

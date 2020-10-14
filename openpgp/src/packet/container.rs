@@ -282,7 +282,7 @@ impl Container {
 
     /// Returns the hash for the empty body.
     fn empty_body_digest() -> Vec<u8> {
-        lazy_static!{
+        lazy_static::lazy_static!{
             static ref DIGEST: Vec<u8> = {
                 let mut h = Container::make_body_hash();
                 let mut d = vec![0; h.digest_size()];

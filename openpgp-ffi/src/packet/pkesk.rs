@@ -2,7 +2,7 @@
 
 use libc::size_t;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use self::openpgp::packet::PKESK;
 use super::super::keyid::KeyID;
 use super::super::packet::key::Key;

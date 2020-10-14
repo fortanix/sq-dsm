@@ -5,7 +5,7 @@
 //!   [Section 5.12 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.12
 
 use libc::size_t;
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use super::Packet;
 
 use crate::RefRaw;

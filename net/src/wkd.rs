@@ -14,8 +14,6 @@
 
 // XXX: We might want to merge the 2 structs in the future and move the
 // functions to methods.
-extern crate tempfile;
-extern crate tokio_core;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -29,6 +27,7 @@ use hyper_tls::HttpsConnector;
 use url;
 
 use crate::openpgp::{
+    self,
     Fingerprint,
     Cert,
 };
@@ -265,9 +264,7 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
 /// # Example
 ///
 /// ```no_run
-/// extern crate tokio_core;
 /// use tokio_core::reactor::Core;
-/// extern crate sequoia_net;
 /// use sequoia_net::wkd;
 ///
 /// let email_address = "foo@bar.baz";

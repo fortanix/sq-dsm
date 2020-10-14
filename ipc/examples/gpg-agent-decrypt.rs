@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::io;
 
-extern crate clap;
-extern crate sequoia_openpgp as openpgp;
-extern crate sequoia_ipc as ipc;
+use clap;
+use sequoia_openpgp as openpgp;
+use sequoia_ipc as ipc;
 
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto::SessionKey;

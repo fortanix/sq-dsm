@@ -10,7 +10,7 @@ use std::slice;
 use std::io::Write;
 use libc::{c_char, size_t, ssize_t};
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 
 use self::openpgp::types::{
     SymmetricAlgorithm,

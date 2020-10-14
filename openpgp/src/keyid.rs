@@ -183,7 +183,7 @@ impl KeyID {
     /// object with the `:X` format specifier.
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// use openpgp::KeyID;
     ///
     /// let keyid = "fb3751f1587daef1".parse::<KeyID>().unwrap();
@@ -202,7 +202,7 @@ impl KeyID {
     /// leading `0x`.
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// use openpgp::KeyID;
     ///
     /// let keyid = KeyID::from_hex("0xfb3751f1587daef1").unwrap();

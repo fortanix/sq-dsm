@@ -1,12 +1,12 @@
 use std::fs::{self, File};
 use std::io;
 
-extern crate assert_cli;
+use assert_cli;
 use assert_cli::Assert;
-extern crate tempfile;
+use tempfile;
 use tempfile::TempDir;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, PacketPile, Cert};
 use crate::openpgp::crypto::KeyPair;
 use crate::openpgp::packet::key::SecretKeyMaterial;

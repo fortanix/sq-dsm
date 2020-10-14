@@ -2,7 +2,7 @@
 
 use std::io;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use sequoia_core as core;
 pub use crate::openpgp::error::Status;
 

@@ -1,5 +1,3 @@
-extern crate assert_cli;
-
 #[cfg(test)]
 mod integration {
     use assert_cli::Assert;
@@ -20,7 +18,7 @@ mod integration {
 }
 
 // Code to create the data for the test cases above
-// extern crate sequoia_openpgp;
+// use sequoia_openpgp;
 //
 // #[test]
 // fn create_key() {

@@ -32,7 +32,7 @@ use crate::parse::Cookie;
 /// This example shows how to modify packets in PacketPile using [`pathspec`]s.
 ///
 /// ```rust
-/// # extern crate sequoia_openpgp as openpgp;
+/// # use sequoia_openpgp as openpgp;
 /// use std::convert::TryFrom;
 /// use openpgp::{Packet, PacketPile};
 /// use openpgp::packet::signature::Signature4;
@@ -232,7 +232,7 @@ impl PacketPile {
     /// # Example
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     /// # fn main() { f().unwrap(); }
@@ -287,7 +287,7 @@ impl PacketPile {
     /// # Example
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     /// # fn main() { f().unwrap(); }
@@ -348,7 +348,7 @@ impl PacketPile {
     /// # Example
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     /// # fn main() { f().unwrap(); }
@@ -436,7 +436,7 @@ impl PacketPile {
     /// depth-first order.
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::Tag};
     /// # use std::iter::Iterator;
@@ -460,7 +460,7 @@ impl PacketPile {
     /// Returns an iterator over the top-level packets.
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
     /// # fn main() { f().unwrap(); }
@@ -483,7 +483,7 @@ impl PacketPile {
     /// Returns an `IntoIter` over the top-level packets.
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::Tag};
     /// # fn main() { f().unwrap(); }
@@ -643,7 +643,7 @@ impl<'a> PacketParserBuilder<'a> {
     /// # Examples
     ///
     /// ```rust
-    /// # extern crate sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::PacketPile;
     /// # use openpgp::parse::{Parse, PacketParser, PacketParserBuilder};

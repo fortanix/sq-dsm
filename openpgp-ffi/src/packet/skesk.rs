@@ -3,7 +3,7 @@
 use std::slice;
 use libc::size_t;
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use super::Packet;
 
 use crate::error::Status;

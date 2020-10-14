@@ -13,7 +13,7 @@
 use std::slice;
 use libc::{c_char, size_t};
 
-extern crate sequoia_openpgp as openpgp;
+use sequoia_openpgp as openpgp;
 use super::keyid::KeyID;
 use crate::Maybe;
 use crate::MoveIntoRaw;
