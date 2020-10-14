@@ -19,7 +19,7 @@ all: src/sq-usage.rs
 .PHONY: build-release
 build-release:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) \
-	    $(CARGO) build $(CARGO_FLAGS) --release --package sequoia-tool
+	    $(CARGO) build $(CARGO_FLAGS) --release --package sequoia-sq
 	$(MAKE) -C../store build-release
 
 .PHONY: install

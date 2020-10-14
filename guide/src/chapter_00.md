@@ -90,7 +90,7 @@ tool:
 $ git clone https://gitlab.com/sequoia-pgp/sequoia.git
 ...
 $ cd sequoia
-$ cargo build -p sequoia-tool
+$ cargo build -p sequoia-sq
 ...
 $ target/debug/sq
 sq 0.1.0

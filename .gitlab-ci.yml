@@ -28,8 +28,8 @@ bullseye:
     - cargo test --all --exclude sequoia-openpgp-ffi
     - make
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
-    - make -C tool update-usage
-    - if ! git diff --quiet tool ; then echo "Please run 'make -C tool update-usage' and commit the result." ; false ; fi
+    - make -C sq update-usage
+    - if ! git diff --quiet sq ; then echo "Please run 'make -C sq update-usage' and commit the result." ; false ; fi
     - make -C sqv update-usage
     - if ! git diff --quiet sqv ; then echo "Please run 'make -C sqv update-usage' and commit the result." ; false ; fi
     - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi

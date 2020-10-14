@@ -93,7 +93,7 @@ Using cargo
 
 To build all Sequoia components, simply execute `cargo build
 [--release] --all`.  Individual components may be built independently,
-e.g. to build `sq`, run `cargo build [--release] -p sequoia-tool`, or
+e.g. to build `sq`, run `cargo build [--release] -p sequoia-sq`, or
 build `sequoia-openpgp-ffi` to build a shared object with the C API.
 
 Using the Makefile

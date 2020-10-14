@@ -12,7 +12,7 @@ For more inspiration, see our various [examples] and our
 command-line frontends [sq] and [sqv].
 
 [examples]: https://gitlab.com/sequoia-pgp/sequoia/tree/master/openpgp/examples
-[sq]: https://gitlab.com/sequoia-pgp/sequoia/tree/master/tool
+[sq]: https://gitlab.com/sequoia-pgp/sequoia/tree/master/sq
 [sqv]: https://gitlab.com/sequoia-pgp/sequoia/tree/master/sqv
 
 Happy climbing!

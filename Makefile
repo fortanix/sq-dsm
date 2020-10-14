@@ -99,7 +99,7 @@ doc:
 build-release:
 	$(MAKE) -Copenpgp-ffi build-release
 	$(MAKE) -Cffi build-release
-	$(MAKE) -Ctool build-release
+	$(MAKE) -Csq build-release
 	$(MAKE) -Csqv build-release
 	$(MAKE) -Csop build-release
 
@@ -107,7 +107,7 @@ build-release:
 install: build-release
 	$(MAKE) -Copenpgp-ffi install
 	$(MAKE) -Cffi install
-	$(MAKE) -Ctool install
+	$(MAKE) -Csq install
 	$(MAKE) -Csqv install
 	$(MAKE) -Csop install
 

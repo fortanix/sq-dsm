@@ -1950,6 +1950,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "sequoia-sq"
+version = "0.19.0"
+dependencies = [
+ "anyhow",
+ "assert_cli",
+ "buffered-reader",
+ "chrono",
+ "clap",
+ "crossterm",
+ "itertools",
+ "prettytable-rs",
+ "rpassword",
+ "sequoia-autocrypt",
+ "sequoia-core",
+ "sequoia-ipc",
+ "sequoia-net",
+ "sequoia-openpgp",
+ "sequoia-store",
+ "tempfile",
+ "tokio-core",
+]
+
+[[package]]
 name = "sequoia-sqv"
 version = "0.19.0"
 dependencies = [
@@ -1978,29 +2001,6 @@ dependencies = [
  "thiserror",
  "tokio-core",
  "tokio-io",
-]
-
-[[package]]
-name = "sequoia-tool"
-version = "0.19.0"
-dependencies = [
- "anyhow",
- "assert_cli",
- "buffered-reader",
- "chrono",
- "clap",
- "crossterm",
- "itertools",
- "prettytable-rs",
- "rpassword",
- "sequoia-autocrypt",
- "sequoia-core",
- "sequoia-ipc",
- "sequoia-net",
- "sequoia-openpgp",
- "sequoia-store",
- "tempfile",
- "tokio-core",
 ]
 
 [[package]]
