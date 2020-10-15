@@ -1921,6 +1921,7 @@ dependencies = [
  "base64 0.13.0",
  "buffered-reader",
  "bzip2",
+ "chrono",
  "dyn-clone",
  "ed25519-dalek",
  "flate2",

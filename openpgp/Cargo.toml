@@ -49,6 +49,9 @@ num-bigint-dig = { version = "0.6", default-features = false, optional = true }
 ed25519-dalek = { version = "1", default-features = false, features = ["rand", "u64_backend"], optional = true }
 winapi = { version = "0.3", default-features = false, features = ["bcrypt"], optional = true }
 
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+
 [build-dependencies]
 lalrpop = "0.19"
 
