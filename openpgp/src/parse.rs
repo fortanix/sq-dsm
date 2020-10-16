@@ -2607,7 +2607,7 @@ impl SKESK {
                 // we don't know the size of the ESK.
                 let mut esk = php_try!(php.reader.steal_eof()
                                        .map_err(|e| anyhow::Error::from(e)));
-                let aead_iv = if s2k_supported {
+                let aead_iv = if s2k_supported && esk.len() >= iv_size {
                     // We know the S2K method, so the parameters have
                     // been parsed into the S2K object.  So, `esk`
                     // starts with iv_size bytes of IV.
@@ -6043,6 +6043,15 @@ mod test {
             v.verify_bytes(data)?;
         }
 
+        Ok(())
+    }
+
+    /// Tests for a panic in the SKESK parser.
+    #[test]
+    fn issue_588() -> Result<()> {
+        let data = vec![0x8c, 0x34, 0x05, 0x12, 0x02, 0x00, 0xaf, 0x0d,
+                        0xff, 0xff, 0x65];
+        let _ = PacketParser::from_bytes(&data);
         Ok(())
     }
 }
