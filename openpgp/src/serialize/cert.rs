@@ -558,10 +558,10 @@ impl<'a> TSK<'a> {
             for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 serialize_sig(o, s)?;
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 serialize_sig(o, s)?;
             }
         }
@@ -581,10 +581,10 @@ impl<'a> TSK<'a> {
             for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 serialize_sig(o, s)?;
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 serialize_sig(o, s)?;
             }
         }
@@ -605,10 +605,10 @@ impl<'a> TSK<'a> {
             for s in k.self_signatures() {
                 serialize_sig(o, s)?;
             }
-            for s in k.other_revocations() {
+            for s in k.certifications() {
                 serialize_sig(o, s)?;
             }
-            for s in k.certifications() {
+            for s in k.other_revocations() {
                 serialize_sig(o, s)?;
             }
         }
@@ -629,10 +629,10 @@ impl<'a> TSK<'a> {
             for s in u.self_signatures() {
                 serialize_sig(o, s)?;
             }
-            for s in u.other_revocations() {
+            for s in u.certifications() {
                 serialize_sig(o, s)?;
             }
-            for s in u.certifications() {
+            for s in u.other_revocations() {
                 serialize_sig(o, s)?;
             }
         }
