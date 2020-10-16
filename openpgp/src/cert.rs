@@ -2368,6 +2368,155 @@ impl Cert {
         self
     }
 
+    /// Retains only the userids specified by the predicate.
+    ///
+    /// Removes all the userids for which the given predicate returns
+    /// false.
+    ///
+    /// # Warning
+    ///
+    /// Because userid binding signatures are traditionally used to
+    /// provide additional information like the certificate holder's
+    /// algorithm preferences (see [`Preferences`]) and primary key
+    /// flags (see [`ValidKeyAmalgamation::key_flags`]).  Removing a
+    /// userid may inadvertently change this information.
+    ///
+    ///   [`Preferences`]: trait.Preferences.html
+    ///   [`ValidKeyAmalgamation::key_flags`]: amalgamation/key/struct.ValidKeyAmalgamation.html#method.key_flags
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// // Create a new key.
+    /// let (cert, _) =
+    ///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///       .add_userid("Alice Lovelace <alice@lovelace.name>")
+    ///       .generate()?;
+    /// assert_eq!(cert.userids().count(), 2);
+    ///
+    /// let cert = cert.retain_userids(|ua| {
+    ///     if let Ok(Some(address)) = ua.email() {
+    ///         address == "alice@example.org" // Only keep this one.
+    ///     } else {
+    ///         false                          // Drop malformed userids.
+    ///     }
+    /// });
+    /// assert_eq!(cert.userids().count(), 1);
+    /// assert_eq!(cert.userids().nth(0).unwrap().email()?.unwrap(),
+    ///            "alice@example.org");
+    /// # Ok(()) }
+    /// ```
+    pub fn retain_userids<P>(mut self, mut predicate: P) -> Cert
+        where P: FnMut(UserIDAmalgamation) -> bool,
+    {
+        let mut keep = vec![false; self.userids.len()];
+        for (i, a) in self.userids().enumerate() {
+            keep[i] = predicate(a);
+        }
+        // Note: Vec::retain visits the elements in the original
+        // order.
+        let mut i = 0;
+        self.userids.retain(|_| (keep[i], i += 1).0);
+        self
+    }
+
+    /// Retains only the user attributes specified by the predicate.
+    ///
+    /// Removes all the user attributes for which the given predicate
+    /// returns false.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// // Create a new key.
+    /// let (cert, _) =
+    ///       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///       // Add nonsensical user attribute.
+    ///       .add_user_attribute(vec![0, 1, 2])
+    ///       .generate()?;
+    /// assert_eq!(cert.user_attributes().count(), 1);
+    ///
+    /// // Strip all user attributes
+    /// let cert = cert.retain_user_attributes(|_| false);
+    /// assert_eq!(cert.user_attributes().count(), 0);
+    /// # Ok(()) }
+    /// ```
+    pub fn retain_user_attributes<P>(mut self, mut predicate: P) -> Cert
+        where P: FnMut(UserAttributeAmalgamation) -> bool,
+    {
+        let mut keep = vec![false; self.user_attributes.len()];
+        for (i, a) in self.user_attributes().enumerate() {
+            keep[i] = predicate(a);
+        }
+        // Note: Vec::retain visits the elements in the original
+        // order.
+        let mut i = 0;
+        self.user_attributes.retain(|_| (keep[i], i += 1).0);
+        self
+    }
+
+    /// Retains only the subkeys specified by the predicate.
+    ///
+    /// Removes all the subkeys for which the given predicate returns
+    /// false.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::cert::prelude::*;
+    ///
+    /// // Create a new key.
+    /// let (cert, _) =
+    ///       CertBuilder::new()
+    ///       .add_userid("Alice Lovelace <alice@lovelace.name>")
+    ///       .add_transport_encryption_subkey()
+    ///       .add_storage_encryption_subkey()
+    ///       .generate()?;
+    /// assert_eq!(cert.keys().subkeys().count(), 2);
+    ///
+    /// // Retain only the transport encryption subkey.  For that, we
+    /// // need to examine the key flags, therefore we need to turn
+    /// // the `KeyAmalgamation` into a `ValidKeyAmalgamation` under a
+    /// // policy.
+    /// let p = &StandardPolicy::new();
+    /// let cert = cert.retain_subkeys(|ka| {
+    ///     if let Ok(vka) = ka.with_policy(p, None) {
+    ///         vka.key_flags().map(|flags| flags.for_transport_encryption())
+    ///             .unwrap_or(false)      // Keep transport encryption keys.
+    ///     } else {
+    ///         false                      // Drop unbound keys.
+    ///     }
+    /// });
+    /// assert_eq!(cert.keys().subkeys().count(), 1);
+    /// assert!(cert.with_policy(p, None)?.keys().subkeys().nth(0).unwrap()
+    ///             .key_flags().unwrap().for_transport_encryption());
+    /// # Ok(()) }
+    /// ```
+    pub fn retain_subkeys<P>(mut self, mut predicate: P) -> Cert
+        where P: FnMut(SubordinateKeyAmalgamation<crate::packet::key::PublicParts>) -> bool,
+    {
+        let mut keep = vec![false; self.subkeys.len()];
+        for (i, a) in self.keys().subkeys().enumerate() {
+            keep[i] = predicate(a);
+        }
+        // Note: Vec::retain visits the elements in the original
+        // order.
+        let mut i = 0;
+        self.subkeys.retain(|_| (keep[i], i += 1).0);
+        self
+    }
+
     /// Associates a policy and a reference time with the certificate.
     ///
     /// This is used to turn a `Cert` into a
