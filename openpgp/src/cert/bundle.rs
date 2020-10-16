@@ -106,7 +106,7 @@ use super::{
 
 /// A certificate component and its associated signatures.
 ///
-/// [See the module level documentation]](index.html) for a detailed
+/// [See the module level documentation](index.html) for a detailed
 /// description.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentBundle<C> {
