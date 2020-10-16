@@ -1264,6 +1264,20 @@ impl Cert {
     /// Converts the certificate into an iterator over a sequence of
     /// packets.
     ///
+    /// **WARNING**: When serializing a `Cert`, any secret key
+    /// material is dropped.  In order to serialize the secret key
+    /// material, it is first necessary to convert the `Cert` into a
+    /// [`TSK`] and serialize that.  This behavior makes it harder to
+    /// accidentally leak secret key material.  *This function is
+    /// different.* If a key contains secret key material, it is
+    /// exported as a [`SecretKey`] or [`SecretSubkey`], as
+    /// appropriate.  This means that **if you serialize the resulting
+    /// packets, the secret key material will be serialized too**.
+    ///
+    /// [`TSK`]: serialize/struct.TSK.html
+    /// [`SecretKey`]: enum.Packet.html#variant.SecretKey
+    /// [`SecretSubkey`]: enum.Packet.html#variant.SecretSubkey
+    ///
     /// # Examples
     ///
     /// ```
@@ -1280,10 +1294,34 @@ impl Cert {
     /// # }
     /// ```
     pub fn into_packets(self) -> impl Iterator<Item=Packet> {
-        self.primary.into_packets()
+        fn rewrite(mut p: impl Iterator<Item=Packet>)
+            -> impl Iterator<Item=Packet>
+        {
+            let k: Packet = match p.next().unwrap() {
+                Packet::PublicKey(k) => {
+                    if k.has_secret() {
+                        Packet::SecretKey(k.parts_into_secret().unwrap())
+                    } else {
+                        Packet::PublicKey(k)
+                    }
+                }
+                Packet::PublicSubkey(k) => {
+                    if k.has_secret() {
+                        Packet::SecretSubkey(k.parts_into_secret().unwrap())
+                    } else {
+                        Packet::PublicSubkey(k)
+                    }
+                }
+                _ => unreachable!(),
+            };
+
+            std::iter::once(k).chain(p)
+        }
+
+        rewrite(self.primary.into_packets())
             .chain(self.userids.into_iter().flat_map(|b| b.into_packets()))
             .chain(self.user_attributes.into_iter().flat_map(|b| b.into_packets()))
-            .chain(self.subkeys.into_iter().flat_map(|b| b.into_packets()))
+            .chain(self.subkeys.into_iter().flat_map(|b| rewrite(b.into_packets())))
             .chain(self.unknowns.into_iter().flat_map(|b| b.into_packets()))
             .chain(self.bad.into_iter().map(|s| s.into()))
     }
@@ -4701,7 +4739,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             .into_children()
             .filter(|pkt| {
                 match pkt {
-                    &Packet::PublicKey(_) | &Packet::PublicSubkey(_) => true,
+                    &Packet::PublicKey(_) | &Packet::PublicSubkey(_)
+                    | &Packet::SecretKey(_) | &Packet::SecretSubkey(_) => true,
                     &Packet::Signature(ref sig) => {
                         sig.typ() == SignatureType::DirectKey
                             || sig.typ() == SignatureType::SubkeyBinding

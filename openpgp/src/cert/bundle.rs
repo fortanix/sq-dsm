@@ -600,6 +600,11 @@ impl<C> ComponentBundle<C> {
     ///
     /// For a given type of signature, the signatures are ordered by
     /// their creation time, most recent first.
+    ///
+    /// When turning the `Key` in a `KeyBundle` into a `Packet`, this
+    /// function uses the component's type (`C`) to determine the
+    /// packet's type; the type is not a function of whether the key
+    /// has secret key material.
     pub(crate) fn into_packets<'a>(self) -> impl Iterator<Item=Packet>
         where Packet: From<C>
     {

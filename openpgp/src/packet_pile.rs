@@ -20,16 +20,29 @@ use crate::parse::Cookie;
 
 /// An unstructured [packet] sequence.
 ///
-/// To deserialize an OpenPGP packet stream, use either
+/// To parse an OpenPGP packet stream into a `PacketPile`, you can use
 /// [`PacketParser`], [`PacketPileParser`], or
 /// [`PacketPile::from_file`] (or related routines).
 ///
-/// Normally, you'll want to convert the `PacketPile` to a Cert or a
+///   [packet]: https://tools.ietf.org/html/rfc4880#section-4
+///   [`PacketParser`]: parse/struct.PacketParser.html
+///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
+///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
+///
+/// You can also convert a [`Cert`] into a `PacketPile` using
+/// `PacketPile::from`.  Unlike serializing a `Cert`, this does not
+/// drop any secret key material.
+///
+///   [`Cert`]: ../struct.Cert.html
+///
+/// Normally, you'll want to convert the `PacketPile` to a `Cert` or a
 /// `Message`.
 ///
 /// # Examples
 ///
 /// This example shows how to modify packets in PacketPile using [`pathspec`]s.
+///
+///   [`pathspec`]: struct.PacketPile.html#method.path_ref
 ///
 /// ```rust
 /// # use sequoia_openpgp as openpgp;
@@ -93,12 +106,6 @@ use crate::parse::Cookie;
 /// #     Ok(())
 /// # }
 /// ```
-///
-///   [packet]: https://tools.ietf.org/html/rfc4880#section-4
-///   [`PacketParser`]: parse/struct.PacketParser.html
-///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
-///   [`PacketPile::from_file`]: struct.PacketPile.html#method.from_file
-///   [`pathspec`]: struct.PacketPile.html#method.path_ref
 #[derive(PartialEq, Clone, Default)]
 pub struct PacketPile {
     /// At the top level, we have a sequence of packets, which may be
@@ -516,6 +523,9 @@ impl PacketPile {
 
 impl From<Cert> for PacketPile {
     /// Converts the `Cert` into a `PacketPile`.
+    ///
+    /// If any packets include secret key material, that secret key
+    /// material is not dropped, as it is when serializing a `Cert`.
     fn from(cert: Cert) -> PacketPile {
         PacketPile::from(cert.into_packets().collect::<Vec<Packet>>())
     }
