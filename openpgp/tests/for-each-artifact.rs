@@ -1,10 +1,15 @@
 use std::env;
+use std::fmt::Write;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use anyhow::anyhow;
+
 use sequoia_openpgp as openpgp;
 use crate::openpgp::parse::*;
+use crate::openpgp::PacketPile;
+use crate::openpgp::Result;
 // Rustc 1.34 thinks SerializeInto is unused, but if we don't import
 // it, it correctly complains about no trait being in scope providing
 // .to_vec().  This seems to be a compiler bug, because rustc 1.40
@@ -15,6 +20,72 @@ use crate::openpgp::serialize::{Serialize, SerializeInto};
 
 mod for_each_artifact {
     use super::*;
+
+    // Pretty print buf as a hexadecimal string.
+    fn hex(buf: &[u8]) -> Result<String> {
+        let mut s = String::new();
+        for (i, b) in buf.iter().enumerate() {
+            if i % 32 == 0 {
+                if i > 0 {
+                    write!(s, "\n")?;
+                }
+                write!(s, "{:04}:", i)?;
+            }
+            if i % 2 == 0 {
+                write!(s, " ")?;
+            }
+            if i % 8 == 0 {
+                write!(s, " ")?;
+            }
+            write!(s, "{:02X}", b)?;
+        }
+        writeln!(s, "")?;
+        Ok(s)
+    }
+
+    // Find the first difference between two serialized messages.
+    fn diff_serialized(a: &[u8], b: &[u8]) -> Result<()> {
+        if a == b {
+            return Ok(())
+        }
+
+        // There's a difference.  Find it.
+        let p = PacketPile::from_bytes(a)?.into_children();
+        let p_len = p.len();
+
+        let q = PacketPile::from_bytes(b)?.into_children();
+        let q_len = q.len();
+
+        let mut offset = 0;
+        for (i, (p, q)) in p.zip(q).enumerate() {
+            let a = &a[offset..offset+p.serialized_len()];
+            let b = &b[offset..offset+q.serialized_len()];
+
+            if a == b {
+                offset += p.serialized_len();
+                continue;
+            }
+
+            eprintln!("Difference detected at packet #{}, offset: {}",
+                      i, offset);
+
+            eprintln!(" left packet: {:?}", p);
+            eprintln!("right packet: {:?}", q);
+            eprintln!(" left hex ({} bytes):\n{}", a.len(), hex(a)?);
+            eprintln!("right hex ({} bytes):\n{}", b.len(), hex(b)?);
+
+            return Err(anyhow!("Packets #{} differ at offset {}",
+                               i, offset));
+        }
+
+        assert!(p_len != q_len);
+        eprintln!("Differing number of packets: {} bytes vs. {} bytes",
+                  p_len, q_len);
+
+        return Err(
+            anyhow!("Differing number of packets: {} bytes vs. {} bytes",
+                    p_len, q_len));
+    }
 
     #[test]
     fn packet_roundtrip() {
@@ -86,7 +157,11 @@ mod for_each_artifact {
             for p in p.clone().strip_secret_key_material().into_packets() {
                 p.serialize(&mut buf)?;
             }
-            assert_eq!(buf, v);
+            if let Err(_err) = diff_serialized(&buf, &v) {
+                panic!("Checking that \
+                        Cert::strip_secret_key_material().into_packets() \
+                        and Cert::to_vec() agree.");
+            }
 
             // Check that Cert::into_packets() and
             // Cert::as_tsk().to_vec() agree.
@@ -95,7 +170,11 @@ mod for_each_artifact {
             for p in p.into_packets() {
                 p.serialize(&mut buf)?;
             }
-            assert_eq!(buf, v);
+            if let Err(_err) = diff_serialized(&buf, &v) {
+                panic!("Checking that Cert::into_packets() \
+                        and Cert::as_tsk().to_vec() agree.");
+            }
+
             Ok(())
         }).unwrap();
     }
