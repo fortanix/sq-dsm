@@ -280,16 +280,16 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
-        Some(&mut self.reader.reader.source)
+        Some(&mut self.reader.reader_mut().source)
     }
 
     fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
-        Some(&self.reader.reader.source)
+        Some(&self.reader.reader_ref().source)
     }
 
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
-        Some(self.reader.reader.source.as_boxed())
+        Some(self.reader.into_reader().source.as_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {

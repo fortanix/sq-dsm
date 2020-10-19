@@ -480,16 +480,16 @@ impl<'a> BufferedReader<Cookie> for BufferedReaderDecryptor<'a> {
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {
-        Some(&mut self.reader.reader.source)
+        Some(&mut self.reader.reader_mut().source)
     }
 
     fn get_ref(&self) -> Option<&dyn BufferedReader<Cookie>> {
-        Some(&self.reader.reader.source)
+        Some(&self.reader.reader_ref().source)
     }
 
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<dyn BufferedReader<Cookie> + 'b>> where Self: 'b {
-        Some(self.reader.reader.source.as_boxed())
+        Some(self.reader.into_reader().source.as_boxed())
     }
 
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {

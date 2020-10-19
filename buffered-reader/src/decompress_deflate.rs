@@ -102,17 +102,17 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
-        Some(self.reader.reader.get_mut())
+        Some(self.reader.reader_mut().get_mut())
     }
 
     fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
-        Some(self.reader.reader.get_ref())
+        Some(self.reader.reader_ref().get_ref())
     }
 
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
-        Some(self.reader.reader.into_inner().as_boxed())
+        Some(self.reader.into_reader().into_inner().as_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -224,17 +224,17 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
-        Some(self.reader.reader.get_mut())
+        Some(self.reader.reader_mut().get_mut())
     }
 
     fn get_ref(&self) -> Option<&dyn BufferedReader<C>> {
-        Some(self.reader.reader.get_ref())
+        Some(self.reader.reader_ref().get_ref())
     }
 
     fn into_inner<'b>(self: Box<Self>)
             -> Option<Box<dyn BufferedReader<C> + 'b>> where Self: 'b {
         // Strip the outer box.
-        Some(self.reader.reader.into_inner().as_boxed())
+        Some(self.reader.into_reader().into_inner().as_boxed())
     }
 
     fn cookie_set(&mut self, cookie: C) -> C {

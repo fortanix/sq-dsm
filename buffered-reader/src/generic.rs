@@ -15,9 +15,8 @@ pub struct Generic<T: io::Read, C> {
     cursor: usize,
     // The preferred chunk size.  This is just a hint.
     preferred_chunk_size: usize,
-    // XXX: This is pub for the decompressors.  It would be better to
-    // change this to some accessor method.
-    pub reader: Box<T>,
+    // The wrapped reader.
+    reader: Box<T>,
 
     // The user settable cookie.
     cookie: C,
@@ -70,6 +69,21 @@ impl<T: io::Read, C> Generic<T, C> {
             reader: Box::new(reader),
             cookie,
         }
+    }
+
+    /// Returns a reference to the wrapped writer.
+    pub fn reader_ref(&self) -> &T {
+        &self.reader
+    }
+
+    /// Returns a mutable reference to the wrapped writer.
+    pub fn reader_mut(&mut self) -> &mut T {
+        &mut self.reader
+    }
+
+    /// Returns the wrapped writer.
+    pub fn into_reader(self) -> T {
+        *self.reader
     }
 
     /// Return the buffer.  Ensure that it contains at least `amount`
