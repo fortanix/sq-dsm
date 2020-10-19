@@ -777,7 +777,7 @@ impl<'a> CertParser<'a> {
         Ok(None)
     }
 
-    // Resets the parser so that it starts parsing a new packet.
+    // Resets the parser so that it starts parsing a new cert.
     //
     // Returns the old state.  Note: the packet iterator is preserved.
     fn reset(&mut self) -> Self {
