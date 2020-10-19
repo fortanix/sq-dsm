@@ -223,6 +223,8 @@
 //! [`BufReader`]: https://doc.rust-lang.org/stable/std/io/struct.BufReader.html
 //! [HTTP's chunk transfer encoding]: https://en.wikipedia.org/wiki/Chunked_transfer_encoding
 
+#![warn(missing_docs)]
+
 use std::io;
 use std::io::{Error, ErrorKind};
 use std::cmp;
