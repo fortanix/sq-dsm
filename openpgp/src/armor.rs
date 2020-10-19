@@ -559,14 +559,14 @@ impl<'a> Reader<'a> {
             mode)
     }
 
-    pub(crate) fn from_buffered_reader<C: 'a, M>(
-        inner: Box<dyn BufferedReader<C> + 'a>, mode: M) -> Self
+    pub(crate) fn from_buffered_reader<M>(
+        inner: Box<dyn BufferedReader<()> + 'a>, mode: M) -> Self
         where M: Into<Option<ReaderMode>>
     {
         let mode = mode.into().unwrap_or(Default::default());
 
         Reader {
-            source: Box::new(buffered_reader::Generic::new(inner, None)),
+            source: inner,
             kind: None,
             mode,
             buffer: Vec::<u8>::with_capacity(1024),

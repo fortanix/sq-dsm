@@ -416,7 +416,9 @@ impl<'a> PacketParserBuilder<'a> {
 
         if let Some(mode) = dearmor_mode {
             self.bio = Box::new(buffered_reader::Generic::with_cookie(
-                armor::Reader::from_buffered_reader(self.bio, Some(mode)),
+                armor::Reader::from_buffered_reader(
+                    buffered_reader::Adapter::new(self.bio).as_boxed(),
+                    Some(mode)),
                 None,
                 Default::default()));
         }
