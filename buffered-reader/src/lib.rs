@@ -235,6 +235,7 @@ mod limitor;
 mod reserve;
 mod dup;
 mod eof;
+mod adapter;
 #[cfg(feature = "compression-deflate")]
 mod decompress_deflate;
 #[cfg(feature = "compression-bzip2")]
@@ -246,6 +247,7 @@ pub use self::limitor::Limitor;
 pub use self::reserve::Reserve;
 pub use self::dup::Dup;
 pub use self::eof::EOF;
+pub use self::adapter::Adapter;
 #[cfg(feature = "compression-deflate")]
 pub use self::decompress_deflate::Deflate;
 #[cfg(feature = "compression-deflate")]
