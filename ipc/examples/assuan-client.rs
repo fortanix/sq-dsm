@@ -1,6 +1,4 @@
-use futures;
-use futures::future::Future;
-use futures::stream::Stream;
+use futures::StreamExt;
 use clap;
 use sequoia_ipc as ipc;
 use crate::ipc::assuan::Client;
@@ -18,14 +16,15 @@ fn main() {
              .help("Commands to send to the server"))
         .get_matches();
 
-    let mut c = Client::connect(matches.value_of("server").unwrap())
-        .wait().unwrap();
-    for command in matches.values_of("commands").unwrap() {
-        eprintln!("> {}", command);
-        c.send(command).unwrap();
-        c.by_ref().for_each(|response| {
-            eprintln!("< {:?}", response);
-            Ok(())
-        }).wait().unwrap();
-    }
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let mut c = Client::connect(matches.value_of("server").unwrap()).await.unwrap();
+        for command in matches.values_of("commands").unwrap() {
+            eprintln!("> {}", command);
+            c.send(command).unwrap();
+            while let Some(response) = c.next().await {
+                eprintln!("< {:?}", response);
+            }
+        }
+    });
 }

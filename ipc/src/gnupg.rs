@@ -8,7 +8,10 @@ use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use futures::{Async, Future, Stream};
+use futures::{Future, Stream};
+
+use std::task::{Poll, self};
+use std::pin::Pin;
 
 use sequoia_openpgp as openpgp;
 use openpgp::types::HashAlgorithm;
@@ -241,18 +244,15 @@ impl DerefMut for Agent {
 }
 
 impl Stream for Agent {
-    type Item = assuan::Response;
-    type Error = anyhow::Error;
+    type Item = Result<assuan::Response>;
 
     /// Attempt to pull out the next value of this stream, returning
     /// None if the stream is finished.
     ///
     /// Note: It _is_ safe to call this again after the stream
     /// finished, i.e. returned `Ready(None)`.
-    fn poll(&mut self)
-            -> std::result::Result<Async<Option<Self::Item>>, Self::Error>
-    {
-        self.c.poll()
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+        Pin::new(&mut self.c).poll_next(cx)
     }
 }
 
@@ -262,11 +262,9 @@ impl Agent {
     /// Note: This function does not try to start the server.  If no
     /// server is running for the given context, this operation will
     /// fail.
-    pub fn connect<'c>(ctx: &'c Context)
-                   -> impl Future<Item = Self, Error = anyhow::Error> + 'c
-    {
-        futures::lazy(move || ctx.socket("agent"))
-            .and_then(Self::connect_to)
+    pub async fn connect<'c>(ctx: &'c Context) -> Result<Self> {
+        let path = ctx.socket("agent")?;
+        Self::connect_to(path).await
     }
 
     /// Connects to the agent at the given path.
@@ -274,36 +272,32 @@ impl Agent {
     /// Note: This function does not try to start the server.  If no
     /// server is running for the given context, this operation will
     /// fail.
-    pub fn connect_to<P>(path: P)
-                         -> impl Future<Item = Self, Error = anyhow::Error>
+    pub async fn connect_to<P>(path: P) -> Result<Self>
         where P: AsRef<Path>
     {
-        assuan::Client::connect(path)
-            .and_then(|c| Ok(Agent { c }))
+        Ok(Agent { c: assuan::Client::connect(path).await? })
     }
 
     /// Creates a signature over the `digest` produced by `algo` using
     /// `key` with the secret bits managed by the agent.
-    pub fn sign<'a, R>(&'a mut self,
+    pub async fn sign<'a, R>(&'a mut self,
                        key: &'a Key<key::PublicParts, R>,
                        algo: HashAlgorithm, digest: &'a [u8])
-        -> impl Future<Item = crypto::mpi::Signature,
-                       Error = anyhow::Error> + 'a
+        -> Result<crypto::mpi::Signature>
         where R: key::KeyRole
     {
-        SigningRequest::new(&mut self.c, key, algo, digest)
+        SigningRequest::new(&mut self.c, key, algo, digest).await
     }
 
     /// Decrypts `ciphertext` using `key` with the secret bits managed
     /// by the agent.
-    pub fn decrypt<'a, R>(&'a mut self,
+    pub async fn decrypt<'a, R>(&'a mut self,
                           key: &'a Key<key::PublicParts, R>,
                           ciphertext: &'a crypto::mpi::Ciphertext)
-        -> impl Future<Item = crypto::SessionKey,
-                       Error = anyhow::Error> + 'a
+        -> Result<crypto::SessionKey>
         where R: key::KeyRole
     {
-        DecryptionRequest::new(&mut self.c, key, ciphertext)
+        DecryptionRequest::new(&mut self.c, key, ciphertext).await
     }
 
     /// Computes options that we want to communicate.
@@ -407,109 +401,110 @@ fn protocol_error<T>(response: &assuan::Response) -> Result<T> {
 impl<'a, 'b, 'c, R> Future for SigningRequest<'a, 'b, 'c, R>
     where R: key::KeyRole
 {
-    type Item = crypto::mpi::Signature;
-    type Error = anyhow::Error;
+    type Output = Result<crypto::mpi::Signature>;
 
-    fn poll(&mut self) -> std::result::Result<Async<Self::Item>, Self::Error> {
+    fn poll(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Self::Output> {
         use self::SigningRequestState::*;
 
+        // The compiler is not smart enough to figure out disjoint borrows
+        // through Pin via DerefMut (which wholly borrows `self`), so unwrap it
+        let Self { c, state, key, options, algo, digest } = Pin::into_inner(self);
+        let mut client = Pin::new(c);
+
         loop {
-            match self.state {
+            match state {
                 Start => {
-                    if self.options.is_empty() {
-                        self.c.send(format!("SIGKEY {}",
-                                            Keygrip::of(self.key.mpis())?))?;
-                        self.state = SigKey;
+                    if options.is_empty() {
+                        let grip = Keygrip::of(key.mpis())?;
+                        client.send(format!("SIGKEY {}", grip))?;
+                        *state = SigKey;
                     } else {
-                        self.c.send(self.options.pop().unwrap())?;
-                        self.state = Options;
+                        let opts = options.pop().unwrap();
+                        client.send(opts)?;
+                        *state = Options;
                     }
                 },
 
-                Options => match self.c.poll()? {
-                    Async::Ready(Some(r)) => match r {
+                Options => match client.as_mut().poll_next(cx)? {
+                    Poll::Ready(Some(r)) => match r {
                         assuan::Response::Ok { .. }
                         | assuan::Response::Comment { .. }
                         | assuan::Response::Status { .. } =>
                             (), // Ignore.
                         assuan::Response::Error { ref message, .. } =>
-                            return operation_failed(message),
+                            return Poll::Ready(operation_failed(message)),
                         _ =>
-                            return protocol_error(&r),
+                            return Poll::Ready(protocol_error(&r)),
                     },
-                    Async::Ready(None) => {
-                        if let Some(option) = self.options.pop() {
-                            self.c.send(option)?;
+                    Poll::Ready(None) => {
+                        if let Some(option) = options.pop() {
+                            client.send(option)?;
                         } else {
-                            self.c.send(format!("SIGKEY {}",
-                                                Keygrip::of(self.key.mpis())?))?;
-                            self.state = SigKey;
+                            let grip = Keygrip::of(key.mpis())?;
+                            client.send(format!("SIGKEY {}", grip))?;
+                            *state = SigKey;
                         }
                     },
-                    Async::NotReady =>
-                        return Ok(Async::NotReady),
+                    Poll::Pending => return Poll::Pending,
                 },
 
-                SigKey => match self.c.poll()? {
-                    Async::Ready(Some(r)) => match r {
+                SigKey => match client.as_mut().poll_next(cx)? {
+                    Poll::Ready(Some(r)) => match r {
                         assuan::Response::Ok { .. }
                         | assuan::Response::Comment { .. }
                         | assuan::Response::Status { .. } =>
                             (), // Ignore.
                         assuan::Response::Error { ref message, .. } =>
-                            return operation_failed(message),
+                            return Poll::Ready(operation_failed(message)),
                         _ =>
-                            return protocol_error(&r),
+                            return Poll::Ready(protocol_error(&r)),
                     },
-                    Async::Ready(None) => {
-                        self.c.send(format!("SETHASH {} {}",
-                                            u8::from(self.algo),
-                                            hex::encode(&self.digest)))?;
-                        self.state = SetHash;
+                    Poll::Ready(None) => {
+                        let algo = u8::from(*algo);
+                        let digest = hex::encode(&digest);
+                        client.send(format!("SETHASH {} {}", algo, digest))?;
+                        *state = SetHash;
                     },
-                    Async::NotReady =>
-                        return Ok(Async::NotReady),
+                    Poll::Pending => return Poll::Pending,
                 },
 
-                SetHash => match self.c.poll()? {
-                    Async::Ready(Some(r)) => match r {
+                SetHash => match client.as_mut().poll_next(cx)? {
+                    Poll::Ready(Some(r)) => match r {
                         assuan::Response::Ok { .. }
                         | assuan::Response::Comment { .. }
                         | assuan::Response::Status { .. } =>
                             (), // Ignore.
                         assuan::Response::Error { ref message, .. } =>
-                            return operation_failed(message),
+                            return Poll::Ready(operation_failed(message)),
                         _ =>
-                            return protocol_error(&r),
+                            return Poll::Ready(protocol_error(&r)),
                     },
-                    Async::Ready(None) => {
-                        self.c.send("PKSIGN")?;
-                        self.state = PkSign(Vec::new());
+                    Poll::Ready(None) => {
+                        client.send("PKSIGN")?;
+                        *state = PkSign(Vec::new());
                     },
-                    Async::NotReady =>
-                        return Ok(Async::NotReady),
+                    Poll::Pending => return Poll::Pending,
                 },
 
 
-                PkSign(ref mut data) => match self.c.poll()? {
-                    Async::Ready(Some(r)) => match r {
+                PkSign(ref mut data) => match client.as_mut().poll_next(cx)? {
+                    Poll::Ready(Some(r)) => match r {
                         assuan::Response::Ok { .. }
                         | assuan::Response::Comment { .. }
                         | assuan::Response::Status { .. } =>
                             (), // Ignore.
                         assuan::Response::Error { ref message, .. } =>
-                            return operation_failed(message),
+                            return Poll::Ready(operation_failed(message)),
                         assuan::Response::Data { ref partial } =>
                             data.extend_from_slice(partial),
                         _ =>
-                            return protocol_error(&r),
+                            return Poll::Ready(protocol_error(&r)),
                     },
-                    Async::Ready(None) => {
-                        return Ok(Async::Ready(
-                            Sexp::from_bytes(&data)?.to_signature()?));
+                    Poll::Ready(None) => {
+                        return Poll::Ready(
+                            Sexp::from_bytes(&data)?.to_signature());
                     },
-                    Async::NotReady =>
-                        return Ok(Async::NotReady),
+                    Poll::Pending => return Poll::Pending,
                 },
             }
         }
@@ -555,70 +550,73 @@ enum DecryptionRequestState {
 impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
     where R: key::KeyRole
 {
-    type Item = crypto::SessionKey;
-    type Error = anyhow::Error;
+    type Output = Result<crypto::SessionKey>;
 
-    fn poll(&mut self) -> std::result::Result<Async<Self::Item>, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Self::Output> {
         use self::DecryptionRequestState::*;
 
+        // The compiler is not smart enough to figure out disjoint borrows
+        // through Pin via DerefMut (which wholly borrows `self`), so unwrap it
+        let Self { c, state, key, ciphertext, options } = self.deref_mut();
+        let mut client = Pin::new(c);
+
         loop {
-            match self.state {
+            match state {
                 Start => {
-                    if self.options.is_empty() {
-                        self.c.send(format!("SETKEY {}",
-                                            Keygrip::of(self.key.mpis())?))?;
-                        self.state = SetKey;
+                    if options.is_empty() {
+                        let grip = Keygrip::of(key.mpis())?;
+                        client.send(format!("SETKEY {}", grip))?;
+                        *state = SetKey;
                     } else {
-                        self.c.send(self.options.pop().unwrap())?;
-                        self.state = Options;
+                        let opts = options.pop().unwrap();
+                        client.send(opts)?;
+                        *state = Options;
                     }
                 },
 
-                Options => match self.c.poll()? {
-                    Async::Ready(Some(r)) => match r {
+                Options => match client.as_mut().poll_next(cx)? {
+                    Poll::Ready(Some(r)) => match r {
                         assuan::Response::Ok { .. }
                         | assuan::Response::Comment { .. }
                         | assuan::Response::Status { .. } =>
                             (), // Ignore.
                         assuan::Response::Error { ref message, .. } =>
-                            return operation_failed(message),
+                            return Poll::Ready(operation_failed(message)),
                         _ =>
-                            return protocol_error(&r),
+                            return Poll::Ready(protocol_error(&r)),
                     },
-                    Async::Ready(None) => {
-                        if let Some(option) = self.options.pop() {
-                            self.c.send(option)?;
+                    Poll::Ready(None) => {
+                        if let Some(option) = options.pop() {
+                            client.send(option)?;
                         } else {
-                            self.c.send(format!("SETKEY {}",
-                                                Keygrip::of(self.key.mpis())?))?;
-                            self.state = SetKey;
+                            let grip = Keygrip::of(key.mpis())?;
+                            client.send(format!("SETKEY {}", grip))?;
+                            *state = SetKey;
                         }
                     },
-                    Async::NotReady =>
-                        return Ok(Async::NotReady),
+                    Poll::Pending => return Poll::Pending,
                 },
 
-                SetKey => match self.c.poll()? {
-                    Async::Ready(Some(r)) => match r {
+                SetKey => match client.as_mut().poll_next(cx)? {
+                    Poll::Ready(Some(r)) => match r {
                         assuan::Response::Ok { .. }
                         | assuan::Response::Comment { .. }
                         | assuan::Response::Status { .. } =>
                             (), // Ignore.
                         assuan::Response::Error { ref message, .. } =>
-                            return operation_failed(message),
+                            return Poll::Ready(operation_failed(message)),
                         _ =>
-                            return protocol_error(&r),
+                            return Poll::Ready(protocol_error(&r)),
                     },
-                    Async::Ready(None) => {
-                        self.c.send("PKDECRYPT")?;
-                        self.state = PkDecrypt;
+                    Poll::Ready(None) => {
+                        client.send("PKDECRYPT")?;
+                        *state = PkDecrypt;
                     },
-                    Async::NotReady =>
-                        return Ok(Async::NotReady),
+                    Poll::Pending => return Poll::Pending,
                 },
 
-                PkDecrypt => match self.c.poll()? {
-                    Async::Ready(Some(r)) => match r {
+                PkDecrypt => match client.as_mut().poll_next(cx)? {
+                    Poll::Ready(Some(r)) => match r {
                         assuan::Response::Inquire { ref keyword, .. }
                           if keyword == "CIPHERTEXT" =>
                             (), // What we expect.
@@ -626,24 +624,23 @@ impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
                         | assuan::Response::Status { .. } =>
                             (), // Ignore.
                         assuan::Response::Error { ref message, .. } =>
-                            return operation_failed(message),
+                            return Poll::Ready(operation_failed(message)),
                         _ =>
-                            return protocol_error(&r),
+                            return Poll::Ready(protocol_error(&r)),
                     },
-                    Async::Ready(None) => {
+                    Poll::Ready(None) => {
                         let mut buf = Vec::new();
-                        Sexp::try_from(self.ciphertext)?
+                        Sexp::try_from(*ciphertext)?
                             .serialize(&mut buf)?;
-                        self.c.data(&buf)?;
-                        self.state = Inquire(Vec::new(), true);
+                        client.data(&buf)?;
+                        *state = Inquire(Vec::new(), true);
                     },
-                    Async::NotReady =>
-                        return Ok(Async::NotReady),
+                    Poll::Pending => return Poll::Pending,
                 },
 
 
-                Inquire(ref mut data, ref mut padding) => match self.c.poll()? {
-                    Async::Ready(Some(r)) => match r {
+                Inquire(ref mut data, ref mut padding) => match client.as_mut().poll_next(cx)? {
+                    Poll::Ready(Some(r)) => match r {
                         assuan::Response::Ok { .. }
                         | assuan::Response::Comment { .. } =>
                             (), // Ignore.
@@ -652,13 +649,13 @@ impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
                                 *padding = &message != &"0";
                             },
                         assuan::Response::Error { ref message, .. } =>
-                            return operation_failed(message),
+                            return Poll::Ready(operation_failed(message)),
                         assuan::Response::Data { ref partial } =>
                             data.extend_from_slice(partial),
                         _ =>
-                            return protocol_error(&r),
+                            return Poll::Ready(protocol_error(&r)),
                     },
-                    Async::Ready(None) => {
+                    Poll::Ready(None) => {
                         // Get rid of the safety-0.
                         //
                         // gpg-agent seems to add a trailing 0,
@@ -668,13 +665,12 @@ impl<'a, 'b, 'c, R> Future for DecryptionRequest<'a, 'b, 'c, R>
                             data.truncate(l - 1);
                         }
 
-                        return Ok(Async::Ready(
+                        return Poll::Ready(
                             Sexp::from_bytes(&data)?.finish_decryption(
-                                self.key, self.ciphertext, *padding)?
-                        ));
+                            key, ciphertext, *padding)
+                        );
                     },
-                    Async::NotReady =>
-                        return Ok(Async::NotReady),
+                    Poll::Pending => return Poll::Pending,
                 },
             }
         }
@@ -727,9 +723,13 @@ impl<'a> crypto::Signer for KeyPair<'a> {
                 | (DSA, PublicKey::DSA { .. })
                 | (EdDSA, PublicKey::EdDSA { .. })
                 | (ECDSA, PublicKey::ECDSA { .. }) => {
-                    let mut a = Agent::connect_to(&self.agent_socket).wait()?;
-                    let sig = a.sign(self.public, hash_algo, digest).wait()?;
-                    Ok(sig)
+                    let mut rt = tokio::runtime::Runtime::new()?;
+
+                    rt.block_on(async move {
+                        let mut a = Agent::connect_to(&self.agent_socket).await?;
+                        let sig = a.sign(self.public, hash_algo, digest).await?;
+                        Ok(sig)
+                    })
                 },
 
             (pk_algo, _) => Err(openpgp::Error::InvalidOperation(format!(
@@ -754,9 +754,13 @@ impl<'a> crypto::Decryptor for KeyPair<'a> {
             (PublicKey::RSA { .. }, Ciphertext::RSA { .. })
                 | (PublicKey::ElGamal { .. }, Ciphertext::ElGamal { .. })
                 | (PublicKey::ECDH { .. }, Ciphertext::ECDH { .. }) => {
-                    let mut a = Agent::connect_to(&self.agent_socket).wait()?;
-                    let sk = a.decrypt(self.public, ciphertext).wait()?;
-                    Ok(sk)
+                    let mut rt = tokio::runtime::Runtime::new()?;
+
+                    rt.block_on(async move {
+                        let mut a = Agent::connect_to(&self.agent_socket).await?;
+                        let sk = a.decrypt(self.public, ciphertext).await?;
+                        Ok(sk)
+                    })
                 },
 
             (public, ciphertext) =>

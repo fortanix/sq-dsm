@@ -3,16 +3,18 @@
 #![warn(missing_docs)]
 
 use std::cmp;
-use std::io::{Write, BufReader};
+use std::io::Write;
 use std::mem;
 use std::path::Path;
+use std::pin::Pin;
+use std::task::{Poll, Context};
 
 use lalrpop_util::ParseError;
 
-use futures::{future, Async, Future, Stream};
-use parity_tokio_ipc::IpcConnection;
-use tokio_io::io;
-use tokio_io::AsyncRead;
+use futures::{Future, Stream, StreamExt};
+use parity_tokio_ipc::Connection;
+use tokio::io::{BufReader, ReadHalf, WriteHalf};
+use tokio::io::{AsyncRead, AsyncWriteExt};
 
 use crate::openpgp;
 
@@ -58,30 +60,26 @@ lalrpop_util::lalrpop_mod!(
 /// [`Connection::data()`]: #method.data
 /// [`Connection::cancel()`]: #method.cancel
 pub struct Client {
-    r: BufReader<io::ReadHalf<IpcConnection>>, // xxx: abstract over
+    r: BufReader<ReadHalf<Connection>>, // xxx: abstract over
     buffer: Vec<u8>,
     done: bool,
     w: WriteState,
 }
 
 enum WriteState {
-    Ready(io::WriteHalf<IpcConnection>),
-    Sending(future::FromErr<io::WriteAll<io::WriteHalf<IpcConnection>, Vec<u8>>, anyhow::Error>),
+    Ready(WriteHalf<Connection>),
+    Sending(Pin<Box<dyn Future<Output = Result<WriteHalf<Connection>, anyhow::Error>>>>),
     Transitioning,
     Dead,
 }
 
 impl Client {
     /// Connects to the server.
-    pub fn connect<P>(path: P)
-        -> impl Future<Item = Client, Error = anyhow::Error>
-        where P: AsRef<Path>
-    {
+    pub async fn connect<P>(path: P) -> Result<Client> where P: AsRef<Path> {
         // XXX: Implement Windows support using TCP + nonce approach used upstream
         // https://gnupg.org/documentation/manuals/assuan.pdf#Socket%20wrappers
-        future::result(IpcConnection::connect(path, &Default::default()))
-            .map_err(Into::into)
-            .and_then(ConnectionFuture::new)
+        let connection = parity_tokio_ipc::Endpoint::connect(path).await?;
+        Ok(ConnectionFuture::new(connection).await?)
     }
 
     /// Lazily sends a command to the server.
@@ -118,13 +116,16 @@ impl Client {
         self.w =
             match mem::replace(&mut self.w, WriteState::Transitioning)
         {
-            WriteState::Ready(sink) => {
+            WriteState::Ready(mut sink) => {
                 let command = command.as_ref();
                 let mut c = command.to_vec();
                 if ! c.ends_with(b"\n") {
                     c.push(0x0a);
                 }
-                WriteState::Sending(io::write_all(sink, c).from_err())
+                WriteState::Sending(Box::pin(async move {
+                    sink.write_all(&c).await?;
+                    Ok(sink)
+                }))
             },
             _ => unreachable!(),
         };
@@ -192,8 +193,8 @@ impl Client {
 struct ConnectionFuture(Option<Client>);
 
 impl ConnectionFuture {
-    fn new(c: IpcConnection) -> Self {
-        let (r, w) = c.split();
+    fn new(c: Connection) -> Self {
+        let (r, w) = tokio::io::split(c);
         let buffer = Vec::with_capacity(MAX_LINE_LENGTH);
         Self(Some(Client {
             r: BufReader::new(r), buffer, done: false,
@@ -203,19 +204,19 @@ impl ConnectionFuture {
 }
 
 impl Future for ConnectionFuture {
-    type Item = Client;
-    type Error = anyhow::Error;
+    type Output = Result<Client>;
 
-    fn poll(&mut self) -> std::result::Result<Async<Self::Item>, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Consume the initial message from the server.
-        match self.0.as_mut().expect("future polled after completion")
-            .by_ref().collect().poll()?
-        {
-            Async::Ready(response) => {
-                match response.iter().last() {
-                    Some(Response::Ok { .. }) =>
-                        Ok(Async::Ready(self.0.take().unwrap())),
-                    Some(Response::Error { code, message }) =>
+        let client: &mut Client = self.0.as_mut().expect("future polled after completion");
+        let mut responses = client.by_ref().collect::<Vec<_>>();
+
+        match Pin::new(&mut responses).poll(cx) {
+            Poll::Ready(response) => {
+                Poll::Ready(match response.iter().last() {
+                    Some(Ok(Response::Ok { .. })) =>
+                        Ok(self.0.take().unwrap()),
+                    Some(Ok(Response::Error { code, message })) =>
                         Err(Error::HandshakeFailed(
                             format!("Error {}: {:?}", code, message)).into()),
                     l @ Some(_) =>
@@ -225,25 +226,22 @@ impl Future for ConnectionFuture {
                     None => // XXX does that happen?
                         Err(Error::HandshakeFailed(
                             "No data received from server".into()).into()),
-                }
+                })
             },
-            Async::NotReady => Ok(Async::NotReady),
+            Poll::Pending => Poll::Pending,
         }
     }
 }
 
 impl Stream for Client {
-    type Item = Response;
-    type Error = anyhow::Error;
+    type Item = Result<Response>;
 
     /// Attempt to pull out the next value of this stream, returning
     /// None if the stream is finished.
     ///
     /// Note: It _is_ safe to call this again after the stream
     /// finished, i.e. returned `Ready(None)`.
-    fn poll(&mut self)
-            -> std::result::Result<Async<Option<Self::Item>>, Self::Error>
-    {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // First, handle sending of the command.
         match self.w {
             WriteState::Ready(_) =>
@@ -252,12 +250,12 @@ impl Stream for Client {
                 self.w = if let WriteState::Sending(mut f) =
                     mem::replace(&mut self.w, WriteState::Transitioning)
                 {
-                    match f.poll() {
-                        Ok(Async::Ready((sink, _))) => WriteState::Ready(sink),
-                        Ok(Async::NotReady) => WriteState::Sending(f),
-                        Err(e) => {
+                    match f.as_mut().poll(cx) {
+                        Poll::Ready(Ok(sink)) => WriteState::Ready(sink),
+                        Poll::Pending => WriteState::Sending(f),
+                        Poll::Ready(Err(e)) => {
                             self.w = WriteState::Dead;
-                            return Err(e);
+                            return Poll::Ready(Some(Err(e)));
                         },
                     }
                 } else {
@@ -272,7 +270,7 @@ impl Stream for Client {
 
         // Recheck if we are still sending the command.
         if let WriteState::Sending(_) = self.w {
-            return Ok(Async::NotReady);
+            return Poll::Pending;
         }
 
         // Check if the previous response was one of ok, error, or
@@ -280,51 +278,55 @@ impl Stream for Client {
         if self.done {
             // If so, we signal end of stream here.
             self.done = false;
-            return Ok(Async::Ready(None));
+            return Poll::Ready(None);
         }
 
+        // The compiler is not smart enough to figure out disjoint borrows
+        // through Pin via DerefMut (which wholly borrows `self`), so unwrap it
+        let Self { buffer, done, r, .. } = Pin::into_inner(self);
+        let mut reader = Pin::new(r);
         loop {
             // Try to yield a line from the buffer.  For that, try to
             // find linebreaks.
-            if let Some(p) = self.buffer.iter().position(|&b| b == 0x0a) {
-                let line: Vec<u8> = self.buffer.drain(..p+1).collect();
+            if let Some(p) = buffer.iter().position(|&b| b == 0x0a) {
+                let line: Vec<u8> = buffer.drain(..p+1).collect();
                 // xxx: rtrim linebreak even more? crlf maybe?
                 let r = Response::parse(&line[..line.len()-1])?;
                 // If this response is one of ok, error, or inquire,
                 // we want to surrender control to the client next
                 // time she asks for an item.
-                self.done = r.is_done();
-                return Ok(Async::Ready(Some(r)));
+                *done = r.is_done();
+                return Poll::Ready(Some(Ok(r)));
             }
 
             // No more linebreaks in the buffer.  We need to get more.
             // First, grow the buffer.
-            let buffer_len = self.buffer.len();
-            self.buffer.resize(buffer_len + MAX_LINE_LENGTH, 0);
+            let buffer_len = buffer.len();
+            buffer.resize(buffer_len + MAX_LINE_LENGTH, 0);
 
-            match self.r.poll_read(&mut self.buffer[buffer_len..])? {
-                Async::Ready(n_read) if n_read == 0 => {
+            match reader.as_mut().poll_read(cx, &mut buffer[buffer_len..])? {
+                Poll::Ready(n_read) if n_read == 0 => {
                     // EOF.
-                    self.buffer.resize(buffer_len, 0);
-                    if ! self.buffer.is_empty() {
+                    buffer.resize(buffer_len, 0);
+                    if ! buffer.is_empty() {
                         // Incomplete server response.
-                        return Err(Error::ConnectionClosed(
-                            self.buffer.clone()).into());
+                        return Poll::Ready(Some(Err(Error::ConnectionClosed(
+                            buffer.clone()).into())));
 
                     }
 
                     // End of stream.
-                    return Ok(Async::Ready(None));
+                    return Poll::Ready(None);
                 },
 
-                Async::Ready(n_read) => {
-                    self.buffer.resize(buffer_len + n_read, 0);
+                Poll::Ready(n_read) => {
+                    buffer.resize(buffer_len + n_read, 0);
                     continue;
                 },
 
-                Async::NotReady => {
-                    self.buffer.resize(buffer_len, 0);
-                    return Ok(Async::NotReady);
+                Poll::Pending => {
+                    buffer.resize(buffer_len, 0);
+                    return Poll::Pending;
                 },
             }
         }

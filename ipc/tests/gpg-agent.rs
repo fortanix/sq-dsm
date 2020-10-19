@@ -2,9 +2,7 @@
 
 use std::io::{self, Write};
 
-use futures;
-use futures::future::Future;
-use futures::stream::Stream;
+use futures::StreamExt;
 
 use sequoia_openpgp as openpgp;
 use crate::openpgp::types::{
@@ -42,23 +40,23 @@ macro_rules! make_context {
     }};
 }
 
-#[test]
-fn nop() -> openpgp::Result<()> {
+#[tokio::test]
+async fn nop() -> openpgp::Result<()> {
     let ctx = make_context!();
-    let mut agent = Agent::connect(&ctx).wait().unwrap();
+    let mut agent = Agent::connect(&ctx).await.unwrap();
     agent.send("NOP").unwrap();
-    let response = agent.wait().collect::<Vec<_>>();
+    let response = agent.collect::<Vec<_>>().await;
     assert_eq!(response.len(), 1);
     assert!(response[0].is_ok());
     Ok(())
 }
 
-#[test]
-fn help() -> openpgp::Result<()>  {
+#[tokio::test]
+async fn help() -> openpgp::Result<()>  {
     let ctx = make_context!();
-    let mut agent = Agent::connect(&ctx).wait().unwrap();
+    let mut agent = Agent::connect(&ctx).await.unwrap();
     agent.send("HELP").unwrap();
-    let response = agent.wait().collect::<Vec<_>>();
+    let response = agent.collect::<Vec<_>>().await;
     assert!(response.len() > 3);
     assert!(response.iter().last().unwrap().is_ok());
     Ok(())

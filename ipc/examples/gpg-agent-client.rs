@@ -1,8 +1,6 @@
 /// Connects to and sends commands to gpg-agent.
 
-use futures;
-use futures::future::Future;
-use futures::stream::Stream;
+use futures::StreamExt;
 use clap;
 use sequoia_ipc as ipc;
 use crate::ipc::gnupg::{Context, Agent};
@@ -25,14 +23,17 @@ fn main() {
     } else {
         Context::new().unwrap()
     };
-    let mut agent = Agent::connect(&ctx).wait().unwrap();
 
-    for command in matches.values_of("commands").unwrap() {
-        eprintln!("> {}", command);
-        agent.send(command).unwrap();
-        agent.by_ref().for_each(|response| {
-            eprintln!("< {:?}", response);
-            Ok(())
-        }).wait().unwrap();
-    }
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let mut agent = Agent::connect(&ctx).await.unwrap();
+
+        for command in matches.values_of("commands").unwrap() {
+            eprintln!("> {}", command);
+            agent.send(command).unwrap();
+            while let Some(response) = agent.next().await {
+                eprintln!("< {:?}", response);
+            }
+        }
+    });
 }
