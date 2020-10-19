@@ -410,7 +410,10 @@ impl<'a> StandardPolicy<'a> {
     /// reference time must be set---at the earliest---to the time
     /// that the message was stored to non-tamperable storage.  When
     /// that is not available, the current time should be used.
-    pub fn at(time: SystemTime) -> Self {
+    pub fn at<T>(time: T) -> Self
+        where T: Into<SystemTime>,
+    {
+        let time = time.into();
         let mut p = Self::new();
         p.time = Some(system_time_cutoff_to_timestamp(time)
                           // Map "ACCEPT" to the end of time (None
