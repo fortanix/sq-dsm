@@ -16,7 +16,7 @@ pub struct Generic<T: io::Read, C> {
     // The preferred chunk size.  This is just a hint.
     preferred_chunk_size: usize,
     // The wrapped reader.
-    reader: Box<T>,
+    reader: T,
 
     // The user settable cookie.
     cookie: C,
@@ -66,7 +66,7 @@ impl<T: io::Read, C> Generic<T, C> {
             preferred_chunk_size:
                 if let Some(s) = preferred_chunk_size { s }
                 else { DEFAULT_BUF_SIZE },
-            reader: Box::new(reader),
+            reader,
             cookie,
         }
     }
@@ -83,7 +83,7 @@ impl<T: io::Read, C> Generic<T, C> {
 
     /// Returns the wrapped writer.
     pub fn into_reader(self) -> T {
-        *self.reader
+        self.reader
     }
 
     /// Return the buffer.  Ensure that it contains at least `amount`
