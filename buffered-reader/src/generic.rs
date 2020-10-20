@@ -21,6 +21,8 @@ pub struct Generic<T: io::Read, C> {
     preferred_chunk_size: usize,
     // The wrapped reader.
     reader: T,
+    // Stashed error, if any.
+    error: Option<Error>,
 
     // The user settable cookie.
     cookie: C,
@@ -71,6 +73,7 @@ impl<T: io::Read, C> Generic<T, C> {
                 if let Some(s) = preferred_chunk_size { s }
                 else { DEFAULT_BUF_SIZE },
             reader,
+            error: None,
             cookie,
         }
     }
@@ -102,6 +105,11 @@ impl<T: io::Read, C> Generic<T, C> {
         //          else { None });
 
 
+        // See if there is an error from the last invocation.
+        if let Some(e) = self.error.take() {
+            return Err(e);
+        }
+
         if let Some(ref buffer) = self.buffer {
             // We have a buffer.  Make sure `cursor` is sane.
             assert!(self.cursor <= buffer.len());
@@ -109,8 +117,6 @@ impl<T: io::Read, C> Generic<T, C> {
             // We don't have a buffer.  Make sure cursor is 0.
             assert_eq!(self.cursor, 0);
         }
-
-        let mut error = None;
 
         let amount_buffered
             = self.buffer.as_ref().map(|b| b.len() - self.cursor).unwrap_or(0);
@@ -141,7 +147,7 @@ impl<T: io::Read, C> Generic<T, C> {
                     Err(err) => {
                         // Don't return yet, because we may have
                         // actually read something.
-                        error = Some(err);
+                        self.error = Some(err);
                         break;
                     },
                 }
@@ -167,14 +173,14 @@ impl<T: io::Read, C> Generic<T, C> {
         let amount_buffered
             = self.buffer.as_ref().map(|b| b.len() - self.cursor).unwrap_or(0);
 
-        if let Some(error) = error {
+        if self.error.is_some() {
             // An error occurred.  If we have enough data to fulfill
             // the caller's request, then don't return the error.
             if hard && amount > amount_buffered {
-                return Err(error);
+                return Err(self.error.take().unwrap());
             }
             if !hard && amount_buffered == 0 {
-                return Err(error);
+                return Err(self.error.take().unwrap());
             }
         }
 
