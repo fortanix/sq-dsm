@@ -32,7 +32,7 @@ lazy_static = "1.0.0"
 libc = "0.2.33"
 memsec = { version = "0.6", default-features = false }
 native-tls = "0.2.0"
-tokio-core = "0.1"
+tokio = { version = "0.2", features = ["rt-core", "io-driver", "io-util", "time"] }
 
 [dev-dependencies]
 filetime = "0.2"

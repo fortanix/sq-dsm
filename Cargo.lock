@@ -1975,7 +1975,7 @@ dependencies = [
  "sequoia-net",
  "sequoia-openpgp",
  "sequoia-store",
- "tokio-core",
+ "tokio 0.2.22",
 ]
 
 [[package]]
