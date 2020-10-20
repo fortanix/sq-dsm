@@ -535,11 +535,36 @@ impl<'a> From<PacketParserResult<'a>> for CertParser<'a>
 {
     /// Initializes a `CertParser` from a `PacketParser`.
     fn from(ppr: PacketParserResult<'a>) -> Self {
+        use std::io::ErrorKind::UnexpectedEof;
         let mut parser : Self = Default::default();
         if let PacketParserResult::Some(pp) = ppr {
             let mut ppp : Box<Option<PacketParser>> = Box::new(Some(pp));
+            let mut retry_with_reader = Box::new(None);
             parser.source = Some(
                 Box::new(std::iter::from_fn(move || {
+                    if let Some(reader) = retry_with_reader.take() {
+                        // Try to find the next (armored) blob.
+                        match PacketParser::from_buffered_reader(reader) {
+                            Ok(PacketParserResult::Some(pp)) => {
+                                // We read at least one packet.  Try
+                                // to parse the next cert.
+                                *ppp = Some(pp);
+                            },
+                            Ok(PacketParserResult::EOF(_)) =>
+                                (), // No dice.
+                            Err(err) => {
+                                // See if we just reached the end.
+                                if let Some(e) = err.downcast_ref::<io::Error>()
+                                {
+                                    if e.kind() == UnexpectedEof {
+                                        return None;
+                                    }
+                                }
+                                return Some(Err(err));
+                            },
+                        }
+                    }
+
                     if let Some(mut pp) = ppp.take() {
                         if let Packet::Unknown(_) = pp.packet {
                             // Buffer unknown packets.  This may be a
@@ -552,8 +577,12 @@ impl<'a> From<PacketParserResult<'a>> for CertParser<'a>
 
                         match pp.next() {
                             Ok((packet, ppr)) => {
-                                if let PacketParserResult::Some(pp) = ppr {
-                                    *ppp = Some(pp);
+                                match ppr {
+                                    PacketParserResult::Some(pp) =>
+                                        *ppp = Some(pp),
+                                    PacketParserResult::EOF(eof) =>
+                                        *retry_with_reader =
+                                            Some(eof.into_reader()),
                                 }
                                 Some(Ok(packet))
                             },
@@ -1377,6 +1406,21 @@ mod test {
         assert!(cp[1].is_err());
         cert_cmp(&cp[2], &cert);
 
+        Ok(())
+    }
+
+    #[test]
+    fn concatenated_armored_certs() -> Result<()> {
+        let mut keyring = Vec::new();
+        keyring.extend_from_slice(b"some\ntext\n");
+        keyring.extend_from_slice(crate::tests::key("testy.asc"));
+        keyring.extend_from_slice(crate::tests::key("testy.asc"));
+        keyring.extend_from_slice(b"some\ntext\n");
+        keyring.extend_from_slice(crate::tests::key("testy.asc"));
+        keyring.extend_from_slice(b"some\ntext\n");
+        let certs = CertParser::from_bytes(&keyring)?.collect::<Vec<_>>();
+        assert_eq!(certs.len(), 3);
+        assert!(certs.iter().all(|c| c.is_ok()));
         Ok(())
     }
 }
