@@ -967,7 +967,8 @@ fn buffered_reader_stack_pop<'a>(
 
     let mut last_level = None;
     while let Some(level) = reader.cookie_ref().level {
-        assert!(level <= depth);
+        assert!(level <= depth // Peel off exactly one level.
+                || depth < 0); // Except for the topmost filters.
 
         if level >= depth {
             let fake_eof = reader.cookie_ref().fake_eof;
@@ -4466,6 +4467,9 @@ impl <'a> PacketParser<'a> {
 
                     if ! fake_eof && recursion_depth == 0 {
                         t!("Popped top-level container, done reading message.");
+                        // Pop topmost filters (e.g. the armor::Reader).
+                        let (_, reader_) = buffered_reader_stack_pop(
+                            reader_, -2)?;
                         let mut eof = PacketParserEOF::new(state_, reader_);
                         eof.last_path = self.last_path;
                         return Ok((self.packet,

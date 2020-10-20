@@ -415,8 +415,11 @@ impl<'a> PacketParserBuilder<'a> {
         };
 
         if let Some(mode) = dearmor_mode {
+            // Add a top-level filter so that it is peeled off when
+            // the packet parser is finished.  We use level -2 for that.  
             self.bio =
-                armor::Reader::from_buffered_reader(self.bio, Some(mode))
+                armor::Reader::from_buffered_reader(self.bio, Some(mode),
+                                                    Cookie::new(-2))
                 .as_boxed();
         }
 

@@ -549,7 +549,7 @@ impl<'a> Reader<'a> {
         Self::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(inner, None,
                                                            Default::default())),
-            mode)
+            mode, Default::default())
     }
 
     /// Creates a `Reader` from an `io::Read`er.
@@ -560,7 +560,7 @@ impl<'a> Reader<'a> {
         Self::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(reader, None,
                                                            Default::default())),
-            mode)
+            mode, Default::default())
     }
 
     /// Creates a `Reader` from a file.
@@ -571,7 +571,7 @@ impl<'a> Reader<'a> {
         Ok(Self::from_buffered_reader(
             Box::new(buffered_reader::File::with_cookie(path,
                                                         Default::default())?),
-            mode))
+            mode, Default::default()))
     }
 
     /// Creates a `Reader` from a buffer.
@@ -581,11 +581,12 @@ impl<'a> Reader<'a> {
         Self::from_buffered_reader(
             Box::new(buffered_reader::Memory::with_cookie(bytes,
                                                           Default::default())),
-            mode)
+            mode, Default::default())
     }
 
     pub(crate) fn from_buffered_reader<M>(
-        inner: Box<dyn BufferedReader<Cookie> + 'a>, mode: M) -> Self
+        inner: Box<dyn BufferedReader<Cookie> + 'a>, mode: M, cookie: Cookie)
+        -> Self
         where M: Into<Option<ReaderMode>>
     {
         let mode = mode.into().unwrap_or(Default::default());
@@ -607,7 +608,7 @@ impl<'a> Reader<'a> {
         Reader {
             reader: buffered_reader::Generic::with_cookie(io_reader,
                                                           None,
-                                                          Default::default()),
+                                                          cookie),
         }
     }
 
