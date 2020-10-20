@@ -1003,6 +1003,9 @@ fn buffered_reader_stack_pop<'a>(
                 t!("Popped a fake EOF reader at level {}, stopping.", depth);
                 return Ok((true, reader));
             }
+
+            t!("now at level {:?} reader: {:?}",
+               reader.cookie_ref().level, reader);
         } else {
             break;
         }
