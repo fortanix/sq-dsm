@@ -432,9 +432,9 @@ impl<'a> PacketParserBuilder<'a> {
                 pp.state.cert_validator.push(pp.packet.tag());
                 Ok(PacketParserResult::Some(pp))
             },
-            ParserResult::EOF((_reader, state, _path)) => {
+            ParserResult::EOF((reader, state, _path)) => {
                 // `bio` is empty.  We're done.
-                Ok(PacketParserResult::EOF(PacketParserEOF::new(state)))
+                Ok(PacketParserResult::EOF(PacketParserEOF::new(state, reader)))
             }
         }
     }

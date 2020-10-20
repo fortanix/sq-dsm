@@ -3327,24 +3327,35 @@ enum ParserResult<'a> {
 /// # Ok(()) }
 /// ```
 #[derive(Debug)]
-pub struct PacketParserEOF {
+pub struct PacketParserEOF<'a> {
     state: PacketParserState,
-
+    reader: Box<dyn BufferedReader<Cookie> + 'a>,
     last_path: Vec<usize>,
 }
 
-impl PacketParserEOF {
+impl<'a> PacketParserEOF<'a> {
     /// Copies the important information in `pp` into a new
     /// `PacketParserEOF` instance.
-    fn new(mut state: PacketParserState) -> Self {
+    fn new(mut state: PacketParserState,
+           reader: Box<dyn BufferedReader<Cookie> + 'a>)
+           -> Self {
         state.message_validator.finish();
         state.keyring_validator.finish();
         state.cert_validator.finish();
 
         PacketParserEOF {
-            state: state,
+            state,
+            reader,
             last_path: vec![],
         }
+    }
+
+    /// Creates a placeholder instance for PacketParserResult::take.
+    fn empty() -> Self {
+        Self::new(
+            PacketParserState::new(Default::default()),
+            buffered_reader::Memory::with_cookie(b"", Default::default())
+                .as_boxed())
     }
 
     /// Returns whether the stream is an OpenPGP Message.
@@ -3554,6 +3565,11 @@ impl PacketParserEOF {
             Some(self.last_path.len() as isize - 1)
         }
     }
+
+    /// Returns the exhausted reader.
+    pub fn into_reader(self) -> Box<dyn BufferedReader<Cookie> + 'a> {
+        self.reader
+    }
 }
 
 /// The result of parsing a packet.
@@ -3575,7 +3591,7 @@ pub enum PacketParserResult<'a> {
     /// A `PacketParser` for the next packet.
     Some(PacketParser<'a>),
     /// Information about a fully parsed packet sequence.
-    EOF(PacketParserEOF),
+    EOF(PacketParserEOF<'a>),
 }
 
 impl<'a> PacketParserResult<'a> {
@@ -3642,7 +3658,8 @@ impl<'a> PacketParserResult<'a> {
     /// Produces a new `Result`, containing mutable references into the
     /// original `PacketParserResult`, leaving the original in place.
     pub fn as_mut(&mut self)
-                  -> StdResult<&mut PacketParser<'a>, &mut PacketParserEOF> {
+                  -> StdResult<&mut PacketParser<'a>, &mut PacketParserEOF<'a>>
+    {
         match self {
             PacketParserResult::Some(pp) => Ok(pp),
             PacketParserResult::EOF(eof) => Err(eof),
@@ -3659,15 +3676,13 @@ impl<'a> PacketParserResult<'a> {
     pub fn take(&mut self) -> Self {
         mem::replace(
             self,
-            PacketParserResult::EOF(
-                PacketParserEOF::new(
-                    PacketParserState::new(Default::default()))))
+            PacketParserResult::EOF(PacketParserEOF::empty()))
     }
 
     /// Maps a `PacketParserResult` to `Result<PacketParser,
     /// PacketParserEOF>` by applying a function to a contained `Some`
     /// value, leaving an `EOF` value untouched.
-    pub fn map<U, F>(self, f: F) -> StdResult<U, PacketParserEOF>
+    pub fn map<U, F>(self, f: F) -> StdResult<U, PacketParserEOF<'a>>
         where F: FnOnce(PacketParser<'a>) -> U
     {
         match self {
@@ -4448,7 +4463,7 @@ impl <'a> PacketParser<'a> {
 
                     if ! fake_eof && recursion_depth == 0 {
                         t!("Popped top-level container, done reading message.");
-                        let mut eof = PacketParserEOF::new(state_);
+                        let mut eof = PacketParserEOF::new(state_, reader_);
                         eof.last_path = self.last_path;
                         return Ok((self.packet,
                                    PacketParserResult::EOF(eof)));
