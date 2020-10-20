@@ -702,7 +702,7 @@ pub struct Cookie {
     /// buffering, the decompressor consumes data beyond the end of
     /// the compressed data.
     ///
-    /// When set, buffered_reader_pop_stack will return early when it
+    /// When set, buffered_reader_stack_pop will return early when it
     /// encounters a fake EOF at the level it is popping to.
     fake_eof: bool,
 }
