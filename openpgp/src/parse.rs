@@ -613,9 +613,13 @@ enum Hashing {
     Disabled,
 }
 
-
+/// Private state used by the `PacketParser`.
+///
+/// This is not intended to be used.  It is possible to explicitly
+/// create `Cookie` instances using its `Default` implementation for
+/// low-level interfacing with parsing code.
 #[derive(Debug)]
-pub(crate) struct Cookie {
+pub struct Cookie {
     // `BufferedReader`s managed by a `PacketParser` have
     // `Some(level)`; an external `BufferedReader` (i.e., the
     // underlying `BufferedReader`) has no level.
