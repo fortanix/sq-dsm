@@ -7,8 +7,12 @@ use super::*;
 
 /// Wraps a `Read`er.
 ///
-/// This is useful when reading from a file, and it even works with a
-/// `&[u8]` (but `Memory` is more efficient).
+/// This is useful when reading from a generic `std::io::Read`er.  To
+/// read from a file, use [`File`].  To read from a buffer, use
+/// [`Memory`].  Both are more efficient than `Generic`.
+///
+///   [`File`]: struct.File.html
+///   [`Memory`]: struct.Memory.html
 pub struct Generic<T: io::Read, C> {
     buffer: Option<Box<[u8]>>,
     // The next byte to read in the buffer.
