@@ -41,6 +41,7 @@ use quickcheck::{Arbitrary, Gen};
 use crate::vec_truncate;
 use crate::packet::prelude::*;
 use crate::packet::header::{BodyLength, CTBNew, CTBOld};
+use crate::parse::Cookie;
 use crate::serialize::MarshalInto;
 
 /// The encoded output stream must be represented in lines of no more
@@ -433,7 +434,7 @@ pub enum ReaderMode {
 
 /// A filter that strips ASCII Armor from a stream of data.
 pub struct Reader<'a> {
-    source: Box<dyn BufferedReader<()> + 'a>,
+    source: Box<dyn BufferedReader<Cookie> + 'a>,
     kind: Option<Kind>,
     mode: ReaderMode,
     buffer: Vec<u8>,
@@ -526,7 +527,8 @@ impl<'a> Reader<'a> {
               M: Into<Option<ReaderMode>>
     {
         Self::from_buffered_reader(
-            Box::new(buffered_reader::Generic::new(inner, None)),
+            Box::new(buffered_reader::Generic::with_cookie(inner, None,
+                                                           Default::default())),
             mode)
     }
 
@@ -536,7 +538,8 @@ impl<'a> Reader<'a> {
               M: Into<Option<ReaderMode>>
     {
         Self::from_buffered_reader(
-            Box::new(buffered_reader::Generic::new(reader, None)),
+            Box::new(buffered_reader::Generic::with_cookie(reader, None,
+                                                           Default::default())),
             mode)
     }
 
@@ -546,7 +549,8 @@ impl<'a> Reader<'a> {
               M: Into<Option<ReaderMode>>
     {
         Ok(Self::from_buffered_reader(
-            Box::new(buffered_reader::File::open(path)?),
+            Box::new(buffered_reader::File::with_cookie(path,
+                                                        Default::default())?),
             mode))
     }
 
@@ -555,12 +559,13 @@ impl<'a> Reader<'a> {
         where M: Into<Option<ReaderMode>>
     {
         Self::from_buffered_reader(
-            Box::new(buffered_reader::Memory::new(bytes)),
+            Box::new(buffered_reader::Memory::with_cookie(bytes,
+                                                          Default::default())),
             mode)
     }
 
     pub(crate) fn from_buffered_reader<M>(
-        inner: Box<dyn BufferedReader<()> + 'a>, mode: M) -> Self
+        inner: Box<dyn BufferedReader<Cookie> + 'a>, mode: M) -> Self
         where M: Into<Option<ReaderMode>>
     {
         let mode = mode.into().unwrap_or(Default::default());
