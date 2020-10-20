@@ -1,7 +1,6 @@
 /// A command-line frontend for Sequoia.
 
 use crossterm;
-use tokio_core;
 
 use crossterm::terminal;
 use anyhow::Context as _;
@@ -183,7 +182,10 @@ fn main() -> Result<()> {
         builder = builder.home(dir);
     }
     let ctx = builder.build()?;
-    let mut core = tokio_core::reactor::Core::new()?;
+    let mut rt = tokio::runtime::Builder::new()
+        .basic_scheduler()
+        .enable_io()
+        .build()?;
 
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
@@ -433,7 +435,7 @@ fn main() -> Result<()> {
                     let id = id.unwrap();
 
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    let cert = core.run(ks.get(&id))
+                    let cert = rt.block_on(ks.get(&id))
                         .context("Failed to retrieve key")?;
                     if ! m.is_present("binary") {
                         cert.armored().serialize(&mut output)
@@ -446,7 +448,7 @@ fn main() -> Result<()> {
                     let cert = Cert::from_reader(&mut input).
                         context("Malformed key")?;
 
-                    core.run(ks.send(&cert))
+                    rt.block_on(ks.send(&cert))
                         .context("Failed to send key to server")?;
                 },
                 _ => unreachable!(),
@@ -583,7 +585,7 @@ fn main() -> Result<()> {
                     // stderr and exit.
                     // Because it might be created a WkdServer struct, not
                     // doing it for now.
-                    let certs = core.run(wkd::get(&email_address))?;
+                    let certs = rt.block_on(wkd::get(&email_address))?;
                     // ```text
                     //     The HTTP GET method MUST return the binary representation of the
                     //     OpenPGP key for the given mail address.
