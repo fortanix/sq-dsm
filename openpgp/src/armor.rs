@@ -28,6 +28,7 @@
 
 use base64;
 use buffered_reader::BufferedReader;
+use std::fmt;
 use std::io::{Cursor, Read, Write};
 use std::io::{Result, Error, ErrorKind};
 use std::path::Path;
@@ -434,6 +435,25 @@ pub enum ReaderMode {
 
 /// A filter that strips ASCII Armor from a stream of data.
 pub struct Reader<'a> {
+    reader: buffered_reader::Generic<IoReader<'a>, Cookie>,
+}
+
+impl<'a> fmt::Debug for Reader<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("armor::Reader")
+            .field("reader", self.reader.reader_ref())
+            .finish()
+    }
+}
+
+impl<'a> fmt::Display for Reader<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "armor::Reader")
+    }
+}
+
+#[derive(Debug)]
+struct IoReader<'a> {
     source: Box<dyn BufferedReader<Cookie> + 'a>,
     kind: Option<Kind>,
     mode: ReaderMode,
@@ -570,7 +590,7 @@ impl<'a> Reader<'a> {
     {
         let mode = mode.into().unwrap_or(Default::default());
 
-        Reader {
+        let io_reader = IoReader {
             source: inner,
             kind: None,
             mode,
@@ -582,6 +602,12 @@ impl<'a> Reader<'a> {
             finalized: false,
             prefix_len: 0,
             prefix_remaining: 0,
+        };
+
+        Reader {
+            reader: buffered_reader::Generic::with_cookie(io_reader,
+                                                          None,
+                                                          Default::default()),
         }
     }
 
@@ -591,7 +617,7 @@ impl<'a> Reader<'a> {
     /// header has not been encountered yet (try reading some data
     /// first!), this function returns None.
     pub fn kind(&self) -> Option<Kind> {
-        self.kind
+        self.reader.reader_ref().kind
     }
 
     /// Returns the armored headers.
@@ -631,10 +657,12 @@ impl<'a> Reader<'a> {
     /// # }
     /// ```
     pub fn headers(&mut self) -> Result<&[(String, String)]> {
-        self.initialize()?;
-        Ok(&self.headers[..])
+        self.reader.reader_mut().initialize()?;
+        Ok(&self.reader.reader_ref().headers[..])
     }
+}
 
+impl<'a> IoReader<'a> {
     /// Consumes the header if not already done.
     fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
@@ -1092,7 +1120,7 @@ fn base64_size_test() {
     assert_eq!(base64_size(7), 12);
 }
 
-impl<'a> Read for Reader<'a> {
+impl<'a> Read for IoReader<'a> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if ! self.initialized {
             self.initialize()?;
@@ -1301,9 +1329,68 @@ impl<'a> Read for Reader<'a> {
     }
 }
 
+impl<'a> Read for Reader<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        self.reader.read(buf)
+    }
+}
+
+impl<'a> BufferedReader<Cookie> for Reader<'a> {
+    fn buffer(&self) -> &[u8] {
+        self.reader.buffer()
+    }
+
+    fn data(&mut self, amount: usize) -> Result<&[u8]> {
+        self.reader.data(amount)
+    }
+
+    fn consume(&mut self, amount: usize) -> &[u8] {
+        self.reader.consume(amount)
+    }
+
+    fn data_consume(&mut self, amount: usize) -> Result<&[u8]> {
+        self.reader.data_consume(amount)
+    }
+
+    fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8]> {
+        self.reader.data_consume_hard(amount)
+    }
+
+    fn consummated(&mut self) -> bool {
+        self.reader.consummated()
+    }
+
+    fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {
+        Some(&mut self.reader.reader_mut().source)
+    }
+
+    fn get_ref(&self) -> Option<&dyn BufferedReader<Cookie>> {
+        Some(&self.reader.reader_ref().source)
+    }
+
+    fn into_inner<'b>(self: Box<Self>)
+                      -> Option<Box<dyn BufferedReader<Cookie> + 'b>>
+        where Self: 'b {
+        Some(self.reader.into_reader().source)
+    }
+
+    fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
+        self.reader.cookie_set(cookie)
+    }
+
+    fn cookie_ref(&self) -> &Cookie {
+        self.reader.cookie_ref()
+    }
+
+    fn cookie_mut(&mut self) -> &mut Cookie {
+        self.reader.cookie_mut()
+    }
+}
+
 const CRC24_INIT: u32 = 0xB704CE;
 const CRC24_POLY: u32 = 0x1864CFB;
 
+#[derive(Debug)]
 struct CRC {
     n: u32,
 }
