@@ -12,9 +12,10 @@
 // Sends the given request and decodes the result.
 macro_rules! make_request {
     ( $core: expr, $request: expr ) => {{
+        use futures_util::TryFutureExt;
         use crate::node::result::Which;
 
-        let r: std::result::Result<Result<_>, capnp::Error> = $core.run(
+        let r: std::result::Result<Result<_>, capnp::Error> = $core.block_on(
             $request.send().promise
                 .and_then(|response| -> Promise<Result<_>, capnp::Error> {
                     let r = pry!(pry!(pry!(response.get()).get_result()).which());
@@ -34,9 +35,10 @@ macro_rules! make_request {
 
 macro_rules! make_request_map {
     ( $core: expr, $request: expr, $map: expr ) => {{
+        use futures_util::TryFutureExt;
         use crate::node::result::Which;
 
-        let r: std::result::Result<Result<_>, capnp::Error> = $core.run(
+        let r: std::result::Result<Result<_>, capnp::Error> = $core.block_on(
             $request.send().promise
                 .and_then(|response| -> Promise<Result<_>, capnp::Error> {
                     let r = pry!(pry!(pry!(response.get()).get_result()).which());

@@ -288,28 +288,9 @@ dependencies = [
 
 [[package]]
 name = "capnp"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b867c15d8ff93c4d81b69c89280840f877331ef2a1fccbaf947afecc68b51a9e"
-dependencies = [
- "futures 0.1.30",
-]
-
-[[package]]
-name = "capnp"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "394f9ad87764d43d41c8d3ea270fd03def2f455011f3ada86c9f01d88592105d"
-
-[[package]]
-name = "capnp-futures"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa07b8de7e06c61c287fb5a03a644e2439fec4fe17e206d4658ac09aeec4b161"
-dependencies = [
- "capnp 0.10.3",
- "futures 0.1.30",
-]
 
 [[package]]
 name = "capnp-futures"
@@ -317,20 +298,8 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9f9ff1dae086de0d7ecbc147fee21aed8b3ad64468f0f991c98da06fb8c8459"
 dependencies = [
- "capnp 0.13.5",
+ "capnp",
  "futures 0.3.6",
-]
-
-[[package]]
-name = "capnp-rpc"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "568eecd404ea80e98d506b922be2de5e1013ac8f9b170242a53068affc79ddc8"
-dependencies = [
- "capnp 0.10.3",
- "capnp-futures 0.10.1",
- "capnpc",
- "futures 0.1.30",
 ]
 
 [[package]]
@@ -339,18 +308,18 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37998522d42bbe4a1d266f418b1a053b679a338e904e55afd5ff22333df0e09e"
 dependencies = [
- "capnp 0.13.5",
- "capnp-futures 0.13.1",
+ "capnp",
+ "capnp-futures",
  "futures 0.3.6",
 ]
 
 [[package]]
 name = "capnpc"
-version = "0.10.2"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2afedfc194b01c6804ad0a10c7139024b99ee3df6a39bb09bdf759067ababff"
+checksum = "81855cee80548f7a2ee549d3bc2e55ed5f7cabe469e85614046e5475712f75c1"
 dependencies = [
- "capnp 0.10.3",
+ "capnp",
 ]
 
 [[package]]
@@ -2034,7 +2003,7 @@ version = "0.20.0"
 dependencies = [
  "anyhow",
  "buffered-reader",
- "capnp-rpc 0.13.1",
+ "capnp-rpc",
  "clap",
  "ctor",
  "fs2",
@@ -2173,10 +2142,10 @@ name = "sequoia-store"
 version = "0.20.0"
 dependencies = [
  "anyhow",
- "capnp 0.10.3",
- "capnp-rpc 0.10.0",
+ "capnp",
+ "capnp-rpc",
  "capnpc",
- "futures 0.1.30",
+ "futures-util",
  "rand",
  "rusqlite",
  "sequoia-core",
@@ -2184,8 +2153,8 @@ dependencies = [
  "sequoia-net",
  "sequoia-openpgp",
  "thiserror",
- "tokio-core",
- "tokio-io",
+ "tokio 0.2.22",
+ "tokio-util",
 ]
 
 [[package]]

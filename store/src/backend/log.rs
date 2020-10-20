@@ -167,21 +167,18 @@ impl node::log_iter::Server for IterServer {
         entry.set_timestamp(timestamp.unix());
 
         if let Some(mapping) = mapping {
-            entry.set_mapping(node::mapping::ToClient::new(
-                MappingServer::new(self.c.clone(), mapping))
-                            .into_client::<capnp_rpc::Server>());
+            entry.set_mapping(capnp_rpc::new_client(
+                MappingServer::new(self.c.clone(), mapping)));
         }
 
         if let Some(binding) = binding {
-            entry.set_binding(node::binding::ToClient::new(
-                BindingServer::new(self.c.clone(), binding))
-                            .into_client::<capnp_rpc::Server>());
+            entry.set_binding(capnp_rpc::new_client(
+                BindingServer::new(self.c.clone(), binding)));
         }
 
         if let Some(key) = key {
-            entry.set_key(node::key::ToClient::new(
-                KeyServer::new(self.c.clone(), key))
-                            .into_client::<capnp_rpc::Server>());
+            entry.set_key(capnp_rpc::new_client(
+                KeyServer::new(self.c.clone(), key)));
         }
 
         entry.set_slug(&slug);
