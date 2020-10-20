@@ -1513,7 +1513,7 @@ mod test {
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::empty().set_transport_encryption())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
-                                 &pk, &subkey)?;
+                                 pk.parts_as_public(), &subkey)?;
 
         let cert = cert.insert_packets(
             vec![ Packet::from(subkey), binding.into() ])?;
@@ -1536,7 +1536,7 @@ mod test {
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_key_flags(&KeyFlags::empty().set_transport_encryption())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
-                                 &pk, &subkey)?;
+                                 pk.parts_as_public(), &subkey)?;
 
         let cert = cert.insert_packets(
             vec![ Packet::from(subkey), binding.into() ])?;

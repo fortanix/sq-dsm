@@ -305,7 +305,7 @@ fn create_key() {
     let uid_binding =
         signature::SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_signature_creation_time(t1).unwrap()
-        .sign_userid_binding(&mut signer, &key, &uid).unwrap();
+        .sign_userid_binding(&mut signer, None, &uid).unwrap();
 
     // Create subkey.
     let mut subkey: Key<_, SubordinateRole> = make_key().into();
@@ -320,7 +320,7 @@ fn create_key() {
         .set_signature_creation_time(t1).unwrap()
         .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])
         .unwrap();
-    let direct1 = b.sign_direct_key(&mut signer, &key).unwrap();
+    let direct1 = b.sign_direct_key(&mut signer, None).unwrap();
 
     // 1st subkey binding signature valid from t_sk_binding on
     b = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
@@ -331,7 +331,7 @@ fn create_key() {
                 .set_signature_creation_time(t_sk_binding).unwrap()
                 .sign_primary_key_binding(&mut sk_signer, &key, &subkey).unwrap())
         .unwrap();
-    let sk_bind1 = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
+    let sk_bind1 = b.sign_subkey_binding(&mut signer, None, &subkey).unwrap();
 
     // 2nd direct key signature valid from t3 on
     b = signature::SignatureBuilder::new(SignatureType::DirectKey)
@@ -341,7 +341,7 @@ fn create_key() {
         .set_signature_creation_time(t3).unwrap()
         .set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512])
         .unwrap();
-    let direct2 = b.sign_direct_key(&mut signer, &key).unwrap();
+    let direct2 = b.sign_direct_key(&mut signer, None).unwrap();
 
     // 2nd subkey binding signature valid from t3 on
     let mut b = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
@@ -352,7 +352,7 @@ fn create_key() {
                 .set_signature_creation_time(t3).unwrap()
                 .sign_primary_key_binding(&mut sk_signer, &key, &subkey).unwrap())
         .unwrap();
-    let sk_bind2 = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
+    let sk_bind2 = b.sign_subkey_binding(&mut signer, None, &subkey).unwrap();
 
     let cert = Cert::try_from(vec![
         key.clone().into(),
@@ -386,7 +386,7 @@ fn create_key() {
                 .unwrap();
         }
 
-        let rev = b.sign_direct_key(&mut signer, &key).unwrap();
+        let rev = b.sign_direct_key(&mut signer, None).unwrap();
         let cert = Cert::try_from(vec![
             key.clone().into(),
             direct1.clone().into(),
@@ -413,7 +413,7 @@ fn create_key() {
                 .unwrap();
         }
 
-        let rev = b.sign_subkey_binding(&mut signer, &key, &subkey).unwrap();
+        let rev = b.sign_subkey_binding(&mut signer, None, &subkey).unwrap();
         let cert = Cert::try_from(vec![
             key.clone().into(),
             direct1.clone().into(),

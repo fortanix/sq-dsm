@@ -1105,7 +1105,7 @@ impl CertBuilder<'_> {
 
         let mut signer = key.clone().into_keypair()
             .expect("key generated above has a secret");
-        let sig = sig.sign_direct_key(&mut signer, &key)?;
+        let sig = sig.sign_direct_key(&mut signer, key.parts_as_public())?;
 
         Ok((key, sig.into()))
     }

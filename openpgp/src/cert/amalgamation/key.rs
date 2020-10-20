@@ -1624,8 +1624,7 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
                 signature::subpacket::SubpacketTag::PrimaryUserID);
 
             // Generate the signature.
-            sigs.push(builder.sign_direct_key(primary_signer,
-                                              &self.cert().primary_key())?);
+            sigs.push(builder.sign_direct_key(primary_signer, None)?);
 
             // Second, generate a new binding signature for every
             // userid.  We need to be careful not to change the
@@ -1645,7 +1644,7 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
                         }).unwrap_or(false))?;
 
                 sigs.push(builder.sign_userid_binding(primary_signer,
-                                                      &self.cert().primary_key(),
+                                                      self.cert().primary_key().component(),
                                                       &userid)?);
             }
         } else {
@@ -1687,7 +1686,7 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
 
             sigs.push(sig.sign_subkey_binding(
                 primary_signer,
-                &self.cert().primary_key(),
+                self.cert().primary_key().component(),
                 self.key().role_as_subordinate())?);
         }
 

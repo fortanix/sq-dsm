@@ -3883,7 +3883,7 @@ impl signature::SignatureBuilder {
     ///             true)?)?;
     ///         Ok(a)
     ///     })?
-    ///     .sign_direct_key(&mut signer, pk)?;
+    ///     .sign_direct_key(&mut signer, None)?;
     ///
     /// // Merge in the new signature.
     /// let cert = cert.insert_packets(sig)?;
@@ -3926,7 +3926,7 @@ impl signature::SignatureBuilder {
     ///             Ok(a)
     ///         })?
     ///         // Update the direct key signature.
-    ///         .sign_direct_key(&mut signer, pk)?);
+    ///         .sign_direct_key(&mut signer, Some(pk))?);
     /// }
     ///
     /// for ua in vc.userids() {
@@ -4363,7 +4363,7 @@ impl signature::SignatureBuilder {
     /// let certification = SignatureBuilder::new(SignatureType::GenericCertification)
     ///     .set_exportable_certification(false)?
     ///     .sign_userid_binding(
-    ///         &mut alices_signer, &bob.primary_key(), bobs_userid)?;
+    ///         &mut alices_signer, bob.primary_key().key(), bobs_userid)?;
     /// # assert_eq!(certification
     /// #    .hashed_area()
     /// #    .iter()
@@ -4444,7 +4444,7 @@ impl signature::SignatureBuilder {
     /// let certification = SignatureBuilder::new(SignatureType::GenericCertification)
     ///     .set_trust_signature(1, 120)?
     ///     .sign_userid_binding(
-    ///         &mut alices_signer, &bob.primary_key(), bobs_userid)?;
+    ///         &mut alices_signer, bob.primary_key().component(), bobs_userid)?;
     /// # assert_eq!(certification
     /// #    .hashed_area()
     /// #    .iter()
@@ -4531,7 +4531,7 @@ impl signature::SignatureBuilder {
     ///     .set_regular_expression("<[^>]+[@.]example\\.com>$")?
     ///     .sign_userid_binding(
     ///         &mut alices_signer,
-    ///         &example_com.primary_key(),
+    ///         example_com.primary_key().component(),
     ///         example_com_userid)?;
     /// # assert_eq!(certification
     /// #    .hashed_area()
@@ -4628,7 +4628,7 @@ impl signature::SignatureBuilder {
     ///     .add_regular_expression("<[^>]+[@.]example\\.net>$")?
     ///     .sign_userid_binding(
     ///         &mut alices_signer,
-    ///         &example_com.primary_key(),
+    ///         example_com.primary_key().component(),
     ///         example_com_userid)?;
     /// # assert_eq!(certification
     /// #    .hashed_area()
@@ -4717,7 +4717,7 @@ impl signature::SignatureBuilder {
     ///     .set_signature_validity_period(
     ///         std::time::Duration::new(SECONDS_IN_YEAR, 0))?
     ///     .sign_userid_binding(
-    ///         &mut alices_signer, &bob.primary_key(), bobs_userid)?;
+    ///         &mut alices_signer, bob.primary_key().component(), bobs_userid)?;
     /// # assert_eq!(certification
     /// #    .hashed_area()
     /// #    .iter()
@@ -4811,7 +4811,7 @@ impl signature::SignatureBuilder {
     ///     // This reuses any existing backsignature.
     ///     let sig = SignatureBuilder::from(key.binding_signature().clone())
     ///         .set_key_validity_period(std::time::Duration::new(10 * 60, 0))?
-    ///         .sign_subkey_binding(&mut signer, &pk, &key)?;
+    ///         .sign_subkey_binding(&mut signer, None, &key)?;
     ///     sigs.push(sig);
     /// }
     ///
@@ -4923,7 +4923,7 @@ impl signature::SignatureBuilder {
     ///         .set_key_expiration_time(&key,
     ///                                  time::SystemTime::now()
     ///                                  + time::Duration::new(10 * 60, 0))?
-    ///         .sign_subkey_binding(&mut signer, &pk, &key)?;
+    ///         .sign_subkey_binding(&mut signer, None, &key)?;
     ///     sigs.push(sig);
     /// }
     ///
@@ -5028,7 +5028,7 @@ impl signature::SignatureBuilder {
     ///         vec![ SymmetricAlgorithm::AES256,
     ///               SymmetricAlgorithm::AES128,
     ///         ])?
-    ///     .sign_direct_key(&mut signer, &cert.primary_key())?;
+    ///     .sign_direct_key(&mut signer, None)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
     /// #    .iter()
@@ -5097,7 +5097,7 @@ impl signature::SignatureBuilder {
     ///     .set_revocation_key(vec![
     ///         RevocationKey::new(bob.primary_key().pk_algo(), bob.fingerprint(), false),
     ///     ])?
-    ///     .sign_direct_key(&mut alices_signer, &alice.primary_key())?;
+    ///     .sign_direct_key(&mut alices_signer, None)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
     /// #    .iter()
@@ -5363,7 +5363,7 @@ impl signature::SignatureBuilder {
     ///                   NotationDataFlags::empty().set_human_readable(), false)?
     ///     .add_notation("proof@metacode.biz", "https://news.ycombinator.com/user?id=wiktor-k",
     ///                   NotationDataFlags::empty().set_human_readable(), false)?
-    ///     .sign_userid_binding(&mut signer, &cert.primary_key(), &userid)?;
+    ///     .sign_userid_binding(&mut signer, None, &userid)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
     /// #    .iter()
@@ -5459,7 +5459,7 @@ impl signature::SignatureBuilder {
     ///                   NotationDataFlags::empty().set_human_readable(), false)?
     ///     .add_notation("proof@metacode.biz", "https://news.ycombinator.com/user?id=wiktor-k",
     ///                   NotationDataFlags::empty().set_human_readable(), false)?
-    ///     .sign_userid_binding(&mut signer, &cert.primary_key(), &userid)?;
+    ///     .sign_userid_binding(&mut signer, None, &userid)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
     /// #    .iter()
@@ -5544,7 +5544,7 @@ impl signature::SignatureBuilder {
     ///         vec![ HashAlgorithm::SHA512,
     ///               HashAlgorithm::SHA256,
     ///         ])?
-    ///     .sign_direct_key(&mut signer, &cert.primary_key())?;
+    ///     .sign_direct_key(&mut signer, None)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
     /// #    .iter()
@@ -5625,7 +5625,7 @@ impl signature::SignatureBuilder {
     ///               CompressionAlgorithm::Zip,
     ///               CompressionAlgorithm::BZip2,
     ///         ])?
-    ///     .sign_direct_key(&mut signer, &cert.primary_key())?;
+    ///     .sign_direct_key(&mut signer, None)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
     /// #    .iter()
@@ -5702,7 +5702,7 @@ impl signature::SignatureBuilder {
     ///     SignatureBuilder::from(sig.clone())
     ///         .set_key_server_preferences(
     ///             KeyServerPreferences::empty().set_no_modify())?
-    ///         .sign_direct_key(&mut signer, &cert.primary_key())?;
+    ///         .sign_direct_key(&mut signer, None)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
     /// #    .iter()
@@ -5781,7 +5781,7 @@ impl signature::SignatureBuilder {
     /// let sig =
     ///     SignatureBuilder::from(sig.clone())
     ///         .set_preferred_key_server(&"https://keys.openpgp.org")?
-    ///         .sign_direct_key(&mut signer, &cert.primary_key())?;
+    ///         .sign_direct_key(&mut signer, None)?;
     /// # assert_eq!(sig
     /// #    .hashed_area()
     /// #    .iter()
@@ -5942,7 +5942,7 @@ impl signature::SignatureBuilder {
     ///         .clone()
     ///     )
     ///     .set_policy_uri("https://example.org/~alice/signing-policy.txt")?
-    ///     .sign_direct_key(&mut signer, pk)?;
+    ///     .sign_direct_key(&mut signer, None)?;
     /// # let mut sig = sig;
     /// # sig.verify_direct_key(signer.public(), pk)?;
     /// # assert_eq!(sig
@@ -6243,7 +6243,7 @@ impl signature::SignatureBuilder {
     ///             .set_features(
     ///                 &sig.features().unwrap_or_else(Features::sequoia)
     ///                     .set_aead())?
-    ///             .sign_direct_key(&mut signer, pk)?);
+    ///             .sign_direct_key(&mut signer, None)?);
     /// }
     ///
     /// for ua in vc.userids() {
@@ -6353,7 +6353,7 @@ impl signature::SignatureBuilder {
     ///     .set_embedded_signature(
     ///         SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
     ///             .sign_primary_key_binding(&mut sk_signer, &pk, &subkey)?)?
-    ///     .sign_subkey_binding(&mut pk_signer, &pk, &subkey)?;
+    ///     .sign_subkey_binding(&mut pk_signer, None, &subkey)?;
     ///
     /// let cert = cert.insert_packets(vec![Packet::SecretSubkey(subkey),
     ///                                    sig.into()])?;
@@ -6621,7 +6621,7 @@ impl signature::SignatureBuilder {
     ///             .set_features(
     ///                 &sig.features().unwrap_or_else(Features::sequoia)
     ///                     .set_aead())?
-    ///             .sign_direct_key(&mut signer, pk)?);
+    ///             .sign_direct_key(&mut signer, None)?);
     /// }
     ///
     /// for ua in vc.userids() {

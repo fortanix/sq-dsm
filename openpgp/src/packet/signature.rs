@@ -423,7 +423,7 @@ impl SignatureFields {
 ///             Ok(a)
 ///         })?
 ///         // Update the direct key signature.
-///         .sign_direct_key(&mut signer, pk)?);
+///         .sign_direct_key(&mut signer, None)?);
 /// }
 ///
 /// for ua in vc.userids() {
@@ -762,6 +762,11 @@ impl SignatureBuilder {
     ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
     ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
     ///
+    /// If `pk` is set to `None` the signature will be computed over the public key
+    /// retrieved from the `signer` parameter, i.e. a self-signature will be created.
+    ///  To create a third-party-signature provide an explicit public key as the
+    /// `pk` parameter.
+    ///
     /// # Examples
     ///
     /// Set the default value for the [Preferred Symmetric Algorithms
@@ -799,17 +804,17 @@ impl SignatureBuilder {
     ///         vec![ SymmetricAlgorithm::AES256,
     ///               SymmetricAlgorithm::AES128,
     ///         ])?
-    ///     .sign_direct_key(&mut signer, pk)?;
+    ///     .sign_direct_key(&mut signer, None)?;
     ///
     /// // Verify it.
     /// sig.verify_direct_key(signer.public(), pk)?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn sign_direct_key<P>(mut self, signer: &mut dyn Signer,
-                              pk: &Key<P, key::PrimaryRole>)
+    pub fn sign_direct_key<'a, PK>(mut self, signer: &mut dyn Signer,
+                              pk: PK)
         -> Result<Signature>
-        where P: key::KeyParts,
+    where PK: Into<Option<&'a Key<key::PublicParts, key::PrimaryRole>>>
     {
         match self.typ {
             SignatureType::DirectKey => (),
@@ -821,7 +826,9 @@ impl SignatureBuilder {
         self = self.pre_sign(signer)?;
 
         let mut hash = self.hash_algo().context()?;
+        let pk = pk.into().unwrap_or_else(|| signer.public().role_as_primary());
         self.hash_direct_key(&mut hash, pk);
+
         self.sign(signer, hash.into_digest()?)
     }
 
@@ -895,6 +902,11 @@ impl SignatureBuilder {
     ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
     ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
     ///
+    /// If `pk` is set to `None` the signature will be computed over the public key
+    /// retrieved from the `signer` parameter, i.e. a self-signature will be created.
+    ///  To create a third-party-signature provide an explicit public key as the
+    /// `pk` parameter.
+    ///
     /// # Examples
     ///
     /// Set the [Preferred Symmetric Algorithms subpacket], which will
@@ -922,8 +934,6 @@ impl SignatureBuilder {
     /// // Derive a signer.
     /// let mut signer = key.clone().parts_into_secret()?.into_keypair()?;
     ///
-    /// let pk = cert.primary_key().key();
-    ///
     /// // Update the User ID's binding signature.
     /// let ua = cert.with_policy(p, None)?.userids().nth(0).unwrap();
     /// let mut new_sig = SignatureBuilder::from(
@@ -932,18 +942,19 @@ impl SignatureBuilder {
     ///         vec![ SymmetricAlgorithm::AES256,
     ///               SymmetricAlgorithm::AES128,
     ///         ])?
-    ///     .sign_userid_binding(&mut signer, pk, ua.userid())?;
+    ///     .sign_userid_binding(&mut signer, None, ua.userid())?;
     ///
     /// // Verify it.
+    /// let pk = cert.primary_key().key();
+    ///
     /// new_sig.verify_userid_binding(signer.public(), pk, ua.userid())?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn sign_userid_binding<P>(mut self, signer: &mut dyn Signer,
-                                  key: &Key<P, key::PrimaryRole>,
-                                  userid: &UserID)
+    pub fn sign_userid_binding<'a, PK>(mut self, signer: &mut dyn Signer,
+                                  key: PK, userid: &UserID)
         -> Result<Signature>
-        where P: key::KeyParts,
+        where PK: Into<Option<&'a Key<key::PublicParts, key::PrimaryRole>>>
     {
         match self.typ {
             SignatureType::GenericCertification => (),
@@ -956,6 +967,8 @@ impl SignatureBuilder {
         }
 
         self = self.pre_sign(signer)?;
+
+        let key = key.into().unwrap_or_else(|| signer.public().role_as_primary());
 
         let mut hash = self.hash_algo().context()?;
         self.hash_userid_binding(&mut hash, key, userid);
@@ -1022,6 +1035,9 @@ impl SignatureBuilder {
     ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
     ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
     ///
+    /// If `pk` is set to `None` the signature will be computed over the public key
+    /// retrieved from the `signer` parameter.
+    ///
     /// # Examples
     ///
     /// Add a new subkey intended for encrypting data in motion to an
@@ -1052,7 +1068,7 @@ impl SignatureBuilder {
     ///
     /// let sig = SignatureBuilder::new(SignatureType::SubkeyBinding)
     ///     .set_key_flags(&KeyFlags::empty().set_transport_encryption())?
-    ///     .sign_subkey_binding(&mut pk_signer, &pk, &subkey)?;
+    ///     .sign_subkey_binding(&mut pk_signer, None, &subkey)?;
     ///
     /// let cert = cert.insert_packets(vec![Packet::SecretSubkey(subkey),
     ///                                    sig.into()])?;
@@ -1061,12 +1077,12 @@ impl SignatureBuilder {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn sign_subkey_binding<P, Q>(mut self, signer: &mut dyn Signer,
-                                     primary: &Key<P, key::PrimaryRole>,
+    pub fn sign_subkey_binding<'a, PK, Q>(mut self, signer: &mut dyn Signer,
+                                     primary: PK,
                                      subkey: &Key<Q, key::SubordinateRole>)
         -> Result<Signature>
-        where P: key::KeyParts,
-              Q: key::KeyParts,
+        where Q: key::KeyParts,
+              PK: Into<Option<&'a Key<key::PublicParts, key::PrimaryRole>>>,
     {
         match self.typ {
             SignatureType::SubkeyBinding => (),
@@ -1077,6 +1093,7 @@ impl SignatureBuilder {
 
         self = self.pre_sign(signer)?;
 
+        let primary = primary.into().unwrap_or_else(|| signer.public().role_as_primary());
         let mut hash = self.hash_algo().context()?;
         self.hash_subkey_binding(&mut hash, primary, subkey);
         self.sign(signer, hash.into_digest()?)
@@ -1199,7 +1216,7 @@ impl SignatureBuilder {
     ///     .set_embedded_signature(
     ///         SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
     ///             .sign_primary_key_binding(&mut sk_signer, &pk, &subkey)?)?
-    ///     .sign_subkey_binding(&mut pk_signer, &pk, &subkey)?;
+    ///     .sign_subkey_binding(&mut pk_signer, None, &subkey)?;
     ///
     /// let cert = cert.insert_packets(vec![Packet::SecretSubkey(subkey),
     ///                                    sig.into()])?;
@@ -1294,6 +1311,11 @@ impl SignatureBuilder {
     ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
     ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
     ///
+    /// If `pk` is set to `None` the signature will be computed over the public key
+    /// retrieved from the `signer` parameter, i.e. a self-signature will be created.
+    ///  To create a third-party-signature provide an explicit public key as the
+    /// `pk` parameter.
+    ///
     /// # Examples
     ///
     /// Add a new User Attribute to an existing certificate:
@@ -1331,7 +1353,7 @@ impl SignatureBuilder {
     ///
     /// let mut sig =
     ///     SignatureBuilder::new(SignatureType::PositiveCertification)
-    ///     .sign_user_attribute_binding(&mut signer, pk, &ua)?;
+    ///     .sign_user_attribute_binding(&mut signer, None, &ua)?;
     ///
     /// // Verify it.
     /// sig.verify_user_attribute_binding(signer.public(), pk, &ua)?;
@@ -1341,11 +1363,10 @@ impl SignatureBuilder {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn sign_user_attribute_binding<P>(mut self, signer: &mut dyn Signer,
-                                          key: &Key<P, key::PrimaryRole>,
-                                          ua: &UserAttribute)
+    pub fn sign_user_attribute_binding<'a, PK>(mut self, signer: &mut dyn Signer,
+                                          key: PK, ua: &UserAttribute)
         -> Result<Signature>
-        where P: key::KeyParts,
+        where PK: Into<Option<&'a Key<key::PublicParts, key::PrimaryRole>>>
     {
         match self.typ {
             SignatureType::GenericCertification => (),
@@ -1358,6 +1379,8 @@ impl SignatureBuilder {
         }
 
         self = self.pre_sign(signer)?;
+
+        let key = key.into().unwrap_or_else(|| signer.public().role_as_primary());
 
         let mut hash = self.hash_algo().context()?;
         self.hash_user_attribute_binding(&mut hash, key, ua);
@@ -3369,7 +3392,7 @@ mod test {
                               NotationDataFlags::empty().set_human_readable(),
                               false)?
                 .sign_userid_binding(&mut primary_signer,
-                                     &alice.primary_key(),
+                                     alice.primary_key().component(),
                                      &alice.userids().nth(0).unwrap()) {
                     Ok(v) => v,
                     Err(e) => if i < SIG_BACKDATE_BY {
