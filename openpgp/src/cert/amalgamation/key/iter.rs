@@ -75,6 +75,10 @@ pub struct KeyAmalgamationIter<'a, P, R>
     // Only return keys in this set.
     key_handles: Option<Vec<KeyHandle>>,
 
+    // If not None, filters by whether we support the key's asymmetric
+    // algorithm.
+    supported: Option<bool>,
+
     _p: std::marker::PhantomData<P>,
     _r: std::marker::PhantomData<R>,
 }
@@ -88,6 +92,7 @@ impl<'a, P, R> fmt::Debug for KeyAmalgamationIter<'a, P, R>
             .field("secret", &self.secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
             .field("key_handles", &self.key_handles)
+            .field("supported", &self.supported)
             .finish()
     }
 }
@@ -166,6 +171,21 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
                 }
             }
 
+            if let Some(want_supported) = self.supported {
+                if ka.key().pk_algo().is_supported() {
+                    // It is supported.
+                    if ! want_supported {
+                        t!("PK algo is supported... skipping.");
+                        continue;
+                    }
+                } else {
+                    if want_supported {
+                        t!("PK algo is not supported... skipping.");
+                        continue;
+                    }
+                }
+            }
+
             if let Some(want_secret) = self.secret {
                 if ka.key().has_secret() {
                     // We have a secret.
@@ -221,6 +241,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             secret: None,
             unencrypted_secret: None,
             key_handles: None,
+            supported: None,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -257,6 +278,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             secret: Some(true),
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
+            supported: self.supported,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -293,6 +315,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             secret: self.secret,
             unencrypted_secret: Some(true),
             key_handles: self.key_handles,
+            supported: self.supported,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -390,6 +413,35 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
         self
     }
 
+    /// Changes the iterator to only return a key if it is supported
+    /// by Sequoia's cryptographic backend.
+    ///
+    /// Which public key encryption algorithms Sequoia supports
+    /// depends on the cryptographic backend selected at compile time.
+    /// This filter makes sure that only supported keys are returned.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// # let mut i = 0;
+    /// for ka in cert.keys().supported() {
+    ///     // Use it.
+    /// #   i += 1;
+    /// }
+    /// # assert_eq!(i, 2);
+    /// # Ok(()) }
+    /// ```
+    pub fn supported(mut self) -> Self {
+        self.supported = Some(true);
+        self
+    }
+
     /// Changes the iterator to only return subkeys.
     ///
     /// This function also changes the return type.  Instead of the
@@ -435,6 +487,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             secret: self.secret,
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
+            supported: self.supported,
 
             _p: std::marker::PhantomData,
             _r: std::marker::PhantomData,
@@ -493,6 +546,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
             secret: self.secret,
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
+            supported: self.supported,
             flags: None,
             alive: None,
             revoked: None,
@@ -609,6 +663,10 @@ pub struct ValidKeyAmalgamationIter<'a, P, R>
     // Only return keys in this set.
     key_handles: Option<Vec<KeyHandle>>,
 
+    // If not None, filters by whether we support the key's asymmetric
+    // algorithm.
+    supported: Option<bool>,
+
     // If not None, only returns keys with the specified flags.
     flags: Option<KeyFlags>,
 
@@ -634,6 +692,7 @@ impl<'a, P, R> fmt::Debug for ValidKeyAmalgamationIter<'a, P, R>
             .field("secret", &self.secret)
             .field("unencrypted_secret", &self.unencrypted_secret)
             .field("key_handles", &self.key_handles)
+            .field("supported", &self.supported)
             .field("flags", &self.flags)
             .field("alive", &self.alive)
             .field("revoked", &self.revoked)
@@ -739,6 +798,21 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
                     t!("{} is not one of the keys that we are looking for ({:?})",
                        key.key_handle(), self.key_handles);
                     continue;
+                }
+            }
+
+            if let Some(want_supported) = self.supported {
+                if ka.key().pk_algo().is_supported() {
+                    // It is supported.
+                    if ! want_supported {
+                        t!("PK algo is supported... skipping.");
+                        continue;
+                    }
+                } else {
+                    if want_supported {
+                        t!("PK algo is not supported... skipping.");
+                        continue;
+                    }
                 }
             }
 
@@ -1300,6 +1374,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             secret: Some(true),
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
+            supported: self.supported,
             flags: self.flags,
             alive: self.alive,
             revoked: self.revoked,
@@ -1346,6 +1421,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             secret: self.secret,
             unencrypted_secret: Some(true),
             key_handles: self.key_handles,
+            supported: self.supported,
             flags: self.flags,
             alive: self.alive,
             revoked: self.revoked,
@@ -1454,6 +1530,39 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
         self
     }
 
+    /// Changes the iterator to only return a key if it is supported
+    /// by Sequoia's cryptographic backend.
+    ///
+    /// Which public key encryption algorithms Sequoia supports
+    /// depends on the cryptographic backend selected at compile time.
+    /// This filter makes sure that only supported keys are returned.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #     let (cert, _) =
+    /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #         .generate()?;
+    /// # let mut i = 0;
+    /// use openpgp::policy::StandardPolicy;
+    ///
+    /// let p = &StandardPolicy::new();
+    ///
+    /// for ka in cert.keys().with_policy(p, None).supported() {
+    ///     // Use it.
+    /// #   i += 1;
+    /// }
+    /// # assert_eq!(i, 2);
+    /// # Ok(()) }
+    /// ```
+    pub fn supported(mut self) -> Self {
+        self.supported = Some(true);
+        self
+    }
+
     /// Changes the iterator to skip the primary key.
     ///
     /// This also changes the iterator's return type.  Instead of
@@ -1502,6 +1611,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             secret: self.secret,
             unencrypted_secret: self.unencrypted_secret,
             key_handles: self.key_handles,
+            supported: self.supported,
             flags: self.flags,
             alive: self.alive,
             revoked: self.revoked,
@@ -1670,5 +1780,24 @@ mod test {
                     &keyids);
             }
         }
+    }
+
+    #[test]
+    fn select_supported() -> crate::Result<()> {
+        use crate::types::PublicKeyAlgorithm;
+        if ! PublicKeyAlgorithm::DSA.is_supported()
+            || PublicKeyAlgorithm::ElGamalEncrypt.is_supported()
+        {
+            return Ok(()); // Skip on this backend.
+        }
+
+        let cert =
+            Cert::from_bytes(crate::tests::key("dsa2048-elgamal3072.pgp"))?;
+        assert_eq!(cert.keys().count(), 2);
+        assert_eq!(cert.keys().supported().count(), 1);
+        let p = &crate::policy::NullPolicy::new();
+        assert_eq!(cert.keys().with_policy(p, None).count(), 2);
+        assert_eq!(cert.keys().with_policy(p, None).supported().count(), 1);
+        Ok(())
     }
 }
