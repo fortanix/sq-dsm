@@ -78,12 +78,51 @@ Using Sequoia
 =============
 
 If you want to use Sequoia from Rust, you can simply register the
-dependency in your `Cargo.toml` file as with any other project.  Note
-that we depend on a number of C libraries, which must be present along
-with their development packages.
+dependency in your `Cargo.toml` file as with any other project.
+```toml
+sequoia-openpgp = version = "0.20"
+```
+Note that we depend on a number of C libraries, which must be present along
+with their development packages. See **Requirements** section below.
 
 Besides being a Rust crate, we also provide a C API, and bindings to
-other languages.
+other languages, see **Bindings**.
+
+Features
+----------------------
+Sequoia is currently supported on Linux, Windows and macOS.
+
+### Cryptography
+By default it uses the Nettle cryptographic library (version 3.4.1 or up) but it
+can be used with different cryptographic backends. At the time of writing, it also
+supports the native Windows [Cryptographic API: Next Generation (CNG)].
+
+Various backends can be enabled via Cargo features, e.g. `crypto-nettle` or
+`crypto-cng` and exactly one can be enabled at a time.
+
+Currently, the `crypto-nettle` feature is enabled by default - regardless of the
+used operating system used. If you choose to enable a different backend, please
+make sure to disable it first.
+
+### Example
+To use the Windows CNG backend, use:
+```toml
+# Cargo.toml
+[dependencies]
+sequoia-openpgp = { version = "0.20", default-features = false, features = ["crypto-cng"] }
+```
+
+```bash
+# When building locally
+$ cargo build --manifest-path=openpgp/Cargo.toml --no-default-features --features crypto-cng
+```
+
+### Compression
+By default, Sequoia supports compression via `flate2` and `bzip2` crates, enabled
+by `compression-deflate` and `compression-bzip2` Cargo features respectively
+(also available via `compression` shorthand feature).
+
+[Cryptographic API: Next Generation (CNG)]: https://docs.microsoft.com/windows/win32/seccng/cng-portal
 
 Building Sequoia
 ================
@@ -117,6 +156,8 @@ the C API.
 **Note:** By default the Python FFI bindings are also built. To skip
 these add `PYTHON=disable` to all `make` invocations. E.g. `make
 PYTHON=disable`.
+
+## Requirements
 
 To build Sequoia, you need at least Rust 1.46 and a few libraries,
 notably the Nettle cryptographic library version 3.4.1 or up.  Please
@@ -169,6 +210,18 @@ $ pacboy -S base-devel toolchain:x clang:x bzip2:x nettle:x sqlite3:x capnproto:
 Due to Gitlab's Windows Shared Runners being somewhat slow, we only run them
 automatically for MRs, which contain `windows` in the branch name. Please name
 your branch accordingly when contributing a patch which might affect Windows.
+#### MSVC
+To build Sequoia, you need to have [`capnp`] tool installed.
+
+Only the native Windows Cryptographic API (CNG) is supported, see **Using Sequoia (Cryptography)** section above.
+
+When building, make sure to disable default features (to disable Nettle) and
+enable the CNG via `crypto-cng` Cargo feature:
+```bash
+$ cargo build --no-default-features --features crypto-cng,compression # Only change crypto backend
+```
+
+[`capnp`]: https://capnproto.org/install.html
 
 Bindings
 --------
