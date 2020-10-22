@@ -97,7 +97,7 @@
 //! #     Cert::from_bytes(&include_bytes!(
 //! #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
 //! let signing_keypair = sender.keys().secret()
-//!     .with_policy(p, None).alive().revoked(false).for_signing()
+//!     .with_policy(p, None).supported().alive().revoked(false).for_signing()
 //!     .nth(0).unwrap()
 //!     .key().clone().into_keypair()?;
 //!
@@ -105,7 +105,7 @@
 //! #     sender.clone();
 //! // Note: One certificate may contain several suitable encryption keys.
 //! let recipients =
-//!     recipient.keys().with_policy(p, None).alive().revoked(false)
+//!     recipient.keys().with_policy(p, None).supported().alive().revoked(false)
 //!     // Or `for_storage_encryption()`, for data at rest.
 //!     .for_transport_encryption();
 //!
@@ -679,7 +679,7 @@ impl<'a> Signer<'a> {
     /// #     Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
     /// let signing_keypair = cert.keys().secret()
-    ///     .with_policy(p, None).alive().revoked(false).for_signing()
+    ///     .with_policy(p, None).supported().alive().revoked(false).for_signing()
     ///     .nth(0).unwrap()
     ///     .key().clone().into_keypair()?;
     ///
@@ -770,7 +770,7 @@ impl<'a> Signer<'a> {
     /// #     Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
     /// # let signing_keypair = cert.keys().secret()
-    /// #     .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #     .with_policy(p, None).supported().alive().revoked(false).for_signing()
     /// #     .nth(0).unwrap()
     /// #     .key().clone().into_keypair()?;
     /// # let mut sink = vec![];
@@ -839,7 +839,7 @@ impl<'a> Signer<'a> {
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
     /// # let signing_keypair
     /// #     = cert.keys().secret()
-    /// #           .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #           .with_policy(p, None).supported().alive().revoked(false).for_signing()
     /// #           .nth(0).unwrap()
     /// #           .key().clone().into_keypair()?;
     ///
@@ -908,11 +908,11 @@ impl<'a> Signer<'a> {
     /// # let cert = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
     /// # let signing_keypair = cert.keys().secret()
-    /// #     .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #     .with_policy(p, None).supported().alive().revoked(false).for_signing()
     /// #     .nth(0).unwrap()
     /// #     .key().clone().into_keypair()?;
     /// # let additional_signing_keypair = cert.keys().secret()
-    /// #     .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #     .with_policy(p, None).supported().alive().revoked(false).for_signing()
     /// #     .nth(0).unwrap()
     /// #     .key().clone().into_keypair()?;
     ///
@@ -961,7 +961,7 @@ impl<'a> Signer<'a> {
     /// # let cert = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
     /// # let signing_keypair = cert.keys().secret()
-    /// #     .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #     .with_policy(p, None).supported().alive().revoked(false).for_signing()
     /// #     .nth(0).unwrap()
     /// #     .key().clone().into_keypair()?;
     /// let recipient: Cert = // ...
@@ -1003,7 +1003,7 @@ impl<'a> Signer<'a> {
     /// # let cert = Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
     /// # let signing_keypair = cert.keys().secret()
-    /// #     .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #     .with_policy(p, None).supported().alive().revoked(false).for_signing()
     /// #     .nth(0).unwrap()
     /// #     .key().clone().into_keypair()?;
     ///
@@ -1046,7 +1046,7 @@ impl<'a> Signer<'a> {
     /// #     Cert::from_bytes(&include_bytes!(
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
     /// let signing_key = cert.keys().secret()
-    ///     .with_policy(p, None).alive().revoked(false).for_signing()
+    ///     .with_policy(p, None).supported().alive().revoked(false).for_signing()
     ///     .nth(0).unwrap()
     ///     .key();
     /// let signing_keypair = signing_key.clone().into_keypair()?;
@@ -1103,7 +1103,7 @@ impl<'a> Signer<'a> {
     /// #     "../../tests/data/keys/testy-new-private.pgp")[..])?;
     /// # let signing_keypair
     /// #     = cert.keys().secret()
-    /// #           .with_policy(p, None).alive().revoked(false).for_signing()
+    /// #           .with_policy(p, None).supported().alive().revoked(false).for_signing()
     /// #           .nth(0).unwrap()
     /// #           .key().clone().into_keypair()?;
     /// #
@@ -1868,7 +1868,7 @@ impl<'a> Recipient<'a> {
     /// )?;
     ///
     /// let recipients =
-    ///     cert.keys().with_policy(p, None).alive().revoked(false)
+    ///     cert.keys().with_policy(p, None).supported().alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
     ///     .map(|ka| Recipient::new(ka.key().keyid(), ka.key()));
@@ -1926,7 +1926,7 @@ impl<'a> Recipient<'a> {
     /// )?;
     ///
     /// let recipients =
-    ///     cert.keys().with_policy(p, None).alive().revoked(false)
+    ///     cert.keys().with_policy(p, None).supported().alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
     ///     .map(Into::into)
@@ -1980,7 +1980,7 @@ impl<'a> Recipient<'a> {
     /// )?;
     ///
     /// let recipients =
-    ///     cert.keys().with_policy(p, None).alive().revoked(false)
+    ///     cert.keys().with_policy(p, None).supported().alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption()
     ///     .map(|ka| Recipient::from(ka)
@@ -2068,7 +2068,7 @@ impl<'a> Encryptor<'a> {
     /// )?;
     ///
     /// let recipients =
-    ///     cert.keys().with_policy(p, None).alive().revoked(false)
+    ///     cert.keys().with_policy(p, None).supported().alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption();
     ///
@@ -2198,7 +2198,7 @@ impl<'a> Encryptor<'a> {
     /// )?;
     ///
     /// let recipients =
-    ///     cert.keys().with_policy(p, None).alive().revoked(false)
+    ///     cert.keys().with_policy(p, None).supported().alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption();
     ///
@@ -2281,7 +2281,7 @@ impl<'a> Encryptor<'a> {
     /// )?;
     ///
     /// let recipients =
-    ///     cert.keys().with_policy(p, None).alive().revoked(false)
+    ///     cert.keys().with_policy(p, None).supported().alive().revoked(false)
     ///     // Or `for_storage_encryption()`, for data at rest.
     ///     .for_transport_encryption();
     ///
@@ -3187,7 +3187,8 @@ mod test {
         ] {
             eprintln!("{:?}", String::from_utf8(data.to_vec())?);
             let signing_keypair = cert.keys().secret()
-                .with_policy(p, None).alive().revoked(false).for_signing()
+                .with_policy(p, None).supported()
+                .alive().revoked(false).for_signing()
                 .nth(0).unwrap()
                 .key().clone().into_keypair()?;
             let mut signature = vec![];

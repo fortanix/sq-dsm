@@ -51,6 +51,7 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
     'next_cert: for tsk in certs {
         for key in tsk.keys().with_policy(p, timestamp).alive().revoked(false)
             .for_signing()
+            .supported()
             .map(|ka| ka.key())
         {
             if let Some(secret) = key.optional_secret() {
@@ -108,7 +109,7 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
     for cert in recipients.iter() {
         let mut count = 0;
         for key in cert.keys().with_policy(policy, None).alive().revoked(false)
-            .key_flags(&mode).map(|ka| ka.key())
+            .key_flags(&mode).supported().map(|ka| ka.key())
         {
             recipient_subkeys.push(key.into());
             count += 1;

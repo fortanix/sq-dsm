@@ -58,7 +58,7 @@ fn main() -> openpgp::Result<()> {
 #            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
-#        recipient.keys().with_policy(policy, None).alive().revoked(false)
+#        recipient.keys().with_policy(policy, None).supported().alive().revoked(false)
 #        .for_transport_encryption();
 #
 #    // Start streaming an OpenPGP message.
@@ -206,7 +206,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
-#        recipient.keys().with_policy(policy, None).alive().revoked(false)
+#        recipient.keys().with_policy(policy, None).supported().alive().revoked(false)
 #        .for_transport_encryption();
 #
 #    // Start streaming an OpenPGP message.
@@ -354,7 +354,7 @@ fn encrypt(policy: &dyn Policy,
            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     let recipients =
-        recipient.keys().with_policy(policy, None).alive().revoked(false)
+        recipient.keys().with_policy(policy, None).supported().alive().revoked(false)
         .for_transport_encryption();
 
     // Start streaming an OpenPGP message.
@@ -516,7 +516,7 @@ Decrypted data can be read from this using [`io::Read`].
 #            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
-#        recipient.keys().with_policy(policy, None).alive().revoked(false)
+#        recipient.keys().with_policy(policy, None).supported().alive().revoked(false)
 #        .for_transport_encryption();
 #
 #    // Start streaming an OpenPGP message.

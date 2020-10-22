@@ -49,7 +49,7 @@ fn sign(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Ce
     // Get the keypair to do the signing from the Cert.
     let keypair = tsk
         .keys().unencrypted_secret()
-        .with_policy(p, None).alive().revoked(false).for_signing()
+        .with_policy(p, None).supported().alive().revoked(false).for_signing()
         .nth(0).unwrap().key().clone().into_keypair()?;
 
     // Start streaming an OpenPGP message.

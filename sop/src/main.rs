@@ -126,6 +126,7 @@ fn real_main() -> Result<()> {
 
                 let mut one = false;
                 for key in tsk.keys()
+                    .supported()
                     .secret()
                     .alive()
                     .revoked(false)
@@ -195,6 +196,7 @@ fn real_main() -> Result<()> {
             for tsk in tsks {
                 let mut one = false;
                 for key in tsk.keys().with_policy(p, None)
+                    .supported()
                     .secret()
                     .alive()
                     .revoked(false)
@@ -281,6 +283,7 @@ fn real_main() -> Result<()> {
 
                 let mut one = false;
                 for key in cert.keys()
+                    .supported()
                     .alive()
                     .revoked(false)
                     .for_storage_encryption()
@@ -643,6 +646,7 @@ impl<'a> Helper<'a> {
         for tsk in secrets {
             for ka in tsk.keys().secret()
                 .with_policy(policy, None)
+                .supported()
                 .for_transport_encryption().for_storage_encryption()
             {
                 let id: KeyID = ka.key().fingerprint().into();
