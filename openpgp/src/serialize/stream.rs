@@ -2005,6 +2005,67 @@ impl<'a> Recipient<'a> {
 /// The stream will be encrypted using a generated session key, which
 /// will be encrypted using the given passwords, and for all given
 /// recipients.
+///
+/// An [`Recipient`] is an encryption-capable (sub)key.  Note that a
+/// certificate may have more than one encryption-capable subkey, and
+/// even the primary key may be encryption-capable.
+///
+///   [`Recipient`]: struct.Recipient.html
+///
+/// To encrypt for more than one certificate, iterate over the
+/// certificates and select encryption-capable keys, making sure that
+/// at least one key is selected from each certificate.
+///
+/// # Examples
+///
+/// This demonstrates encrypting for multiple certificates.
+///
+/// ```
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// # use std::io::Write;
+/// # use sequoia_openpgp as openpgp;
+/// # use openpgp::cert::prelude::*;
+/// # use openpgp::parse::Parse;
+/// use openpgp::serialize::stream::{
+///     Message, Encryptor, LiteralWriter,
+/// };
+/// use openpgp::policy::StandardPolicy;
+/// let p = &StandardPolicy::new();
+///
+/// # let (cert_0, _) =
+/// #     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+/// #     .generate()?;
+/// # let (cert_1, _) =
+/// #     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+/// #     .generate()?;
+/// let recipient_certs = vec![cert_0, cert_1];
+/// let mut recipients = Vec::new();
+/// for cert in recipient_certs.iter() {
+///     // Make sure we add at least one subkey from every
+///     // certificate.
+///     let mut found_one = false;
+///     for key in cert.keys().with_policy(p, None)
+///         .supported().alive().revoked(false).for_transport_encryption()
+///     {
+///         recipients.push(key);
+///         found_one = true;
+///     }
+///
+///     if ! found_one {
+///         return Err(anyhow::anyhow!("No suitable encryption subkey for {}",
+///                                    cert));
+///     }
+/// }
+/// # assert_eq!(recipients.len(), 2);
+///
+/// # let mut sink = vec![];
+/// let message = Message::new(&mut sink);
+/// let message = Encryptor::for_recipients(message, recipients).build()?;
+/// let mut w = LiteralWriter::new(message).build()?;
+/// w.write_all(b"Hello world.")?;
+/// w.finalize()?;
+/// # Ok(()) }
+/// ```
 pub struct Encryptor<'a> {
     // XXX: Opportunity for optimization.  Previously, this writer
     // implemented `Drop`, so we could not move the inner writer out

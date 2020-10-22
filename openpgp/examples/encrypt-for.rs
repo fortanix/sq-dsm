@@ -40,12 +40,24 @@ fn main() -> openpgp::Result<()> {
     }).collect::<openpgp::Result<Vec<_>>>()
     .context("Failed to read key")?;
 
-    let recipients =
-        certs.iter()
-        .flat_map(|cert| {
-            cert.keys()
-                .with_policy(p, None).alive().revoked(false).key_flags(&mode)
-        });
+    // Build a list of recipient subkeys.
+    let mut recipients = Vec::new();
+    for cert in certs.iter() {
+        // Make sure we add at least one subkey from every
+        // certificate.
+        let mut found_one = false;
+        for key in cert.keys().with_policy(p, None)
+            .supported().alive().revoked(false).key_flags(&mode)
+        {
+            recipients.push(key);
+            found_one = true;
+        }
+
+        if ! found_one {
+            return Err(anyhow::anyhow!("No suitable encryption subkey for {}",
+                                       cert));
+        }
+    }
 
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.

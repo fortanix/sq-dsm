@@ -8,11 +8,10 @@ use anyhow::Context;
 
 use sequoia_openpgp as openpgp;
 
-use crate::openpgp::KeyID;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{
-    Armorer, Message, LiteralWriter, Encryptor, Recipient, padding::*,
+    Armorer, Message, LiteralWriter, Encryptor, padding::*,
 };
 use crate::openpgp::policy::StandardPolicy as P;
 
@@ -38,15 +37,24 @@ fn main() -> openpgp::Result<()> {
         openpgp::Cert::from_file(f)
     }).collect::<openpgp::Result<Vec<_>>>().context("Failed to read key")?;
 
-    // Build a vector of recipients to hand to Encryptor.
-    let recipients = certs
-        .iter()
-        .flat_map(|cert| {
-            cert.keys()
-                .with_policy(p, None).alive().revoked(false).key_flags(&mode)
-        })
-        .map(|ka| Recipient::new(KeyID::wildcard(), ka.key()))
-        .collect::<Vec<_>>();
+    // Build a list of recipient subkeys.
+    let mut recipients = Vec::new();
+    for cert in certs.iter() {
+        // Make sure we add at least one subkey from every
+        // certificate.
+        let mut found_one = false;
+        for key in cert.keys().with_policy(p, None)
+            .supported().alive().revoked(false).key_flags(&mode)
+        {
+            recipients.push(key);
+            found_one = true;
+        }
+
+        if ! found_one {
+            return Err(anyhow::anyhow!("No suitable encryption subkey for {}",
+                                       cert));
+        }
+    }
 
     // Compose a writer stack corresponding to the output format and
     // packet structure we want.
