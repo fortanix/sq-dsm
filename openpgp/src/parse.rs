@@ -255,6 +255,7 @@ pub(crate) use self::hashed_reader::{HashedReader, hash_update_text};
 
 mod packet_parser_builder;
 pub use self::packet_parser_builder::{Dearmor, PacketParserBuilder};
+use packet_parser_builder::ARMOR_READER_LEVEL;
 
 pub mod map;
 mod mpis;
@@ -4469,7 +4470,7 @@ impl <'a> PacketParser<'a> {
                         t!("Popped top-level container, done reading message.");
                         // Pop topmost filters (e.g. the armor::Reader).
                         let (_, reader_) = buffered_reader_stack_pop(
-                            reader_, -2)?;
+                            reader_, ARMOR_READER_LEVEL)?;
                         let mut eof = PacketParserEOF::new(state_, reader_);
                         eof.last_path = self.last_path;
                         return Ok((self.packet,

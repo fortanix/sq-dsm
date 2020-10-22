@@ -58,6 +58,10 @@ impl Default for Dearmor {
     }
 }
 
+/// This is the level at which we insert the dearmoring filter into
+/// the buffered reader stack.
+pub(super) const ARMOR_READER_LEVEL: isize = -2;
+
 /// A builder for configuring a `PacketParser`.
 ///
 /// Since the default settings are usually appropriate, this mechanism
@@ -419,7 +423,7 @@ impl<'a> PacketParserBuilder<'a> {
             // the packet parser is finished.  We use level -2 for that.  
             self.bio =
                 armor::Reader::from_buffered_reader(self.bio, Some(mode),
-                                                    Cookie::new(-2))
+                    Cookie::new(ARMOR_READER_LEVEL))
                 .as_boxed();
         }
 
