@@ -90,9 +90,10 @@ other languages, see **Bindings**.
 
 Features
 ----------------------
-Sequoia is currently supported on Linux, Windows and macOS.
+Sequoia is currently supported on a variety of platforms.
 
 ### Cryptography
+
 By default it uses the Nettle cryptographic library (version 3.4.1 or up) but it
 can be used with different cryptographic backends. At the time of writing, it also
 supports the native Windows [Cryptographic API: Next Generation (CNG)].
@@ -101,10 +102,11 @@ Various backends can be enabled via Cargo features, e.g. `crypto-nettle` or
 `crypto-cng` and exactly one can be enabled at a time.
 
 Currently, the `crypto-nettle` feature is enabled by default - regardless of the
-used operating system used. If you choose to enable a different backend, please
-make sure to disable it first.
+operating system used. If you choose to enable a different backend, please
+make sure to disable the default first.
 
 ### Example
+
 To use the Windows CNG backend, use:
 ```toml
 # Cargo.toml
@@ -117,7 +119,20 @@ sequoia-openpgp = { version = "0.20", default-features = false, features = ["cry
 $ cargo build --manifest-path=openpgp/Cargo.toml --no-default-features --features crypto-cng
 ```
 
+### Note
+If you are developing a crate that depends on Sequoia, please ensure the users
+can opt into different backends. This is done by:
+- disabling default features for `sequoia-openpgp`
+- providing top-level features for your crate that correspond to `crypto-*` ones in `sequoia-openpgp`
+- (Optionally) Select one by default yourself
+
+Once Cargo target-specific default features are [implemented], it will be possible
+to automatically select a backend depending on the operating system used.
+
+[implemented]: https://github.com/rust-lang/cargo/issues/1197#issuecomment-590385530
+
 ### Compression
+
 By default, Sequoia supports compression via `flate2` and `bzip2` crates, enabled
 by `compression-deflate` and `compression-bzip2` Cargo features respectively
 (also available via `compression` shorthand feature).
@@ -202,6 +217,7 @@ repository.  The relevant git option is `core.autocrlf` which must be
 set to `false`.
 
 #### MSYS2
+
 You can install the needed libraries with the following command:
 ```shell
 $ pacboy -S base-devel toolchain:x clang:x bzip2:x nettle:x sqlite3:x capnproto:x
@@ -210,7 +226,9 @@ $ pacboy -S base-devel toolchain:x clang:x bzip2:x nettle:x sqlite3:x capnproto:
 Due to Gitlab's Windows Shared Runners being somewhat slow, we only run them
 automatically for MRs, which contain `windows` in the branch name. Please name
 your branch accordingly when contributing a patch which might affect Windows.
+
 #### MSVC
+
 To build Sequoia, you need to have [`capnp`] tool installed.
 
 Only the native Windows Cryptographic API (CNG) is supported, see **Using Sequoia (Cryptography)** section above.
