@@ -126,6 +126,19 @@ can opt into different backends. This is done by:
 - providing top-level features for your crate that correspond to `crypto-*` ones in `sequoia-openpgp`
 - (Optionally) Select one by default yourself
 
+Like so:
+```toml
+# Cargo.toml
+[dependencies]
+sequoia-openpgp = { version = "0.20", default-features = false }
+[features]
+# Pick a Sequoia backend enabled by default
+default = ["seqouia-openpgp/crypto-nettle"]
+# .. but allow others to select a different backend, as well
+crypto-cng = ["sequoia-openpgp/crypto-cng"]
+crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
+```
+
 Once Cargo target-specific default features are [implemented], it will be possible
 to automatically select a backend depending on the operating system used.
 
