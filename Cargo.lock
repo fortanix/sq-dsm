@@ -1438,22 +1438,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parity-tokio-ipc"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1d417ba1ab454723ff2271bf999fd700027dc48759a13d43e488cc8ca38b87f"
-dependencies = [
- "futures",
- "libc",
- "log",
- "mio-named-pipes",
- "miow 0.3.5",
- "rand",
- "tokio",
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "peeking_take_while"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1865,7 +1849,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "memsec",
- "parity-tokio-ipc",
  "quickcheck",
  "rand",
  "sequoia-core",

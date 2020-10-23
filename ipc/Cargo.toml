@@ -35,9 +35,8 @@ memsec = { version = "0.6", default-features = false }
 rand = { version = "0.7", default-features = false }
 tempfile = "3.0"
 thiserror = "1"
-tokio = { version = "0.2", features = ["rt-core", "rt-util", "tcp"] }
+tokio = { version = "0.2", features = ["rt-core", "rt-util", "tcp", "uds", "io-util", "macros"] }
 tokio-util = { version = "0.3", features = ["compat"] }
-parity-tokio-ipc = "0.7"
 socket2 = "0.3.11"
 
 [target.'cfg(windows)'.dependencies]

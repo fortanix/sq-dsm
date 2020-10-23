@@ -12,7 +12,6 @@ use std::task::{Poll, Context};
 use lalrpop_util::ParseError;
 
 use futures::{Future, Stream, StreamExt};
-use parity_tokio_ipc::Connection;
 use tokio::io::{BufReader, ReadHalf, WriteHalf};
 use tokio::io::{AsyncRead, AsyncWriteExt};
 
@@ -23,6 +22,7 @@ use crate::Result;
 
 mod lexer;
 mod socket;
+use socket::IpcStream;
 
 // Maximum line length of the reference implementation.
 const MAX_LINE_LENGTH: usize = 1000;
@@ -61,15 +61,15 @@ lalrpop_util::lalrpop_mod!(
 /// [`Connection::data()`]: #method.data
 /// [`Connection::cancel()`]: #method.cancel
 pub struct Client {
-    r: BufReader<ReadHalf<Connection>>, // xxx: abstract over
+    r: BufReader<ReadHalf<IpcStream>>, // xxx: abstract over
     buffer: Vec<u8>,
     done: bool,
     w: WriteState,
 }
 
 enum WriteState {
-    Ready(WriteHalf<Connection>),
-    Sending(Pin<Box<dyn Future<Output = Result<WriteHalf<Connection>, anyhow::Error>>>>),
+    Ready(WriteHalf<IpcStream>),
+    Sending(Pin<Box<dyn Future<Output = Result<WriteHalf<IpcStream>, anyhow::Error>>>>),
     Transitioning,
     Dead,
 }
@@ -77,9 +77,7 @@ enum WriteState {
 impl Client {
     /// Connects to the server.
     pub async fn connect<P>(path: P) -> Result<Client> where P: AsRef<Path> {
-        // XXX: Implement Windows support using TCP + nonce approach used upstream
-        // https://gnupg.org/documentation/manuals/assuan.pdf#Socket%20wrappers
-        let connection = parity_tokio_ipc::Endpoint::connect(path).await?;
+        let connection = socket::sock_connect(path)?;
         Ok(ConnectionFuture::new(connection).await?)
     }
 
@@ -194,7 +192,7 @@ impl Client {
 struct ConnectionFuture(Option<Client>);
 
 impl ConnectionFuture {
-    fn new(c: Connection) -> Self {
+    fn new(c: IpcStream) -> Self {
         let (r, w) = tokio::io::split(c);
         let buffer = Vec::with_capacity(MAX_LINE_LENGTH);
         Self(Some(Client {
