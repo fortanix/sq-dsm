@@ -22,6 +22,7 @@ use crate::Error;
 use crate::Result;
 
 mod lexer;
+mod socket;
 
 // Maximum line length of the reference implementation.
 const MAX_LINE_LENGTH: usize = 1000;
