@@ -69,7 +69,7 @@ fn gpg_import(ctx: &Context, what: &[u8]) {
 
     let mut gpg = Command::new("gpg")
         .stdin(Stdio::piped())
-        .arg("--homedir").arg(ctx.directory("homedir").unwrap())
+        .arg("--homedir").arg(ctx.homedir().unwrap())
         .arg("--import")
         .spawn()
         .expect("failed to start gpg");

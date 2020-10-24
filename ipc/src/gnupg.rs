@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
+use std::ffi::OsStr;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -35,6 +36,9 @@ pub struct Context {
     sockets: BTreeMap<String, PathBuf>,
     #[allow(dead_code)] // We keep it around for the cleanup.
     ephemeral: Option<tempfile::TempDir>,
+    // XXX: Remove me once hack for Cygwin won't be necessary.
+    #[cfg(windows)]
+    cygwin: bool,
 }
 
 impl Context {
@@ -65,7 +69,19 @@ impl Context {
         let mut sockets: BTreeMap<String, PathBuf> = Default::default();
 
         let ephemeral_dir = ephemeral.as_ref().map(|tmp| tmp.path());
-        let homedir = ephemeral_dir.or(homedir).map(PathBuf::from);
+        let homedir = ephemeral_dir.or(homedir);
+        // Guess if we're dealing with Unix/Cygwin or native Windows variant
+        // We need to do that in order to pass paths in correct style to gpgconf
+        let a_gpg_path = Self::gpgconf(&None, &["--list-dirs", "homedir"], 1)?;
+        let first_byte = a_gpg_path.get(0).and_then(|l| l.get(0)).and_then(|c| c.get(0));
+        let gpg_style = match first_byte {
+            Some(b'/') => Mode::Unix,
+            _ => Mode::native(),
+        };
+        let homedir = homedir.map(|dir|
+            convert_path(dir, gpg_style)
+                .unwrap_or_else(|_| PathBuf::from(dir))
+        );
 
         for fields in Self::gpgconf(&homedir, &["--list-components"], 3)? {
             components.insert(String::from_utf8(fields[0].clone())?,
@@ -80,11 +96,62 @@ impl Context {
             // FIXME: Percent-decode everything, but for now at least decode
             // colons to support Windows drive letters
             value = value.replace("%3a", ":");
+            // Store paths in native format, following the least surprise rule.
+            let path = convert_path(&value, Mode::native())?;
 
             match key.strip_suffix("-socket") {
-                None => directories.insert(key.into(), value.into()),
-                Some(key) => sockets.insert(key.into(), value.into()),
+                None => directories.insert(key.into(), path),
+                Some(key) => sockets.insert(key.into(), path),
             };
+        }
+
+        /// Whether we're dealing with gpg that expects Windows or Unix-style paths.
+        #[derive(Copy, Clone)]
+        enum Mode {
+            Windows,
+            Unix
+        }
+
+        impl Mode {
+            fn native() -> Self {
+                match () {
+                    _ if cfg!(windows) => Mode::Windows,
+                    _ if cfg!(unix) => Mode::Unix,
+                    _ => unimplemented!(),
+                }
+            }
+        }
+
+        #[cfg(not(windows))]
+        fn convert_path(path: impl AsRef<OsStr>, mode: Mode) -> Result<PathBuf> {
+            match mode {
+                Mode::Unix => Ok(PathBuf::from(path.as_ref())),
+                Mode::Windows => Err(anyhow::anyhow!(
+                    "Converting to Windows-style paths is only supported on Windows"
+                )),
+            }
+        }
+
+        #[cfg(windows)]
+        fn convert_path(path: impl AsRef<OsStr>, mode: Mode) -> Result<PathBuf> {
+            let conversion_type = match mode {
+                Mode::Windows => "--windows",
+                Mode::Unix => "--unix",
+            };
+            Command::new("cygpath").arg(conversion_type).arg(path.as_ref())
+                .output()
+                .map_err(Into::into)
+                .and_then(|out|
+                    if out.status.success() {
+                        let output = std::str::from_utf8(&out.stdout)?.trim();
+                        Ok(PathBuf::from(output))
+                    } else {
+                        Err(anyhow::anyhow!(
+                            "Executing cygpath encountered error for path {}",
+                            path.as_ref().to_string_lossy()
+                        ))
+                    }
+                )
         }
 
         Ok(Context {
@@ -93,6 +160,8 @@ impl Context {
             directories,
             sockets,
             ephemeral,
+            #[cfg(windows)]
+            cygwin: cfg!(windows) && matches!(gpg_style, Mode::Unix),
         })
     }
 
@@ -147,6 +216,16 @@ impl Context {
         }
     }
 
+    /// Returns the path to `homedir` directory.
+    ///
+    /// The path returned will be in a local format, i. e. one accepted by
+    /// available `gpgconf` or `gpg` tools.
+    ///
+    ///
+    pub fn homedir(&self) -> Option<&Path> {
+        self.homedir.as_deref()
+    }
+
     /// Returns the path to a GnuPG component.
     pub fn component<C>(&self, component: C) -> Result<&Path>
         where C: AsRef<str>
@@ -185,6 +264,18 @@ impl Context {
 
     /// Creates directories for RPC communication.
     pub fn create_socket_dir(&self) -> Result<()> {
+        // FIXME: GnuPG as packaged by MinGW fails to create socketdir because
+        // it follows upstream Unix logic, which expects Unix-like `/var/run`
+        // sockets to work. Additionally, GnuPG expects to work with and set
+        // correct POSIX permissions that MinGW does not even support/emulate,
+        // so this fails loudly.
+        // Instead, don't do anything and rely on on homedir being treated
+        // (correctly) as a fallback here.
+        #[cfg(windows)]
+        if self.cygwin {
+            return Ok(());
+        }
+
         Self::gpgconf(&self.homedir, &["--create-socketdir"], 1)?;
         Ok(())
     }
