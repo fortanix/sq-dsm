@@ -64,29 +64,27 @@ impl Context {
         let mut directories: BTreeMap<String, PathBuf> = Default::default();
         let mut sockets: BTreeMap<String, PathBuf> = Default::default();
 
-        let homedir: Option<PathBuf> =
-            ephemeral.as_ref().map(|tmp| tmp.path()).or(homedir)
-            .map(|p| p.into());
+        let ephemeral_dir = ephemeral.as_ref().map(|tmp| tmp.path());
+        let homedir = ephemeral_dir.or(homedir).map(PathBuf::from);
 
-        for fields in Self::gpgconf(
-            &homedir, &["--list-components"], 3)?.into_iter()
-        {
+        for fields in Self::gpgconf(&homedir, &["--list-components"], 3)? {
             components.insert(String::from_utf8(fields[0].clone())?,
                               String::from_utf8(fields[2].clone())?.into());
         }
 
-        for fields in Self::gpgconf(&homedir, &["--list-dirs"], 2)?.into_iter()
-        {
-            let (mut key, value) = (fields[0].clone(), fields[1].clone());
-            if key.ends_with(b"-socket") {
-                let l = key.len();
-                key.truncate(l - b"-socket".len());
-                sockets.insert(String::from_utf8(key)?,
-                               String::from_utf8(value)?.into());
-            } else {
-                directories.insert(String::from_utf8(key)?,
-                                   String::from_utf8(value)?.into());
-            }
+        for fields in Self::gpgconf(&homedir, &["--list-dirs"], 2)? {
+            // NOTE: Directories and socket paths are percent-encoded if no
+            // argument to "--list-dirs" is given
+            let key = std::str::from_utf8(&fields[0])?;
+            let mut value = std::str::from_utf8(&fields[1])?.to_owned();
+            // FIXME: Percent-decode everything, but for now at least decode
+            // colons to support Windows drive letters
+            value = value.replace("%3a", ":");
+
+            match key.strip_suffix("-socket") {
+                None => directories.insert(key.into(), value.into()),
+                Some(key) => sockets.insert(key.into(), value.into()),
+            };
         }
 
         Ok(Context {
@@ -111,19 +109,23 @@ impl Context {
             gpgconf.env("GNUPGHOME", homedir);
         }
 
-        for argument in arguments {
-            gpgconf.arg(argument);
-        }
-        let output = gpgconf.output().map_err(|e| -> anyhow::Error {
-            Error::GPGConf(e.to_string()).into()
+        gpgconf.args(arguments);
+
+        let output = gpgconf.output().map_err(|e| {
+            Error::GPGConf(e.to_string())
         })?;
 
         if output.status.success() {
             let mut result = Vec::new();
-            for line in output.stdout.split(nl) {
+            for mut line in output.stdout.split(nl) {
                 if line.len() == 0 {
                     // EOF.
                     break;
+                }
+
+                // Make sure to also skip \r on Windows
+                if line[line.len() - 1] == b'\r' {
+                    line = &line[..line.len() - 1];
                 }
 
                 let fields =
