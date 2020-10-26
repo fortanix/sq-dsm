@@ -152,8 +152,8 @@ impl KeyringValidator {
         }
 
         self.n_packets += 1;
-        if destructures_to!(Token::Signature(None) = &token)
-            && destructures_to!(Some(Token::Signature(None)) = self.tokens.last())
+        if matches!(&token, Token::Signature(None))
+            && matches!(self.tokens.last(), Some(Token::Signature(None)))
         {
             // Compress multiple signatures in a row.  This is
             // essential for dealing with flooded keys.

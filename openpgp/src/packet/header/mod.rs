@@ -86,8 +86,8 @@ impl Header {
         // Unknown packets are not valid unless we want future
         // compatibility.
         if ! future_compatible
-            && (destructures_to!(Tag::Unknown(_) = tag)
-                || destructures_to!(Tag::Private(_) = tag))
+            && (matches!(tag, Tag::Unknown(_))
+                || matches!(tag, Tag::Private(_)))
         {
             return Err(Error::UnsupportedPacketType(tag).into());
         }

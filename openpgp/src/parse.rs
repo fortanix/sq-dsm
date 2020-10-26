@@ -1452,9 +1452,9 @@ impl Signature4 {
         let hash_algo : HashAlgorithm = data[3].into();
 
         if version == 4
-            && !destructures_to!(SignatureType::Unknown(_) = typ)
-            && !destructures_to!(PublicKeyAlgorithm::Unknown(_) = pk_algo)
-            && !destructures_to!(HashAlgorithm::Unknown(_) = hash_algo)
+            && !matches!(typ, SignatureType::Unknown(_))
+            && !matches!(pk_algo, PublicKeyAlgorithm::Unknown(_))
+            && !matches!(hash_algo, HashAlgorithm::Unknown(_))
         {
             Ok(())
         } else {
@@ -2251,9 +2251,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
         let version = data[0];
         let pk_algo : PublicKeyAlgorithm = data[5].into();
 
-        if version == 4
-            && !destructures_to!(PublicKeyAlgorithm::Unknown(_) = pk_algo)
-        {
+        if version == 4 && !matches!(pk_algo, PublicKeyAlgorithm::Unknown(_)) {
             Ok(())
         } else {
             Err(Error::MalformedPacket("Invalid or unsupported data".into())

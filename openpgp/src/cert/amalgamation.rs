@@ -1184,8 +1184,8 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
         })
             .max_by(|(a, a_primary, a_signature_creation_time),
                     (b, b_primary, b_signature_creation_time)| {
-                match (destructures_to!(RevocationStatus::Revoked(_) = &a.2),
-                       destructures_to!(RevocationStatus::Revoked(_) = &b.2)) {
+                match (matches!(&a.2, RevocationStatus::Revoked(_)),
+                       matches!(&b.2, RevocationStatus::Revoked(_))) {
                     (true, false) => return Ordering::Less,
                     (false, true) => return Ordering::Greater,
                     _ => (),

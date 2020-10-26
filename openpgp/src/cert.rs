@@ -4432,15 +4432,19 @@ mod test {
         fn cert_revoked<T>(p: &dyn Policy, cert: &Cert, t: T) -> bool
             where T: Into<Option<time::SystemTime>>
         {
-            !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = cert.revocation_status(p, t))
+            !matches!(
+                cert.revocation_status(p, t),
+                RevocationStatus::NotAsFarAsWeKnow
+            )
         }
 
         fn subkey_revoked<T>(p: &dyn Policy, cert: &Cert, t: T) -> bool
             where T: Into<Option<time::SystemTime>>
         {
-            !destructures_to!(RevocationStatus::NotAsFarAsWeKnow
-                              = cert.subkeys().nth(0).unwrap().bundle().revocation_status(p, t))
+            !matches!(
+                cert.subkeys().nth(0).unwrap().bundle().revocation_status(p, t),
+                RevocationStatus::NotAsFarAsWeKnow
+            )
         }
 
         let tests : [(&str, Box<dyn Fn(&dyn Policy, &Cert, _) -> bool>); 2] = [
@@ -5540,27 +5544,30 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         // TryFrom<PacketPile>
         let pp = PacketPile::from_bytes(&keyring)?;
-        assert!(destructures_to!(
-            Error::MalformedCert(_) =
-                Cert::try_from(pp.clone()).unwrap_err().downcast().unwrap()));
+        assert!(matches!(
+            Cert::try_from(pp.clone()).unwrap_err().downcast().unwrap(),
+            Error::MalformedCert(_)
+        ));
 
         // Cert::TryFrom<Vec<Packet>>
         let v: Vec<Packet> = pp.into();
-        assert!(destructures_to!(
-            Error::MalformedCert(_) =
-                Cert::try_from(v.clone()).unwrap_err().downcast().unwrap()));
+        assert!(matches!(
+            Cert::try_from(v.clone()).unwrap_err().downcast().unwrap(),
+            Error::MalformedCert(_)
+        ));
 
         // Cert::from_packet
-        assert!(destructures_to!(
-            Error::MalformedCert(_) =
-                Cert::from_packets(v.into_iter()).unwrap_err()
-                .downcast().unwrap()));
+        assert!(matches!(
+            Cert::from_packets(v.into_iter()).unwrap_err().downcast().unwrap(),
+            Error::MalformedCert(_)
+        ));
 
         // Cert::TryFrom<PacketParserResult>
         let ppr = PacketParser::from_bytes(&keyring)?;
-        assert!(destructures_to!(
-            Error::MalformedCert(_) =
-                Cert::try_from(ppr).unwrap_err().downcast().unwrap()));
+        assert!(matches!(
+            Cert::try_from(ppr).unwrap_err().downcast().unwrap(),
+            Error::MalformedCert(_)
+        ));
         Ok(())
     }
 
