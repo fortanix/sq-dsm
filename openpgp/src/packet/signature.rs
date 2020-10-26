@@ -340,7 +340,7 @@ impl SignatureFields {
 /// when converting a `Signature` to a `SigantureBuilder`.  Since the
 /// [`Signer`] passed to the finalization routine contains the
 /// required information, we also automatically add appropriate
-/// `Issuer` and `Issuer Fingerprint` subpackets to the unhashed
+/// `Issuer` and `Issuer Fingerprint` subpackets to the hashed
 /// subpacket area when the `SignatureBuilder` is finalized unless an
 /// `Issuer` subpacket or an `IssuerFingerprint` subpacket has been
 /// added to either of the subpacket areas (which can be done using
@@ -518,7 +518,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///
@@ -629,7 +629,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///
@@ -736,7 +736,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///
@@ -869,7 +869,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///
@@ -996,7 +996,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///
@@ -1138,7 +1138,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///
@@ -1269,7 +1269,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///
@@ -1377,7 +1377,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///
@@ -1446,7 +1446,7 @@ impl SignatureBuilder {
     /// [`SignatureBuilder::set_issuer`], for instance) nor an
     /// [`Issuer Fingerprint`] subpacket (set using
     /// [`SignatureBuilder::set_issuer_fingerprint`], for instance) is
-    /// set, they are both added to the new `Signature`'s unhashed
+    /// set, they are both added to the new `Signature`'s hashed
     /// subpacket area and set to the `signer`'s `KeyID` and
     /// `Fingerprint`, respectively.
     ///

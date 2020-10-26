@@ -2817,7 +2817,7 @@ impl SubpacketAreas {
     /// The [Issuer subpacket] is used when processing a signature to
     /// identify which certificate created the signature.  Since this
     /// information is self-authenticating (the act of validating the
-    /// signature authenticates the subpacket), it is stored in the
+    /// signature authenticates the subpacket), it may be stored in the
     /// unhashed subpacket area.
     ///
     ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
@@ -5233,7 +5233,7 @@ impl signature::SignatureBuilder {
     /// identify which certificate created the signature.  Even though this
     /// information is self-authenticating (the act of validating the
     /// signature authenticates the subpacket), it is stored in the
-    /// unhashed subpacket area.  This has the advantage that the signer
+    /// hashed subpacket area.  This has the advantage that the signer
     /// authenticates the set of issuers.  Furthermore, it makes
     /// handling of the resulting signatures more robust: If there are
     /// two two signatures that are equal modulo the contents of the
@@ -6393,7 +6393,7 @@ impl signature::SignatureBuilder {
     /// signature to identify which certificate created the signature.
     /// Even though this information is self-authenticating (the act of
     /// validating the signature authenticates the subpacket), it is
-    /// stored in the unhashed subpacket area.  This has the advantage
+    /// stored in the hashed subpacket area.  This has the advantage
     /// that the signer authenticates the set of issuers.
     /// Furthermore, it makes handling of the resulting signatures
     /// more robust: If there are two two signatures that are equal
@@ -6485,7 +6485,7 @@ impl signature::SignatureBuilder {
     /// signature to identify which certificate created the signature.
     /// Even though this information is self-authenticating (the act of
     /// validating the signature authenticates the subpacket), it is
-    /// stored in the unhashed subpacket area.  This has the advantage
+    /// stored in the hashed subpacket area.  This has the advantage
     /// that the signer authenticates the set of issuers.
     /// Furthermore, it makes handling of the resulting signatures
     /// more robust: If there are two two signatures that are equal
