@@ -78,18 +78,14 @@ impl Header {
     pub fn valid(&self, future_compatible: bool) -> Result<()> {
         let tag = self.ctb.tag();
 
-        // Reserved packets are never valid.
-        if tag == Tag::Reserved {
-            return Err(Error::UnsupportedPacketType(tag).into());
-        }
-
-        // Unknown packets are not valid unless we want future
-        // compatibility.
-        if ! future_compatible
-            && (matches!(tag, Tag::Unknown(_))
-                || matches!(tag, Tag::Private(_)))
-        {
-            return Err(Error::UnsupportedPacketType(tag).into());
+        match tag {
+            // Reserved packets are never valid.
+            Tag::Reserved =>
+                return Err(Error::UnsupportedPacketType(tag).into()),
+            // Unknown packets are not valid unless we want future compatibility.
+            Tag::Unknown(_) | Tag::Private(_) if !future_compatible =>
+                return Err(Error::UnsupportedPacketType(tag).into()),
+            _ => (),
         }
 
         // An implementation MAY use Partial Body Lengths for data

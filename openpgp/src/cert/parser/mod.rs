@@ -143,22 +143,18 @@ impl KeyringValidator {
             return;
         }
 
-        match token {
-            Token::PublicKey(_) | Token::SecretKey(_) => {
-                self.tokens.clear();
-                self.n_keys += 1;
-            },
-            _ => (),
+        if let Token::PublicKey(_) | Token::SecretKey(_) = token {
+            self.tokens.clear();
+            self.n_keys += 1;
         }
 
         self.n_packets += 1;
-        if matches!(&token, Token::Signature(None))
-            && matches!(self.tokens.last(), Some(Token::Signature(None)))
-        {
-            // Compress multiple signatures in a row.  This is
-            // essential for dealing with flooded keys.
-        } else {
-            self.tokens.push(token);
+        match (&token, self.tokens.last()) {
+            (Token::Signature(None), Some(Token::Signature(None))) => {
+                // Compress multiple signatures in a row.  This is
+                // essential for dealing with flooded keys
+            },
+            _ => self.tokens.push(token),
         }
     }
 
