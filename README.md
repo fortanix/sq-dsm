@@ -80,7 +80,7 @@ Using Sequoia
 If you want to use Sequoia from Rust, you can simply register the
 dependency in your `Cargo.toml` file as with any other project.
 ```toml
-sequoia-openpgp = version = "0.20"
+sequoia-openpgp = version = "*"
 ```
 Note that we depend on a number of C libraries, which must be present along
 with their development packages. See **Requirements** section below.
@@ -111,7 +111,7 @@ To use the Windows CNG backend, use:
 ```toml
 # Cargo.toml
 [dependencies]
-sequoia-openpgp = { version = "0.20", default-features = false, features = ["crypto-cng"] }
+sequoia-openpgp = { version = "*", default-features = false, features = ["crypto-cng"] }
 ```
 
 ```bash
@@ -130,7 +130,7 @@ Like so:
 ```toml
 # Cargo.toml
 [dependencies]
-sequoia-openpgp = { version = "0.20", default-features = false }
+sequoia-openpgp = { version = "*", default-features = false }
 [features]
 # Pick a Sequoia backend enabled by default
 default = ["seqouia-openpgp/crypto-nettle"]
