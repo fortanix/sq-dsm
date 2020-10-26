@@ -420,17 +420,29 @@ mod tests {
     #[test]
     fn to_signature() {
         use openpgp::crypto::mpi::Signature::*;
-        assert!(destructures_to!(DSA { .. } = Sexp::from_bytes(
-            crate::tests::file("sexp/dsa-signature.sexp")).unwrap()
-                      .to_signature().unwrap()));
-        assert!(destructures_to!(ECDSA { .. } = Sexp::from_bytes(
-            crate::tests::file("sexp/ecdsa-signature.sexp")).unwrap()
-                      .to_signature().unwrap()));
-        assert!(destructures_to!(EdDSA { .. } = Sexp::from_bytes(
-            crate::tests::file("sexp/eddsa-signature.sexp")).unwrap()
-                      .to_signature().unwrap()));
-        assert!(destructures_to!(RSA { .. } = Sexp::from_bytes(
-            crate::tests::file("sexp/rsa-signature.sexp")).unwrap()
-                      .to_signature().unwrap()));
+        assert!(matches!(
+            Sexp::from_bytes(
+                crate::tests::file("sexp/dsa-signature.sexp")).unwrap()
+                    .to_signature().unwrap(),
+                DSA { .. }
+        ));
+        assert!(matches!(
+            Sexp::from_bytes(
+                crate::tests::file("sexp/ecdsa-signature.sexp")).unwrap()
+                    .to_signature().unwrap(),
+                ECDSA { .. }
+        ));
+        assert!(matches!(
+            Sexp::from_bytes(
+                crate::tests::file("sexp/eddsa-signature.sexp")).unwrap()
+                    .to_signature().unwrap(),
+                EdDSA { .. }
+        ));
+        assert!(matches!(
+            Sexp::from_bytes(
+                crate::tests::file("sexp/rsa-signature.sexp")).unwrap()
+                    .to_signature().unwrap(),
+                RSA { .. }
+        ));
     }
 }
