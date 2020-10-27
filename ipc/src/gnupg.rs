@@ -31,8 +31,6 @@ use crate::sexp::Sexp;
 #[derive(Debug)]
 pub struct Context {
     homedir: Option<PathBuf>,
-    components: BTreeMap<String, PathBuf>,
-    directories: BTreeMap<String, PathBuf>,
     sockets: BTreeMap<String, PathBuf>,
     #[allow(dead_code)] // We keep it around for the cleanup.
     ephemeral: Option<tempfile::TempDir>,
@@ -64,8 +62,6 @@ impl Context {
 
     fn make(homedir: Option<&Path>, ephemeral: Option<tempfile::TempDir>)
             -> Result<Self> {
-        let mut components: BTreeMap<String, PathBuf> = Default::default();
-        let mut directories: BTreeMap<String, PathBuf> = Default::default();
         let mut sockets: BTreeMap<String, PathBuf> = Default::default();
 
         let ephemeral_dir = ephemeral.as_ref().map(|tmp| tmp.path());
@@ -83,11 +79,6 @@ impl Context {
                 .unwrap_or_else(|_| PathBuf::from(dir))
         );
 
-        for fields in Self::gpgconf(&homedir, &["--list-components"], 3)? {
-            components.insert(String::from_utf8(fields[0].clone())?,
-                              String::from_utf8(fields[2].clone())?.into());
-        }
-
         for fields in Self::gpgconf(&homedir, &["--list-dirs"], 2)? {
             // NOTE: Directories and socket paths are percent-encoded if no
             // argument to "--list-dirs" is given
@@ -99,10 +90,9 @@ impl Context {
             // Store paths in native format, following the least surprise rule.
             let path = convert_path(&value, Mode::native())?;
 
-            match key.strip_suffix("-socket") {
-                None => directories.insert(key.into(), path),
-                Some(key) => sockets.insert(key.into(), path),
-            };
+            if let Some(socket) = key.strip_suffix("-socket") {
+                sockets.insert(socket.into(), path);
+            }
         }
 
         /// Whether we're dealing with gpg that expects Windows or Unix-style paths.
@@ -156,8 +146,6 @@ impl Context {
 
         Ok(Context {
             homedir,
-            components,
-            directories,
             sockets,
             ephemeral,
             #[cfg(windows)]
@@ -224,30 +212,6 @@ impl Context {
     ///
     pub fn homedir(&self) -> Option<&Path> {
         self.homedir.as_deref()
-    }
-
-    /// Returns the path to a GnuPG component.
-    pub fn component<C>(&self, component: C) -> Result<&Path>
-        where C: AsRef<str>
-    {
-        self.components.get(component.as_ref())
-            .map(|p| p.as_path())
-            .ok_or_else(|| {
-            Error::GPGConf(format!("No such component {:?}",
-                                   component.as_ref())).into()
-        })
-    }
-
-    /// Returns the path to a GnuPG directory.
-    pub fn directory<C>(&self, directory: C) -> Result<&Path>
-        where C: AsRef<str>
-    {
-        self.directories.get(directory.as_ref())
-            .map(|p| p.as_path())
-            .ok_or_else(|| {
-            Error::GPGConf(format!("No such directory {:?}",
-                                   directory.as_ref())).into()
-        })
     }
 
     /// Returns the path to a GnuPG socket.
