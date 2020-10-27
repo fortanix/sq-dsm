@@ -69,7 +69,7 @@ impl Context {
         // Guess if we're dealing with Unix/Cygwin or native Windows variant
         // We need to do that in order to pass paths in correct style to gpgconf
         let a_gpg_path = Self::gpgconf(&None, &["--list-dirs", "homedir"], 1)?;
-        let first_byte = a_gpg_path.get(0).and_then(|l| l.get(0)).and_then(|c| c.get(0));
+        let first_byte = a_gpg_path.get(0).and_then(|c| c.get(0)).and_then(|c| c.get(0));
         let gpg_style = match first_byte {
             Some(b'/') => Mode::Unix,
             _ => Mode::native(),
@@ -80,9 +80,16 @@ impl Context {
         );
 
         for fields in Self::gpgconf(&homedir, &["--list-dirs"], 2)? {
+            let key = std::str::from_utf8(&fields[0])?;
+
+            // For now, we're only interested in sockets.
+            let socket = match key.strip_suffix("-socket") {
+                Some(socket) => socket,
+                _ => continue,
+            };
+
             // NOTE: Directories and socket paths are percent-encoded if no
             // argument to "--list-dirs" is given
-            let key = std::str::from_utf8(&fields[0])?;
             let mut value = std::str::from_utf8(&fields[1])?.to_owned();
             // FIXME: Percent-decode everything, but for now at least decode
             // colons to support Windows drive letters
@@ -90,9 +97,7 @@ impl Context {
             // Store paths in native format, following the least surprise rule.
             let path = convert_path(&value, Mode::native())?;
 
-            if let Some(socket) = key.strip_suffix("-socket") {
-                sockets.insert(socket.into(), path);
-            }
+            sockets.insert(socket.into(), path);
         }
 
         /// Whether we're dealing with gpg that expects Windows or Unix-style paths.
