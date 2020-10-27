@@ -2716,7 +2716,7 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of any Regular Expression subpackets.
+    /// Returns the values of all Regular Expression subpackets.
     ///
     /// The [Regular Expression subpacket] is used in conjunction with
     /// a [Trust Signature subpacket], which is accessed using
@@ -2777,7 +2777,7 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns the value of the Revocation Key subpacket.
+    /// Returns the values of all Revocation Key subpackets.
     ///
     /// A [Revocation Key subpacket] indicates certificates (so-called
     /// designated revokers) that are allowed to revoke the signer's
@@ -2812,7 +2812,7 @@ impl SubpacketAreas {
             })
     }
 
-    /// Returns the value of any Issuer subpackets.
+    /// Returns the values of all Issuer subpackets.
     ///
     /// The [Issuer subpacket] is used when processing a signature to
     /// identify which certificate created the signature.  Since this
@@ -2835,7 +2835,7 @@ impl SubpacketAreas {
             })
     }
 
-    /// Returns the value of any Issuer Fingerprint subpackets.
+    /// Returns the values of all Issuer Fingerprint subpackets.
     ///
     /// The [Issuer Fingerprint subpacket] is used when processing a
     /// signature to identify which certificate created the signature.
@@ -2897,7 +2897,7 @@ impl SubpacketAreas {
             })
     }
 
-    /// Returns the value of all Notation Data subpackets with the
+    /// Returns the values of all Notation Data subpackets with the
     /// given name.
     ///
     /// [Notation Data subpackets] are key-value pairs.  They can be
@@ -3486,7 +3486,7 @@ impl SubpacketAreas {
         }
     }
 
-    /// Returns a reference to the Embedded Signature subpacket.
+    /// Returns references to all Embedded Signature subpackets.
     ///
     /// The [Embedded Signature subpacket] is normally used to hold a
     /// [Primary Key Binding signature], which binds a
@@ -3517,8 +3517,7 @@ impl SubpacketAreas {
         })
     }
 
-    /// Returns a mutable reference to the Embedded Signature
-    /// subpacket.
+    /// Returns mutable references to all Embedded Signature subpackets.
     ///
     /// The [Embedded Signature subpacket] is normally used to hold a
     /// [Primary Key Binding signature], which binds a
