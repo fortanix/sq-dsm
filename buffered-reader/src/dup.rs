@@ -10,7 +10,7 @@ use super::*;
 /// Note: this will likely cause the underlying stream to buffer as
 /// much data as you read.  Thus, it should only be used for peeking
 /// at the underlying `BufferedReader`.
-pub struct Dup<T: BufferedReader<C>, C> {
+pub struct Dup<T: BufferedReader<C>, C: fmt::Debug> {
     reader: T,
 
     // The number of bytes that have been consumed.
@@ -20,14 +20,14 @@ pub struct Dup<T: BufferedReader<C>, C> {
     cookie: C,
 }
 
-impl<T: BufferedReader<C>, C> fmt::Display for Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Dup<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Dup ({} bytes consumed)",
                self.cursor)
     }
 }
 
-impl<T: BufferedReader<C>, C> fmt::Debug for Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Dup<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Dup")
             .field("cursor", &self.cursor)
@@ -45,7 +45,7 @@ impl<T: BufferedReader<()>> Dup<T, ()> {
     }
 }
 
-impl<T: BufferedReader<C>, C> Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> Dup<T, C> {
     /// Like `new()`, but uses a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -69,7 +69,7 @@ impl<T: BufferedReader<C>, C> Dup<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C> io::Read for Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> io::Read for Dup<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let data = self.reader.data(self.cursor + buf.len())?;
         assert!(data.len() >= self.cursor);
@@ -84,7 +84,7 @@ impl<T: BufferedReader<C>, C> io::Read for Dup<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C> BufferedReader<C> for Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> BufferedReader<C> for Dup<T, C> {
     fn buffer(&self) -> &[u8] {
         let data = self.reader.buffer();
         assert!(data.len() >= self.cursor);

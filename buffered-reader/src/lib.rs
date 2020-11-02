@@ -297,7 +297,9 @@ fn vec_truncate(v: &mut Vec<u8>, len: usize) {
 }
 
 /// The generic `BufferReader` interface.
-pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
+pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display
+  where C: fmt::Debug
+{
     /// Returns a reference to the internal buffer.
     ///
     /// Note: this returns the same data as `self.data(0)`, but it
@@ -884,7 +886,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display {
 ///
 /// but, alas, Rust doesn't like that ("error\[E0119\]: conflicting
 /// implementations of trait `std::io::Read` for type `&mut _`").
-pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C>
+pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C: fmt::Debug>
         (bio: &mut T, buf: &mut [u8]) -> Result<usize, io::Error> {
     match bio.data_consume(buf.len()) {
         Ok(inner) => {
@@ -897,7 +899,7 @@ pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C>
 }
 
 /// Make a `Box<BufferedReader>` look like a BufferedReader.
-impl <'a, C> BufferedReader<C> for Box<dyn BufferedReader<C> + 'a> {
+impl <'a, C: fmt::Debug> BufferedReader<C> for Box<dyn BufferedReader<C> + 'a> {
     fn buffer(&self) -> &[u8] {
         return self.as_ref().buffer();
     }
@@ -995,7 +997,7 @@ impl <'a, C> BufferedReader<C> for Box<dyn BufferedReader<C> + 'a> {
 //
 //   for i in $(seq 0 9999); do printf "%04d\n" $i; done > buffered-reader-test.txt
 #[cfg(test)]
-fn buffered_reader_test_data_check<'a, T: BufferedReader<C> + 'a, C>(bio: &mut T) {
+fn buffered_reader_test_data_check<'a, T: BufferedReader<C> + 'a, C: fmt::Debug>(bio: &mut T) {
     use std::str;
 
     for i in 0 .. 10000 {
@@ -1049,7 +1051,7 @@ mod test {
     }
 
     #[cfg(test)]
-    fn buffered_reader_read_test_aux<'a, T: BufferedReader<C> + 'a, C>
+    fn buffered_reader_read_test_aux<'a, T: BufferedReader<C> + 'a, C: fmt::Debug>
         (mut bio: T, data: &[u8]) {
         let mut buffer = [0; 99];
 

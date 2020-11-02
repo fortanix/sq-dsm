@@ -9,19 +9,19 @@ use super::*;
 /// Generic::with_cookie(b, _)`, but that introduces buffering.  This
 /// `Adapter` also changes cookie types, but does no buffering of its
 /// own.
-pub struct Adapter<T: BufferedReader<B>, B, C> {
+pub struct Adapter<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> {
     reader: T,
     _ghostly_cookie: std::marker::PhantomData<B>,
     cookie: C,
 }
 
-impl<T: BufferedReader<B>, B, C> fmt::Display for Adapter<T, B, C> {
+impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> fmt::Display for Adapter<T, B, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Adapter")
     }
 }
 
-impl<T: BufferedReader<B>, B, C> fmt::Debug for Adapter<T, B, C> {
+impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> fmt::Debug for Adapter<T, B, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Adapter")
             .field("reader", &self.reader)
@@ -29,7 +29,7 @@ impl<T: BufferedReader<B>, B, C> fmt::Debug for Adapter<T, B, C> {
     }
 }
 
-impl<T: BufferedReader<B>, B> Adapter<T, B, ()> {
+impl<T: BufferedReader<B>, B: fmt::Debug> Adapter<T, B, ()> {
     /// Instantiates a new adapter.
     ///
     /// `reader` is the source to wrap.
@@ -38,7 +38,7 @@ impl<T: BufferedReader<B>, B> Adapter<T, B, ()> {
     }
 }
 
-impl<T: BufferedReader<B>, B, C> Adapter<T, B, C> {
+impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> Adapter<T, B, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -53,13 +53,13 @@ impl<T: BufferedReader<B>, B, C> Adapter<T, B, C> {
     }
 }
 
-impl<T: BufferedReader<B>, B, C> io::Read for Adapter<T, B, C> {
+impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> io::Read for Adapter<T, B, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         self.reader.read(buf)
     }
 }
 
-impl<T: BufferedReader<B>, B, C> BufferedReader<C> for Adapter<T, B, C> {
+impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> BufferedReader<C> for Adapter<T, B, C> {
     fn buffer(&self) -> &[u8] {
         self.reader.buffer()
     }

@@ -46,7 +46,7 @@ impl<C> Read for EOF<C> {
     }
 }
 
-impl<C> BufferedReader<C> for EOF<C> {
+impl<C: fmt::Debug> BufferedReader<C> for EOF<C> {
     fn buffer(&self) -> &[u8] {
         return &b""[..];
     }

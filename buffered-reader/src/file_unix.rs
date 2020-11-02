@@ -25,15 +25,15 @@ const MMAP_THRESHOLD: u64 = 16 * 4096;
 ///
 /// This implementation tries to mmap the file, falling back to
 /// just using a generic reader.
-pub struct File<'a, C>(Imp<'a, C>, PathBuf);
+pub struct File<'a, C: fmt::Debug>(Imp<'a, C>, PathBuf);
 
-impl<'a, C> fmt::Display for File<'a, C> {
+impl<'a, C: fmt::Debug> fmt::Display for File<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {:?}", self.0, self.1.display())
     }
 }
 
-impl<'a, C> fmt::Debug for File<'a, C> {
+impl<'a, C: fmt::Debug> fmt::Debug for File<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("File")
             .field(&self.0)
@@ -43,7 +43,7 @@ impl<'a, C> fmt::Debug for File<'a, C> {
 }
 
 /// The implementation.
-enum Imp<'a, C> {
+enum Imp<'a, C: fmt::Debug> {
     Generic(Generic<fs::File, C>),
     MMAP {
         addr: *mut c_void,
@@ -52,7 +52,7 @@ enum Imp<'a, C> {
     }
 }
 
-impl<'a, C> Drop for Imp<'a, C> {
+impl<'a, C: fmt::Debug> Drop for Imp<'a, C> {
     fn drop(&mut self) {
         match self {
             Imp::Generic(_) => (),
@@ -64,7 +64,7 @@ impl<'a, C> Drop for Imp<'a, C> {
     }
 }
 
-impl<'a, C> fmt::Display for Imp<'a, C> {
+impl<'a, C: fmt::Debug> fmt::Display for Imp<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "File(")?;
         match self {
@@ -75,7 +75,7 @@ impl<'a, C> fmt::Display for Imp<'a, C> {
     }
 }
 
-impl<'a, C> fmt::Debug for Imp<'a, C> {
+impl<'a, C: fmt::Debug> fmt::Debug for Imp<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Imp::Generic(ref g) =>
@@ -99,7 +99,7 @@ impl<'a> File<'a, ()> {
     }
 }
 
-impl<'a, C> File<'a, C> {
+impl<'a, C: fmt::Debug> File<'a, C> {
     /// Like `open()`, but sets a cookie.
     pub fn with_cookie<P: AsRef<Path>>(path: P, cookie: C) -> io::Result<Self> {
         let path = path.as_ref();
@@ -159,7 +159,7 @@ impl<'a, C> File<'a, C> {
     }
 }
 
-impl<'a, C> io::Read for File<'a, C> {
+impl<'a, C: fmt::Debug> io::Read for File<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self.0 {
             Imp::Generic(ref mut reader) => reader.read(buf),
@@ -168,7 +168,7 @@ impl<'a, C> io::Read for File<'a, C> {
     }
 }
 
-impl<'a, C> BufferedReader<C> for File<'a, C> {
+impl<'a, C: fmt::Debug> BufferedReader<C> for File<'a, C> {
     fn buffer(&self) -> &[u8] {
         match self.0 {
             Imp::Generic(ref reader) => reader.buffer(),

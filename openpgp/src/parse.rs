@@ -1112,7 +1112,7 @@ impl<'a> Parse<'a, S2K> for S2K {
 }
 
 impl Header {
-    pub(crate) fn parse<R: BufferedReader<C>, C> (bio: &mut R)
+    pub(crate) fn parse<R: BufferedReader<C>, C: fmt::Debug> (bio: &mut R)
         -> Result<Header>
     {
         let ctb = CTB::try_from(bio.data_consume_hard(1)?[0])?;
@@ -1143,7 +1143,7 @@ impl BodyLength {
     /// 4.2.2 of RFC 4880].
     ///
     ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
-    pub(crate) fn parse_new_format<T: BufferedReader<C>, C> (bio: &mut T)
+    pub(crate) fn parse_new_format<T: BufferedReader<C>, C: fmt::Debug> (bio: &mut T)
         -> io::Result<BodyLength>
     {
         let octet1 : u8 = bio.data_consume_hard(1)?[0];
@@ -1166,7 +1166,7 @@ impl BodyLength {
     /// 4.2.1 of RFC 4880].
     ///
     ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
-    pub(crate) fn parse_old_format<T: BufferedReader<C>, C>
+    pub(crate) fn parse_old_format<T: BufferedReader<C>, C: fmt::Debug>
         (bio: &mut T, length_type: PacketLengthType)
          -> Result<BodyLength>
     {
@@ -1753,7 +1753,7 @@ impl Subpacket {
 
 impl SubpacketLength {
     /// Parses a subpacket length.
-    fn parse<R: BufferedReader<C>, C>(bio: &mut R) -> Result<Self> {
+    fn parse<R: BufferedReader<C>, C: fmt::Debug>(bio: &mut R) -> Result<Self> {
         let octet1 = bio.data_consume_hard(1)?[0];
         if octet1 < 192 {
             // One octet.

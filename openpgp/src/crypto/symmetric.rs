@@ -193,11 +193,11 @@ impl<R: io::Read> io::Read for Decryptor<R> {
 
 /// A `BufferedReader` that decrypts symmetrically-encrypted data as
 /// it is read.
-pub(crate) struct BufferedReaderDecryptor<R: BufferedReader<C>, C> {
+pub(crate) struct BufferedReaderDecryptor<R: BufferedReader<C>, C: fmt::Debug> {
     reader: buffered_reader::Generic<Decryptor<R>, C>,
 }
 
-impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
+impl <R: BufferedReader<C>, C: fmt::Debug> BufferedReaderDecryptor<R, C> {
     /// Like `new()`, but sets a cookie, which can be retrieved using
     /// the `cookie_ref` and `cookie_mut` methods, and set using
     /// the `cookie_set` method.
@@ -212,19 +212,19 @@ impl <R: BufferedReader<C>, C> BufferedReaderDecryptor<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> io::Read for BufferedReaderDecryptor<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> io::Read for BufferedReaderDecryptor<R, C> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.reader.read(buf)
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Display for BufferedReaderDecryptor<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Display for BufferedReaderDecryptor<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "BufferedReaderDecryptor")
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDecryptor<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Debug for BufferedReaderDecryptor<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("BufferedReaderDecryptor")
             .field("reader", &self.get_ref().unwrap())
@@ -232,7 +232,7 @@ impl<R: BufferedReader<C>, C> fmt::Debug for BufferedReaderDecryptor<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> BufferedReader<C>
+impl<R: BufferedReader<C>, C: fmt::Debug> BufferedReader<C>
         for BufferedReaderDecryptor<R, C> {
     fn buffer(&self) -> &[u8] {
         return self.reader.buffer();

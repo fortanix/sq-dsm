@@ -13,7 +13,7 @@ use super::*;
 ///
 ///   [`File`]: struct.File.html
 ///   [`Memory`]: struct.Memory.html
-pub struct Generic<T: io::Read, C> {
+pub struct Generic<T: io::Read, C: fmt::Debug> {
     buffer: Option<Box<[u8]>>,
     // The next byte to read in the buffer.
     cursor: usize,
@@ -28,13 +28,13 @@ pub struct Generic<T: io::Read, C> {
     cookie: C,
 }
 
-impl<T: io::Read, C> fmt::Display for Generic<T, C> {
+impl<T: io::Read, C: fmt::Debug> fmt::Display for Generic<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Generic")
     }
 }
 
-impl<T: io::Read, C> fmt::Debug for Generic<T, C> {
+impl<T: io::Read, C: fmt::Debug> fmt::Debug for Generic<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let buffered_data = if let Some(ref buffer) = self.buffer {
             buffer.len() - self.cursor
@@ -59,7 +59,7 @@ impl<T: io::Read> Generic<T, ()> {
     }
 }
 
-impl<T: io::Read, C> Generic<T, C> {
+impl<T: io::Read, C: fmt::Debug> Generic<T, C> {
     /// Like `new()`, but sets a cookie, which can be retrieved using
     /// the `cookie_ref` and `cookie_mut` methods, and set using
     /// the `cookie_set` method.
@@ -202,13 +202,13 @@ impl<T: io::Read, C> Generic<T, C> {
     }
 }
 
-impl<T: io::Read, C> io::Read for Generic<T, C> {
+impl<T: io::Read, C: fmt::Debug> io::Read for Generic<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<T: io::Read, C> BufferedReader<C> for Generic<T, C> {
+impl<T: io::Read, C: fmt::Debug> BufferedReader<C> for Generic<T, C> {
     fn buffer(&self) -> &[u8] {
         if let Some(ref buffer) = self.buffer {
             &buffer[self.cursor..]

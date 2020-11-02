@@ -9,20 +9,20 @@ use super::*;
 /// Note: because the `Reserve` doesn't generally know
 /// how much data can be read from the underlying `BufferedReader`,
 /// it causes at least N bytes to by buffered.
-pub struct Reserve<T: BufferedReader<C>, C> {
+pub struct Reserve<T: BufferedReader<C>, C: fmt::Debug> {
     reader: T,
     reserve: usize,
 
     cookie: C,
 }
 
-impl<T: BufferedReader<C>, C> fmt::Display for Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Reserve<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Reserve ({} bytes)", self.reserve)
     }
 }
 
-impl<T: BufferedReader<C>, C> fmt::Debug for Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Reserve<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Reserve")
             .field("reserve", &self.reserve)
@@ -41,7 +41,7 @@ impl<T: BufferedReader<()>> Reserve<T, ()> {
     }
 }
 
-impl<T: BufferedReader<C>, C> Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> Reserve<T, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -56,7 +56,7 @@ impl<T: BufferedReader<C>, C> Reserve<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C> io::Read for Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> io::Read for Reserve<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let to_read = {
             let data = self.reader.data(buf.len() + self.reserve)?;
@@ -73,7 +73,7 @@ impl<T: BufferedReader<C>, C> io::Read for Reserve<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C> BufferedReader<C> for Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> BufferedReader<C> for Reserve<T, C> {
     fn buffer(&self) -> &[u8] {
         let buf = self.reader.buffer();
         if buf.len() > self.reserve {
@@ -173,7 +173,7 @@ mod test {
         // orig: [      | to_read  |          |             ]
         //        \          total           /
         //
-        fn read_chunk<'a, R: BufferedReader<C>, C>(
+        fn read_chunk<'a, R: BufferedReader<C>, C: fmt::Debug>(
             orig: &[u8], r: &mut R, to_read: usize, cursor: usize, total: usize,
             mode: usize)
         {

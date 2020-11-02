@@ -5,20 +5,20 @@ use super::*;
 
 /// Limits the amount of data that can be read from a
 /// `BufferedReader`.
-pub struct Limitor<T: BufferedReader<C>, C> {
+pub struct Limitor<T: BufferedReader<C>, C: fmt::Debug> {
     reader: T,
     limit: u64,
 
     cookie: C,
 }
 
-impl<T: BufferedReader<C>, C> fmt::Display for Limitor<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Limitor<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Limitor ({} bytes)", self.limit)
     }
 }
 
-impl<T: BufferedReader<C>, C> fmt::Debug for Limitor<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Limitor<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Limitor")
             .field("limit", &self.limit)
@@ -37,7 +37,7 @@ impl<T: BufferedReader<()>> Limitor<T, ()> {
     }
 }
 
-impl<T: BufferedReader<C>, C> Limitor<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> Limitor<T, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -52,7 +52,7 @@ impl<T: BufferedReader<C>, C> Limitor<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C> io::Read for Limitor<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> io::Read for Limitor<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let len = cmp::min(self.limit, buf.len() as u64) as usize;
         let result = self.reader.read(&mut buf[0..len]);
@@ -63,7 +63,7 @@ impl<T: BufferedReader<C>, C> io::Read for Limitor<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C> BufferedReader<C> for Limitor<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug> BufferedReader<C> for Limitor<T, C> {
     fn buffer(&self) -> &[u8] {
         let buf = self.reader.buffer();
         &buf[..cmp::min(buf.len(),

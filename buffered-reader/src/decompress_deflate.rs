@@ -8,7 +8,7 @@ use super::*;
 
 /// Decompresses the underlying `BufferedReader` using the deflate
 /// algorithm.
-pub struct Deflate<R: BufferedReader<C>, C> {
+pub struct Deflate<R: BufferedReader<C>, C: fmt::Debug> {
     reader: Generic<DeflateDecoder<R>, C>,
 }
 
@@ -21,7 +21,7 @@ impl <R: BufferedReader<()>> Deflate<R, ()> {
     }
 }
 
-impl <R: BufferedReader<C>, C> Deflate<R, C> {
+impl <R: BufferedReader<C>, C: fmt::Debug> Deflate<R, C> {
     /// Like `new()`, but uses a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -34,19 +34,19 @@ impl <R: BufferedReader<C>, C> Deflate<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> io::Read for Deflate<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> io::Read for Deflate<R, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         self.reader.read(buf)
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Display for Deflate<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Display for Deflate<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Deflate")
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Debug for Deflate<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Deflate<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Deflate")
             .field("reader", &self.get_ref().unwrap())
@@ -54,7 +54,7 @@ impl<R: BufferedReader<C>, C> fmt::Debug for Deflate<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> BufferedReader<C>
+impl<R: BufferedReader<C>, C: fmt::Debug> BufferedReader<C>
         for Deflate<R, C> {
     fn buffer(&self) -> &[u8] {
         return self.reader.buffer();
@@ -130,7 +130,7 @@ impl<R: BufferedReader<C>, C> BufferedReader<C>
 
 /// Decompresses the underlying `BufferedReader` using the zlib
 /// algorithm.
-pub struct Zlib<R: BufferedReader<C>, C> {
+pub struct Zlib<R: BufferedReader<C>, C: fmt::Debug> {
     reader: Generic<ZlibDecoder<R>, C>,
 }
 
@@ -143,7 +143,7 @@ impl <R: BufferedReader<()>> Zlib<R, ()> {
     }
 }
 
-impl <R: BufferedReader<C>, C> Zlib<R, C> {
+impl <R: BufferedReader<C>, C: fmt::Debug> Zlib<R, C> {
     /// Like `new()`, but uses a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -156,19 +156,19 @@ impl <R: BufferedReader<C>, C> Zlib<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> io::Read for Zlib<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> io::Read for Zlib<R, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         self.reader.read(buf)
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Display for Zlib<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Display for Zlib<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Zlib")
     }
 }
 
-impl<R: BufferedReader<C>, C> fmt::Debug for Zlib<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Zlib<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Zlib")
             .field("reader", &self.get_ref().unwrap())
@@ -176,7 +176,7 @@ impl<R: BufferedReader<C>, C> fmt::Debug for Zlib<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C> BufferedReader<C>
+impl<R: BufferedReader<C>, C: fmt::Debug> BufferedReader<C>
         for Zlib<R, C> {
     fn buffer(&self) -> &[u8] {
         return self.reader.buffer();

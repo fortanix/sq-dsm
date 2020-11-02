@@ -11,7 +11,7 @@ use super::*;
 /// Although it is possible to use `Generic` to wrap a
 /// buffer, this implementation is optimized for a memory buffer, and
 /// avoids double buffering.
-pub struct Memory<'a, C> {
+pub struct Memory<'a, C: fmt::Debug> {
     buffer: &'a [u8],
     // The next byte to read in the buffer.
     cursor: usize,
@@ -20,14 +20,14 @@ pub struct Memory<'a, C> {
     cookie: C,
 }
 
-impl<'a, C> fmt::Display for Memory<'a, C> {
+impl<'a, C: fmt::Debug> fmt::Display for Memory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Memory ({} of {} bytes read)",
                self.cursor, self.buffer.len())
     }
 }
 
-impl<'a, C> fmt::Debug for Memory<'a, C> {
+impl<'a, C: fmt::Debug> fmt::Debug for Memory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Memory")
             .field("buffer (bytes)", &&self.buffer.len())
@@ -45,7 +45,7 @@ impl<'a> Memory<'a, ()> {
     }
 }
 
-impl<'a, C> Memory<'a, C> {
+impl<'a, C: fmt::Debug> Memory<'a, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -65,7 +65,7 @@ impl<'a, C> Memory<'a, C> {
     }
 }
 
-impl<'a, C> io::Read for Memory<'a, C> {
+impl<'a, C: fmt::Debug> io::Read for Memory<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let amount = cmp::min(buf.len(), self.buffer.len() - self.cursor);
         buf[0..amount].copy_from_slice(
@@ -75,7 +75,7 @@ impl<'a, C> io::Read for Memory<'a, C> {
     }
 }
 
-impl<'a, C> BufferedReader<C> for Memory<'a, C> {
+impl<'a, C: fmt::Debug> BufferedReader<C> for Memory<'a, C> {
     fn buffer(&self) -> &[u8] {
         &self.buffer[self.cursor..]
     }
