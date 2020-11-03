@@ -41,7 +41,7 @@ use crate::{
 ///     .level(CompressionLevel::fastest())
 ///     .build()?;
 ///
-/// let message = Padder::new(message, padme)?;
+/// let message = Padder::new(message, padme).build()?;
 ///
 /// let mut message = LiteralWriter::new(message).build()?;
 /// message.write_all(b"Hello world.")?;

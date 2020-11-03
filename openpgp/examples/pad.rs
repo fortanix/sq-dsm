@@ -70,7 +70,7 @@ fn main() -> openpgp::Result<()> {
         .build().context("Failed to create encryptor")?;
 
     let message = Padder::new(message, padme)
-        .context("Failed to create padder")?;
+        .build().context("Failed to create padder")?;
 
     let mut message = LiteralWriter::new(message).build()
         .context("Failed to create literal writer")?;

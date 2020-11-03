@@ -131,7 +131,7 @@ use crate::types::{
 /// {
 ///     let message = Message::new(&mut padded);
 ///     // XXX: Insert Encryptor here.
-///     let message = Padder::new(message, padme)?;
+///     let message = Padder::new(message, padme).build()?;
 ///     // XXX: Insert Signer here.
 ///     let mut message = LiteralWriter::new(message).build()?;
 ///     message.write_all(b"Hello world.")?;
@@ -163,20 +163,54 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
     ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::padding::{Padder, padme};
     ///
     /// # let message = openpgp::serialize::stream::Message::new(vec![]);
-    /// let message = Padder::new(message, padme)?;
+    /// let message = Padder::new(message, padme).build()?;
     /// // Optionally add a `Signer` here.
     /// // Add a `LiteralWriter` here.
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
-    pub fn new(inner: Message<'a>, p: P)
-               -> Result<Message<'a>> {
-        let mut inner = writer::BoxStack::from(inner);
+    pub fn new(inner: Message<'a>, p: P) -> Self {
+        Self {
+            inner: writer::BoxStack::from(inner).into(),
+            policy: p,
+        }
+    }
+
+    /// Builds the padder, returning the writer stack.
+    ///
+    /// # Examples
+    ///
+    /// This example illustrates the use of `Padder` with the [Padmé]
+    /// policy.
+    ///
+    /// [Padmé]: fn.padme.html
+    ///
+    /// The most useful filter to push to the writer stack next is the
+    /// [`Signer`] or the [`LiteralWriter`].  Finally, literal data
+    /// *must* be wrapped using the [`LiteralWriter`].
+    ///
+    ///   [`Signer`]: ../struct.Signer.html
+    ///   [`LiteralWriter`]: ../struct.LiteralWriter.html
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::serialize::stream::padding::{Padder, padme};
+    ///
+    /// # let message = openpgp::serialize::stream::Message::new(vec![]);
+    /// let message = Padder::new(message, padme).build()?;
+    /// // Optionally add a `Signer` here.
+    /// // Add a `LiteralWriter` here.
+    /// # let _ = message;
+    /// # Ok(()) }
+    /// ```
+    pub fn build(mut self) -> Result<Message<'a>> {
+        let mut inner = self.inner;
         let level = inner.cookie_ref().level + 1;
 
         // Packet header.
@@ -189,14 +223,11 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
         inner.as_mut().write_u8(CompressionAlgorithm::Zip.into())?;
 
         // Create an appropriate filter.
-        let inner: Message<'a> =
+        self.inner =
             writer::ZIP::new(inner, Cookie::new(level),
-                             CompressionLevel::none());
+                             CompressionLevel::none()).into();
 
-        Ok(Message::from(Box::new(Self {
-            inner: inner.into(),
-            policy: p,
-        })))
+        Ok(Message::from(Box::new(self)))
     }
 }
 
@@ -405,7 +436,7 @@ mod test {
         let mut padded = vec![];
         {
             let message = Message::new(&mut padded);
-            let padder = Padder::new(message, padme).unwrap();
+            let padder = Padder::new(message, padme).build().unwrap();
             let mut w = LiteralWriter::new(padder).build().unwrap();
             w.write_all(&msg).unwrap();
             w.finalize().unwrap();
@@ -428,7 +459,7 @@ mod test {
         let mut padded = vec![];
         {
             let message = Message::new(&mut padded);
-            let padder = Padder::new(message, padme).unwrap();
+            let padder = Padder::new(message, padme).build().unwrap();
             let mut w = LiteralWriter::new(padder).build().unwrap();
             w.write_all(MSG).unwrap();
             w.finalize().unwrap();

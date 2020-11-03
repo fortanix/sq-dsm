@@ -313,7 +313,7 @@ fn real_main() -> Result<()> {
                 .context("Failed to create encryptor")?;
 
             // Pad the message.
-            let mut message = Padder::new(message, padme)?;
+            let mut message = Padder::new(message, padme).build()?;
 
             // Maybe sign the message.
             if let Some(s) = signers.pop() {

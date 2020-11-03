@@ -130,7 +130,7 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
 
     match compression {
         "none" => (),
-        "pad" => sink = Padder::new(sink, padme)?,
+        "pad" => sink = Padder::new(sink, padme).build()?,
         "zip" => sink =
             Compressor::new(sink).algo(CompressionAlgorithm::Zip).build()?,
         "zlib" => sink =
