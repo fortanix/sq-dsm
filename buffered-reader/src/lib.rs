@@ -816,6 +816,23 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display
         Ok(at_least_one_byte)
     }
 
+    /// Dump
+    /// A helpful debugging aid to pretty print a Buffered Reader stack.
+    fn dump(&self) where Self: std::marker::Sized {
+        let mut i = 1;
+        let mut reader: Option<&dyn BufferedReader<C>> = Some(self);
+        while let Some(r) = reader {
+            {
+                let cookie = r.cookie_ref();
+                eprintln!("  {}. {}, {:?}", i, r, cookie);
+            }
+            reader = r.get_ref();
+            i = i + 1;
+        }
+    }
+
+
+
     /// Boxes the reader.
     fn as_boxed<'a>(self) -> Box<dyn BufferedReader<C> + 'a>
         where Self: 'a + Sized

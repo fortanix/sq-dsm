@@ -933,28 +933,6 @@ impl Cookie {
             reader = r.get_mut();
         }
     }
-
-    // A helpful debugging aid to pretty print a Buffered Reader
-    // stack.
-    #[allow(dead_code)]
-    fn dump(reader: &dyn BufferedReader<Cookie>) {
-        let mut i = 1;
-        let mut reader : Option<&dyn BufferedReader<Cookie>> = Some(reader);
-        while let Some(r) = reader {
-            {
-                let cookie = r.cookie_ref();
-
-                eprint!("  {}. {}, level: {:?}",
-                        i, r, cookie.level);
-                if cookie.hashes_for != HashesFor::Nothing {
-                    eprint!(", hashes for: {:?}", cookie.hashes_for);
-                }
-                eprint!("\n");
-            }
-            reader = r.get_ref();
-            i = i + 1;
-        }
-    }
 }
 
 // Pops readers from a buffered reader stack at the specified level.
