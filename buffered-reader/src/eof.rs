@@ -5,18 +5,12 @@ use std::fmt;
 use crate::BufferedReader;
 
 /// Always returns EOF.
+#[derive(Debug)]
 pub struct EOF<C> {
     cookie: C,
 }
 
 impl<C> fmt::Display for EOF<C> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("EOF")
-            .finish()
-    }
-}
-
-impl<C> fmt::Debug for EOF<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("EOF")
             .finish()

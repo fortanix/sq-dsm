@@ -10,6 +10,7 @@ use super::*;
 /// Note: this will likely cause the underlying stream to buffer as
 /// much data as you read.  Thus, it should only be used for peeking
 /// at the underlying `BufferedReader`.
+#[derive(Debug)]
 pub struct Dup<T: BufferedReader<C>, C: fmt::Debug> {
     reader: T,
 
@@ -24,15 +25,6 @@ impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Dup<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Dup")
             .field("cursor", &self.cursor)
-            .finish()
-    }
-}
-
-impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Dup<T, C> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Dup")
-            .field("cursor", &self.cursor)
-            .field("reader", &self.reader)
             .finish()
     }
 }

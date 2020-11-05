@@ -8,6 +8,7 @@ use super::*;
 
 /// Decompresses the underlying `BufferedReader` using the bzip2
 /// algorithm.
+#[derive(Debug)]
 pub struct Bzip<R: BufferedReader<C>, C: fmt::Debug> {
     reader: Generic<BzDecoder<R>, C>,
 }
@@ -37,14 +38,6 @@ impl <R: BufferedReader<C>, C: fmt::Debug> Bzip<R, C> {
 impl<R: BufferedReader<C>, C: fmt::Debug> io::Read for Bzip<R, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         self.reader.read(buf)
-    }
-}
-
-impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Bzip<R, C> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Bzip")
-            .field("reader", &self.get_ref().unwrap())
-            .finish()
     }
 }
 

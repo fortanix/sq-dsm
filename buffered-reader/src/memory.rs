@@ -11,6 +11,7 @@ use super::*;
 /// Although it is possible to use `Generic` to wrap a
 /// buffer, this implementation is optimized for a memory buffer, and
 /// avoids double buffering.
+#[derive(Debug)]
 pub struct Memory<'a, C: fmt::Debug> {
     buffer: &'a [u8],
     // The next byte to read in the buffer.
@@ -24,15 +25,6 @@ impl<'a, C: fmt::Debug> fmt::Display for Memory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Memory ({} of {} bytes read)",
                self.cursor, self.buffer.len())
-    }
-}
-
-impl<'a, C: fmt::Debug> fmt::Debug for Memory<'a, C> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Memory")
-            .field("buffer (bytes)", &&self.buffer.len())
-            .field("cursor", &self.cursor)
-            .finish()
     }
 }
 

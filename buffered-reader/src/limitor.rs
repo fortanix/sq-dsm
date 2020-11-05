@@ -5,6 +5,7 @@ use super::*;
 
 /// Limits the amount of data that can be read from a
 /// `BufferedReader`.
+#[derive(Debug)]
 pub struct Limitor<T: BufferedReader<C>, C: fmt::Debug> {
     reader: T,
     limit: u64,
@@ -16,15 +17,6 @@ impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Limitor<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Limitor")
             .field("limit", &self.limit)
-            .finish()
-    }
-}
-
-impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Limitor<T, C> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Limitor")
-            .field("limit", &self.limit)
-            .field("reader", &self.reader)
             .finish()
     }
 }

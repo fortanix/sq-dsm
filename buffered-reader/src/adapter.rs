@@ -9,6 +9,7 @@ use super::*;
 /// Generic::with_cookie(b, _)`, but that introduces buffering.  This
 /// `Adapter` also changes cookie types, but does no buffering of its
 /// own.
+#[derive(Debug)]
 pub struct Adapter<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> {
     reader: T,
     _ghostly_cookie: std::marker::PhantomData<B>,
@@ -18,14 +19,6 @@ pub struct Adapter<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> {
 impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> fmt::Display for Adapter<T, B, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Adapter").finish()
-    }
-}
-
-impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> fmt::Debug for Adapter<T, B, C> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Adapter")
-            .field("reader", &self.reader)
-            .finish()
     }
 }
 

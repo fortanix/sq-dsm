@@ -9,6 +9,7 @@ use super::*;
 /// Note: because the `Reserve` doesn't generally know
 /// how much data can be read from the underlying `BufferedReader`,
 /// it causes at least N bytes to by buffered.
+#[derive(Debug)]
 pub struct Reserve<T: BufferedReader<C>, C: fmt::Debug> {
     reader: T,
     reserve: usize,
@@ -20,15 +21,6 @@ impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Reserve<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Reserve")
             .field("reserve", &self.reserve)
-            .finish()
-    }
-}
-
-impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Reserve<T, C> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Reserve")
-            .field("reserve", &self.reserve)
-            .field("reader", &self.reader)
             .finish()
     }
 }

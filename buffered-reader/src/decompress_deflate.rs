@@ -8,6 +8,7 @@ use super::*;
 
 /// Decompresses the underlying `BufferedReader` using the deflate
 /// algorithm.
+#[derive(Debug)]
 pub struct Deflate<R: BufferedReader<C>, C: fmt::Debug> {
     reader: Generic<DeflateDecoder<R>, C>,
 }
@@ -43,14 +44,6 @@ impl<R: BufferedReader<C>, C: fmt::Debug> io::Read for Deflate<R, C> {
 impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Display for Deflate<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Deflate").finish()
-    }
-}
-
-impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Deflate<R, C> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Deflate")
-            .field("reader", &self.get_ref().unwrap())
-            .finish()
     }
 }
 
