@@ -11,7 +11,8 @@ pub struct EOF<C> {
 
 impl<C> fmt::Display for EOF<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "EOF")
+        f.debug_struct("EOF")
+            .finish()
     }
 }
 

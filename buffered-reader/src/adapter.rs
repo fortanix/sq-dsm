@@ -17,7 +17,7 @@ pub struct Adapter<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> {
 
 impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> fmt::Display for Adapter<T, B, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Adapter")
+        f.debug_struct("Adapter").finish()
     }
 }
 

@@ -42,7 +42,7 @@ impl<R: BufferedReader<C>, C: fmt::Debug> io::Read for Deflate<R, C> {
 
 impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Display for Deflate<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Deflate")
+        f.debug_struct("Deflate").finish()
     }
 }
 

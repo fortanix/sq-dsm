@@ -18,7 +18,9 @@ pub struct Reserve<T: BufferedReader<C>, C: fmt::Debug> {
 
 impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Reserve<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Reserve ({} bytes)", self.reserve)
+        f.debug_struct("Reserve")
+            .field("reserve", &self.reserve)
+            .finish()
     }
 }
 

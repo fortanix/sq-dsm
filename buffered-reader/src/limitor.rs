@@ -14,7 +14,9 @@ pub struct Limitor<T: BufferedReader<C>, C: fmt::Debug> {
 
 impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Limitor<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Limitor ({} bytes)", self.limit)
+        f.debug_struct("Limitor")
+            .field("limit", &self.limit)
+            .finish()
     }
 }
 

@@ -50,7 +50,7 @@ impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Debug for Bzip<R, C> {
 
 impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Display for Bzip<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Bzip")
+        f.debug_struct("Bzip").finish()
     }
 }
 
