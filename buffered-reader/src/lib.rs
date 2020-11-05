@@ -816,8 +816,9 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display
         Ok(at_least_one_byte)
     }
 
-    /// Dump
     /// A helpful debugging aid to pretty print a Buffered Reader stack.
+    ///
+    /// Uses the Buffered Readers' `fmt::Display` implementations.
     fn dump(&self) where Self: std::marker::Sized {
         let mut i = 1;
         let mut reader: Option<&dyn BufferedReader<C>> = Some(self);
