@@ -69,7 +69,7 @@ fn main() -> openpgp::Result<()> {
     let message = Encryptor::for_recipients(message, recipients)
         .build().context("Failed to create encryptor")?;
 
-    let message = Padder::new(message, padme)
+    let message = Padder::new(message)
         .build().context("Failed to create padder")?;
 
     let mut message = LiteralWriter::new(message).build()

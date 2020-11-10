@@ -23,10 +23,7 @@ use crate::openpgp::parse::stream::*;
 use crate::openpgp::serialize::stream::{
     Message, Signer, LiteralWriter, Encryptor, Recipient,
     Compressor,
-    padding::{
-        Padder,
-        padme,
-    },
+    padding::Padder,
 };
 use crate::openpgp::policy::Policy;
 use sequoia_store as store;
@@ -130,7 +127,7 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
 
     match compression {
         "none" => (),
-        "pad" => sink = Padder::new(sink, padme).build()?,
+        "pad" => sink = Padder::new(sink).build()?,
         "zip" => sink =
             Compressor::new(sink).algo(CompressionAlgorithm::Zip).build()?,
         "zlib" => sink =

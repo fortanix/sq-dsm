@@ -87,7 +87,7 @@
 //! use openpgp::cert::prelude::*;
 //! use openpgp::serialize::stream::{
 //!     Message, Armorer, Encryptor, Signer, LiteralWriter,
-//!     padding::{Padder, padme},
+//!     padding::Padder,
 //! };
 //! # use openpgp::parse::Parse;
 //!
@@ -114,7 +114,7 @@
 //! let message = Armorer::new(message).build()?;
 //! let message = Encryptor::for_recipients(message, recipients).build()?;
 //! // Reduce metadata leakage by concealing the message size.
-//! let message = Padder::new(message, padme).build()?;
+//! let message = Padder::new(message).build()?;
 //! let message = Signer::new(message, signing_keypair)
 //!     // Prevent Surreptitious Forwarding.
 //!     .add_intended_recipient(&recipient)

@@ -111,7 +111,7 @@ use crate::types::{
 /// use std::io::Write;
 /// use sequoia_openpgp as openpgp;
 /// use openpgp::serialize::stream::{Message, LiteralWriter};
-/// use openpgp::serialize::stream::padding::{Padder, padme};
+/// use openpgp::serialize::stream::padding::Padder;
 /// use openpgp::types::CompressionAlgorithm;
 /// # use openpgp::Result;
 /// # f().unwrap();
@@ -131,7 +131,7 @@ use crate::types::{
 /// {
 ///     let message = Message::new(&mut padded);
 ///     // XXX: Insert Encryptor here.
-///     let message = Padder::new(message, padme).build()?;
+///     let message = Padder::new(message).build()?;
 ///     // XXX: Insert Signer here.
 ///     let mut message = LiteralWriter::new(message).build()?;
 ///     message.write_all(b"Hello world.")?;
@@ -140,12 +140,12 @@ use crate::types::{
 /// assert!(unpadded.len() < padded.len());
 /// # Ok(())
 /// # }
-pub struct Padder<'a, P: Fn(u64) -> u64 + 'a> {
+pub struct Padder<'a> {
     inner: writer::BoxStack<'a, Cookie>,
-    policy: P,
+    policy: fn(u64) -> u64,
 }
 
-impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
+impl<'a> Padder<'a> {
     /// Creates a new padder with the given policy.
     ///
     /// # Examples
@@ -165,20 +165,43 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
     /// ```
     /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
-    /// use openpgp::serialize::stream::padding::{Padder, padme};
+    /// use openpgp::serialize::stream::padding::Padder;
     ///
     /// # let message = openpgp::serialize::stream::Message::new(vec![]);
-    /// let message = Padder::new(message, padme).build()?;
+    /// let message = Padder::new(message).build()?;
     /// // Optionally add a `Signer` here.
     /// // Add a `LiteralWriter` here.
     /// # let _ = message;
     /// # Ok(()) }
     /// ```
-    pub fn new(inner: Message<'a>, p: P) -> Self {
+    pub fn new(inner: Message<'a>) -> Self {
         Self {
             inner: writer::BoxStack::from(inner).into(),
-            policy: p,
+            policy: padme,
         }
+    }
+
+    /// Sets padding policy, returning the padder.
+    ///
+    /// # Examples
+    ///
+    /// This example illustrates the use of `Padder` with an explicit policy.
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::serialize::stream::padding::{Padder, padme};
+    ///
+    /// # let message = openpgp::serialize::stream::Message::new(vec![]);
+    /// let message = Padder::new(message).with_policy(padme).build()?;
+    /// // Optionally add a `Signer` here.
+    /// // Add a `LiteralWriter` here.
+    /// # let _ = message;
+    /// # Ok(()) }
+    /// ```
+    pub fn with_policy(mut self, p: fn(u64) -> u64) -> Self {
+        self.policy = p;
+        self
     }
 
     /// Builds the padder, returning the writer stack.
@@ -200,10 +223,10 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
     /// ```
     /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
-    /// use openpgp::serialize::stream::padding::{Padder, padme};
+    /// use openpgp::serialize::stream::padding::Padder;
     ///
     /// # let message = openpgp::serialize::stream::Message::new(vec![]);
-    /// let message = Padder::new(message, padme).build()?;
+    /// let message = Padder::new(message).build()?;
     /// // Optionally add a `Signer` here.
     /// // Add a `LiteralWriter` here.
     /// # let _ = message;
@@ -231,7 +254,7 @@ impl<'a, P: Fn(u64) -> u64 + 'a> Padder<'a, P> {
     }
 }
 
-impl<'a, P: Fn(u64) -> u64 + 'a> fmt::Debug for Padder<'a, P> {
+impl<'a> fmt::Debug for Padder<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Padder")
             .field("inner", &self.inner)
@@ -239,7 +262,7 @@ impl<'a, P: Fn(u64) -> u64 + 'a> fmt::Debug for Padder<'a, P> {
     }
 }
 
-impl<'a, P: Fn(u64) -> u64 + 'a> io::Write for Padder<'a, P> {
+impl<'a> io::Write for Padder<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.inner.write(buf)
     }
@@ -249,7 +272,7 @@ impl<'a, P: Fn(u64) -> u64 + 'a> io::Write for Padder<'a, P> {
     }
 }
 
-impl<'a, P: Fn(u64) -> u64 + 'a> writer::Stackable<'a, Cookie> for Padder<'a, P>
+impl<'a> writer::Stackable<'a, Cookie> for Padder<'a>
 {
     fn into_inner(self: Box<Self>)
                   -> Result<Option<writer::BoxStack<'a, Cookie>>> {
@@ -436,7 +459,7 @@ mod test {
         let mut padded = vec![];
         {
             let message = Message::new(&mut padded);
-            let padder = Padder::new(message, padme).build().unwrap();
+            let padder = Padder::new(message).with_policy(padme).build().unwrap();
             let mut w = LiteralWriter::new(padder).build().unwrap();
             w.write_all(&msg).unwrap();
             w.finalize().unwrap();
@@ -459,7 +482,7 @@ mod test {
         let mut padded = vec![];
         {
             let message = Message::new(&mut padded);
-            let padder = Padder::new(message, padme).build().unwrap();
+            let padder = Padder::new(message).build().unwrap();
             let mut w = LiteralWriter::new(padder).build().unwrap();
             w.write_all(MSG).unwrap();
             w.finalize().unwrap();

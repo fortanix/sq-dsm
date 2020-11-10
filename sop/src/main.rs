@@ -32,7 +32,7 @@ use openpgp::cert::prelude::*;
 use openpgp::serialize::{
     Serialize,
     stream::*,
-    stream::padding::{Padder, padme},
+    stream::padding::Padder,
 };
 use openpgp::policy::StandardPolicy;
 
@@ -313,7 +313,7 @@ fn real_main() -> Result<()> {
                 .context("Failed to create encryptor")?;
 
             // Pad the message.
-            let mut message = Padder::new(message, padme).build()?;
+            let mut message = Padder::new(message).build()?;
 
             // Maybe sign the message.
             if let Some(s) = signers.pop() {

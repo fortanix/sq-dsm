@@ -30,7 +30,7 @@ use crate::{
 /// # fn main() -> openpgp::Result<()> {
 /// use std::io::Write;
 /// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
-/// use openpgp::serialize::stream::padding::{Padder, padme};
+/// use openpgp::serialize::stream::padding::Padder;
 /// use openpgp::types::{CompressionAlgorithm, CompressionLevel};
 ///
 /// let mut sink = Vec::new();
@@ -41,7 +41,7 @@ use crate::{
 ///     .level(CompressionLevel::fastest())
 ///     .build()?;
 ///
-/// let message = Padder::new(message, padme).build()?;
+/// let message = Padder::new(message).build()?;
 ///
 /// let mut message = LiteralWriter::new(message).build()?;
 /// message.write_all(b"Hello world.")?;
