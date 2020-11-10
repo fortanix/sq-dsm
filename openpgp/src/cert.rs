@@ -1481,8 +1481,10 @@ impl Cert {
                     .into_iter()
                 {
                     // Use hash prefix as heuristic.
-                    if let Ok(hash) = Signature::$hash_method(
-                        &sig, self.primary.key(), $($verify_args),*) {
+                    match Signature::$hash_method(&sig,
+                                                  self.primary.key(),
+                                                  $($verify_args),*) {
+                      Ok(hash) => {
                         if &sig.digest_prefix()[..] == &hash[..2] {
                             // See if we can get the key for a
                             // positive verification.
@@ -1513,15 +1515,17 @@ impl Cert {
 
                             self.bad.push(sig);
                         }
-                    } else {
+                      },
+                      Err(e) => {
                         // Hashing failed, we likely don't support
                         // the hash algorithm.
                         t!("Sig {:02X}{:02X}, type = {}: \
-                            Hashing failed",
+                            Hashing failed: {}",
                            sig.digest_prefix()[0], sig.digest_prefix()[1],
-                           sig.typ());
+                           sig.typ(), e);
 
                         self.bad.push(sig);
+                      },
                     }
                 }
             });
