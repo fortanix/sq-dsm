@@ -189,7 +189,7 @@ fn encode_local_part<S: AsRef<str>>(local_part: S) -> String {
     let mut digest = vec![0; 20];
     let mut ctx = HashAlgorithm::SHA1.context().expect("must be implemented");
     ctx.update(local_part.as_bytes());
-    ctx.digest(&mut digest);
+    let _ = ctx.digest(&mut digest);
 
     // After z-base-32 encoding 20 bytes, it will be 32 bytes long.
     zbase32::encode_full_bytes(&digest[..])

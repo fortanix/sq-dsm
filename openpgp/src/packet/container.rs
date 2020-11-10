@@ -286,7 +286,7 @@ impl Container {
             static ref DIGEST: Vec<u8> = {
                 let mut h = Container::make_body_hash();
                 let mut d = vec![0; h.digest_size()];
-                h.digest(&mut d);
+                let _ = h.digest(&mut d);
                 d
             };
         }
@@ -305,7 +305,7 @@ impl Container {
     pub(crate) // For parse.rs
     fn set_body_hash(&mut self, mut h: hash::Context) {
         self.body_digest.resize(h.digest_size(), 0);
-        h.digest(&mut self.body_digest);
+        let _ = h.digest(&mut self.body_digest);
     }
 
     pub(crate)

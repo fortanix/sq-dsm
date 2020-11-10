@@ -91,7 +91,7 @@ impl From<[u8; 20]> for MDC {
 impl From<crypto::hash::Context> for MDC {
     fn from(mut hash: crypto::hash::Context) -> Self {
         let mut value : [u8; 20] = Default::default();
-        hash.digest(&mut value[..]);
+        let _ = hash.digest(&mut value[..]);
         value.into()
     }
 }

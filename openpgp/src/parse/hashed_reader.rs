@@ -345,7 +345,7 @@ mod test {
                 let hash = mode.as_mut();
                 let algo = hash.algo();
                 let mut digest = vec![0u8; hash.digest_size()];
-                hash.digest(&mut digest);
+                let _ = hash.digest(&mut digest);
 
                 assert_eq!(digest,
                            &crate::fmt::from_hex(test.expected.get(&algo)
@@ -367,7 +367,7 @@ mod test {
             let mut ctx = HashAlgorithm::SHA256.context()?;
             super::hash_update_text(&mut ctx, text.as_bytes());
             let mut digest = vec![0; ctx.digest_size()];
-            ctx.digest(&mut digest);
+            let _ = ctx.digest(&mut digest);
             assert_eq!(
                 &crate::fmt::hex::encode(&digest),
                 "5536758151607BB81CE8D6F49189B2E84763DA9EA84965AB7327E704DAE415EB");
@@ -403,7 +403,7 @@ mod test {
             let hash = mode.as_mut();
             let algo = hash.algo();
             let mut digest = vec![0u8; hash.digest_size()];
-            hash.digest(&mut digest);
+            let _ = hash.digest(&mut digest);
 
             assert_eq!(*expected.get(&algo).unwrap(),
                        &crate::fmt::to_hex(&digest[..], false));

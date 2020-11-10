@@ -1383,7 +1383,7 @@ impl Signature4 {
                 sig.hash(&mut hash);
 
                 let mut digest = vec![0u8; hash.digest_size()];
-                hash.digest(&mut digest);
+                let _ = hash.digest(&mut digest);
 
                 sig.set_computed_digest(Some(digest));
                 sig.set_level(level);
@@ -2732,7 +2732,7 @@ impl MDC {
                                     } else {
                                         None
                                     }).unwrap();
-                            h.digest(&mut computed_digest);
+                            let _ = h.digest(&mut computed_digest);
                         }
 
                         // If the outer most HashedReader is not the

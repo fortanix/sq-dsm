@@ -131,7 +131,7 @@ fn kdf(x: &Protected, obits: usize, hash: HashAlgorithm, param: &[u8])
 
     // Providing a smaller buffer will truncate the digest.
     let mut key: Protected = vec![0; obits].into();
-    hash.digest(&mut key);
+    hash.digest(&mut key)?;
     Ok(key)
 }
 

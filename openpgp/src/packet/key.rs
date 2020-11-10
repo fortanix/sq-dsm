@@ -1038,7 +1038,7 @@ impl<P, R> Key4<P, R>
         self.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest);
+        let _ = h.digest(&mut digest);
         Fingerprint::from_bytes(digest.as_slice())
     }
 

@@ -269,7 +269,7 @@ impl mpi::SecretKeyMaterial {
                     let mut hsh = HashAlgorithm::SHA1.context().unwrap();
                     mpis.serialize(&mut hsh)?;
                     let mut our_chksum = [0u8; 20];
-                    hsh.digest(&mut our_chksum);
+                    let _ = hsh.digest(&mut our_chksum);
 
                     our_chksum == their_chksum[..]
                 },

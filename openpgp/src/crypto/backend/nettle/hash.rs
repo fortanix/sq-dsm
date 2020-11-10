@@ -2,19 +2,32 @@ use crate::crypto::hash::Digest;
 use crate::{Error, Result};
 use crate::types::{HashAlgorithm};
 
-impl<T: nettle::hash::Hash + Clone> Digest for T {
-    fn digest_size(&self) -> usize {
-        self.digest_size()
-    }
+macro_rules! impl_digest_for {
+    ($t: path) => {
+        impl Digest for $t {
+            fn digest_size(&self) -> usize {
+                nettle::hash::Hash::digest_size(self)
+            }
 
-    fn update(&mut self, data: &[u8]) {
-        self.update(data);
-    }
+            fn update(&mut self, data: &[u8]) {
+                nettle::hash::Hash::update(self, data);
+            }
 
-    fn digest(&mut self, digest: &mut [u8]) {
-        self.digest(digest);
+            fn digest(&mut self, digest: &mut [u8]) -> Result<()> {
+                nettle::hash::Hash::digest(self, digest);
+                Ok(())
+            }
+        }
     }
 }
+
+impl_digest_for!(nettle::hash::Sha224);
+impl_digest_for!(nettle::hash::Sha256);
+impl_digest_for!(nettle::hash::Sha384);
+impl_digest_for!(nettle::hash::Sha512);
+impl_digest_for!(nettle::hash::insecure_do_not_use::Sha1);
+impl_digest_for!(nettle::hash::insecure_do_not_use::Md5);
+impl_digest_for!(nettle::hash::insecure_do_not_use::Ripemd160);
 
 impl HashAlgorithm {
     /// Whether Sequoia supports this algorithm.

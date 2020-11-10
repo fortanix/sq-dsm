@@ -2480,7 +2480,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                 // Attach digest to the signature.
                 let mut digest = vec![0; hash.digest_size()];
-                hash.digest(&mut digest);
+                let _ = hash.digest(&mut digest);
                 sig.set_computed_digest(Some(digest.into()));
             }
         }

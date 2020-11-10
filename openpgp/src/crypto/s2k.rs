@@ -228,7 +228,7 @@ impl S2K {
                             unreachable!(),
                     }
 
-                    hash.digest(data);
+                    let _ = hash.digest(data);
                     zeros.push(0);
                 }
 

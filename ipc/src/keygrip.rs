@@ -178,7 +178,7 @@ impl Keygrip {
         }
 
         let mut digest = [0; 20];
-        hash.digest(&mut digest);
+        let _ = hash.digest(&mut digest);
         Ok(Keygrip(digest))
     }
 }

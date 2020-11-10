@@ -45,7 +45,7 @@ pub(crate) trait Digest: DynClone {
     ///
     /// `digest` must be at least `self.digest_size()` bytes large,
     /// otherwise the digest will be truncated.
-    fn digest(&mut self, digest: &mut [u8]);
+    fn digest(&mut self, digest: &mut [u8]) -> Result<()>;
 }
 
 dyn_clone::clone_trait_object!(Digest);
@@ -110,8 +110,8 @@ impl Context {
     /// otherwise the digest will be truncated.
     ///
     ///   [`self.digest_size()`]: #method.digest_size
-    pub fn digest<D: AsMut<[u8]>>(&mut self, mut digest: D) {
-        self.ctx.digest(digest.as_mut());
+    pub fn digest<D: AsMut<[u8]>>(&mut self, mut digest: D) -> Result<()> {
+        self.ctx.digest(digest.as_mut())
     }
 }
 
@@ -206,8 +206,8 @@ impl Digest for HashDumper {
         self.sink.write_all(data).unwrap();
         self.written += data.len();
     }
-    fn digest(&mut self, digest: &mut [u8]) {
-        self.hasher.digest(digest);
+    fn digest(&mut self, digest: &mut [u8]) -> Result<()> {
+        self.hasher.digest(digest)
     }
 }
 
@@ -386,7 +386,7 @@ impl Signature {
         sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest);
+        h.digest(&mut digest)?;
         Ok(digest)
     }
 
@@ -411,7 +411,7 @@ impl Signature {
         sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest);
+        h.digest(&mut digest)?;
         Ok(digest)
     }
 
@@ -431,7 +431,7 @@ impl Signature {
         sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest);
+        h.digest(&mut digest)?;
         Ok(digest)
     }
 
@@ -462,7 +462,7 @@ impl Signature {
         sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest);
+        h.digest(&mut digest)?;
         Ok(digest)
     }
 
@@ -482,7 +482,7 @@ impl Signature {
         sig.hash(&mut h);
 
         let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest);
+        h.digest(&mut digest)?;
         Ok(digest)
     }
 }

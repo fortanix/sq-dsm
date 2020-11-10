@@ -1097,7 +1097,7 @@ impl crypto::mpi::SecretKeyMaterial {
                 let mut hash = HashAlgorithm::SHA1.context().unwrap();
                 self.serialize(&mut hash)?;
                 let mut digest = [0u8; 20];
-                hash.digest(&mut digest);
+                let _ = hash.digest(&mut digest);
                 w.write_all(&digest)?;
             },
             crypto::mpi::SecretKeyChecksum::Sum16 => {

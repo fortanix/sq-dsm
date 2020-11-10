@@ -279,7 +279,7 @@ mod has_access_to_prekey {
                 .expect("Mandatory algorithm unsupported");
             PREKEY.iter().for_each(|page| ctx.update(page));
             let mut sk: SessionKey = vec![0; 256/8].into();
-            ctx.digest(&mut sk);
+            let _ = ctx.digest(&mut sk);
             sk
         }
 

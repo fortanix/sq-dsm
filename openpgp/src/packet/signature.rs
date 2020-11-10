@@ -1405,7 +1405,7 @@ impl SignatureBuilder {
 
         self.hash(&mut hash);
         let mut digest = vec![0u8; hash.digest_size()];
-        hash.digest(&mut digest);
+        hash.digest(&mut digest)?;
 
         self.sign(signer, digest)
     }
@@ -1521,7 +1521,7 @@ impl SignatureBuilder {
 
         self.hash(&mut hash);
         let mut digest = vec![0u8; hash.digest_size()];
-        hash.digest(&mut digest);
+        hash.digest(&mut digest)?;
 
         self.sign(signer, digest)
     }
@@ -2289,7 +2289,7 @@ impl Signature {
     {
         self.hash(&mut hash);
         let mut digest = vec![0u8; hash.digest_size()];
-        hash.digest(&mut digest);
+        hash.digest(&mut digest)?;
         self.verify_digest(key, digest)
     }
 
@@ -2852,7 +2852,7 @@ impl Signature {
 
         hash.update(msg.as_ref());
         self.hash(&mut hash);
-        hash.digest(&mut digest);
+        hash.digest(&mut digest)?;
 
         self.verify_digest(signer, &digest[..])
     }
@@ -3110,7 +3110,7 @@ mod test {
             let mut hash = hash_algo.context().unwrap();
             sig.hash(&mut hash);
             let mut digest = vec![0u8; hash.digest_size()];
-            hash.digest(&mut digest);
+            hash.digest(&mut digest).unwrap();
             sig.verify_digest(pair.public(), &digest[..]).unwrap();
 
             // Bad signature.

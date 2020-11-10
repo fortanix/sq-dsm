@@ -15,7 +15,7 @@ impl Digest for cng::Hash {
         let _ = self.hash(data);
     }
 
-    fn digest(&mut self, digest: &mut [u8]) {
+    fn digest(&mut self, digest: &mut [u8]) -> Result<()> {
         // TODO: Replace with CNG reusable hash objects, supported from Windows 8
         // This would allow us to not re-create the CNG hash object each time we
         // want to finish digest calculation
@@ -31,6 +31,7 @@ impl Digest for cng::Hash {
             .expect("CNG to not fail internally");
 
         digest.copy_from_slice(&buffer.as_slice()[..digest.len()]);
+        Ok(())
     }
 }
 
