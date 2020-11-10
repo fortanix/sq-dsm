@@ -1,6 +1,8 @@
 //! Concrete implementation of the crypto primitives used by the rest of the
 //! crypto API.
 
+pub(crate) mod sha1cd;
+
 #[cfg(feature = "crypto-nettle")]
 mod nettle;
 #[cfg(feature = "crypto-nettle")]

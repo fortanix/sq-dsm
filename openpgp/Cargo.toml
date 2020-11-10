@@ -29,8 +29,10 @@ anyhow = "1"
 buffered-reader = { path = "../buffered-reader", version = "0.20", default-features = false }
 base64 = "0.13"
 bzip2 = { version = "0.4", optional = true }
+digest = "0.9"
 dyn-clone = "1"
 flate2 = { version = "1.0.1", optional = true }
+generic-array = "0.14"
 idna = "0.2"
 lalrpop-util = "0.19"
 lazy_static = "1.3"
@@ -38,6 +40,7 @@ libc = "0.2"
 memsec = { version = "0.6", default-features = false }
 nettle = { version = "7", optional = true }
 regex = "1"
+sha1collisiondetection = "0.1"
 thiserror = "1"
 backtrace = "0.3.46"
 unicode-normalization = "0.1.9"

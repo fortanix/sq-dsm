@@ -137,15 +137,19 @@ impl HashAlgorithm {
     ///
     ///   [`HashAlgorithm::is_supported`]: #method.is_supported
     pub fn context(self) -> Result<Context> {
-        self.new_hasher()
-            .map(|hasher| Context {
-                algo: self,
-                ctx: if let Some(prefix) = DUMP_HASHED_VALUES {
-                    Box::new(HashDumper::new(hasher, prefix))
-                } else {
-                    hasher
-                },
-            })
+        let hasher = match self {
+            HashAlgorithm::SHA1 =>
+                Box::new(crate::crypto::backend::sha1cd::build()),
+            _ => self.new_hasher()?,
+        };
+        Ok(Context {
+            algo: self,
+            ctx: if let Some(prefix) = DUMP_HASHED_VALUES {
+                Box::new(HashDumper::new(hasher, prefix))
+            } else {
+                hasher
+            },
+        })
     }
 }
 
