@@ -246,6 +246,56 @@ fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
 /// reference a chunk of memory allocated using libc's heap allocator.
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
+///
+/// # Examples
+///
+/// ```c
+/// #include <assert.h>
+/// #include <stdlib.h>
+/// #include <string.h>
+///
+/// #include <sequoia/openpgp.h>
+///
+/// /* Prepare a buffer.  */
+/// void *buf = NULL;
+/// size_t len = 0;
+///
+/// /* Make a writer to fill the buffer.  */
+/// pgp_writer_t sink = pgp_writer_alloc (&buf, &len);
+/// pgp_writer_write (NULL, sink, (uint8_t *) "hello", 5);
+///
+/// /* During writes, it is safe to inspect the buffer.  */
+/// assert (len == 5);
+/// assert (memcmp (buf, "hello", len) == 0);
+///
+/// /* Write some more.  */
+/// pgp_writer_write (NULL, sink, (uint8_t *) " world", 6);
+/// assert (len == 11);
+/// assert (memcmp (buf, "hello world", len) == 0);
+///
+/// /* Freeing the writer does not deallocate the buffer.  */
+/// pgp_writer_free (sink);
+///
+/// /* After the writer is freed, you can still use the buffer.  */
+/// assert (len == 11);
+/// assert (memcmp (buf, "hello world", len) == 0);
+///
+/// /* Free the memory allocated by the writer.  */
+/// free (buf);
+///
+/// /* The allocating writer reallocates the buffer so that it grows
+///    if more data is written to it.  Reset the buffer and
+///    demonstrate that.  */
+/// buf = NULL;
+/// len = 0;
+/// sink = pgp_writer_alloc (&buf, &len);
+/// for (int i = 0; i < 4096; i++)
+///     pgp_writer_write (NULL, sink, (uint8_t *) "hello", 5);
+/// pgp_writer_free (sink);
+/// assert (len == 5 * 4096);
+/// assert (memcmp (buf, "hello", 5) == 0);
+/// free (buf);
+/// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_writer_alloc(buf: *mut *mut c_void, len: *mut size_t)
                     -> *mut Writer {
