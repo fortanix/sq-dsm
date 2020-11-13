@@ -194,7 +194,7 @@ see below for OS-specific commands to install the needed libraries:
 ### Debian
 
 ```shell
-$ sudo apt install git rustc cargo clang make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
+$ sudo apt install git rustc cargo clang libclang1-9 make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
 ```
 
 Notes:
