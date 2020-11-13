@@ -32,7 +32,8 @@ impl Digest for sha1collisiondetection::Sha1CD {
 #[cfg(test)]
 mod test {
     use crate::*;
-    use crate::parse::Parse;
+    use crate::parse::{Parse, stream::*};
+    use crate::policy::StandardPolicy;
 
     /// Test vector from the "SHA-1 is a Shambles" paper.
     ///
@@ -88,6 +89,51 @@ mod test {
         assert_eq!(alice.fingerprint(), alice_sha1cd_fingerprint);
         assert!(bob.fingerprint() != bob_sha1_fingerprint);
         assert_eq!(bob.fingerprint(), bob_sha1cd_fingerprint);
+        Ok(())
+    }
+
+    /// Test vector from the paper "The first collision for full SHA-1".
+    #[test]
+    fn shattered() -> Result<()> {
+        let cert =
+            Cert::from_bytes(crate::tests::key("testy-new.pgp"))?;
+        let shattered_1 = crate::tests::message("shattered-1.pdf");
+        let shattered_1_sig = crate::tests::message("shattered-1.pdf.sig");
+        let shattered_2 = crate::tests::message("shattered-2.pdf");
+        let shattered_2_sig = crate::tests::message("shattered-2.pdf.sig");
+
+        let mut p = StandardPolicy::new();
+        p.accept_hash(types::HashAlgorithm::SHA1);
+
+        // This fetches keys and computes the validity of the verification.
+        struct Helper(Cert);
+        impl VerificationHelper for Helper {
+            fn get_certs(&mut self, _ids: &[KeyHandle]) -> Result<Vec<Cert>> {
+                Ok(vec![self.0.clone()])
+            }
+            fn check(&mut self, structure: MessageStructure) -> Result<()> {
+                if let MessageLayer::SignatureGroup { results } =
+                    structure.into_iter().nth(0).unwrap()
+                {
+                    assert_eq!(results.len(), 1);
+                    assert!(results[0].is_err());
+                } else {
+                    unreachable!()
+                }
+                Ok(())
+            }
+        }
+
+        let h = Helper(cert.clone());
+        let mut v = DetachedVerifierBuilder::from_bytes(shattered_1_sig)?
+            .with_policy(&p, None, h)?;
+        v.verify_bytes(shattered_1)?;
+
+        let h = Helper(cert);
+        let mut v = DetachedVerifierBuilder::from_bytes(shattered_2_sig)?
+            .with_policy(&p, None, h)?;
+        v.verify_bytes(shattered_2)?;
+
         Ok(())
     }
 }
