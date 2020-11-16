@@ -100,6 +100,7 @@ use crate::crypto::{self, mem, mpi, hash::Hash};
 use crate::packet;
 use crate::packet::prelude::*;
 use crate::PublicKeyAlgorithm;
+use crate::seal;
 use crate::SymmetricAlgorithm;
 use crate::HashAlgorithm;
 use crate::types::{Curve, Timestamp};
@@ -132,7 +133,16 @@ mod conversions;
 /// [`key::PublicParts`]: struct.PublicParts.html
 /// [`key::SecretParts`]: struct.SecretParts.html
 /// [`key::UnspecifiedParts`]: struct.UnspecifiedParts.html
-pub trait KeyParts: fmt::Debug {
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait KeyParts: fmt::Debug + seal::Sealed {
     /// Converts a key with unspecified parts into this kind of key.
     ///
     /// This function is helpful when you need to convert a concrete
@@ -318,7 +328,16 @@ pub trait KeyParts: fmt::Debug {
 /// [`key::SubordinateRole`]: struct.SubordinateRole.html
 /// [`Cert::keys`]: ../../cert/struct.Cert.html#method.keys
 /// [`key::UnspecifiedRole`]: struct.UnspecifiedRole.html
-pub trait KeyRole: fmt::Debug {
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait KeyRole: fmt::Debug + seal::Sealed {
     /// Converts a key with an unspecified role into this kind of key.
     ///
     /// This function is helpful when you need to convert a concrete
@@ -421,6 +440,8 @@ pub trait KeyRole: fmt::Debug {
 /// [`KeyParts`]: trait.KeyParts.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PublicParts;
+
+impl seal::Sealed for PublicParts {}
 impl KeyParts for PublicParts {
     fn convert_key<R: KeyRole>(key: Key<UnspecifiedParts, R>)
                                -> Result<Key<Self, R>> {
@@ -470,6 +491,8 @@ impl KeyParts for PublicParts {
 /// [`KeyParts`]: trait.KeyParts.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SecretParts;
+
+impl seal::Sealed for SecretParts {}
 impl KeyParts for SecretParts {
     fn convert_key<R: KeyRole>(key: Key<UnspecifiedParts, R>)
                                -> Result<Key<Self, R>>{
@@ -527,6 +550,8 @@ impl KeyParts for SecretParts {
 /// [`Cert::keys`]: ../../struct.Cert.html#method.keys
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedParts;
+
+impl seal::Sealed for UnspecifiedParts {}
 impl KeyParts for UnspecifiedParts {
     fn convert_key<R: KeyRole>(key: Key<UnspecifiedParts, R>)
                                -> Result<Key<Self, R>> {
@@ -568,6 +593,8 @@ impl KeyParts for UnspecifiedParts {
 /// [`KeyRole`]: trait.KeyRole.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PrimaryRole;
+
+impl seal::Sealed for PrimaryRole {}
 impl KeyRole for PrimaryRole {
     fn convert_key<P: KeyParts>(key: Key<P, UnspecifiedRole>)
                                 -> Key<P, Self> {
@@ -590,6 +617,7 @@ impl KeyRole for PrimaryRole {
     }
 }
 
+
 /// A marker that indicates the `Key` should treated like a subkey.
 ///
 /// Refer to [`KeyRole`] for details.
@@ -597,6 +625,8 @@ impl KeyRole for PrimaryRole {
 /// [`KeyRole`]: trait.KeyRole.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SubordinateRole;
+
+impl seal::Sealed for SubordinateRole {}
 impl KeyRole for SubordinateRole {
     fn convert_key<P: KeyParts>(key: Key<P, UnspecifiedRole>)
                                 -> Key<P, Self> {
@@ -633,6 +663,8 @@ impl KeyRole for SubordinateRole {
 /// [`KeyRole`]: trait.KeyRole.html
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedRole;
+
+impl seal::Sealed for UnspecifiedRole {}
 impl KeyRole for UnspecifiedRole {
     fn convert_key<P: KeyParts>(key: Key<P, UnspecifiedRole>)
                                 -> Key<P, Self> {
