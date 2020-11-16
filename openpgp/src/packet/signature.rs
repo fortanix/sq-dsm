@@ -577,9 +577,9 @@ impl SignatureBuilder {
 
         self = self.pre_sign(signer)?;
 
-        let digest = Signature::hash_standalone(&self)?;
-
-        self.sign(signer, digest)
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_standalone(&mut hash, &self);
+        self.sign(signer, hash.into_digest()?)
     }
 
     /// Generates a Timestamp Signature.
@@ -690,9 +690,9 @@ impl SignatureBuilder {
 
         self = self.pre_sign(signer)?;
 
-        let digest = Signature::hash_timestamp(&self)?;
-
-        self.sign(signer, digest)
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_timestamp(&mut hash, &self);
+        self.sign(signer, hash.into_digest()?)
     }
 
     /// Generates a Direct Key Signature.
@@ -813,9 +813,9 @@ impl SignatureBuilder {
 
         self = self.pre_sign(signer)?;
 
-        let digest = Signature::hash_direct_key(&self, pk)?;
-
-        self.sign(signer, digest)
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_direct_key(&mut hash, &self, pk);
+        self.sign(signer, hash.into_digest()?)
     }
 
     /// Generates a User ID binding signature.
@@ -950,9 +950,9 @@ impl SignatureBuilder {
 
         self = self.pre_sign(signer)?;
 
-        let digest = Signature::hash_userid_binding(&self, key, userid)?;
-
-        self.sign(signer, digest)
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_userid_binding(&mut hash, &self, key, userid);
+        self.sign(signer, hash.into_digest()?)
     }
 
     /// Generates a subkey binding signature.
@@ -1070,9 +1070,9 @@ impl SignatureBuilder {
 
         self = self.pre_sign(signer)?;
 
-        let digest = Signature::hash_subkey_binding(&self, primary, subkey)?;
-
-        self.sign(signer, digest)
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_subkey_binding(&mut hash, &self, primary, subkey);
+        self.sign(signer, hash.into_digest()?)
     }
 
     /// Generates a primary key binding signature.
@@ -1218,10 +1218,9 @@ impl SignatureBuilder {
 
         self = self.pre_sign(subkey_signer)?;
 
-        let digest =
-            Signature::hash_primary_key_binding(&self, primary, subkey)?;
-
-        self.sign(subkey_signer, digest)
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_primary_key_binding(&mut hash, &self, primary, subkey);
+        self.sign(subkey_signer, hash.into_digest()?)
     }
 
 
@@ -1353,10 +1352,9 @@ impl SignatureBuilder {
 
         self = self.pre_sign(signer)?;
 
-        let digest =
-            Signature::hash_user_attribute_binding(&self, key, ua)?;
-
-        self.sign(signer, digest)
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_user_attribute_binding(&mut hash, &self, key, ua);
+        self.sign(signer, hash.into_digest()?)
     }
 
     /// Generates a signature.
@@ -2419,8 +2417,9 @@ impl Signature {
 
         // Standalone signatures are like binary-signatures over the
         // zero-sized string.
-        let digest = Signature::hash_standalone(self)?;
-        self.verify_digest(key, &digest[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_standalone(&mut hash, &self);
+        self.verify_digest(key, &hash.into_digest()?[..])
     }
 
     /// Verifies the timestamp signature using `key`.
@@ -2446,8 +2445,9 @@ impl Signature {
 
         // Timestamp signatures are like binary-signatures over the
         // zero-sized string.
-        let digest = Signature::hash_timestamp(self)?;
-        self.verify_digest(key, &digest[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_timestamp(&mut hash, &self);
+        self.verify_digest(key, &hash.into_digest()?[..])
     }
 
     /// Verifies the direct key signature.
@@ -2481,8 +2481,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_direct_key(self, pk)?;
-        self.verify_digest(signer, &hash[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_direct_key(&mut hash, &self, pk);
+        self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
     /// Verifies the primary key revocation certificate.
@@ -2516,8 +2517,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_direct_key(self, pk)?;
-        self.verify_digest(signer, &hash[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_direct_key(&mut hash, &self, pk);
+        self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
     /// Verifies the subkey binding.
@@ -2559,8 +2561,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_subkey_binding(self, pk, subkey)?;
-        self.verify_digest(signer, &hash[..])?;
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_subkey_binding(&mut hash, &self, pk, subkey);
+        self.verify_digest(signer, &hash.into_digest()?[..])?;
 
         // The signature is good, but we may still need to verify the
         // back sig.
@@ -2622,8 +2625,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_primary_key_binding(self, pk, subkey)?;
-        self.verify_digest(subkey, &hash[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_primary_key_binding(&mut hash, &self, pk, subkey);
+        self.verify_digest(subkey, &hash.into_digest()?[..])
     }
 
     /// Verifies the subkey revocation.
@@ -2660,8 +2664,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_subkey_binding(self, pk, subkey)?;
-        self.verify_digest(signer, &hash[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_subkey_binding(&mut hash, &self, pk, subkey);
+        self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
     /// Verifies the user id binding.
@@ -2699,8 +2704,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_userid_binding(self, pk, userid)?;
-        self.verify_digest(signer, &hash[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_userid_binding(&mut hash, &self, pk, userid);
+        self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
     /// Verifies the user id revocation certificate.
@@ -2735,8 +2741,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_userid_binding(self, pk, userid)?;
-        self.verify_digest(signer, &hash[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_userid_binding(&mut hash, &self, pk, userid);
+        self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
     /// Verifies the user attribute binding.
@@ -2774,8 +2781,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_user_attribute_binding(self, pk, ua)?;
-        self.verify_digest(signer, &hash[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_user_attribute_binding(&mut hash, &self, pk, ua);
+        self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
     /// Verifies the user attribute revocation certificate.
@@ -2811,8 +2819,9 @@ impl Signature {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
         }
 
-        let hash = Signature::hash_user_attribute_binding(self, pk, ua)?;
-        self.verify_digest(signer, &hash[..])
+        let mut hash = self.hash_algo().context()?;
+        Signature::hash_user_attribute_binding(&mut hash, &self, pk, ua);
+        self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
     /// Verifies a signature of a message.
@@ -3267,7 +3276,9 @@ mod test {
         let p = Packet::from_bytes(crate::tests::file(
             "contrib/gnupg/timestamp-signature-by-alice.asc")).unwrap();
         if let Packet::Signature(mut sig) = p {
-            let digest = Signature::hash_standalone(&sig).unwrap();
+            let mut hash = sig.hash_algo().context().unwrap();
+            Signature::hash_standalone(&mut hash, &sig);
+            let digest = hash.into_digest().unwrap();
             eprintln!("{}", crate::fmt::hex::encode(&digest));
             sig.verify_timestamp(alpha.primary_key().key()).unwrap();
         } else {

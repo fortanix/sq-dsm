@@ -113,6 +113,13 @@ impl Context {
     pub fn digest<D: AsMut<[u8]>>(&mut self, mut digest: D) -> Result<()> {
         self.ctx.digest(digest.as_mut())
     }
+
+    /// Finalizes the hash function and computes the digest.
+    pub fn into_digest(mut self) -> Result<Vec<u8>> {
+        let mut digest = vec![0u8; self.digest_size()];
+        self.digest(&mut digest)?;
+        Ok(digest)
+    }
 }
 
 impl io::Write for Context {
@@ -382,112 +389,81 @@ impl Hash for signature::SignatureFields {
 /// <a name="hashing-functions"></a>
 impl Signature {
     /// Computes the message digest of standalone signatures.
-    pub fn hash_standalone(sig: &signature::SignatureFields)
-        -> Result<Vec<u8>>
+    pub fn hash_standalone(hash: &mut Context,
+                           sig: &signature::SignatureFields)
     {
-        let mut h = sig.hash_algo().context()?;
-
-        sig.hash(&mut h);
-
-        let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest)?;
-        Ok(digest)
+        sig.hash(hash);
     }
 
     /// Computes the message digest of timestamp signatures.
-    pub fn hash_timestamp(sig: &signature::SignatureFields)
-        -> Result<Vec<u8>>
+    pub fn hash_timestamp(hash: &mut Context,
+                          sig: &signature::SignatureFields)
     {
-        Self::hash_standalone(sig)
+        Self::hash_standalone(hash, sig);
     }
 
     /// Returns the message digest of the direct key signature over
     /// the specified primary key.
-    pub fn hash_direct_key<P>(sig: &signature::SignatureFields,
+    pub fn hash_direct_key<P>(hash: &mut Context,
+                              sig: &signature::SignatureFields,
                               key: &Key<P, key::PrimaryRole>)
-        -> Result<Vec<u8>>
         where P: key::KeyParts,
     {
-
-        let mut h = sig.hash_algo().context()?;
-
-        key.hash(&mut h);
-        sig.hash(&mut h);
-
-        let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest)?;
-        Ok(digest)
+        key.hash(hash);
+        sig.hash(hash);
     }
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn hash_subkey_binding<P, Q>(sig: &signature::SignatureFields,
+    pub fn hash_subkey_binding<P, Q>(hash: &mut Context,
+                                     sig: &signature::SignatureFields,
                                      key: &Key<P, key::PrimaryRole>,
                                      subkey: &Key<Q, key::SubordinateRole>)
-        -> Result<Vec<u8>>
         where P: key::KeyParts,
               Q: key::KeyParts,
     {
-        let mut h = sig.hash_algo().context()?;
-
-        key.hash(&mut h);
-        subkey.hash(&mut h);
-        sig.hash(&mut h);
-
-        let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest)?;
-        Ok(digest)
+        key.hash(hash);
+        subkey.hash(hash);
+        sig.hash(hash);
     }
 
     /// Returns the message digest of the primary key binding over the
     /// specified primary key and subkey.
-    pub fn hash_primary_key_binding<P, Q>(sig: &signature::SignatureFields,
+    pub fn hash_primary_key_binding<P, Q>(hash: &mut Context,
+                                          sig: &signature::SignatureFields,
                                           key: &Key<P, key::PrimaryRole>,
                                           subkey: &Key<Q, key::SubordinateRole>)
-        -> Result<Vec<u8>>
         where P: key::KeyParts,
               Q: key::KeyParts,
     {
-        Self::hash_subkey_binding(sig, key, subkey)
+        Self::hash_subkey_binding(hash, sig, key, subkey);
     }
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
-    pub fn hash_userid_binding<P>(sig: &signature::SignatureFields,
+    pub fn hash_userid_binding<P>(hash: &mut Context,
+                                  sig: &signature::SignatureFields,
                                   key: &Key<P, key::PrimaryRole>,
                                   userid: &UserID)
-        -> Result<Vec<u8>>
         where P: key::KeyParts,
     {
-        let mut h = sig.hash_algo().context()?;
-
-        key.hash(&mut h);
-        userid.hash(&mut h);
-        sig.hash(&mut h);
-
-        let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest)?;
-        Ok(digest)
+        key.hash(hash);
+        userid.hash(hash);
+        sig.hash(hash);
     }
 
     /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
     pub fn hash_user_attribute_binding<P>(
+        hash: &mut Context,
         sig: &signature::SignatureFields,
         key: &Key<P, key::PrimaryRole>,
         ua: &UserAttribute)
-        -> Result<Vec<u8>>
         where P: key::KeyParts,
     {
-        let mut h = sig.hash_algo().context()?;
-
-        key.hash(&mut h);
-        ua.hash(&mut h);
-        sig.hash(&mut h);
-
-        let mut digest = vec![0u8; h.digest_size()];
-        h.digest(&mut digest)?;
-        Ok(digest)
+        key.hash(hash);
+        ua.hash(hash);
+        sig.hash(hash);
     }
 }
 
@@ -503,10 +479,13 @@ mod test {
             let mut userid_sigs = 0;
             for (i, binding) in cert.userids().enumerate() {
                 for selfsig in binding.self_signatures() {
-                    let h = Signature::hash_userid_binding(
+                    let mut hash = selfsig.hash_algo().context().unwrap();
+                    Signature::hash_userid_binding(
+                        &mut hash,
                         selfsig,
                         cert.primary_key().key(),
-                        binding.userid()).unwrap();
+                        binding.userid());
+                    let h = hash.into_digest().unwrap();
                     if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
                                   i, binding.userid(), selfsig);
@@ -520,10 +499,13 @@ mod test {
             for (i, a) in cert.user_attributes().enumerate()
             {
                 for selfsig in a.self_signatures() {
-                    let h = Signature::hash_user_attribute_binding(
+                    let mut hash = selfsig.hash_algo().context().unwrap();
+                    Signature::hash_user_attribute_binding(
+                        &mut hash,
                         selfsig,
                         cert.primary_key().key(),
-                        a.user_attribute()).unwrap();
+                        a.user_attribute());
+                    let h = hash.into_digest().unwrap();
                     if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?} / {:?}",
                                   i, a.user_attribute(), selfsig);
@@ -536,10 +518,13 @@ mod test {
             let mut subkey_sigs = 0;
             for (i, binding) in cert.subkeys().enumerate() {
                 for selfsig in binding.self_signatures() {
-                    let h = Signature::hash_subkey_binding(
+                    let mut hash = selfsig.hash_algo().context().unwrap();
+                    Signature::hash_subkey_binding(
+                        &mut hash,
                         selfsig,
                         cert.primary_key().key(),
-                        binding.key()).unwrap();
+                        binding.key());
+                    let h = hash.into_digest().unwrap();
                     if &h[..2] != selfsig.digest_prefix() {
                         eprintln!("{:?}: {:?}", i, binding);
                         eprintln!("  Hash: {:?}", h);

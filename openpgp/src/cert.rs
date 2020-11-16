@@ -1482,9 +1482,12 @@ impl Cert {
                     .into_iter()
                 {
                     // Use hash prefix as heuristic.
-                    match Signature::$hash_method(&sig,
-                                                  self.primary.key(),
-                                                  $($verify_args),*) {
+                    let key = self.primary.key();
+                    match sig.hash_algo().context().and_then(|mut ctx| {
+                        Signature::$hash_method(&mut ctx, &sig, key,
+                                                $($verify_args),*);
+                        ctx.into_digest()
+                    }) {
                       Ok(hash) => {
                         if &sig.digest_prefix()[..] == &hash[..2] {
                             // See if we can get the key for a
@@ -1706,8 +1709,14 @@ impl Cert {
                         }
                     } else {
                         // Use hash prefix as heuristic.
-                        if let Ok(hash) = Signature::$hash_method(
-                            &sig, self.primary.key(), $($verify_args),*) {
+                        let key = self.primary.key();
+                        if let Ok(hash) = sig.hash_algo().context()
+                            .and_then(|mut ctx| {
+                                Signature::$hash_method(&mut ctx, &sig, key,
+                                                        $($verify_args),*);
+                                ctx.into_digest()
+                            })
+                        {
                             if &sig.digest_prefix()[..] == &hash[..2] {
                                 t!("Sig {:02X}{:02X}, {:?} \
                                     was out of place.  Likely belongs to {}.",
