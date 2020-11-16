@@ -387,36 +387,32 @@ impl Hash for signature::SignatureFields {
 /// Hashing-related functionality.
 ///
 /// <a name="hashing-functions"></a>
-impl Signature {
+impl signature::SignatureFields {
     /// Computes the message digest of standalone signatures.
-    pub fn hash_standalone(hash: &mut Context,
-                           sig: &signature::SignatureFields)
+    pub fn hash_standalone(&self, hash: &mut Context)
     {
-        sig.hash(hash);
+        self.hash(hash);
     }
 
     /// Computes the message digest of timestamp signatures.
-    pub fn hash_timestamp(hash: &mut Context,
-                          sig: &signature::SignatureFields)
+    pub fn hash_timestamp(&self, hash: &mut Context)
     {
-        Self::hash_standalone(hash, sig);
+        self.hash_standalone(hash);
     }
 
     /// Returns the message digest of the direct key signature over
     /// the specified primary key.
-    pub fn hash_direct_key<P>(hash: &mut Context,
-                              sig: &signature::SignatureFields,
+    pub fn hash_direct_key<P>(&self, hash: &mut Context,
                               key: &Key<P, key::PrimaryRole>)
         where P: key::KeyParts,
     {
         key.hash(hash);
-        sig.hash(hash);
+        self.hash(hash);
     }
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn hash_subkey_binding<P, Q>(hash: &mut Context,
-                                     sig: &signature::SignatureFields,
+    pub fn hash_subkey_binding<P, Q>(&self, hash: &mut Context,
                                      key: &Key<P, key::PrimaryRole>,
                                      subkey: &Key<Q, key::SubordinateRole>)
         where P: key::KeyParts,
@@ -424,52 +420,49 @@ impl Signature {
     {
         key.hash(hash);
         subkey.hash(hash);
-        sig.hash(hash);
+        self.hash(hash);
     }
 
     /// Returns the message digest of the primary key binding over the
     /// specified primary key and subkey.
-    pub fn hash_primary_key_binding<P, Q>(hash: &mut Context,
-                                          sig: &signature::SignatureFields,
+    pub fn hash_primary_key_binding<P, Q>(&self, hash: &mut Context,
                                           key: &Key<P, key::PrimaryRole>,
                                           subkey: &Key<Q, key::SubordinateRole>)
         where P: key::KeyParts,
               Q: key::KeyParts,
     {
-        Self::hash_subkey_binding(hash, sig, key, subkey);
+        self.hash_subkey_binding(hash, key, subkey);
     }
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
-    pub fn hash_userid_binding<P>(hash: &mut Context,
-                                  sig: &signature::SignatureFields,
+    pub fn hash_userid_binding<P>(&self, hash: &mut Context,
                                   key: &Key<P, key::PrimaryRole>,
                                   userid: &UserID)
         where P: key::KeyParts,
     {
         key.hash(hash);
         userid.hash(hash);
-        sig.hash(hash);
+        self.hash(hash);
     }
 
     /// Returns the message digest of the user attribute binding over
     /// the specified primary key, user attribute, and signature.
     pub fn hash_user_attribute_binding<P>(
+        &self,
         hash: &mut Context,
-        sig: &signature::SignatureFields,
         key: &Key<P, key::PrimaryRole>,
         ua: &UserAttribute)
         where P: key::KeyParts,
     {
         key.hash(hash);
         ua.hash(hash);
-        sig.hash(hash);
+        self.hash(hash);
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use crate::Cert;
     use crate::parse::Parse;
 
@@ -480,9 +473,8 @@ mod test {
             for (i, binding) in cert.userids().enumerate() {
                 for selfsig in binding.self_signatures() {
                     let mut hash = selfsig.hash_algo().context().unwrap();
-                    Signature::hash_userid_binding(
+                    selfsig.hash_userid_binding(
                         &mut hash,
-                        selfsig,
                         cert.primary_key().key(),
                         binding.userid());
                     let h = hash.into_digest().unwrap();
@@ -500,9 +492,8 @@ mod test {
             {
                 for selfsig in a.self_signatures() {
                     let mut hash = selfsig.hash_algo().context().unwrap();
-                    Signature::hash_user_attribute_binding(
+                    selfsig.hash_user_attribute_binding(
                         &mut hash,
-                        selfsig,
                         cert.primary_key().key(),
                         a.user_attribute());
                     let h = hash.into_digest().unwrap();
@@ -519,9 +510,8 @@ mod test {
             for (i, binding) in cert.subkeys().enumerate() {
                 for selfsig in binding.self_signatures() {
                     let mut hash = selfsig.hash_algo().context().unwrap();
-                    Signature::hash_subkey_binding(
+                    selfsig.hash_subkey_binding(
                         &mut hash,
-                        selfsig,
                         cert.primary_key().key(),
                         binding.key());
                     let h = hash.into_digest().unwrap();

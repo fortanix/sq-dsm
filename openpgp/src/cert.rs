@@ -1484,8 +1484,7 @@ impl Cert {
                     // Use hash prefix as heuristic.
                     let key = self.primary.key();
                     match sig.hash_algo().context().and_then(|mut ctx| {
-                        Signature::$hash_method(&mut ctx, &sig, key,
-                                                $($verify_args),*);
+                        sig.$hash_method(&mut ctx, key, $($verify_args),*);
                         ctx.into_digest()
                     }) {
                       Ok(hash) => {
@@ -1712,8 +1711,8 @@ impl Cert {
                         let key = self.primary.key();
                         if let Ok(hash) = sig.hash_algo().context()
                             .and_then(|mut ctx| {
-                                Signature::$hash_method(&mut ctx, &sig, key,
-                                                        $($verify_args),*);
+                                sig.$hash_method(&mut ctx, key,
+                                                 $($verify_args),*);
                                 ctx.into_digest()
                             })
                         {

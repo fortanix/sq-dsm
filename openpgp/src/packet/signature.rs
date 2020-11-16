@@ -578,7 +578,7 @@ impl SignatureBuilder {
         self = self.pre_sign(signer)?;
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_standalone(&mut hash, &self);
+        self.hash_standalone(&mut hash);
         self.sign(signer, hash.into_digest()?)
     }
 
@@ -691,7 +691,7 @@ impl SignatureBuilder {
         self = self.pre_sign(signer)?;
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_timestamp(&mut hash, &self);
+        self.hash_timestamp(&mut hash);
         self.sign(signer, hash.into_digest()?)
     }
 
@@ -814,7 +814,7 @@ impl SignatureBuilder {
         self = self.pre_sign(signer)?;
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_direct_key(&mut hash, &self, pk);
+        self.hash_direct_key(&mut hash, pk);
         self.sign(signer, hash.into_digest()?)
     }
 
@@ -951,7 +951,7 @@ impl SignatureBuilder {
         self = self.pre_sign(signer)?;
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_userid_binding(&mut hash, &self, key, userid);
+        self.hash_userid_binding(&mut hash, key, userid);
         self.sign(signer, hash.into_digest()?)
     }
 
@@ -1071,7 +1071,7 @@ impl SignatureBuilder {
         self = self.pre_sign(signer)?;
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_subkey_binding(&mut hash, &self, primary, subkey);
+        self.hash_subkey_binding(&mut hash, primary, subkey);
         self.sign(signer, hash.into_digest()?)
     }
 
@@ -1219,7 +1219,7 @@ impl SignatureBuilder {
         self = self.pre_sign(subkey_signer)?;
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_primary_key_binding(&mut hash, &self, primary, subkey);
+        self.hash_primary_key_binding(&mut hash, primary, subkey);
         self.sign(subkey_signer, hash.into_digest()?)
     }
 
@@ -1353,7 +1353,7 @@ impl SignatureBuilder {
         self = self.pre_sign(signer)?;
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_user_attribute_binding(&mut hash, &self, key, ua);
+        self.hash_user_attribute_binding(&mut hash, key, ua);
         self.sign(signer, hash.into_digest()?)
     }
 
@@ -2418,7 +2418,7 @@ impl Signature {
         // Standalone signatures are like binary-signatures over the
         // zero-sized string.
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_standalone(&mut hash, &self);
+        self.hash_standalone(&mut hash);
         self.verify_digest(key, &hash.into_digest()?[..])
     }
 
@@ -2446,7 +2446,7 @@ impl Signature {
         // Timestamp signatures are like binary-signatures over the
         // zero-sized string.
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_timestamp(&mut hash, &self);
+        self.hash_timestamp(&mut hash);
         self.verify_digest(key, &hash.into_digest()?[..])
     }
 
@@ -2482,7 +2482,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_direct_key(&mut hash, &self, pk);
+        self.hash_direct_key(&mut hash, pk);
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
@@ -2518,7 +2518,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_direct_key(&mut hash, &self, pk);
+        self.hash_direct_key(&mut hash, pk);
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
@@ -2562,7 +2562,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_subkey_binding(&mut hash, &self, pk, subkey);
+        self.hash_subkey_binding(&mut hash, pk, subkey);
         self.verify_digest(signer, &hash.into_digest()?[..])?;
 
         // The signature is good, but we may still need to verify the
@@ -2626,7 +2626,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_primary_key_binding(&mut hash, &self, pk, subkey);
+        self.hash_primary_key_binding(&mut hash, pk, subkey);
         self.verify_digest(subkey, &hash.into_digest()?[..])
     }
 
@@ -2665,7 +2665,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_subkey_binding(&mut hash, &self, pk, subkey);
+        self.hash_subkey_binding(&mut hash, pk, subkey);
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
@@ -2705,7 +2705,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_userid_binding(&mut hash, &self, pk, userid);
+        self.hash_userid_binding(&mut hash, pk, userid);
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
@@ -2742,7 +2742,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_userid_binding(&mut hash, &self, pk, userid);
+        self.hash_userid_binding(&mut hash, pk, userid);
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
@@ -2782,7 +2782,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_user_attribute_binding(&mut hash, &self, pk, ua);
+        self.hash_user_attribute_binding(&mut hash, pk, ua);
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
@@ -2820,7 +2820,7 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
-        Signature::hash_user_attribute_binding(&mut hash, &self, pk, ua);
+        self.hash_user_attribute_binding(&mut hash, pk, ua);
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
@@ -3277,7 +3277,7 @@ mod test {
             "contrib/gnupg/timestamp-signature-by-alice.asc")).unwrap();
         if let Packet::Signature(mut sig) = p {
             let mut hash = sig.hash_algo().context().unwrap();
-            Signature::hash_standalone(&mut hash, &sig);
+            sig.hash_standalone(&mut hash);
             let digest = hash.into_digest().unwrap();
             eprintln!("{}", crate::fmt::hex::encode(&digest));
             sig.verify_timestamp(alpha.primary_key().key()).unwrap();
