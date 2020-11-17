@@ -27,7 +27,7 @@ use crate::Result;
 /// A signer consists of the public key and a way of creating a
 /// signature.  This crate implements `Signer` for [`KeyPair`], which
 /// is a tuple containing the public and unencrypted secret key in
-/// memory.  Other crates my provide their own implementations of
+/// memory.  Other crates may provide their own implementations of
 /// `Signer` to utilize keys stored in various places.  Currently, the
 /// following implementations exist:
 ///
@@ -70,8 +70,8 @@ impl Signer for Box<dyn Signer> {
 /// A decryptor consists of the public key and a way of decrypting a
 /// session key.  This crate implements `Decryptor` for [`KeyPair`],
 /// which is a tuple containing the public and unencrypted secret key
-/// in memory.  Other crates my provide their own implementations of
-/// `Signer` to utilize keys stored in various places.  Currently, the
+/// in memory.  Other crates may provide their own implementations of
+/// `Decryptor` to utilize keys stored in various places.  Currently, the
 /// following implementations exist:
 ///
 ///   - [`KeyPair`]: In-memory keys.
