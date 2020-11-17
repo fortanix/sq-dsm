@@ -433,7 +433,7 @@ impl SignatureFields {
 ///
 /// // Merge in the new signatures.
 /// let cert = cert.insert_packets(sigs.into_iter().map(Packet::from))?;
-/// # assert_eq!(cert.bad_signatures().len(), 0);
+/// # assert_eq!(cert.bad_signatures().count(), 0);
 /// # Ok(())
 /// # }
 /// ```
@@ -1198,7 +1198,7 @@ impl SignatureBuilder {
     ///                                    sig.into()])?;
     ///
     /// assert_eq!(cert.with_policy(p, None)?.keys().count(), 2);
-    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    /// # assert_eq!(cert.bad_signatures().count(), 0);
     /// # Ok(())
     /// # }
     /// ```
@@ -3419,7 +3419,7 @@ mod test {
         // Parse into cert verifying the signatures.
         use std::convert::TryFrom;
         let cert = Cert::try_from(pp)?;
-        assert_eq!(cert.bad_signatures().len(), 1);
+        assert_eq!(cert.bad_signatures().count(), 1);
         assert_eq!(cert.keys().subkeys().count(), 1);
         let subkey = cert.keys().subkeys().nth(0).unwrap();
         assert_eq!(subkey.self_signatures().len(), 1);
@@ -3447,7 +3447,7 @@ mod test {
         assert!(sig.unhashed_area().iter().all(|p| p.authenticated()));
 
         // No information in the bad signature has been authenticated.
-        let sig = &cert.bad_signatures()[0];
+        let sig = cert.bad_signatures().nth(0).unwrap();
         assert!(sig.hashed_area().iter().all(|p| ! p.authenticated()));
         assert!(sig.unhashed_area().iter().all(|p| ! p.authenticated()));
         Ok(())

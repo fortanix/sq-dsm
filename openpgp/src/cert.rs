@@ -1205,13 +1205,13 @@ impl Cert {
     /// #     .generate()?;
     /// println!("{}'s has {} bad signatures.",
     ///          cert.fingerprint(),
-    ///          cert.bad_signatures().len());
-    /// # assert_eq!(cert.bad_signatures().len(), 0);
+    ///          cert.bad_signatures().count());
+    /// # assert_eq!(cert.bad_signatures().count(), 0);
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn bad_signatures(&self) -> &[Signature] {
-        &self.bad
+    pub fn bad_signatures(&self) -> impl Iterator<Item = &Signature> {
+        self.bad.iter()
     }
 
     /// Returns a list of any designated revokers for this certificate.
@@ -5611,7 +5611,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.userids().count(), 1);
         assert_eq!(cert.subkeys().count(), 1);
         assert_eq!(cert.unknowns().count(), 0);
-        assert_eq!(cert.bad_signatures().len(), 0);
+        assert_eq!(cert.bad_signatures().count(), 0);
         assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
         assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
 
@@ -5635,7 +5635,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.userids().count(), 1);
         assert_eq!(cert.subkeys().count(), 1);
         assert_eq!(cert.unknowns().count(), 0);
-        assert_eq!(cert.bad_signatures().len(), 0);
+        assert_eq!(cert.bad_signatures().count(), 0);
         assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
         assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
 
@@ -5688,7 +5688,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(malicious_cert.with_policy(p, None)?.keys().subkeys()
                    .for_signing().count(), 0);
         // Instead, it should be considered bad.
-        assert_eq!(malicious_cert.bad_signatures().len(), 1);
+        assert_eq!(malicious_cert.bad_signatures().count(), 1);
         Ok(())
     }
 
@@ -5744,7 +5744,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let p = &crate::policy::StandardPolicy::new();
         assert_eq!(malicious_cert.with_policy(p, None)?.keys().subkeys()
                    .for_signing().count(), 1);
-        assert_eq!(malicious_cert.bad_signatures().len(), 0);
+        assert_eq!(malicious_cert.bad_signatures().count(), 0);
 
         // Now try to merge it in.
         let merged = cert.clone().merge(malicious_cert.clone())?;

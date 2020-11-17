@@ -76,10 +76,10 @@ mod test {
 
         // Check mitigations.  First, the illegitimate certification
         // should be discarded.
-        assert_eq!(alice.bad_signatures().len(), 1);
+        assert_eq!(alice.bad_signatures().count(), 1);
         // Bob's userid also got certified, hence there are two bad
         // signatures.
-        assert_eq!(bob.bad_signatures().len(), 2);
+        assert_eq!(bob.bad_signatures().count(), 2);
 
         // The mitigation also changes the identities of the keys
         // containing the collision attack.  This is a good thing,
