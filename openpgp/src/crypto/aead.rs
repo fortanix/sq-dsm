@@ -16,6 +16,7 @@ use crate::Error;
 use crate::Result;
 use crate::crypto::SessionKey;
 use crate::crypto::mem::secure_cmp;
+use crate::seal;
 use crate::parse::Cookie;
 
 /// Disables authentication checks.
@@ -33,7 +34,16 @@ pub(crate) fn chunk_size_usize(chunk_size: u64) -> Result<usize> {
 }
 
 /// An AEAD mode of operation.
-pub trait Aead {
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait Aead : seal::Sealed {
     /// Adds associated data `ad`.
     fn update(&mut self, ad: &[u8]);
 

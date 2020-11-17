@@ -2,6 +2,7 @@
 
 use crate::{Error, Result};
 use crate::crypto::aead::Aead;
+use crate::seal;
 use crate::types::{AEADAlgorithm, SymmetricAlgorithm};
 use super::symmetric::Ctr;
 
@@ -73,6 +74,7 @@ impl EaxAes {
 }
 
 
+impl seal::Sealed for EaxAes {}
 impl Aead for EaxAes {
     /// Adds associated data `ad`.
     fn update(&mut self, ad: &[u8]) {

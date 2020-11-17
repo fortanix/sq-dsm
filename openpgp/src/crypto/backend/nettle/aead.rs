@@ -4,8 +4,10 @@ use nettle::{aead, cipher};
 use crate::{Error, Result};
 
 use crate::crypto::aead::Aead;
+use crate::seal;
 use crate::types::{AEADAlgorithm, SymmetricAlgorithm};
 
+impl<T: nettle::aead::Aead> seal::Sealed for T {}
 impl<T: nettle::aead::Aead> Aead for T {
     fn update(&mut self, ad: &[u8]) {
         self.update(ad)
