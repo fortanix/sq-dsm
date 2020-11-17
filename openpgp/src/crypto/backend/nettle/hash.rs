@@ -3,8 +3,12 @@ use crate::{Error, Result};
 use crate::types::{HashAlgorithm};
 
 macro_rules! impl_digest_for {
-    ($t: path) => {
+    ($t: path, $algo: ident) => {
         impl Digest for $t {
+            fn algo(&self) -> crate::types::HashAlgorithm {
+                crate::types::HashAlgorithm::$algo
+            }
+
             fn digest_size(&self) -> usize {
                 nettle::hash::Hash::digest_size(self)
             }
@@ -21,13 +25,13 @@ macro_rules! impl_digest_for {
     }
 }
 
-impl_digest_for!(nettle::hash::Sha224);
-impl_digest_for!(nettle::hash::Sha256);
-impl_digest_for!(nettle::hash::Sha384);
-impl_digest_for!(nettle::hash::Sha512);
-impl_digest_for!(nettle::hash::insecure_do_not_use::Sha1);
-impl_digest_for!(nettle::hash::insecure_do_not_use::Md5);
-impl_digest_for!(nettle::hash::insecure_do_not_use::Ripemd160);
+impl_digest_for!(nettle::hash::Sha224, SHA224);
+impl_digest_for!(nettle::hash::Sha256, SHA256);
+impl_digest_for!(nettle::hash::Sha384, SHA384);
+impl_digest_for!(nettle::hash::Sha512, SHA512);
+impl_digest_for!(nettle::hash::insecure_do_not_use::Sha1, SHA1);
+impl_digest_for!(nettle::hash::insecure_do_not_use::Md5, MD5);
+impl_digest_for!(nettle::hash::insecure_do_not_use::Ripemd160, RipeMD);
 
 impl HashAlgorithm {
     /// Whether Sequoia supports this algorithm.

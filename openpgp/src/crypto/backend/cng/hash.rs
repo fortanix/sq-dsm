@@ -1,4 +1,4 @@
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 use std::sync::Mutex;
 
 use crate::crypto::hash::Digest;
@@ -22,6 +22,13 @@ impl Clone for Hash {
 }
 
 impl Digest for Hash {
+    fn algo(&self) -> HashAlgorithm {
+        self.0.lock().expect("Mutex not to be poisoned")
+            .hash_algorithm().expect("CNG to not fail internally")
+            .try_into()
+            .expect("We created the object, algo is representable")
+    }
+
     fn digest_size(&self) -> usize {
         self.0.lock().expect("Mutex not to be poisoned")
             .hash_size().expect("CNG to not fail internally")
@@ -65,6 +72,22 @@ impl TryFrom<HashAlgorithm> for cng::HashAlgorithmId {
             HashAlgorithm::SHA512 => cng::HashAlgorithmId::Sha512,
             HashAlgorithm::MD5 => cng::HashAlgorithmId::Md5,
             algo => Err(Error::UnsupportedHashAlgorithm(algo))?,
+        })
+    }
+}
+
+impl TryFrom<cng::HashAlgorithmId> for HashAlgorithm {
+    type Error = Error;
+
+    fn try_from(value: cng::HashAlgorithmId) -> std::result::Result<Self, Self::Error> {
+        Ok(match value {
+            cng::HashAlgorithmId::Sha1 => HashAlgorithm::SHA1,
+            cng::HashAlgorithmId::Sha256 => HashAlgorithm::SHA256,
+            cng::HashAlgorithmId::Sha384 => HashAlgorithm::SHA384,
+            cng::HashAlgorithmId::Sha512 => HashAlgorithm::SHA512,
+            cng::HashAlgorithmId::Md5 => HashAlgorithm::MD5,
+            algo => Err(Error::InvalidArgument(
+                format!("Algorithm {:?} not representable", algo)))?,
         })
     }
 }
