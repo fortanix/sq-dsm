@@ -89,17 +89,16 @@ impl Keygrip {
     /// ```
     pub fn of(key: &PublicKey) -> Result<Keygrip> {
         use openpgp::crypto::hash;
-        use std::io::Write;
         use self::PublicKey::*;
         let mut hash = HashAlgorithm::SHA1.context().unwrap();
 
-        fn hash_sexp_mpi(hash: &mut hash::Context, kind: char, prefix: &[u8],
+        fn hash_sexp_mpi(hash: &mut dyn hash::Digest, kind: char, prefix: &[u8],
                          mpi: &MPI)
         {
             hash_sexp(hash, kind, prefix, mpi.value());
         }
 
-        fn hash_sexp(hash: &mut hash::Context, kind: char, prefix: &[u8],
+        fn hash_sexp(hash: &mut dyn hash::Digest, kind: char, prefix: &[u8],
                      buf: &[u8])
         {
             write!(hash, "(1:{}{}:",
@@ -109,7 +108,7 @@ impl Keygrip {
             write!(hash, ")").unwrap();
         }
 
-        fn hash_ecc(hash: &mut hash::Context, curve: &Curve, q: &MPI)
+        fn hash_ecc(hash: &mut dyn hash::Digest, curve: &Curve, q: &MPI)
         {
             for (i, name) in "pabgnhq".chars().enumerate() {
                 if i == 5 {

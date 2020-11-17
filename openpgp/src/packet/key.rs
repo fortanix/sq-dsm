@@ -96,7 +96,7 @@ use quickcheck::{Arbitrary, Gen};
 
 use crate::Error;
 use crate::cert::prelude::*;
-use crate::crypto::{self, mem, mpi, hash::Hash};
+use crate::crypto::{self, mem, mpi, hash::{Hash, Digest}};
 use crate::packet;
 use crate::packet::prelude::*;
 use crate::PublicKeyAlgorithm;

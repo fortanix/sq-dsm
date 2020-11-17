@@ -639,7 +639,7 @@ pub struct Signer<'a> {
     detached: bool,
     template: signature::SignatureBuilder,
     creation_time: Option<SystemTime>,
-    hash: crypto::hash::Context,
+    hash: Box<dyn crypto::hash::Digest>,
     cookie: Cookie,
     position: u64,
 }
@@ -2077,7 +2077,7 @@ pub struct Encryptor<'a> {
     passwords: Vec<Password>,
     sym_algo: SymmetricAlgorithm,
     aead_algo: Option<AEADAlgorithm>,
-    hash: crypto::hash::Context,
+    hash: Box<dyn crypto::hash::Digest>,
     cookie: Cookie,
 }
 

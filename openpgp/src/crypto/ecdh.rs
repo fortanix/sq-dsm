@@ -12,6 +12,7 @@ use crate::vec_truncate;
 use crate::{Error, Result};
 
 use crate::crypto::SessionKey;
+use crate::crypto::hash::Digest;
 use crate::crypto::mem::Protected;
 use crate::crypto::mpi::{self, MPI};
 use crate::key;

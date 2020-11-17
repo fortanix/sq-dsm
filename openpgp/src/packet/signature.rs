@@ -126,7 +126,7 @@ use crate::Error;
 use crate::Result;
 use crate::crypto::{
     mpi,
-    hash::{self, Hash},
+    hash::{self, Hash, Digest},
     Signer,
 };
 use crate::KeyHandle;
@@ -1424,7 +1424,7 @@ impl SignatureBuilder {
     ///   [`set_signature_creation_time`]: #method.set_signature_creation_time
     ///   [`preserve_signature_creation_time`]: #method.preserve_signature_creation_time
     pub fn sign_hash(mut self, signer: &mut dyn Signer,
-                     mut hash: hash::Context)
+                     mut hash: Box<dyn hash::Digest>)
         -> Result<Signature>
     {
         self.hash_algo = hash.algo();
@@ -2312,7 +2312,7 @@ impl Signature {
     /// subkey binding signature (if appropriate), has the signing
     /// capability, etc.
     pub fn verify_hash<P, R>(&mut self, key: &Key<P, R>,
-                             mut hash: hash::Context)
+                             mut hash: Box<dyn hash::Digest>)
         -> Result<()>
         where P: key::KeyParts,
               R: key::KeyRole,

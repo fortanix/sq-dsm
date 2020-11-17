@@ -717,7 +717,7 @@ pub(crate) struct SignatureGroup {
     ops_count: usize,
 
     /// The hash contexts.
-    pub(crate) hashes: Vec<HashingMode<crypto::hash::Context>>,
+    pub(crate) hashes: Vec<HashingMode<Box<dyn crypto::hash::Digest>>>,
 }
 
 /// Controls line-ending normalization during hashing.
@@ -1859,7 +1859,7 @@ impl OnePassSig3 {
                                 {
                                     if let Ok(ctx) = hash_algo.context() {
                                         cookie.sig_group_mut().hashes.push(
-                                            HashingMode::for_signature(ctx, typ)
+                                            HashingMode::for_signature(Box::new(ctx), typ)
                                         );
                                     }
                                 }
@@ -3226,7 +3226,7 @@ pub struct PacketParser<'a> {
 
     /// We compute a hashsum over the body to implement comparison on
     /// containers that have been streamed.
-    body_hash: Option<crate::crypto::hash::Context>,
+    body_hash: Option<Box<dyn crate::crypto::hash::Digest>>,
 
     state: PacketParserState,
 }

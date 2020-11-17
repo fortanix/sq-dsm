@@ -1,12 +1,35 @@
 //! Cryptographic hash functions and hashing of OpenPGP data
 //! structures.
 //!
-//! This module provides [`Context`] representing a hash function
+//! This module provides trait [`Digest`] representing a hash function
 //! context independent of the cryptographic backend, as well as trait
 //! [`Hash`] that handles hashing of OpenPGP data structures.
 //!
-//!   [`Context`]: struct.Context.html
+//!   [`Digest`]: trait.Digest.html
 //!   [`Hash`]: trait.Hash.html
+//!
+//! # Examples
+//!
+//! ```rust
+//! # fn main() -> sequoia_openpgp::Result<()> {
+//! use sequoia_openpgp::types::HashAlgorithm;
+//!
+//! // Create a context and feed data to it.
+//! let mut ctx = HashAlgorithm::SHA512.context()?;
+//! ctx.update(&b"The quick brown fox jumps over the lazy dog."[..]);
+//!
+//! // Extract the digest.
+//! let mut digest = vec![0; ctx.digest_size()];
+//! ctx.digest(&mut digest);
+//!
+//! use sequoia_openpgp::fmt::hex;
+//! assert_eq!(&hex::encode(digest),
+//!            "91EA1245F20D46AE9A037A989F54F1F7\
+//!             90F0A47607EEB8A14D12890CEA77A1BB\
+//!             C6C7ED9CF205E67B7F2B8FD4C7DFD3A7\
+//!             A8617E45F3C463D481C7E586C39AC1ED");
+//! # Ok(()) }
+//! ```
 
 use std::convert::TryFrom;
 
@@ -31,7 +54,12 @@ use std::io::{self, Write};
 const DUMP_HASHED_VALUES: Option<&str> = None;
 
 /// Hasher capable of calculating a digest for the input byte stream.
-pub(crate) trait Digest: DynClone + Write + Send + Sync {
+///
+/// This provides an abstract interface to the hash functions used in
+/// OpenPGP.  `Digest`s can be are created using [`HashAlgorithm::context`].
+///
+///   [`HashAlgorithm::context`]: ../../types/enum.HashAlgorithm.html#method.context
+pub trait Digest: DynClone + Write + Send + Sync {
     /// Returns the algorithm.
     fn algo(&self) -> HashAlgorithm;
 
@@ -49,59 +77,30 @@ pub(crate) trait Digest: DynClone + Write + Send + Sync {
     /// `digest` must be at least `self.digest_size()` bytes large,
     /// otherwise the digest will be truncated.
     fn digest(&mut self, digest: &mut [u8]) -> Result<()>;
+
+    /// Finalizes the hash function and computes the digest.
+    fn into_digest(mut self) -> Result<Vec<u8>>
+        where Self: std::marker::Sized
+    {
+        let mut digest = vec![0u8; self.digest_size()];
+        self.digest(&mut digest)?;
+        Ok(digest)
+    }
 }
 
 dyn_clone::clone_trait_object!(Digest);
 
-/// State of a hash function.
-///
-/// This provides an abstract interface to the hash functions used in
-/// OpenPGP.  `Context`s are created using [`HashAlgorithm::context`].
-///
-///   [`HashAlgorithm::context`]: ../../types/enum.HashAlgorithm.html#method.context
-///
-/// # Examples
-///
-/// ```rust
-/// # fn main() -> sequoia_openpgp::Result<()> {
-/// use sequoia_openpgp::types::HashAlgorithm;
-///
-/// // Create a context and feed data to it.
-/// let mut ctx = HashAlgorithm::SHA512.context()?;
-/// ctx.update(&b"The quick brown fox jumps over the lazy dog."[..]);
-///
-/// // Extract the digest.
-/// let mut digest = vec![0; ctx.digest_size()];
-/// ctx.digest(&mut digest);
-///
-/// use sequoia_openpgp::fmt::hex;
-/// assert_eq!(&hex::encode(digest),
-///            "91EA1245F20D46AE9A037A989F54F1F7\
-///             90F0A47607EEB8A14D12890CEA77A1BB\
-///             C6C7ED9CF205E67B7F2B8FD4C7DFD3A7\
-///             A8617E45F3C463D481C7E586C39AC1ED");
-/// # Ok(()) }
-/// ```
-#[derive(Clone)]
-pub struct Context {
-    algo: HashAlgorithm,
-    ctx: Box<dyn Digest>,
-}
-
-impl Context {
-    /// Returns the algorithm.
-    pub fn algo(&self) -> HashAlgorithm {
-        self.algo
+impl Digest for Box<dyn Digest> {
+    fn algo(&self) -> HashAlgorithm {
+        self.as_ref().algo()
     }
-
-    /// Size of the digest in bytes
-    pub fn digest_size(&self) -> usize {
-        self.ctx.digest_size()
+    fn digest_size(&self) -> usize {
+        self.as_ref().digest_size()
     }
 
     /// Writes data into the hash function.
-    pub fn update<D: AsRef<[u8]>>(&mut self, data: D) {
-        self.ctx.update(data.as_ref());
+    fn update(&mut self, data: &[u8]) {
+        self.as_mut().update(data)
     }
 
     /// Finalizes the hash function and writes the digest into the
@@ -113,26 +112,8 @@ impl Context {
     /// otherwise the digest will be truncated.
     ///
     ///   [`self.digest_size()`]: #method.digest_size
-    pub fn digest<D: AsMut<[u8]>>(&mut self, mut digest: D) -> Result<()> {
-        self.ctx.digest(digest.as_mut())
-    }
-
-    /// Finalizes the hash function and computes the digest.
-    pub fn into_digest(mut self) -> Result<Vec<u8>> {
-        let mut digest = vec![0u8; self.digest_size()];
-        self.digest(&mut digest)?;
-        Ok(digest)
-    }
-}
-
-impl io::Write for Context {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.update(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
+    fn digest(&mut self, digest: &mut [u8]) -> Result<()>{
+        self.as_mut().digest(digest)
     }
 }
 
@@ -146,19 +127,16 @@ impl HashAlgorithm {
     /// [`HashAlgorithm::is_supported`].
     ///
     ///   [`HashAlgorithm::is_supported`]: #method.is_supported
-    pub fn context(self) -> Result<Context> {
-        let hasher = match self {
+    pub fn context(self) -> Result<Box<dyn Digest>> {
+        let hasher: Box<dyn Digest> = match self {
             HashAlgorithm::SHA1 =>
                 Box::new(crate::crypto::backend::sha1cd::build()),
             _ => self.new_hasher()?,
         };
-        Ok(Context {
-            algo: self,
-            ctx: if let Some(prefix) = DUMP_HASHED_VALUES {
-                Box::new(HashDumper::new(hasher, prefix))
-            } else {
-                hasher
-            },
+        Ok(if let Some(prefix) = DUMP_HASHED_VALUES {
+            Box::new(HashDumper::new(hasher, prefix))
+        } else {
+            hasher
         })
     }
 }
@@ -261,24 +239,24 @@ impl io::Write for HashDumper {
 ///   [`Signature`'s hashing functions]: ../../packet/enum.Signature.html#hashing-functions
 pub trait Hash {
     /// Updates the given hash with this object.
-    fn hash(&self, hash: &mut Context);
+    fn hash(&self, hash: &mut dyn Digest);
 }
 
 impl Hash for UserID {
-    fn hash(&self, hash: &mut Context) {
+    fn hash(&self, hash: &mut dyn Digest) {
         let len = self.value().len() as u32;
 
         let mut header = [0; 5];
         header[0] = 0xB4;
         header[1..5].copy_from_slice(&len.to_be_bytes());
 
-        hash.update(header);
+        hash.update(&header);
         hash.update(self.value());
     }
 }
 
 impl Hash for UserAttribute {
-    fn hash(&self, hash: &mut Context) {
+    fn hash(&self, hash: &mut dyn Digest) {
         let len = self.value().len() as u32;
 
         let mut header = [0; 5];
@@ -294,7 +272,7 @@ impl<P, R> Hash for Key4<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
 {
-    fn hash(&self, hash: &mut Context) {
+    fn hash(&self, hash: &mut dyn Digest) {
         use crate::serialize::MarshalInto;
 
         // We hash 9 bytes plus the MPIs.  But, the len doesn't
@@ -330,7 +308,7 @@ impl<P, R> Hash for Key4<P, R>
 }
 
 impl Hash for Signature {
-    fn hash(&self, hash: &mut Context) {
+    fn hash(&self, hash: &mut dyn Digest) {
         match self {
             Signature::V4(sig) => sig.hash(hash),
         }
@@ -338,13 +316,13 @@ impl Hash for Signature {
 }
 
 impl Hash for Signature4 {
-    fn hash(&self, hash: &mut Context) {
+    fn hash(&self, hash: &mut dyn Digest) {
         self.fields.hash(hash);
     }
 }
 
 impl Hash for signature::SignatureFields {
-    fn hash(&self, hash: &mut Context) {
+    fn hash(&self, hash: &mut dyn Digest) {
         use crate::serialize::MarshalInto;
 
         // XXX: Annoyingly, we have no proper way of handling errors
@@ -406,20 +384,20 @@ impl Hash for signature::SignatureFields {
 /// <a name="hashing-functions"></a>
 impl signature::SignatureFields {
     /// Computes the message digest of standalone signatures.
-    pub fn hash_standalone(&self, hash: &mut Context)
+    pub fn hash_standalone(&self, hash: &mut dyn Digest)
     {
         self.hash(hash);
     }
 
     /// Computes the message digest of timestamp signatures.
-    pub fn hash_timestamp(&self, hash: &mut Context)
+    pub fn hash_timestamp(&self, hash: &mut dyn Digest)
     {
         self.hash_standalone(hash);
     }
 
     /// Returns the message digest of the direct key signature over
     /// the specified primary key.
-    pub fn hash_direct_key<P>(&self, hash: &mut Context,
+    pub fn hash_direct_key<P>(&self, hash: &mut dyn Digest,
                               key: &Key<P, key::PrimaryRole>)
         where P: key::KeyParts,
     {
@@ -429,7 +407,7 @@ impl signature::SignatureFields {
 
     /// Returns the message digest of the subkey binding over the
     /// specified primary key and subkey.
-    pub fn hash_subkey_binding<P, Q>(&self, hash: &mut Context,
+    pub fn hash_subkey_binding<P, Q>(&self, hash: &mut dyn Digest,
                                      key: &Key<P, key::PrimaryRole>,
                                      subkey: &Key<Q, key::SubordinateRole>)
         where P: key::KeyParts,
@@ -442,7 +420,7 @@ impl signature::SignatureFields {
 
     /// Returns the message digest of the primary key binding over the
     /// specified primary key and subkey.
-    pub fn hash_primary_key_binding<P, Q>(&self, hash: &mut Context,
+    pub fn hash_primary_key_binding<P, Q>(&self, hash: &mut dyn Digest,
                                           key: &Key<P, key::PrimaryRole>,
                                           subkey: &Key<Q, key::SubordinateRole>)
         where P: key::KeyParts,
@@ -453,7 +431,7 @@ impl signature::SignatureFields {
 
     /// Returns the message digest of the user ID binding over the
     /// specified primary key, user ID, and signature.
-    pub fn hash_userid_binding<P>(&self, hash: &mut Context,
+    pub fn hash_userid_binding<P>(&self, hash: &mut dyn Digest,
                                   key: &Key<P, key::PrimaryRole>,
                                   userid: &UserID)
         where P: key::KeyParts,
@@ -467,7 +445,7 @@ impl signature::SignatureFields {
     /// the specified primary key, user attribute, and signature.
     pub fn hash_user_attribute_binding<P>(
         &self,
-        hash: &mut Context,
+        hash: &mut dyn Digest,
         key: &Key<P, key::PrimaryRole>,
         ua: &UserAttribute)
         where P: key::KeyParts,
@@ -480,6 +458,7 @@ impl signature::SignatureFields {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::Cert;
     use crate::parse::Parse;
 

@@ -249,6 +249,7 @@ mod has_access_to_prekey {
     use lazy_static;
     use crate::types::{AEADAlgorithm, HashAlgorithm, SymmetricAlgorithm};
     use crate::crypto::{aead, SessionKey};
+    use crate::crypto::hash::Digest;
     use super::*;
 
     lazy_static::lazy_static! {

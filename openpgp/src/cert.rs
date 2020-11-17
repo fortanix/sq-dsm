@@ -148,7 +148,10 @@ use std::ops::{Deref, DerefMut};
 use std::time;
 
 use crate::{
-    crypto::Signer,
+    crypto::{
+        Signer,
+        hash::Digest,
+    },
     Error,
     Result,
     SignatureType,

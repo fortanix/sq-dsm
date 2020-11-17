@@ -11,6 +11,7 @@ use crate::Result;
 use crate::HashAlgorithm;
 use crate::crypto::Password;
 use crate::crypto::SessionKey;
+use crate::crypto::hash::Digest;
 
 use std::fmt;
 

@@ -296,14 +296,14 @@ impl Container {
 
     /// Creates a hash context for hashing the body.
     pub(crate) // For parse.rs
-    fn make_body_hash() -> hash::Context {
+    fn make_body_hash() -> Box<dyn hash::Digest> {
         CONTAINER_BODY_HASH.context()
             .expect("CONTAINER_BODY_HASH must be implemented")
     }
 
     /// Hashes content that has been streamed.
     pub(crate) // For parse.rs
-    fn set_body_hash(&mut self, mut h: hash::Context) {
+    fn set_body_hash(&mut self, mut h: Box<dyn hash::Digest>) {
         self.body_digest.resize(h.digest_size(), 0);
         let _ = h.digest(&mut self.body_digest);
     }
