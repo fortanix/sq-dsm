@@ -1,4 +1,5 @@
 use core::convert::{TryFrom, TryInto};
+use std::io;
 use std::sync::Mutex;
 
 use crate::crypto::hash::Digest;
@@ -57,6 +58,17 @@ impl Digest for Hash {
 
         let l = buffer.len().min(digest.len());
         &mut digest[..l].copy_from_slice(&buffer.as_slice()[..l]);
+        Ok(())
+    }
+}
+
+impl io::Write for Hash {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.update(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        // Do nothing.
         Ok(())
     }
 }

@@ -31,7 +31,7 @@ use std::io::{self, Write};
 const DUMP_HASHED_VALUES: Option<&str> = None;
 
 /// Hasher capable of calculating a digest for the input byte stream.
-pub(crate) trait Digest: DynClone  + Send + Sync {
+pub(crate) trait Digest: DynClone + Write + Send + Sync {
     /// Returns the algorithm.
     fn algo(&self) -> HashAlgorithm;
 
@@ -226,6 +226,16 @@ impl Digest for HashDumper {
     }
     fn digest(&mut self, digest: &mut [u8]) -> Result<()> {
         self.hasher.digest(digest)
+    }
+}
+
+impl io::Write for HashDumper {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.hasher.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.hasher.flush()
     }
 }
 
