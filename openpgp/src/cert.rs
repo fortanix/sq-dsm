@@ -162,6 +162,7 @@ use crate::{
     packet::Unknown,
     Packet,
     PacketPile,
+    seal,
     KeyID,
     Fingerprint,
     KeyHandle,
@@ -445,7 +446,7 @@ type UnknownBundles = ComponentBundles<Unknown>;
 /// you also need to implement the `seal::Sealed` marker trait.
 ///
 /// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
-pub trait Preferences<'a>: crate::seal::Sealed {
+pub trait Preferences<'a>: seal::Sealed {
     /// Returns the supported symmetric algorithms ordered by
     /// preference.
     ///
@@ -2798,8 +2799,6 @@ pub struct ValidCert<'a> {
     time: time::SystemTime,
 }
 
-impl<'a> crate::seal::Sealed for ValidCert<'a> {}
-
 impl<'a> std::ops::Deref for ValidCert<'a> {
     type Target = Cert;
 
@@ -3393,7 +3392,8 @@ macro_rules! impl_pref {
     }
 }
 
-impl<'a> crate::cert::Preferences<'a> for ValidCert<'a>
+impl<'a> seal::Sealed for ValidCert<'a> {}
+impl<'a> Preferences<'a> for ValidCert<'a>
 {
     impl_pref!(preferred_symmetric_algorithms, &'a [SymmetricAlgorithm]);
     impl_pref!(preferred_hash_algorithms, &'a [HashAlgorithm]);

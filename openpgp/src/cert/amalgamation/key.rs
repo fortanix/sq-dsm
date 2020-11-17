@@ -273,6 +273,7 @@ use crate::{
     packet::signature::subpacket::SubpacketTag,
     policy::Policy,
     Result,
+    seal,
     types::{
         KeyFlags,
         RevocationStatus,
@@ -295,7 +296,16 @@ pub use iter::{
 ///
 /// [`ValidAmalgamation`]: ../trait.ValidAmalgamation.html
 /// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
-pub trait PrimaryKey<'a, P, R>
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait PrimaryKey<'a, P, R>: seal::Sealed
     where P: 'a + key::KeyParts,
           R: 'a + key::KeyRole,
 {
@@ -504,6 +514,10 @@ impl<'a, P, R, R2> Deref for KeyAmalgamation<'a, P, R, R2>
 }
 
 
+impl<'a, P> seal::Sealed
+    for PrimaryKeyAmalgamation<'a, P>
+    where P: 'a + key::KeyParts
+{}
 impl<'a, P> ValidateAmalgamation<'a, Key<P, key::PrimaryRole>>
     for PrimaryKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
@@ -520,6 +534,10 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::PrimaryRole>>
     }
 }
 
+impl<'a, P> seal::Sealed
+    for SubordinateKeyAmalgamation<'a, P>
+    where P: 'a + key::KeyParts
+{}
 impl<'a, P> ValidateAmalgamation<'a, Key<P, key::SubordinateRole>>
     for SubordinateKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
@@ -536,6 +554,10 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::SubordinateRole>>
     }
 }
 
+impl<'a, P> seal::Sealed
+    for ErasedKeyAmalgamation<'a, P>
+    where P: 'a + key::KeyParts
+{}
 impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
     for ErasedKeyAmalgamation<'a, P>
     where P: 'a + key::KeyParts
@@ -1166,6 +1188,12 @@ impl<'a, P> ValidateAmalgamation<'a, Key<P, key::UnspecifiedRole>>
     }
 }
 
+impl<'a, P, R, R2> seal::Sealed for ValidKeyAmalgamation<'a, P, R, R2>
+    where P: 'a + key::KeyParts,
+          R: 'a + key::KeyRole,
+          R2: Copy,
+          Self: PrimaryKey<'a, P, R>,
+{}
 
 impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
     for ValidKeyAmalgamation<'a, P, R, R2>

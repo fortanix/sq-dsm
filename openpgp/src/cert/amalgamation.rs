@@ -234,6 +234,7 @@ use crate::{
     },
     Result,
     policy::Policy,
+    seal,
     types::{
         AEADAlgorithm,
         CompressionAlgorithm,
@@ -273,6 +274,15 @@ pub mod key;
 ///
 ///   - The certificate is valid.
 ///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+///
 /// # Examples
 ///
 /// ```
@@ -301,7 +311,7 @@ pub mod key;
 /// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
 /// [`KeyAmalgamation`]: struct.KeyAmalgamation.html
 /// [`ValidKeyAmalgamation`]: struct.ValidKeyAmalgamation.html
-pub trait ValidateAmalgamation<'a, C: 'a> {
+pub trait ValidateAmalgamation<'a, C: 'a>: seal::Sealed {
     /// The type returned by `with_policy`.
     ///
     /// This is either a [`ValidComponentAmalgamation`] or
@@ -366,7 +376,17 @@ trait ValidateAmalgamationRelaxed<'a, C: 'a> {
 /// This helps prevent using different policies or different reference
 /// times when using a component, which can easily happen when the
 /// checks span multiple functions.
-pub trait ValidAmalgamation<'a, C: 'a>
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+///
+pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
 {
     /// Maps the given function over binding and direct key signature.
     ///
@@ -924,6 +944,7 @@ macro_rules! impl_with_policy {
     }
 }
 
+impl<'a, C> seal::Sealed for ComponentAmalgamation<'a, C> {}
 impl<'a, C> ValidateAmalgamation<'a, C> for ComponentAmalgamation<'a, C> {
     type V = ValidComponentAmalgamation<'a, C>;
 
@@ -1056,8 +1077,6 @@ pub struct ValidComponentAmalgamation<'a, C> {
     // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
 }
-
-impl<'a, C> crate::seal::Sealed for ValidComponentAmalgamation<'a, C> {}
 
 /// A Valid User ID and its associated data.
 ///
@@ -1221,6 +1240,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     }
 }
 
+impl<'a, C> seal::Sealed for ValidComponentAmalgamation<'a, C> {}
 impl<'a, C> ValidateAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     type V = Self;
 
