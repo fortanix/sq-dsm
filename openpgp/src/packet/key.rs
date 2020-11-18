@@ -1532,6 +1532,20 @@ impl<P, R> Arbitrary for super::Key<P, R>
 }
 
 #[cfg(test)]
+impl Arbitrary for Key4<PublicParts, PrimaryRole> {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        Key4::<PublicParts, UnspecifiedRole>::arbitrary(g).into()
+    }
+}
+
+#[cfg(test)]
+impl Arbitrary for Key4<PublicParts, SubordinateRole> {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        Key4::<PublicParts, UnspecifiedRole>::arbitrary(g).into()
+    }
+}
+
+#[cfg(test)]
 impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let mpis = mpi::PublicKey::arbitrary(g);
@@ -1545,6 +1559,20 @@ impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
             p: std::marker::PhantomData,
             r: std::marker::PhantomData,
         }
+    }
+}
+
+#[cfg(test)]
+impl Arbitrary for Key4<SecretParts, PrimaryRole> {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        Key4::<SecretParts, UnspecifiedRole>::arbitrary(g).into()
+    }
+}
+
+#[cfg(test)]
+impl Arbitrary for Key4<SecretParts, SubordinateRole> {
+    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        Key4::<SecretParts, UnspecifiedRole>::arbitrary(g).into()
     }
 }
 
@@ -1968,5 +1996,52 @@ mod tests {
         ));
 
         Ok(())
+    }
+
+    fn mutate_eq_discriminates_key<P, R>(key: Key<P, R>, i: usize) -> bool
+        where P: KeyParts,
+              R: KeyRole,
+              Key<P, R>: Into<Packet>,
+    {
+        use crate::serialize::MarshalInto;
+        let p: Packet = key.into();
+        let mut buf = p.to_vec().unwrap();
+        // Avoid first two bytes so that we don't change the
+        // type and reduce the chance of changing the length.
+        let bit = i.saturating_add(2 * 8) % (buf.len() * 8);
+        buf[bit / 8] ^= 1 << (bit % 8);
+        match Packet::from_bytes(&buf) {
+            Ok(q) => p != q,
+            Err(_) => true, // Packet failed to parse.
+        }
+    }
+
+    // Given a packet and a position, induces a bit flip in the
+    // serialized form, then checks that PartialEq detects that.
+    // Recall that for packets, PartialEq is defined using the
+    // serialized form.
+    quickcheck! {
+        fn mutate_eq_discriminates_pp(key: Key<PublicParts, PrimaryRole>,
+                                      i: usize) -> bool {
+            mutate_eq_discriminates_key(key, i)
+        }
+    }
+    quickcheck! {
+        fn mutate_eq_discriminates_ps(key: Key<PublicParts, SubordinateRole>,
+                                      i: usize) -> bool {
+            mutate_eq_discriminates_key(key, i)
+        }
+    }
+    quickcheck! {
+        fn mutate_eq_discriminates_sp(key: Key<SecretParts, PrimaryRole>,
+                                      i: usize) -> bool {
+            mutate_eq_discriminates_key(key, i)
+        }
+    }
+    quickcheck! {
+        fn mutate_eq_discriminates_ss(key: Key<SecretParts, SubordinateRole>,
+                                      i: usize) -> bool {
+            mutate_eq_discriminates_key(key, i)
+        }
     }
 }
