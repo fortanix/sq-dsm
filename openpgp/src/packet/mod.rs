@@ -244,7 +244,6 @@ use super::*;
 /// [length style]: https://tools.ietf.org/html/rfc4880#section-4.2
 /// [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
 #[non_exhaustive]
-#[derive(Debug)]
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum Packet {
     /// Unknown packet.
@@ -427,6 +426,50 @@ impl<'a> DerefMut for Packet {
             &mut Packet::SEIP(ref mut packet) => &mut packet.common,
             &mut Packet::MDC(ref mut packet) => &mut packet.common,
             &mut Packet::AED(ref mut packet) => &mut packet.common,
+        }
+    }
+}
+
+impl fmt::Debug for Packet {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fn debug_fmt(p: &Packet, f: &mut fmt::Formatter) -> fmt::Result {
+            use Packet::*;
+            match p {
+                Unknown(v) => write!(f, "Unknown({:?})", v),
+                Signature(v) => write!(f, "Signature({:?})", v),
+                OnePassSig(v) => write!(f, "OnePassSig({:?})", v),
+                PublicKey(v) => write!(f, "PublicKey({:?})", v),
+                PublicSubkey(v) => write!(f, "PublicSubkey({:?})", v),
+                SecretKey(v) => write!(f, "SecretKey({:?})", v),
+                SecretSubkey(v) => write!(f, "SecretSubkey({:?})", v),
+                Marker(v) => write!(f, "Marker({:?})", v),
+                Trust(v) => write!(f, "Trust({:?})", v),
+                UserID(v) => write!(f, "UserID({:?})", v),
+                UserAttribute(v) => write!(f, "UserAttribute({:?})", v),
+                Literal(v) => write!(f, "Literal({:?})", v),
+                CompressedData(v) => write!(f, "CompressedData({:?})", v),
+                PKESK(v) => write!(f, "PKESK({:?})", v),
+                SKESK(v) => write!(f, "SKESK({:?})", v),
+                SEIP(v) => write!(f, "SEIP({:?})", v),
+                MDC(v) => write!(f, "MDC({:?})", v),
+                AED(v) => write!(f, "AED({:?})", v),
+            }
+        }
+
+        fn try_armor_fmt(p: &Packet, f: &mut fmt::Formatter)
+                         -> Result<fmt::Result> {
+            use crate::armor::{Writer, Kind};
+            use crate::serialize::Serialize;
+            let mut w = Writer::new(Vec::new(), Kind::File)?;
+            p.serialize(&mut w)?;
+            let buf = w.finalize()?;
+            Ok(f.write_str(std::str::from_utf8(&buf).expect("clean")))
+        }
+
+        if ! cfg!(test) {
+            debug_fmt(self, f)
+        } else {
+            try_armor_fmt(self, f).unwrap_or_else(|_| debug_fmt(self, f))
         }
     }
 }

@@ -2010,10 +2010,14 @@ mod tests {
         // type and reduce the chance of changing the length.
         let bit = i.saturating_add(2 * 8) % (buf.len() * 8);
         buf[bit / 8] ^= 1 << (bit % 8);
-        match Packet::from_bytes(&buf) {
+        let ok = match Packet::from_bytes(&buf) {
             Ok(q) => p != q,
             Err(_) => true, // Packet failed to parse.
+        };
+        if ! ok {
+            eprintln!("{} for ({:?}, {})", "mutate_eq_discriminates_key", p, i);
         }
+        ok
     }
 
     // Given a packet and a position, induces a bit flip in the
