@@ -155,6 +155,7 @@ use crate::packet::signature::subpacket::{
     SubpacketArea, Subpacket, SubpacketValue, SubpacketLength
 };
 use crate::packet::prelude::*;
+use crate::seal;
 use crate::types::{
     RevocationKey,
     Timestamp,
@@ -268,7 +269,16 @@ pub trait Serialize : Marshal {
 /// In general, you should prefer the [`Serialize`] trait, as it is only
 /// implemented for data structures that are normally exported.  See
 /// the documentation for [`Serialize`] for more details.
-pub trait Marshal {
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait Marshal: seal::Sealed {
     /// Writes a serialized version of the object to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()>;
 
@@ -387,7 +397,16 @@ pub trait SerializeInto : MarshalInto {
 /// See the documentation for [`Serialize`] for more details.
 ///
 ///   [`Serialize`]: trait.Serialize.html
-pub trait MarshalInto {
+///
+/// # Sealed trait
+///
+/// This trait is [sealed] and cannot be implemented for types outside this crate.
+/// Therefore it can be extended in a non-breaking way.
+/// If you want to implement the trait inside the crate
+/// you also need to implement the `seal::Sealed` marker trait.
+///
+/// [sealed]: https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed
+pub trait MarshalInto : seal::Sealed {
     /// Computes the maximal length of the serialized representation.
     ///
     /// # Errors
@@ -616,6 +635,7 @@ fn log2_test() {
     }
 }
 
+impl seal::Sealed for BodyLength {}
 impl Marshal for BodyLength {
     /// Emits the length encoded for use with new-style CTBs.
     ///
@@ -738,6 +758,7 @@ impl BodyLength {
     }
 }
 
+impl seal::Sealed for CTBNew {}
 impl Marshal for CTBNew {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag: u8 = self.tag().into();
@@ -754,6 +775,7 @@ impl MarshalInto for CTBNew {
     }
 }
 
+impl seal::Sealed for CTBOld {}
 impl Marshal for CTBOld {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag: u8 = self.tag().into();
@@ -771,6 +793,7 @@ impl MarshalInto for CTBOld {
     }
 }
 
+impl seal::Sealed for CTB {}
 impl Marshal for CTB {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
@@ -789,6 +812,7 @@ impl MarshalInto for CTB {
     }
 }
 
+impl seal::Sealed for Header {}
 impl Marshal for Header {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.ctb().serialize(o)?;
@@ -808,6 +832,7 @@ impl MarshalInto for Header {
 }
 
 impl Serialize for KeyID {}
+impl seal::Sealed for KeyID {}
 impl Marshal for KeyID {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let raw = match self {
@@ -834,6 +859,7 @@ impl MarshalInto for KeyID {
 }
 
 impl Serialize for Fingerprint {}
+impl seal::Sealed for Fingerprint {}
 impl Marshal for Fingerprint {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.as_bytes())?;
@@ -855,6 +881,7 @@ impl MarshalInto for Fingerprint {
     }
 }
 
+impl seal::Sealed for crypto::mpi::MPI {}
 impl Marshal for crypto::mpi::MPI {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         write_be_u16(w, self.bits() as u16)?;
@@ -873,6 +900,7 @@ impl MarshalInto for crypto::mpi::MPI {
     }
 }
 
+impl seal::Sealed for crypto::mpi::ProtectedMPI {}
 impl Marshal for crypto::mpi::ProtectedMPI {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         write_be_u16(w, self.bits() as u16)?;
@@ -904,6 +932,7 @@ fn write_field_with_u8_size(w: &mut dyn Write, name: &str, buf: &[u8])
     Ok(())
 }
 
+impl seal::Sealed for crypto::mpi::PublicKey {}
 impl Marshal for crypto::mpi::PublicKey {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpi::PublicKey::*;
@@ -996,6 +1025,7 @@ impl MarshalInto for crypto::mpi::PublicKey {
     }
 }
 
+impl seal::Sealed for crypto::mpi::SecretKeyMaterial {}
 impl Marshal for crypto::mpi::SecretKeyMaterial {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpi::SecretKeyMaterial::*;
@@ -1111,6 +1141,7 @@ impl crypto::mpi::SecretKeyMaterial {
     }
 }
 
+impl seal::Sealed for crypto::mpi::Ciphertext {}
 impl Marshal for crypto::mpi::Ciphertext {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpi::Ciphertext::*;
@@ -1170,6 +1201,7 @@ impl MarshalInto for crypto::mpi::Ciphertext {
     }
 }
 
+impl seal::Sealed for crypto::mpi::Signature {}
 impl Marshal for crypto::mpi::Signature {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         use crate::crypto::mpi::Signature::*;
@@ -1239,6 +1271,7 @@ impl MarshalInto for crypto::mpi::Signature {
     }
 }
 
+impl seal::Sealed for S2K {}
 impl Marshal for S2K {
     fn serialize(&self, w: &mut dyn std::io::Write) -> Result<()> {
         #[allow(deprecated)]
@@ -1286,6 +1319,7 @@ impl MarshalInto for S2K {
     }
 }
 
+impl seal::Sealed for Unknown {}
 impl Marshal for Unknown {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.body())?;
@@ -1309,6 +1343,7 @@ impl MarshalInto for Unknown {
     }
 }
 
+impl seal::Sealed for SubpacketArea {}
 impl Marshal for SubpacketArea {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         for sb in self.iter() {
@@ -1333,6 +1368,7 @@ impl MarshalInto for SubpacketArea {
     }
 }
 
+impl seal::Sealed for Subpacket {}
 impl Marshal for Subpacket {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let tag = u8::from(self.tag())
@@ -1354,6 +1390,7 @@ impl MarshalInto for Subpacket {
     }
 }
 
+impl seal::Sealed for SubpacketValue {}
 impl Marshal for SubpacketValue {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         use self::SubpacketValue::*;
@@ -1495,6 +1532,7 @@ impl MarshalInto for SubpacketValue {
     }
 }
 
+impl seal::Sealed for SubpacketLength {}
 impl Marshal for SubpacketLength {
     /// Writes the subpacket length to `sink`.
     fn serialize(&self, sink: &mut dyn std::io::Write)
@@ -1526,6 +1564,7 @@ impl MarshalInto for SubpacketLength {
 }
 
 
+impl seal::Sealed for RevocationKey {}
 impl Marshal for RevocationKey {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let (pk_algo, fp) = self.revoker();
@@ -1545,6 +1584,7 @@ impl MarshalInto for RevocationKey {
     }
 }
 
+impl seal::Sealed for Signature {}
 impl Marshal for Signature {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
@@ -1585,6 +1625,7 @@ impl MarshalInto for Signature {
     }
 }
 
+impl seal::Sealed for Signature4 {}
 impl Marshal for Signature4 {
     /// Writes a serialized version of the specified `Signature`
     /// packet to `o`.
@@ -1675,6 +1716,7 @@ impl MarshalInto for Signature4 {
     }
 }
 
+impl seal::Sealed for OnePassSig {}
 impl Marshal for OnePassSig {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
@@ -1697,6 +1739,7 @@ impl MarshalInto for OnePassSig {
     }
 }
 
+impl seal::Sealed for OnePassSig3 {}
 impl Marshal for OnePassSig3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 3)?; // Version.
@@ -1731,6 +1774,7 @@ impl MarshalInto for OnePassSig3 {
     }
 }
 
+impl<P: key::KeyParts, R: key::KeyRole> seal::Sealed for Key<P, R> {}
 impl<P: key::KeyParts, R: key::KeyRole> Marshal for Key<P, R> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         match self {
@@ -1761,6 +1805,10 @@ impl<P: key::KeyParts, R: key::KeyRole> MarshalInto for Key<P, R> {
     }
 }
 
+impl<P, R> seal::Sealed for Key4<P, R>
+    where P: key::KeyParts,
+          R: key::KeyRole,
+{}
 impl<P, R> Marshal for Key4<P, R>
     where P: key::KeyParts,
           R: key::KeyRole,
@@ -1845,6 +1893,7 @@ impl<P, R> MarshalInto for Key4<P, R>
     }
 }
 
+impl seal::Sealed for Marker {}
 impl Marshal for Marker {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(Marker::BODY)?;
@@ -1868,6 +1917,7 @@ impl MarshalInto for Marker {
     }
 }
 
+impl seal::Sealed for Trust {}
 impl Marshal for Trust {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.value())?;
@@ -1891,6 +1941,7 @@ impl MarshalInto for Trust {
     }
 }
 
+impl seal::Sealed for UserID {}
 impl Marshal for UserID {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.value())?;
@@ -1914,6 +1965,7 @@ impl MarshalInto for UserID {
     }
 }
 
+impl seal::Sealed for UserAttribute {}
 impl Marshal for UserAttribute {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.value())?;
@@ -1937,6 +1989,7 @@ impl MarshalInto for UserAttribute {
     }
 }
 
+impl seal::Sealed for user_attribute::Subpacket {}
 impl Marshal for user_attribute::Subpacket {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let body_len = match self {
@@ -1979,6 +2032,7 @@ impl MarshalInto for user_attribute::Subpacket {
     }
 }
 
+impl seal::Sealed for user_attribute::Image {}
 impl Marshal for user_attribute::Image {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         const V1HEADER_TOP: [u8; 3] = [0x10, 0x00, 0x01];
@@ -2055,6 +2109,7 @@ impl Literal {
     }
 }
 
+impl seal::Sealed for Literal {}
 impl Marshal for Literal {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         let body = self.body();
@@ -2090,6 +2145,7 @@ impl MarshalInto for Literal {
     }
 }
 
+impl seal::Sealed for CompressedData {}
 impl Marshal for CompressedData {
     /// Writes a serialized version of the specified `CompressedData`
     /// packet to `o`.
@@ -2188,6 +2244,7 @@ impl MarshalInto for CompressedData {
     }
 }
 
+impl seal::Sealed for PKESK {}
 impl Marshal for PKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
@@ -2211,6 +2268,7 @@ impl MarshalInto for PKESK {
     }
 }
 
+impl seal::Sealed for PKESK3 {}
 impl Marshal for PKESK3 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 3)?; // Version.
@@ -2241,6 +2299,7 @@ impl MarshalInto for PKESK3 {
     }
 }
 
+impl seal::Sealed for SKESK {}
 impl Marshal for SKESK {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
@@ -2277,6 +2336,7 @@ impl MarshalInto for SKESK {
     }
 }
 
+impl seal::Sealed for SKESK4 {}
 impl Marshal for SKESK4 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 4)?; // Version.
@@ -2306,6 +2366,7 @@ impl MarshalInto for SKESK4 {
     }
 }
 
+impl seal::Sealed for SKESK5 {}
 impl Marshal for SKESK5 {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         write_byte(o, 5)?; // Version.
@@ -2344,6 +2405,7 @@ impl MarshalInto for SKESK5 {
     }
 }
 
+impl seal::Sealed for SEIP {}
 impl Marshal for SEIP {
     /// Writes a serialized version of the specified `SEIP`
     /// packet to `o`.
@@ -2386,6 +2448,7 @@ impl MarshalInto for SEIP {
     }
 }
 
+impl seal::Sealed for MDC {}
 impl Marshal for MDC {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         o.write_all(self.digest())?;
@@ -2409,6 +2472,7 @@ impl MarshalInto for MDC {
     }
 }
 
+impl seal::Sealed for AED {}
 impl Marshal for AED {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
@@ -2443,6 +2507,7 @@ impl AED1 {
     }
 }
 
+impl seal::Sealed for AED1 {}
 impl Marshal for AED1 {
     /// Writes a serialized version of the specified `AED`
     /// packet to `o`.
@@ -2489,6 +2554,7 @@ impl MarshalInto for AED1 {
 }
 
 impl Serialize for Packet {}
+impl seal::Sealed for Packet {}
 impl Marshal for Packet {
     /// Writes a serialized version of the specified `Packet` to `o`.
     ///
@@ -2714,6 +2780,7 @@ impl<'a> PacketRef<'a> {
 }
 
 impl<'a> Serialize for PacketRef<'a> {}
+impl<'a> seal::Sealed for PacketRef<'a> {}
 impl<'a> Marshal for PacketRef<'a> {
     /// Writes a serialized version of the specified `Packet` to `o`.
     ///
@@ -2860,6 +2927,7 @@ impl<'a> MarshalInto for PacketRef<'a> {
 }
 
 impl Serialize for PacketPile {}
+impl seal::Sealed for PacketPile {}
 impl Marshal for PacketPile {
     /// Writes a serialized version of the specified `PacketPile` to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
@@ -2898,6 +2966,7 @@ impl MarshalInto for PacketPile {
 }
 
 impl Serialize for Message {}
+impl seal::Sealed for Message {}
 impl Marshal for Message {
     /// Writes a serialized version of the specified `Message` to `o`.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {

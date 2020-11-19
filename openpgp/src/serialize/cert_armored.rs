@@ -6,6 +6,7 @@ use crate::armor;
 use crate::cert::{Cert, amalgamation::ValidAmalgamation};
 use crate::Result;
 use crate::types::RevocationStatus;
+use crate::seal;
 use crate::serialize::{
     Marshal, MarshalInto,
     generic_serialize_into, generic_export_into,
@@ -129,7 +130,7 @@ impl<'a> Encoder<'a> {
 }
 
 impl<'a> crate::serialize::Serialize for Encoder<'a> {}
-
+impl<'a> seal::Sealed for Encoder<'a> {}
 impl<'a> Marshal for Encoder<'a> {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
         self.serialize_common(o, false)

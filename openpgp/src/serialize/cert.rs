@@ -1,6 +1,7 @@
 use crate::Result;
 use crate::cert::prelude::*;
 use crate::packet::{header::BodyLength, key, Signature, Tag};
+use crate::seal;
 use crate::serialize::{
     PacketRef,
     Marshal, MarshalInto,
@@ -164,6 +165,7 @@ impl Cert {
 
 impl crate::serialize::Serialize for Cert {}
 
+impl seal::Sealed for Cert {}
 impl Marshal for Cert {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.serialize_common(o, false)
@@ -647,6 +649,7 @@ impl<'a> TSK<'a> {
 
 impl<'a> crate::serialize::Serialize for TSK<'a> {}
 
+impl<'a> seal::Sealed for TSK<'a> {}
 impl<'a> Marshal for TSK<'a> {
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         self.serialize_common(o, false)
