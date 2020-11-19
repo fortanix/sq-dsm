@@ -1407,6 +1407,7 @@ pub struct Encrypted {
 impl PartialEq for Encrypted {
     fn eq(&self, other: &Encrypted) -> bool {
         self.algo == other.algo
+            && self.checksum == other.checksum
             // Treat S2K and ciphertext as opaque blob.
             && {
                 // XXX: This would be nicer without the allocations.
@@ -1425,6 +1426,7 @@ impl Eq for Encrypted {}
 impl std::hash::Hash for Encrypted {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.algo.hash(state);
+        self.checksum.hash(state);
         // Treat S2K and ciphertext as opaque blob.
         // XXX: This would be nicer without the allocations.
         use crate::serialize::MarshalInto;
@@ -1976,6 +1978,38 @@ mod tests {
             }
         }
         assert!(pki == pks.len() && ski == sks.len());
+    }
+
+    #[test]
+    fn issue_617() -> Result<()> {
+        use crate::serialize::MarshalInto;
+        let p = Packet::from_bytes(&b"-----BEGIN PGP ARMORED FILE-----
+
+xcClBAAAAMUWBSuBBAAjAPDbS+Z6Ti+PouOV6c5Ypr3jn1w1Ih5GqikN5E29PGz+
+CQMIoYc7R4YRiLr/ZJB/MW5M0kuuWyUirUKRkYCotB5omVE8fGtqW5wGCGf79Tzb
+rKVmPl25CJdEabIfAOl0WwciipDx1tqNOOYEci/JWSbTEymEyCH9oQPObt2sdDxh
+wLcBgsd/CVl3kuqiXFHNYDvWVBmUHeltS/J22Kfy/n1qD3CCBFooHGdc13KwtMLk
+UPb5LTTqCk2ihQ7e+5u7EmueLUp1431HJiYa+olaPZ7caRNfQfggtHcfQOJdnWRJ
+FN2nTDgLHX0cEOiMboZrS4S9xtjyVRLcRZcCIyeQF0Q889rq0lmxHG38XUeIj/3y
+SJJNnZxmJtHNo+SZQ/gXhO9TzeeA6yQm2myQlRkXBtdQEz6mtznphWeWMkWApZpa
+FwPoSAbbsLkNS/iNN2MDGAVYvezYn2QZ
+=0cxs
+-----END PGP ARMORED FILE-----"[..])?;
+        let i: usize = 360;
+        let mut buf = p.to_vec().unwrap();
+        // Avoid first two bytes so that we don't change the
+        // type and reduce the chance of changing the length.
+        let bit = i.saturating_add(2 * 8) % (buf.len() * 8);
+        buf[bit / 8] ^= 1 << (bit % 8);
+        match Packet::from_bytes(&buf) {
+            Ok(q) => {
+                eprintln!("{:?}", p);
+                eprintln!("{:?}", q);
+                assert!(p != q);
+            },
+            Err(_) => unreachable!(),
+        };
+        Ok(())
     }
 
     #[test]
