@@ -30,7 +30,7 @@ use sequoia_openpgp::{
     Fingerprint,
     Cert,
     parse::Parse,
-    serialize::Marshal,
+    serialize::Serialize,
     types::HashAlgorithm,
     cert::prelude::*,
 };
@@ -388,17 +388,6 @@ impl KeyRing {
             *existing = existing.clone().merge_public(cert)?;
         } else {
             self.0.insert(fp, cert);
-        }
-        Ok(())
-    }
-}
-
-impl openpgp::serialize::Serialize for KeyRing {}
-
-impl Marshal for KeyRing {
-    fn serialize(&self, o: &mut dyn std::io::Write) -> openpgp::Result<()> {
-        for cert in self.0.values() {
-            cert.serialize(o)?;
         }
         Ok(())
     }
