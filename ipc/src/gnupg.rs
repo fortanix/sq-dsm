@@ -20,7 +20,6 @@ use openpgp::fmt::hex;
 use openpgp::crypto;
 use openpgp::packet::prelude::*;
 use openpgp::parse::Parse;
-use openpgp::serialize::Serialize;
 
 use crate::Result;
 use crate::assuan;

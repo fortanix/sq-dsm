@@ -21,7 +21,6 @@ use openpgp::Error;
 use openpgp::Result;
 
 mod parse;
-mod serialize;
 
 /// An *S-Expression*.
 ///
@@ -225,6 +224,21 @@ impl Sexp {
         }
     }
 
+
+    pub fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        match self {
+            Sexp::String(ref s) => s.serialize(o),
+            Sexp::List(ref l) => {
+                write!(o, "(")?;
+                for sexp in l {
+                    sexp.serialize(o)?;
+                }
+                write!(o, ")")?;
+                Ok(())
+            },
+        }
+    }
+
     /// Given an alist, selects by key and returns the value.
     fn get(&self, key: &[u8]) -> Result<Option<Vec<Sexp>>> {
         match self {
@@ -367,6 +381,17 @@ impl String_ {
     pub fn display_hint(&self) -> Option<&[u8]> {
         self.1.as_ref().map(|b| b.as_ref())
     }
+
+    pub fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        if let Some(display) = self.display_hint() {
+            write!(o, "[{}:", display.len())?;
+            o.write_all(display)?;
+            write!(o, "]")?;
+        }
+        write!(o, "{}:", self.len())?;
+        o.write_all(self)?;
+        Ok(())
+    }
 }
 
 impl From<&str> for String_ {
@@ -405,7 +430,6 @@ impl Arbitrary for String_ {
 mod tests {
     use super::*;
     use openpgp::parse::Parse;
-    use openpgp::serialize::Serialize;
 
     quickcheck::quickcheck! {
         fn roundtrip(s: Sexp) -> bool {
