@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::sync::Mutex;
 
 use win_crypto_ng::symmetric as cng;
 
@@ -8,9 +9,10 @@ use crate::{Error, Result};
 use crate::types::SymmetricAlgorithm;
 
 
-impl Mode for cng::SymmetricAlgorithmKey {
+impl Mode for Mutex<cng::SymmetricAlgorithmKey> {
     fn block_size(&self) -> usize {
-        self.block_size().expect("CNG not to fail internally")
+        self.lock().expect("Mutex not to be poisoned")
+            .block_size().expect("CNG not to fail internally")
     }
 
     fn encrypt(
@@ -35,7 +37,9 @@ impl Mode for cng::SymmetricAlgorithmKey {
 
         let len = std::cmp::min(src.len(), dst.len());
         // NOTE: `None` IV is required for ECB mode but we don't ever use it.
-        let buffer = cng::SymmetricAlgorithmKey::encrypt(self, Some(iv), src, None)?;
+        let buffer = cng::SymmetricAlgorithmKey::encrypt(
+            &*self.lock().expect("Mutex not to be poisoned"),
+            Some(iv), src, None)?;
         Ok(dst[..len].copy_from_slice(&buffer.as_slice()[..len]))
     }
 
@@ -61,7 +65,9 @@ impl Mode for cng::SymmetricAlgorithmKey {
 
         let len = std::cmp::min(src.len(), dst.len());
         // NOTE: `None` IV is required for ECB mode but we don't ever use it.
-        let buffer = cng::SymmetricAlgorithmKey::decrypt(self, Some(iv), src, None)?;
+        let buffer = cng::SymmetricAlgorithmKey::decrypt(
+            &*self.lock().expect("Mutex not to be poisoned"),
+            Some(iv), src, None)?;
         dst[..len].copy_from_slice(&buffer.as_slice()[..len]);
 
         Ok(())
@@ -151,7 +157,7 @@ impl SymmetricAlgorithm {
         // set to 8-bit CFB)
         key.set_msg_block_len(key.block_size()?)?;
 
-        Ok(Box::new(key))
+        Ok(Box::new(Mutex::new(key)))
     }
 
     /// Creates a symmetric cipher context for decrypting in CFB mode.
@@ -165,11 +171,11 @@ impl SymmetricAlgorithm {
 
         let algo = cng::SymmetricAlgorithm::open(algo, cng::ChainingMode::Cbc)?;
 
-        Ok(Box::new(
+        Ok(Box::new(Mutex::new(
             algo.new_key(key).expect(
                 "CNG to successfully create a symmetric key for valid/supported algorithm"
             )
-        ))
+        )))
     }
 
     /// Creates a Nettle context for decrypting in CBC mode.
@@ -178,10 +184,10 @@ impl SymmetricAlgorithm {
 
         let algo = cng::SymmetricAlgorithm::open(algo, cng::ChainingMode::Cbc)?;
 
-        Ok(Box::new(
+        Ok(Box::new(Mutex::new(
             algo.new_key(key).expect(
                 "CNG to successfully create a symmetric key for valid/supported algorithm"
             )
-        ))
+        )))
     }
 }

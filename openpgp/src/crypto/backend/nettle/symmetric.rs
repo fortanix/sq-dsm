@@ -6,7 +6,7 @@ use crate::crypto::symmetric::Mode;
 use crate::{Error, Result};
 use crate::types::SymmetricAlgorithm;
 
-impl<T: nettle::mode::Mode> Mode for T {
+impl<T: nettle::mode::Mode + Send + Sync> Mode for T {
     fn block_size(&self) -> usize {
         self.block_size()
     }

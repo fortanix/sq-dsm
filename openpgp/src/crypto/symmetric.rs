@@ -13,7 +13,7 @@ use buffered_reader::BufferedReader;
 /// Block cipher mode of operation.
 ///
 /// Block modes govern how a block cipher processes data spanning multiple blocks.
-pub(crate) trait Mode {
+pub(crate) trait Mode: Send + Sync {
     /// Block size of the underlying cipher in bytes.
     fn block_size(&self) -> usize;
 
