@@ -1,4 +1,5 @@
 use core::convert::TryFrom;
+use std::sync::Mutex;
 
 use crate::crypto::hash::Digest;
 use crate::types::HashAlgorithm;
@@ -6,27 +7,44 @@ use crate::{Error, Result};
 
 use win_crypto_ng::hash as cng;
 
-impl Digest for cng::Hash {
+struct Hash(Mutex<cng::Hash>);
+
+impl From<cng::Hash> for Hash {
+    fn from(h: cng::Hash) -> Self {
+        Hash(Mutex::new(h))
+    }
+}
+
+impl Clone for Hash {
+    fn clone(&self) -> Self {
+        self.0.lock().expect("Mutex not to be poisoned").clone().into()
+    }
+}
+
+impl Digest for Hash {
     fn digest_size(&self) -> usize {
-        self.hash_size().expect("CNG to not fail internally")
+        self.0.lock().expect("Mutex not to be poisoned")
+            .hash_size().expect("CNG to not fail internally")
     }
 
     fn update(&mut self, data: &[u8]) {
-        let _ = self.hash(data);
+        let _ = self.0.lock().expect("Mutex not to be poisoned").hash(data);
     }
 
     fn digest(&mut self, digest: &mut [u8]) -> Result<()> {
         // TODO: Replace with CNG reusable hash objects, supported from Windows 8
         // This would allow us to not re-create the CNG hash object each time we
         // want to finish digest calculation
-        let algorithm = self.hash_algorithm()
+        let algorithm = self.0.lock().expect("Mutex not to be poisoned")
+            .hash_algorithm()
             .expect("CNG hash object to know its algorithm");
         let new = cng::HashAlgorithm::open(algorithm)
             .expect("CNG to open a new correct hash provider")
             .new_hash()
             .expect("Failed to create a new CNG hash object");
 
-        let old = std::mem::replace(self, new);
+        let old = std::mem::replace(
+            self.0.get_mut().expect("Mutex not to be poisoned"), new);
         let buffer = old.finish()
             .expect("CNG to not fail internally");
 
@@ -76,8 +94,8 @@ impl HashAlgorithm {
         let algo = cng::HashAlgorithmId::try_from(self)?;
         let algo = cng::HashAlgorithm::open(algo)?;
 
-        Ok(Box::new(algo.new_hash().expect(
+        Ok(Box::new(Hash::from(algo.new_hash().expect(
             "CNG to always create a hasher object for valid algo",
-        )))
+        ))))
     }
 }
