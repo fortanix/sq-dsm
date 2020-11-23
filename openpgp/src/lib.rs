@@ -298,3 +298,9 @@ pub enum Error {
             .unwrap_or("".into()))]
     PolicyViolation(String, Option<std::time::SystemTime>),
 }
+
+#[test]
+fn error_is_send_and_sync() {
+    fn f<T: Send + Sync>(_: T) {}
+    f(Error::IndexOutOfRange);
+}
