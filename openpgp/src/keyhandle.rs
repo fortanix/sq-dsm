@@ -254,4 +254,10 @@ mod tests {
         assert_eq!(format!("{:x}", handle), "0a02");
     }
 
+    #[test]
+    fn key_handle_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        f(KeyHandle::from("0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567"
+                          .parse::<Fingerprint>().unwrap()));
+    }
 }
