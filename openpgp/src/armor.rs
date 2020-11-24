@@ -113,6 +113,25 @@ impl Kind {
         }.map(|kind| (kind, kind.header_len()))
     }
 
+    /// Detects the footer returning length of the footer.
+    fn detect_footer(&self, blurb: &[u8]) -> Option<usize> {
+        if blurb.len() < "-----END PGP MESSAGE-----".len()
+            || ! blurb.starts_with(b"-----END PGP ")
+        {
+            return None;
+        }
+
+        let blurb = &blurb[13..];
+        let ident = self.blurb().as_bytes();
+        if blurb.starts_with(ident)
+            && blurb[ident.len()..].starts_with(b"-----")
+        {
+            Some(self.footer_len())
+        } else {
+            None
+        }
+    }
+
     fn blurb(&self) -> &str {
         match self {
             &Kind::Message => "MESSAGE",
@@ -141,6 +160,12 @@ impl Kind {
     /// ```
     fn header_len(&self) -> usize {
         "-----BEGIN PGP -----".len()
+            + self.blurb().len()
+    }
+
+    /// Returns the length of the footer.
+    fn footer_len(&self) -> usize {
+        "-----END PGP -----".len()
             + self.blurb().len()
     }
 }
@@ -1322,19 +1347,19 @@ impl<'a> Read for IoReader<'a> {
 
                 // If we had a header, we require a footer.
                 if let Some(kind) = self.kind {
-                    let footer = kind.end();
-                    let got = self.source.data(footer.len())?;
-                    let got = if got.len() > footer.len() {
-                        &got[..footer.len()]
+                    let footer_lookahead = 128; // Why not.
+                    let got = self.source.data(footer_lookahead)?;
+                    let got = if got.len() > footer_lookahead {
+                        &got[..footer_lookahead]
                     } else {
                         got
                     };
-                    if footer.as_bytes() != got {
+                    if let Some(footer_len) = kind.detect_footer(got) {
+                        footer_len
+                    } else {
                         return Err(Error::new(ErrorKind::InvalidInput,
                                               "Invalid ASCII Armor footer."));
                     }
-
-                    footer.len()
                 } else {
                     0
                 }
