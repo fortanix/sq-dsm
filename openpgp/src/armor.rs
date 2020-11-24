@@ -836,6 +836,9 @@ impl<'a> IoReader<'a> {
 
         // Read the key-value headers.
         let mut n = 0;
+        // Sometimes, we find a truncated prefix.  In these cases, the
+        // length is not prefix.len(), but this.
+        let mut prefix_len = None;
         let mut lines = 0;
         loop {
             // Skip any known prefix on lines.
@@ -844,7 +847,8 @@ impl<'a> IoReader<'a> {
             // consume it here.  So at every point in this loop where
             // the control flow wraps around, we need to make sure
             // that we buffer the prefix in addition to the line.
-            self.source.consume(prefix.len());
+            self.source.consume(
+                prefix_len.take().unwrap_or_else(|| prefix.len()));
 
             self.source.consume(n);
 
@@ -910,10 +914,23 @@ impl<'a> IoReader<'a> {
             // consumed in the next iteration.
             let next_prefix =
                 &self.source.data_hard(n + prefix.len())?[n..n + prefix.len()];
-            if prefix != next_prefix {
+
+            // Sometimes, we find a truncated prefix.
+            let l = common_prefix(&prefix, next_prefix);
+            let full_prefix = l == prefix.len();
+            if ! (full_prefix
+                  // Truncation is okay if the rest of the prefix
+                  // contains only whitespace.
+                  || prefix[l..].iter().all(|c| c.is_ascii_whitespace()))
+            {
                 return Err(
                     Error::new(ErrorKind::InvalidInput,
                                "Inconsistent quoting of armored data"));
+            }
+            if ! full_prefix {
+                // Make sure to only consume the truncated prefix in
+                // the next loop iteration.
+                prefix_len = Some(l);
             }
         }
         self.source.consume(n);
@@ -923,6 +940,11 @@ impl<'a> IoReader<'a> {
         self.prefix_remaining = prefix.len();
         Ok(())
     }
+}
+
+/// Computes the length of the common prefix.
+fn common_prefix<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> usize {
+    a.as_ref().iter().zip(b.as_ref().iter()).take_while(|(a, b)| a == b).count()
 }
 
 // Remove whitespace, etc. from the base64 data.
@@ -1717,6 +1739,19 @@ mod test {
     }
 
     #[test]
+    fn dearmor_quoted_stripped() {
+        let mut r = Reader::new(
+            Cursor::new(
+                &include_bytes!("../tests/data/armor/test-3.with-headers-quoted-stripped.asc")[..]
+            ),
+            ReaderMode::VeryTolerant);
+        let mut buf = [0; 5];
+        let e = r.read(&mut buf);
+        assert!(r.kind() == Some(Kind::File));
+        assert!(e.is_ok());
+    }
+
+    #[test]
     fn dearmor_quoted_a_lot() {
         let mut r = Reader::new(
             Cursor::new(
@@ -1849,5 +1884,17 @@ mod test {
         let mut buf = Vec::new();
         // `data` is malformed, expect an error.
         reader.read_to_end(&mut buf).unwrap_err();
+    }
+
+    #[test]
+    fn common_prefix() {
+        use super::common_prefix as cp;
+        assert_eq!(cp("", ""), 0);
+        assert_eq!(cp("a", ""), 0);
+        assert_eq!(cp("", "a"), 0);
+        assert_eq!(cp("a", "a"), 1);
+        assert_eq!(cp("aa", "a"), 1);
+        assert_eq!(cp("a", "aa"), 1);
+        assert_eq!(cp("ac", "ab"), 1);
     }
 }
