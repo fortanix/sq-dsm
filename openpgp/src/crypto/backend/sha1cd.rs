@@ -19,8 +19,7 @@ impl Digest for sha1collisiondetection::Sha1CD {
     }
 
     fn digest(&mut self, digest: &mut [u8]) -> Result<()> {
-        let mut d =
-            generic_array::GenericArray::<u8, digest::consts::U20>::default();
+        let mut d = digest::Output::<sha1collisiondetection::Sha1CD>::default();
         let r = self.finalize_into_dirty_cd(&mut d);
         digest::Reset::reset(self);
         let l = digest.len().min(d.len());

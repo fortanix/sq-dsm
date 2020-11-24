@@ -1897,7 +1897,6 @@ dependencies = [
  "dyn-clone",
  "ed25519-dalek",
  "flate2",
- "generic-array 0.14.4",
  "idna",
  "lalrpop",
  "lalrpop-util",
