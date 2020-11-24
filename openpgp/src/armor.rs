@@ -91,45 +91,55 @@ impl Kind {
     /// Detects the header returning the kind and length of the
     /// header.
     fn detect_header(blurb: &[u8]) -> Option<(Self, usize)> {
-        if blurb.len() < "-----BEGIN PGP MESSAGE-----".len()
-            || ! blurb.starts_with(b"-----BEGIN PGP ")
-        {
+        let (leading_dashes, rest) = dash_prefix(blurb);
+
+        // Skip over "BEGIN PGP "
+        if ! rest.starts_with(b"BEGIN PGP ") {
             return None;
         }
+        let rest = &rest[b"BEGIN PGP ".len()..];
 
-        let kind = &blurb[15..];
-        if kind.starts_with(b"MESSAGE-----") {
-            Some(Kind::Message)
-        } else if kind.starts_with(b"PUBLIC KEY BLOCK-----") {
-            Some(Kind::PublicKey)
-        } else if kind.starts_with(b"PRIVATE KEY BLOCK-----") {
-            Some(Kind::SecretKey)
-        } else if kind.starts_with(b"SIGNATURE-----") {
-            Some(Kind::Signature)
-        } else if kind.starts_with(b"ARMORED FILE-----") {
-            Some(Kind::File)
+        // Detect kind.
+        let kind = if rest.starts_with(b"MESSAGE") {
+            Kind::Message
+        } else if rest.starts_with(b"PUBLIC KEY BLOCK") {
+            Kind::PublicKey
+        } else if rest.starts_with(b"PRIVATE KEY BLOCK") {
+            Kind::SecretKey
+        } else if rest.starts_with(b"SIGNATURE") {
+            Kind::Signature
+        } else if rest.starts_with(b"ARMORED FILE") {
+            Kind::File
         } else {
-            None
-        }.map(|kind| (kind, kind.header_len()))
+            return None;
+        };
+
+        let (trailing_dashes, _) = dash_prefix(&rest[kind.blurb().len()..]);
+        Some((kind,
+              leading_dashes.len()
+              + b"BEGIN PGP ".len() + kind.blurb().len()
+              + trailing_dashes.len()))
     }
 
     /// Detects the footer returning length of the footer.
     fn detect_footer(&self, blurb: &[u8]) -> Option<usize> {
-        if blurb.len() < "-----END PGP MESSAGE-----".len()
-            || ! blurb.starts_with(b"-----END PGP ")
-        {
+        let (leading_dashes, rest) = dash_prefix(blurb);
+
+        // Skip over "END PGP "
+        if ! rest.starts_with(b"END PGP ") {
+            return None;
+        }
+        let rest = &rest[b"END PGP ".len()..];
+
+        let ident = self.blurb().as_bytes();
+        if ! rest.starts_with(ident) {
             return None;
         }
 
-        let blurb = &blurb[13..];
-        let ident = self.blurb().as_bytes();
-        if blurb.starts_with(ident)
-            && blurb[ident.len()..].starts_with(b"-----")
-        {
-            Some(self.footer_len())
-        } else {
-            None
-        }
+        let (trailing_dashes, _) = dash_prefix(&rest[ident.len()..]);
+        Some(leading_dashes.len()
+             + b"END PGP ".len() + ident.len()
+             + trailing_dashes.len())
     }
 
     fn blurb(&self) -> &str {
@@ -148,25 +158,6 @@ impl Kind {
 
     fn end(&self) -> String {
         format!("-----END PGP {}-----", self.blurb())
-    }
-
-    /// Returns the length of the header.
-    ///
-    /// This does not include any trailing newline.  It is simply the
-    /// length of:
-    ///
-    /// ```text
-    /// -----BEGIN PGP BLUB -----
-    /// ```
-    fn header_len(&self) -> usize {
-        "-----BEGIN PGP -----".len()
-            + self.blurb().len()
-    }
-
-    /// Returns the length of the footer.
-    fn footer_len(&self) -> usize {
-        "-----END PGP -----".len()
-            + self.blurb().len()
     }
 }
 
@@ -698,7 +689,7 @@ impl<'a> IoReader<'a> {
         // Save cpu cycles by only considering base64 data that starts
         // with one of those characters.
         lazy_static::lazy_static!{
-            static ref START_CHARS : Vec<u8> = {
+            static ref START_CHARS_VERY_TOLERANT: Vec<u8> = {
                 let mut valid_start = Vec::new();
                 for &tag in &[ Tag::PKESK, Tag::SKESK,
                               Tag::OnePassSig, Tag::Signature,
@@ -719,25 +710,48 @@ impl<'a> IoReader<'a> {
                     valid_start.push(o[0]);
                 }
 
-                // The standard start of an ASCII armor header e.g.,
-                //
-                //   -----BEGIN PGP MESSAGE-----
-                valid_start.push('-' as u8);
+                // Add all first bytes of Unicode characters from the
+                // "Dash Punctuation" category.
+                let mut b = [0; 4]; // Enough to hold any UTF-8 character.
+                for d in dashes() {
+                    d.encode_utf8(&mut b);
+                    valid_start.push(b[0]);
+                }
+
+                // If there are no dashes at all, match on the BEGIN.
+                valid_start.push(b'B');
 
                 valid_start.sort();
                 valid_start.dedup();
                 valid_start
             };
 
+            static ref START_CHARS_TOLERANT: Vec<u8> = {
+                let mut valid_start = Vec::new();
+                // Add all first bytes of Unicode characters from the
+                // "Dash Punctuation" category.
+                let mut b = [0; 4]; // Enough to hold any UTF-8 character.
+                for d in dashes() {
+                    d.encode_utf8(&mut b);
+                    valid_start.push(b[0]);
+                }
+
+                // If there are no dashes at all, match on the BEGIN.
+                valid_start.push(b'B');
+
+                valid_start.sort();
+                valid_start.dedup();
+                valid_start
+            };
         }
 
         // Look for the Armor Header Line, skipping any garbage in the
         // process.
         let mut found_blob = false;
         let start_chars = if self.mode != ReaderMode::VeryTolerant {
-            &[b'-'][..]
+            &START_CHARS_TOLERANT[..]
         } else {
-            &START_CHARS[..]
+            &START_CHARS_VERY_TOLERANT[..]
         };
 
         let mut lines = 0;
@@ -790,27 +804,27 @@ impl<'a> IoReader<'a> {
                     input = &input[..128];
                 }
 
-                if input[0] == '-' as u8 {
-                    // Possible ASCII-armor header.
-                    if let Some((kind, len)) = Kind::detect_header(&input) {
-                        let mut expected_kind = None;
-                        if let ReaderMode::Tolerant(Some(kind)) = self.mode {
-                            expected_kind = Some(kind);
-                        }
-
-                        if expected_kind == None {
-                            // Found any!
-                            self.kind = Some(kind);
-                            break 'search len;
-                        }
-
-                        if expected_kind == Some(kind) {
-                            // Found it!
-                            self.kind = Some(kind);
-                            break 'search len;
-                        }
+                // Possible ASCII-armor header.
+                if let Some((kind, len)) = Kind::detect_header(&input) {
+                    let mut expected_kind = None;
+                    if let ReaderMode::Tolerant(Some(kind)) = self.mode {
+                        expected_kind = Some(kind);
                     }
-                } else if self.mode == ReaderMode::VeryTolerant {
+
+                    if expected_kind == None {
+                        // Found any!
+                        self.kind = Some(kind);
+                        break 'search len;
+                    }
+
+                    if expected_kind == Some(kind) {
+                        // Found it!
+                        self.kind = Some(kind);
+                        break 'search len;
+                    }
+                }
+
+                if self.mode == ReaderMode::VeryTolerant {
                     // The user did not specify what kind of data she
                     // wants.  We aggressively try to decode any data,
                     // even if we do not see a valid header.
@@ -1470,6 +1484,83 @@ impl CRC {
     }
 }
 
+/// Returns all character from Unicode's "Dash Punctuation" category.
+fn dashes() -> impl Iterator<Item = char> {
+    ['\u{002D}', // - (Hyphen-Minus)
+     '\u{058A}', // ֊ (Armenian Hyphen)
+     '\u{05BE}', // ־ (Hebrew Punctuation Maqaf)
+     '\u{1400}', // ᐀ (Canadian Syllabics Hyphen)
+     '\u{1806}', // ᠆ (Mongolian Todo Soft Hyphen)
+     '\u{2010}', // ‐ (Hyphen)
+     '\u{2011}', // ‑ (Non-Breaking Hyphen)
+     '\u{2012}', // ‒ (Figure Dash)
+     '\u{2013}', // – (En Dash)
+     '\u{2014}', // — (Em Dash)
+     '\u{2015}', // ― (Horizontal Bar)
+     '\u{2E17}', // ⸗ (Double Oblique Hyphen)
+     '\u{2E1A}', // ⸚ (Hyphen with Diaeresis)
+     '\u{2E3A}', // ⸺ (Two-Em Dash)
+     '\u{2E3B}', // ⸻ (Three-Em Dash)
+     '\u{2E40}', // ⹀ (Double Hyphen)
+     '\u{301C}', // 〜 (Wave Dash)
+     '\u{3030}', // 〰 (Wavy Dash)
+     '\u{30A0}', // ゠ (Katakana-Hiragana Double Hyphen)
+     '\u{FE31}', // ︱ (Presentation Form For Vertical Em Dash)
+     '\u{FE32}', // ︲ (Presentation Form For Vertical En Dash)
+     '\u{FE58}', // ﹘ (Small Em Dash)
+     '\u{FE63}', // ﹣ (Small Hyphen-Minus)
+     '\u{FF0D}', // － (Fullwidth Hyphen-Minus)
+    ].iter().cloned()
+}
+
+/// Splits the given slice into a prefix of dashes and the rest.
+///
+/// Accepts any character from Unicode's "Dash Punctuation" category.
+/// Assumes that the prefix containing the dashes is ASCII or UTF-8.
+fn dash_prefix(d: &[u8]) -> (&[u8], &[u8]) {
+    // First, compute a valid UTF-8 prefix.
+    let p = match std::str::from_utf8(d) {
+        Ok(u) => u,
+        Err(e) => std::str::from_utf8(&d[..e.valid_up_to()])
+            .expect("valid up to this point"),
+    };
+    let mut prefix_len = 0;
+    for c in p.chars() {
+        // Keep going while we see characters from the Category "Dash
+        // Punctuation".
+        match c {
+            '\u{002D}' // - (Hyphen-Minus)
+                | '\u{058A}' // ֊ (Armenian Hyphen)
+                | '\u{05BE}' // ־ (Hebrew Punctuation Maqaf)
+                | '\u{1400}' // ᐀ (Canadian Syllabics Hyphen)
+                | '\u{1806}' // ᠆ (Mongolian Todo Soft Hyphen)
+                | '\u{2010}' // ‐ (Hyphen)
+                | '\u{2011}' // ‑ (Non-Breaking Hyphen)
+                | '\u{2012}' // ‒ (Figure Dash)
+                | '\u{2013}' // – (En Dash)
+                | '\u{2014}' // — (Em Dash)
+                | '\u{2015}' // ― (Horizontal Bar)
+                | '\u{2E17}' // ⸗ (Double Oblique Hyphen)
+                | '\u{2E1A}' // ⸚ (Hyphen with Diaeresis)
+                | '\u{2E3A}' // ⸺ (Two-Em Dash)
+                | '\u{2E3B}' // ⸻ (Three-Em Dash)
+                | '\u{2E40}' // ⹀ (Double Hyphen)
+                | '\u{301C}' // 〜 (Wave Dash)
+                | '\u{3030}' // 〰 (Wavy Dash)
+                | '\u{30A0}' // ゠ (Katakana-Hiragana Double Hyphen)
+                | '\u{FE31}' // ︱ (Presentation Form For Vertical Em Dash)
+                | '\u{FE32}' // ︲ (Presentation Form For Vertical En Dash)
+                | '\u{FE58}' // ﹘ (Small Em Dash)
+                | '\u{FE63}' // ﹣ (Small Hyphen-Minus)
+                | '\u{FF0D}' // － (Fullwidth Hyphen-Minus)
+              => prefix_len += c.len_utf8(),
+            _ => break,
+        }
+    }
+
+    (&d[..prefix_len], &d[prefix_len..])
+}
+
 #[cfg(test)]
 mod test {
     use std::io::{Cursor, Read, Write};
@@ -1927,5 +2018,26 @@ mod test {
         assert_eq!(cp("aa", "a"), 1);
         assert_eq!(cp("a", "aa"), 1);
         assert_eq!(cp("ac", "ab"), 1);
+    }
+
+    /// A certificate was mangled turning -- into n-dash, --- into
+    /// m-dash.  Fun with Unicode.
+    #[test]
+    fn issue_610() {
+        let mut buf = Vec::new();
+        // First, we now accept any dash character, not only '-'.
+        let mut reader = Reader::from_bytes(
+            crate::tests::file("armor/test-3.unicode-dashes.asc"), None);
+        reader.read_to_end(&mut buf).unwrap();
+
+        // Second, the transformation changed the number of dashes.
+        let mut reader = Reader::from_bytes(
+            crate::tests::file("armor/test-3.unbalanced-dashes.asc"), None);
+        reader.read_to_end(&mut buf).unwrap();
+
+        // Third, as it is not about the dashes, we even accept none.
+        let mut reader = Reader::from_bytes(
+            crate::tests::file("armor/test-3.no-dashes.asc"), None);
+        reader.read_to_end(&mut buf).unwrap();
     }
 }
