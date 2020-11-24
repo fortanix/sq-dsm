@@ -88,8 +88,9 @@ impl Arbitrary for Kind {
 }
 
 impl Kind {
-    /// Autodetects the kind of data.
-    fn detect(blurb: &[u8]) -> Option<Self> {
+    /// Detects the header returning the kind and length of the
+    /// header.
+    fn detect_header(blurb: &[u8]) -> Option<(Self, usize)> {
         if blurb.len() < "-----BEGIN PGP MESSAGE-----".len()
             || ! blurb.starts_with(b"-----BEGIN PGP ")
         {
@@ -109,7 +110,7 @@ impl Kind {
             Some(Kind::File)
         } else {
             None
-        }
+        }.map(|kind| (kind, kind.header_len()))
     }
 
     fn blurb(&self) -> &str {
@@ -766,7 +767,7 @@ impl<'a> IoReader<'a> {
 
                 if input[0] == '-' as u8 {
                     // Possible ASCII-armor header.
-                    if let Some(kind) = Kind::detect(&input) {
+                    if let Some((kind, len)) = Kind::detect_header(&input) {
                         let mut expected_kind = None;
                         if let ReaderMode::Tolerant(Some(kind)) = self.mode {
                             expected_kind = Some(kind);
@@ -775,13 +776,13 @@ impl<'a> IoReader<'a> {
                         if expected_kind == None {
                             // Found any!
                             self.kind = Some(kind);
-                            break 'search kind.header_len();
+                            break 'search len;
                         }
 
                         if expected_kind == Some(kind) {
                             // Found it!
                             self.kind = Some(kind);
-                            break 'search kind.header_len();
+                            break 'search len;
                         }
                     }
                 } else if self.mode == ReaderMode::VeryTolerant {
