@@ -1669,6 +1669,8 @@ mod test {
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
         assert!(e.is_ok());
+        assert_eq!(e.unwrap(), 3);
+        assert_eq!(&buf[..3], TEST_BIN[3]);
     }
 
     #[test]
@@ -1680,8 +1682,10 @@ mod test {
             ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
-        assert!(r.kind() == Some(Kind::File));
+        assert_eq!(r.kind(), Some(Kind::File));
         assert!(e.is_ok());
+        assert_eq!(e.unwrap(), 3);
+        assert_eq!(&buf[..3], TEST_BIN[3]);
     }
 
     #[test]
@@ -1696,6 +1700,8 @@ mod test {
         let e = r.read(&mut buf);
         assert_eq!(r.kind(), Some(Kind::File));
         assert!(e.is_ok());
+        assert_eq!(e.unwrap(), 3);
+        assert_eq!(&buf[..3], TEST_BIN[3]);
 
         // Again, but this time add a non-whitespace character in the
         // line of the header.
@@ -1760,8 +1766,10 @@ mod test {
             ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
-        assert!(r.kind() == Some(Kind::File));
+        assert_eq!(r.kind(), Some(Kind::File));
         assert!(e.is_ok());
+        assert_eq!(e.unwrap(), 3);
+        assert_eq!(&buf[..3], TEST_BIN[3]);
     }
 
     #[test]
@@ -1773,8 +1781,10 @@ mod test {
             ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
         let e = r.read(&mut buf);
-        assert!(r.kind() == Some(Kind::File));
+        assert_eq!(r.kind(), Some(Kind::File));
         assert!(e.is_ok());
+        assert_eq!(e.unwrap(), 3);
+        assert_eq!(&buf[..3], TEST_BIN[3]);
     }
 
     #[test]
@@ -1785,16 +1795,11 @@ mod test {
             ),
             ReaderMode::VeryTolerant);
         let mut buf = [0; 5];
-        // Loop over the input to ensure we read and verify all the way to the
-        // end of the input in order to check the checksum and footer validation
-        loop {
-            let e = r.read(&mut buf);
-            assert!(r.kind() == Some(Kind::File));
-            assert!(e.is_ok());
-            if e.unwrap() == 0 {
-                break;
-            }
-        }
+        let e = r.read(&mut buf);
+        assert_eq!(r.kind(), Some(Kind::File));
+        assert!(e.is_ok());
+        assert_eq!(e.unwrap(), 3);
+        assert_eq!(&buf[..3], TEST_BIN[3]);
     }
 
     #[test]
