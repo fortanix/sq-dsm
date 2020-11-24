@@ -45,7 +45,7 @@ fn sign_data(policy: &dyn Policy,
              append: bool, time: Option<SystemTime>, force: bool)
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
-    (Box<dyn io::Write>, Vec<Signature>, Option<PathBuf>) =
+    (Box<dyn io::Write + Sync + Send>, Vec<Signature>, Option<PathBuf>) =
         if detached && append && output_path.is_some() {
             // First, read the existing signatures.
             let mut sigs = Vec::new();
@@ -154,7 +154,8 @@ fn sign_message(policy: &dyn Policy,
 }
 
 fn sign_message_(policy: &dyn Policy,
-                 input: &mut dyn io::Read, output: &mut dyn io::Write,
+                 input: &mut dyn io::Read,
+                 output: &mut (dyn io::Write + Sync + Send),
                  secrets: Vec<openpgp::Cert>, notarize: bool,
                  time: Option<SystemTime>)
                  -> Result<()>

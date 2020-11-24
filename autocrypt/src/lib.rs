@@ -480,7 +480,9 @@ impl AutocryptSetupMessage {
     /// Generates the Autocrypt Setup Message.
     ///
     /// The message is written to `w`.
-    pub fn serialize<W: io::Write>(&mut self, w: &mut W) -> Result<()> {
+    pub fn serialize<W>(&mut self, w: &mut W) -> Result<()>
+        where W: io::Write + Send + Sync,
+    {
         // The outer message is an ASCII-armored encoded message
         // containing a single SK-ESK and a single SEIP packet.  The
         // SEIP packet contains a literal data packet whose content is

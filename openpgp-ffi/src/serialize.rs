@@ -152,7 +152,7 @@ pub extern "C" fn pgp_arbitrary_writer_new
 pub extern "C" fn pgp_signer_new
     (errp: Option<&mut *mut crate::error::Error>,
      inner: *mut Message<'static>,
-     signers: *const *mut Box<dyn self::openpgp::crypto::Signer>,
+     signers: *const *mut Box<dyn self::openpgp::crypto::Signer + Send + Sync>,
      signers_len: size_t,
      hash_algo: u8)
      -> *mut Message<'static>
@@ -189,7 +189,7 @@ pub extern "C" fn pgp_signer_new
 pub extern "C" fn pgp_signer_new_detached
     (errp: Option<&mut *mut crate::error::Error>,
      inner: *mut Message<'static>,
-     signers: *const *mut Box<dyn self::openpgp::crypto::Signer>,
+     signers: *const *mut Box<dyn self::openpgp::crypto::Signer + Send + Sync>,
      signers_len: size_t,
      hash_algo: u8)
      -> *mut Message<'static>

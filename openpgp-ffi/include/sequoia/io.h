@@ -92,6 +92,13 @@ pgp_writer_t pgp_writer_from_bytes (uint8_t *buf, size_t len);
 /// reference a chunk of memory allocated using libc's heap allocator.
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_writer_stack_t) that
+/// serializes to an allocating writer across thread boundaries, you
+/// must make sure that the system's allocator (i.e. `realloc (3)`)
+/// supports reallocating memory allocated by another thread.
 /*/
 pgp_writer_t pgp_writer_alloc (void **buf, size_t *len);
 
@@ -104,6 +111,12 @@ typedef ssize_t (*pgp_writer_cb_t) (void *cookie, const void *buf, size_t len);
 /// Creates an writer from a callback and cookie.
 ///
 /// This writer calls the given callback to write data.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_writer_stack_t) that
+/// serializes to a callback-based writer across thread boundaries,
+/// you must make sure that the callback and cookie also support this.
 /*/
 pgp_writer_t pgp_writer_from_callback (pgp_writer_cb_t, void *);
 

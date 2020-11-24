@@ -226,7 +226,7 @@ impl<'a> Message<'a> {
     /// message.finalize()?;
     /// # Ok(()) }
     /// ```
-    pub fn new<W: 'a + io::Write>(w: W) -> Message<'a> {
+    pub fn new<W: 'a + io::Write + Send + Sync>(w: W) -> Message<'a> {
         writer::Generic::new(w, Cookie::new(0))
     }
 
@@ -322,8 +322,8 @@ impl<'a> Message<'a> {
     }
 }
 
-impl<'a> From<&'a mut dyn io::Write> for Message<'a> {
-    fn from(w: &'a mut dyn io::Write) -> Self {
+impl<'a> From<&'a mut (dyn io::Write + Send + Sync)> for Message<'a> {
+    fn from(w: &'a mut (dyn io::Write + Send + Sync)) -> Self {
         writer::Generic::new(w, Cookie::new(0))
     }
 }
@@ -597,10 +597,10 @@ impl<'a> writer::Stackable<'a, Cookie> for ArbitraryWriter<'a> {
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&(dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         Some(self.inner.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
@@ -634,7 +634,7 @@ pub struct Signer<'a> {
     // take our inner reader.  If that happens, we only update the
     // digests.
     inner: Option<writer::BoxStack<'a, Cookie>>,
-    signers: Vec<Box<dyn crypto::Signer + 'a>>,
+    signers: Vec<Box<dyn crypto::Signer + Send + Sync + 'a>>,
     intended_recipients: Vec<Fingerprint>,
     detached: bool,
     template: signature::SignatureBuilder,
@@ -722,7 +722,7 @@ impl<'a> Signer<'a> {
     /// # Ok(()) }
     /// ```
     pub fn new<S>(inner: Message<'a>, signer: S) -> Self
-        where S: crypto::Signer + 'a
+        where S: crypto::Signer + Send + Sync + 'a
     {
         Self::with_template(inner, signer,
                             signature::SignatureBuilder::new(SignatureType::Binary))
@@ -790,7 +790,7 @@ impl<'a> Signer<'a> {
     /// ```
     pub fn with_template<S, T>(inner: Message<'a>, signer: S, template: T)
                                -> Self
-        where S: crypto::Signer + 'a,
+        where S: crypto::Signer + Send + Sync + 'a,
               T: Into<signature::SignatureBuilder>,
     {
         let inner = writer::BoxStack::from(inner);
@@ -927,7 +927,7 @@ impl<'a> Signer<'a> {
     /// # Ok(()) }
     /// ```
     pub fn add_signer<S>(mut self, signer: S) -> Self
-        where S: crypto::Signer + 'a
+        where S: crypto::Signer + Send + Sync + 'a
     {
         self.signers.push(Box::new(signer));
         self
@@ -1221,14 +1221,14 @@ impl<'a> writer::Stackable<'a, Cookie> for Signer<'a> {
     fn mount(&mut self, new: writer::BoxStack<'a, Cookie>) {
         self.inner = Some(new);
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         if let Some(ref mut i) = self.inner {
             Some(i)
         } else {
             None
         }
     }
-    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&(dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         self.inner.as_ref().map(|r| r.as_ref())
     }
     fn into_inner(mut self: Box<Self>)
@@ -1519,10 +1519,10 @@ impl<'a> writer::Stackable<'a, Cookie> for LiteralWriter<'a> {
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&(dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         Some(self.inner.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
@@ -1755,10 +1755,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Compressor<'a> {
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&(dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         Some(self.inner.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         Some(self.inner.as_mut())
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
@@ -2639,10 +2639,10 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
     fn mount(&mut self, _new: writer::BoxStack<'a, Cookie>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, Cookie>> {
+    fn inner_ref(&self) -> Option<&(dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         self.inner.as_ref().map(|r| r.as_ref())
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, Cookie>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
         if let Some(ref mut i) = self.inner {
             Some(i)
         } else {
@@ -3296,5 +3296,13 @@ mod test {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn message_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        let mut sink = vec![];
+        let message = Message::new(&mut sink);
+        f(message);
     }
 }

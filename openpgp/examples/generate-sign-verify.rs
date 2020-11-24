@@ -44,7 +44,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 }
 
 /// Signs the given message.
-fn sign(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
+fn sign(p: &dyn Policy, sink: &mut (dyn Write + Send + Sync),
+        plaintext: &str, tsk: &openpgp::Cert)
            -> openpgp::Result<()> {
     // Get the keypair to do the signing from the Cert.
     let keypair = tsk

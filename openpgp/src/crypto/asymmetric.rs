@@ -56,6 +56,17 @@ impl Signer for Box<dyn Signer> {
     }
 }
 
+impl Signer for Box<dyn Signer + Send + Sync> {
+    fn public(&self) -> &Key<key::PublicParts, key::UnspecifiedRole> {
+        self.as_ref().public()
+    }
+
+    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8])
+            -> Result<mpi::Signature> {
+        self.as_mut().sign(hash_algo, digest)
+    }
+}
+
 /// Decrypts a message.
 ///
 /// Used by [`PKESK::decrypt`] to decrypt session keys.

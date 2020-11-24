@@ -43,7 +43,7 @@ fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read>> {
 }
 
 fn create_or_stdout(f: Option<&str>, force: bool)
-    -> Result<Box<dyn io::Write>> {
+    -> Result<Box<dyn io::Write + Sync + Send>> {
     match f {
         None => Ok(Box::new(io::stdout())),
         Some(p) if p == "-" => Ok(Box::new(io::stdout())),

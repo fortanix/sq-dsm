@@ -54,10 +54,10 @@ impl<'a, C: 'a> Stackable<'a, C> for ZIP<'a, C> {
     fn mount(&mut self, _new: BoxStack<'a, C>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
         Some(self.inner.inner.get_mut())
     }
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
         Some(self.inner.inner.get_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -122,10 +122,10 @@ impl<'a, C: 'a> Stackable<'a, C> for ZLIB<'a, C> {
     fn mount(&mut self, _new: BoxStack<'a, C>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
         Some(self.inner.inner.get_mut())
     }
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
         Some(self.inner.inner.get_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {

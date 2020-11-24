@@ -54,7 +54,7 @@ impl<'a> From<Message<'a>> for BoxStack<'a, Cookie> {
     }
 }
 
-pub(crate) type BoxStack<'a, C> = Box<dyn Stackable<'a, C> + 'a>;
+pub(crate) type BoxStack<'a, C> = Box<dyn Stackable<'a, C> + Send + Sync + 'a>;
 
 /// Makes a writer stackable and provides convenience functions.
 pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
@@ -81,10 +81,10 @@ pub(crate) trait Stackable<'a, C> : io::Write + fmt::Debug {
     ///
     /// It is a very bad idea to write any data from the inner
     /// `Writer`, but it can sometimes be useful to get the cookie.
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>>;
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)>;
 
     /// Returns a reference to the inner `Writer`.
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>>;
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)>;
 
     /// Sets the cookie and returns the old value.
     fn cookie_set(&mut self, cookie: C) -> C;
@@ -127,10 +127,10 @@ impl <'a, C> Stackable<'a, C> for BoxStack<'a, C> {
     fn mount(&mut self, new: BoxStack<'a, C>) {
         self.as_mut().mount(new);
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
         self.as_mut().inner_mut()
     }
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
         self.as_ref().inner_ref()
     }
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -149,8 +149,8 @@ impl <'a, C> Stackable<'a, C> for BoxStack<'a, C> {
 
 /// Maps a function over the stack of writers.
 #[allow(dead_code)]
-pub(crate) fn map<C, F>(head: &dyn Stackable<C>, mut fun: F)
-    where F: FnMut(&dyn Stackable<C>) -> bool {
+pub(crate) fn map<C, F>(head: &(dyn Stackable<C> + Send + Sync), mut fun: F)
+    where F: FnMut(&(dyn Stackable<C> + Send + Sync)) -> bool {
     let mut ow = Some(head);
     while let Some(w) = ow {
         if ! fun(w) {
@@ -162,8 +162,8 @@ pub(crate) fn map<C, F>(head: &dyn Stackable<C>, mut fun: F)
 
 /// Maps a function over the stack of mutable writers.
 #[allow(dead_code)]
-pub(crate) fn map_mut<C, F>(head: &mut dyn Stackable<C>, mut fun: F)
-    where F: FnMut(&mut dyn Stackable<C>) -> bool {
+pub(crate) fn map_mut<C, F>(head: &mut (dyn Stackable<C> + Send + Sync), mut fun: F)
+    where F: FnMut(&mut (dyn Stackable<C> + Send + Sync)) -> bool {
     let mut ow = Some(head);
     while let Some(w) = ow {
         if ! fun(w) {
@@ -175,7 +175,7 @@ pub(crate) fn map_mut<C, F>(head: &mut dyn Stackable<C>, mut fun: F)
 
 /// Dumps the writer stack.
 #[allow(dead_code)]
-pub(crate) fn dump<C>(head: &dyn Stackable<C>) {
+pub(crate) fn dump<C>(head: &(dyn Stackable<C> + Send + Sync)) {
     let mut depth = 0;
     map(head, |w| {
         eprintln!("{}: {:?}", depth, w);
@@ -235,14 +235,14 @@ impl<'a, C> Stackable<'a, C> for Identity<'a, C> {
     fn mount(&mut self, new: BoxStack<'a, C>) {
         self.inner = Some(new);
     }
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
         if let Some(ref i) = self.inner {
             Some(i)
         } else {
             None
         }
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
         if let Some(ref mut i) = self.inner {
             Some(i)
         } else {
@@ -264,13 +264,13 @@ impl<'a, C> Stackable<'a, C> for Identity<'a, C> {
 }
 
 /// Generic writer wrapping `io::Write`.
-pub struct Generic<W: io::Write, C> {
+pub struct Generic<W: io::Write + Send + Sync, C> {
     inner: W,
     cookie: C,
     position: u64,
 }
 
-impl<'a, W: 'a + io::Write> Generic<W, Cookie> {
+impl<'a, W: 'a + io::Write + Send + Sync> Generic<W, Cookie> {
     /// Wraps an `io::Write`r.
     pub fn new(inner: W, cookie: Cookie) -> Message<'a> {
         Message::from(Box::new(Self::new_unboxed(inner.into(), cookie)))
@@ -285,14 +285,14 @@ impl<'a, W: 'a + io::Write> Generic<W, Cookie> {
     }
 }
 
-impl<W: io::Write, C> fmt::Debug for Generic<W, C> {
+impl<W: io::Write + Send + Sync, C> fmt::Debug for Generic<W, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("writer::Generic")
             .finish()
     }
 }
 
-impl<W: io::Write, C> io::Write for Generic<W, C> {
+impl<W: io::Write + Send + Sync, C> io::Write for Generic<W, C> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         match self.inner.write(bytes) {
             Ok(n) => {
@@ -308,7 +308,7 @@ impl<W: io::Write, C> io::Write for Generic<W, C> {
     }
 }
 
-impl<'a, W: io::Write, C> Stackable<'a, C> for Generic<W, C> {
+impl<'a, W: io::Write + Send + Sync, C> Stackable<'a, C> for Generic<W, C> {
     /// Recovers the inner stackable.
     fn into_inner(self: Box<Self>) -> Result<Option<BoxStack<'a, C>>> {
         Ok(None)
@@ -320,14 +320,14 @@ impl<'a, W: io::Write, C> Stackable<'a, C> for Generic<W, C> {
     /// Sets the inner stackable.
     fn mount(&mut self, _new: BoxStack<'a, C>) {
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
         // If you use Generic to wrap an io::Writer, and you know that
         // the io::Writer's inner is also a Stackable, then return a
         // reference to the innermost Stackable in your
         // implementation.  See e.g. writer::ZLIB.
         None
     }
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
         // If you use Generic to wrap an io::Writer, and you know that
         // the io::Writer's inner is also a Stackable, then return a
         // reference to the innermost Stackable in your
@@ -400,10 +400,10 @@ impl<'a, C: 'a> Stackable<'a, C> for Armorer<'a, C> {
     fn mount(&mut self, _new: BoxStack<'a, C>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
         Some(self.inner.inner.get_mut().as_mut())
     }
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
         Some(self.inner.inner.get_ref().as_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -423,7 +423,7 @@ impl<'a, C: 'a> Stackable<'a, C> for Armorer<'a, C> {
 
 /// Encrypting writer.
 pub struct Encryptor<'a, C: 'a> {
-    inner: Generic<symmetric::Encryptor<BoxStack<'a, C>>, C>,
+    inner: Generic<symmetric::Encryptor<Box<dyn Stackable<'a, C> + Send + Sync + 'a>>, C>,
 }
 
 impl<'a> Encryptor<'a, Cookie> {
@@ -469,12 +469,12 @@ impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
     fn mount(&mut self, _new: BoxStack<'a, C>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
         // XXX: Unfortunately, this doesn't work due to a lifetime mismatch:
         // self.inner.inner.get_mut().map(|r| r.as_mut())
         None
     }
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
         self.inner.inner.get_ref().map(|r| r.as_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {
@@ -542,12 +542,12 @@ impl<'a, C: 'a> Stackable<'a, C> for AEADEncryptor<'a, C> {
     fn mount(&mut self, _new: BoxStack<'a, C>) {
         unreachable!("Only implemented by Signer")
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn Stackable<'a, C> + Send + Sync)> {
         // XXX: Unfortunately, this doesn't work due to a lifetime mismatch:
         // self.inner.inner.get_mut().map(|r| r.as_mut())
         None
     }
-    fn inner_ref(&self) -> Option<&dyn Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn Stackable<'a, C> + Send + Sync)> {
         self.inner.inner.get_ref().map(|r| r.as_ref())
     }
     fn cookie_set(&mut self, cookie: C) -> C {

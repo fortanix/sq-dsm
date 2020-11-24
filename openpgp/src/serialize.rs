@@ -2153,6 +2153,22 @@ impl Marshal for CompressedData {
     /// This function works recursively: if the `CompressedData` packet
     /// contains any packets, they are also serialized.
     fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
+        // The streaming serialization framework requires the sink to
+        // be Send + Sync, but `o` is not.  Knowing that we create the
+        // message here and don't keep the message object around, we
+        // can cheat by creating a shim that is Send + Sync.
+        struct Shim<'a>(&'a mut dyn std::io::Write);
+        impl std::io::Write for Shim<'_> {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                self.0.write(buf)
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                self.0.flush()
+            }
+        }
+        unsafe impl Send for Shim<'_> {}
+        unsafe impl Sync for Shim<'_> {}
+
         match self.body() {
             Body::Unprocessed(bytes) => {
                 if TRACE {
@@ -2172,7 +2188,7 @@ impl Marshal for CompressedData {
                               self.algo(), bytes.len());
                 }
 
-                let o = stream::Message::new(o);
+                let o = stream::Message::new(Shim(o));
                 let mut o = stream::Compressor::new_naked(
                     o, self.algo(), Default::default(), 0)?;
                 o.write_all(bytes)?;
@@ -2186,7 +2202,7 @@ impl Marshal for CompressedData {
                               self.algo(), children.len());
                 }
 
-                let o = stream::Message::new(o);
+                let o = stream::Message::new(Shim(o));
                 let mut o = stream::Compressor::new_naked(
                     o, self.algo(), Default::default(), 0)?;
 

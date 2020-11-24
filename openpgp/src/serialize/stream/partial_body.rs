@@ -206,14 +206,14 @@ impl<'a, C: 'a> writer::Stackable<'a, C> for PartialBodyFilter<'a, C> {
     fn mount(&mut self, new: writer::BoxStack<'a, C>) {
         self.inner = Some(new);
     }
-    fn inner_mut(&mut self) -> Option<&mut dyn writer::Stackable<'a, C>> {
+    fn inner_mut(&mut self) -> Option<&mut (dyn writer::Stackable<'a, C> + Send + Sync)> {
         if let Some(ref mut i) = self.inner {
             Some(i)
         } else {
             None
         }
     }
-    fn inner_ref(&self) -> Option<&dyn writer::Stackable<'a, C>> {
+    fn inner_ref(&self) -> Option<&(dyn writer::Stackable<'a, C> + Send + Sync)> {
         if let Some(ref i) = self.inner {
             Some(i)
         } else {

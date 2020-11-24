@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::{self, Read, Write, Cursor};
 use std::path::Path;
 use std::slice;
+use std::sync::Mutex;
 use libc::{c_void, c_char, size_t, ssize_t, realloc};
 
 #[cfg(unix)]
@@ -181,7 +182,7 @@ pub struct Writer(WriterKind);
 /// In some cases, we want to call functions on concrete types.  To
 /// avoid nasty hacks, we have specialized variants for that.
 pub(crate) enum WriterKind {
-    Generic(Box<dyn io::Write>),
+    Generic(Box<dyn io::Write + Send + Sync>),
     Armored(openpgp::armor::Writer<&'static mut WriterKind>),
 }
 
@@ -247,6 +248,13 @@ fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
 ///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_writer_stack_t) that
+/// serializes to an allocating writer across thread boundaries, you
+/// must make sure that the system's allocator (i.e. `realloc (3)`)
+/// supports reallocating memory allocated by another thread.
+///
 /// # Examples
 ///
 /// ```c
@@ -302,32 +310,36 @@ fn pgp_writer_alloc(buf: *mut *mut c_void, len: *mut size_t)
     let buf = ffi_param_ref_mut!(buf);
     let len = ffi_param_ref_mut!(len);
 
-    let w = WriterKind::Generic(Box::new(WriterAlloc {
+    let w = WriterKind::Generic(Box::new(WriterAlloc(Mutex::new(Buffer {
         buf: buf,
         len: len,
-    }));
+    }))));
     w.move_into_raw()
 }
 
-struct WriterAlloc {
+struct WriterAlloc(Mutex<Buffer>);
+struct Buffer {
     buf: &'static mut *mut c_void,
     len: &'static mut size_t,
 }
 
+unsafe impl Send for Buffer {}
+
 impl Write for WriterAlloc {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let old_len = *self.len;
+        let buffer = self.0.get_mut().expect("Mutex not to be poisoned");
+        let old_len = *buffer.len;
         let new_len = old_len + buf.len();
 
         let new = unsafe {
-            realloc(*self.buf, new_len)
+            realloc(*buffer.buf, new_len)
         };
         if new.is_null() {
             return Err(io::Error::new(io::ErrorKind::Other, "out of memory"));
         }
 
-        *self.buf = new;
-        *self.len = new_len;
+        *buffer.buf = new;
+        *buffer.len = new_len;
 
         let sl = unsafe {
             slice::from_raw_parts_mut(new as *mut u8, new_len)
@@ -348,26 +360,37 @@ type WriterCallbackFn = extern fn(*mut c_void, *const c_void, size_t) -> ssize_t
 /// Creates an writer from a callback and cookie.
 ///
 /// This writer calls the given callback to write data.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_writer_stack_t) that
+/// serializes to a callback-based writer across thread boundaries,
+/// you must make sure that the callback and cookie also support this.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_writer_from_callback(cb: WriterCallbackFn,
                             cookie: *mut c_void)
                             -> *mut Writer {
-    let w = WriterKind::Generic(Box::new(WriterCallback {
-        cb, cookie,
-    }));
+    let w = WriterKind::Generic(Box::new(WriterCallback(Mutex::new(
+        WriterClosure { cb, cookie, }))));
     w.move_into_raw()
 }
 
 /// A generic callback-based writer implementation.
-struct WriterCallback {
+struct WriterCallback(Mutex<WriterClosure>);
+
+struct WriterClosure {
     cb: WriterCallbackFn,
     cookie: *mut c_void,
 }
 
+unsafe impl Send for WriterClosure {}
+
 impl Write for WriterCallback {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let closure = self.0.get_mut().expect("Mutex not to be poisoned");
         let r =
-            (self.cb)(self.cookie, buf.as_ptr() as *const c_void, buf.len());
+            (closure.cb)(closure.cookie,
+                         buf.as_ptr() as *const c_void, buf.len());
         if r < 0 {
             use std::io as stdio;
             Err(stdio::Error::new(stdio::ErrorKind::Other,

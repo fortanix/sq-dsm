@@ -55,7 +55,7 @@ fn main() -> openpgp::Result<()> {
 #
 # /// Encrypts the given message.
 # fn encrypt(policy: &dyn Policy,
-#            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
+#            sink: &mut (dyn Write + Send + Sync), plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).supported().alive().revoked(false)
@@ -203,7 +203,7 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #
 # /// Encrypts the given message.
 # fn encrypt(policy: &dyn Policy,
-#            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
+#            sink: &mut (dyn Write + Send + Sync), plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).supported().alive().revoked(false)
@@ -351,7 +351,7 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 /// Encrypts the given message.
 fn encrypt(policy: &dyn Policy,
-           sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
+           sink: &mut (dyn Write + Send + Sync), plaintext: &str, recipient: &openpgp::Cert)
            -> openpgp::Result<()> {
     let recipients =
         recipient.keys().with_policy(policy, None).supported().alive().revoked(false)
@@ -513,7 +513,7 @@ Decrypted data can be read from this using [`io::Read`].
 #
 # /// Encrypts the given message.
 # fn encrypt(policy: &dyn Policy,
-#            sink: &mut dyn Write, plaintext: &str, recipient: &openpgp::Cert)
+#            sink: &mut (dyn Write + Send + Sync), plaintext: &str, recipient: &openpgp::Cert)
 #            -> openpgp::Result<()> {
 #    let recipients =
 #        recipient.keys().with_policy(policy, None).supported().alive().revoked(false)

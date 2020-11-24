@@ -46,8 +46,8 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 }
 
 /// Encrypts the given message.
-fn encrypt(p: &dyn Policy, sink: &mut dyn Write, plaintext: &str,
-           recipient: &openpgp::Cert)
+fn encrypt(p: &dyn Policy, sink: &mut (dyn Write + Send + Sync),
+           plaintext: &str, recipient: &openpgp::Cert)
     -> openpgp::Result<()>
 {
     let recipients =

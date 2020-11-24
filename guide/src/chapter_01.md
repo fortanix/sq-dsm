@@ -55,13 +55,13 @@ fn main() -> openpgp::Result<()> {
 #
 # /// Signs the given message.
 # fn sign(policy: &dyn Policy,
-#         sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
+#         sink: &mut (dyn Write + Send + Sync), plaintext: &str, tsk: &openpgp::Cert)
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
 #     let keypair = tsk
 #         .keys().unencrypted_secret()
-#         .with_policy(policy, None).supported().alive().revoked(false).for_signing()
+#         .with_policy(policy, None).alive().revoked(false).for_signing()
 #         .nth(0).unwrap().key().clone().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
@@ -206,13 +206,13 @@ fn generate() -> openpgp::Result<openpgp::Cert> {
 #
 # /// Signs the given message.
 # fn sign(policy: &dyn Policy,
-#         sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
+#         sink: &mut (dyn Write + Send + Sync), plaintext: &str, tsk: &openpgp::Cert)
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
 #     let keypair = tsk
 #         .keys().unencrypted_secret()
-#         .with_policy(policy, None).supported().alive().revoked(false).for_signing()
+#         .with_policy(policy, None).alive().revoked(false).for_signing()
 #         .nth(0).unwrap().key().clone().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
@@ -357,13 +357,13 @@ implements [`io::Write`], and we simply write the plaintext to it.
 #
 /// Signs the given message.
 fn sign(policy: &dyn Policy,
-        sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
+        sink: &mut (dyn Write + Send + Sync), plaintext: &str, tsk: &openpgp::Cert)
     -> openpgp::Result<()>
 {
     // Get the keypair to do the signing from the Cert.
     let keypair = tsk
         .keys().unencrypted_secret()
-        .with_policy(policy, None).supported().alive().revoked(false).for_signing()
+        .with_policy(policy, None).alive().revoked(false).for_signing()
         .nth(0).unwrap().key().clone().into_keypair()?;
 
     // Start streaming an OpenPGP message.
@@ -519,13 +519,13 @@ Verified data can be read from this using [`io::Read`].
 #
 # /// Signs the given message.
 # fn sign(policy: &dyn Policy,
-#         sink: &mut dyn Write, plaintext: &str, tsk: &openpgp::Cert)
+#         sink: &mut (dyn Write + Send + Sync), plaintext: &str, tsk: &openpgp::Cert)
 #     -> openpgp::Result<()>
 # {
 #     // Get the keypair to do the signing from the Cert.
 #     let keypair = tsk
 #         .keys().unencrypted_secret()
-#         .with_policy(policy, None).supported().alive().revoked(false).for_signing()
+#         .with_policy(policy, None).alive().revoked(false).for_signing()
 #         .nth(0).unwrap().key().clone().into_keypair()?;
 #
 #     // Start streaming an OpenPGP message.
