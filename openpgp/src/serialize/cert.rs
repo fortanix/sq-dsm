@@ -412,7 +412,7 @@ impl<'a> TSK<'a> {
     /// assert_eq!(cert.keys().with_policy(p, None)
     ///            .alive().revoked(false).unencrypted_secret().count(), 2);
     ///
-    /// // Only write out the primary key's secret.
+    /// // Only write out the subkey's secret, the primary key is "detached".
     /// let mut buf = Vec::new();
     /// cert.as_tsk()
     ///     .set_filter(|k| k.fingerprint() != cert.fingerprint())
@@ -1002,5 +1002,49 @@ mod test {
         assert_eq!(cert_.subkeys().count(), 0);
         assert_eq!(cert_.userids().count(), 0);
         assert_eq!(cert_.user_attributes().count(), 0);
+    }
+
+    /// Tests that GnuPG-style stubs are preserved when roundtripping.
+    #[test]
+    fn issue_613() -> Result<()> {
+        use crate::packet::key::*;
+        use crate::{types::*, crypto::S2K};
+        use crate::{*, cert::*, parse::Parse};
+        let p = &crate::policy::StandardPolicy::new();
+
+        let (cert, _) = CertBuilder::new().add_signing_subkey().generate()?;
+        assert_eq!(cert.keys().with_policy(p, None)
+                   .alive().revoked(false).unencrypted_secret().count(), 2);
+
+        // Only write out the subkey's secret, the primary key is "detached".
+        let buf = cert.as_tsk()
+            .set_filter(|k| k.fingerprint() != cert.fingerprint())
+            .emit_secret_key_stubs(true)
+            .to_vec()?;
+
+        // Try parsing it.
+        let cert_ = Cert::from_bytes(&buf)?;
+
+        // The primary key has an "encrypted" stub.
+        assert!(cert_.primary_key().has_secret());
+        assert_eq!(cert_.keys().with_policy(p, None)
+                   .alive().revoked(false).unencrypted_secret().count(), 1);
+        if let Some(SecretKeyMaterial::Encrypted(sec)) =
+            cert_.primary_key().optional_secret()
+        {
+            assert_eq!(sec.algo(), SymmetricAlgorithm::Unencrypted);
+            if let S2K::Private { tag, .. } = sec.s2k() {
+                assert_eq!(*tag, 101);
+            } else {
+                panic!("expected proprietary S2K type");
+            }
+        } else {
+            panic!("expected ''encrypted'' secret key stub");
+        }
+
+        // When roundtripping such a key, the stub should be preserved.
+        let buf_ = cert_.as_tsk().to_vec()?;
+        assert_eq!(buf, buf_);
+        Ok(())
     }
 }
