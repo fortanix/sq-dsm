@@ -1431,4 +1431,10 @@ mod tests {
                    revokers.iter().collect::<HashSet<_>>());
         Ok(())
     }
+
+    #[test]
+    fn cert_builder_is_send_and_sync() {
+        fn f<T: Send + Sync>(_: T) {}
+        f(CertBuilder::new().generate().unwrap());
+    }
 }
