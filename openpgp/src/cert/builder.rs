@@ -160,7 +160,6 @@ pub struct KeyBlueprint {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Debug)]
 pub struct CertBuilder<'a> {
     creation_time: Option<std::time::SystemTime>,
     ciphersuite: CipherSuite,
