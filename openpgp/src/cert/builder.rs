@@ -446,7 +446,7 @@ impl CertBuilder<'_> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn add_userid<'a, U>(mut self, uid: U) -> Self
+    pub fn add_userid<U>(mut self, uid: U) -> Self
         where U: Into<packet::UserID>
     {
         self.userids.push(uid.into());
@@ -526,7 +526,7 @@ impl CertBuilder<'_> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn add_user_attribute<'a, U>(mut self, ua: U) -> Self
+    pub fn add_user_attribute<U>(mut self, ua: U) -> Self
         where U: Into<packet::UserAttribute>
     {
         self.user_attributes.push(ua.into());
