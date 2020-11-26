@@ -18,7 +18,7 @@ use super::{
 /// because it can be useful to add the UserID later, it is
 /// permitted to be none.
 pub fn cert_builder<'a, V, U>(version: V, userid: Option<U>)
-                              -> CertBuilder
+                              -> CertBuilder<'a>
     where V: Into<Option<Autocrypt>>,
           U: Into<packet::UserID>
 {

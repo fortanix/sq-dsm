@@ -1,4 +1,5 @@
 use std::time;
+use std::marker::PhantomData;
 
 use crate::packet;
 use crate::packet::{
@@ -160,7 +161,7 @@ pub struct KeyBlueprint {
 /// # }
 /// ```
 #[derive(Clone, Debug)]
-pub struct CertBuilder {
+pub struct CertBuilder<'a> {
     creation_time: Option<std::time::SystemTime>,
     ciphersuite: CipherSuite,
     primary: KeyBlueprint,
@@ -169,9 +170,10 @@ pub struct CertBuilder {
     user_attributes: Vec<packet::UserAttribute>,
     password: Option<Password>,
     revocation_keys: Option<Vec<RevocationKey>>,
+    phantom: PhantomData<&'a ()>,
 }
 
-impl CertBuilder {
+impl CertBuilder<'_> {
     /// Returns a new `CertBuilder`.
     ///
     /// The returned builder is configured to generate a minimal
@@ -220,6 +222,7 @@ impl CertBuilder {
             user_attributes: vec![],
             password: None,
             revocation_keys: None,
+            phantom: PhantomData,
         }
     }
 
@@ -273,6 +276,7 @@ impl CertBuilder {
             user_attributes: vec![],
             password: None,
             revocation_keys: None,
+            phantom: PhantomData,
         }
     }
 

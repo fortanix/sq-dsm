@@ -906,7 +906,7 @@ pub extern "C" fn pgp_cert_parser_free(parser: Option<&mut CertParserWrapper>)
 /// pgp_cert_free (cert);
 /// ```
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
-pub extern "C" fn pgp_cert_builder_new() -> *mut CertBuilder {
+pub extern "C" fn pgp_cert_builder_new() -> *mut CertBuilder<'static> {
     box_raw!(CertBuilder::new())
 }
 
@@ -917,7 +917,7 @@ pub extern "C" fn pgp_cert_builder_new() -> *mut CertBuilder {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle]
 pub extern "C" fn pgp_cert_builder_general_purpose(cs: c_int,
                                                        uid: *const c_char)
-    -> *mut CertBuilder
+    -> *mut CertBuilder<'static>
 {
     let uid = if uid.is_null() {
         None
