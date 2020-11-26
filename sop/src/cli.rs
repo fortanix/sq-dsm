@@ -7,7 +7,10 @@ use structopt::StructOpt;
 
 use sequoia_openpgp as openpgp;
 use openpgp::{
-    Cert,
+    cert::{
+        Cert,
+        CertParser,
+    },
     crypto::{
         Password,
     },
@@ -302,10 +305,26 @@ pub fn load_certs(files: Vec<String>) -> Result<Vec<Cert>> {
     let mut certs = vec![];
     for f in files {
         let r = load_file(&f)?;
-        certs.push(Cert::from_reader(r).map_err(|_| Error::BadData)
-                   .context(format!("Failed to load key from file {:?}", f))?);
+        for cert in CertParser::from_reader(r).map_err(|_| Error::BadData)
+            .context(format!("Failed to load CERTS from file {:?}", f))?
+        {
+            certs.push(
+                cert.context(format!("Malformed certificate in file {:?}", f))?
+            );
+        }
     }
     Ok(certs)
+}
+
+/// Loads the KEY given by the (special) files.
+pub fn load_keys(files: Vec<String>) -> Result<Vec<Cert>> {
+    let mut keys = vec![];
+    for f in files {
+        let r = load_file(&f)?;
+        keys.push(Cert::from_reader(r).map_err(|_| Error::BadData)
+                   .context(format!("Failed to load KEY from file {:?}", f))?);
+    }
+    Ok(keys)
 }
 
 /// Frobnicates the strings and converts them to passwords.

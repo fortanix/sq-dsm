@@ -43,7 +43,7 @@ type Result<T> = anyhow::Result<T>;
 mod cli;
 use cli::{
     SOP, SignAs, EncryptAs, ArmorKind,
-    load_file, create_file, load_certs, frob_passwords,
+    load_file, create_file, load_certs, load_keys, frob_passwords,
 };
 mod dates;
 
@@ -100,7 +100,7 @@ fn real_main() -> Result<()> {
                 }
             }
 
-            let tsks = load_certs(keys)?;
+            let tsks = load_keys(keys)?;
             if tsks.is_empty() {
                 return Err(anyhow::Error::from(Error::MissingArg))
                     .context("Expected at least one certificate");
@@ -191,7 +191,7 @@ fn real_main() -> Result<()> {
 
             let passwords = frob_passwords(with_password)?;
 
-            let tsks = load_certs(sign_with)?;
+            let tsks = load_keys(sign_with)?;
             let mut signers = Vec::new();
             for tsk in tsks {
                 let mut one = false;
@@ -386,7 +386,7 @@ fn real_main() -> Result<()> {
                 };
 
             let verify_with = load_certs(verify_with)?;
-            let keys = load_certs(key)?;
+            let keys = load_keys(key)?;
 
             let vhelper = VHelper::new(verify_out,
                                        if verify_with.is_empty() {
