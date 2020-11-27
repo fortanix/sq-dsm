@@ -1030,10 +1030,10 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::packet::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, rev) =
     /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -1062,9 +1062,9 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, rev) =
     /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -1104,11 +1104,11 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::packet::Tag;
     /// # use std::convert::TryInto;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) = CertBuilder::new()
     /// #     .add_userid("Alice")
@@ -1151,10 +1151,10 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::prelude::*;
     /// # use openpgp::cert::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
     /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -1197,9 +1197,9 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, rev) =
     /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -1289,9 +1289,9 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
     /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -1391,10 +1391,10 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::PacketPile;
     /// # use openpgp::cert::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
     /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -1942,10 +1942,10 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::KeyHandle;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
     /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -1971,9 +1971,9 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
     /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -1999,9 +1999,9 @@ impl Cert {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (cert, _) =
     /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
@@ -3134,10 +3134,10 @@ impl<'a> ValidCert<'a> {
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
     /// # use openpgp::policy::StandardPolicy;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let p = &StandardPolicy::new();
     /// # let (cert, _) = CertBuilder::new()
