@@ -85,20 +85,36 @@ fn pgp_cert_from_packet_parser(errp: Option<&mut *mut crate::error::Error>,
     openpgp::Cert::try_from(*ppr).move_into_raw(errp)
 }
 
-/// Merges `other` into `cert`.
+/// Merges `other` into `cert`, ignoring secret key material in `other`.
 ///
 /// If `other` is a different key, then nothing is merged into
 /// `cert`, but `cert` is still canonicalized.
 ///
 /// Consumes `cert` and `other`.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn pgp_cert_merge(errp: Option<&mut *mut crate::error::Error>,
+fn pgp_cert_merge_public(errp: Option<&mut *mut crate::error::Error>,
                  cert: *mut Cert,
                  other: *mut Cert)
                  -> Maybe<Cert> {
     let cert = cert.move_from_raw();
     let other = other.move_from_raw();
-    cert.merge(other).move_into_raw(errp)
+    cert.merge_public(other).move_into_raw(errp)
+}
+
+/// Merges `other` into `cert`, including secret key material in `other`.
+///
+/// If `other` is a different key, then nothing is merged into
+/// `cert`, but `cert` is still canonicalized.
+///
+/// Consumes `cert` and `other`.
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_cert_merge_public_and_secret(errp: Option<&mut *mut crate::error::Error>,
+                 cert: *mut Cert,
+                 other: *mut Cert)
+                 -> Maybe<Cert> {
+    let cert = cert.move_from_raw();
+    let other = other.move_from_raw();
+    cert.merge_public_and_secret(other).move_into_raw(errp)
 }
 
 /// Adds packets to the Cert.

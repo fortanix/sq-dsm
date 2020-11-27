@@ -36,7 +36,7 @@
 //!  - *Using a certificate*: See the [`Cert`] and [`ValidCert`] data structures.
 //!  - *Revoking a certificate*: See the [`CertRevocationBuilder`] data structure.
 //!  - *Merging packets*: See the [`Cert::insert_packets`] method.
-//!  - *Merging certificates*: See the [`Cert::merge`] method.
+//!  - *Merging certificates*: See the [`Cert::merge_public`] method.
 //!  - *Creating third-party certifications*: See the [`UserID::certify`]
 //!     and [`UserAttribute::certify`] methods.
 //!  - *Using User IDs and User Attributes*: See the [`ComponentAmalgamation`] module.
@@ -119,7 +119,7 @@
 //! [`ValidCert`]: struct.ValidCert.html
 //! [`CertRevocationBuilder`]: struct.CertRevocationBuilder.html
 //! [`Cert::insert_packets`]: struct.Cert.html#method.insert_packets
-//! [`Cert::merge`]: struct.Cert.html#method.merge
+//! [`Cert::merge_public`]: struct.Cert.html#method.merge_public
 //! [`UserID::certify`]: ../packet/struct.UserID.html#method.certify
 //! [`UserAttribute::certify`]: ../packet/user_attribute/struct.UserAttribute.html#method.certify
 //! [`ComponentAmalgamation`]: amalgamation/index.html
@@ -2016,7 +2016,8 @@ impl Cert {
         self.primary.key().keyid()
     }
 
-    /// Merges `other` into `self`.
+    /// Merges `other` into `self`, ignoring secret key material in
+    /// `other`.
     ///
     /// If `other` is a different certificate, then an error is
     /// returned.
@@ -2027,27 +2028,78 @@ impl Cert {
     ///
     /// [`Cert::insert_packets`]: #method.insert_packets
     ///
+    /// This function is appropriate to merge certificate material
+    /// from untrusted sources like keyservers.  If `other` contains
+    /// secret key material, it is ignored.  See
+    /// [`Cert::merge_public_and_secret`] on how to merge certificates
+    /// containing secret key material from trusted sources.
+    ///
+    /// [`Cert::merge_public_and_secret`]: #method.merge_public_and_secret
+    ///
     /// # Examples
     ///
     /// ```
-    /// use sequoia_openpgp as openpgp;
+    /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::cert::prelude::*;
-    ///
+    /// #
     /// # fn main() -> openpgp::Result<()> {
     /// # let (local, _) =
     /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #       .generate()?;
     /// # let keyserver = local.clone();
-    /// // Merge the "local" version with the version from the "key server".
-    /// let cert = if local.fingerprint() == keyserver.fingerprint() {
-    ///     local.merge(keyserver)?;
-    /// } else {
-    ///     // Error, the key server returned a different certificate.
-    /// };
-    /// #     Ok(())
-    /// # }
+    /// // Merge the local version with the version from the keyserver.
+    /// let cert = local.merge_public(keyserver)?;
+    /// # let _ = cert;
+    /// # Ok(()) }
     /// ```
-    pub fn merge(mut self, mut other: Cert) -> Result<Self> {
+    pub fn merge_public(self, other: Cert) -> Result<Self> {
+        // Strip all secrets from `other`.
+        let other_public = Cert::from_packets(
+            other.into_packets().map(|p| match p {
+                Packet::PublicKey(k) => k.take_secret().0.into(),
+                Packet::SecretKey(k) => k.take_secret().0.into(),
+                Packet::PublicSubkey(k) => k.take_secret().0.into(),
+                Packet::SecretSubkey(k) => k.take_secret().0.into(),
+                p => p,
+            }))?;
+        // Then merge it.
+        self.merge_public_and_secret(other_public)
+    }
+
+    /// Merges `other` into `self`, including secret key material.
+    ///
+    /// If `other` is a different certificate, then an error is
+    /// returned.
+    ///
+    /// This routine merges duplicate packets.  This is different from
+    /// [`Cert::insert_packets`], which prefers keys in the packets that
+    /// are being merged into the certificate.
+    ///
+    /// [`Cert::insert_packets`]: #method.insert_packets
+    ///
+    /// It is important to only merge key material from trusted
+    /// sources using this function, because it may be used to import
+    /// secret key material.  Secret key material is not authenticated
+    /// by OpenPGP, and there are plausible attack scenarios where a
+    /// malicious actor injects secret key material.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// # let (local, _) =
+    /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #       .generate()?;
+    /// # let other_device = local.clone();
+    /// // Merge the local version with the version from your other device.
+    /// let cert = local.merge_public_and_secret(other_device)?;
+    /// # let _ = cert;
+    /// # Ok(()) }
+    /// ```
+    pub fn merge_public_and_secret(mut self, mut other: Cert) -> Result<Self> {
         if self.fingerprint() != other.fingerprint() {
             // The primary key is not the same.  There is nothing to
             // do.
@@ -3534,7 +3586,7 @@ mod test {
 
         // When we merge it with itself, we should get the exact same
         // thing.
-        let merged = cert_base.clone().merge(cert_base.clone()).unwrap();
+        let merged = cert_base.clone().merge_public_and_secret(cert_base.clone()).unwrap();
         assert_eq!(cert_base, merged);
 
         let cert_add_uid_1
@@ -3556,16 +3608,16 @@ mod test {
         assert_eq!(cert_all_uids.userids.len(), 3);
 
         // Merge in order.
-        let merged = cert_base.clone().merge(cert_add_uid_1.clone()).unwrap()
-            .merge(cert_add_uid_2.clone()).unwrap()
-            .merge(cert_add_uid_3.clone()).unwrap();
+        let merged = cert_base.clone().merge_public_and_secret(cert_add_uid_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_uid_2.clone()).unwrap()
+            .merge_public_and_secret(cert_add_uid_3.clone()).unwrap();
         assert_eq!(cert_all_uids, merged);
 
         // Merge in reverse order.
         let merged = cert_base.clone()
-            .merge(cert_add_uid_3.clone()).unwrap()
-            .merge(cert_add_uid_2.clone()).unwrap()
-            .merge(cert_add_uid_1.clone()).unwrap();
+            .merge_public_and_secret(cert_add_uid_3.clone()).unwrap()
+            .merge_public_and_secret(cert_add_uid_2.clone()).unwrap()
+            .merge_public_and_secret(cert_add_uid_1.clone()).unwrap();
         assert_eq!(cert_all_uids, merged);
 
         let cert_add_subkey_1
@@ -3579,28 +3631,28 @@ mod test {
             = Cert::from_bytes(key("bannon-all-subkeys.gpg")).unwrap();
 
         // Merge the first user, then the second, then the third.
-        let merged = cert_base.clone().merge(cert_add_subkey_1.clone()).unwrap()
-            .merge(cert_add_subkey_2.clone()).unwrap()
-            .merge(cert_add_subkey_3.clone()).unwrap();
+        let merged = cert_base.clone().merge_public_and_secret(cert_add_subkey_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_2.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_3.clone()).unwrap();
         assert_eq!(cert_all_subkeys, merged);
 
         // Merge the third user, then the second, then the first.
-        let merged = cert_base.clone().merge(cert_add_subkey_3.clone()).unwrap()
-            .merge(cert_add_subkey_2.clone()).unwrap()
-            .merge(cert_add_subkey_1.clone()).unwrap();
+        let merged = cert_base.clone().merge_public_and_secret(cert_add_subkey_3.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_2.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_1.clone()).unwrap();
         assert_eq!(cert_all_subkeys, merged);
 
         // Merge a lot.
         let merged = cert_base.clone()
-            .merge(cert_add_subkey_1.clone()).unwrap()
-            .merge(cert_add_subkey_1.clone()).unwrap()
-            .merge(cert_add_subkey_3.clone()).unwrap()
-            .merge(cert_add_subkey_1.clone()).unwrap()
-            .merge(cert_add_subkey_2.clone()).unwrap()
-            .merge(cert_add_subkey_3.clone()).unwrap()
-            .merge(cert_add_subkey_3.clone()).unwrap()
-            .merge(cert_add_subkey_1.clone()).unwrap()
-            .merge(cert_add_subkey_2.clone()).unwrap();
+            .merge_public_and_secret(cert_add_subkey_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_3.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_2.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_3.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_3.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_2.clone()).unwrap();
         assert_eq!(cert_all_subkeys, merged);
 
         let cert_all
@@ -3609,25 +3661,25 @@ mod test {
 
         // Merge all the subkeys with all the uids.
         let merged = cert_all_subkeys.clone()
-            .merge(cert_all_uids.clone()).unwrap();
+            .merge_public_and_secret(cert_all_uids.clone()).unwrap();
         assert_eq!(cert_all, merged);
 
         // Merge all uids with all the subkeys.
         let merged = cert_all_uids.clone()
-            .merge(cert_all_subkeys.clone()).unwrap();
+            .merge_public_and_secret(cert_all_subkeys.clone()).unwrap();
         assert_eq!(cert_all, merged);
 
         // All the subkeys and the uids in a mixed up order.
         let merged = cert_base.clone()
-            .merge(cert_add_subkey_1.clone()).unwrap()
-            .merge(cert_add_uid_2.clone()).unwrap()
-            .merge(cert_add_uid_1.clone()).unwrap()
-            .merge(cert_add_subkey_3.clone()).unwrap()
-            .merge(cert_add_subkey_1.clone()).unwrap()
-            .merge(cert_add_uid_3.clone()).unwrap()
-            .merge(cert_add_subkey_2.clone()).unwrap()
-            .merge(cert_add_subkey_1.clone()).unwrap()
-            .merge(cert_add_uid_2.clone()).unwrap();
+            .merge_public_and_secret(cert_add_subkey_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_uid_2.clone()).unwrap()
+            .merge_public_and_secret(cert_add_uid_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_3.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_uid_3.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_2.clone()).unwrap()
+            .merge_public_and_secret(cert_add_subkey_1.clone()).unwrap()
+            .merge_public_and_secret(cert_add_uid_2.clone()).unwrap();
         assert_eq!(cert_all, merged);
 
         // Certifications.
@@ -3650,13 +3702,13 @@ mod test {
         assert!(cert_donald_signs_base.userids[0].certifications.len() == 1);
 
         let merged = cert_donald_signs_base.clone()
-            .merge(cert_ivanka_signs_base.clone()).unwrap();
+            .merge_public_and_secret(cert_ivanka_signs_base.clone()).unwrap();
         assert!(merged.userids.len() == 1);
         assert!(merged.userids[0].self_signatures.len() == 1);
         assert!(merged.userids[0].certifications.len() == 2);
 
         let merged = cert_donald_signs_base.clone()
-            .merge(cert_donald_signs_all.clone()).unwrap();
+            .merge_public_and_secret(cert_donald_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
         assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from the Donald on the
@@ -3666,9 +3718,9 @@ mod test {
         assert!(merged.userids[2].certifications.len() == 1);
 
         let merged = cert_donald_signs_base.clone()
-            .merge(cert_donald_signs_all.clone()).unwrap()
-            .merge(cert_ivanka_signs_base.clone()).unwrap()
-            .merge(cert_ivanka_signs_all.clone()).unwrap();
+            .merge_public_and_secret(cert_donald_signs_all.clone()).unwrap()
+            .merge_public_and_secret(cert_ivanka_signs_base.clone()).unwrap()
+            .merge_public_and_secret(cert_ivanka_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
         assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from each of the Donald
@@ -3679,14 +3731,14 @@ mod test {
 
         // Same as above, but redundant.
         let merged = cert_donald_signs_base.clone()
-            .merge(cert_ivanka_signs_base.clone()).unwrap()
-            .merge(cert_donald_signs_all.clone()).unwrap()
-            .merge(cert_donald_signs_all.clone()).unwrap()
-            .merge(cert_ivanka_signs_all.clone()).unwrap()
-            .merge(cert_ivanka_signs_base.clone()).unwrap()
-            .merge(cert_donald_signs_all.clone()).unwrap()
-            .merge(cert_donald_signs_all.clone()).unwrap()
-            .merge(cert_ivanka_signs_all.clone()).unwrap();
+            .merge_public_and_secret(cert_ivanka_signs_base.clone()).unwrap()
+            .merge_public_and_secret(cert_donald_signs_all.clone()).unwrap()
+            .merge_public_and_secret(cert_donald_signs_all.clone()).unwrap()
+            .merge_public_and_secret(cert_ivanka_signs_all.clone()).unwrap()
+            .merge_public_and_secret(cert_ivanka_signs_base.clone()).unwrap()
+            .merge_public_and_secret(cert_donald_signs_all.clone()).unwrap()
+            .merge_public_and_secret(cert_donald_signs_all.clone()).unwrap()
+            .merge_public_and_secret(cert_ivanka_signs_all.clone()).unwrap();
         assert!(merged.userids.len() == 3);
         assert!(merged.userids[0].self_signatures.len() == 1);
         // There should be two certifications from each of the Donald
@@ -3902,7 +3954,7 @@ mod test {
         let update =
             Cert::from_bytes(crate::tests::key("about-to-expire.update-no-uid.pgp"))
             .unwrap();
-        let cert = cert.merge(update).unwrap();
+        let cert = cert.merge_public_and_secret(update).unwrap();
         cert.primary_key().with_policy(p, None).unwrap().alive().unwrap();
     }
 
@@ -4192,40 +4244,40 @@ mod test {
             crate::tests::key("already-revoked-direct-revocation.pgp")).unwrap();
         check(&d, true, false, false);
 
-        check(&cert.clone().merge(d.clone()).unwrap(), true, false, false);
+        check(&cert.clone().merge_public_and_secret(d.clone()).unwrap(), true, false, false);
         // Make sure the merge order does not matter.
-        check(&d.clone().merge(cert.clone()).unwrap(), true, false, false);
+        check(&d.clone().merge_public_and_secret(cert.clone()).unwrap(), true, false, false);
 
         let u = Cert::from_bytes(
             crate::tests::key("already-revoked-userid-revocation.pgp")).unwrap();
         check(&u, false, true, false);
 
-        check(&cert.clone().merge(u.clone()).unwrap(), false, true, false);
-        check(&u.clone().merge(cert.clone()).unwrap(), false, true, false);
+        check(&cert.clone().merge_public_and_secret(u.clone()).unwrap(), false, true, false);
+        check(&u.clone().merge_public_and_secret(cert.clone()).unwrap(), false, true, false);
 
         let k = Cert::from_bytes(
             crate::tests::key("already-revoked-subkey-revocation.pgp")).unwrap();
         check(&k, false, false, true);
 
-        check(&cert.clone().merge(k.clone()).unwrap(), false, false, true);
-        check(&k.clone().merge(cert.clone()).unwrap(), false, false, true);
+        check(&cert.clone().merge_public_and_secret(k.clone()).unwrap(), false, false, true);
+        check(&k.clone().merge_public_and_secret(cert.clone()).unwrap(), false, false, true);
 
         // direct and user id revocation.
-        check(&d.clone().merge(u.clone()).unwrap(), true, true, false);
-        check(&u.clone().merge(d.clone()).unwrap(), true, true, false);
+        check(&d.clone().merge_public_and_secret(u.clone()).unwrap(), true, true, false);
+        check(&u.clone().merge_public_and_secret(d.clone()).unwrap(), true, true, false);
 
         // direct and subkey revocation.
-        check(&d.clone().merge(k.clone()).unwrap(), true, false, true);
-        check(&k.clone().merge(d.clone()).unwrap(), true, false, true);
+        check(&d.clone().merge_public_and_secret(k.clone()).unwrap(), true, false, true);
+        check(&k.clone().merge_public_and_secret(d.clone()).unwrap(), true, false, true);
 
         // user id and subkey revocation.
-        check(&u.clone().merge(k.clone()).unwrap(), false, true, true);
-        check(&k.clone().merge(u.clone()).unwrap(), false, true, true);
+        check(&u.clone().merge_public_and_secret(k.clone()).unwrap(), false, true, true);
+        check(&k.clone().merge_public_and_secret(u.clone()).unwrap(), false, true, true);
 
         // direct, user id and subkey revocation.
-        check(&d.clone().merge(u.clone().merge(k.clone()).unwrap()).unwrap(),
+        check(&d.clone().merge_public_and_secret(u.clone().merge_public_and_secret(k.clone()).unwrap()).unwrap(),
               true, true, true);
-        check(&d.clone().merge(k.clone().merge(u.clone()).unwrap()).unwrap(),
+        check(&d.clone().merge_public_and_secret(k.clone().merge_public_and_secret(u.clone()).unwrap()).unwrap(),
               true, true, true);
     }
 
@@ -4479,7 +4531,7 @@ mod test {
             assert!(!revoked(p, &cert, None));
 
             t!("Soft revocation");
-            let cert = cert.merge(
+            let cert = cert.merge_public_and_secret(
                 Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-1-soft-revocation.pgp", f))
@@ -4490,7 +4542,7 @@ mod test {
             assert!(revoked(p, &cert, None));
 
             t!("New self signature");
-            let cert = cert.merge(
+            let cert = cert.merge_public_and_secret(
                 Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-2-new-self-sig.pgp", f))
@@ -4500,7 +4552,7 @@ mod test {
             assert!(!revoked(p, &cert, None));
 
             t!("Hard revocation");
-            let cert = cert.merge(
+            let cert = cert.merge_public_and_secret(
                 Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-3-hard-revocation.pgp", f))
@@ -4510,7 +4562,7 @@ mod test {
             assert!(revoked(p, &cert, None));
 
             t!("New self signature");
-            let cert = cert.merge(
+            let cert = cert.merge_public_and_secret(
                 Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-4-new-self-sig.pgp", f))
@@ -4600,7 +4652,7 @@ mod test {
             check(p, &cert, false, now);
 
             // A soft-revocation.
-            let cert = cert.merge(
+            let cert = cert.merge_public_and_secret(
                 Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-1-soft-revocation.pgp", f))
@@ -4610,7 +4662,7 @@ mod test {
             check(p, &cert, true, now);
 
             // A new self signature.  This should override the soft-revocation.
-            let cert = cert.merge(
+            let cert = cert.merge_public_and_secret(
                 Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-2-new-self-sig.pgp", f))
@@ -4621,7 +4673,7 @@ mod test {
 
             // A hard revocation.  Unlike for Certs, this does NOT trumps
             // everything.
-            let cert = cert.merge(
+            let cert = cert.merge_public_and_secret(
                 Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-3-hard-revocation.pgp", f))
@@ -4631,7 +4683,7 @@ mod test {
             check(p, &cert, true, now);
 
             // A newer self signature.
-            let cert = cert.merge(
+            let cert = cert.merge_public_and_secret(
                 Cert::from_bytes(
                     crate::tests::key(
                         &format!("really-revoked-{}-4-new-self-sig.pgp", f))
@@ -4700,13 +4752,13 @@ mod test {
         assert!(!cert.is_tsk());
         assert!(cert.subkeys().all(|k| ! k.key().has_secret()));
 
-        let merge1 = cert.clone().merge(tsk.clone()).unwrap();
+        let merge1 = cert.clone().merge_public_and_secret(tsk.clone()).unwrap();
         assert!(merge1.is_tsk());
         assert!(merge1.primary.key().has_secret());
         assert_eq!(merge1.subkeys().len(), subkey_count);
         assert!(merge1.subkeys().all(|k| k.key().has_secret()));
 
-        let merge2 = tsk.clone().merge(cert.clone()).unwrap();
+        let merge2 = tsk.clone().merge_public_and_secret(cert.clone()).unwrap();
         assert!(merge2.is_tsk());
         assert!(merge2.primary.key().has_secret());
         assert_eq!(merge2.subkeys().len(), subkey_count);
@@ -4861,7 +4913,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                    b"Eminem");
 
         // A soft-revocation for "Slim Shady".
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("really-revoked-userid-1-soft-revocation.pgp")
             ).unwrap()).unwrap();
@@ -4875,7 +4927,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         // A new self signature for "Slim Shady".  This should
         // override the soft-revocation.
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("really-revoked-userid-2-new-self-sig.pgp")
             ).unwrap()).unwrap();
@@ -4888,7 +4940,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                    b"Slim Shady");
 
         // A hard revocation for "Slim Shady".
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("really-revoked-userid-3-hard-revocation.pgp")
             ).unwrap()).unwrap();
@@ -4902,7 +4954,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         // A newer self signature for "Slim Shady". Unlike for Certs, this
         // does NOT trump everything.
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("really-revoked-userid-4-new-self-sig.pgp")
             ).unwrap()).unwrap();
@@ -4935,7 +4987,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         // Add a second user id.  Since neither is marked primary, the
         // newer one should be considered primary.
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("primary-key-1-add-userid-bbbbb.pgp")
             ).unwrap()).unwrap();
@@ -4948,7 +5000,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                    b"bbbbb");
 
         // Mark aaaaa as primary.  It is now primary and the newest one.
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("primary-key-2-make-aaaaa-primary.pgp")
             ).unwrap()).unwrap();
@@ -4962,7 +5014,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         // Update the preferences on bbbbb.  It is now the newest, but
         // it is not marked as primary.
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("primary-key-3-make-bbbbb-new-self-sig.pgp")
             ).unwrap()).unwrap();
@@ -4976,7 +5028,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         // Mark bbbbb as primary.  It is now the newest and marked as
         // primary.
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("primary-key-4-make-bbbbb-primary.pgp")
             ).unwrap()).unwrap();
@@ -4991,7 +5043,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // Update the preferences on aaaaa.  It is now has the newest
         // self sig, but that self sig does not say that it is
         // primary.
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("primary-key-5-make-aaaaa-self-sig.pgp")
             ).unwrap()).unwrap();
@@ -5005,7 +5057,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         // Hard revoke aaaaa.  Unlike with Certs, a hard revocation is
         // not treated specially.
-        let cert = cert.merge(
+        let cert = cert.merge_public_and_secret(
             Cert::from_bytes(
                 crate::tests::key("primary-key-6-revoked-aaaaa.pgp")
             ).unwrap()).unwrap();
@@ -5299,14 +5351,14 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             Cert::try_from(vec![primary_pub.clone().into()])?;
         let cert_s =
             Cert::try_from(vec![primary_sec.clone().into()])?;
-        let cert = cert_p.merge(cert_s)?;
+        let cert = cert_p.merge_public_and_secret(cert_s)?;
         assert!(cert.primary_key().has_secret());
 
         let cert_p =
             Cert::try_from(vec![primary_pub.clone().into()])?;
         let cert_s =
             Cert::try_from(vec![primary_sec.clone().into()])?;
-        let cert = cert_s.merge(cert_p)?;
+        let cert = cert_s.merge_public_and_secret(cert_p)?;
         assert!(cert.primary_key().has_secret());
         Ok(())
     }
@@ -5639,7 +5691,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             }
         }
         let cert_b = Cert::from_packets(packets.into_iter())?;
-        let cert = cert.merge(cert_b)?;
+        let cert = cert.merge_public_and_secret(cert_b)?;
         assert_eq!(cert.userids().count(), 1);
         assert_eq!(cert.subkeys().count(), 1);
         assert_eq!(cert.unknowns().count(), 0);
@@ -5755,7 +5807,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(malicious_cert.bad_signatures().count(), 0);
 
         // Now try to merge it in.
-        let merged = cert.clone().merge(malicious_cert.clone())?;
+        let merged = cert.clone().merge_public_and_secret(malicious_cert.clone())?;
         // The subkey binding signature should still be fine.
         assert_eq!(merged.with_policy(p, None)?.keys().subkeys()
                    .for_signing().count(), 1);
@@ -5764,7 +5816,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(sig.embedded_signatures().count(), 2);
 
         // Now the other way around.
-        let merged = malicious_cert.clone().merge(cert.clone())?;
+        let merged = malicious_cert.clone().merge_public_and_secret(cert.clone())?;
         // The subkey binding signature should still be fine.
         assert_eq!(merged.with_policy(p, None)?.keys().subkeys()
                    .for_signing().count(), 1);
@@ -5796,7 +5848,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         }
 
         let cert = Cert::try_from(pp)?;
-        assert_eq!(cert.clone().merge(cert.clone())?, cert);
+        assert_eq!(cert.clone().merge_public_and_secret(cert.clone())?, cert);
 
         // Specifically, the issuer information should have been added
         // back by the canonicalization.
@@ -5808,6 +5860,30 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             cert.keys().subkeys().nth(0).unwrap().self_signatures()[0]
                 .unhashed_area().subpackets(SubpacketTag::Issuer).count(),
             1);
+        Ok(())
+    }
+
+    /// Checks that Cert::merge_public ignores secret key material.
+    #[test]
+    fn merge_public() -> Result<()> {
+        let cert =
+            Cert::from_bytes(crate::tests::key("testy-new.pgp"))?;
+        let key =
+            Cert::from_bytes(crate::tests::key("testy-new-private.pgp"))?;
+
+        assert!(! cert.is_tsk());
+        assert!(key.is_tsk());
+
+        // Secrets are ignored in `other`.
+        let merged = cert.clone().merge_public(key.clone())?;
+        assert!(! merged.is_tsk());
+        assert_eq!(merged, cert);
+
+        // Secrets are retained in `self`.
+        let merged = key.clone().merge_public(cert.clone())?;
+        assert!(merged.is_tsk());
+        assert_eq!(merged, key);
+
         Ok(())
     }
 }

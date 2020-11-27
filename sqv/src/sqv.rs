@@ -102,7 +102,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
                     certs.push(a);
                 } else if certs[certs.len() - 1].fingerprint() == a.fingerprint() {
                     // Merge `a` into the last element.
-                    match certs.pop().expect("non-empty vec").merge(a) {
+                    match certs.pop().expect("non-empty vec").merge_public(a) {
                         Ok(cert) => certs.push(cert),
                         Err(err) => errs.push(err),
                     }

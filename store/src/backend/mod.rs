@@ -578,7 +578,7 @@ impl node::binding::Server for BindingServer {
         }
 
         if current.is_some() {
-            new = sry!(current.unwrap().merge(new));
+            new = sry!(current.unwrap().merge_public(new));
         }
 
         // Write key back to the database.
@@ -774,7 +774,7 @@ impl KeyServer {
                 return Err(node::Error::Conflict.into());
             }
 
-            new = current.merge(new)?;
+            new = current.merge_public(new)?;
         }
 
         // Write key back to the database.

@@ -385,7 +385,7 @@ impl KeyRing {
     fn insert(&mut self, cert: Cert) -> Result<()> {
         let fp = cert.fingerprint();
         if let Some(existing) = self.0.get_mut(&fp) {
-            *existing = existing.clone().merge(cert)?;
+            *existing = existing.clone().merge_public(cert)?;
         } else {
             self.0.insert(fp, cert);
         }

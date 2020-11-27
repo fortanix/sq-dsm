@@ -888,14 +888,26 @@ pgp_status_t pgp_cert_serialize (pgp_error_t *errp,
                               pgp_writer_t writer);
 
 /*/
-/// Merges `other` into `cert`.
+/// Merges `other` into `cert`, ignoring secret key material in `other`.
 ///
 /// If `other` is a different key, then nothing is merged into
 /// `cert`, but `cert` is still canonicalized.
 ///
 /// Consumes `cert` and `other`.
 /*/
-pgp_cert_t pgp_cert_merge (pgp_error_t *errp,
+pgp_cert_t pgp_cert_merge_public (pgp_error_t *errp,
+                       pgp_cert_t cert,
+                       pgp_cert_t other);
+
+/*/
+/// Merges `other` into `cert`, including secret key material in `other`.
+///
+/// If `other` is a different key, then nothing is merged into
+/// `cert`, but `cert` is still canonicalized.
+///
+/// Consumes `cert` and `other`.
+/*/
+pgp_cert_t pgp_cert_merge_public_and_secret (pgp_error_t *errp,
                        pgp_cert_t cert,
                        pgp_cert_t other);
 
