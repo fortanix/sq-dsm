@@ -15,13 +15,13 @@ impl Digest for sha1collisiondetection::Sha1CD {
     }
 
     fn update(&mut self, data: &[u8]) {
-        digest::Update::update(self, data);
+        sha1collisiondetection::Sha1CD::update(self, data);
     }
 
     fn digest(&mut self, digest: &mut [u8]) -> Result<()> {
-        let mut d = digest::Output::<sha1collisiondetection::Sha1CD>::default();
+        let mut d = sha1collisiondetection::Output::default();
         let r = self.finalize_into_dirty_cd(&mut d);
-        digest::Reset::reset(self);
+        self.reset();
         let l = digest.len().min(d.len());
         &mut digest[..l].copy_from_slice(&d[..l]);
         r.map_err(Into::into)

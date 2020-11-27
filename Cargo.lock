@@ -1893,7 +1893,6 @@ dependencies = [
  "buffered-reader",
  "bzip2",
  "chrono",
- "digest 0.9.0",
  "dyn-clone",
  "ed25519-dalek",
  "flate2",
@@ -2027,11 +2026,12 @@ dependencies = [
 
 [[package]]
 name = "sha1collisiondetection"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6df2f0600b061bab243ef94c8d077332f2991c232bf44a5e91d0c401523f514"
+checksum = "d1e36ccfbc02df1642fcbd1e92345dd01dbe7199378f1852be1c18a130940593"
 dependencies = [
  "digest 0.9.0",
+ "generic-array 0.14.4",
  "libc",
 ]
 
