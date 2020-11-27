@@ -302,6 +302,13 @@ impl SignatureFields {
 ///
 ///   [`From`]: https://doc.rust-lang.org/stable/std/convert/trait.From.html
 ///
+/// When converting a `Signature` to a `SignatureBuilder`, the hash
+/// algorithm is reset to the default hash algorithm
+/// (`HashAlgorithm::Default()`).  This ensures that a recommended
+/// hash algorithm is used even when an old signature is used as a
+/// template, which is often the case when updating self signatures,
+/// and binding signatures.
+///
 /// According to [Section 5.2.3.4 of RFC 4880], `Signatures` must
 /// include a [`Signature Creation Time`] subpacket.  Since this
 /// should usually be set to the current time, and is easy to forget
@@ -1591,6 +1598,8 @@ impl From<Signature> for SignatureBuilder {
 impl From<Signature4> for SignatureBuilder {
     fn from(sig: Signature4) -> Self {
         let mut fields = sig.fields;
+
+        fields.hash_algo = HashAlgorithm::default();
 
         let creation_time = fields.signature_creation_time();
 
