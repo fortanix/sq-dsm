@@ -589,8 +589,16 @@ use super::*;
 ///
 /// # Filtering Certificates
 ///
-/// To filter certificates, iterate over all components, clone what
-/// you want to keep, and then reassemble the certificate.  The
+/// Component-wise filtering of userids, user attributes, and subkeys
+/// can be done with [`Cert::retain_userids`],
+/// [`Cert::retain_user_attributes`], and [`Cert::retain_subkeys`].
+///
+/// [`Cert::retain_userids`]: #method.retain_userids
+/// [`Cert::retain_user_attributes`]: #method.retain_user_attributes
+/// [`Cert::retain_subkeys`]: #method.retain_subkeys
+///
+/// If you need even more control, iterate over all components, clone
+/// what you want to keep, and then reassemble the certificate.  The
 /// following example simply copies all the packets, and can be
 /// adapted to suit your policy:
 ///
