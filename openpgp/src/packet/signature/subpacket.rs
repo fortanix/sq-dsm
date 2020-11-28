@@ -6020,7 +6020,7 @@ impl signature::SignatureBuilder {
     ///     = Key4::generate_ecc(false, Curve::Cv25519)?
     ///         .into();
     /// let builder = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-    ///     .set_key_flags(&KeyFlags::empty().set_storage_encryption())?;
+    ///     .set_key_flags(KeyFlags::empty().set_storage_encryption())?;
     /// let binding = subkey.bind(&mut signer, &cert, builder)?;
     ///
     /// // Now merge the key and binding signature into the Cert.
@@ -6032,9 +6032,9 @@ impl signature::SignatureBuilder {
     /// #            1);
     /// # Ok(()) }
     /// ```
-    pub fn set_key_flags(mut self, flags: &KeyFlags) -> Result<Self> {
+    pub fn set_key_flags(mut self, flags: KeyFlags) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::KeyFlags(flags.clone()),
+            SubpacketValue::KeyFlags(flags),
             true)?)?;
 
         Ok(self)
@@ -6348,7 +6348,7 @@ impl signature::SignatureBuilder {
     ///
     /// // Create the binding signature.
     /// let sig = SignatureBuilder::new(SignatureType::SubkeyBinding)
-    ///     .set_key_flags(&KeyFlags::empty().set_signing())?
+    ///     .set_key_flags(KeyFlags::empty().set_signing())?
     ///     // And, the backsig.  This is essential for subkeys that create signatures!
     ///     .set_embedded_signature(
     ///         SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
@@ -6982,7 +6982,7 @@ fn accessors() {
     let key_flags = KeyFlags::empty()
         .set_certification()
         .set_signing();
-    sig = sig.set_key_flags(&key_flags).unwrap();
+    sig = sig.set_key_flags(key_flags.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.key_flags().unwrap(), key_flags);

@@ -143,6 +143,12 @@ impl BitOr for &KeyFlags {
     }
 }
 
+impl AsRef<KeyFlags> for KeyFlags {
+    fn as_ref(&self) -> &KeyFlags {
+        self
+    }
+}
+
 impl KeyFlags {
     /// Creates a new instance from `bits`.
     pub fn new<B: AsRef<[u8]>>(bits: B) -> Self {

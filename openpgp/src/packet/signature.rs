@@ -1067,7 +1067,7 @@ impl SignatureBuilder {
     /// let mut sk_signer = subkey.clone().into_keypair()?;
     ///
     /// let sig = SignatureBuilder::new(SignatureType::SubkeyBinding)
-    ///     .set_key_flags(&KeyFlags::empty().set_transport_encryption())?
+    ///     .set_key_flags(KeyFlags::empty().set_transport_encryption())?
     ///     .sign_subkey_binding(&mut pk_signer, None, &subkey)?;
     ///
     /// let cert = cert.insert_packets(vec![Packet::SecretSubkey(subkey),
@@ -1211,7 +1211,7 @@ impl SignatureBuilder {
     /// let mut sk_signer = subkey.clone().into_keypair()?;
     ///
     /// let sig = SignatureBuilder::new(SignatureType::SubkeyBinding)
-    ///     .set_key_flags(&KeyFlags::empty().set_signing())?
+    ///     .set_key_flags(KeyFlags::empty().set_signing())?
     ///     // The backsig.  This is essential for subkeys that create signatures!
     ///     .set_embedded_signature(
     ///         SignatureBuilder::new(SignatureType::PrimaryKeyBinding)

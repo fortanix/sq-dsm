@@ -73,9 +73,10 @@ impl Default for CipherSuite {
 }
 
 impl CipherSuite {
-    fn generate_key<R>(self, flags: &KeyFlags)
+    fn generate_key<K, R>(self, flags: K)
         -> Result<Key<key::SecretParts, R>>
-        where R: key::KeyRole
+        where R: key::KeyRole,
+              K: AsRef<KeyFlags>,
     {
         use crate::types::Curve;
 
@@ -88,6 +89,7 @@ impl CipherSuite {
                 Key4::generate_rsa(4096),
             CipherSuite::Cv25519 | CipherSuite::P256 |
             CipherSuite::P384 | CipherSuite::P521 => {
+                let flags = flags.as_ref();
                 let sign = flags.for_certification() || flags.for_signing()
                     || flags.for_authentication();
                 let encrypt = flags.for_transport_encryption()
@@ -1038,7 +1040,7 @@ impl CertBuilder<'_> {
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512)
                 .set_features(&Features::sequoia())?
-                .set_key_flags(flags)?
+                .set_key_flags(flags.clone())?
                 .set_key_validity_period(blueprint.validity.or(self.primary.validity))?;
 
             if flags.for_certification() || flags.for_signing() {
@@ -1081,13 +1083,13 @@ impl CertBuilder<'_> {
     {
         let mut key = self.primary.ciphersuite
             .unwrap_or(self.ciphersuite)
-            .generate_key(&KeyFlags::empty().set_certification())?;
+            .generate_key(KeyFlags::empty().set_certification())?;
         key.set_creation_time(creation_time)?;
         let mut sig = signature::SignatureBuilder::new(SignatureType::DirectKey)
             // GnuPG wants at least a 512-bit hash for P521 keys.
             .set_hash_algo(HashAlgorithm::SHA512)
             .set_features(&Features::sequoia())?
-            .set_key_flags(&self.primary.flags)?
+            .set_key_flags(self.primary.flags.clone())?
             .set_signature_creation_time(creation_time)?
             .set_key_validity_period(self.primary.validity)?
             .set_preferred_hash_algorithms(vec![

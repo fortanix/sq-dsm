@@ -58,7 +58,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///     Key4::generate_ecc(false, Curve::Cv25519)?
     ///     .into();
     /// let builder = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-    ///     .set_key_flags(&flags)?;
+    ///     .set_key_flags(flags.clone())?;
     /// let binding = subkey.bind(&mut keypair, &cert, builder)?;
     ///
     /// // Now merge the key and binding signature into the Cert.

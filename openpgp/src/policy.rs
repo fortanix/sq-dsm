@@ -1511,7 +1511,7 @@ mod test {
         let subkey: key::SecretSubkey
             = Key4::generate_rsa(4096)?.into();
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-            .set_key_flags(&KeyFlags::empty().set_transport_encryption())?
+            .set_key_flags(KeyFlags::empty().set_transport_encryption())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  pk.parts_as_public(), &subkey)?;
 
@@ -1534,7 +1534,7 @@ mod test {
         let subkey: key::SecretSubkey
             = key::Key4::generate_ecc(true, Curve::Ed25519)?.into();
         let binding = signature::SignatureBuilder::new(SignatureType::SubkeyBinding)
-            .set_key_flags(&KeyFlags::empty().set_transport_encryption())?
+            .set_key_flags(KeyFlags::empty().set_transport_encryption())?
             .sign_subkey_binding(&mut pk.clone().into_keypair()?,
                                  pk.parts_as_public(), &subkey)?;
 
