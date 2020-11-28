@@ -314,7 +314,7 @@ fn create_key() {
 
     // 1st direct key signature valid from t1 on
     let mut b = signature::SignatureBuilder::new(SignatureType::DirectKey)
-        .set_features(&Features::sequoia()).unwrap()
+        .set_features(Features::sequoia()).unwrap()
         .set_key_flags(KeyFlags::empty()
                        .set_signing().set_certification()).unwrap()
         .set_signature_creation_time(t1).unwrap()
@@ -335,7 +335,7 @@ fn create_key() {
 
     // 2nd direct key signature valid from t3 on
     b = signature::SignatureBuilder::new(SignatureType::DirectKey)
-        .set_features(&Features::sequoia()).unwrap()
+        .set_features(Features::sequoia()).unwrap()
         .set_key_flags(KeyFlags::empty()
                        .set_signing().set_certification()).unwrap()
         .set_signature_creation_time(t3).unwrap()

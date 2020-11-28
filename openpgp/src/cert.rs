@@ -4433,7 +4433,7 @@ mod test {
         let mut pair = key.clone().into_keypair().unwrap();
         let (bind1, rev1, bind2, rev2) = {
             let bind1 = signature::SignatureBuilder::new(SignatureType::DirectKey)
-                .set_features(&Features::sequoia()).unwrap()
+                .set_features(Features::sequoia()).unwrap()
                 .set_key_flags(KeyFlags::empty()).unwrap()
                 .set_signature_creation_time(t1).unwrap()
                 .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
@@ -4447,7 +4447,7 @@ mod test {
                 .sign_direct_key(&mut pair, key.parts_as_public()).unwrap();
 
             let bind2 = signature::SignatureBuilder::new(SignatureType::DirectKey)
-                .set_features(&Features::sequoia()).unwrap()
+                .set_features(Features::sequoia()).unwrap()
                 .set_key_flags(KeyFlags::empty()).unwrap()
                 .set_signature_creation_time(t3).unwrap()
                 .set_key_validity_period(Some(time::Duration::new(10 * 52 * 7 * 24 * 60 * 60, 0))).unwrap()
@@ -5116,7 +5116,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         for (t, offset) in &[ (t2, 0), (t4, 0), (t3, 1 * N), (t1, 3 * N) ] {
             for i in 0..N {
                 let binding = signature::SignatureBuilder::new(SignatureType::DirectKey)
-                    .set_features(&Features::sequoia()).unwrap()
+                    .set_features(Features::sequoia()).unwrap()
                     .set_key_flags(KeyFlags::empty()).unwrap()
                     .set_signature_creation_time(t1).unwrap()
                     // Vary this...

@@ -6241,7 +6241,7 @@ impl signature::SignatureBuilder {
     ///         SignatureBuilder::from(sig.clone())
     ///             .set_preferred_aead_algorithms(vec![ AEADAlgorithm::EAX ])?
     ///             .set_features(
-    ///                 &sig.features().unwrap_or_else(Features::sequoia)
+    ///                 sig.features().unwrap_or_else(Features::sequoia)
     ///                     .set_aead())?
     ///             .sign_direct_key(&mut signer, None)?);
     /// }
@@ -6252,7 +6252,7 @@ impl signature::SignatureBuilder {
     ///         SignatureBuilder::from(sig.clone())
     ///             .set_preferred_aead_algorithms(vec![ AEADAlgorithm::EAX ])?
     ///             .set_features(
-    ///                 &sig.features().unwrap_or_else(Features::sequoia)
+    ///                 sig.features().unwrap_or_else(Features::sequoia)
     ///                     .set_aead())?
     ///             .sign_userid_binding(&mut signer, pk, ua.userid())?);
     /// }
@@ -6263,9 +6263,9 @@ impl signature::SignatureBuilder {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn set_features(mut self, features: &Features) -> Result<Self> {
+    pub fn set_features(mut self, features: Features) -> Result<Self> {
         self.hashed_area.replace(Subpacket::new(
-            SubpacketValue::Features(features.clone()),
+            SubpacketValue::Features(features),
             false)?)?;
 
         Ok(self)
@@ -6619,7 +6619,7 @@ impl signature::SignatureBuilder {
     ///         SignatureBuilder::from(sig.clone())
     ///             .set_preferred_aead_algorithms(vec![ AEADAlgorithm::EAX ])?
     ///             .set_features(
-    ///                 &sig.features().unwrap_or_else(Features::sequoia)
+    ///                 sig.features().unwrap_or_else(Features::sequoia)
     ///                     .set_aead())?
     ///             .sign_direct_key(&mut signer, None)?);
     /// }
@@ -6630,7 +6630,7 @@ impl signature::SignatureBuilder {
     ///         SignatureBuilder::from(sig.clone())
     ///             .set_preferred_aead_algorithms(vec![ AEADAlgorithm::EAX ])?
     ///             .set_features(
-    ///                 &sig.features().unwrap_or_else(Features::sequoia)
+    ///                 sig.features().unwrap_or_else(Features::sequoia)
     ///                     .set_aead())?
     ///             .sign_userid_binding(&mut signer, pk, ua.userid())?);
     /// }
@@ -7000,13 +7000,13 @@ fn accessors() {
                Some((ReasonForRevocation::KeyRetired, &b"foobar"[..])));
 
     let feats = Features::empty().set_mdc();
-    sig = sig.set_features(&feats).unwrap();
+    sig = sig.set_features(feats.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.features().unwrap(), feats);
 
     let feats = Features::empty().set_aead();
-    sig = sig.set_features(&feats).unwrap();
+    sig = sig.set_features(feats.clone()).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
     assert_eq!(sig_.features().unwrap(), feats);
