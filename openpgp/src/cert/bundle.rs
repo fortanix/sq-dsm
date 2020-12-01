@@ -236,8 +236,8 @@ impl<C> ComponentBundle<C> {
         // Recall: the signatures are sorted by their creation time in
         // descending order, i.e., newest first.
         //
-        // We want the newest signature that is older than t.  So,
-        // search for `t`.
+        // We want the newest signature that is older than `t`, or
+        // that has been created at `t`.  So, search for `t`.
 
         let i =
             // Usually, the first signature is what we are looking for.
