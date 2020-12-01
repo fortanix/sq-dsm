@@ -22,14 +22,18 @@
 //! This doesn't mean that we don't have opinions about how OpenPGP
 //! should be used in a number of common scenarios (for instance,
 //! message validation).  But, in this crate, we refrain from
-//! expressing those opinions; we expose an opinionated, high-level
-//! interface in the [sequoia-core] and related crates.  In our
-//! opinion, you should generally use those crates instead of this
-//! one.
+//! expressing those opinions; we will expose an opinionated,
+//! high-level interface in the future.  In order to figure out the
+//! most appropriate high-level interfaces, we look at existing users.
+//! If you are using Sequoia, please get in contact so that we can
+//! learn from your use cases, discuss your opinions, and develop a
+//! high-level interface based on these experiences in the future.
+//!
+//! Despite ---or maybe because of--- it's unopinionated nature we found
+//! it easy to develop opinionated OpenPGP software based on Sequoia.
 //!
 //! [RFC 4880]: https://tools.ietf.org/html/rfc4880
 //! [RFC 6637]: https://tools.ietf.org/html/rfc6637
-//! [sequoia-core]: ../sequoia_core
 //!
 //! # Experimental Features
 //!
