@@ -11,7 +11,7 @@ use crate::crypto::mem::Protected;
 use crate::crypto::mpi;
 use crate::crypto::SessionKey;
 use crate::packet::key::{Key4, SecretParts};
-use crate::packet::{self, key, Key};
+use crate::packet::{key, Key};
 use crate::types::{PublicKeyAlgorithm, SymmetricAlgorithm};
 use crate::types::{Curve, HashAlgorithm};
 
@@ -413,19 +413,16 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     }
 
     /// Verifies the given signature.
-    pub fn verify(&self, sig: &packet::Signature, digest: &[u8]) -> Result<()> {
+    pub fn verify(&self, sig: &mpi::Signature, hash_algo: HashAlgorithm,
+                  digest: &[u8]) -> Result<()> {
         use cng::asymmetric::{AsymmetricAlgorithm, AsymmetricAlgorithmId};
         use cng::asymmetric::{AsymmetricKey, Public, Rsa};
         use cng::asymmetric::ecc::NamedCurve;
         use cng::asymmetric::signature::{Verifier, SignaturePadding};
         use cng::key_blob::RsaKeyPublicPayload;
 
-        use PublicKeyAlgorithm::*;
-
-        #[allow(deprecated)]
-        let ok = match (sig.pk_algo(), self.mpis(), sig.mpis()) {
-            (RSASign,        mpi::PublicKey::RSA { e, n }, mpi::Signature::RSA { s }) |
-            (RSAEncryptSign, mpi::PublicKey::RSA { e, n }, mpi::Signature::RSA { s }) => {
+        let ok = match (self.mpis(), sig) {
+            (mpi::PublicKey::RSA { e, n }, mpi::Signature::RSA { s }) => {
                 // CNG accepts only full-size signatures. Since for RSA it's a
                 // big-endian number, just left-pad with zeroes as necessary.
                 let sig_diff = n.value().len().saturating_sub(s.value().len());
@@ -464,12 +461,12 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 //
                 //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
                 //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                let hash = sig.hash_algo().try_into()?;
+                let hash = hash_algo.try_into()?;
                 let padding = SignaturePadding::pkcs1(hash);
 
                 key.verify(digest, s, Some(padding)).map(|_| true)?
             },
-            (DSA, mpi:: PublicKey::DSA { y, p, q, g }, mpi::Signature::DSA { r, s }) => {
+            (mpi::PublicKey::DSA { y, p, q, g }, mpi::Signature::DSA { r, s }) => {
                 use win_crypto_ng::key_blob::{DsaKeyPublicPayload, DsaKeyPublicBlob};
                 use win_crypto_ng::key_blob::{DsaKeyPublicV2Payload, DsaKeyPublicV2Blob};
                 use win_crypto_ng::asymmetric::{Dsa, DsaPublicBlob};
@@ -582,7 +579,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
 
                 key.verify(digest, &signature, None).map(|_| true)?
             },
-            (ECDSA, mpi::PublicKey::ECDSA { curve, q }, mpi::Signature::ECDSA { s, r }) =>
+            (mpi::PublicKey::ECDSA { curve, q }, mpi::Signature::ECDSA { s, r }) =>
             {
                 let (x, y) = q.decode_point(curve)?;
                 // CNG expects full-sized signatures
@@ -630,7 +627,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                         Error::UnsupportedEllipticCurve(curve.clone()).into()),
                 }
             },
-            (EdDSA, mpi::PublicKey::EdDSA { curve, q }, mpi::Signature::EdDSA { r, s }) => {
+            (mpi::PublicKey::EdDSA { curve, q }, mpi::Signature::EdDSA { r, s }) => {
                     // CNG doesn't support EdDSA, use ed25519-dalek instead
                     use ed25519_dalek::{PublicKey, Signature, SIGNATURE_LENGTH};
                     use ed25519_dalek::{Verifier};
@@ -660,9 +657,8 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                     .map_err(|e| Error::BadSignature(e.to_string()))?
             },
             _ => return Err(Error::MalformedPacket(format!(
-                "unsupported combination of algorithm {}, key {} and \
-                 signature {:?}.",
-                sig.pk_algo(), self.pk_algo(), sig.mpis())).into()),
+                "unsupported combination of key {} and signature {:?}.",
+                self.pk_algo(), sig)).into()),
         };
 
         if ok {

@@ -2353,7 +2353,7 @@ impl Signature {
                 "Signature has no creation time subpacket".into()).into());
         }
 
-        let result = key.verify(self, digest.as_ref());
+        let result = key.verify(self.mpis(), self.hash_algo(), digest.as_ref());
         if result.is_ok() {
             // Mark information in this signature as authenticated.
 

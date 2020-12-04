@@ -8,7 +8,7 @@ use nettle::{curve25519, ecc, ecdh, ecdsa, ed25519, dsa, rsa, random::Yarrow};
 
 use crate::{Error, Result};
 
-use crate::packet::{self, key, Key};
+use crate::packet::{key, Key};
 use crate::crypto::asymmetric::{KeyPair, Decryptor, Signer};
 use crate::crypto::mpi::{self, MPI, PublicKey};
 use crate::crypto::SessionKey;
@@ -256,15 +256,13 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
     }
 
     /// Verifies the given signature.
-    pub fn verify(&self, sig: &packet::Signature, digest: &[u8]) -> Result<()>
+    pub fn verify(&self, sig: &mpi::Signature, hash_algo: HashAlgorithm,
+                  digest: &[u8]) -> Result<()>
     {
-        use crate::PublicKeyAlgorithm::*;
         use crate::crypto::mpi::Signature;
 
-        #[allow(deprecated)]
-        let ok = match (sig.pk_algo(), self.mpis(), sig.mpis()) {
-            (RSASign,        PublicKey::RSA { e, n }, Signature::RSA { s }) |
-            (RSAEncryptSign, PublicKey::RSA { e, n }, Signature::RSA { s }) => {
+        let ok = match (self.mpis(), sig) {
+            (PublicKey::RSA { e, n }, Signature::RSA { s }) => {
                 let key = rsa::PublicKey::new(n.value(), e.value())?;
 
                 // As described in [Section 5.2.2 and 5.2.3 of RFC 4880],
@@ -273,17 +271,17 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 //
                 //   [Section 5.2.2 and 5.2.3 of RFC 4880]:
                 //   https://tools.ietf.org/html/rfc4880#section-5.2.2
-                rsa::verify_digest_pkcs1(&key, digest, sig.hash_algo().oid()?,
+                rsa::verify_digest_pkcs1(&key, digest, hash_algo.oid()?,
                                          s.value())?
             },
-            (DSA, PublicKey::DSA{ y, p, q, g }, Signature::DSA { s, r }) => {
+            (PublicKey::DSA { y, p, q, g }, Signature::DSA { s, r }) => {
                 let key = dsa::PublicKey::new(y.value());
                 let params = dsa::Params::new(p.value(), q.value(), g.value());
                 let signature = dsa::Signature::new(r.value(), s.value());
 
                 dsa::verify(&params, &key, digest, &signature)
             },
-            (EdDSA, PublicKey::EdDSA{ curve, q }, Signature::EdDSA { r, s }) =>
+            (PublicKey::EdDSA { curve, q }, Signature::EdDSA { r, s }) =>
               match curve {
                 Curve::Ed25519 => {
                     if q.value().get(0).map(|&b| b != 0x40).unwrap_or(true) {
@@ -326,7 +324,7 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 _ => return
                     Err(Error::UnsupportedEllipticCurve(curve.clone()).into()),
             },
-            (ECDSA, PublicKey::ECDSA{ curve, q }, Signature::ECDSA { s, r }) =>
+            (PublicKey::ECDSA { curve, q }, Signature::ECDSA { s, r }) =>
             {
                 let (x, y) = q.decode_point(curve)?;
                 let key = match curve {
@@ -341,9 +339,8 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
                 ecdsa::verify(&key, digest, &signature)
             },
             _ => return Err(Error::MalformedPacket(format!(
-                "unsupported combination of algorithm {}, key {} and \
-                 signature {:?}.",
-                sig.pk_algo(), self.pk_algo(), sig.mpis())).into()),
+                "unsupported combination of key {} and signature {:?}.",
+                self.pk_algo(), sig)).into()),
         };
 
         if ok {
