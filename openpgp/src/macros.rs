@@ -108,3 +108,45 @@ macro_rules! time_it {
         time_it!("", $body)
     };
 }
+
+/// A simple shortcut for ensuring a type is send and sync.
+///
+/// For most types just call it after defining the type:
+///
+/// ```
+/// pub struct MyStruct {}
+/// assert_send_and_sync!{MyStruct}
+/// ```
+///
+/// For types with lifetimes, specify the lifetime as a second argument:
+///
+/// ```
+/// pub struct WithLifetime<'a> {}
+/// assert_send_and_sync!{MyStruct, 'a}
+/// ```
+///
+/// For types generic over other types, call it with a concrete type:
+///
+/// ```
+/// pub struct MyWriter<W: io::Write> {}
+/// assert_send_and_sync!{MyWriterStruct<Vec<u8>>}
+/// ```
+///
+/// You can also combine the two:
+///
+/// ```
+/// pub struct MyWriterWithLifetime<a', W: io::Write> {}
+/// assert_send_and_sync!{MyWriterStruct<a', Vec<u8>>, a'}
+/// ```
+///
+macro_rules! assert_send_and_sync {
+    ( $x:ty, $l:lifetime ) => {
+        impl<$l> crate::types::Sendable for $x {}
+        impl<$l> crate::types::Syncable for $x {}
+    };
+    ( $x:ty ) => {
+        impl crate::types::Sendable for $x {}
+        impl crate::types::Syncable for $x {}
+    };
+}
+

@@ -48,6 +48,7 @@ pub(crate) mod symmetric;
 ///   [`From`]: https://doc.rust-lang.org/std/convert/trait.From.html
 #[derive(Clone, PartialEq, Eq)]
 pub struct SessionKey(mem::Protected);
+assert_send_and_sync!{SessionKey}
 
 impl SessionKey {
     /// Creates a new session key.
@@ -170,6 +171,7 @@ impl fmt::Debug for SessionKey {
 /// ```
 #[derive(Clone, PartialEq, Eq)]
 pub struct Password(mem::Encrypted);
+assert_send_and_sync!{Password}
 
 impl From<Vec<u8>> for Password {
     fn from(v: Vec<u8>) -> Self {

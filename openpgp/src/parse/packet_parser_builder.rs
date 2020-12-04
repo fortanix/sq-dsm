@@ -51,6 +51,7 @@ pub enum Dearmor {
     ///   [`ReaderMode`]: ../armor/enum.ReaderMode.html
     Auto(armor::ReaderMode),
 }
+assert_send_and_sync!{Dearmor}
 
 impl Default for Dearmor {
     fn default() -> Self {
@@ -420,7 +421,7 @@ impl<'a> PacketParserBuilder<'a> {
 
         if let Some(mode) = dearmor_mode {
             // Add a top-level filter so that it is peeled off when
-            // the packet parser is finished.  We use level -2 for that.  
+            // the packet parser is finished.  We use level -2 for that.
             self.bio =
                 armor::Reader::from_buffered_reader(self.bio, Some(mode),
                     Cookie::new(ARMOR_READER_LEVEL))

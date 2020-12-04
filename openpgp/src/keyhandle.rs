@@ -79,6 +79,7 @@ pub enum KeyHandle {
     /// A KeyID.
     KeyID(KeyID),
 }
+assert_send_and_sync!{KeyHandle}
 
 impl std::fmt::Display for KeyHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -312,12 +313,5 @@ mod tests {
 
         let handle = KeyHandle::KeyID(KeyID::Invalid(Box::new([10, 2])));
         assert_eq!(format!("{:x}", handle), "0a02");
-    }
-
-    #[test]
-    fn key_handle_is_send_and_sync() {
-        fn f<T: Send + Sync>(_: T) {}
-        f(KeyHandle::from("0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567"
-                          .parse::<Fingerprint>().unwrap()));
     }
 }

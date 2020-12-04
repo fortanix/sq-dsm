@@ -71,6 +71,9 @@ mod timestamp;
 pub use timestamp::{Timestamp, Duration};
 pub(crate) use timestamp::normalize_systemtime;
 
+pub(crate) trait Sendable : Send {}
+pub(crate) trait Syncable : Sync {}
+
 /// The OpenPGP public key algorithms as defined in [Section 9.1 of
 /// RFC 4880], and [Section 5 of RFC 6637].
 ///

@@ -303,8 +303,4 @@ pub enum Error {
     PolicyViolation(String, Option<std::time::SystemTime>),
 }
 
-#[test]
-fn error_is_send_and_sync() {
-    fn f<T: Send + Sync>(_: T) {}
-    f(Error::IndexOutOfRange);
-}
+assert_send_and_sync!{Error}

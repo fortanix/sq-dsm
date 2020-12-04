@@ -729,6 +729,8 @@ pub struct Cert {
 }
 } // doc-hack, see above
 
+assert_send_and_sync!{Cert}
+
 impl std::str::FromStr for Cert {
     type Err = anyhow::Error;
 
@@ -4883,12 +4885,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         keyring.extend_from_slice(crate::tests::key("neal.pgp"));
         keyring.extend_from_slice(crate::tests::key("neal.pgp"));
         assert!(Cert::from_bytes(&keyring).is_err());
-    }
-
-    #[test]
-    fn cert_is_send_and_sync() {
-        fn f<T: Send + Sync>(_: T) {}
-        f(Cert::from_bytes(crate::tests::key("testy-new.pgp")).unwrap());
     }
 
     #[test]

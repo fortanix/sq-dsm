@@ -72,6 +72,8 @@ pub enum Kind {
     File,
 }
 
+assert_send_and_sync!{Kind}
+
 #[cfg(test)]
 impl Arbitrary for Kind {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
@@ -171,6 +173,8 @@ pub struct Writer<W: Write> {
     header: Vec<u8>,
     dirty: bool,
 }
+
+assert_send_and_sync!{Writer<Vec<u8>>}
 
 impl<W: Write> Writer<W> {
     /// Constructs a new filter for the given type of data.

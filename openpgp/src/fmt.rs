@@ -61,6 +61,8 @@ pub mod hex {
         offset: usize,
     }
 
+    assert_send_and_sync!{Dumper<Vec<u8>>}
+
     impl<W: io::Write> Dumper<W> {
         /// Creates a new dumper.
         ///

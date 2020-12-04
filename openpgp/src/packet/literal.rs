@@ -47,6 +47,7 @@ pub struct Literal {
     /// if `buffer_unread_content` is used.
     container: packet::Container,
 }
+assert_send_and_sync!{Literal}
 
 impl fmt::Debug for Literal {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

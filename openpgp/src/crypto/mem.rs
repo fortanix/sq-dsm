@@ -218,6 +218,7 @@ pub struct Encrypted {
     ciphertext: Protected,
     iv: Protected,
 }
+assert_send_and_sync!{Encrypted}
 
 impl PartialEq for Encrypted {
     fn eq(&self, other: &Self) -> bool {

@@ -41,6 +41,8 @@ pub struct PKESK3 {
     esk: Ciphertext,
 }
 
+assert_send_and_sync!{PKESK3}
+
 impl PKESK3 {
     /// Creates a new PKESK3 packet.
     pub fn new(recipient: KeyID, pk_algo: PublicKeyAlgorithm,

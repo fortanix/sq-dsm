@@ -43,6 +43,7 @@ pub struct MPI {
     /// Integer value as big-endian with leading zeros stripped.
     value: Box<[u8]>,
 }
+assert_send_and_sync!{MPI}
 
 impl From<Vec<u8>> for MPI {
     fn from(v: Vec<u8>) -> Self {
@@ -296,6 +297,7 @@ pub struct ProtectedMPI {
     /// Integer value as big-endian.
     value: Protected,
 }
+assert_send_and_sync!{ProtectedMPI}
 
 impl From<Vec<u8>> for ProtectedMPI {
     fn from(m: Vec<u8>) -> Self {
@@ -504,6 +506,7 @@ pub enum PublicKey {
         rest: Box<[u8]>,
     },
 }
+assert_send_and_sync!{PublicKey}
 
 impl PublicKey {
     /// Returns the length of the public key in bits.
@@ -664,6 +667,7 @@ pub enum SecretKeyMaterial {
         rest: Protected,
     },
 }
+assert_send_and_sync!{SecretKeyMaterial}
 
 impl fmt::Debug for SecretKeyMaterial {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -864,6 +868,7 @@ pub enum SecretKeyChecksum {
     /// Sum of the decrypted secret key octets modulo 65536.
     Sum16,
 }
+assert_send_and_sync!{SecretKeyChecksum}
 
 impl Default for SecretKeyChecksum {
     fn default() -> Self {
@@ -913,6 +918,7 @@ pub enum Ciphertext {
         rest: Box<[u8]>,
     },
 }
+assert_send_and_sync!{Ciphertext}
 
 impl Ciphertext {
     /// Returns, if known, the public-key algorithm for this
@@ -1023,6 +1029,7 @@ pub enum Signature {
         rest: Box<[u8]>,
     },
 }
+assert_send_and_sync!{Signature}
 
 impl Hash for Signature {
     fn hash(&self, mut hash: &mut dyn hash::Digest) {

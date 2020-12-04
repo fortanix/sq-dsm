@@ -124,6 +124,7 @@ pub struct AED1 {
     /// This is a container packet.
     container: packet::Container,
 }
+assert_send_and_sync!{AED1}
 
 impl std::ops::Deref for AED1 {
     type Target = packet::Container;

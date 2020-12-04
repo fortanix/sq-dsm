@@ -53,6 +53,7 @@ pub enum Fingerprint {
     /// V3 fingerprint (deprecated) or otherwise wrong-length data.
     Invalid(Box<[u8]>),
 }
+assert_send_and_sync!{Fingerprint}
 
 impl fmt::Display for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -330,12 +331,5 @@ mod tests {
             .parse::<Fingerprint>().unwrap();
         assert_eq!(format!("{:X}", fp), "0123456789ABCDEF0123456789ABCDEF01234567");
         assert_eq!(format!("{:x}", fp), "0123456789abcdef0123456789abcdef01234567");
-    }
-
-    #[test]
-    fn fingerprint_is_send_and_sync() {
-        fn f<T: Send + Sync>(_: T) {}
-        f("0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567"
-          .parse::<Fingerprint>().unwrap());
     }
 }

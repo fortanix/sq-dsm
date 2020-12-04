@@ -55,6 +55,7 @@ use crate::types::Bitfield;
 /// ```
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Features(Bitfield);
+assert_send_and_sync!{Features}
 
 impl fmt::Debug for Features {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

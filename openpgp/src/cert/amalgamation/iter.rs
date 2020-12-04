@@ -90,6 +90,7 @@ pub struct ComponentAmalgamationIter<'a, C> {
     cert: &'a Cert,
     iter: slice::Iter<'a, ComponentBundle<C>>,
 }
+assert_send_and_sync!{ComponentAmalgamationIter<'a, UserID>, 'a}
 
 /// An iterator over `UserIDAmalgamtion`s.
 ///

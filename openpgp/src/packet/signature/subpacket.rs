@@ -324,6 +324,7 @@ pub enum SubpacketTag {
     /// Unknown subpacket tag.
     Unknown(u8),
 }
+assert_send_and_sync!{SubpacketTag}
 
 impl fmt::Display for SubpacketTag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -500,6 +501,7 @@ pub struct SubpacketArea {
     // This is an option, because we parse the subpacket area lazily.
     parsed: Mutex<RefCell<Option<HashMap<SubpacketTag, usize>>>>,
 }
+assert_send_and_sync!{SubpacketArea}
 
 #[cfg(test)]
 impl ArbitraryBounded for SubpacketArea {
@@ -1075,6 +1077,7 @@ pub struct NotationData {
     name: String,
     value: Vec<u8>,
 }
+assert_send_and_sync!{NotationData}
 
 #[cfg(test)]
 impl Arbitrary for NotationData {
@@ -1120,6 +1123,7 @@ impl NotationData {
 /// Flags for the Notation Data subpacket.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NotationDataFlags(crate::types::Bitfield);
+assert_send_and_sync!{NotationDataFlags}
 
 #[cfg(test)]
 impl Arbitrary for NotationDataFlags {
@@ -1515,6 +1519,7 @@ pub enum SubpacketValue {
     ///  [Section 5.2.3.29 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     IntendedRecipient(Fingerprint),
 }
+assert_send_and_sync!{SubpacketValue}
 
 #[cfg(test)]
 impl ArbitraryBounded for SubpacketValue {
@@ -1673,6 +1678,7 @@ pub struct Subpacket {
     /// authenticated in the context of its signature.
     authenticated: bool,
 }
+assert_send_and_sync!{Subpacket}
 
 impl PartialEq for Subpacket {
     fn eq(&self, other: &Subpacket) -> bool {
@@ -1956,6 +1962,7 @@ pub struct SubpacketAreas {
     /// Subpackets that are _not_ part of the signature.
     unhashed_area: SubpacketArea,
 }
+assert_send_and_sync!{SubpacketAreas}
 
 #[cfg(test)]
 impl ArbitraryBounded for SubpacketAreas {

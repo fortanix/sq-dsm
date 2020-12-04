@@ -32,6 +32,8 @@ pub struct Unknown {
     container: packet::Container,
 }
 
+assert_send_and_sync!{Unknown}
+
 impl PartialEq for Unknown {
     fn eq(&self, other: &Unknown) -> bool {
         self.tag == other.tag

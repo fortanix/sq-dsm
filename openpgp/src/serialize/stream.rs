@@ -1799,6 +1799,7 @@ pub struct Recipient<'a> {
     keyid: KeyID,
     key: &'a Key<key::PublicParts, key::UnspecifiedRole>,
 }
+assert_send_and_sync!{Recipient<'a>, 'a}
 
 impl<'a, P, R> From<&'a Key<P, R>> for Recipient<'a>
     where P: key::KeyParts,

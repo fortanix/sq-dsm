@@ -116,6 +116,7 @@ pub struct Decryptor<'a> {
     buffer: Vec<u8>,
 }
 
+
 impl<'a> Decryptor<'a> {
     /// Instantiate a new AEAD decryptor.
     ///
@@ -543,6 +544,7 @@ pub struct Encryptor<W: io::Write> {
     // A place to write encrypted data into.
     scratch: Vec<u8>,
 }
+assert_send_and_sync!{Encryptor<Vec<u8>>}
 
 impl<W: io::Write> Encryptor<W> {
     /// Instantiate a new AEAD encryptor.

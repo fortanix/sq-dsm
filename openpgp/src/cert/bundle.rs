@@ -125,6 +125,7 @@ pub struct ComponentBundle<C> {
     // Third-party revocations (e.g., designated revokers).
     pub(crate) other_revocations: Vec<Signature>,
 }
+assert_send_and_sync!{ComponentBundle<UserID>}
 
 /// A key (primary or subkey, public or private) and any associated
 /// signatures.

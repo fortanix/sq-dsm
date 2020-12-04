@@ -95,6 +95,8 @@ pub enum Body {
     Structured(Vec<Packet>),
 }
 
+assert_send_and_sync!{Body}
+
 /// Holds packet bodies.
 ///
 /// This is used by OpenPGP container packets, like the compressed
@@ -107,6 +109,8 @@ pub struct Container {
     /// We compute a digest over the body to implement comparison.
     body_digest: Vec<u8>,
 }
+
+assert_send_and_sync!{Container}
 
 impl std::ops::Deref for Container {
     type Target = Body;

@@ -39,6 +39,7 @@ pub struct CTBNew {
     /// Packet CTB fields
     common: CTBCommon,
 }
+assert_send_and_sync!{CTBNew}
 
 impl CTBNew {
     /// Constructs a new-style CTB.
@@ -90,6 +91,7 @@ pub enum PacketLengthType {
     /// from the context, e.g., EOF.
     Indeterminate,
 }
+assert_send_and_sync!{PacketLengthType}
 
 impl TryFrom<u8> for PacketLengthType {
     type Error = anyhow::Error;
@@ -129,6 +131,7 @@ pub struct CTBOld {
     /// Type of length specifier.
     length_type: PacketLengthType,
 }
+assert_send_and_sync!{CTBOld}
 
 impl CTBOld {
     /// Constructs an old-style CTB.
@@ -204,6 +207,7 @@ pub enum CTB {
     /// Old PGP 2.6 header format.
     Old(CTBOld),
 }
+assert_send_and_sync!{CTB}
 
 impl CTB {
     /// Constructs a new-style CTB.

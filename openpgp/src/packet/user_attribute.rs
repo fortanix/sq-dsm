@@ -38,6 +38,7 @@ pub struct UserAttribute {
     /// The user attribute.
     value: Vec<u8>,
 }
+assert_send_and_sync!{UserAttribute}
 
 impl From<Vec<u8>> for UserAttribute {
     fn from(u: Vec<u8>) -> Self {
@@ -117,6 +118,7 @@ impl Arbitrary for UserAttribute {
 pub struct SubpacketIterator<'a> {
     reader: buffered_reader::Memory<'a, ()>,
 }
+assert_send_and_sync!{SubpacketIterator<'a>, 'a}
 
 impl<'a> Iterator for SubpacketIterator<'a> {
     type Item = Result<Subpacket>;
@@ -191,6 +193,7 @@ pub enum Subpacket {
     /// Unknown subpacket.
     Unknown(u8, Box<[u8]>),
 }
+assert_send_and_sync!{Subpacket}
 
 #[cfg(test)]
 impl Arbitrary for Subpacket {
@@ -224,6 +227,7 @@ pub enum Image {
     /// Unknown image format.
     Unknown(u8, Box<[u8]>),
 }
+assert_send_and_sync!{Image}
 
 #[cfg(test)]
 impl Arbitrary for Image {

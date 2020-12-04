@@ -34,6 +34,7 @@ pub struct Map {
     header: Vec<u8>,
     data: Vec<u8>,
 }
+assert_send_and_sync!{Map}
 
 /// Represents an entry in the map.
 #[derive(Clone, Debug)]
@@ -113,6 +114,7 @@ pub struct Field<'a> {
     /// Value of the field.
     data: &'a [u8],
 }
+assert_send_and_sync!{Field<'a>, 'a}
 
 impl<'a> Field<'a> {
     fn new(map: &'a Map, i: usize) -> Option<Field<'a>> {

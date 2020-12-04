@@ -38,6 +38,7 @@ pub struct Header {
     /// The packet's length.
     length: BodyLength,
 }
+assert_send_and_sync!{Header}
 
 impl Header {
     /// Creates a new header.
@@ -245,3 +246,4 @@ pub enum BodyLength {
     /// This type is only used with old format packets.
     Indeterminate,
 }
+assert_send_and_sync!{BodyLength}

@@ -65,6 +65,7 @@ pub enum KeyID {
     /// e.g. wrong number of bytes.
     Invalid(Box<[u8]>),
 }
+assert_send_and_sync!{KeyID}
 
 impl fmt::Display for KeyID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -411,11 +412,5 @@ mod test {
         let keyid = "FB3751F1587DAEF1".parse::<KeyID>().unwrap();
         assert_eq!(format!("{:X}", keyid), "FB3751F1587DAEF1");
         assert_eq!(format!("{:x}", keyid), "fb3751f1587daef1");
-    }
-
-    #[test]
-    fn keyid_is_send_and_sync() {
-        fn f<T: Send + Sync>(_: T) {}
-        f("89AB CDEF 0123 4567".parse::<KeyID>().unwrap());
     }
 }
