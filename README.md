@@ -79,35 +79,42 @@ Using Sequoia
 
 If you want to use Sequoia from Rust, you can simply register the
 dependency in your `Cargo.toml` file as with any other project.
+
 ```toml
-sequoia-openpgp = version = "*"
+sequoia-openpgp = "*"
 ```
-Note that we depend on a number of C libraries, which must be present along
-with their development packages. See **Requirements** section below.
+
+Note that we depend on a number of C libraries, which must be present
+along with their development packages. See **Requirements** section
+below.
 
 Besides being a Rust crate, we also provide a C API, and bindings to
 other languages, see **Bindings**.
 
 Features
-----------------------
+--------
+
 Sequoia is currently supported on a variety of platforms.
 
 ### Cryptography
 
-By default it uses the Nettle cryptographic library (version 3.4.1 or up) but it
-can be used with different cryptographic backends. At the time of writing, it also
-supports the native Windows [Cryptographic API: Next Generation (CNG)].
+By default it uses the Nettle cryptographic library (version 3.4.1 or
+up) but it can be used with different cryptographic backends. At the
+time of writing, it also supports the native Windows [Cryptographic
+API: Next Generation (CNG)].
 
-Various backends can be enabled via Cargo features, e.g. `crypto-nettle` or
-`crypto-cng` and exactly one can be enabled at a time.
+Various backends can be enabled via Cargo features,
+e.g. `crypto-nettle` or `crypto-cng` and exactly one can be enabled at
+a time.
 
-Currently, the `crypto-nettle` feature is enabled by default - regardless of the
-operating system used. If you choose to enable a different backend, please
-make sure to disable the default first.
+Currently, the `crypto-nettle` feature is enabled by default -
+regardless of the operating system used. If you choose to enable a
+different backend, please make sure to disable the default first.
 
 ### Example
 
 To use the Windows CNG backend, use:
+
 ```toml
 # Cargo.toml
 [dependencies]
@@ -120,10 +127,13 @@ $ cargo build --manifest-path=openpgp/Cargo.toml --no-default-features --feature
 ```
 
 ### Note
-If you are developing a crate that depends on Sequoia, please ensure the users
-can opt into different backends. This is done by:
+
+If you are developing a crate that depends on Sequoia, please ensure
+the users can opt into different backends. This is done by:
+
 - disabling default features for `sequoia-openpgp`
-- providing top-level features for your crate that correspond to `crypto-*` ones in `sequoia-openpgp`
+- providing top-level features for your crate that correspond to
+  `crypto-*` ones in `sequoia-openpgp`
 - (Optionally) Select one by default yourself
 
 Like so:
@@ -139,16 +149,18 @@ crypto-cng = ["sequoia-openpgp/crypto-cng"]
 crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
 ```
 
-Once Cargo target-specific default features are [implemented], it will be possible
-to automatically select a backend depending on the operating system used.
+Once Cargo target-specific default features are [implemented], it will
+be possible to automatically select a backend depending on the
+operating system used.
 
 [implemented]: https://github.com/rust-lang/cargo/issues/1197#issuecomment-590385530
 
 ### Compression
 
-By default, Sequoia supports compression via `flate2` and `bzip2` crates, enabled
-by `compression-deflate` and `compression-bzip2` Cargo features respectively
-(also available via `compression` shorthand feature).
+By default, Sequoia supports compression via `flate2` and `bzip2`
+crates, enabled by `compression-deflate` and `compression-bzip2` Cargo
+features respectively (also available via `compression` shorthand
+feature).
 
 [Cryptographic API: Next Generation (CNG)]: https://docs.microsoft.com/windows/win32/seccng/cng-portal
 
@@ -232,22 +244,26 @@ set to `false`.
 #### MSYS2
 
 You can install the needed libraries with the following command:
+
 ```shell
 $ pacboy -S base-devel toolchain:x clang:x bzip2:x nettle:x sqlite3:x capnproto:x
 ```
 
-Due to Gitlab's Windows Shared Runners being somewhat slow, we only run them
-automatically for MRs, which contain `windows` in the branch name. Please name
-your branch accordingly when contributing a patch which might affect Windows.
+Due to Gitlab's Windows Shared Runners being somewhat slow, we only
+run them automatically for MRs, which contain `windows` in the branch
+name. Please name your branch accordingly when contributing a patch
+which might affect Windows.
 
 #### MSVC
 
 To build Sequoia, you need to have [`capnp`] tool installed.
 
-Only the native Windows Cryptographic API (CNG) is supported, see **Using Sequoia (Cryptography)** section above.
+Only the native Windows Cryptographic API (CNG) is supported, see
+**Using Sequoia (Cryptography)** section above.
 
-When building, make sure to disable default features (to disable Nettle) and
-enable the CNG via `crypto-cng` Cargo feature:
+When building, make sure to disable default features (to disable
+Nettle) and enable the CNG via `crypto-cng` Cargo feature:
+
 ```bash
 $ cargo build --no-default-features --features crypto-cng,compression # Only change crypto backend
 ```
