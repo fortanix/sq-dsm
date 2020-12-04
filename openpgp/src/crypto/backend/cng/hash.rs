@@ -48,7 +48,8 @@ impl Digest for Hash {
         let buffer = old.finish()
             .expect("CNG to not fail internally");
 
-        digest.copy_from_slice(&buffer.as_slice()[..digest.len()]);
+        let l = buffer.len().min(digest.len());
+        &mut digest[..l].copy_from_slice(&buffer.as_slice()[..l]);
         Ok(())
     }
 }
