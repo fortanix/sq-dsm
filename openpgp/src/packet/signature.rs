@@ -1588,6 +1588,12 @@ impl SignatureBuilder {
                 .set_issuer_fingerprint(signer.public().fingerprint())?;
         }
 
+        // Add a salt to make the signature unpredictable.
+        let mut salt = [0; 32];
+        crate::crypto::random(&mut salt);
+        self = self.set_notation("salt@notations.sequoia-pgp.org",
+                                 salt, None, false)?;
+
         self.sort();
 
         Ok(self)

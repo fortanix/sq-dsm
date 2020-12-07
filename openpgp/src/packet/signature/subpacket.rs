@@ -5369,7 +5369,7 @@ impl signature::SignatureBuilder {
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::NotationData)
     /// #    .count(),
-    /// #    2);
+    /// #    3);
     ///
     /// // Merge in the new signature.
     /// let cert = cert.insert_packets(sig)?;
@@ -5465,7 +5465,7 @@ impl signature::SignatureBuilder {
     /// #    .iter()
     /// #    .filter(|sp| sp.tag() == SubpacketTag::NotationData)
     /// #    .count(),
-    /// #    2);
+    /// #    3);
     ///
     /// // Merge in the new signature.
     /// let cert = cert.insert_packets(sig)?;
