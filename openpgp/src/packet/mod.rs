@@ -599,7 +599,7 @@ pub struct Iter<'a> {
     // `paths` iter.
     depth: usize,
 }
-assert_send_and_sync!{Iter<'a>, 'a}
+assert_send_and_sync!{Iter<'_>}
 
 impl<'a> Default for Iter<'a> {
     fn default() -> Self {
@@ -1438,7 +1438,7 @@ pub enum Key<P: key::KeyParts, R: key::KeyRole> {
     /// A version 4 `Key` packet.
     V4(Key4<P, R>),
 }
-assert_send_and_sync!{Key<key::PublicParts, key::UnspecifiedRole>}
+assert_send_and_sync!{Key<P, R>, P: key::KeyParts, R: key::KeyRole}
 
 impl<P: key::KeyParts, R: key::KeyRole> fmt::Display for Key<P, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -118,7 +118,7 @@ impl Arbitrary for UserAttribute {
 pub struct SubpacketIterator<'a> {
     reader: buffered_reader::Memory<'a, ()>,
 }
-assert_send_and_sync!{SubpacketIterator<'a>, 'a}
+assert_send_and_sync!{SubpacketIterator<'_>}
 
 impl<'a> Iterator for SubpacketIterator<'a> {
     type Item = Result<Subpacket>;

@@ -118,31 +118,40 @@ macro_rules! time_it {
 /// assert_send_and_sync!{MyStruct}
 /// ```
 ///
-/// For types with lifetimes, specify the lifetime as a second argument:
+/// For types with lifetimes, use the anonymous lifetime:
 ///
 /// ```
 /// pub struct WithLifetime<'a> {}
-/// assert_send_and_sync!{MyStruct, 'a}
+/// assert_send_and_sync!{MyStruct<'_>}
 /// ```
 ///
-/// For types generic over other types, call it with a concrete type:
+/// For a type generic over another type `W`,
+/// pass the type `W` as a second argument
+/// including a trait bound when needed:
 ///
 /// ```
 /// pub struct MyWriter<W: io::Write> {}
-/// assert_send_and_sync!{MyWriterStruct<Vec<u8>>}
+/// assert_send_and_sync!{MyWriterStruct<W>, W: io::Write}
 /// ```
 ///
-/// You can also combine the two:
+/// This will assert that `MyWriterStruct<W>` is `Send` and `Sync`
+/// if `W` is `Send` and `Sync`.
+///
+/// You can also combine the two and be generic over multiple types:
 ///
 /// ```
-/// pub struct MyWriterWithLifetime<a', W: io::Write> {}
-/// assert_send_and_sync!{MyWriterStruct<a', Vec<u8>>, a'}
+/// pub struct MyWriterWithLifetime<a', C, W: io::Write> {}
+/// assert_send_and_sync!{MyWriterStruct<'_, C, W>, C, W: io::Write}
 /// ```
 ///
 macro_rules! assert_send_and_sync {
-    ( $x:ty, $l:lifetime ) => {
-        impl<$l> crate::types::Sendable for $x {}
-        impl<$l> crate::types::Syncable for $x {}
+    ( $x:ty, $( $g:ident$( : $b:path )? ),*) => {
+        impl<$( $g ),*> crate::types::Sendable for $x
+            where $( $g: Send + Sync $(+ $b)? ),*
+            {}
+        impl<$( $g ),*> crate::types::Syncable for $x
+            where $( $g: Send + Sync $(+ $b)? ),*
+            {}
     };
     ( $x:ty ) => {
         impl crate::types::Sendable for $x {}

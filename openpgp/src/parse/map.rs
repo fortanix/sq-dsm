@@ -114,7 +114,7 @@ pub struct Field<'a> {
     /// Value of the field.
     data: &'a [u8],
 }
-assert_send_and_sync!{Field<'a>, 'a}
+assert_send_and_sync!{Field<'_>}
 
 impl<'a> Field<'a> {
     fn new(map: &'a Map, i: usize) -> Option<Field<'a>> {

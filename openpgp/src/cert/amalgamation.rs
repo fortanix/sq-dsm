@@ -647,7 +647,7 @@ pub struct ComponentAmalgamation<'a, C> {
     cert: &'a Cert,
     bundle: &'a ComponentBundle<C>,
 }
-assert_send_and_sync!{ComponentAmalgamation<'a, UserID>, 'a}
+assert_send_and_sync!{ComponentAmalgamation<'_, C>, C}
 
 /// A User ID and its associated data.
 ///

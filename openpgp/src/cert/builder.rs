@@ -175,7 +175,7 @@ pub struct CertBuilder<'a> {
     revocation_keys: Option<Vec<RevocationKey>>,
     phantom: PhantomData<&'a ()>,
 }
-assert_send_and_sync!{CertBuilder<'a>, 'a}
+assert_send_and_sync!{CertBuilder<'_>}
 
 impl CertBuilder<'_> {
     /// Returns a new `CertBuilder`.

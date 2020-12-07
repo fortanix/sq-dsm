@@ -188,7 +188,7 @@ pub struct StandardPolicy<'a> {
     asymmetric_algos: AsymmetricAlgorithmCutoffList,
 }
 
-assert_send_and_sync!{StandardPolicy<'a>, 'a}
+assert_send_and_sync!{StandardPolicy<'_>}
 
 impl<'a> Default for StandardPolicy<'a> {
     fn default() -> Self {
