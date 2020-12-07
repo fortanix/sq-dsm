@@ -246,6 +246,7 @@ pub struct ValidComponentAmalgamationIter<'a, C> {
     // at time `t`.
     revoked: Option<bool>,
 }
+assert_send_and_sync!{ValidComponentAmalgamationIter<'_, C>, C}
 
 /// An iterator over `ValidUserIDAmalgamtion`s.
 ///

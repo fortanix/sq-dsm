@@ -62,7 +62,7 @@ use cutofflist::{
 };
 
 /// A policy for cryptographic operations.
-pub trait Policy : fmt::Debug {
+pub trait Policy : fmt::Debug + Send + Sync {
     /// Returns an error if the signature violates the policy.
     ///
     /// This function performs the last check before the library
