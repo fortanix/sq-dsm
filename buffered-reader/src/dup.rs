@@ -21,6 +21,10 @@ pub struct Dup<T: BufferedReader<C>, C: fmt::Debug> {
     cookie: C,
 }
 
+assert_send_and_sync!(Dup<T, C>
+                      where T: BufferedReader<C>,
+                            C: fmt::Debug);
+
 impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Dup<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Dup")

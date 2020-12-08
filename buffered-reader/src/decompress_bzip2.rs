@@ -13,6 +13,10 @@ pub struct Bzip<R: BufferedReader<C>, C: fmt::Debug> {
     reader: Generic<BzDecoder<R>, C>,
 }
 
+assert_send_and_sync!(Bzip<R, C>
+                      where R: BufferedReader<C>,
+                            C: fmt::Debug);
+
 impl <R: BufferedReader<()>> Bzip<R, ()> {
     /// Instantiates a new bzip decompression reader.
     ///

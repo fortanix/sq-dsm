@@ -28,6 +28,10 @@ pub struct Generic<T: io::Read, C: fmt::Debug> {
     cookie: C,
 }
 
+assert_send_and_sync!(Generic<T, C>
+                      where T: io::Read,
+                            C: fmt::Debug);
+
 impl<T: io::Read, C: fmt::Debug> fmt::Display for Generic<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Generic")

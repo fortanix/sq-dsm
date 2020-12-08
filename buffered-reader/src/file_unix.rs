@@ -27,6 +27,9 @@ const MMAP_THRESHOLD: u64 = 16 * 4096;
 /// just using a generic reader.
 pub struct File<'a, C: fmt::Debug>(Imp<'a, C>, PathBuf);
 
+assert_send_and_sync!(File<'_, C>
+                      where C: fmt::Debug);
+
 impl<'a, C: fmt::Debug> fmt::Display for File<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {:?}", self.0, self.1.display())

@@ -12,6 +12,9 @@ use crate::file_error::FileError;
 /// platform-specific versions.
 pub struct File<C: fmt::Debug>(Generic<fs::File, C>, PathBuf);
 
+assert_send_and_sync!(File<C>
+                      where C: fmt::Debug);
+
 impl<C: fmt::Debug> fmt::Display for File<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "File {:?}", self.1.display())

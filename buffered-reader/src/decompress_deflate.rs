@@ -13,6 +13,10 @@ pub struct Deflate<R: BufferedReader<C>, C: fmt::Debug> {
     reader: Generic<DeflateDecoder<R>, C>,
 }
 
+assert_send_and_sync!(Deflate<R, C>
+                      where R: BufferedReader<C>,
+                            C: fmt::Debug);
+
 impl <R: BufferedReader<()>> Deflate<R, ()> {
     /// Instantiates a new deflate decompression reader.
     ///
@@ -126,6 +130,10 @@ impl<R: BufferedReader<C>, C: fmt::Debug> BufferedReader<C>
 pub struct Zlib<R: BufferedReader<C>, C: fmt::Debug> {
     reader: Generic<ZlibDecoder<R>, C>,
 }
+
+assert_send_and_sync!(Zlib<R, C>
+                      where R: BufferedReader<C>,
+                            C: fmt::Debug);
 
 impl <R: BufferedReader<()>> Zlib<R, ()> {
     /// Instantiates a new zlib decompression reader.

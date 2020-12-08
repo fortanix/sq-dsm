@@ -231,6 +231,9 @@ use std::cmp;
 use std::fmt;
 use std::convert::TryInto;
 
+#[macro_use]
+mod macros;
+
 mod generic;
 mod memory;
 mod limitor;

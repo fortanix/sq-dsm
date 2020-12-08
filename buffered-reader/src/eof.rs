@@ -10,6 +10,9 @@ pub struct EOF<C> {
     cookie: C,
 }
 
+assert_send_and_sync!(EOF<C>
+                      where C: fmt::Debug);
+
 impl<C> fmt::Display for EOF<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("EOF")

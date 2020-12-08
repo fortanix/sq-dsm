@@ -21,6 +21,9 @@ pub struct Memory<'a, C: fmt::Debug> {
     cookie: C,
 }
 
+assert_send_and_sync!(Memory<'_, C>
+                      where C: fmt::Debug);
+
 impl<'a, C: fmt::Debug> fmt::Display for Memory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Memory ({} of {} bytes read)",

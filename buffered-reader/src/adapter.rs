@@ -16,6 +16,11 @@ pub struct Adapter<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> {
     cookie: C,
 }
 
+assert_send_and_sync!(Adapter<T, B, C>
+                      where T: BufferedReader<B>,
+                            B: fmt::Debug,
+                            C: fmt::Debug);
+
 impl<T: BufferedReader<B>, B: fmt::Debug, C: fmt::Debug> fmt::Display for Adapter<T, B, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Adapter").finish()
