@@ -647,7 +647,7 @@ pub struct ComponentAmalgamation<'a, C> {
     cert: &'a Cert,
     bundle: &'a ComponentBundle<C>,
 }
-assert_send_and_sync!{ComponentAmalgamation<'_, C>, C}
+assert_send_and_sync!(ComponentAmalgamation<'_, C>, C);
 
 /// A User ID and its associated data.
 ///
@@ -1078,7 +1078,7 @@ pub struct ValidComponentAmalgamation<'a, C> {
     // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
 }
-assert_send_and_sync!{ValidComponentAmalgamation<'_, C>, C}
+assert_send_and_sync!(ValidComponentAmalgamation<'_, C>, C);
 
 /// A Valid User ID and its associated data.
 ///

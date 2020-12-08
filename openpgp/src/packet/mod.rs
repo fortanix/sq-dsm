@@ -284,7 +284,7 @@ pub enum Packet {
     AED(AED),
 }
 } // doc-hack, see above
-assert_send_and_sync!{Packet}
+assert_send_and_sync!(Packet);
 
 macro_rules! impl_into_iterator {
     ($t:ty) => {
@@ -520,7 +520,7 @@ pub struct Common {
     /// this structure actually gains some fields.
     dummy: std::marker::PhantomData<()>,
 }
-assert_send_and_sync!{Common}
+assert_send_and_sync!(Common);
 
 #[cfg(test)]
 impl Arbitrary for Common {
@@ -599,7 +599,7 @@ pub struct Iter<'a> {
     // `paths` iter.
     depth: usize,
 }
-assert_send_and_sync!{Iter<'_>}
+assert_send_and_sync!(Iter<'_>);
 
 impl<'a> Default for Iter<'a> {
     fn default() -> Self {
@@ -920,7 +920,7 @@ pub enum Signature {
     /// Signature packet version 4.
     V4(self::signature::Signature4),
 }
-assert_send_and_sync!{Signature}
+assert_send_and_sync!(Signature);
 
 impl Signature {
     /// Gets the version.
@@ -978,7 +978,7 @@ pub enum OnePassSig {
     /// OnePassSig packet version 3.
     V3(self::one_pass_sig::OnePassSig3),
 }
-assert_send_and_sync!{OnePassSig}
+assert_send_and_sync!(OnePassSig);
 
 impl OnePassSig {
     /// Gets the version.
@@ -1040,7 +1040,7 @@ pub enum PKESK {
     /// PKESK packet version 3.
     V3(self::pkesk::PKESK3),
 }
-assert_send_and_sync!{PKESK}
+assert_send_and_sync!(PKESK);
 
 impl PKESK {
     /// Gets the version.
@@ -1106,7 +1106,7 @@ pub enum SKESK {
     /// This feature is [experimental](../index.html#experimental-features).
     V5(self::skesk::SKESK5),
 }
-assert_send_and_sync!{SKESK}
+assert_send_and_sync!(SKESK);
 
 impl SKESK {
     /// Gets the version.
@@ -1438,7 +1438,7 @@ pub enum Key<P: key::KeyParts, R: key::KeyRole> {
     /// A version 4 `Key` packet.
     V4(Key4<P, R>),
 }
-assert_send_and_sync!{Key<P, R>, P: key::KeyParts, R: key::KeyRole}
+assert_send_and_sync!(Key<P, R>, P: key::KeyParts, R: key::KeyRole);
 
 impl<P: key::KeyParts, R: key::KeyRole> fmt::Display for Key<P, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -1818,7 +1818,7 @@ pub enum SEIP {
     /// SEIP packet version 1.
     V1(self::seip::SEIP1),
 }
-assert_send_and_sync!{SEIP}
+assert_send_and_sync!(SEIP);
 
 impl SEIP {
     /// Gets the version.
@@ -1880,7 +1880,7 @@ pub enum AED {
     /// AED packet version 1.
     V1(self::aed::AED1),
 }
-assert_send_and_sync!{AED}
+assert_send_and_sync!(AED);
 
 impl AED {
     /// Gets the version.

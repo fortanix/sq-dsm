@@ -205,7 +205,7 @@ impl Default for Cookie {
 ///   [`Message::finalize`]: #method.finalize
 #[derive(Debug)]
 pub struct Message<'a>(writer::BoxStack<'a, Cookie>);
-assert_send_and_sync!{Message<'_>}
+assert_send_and_sync!(Message<'_>);
 
 impl<'a> Message<'a> {
     /// Starts streaming an OpenPGP message.
@@ -345,7 +345,7 @@ pub struct Armorer<'a> {
     headers: Vec<(String, String)>,
     inner: Message<'a>,
 }
-assert_send_and_sync!{Armorer<'_>}
+assert_send_and_sync!(Armorer<'_>);
 
 impl<'a> Armorer<'a> {
     /// Creates a new armoring filter.
@@ -535,7 +535,7 @@ impl<'a> fmt::Debug for Armorer<'a> {
 pub struct ArbitraryWriter<'a> {
     inner: writer::BoxStack<'a, Cookie>,
 }
-assert_send_and_sync!{ArbitraryWriter<'_>}
+assert_send_and_sync!(ArbitraryWriter<'_>);
 
 impl<'a> ArbitraryWriter<'a> {
     /// Creates a new writer with the given tag.
@@ -646,7 +646,7 @@ pub struct Signer<'a> {
     cookie: Cookie,
     position: u64,
 }
-assert_send_and_sync!{Signer<'_>}
+assert_send_and_sync!(Signer<'_>);
 
 impl<'a> Signer<'a> {
     /// Creates a signer.
@@ -1280,7 +1280,7 @@ pub struct LiteralWriter<'a> {
     inner: writer::BoxStack<'a, Cookie>,
     signature_writer: Option<writer::BoxStack<'a, Cookie>>,
 }
-assert_send_and_sync!{LiteralWriter<'_>}
+assert_send_and_sync!(LiteralWriter<'_>);
 
 impl<'a> LiteralWriter<'a> {
     /// Creates a new literal writer.
@@ -1553,7 +1553,7 @@ pub struct Compressor<'a> {
     level: CompressionLevel,
     inner: writer::BoxStack<'a, Cookie>,
 }
-assert_send_and_sync!{Compressor<'_>}
+assert_send_and_sync!(Compressor<'_>);
 
 impl<'a> Compressor<'a> {
     /// Creates a new compressor using the default algorithm and
@@ -1805,7 +1805,7 @@ pub struct Recipient<'a> {
     keyid: KeyID,
     key: &'a Key<key::PublicParts, key::UnspecifiedRole>,
 }
-assert_send_and_sync!{Recipient<'_>}
+assert_send_and_sync!(Recipient<'_>);
 
 impl<'a, P, R> From<&'a Key<P, R>> for Recipient<'a>
     where P: key::KeyParts,
@@ -2087,7 +2087,7 @@ pub struct Encryptor<'a> {
     hash: Box<dyn crypto::hash::Digest>,
     cookie: Cookie,
 }
-assert_send_and_sync!{Encryptor<'_>}
+assert_send_and_sync!(Encryptor<'_>);
 
 impl<'a> Encryptor<'a> {
     /// Creates a new encryptor for the given recipients.

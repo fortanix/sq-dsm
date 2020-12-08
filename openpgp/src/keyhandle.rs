@@ -79,7 +79,7 @@ pub enum KeyHandle {
     /// A KeyID.
     KeyID(KeyID),
 }
-assert_send_and_sync!{KeyHandle}
+assert_send_and_sync!(KeyHandle);
 
 impl std::fmt::Display for KeyHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

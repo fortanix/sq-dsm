@@ -51,7 +51,7 @@ pub enum Dearmor {
     ///   [`ReaderMode`]: ../armor/enum.ReaderMode.html
     Auto(armor::ReaderMode),
 }
-assert_send_and_sync!{Dearmor}
+assert_send_and_sync!(Dearmor);
 
 impl Default for Dearmor {
     fn default() -> Self {

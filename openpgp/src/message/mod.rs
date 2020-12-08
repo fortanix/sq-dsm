@@ -56,7 +56,7 @@ pub enum MessageParserError {
     /// An OpenPGP error.
     OpenPGP(Error),
 }
-assert_send_and_sync!{MessageParserError}
+assert_send_and_sync!(MessageParserError);
 
 impl From<MessageParserError> for anyhow::Error {
     fn from(err: MessageParserError) -> Self {
@@ -347,7 +347,7 @@ pub struct Message {
     pub(super) pile: PacketPile,
 }
 } // doc-hack, see above
-assert_send_and_sync!{Message}
+assert_send_and_sync!(Message);
 
 impl fmt::Debug for Message {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

@@ -56,7 +56,7 @@ use crate::types::Bitfield;
 /// ```
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyServerPreferences(Bitfield);
-assert_send_and_sync!{KeyServerPreferences}
+assert_send_and_sync!(KeyServerPreferences);
 
 impl fmt::Debug for KeyServerPreferences {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

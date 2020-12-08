@@ -114,7 +114,7 @@ pub enum S2K {
         parameters: Option<Box<[u8]>>,
     },
 }
-assert_send_and_sync!{S2K}
+assert_send_and_sync!(S2K);
 
 impl Default for S2K {
     fn default() -> Self {

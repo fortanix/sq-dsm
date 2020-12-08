@@ -303,4 +303,4 @@ pub enum Error {
     PolicyViolation(String, Option<std::time::SystemTime>),
 }
 
-assert_send_and_sync!{Error}
+assert_send_and_sync!(Error);

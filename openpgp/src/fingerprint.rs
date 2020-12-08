@@ -53,7 +53,7 @@ pub enum Fingerprint {
     /// V3 fingerprint (deprecated) or otherwise wrong-length data.
     Invalid(Box<[u8]>),
 }
-assert_send_and_sync!{Fingerprint}
+assert_send_and_sync!(Fingerprint);
 
 impl fmt::Display for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

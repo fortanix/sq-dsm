@@ -65,7 +65,7 @@ pub enum CipherSuite {
     /// 4096 bit RSA with SHA512 and AES256
     RSA4k,
 }
-assert_send_and_sync!{CipherSuite}
+assert_send_and_sync!(CipherSuite);
 
 impl Default for CipherSuite {
     fn default() -> Self {
@@ -134,7 +134,7 @@ pub struct KeyBlueprint {
     // CertBuilder::ciphersuite.
     ciphersuite: Option<CipherSuite>,
 }
-assert_send_and_sync!{KeyBlueprint}
+assert_send_and_sync!(KeyBlueprint);
 
 /// Simplifies the generation of OpenPGP certificates.
 ///
@@ -175,7 +175,7 @@ pub struct CertBuilder<'a> {
     revocation_keys: Option<Vec<RevocationKey>>,
     phantom: PhantomData<&'a ()>,
 }
-assert_send_and_sync!{CertBuilder<'_>}
+assert_send_and_sync!(CertBuilder<'_>);
 
 impl CertBuilder<'_> {
     /// Returns a new `CertBuilder`.

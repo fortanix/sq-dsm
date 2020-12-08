@@ -41,7 +41,7 @@ pub struct PKESK3 {
     esk: Ciphertext,
 }
 
-assert_send_and_sync!{PKESK3}
+assert_send_and_sync!(PKESK3);
 
 impl PKESK3 {
     /// Creates a new PKESK3 packet.

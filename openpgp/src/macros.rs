@@ -115,14 +115,14 @@ macro_rules! time_it {
 ///
 /// ```
 /// pub struct MyStruct {}
-/// assert_send_and_sync!{MyStruct}
+/// assert_send_and_sync!(MyStruct);
 /// ```
 ///
 /// For types with lifetimes, use the anonymous lifetime:
 ///
 /// ```
 /// pub struct WithLifetime<'a> {}
-/// assert_send_and_sync!{MyStruct<'_>}
+/// assert_send_and_sync!(MyStruct<'_>);
 /// ```
 ///
 /// For a type generic over another type `W`,
@@ -131,7 +131,7 @@ macro_rules! time_it {
 ///
 /// ```
 /// pub struct MyWriter<W: io::Write> {}
-/// assert_send_and_sync!{MyWriterStruct<W>, W: io::Write}
+/// assert_send_and_sync!(MyWriterStruct<W>, W: io::Write);
 /// ```
 ///
 /// This will assert that `MyWriterStruct<W>` is `Send` and `Sync`
@@ -141,7 +141,7 @@ macro_rules! time_it {
 ///
 /// ```
 /// pub struct MyWriterWithLifetime<a', C, W: io::Write> {}
-/// assert_send_and_sync!{MyWriterStruct<'_, C, W>, C, W: io::Write}
+/// assert_send_and_sync!(MyWriterStruct<'_, C, W>, C, W: io::Write);
 /// ```
 ///
 macro_rules! assert_send_and_sync {

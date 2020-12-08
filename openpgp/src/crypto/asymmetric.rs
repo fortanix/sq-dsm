@@ -137,7 +137,7 @@ pub struct KeyPair {
     public: Key<key::PublicParts, key::UnspecifiedRole>,
     secret: packet::key::Unencrypted,
 }
-assert_send_and_sync!{KeyPair}
+assert_send_and_sync!(KeyPair);
 
 impl KeyPair {
     /// Creates a new key pair.

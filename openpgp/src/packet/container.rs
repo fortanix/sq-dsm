@@ -95,7 +95,7 @@ pub enum Body {
     Structured(Vec<Packet>),
 }
 
-assert_send_and_sync!{Body}
+assert_send_and_sync!(Body);
 
 /// Holds packet bodies.
 ///
@@ -110,7 +110,7 @@ pub struct Container {
     body_digest: Vec<u8>,
 }
 
-assert_send_and_sync!{Container}
+assert_send_and_sync!(Container);
 
 impl std::ops::Deref for Container {
     type Target = Body;

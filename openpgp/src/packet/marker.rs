@@ -16,7 +16,7 @@ pub struct Marker {
     /// CTB packet header fields.
     pub(crate) common: packet::Common,
 }
-assert_send_and_sync!{Marker}
+assert_send_and_sync!(Marker);
 
 impl Marker {
     pub(crate) const BODY: &'static [u8] = &[0x50, 0x47, 0x50];

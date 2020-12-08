@@ -223,7 +223,7 @@ pub struct SignatureFields {
     /// Subpackets.
     subpackets: SubpacketAreas,
 }
-assert_send_and_sync!{SignatureFields}
+assert_send_and_sync!(SignatureFields);
 
 #[cfg(test)]
 impl ArbitraryBounded for SignatureFields {
@@ -453,7 +453,7 @@ pub struct SignatureBuilder {
     original_creation_time: Option<SystemTime>,
     fields: SignatureFields,
 }
-assert_send_and_sync!{SignatureBuilder}
+assert_send_and_sync!(SignatureBuilder);
 
 impl Deref for SignatureBuilder {
     type Target = SignatureFields;
@@ -1696,7 +1696,7 @@ pub struct Signature4 {
     /// verification is usually expected to be idempotent.
     additional_issuers: Vec<KeyHandle>,
 }
-assert_send_and_sync!{Signature4}
+assert_send_and_sync!(Signature4);
 
 impl fmt::Debug for Signature4 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

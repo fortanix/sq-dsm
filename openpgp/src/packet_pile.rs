@@ -113,7 +113,7 @@ pub struct PacketPile {
     top_level: Container,
 }
 
-assert_send_and_sync!{PacketPile}
+assert_send_and_sync!(PacketPile);
 
 impl fmt::Debug for PacketPile {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

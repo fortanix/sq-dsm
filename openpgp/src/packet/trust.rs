@@ -23,7 +23,7 @@ pub struct Trust {
     value: Vec<u8>,
 }
 
-assert_send_and_sync!{Trust}
+assert_send_and_sync!(Trust);
 
 impl From<Vec<u8>> for Trust {
     fn from(u: Vec<u8>) -> Self {

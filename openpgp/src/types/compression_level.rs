@@ -50,7 +50,7 @@ use crate::{
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CompressionLevel(u8);
-assert_send_and_sync!{CompressionLevel}
+assert_send_and_sync!(CompressionLevel);
 
 impl Default for CompressionLevel {
     fn default() -> Self {

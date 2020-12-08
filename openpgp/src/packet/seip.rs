@@ -31,7 +31,7 @@ pub struct SEIP1 {
     container: packet::Container,
 }
 
-assert_send_and_sync!{SEIP1}
+assert_send_and_sync!(SEIP1);
 
 impl std::ops::Deref for SEIP1 {
     type Target = packet::Container;

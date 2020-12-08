@@ -728,7 +728,7 @@ pub struct Cert {
     bad: Vec<packet::Signature>,
 }
 } // doc-hack, see above
-assert_send_and_sync!{Cert}
+assert_send_and_sync!(Cert);
 
 impl std::str::FromStr for Cert {
     type Err = anyhow::Error;
@@ -2870,7 +2870,7 @@ pub struct ValidCert<'a> {
     // The reference time.
     time: time::SystemTime,
 }
-assert_send_and_sync!{ValidCert<'_>}
+assert_send_and_sync!(ValidCert<'_>);
 
 impl<'a> std::ops::Deref for ValidCert<'a> {
     type Target = Cert;

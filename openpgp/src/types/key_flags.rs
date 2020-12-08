@@ -49,7 +49,7 @@ use crate::types::Bitfield;
 /// ```
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyFlags(Bitfield);
-assert_send_and_sync!{KeyFlags}
+assert_send_and_sync!(KeyFlags);
 
 impl fmt::Debug for KeyFlags {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

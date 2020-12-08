@@ -441,7 +441,7 @@ pub trait KeyRole: fmt::Debug + seal::Sealed {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PublicParts;
 
-assert_send_and_sync!{PublicParts}
+assert_send_and_sync!(PublicParts);
 
 impl seal::Sealed for PublicParts {}
 impl KeyParts for PublicParts {
@@ -494,7 +494,7 @@ impl KeyParts for PublicParts {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SecretParts;
 
-assert_send_and_sync!{SecretParts}
+assert_send_and_sync!(SecretParts);
 
 impl seal::Sealed for SecretParts {}
 impl KeyParts for SecretParts {
@@ -555,7 +555,7 @@ impl KeyParts for SecretParts {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedParts;
 
-assert_send_and_sync!{UnspecifiedParts}
+assert_send_and_sync!(UnspecifiedParts);
 
 impl seal::Sealed for UnspecifiedParts {}
 impl KeyParts for UnspecifiedParts {
@@ -600,7 +600,7 @@ impl KeyParts for UnspecifiedParts {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PrimaryRole;
 
-assert_send_and_sync!{PrimaryRole}
+assert_send_and_sync!(PrimaryRole);
 
 impl seal::Sealed for PrimaryRole {}
 impl KeyRole for PrimaryRole {
@@ -634,7 +634,7 @@ impl KeyRole for PrimaryRole {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct SubordinateRole;
 
-assert_send_and_sync!{SubordinateRole}
+assert_send_and_sync!(SubordinateRole);
 
 impl seal::Sealed for SubordinateRole {}
 impl KeyRole for SubordinateRole {
@@ -674,7 +674,7 @@ impl KeyRole for SubordinateRole {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UnspecifiedRole;
 
-assert_send_and_sync!{UnspecifiedRole}
+assert_send_and_sync!(UnspecifiedRole);
 
 impl seal::Sealed for UnspecifiedRole {}
 impl KeyRole for UnspecifiedRole {
@@ -782,7 +782,7 @@ pub struct Key4<P, R>
     r: std::marker::PhantomData<R>,
 }
 
-assert_send_and_sync!{Key4<P, R>, P: KeyParts, R: KeyRole}
+assert_send_and_sync!(Key4<P, R>, P: KeyParts, R: KeyRole);
 
 impl<P: KeyParts, R: KeyRole> PartialEq for Key4<P, R> {
     fn eq(&self, other: &Key4<P, R>) -> bool {
@@ -1236,7 +1236,7 @@ pub enum SecretKeyMaterial {
     Encrypted(Encrypted),
 }
 
-assert_send_and_sync!{SecretKeyMaterial}
+assert_send_and_sync!(SecretKeyMaterial);
 
 impl From<mpi::SecretKeyMaterial> for SecretKeyMaterial {
     fn from(mpis: mpi::SecretKeyMaterial) -> Self {
@@ -1364,7 +1364,7 @@ pub struct Unencrypted {
     mpis: mem::Encrypted,
 }
 
-assert_send_and_sync!{Unencrypted}
+assert_send_and_sync!(Unencrypted);
 
 impl From<mpi::SecretKeyMaterial> for Unencrypted {
     fn from(mpis: mpi::SecretKeyMaterial) -> Self {
@@ -1451,7 +1451,7 @@ pub struct Encrypted {
                                     Box<[u8]>>, // S2K body + IV + ciphertext.
 }
 
-assert_send_and_sync!{Encrypted}
+assert_send_and_sync!(Encrypted);
 
 // Because the S2K and ciphertext cannot be cleanly separated at parse
 // time, we need to carefully compare and hash encrypted key packets.

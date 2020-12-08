@@ -231,7 +231,7 @@ pub struct GoodChecksum<'a> {
     /// trustworthiness of the signature using a trust model.
     pub ka: ValidErasedKeyAmalgamation<'a, key::PublicParts>,
 }
-assert_send_and_sync!{GoodChecksum<'_>}
+assert_send_and_sync!(GoodChecksum<'_>);
 
 /// A bad signature.
 ///
@@ -455,7 +455,7 @@ impl<'a> VerificationErrorInternal<'a> {
 ///   [test of unusual message structures]: https://tests.sequoia-pgp.org/#Unusual_Message_Structure
 #[derive(Debug)]
 pub struct MessageStructure<'a>(Vec<MessageLayer<'a>>);
-assert_send_and_sync!{MessageStructure<'_>}
+assert_send_and_sync!(MessageStructure<'_>);
 
 impl<'a> MessageStructure<'a> {
     fn new() -> Self {

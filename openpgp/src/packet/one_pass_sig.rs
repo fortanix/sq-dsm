@@ -47,7 +47,7 @@ pub struct OnePassSig3 {
     /// is nested.
     last: u8,
 }
-assert_send_and_sync!{OnePassSig3}
+assert_send_and_sync!(OnePassSig3);
 
 impl fmt::Debug for OnePassSig3 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

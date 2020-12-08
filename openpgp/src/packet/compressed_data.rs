@@ -29,7 +29,7 @@ pub struct CompressedData {
     /// This is a container packet.
     container: packet::Container,
 }
-assert_send_and_sync!{CompressedData}
+assert_send_and_sync!(CompressedData);
 
 impl std::ops::Deref for CompressedData {
     type Target = packet::Container;

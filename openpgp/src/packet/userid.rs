@@ -26,7 +26,7 @@ pub struct ConventionallyParsedUserID {
     email: Option<(usize, usize)>,
     uri: Option<(usize, usize)>,
 }
-assert_send_and_sync!{ConventionallyParsedUserID}
+assert_send_and_sync!(ConventionallyParsedUserID);
 
 impl ConventionallyParsedUserID {
     /// Parses the userid according to the usual conventions.
@@ -476,7 +476,7 @@ pub struct UserID {
 
     parsed: Mutex<RefCell<Option<ConventionallyParsedUserID>>>,
 }
-assert_send_and_sync!{UserID}
+assert_send_and_sync!(UserID);
 
 impl From<Vec<u8>> for UserID {
     fn from(u: Vec<u8>) -> Self {

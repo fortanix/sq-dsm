@@ -544,7 +544,7 @@ pub struct Encryptor<W: io::Write> {
     // A place to write encrypted data into.
     scratch: Vec<u8>,
 }
-assert_send_and_sync!{Encryptor<W>, W: io::Write}
+assert_send_and_sync!(Encryptor<W>, W: io::Write);
 
 impl<W: io::Write> Encryptor<W> {
     /// Instantiate a new AEAD encryptor.

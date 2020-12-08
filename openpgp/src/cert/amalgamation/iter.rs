@@ -90,7 +90,7 @@ pub struct ComponentAmalgamationIter<'a, C> {
     cert: &'a Cert,
     iter: slice::Iter<'a, ComponentBundle<C>>,
 }
-assert_send_and_sync!{ComponentAmalgamationIter<'_, C>, C}
+assert_send_and_sync!(ComponentAmalgamationIter<'_, C>, C);
 
 /// An iterator over `UserIDAmalgamtion`s.
 ///
@@ -246,7 +246,7 @@ pub struct ValidComponentAmalgamationIter<'a, C> {
     // at time `t`.
     revoked: Option<bool>,
 }
-assert_send_and_sync!{ValidComponentAmalgamationIter<'_, C>, C}
+assert_send_and_sync!(ValidComponentAmalgamationIter<'_, C>, C);
 
 /// An iterator over `ValidUserIDAmalgamtion`s.
 ///

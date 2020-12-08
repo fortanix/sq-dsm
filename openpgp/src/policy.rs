@@ -188,7 +188,7 @@ pub struct StandardPolicy<'a> {
     asymmetric_algos: AsymmetricAlgorithmCutoffList,
 }
 
-assert_send_and_sync!{StandardPolicy<'_>}
+assert_send_and_sync!(StandardPolicy<'_>);
 
 impl<'a> Default for StandardPolicy<'a> {
     fn default() -> Self {
@@ -956,7 +956,7 @@ impl From<AsymmetricAlgorithm> for u8 {
 pub struct NullPolicy {
 }
 
-assert_send_and_sync!{NullPolicy}
+assert_send_and_sync!(NullPolicy);
 
 impl NullPolicy {
     /// Instantiates a new `NullPolicy`.

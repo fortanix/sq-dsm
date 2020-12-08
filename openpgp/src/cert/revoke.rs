@@ -81,7 +81,7 @@ use crate::cert::prelude::*;
 pub struct CertRevocationBuilder {
     builder: signature::SignatureBuilder,
 }
-assert_send_and_sync!{CertRevocationBuilder}
+assert_send_and_sync!(CertRevocationBuilder);
 
 impl CertRevocationBuilder {
     /// Returns a new `CertRevocationBuilder`.
@@ -319,7 +319,7 @@ impl Deref for CertRevocationBuilder {
 pub struct SubkeyRevocationBuilder {
     builder: signature::SignatureBuilder,
 }
-assert_send_and_sync!{SubkeyRevocationBuilder}
+assert_send_and_sync!(SubkeyRevocationBuilder);
 
 impl SubkeyRevocationBuilder {
     /// Returns a new `SubkeyRevocationBuilder`.
@@ -551,7 +551,7 @@ impl Deref for SubkeyRevocationBuilder {
 pub struct UserIDRevocationBuilder {
     builder: signature::SignatureBuilder,
 }
-assert_send_and_sync!{UserIDRevocationBuilder}
+assert_send_and_sync!(UserIDRevocationBuilder);
 
 impl UserIDRevocationBuilder {
     /// Returns a new `UserIDRevocationBuilder`.
@@ -797,7 +797,7 @@ impl Deref for UserIDRevocationBuilder {
 pub struct UserAttributeRevocationBuilder {
     builder: signature::SignatureBuilder,
 }
-assert_send_and_sync!{UserAttributeRevocationBuilder}
+assert_send_and_sync!(UserAttributeRevocationBuilder);
 
 impl UserAttributeRevocationBuilder {
     /// Returns a new `UserAttributeRevocationBuilder`.

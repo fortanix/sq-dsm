@@ -59,7 +59,7 @@ pub enum Tag {
     /// Experimental packets.
     Private(u8),
 }
-assert_send_and_sync!{Tag}
+assert_send_and_sync!(Tag);
 
 impl Eq for Tag {}
 

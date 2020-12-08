@@ -63,7 +63,7 @@ use crate::{
 /// [`Timestamp::round_down`]: ../types/struct.Timestamp.html#method.round_down
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Timestamp(u32);
-assert_send_and_sync!{Timestamp}
+assert_send_and_sync!(Timestamp);
 
 impl From<Timestamp> for u32 {
     fn from(t: Timestamp) -> Self {
@@ -281,7 +281,7 @@ impl Arbitrary for Timestamp {
 /// ```
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Duration(u32);
-assert_send_and_sync!{Duration}
+assert_send_and_sync!(Duration);
 
 impl From<Duration> for u32 {
     fn from(d: Duration) -> Self {

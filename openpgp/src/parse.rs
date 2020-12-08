@@ -707,7 +707,7 @@ pub struct Cookie {
     /// encounters a fake EOF at the level it is popping to.
     fake_eof: bool,
 }
-assert_send_and_sync!{Cookie}
+assert_send_and_sync!(Cookie);
 
 /// Contains hashes for consecutive one pass signature packets ending
 /// in one with the last flag set.

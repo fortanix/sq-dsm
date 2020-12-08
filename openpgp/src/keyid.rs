@@ -65,7 +65,7 @@ pub enum KeyID {
     /// e.g. wrong number of bytes.
     Invalid(Box<[u8]>),
 }
-assert_send_and_sync!{KeyID}
+assert_send_and_sync!(KeyID);
 
 impl fmt::Display for KeyID {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
