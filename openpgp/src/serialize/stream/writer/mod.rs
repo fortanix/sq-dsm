@@ -189,6 +189,7 @@ pub struct Identity<'a, C> {
     inner: Option<BoxStack<'a, C>>,
     cookie: C,
 }
+assert_send_and_sync!(Identity<'_, C>, C);
 
 impl<'a> Identity<'a, Cookie> {
     /// Makes an identity writer.
@@ -269,6 +270,7 @@ pub struct Generic<W: io::Write + Send + Sync, C> {
     cookie: C,
     position: u64,
 }
+assert_send_and_sync!(Generic<W, C>, W: io::Write, C);
 
 impl<'a, W: 'a + io::Write + Send + Sync> Generic<W, Cookie> {
     /// Wraps an `io::Write`r.
@@ -353,6 +355,7 @@ impl<'a, W: io::Write + Send + Sync, C> Stackable<'a, C> for Generic<W, C> {
 pub struct Armorer<'a, C: 'a> {
     inner: Generic<armor::Writer<BoxStack<'a, C>>, C>,
 }
+assert_send_and_sync!(Armorer<'_, C>, C);
 
 impl<'a> Armorer<'a, Cookie> {
     /// Makes an armoring writer.
@@ -425,6 +428,7 @@ impl<'a, C: 'a> Stackable<'a, C> for Armorer<'a, C> {
 pub struct Encryptor<'a, C: 'a> {
     inner: Generic<symmetric::Encryptor<Box<dyn Stackable<'a, C> + Send + Sync + 'a>>, C>,
 }
+assert_send_and_sync!(Encryptor<'_, C>, C);
 
 impl<'a> Encryptor<'a, Cookie> {
     /// Makes an encrypting writer.
@@ -496,6 +500,7 @@ impl<'a, C: 'a> Stackable<'a, C> for Encryptor<'a, C> {
 pub struct AEADEncryptor<'a, C: 'a> {
     inner: Generic<aead::Encryptor<BoxStack<'a, C>>, C>,
 }
+assert_send_and_sync!(AEADEncryptor<'_, C>, C);
 
 impl<'a> AEADEncryptor<'a, Cookie> {
     /// Makes an encrypting writer.

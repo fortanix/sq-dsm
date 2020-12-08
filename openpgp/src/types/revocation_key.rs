@@ -68,6 +68,7 @@ pub struct RevocationKey {
     /// authorizations.
     unknown: u8,
 }
+assert_send_and_sync!(RevocationKey);
 
 impl From<&Cert> for RevocationKey {
     fn from(cert: &Cert) -> Self {

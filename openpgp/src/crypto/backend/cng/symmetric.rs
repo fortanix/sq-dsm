@@ -77,6 +77,7 @@ impl Mode for Mutex<cng::SymmetricAlgorithmKey> {
 #[derive(Debug, thiserror::Error)]
 #[error("Unsupported algorithm: {0}")]
 pub struct UnsupportedAlgorithm(SymmetricAlgorithm);
+assert_send_and_sync!(UnsupportedAlgorithm);
 
 impl From<UnsupportedAlgorithm> for Error {
     fn from(value: UnsupportedAlgorithm) -> Error {

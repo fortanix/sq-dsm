@@ -10,6 +10,7 @@ use super::{Generic, Message, BoxStack, Stackable, Cookie};
 pub struct BZ<'a, C: 'a> {
     inner: Generic<BzEncoder<BoxStack<'a, C>>, C>,
 }
+assert_send_and_sync!(BZ<'_, C>, C);
 
 impl<'a> BZ<'a, Cookie> {
     /// Makes a BZ compressing writer.

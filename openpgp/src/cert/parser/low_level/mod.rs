@@ -74,6 +74,7 @@ pub enum CertParserError {
     /// An OpenPGP error.
     OpenPGP(Error),
 }
+assert_send_and_sync!(CertParserError);
 
 impl From<CertParserError> for anyhow::Error {
     fn from(err: CertParserError) -> Self {

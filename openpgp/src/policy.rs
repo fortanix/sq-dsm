@@ -911,6 +911,7 @@ pub enum AsymmetricAlgorithm {
     /// Unknown algorithm.
     Unknown,
 }
+assert_send_and_sync!(AsymmetricAlgorithm);
 
 impl std::fmt::Display for AsymmetricAlgorithm {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

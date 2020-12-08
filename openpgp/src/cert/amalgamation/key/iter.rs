@@ -82,6 +82,10 @@ pub struct KeyAmalgamationIter<'a, P, R>
     _p: std::marker::PhantomData<P>,
     _r: std::marker::PhantomData<R>,
 }
+assert_send_and_sync!(KeyAmalgamationIter<'_, P, R>,
+     P: key::KeyParts,
+     R: key::KeyRole
+);
 
 impl<'a, P, R> fmt::Debug for KeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,
@@ -680,6 +684,10 @@ pub struct ValidKeyAmalgamationIter<'a, P, R>
     _p: std::marker::PhantomData<P>,
     _r: std::marker::PhantomData<R>,
 }
+assert_send_and_sync!(ValidKeyAmalgamationIter<'_, P, R>,
+     P: key::KeyParts,
+     R: key::KeyRole
+);
 
 impl<'a, P, R> fmt::Debug for ValidKeyAmalgamationIter<'a, P, R>
     where P: key::KeyParts,

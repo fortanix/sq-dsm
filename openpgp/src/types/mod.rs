@@ -126,6 +126,7 @@ pub enum PublicKeyAlgorithm {
     /// Unknown algorithm identifier.
     Unknown(u8),
 }
+assert_send_and_sync!(PublicKeyAlgorithm);
 
 impl PublicKeyAlgorithm {
     /// Returns true if the algorithm can sign data.
@@ -313,6 +314,7 @@ pub enum Curve {
     /// Unknown curve.
     Unknown(Box<[u8]>),
 }
+assert_send_and_sync!(Curve);
 
 impl Curve {
     /// Returns the length of public keys over this curve in bits.
@@ -575,6 +577,7 @@ pub enum SymmetricAlgorithm {
     /// Unknown algorithm identifier.
     Unknown(u8),
 }
+assert_send_and_sync!(SymmetricAlgorithm);
 
 impl Default for SymmetricAlgorithm {
     fn default() -> Self {
@@ -711,6 +714,7 @@ pub enum AEADAlgorithm {
     /// Unknown algorithm identifier.
     Unknown(u8),
 }
+assert_send_and_sync!(AEADAlgorithm);
 
 impl AEADAlgorithm {
     /// Returns whether this algorithm is supported.
@@ -831,6 +835,7 @@ pub enum CompressionAlgorithm {
     /// Unknown compression algorithm identifier.
     Unknown(u8),
 }
+assert_send_and_sync!(CompressionAlgorithm);
 
 impl Default for CompressionAlgorithm {
     fn default() -> Self {
@@ -964,6 +969,7 @@ pub enum HashAlgorithm {
     /// Unknown hash algorithm identifier.
     Unknown(u8),
 }
+assert_send_and_sync!(HashAlgorithm);
 
 impl Default for HashAlgorithm {
     fn default() -> Self {
@@ -1117,6 +1123,7 @@ pub enum SignatureType {
     /// Catchall.
     Unknown(u8),
 }
+assert_send_and_sync!(SignatureType);
 
 impl From<u8> for SignatureType {
     fn from(u: u8) -> Self {
@@ -1291,6 +1298,7 @@ pub enum ReasonForRevocation {
     /// Unknown reason identifier.
     Unknown(u8),
 }
+assert_send_and_sync!(ReasonForRevocation);
 
 impl From<u8> for ReasonForRevocation {
     fn from(u: u8) -> Self {
@@ -1440,6 +1448,7 @@ pub enum RevocationType {
     /// revocations.
     Soft,
 }
+assert_send_and_sync!(RevocationType);
 
 impl ReasonForRevocation {
     /// Returns the revocation's `RevocationType`.
@@ -1527,6 +1536,7 @@ pub enum DataFormat {
     /// Unknown format specifier.
     Unknown(char),
 }
+assert_send_and_sync!(DataFormat);
 
 impl Default for DataFormat {
     fn default() -> Self {
@@ -1656,6 +1666,7 @@ pub enum RevocationStatus<'a> {
     /// us from seeing the revocation certificate.
     NotAsFarAsWeKnow,
 }
+assert_send_and_sync!(RevocationStatus<'_>);
 
 #[cfg(test)]
 mod tests {

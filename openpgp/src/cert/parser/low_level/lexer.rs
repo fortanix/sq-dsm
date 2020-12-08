@@ -46,6 +46,7 @@ pub enum Token {
     /// An `Unknown` packet.
     Unknown(Tag, Option<Packet>),
 }
+assert_send_and_sync!(Token);
 
 /// Internal data-structure used by the parser.
 ///
@@ -58,6 +59,7 @@ pub enum Component {
     UserAttributeBundle(UserAttributeBundle),
     UnknownBundle(UnknownBundle),
 }
+assert_send_and_sync!(Component);
 
 impl<'a> From<&'a Token> for Tag {
     fn from(token: &'a Token) -> Self {

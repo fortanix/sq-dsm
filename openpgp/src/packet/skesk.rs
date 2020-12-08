@@ -77,6 +77,7 @@ pub struct SKESK4 {
     esk: std::result::Result<Option<Box<[u8]>>, // optional ciphertext.
                              Box<[u8]>>,        // S2K body + maybe ciphertext.
 }
+assert_send_and_sync!(SKESK4);
 
 // Because the S2K and ESK cannot be cleanly separated at parse time,
 // we need to carefully compare and hash SKESK4 packets.
@@ -334,6 +335,7 @@ pub struct SKESK5 {
     /// Digest for the AEAD algorithm.
     aead_digest: Box<[u8]>,
 }
+assert_send_and_sync!(SKESK5);
 
 // Because the S2K, IV, and ESK cannot be cleanly separated at parse
 // time, we need to carefully compare and hash SKESK5 packets.

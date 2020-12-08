@@ -302,6 +302,7 @@ pub enum VerificationError<'a> {
         error: anyhow::Error,
     },
 }
+assert_send_and_sync!(VerificationError<'_>);
 
 impl<'a> std::fmt::Display for VerificationError<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -570,6 +571,7 @@ pub enum MessageLayer<'a> {
         results: Vec<VerificationResult<'a>>,
     }
 }
+assert_send_and_sync!(MessageLayer<'_>);
 
 /// Internal version of the message structure.
 ///

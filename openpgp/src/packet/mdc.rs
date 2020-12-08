@@ -22,6 +22,7 @@ pub struct MDC {
     /// A 20-octet SHA-1 hash of the preceding plaintext data.
     digest: [u8; 20],
 }
+assert_send_and_sync!(MDC);
 
 impl PartialEq for MDC {
     fn eq(&self, other: &MDC) -> bool {

@@ -71,7 +71,6 @@ pub enum Kind {
     /// A generic file.  This is a GnuPG extension.
     File,
 }
-
 assert_send_and_sync!(Kind);
 
 #[cfg(test)]
@@ -452,6 +451,7 @@ pub enum ReaderMode {
     /// text that the user cut and pasted into a text area.
     VeryTolerant,
 }
+assert_send_and_sync!(ReaderMode);
 
 /// A filter that strips ASCII Armor from a stream of data.
 pub struct Reader<'a> {

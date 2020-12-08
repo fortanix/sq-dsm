@@ -449,6 +449,11 @@ pub struct KeyAmalgamation<'a, P, R, R2>
     ca: ComponentAmalgamation<'a, Key<P, R>>,
     primary: R2,
 }
+assert_send_and_sync!(KeyAmalgamation<'_, P, R, R2>,
+    P: key::KeyParts,
+    R: key::KeyRole,
+    R2
+);
 
 // derive(Clone) doesn't work with generic parameters that don't
 // implement clone.  But, we don't need to require that C implements
@@ -942,6 +947,11 @@ pub struct ValidKeyAmalgamation<'a, P, R, R2>
     // The binding signature at time `time`.  (This is just a cache.)
     binding_signature: &'a Signature,
 }
+assert_send_and_sync!(ValidKeyAmalgamation<'_, P, R, R2>,
+    P: key::KeyParts,
+    R: key::KeyRole,
+    R2: Copy
+);
 
 /// A Valid primary Key, and its associated data.
 ///

@@ -42,6 +42,7 @@ pub enum Token {
     /// A container's unparsed content.
     OpaqueContent,
 }
+assert_send_and_sync!(Token);
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -53,6 +54,7 @@ impl fmt::Display for Token {
 pub enum LexicalError {
     // There are no lexing errors.
 }
+assert_send_and_sync!(LexicalError);
 
 impl fmt::Display for LexicalError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
