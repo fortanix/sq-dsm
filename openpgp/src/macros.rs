@@ -145,7 +145,7 @@ macro_rules! time_it {
 /// ```
 ///
 macro_rules! assert_send_and_sync {
-    ( $x:ty, $( $g:ident$( : $b:path )? ),*) => {
+    ( $x:ty, $( $g:ident$( : $b:path )? $(,)?)*) => {
         impl<$( $g ),*> crate::types::Sendable for $x
             where $( $g: Send + Sync $(+ $b)? ),*
             {}
