@@ -1440,7 +1440,7 @@ pub enum Key<P: key::KeyParts, R: key::KeyRole> {
     /// A version 4 `Key` packet.
     V4(Key4<P, R>),
 }
-assert_send_and_sync!(Key<P, R>, P: key::KeyParts, R: key::KeyRole);
+assert_send_and_sync!(Key<P, R> where P: key::KeyParts, R: key::KeyRole);
 
 impl<P: key::KeyParts, R: key::KeyRole> fmt::Display for Key<P, R> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

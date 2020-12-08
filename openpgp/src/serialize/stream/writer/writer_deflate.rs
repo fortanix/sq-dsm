@@ -10,7 +10,7 @@ use super::{Generic, Message, BoxStack, Stackable, Cookie};
 pub struct ZIP<'a, C: 'a> {
     inner: Generic<DeflateEncoder<BoxStack<'a, C>>, C>,
 }
-assert_send_and_sync!(ZIP<'_, C>, C);
+assert_send_and_sync!(ZIP<'_, C> where C);
 
 impl<'a> ZIP<'a, Cookie> {
     /// Makes a ZIP compressing writer.
@@ -79,7 +79,7 @@ impl<'a, C: 'a> Stackable<'a, C> for ZIP<'a, C> {
 pub struct ZLIB<'a, C: 'a> {
     inner: Generic<ZlibEncoder<BoxStack<'a, C>>, C>,
 }
-assert_send_and_sync!(ZLIB<'_, C>, C);
+assert_send_and_sync!(ZLIB<'_, C> where C);
 
 impl<'a> ZLIB<'a, Cookie> {
     /// Makes a ZLIB compressing writer.

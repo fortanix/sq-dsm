@@ -782,7 +782,7 @@ pub struct Key4<P, R>
     r: std::marker::PhantomData<R>,
 }
 
-assert_send_and_sync!(Key4<P, R>, P: KeyParts, R: KeyRole);
+assert_send_and_sync!(Key4<P, R> where P: KeyParts, R: KeyRole);
 
 impl<P: KeyParts, R: KeyRole> PartialEq for Key4<P, R> {
     fn eq(&self, other: &Key4<P, R>) -> bool {

@@ -45,7 +45,7 @@ pub struct PartialBodyFilter<'a, C: 'a> {
     // The number of bytes written to this filter.
     position: u64,
 }
-assert_send_and_sync!(PartialBodyFilter<'_, C>, C);
+assert_send_and_sync!(PartialBodyFilter<'_, C> where C);
 
 const PARTIAL_BODY_FILTER_MAX_CHUNK_SIZE : usize = 1 << 30;
 

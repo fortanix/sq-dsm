@@ -172,7 +172,7 @@ pub struct Writer<W: Write> {
     header: Vec<u8>,
     dirty: bool,
 }
-assert_send_and_sync!(Writer<W>, W: Write);
+assert_send_and_sync!(Writer<W> where W: Write);
 
 impl<W: Write> Writer<W> {
     /// Constructs a new filter for the given type of data.
