@@ -708,7 +708,9 @@ impl<'a> Iter<'a> {
     ///             ]);
     /// # Ok(()) }
     /// ```
-    pub fn paths(self) -> impl Iterator<Item = (Vec<usize>, &'a Packet)> {
+    pub fn paths(self)
+                 -> impl Iterator<Item = (Vec<usize>, &'a Packet)> + Send + Sync
+    {
         PacketPathIter {
             iter: self,
             path: None,

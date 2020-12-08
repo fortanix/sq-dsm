@@ -91,7 +91,7 @@ impl Map {
     /// assert_eq!(map.iter().count(), 6);
     /// # Ok(()) }
     /// ```
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Field<'a>> {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Field<'a>> + Send + Sync {
         Iter::new(self)
     }
 }

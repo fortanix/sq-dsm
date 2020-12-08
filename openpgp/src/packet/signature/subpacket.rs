@@ -648,11 +648,13 @@ impl SubpacketArea {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn iter(&self) -> impl Iterator<Item = &Subpacket> {
+    pub fn iter(&self) -> impl Iterator<Item = &Subpacket> + Send + Sync {
         self.packets.iter()
     }
 
-    pub(crate) fn iter_mut(&mut self) -> impl Iterator<Item = &mut Subpacket> {
+    pub(crate) fn iter_mut(&mut self)
+                           -> impl Iterator<Item = &mut Subpacket> + Send + Sync
+    {
         self.packets.iter_mut()
     }
 
@@ -820,13 +822,13 @@ impl SubpacketArea {
     /// # }
     /// ```
     pub fn subpackets(&self, target: SubpacketTag)
-        -> impl Iterator<Item = &Subpacket>
+        -> impl Iterator<Item = &Subpacket> + Send + Sync
     {
         self.iter().filter(move |sp| sp.tag() == target)
     }
 
     pub(crate) fn subpackets_mut(&mut self, target: SubpacketTag)
-        -> impl Iterator<Item = &mut Subpacket>
+        -> impl Iterator<Item = &mut Subpacket> + Send + Sync
     {
         self.iter_mut().filter(move |sp| sp.tag() == target)
     }
@@ -2104,7 +2106,7 @@ impl SubpacketAreas {
     /// hashed subpacket area.  Thus, any instances of them in the
     /// unhashed area are ignored.
     pub fn subpackets(&self, tag: SubpacketTag)
-        -> impl Iterator<Item = &Subpacket>
+        -> impl Iterator<Item = &Subpacket> + Send + Sync
     {
         // It would be nice to do:
         //
@@ -2132,7 +2134,7 @@ impl SubpacketAreas {
     }
 
     pub(crate) fn subpackets_mut(&mut self, tag: SubpacketTag)
-        -> impl Iterator<Item = &mut Subpacket>
+        -> impl Iterator<Item = &mut Subpacket> + Send + Sync
     {
         self.hashed_area.subpackets_mut(tag).chain(
             self.unhashed_area
@@ -2733,7 +2735,8 @@ impl SubpacketAreas {
     ///
     /// This returns all instances of the Regular Expression subpacket
     /// in the hashed subpacket area.
-    pub fn regular_expressions(&self) -> impl Iterator<Item=&[u8]> {
+    pub fn regular_expressions(&self) -> impl Iterator<Item=&[u8]> + Send + Sync
+    {
         self.subpackets(SubpacketTag::RegularExpression).map(|sb| {
             match sb.value {
                 SubpacketValue::RegularExpression(ref v) => &v[..],
@@ -2800,7 +2803,8 @@ impl SubpacketAreas {
     ///
     /// This returns all instance of the Revocation Key subpacket in
     /// the hashed subpacket area.
-    pub fn revocation_keys(&self) -> impl Iterator<Item=&RevocationKey>
+    pub fn revocation_keys(&self)
+                           -> impl Iterator<Item=&RevocationKey> + Send + Sync
     {
         self.subpackets(SubpacketTag::RevocationKey)
             .map(|sb| {
@@ -2823,7 +2827,7 @@ impl SubpacketAreas {
     ///
     /// This returns all instances of the Issuer subpacket in both the
     /// hashed subpacket area and the unhashed subpacket area.
-    pub fn issuers(&self) -> impl Iterator<Item=&KeyID> {
+    pub fn issuers(&self) -> impl Iterator<Item=&KeyID> + Send + Sync {
         // 8-octet Key ID
         self.subpackets(SubpacketTag::Issuer)
             .map(|sb| {
@@ -2847,7 +2851,8 @@ impl SubpacketAreas {
     /// This returns all instances of the Issuer Fingerprint subpacket
     /// in both the hashed subpacket area and the unhashed subpacket
     /// area.
-    pub fn issuer_fingerprints(&self) -> impl Iterator<Item=&Fingerprint>
+    pub fn issuer_fingerprints(&self)
+                               -> impl Iterator<Item=&Fingerprint> + Send + Sync
     {
         // 1 octet key version number, N octets of fingerprint
         self.subpackets(SubpacketTag::IssuerFingerprint)
@@ -2885,7 +2890,8 @@ impl SubpacketAreas {
     ///
     /// This returns all instances of the Notation Data subpacket in
     /// the hashed subpacket area.
-    pub fn notation_data(&self) -> impl Iterator<Item=&NotationData>
+    pub fn notation_data(&self)
+                         -> impl Iterator<Item=&NotationData> + Send + Sync
     {
         self.subpackets(SubpacketTag::NotationData)
             .map(|sb| {
@@ -2924,8 +2930,9 @@ impl SubpacketAreas {
     /// This returns the values of all instances of the Notation Data
     /// subpacket with the specified name in the hashed subpacket area.
     // name needs 'a, because the closure outlives the function call.
-    pub fn notation<'a, N>(&'a self, name: N) -> impl Iterator<Item=&'a [u8]>
-        where N: 'a + AsRef<str>
+    pub fn notation<'a, N>(&'a self, name: N)
+                           -> impl Iterator<Item=&'a [u8]> + Send + Sync
+        where N: 'a + AsRef<str> + Send + Sync
     {
         self.notation_data()
             .filter_map(move |n| {
@@ -3504,7 +3511,9 @@ impl SubpacketAreas {
     /// subpacket in the hashed subpacket area, the last one is
     /// returned.  Otherwise, the last one is returned from the
     /// unhashed subpacket area.
-    pub fn embedded_signatures(&self) -> impl Iterator<Item = &Signature> {
+    pub fn embedded_signatures(&self)
+                               -> impl Iterator<Item = &Signature> + Send + Sync
+    {
         self.subpackets(SubpacketTag::EmbeddedSignature).map(|sb| {
             if let SubpacketValue::EmbeddedSignature(v) = &sb.value {
                 v
@@ -3536,7 +3545,8 @@ impl SubpacketAreas {
     /// returned.  Otherwise, the last one is returned from the
     /// unhashed subpacket area.
     pub fn embedded_signatures_mut(&mut self)
-                                   -> impl Iterator<Item = &mut Signature> {
+        -> impl Iterator<Item = &mut Signature> + Send + Sync
+    {
         self.subpackets_mut(SubpacketTag::EmbeddedSignature).map(|sb| {
             if let SubpacketValue::EmbeddedSignature(v) = &mut sb.value {
                 v
@@ -3576,7 +3586,9 @@ impl SubpacketAreas {
     ///
     /// This returns all instances of the Intended Recipient subpacket
     /// in the hashed subpacket area.
-    pub fn intended_recipients(&self) -> impl Iterator<Item=&Fingerprint> {
+    pub fn intended_recipients(&self)
+                               -> impl Iterator<Item=&Fingerprint> + Send + Sync
+    {
         self.subpackets(SubpacketTag::IntendedRecipient)
             .map(|sb| {
                 match sb.value() {

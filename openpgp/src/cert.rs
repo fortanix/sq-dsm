@@ -1223,7 +1223,8 @@ impl Cert {
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn bad_signatures(&self) -> impl Iterator<Item = &Signature> {
+    pub fn bad_signatures(&self)
+                          -> impl Iterator<Item = &Signature> + Send + Sync {
         self.bad.iter()
     }
 
@@ -1313,9 +1314,9 @@ impl Cert {
     /// #     Ok(())
     /// # }
     /// ```
-    pub fn into_packets(self) -> impl Iterator<Item=Packet> {
-        fn rewrite(mut p: impl Iterator<Item=Packet>)
-            -> impl Iterator<Item=Packet>
+    pub fn into_packets(self) -> impl Iterator<Item=Packet> + Send + Sync {
+        fn rewrite(mut p: impl Iterator<Item=Packet> + Send + Sync)
+            -> impl Iterator<Item=Packet> + Send + Sync
         {
             let k: Packet = match p.next().unwrap() {
                 Packet::PublicKey(k) => {

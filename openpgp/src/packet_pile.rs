@@ -484,7 +484,7 @@ impl PacketPile {
     /// # }
     /// ```
     pub fn children(&self)
-        -> impl Iterator<Item=&Packet> + ExactSizeIterator
+        -> impl Iterator<Item=&Packet> + ExactSizeIterator + Send + Sync
     {
         self.top_level.children().expect("toplevel is a container")
     }
@@ -509,7 +509,7 @@ impl PacketPile {
     /// # }
     /// ```
     pub fn into_children(self)
-        -> impl Iterator<Item=Packet> + ExactSizeIterator
+        -> impl Iterator<Item=Packet> + ExactSizeIterator + Send + Sync
     {
         self.top_level.into_children().expect("toplevel is a container")
     }
