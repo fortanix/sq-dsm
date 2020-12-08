@@ -51,6 +51,7 @@ pub struct Decryptor<R: io::Read> {
     // Up to a block of unread data.
     buffer: Vec<u8>,
 }
+assert_send_and_sync!{Decryptor<R>, R: io::Read}
 
 impl<R: io::Read> Decryptor<R> {
     /// Instantiate a new symmetric decryptor.  `reader` is the source
@@ -317,6 +318,7 @@ pub struct Encryptor<W: io::Write> {
     // A place to write encrypted data into.
     scratch: Vec<u8>,
 }
+assert_send_and_sync!{Encryptor<W>, W: io::Write}
 
 impl<W: io::Write> Encryptor<W> {
     /// Instantiate a new symmetric encryptor.

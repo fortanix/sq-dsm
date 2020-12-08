@@ -173,7 +173,6 @@ pub struct Writer<W: Write> {
     header: Vec<u8>,
     dirty: bool,
 }
-
 assert_send_and_sync!{Writer<W>, W: Write}
 
 impl<W: Write> Writer<W> {

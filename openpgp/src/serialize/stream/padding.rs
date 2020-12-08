@@ -144,6 +144,7 @@ pub struct Padder<'a> {
     inner: writer::BoxStack<'a, Cookie>,
     policy: fn(u64) -> u64,
 }
+assert_send_and_sync!{Padder<'_>}
 
 impl<'a> Padder<'a> {
     /// Creates a new padder with the given policy.
