@@ -2800,7 +2800,8 @@ impl From<Cert> for Vec<Packet> {
 /// [`IntoIterator`]: https://doc.rust-lang.org/stable/std/iter/trait.IntoIterator.html
 // We can't use a generic type, and due to the use of closures, we
 // can't write down the concrete type.  So, just use a Box.
-pub struct IntoIter(Box<dyn Iterator<Item=Packet>>);
+pub struct IntoIter(Box<dyn Iterator<Item=Packet> + Send + Sync>);
+assert_send_and_sync!(IntoIter);
 
 impl Iterator for IntoIter {
     type Item = Packet;
