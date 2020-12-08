@@ -55,6 +55,11 @@ impl<'a, C: fmt::Debug> Memory<'a, C> {
     pub fn total_out(&self) -> usize {
         return self.cursor;
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn source_buffer(&self) -> &[u8] {
+        self.buffer
+    }
 }
 
 impl<'a, C: fmt::Debug> io::Read for Memory<'a, C> {

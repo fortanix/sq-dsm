@@ -4,7 +4,7 @@
 //! performance of the statistics example by ~10% over the
 //! Generic.
 
-use libc::{c_void, size_t, mmap, munmap, PROT_READ, MAP_PRIVATE};
+use libc::{mmap, munmap, PROT_READ, MAP_PRIVATE};
 use std::fmt;
 use std::fs;
 use std::io;
@@ -46,8 +46,6 @@ impl<'a, C: fmt::Debug> fmt::Debug for File<'a, C> {
 enum Imp<'a, C: fmt::Debug> {
     Generic(Generic<fs::File, C>),
     MMAP {
-        addr: *mut c_void,
-        length: size_t,
         reader: Memory<'a, C>,
     }
 }
@@ -56,10 +54,12 @@ impl<'a, C: fmt::Debug> Drop for Imp<'a, C> {
     fn drop(&mut self) {
         match self {
             Imp::Generic(_) => (),
-            Imp::MMAP { addr, length, .. } =>
+            Imp::MMAP { reader, } => {
+                let buf = reader.source_buffer();
                 unsafe {
-                    munmap(*addr, *length);
-                },
+                    munmap(buf.as_ptr() as *mut _, buf.len());
+                }
+            },
         }
     }
 }
@@ -82,10 +82,10 @@ impl<'a, C: fmt::Debug> fmt::Debug for Imp<'a, C> {
                 f.debug_tuple("Generic")
                 .field(&g)
                 .finish(),
-            Imp::MMAP { ref addr, ref length, ref reader } =>
+            Imp::MMAP { reader, } =>
                 f.debug_struct("MMAP")
-                .field("addr", addr)
-                .field("length", length)
+                .field("addr", &reader.source_buffer().as_ptr())
+                .field("length", &reader.source_buffer().len())
                 .field("reader", reader)
                 .finish(),
         }
@@ -150,8 +150,6 @@ impl<'a, C: fmt::Debug> File<'a, C> {
 
         Ok(File(
             Imp::MMAP {
-                addr,
-                length,
                 reader: Memory::with_cookie(slice, cookie),
             },
             path.into(),
