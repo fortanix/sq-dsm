@@ -313,6 +313,6 @@ Sequoia's documentation is hosted here: https://docs.sequoia-pgp.org/
 The [guide](./guide) is hosted here: https://sequoia-pgp.org/guide/
 
 You can join our mailing list by sending a mail to
-devel-subscribe@sequoia-pgp.org.
+devel-subscribe@lists.sequoia-pgp.org.
 
 You can talk to us using IRC on freenode in #sequoia.
