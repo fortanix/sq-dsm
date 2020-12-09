@@ -304,8 +304,10 @@ pub fn build() -> App<'static, 'static> {
                                      .help("Don't ASCII-armor encode the OpenPGP data"))
                                 .arg(Arg::with_name("query").value_name("QUERY")
                                      .required(true)
-                                     .help("Fingerprint or KeyID of the key \
-                                            to retrieve")))
+                                     .help(
+                                         "Fingerprint, KeyID, or email \
+                                          address of the cert(s) to retrieve"
+                                     )))
                     .subcommand(SubCommand::with_name("send")
                                 .about("Sends a key")
                                 .arg(Arg::with_name("input").value_name("FILE")

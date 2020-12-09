@@ -323,7 +323,7 @@
 //!     -o, --output <FILE>    Sets the output file to use
 //!
 //! ARGS:
-//!     <QUERY>    Fingerprint or KeyID of the key to retrieve
+//!     <QUERY>    Fingerprint, KeyID, or email address of the cert(s) to retrieve
 //! ```
 //!
 //! ### Subcommand keyserver send

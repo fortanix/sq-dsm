@@ -22,6 +22,7 @@ use openpgp::{
     Fingerprint,
     KeyID,
     KeyHandle,
+    packet::UserID,
 };
 use crate::openpgp::{armor, Cert};
 use sequoia_autocrypt as autocrypt;
@@ -444,22 +445,35 @@ fn main() -> Result<()> {
                         }
                     };
 
-                    if handle.is_none() {
-                        Err(anyhow::anyhow!(
-                            "Malformed key handle: {:?}\n\
-                             (Note: only Fingerprints long KeyIDs are \
-                             supported.)", query))?;
-                    }
-                    let handle = handle.unwrap();
+                    if let Some(handle) = handle {
+                        let cert = rt.block_on(ks.get(handle))
+                            .context("Failed to retrieve cert")?;
 
-                    let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    let cert = rt.block_on(ks.get(handle))
-                        .context("Failed to retrieve key")?;
-                    if ! m.is_present("binary") {
-                        cert.armored().serialize(&mut output)
+                        let mut output =
+                            create_or_stdout(m.value_of("output"), force)?;
+                        if ! m.is_present("binary") {
+                            cert.armored().serialize(&mut output)
+                        } else {
+                            cert.serialize(&mut output)
+                        }.context("Failed to serialize cert")?;
+                    } else if let Ok(Some(addr)) = UserID::from(query).email() {
+                        let certs = rt.block_on(ks.search(addr))
+                            .context("Failed to retrieve certs")?;
+
+                        let mut output =
+                            create_or_stdout_pgp(m.value_of("output"), force,
+                                                 m.is_present("binary"),
+                                                 armor::Kind::PublicKey)?;
+                        for cert in certs {
+                            cert.serialize(&mut output)
+                                .context("Failed to serialize cert")?;
+                        }
+                        output.finalize()?;
                     } else {
-                        cert.serialize(&mut output)
-                    }.context("Failed to serialize key")?;
+                        Err(anyhow::anyhow!(
+                            "Query must be a fingerprint, a keyid, \
+                             or an email address: {:?}", query))?;
+                    }
                 },
                 ("send",  Some(m)) => {
                     let mut input = open_or_stdin(m.value_of("input"))?;
