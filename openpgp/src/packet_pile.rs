@@ -137,7 +137,7 @@ impl<'a> Parse<'a, PacketPile> for PacketPile {
     ///
     ///   [`PacketParser`]: parse/struct.PacketParser.html
     ///   [`PacketPileParser`]: parse/struct.PacketPileParser.html
-    fn from_reader<R: 'a + io::Read>(reader: R) -> Result<PacketPile> {
+    fn from_reader<R: 'a + io::Read + Send + Sync>(reader: R) -> Result<PacketPile> {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         PacketPile::from_buffered_reader(Box::new(bio))

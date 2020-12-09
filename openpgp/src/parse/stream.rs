@@ -1004,7 +1004,7 @@ impl<'a> Parse<'a, VerifierBuilder<'a>>
     for VerifierBuilder<'a>
 {
     fn from_reader<R>(reader: R) -> Result<VerifierBuilder<'a>>
-        where R: io::Read + 'a,
+        where R: io::Read + 'a + Send + Sync,
     {
         VerifierBuilder::new(buffered_reader::Generic::with_cookie(
             reader, None, Default::default()))
@@ -1412,7 +1412,7 @@ impl<'a> Parse<'a, DetachedVerifierBuilder<'a>>
     for DetachedVerifierBuilder<'a>
 {
     fn from_reader<R>(reader: R) -> Result<DetachedVerifierBuilder<'a>>
-        where R: io::Read + 'a,
+        where R: io::Read + 'a + Send + Sync,
     {
         DetachedVerifierBuilder::new(buffered_reader::Generic::with_cookie(
             reader, None, Default::default()))
@@ -1575,7 +1575,7 @@ impl<'a> DetachedVerifierBuilder<'a> {
 
 impl<'a, H: VerificationHelper> DetachedVerifier<'a, H> {
     /// Verifies the given data.
-    pub fn verify_reader<R: io::Read>(&mut self, reader: R) -> Result<()> {
+    pub fn verify_reader<R: io::Read + Send + Sync>(&mut self, reader: R) -> Result<()> {
         self.verify(buffered_reader::Generic::with_cookie(
             reader, None, Default::default()).as_boxed())
     }
@@ -1767,7 +1767,7 @@ impl<'a> Parse<'a, DecryptorBuilder<'a>>
     for DecryptorBuilder<'a>
 {
     fn from_reader<R>(reader: R) -> Result<DecryptorBuilder<'a>>
-        where R: io::Read + 'a,
+        where R: io::Read + 'a + Send + Sync,
     {
         DecryptorBuilder::new(buffered_reader::Generic::with_cookie(
             reader, None, Default::default()))

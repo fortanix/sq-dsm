@@ -486,6 +486,7 @@ struct IoReader<'a> {
     prefix_len: usize,
     prefix_remaining: usize,
 }
+assert_send_and_sync!(IoReader<'_>);
 
 impl Default for ReaderMode {
     fn default() -> Self {
@@ -563,7 +564,7 @@ impl<'a> Reader<'a> {
     /// # }
     /// ```
     pub fn new<R, M>(inner: R, mode: M) -> Self
-        where R: 'a + Read,
+        where R: 'a + Read + Send + Sync,
               M: Into<Option<ReaderMode>>
     {
         Self::from_buffered_reader(
@@ -574,7 +575,7 @@ impl<'a> Reader<'a> {
 
     /// Creates a `Reader` from an `io::Read`er.
     pub fn from_reader<R, M>(reader: R, mode: M) -> Self
-        where R: 'a + Read,
+        where R: 'a + Read + Send + Sync,
               M: Into<Option<ReaderMode>>
     {
         Self::from_buffered_reader(

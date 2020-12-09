@@ -52,7 +52,8 @@ impl Convert<chrono::DateTime<chrono::offset::Utc>> for Timestamp {
     }
 }
 
-pub fn dump<W>(input: &mut dyn io::Read, output: &mut dyn io::Write,
+pub fn dump<W>(input: &mut (dyn io::Read + Sync + Send),
+               output: &mut dyn io::Write,
                mpis: bool, hex: bool, sk: Option<&SessionKey>,
                width: W)
                -> Result<Kind>

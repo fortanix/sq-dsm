@@ -26,7 +26,7 @@ pub struct Reader(ReaderKind);
 /// In some cases, we want to call functions on concrete types.  To
 /// avoid nasty hacks, we have specialized variants for that.
 pub(crate) enum ReaderKind {
-    Generic(Box<dyn io::Read>),
+    Generic(Box<dyn io::Read + Send + Sync>),
     Armored(openpgp::armor::Reader<'static>),
 }
 
@@ -80,26 +80,39 @@ type ReaderCallbackFn = extern fn(*mut c_void, *const c_void, size_t) -> ssize_t
 /// Creates an reader from a callback and cookie.
 ///
 /// This reader calls the given callback to write data.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_verifier_t) that reads
+/// from an callback across thread boundaries, you must make sure that
+/// the callback and cookie support that as well.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_reader_from_callback(cb: ReaderCallbackFn,
                             cookie: *mut c_void)
                             -> *mut Reader {
-    let r: Box<dyn io::Read> = Box::new(ReaderCallback {
-        cb, cookie,
-    });
+    let r: Box<dyn io::Read + Send + Sync> =
+        Box::new(ReaderCallback(Mutex::new(ReaderClosure {
+            cb, cookie,
+        })));
     ReaderKind::Generic(r).move_into_raw()
 }
 
 /// A generic callback-based reader implementation.
-struct ReaderCallback {
+struct ReaderCallback(Mutex<ReaderClosure>);
+
+struct ReaderClosure {
     cb: ReaderCallbackFn,
     cookie: *mut c_void,
 }
 
+unsafe impl Send for ReaderClosure {}
+
 impl Read for ReaderCallback {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let closure = self.0.get_mut().expect("Mutex not to be poisoned");
         let r =
-            (self.cb)(self.cookie, buf.as_mut_ptr() as *mut c_void, buf.len());
+            (closure.cb)(closure.cookie,
+                         buf.as_mut_ptr() as *mut c_void, buf.len());
         if r < 0 {
             use std::io as stdio;
             Err(stdio::Error::new(stdio::ErrorKind::Other,

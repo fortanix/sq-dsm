@@ -275,7 +275,8 @@ impl<'a> DecryptionHelper for Helper<'a> {
 }
 
 pub fn decrypt(ctx: &Context, policy: &dyn Policy, mapping: &mut store::Mapping,
-               input: &mut dyn io::Read, output: &mut dyn io::Write,
+               input: &mut (dyn io::Read + Sync + Send),
+               output: &mut dyn io::Write,
                signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
                dump_session_key: bool,
                dump: bool, hex: bool)
@@ -299,7 +300,8 @@ pub fn decrypt(ctx: &Context, policy: &dyn Policy, mapping: &mut store::Mapping,
 
 pub fn decrypt_unwrap(ctx: &Context, policy: &dyn Policy,
                       mapping: &mut store::Mapping,
-                      input: &mut dyn io::Read, output: &mut dyn io::Write,
+                      input: &mut (dyn io::Read + Sync + Send),
+                      output: &mut dyn io::Write,
                       secrets: Vec<Cert>, dump_session_key: bool)
                       -> Result<()>
 {

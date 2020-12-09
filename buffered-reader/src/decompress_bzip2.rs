@@ -9,7 +9,7 @@ use super::*;
 /// Decompresses the underlying `BufferedReader` using the bzip2
 /// algorithm.
 #[derive(Debug)]
-pub struct Bzip<R: BufferedReader<C>, C: fmt::Debug> {
+pub struct Bzip<R: BufferedReader<C>, C: fmt::Debug + Sync + Send> {
     reader: Generic<BzDecoder<R>, C>,
 }
 
@@ -26,7 +26,7 @@ impl <R: BufferedReader<()>> Bzip<R, ()> {
     }
 }
 
-impl <R: BufferedReader<C>, C: fmt::Debug> Bzip<R, C> {
+impl <R: BufferedReader<C>, C: fmt::Debug + Sync + Send> Bzip<R, C> {
     /// Like `new()`, but uses a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -39,19 +39,19 @@ impl <R: BufferedReader<C>, C: fmt::Debug> Bzip<R, C> {
     }
 }
 
-impl<R: BufferedReader<C>, C: fmt::Debug> io::Read for Bzip<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug + Sync + Send> io::Read for Bzip<R, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         self.reader.read(buf)
     }
 }
 
-impl<R: BufferedReader<C>, C: fmt::Debug> fmt::Display for Bzip<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug + Sync + Send> fmt::Display for Bzip<R, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Bzip").finish()
     }
 }
 
-impl<R: BufferedReader<C>, C: fmt::Debug> BufferedReader<C> for Bzip<R, C> {
+impl<R: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C> for Bzip<R, C> {
     fn buffer(&self) -> &[u8] {
         return self.reader.buffer();
     }

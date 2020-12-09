@@ -22,7 +22,7 @@ impl mpi::PublicKey {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub fn parse<R: Read>(algo: PublicKeyAlgorithm, reader: R) -> Result<Self>
+    pub fn parse<R: Read + Send + Sync>(algo: PublicKeyAlgorithm, reader: R) -> Result<Self>
     {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
@@ -151,7 +151,7 @@ impl mpi::SecretKeyMaterial {
     /// Parses secret key MPIs for `algo` plus their SHA1 checksum.
     ///
     /// Fails if the checksum is wrong.
-    pub fn parse_with_checksum<R: Read>(algo: PublicKeyAlgorithm,
+    pub fn parse_with_checksum<R: Read + Send + Sync>(algo: PublicKeyAlgorithm,
                                         reader: R,
                                         checksum: mpi::SecretKeyChecksum)
                                         -> Result<Self> {
@@ -166,7 +166,7 @@ impl mpi::SecretKeyMaterial {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub fn parse<R: Read>(algo: PublicKeyAlgorithm, reader: R) -> Result<Self>
+    pub fn parse<R: Read + Send + Sync>(algo: PublicKeyAlgorithm, reader: R) -> Result<Self>
     {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
@@ -305,7 +305,7 @@ impl mpi::Ciphertext {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub fn parse<R: Read>(algo: PublicKeyAlgorithm, reader: R) -> Result<Self>
+    pub fn parse<R: Read + Send + Sync>(algo: PublicKeyAlgorithm, reader: R) -> Result<Self>
     {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
@@ -384,7 +384,7 @@ impl mpi::Signature {
     /// See [Section 3.2 of RFC 4880] for details.
     ///
     ///   [Section 3.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-3.2
-    pub fn parse<R: Read>(algo: PublicKeyAlgorithm, reader: R) -> Result<Self>
+    pub fn parse<R: Read + Send + Sync>(algo: PublicKeyAlgorithm, reader: R) -> Result<Self>
     {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());

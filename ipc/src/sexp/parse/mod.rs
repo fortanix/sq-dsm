@@ -30,7 +30,7 @@ lalrpop_mod!(
 );
 
 impl<'a> Parse<'a, Sexp> for Sexp {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Sexp> {
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Sexp> {
         Self::from_bytes(
             buffered_reader::Generic::new(reader, None).data_eof()?)
     }

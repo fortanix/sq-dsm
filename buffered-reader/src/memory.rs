@@ -12,7 +12,7 @@ use super::*;
 /// buffer, this implementation is optimized for a memory buffer, and
 /// avoids double buffering.
 #[derive(Debug)]
-pub struct Memory<'a, C: fmt::Debug> {
+pub struct Memory<'a, C: fmt::Debug + Sync + Send> {
     buffer: &'a [u8],
     // The next byte to read in the buffer.
     cursor: usize,
@@ -24,7 +24,7 @@ pub struct Memory<'a, C: fmt::Debug> {
 assert_send_and_sync!(Memory<'_, C>
                       where C: fmt::Debug);
 
-impl<'a, C: fmt::Debug> fmt::Display for Memory<'a, C> {
+impl<'a, C: fmt::Debug + Sync + Send> fmt::Display for Memory<'a, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Memory ({} of {} bytes read)",
                self.cursor, self.buffer.len())
@@ -40,7 +40,7 @@ impl<'a> Memory<'a, ()> {
     }
 }
 
-impl<'a, C: fmt::Debug> Memory<'a, C> {
+impl<'a, C: fmt::Debug + Sync + Send> Memory<'a, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -65,7 +65,7 @@ impl<'a, C: fmt::Debug> Memory<'a, C> {
     }
 }
 
-impl<'a, C: fmt::Debug> io::Read for Memory<'a, C> {
+impl<'a, C: fmt::Debug + Sync + Send> io::Read for Memory<'a, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let amount = cmp::min(buf.len(), self.buffer.len() - self.cursor);
         buf[0..amount].copy_from_slice(
@@ -75,7 +75,7 @@ impl<'a, C: fmt::Debug> io::Read for Memory<'a, C> {
     }
 }
 
-impl<'a, C: fmt::Debug> BufferedReader<C> for Memory<'a, C> {
+impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for Memory<'a, C> {
     fn buffer(&self) -> &[u8] {
         &self.buffer[self.cursor..]
     }

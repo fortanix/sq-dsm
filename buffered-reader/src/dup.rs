@@ -11,7 +11,7 @@ use super::*;
 /// much data as you read.  Thus, it should only be used for peeking
 /// at the underlying `BufferedReader`.
 #[derive(Debug)]
-pub struct Dup<T: BufferedReader<C>, C: fmt::Debug> {
+pub struct Dup<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> {
     reader: T,
 
     // The number of bytes that have been consumed.
@@ -25,7 +25,7 @@ assert_send_and_sync!(Dup<T, C>
                       where T: BufferedReader<C>,
                             C: fmt::Debug);
 
-impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> fmt::Display for Dup<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Dup")
             .field("cursor", &self.cursor)
@@ -42,7 +42,7 @@ impl<T: BufferedReader<()>> Dup<T, ()> {
     }
 }
 
-impl<T: BufferedReader<C>, C: fmt::Debug> Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> Dup<T, C> {
     /// Like `new()`, but uses a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -66,7 +66,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug> Dup<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C: fmt::Debug> io::Read for Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> io::Read for Dup<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let data = self.reader.data(self.cursor + buf.len())?;
         assert!(data.len() >= self.cursor);
@@ -81,7 +81,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug> io::Read for Dup<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C: fmt::Debug> BufferedReader<C> for Dup<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C> for Dup<T, C> {
     fn buffer(&self) -> &[u8] {
         let data = self.reader.buffer();
         assert!(data.len() >= self.cursor);

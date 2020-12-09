@@ -24,7 +24,8 @@ use crate::{
 };
 
 pub fn sign(policy: &dyn Policy,
-            input: &mut dyn io::Read, output_path: Option<&str>,
+            input: &mut (dyn io::Read + Sync + Send),
+            output_path: Option<&str>,
             secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
             append: bool, notarize: bool, time: Option<SystemTime>,
             force: bool)
@@ -140,7 +141,8 @@ fn sign_data(policy: &dyn Policy,
 }
 
 fn sign_message(policy: &dyn Policy,
-                input: &mut dyn io::Read, output_path: Option<&str>,
+                input: &mut (dyn io::Read + Sync + Send),
+                output_path: Option<&str>,
                 secrets: Vec<openpgp::Cert>, binary: bool, notarize: bool,
                 time: Option<SystemTime>, force: bool)
              -> Result<()> {
@@ -154,7 +156,7 @@ fn sign_message(policy: &dyn Policy,
 }
 
 fn sign_message_(policy: &dyn Policy,
-                 input: &mut dyn io::Read,
+                 input: &mut (dyn io::Read + Sync + Send),
                  output: &mut (dyn io::Write + Sync + Send),
                  secrets: Vec<openpgp::Cert>, notarize: bool,
                  time: Option<SystemTime>)

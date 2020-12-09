@@ -1999,6 +1999,12 @@ bool pgp_verification_result_bad_signature (pgp_verification_result_t,
 /// first parameter to each of them.
 ///
 /// Note: all of the parameters are required; none may be NULL.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_verifier_t) that reads
+/// from an callback across thread boundaries, you must make sure that
+/// the callbacks and cookie support that as well.
 /*/
 pgp_reader_t pgp_decryptor_new (pgp_error_t *errp,
     pgp_policy_t policy,
@@ -2014,6 +2020,12 @@ pgp_reader_t pgp_decryptor_new (pgp_error_t *errp,
 ///
 /// No attempt is made to decrypt any encryption packets.  These are
 /// treated as opaque containers.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_verifier_t) that reads
+/// from an callback across thread boundaries, you must make sure that
+/// the callbacks and cookie support that as well.
 /*/
 pgp_reader_t pgp_verifier_new (pgp_error_t *errp,
     pgp_policy_t policy,
@@ -2025,6 +2037,12 @@ pgp_reader_t pgp_verifier_new (pgp_error_t *errp,
 
 /*/
 /// Verifies a detached OpenPGP signature.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_verifier_t) that reads
+/// from an callback across thread boundaries, you must make sure that
+/// the callbacks and cookie support that as well.
 /*/
 pgp_detached_verifier_t pgp_detached_verifier_new (pgp_error_t *errp,
     pgp_policy_t policy,

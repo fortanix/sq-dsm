@@ -740,7 +740,7 @@ impl std::str::FromStr for Cert {
 
 impl<'a> Parse<'a, Cert> for Cert {
     /// Returns the first Cert encountered in the reader.
-    fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: io::Read + Send + Sync>(reader: R) -> Result<Self> {
         Cert::try_from(PacketParser::from_reader(reader)?)
     }
 
@@ -752,7 +752,7 @@ impl<'a> Parse<'a, Cert> for Cert {
     /// Returns the first Cert found in `buf`.
     ///
     /// `buf` must be an OpenPGP-encoded message.
-    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<Self> {
         Cert::try_from(PacketParser::from_bytes(data)?)
     }
 }

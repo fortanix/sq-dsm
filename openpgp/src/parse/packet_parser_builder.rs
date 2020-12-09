@@ -100,7 +100,7 @@ pub struct PacketParserBuilder<'a> {
 impl<'a> Parse<'a, PacketParserBuilder<'a>> for PacketParserBuilder<'a> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored
     /// in a `std::io::Read` object.
-    fn from_reader<R: io::Read + 'a>(reader: R) -> Result<Self> {
+    fn from_reader<R: io::Read + 'a + Send + Sync>(reader: R) -> Result<Self> {
         PacketParserBuilder::from_buffered_reader(
             Box::new(buffered_reader::Generic::with_cookie(
                 reader, None, Cookie::default())))

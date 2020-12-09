@@ -36,7 +36,13 @@ typedef ssize_t (*pgp_reader_cb_t) (void *cookie, const void *buf, size_t len);
 /*/
 /// Creates an reader from a callback and cookie.
 ///
-/// This reader calls the given callback to write data.
+/// This reader calls the given callback to read data.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_verifier_t) that reads
+/// from an callback across thread boundaries, you must make sure that
+/// the callback and cookie support that as well.
 /*/
 pgp_reader_t pgp_reader_from_callback (pgp_reader_cb_t, void *);
 

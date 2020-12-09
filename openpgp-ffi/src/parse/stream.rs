@@ -11,6 +11,7 @@
 //! [`sequoia-openpgp::parse::stream`]: ../../../../sequoia_openpgp/parse/stream/index.html
 
 use std::ptr;
+use std::sync::Mutex;
 use libc::{c_int, c_void, time_t};
 
 use sequoia_openpgp as openpgp;
@@ -430,12 +431,15 @@ type CheckCallback = extern fn(*mut HelperCookie,
                                   -> Status;
 
 // This fetches keys and computes the validity of the verification.
-struct VHelper {
+struct VHelper(Mutex<VHelperClosure>);
+struct VHelperClosure {
     inspect_cb: Option<InspectCallback>,
     get_certs_cb: GetPublicKeysCallback,
     check_signatures_cb: CheckCallback,
     cookie: *mut HelperCookie,
 }
+
+unsafe impl Send for VHelperClosure {}
 
 impl VHelper {
     fn new(inspect_cb: Option<InspectCallback>,
@@ -444,19 +448,20 @@ impl VHelper {
            cookie: *mut HelperCookie)
        -> Self
     {
-        VHelper {
+        VHelper(Mutex::new(VHelperClosure {
             inspect_cb,
             get_certs_cb: get_certs,
             check_signatures_cb: check_signatures,
-            cookie,
-        }
+            cookie: cookie,
+        }))
     }
 }
 
 impl VerificationHelper for VHelper {
     fn inspect(&mut self, pp: &PacketParser) -> openpgp::Result<()> {
-        if let Some(cb) = self.inspect_cb {
-            match cb(self.cookie, pp) {
+        let closure = self.0.get_mut().expect("Mutex not to be poisoned");
+        if let Some(cb) = closure.inspect_cb {
+            match cb(closure.cookie, pp) {
                 Status::Success => Ok(()),
                 // XXX: Convert the status to an error better.
                 status => Err(anyhow::anyhow!(
@@ -481,8 +486,9 @@ impl VerificationHelper for VHelper {
 
         let mut free : FreeCallback = |_| {};
 
-        let result = (self.get_certs_cb)(
-            self.cookie,
+        let closure = self.0.get_mut().expect("Mutex not to be poisoned");
+        let result = (closure.get_certs_cb)(
+            closure.cookie,
             ids.as_ptr(), ids.len(),
             &mut cert_refs_raw, &mut cert_refs_raw_len as *mut usize,
             &mut free);
@@ -515,8 +521,9 @@ impl VerificationHelper for VHelper {
     fn check(&mut self, structure: stream::MessageStructure)
         -> Result<(), anyhow::Error>
     {
-        let result = (self.check_signatures_cb)(self.cookie,
-                                                structure.move_into_raw());
+        let closure = self.0.get_mut().expect("Mutex not to be poisoned");
+        let result = (closure.check_signatures_cb)(closure.cookie,
+                                                   structure.move_into_raw());
         if result != Status::Success {
             // XXX: We need to convert the status to an error.  A
             // status contains less information, but we should do the
@@ -534,6 +541,12 @@ impl VerificationHelper for VHelper {
 ///
 /// No attempt is made to decrypt any encryption packets.  These are
 /// treated as opaque containers.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_verifier_t) that reads
+/// from an callback across thread boundaries, you must make sure that
+/// the callbacks and cookie support that as well.
 ///
 /// # Examples
 ///
@@ -662,6 +675,12 @@ fn pgp_verifier_new<'a>(errp: Option<&mut *mut crate::error::Error>,
 pub struct DetachedVerifier(openpgp::parse::stream::DetachedVerifier<'static, VHelper>);
 
 /// Verifies a detached OpenPGP signature.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_verifier_t) that reads
+/// from an callback across thread boundaries, you must make sure that
+/// the callbacks and cookie support that as well.
 ///
 /// # Examples
 ///
@@ -871,8 +890,10 @@ impl DecryptionHelper for DHelper {
             (*closure)(algo.into(), sk.ref_raw())
         }
 
+        let closure =
+            self.vhelper.0.get_mut().expect("Mutex not to be poisoned");
         let result = (self.decrypt_cb)(
-            self.vhelper.cookie,
+            closure.cookie,
             pkesks.as_ptr(), pkesks.len(), skesks.as_ptr(), skesks.len(),
             sym_algo.map(|s| u8::from(s)).unwrap_or(0),
             trampoline::<D>,
@@ -903,6 +924,12 @@ impl DecryptionHelper for DHelper {
 /// first parameter to each of them.
 ///
 /// Note: all of the parameters are required; none may be NULL.
+///
+/// # Sending objects across thread boundaries
+///
+/// If you send a Sequoia object (like a pgp_verifier_t) that reads
+/// from an callback across thread boundaries, you must make sure that
+/// the callbacks and cookie support that as well.
 ///
 /// # Examples
 ///

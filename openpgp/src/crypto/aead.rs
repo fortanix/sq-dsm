@@ -121,7 +121,7 @@ impl<'a> Decryptor<'a> {
     /// Instantiate a new AEAD decryptor.
     ///
     /// `source` is the source to wrap.
-    pub fn new<R: io::Read>(version: u8, sym_algo: SymmetricAlgorithm,
+    pub fn new<R: io::Read + Send + Sync>(version: u8, sym_algo: SymmetricAlgorithm,
                             aead: AEADAlgorithm, chunk_size: usize,
                             iv: &[u8], key: &SessionKey, source: R)
         -> Result<Self>

@@ -374,8 +374,8 @@ impl<'a> VerificationHelper for VHelper<'a> {
 
 pub fn verify(ctx: &Context, policy: &dyn Policy,
               mapping: &mut store::Mapping,
-              input: &mut dyn io::Read,
-              detached: Option<&mut dyn io::Read>,
+              input: &mut (dyn io::Read + Sync + Send),
+              detached: Option<&mut (dyn io::Read + Sync + Send)>,
               output: &mut dyn io::Write,
               signatures: usize, certs: Vec<Cert>)
               -> Result<()> {
@@ -396,7 +396,7 @@ pub fn verify(ctx: &Context, policy: &dyn Policy,
     Ok(())
 }
 
-pub fn split(input: &mut dyn io::Read, prefix: &str)
+pub fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str)
              -> Result<()> {
     // We (ab)use the mapping feature to create byte-accurate dumps of
     // nested packets.

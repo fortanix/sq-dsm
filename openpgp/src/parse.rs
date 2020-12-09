@@ -270,7 +270,7 @@ const TRACE : bool = false;
 /// related data structures.
 pub trait Parse<'a, T> {
     /// Reads from the given reader.
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<T>;
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<T>;
 
     /// Reads from the given file.
     ///
@@ -289,7 +289,7 @@ pub trait Parse<'a, T> {
     /// implementations can provide their own specialized version.
     ///
     /// [`from_reader(..)`]: #tymethod.from_reader
-    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<T> {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<T> {
         Self::from_reader(io::Cursor::new(data))
     }
 }
@@ -297,7 +297,7 @@ pub trait Parse<'a, T> {
 macro_rules! impl_parse_generic_packet {
     ($typ: ident) => {
         impl<'a> Parse<'a, $typ> for $typ {
-            fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+            fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
                 let bio = buffered_reader::Generic::with_cookie(
                     reader, None, Cookie::default());
                 let parser = PacketHeaderParser::new_naked(bio);
@@ -1082,7 +1082,7 @@ impl S2K {
 
 impl<'a> Parse<'a, S2K> for S2K {
     /// Reads an S2K from `reader`.
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(bio);
@@ -1091,7 +1091,7 @@ impl<'a> Parse<'a, S2K> for S2K {
 }
 
 impl Header {
-    pub(crate) fn parse<R: BufferedReader<C>, C: fmt::Debug> (bio: &mut R)
+    pub(crate) fn parse<R: BufferedReader<C>, C: fmt::Debug + Send + Sync> (bio: &mut R)
         -> Result<Header>
     {
         let ctb = CTB::try_from(bio.data_consume_hard(1)?[0])?;
@@ -1109,7 +1109,7 @@ impl<'a> Parse<'a, Header> for Header {
     /// of RFC 4880].
     ///
     ///   [Section 4.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self>
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self>
     {
         let mut reader = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
@@ -1122,7 +1122,7 @@ impl BodyLength {
     /// 4.2.2 of RFC 4880].
     ///
     ///   [Section 4.2.2 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.2
-    pub(crate) fn parse_new_format<T: BufferedReader<C>, C: fmt::Debug> (bio: &mut T)
+    pub(crate) fn parse_new_format<T: BufferedReader<C>, C: fmt::Debug + Send + Sync> (bio: &mut T)
         -> io::Result<BodyLength>
     {
         let octet1 : u8 = bio.data_consume_hard(1)?[0];
@@ -1145,7 +1145,7 @@ impl BodyLength {
     /// 4.2.1 of RFC 4880].
     ///
     ///   [Section 4.2.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-4.2.1
-    pub(crate) fn parse_old_format<T: BufferedReader<C>, C: fmt::Debug>
+    pub(crate) fn parse_old_format<T: BufferedReader<C>, C: fmt::Debug + Send + Sync>
         (bio: &mut T, length_type: PacketLengthType)
          -> Result<BodyLength>
     {
@@ -1230,7 +1230,7 @@ impl Unknown {
 // Note: we only need this function for testing purposes in a
 // different module.
 #[cfg(test)]
-pub(crate) fn to_unknown_packet<R: Read>(reader: R) -> Result<Unknown>
+pub(crate) fn to_unknown_packet<R: Read + Send + Sync>(reader: R) -> Result<Unknown>
 {
     let mut reader = buffered_reader::Generic::with_cookie(
         reader, None, Cookie::default());
@@ -1732,7 +1732,7 @@ impl Subpacket {
 
 impl SubpacketLength {
     /// Parses a subpacket length.
-    fn parse<R: BufferedReader<C>, C: fmt::Debug>(bio: &mut R) -> Result<Self> {
+    fn parse<R: BufferedReader<C>, C: fmt::Debug + Send + Sync>(bio: &mut R) -> Result<Self> {
         let octet1 = bio.data_consume_hard(1)?[0];
         if octet1 < 192 {
             // One octet.
@@ -1964,7 +1964,7 @@ fn one_pass_sig_parser_test () {
 }
 
 impl<'a> Parse<'a, OnePassSig3> for OnePassSig3 {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
         OnePassSig::from_reader(reader).and_then(|p| match p {
             OnePassSig::V3(p) => Ok(p),
             // XXX: Once we have a second variant.
@@ -2238,7 +2238,7 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
 }
 
 impl<'a> Parse<'a, key::UnspecifiedKey> for key::UnspecifiedKey {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         let parser = PacketHeaderParser::new_naked(bio);
@@ -2863,7 +2863,7 @@ impl MPI {
 
 impl<'a> Parse<'a, MPI> for MPI {
     // Reads an MPI from `reader`.
-    fn from_reader<R: io::Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: io::Read + Send + Sync>(reader: R) -> Result<Self> {
         let bio = buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default());
         let mut parser = PacketHeaderParser::new_naked(bio);
@@ -2904,7 +2904,7 @@ impl PKESK3 {
 }
 
 impl<'a> Parse<'a, PKESK3> for PKESK3 {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
         PKESK::from_reader(reader).and_then(|p| match p {
             PKESK::V3(p) => Ok(p),
             // XXX: Once we have a second variant.
@@ -2916,7 +2916,7 @@ impl<'a> Parse<'a, PKESK3> for PKESK3 {
 }
 
 impl<'a> Parse<'a, Packet> for Packet {
-    fn from_reader<R: 'a + Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + Read + Send + Sync>(reader: R) -> Result<Self> {
         let ppr =
             PacketParserBuilder::from_reader(reader)
             ?.buffer_unread_content().build()?;
@@ -3676,7 +3676,7 @@ impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    fn from_reader<R: io::Read + 'a>(reader: R)
+    fn from_reader<R: io::Read + 'a + Send + Sync>(reader: R)
             -> Result<PacketParserResult<'a>> {
         PacketParserBuilder::from_reader(reader)?.build()
     }
@@ -3694,7 +3694,7 @@ impl<'a> Parse<'a, PacketParserResult<'a>> for PacketParser<'a> {
     ///
     /// This function returns a `PacketParser` for the first packet in
     /// the stream.
-    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D)
+    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D)
             -> Result<PacketParserResult<'a>> {
         PacketParserBuilder::from_bytes(data)?.build()
     }

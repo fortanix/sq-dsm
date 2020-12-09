@@ -10,7 +10,7 @@ use super::*;
 /// how much data can be read from the underlying `BufferedReader`,
 /// it causes at least N bytes to by buffered.
 #[derive(Debug)]
-pub struct Reserve<T: BufferedReader<C>, C: fmt::Debug> {
+pub struct Reserve<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> {
     reader: T,
     reserve: usize,
 
@@ -21,7 +21,7 @@ assert_send_and_sync!(Reserve<T, C>
                       where T: BufferedReader<C>,
                             C: fmt::Debug);
 
-impl<T: BufferedReader<C>, C: fmt::Debug> fmt::Display for Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> fmt::Display for Reserve<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("Reserve")
             .field("reserve", &self.reserve)
@@ -39,7 +39,7 @@ impl<T: BufferedReader<()>> Reserve<T, ()> {
     }
 }
 
-impl<T: BufferedReader<C>, C: fmt::Debug> Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> Reserve<T, C> {
     /// Like `new()`, but sets a cookie.
     ///
     /// The cookie can be retrieved using the `cookie_ref` and
@@ -54,7 +54,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug> Reserve<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C: fmt::Debug> io::Read for Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> io::Read for Reserve<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         let to_read = {
             let data = self.reader.data(buf.len() + self.reserve)?;
@@ -71,7 +71,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug> io::Read for Reserve<T, C> {
     }
 }
 
-impl<T: BufferedReader<C>, C: fmt::Debug> BufferedReader<C> for Reserve<T, C> {
+impl<T: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C> for Reserve<T, C> {
     fn buffer(&self) -> &[u8] {
         let buf = self.reader.buffer();
         if buf.len() > self.reserve {
@@ -171,7 +171,7 @@ mod test {
         // orig: [      | to_read  |          |             ]
         //        \          total           /
         //
-        fn read_chunk<'a, R: BufferedReader<C>, C: fmt::Debug>(
+        fn read_chunk<'a, R: BufferedReader<C>, C: fmt::Debug + Sync + Send>(
             orig: &[u8], r: &mut R, to_read: usize, cursor: usize, total: usize,
             mode: usize)
         {

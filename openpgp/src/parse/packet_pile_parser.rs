@@ -220,7 +220,7 @@ impl<'a> TryFrom<PacketParserBuilder<'a>> for PacketPileParser<'a> {
 impl<'a> Parse<'a, PacketPileParser<'a>> for PacketPileParser<'a> {
     /// Creates a `PacketPileParser` to parse the OpenPGP message stored
     /// in the `io::Read` object.
-    fn from_reader<R: io::Read + 'a>(reader: R)
+    fn from_reader<R: io::Read + 'a + Send + Sync>(reader: R)
              -> Result<PacketPileParser<'a>> {
         let bio = Box::new(buffered_reader::Generic::with_cookie(
             reader, None, Cookie::default()));
@@ -237,7 +237,7 @@ impl<'a> Parse<'a, PacketPileParser<'a>> for PacketPileParser<'a> {
 
     /// Creates a `PacketPileParser` to parse the OpenPGP message stored
     /// in the provided buffer.
-    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D)
+    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D)
             -> Result<PacketPileParser<'a>> {
         let bio = Box::new(buffered_reader::Memory::with_cookie(
             data.as_ref(), Cookie::default()));

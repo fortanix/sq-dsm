@@ -300,8 +300,8 @@ fn vec_truncate(v: &mut Vec<u8>, len: usize) {
 }
 
 /// The generic `BufferReader` interface.
-pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display
-  where C: fmt::Debug
+pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
+  where C: fmt::Debug + Send + Sync
 {
     /// Returns a reference to the internal buffer.
     ///
@@ -907,7 +907,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display
 ///
 /// but, alas, Rust doesn't like that ("error\[E0119\]: conflicting
 /// implementations of trait `std::io::Read` for type `&mut _`").
-pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C: fmt::Debug>
+pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send>
         (bio: &mut T, buf: &mut [u8]) -> Result<usize, io::Error> {
     match bio.data_consume(buf.len()) {
         Ok(inner) => {
@@ -920,7 +920,7 @@ pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C: fmt::Debug>
 }
 
 /// Make a `Box<BufferedReader>` look like a BufferedReader.
-impl <'a, C: fmt::Debug> BufferedReader<C> for Box<dyn BufferedReader<C> + 'a> {
+impl <'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for Box<dyn BufferedReader<C> + 'a> {
     fn buffer(&self) -> &[u8] {
         return self.as_ref().buffer();
     }
@@ -1018,7 +1018,7 @@ impl <'a, C: fmt::Debug> BufferedReader<C> for Box<dyn BufferedReader<C> + 'a> {
 //
 //   for i in $(seq 0 9999); do printf "%04d\n" $i; done > buffered-reader-test.txt
 #[cfg(test)]
-fn buffered_reader_test_data_check<'a, T: BufferedReader<C> + 'a, C: fmt::Debug>(bio: &mut T) {
+fn buffered_reader_test_data_check<'a, T: BufferedReader<C> + 'a, C: fmt::Debug + Sync + Send>(bio: &mut T) {
     use std::str;
 
     for i in 0 .. 10000 {
@@ -1072,7 +1072,7 @@ mod test {
     }
 
     #[cfg(test)]
-    fn buffered_reader_read_test_aux<'a, T: BufferedReader<C> + 'a, C: fmt::Debug>
+    fn buffered_reader_read_test_aux<'a, T: BufferedReader<C> + 'a, C: fmt::Debug + Sync + Send>
         (mut bio: T, data: &[u8]) {
         let mut buffer = [0; 99];
 

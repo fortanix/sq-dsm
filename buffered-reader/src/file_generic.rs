@@ -10,18 +10,18 @@ use crate::file_error::FileError;
 ///
 /// This is a generic implementation that may be replaced by
 /// platform-specific versions.
-pub struct File<C: fmt::Debug>(Generic<fs::File, C>, PathBuf);
+pub struct File<C: fmt::Debug + Sync + Send>(Generic<fs::File, C>, PathBuf);
 
 assert_send_and_sync!(File<C>
                       where C: fmt::Debug);
 
-impl<C: fmt::Debug> fmt::Display for File<C> {
+impl<C: fmt::Debug + Sync + Send> fmt::Display for File<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "File {:?}", self.1.display())
     }
 }
 
-impl<C: fmt::Debug> fmt::Debug for File<C> {
+impl<C: fmt::Debug + Sync + Send> fmt::Debug for File<C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_tuple("File")
             .field(&self.0)
@@ -37,7 +37,7 @@ impl File<()> {
     }
 }
 
-impl<C: fmt::Debug> File<C> {
+impl<C: fmt::Debug + Sync + Send> File<C> {
     /// Like `open()`, but sets a cookie.
     pub fn with_cookie<P: AsRef<Path>>(path: P, cookie: C) -> io::Result<Self> {
         let path = path.as_ref();
@@ -46,14 +46,14 @@ impl<C: fmt::Debug> File<C> {
     }
 }
 
-impl<C: fmt::Debug> io::Read for File<C> {
+impl<C: fmt::Debug + Sync + Send> io::Read for File<C> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.read(buf)
             .map_err(|e| FileError::new(&self.1, e))
     }
 }
 
-impl<C: fmt::Debug> BufferedReader<C> for File<C> {
+impl<C: fmt::Debug + Sync + Send> BufferedReader<C> for File<C> {
     fn buffer(&self) -> &[u8] {
         self.0.buffer()
     }

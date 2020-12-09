@@ -13,7 +13,7 @@ use super::*;
 ///
 ///   [`File`]: struct.File.html
 ///   [`Memory`]: struct.Memory.html
-pub struct Generic<T: io::Read, C: fmt::Debug> {
+pub struct Generic<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> {
     buffer: Option<Box<[u8]>>,
     // The next byte to read in the buffer.
     cursor: usize,
@@ -32,13 +32,13 @@ assert_send_and_sync!(Generic<T, C>
                       where T: io::Read,
                             C: fmt::Debug);
 
-impl<T: io::Read, C: fmt::Debug> fmt::Display for Generic<T, C> {
+impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> fmt::Display for Generic<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Generic")
     }
 }
 
-impl<T: io::Read, C: fmt::Debug> fmt::Debug for Generic<T, C> {
+impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> fmt::Debug for Generic<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let buffered_data = if let Some(ref buffer) = self.buffer {
             buffer.len() - self.cursor
@@ -53,7 +53,7 @@ impl<T: io::Read, C: fmt::Debug> fmt::Debug for Generic<T, C> {
     }
 }
 
-impl<T: io::Read> Generic<T, ()> {
+impl<T: io::Read + Send + Sync> Generic<T, ()> {
     /// Instantiate a new generic reader.  `reader` is the source to
     /// wrap.  `preferred_chuck_size` is the preferred chuck size.  If
     /// None, then the default will be used, which is usually what you
@@ -63,7 +63,7 @@ impl<T: io::Read> Generic<T, ()> {
     }
 }
 
-impl<T: io::Read, C: fmt::Debug> Generic<T, C> {
+impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
     /// Like `new()`, but sets a cookie, which can be retrieved using
     /// the `cookie_ref` and `cookie_mut` methods, and set using
     /// the `cookie_set` method.
@@ -206,13 +206,13 @@ impl<T: io::Read, C: fmt::Debug> Generic<T, C> {
     }
 }
 
-impl<T: io::Read, C: fmt::Debug> io::Read for Generic<T, C> {
+impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> io::Read for Generic<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
         return buffered_reader_generic_read_impl(self, buf);
     }
 }
 
-impl<T: io::Read, C: fmt::Debug> BufferedReader<C> for Generic<T, C> {
+impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> BufferedReader<C> for Generic<T, C> {
     fn buffer(&self) -> &[u8] {
         if let Some(ref buffer) = self.buffer {
             &buffer[self.cursor..]

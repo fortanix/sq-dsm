@@ -538,7 +538,7 @@ impl AutocryptSetupMessage {
     /// Parses the autocrypt setup message in `r`.
     ///
     /// `passcode` is the passcode used to protect the message.
-    pub fn from_reader<'a, R: io::Read + 'a>(r: R)
+    pub fn from_reader<'a, R: io::Read + Send + Sync + 'a>(r: R)
         -> Result<AutocryptSetupMessageParser<'a>> {
         // The outer message uses ASCII-armor.  It includes a password
         // hint.  Hence, we need to parse it aggressively.

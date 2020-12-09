@@ -610,7 +610,7 @@ impl<'a> From<Vec<Packet>> for CertParser<'a> {
 impl<'a> Parse<'a, CertParser<'a>> for CertParser<'a>
 {
     /// Initializes a `CertParser` from a `Read`er.
-    fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + io::Read + Send + Sync>(reader: R) -> Result<Self> {
         Ok(Self::from(PacketParser::from_reader(reader)?))
     }
 
@@ -620,7 +620,7 @@ impl<'a> Parse<'a, CertParser<'a>> for CertParser<'a>
     }
 
     /// Initializes a `CertParser` from a byte string.
-    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<Self> {
         Ok(Self::from(PacketParser::from_bytes(data)?))
     }
 }

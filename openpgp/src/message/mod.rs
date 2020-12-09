@@ -363,7 +363,7 @@ impl<'a> Parse<'a, Message> for Message {
     /// See [`Message::try_from`] for more details.
     ///
     ///   [`Message::try_from`]: #method.try_from
-    fn from_reader<R: 'a + io::Read>(reader: R) -> Result<Self> {
+    fn from_reader<R: 'a + io::Read + Send + Sync>(reader: R) -> Result<Self> {
         Self::try_from(PacketPile::from_reader(reader)?)
     }
 
@@ -381,7 +381,7 @@ impl<'a> Parse<'a, Message> for Message {
     /// See [`Message::try_from`] for more details.
     ///
     ///   [`Message::try_from`]: #method.try_from
-    fn from_bytes<D: AsRef<[u8]> + ?Sized>(data: &'a D) -> Result<Self> {
+    fn from_bytes<D: AsRef<[u8]> + ?Sized + Send + Sync>(data: &'a D) -> Result<Self> {
         Self::try_from(PacketPile::from_bytes(data)?)
     }
 }

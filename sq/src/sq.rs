@@ -40,7 +40,7 @@ mod sq_cli;
 mod commands;
 use commands::dump::Convert;
 
-fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read>> {
+fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read + Send + Sync>> {
     match f {
         Some(f) => Ok(Box::new(File::open(f)
                                .context("Failed to open input file")?)),
@@ -294,7 +294,7 @@ fn main() -> Result<()> {
             let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
             commands::verify(&ctx, policy, &mut mapping, &mut input,
-                             detached.as_mut().map(|r| r as &mut dyn io::Read),
+                             detached.as_mut().map(|r| r as &mut (dyn io::Read + Sync + Send)),
                              &mut output, signatures, certs)?;
         },
 
