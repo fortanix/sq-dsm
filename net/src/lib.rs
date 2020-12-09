@@ -134,6 +134,10 @@ impl KeyServer {
     pub async fn get<H: Into<KeyHandle>>(&mut self, handle: H)
                                          -> Result<Cert>
     {
+        // XXX: hkp can return multiple certs.  So Result<Vec<Cert>>.
+        // But, what if it returns two certs, one seemingly unrelated
+        // one (i.e. it doesn't pass the sanity check below).
+        // Result<Vec<Result<Cert>>>?
         let handle = handle.into();
         let want_handle = handle.clone();
         let uri = self.uri.join(
@@ -148,6 +152,23 @@ impl KeyServer {
                     armor::ReaderMode::Tolerant(Some(armor::Kind::PublicKey)),
                 );
                 let cert = Cert::from_reader(r)?;
+                // XXX: This test is dodgy.  Passing it doesn't really
+                // mean anything.  A malicious keyserver can attach
+                // the key with the queried keyid to any certificate
+                // they control.  Querying for signing-capable sukeys
+                // are safe because they require a primary key binding
+                // signature which the server cannot produce.
+                // However, if the public key algorithm is also
+                // capable of encryption (I'm looking at you, RSA),
+                // then the server can simply turn it into an
+                // encryption subkey.
+                //
+                // Returned certificates must be mistrusted, and be
+                // carefully interpreted under a policy and trust
+                // model.  This test doesn't provide any real
+                // protection, and maybe it is better to remove it.
+                // That would also help with returning multiple certs,
+                // see above.
                 if cert.keys().any(|ka| ka.key_handle().aliases(&want_handle)) {
                     Ok(cert)
                 } else {
