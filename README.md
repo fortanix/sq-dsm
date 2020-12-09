@@ -316,3 +316,16 @@ You can join our mailing list by sending a mail to
 devel-subscribe@lists.sequoia-pgp.org.
 
 You can talk to us using IRC on freenode in #sequoia.
+
+Reporting bugs
+==============
+
+Please report bug and feature requests to [our bugtracker].  Please
+report security vulnerabilities to [security@sequoia-pgp.org],
+preferably encrypted using OpenPGP.  The certificate for this address
+can be found on our web site, via WKD, and [on the keyserver].
+
+
+  [our bugtracker]: https://gitlab.com/sequoia-pgp/sequoia/issues
+  [security@sequoia-pgp.org]: mailto:security@sequoia-pgp.org
+  [on the keyserver]: https://keys.openpgp.org/search?q=security%40sequoia-pgp.org
