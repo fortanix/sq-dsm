@@ -185,6 +185,7 @@ fn main() -> Result<()> {
     let mut rt = tokio::runtime::Builder::new()
         .basic_scheduler()
         .enable_io()
+        .enable_time()
         .build()?;
 
     match matches.subcommand() {
