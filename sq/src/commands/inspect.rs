@@ -334,6 +334,12 @@ fn inspect_key_flags(flags: openpgp::types::KeyFlags) -> Option<String> {
     if flags.for_storage_encryption() {
         capabilities.push("data-at-rest encryption")
     }
+    if flags.is_group_key() {
+        capabilities.push("group key")
+    }
+    if flags.is_split_key() {
+        capabilities.push("split key")
+    }
 
     if capabilities.len() > 0 {
         Some(capabilities.join(", "))
