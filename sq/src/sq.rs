@@ -17,7 +17,12 @@ use sequoia_core;
 use sequoia_net;
 use sequoia_store as store;
 
-use crate::openpgp::Result;
+use openpgp::{
+    Result,
+    Fingerprint,
+    KeyID,
+    KeyHandle,
+};
 use crate::openpgp::{armor, Cert};
 use sequoia_autocrypt as autocrypt;
 use crate::openpgp::fmt::hex;
@@ -425,18 +430,30 @@ fn main() -> Result<()> {
 
             match m.subcommand() {
                 ("get",  Some(m)) => {
-                    let keyid = m.value_of("keyid").unwrap();
-                    let id = keyid.parse();
-                    if id.is_err() {
-                        eprintln!("Malformed key ID: {:?}\n\
-                                   (Note: only long Key IDs are supported.)",
-                                  keyid);
-                        exit(1);
+                    let query = m.value_of("query").unwrap();
+
+                    let handle: Option<KeyHandle> = {
+                        let q_fp = query.parse::<Fingerprint>();
+                        let q_id = query.parse::<KeyID>();
+                        if let Ok(Fingerprint::V4(_)) = q_fp {
+                            q_fp.ok().map(Into::into)
+                        } else if let Ok(KeyID::V4(_)) = q_id {
+                            q_fp.ok().map(Into::into)
+                        } else {
+                            None
+                        }
+                    };
+
+                    if handle.is_none() {
+                        Err(anyhow::anyhow!(
+                            "Malformed key handle: {:?}\n\
+                             (Note: only Fingerprints long KeyIDs are \
+                             supported.)", query))?;
                     }
-                    let id = id.unwrap();
+                    let handle = handle.unwrap();
 
                     let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    let cert = rt.block_on(ks.get(&id))
+                    let cert = rt.block_on(ks.get(handle))
                         .context("Failed to retrieve key")?;
                     if ! m.is_present("binary") {
                         cert.armored().serialize(&mut output)

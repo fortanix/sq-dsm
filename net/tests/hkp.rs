@@ -7,6 +7,7 @@ use rand::rngs::OsRng;
 use std::io::Cursor;
 use std::net::{SocketAddr, IpAddr, Ipv4Addr};
 
+use sequoia_openpgp::KeyID;
 use sequoia_openpgp::armor::Reader;
 use sequoia_openpgp::Cert;
 use sequoia_openpgp::parse::Parse;
@@ -128,8 +129,8 @@ async fn get() -> anyhow::Result<()> {
     let addr = start_server();
 
     let mut keyserver = KeyServer::new(&ctx, &format!("hkp://{}", addr))?;
-    let keyid = ID.parse()?;
-    let key = keyserver.get(&keyid).await?;
+    let keyid: KeyID = ID.parse()?;
+    let key = keyserver.get(keyid).await?;
 
     assert_eq!(key.fingerprint(),
                FP.parse().unwrap());

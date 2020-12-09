@@ -121,10 +121,10 @@ fn sq_keyserver_get(ctx: *mut Context,
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
     let ks = ffi_param_ref_mut!(ks);
-    let id = id.ref_raw();
+    let id = id.ref_raw().clone();
 
     let mut core = ffi_try_or!(basic_runtime(), None);
-    core.block_on(ks.get(&id)).move_into_raw(Some(ctx.errp()))
+    core.block_on(ks.get(id)).move_into_raw(Some(ctx.errp()))
 }
 
 /// Sends the given key to the server.

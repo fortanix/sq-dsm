@@ -312,7 +312,7 @@
 //! Retrieves a key
 //!
 //! USAGE:
-//!     sq keyserver get [FLAGS] [OPTIONS] <KEYID>
+//!     sq keyserver get [FLAGS] [OPTIONS] <QUERY>
 //!
 //! FLAGS:
 //!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
@@ -323,7 +323,7 @@
 //!     -o, --output <FILE>    Sets the output file to use
 //!
 //! ARGS:
-//!     <KEYID>    ID of the key to retrieve
+//!     <QUERY>    Fingerprint or KeyID of the key to retrieve
 //! ```
 //!
 //! ### Subcommand keyserver send

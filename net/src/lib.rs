@@ -20,8 +20,8 @@
 //! # async fn f() -> Result<()> {
 //! let ctx = Context::new()?;
 //! let mut ks = KeyServer::keys_openpgp_org(&ctx)?;
-//! let keyid = "31855247603831FD".parse()?;
-//! println!("{:?}", ks.get(&keyid).await?);
+//! let keyid: KeyID = "31855247603831FD".parse()?;
+//! println!("{:?}", ks.get(keyid).await?);
 //! # Ok(())
 //! # }
 //! ```
@@ -41,7 +41,7 @@ use url::Url;
 
 use sequoia_openpgp::Cert;
 use sequoia_openpgp::parse::Parse;
-use sequoia_openpgp::{KeyID, armor, serialize::Serialize};
+use sequoia_openpgp::{KeyHandle, armor, serialize::Serialize};
 use sequoia_core::{Context, NetworkPolicy};
 
 pub mod wkd;
@@ -130,11 +130,14 @@ impl KeyServer {
         Ok(KeyServer{client, uri})
     }
 
-    /// Retrieves the key with the given `keyid`.
-    pub async fn get(&mut self, keyid: &KeyID) -> Result<Cert> {
-        let keyid_want = keyid.clone();
+    /// Retrieves the certificate with the given handle.
+    pub async fn get<H: Into<KeyHandle>>(&mut self, handle: H)
+                                         -> Result<Cert>
+    {
+        let handle = handle.into();
+        let want_handle = handle.clone();
         let uri = self.uri.join(
-            &format!("pks/lookup?op=get&options=mr&search=0x{:X}", keyid))?;
+            &format!("pks/lookup?op=get&options=mr&search=0x{:X}", handle))?;
 
         let res = self.client.do_get(uri).await?;
         match res.status() {
@@ -145,10 +148,10 @@ impl KeyServer {
                     armor::ReaderMode::Tolerant(Some(armor::Kind::PublicKey)),
                 );
                 let cert = Cert::from_reader(r)?;
-                if cert.keys().any(|ka| KeyID::from(ka.fingerprint()) == keyid_want) {
+                if cert.keys().any(|ka| ka.key_handle().aliases(&want_handle)) {
                     Ok(cert)
                 } else {
-                    Err(Error::MismatchedKeyID(keyid_want, cert).into())
+                    Err(Error::MismatchedKeyHandle(want_handle, cert).into())
                 }
             }
             StatusCode::NOT_FOUND => Err(Error::NotFound.into()),
@@ -226,9 +229,9 @@ pub enum Error {
     /// A requested key was not found.
     #[error("Key not found")]
     NotFound,
-    /// Mismatched key ID
-    #[error("Mismatched key ID, expected {0}")]
-    MismatchedKeyID(KeyID, Cert),
+    /// Mismatched key handle
+    #[error("Mismatched key handle, expected {0}")]
+    MismatchedKeyHandle(KeyHandle, Cert),
     /// A given keyserver URI was malformed.
     #[error("Malformed URI; expected hkp: or hkps:")]
     MalformedUri,
