@@ -39,9 +39,15 @@ use std::convert::From;
 use std::io::Cursor;
 use url::Url;
 
-use sequoia_openpgp::Cert;
-use sequoia_openpgp::parse::Parse;
-use sequoia_openpgp::{KeyHandle, armor, serialize::Serialize};
+use sequoia_openpgp as openpgp;
+use openpgp::{
+    armor,
+    cert::{Cert, CertParser},
+    KeyHandle,
+    packet::UserID,
+    parse::Parse,
+    serialize::Serialize,
+};
 use sequoia_core::{Context, NetworkPolicy};
 
 pub mod wkd;
@@ -175,6 +181,54 @@ impl KeyServer {
                     Err(Error::MismatchedKeyHandle(want_handle, cert).into())
                 }
             }
+            StatusCode::NOT_FOUND => Err(Error::NotFound.into()),
+            n => Err(Error::HttpStatus(n).into()),
+        }
+    }
+
+    /// Retrieves certificates containing the given `UserID`.
+    ///
+    /// If the given [`UserID`] does not follow the de facto
+    /// conventions for userids, or it does not contain a email
+    /// address, an error is returned.
+    ///
+    ///   [`UserID`]: https://docs.sequoia-pgp.org/sequoia_openpgp/packet/struct.UserID.html
+    ///
+    /// Any certificates returned by the server that do not contain
+    /// the email address queried for are silently discarded.
+    ///
+    /// # Warning
+    ///
+    /// Returned certificates must be mistrusted, and be carefully
+    /// interpreted under a policy and trust model.
+    pub async fn search<U: Into<UserID>>(&mut self, userid: U)
+                                         -> Result<Vec<Cert>>
+    {
+        let userid = userid.into();
+        let email = userid.email().and_then(|addr| addr.ok_or(
+            openpgp::Error::InvalidArgument(
+                "UserID does not contain an email address".into()).into()))?;
+        let uri = self.uri.join(
+            &format!("pks/lookup?op=get&options=mr&search={}", email))?;
+
+        let res = self.client.do_get(uri).await?;
+        match res.status() {
+            StatusCode::OK => {
+                let body = hyper::body::to_bytes(res.into_body()).await?;
+                let mut certs = Vec::new();
+                for certo in CertParser::from_bytes(&body)? {
+                    let cert = certo?;
+                    if cert.userids().any(|uid| {
+                        uid.email().ok()
+                            .and_then(|addro| addro)
+                            .map(|addr| addr == email)
+                            .unwrap_or(false)
+                    }) {
+                        certs.push(cert);
+                    }
+                }
+                Ok(certs)
+            },
             StatusCode::NOT_FOUND => Err(Error::NotFound.into()),
             n => Err(Error::HttpStatus(n).into()),
         }
