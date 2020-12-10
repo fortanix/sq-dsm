@@ -36,14 +36,14 @@ sequoia-openpgp = { path = "../openpgp", version = "0.20", default-features = fa
 sequoia-core = { path = "../core", version = "0.20" }
 sequoia-ipc = { path = "../ipc", version = "0.20", default-features = false }
 sequoia-net = { path = "../net", version = "0.20", default-features = false }
-anyhow = "1"
+anyhow = "1.0.18"
 capnp = "0.13"
 capnp-rpc = "0.13"
-futures-util = "0.3"
+futures-util = "0.3.5"
 rand = { version = "0.7", default-features = false }
 rusqlite = "0.24"
-thiserror = "1"
-tokio = { version = "0.2", features = ["rt-core", "tcp", "io-driver", "time"] }
+thiserror = "1.0.2"
+tokio = { version = "0.2.19", features = ["rt-core", "tcp", "io-driver", "time"] }
 tokio-util = { version = "0.3", features = ["compat"] }
 
 [target.'cfg(target_os="android")'.dependencies.rusqlite]

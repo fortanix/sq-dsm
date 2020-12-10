@@ -29,18 +29,18 @@ sequoia-core = { path = "../core", version = "0.20", default-features = false }
 sequoia-ipc = { path = "../ipc", version = "0.20", default-features = false }
 sequoia-net = { path = "../net", version = "0.20", default-features = false }
 sequoia-store = { path = "../store", version = "0.20", default-features = false }
-anyhow = "1"
-chrono = "0.4"
-clap = "2.32.0"
+anyhow = "1.0.18"
+chrono = "0.4.10"
+clap = "2.33"
 itertools = "0.9"
 prettytable-rs = "0.8.0"
-tempfile = "3.0.4"
+tempfile = "3.1"
 crossterm = "0.13"
-tokio = { version = "0.2", features = ["rt-core", "io-util", "io-driver"] }
+tokio = { version = "0.2.19", features = ["rt-core", "io-util", "io-driver"] }
 rpassword = "5.0"
 
 [build-dependencies]
-clap = "2.32.0"
+clap = "2.33"
 
 [dev-dependencies]
 assert_cli = "0.6"

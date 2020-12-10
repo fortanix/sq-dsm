@@ -19,13 +19,13 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-lazy_static = "1.0.0"
-proc-macro2 = "1.0"
+lazy_static = "1.4.0"
+proc-macro2 = "1.0.7"
 quote = "1.0"
 sha2 = "0.8"
 
 [dependencies.syn]
-version = "1.0"
+version = "1.0.5"
 features = ["full"]
 
 [lib]

@@ -27,12 +27,12 @@ sequoia-openpgp = { path = "../openpgp", version = "0.20", default-features = fa
 sequoia-core = { path = "../core", version = "0.20" }
 sequoia-store = { path = "../store", version = "0.20", default-features = false }
 sequoia-net = { path = "../net", version = "0.20", default-features = false }
-anyhow = "1"
-lazy_static = "1.0.0"
-libc = "0.2.33"
+anyhow = "1.0.18"
+lazy_static = "1.4.0"
+libc = "0.2.66"
 memsec = { version = "0.6", default-features = false }
 native-tls = "0.2.0"
-tokio = { version = "0.2", features = ["rt-core", "io-driver", "io-util", "time"] }
+tokio = { version = "0.2.19", features = ["rt-core", "io-driver", "io-util", "time"] }
 
 [dev-dependencies]
 filetime = "0.2"

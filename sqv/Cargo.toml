@@ -22,13 +22,12 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 sequoia-openpgp = { path = "../openpgp", version = "0.20", default-features = false }
-anyhow = "1"
-chrono = "0.4"
-clap = "2.32.0"
-
+anyhow = "1.0.18"
+chrono = "0.4.10"
+clap = "2.33"
 
 [build-dependencies]
-clap = "2.27.1"
+clap = "2.33"
 
 [dev-dependencies]
 assert_cli = "0.6"

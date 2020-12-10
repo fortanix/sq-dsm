@@ -24,22 +24,22 @@ maintenance = { status = "actively-developed" }
 sequoia-openpgp = { path = "../openpgp", version = "0.20", default-features = false }
 sequoia-core = { path = "../core", version = "0.20" }
 
-anyhow = "1"
-futures-util = "0.3"
+anyhow = "1.0.18"
+futures-util = "0.3.5"
 http = "0.2"
 hyper = "0.13"
 hyper-tls = "0.4"
-libc = "0.2.33"
+libc = "0.2.66"
 native-tls = "0.2.0"
 percent-encoding = "2.1"
 tempfile = "3.1"
-thiserror = "1"
+thiserror = "1.0.2"
 url = "2.1"
 zbase32 = "0.1.2"
 
 [dev-dependencies]
 rand = { version = "0.7", default-features = false }
-tokio = { version = "0.2", features = ["full"] }
+tokio = { version = "0.2.19", features = ["full"] }
 
 [features]
 default = ["compression"]

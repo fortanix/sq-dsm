@@ -23,31 +23,31 @@ maintenance = { status = "actively-developed" }
 sequoia-openpgp = { path = "../openpgp", version = "0.20", default-features = false }
 sequoia-core = { path = "../core", version = "0.20" }
 
-anyhow = "1"
+anyhow = "1.0.18"
 buffered-reader = { path = "../buffered-reader", version = "0.20", default-features = false }
 capnp-rpc = "0.13"
 fs2 = "0.4.2"
-futures = "0.3"
+futures = "0.3.5"
 lalrpop-util = "0.19"
-lazy_static = "1.3"
-libc = "0.2.33"
+lazy_static = "1.4.0"
+libc = "0.2.66"
 memsec = { version = "0.6", default-features = false }
 rand = { version = "0.7", default-features = false }
-tempfile = "3.0"
-thiserror = "1"
-tokio = { version = "0.2", features = ["rt-core", "rt-util", "tcp", "uds", "io-util", "macros"] }
+tempfile = "3.1"
+thiserror = "1.0.2"
+tokio = { version = "0.2.19", features = ["rt-core", "rt-util", "tcp", "uds", "io-util", "macros"] }
 tokio-util = { version = "0.3", features = ["compat"] }
-socket2 = "0.3.11"
+socket2 = "0.3.16"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", default-features = false, features = ["winsock2"] }
+winapi = { version = "0.3.8", default-features = false, features = ["winsock2"] }
 ctor = "0.1"
 
 [build-dependencies]
 lalrpop = "0.19"
 
 [dev-dependencies]
-clap = "2.32.0"
+clap = "2.33"
 quickcheck = { version = "0.9", default-features = false }
 
 [features]
