@@ -96,6 +96,7 @@ pub struct PacketParserBuilder<'a> {
     dearmor: Dearmor,
     settings: PacketParserSettings,
 }
+assert_send_and_sync!(PacketParserBuilder<'_>);
 
 impl<'a> Parse<'a, PacketParserBuilder<'a>> for PacketParserBuilder<'a> {
     /// Creates a `PacketParserBuilder` for an OpenPGP message stored

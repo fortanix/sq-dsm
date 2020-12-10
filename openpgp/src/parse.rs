@@ -3231,6 +3231,7 @@ pub struct PacketParser<'a> {
 
     state: PacketParserState,
 }
+assert_send_and_sync!(PacketParser<'_>);
 
 impl<'a> std::fmt::Display for PacketParser<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -3311,6 +3312,7 @@ pub struct PacketParserEOF<'a> {
     reader: Box<dyn BufferedReader<Cookie> + 'a>,
     last_path: Vec<usize>,
 }
+assert_send_and_sync!(PacketParserEOF<'_>);
 
 impl<'a> PacketParserEOF<'a> {
     /// Copies the important information in `pp` into a new
@@ -3572,6 +3574,7 @@ pub enum PacketParserResult<'a> {
     /// Information about a fully parsed packet sequence.
     EOF(PacketParserEOF<'a>),
 }
+assert_send_and_sync!(PacketParserResult<'_>);
 
 impl<'a> PacketParserResult<'a> {
     /// Returns `true` if the result is `EOF`.

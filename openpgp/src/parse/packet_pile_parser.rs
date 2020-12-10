@@ -192,6 +192,7 @@ pub struct PacketPileParser<'a> {
     /// The packet pile that has been assembled so far.
     pile: PacketPile,
 }
+assert_send_and_sync!(PacketPileParser<'_>);
 
 impl<'a> Deref for PacketPileParser<'a> {
     type Target = PacketParserResult<'a>;

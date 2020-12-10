@@ -986,6 +986,7 @@ impl<V: VerificationHelper> DecryptionHelper for NoDecryptionHelper<V> {
 pub struct Verifier<'a, H: VerificationHelper> {
     decryptor: Decryptor<'a, NoDecryptionHelper<H>>,
 }
+assert_send_and_sync!(Verifier<'_, H> where H: VerificationHelper);
 
 /// A builder for `Verifier`.
 ///
@@ -999,6 +1000,7 @@ pub struct VerifierBuilder<'a> {
     buffer_size: usize,
     mapping: bool,
 }
+assert_send_and_sync!(VerifierBuilder<'_>);
 
 impl<'a> Parse<'a, VerifierBuilder<'a>>
     for VerifierBuilder<'a>
@@ -1395,6 +1397,7 @@ impl<'a, H: VerificationHelper> io::Read for Verifier<'a, H> {
 pub struct DetachedVerifier<'a, H: VerificationHelper> {
     decryptor: Decryptor<'a, NoDecryptionHelper<H>>,
 }
+assert_send_and_sync!(DetachedVerifier<'_, H> where H: VerificationHelper);
 
 /// A builder for `DetachedVerifier`.
 ///
@@ -1407,6 +1410,7 @@ pub struct DetachedVerifierBuilder<'a> {
     signatures: Box<dyn BufferedReader<Cookie> + 'a>,
     mapping: bool,
 }
+assert_send_and_sync!(DetachedVerifierBuilder<'_>);
 
 impl<'a> Parse<'a, DetachedVerifierBuilder<'a>>
     for DetachedVerifierBuilder<'a>
@@ -1749,6 +1753,8 @@ pub struct Decryptor<'a, H: VerificationHelper + DecryptionHelper> {
 
     policy: &'a dyn Policy,
 }
+assert_send_and_sync!(Decryptor<'_, H>
+      where H: VerificationHelper + DecryptionHelper);
 
 /// A builder for `Decryptor`.
 ///
@@ -1762,6 +1768,7 @@ pub struct DecryptorBuilder<'a> {
     buffer_size: usize,
     mapping: bool,
 }
+assert_send_and_sync!(DecryptorBuilder<'_>);
 
 impl<'a> Parse<'a, DecryptorBuilder<'a>>
     for DecryptorBuilder<'a>

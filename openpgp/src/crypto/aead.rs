@@ -115,6 +115,7 @@ pub struct Decryptor<'a> {
     // Up to a chunk of unread data.
     buffer: Vec<u8>,
 }
+assert_send_and_sync!(Decryptor<'_>);
 
 
 impl<'a> Decryptor<'a> {

@@ -457,6 +457,7 @@ assert_send_and_sync!(ReaderMode);
 pub struct Reader<'a> {
     reader: buffered_reader::Generic<IoReader<'a>, Cookie>,
 }
+assert_send_and_sync!(Reader<'_>);
 
 impl<'a> fmt::Debug for Reader<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
