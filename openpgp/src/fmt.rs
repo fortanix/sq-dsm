@@ -40,7 +40,7 @@ pub mod hex {
     /// # Examples
     ///
     /// ```rust
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp::fmt::hex;
     ///
     /// let mut dumper = hex::Dumper::new(Vec::new(), "");

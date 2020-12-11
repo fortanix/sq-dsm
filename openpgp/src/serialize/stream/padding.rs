@@ -113,9 +113,7 @@ use crate::types::{
 /// use openpgp::serialize::stream::{Message, LiteralWriter};
 /// use openpgp::serialize::stream::padding::Padder;
 /// use openpgp::types::CompressionAlgorithm;
-/// # use openpgp::Result;
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
+/// # fn main() -> sequoia_openpgp::Result<()> {
 ///
 /// let mut unpadded = vec![];
 /// {

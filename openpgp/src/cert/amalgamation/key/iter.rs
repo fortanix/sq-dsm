@@ -261,8 +261,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -298,8 +297,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -342,8 +340,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -387,8 +384,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -459,8 +455,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// # use openpgp::Result;
     /// # use openpgp::cert::prelude::*;
     /// #
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// #      let (cert, _) = CertBuilder::new()
     /// #          .add_signing_subkey()
     /// #          .add_certification_subkey()
@@ -1298,8 +1293,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// #     let (cert, _) =
     /// #         CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #         .generate()?;
@@ -1356,8 +1350,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =
@@ -1403,8 +1396,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =
@@ -1457,8 +1449,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =
@@ -1506,8 +1497,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// # use openpgp::cert::prelude::*;
     /// use openpgp::policy::StandardPolicy;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
     /// #     let (cert, _) =

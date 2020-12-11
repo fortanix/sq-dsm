@@ -341,8 +341,7 @@ impl<'a, C> ValidComponentAmalgamationIter<'a, C> {
     /// use openpgp::types::RevocationStatus;
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let p = &StandardPolicy::new();
     ///
     /// # let (cert, _) =

@@ -612,8 +612,7 @@ use super::*;
 /// use std::convert::TryFrom;
 /// use openpgp::cert::prelude::*;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
+/// # fn main() -> Result<()> {
 /// fn identity_filter(cert: &Cert) -> Result<Cert> {
 ///     // Iterate over all of the Cert components, pushing packets we
 ///     // want to keep into the accumulator.
@@ -689,8 +688,7 @@ use super::*;
 /// # use openpgp::parse::{Parse, PacketParserResult, PacketParser};
 /// use openpgp::Cert;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
+/// # fn main() -> Result<()> {
 /// #     let ppr = PacketParser::from_bytes(&b""[..])?;
 /// match Cert::try_from(ppr) {
 ///     Ok(cert) => {

@@ -173,8 +173,7 @@ impl Timestamp {
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
     /// use sequoia_openpgp::policy::StandardPolicy;
     ///
-    /// # f().unwrap();
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let policy = &StandardPolicy::new();
     ///
     /// // Let's fix a time.

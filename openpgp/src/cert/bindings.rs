@@ -37,8 +37,7 @@ impl<P: key::KeyParts> Key<P, key::SubordinateRole> {
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
-    /// # f().unwrap();
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// use sequoia_openpgp::policy::StandardPolicy;
     /// let p = &StandardPolicy::new();
     ///
@@ -99,8 +98,7 @@ impl UserID {
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
-    /// # f().unwrap();
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (cert, _) = CertBuilder::new().generate()?;
     /// let mut keypair = cert.primary_key().key().clone()
@@ -152,8 +150,7 @@ impl UserID {
     ///
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*};
-    /// # f().unwrap();
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (alice, _) = CertBuilder::new()
     ///     .set_primary_key_flags(KeyFlags::empty().set_certification())
@@ -231,8 +228,7 @@ impl UserAttribute {
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*,
     /// #                       packet::user_attribute::*};
-    /// # f().unwrap();
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (cert, _) = CertBuilder::new()
     ///     .generate()?;
@@ -289,8 +285,7 @@ impl UserAttribute {
     /// ```
     /// # use sequoia_openpgp::{*, packet::prelude::*, types::*, cert::*,
     /// #                       packet::user_attribute::*};
-    /// # f().unwrap();
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// // Generate a Cert, and create a keypair from the primary key.
     /// let (alice, _) = CertBuilder::new()
     ///     .add_userid("alice@example.org")

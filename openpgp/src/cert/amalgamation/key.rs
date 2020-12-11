@@ -45,7 +45,7 @@
 //! vice versa even though we support changing a `KeyBundle`'s role:
 //!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! # use std::convert::TryInto;
 //! # use sequoia_openpgp as openpgp;
 //! # use openpgp::cert::prelude::*;
@@ -89,8 +89,7 @@
 //! use openpgp::types::RevocationStatus;
 //! use sequoia_openpgp::policy::StandardPolicy;
 //!
-//! # fn main() { f().unwrap(); }
-//! # fn f() -> Result<()> {
+//! # fn main() -> Result<()> {
 //! #     let (cert, _) =
 //! #         CertBuilder::general_purpose(None, Some("alice@example.org"))
 //! #         .generate()?;
@@ -148,8 +147,7 @@
 //! use openpgp::types::RevocationStatus;
 //! use sequoia_openpgp::policy::StandardPolicy;
 //!
-//! # fn main() { f().unwrap(); }
-//! # fn f() -> Result<()> {
+//! # fn main() -> Result<()> {
 //! let p = &StandardPolicy::new();
 //!
 //! #     let (cert, _) =
@@ -224,8 +222,7 @@
 //! # use openpgp::cert::prelude::*;
 //! use sequoia_openpgp::policy::StandardPolicy;
 //!
-//! # fn main() { f().unwrap(); }
-//! # fn f() -> Result<()> {
+//! # fn main() -> Result<()> {
 //! let p = &StandardPolicy::new();
 //!
 //! #     let (cert, _) =

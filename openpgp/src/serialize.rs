@@ -36,7 +36,7 @@
 //!   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
 //!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! use std::io::Write;
 //! use sequoia_openpgp as openpgp;
 //! use openpgp::serialize::stream::{Message, LiteralWriter};
@@ -82,7 +82,7 @@
 //! (see [Section 5.9 of RFC 4880]):
 //!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! use sequoia_openpgp as openpgp;
 //! use openpgp::packet::{Literal, Packet};
 //! use openpgp::serialize::{Serialize, SerializeInto};
@@ -115,7 +115,7 @@
 //!   [`MarshalInto`]: trait.MarshalInto.html
 //!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! use sequoia_openpgp as openpgp;
 //! use openpgp::packet::Literal;
 //! use openpgp::serialize::{Marshal, MarshalInto};
@@ -195,8 +195,7 @@ const TRACE : bool = false;
 /// use openpgp::Packet;
 /// use openpgp::serialize::Serialize;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
+/// # fn main() -> Result<()> {
 /// let (_cert, rev) =
 ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
 ///     .generate()?;
@@ -220,8 +219,7 @@ const TRACE : bool = false;
 /// # use openpgp::Packet;
 /// # use openpgp::serialize::Serialize;
 /// #
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
+/// # fn main() -> Result<()> {
 /// # let (_cert, rev) =
 /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
 /// #     .generate()?;

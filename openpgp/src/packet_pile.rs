@@ -57,8 +57,7 @@ use crate::parse::Cookie;
 /// use openpgp::crypto::mpi;
 /// use openpgp::types::RevocationStatus::{Revoked, CouldBe};
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> openpgp::Result<()> {
+/// # fn main() -> openpgp::Result<()> {
 /// let (cert, revocation) = CertBuilder::new().generate()?;
 ///
 /// let mut buffer = Vec::new();
@@ -244,8 +243,7 @@ impl PacketPile {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// # let mut lit = Literal::new(DataFormat::Text);
     /// # lit.set_body(b"test".to_vec());
     /// # let packets = vec![lit.into()];
@@ -299,8 +297,7 @@ impl PacketPile {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// # let mut lit = Literal::new(DataFormat::Text);
     /// # lit.set_body(b"test".to_vec());
     /// # let packets = vec![lit.into()];
@@ -360,8 +357,7 @@ impl PacketPile {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// // A compressed data packet that contains a literal data packet.
     /// let mut literal = Literal::new(DataFormat::Text);
     /// literal.set_body(b"old".to_vec());
@@ -448,8 +444,7 @@ impl PacketPile {
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::Tag};
     /// # use std::iter::Iterator;
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let mut lit = Literal::new(DataFormat::Text);
     /// lit.set_body(b"test".to_vec());
     ///
@@ -471,8 +466,7 @@ impl PacketPile {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::CompressedData};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let mut lit = Literal::new(DataFormat::Text);
     /// lit.set_body(b"test".to_vec());
     ///
@@ -494,8 +488,7 @@ impl PacketPile {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Result, types::{CompressionAlgorithm, DataFormat},
     /// #     Packet, PacketPile, packet::Literal, packet::Tag};
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// let mut lit = Literal::new(DataFormat::Text);
     /// lit.set_body(b"test".to_vec());
     ///

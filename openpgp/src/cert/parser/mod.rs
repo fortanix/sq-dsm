@@ -432,8 +432,7 @@ impl CertValidator {
 /// # use openpgp::serialize::Serialize;
 /// use openpgp::cert::prelude::*;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
+/// # fn main() -> Result<()> {
 /// # let (alice, _) =
 /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
 /// #       .generate()?;
@@ -478,8 +477,7 @@ impl CertValidator {
 /// use openpgp::packet::prelude::*;
 /// use openpgp::types::DataFormat;
 ///
-/// # fn main() { f().unwrap(); }
-/// # fn f() -> Result<()> {
+/// # fn main() -> Result<()> {
 /// let mut lit = Literal::new(DataFormat::Text);
 /// lit.set_body(b"test".to_vec());
 ///
@@ -646,8 +644,7 @@ impl<'a> CertParser<'a> {
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// # let (alice, _) =
     /// #       CertBuilder::general_purpose(None, Some("alice@example.org"))
     /// #       .generate()?;
@@ -734,8 +731,7 @@ impl<'a> CertParser<'a> {
     /// # use openpgp::parse::{Parse, PacketParser};
     /// use openpgp::cert::prelude::*;
     ///
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> Result<()> {
+    /// # fn main() -> Result<()> {
     /// #     let ppr = PacketParser::from_bytes(b"")?;
     /// #     let some_keyid = "C2B819056C652598".parse()?;
     /// for certr in CertParser::from(ppr)

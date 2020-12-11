@@ -74,8 +74,7 @@ impl Cert {
     /// use openpgp::cert::prelude::*;
     /// use openpgp::serialize::SerializeInto;
     ///
-    /// # f().unwrap();
-    /// # fn f() -> openpgp::Result<()> {
+    /// # fn main() -> openpgp::Result<()> {
     /// let (cert, _) =
     ///     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
     ///     .generate()?;

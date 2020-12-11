@@ -153,7 +153,7 @@
 //! code, which doesn't compile:
 //!
 //! ```compile_fail
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! # use sequoia_openpgp as openpgp;
 //! use openpgp::cert::prelude::*;
 //! use openpgp::packet::prelude::*;
@@ -188,7 +188,7 @@
 //! below for the [`ComponentAmalgamation::component`] method:
 //!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! # use sequoia_openpgp as openpgp;
 //! use openpgp::cert::prelude::*;
 //! use openpgp::packet::prelude::*;
@@ -758,7 +758,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// # use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;

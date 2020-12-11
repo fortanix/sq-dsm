@@ -329,7 +329,7 @@ use super::*;
 ///
 /// ```
 /// # use sequoia_openpgp as openpgp;
-/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// # fn main() -> sequoia_openpgp::Result<()> {
 /// use std::io::Write;
 /// use openpgp::serialize::stream::{Message, Encryptor, LiteralWriter};
 ///
@@ -404,8 +404,7 @@ impl Message {
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
-    /// # fn main() { f().unwrap(); }
-    /// # fn f() -> openpgp::Result<()> {
+    /// # fn main() -> openpgp::Result<()> {
     /// use std::io;
     /// use std::io::Read;
     /// use openpgp::Message;

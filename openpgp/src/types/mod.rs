@@ -83,7 +83,7 @@ pub(crate) trait Syncable : Sync {}
 /// # Examples
 ///
 /// ```rust
-/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+/// # fn main() -> sequoia_openpgp::Result<()> {
 /// use sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::types::PublicKeyAlgorithm;

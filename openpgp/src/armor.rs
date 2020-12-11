@@ -18,7 +18,7 @@
 //! # Examples
 //!
 //! ```rust, no_run
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! use sequoia_openpgp as openpgp;
 //! use std::fs::File;
 //! use openpgp::armor::{Reader, ReaderMode, Kind};

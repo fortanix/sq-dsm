@@ -246,7 +246,7 @@ impl KeyHandle {
     /// non-transitive equality relation:
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
     /// # use openpgp::KeyID;

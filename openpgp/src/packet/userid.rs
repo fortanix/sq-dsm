@@ -775,7 +775,7 @@ impl UserID {
     ///   [conventional User ID]: #conventional-user-ids
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_address(
@@ -810,7 +810,7 @@ impl UserID {
     ///   [conventional User ID]: #conventional-user-ids
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_unchecked_address(

@@ -57,7 +57,7 @@
 //!   [Section 5.9 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.9
 //!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! use std::io::Write;
 //! use sequoia_openpgp as openpgp;
 //! use openpgp::serialize::stream::{Message, LiteralWriter};
@@ -80,7 +80,7 @@
 //! it, but the resulting message structure is the same.
 //!
 //! ```
-//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+//! # fn main() -> sequoia_openpgp::Result<()> {
 //! use std::io::Write;
 //! use sequoia_openpgp as openpgp;
 //! use openpgp::policy::StandardPolicy;
@@ -213,7 +213,7 @@ impl<'a> Message<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, LiteralWriter};
     ///
@@ -245,7 +245,7 @@ impl<'a> Message<'a> {
     /// from a detached signature.
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use std::convert::TryFrom;
     /// use sequoia_openpgp as openpgp;
@@ -300,7 +300,7 @@ impl<'a> Message<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, LiteralWriter};
     ///
@@ -362,7 +362,7 @@ impl<'a> Armorer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Armorer, LiteralWriter};
@@ -402,7 +402,7 @@ impl<'a> Armorer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::armor;
@@ -457,7 +457,7 @@ impl<'a> Armorer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Armorer, LiteralWriter};
@@ -494,7 +494,7 @@ impl<'a> Armorer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Armorer, LiteralWriter};
     ///
@@ -543,7 +543,7 @@ impl<'a> ArbitraryWriter<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::packet::Tag;
@@ -668,7 +668,7 @@ impl<'a> Signer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::{Read, Write};
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
@@ -757,7 +757,7 @@ impl<'a> Signer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::{Read, Write};
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::SignatureType;
@@ -827,7 +827,7 @@ impl<'a> Signer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Signer};
@@ -898,7 +898,7 @@ impl<'a> Signer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
@@ -950,7 +950,7 @@ impl<'a> Signer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Signer, LiteralWriter};
@@ -992,7 +992,7 @@ impl<'a> Signer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::HashAlgorithm;
@@ -1034,7 +1034,7 @@ impl<'a> Signer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::Timestamp;
@@ -1090,7 +1090,7 @@ impl<'a> Signer<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::Timestamp;
@@ -1288,7 +1288,7 @@ impl<'a> LiteralWriter<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, LiteralWriter};
@@ -1319,7 +1319,7 @@ impl<'a> LiteralWriter<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::DataFormat;
@@ -1352,7 +1352,7 @@ impl<'a> LiteralWriter<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, LiteralWriter};
@@ -1384,7 +1384,7 @@ impl<'a> LiteralWriter<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::Timestamp;
@@ -1416,7 +1416,7 @@ impl<'a> LiteralWriter<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, LiteralWriter};
@@ -1568,7 +1568,7 @@ impl<'a> Compressor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
@@ -1598,7 +1598,7 @@ impl<'a> Compressor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
@@ -1628,7 +1628,7 @@ impl<'a> Compressor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
@@ -1662,7 +1662,7 @@ impl<'a> Compressor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Compressor, LiteralWriter};
@@ -1841,7 +1841,7 @@ impl<'a> Recipient<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
@@ -1901,7 +1901,7 @@ impl<'a> Recipient<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
@@ -1952,7 +1952,7 @@ impl<'a> Recipient<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::KeyID;
@@ -2104,7 +2104,7 @@ impl<'a> Encryptor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
@@ -2178,7 +2178,7 @@ impl<'a> Encryptor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{
@@ -2217,7 +2217,7 @@ impl<'a> Encryptor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
@@ -2300,7 +2300,7 @@ impl<'a> Encryptor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
@@ -2380,7 +2380,7 @@ impl<'a> Encryptor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::SymmetricAlgorithm;
@@ -2411,7 +2411,7 @@ impl<'a> Encryptor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::types::AEADAlgorithm;
@@ -2459,7 +2459,7 @@ impl<'a> Encryptor<'a> {
     /// # Examples
     ///
     /// ```
-    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// # fn main() -> sequoia_openpgp::Result<()> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{
