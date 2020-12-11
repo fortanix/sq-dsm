@@ -1381,17 +1381,6 @@ mod tests {
         assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
 
-        // The designated revokers on the direct signature should also
-        // be returned when querying components for designated
-        // revokers.
-        assert_eq!(
-            cert.primary_key().revocation_keys(p).collect::<HashSet<_>>(),
-            revokers.iter().collect::<HashSet<_>>());
-        assert_eq!(
-            cert.primary_userid()?.revocation_keys(p).collect::<HashSet<_>>(),
-            revokers.iter().collect::<HashSet<_>>());
-
-
         // Do it again, with a key that has no User IDs.
         let (cert,_) = CertBuilder::new()
             .set_revocation_keys(revokers.clone())
@@ -1401,13 +1390,6 @@ mod tests {
 
         assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
-
-        // The designated revokers on the direct signature should also
-        // be returned when querying components for designated
-        // revokers.
-        assert_eq!(
-            cert.primary_key().revocation_keys(p).collect::<HashSet<_>>(),
-            revokers.iter().collect::<HashSet<_>>());
 
         // The designated revokers on all signatures should be
         // considered.

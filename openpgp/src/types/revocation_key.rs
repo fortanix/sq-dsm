@@ -45,9 +45,8 @@ use crate::{
 ///     .set_revocation_keys(vec![(&alice).into()])
 ///     .generate()?;
 ///
-/// // Make sure Alice is listed as a designated revoker for Bob
-/// // on a component.
-/// assert_eq!(bob.with_policy(p, None)?.primary_userid()?.revocation_keys(p)
+/// // Make sure Alice is listed as a designated revoker for Bob.
+/// assert_eq!(bob.with_policy(p, None)?.revocation_keys(p)
 ///                .collect::<Vec<&RevocationKey>>(),
 ///            vec![&(&alice).into()]);
 /// # Ok(()) }

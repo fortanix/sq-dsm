@@ -248,7 +248,6 @@ use crate::{
         Features,
         HashAlgorithm,
         KeyServerPreferences,
-        RevocationKey,
         RevocationStatus,
         SymmetricAlgorithm,
     },
@@ -860,70 +859,6 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// [See the module's documentation]: index.html
     pub fn other_revocations(&self) -> &'a [Signature] {
         self.bundle().other_revocations()
-    }
-
-    /// Returns a list of any designated revokers for this component.
-    ///
-    /// This function returns the designated revokers listed on both
-    /// this component's binding signature and the certificate's
-    /// direct key signature.
-    ///
-    /// Note: the returned list is deduplicated.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use sequoia_openpgp as openpgp;
-    /// # use openpgp::Result;
-    /// use openpgp::cert::prelude::*;
-    /// use openpgp::policy::StandardPolicy;
-    /// use openpgp::types::RevocationKey;
-    ///
-    /// # fn main() -> Result<()> {
-    /// let p = &StandardPolicy::new();
-    ///
-    /// let (alice, _) =
-    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
-    ///     .generate()?;
-    /// // Make Alice a designated revoker for Bob.
-    /// let (bob, _) =
-    ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
-    ///     .set_revocation_keys(vec![(&alice).into()])
-    ///     .generate()?;
-    ///
-    /// // Make sure Alice is listed as a designated revoker for Bob
-    /// // on a component.
-    /// assert_eq!(bob.with_policy(p, None)?.primary_userid()?.revocation_keys(p)
-    ///                .collect::<Vec<&RevocationKey>>(),
-    ///            vec![&(&alice).into()]);
-    /// # Ok(()) }
-    /// ```
-    pub fn revocation_keys(&self, policy: &dyn Policy)
-        -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
-    {
-        let mut keys = std::collections::HashSet::new();
-        for rk in self.self_signatures().iter()
-            .filter(|sig| {
-                policy
-                    .signature(sig, self.hash_algo_security)
-                    .is_ok()
-            })
-            .flat_map(|sig| sig.revocation_keys())
-        {
-            keys.insert(rk);
-        }
-        let pk_sec = self.cert().primary_key().hash_algo_security();
-        for rk in self.cert().primary_key().self_signatures().iter()
-            .filter(|sig| {
-                policy
-                    .signature(sig, pk_sec)
-                    .is_ok()
-            })
-            .flat_map(|sig| sig.revocation_keys())
-        {
-            keys.insert(rk);
-        }
-        Box::new(keys.into_iter())
     }
 }
 
