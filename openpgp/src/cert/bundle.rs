@@ -91,6 +91,7 @@ use crate::{
     packet::UserAttribute,
     packet::Unknown,
     Packet,
+    policy::HashAlgoSecurity,
     policy::Policy,
     Result,
 };
@@ -111,6 +112,8 @@ use super::{
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComponentBundle<C> {
     pub(crate) component: C,
+
+    pub(crate) hash_algo_security: HashAlgoSecurity,
 
     // Self signatures.
     pub(crate) self_signatures: Vec<Signature>,
@@ -302,7 +305,8 @@ impl<C> ComponentBundle<C> {
                 continue;
             }
 
-            if let Err(e) = policy.signature(s) {
+            if let Err(e) = policy.signature(s, self.hash_algo_security)
+            {
                 if error.is_none() {
                     error = Some(e);
                 }
@@ -329,7 +333,9 @@ impl<C> ComponentBundle<C> {
                         continue 'next_backsig;
                     }
 
-                    if let Err(e) = policy.signature(backsig) {
+                    if let Err(e) = policy
+                        .signature(backsig, self.hash_algo_security)
+                    {
                         if error.is_none() {
                             error = Some(e);
                         }
@@ -523,9 +529,11 @@ impl<C> ComponentBundle<C> {
                 selfsig.signature_alive(t, time::Duration::new(0, 0)).is_ok());
         }
 
-        let check = |revs: &'a [Signature]| -> Option<Vec<&'a Signature>> {
+        let check = |revs: &'a [Signature], sec: HashAlgoSecurity|
+            -> Option<Vec<&'a Signature>>
+        {
             let revs = revs.iter().filter_map(|rev| {
-                if let Err(err) = policy.signature(rev) {
+                if let Err(err) = policy.signature(rev, sec) {
                     t!("  revocation rejected by caller policy: {}", err);
                     None
                 } else if hard_revocations_are_final
@@ -580,9 +588,13 @@ impl<C> ComponentBundle<C> {
             }
         };
 
-        if let Some(revs) = check(&self.self_revocations) {
+        if let Some(revs)
+            = check(&self.self_revocations, self.hash_algo_security)
+        {
             RevocationStatus::Revoked(revs)
-        } else if let Some(revs) = check(&self.other_revocations) {
+        } else if let Some(revs)
+            = check(&self.other_revocations, Default::default())
+        {
             RevocationStatus::CouldBe(revs)
         } else {
             RevocationStatus::NotAsFarAsWeKnow

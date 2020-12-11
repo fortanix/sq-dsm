@@ -2719,7 +2719,10 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                             } else {
                                 match sig.verify(ka.key()) {
                                     Ok(()) => {
-                                        if let Err(error) = self.policy.signature(&sig) {
+                                        if let Err(error)
+                                            = self.policy.signature(
+                                                &sig, Default::default())
+                                        {
                                             t!("{:02X}{:02X}: signature rejected by policy: {}",
                                                sigid[0], sigid[1], error);
                                             VerificationErrorInternal::BadSignature {

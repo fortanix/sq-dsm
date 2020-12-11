@@ -895,15 +895,20 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
         let mut keys = std::collections::HashSet::new();
         for rk in self.self_signatures().iter()
             .filter(|sig| {
-                policy.signature(sig).is_ok()
+                policy
+                    .signature(sig, self.hash_algo_security)
+                    .is_ok()
             })
             .flat_map(|sig| sig.revocation_keys())
         {
             keys.insert(rk);
         }
+        let pk_sec = self.cert().primary_key().hash_algo_security();
         for rk in self.cert().primary_key().self_signatures().iter()
             .filter(|sig| {
-                policy.signature(sig).is_ok()
+                policy
+                    .signature(sig, pk_sec)
+                    .is_ok()
             })
             .flat_map(|sig| sig.revocation_keys())
         {

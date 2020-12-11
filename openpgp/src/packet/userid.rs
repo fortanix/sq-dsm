@@ -15,6 +15,7 @@ use crate::Result;
 use crate::packet;
 use crate::Packet;
 use crate::Error;
+use crate::policy::HashAlgoSecurity;
 
 /// A conventionally parsed UserID.
 #[derive(Clone, Debug)]
@@ -474,6 +475,8 @@ pub struct UserID {
     /// Use `UserID::default()` to get a UserID with a default settings.
     value: Vec<u8>,
 
+    hash_algo_security: HashAlgoSecurity,
+
     parsed: Mutex<RefCell<Option<ConventionallyParsedUserID>>>,
 }
 assert_send_and_sync!(UserID);
@@ -482,6 +485,7 @@ impl From<Vec<u8>> for UserID {
     fn from(u: Vec<u8>) -> Self {
         UserID {
             common: Default::default(),
+            hash_algo_security: UserID::determine_hash_algo_security(&u),
             value: u,
             parsed: Mutex::new(RefCell::new(None)),
         }
@@ -571,6 +575,7 @@ impl Clone for UserID {
     fn clone(&self) -> Self {
         UserID {
             common: self.common.clone(),
+            hash_algo_security: self.hash_algo_security,
             value: self.value.clone(),
             parsed: Mutex::new(RefCell::new(None)),
         }
@@ -682,6 +687,78 @@ impl UserID {
         }
 
         Ok(UserID::from(value))
+    }
+
+    /// The security requirements of the hash algorithm for
+    /// self-signatures.
+    ///
+    /// A cryptographic hash algorithm usually has [three security
+    /// properties]: pre-image resistance, second pre-image
+    /// resistance, and collision resistance.  If an attacker can
+    /// influence the signed data, then the hash algorithm needs to
+    /// have both second pre-image resistance, and collision
+    /// resistance.  If not, second pre-image resistance is
+    /// sufficient.
+    ///
+    ///   [three security properties]: https://en.wikipedia.org/wiki/Cryptographic_hash_function#Properties
+    ///
+    /// In general, an attacker may be able to influence third-party
+    /// signatures.  But direct key signatures, and binding signatures
+    /// are only over data fully determined by signer.  And, an
+    /// attacker's control over self signatures over User IDs is
+    /// limited due to their structure.
+    ///
+    /// In the case of self signatures over User IDs, an attacker may
+    /// be able to control the content of the User ID packet.
+    /// However, unlike an image, there is no easy way to hide large
+    /// amounts of arbitrary data (e.g., the 512 bytes needed by the
+    /// [SHA-1 is a Shambles] attack) from the user.  Further, normal
+    /// User IDs are short and encoded using UTF-8.
+    ///
+    ///   [SHA-1 is a Shambles]: https://sha-mbles.github.io/
+    ///
+    /// These observations can be used to extend the life of a hash
+    /// algorithm after its collision resistance has been partially
+    /// compromised, but not completely broken.  Specifically for the
+    /// case of User IDs, we relax the requirement for strong
+    /// collision resistance for self signatures over User IDs if:
+    ///
+    ///   - The User ID is at most 96 bytes long,
+    ///   - It contains valid UTF-8, and
+    ///   - It doesn't contain a UTF-8 control character (this includes
+    ///     the NUL byte).
+    ///
+    ///
+    /// For more details, please refer to the documentation for
+    /// [HashAlgoSecurity].
+    ///
+    ///   [HashAlgoSecurity]: ../policy/enum.HashAlgoSecurity.html
+    pub fn hash_algo_security(&self) -> HashAlgoSecurity {
+        self.hash_algo_security
+    }
+
+    // See documentation for hash_algo_security.
+    fn determine_hash_algo_security(u: &[u8]) -> HashAlgoSecurity {
+        // SHA-1 has 64 byte (512-bit) blocks.  A block and a half (96
+        // bytes) is more than enough for all but malicious users.
+        if u.len() > 96 {
+            return HashAlgoSecurity::CollisionResistance;
+        }
+
+        // Check that the User ID is valid UTF-8.
+        match str::from_utf8(u) {
+            Ok(s) => {
+                // And doesn't contain control characters.
+                if s.chars().any(char::is_control) {
+                    return HashAlgoSecurity::CollisionResistance;
+                }
+            }
+            Err(_err) => {
+                return HashAlgoSecurity::CollisionResistance;
+            }
+        }
+
+        HashAlgoSecurity::SecondPreImageResistance
     }
 
     /// Constructs a User ID.
@@ -1279,5 +1356,33 @@ mod tests {
         assert_eq!(UserID::from_address("Foo Q. Bar".into(), None, "foo@bar.com")
                       .unwrap().value(),
                    b"Foo Q. Bar <foo@bar.com>");
+    }
+
+    #[test]
+    fn hash_algo_security() {
+        // Acceptable.
+        assert_eq!(UserID::from("Alice Lovelace <alice@lovelace.org>")
+                   .hash_algo_security(),
+                   HashAlgoSecurity::SecondPreImageResistance);
+
+        // Embedded NUL.
+        assert_eq!(UserID::from(&b"Alice Lovelace <alice@lovelace.org>\0"[..])
+                   .hash_algo_security(),
+                   HashAlgoSecurity::CollisionResistance);
+        assert_eq!(
+            UserID::from(
+                &b"Alice Lovelace <alice@lovelace.org>\0Hidden!"[..])
+                .hash_algo_security(),
+            HashAlgoSecurity::CollisionResistance);
+
+        // Long strings.
+        assert_eq!(
+            UserID::from(String::from_utf8(vec!['a' as u8; 90]).unwrap())
+                .hash_algo_security(),
+            HashAlgoSecurity::SecondPreImageResistance);
+        assert_eq!(
+            UserID::from(String::from_utf8(vec!['a' as u8; 100]).unwrap())
+                .hash_algo_security(),
+            HashAlgoSecurity::CollisionResistance);
     }
 }

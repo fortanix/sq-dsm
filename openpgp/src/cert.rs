@@ -1267,15 +1267,25 @@ impl Cert {
     {
         let mut keys = std::collections::HashSet::new();
 
+        let pk_sec = self.primary_key().hash_algo_security();
+
         // All user ids.
         self.userids()
             .flat_map(|ua| {
                 // All valid self-signatures.
-                ua.self_signatures().iter()
+                let sec = ua.hash_algo_security;
+                ua.self_signatures()
+                    .iter()
+                    .filter(move |sig| {
+                        policy.signature(sig, sec).is_ok()
+                   })
             })
             // All direct-key signatures.
-            .chain(self.primary_key().self_signatures() .iter())
-            .filter(|sig| policy.signature(sig).is_ok())
+            .chain(self.primary_key()
+                   .self_signatures().iter()
+                   .filter(|sig| {
+                       policy.signature(sig, pk_sec).is_ok()
+                   }))
             .flat_map(|sig| sig.revocation_keys())
             .for_each(|rk| { keys.insert(rk); });
 

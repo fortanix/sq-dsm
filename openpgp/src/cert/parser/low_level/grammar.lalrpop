@@ -44,10 +44,12 @@ pub Cert: Option<Cert> = {
                     _ => unreachable!(),
                 };
                 let c = c.unwrap();
+                let sec = key.hash_algo_security();
 
                 let mut cert = Cert {
                     primary: PrimaryKeyBundle {
                         component: key,
+                        hash_algo_security: sec,
                         self_signatures: vec![],
                         certifications: sigs,
                         self_revocations: vec![],
@@ -156,9 +158,11 @@ Component: Option<Component> = {
         match key {
             Some(key) => {
                 let sigs = sigs.unwrap();
+                let sec = key.hash_algo_security();
 
                 Some(Component::SubkeyBundle(SubkeyBundle {
                     component: key,
+                    hash_algo_security: sec,
                     self_signatures: vec![],
                     certifications: sigs,
                     self_revocations: vec![],
@@ -173,9 +177,11 @@ Component: Option<Component> = {
         match u {
             Some(u) => {
                 let sigs = sigs.unwrap();
+                let sec = u.hash_algo_security();
 
                 Some(Component::UserIDBundle(UserIDBundle {
                     component: u,
+                    hash_algo_security: sec,
                     self_signatures: vec![],
                     certifications: sigs,
                     self_revocations: vec![],
@@ -190,9 +196,11 @@ Component: Option<Component> = {
         match u {
             Some(u) => {
                 let sigs = sigs.unwrap();
+                let sec = u.hash_algo_security();
 
                 Some(Component::UserAttributeBundle(UserAttributeBundle {
                     component: u,
+                    hash_algo_security: sec,
                     self_signatures: vec![],
                     certifications: sigs,
                     self_revocations: vec![],
@@ -207,9 +215,11 @@ Component: Option<Component> = {
         match u {
             Some(u) => {
                 let sigs = sigs.unwrap();
+                let sec = u.hash_algo_security();
 
                 Some(Component::UnknownBundle(UnknownBundle {
                     component: u,
+                    hash_algo_security: sec,
                     self_signatures: vec![],
                     certifications: sigs,
                     self_revocations: vec![],

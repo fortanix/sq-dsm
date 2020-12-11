@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use crate::packet::Tag;
 use crate::packet;
 use crate::Packet;
+use crate::policy::HashAlgoSecurity;
 
 /// Holds an unknown packet.
 ///
@@ -71,6 +72,35 @@ impl Unknown {
             error,
             container: packet::Container::default_unprocessed(),
         }
+    }
+
+    /// The security requirements of the hash algorithm for
+    /// self-signatures.
+    ///
+    /// A cryptographic hash algorithm usually has [three security
+    /// properties]: pre-image resistance, second pre-image
+    /// resistance, and collision resistance.  If an attacker can
+    /// influence the signed data, then the hash algorithm needs to
+    /// have both second pre-image resistance, and collision
+    /// resistance.  If not, second pre-image resistance is
+    /// sufficient.
+    ///
+    ///   [three security properties]: https://en.wikipedia.org/wiki/Cryptographic_hash_function#Properties
+    ///
+    /// In general, an attacker may be able to influence third-party
+    /// signatures.  But direct key signatures, and binding signatures
+    /// are only over data fully determined by signer.  And, an
+    /// attacker's control over self signatures over User IDs is
+    /// limited due to their structure.
+    ///
+    /// These observations can be used to extend the life of a hash
+    /// algorithm after its collision resistance has been partially
+    /// compromised, but not completely broken.  For more details,
+    /// please refer to the documentation for [HashAlgoSecurity].
+    ///
+    ///   [HashAlgoSecurity]: ../policy/enum.HashAlgoSecurity.html
+    pub fn hash_algo_security(&self) -> HashAlgoSecurity {
+        HashAlgoSecurity::CollisionResistance
     }
 
     /// Gets the unknown packet's tag.

@@ -77,7 +77,9 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// signatures, one should be more liberal when considering
     /// revocations: if you reject a revocation certificate, it may
     /// inadvertently make something else valid!
-    fn signature(&self, _sig: &Signature) -> Result<()> {
+    fn signature(&self, _sig: &Signature, _sec: HashAlgoSecurity)
+        -> Result<()>
+    {
         Ok(())
     }
 
@@ -137,6 +139,300 @@ pub trait Policy : fmt::Debug + Send + Sync {
     /// Data Packet*.
     fn packet(&self, _packet: &Packet) -> Result<()> {
         Ok(())
+    }
+}
+
+/// Whether the signed data requires a hash algorithm with collision
+/// resistance.
+///
+/// Since the context of a signature is not passed to
+/// `Policy::signature`, it is not possible to determine from that
+/// function whether the signature requires a hash algorithm with
+/// collision resistance.  This enum indicates this.
+///
+/// In short, many self signatures only require second pre-image
+/// resistance.  This can be used to extend the life of hash
+/// algorithms whose collision resistance has been partially
+/// compromised.  Be careful.  Read the background and the warning
+/// before accepting the use of weak hash algorithms!
+///
+/// # Warning
+///
+/// Although distinguishing whether signed data requires collision
+/// resistance can be used to permit the continued use of a hash
+/// algorithm in certain situations, once attacks against a hash
+/// algorithm are known, it is imperative to retire the use of the
+/// hash algorithm as soon as it is feasible.  Cryptoanalytic attacks
+/// improve quickly, as demonstrated by the attacks on SHA-1.
+///
+/// # Background
+///
+/// Cryptographic hash functions normally have three security
+/// properties:
+///
+///   - Pre-image resistance,
+///   - Second pre-image resistance, and
+///   - Collision resistance.
+///
+/// A hash algorithm has pre-image resistance if given a hash `h`, it
+/// is impractical for an attacker to find a message `m` such that `h
+/// = hash(m)`.  In other words, a hash algorithm has pre-image
+/// resistance if it is hard to invert.  A hash algorithm has second
+/// pre-image resistance if it is impractical for an attacker to find
+/// a second message with the same hash as the first.  That is, given
+/// `m1`, it is hard for an attacker to find an `m2` such that
+/// `hash(m1) = hash(m2)`.  And, a hash algorithm has collision
+/// resistance if it is impractical for an attacker to find two
+/// messages with the same hash.  That is, it is hard for an attacker
+/// to find an `m1` and an `m2` such that `hash(m1) = hash(m2)`.
+///
+/// In the context of verifying an OpenPGP signature, we don't need a
+/// hash algorithm with pre-image resistance.  Pre-image resistance is
+/// only required when the message is a secret, e.g., a password.  We
+/// always need a hash algorithm with second pre-image resistance,
+/// because an attacker must not be able to repurpose an arbitrary
+/// signature, i.e., create a collision with respect to a *known*
+/// hash.  And, we need collision resistance when a signature is over
+/// data that could have been influenced by an attacker: if an
+/// attacker creates a pair of colliding messages and convinces the
+/// user to sign one of them, then the attacker can copy the signature
+/// to the other message.
+///
+/// Collision resistance implies second pre-image resistance, but not
+/// vice versa.  If an attacker can find a second message with the
+/// same hash as some known message, they can also create a collision
+/// by choosing an arbitrary message and using their pre-image attack
+/// to find a colliding message.  Thus, a context that requires
+/// collision resistance also requires second pre-image resistance.
+///
+/// Because collision resistance is with respect to two arbitrary
+/// messages, collision resistance is always susceptible to a
+/// [birthday paradox].  This means that the security margin of a hash
+/// algorithm's collision resistance is half of the security margin of
+/// its second pre-image resistance.  And, in practice, the collision
+/// resistance of industry standard hash algorithms has been
+/// practically attacked multiple times.  In the context of SHA-1,
+/// Wang et al. described how to find collisions in SHA-1 in their
+/// 2005 paper [Finding Collisions in the Full SHA-1].  In 2017,
+/// Stevens et al. published [The First Collision for Full SHA-1],
+/// which demonstrates the first practical attack on SHA-1's collision
+/// resistance, an identical-prefix collision attack.  This attack
+/// only gives the attacker limited control over the content of the
+/// collided messages, which limits its applicability.  However, in
+/// 2020, Leurent and Peyrin published [SHA-1 is a Shambles], which
+/// demonstrates a practical chosen-prefix collision attack.  This
+/// attack gives the attacker complete control over the prefixes of
+/// the collided messages.
+///
+///   [birthday paradox]: https://en.wikipedia.org/wiki/Birthday_attack#Digital_signature_susceptibility
+///   [Finding Collisions in the Full SHA-1]: https://link.springer.com/chapter/10.1007/11535218_2
+///   [The first collision for full SHA-1]: https://shattered.io/
+///   [SHA-1 is a Shambles]: https://sha-mbles.github.io/
+///
+/// A chosen-prefix collision attack works as follows: an attacker
+/// chooses two arbitrary message prefixes, and then searches for
+/// so-called near collision blocks.  These near collision blocks
+/// cause the internal state of the hashes to converge and eventually
+/// result in a collision, i.e., an identical hash value.  The attack
+/// described in the [SHA-1 is a Shambles] paper requires 8 to 10 near
+/// collision blocks (512 to 640 bytes) to fully synchronize the
+/// internal state.
+///
+/// SHA-1 is a [Merkle-Damgård hash function].  This means that the
+/// hash function processes blocks one after the other, and the
+/// internal state of the hash function at any given point only
+/// depends on earlier blocks in the stream.  A consequence of this is
+/// that it is possible to append a common suffix to the collided
+/// messages without any additional computational effort.  That is, if
+/// `hash(m1) = hash(m2)`, then it necessarily holds that `hash(m1 ||
+/// suffix) = hash(m2 || suffix)`.  This is called a [length extension
+/// attack].
+///
+///   [Merkle-Damgård hash function]: https://en.wikipedia.org/wiki/Merkle%E2%80%93Damg%C3%A5rd_construction
+///   [length extension attack]: https://en.wikipedia.org/wiki/Length_extension_attack
+///
+/// Thus, the [SHA-1 is a Shambles] attack solves the following:
+///
+/// ```text
+/// hash(m1 || collision blocks 1 || suffix) = hash(m2 || collision blocks 2 || suffix)
+/// ```
+///
+/// Where `m1`, `m2`, and `suffix` are controlled by the attacker, and
+/// only the collision blocks are controlled by the algorithm.
+///
+/// If an attacker can convince an OpenPGP user to sign a message of
+/// their choosing (some `m1 || collision blocks 1 || suffix`), then
+/// the attacker also has a valid signature from the victim for a
+/// colliding message (some `m2 || collision blocks 2 || suffix`).
+///
+/// The OpenPGP format imposes some additional constraints on the
+/// attacker.  Although the attacker may control the message, the
+/// signature is also over a [signature packet], and a trailer.
+/// Specifically, [the following is signed] when signing a document:
+///
+/// ```text
+/// hash(document || sig packet || 0x04 || sig packet len)
+/// ```
+///
+/// and the [following is signed] when signing a binding signature:
+///
+/// ```text
+/// hash(public key || subkey || sig packet || 0x04 || sig packet len)
+/// ```
+///
+///  [signature packet]: https://tools.ietf.org/html/rfc4880#section-5.2.3
+///  [the following is signed]: https://tools.ietf.org/html/rfc4880#section-5.2.4
+///
+/// Since the signature packet is chosen by the victim's OpenPGP
+/// implementation, the attacker may be able to predict it, but they
+/// cannot store the collision blocks there.  Thus, the signature
+/// packet is necessarily part of the common suffix, and the collision
+/// blocks must occur earlier in the stream.
+///
+/// This restriction on the signature packet means that an attacker
+/// cannot convince the victim to sign a document, and then transfer
+/// that signature to a colliding binding signature.  These signatures
+/// necessarily have different [signature packet]s: the value of the
+/// [signature type] field is different.  And, as just described, for
+/// this attack, the signature packets must be identical, because they
+/// are part of the common suffix.  Finally, the trailer, which
+/// contains the signature packet's length, prevents hiding a
+/// signature in a signature.
+///
+///   [signature type]: https://tools.ietf.org/html/rfc4880#section-5.2.1
+///
+/// Given this, if we know for a given signature type that an attacker
+/// cannot control any of the data that is signed, then that type of
+/// signature does not need collision resistance; it is still
+/// vulnerable to an attack on the hash's second pre-image resistance
+/// (a collision with a specific message), but not one on its
+/// collision resistance (a collision with any message).  This is the
+/// case for binding signatures, and direct key signatures.  But, it
+/// is not normally the case for documents (the attacker may be able
+/// to control the content of the document), certifications (the
+/// attacker may be able to control the the key packet, the User ID
+/// packet, or the User Attribute packet), or certificate revocations
+/// (the attacker may be able to control the key packet).
+///
+/// Certification signatures and revocations signatures can be further
+/// divided into self signatures and third-party signatures.  If an
+/// attacker can convince a victim into signing a third-party
+/// signature, as was done in the [SHA-1 is a Shambles], they may be
+/// able to transfer the signature to a colliding self signature.  If
+/// we can show that an attacker can't collide a self signature, and a
+/// third-party signature, then we may be able to show that self
+/// signatures don't require collision resistance.  The same
+/// consideration holds for revocations and third-party revocations.
+///
+/// We first consider revocations, which are more straightforward.
+/// The attack is the following: an attacker creates a fake
+/// certificate (A), and sets the victim as a designated revoker.
+/// They then ask the victim to revoke their certificate (V).  The
+/// attacker than transfers the signature to a colliding self
+/// revocation, which causes the victim's certificate (V) to be
+/// revoked.
+///
+/// A revocation is over a public key packet and a signature packet.
+/// In this scenario, the attacker controls the fake certificate (A)
+/// and thus the public key packet that the victim actually signs.
+/// But the victim's public key packet is determined by their
+/// certificate (V).  Thus, the attacker would have to insert the near
+/// collision blocks in the signature packet, which, as we argued
+/// before, is not possible.  Thus, it is safe to only use a hash with
+/// pre-image resistance to protect a self-revocation.
+///
+/// We now turn to self signatures.  The attack is similar to the
+/// [SHA-1 is a Shambles] attack.  An attacker creates a certificate
+/// (A) and convinces the victim to sign it.  The attacker can then
+/// transfer the third-party certification to a colliding self
+/// signature for the victim's certificate (V).  If successful, this
+/// attack allows the attacker to add a User ID or a User Attribute to
+/// the victim's certificate (V).  This can confuse people who use the
+/// victim's certificate.  For instance, if the attacker adds the
+/// identity `alice@example.org` to the victim's certificate, and Bob
+/// receives a message signed using the victim's certificate (V), he
+/// may think that Alice signed the message instead of the victim.
+/// Bob won't be tricked if he uses strong authentication, but many
+/// OpenPGP users use weak authentication (e.g., TOFU) or don't
+/// authenticate keys at all.
+///
+/// A certification is over a public key packet, a User ID or User
+/// Attribute packet, and a signature packet.  The attacker controls
+/// the fake certificate (A) and therefore the public key packet, and
+/// the User ID or User Attribute packet that the victim signs.
+/// However, to trick the victim, the User ID packet or User Attribute
+/// packet needs to correspond to an identity that the attacker
+/// appears to control.  Thus, if the near collision blocks are stored
+/// in the User ID or User Attribute packet of A, they have to be
+/// hidden to avoid making the victim suspicious.  This is
+/// straightforward for User Attributes, which are currently images,
+/// and have many places to hide this type of data.  However, User IDs
+/// are are normally [UTF-8 encoded RFC 2822 mailboxes], which makes
+/// hiding half a kilobyte of binary data impractical.  The attacker
+/// does not control the victim's public key (in V).  But, they do
+/// control the malicious User ID or User Attribute that they want to
+/// attack to the victim's certificate (V).  But again, the near
+/// collision blocks have to be hidden in order to trick Bob, the
+/// second victim.  Thus, the attack has two possibilities: they can
+/// hide the near collision blocks in the fake public key (in A), and
+/// the User ID or User Attribute (added to V); or, they can hide them
+/// in the fake User IDs or User Attributes (in A and the one added to
+/// V).
+///
+/// As evidenced by the [SHA-1 is a Shambles] attack, it is possible
+/// to hide near collision blocks in User Attribute packets.  Thus,
+/// this attack can be used to transfer a third-party certification
+/// over a User Attribute to a self signature over a User Attribute.
+/// As such, self signatures over User Attributes need collision
+/// resistance.
+///
+/// The final case to consider is hiding the near collision blocks in
+/// the User ID that the attacker wants to add to the victim's
+/// certificate.  Again, it is possible to store the near collision
+/// blocks there.  However, there are two mitigating factors.  First,
+/// there is no place to hide the blocks.  As such, the user must be
+/// convinced to ignore them.  Second, a User ID is structure: it
+/// normally contains a [UTF-8 encoded RFC 2822 mailbox].  Thus, if we
+/// only consider valid UTF-8 strings, and limit the maximum size, we
+/// can dramatically increase the workfactor, which can extend the life
+/// of a hash algorithm whose collision resistance has been weakened.
+///
+///   [UTF-8 encoded RFC 2822 mailbox]: https://tools.ietf.org/html/rfc4880#section-5.11
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum HashAlgoSecurity {
+    /// The signed data only requires second pre-image resistance.
+    ///
+    /// If a signature is over data that an attacker cannot influence,
+    /// then the hash function does not need to provide collision
+    /// resistance.  This is **only** the case for:
+    ///
+    ///   - Subkey binding signatures
+    ///   - Primary key binding signatures
+    ///   - Self revocations
+    ///
+    /// Due to the structure of User IDs (they are short UTF-8 encoded
+    /// RFC 2822 mailboxes), self signatures over short, reasonable
+    /// User IDs (**not** User Attributes) also don't require
+    /// collision resistance:
+    ///
+    ///   - Self signatures over User IDs
+    SecondPreImageResistance,
+    /// The signed data requires collision resistance.
+    ///
+    /// If a signature is over data that an attacker can influence,
+    /// then the hash function must provide collision resistance.
+    /// This is the case for documents, third-party certifications,
+    /// and third-party revocations.
+    ///
+    /// Note: collision resistance implies second pre-image
+    /// resistance.
+    CollisionResistance,
+}
+
+impl Default for HashAlgoSecurity {
+    /// The default is the most conservative policy.
+    fn default() -> Self {
+        HashAlgoSecurity::CollisionResistance
     }
 }
 
@@ -725,7 +1021,7 @@ impl<'a> StandardPolicy<'a> {
 }
 
 impl<'a> Policy for StandardPolicy<'a> {
-    fn signature(&self, sig: &Signature) -> Result<()> {
+    fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
 
         match sig.typ() {
@@ -1013,7 +1309,9 @@ mod test {
         #[derive(Debug)]
         struct NoDirectKeySigs;
         impl Policy for NoDirectKeySigs {
-            fn signature(&self, sig: &Signature) -> Result<()> {
+            fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity)
+                -> Result<()>
+            {
                 use crate::types::SignatureType::*;
 
                 match sig.typ() {
@@ -1030,7 +1328,9 @@ mod test {
         #[derive(Debug)]
         struct NoSubkeySigs;
         impl Policy for NoSubkeySigs {
-            fn signature(&self, sig: &Signature) -> Result<()> {
+            fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity)
+                -> Result<()>
+            {
                 use crate::types::SignatureType::*;
 
                 match sig.typ() {
@@ -1067,7 +1367,9 @@ mod test {
         #[derive(Debug)]
         struct NoPositiveCertifications;
         impl Policy for NoPositiveCertifications {
-            fn signature(&self, sig: &Signature) -> Result<()> {
+            fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity)
+                -> Result<()>
+            {
                 use crate::types::SignatureType::*;
                 match sig.typ() {
                     PositiveCertification =>
@@ -1104,7 +1406,9 @@ mod test {
         #[derive(Debug)]
         struct NoCertificationRevocation;
         impl Policy for NoCertificationRevocation {
-            fn signature(&self, sig: &Signature) -> Result<()> {
+            fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity)
+                -> Result<()>
+            {
                 use crate::types::SignatureType::*;
                 match sig.typ() {
                     CertificationRevocation =>
@@ -1138,7 +1442,9 @@ mod test {
         #[derive(Debug)]
         struct NoSubkeyRevocation;
         impl Policy for NoSubkeyRevocation {
-            fn signature(&self, sig: &Signature) -> Result<()> {
+            fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity)
+                -> Result<()>
+            {
                 use crate::types::SignatureType::*;
                 match sig.typ() {
                     SubkeyRevocation =>
@@ -1217,7 +1523,9 @@ mod test {
         #[derive(Debug)]
         struct NoBinarySigantures;
         impl Policy for NoBinarySigantures {
-            fn signature(&self, sig: &Signature) -> Result<()> {
+            fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity)
+                -> Result<()>
+            {
                 use crate::types::SignatureType::*;
                 eprintln!("{:?}", sig.typ());
                 match sig.typ() {
@@ -1233,7 +1541,9 @@ mod test {
         #[derive(Debug)]
         struct NoSubkeySigs;
         impl Policy for NoSubkeySigs {
-            fn signature(&self, sig: &Signature) -> Result<()> {
+            fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity)
+                -> Result<()>
+            {
                 use crate::types::SignatureType::*;
 
                 match sig.typ() {
