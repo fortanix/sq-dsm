@@ -82,13 +82,36 @@ fn create_or_stdout_pgp<'a>(f: Option<&str>, force: bool,
     Ok(message)
 }
 
+/// Loads one TSK from every given file.
+fn load_keys<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
+    where I: Iterator<Item=&'a str>
+{
+    let mut certs = vec![];
+    for f in files {
+        let cert = Cert::from_file(f)
+            .context(format!("Failed to load key from file {:?}", f))?;
+        if ! cert.is_tsk() {
+            Err(anyhow::anyhow!(
+                "Cert in file {:?} does not contain secret keys", f))?;
+        }
+        certs.push(cert);
+    }
+    Ok(certs)
+}
+
+/// Loads one or more certs from every given file.
 fn load_certs<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
     where I: Iterator<Item=&'a str>
 {
     let mut certs = vec![];
     for f in files {
-        certs.push(Cert::from_file(f)
-                  .context(format!("Failed to load key from file {:?}", f))?);
+        for maybe_cert in CertParser::from_file(f)
+            .context(format!("Failed to load certs from file {:?}", f))?
+        {
+            certs.push(maybe_cert.context(
+                format!("A cert from file {:?} is bad", f)
+            )?);
+        }
     }
     Ok(certs)
 }
@@ -204,7 +227,7 @@ fn main() -> Result<()> {
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             let secrets = m.values_of("secret-key-file")
-                .map(load_certs)
+                .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;
             let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
@@ -217,7 +240,7 @@ fn main() -> Result<()> {
         ("encrypt",  Some(m)) => {
             let mapping = Mapping::open(&ctx, realm_name, mapping_name)
                 .context("Failed to open the mapping")?;
-            let mut recipients = m.values_of("recipient-key-file")
+            let mut recipients = m.values_of("recipients-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
             if let Some(r) = m.values_of("recipient") {
@@ -232,7 +255,7 @@ fn main() -> Result<()> {
                                      m.is_present("binary"),
                                      armor::Kind::Message)?;
             let additional_secrets = m.values_of("signer-key-file")
-                .map(load_certs)
+                .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;
             let mode = match m.value_of("mode").expect("has default") {
                 "rest" => KeyFlags::empty()
@@ -266,7 +289,7 @@ fn main() -> Result<()> {
             let append = m.is_present("append");
             let notarize = m.is_present("notarize");
             let secrets = m.values_of("secret-key-file")
-                .map(load_certs)
+                .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;
             let time = if let Some(time) = m.value_of("time") {
                 Some(parse_iso8601(time, chrono::NaiveTime::from_hms(0, 0, 0))
@@ -382,7 +405,7 @@ fn main() -> Result<()> {
                                          m.is_present("binary"),
                                          armor::Kind::Message)?;
                 let secrets = m.values_of("secret-key-file")
-                    .map(load_certs)
+                    .map(load_keys)
                     .unwrap_or(Ok(vec![]))?;
                 let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
                     .context("Failed to open the mapping")?;

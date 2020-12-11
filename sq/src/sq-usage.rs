@@ -80,18 +80,22 @@
 //!     -V, --version      Prints version information
 //!
 //! OPTIONS:
-//!         --compression <KIND>                   Selects compression scheme to use [default: pad]  [possible values: none,
-//!                                                pad, zip, zlib, bzip2]
-//!         --mode <MODE>                          Selects what kind of keys are considered for encryption.  Transport
-//!                                                select subkeys marked as suitable for transport encryption, rest selects
-//!                                                those for encrypting data at rest, and all selects all encryption-capable
-//!                                                subkeys [default: all]  [possible values: transport, rest, all]
-//!     -o, --output <FILE>                        Sets the output file to use
-//!     -r, --recipient <LABEL>...                 Recipient to encrypt for (can be given multiple times)
-//!         --recipient-key-file <CERT-FILE>...    Recipient to encrypt for, given as a file (can be given multiple times)
-//!         --signer-key-file <TSK-FILE>...        Secret key to sign with, given as a file (can be given multiple times)
-//!     -t, --time <TIME>                          Chooses keys valid at the specified time and sets the signature's
-//!                                                creation time
+//!         --compression <KIND>
+//!             Selects compression scheme to use [default: pad]  [possible values: none, pad, zip, zlib, bzip2]
+//!
+//!         --mode <MODE>
+//!             Selects what kind of keys are considered for encryption.  Transport select subkeys marked as suitable for
+//!             transport encryption, rest selects those for encrypting data at rest, and all selects all encryption-capable
+//!             subkeys [default: all]  [possible values: transport, rest, all]
+//!     -o, --output <FILE>                           Sets the output file to use
+//!     -r, --recipient <LABEL>...                    Recipient to encrypt for (can be given multiple times)
+//!         --recipients-cert-file <CERTS-FILE>...
+//!             Recipients to encrypt for, given as a file (can be given multiple times)
+//!
+//!         --signer-key-file <TSK-FILE>...           Secret key to sign with, given as a file (can be given multiple times)
+//!     -t, --time <TIME>
+//!             Chooses keys valid at the specified time and sets the signature's creation time
+//!
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use

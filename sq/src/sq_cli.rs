@@ -101,13 +101,13 @@ pub fn build() -> App<'static, 'static> {
                          .number_of_values(1)
                          .help("Recipient to encrypt for \
                                 (can be given multiple times)"))
-                    .arg(Arg::with_name("recipient-key-file")
-                         .long("recipient-key-file")
+                    .arg(Arg::with_name("recipients-cert-file")
+                         .long("recipients-cert-file")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("CERT-FILE")
+                         .value_name("CERTS-FILE")
                          .number_of_values(1)
-                         .help("Recipient to encrypt for, given as a file \
+                         .help("Recipients to encrypt for, given as a file \
                                 (can be given multiple times)"))
                     .arg(Arg::with_name("signer-key-file")
                          .long("signer-key-file")
