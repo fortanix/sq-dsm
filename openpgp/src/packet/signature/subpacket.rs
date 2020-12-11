@@ -2586,13 +2586,13 @@ impl SubpacketAreas {
     /// for `time`.
     ///
     /// Whereas a Key's expiration time is stored in the Key's active
-    /// binding signature in the [Signature Expiration Time
+    /// binding signature in the [Key Expiration Time
     /// subpacket], its creation time is stored in the Key packet.  As
     /// such, the associated Key must be passed to this function.
     /// This function, however, has no way to check that the signature
     /// is actually a binding signature for the specified Key.
     ///
-    /// [Signature Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
+    /// [Key Expiration Time subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.6
     ///
     /// # Examples
     ///
