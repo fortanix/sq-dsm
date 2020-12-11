@@ -1,11 +1,11 @@
 [package]
 name = "sequoia-sop"
 description = "An implementation of the Stateless OpenPGP Command Line Interface using Sequoia"
-version = "0.20.0"
+version = "0.21.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.20.0/sop"
+documentation = "https://docs.sequoia-pgp.org/0.21.0/sop"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
 readme = "README.md"
@@ -19,7 +19,7 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.20", default-features = false }
+sequoia-openpgp = { path = "../openpgp", version = "0.21", default-features = false }
 anyhow = "1.0.18"
 chrono = "0.4.10"
 structopt = { version = "0.3.11", default-features = false }

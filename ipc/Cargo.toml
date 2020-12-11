@@ -1,13 +1,13 @@
 [package]
 name = "sequoia-ipc"
 description = "Interprocess communication infrastructure for Sequoia"
-version = "0.20.0"
+version = "0.21.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.20.0/sequoia_ipc"
+documentation = "https://docs.sequoia-pgp.org/0.21.0/sequoia_ipc"
 build = "build.rs"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
@@ -20,11 +20,11 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.20", default-features = false }
-sequoia-core = { path = "../core", version = "0.20" }
+sequoia-openpgp = { path = "../openpgp", version = "0.21", default-features = false }
+sequoia-core = { path = "../core", version = "0.21" }
 
 anyhow = "1.0.18"
-buffered-reader = { path = "../buffered-reader", version = "0.20", default-features = false }
+buffered-reader = { path = "../buffered-reader", version = "0.21", default-features = false }
 capnp-rpc = "0.13"
 fs2 = "0.4.2"
 futures = "0.3.5"
