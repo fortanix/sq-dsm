@@ -775,12 +775,14 @@ impl UserID {
     ///   [conventional User ID]: #conventional-user-ids
     ///
     /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_address(
     ///                "John Smith".into(),
-    ///                None, "boat@example.org").unwrap().value(),
+    ///                None, "boat@example.org")?.value(),
     ///            &b"John Smith <boat@example.org>"[..]);
+    /// # Ok(()) }
     /// ```
     pub fn from_address<O, S>(name: O, comment: O, email: S)
         -> Result<Self>
@@ -808,12 +810,14 @@ impl UserID {
     ///   [conventional User ID]: #conventional-user-ids
     ///
     /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::packet::UserID;
     /// assert_eq!(UserID::from_unchecked_address(
     ///                "NAS".into(),
-    ///                None, "ssh://host.example.org").unwrap().value(),
+    ///                None, "ssh://host.example.org")?.value(),
     ///            &b"NAS <ssh://host.example.org>"[..]);
+    /// # Ok(()) }
     /// ```
     pub fn from_unchecked_address<O, S>(name: O, comment: O, address: S)
         -> Result<Self>

@@ -467,7 +467,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     /// #          .add_transport_encryption_subkey()
     /// #          .add_storage_encryption_subkey()
     /// #          .add_authentication_subkey()
-    /// #          .generate().unwrap();
+    /// #          .generate()?;
     /// # let mut i = 0;
     /// for ka in cert.keys().subkeys() {
     ///     // Use it.
@@ -942,7 +942,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_storage_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// #   let mut i = 0;
     /// for ka in cert.keys()
     ///     .with_policy(p, None)
@@ -1012,7 +1012,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_storage_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// #   let mut i = 0;
     /// for ka in cert.keys()
     ///     .with_policy(p, None)
@@ -1057,7 +1057,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_storage_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// #   let mut i = 0;
     /// for ka in cert.keys()
     ///     .with_policy(p, None)
@@ -1100,7 +1100,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_storage_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// #   let mut i = 0;
     /// for ka in cert.keys()
     ///     .with_policy(p, None)
@@ -1143,7 +1143,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_storage_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// #   let mut i = 0;
     /// for ka in cert.keys()
     ///     .with_policy(p, None)
@@ -1186,7 +1186,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_transport_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// #   let mut i = 0;
     /// for ka in cert.keys()
     ///     .with_policy(p, None)
@@ -1229,7 +1229,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_transport_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// for ka in cert.keys()
     ///     .with_policy(p, None)
     ///     .alive()
@@ -1276,7 +1276,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_transport_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// for ka in cert.keys()
     ///     .with_policy(p, None)
     ///     .revoked(false)
@@ -1593,7 +1593,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     /// #       .add_transport_encryption_subkey()
     /// #       .add_storage_encryption_subkey()
     /// #       .add_authentication_subkey()
-    /// #       .generate().unwrap();
+    /// #       .generate()?;
     /// #   let mut i = 0;
     /// for ka in cert.keys().with_policy(p, None).subkeys() {
     ///     assert!(! ka.primary());

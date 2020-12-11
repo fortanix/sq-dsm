@@ -1174,7 +1174,7 @@ impl Cert {
     /// # let tag = Tag::Private(61);
     /// # let unknown
     /// #     = Unknown::new(tag, openpgp::Error::UnsupportedPacketType(tag).into());
-    /// # let cert = cert.insert_packets(unknown).unwrap();
+    /// # let cert = cert.insert_packets(unknown)?;
     /// println!("{}'s has {} unknown components.",
     ///          cert.fingerprint(),
     ///          cert.unknowns().count());

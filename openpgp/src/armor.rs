@@ -18,12 +18,14 @@
 //! # Examples
 //!
 //! ```rust, no_run
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
 //! use sequoia_openpgp as openpgp;
 //! use std::fs::File;
 //! use openpgp::armor::{Reader, ReaderMode, Kind};
 //!
-//! let mut file = File::open("somefile.asc").unwrap();
+//! let mut file = File::open("somefile.asc")?;
 //! let mut r = Reader::new(&mut file, ReaderMode::Tolerant(Some(Kind::File)));
+//! # Ok(()) }
 //! ```
 
 use base64;
@@ -673,7 +675,7 @@ impl<'a> Reader<'a> {
     ///
     /// let mut content = String::new();
     /// reader.read_to_string(&mut content)?;
-    /// assert_eq!(reader.headers().unwrap(),
+    /// assert_eq!(reader.headers()?,
     ///    &[("First".into(), "value".into()),
     ///      ("Header".into(), "value".into())]);
     /// # Ok(())

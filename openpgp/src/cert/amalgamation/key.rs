@@ -45,6 +45,7 @@
 //! vice versa even though we support changing a `KeyBundle`'s role:
 //!
 //! ```
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
 //! # use std::convert::TryInto;
 //! # use sequoia_openpgp as openpgp;
 //! # use openpgp::cert::prelude::*;
@@ -53,7 +54,7 @@
 //! #     .add_userid("Alice")
 //! #     .add_signing_subkey()
 //! #     .add_transport_encryption_subkey()
-//! #     .generate().unwrap();
+//! #     .generate()?;
 //! // This works:
 //! cert.primary_key().bundle().role_as_subordinate();
 //!
@@ -61,6 +62,7 @@
 //! let ka: ErasedKeyAmalgamation<_> = cert.keys().nth(0).expect("primary key");
 //! let ka: openpgp::Result<SubordinateKeyAmalgamation<key::PublicParts>> = ka.try_into();
 //! assert!(ka.is_err());
+//! # Ok(()) }
 //! ```
 //!
 //! The use of the prefix `Erased` instead of `Unspecified`
@@ -1311,7 +1313,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// #     .add_userid("Alice")
     /// #     .add_signing_subkey()
     /// #     .add_transport_encryption_subkey()
-    /// #     .generate().unwrap();
+    /// #     .generate()?;
     /// let ka = cert.primary_key().with_policy(p, None)?;
     /// if let Err(_err) = ka.alive() {
     ///     // Not alive.
@@ -1359,7 +1361,7 @@ impl<'a, P, R, R2> ValidKeyAmalgamation<'a, P, R, R2>
     /// #     .add_userid("Alice")
     /// #     .add_signing_subkey()
     /// #     .add_transport_encryption_subkey()
-    /// #     .generate().unwrap();
+    /// #     .generate()?;
     /// let ka = cert.primary_key();
     ///
     /// // `with_policy` takes ownership of `ka`.
@@ -1431,7 +1433,7 @@ impl<'a, P> ValidPrimaryKeyAmalgamation<'a, P>
     /// #     .add_userid("Alice")
     /// #     .add_signing_subkey()
     /// #     .add_transport_encryption_subkey()
-    /// #     .generate().unwrap();
+    /// #     .generate()?;
     /// let vc = cert.with_policy(p, None)?;
     ///
     /// // Assert that the primary key is not expired.
@@ -1513,7 +1515,7 @@ impl<'a, P> ValidSubordinateKeyAmalgamation<'a, P>
     /// #     .add_userid("Alice")
     /// #     .add_signing_subkey()
     /// #     .add_transport_encryption_subkey()
-    /// #     .generate().unwrap();
+    /// #     .generate()?;
     /// let vc = cert.with_policy(p, None)?;
     ///
     /// // Assert that the keys are not expired.
@@ -1751,7 +1753,7 @@ impl<'a, P> ValidErasedKeyAmalgamation<'a, P>
     /// #     .add_userid("Alice")
     /// #     .add_signing_subkey()
     /// #     .add_transport_encryption_subkey()
-    /// #     .generate().unwrap();
+    /// #     .generate()?;
     /// let vc = cert.with_policy(p, None)?;
     ///
     /// // Assert that the keys are not expired.

@@ -3673,7 +3673,7 @@ impl signature::SignatureBuilder {
     ///         true)?)?;
     /// let sig = builder.sign_message(&mut signer, msg)?;
     /// # let mut sig = sig;
-    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # sig.verify_message(signer.public(), msg)?;
     /// # Ok(()) }
     /// ```
     ///
@@ -3713,7 +3713,7 @@ impl signature::SignatureBuilder {
     ///     })?
     ///    .sign_message(&mut signer, msg)?;
     /// # let mut sig = sig;
-    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # sig.verify_message(signer.public(), msg)?;
     /// # Ok(()) }
     /// ```
     ///
@@ -3764,7 +3764,7 @@ impl signature::SignatureBuilder {
     ///     })?
     ///    .sign_message(&mut signer, msg)?;
     /// # let mut sig = sig;
-    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # sig.verify_message(signer.public(), msg)?;
     /// # Ok(()) }
     /// ```
     pub fn modify_unhashed_area<F>(mut self, f: F)
@@ -3819,7 +3819,7 @@ impl signature::SignatureBuilder {
     ///         true)?)?;
     /// let sig = builder.sign_message(&mut signer, msg)?;
     /// # let mut sig = sig;
-    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # sig.verify_message(signer.public(), msg)?;
     /// # Ok(()) }
     /// ```
     ///
@@ -3859,7 +3859,7 @@ impl signature::SignatureBuilder {
     ///     })?
     ///    .sign_message(&mut signer, msg)?;
     /// # let mut sig = sig;
-    /// # sig.verify_message(signer.public(), msg).unwrap();
+    /// # sig.verify_message(signer.public(), msg)?;
     /// # Ok(()) }
     /// ```
     ///

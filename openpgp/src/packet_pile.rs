@@ -375,8 +375,7 @@ impl PacketPile {
     /// literal.set_body(b"new".to_vec());
     /// pile.replace(
     ///     &[0, 0], 1,
-    ///     [literal.into()].to_vec())
-    ///     .unwrap();
+    ///     [literal.into()].to_vec())?;
     /// # if let Some(Packet::Literal(lit)) = pile.path_ref(&[0, 0]) {
     /// #     assert_eq!(lit.body(), &b"new"[..], "{:#?}", lit);
     /// # } else {

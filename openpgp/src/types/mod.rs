@@ -83,15 +83,17 @@ pub(crate) trait Syncable : Sync {}
 /// # Examples
 ///
 /// ```rust
+/// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
 /// use sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::types::PublicKeyAlgorithm;
 ///
 /// let (cert, _) = CertBuilder::new()
 ///     .set_cipher_suite(CipherSuite::Cv25519)
-///     .generate().unwrap();
+///     .generate()?;
 ///
 /// assert_eq!(cert.primary_key().pk_algo(), PublicKeyAlgorithm::EdDSA);
+/// # Ok(()) }
 /// ```
 ///
 ///   [Section 9.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.1

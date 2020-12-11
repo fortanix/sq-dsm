@@ -737,7 +737,7 @@ impl<'a> CertParser<'a> {
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// #     let ppr = PacketParser::from_bytes(b"")?;
-    /// #     let some_keyid = "C2B819056C652598".parse().unwrap();
+    /// #     let some_keyid = "C2B819056C652598".parse()?;
     /// for certr in CertParser::from(ppr)
     ///     .unvalidated_cert_filter(|cert, _| {
     ///         for component in cert.keys() {

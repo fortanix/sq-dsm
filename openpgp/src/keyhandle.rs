@@ -246,6 +246,7 @@ impl KeyHandle {
     /// non-transitive equality relation:
     ///
     /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
     /// # use openpgp::KeyID;
@@ -253,20 +254,21 @@ impl KeyHandle {
     /// #
     /// # let fpr1 : KeyHandle
     /// #     = "8F17 7771 18A3 3DDA 9BA4  8E62 AACB 3243 6300 52D9"
-    /// #       .parse::<Fingerprint>().unwrap().into();
+    /// #       .parse::<Fingerprint>()?.into();
     /// #
     /// # let fpr2 : KeyHandle
     /// #     = "0123 4567 8901 2345 6789  0123 AACB 3243 6300 52D9"
-    /// #       .parse::<Fingerprint>().unwrap().into();
+    /// #       .parse::<Fingerprint>()?.into();
     /// #
-    /// # let keyid : KeyHandle = "AACB 3243 6300 52D9".parse::<KeyID>()
-    /// #     .unwrap().into();
+    /// # let keyid : KeyHandle = "AACB 3243 6300 52D9".parse::<KeyID>()?
+    /// #     .into();
     /// #
     /// // fpr1 and fpr2 are different fingerprints with the same KeyID.
     /// assert!(! fpr1.eq(&fpr2));
     /// assert!(fpr1.aliases(&keyid));
     /// assert!(fpr2.aliases(&keyid));
     /// assert!(! fpr1.aliases(&fpr2));
+    /// # Ok(()) }
     /// ```
     pub fn aliases<H>(&self, other: H) -> bool
         where H: Borrow<KeyHandle>

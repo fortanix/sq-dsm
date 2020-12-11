@@ -153,6 +153,7 @@
 //! code, which doesn't compile:
 //!
 //! ```compile_fail
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
 //! # use sequoia_openpgp as openpgp;
 //! use openpgp::cert::prelude::*;
 //! use openpgp::packet::prelude::*;
@@ -161,7 +162,7 @@
 //! #     .add_userid("Alice")
 //! #     .add_signing_subkey()
 //! #     .add_transport_encryption_subkey()
-//! #     .generate().unwrap();
+//! #     .generate()?;
 //! cert.userids()
 //!     .map(|ua| {
 //!         // Use auto deref to get the containing `&ComponentBundle`.
@@ -169,6 +170,7 @@
 //!         b
 //!     })
 //!     .collect::<Vec<&UserID>>();
+//! # Ok(()) }
 //! ```
 //!
 //! Compiling it results in the following error:
@@ -186,6 +188,7 @@
 //! below for the [`ComponentAmalgamation::component`] method:
 //!
 //! ```
+//! # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
 //! # use sequoia_openpgp as openpgp;
 //! use openpgp::cert::prelude::*;
 //! use openpgp::packet::prelude::*;
@@ -194,7 +197,7 @@
 //! #     .add_userid("Alice")
 //! #     .add_signing_subkey()
 //! #     .add_transport_encryption_subkey()
-//! #     .generate().unwrap();
+//! #     .generate()?;
 //! cert.userids()
 //!     .map(|ua| {
 //!         // ua's lifetime is this closure.  But `component()`
@@ -203,6 +206,7 @@
 //!         ua.component()
 //!     })
 //!     .collect::<Vec<&UserID>>();
+//! # Ok(()) }
 //! ```
 //!
 //! [`ComponentBundle`]: ../bundle/index.html
@@ -754,6 +758,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// # Examples
     ///
     /// ```
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
     /// # use sequoia_openpgp as openpgp;
     /// use openpgp::cert::prelude::*;
     /// use openpgp::packet::prelude::*;
@@ -762,7 +767,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     /// #     .add_userid("Alice")
     /// #     .add_signing_subkey()
     /// #     .add_transport_encryption_subkey()
-    /// #     .generate().unwrap();
+    /// #     .generate()?;
     /// cert.userids()
     ///     .map(|ua| {
     ///         // The following doesn't work:
@@ -776,6 +781,7 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     ///         ua.bundle()
     ///     })
     ///     .collect::<Vec<&ComponentBundle<_>>>();
+    /// # Ok(()) }
     /// ```
     pub fn bundle(&self) -> &'a ComponentBundle<C> {
         &self.bundle
@@ -1038,7 +1044,7 @@ impl<'a> UserAttributeAmalgamation<'a> {
 /// #     .add_userid("Alice")
 /// #     .add_signing_subkey()
 /// #     .add_transport_encryption_subkey()
-/// #     .generate().unwrap();
+/// #     .generate()?;
 /// for u in cert.userids() {
 ///     // Create a `ValidComponentAmalgamation`.  This may fail if
 ///     // there are no binding signatures that are accepted by the

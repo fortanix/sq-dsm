@@ -40,20 +40,22 @@ pub mod hex {
     /// # Examples
     ///
     /// ```rust
-    ///  use sequoia_openpgp::fmt::hex;
+    /// # f().unwrap(); fn f() -> sequoia_openpgp::Result<()> {
+    /// use sequoia_openpgp::fmt::hex;
     ///
     /// let mut dumper = hex::Dumper::new(Vec::new(), "");
-    /// dumper.write(&[0x89, 0x01, 0x33], "frame").unwrap();
-    /// dumper.write(&[0x04], "version").unwrap();
-    /// dumper.write(&[0x00], "type").unwrap();
+    /// dumper.write(&[0x89, 0x01, 0x33], "frame")?;
+    /// dumper.write(&[0x04], "version")?;
+    /// dumper.write(&[0x00], "type")?;
     ///
     /// let buf = dumper.into_inner();
     /// assert_eq!(
-    ///     ::std::str::from_utf8(&buf[..]).unwrap(),
+    ///     ::std::str::from_utf8(&buf[..])?,
     ///     "00000000  89 01 33                                           frame\n\
     ///      00000003           04                                        version\n\
     ///      00000004              00                                     type\n\
     ///      ");
+    /// # Ok(()) }
     /// ```
     pub struct Dumper<W: io::Write> {
         inner: W,
