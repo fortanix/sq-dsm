@@ -1384,7 +1384,7 @@ impl Cert {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn from_packets(p: impl Iterator<Item=Packet>) -> Result<Self> {
+    pub fn from_packets(p: impl Iterator<Item=Packet> + Send + Sync) -> Result<Self> {
         let mut i = parser::CertParser::from_iter(p);
         if let Some(cert_result) = i.next() {
             if i.next().is_some() {

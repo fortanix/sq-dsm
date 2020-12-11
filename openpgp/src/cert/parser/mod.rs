@@ -507,11 +507,12 @@ impl CertValidator {
 /// ```
 
 pub struct CertParser<'a> {
-    source: Option<Box<dyn Iterator<Item=Result<Packet>> + 'a>>,
+    source: Option<Box<dyn Iterator<Item=Result<Packet>> + 'a + Send + Sync>>,
     packets: Vec<Packet>,
     saw_error: bool,
-    filter: Vec<Box<dyn Fn(&Cert, bool) -> bool + 'a>>,
+    filter: Vec<Box<dyn Send + Sync + Fn(&Cert, bool) -> bool + 'a>>,
 }
+assert_send_and_sync!(CertParser<'_>);
 
 impl<'a> Default for CertParser<'a> {
     fn default() -> Self {
@@ -682,7 +683,8 @@ impl<'a> CertParser<'a> {
     /// ```
     pub fn from_iter<I, J>(iter: I) -> Self
         where I: 'a + IntoIterator<Item=J>,
-              J: 'a + Into<Result<Packet>>
+              J: 'a + Into<Result<Packet>>,
+              <I as IntoIterator>::IntoIter: Send + Sync,
     {
         let mut parser : Self = Default::default();
         parser.source = Some(Box::new(iter.into_iter().map(Into::into)));
@@ -759,7 +761,7 @@ impl<'a> CertParser<'a> {
     /// # }
     /// ```
     pub fn unvalidated_cert_filter<F: 'a>(mut self, filter: F) -> Self
-        where F: Fn(&Cert, bool) -> bool
+        where F: Send + Sync + Fn(&Cert, bool) -> bool
     {
         self.filter.push(Box::new(filter));
         self
