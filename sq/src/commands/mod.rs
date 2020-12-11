@@ -81,7 +81,9 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
                    npasswords: usize, recipients: &'a [openpgp::Cert],
                    signers: Vec<openpgp::Cert>,
                    mode: openpgp::types::KeyFlags, compression: &str,
-                   time: Option<SystemTime>)
+                   time: Option<SystemTime>,
+                   use_expired_subkey: bool,
+)
                    -> Result<()> {
     let mut passwords: Vec<crypto::Password> = Vec::with_capacity(npasswords);
     for n in 0..npasswords {
@@ -112,8 +114,34 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
             count += 1;
         }
         if count == 0 {
-            return Err(anyhow::anyhow!(
-                "Key {} has no suitable encryption key", cert));
+            let mut expired_keys = Vec::new();
+            for ka in cert.keys().with_policy(policy, None).revoked(false)
+                .key_flags(&mode).supported()
+            {
+                let key = ka.key();
+                expired_keys.push(
+                    (ka.binding_signature().key_expiration_time(key)
+                         .expect("Key must have an expiration time"),
+                     key));
+            }
+            expired_keys.sort_by_key(|(expiration_time, _)| *expiration_time);
+
+            if let Some((expiration_time, key)) = expired_keys.last() {
+                if use_expired_subkey {
+                    recipient_subkeys.push((*key).into());
+                } else {
+                    use chrono::{DateTime, offset::Utc};
+                    return Err(anyhow::anyhow!(
+                        "The last suitable encryption key of cert {} expired \
+                         on {}\n\
+                         Hint: Use --use-expired-subkey to use it anyway.",
+                        cert,
+                        DateTime::<Utc>::from(*expiration_time)));
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Cert {} has no suitable encryption key", cert));
+            }
         }
     }
 

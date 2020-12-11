@@ -145,6 +145,11 @@ pub fn build() -> App<'static, 'static> {
                          .short("t")
                          .help("Chooses keys valid at the specified time and \
                                 sets the signature's creation time"))
+                    .arg(Arg::with_name("use-expired-subkey")
+                         .long("use-expired-subkey")
+                         .help("If a certificate has only expired \
+                                encryption-capable subkeys, fall back \
+                                to using the one that expired last"))
         )
 
         .subcommand(SubCommand::with_name("sign")

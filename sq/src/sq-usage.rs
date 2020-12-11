@@ -74,10 +74,12 @@
 //!     sq encrypt [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
-//!     -B, --binary       Don't ASCII-armor encode the OpenPGP data
-//!     -h, --help         Prints help information
-//!     -s, --symmetric    Encrypt with a password (can be given multiple times)
-//!     -V, --version      Prints version information
+//!     -B, --binary                Don't ASCII-armor encode the OpenPGP data
+//!     -h, --help                  Prints help information
+//!     -s, --symmetric             Encrypt with a password (can be given multiple times)
+//!         --use-expired-subkey    If a certificate has only expired encryption-capable subkeys, fall back to using the one
+//!                                 that expired last
+//!     -V, --version               Prints version information
 //!
 //! OPTIONS:
 //!         --compression <KIND>

@@ -279,7 +279,9 @@ fn main() -> Result<()> {
                               &recipients, additional_secrets,
                               mode,
                               m.value_of("compression").expect("has default"),
-                              time.into())?;
+                              time.into(),
+                              m.is_present("use-expired-subkey"),
+            )?;
         },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
