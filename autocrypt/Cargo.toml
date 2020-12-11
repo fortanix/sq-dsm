@@ -22,7 +22,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 sequoia-openpgp = { path = "../openpgp", version = "0.20", default-features = false }
-base64 = "0.13"
+base64 = ">=0.12"
 
 [features]
 default = ["sequoia-openpgp/default"]
