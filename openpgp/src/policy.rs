@@ -1344,6 +1344,17 @@ impl From<AsymmetricAlgorithm> for u8 {
 /// This policy imposes no additional policy, i.e., accepts
 /// everything.  This includes the MD5 hash algorithm, and SED
 /// packets.
+///
+/// The Null policy has a limited set of valid use cases, e.g., packet statistics.
+/// For other purposes, it is more advisable to use the [`StandardPolicy`] and
+/// adjust it by selectively allowing items considered insecure by default, e.g.,
+/// via [`StandardPolicy::accept_hash`] function. If this is still too inflexible
+/// consider creating a specialized policy based on the [`StandardPolicy`] as
+/// [the example for `StandardPolicy`] illustrates.
+///
+///   [`StandardPolicy`]: struct.StandardPolicy.html
+///   [`StandardPolicy::accept_hash`]: struct.StandardPolicy.html#method.accept_hash
+///   [the example for `StandardPolicy`]: struct.StandardPolicy.html#examples
 #[derive(Debug)]
 pub struct NullPolicy {
 }
