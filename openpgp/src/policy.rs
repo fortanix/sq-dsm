@@ -454,6 +454,101 @@ impl Default for HashAlgoSecurity {
 /// reasonable to use the time that the signature was saved, since an
 /// attacker could not have taken advantage of any weaknesses found
 /// after that time.
+///
+/// # Examples
+///
+/// A `StandardPolicy` object can be used to build specialized policies.
+/// For example the following policy filters out Persona certifications mimicking
+/// what GnuPG does when calculating the Web of Trust.
+///
+/// ```rust
+/// use sequoia_openpgp as openpgp;
+/// use std::io::{Cursor, Read};
+/// use openpgp::Result;
+/// use openpgp::packet::{Packet, Signature, key::PublicParts};
+/// use openpgp::cert::prelude::*;
+/// use openpgp::parse::Parse;
+/// use openpgp::armor::{Reader, ReaderMode, Kind};
+/// use openpgp::policy::{HashAlgoSecurity, Policy, StandardPolicy};
+/// use openpgp::types::{
+///    SymmetricAlgorithm,
+///    AEADAlgorithm,
+///    SignatureType
+/// };
+///
+/// #[derive(Debug)]
+/// struct RejectPersonaCertificationsPolicy<'a>(StandardPolicy<'a>);
+///
+/// impl Policy for RejectPersonaCertificationsPolicy<'_> {
+///     fn key(&self, ka: &ValidErasedKeyAmalgamation<PublicParts>)
+///            -> Result<()>
+///     {
+///         self.0.key(ka)
+///     }
+///
+///     fn signature(&self, sig: &Signature, sec: HashAlgoSecurity) -> Result<()> {
+///         if sig.typ() == SignatureType::PersonaCertification {
+///             Err(anyhow::anyhow!("Persona certifications are ignored."))
+///         } else {
+///             self.0.signature(sig, sec)
+///         }
+///     }
+///
+///     fn symmetric_algorithm(&self, algo: SymmetricAlgorithm) -> Result<()> {
+///         self.0.symmetric_algorithm(algo)
+///     }
+///
+///     fn aead_algorithm(&self, algo: AEADAlgorithm) -> Result<()> {
+///         self.0.aead_algorithm(algo)
+///     }
+///
+///     fn packet(&self, packet: &Packet) -> Result<()> {
+///         self.0.packet(packet)
+///     }
+/// }
+///
+/// impl RejectPersonaCertificationsPolicy<'_> {
+///     fn new() -> Self {
+///         Self(StandardPolicy::new())
+///     }
+/// }
+///
+/// # fn main() -> Result<()> {
+/// // this key has one persona certification
+/// let data = r#"
+/// -----BEGIN PGP PUBLIC KEY BLOCK-----
+///
+/// mDMEX7JGrxYJKwYBBAHaRw8BAQdASKGcnowaZBDc2Z3rZZlWb6jEjne9sK76afbJ
+/// trd5Uw+0BlRlc3QgMoiQBBMWCAA4FiEEyZ6oBYFia3z+ooCBqR9BqiGp8AQFAl+y
+/// Rq8CGwMFCwkIBwIGFQoJCAsCBBYCAwECHgECF4AACgkQqR9BqiGp8ASfxwEAvEb0
+/// bFr7ZgFZSDOITNptm+FEynib8mmLACsvHAmCjvIA+gOaSNyxMW6N59q7/j0sDjp1
+/// aYNgpNFLbYBZpkXXVL0GiHUEERYIAB0WIQTE4QfdkkisIbWVOcHmlsuS3dbWEwUC
+/// X7JG4gAKCRDmlsuS3dbWExEwAQCpqfiVMhjDwVFMsMpwd5r0N/8rAx8/nmgpCsK3
+/// M9TUrAD7BhTYVPRbkJqTZYd9DlLtBcbF3yNPTHlB+F2sFjI+cgo=
+/// =ZfYu
+/// -----END PGP PUBLIC KEY BLOCK-----
+/// "#;
+///
+/// let mut cursor = Cursor::new(&data);
+/// let mut reader = Reader::new(&mut cursor, ReaderMode::Tolerant(Some(Kind::PublicKey)));
+///
+/// let mut buf = Vec::new();
+/// reader.read_to_end(&mut buf)?;
+/// let cert = Cert::from_bytes(&buf)?;
+///
+/// let ref sp = StandardPolicy::new();
+/// let u = cert.with_policy(sp, None)?.userids().nth(0).unwrap();
+///
+/// // Under the standard policy the persona certification is visible.
+/// assert_eq!(u.certifications().count(), 1);
+///
+/// // Under our custom policy the persona certification is not available.
+/// let ref p = RejectPersonaCertificationsPolicy::new();
+/// assert_eq!(u.with_policy(p, None)?.certifications().count(), 0);
+/// #
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct StandardPolicy<'a> {
     // The time.  If None, the current time is used.
