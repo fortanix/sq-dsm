@@ -353,7 +353,7 @@ impl<'a> TSK<'a> {
     /// let (cert, _) = CertBuilder::new().add_signing_subkey().generate()?;
     /// assert_eq!(cert.keys().with_policy(p, None).alive().revoked(false).secret().count(), 2);
     ///
-    /// // Only write out the primary key's secret.
+    /// // Only write out the subkey's secret.
     /// let mut buf = Vec::new();
     /// cert.as_tsk()
     ///     .set_filter(|k| k.fingerprint() != cert.fingerprint())
