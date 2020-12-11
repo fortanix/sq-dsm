@@ -81,6 +81,13 @@ at compile time.  Currently, these libraries are available:
     include the `crypto-cng` feature to enable it.  Currently, the CNG
     backend requires at least Windows 10.
 
+  - The RustCrypto crates.  To select this backend, use
+    `default-features = false`, and explicitly include the
+    `crypto-rust` feature to enable it.  As of this writing, the
+    RustCrypto crates are not recommended for general use as they
+    cannot offer the same security guarantees as more mature
+    cryptographic libraries.
+
 ### Experimental and variable-time cryptographic backends
 
 Some cryptographic backends are not yet considered mature enough for

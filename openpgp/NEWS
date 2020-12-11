@@ -3,6 +3,8 @@
 #+STARTUP: content hidestars
 
 * Changes in 1.4.0
+** New cryptographic backends
+   - We added a backend based on the RustCrypto crates.
 ** New functionality
    - CipherSuite::is_supported
    - MPI::value_padded

@@ -62,6 +62,12 @@ fn crypto_backends_sanity_check() {
              production_ready: true,
              constant_time: true,
          }),
+        (cfg!(feature = "crypto-rust"),
+         Backend {
+             name: "RustCrypto",
+             production_ready: false,
+             constant_time: false,
+         }),
     ].into_iter().filter_map(|(selected, backend)| {
         if selected { Some(backend) } else { None }
     }).collect::<Vec<_>>();

@@ -815,6 +815,14 @@ mod tests {
                          SymmetricAlgorithm::Camellia256]
                          .iter()
                          .filter(|algo| algo.is_supported()) {
+
+            if cfg!(feature = "crypto-rust")
+                && sym_algo == &SymmetricAlgorithm::Twofish {
+                    eprintln!("XXX: Skipping Twofish until Twofish \
+                               implements Clone");
+                    continue;
+            }
+
             for aead in [
                 AEADAlgorithm::EAX,
                 AEADAlgorithm::OCB,

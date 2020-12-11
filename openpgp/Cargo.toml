@@ -45,12 +45,33 @@ thiserror = "1.0.2"
 backtrace = "0.3.3"
 unicode-normalization = "0.1.9"
 
+# RustCrypto crates.
+aes = { version = "0.6.0", optional = true }
+block-modes = { version = "0.7.0", optional = true }
+block-padding = { version = "0.2.1", optional = true }
+blowfish = { version = "0.7.0", optional = true }
+cast5 = { version = "0.9.0", optional = true }
+cipher = { version = "0.2.5", optional = true, features = ["std"] }
+des = { version = "0.6.0", optional = true }
+digest = { version = "0.9.0", optional = true }
+eax = { version = "0.3.0", optional = true }
+ed25519-dalek = { version = "1", default-features = false, features = ["rand", "u64_backend"], optional = true }
+generic-array = { version = "0.14.4", optional = true }
+idea = { version = "0.3.0", optional = true }
+md-5 = { version = "0.9.1", optional = true }
+num-bigint-dig = { version = "0.6", default-features = false, optional = true }
+rand = { version = "0.7.3", optional = true }
+ripemd160 = { version = "0.9.1", optional = true }
+rsa = { version = "0.3.0", optional = true }
+sha-1 = { version = "0.9.2", optional = true }
+sha2 = { version = "0.9.2", optional = true }
+twofish = { version = "0.5.0", optional = true }
+typenum = { version = "1.12.0", optional = true }
+x25519-dalek = { version = "1.1.0", optional = true }
+
 [target.'cfg(windows)'.dependencies]
 win-crypto-ng = { version = "0.4", features = ["rand", "block-cipher"], optional = true }
-num-bigint-dig = { version = "0.6", default-features = false, optional = true }
-ed25519-dalek = { version = "1", default-features = false, features = ["rand", "u64_backend"], optional = true }
 winapi = { version = "0.3.8", default-features = false, features = ["bcrypt"], optional = true }
-eax = "0.3"
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 chrono = { version = "0.4.10", default-features = false, features = ["std"] }
@@ -68,7 +89,12 @@ criterion = { version = "0.3.4", features = ["html_reports"] }
 default = ["compression", "crypto-nettle"]
 # TODO(#333): Allow for/implement more backends
 crypto-nettle = ["nettle"]
-crypto-cng = ["winapi", "win-crypto-ng", "ed25519-dalek", "num-bigint-dig"]
+crypto-rust = [
+    "aes", "block-modes", "block-padding", "blowfish", "cast5", "cipher", "des",
+    "digest", "eax", "ed25519-dalek", "generic-array", "idea", "md-5", "num-bigint-dig", "rand",
+    "ripemd160", "rsa", "sha-1", "sha2", "twofish", "typenum", "x25519-dalek"
+]
+crypto-cng = ["eax", "winapi", "win-crypto-ng", "ed25519-dalek", "num-bigint-dig"]
 
 # Experimental and variable-time cryptographic backends opt-ins
 allow-experimental-crypto = []

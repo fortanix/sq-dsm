@@ -72,6 +72,22 @@ bullseye:
     RUSTFLAGS: -D warnings -A unused-parens
   after_script: []
 
+bullseye-crypto-rust:
+  tags:
+    - linux
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
+  dependencies:
+    - codespell
+  script:
+    - cargo run --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-rust,compression,allow-experimental-crypto,allow-variable-time-crypto --example supported-algorithms
+    - cargo test --release --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-rust,compression,allow-experimental-crypto,allow-variable-time-crypto
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+  after_script: []
+
 bullseye:arm64:
   tags:
     - docker-arm64
