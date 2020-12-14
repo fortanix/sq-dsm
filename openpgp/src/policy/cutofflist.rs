@@ -6,6 +6,7 @@ use crate::{
     Error,
     Result,
     types::Timestamp,
+    types::Duration,
 };
 
 // A `const fn` function can only use a subset of Rust's
@@ -152,9 +153,17 @@ impl<A> CutoffList<A>
     }
 
     // Checks whether the `a` is safe to use at time `time`.
+    //
+    // `tolerance` is added to the cutoff time.
     #[inline]
-    pub(super) fn check(&self, a: A, time: Timestamp) -> Result<()> {
+    pub(super) fn check(&self, a: A, time: Timestamp,
+                        tolerance: Option<Duration>)
+        -> Result<()>
+    {
         if let Some(cutoff) = self.cutoff(a.clone()) {
+            let cutoff = cutoff
+                .checked_add(tolerance.unwrap_or(Duration::seconds(0)))
+                .unwrap_or(Timestamp::MAX);
             if time >= cutoff {
                 Err(Error::PolicyViolation(
                     a.to_string(), Some(cutoff.into())).into())
@@ -226,7 +235,9 @@ macro_rules! a_cutoff_list {
                 }
             }
 
-            fn check(&self, a: $algo, time: Timestamp) -> Result<()> {
+            fn check(&self, a: $algo, time: Timestamp, d: Option<types::Duration>)
+                -> Result<()>
+            {
                 use crate::policy::cutofflist::VecOrSlice;
 
                 match self {
@@ -237,10 +248,10 @@ macro_rules! a_cutoff_list {
                         CutoffList {
                             cutoffs: VecOrSlice::Slice(&Self::DEFAULTS[..]),
                             _a: std::marker::PhantomData,
-                        }.check(a, time)
+                        }.check(a, time, d)
                     }
 
-                    $name::Custom(ref l) => l.check(a, time),
+                    $name::Custom(ref l) => l.check(a, time, d),
                 }
             }
         }

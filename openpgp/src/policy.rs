@@ -45,6 +45,7 @@ use crate::{
         Tag,
     },
     Result,
+    types,
     types::{
         AEADAlgorithm,
         HashAlgorithm,
@@ -555,8 +556,8 @@ pub struct StandardPolicy<'a> {
     time: Option<Timestamp>,
 
     // Hash algorithms.
-    hash_algos_normal: NormalHashCutoffList,
-    hash_algos_revocation: RevocationHashCutoffList,
+    hash_algos: HashCutoffList,
+    hash_revocation_tolerance: types::Duration,
 
     // Critical subpacket tags.
     critical_subpackets: SubpacketTagCutoffList,
@@ -591,27 +592,12 @@ impl<'a> From<&'a StandardPolicy<'a>> for Option<&'a dyn Policy> {
     }
 }
 
-a_cutoff_list!(NormalHashCutoffList, HashAlgorithm, 12,
+a_cutoff_list!(HashCutoffList, HashAlgorithm, 12,
                [
                    REJECT,                 // 0. Not assigned.
                    Some(Timestamp::Y1997), // 1. MD5
                    Some(Timestamp::Y2013), // 2. SHA-1
                    Some(Timestamp::Y2013), // 3. RIPE-MD/160
-                   REJECT,                 // 4. Reserved.
-                   REJECT,                 // 5. Reserved.
-                   REJECT,                 // 6. Reserved.
-                   REJECT,                 // 7. Reserved.
-                   ACCEPT,                 // 8. SHA256
-                   ACCEPT,                 // 9. SHA384
-                   ACCEPT,                 // 10. SHA512
-                   ACCEPT,                 // 11. SHA224
-               ]);
-a_cutoff_list!(RevocationHashCutoffList, HashAlgorithm, 12,
-               [
-                   REJECT,                 // 0. Not assigned.
-                   Some(Timestamp::Y2004), // 1. MD5
-                   Some(Timestamp::Y2020), // 2. SHA-1
-                   Some(Timestamp::Y2020), // 3. RIPE-MD/160
                    REJECT,                 // 4. Reserved.
                    REJECT,                 // 5. Reserved.
                    REJECT,                 // 6. Reserved.
@@ -768,8 +754,11 @@ impl<'a> StandardPolicy<'a> {
         const EMPTY_LIST: &'static [&'static str] = &[];
         Self {
             time: None,
-            hash_algos_normal: NormalHashCutoffList::Default(),
-            hash_algos_revocation: RevocationHashCutoffList::Default(),
+            hash_algos: HashCutoffList::Default(),
+            // There are 365.2425 days in a year.  Use a reasonable
+            // approximation.
+            hash_revocation_tolerance:
+                types::Duration::seconds((7 * 365 + 2) * 24 * 60 * 60),
             critical_subpackets: SubpacketTagCutoffList::Default(),
             good_critical_notations: EMPTY_LIST,
             asymmetric_algos: AsymmetricAlgorithmCutoffList::Default(),
@@ -826,14 +815,12 @@ impl<'a> StandardPolicy<'a> {
 
     /// Always considers `h` to be secure.
     pub fn accept_hash(&mut self, h: HashAlgorithm) {
-        self.hash_algos_normal.set(h, ACCEPT);
-        self.hash_algos_revocation.set(h, ACCEPT);
+        self.hash_algos.set(h, ACCEPT);
     }
 
     /// Always considers `h` to be insecure.
     pub fn reject_hash(&mut self, h: HashAlgorithm) {
-        self.hash_algos_normal.set(h, REJECT);
-        self.hash_algos_revocation.set(h, REJECT);
+        self.hash_algos.set(h, REJECT);
     }
 
     /// Considers `h` to be insecure starting at `normal` for normal
@@ -893,25 +880,68 @@ impl<'a> StandardPolicy<'a> {
     ///
     /// Since RIPE-MD is structured similarly to SHA-1, we
     /// conservatively consider it to be broken as well.
-    pub fn reject_hash_at<N, R>(&mut self, h: HashAlgorithm,
-                                normal: N, revocation: R)
-        where N: Into<Option<SystemTime>>,
-              R: Into<Option<SystemTime>>,
+    pub fn reject_hash_at<T>(&mut self, h: HashAlgorithm, t: T)
+        where T: Into<Option<SystemTime>>,
     {
-        self.hash_algos_normal.set(
+        self.hash_algos.set(
             h,
-            normal.into().and_then(system_time_cutoff_to_timestamp));
-        self.hash_algos_revocation.set(
-            h,
-            revocation.into().and_then(system_time_cutoff_to_timestamp));
+            t.into().and_then(system_time_cutoff_to_timestamp));
     }
 
     /// Returns the cutoff times for the specified hash algorithm.
-    pub fn hash_cutoffs(&self, h: HashAlgorithm)
-        -> (Option<SystemTime>, Option<SystemTime>)
+    pub fn hash_cutoff(&self, h: HashAlgorithm)
+        -> Option<SystemTime>
     {
-        (self.hash_algos_normal.cutoff(h).map(|t| t.into()),
-         self.hash_algos_revocation.cutoff(h).map(|t| t.into()))
+        self.hash_algos.cutoff(h).map(|t| t.into())
+    }
+
+    /// Sets the amount of time to continue to accept revocation
+    /// certificates after a hash algorithm should be rejected.
+    ///
+    /// Using [`StandardPolicy::reject_hash_at`], it is possible to
+    /// indicate when a hash algorithm's security has been
+    /// compromised, and, as such, should no longer be accepted.
+    ///
+    ///   [`StandardPolicy::reject_hash_at`]: #method.reject_hash_at
+    ///
+    /// Applying this policy to revocation certificates can have some
+    /// unfortunate side effects.  In particular, if a certificate has
+    /// been revoked using a revocation certificate that relies on a
+    /// broken hash algorithm, but the most recent self signature uses
+    /// a strong acceptable hash algorithm, then rejecting the
+    /// revocation certificate would mean considering the certificate
+    /// to not be revoked!  This would be a catastrophe if the secret
+    /// key material were compromised.
+    ///
+    /// Unfortunately, this happens in practice.  A common example
+    /// appears to be a certificate that has been updated many times,
+    /// and is then revoked using a revocation certificate that was
+    /// generated when the certificate was generated.
+    ///
+    /// Since the consequences of allowing an invalid revocation
+    /// certificate are significantly less severe (a denial of
+    /// service) than ignoring a valid revocation certificate
+    /// (compromised confidentiality, integrity, and authentication),
+    /// this option makes it possible to accept revocations using weak
+    /// hash algorithms longer than other types of signatures.
+    ///
+    /// By default, the standard policy accepts revocation
+    /// certificates seven years after the hash they are using was
+    /// initially compromised.
+    pub fn hash_revocation_tolerance<D>(&mut self, d: D)
+        where D: Into<types::Duration>
+    {
+        self.hash_revocation_tolerance = d.into();
+    }
+
+    /// Sets the amount of time to continue to accept revocation
+    /// certificates after a hash algorithm should be rejected.
+    ///
+    /// See [`StandardPolicy::hash_revocation_tolerance`] for details.
+    ///
+    ///   [`StandardPolicy::hash_revocation_tolerance`]: #method.hash_revocation_tolerance
+    pub fn get_hash_revocation_tolerance(&self) -> types::Duration {
+        self.hash_revocation_tolerance
     }
 
     /// Always considers `s` to be secure.
@@ -1119,25 +1149,29 @@ impl<'a> Policy for StandardPolicy<'a> {
     fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
 
-        match sig.typ() {
-            t @ SignatureType::KeyRevocation
-                | t @ SignatureType::SubkeyRevocation
-                | t @ SignatureType::CertificationRevocation =>
-            {
-                self.hash_algos_revocation.check(sig.hash_algo(), time)
-                    .context(format!(
-                        "Policy rejected revocation signature ({})", t))?
-            }
-            t =>
-            {
-                self.hash_algos_normal.check(sig.hash_algo(), time)
-                    .context(format!(
-                        "Policy rejected non-revocation signature ({})", t))?
-            }
+        let rev = match sig.typ() {
+            SignatureType::KeyRevocation
+                | SignatureType::SubkeyRevocation
+                | SignatureType::CertificationRevocation => true,
+            _ => false,
+        };
+
+        if rev {
+            self
+                .hash_algos.check(
+                    sig.hash_algo(), time, Some(self.hash_revocation_tolerance))
+                .context(format!(
+                    "Policy rejected revocation signature ({})", sig.typ()))?
+        } else {
+            self
+                .hash_algos.check(
+                    sig.hash_algo(), time, None)
+                .context(format!(
+                    "Policy rejected non-revocation signature ({})", sig.typ()))?
         }
 
         for csp in sig.hashed_area().iter().filter(|sp| sp.critical()) {
-            self.critical_subpackets.check(csp.tag(), time)
+            self.critical_subpackets.check(csp.tag(), time, None)
                 .context("Policy rejected critical signature subpacket")?;
             if let SubpacketValue::NotationData(n) = csp.value() {
                 if ! self.good_critical_notations.contains(&n.name()) {
@@ -1221,25 +1255,25 @@ impl<'a> Policy for StandardPolicy<'a> {
         };
 
         let time = self.time.unwrap_or_else(Timestamp::now);
-        self.asymmetric_algos.check(a, time)
+        self.asymmetric_algos.check(a, time, None)
             .context("Policy rejected encryption algorithm")
     }
 
     fn packet(&self, packet: &Packet) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
-        self.packet_tags.check(packet.tag(), time)
+        self.packet_tags.check(packet.tag(), time, None)
             .context("Policy rejected packet type")
     }
 
     fn symmetric_algorithm(&self, algo: SymmetricAlgorithm) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
-        self.symmetric_algos.check(algo, time)
+        self.symmetric_algos.check(algo, time, None)
             .context("Policy rejected symmetric encryption algorithm")
     }
 
     fn aead_algorithm(&self, algo: AEADAlgorithm) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
-        self.aead_algos.check(algo, time)
+        self.aead_algos.check(algo, time, None)
             .context("Policy rejected authenticated encryption algorithm")
     }
 }
@@ -1962,8 +1996,8 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::now() + Duration::from_secs(SECS_IN_YEAR),
             SystemTime::now() + Duration::from_secs(SECS_IN_YEAR));
+        reject.hash_revocation_tolerance(0);
         cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revocation_status(&reject, None));
@@ -1972,8 +2006,8 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
+        reject.hash_revocation_tolerance(0);
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
@@ -1984,8 +2018,8 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
-            SystemTime::now() + Duration::from_secs(SECS_IN_YEAR));
+            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
+        reject.hash_revocation_tolerance(2 * SECS_IN_YEAR as u32);
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::Revoked(_)
@@ -1997,12 +2031,11 @@ mod test {
         assert!(algo_u8 != 0u8);
         reject.reject_hash_at(
             (algo_u8 - 1).into(),
-            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
         reject.reject_hash_at(
             (algo_u8 + 1).into(),
-            SystemTime::now() - Duration::from_secs(SECS_IN_YEAR),
             SystemTime::now() - Duration::from_secs(SECS_IN_YEAR));
+        reject.hash_revocation_tolerance(0);
         cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revocation_status(&reject, None));
@@ -2013,8 +2046,8 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::UNIX_EPOCH - Duration::from_secs(SECS_IN_YEAR),
             SystemTime::UNIX_EPOCH - Duration::from_secs(SECS_IN_YEAR));
+        reject.hash_revocation_tolerance(0);
         assert!(cert.primary_key()
                     .binding_signature(&reject, None).is_err());
         assert_match!(RevocationStatus::NotAsFarAsWeKnow
@@ -2026,8 +2059,8 @@ mod test {
         let mut reject : StandardPolicy = StandardPolicy::new();
         reject.reject_hash_at(
             algo,
-            SystemTime::UNIX_EPOCH + Duration::from_secs(500 * SECS_IN_YEAR),
             SystemTime::UNIX_EPOCH + Duration::from_secs(500 * SECS_IN_YEAR));
+        reject.hash_revocation_tolerance(0);
         cert.primary_key().binding_signature(&reject, None)?;
         assert_match!(RevocationStatus::Revoked(_)
                       = cert_revoked.revocation_status(&reject, None));

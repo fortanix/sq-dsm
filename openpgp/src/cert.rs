@@ -5324,7 +5324,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // signatures.  The standard policy reject SHA-1.  So, use a
         // custom policy.
         let p = &P::new();
-        let sha1 = p.hash_cutoffs(HashAlgorithm::SHA1).0.unwrap();
+        let sha1 = p.hash_cutoff(HashAlgorithm::SHA1).unwrap();
         let p = &P::at(sha1 - std::time::Duration::from_secs(1));
 
         let cert = Cert::from_bytes(
