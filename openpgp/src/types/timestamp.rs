@@ -375,6 +375,26 @@ impl Duration {
                         n)).into())
     }
 
+    /// Returns a `Duration` with the given number of years, if
+    /// representable.
+    ///
+    /// This function assumes that there are 365.2425 [days in a
+    /// year], the average number of days in a year in the Gregorian
+    /// calendar.
+    ///
+    ///   [days in a year]: https://en.wikipedia.org/wiki/Year
+    pub fn years(n: u32) -> Result<Duration> {
+        let s = (365.2425 * n as f64).trunc();
+        if s > u32::MAX as f64 {
+            Err(Error::InvalidArgument(
+                format!("Not representable: {} years in seconds exceeds u32",
+                        n))
+                .into())
+        } else {
+            Ok((s as u32).into())
+        }
+    }
+
     /// Returns the duration as seconds.
     pub fn as_secs(self) -> u64 {
         self.0 as u64
