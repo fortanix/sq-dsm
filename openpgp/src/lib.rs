@@ -46,6 +46,8 @@
 //!
 //! [RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-08
 
+#![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
+#![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
 #![warn(missing_docs)]
 
 #[cfg(test)]
