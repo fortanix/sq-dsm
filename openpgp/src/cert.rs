@@ -489,11 +489,6 @@ pub trait Preferences<'a>: seal::Sealed {
     fn features(&self) -> Option<Features>;
 }
 
-// DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
-// it in a submodule `def`.
-pub use def::Cert;
-mod def {
-use super::*;
 /// A collection of components and their associated signatures.
 ///
 /// The `Cert` data structure mirrors the [TPK and TSK data
@@ -707,25 +702,18 @@ use super::*;
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cert {
-    pub(super) // doc-hack, see above
     primary: PrimaryKeyBundle<key::PublicParts>,
 
-    pub(super) // doc-hack, see above
     userids: UserIDBundles,
-    pub(super) // doc-hack, see above
     user_attributes: UserAttributeBundles,
-    pub(super) // doc-hack, see above
     subkeys: SubkeyBundles<key::PublicParts>,
 
     // Unknown components, e.g., some UserAttribute++ packet from the
     // future.
-    pub(super) // doc-hack, see above
     unknowns: UnknownBundles,
     // Signatures that we couldn't find a place for.
-    pub(super) // doc-hack, see above
     bad: Vec<packet::Signature>,
 }
-} // doc-hack, see above
 assert_send_and_sync!(Cert);
 
 impl std::str::FromStr for Cert {

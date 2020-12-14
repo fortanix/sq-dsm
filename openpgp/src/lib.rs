@@ -126,18 +126,21 @@ pub mod fmt;
 pub mod crypto;
 
 pub mod packet;
+#[doc(inline)]
 pub use packet::Packet;
 use crate::packet::key;
 
 pub mod parse;
 
 pub mod cert;
+#[doc(inline)]
 pub use cert::Cert;
 pub mod serialize;
 
 mod packet_pile;
 pub use packet_pile::PacketPile;
 pub mod message;
+#[doc(inline)]
 pub use message::Message;
 
 pub mod types;

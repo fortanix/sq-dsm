@@ -212,11 +212,6 @@ mod mdc;
 pub use self::mdc::MDC;
 pub mod aed;
 
-// DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
-// it in a submodule `def`.
-pub use def::Packet;
-mod def {
-use super::*;
 /// Enumeration of packet types.
 ///
 /// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
@@ -283,7 +278,6 @@ pub enum Packet {
     /// AEAD Encrypted Data Packet.
     AED(AED),
 }
-} // doc-hack, see above
 assert_send_and_sync!(Packet);
 
 macro_rules! impl_into_iterator {

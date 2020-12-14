@@ -293,11 +293,6 @@ impl MessageValidator {
     }
 }
 
-// DOC-HACK: To avoid having a top-level re-export of `Cert`, we move
-// it in a submodule `def`.
-pub use def::Message;
-mod def {
-use super::*;
 /// A message.
 ///
 /// An OpenPGP message is a structured sequence of OpenPGP packets.
@@ -344,9 +339,8 @@ use super::*;
 #[derive(PartialEq)]
 pub struct Message {
     /// A message is just a validated packet pile.
-    pub(super) pile: PacketPile,
+    pile: PacketPile,
 }
-} // doc-hack, see above
 assert_send_and_sync!(Message);
 
 impl fmt::Debug for Message {
