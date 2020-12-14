@@ -170,9 +170,9 @@ impl SKESK4 {
 
         // Derive key and make a cipher.
         let key = s2k.derive_key(password, esk_algo.key_size()?)?;
-        let mut cipher = esk_algo.make_encrypt_cfb(&key[..])?;
         let block_size = esk_algo.block_size()?;
-        let mut iv = vec![0u8; block_size];
+        let iv = vec![0u8; block_size];
+        let mut cipher = esk_algo.make_encrypt_cfb(&key[..], iv)?;
 
         // We need to prefix the cipher specifier to the session key.
         let mut psk: SessionKey = vec![0; 1 + session_key.len()].into();
@@ -182,7 +182,7 @@ impl SKESK4 {
 
         for (pt, ct) in psk[..].chunks(block_size)
             .zip(esk.chunks_mut(block_size)) {
-                cipher.encrypt(&mut iv[..], ct, pt)?;
+                cipher.encrypt(ct, pt)?;
         }
 
         SKESK4::new(esk_algo, s2k, Some(esk.into()))
@@ -256,15 +256,15 @@ impl SKESK4 {
             // Use the derived key to decrypt the ESK. Unlike SEP &
             // SEIP we have to use plain CFB here.
             let blk_sz = self.sym_algo.block_size()?;
-            let mut iv = vec![0u8; blk_sz];
-            let mut dec  = self.sym_algo.make_decrypt_cfb(&key[..])?;
+            let iv = vec![0u8; blk_sz];
+            let mut dec  = self.sym_algo.make_decrypt_cfb(&key[..], iv)?;
             let mut plain: SessionKey = vec![0u8; esk.len()].into();
             let cipher = &esk[..];
 
             for (pl, ct)
                 in plain[..].chunks_mut(blk_sz).zip(cipher.chunks(blk_sz))
             {
-                dec.decrypt(&mut iv[..], pl, ct)?;
+                dec.decrypt(pl, ct)?;
             }
 
             // Get the algorithm from the front.

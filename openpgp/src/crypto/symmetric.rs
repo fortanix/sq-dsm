@@ -17,24 +17,20 @@ pub(crate) trait Mode: Send + Sync {
     /// Block size of the underlying cipher in bytes.
     fn block_size(&self) -> usize;
 
-    /// Encrypt a single block `src` using the initialization vector `iv` to
-    /// a ciphertext block `dst`. Both `iv` and dst` are updated.
-    /// The buffer `iv`, `dst` and `src` are expected to be at least as large as
+    /// Encrypt a single block `src` to a ciphertext block `dst`.
+    /// The `dst` and `src` buffers are expected to be at least as large as
     /// the block size of the underlying cipher.
     fn encrypt(
         &mut self,
-        iv: &mut [u8],
         dst: &mut [u8],
         src: &[u8],
     ) -> Result<()>;
 
-    /// Decrypt a single ciphertext block `src` using the initialization vector
-    /// `iv` to a plaintext block `dst`. Both `iv` and dst` are updated.
-    /// The buffer `iv`, `dst` and `src` are expected to be at least as large as
+    /// Decrypt a single ciphertext block `src` to a plaintext block `dst`.
+    /// The `dst` and `src` buffers are expected to be at least as large as
     /// the block size of the underlying cipher.
     fn decrypt(
         &mut self,
-        iv: &mut [u8],
         dst: &mut [u8],
         src: &[u8],
     ) -> Result<()>;
@@ -47,7 +43,6 @@ pub struct Decryptor<R: io::Read> {
 
     dec: Box<dyn Mode>,
     block_size: usize,
-    iv: Vec<u8>,
     // Up to a block of unread data.
     buffer: Vec<u8>,
 }
@@ -57,14 +52,14 @@ impl<R: io::Read> Decryptor<R> {
     /// Instantiate a new symmetric decryptor.  `reader` is the source
     /// to wrap.
     pub fn new(algo: SymmetricAlgorithm, key: &[u8], source: R) -> Result<Self> {
-        let dec = algo.make_decrypt_cfb(key)?;
         let block_size = algo.block_size()?;
+        let iv = vec![0; block_size];
+        let dec = algo.make_decrypt_cfb(key, iv)?;
 
         Ok(Decryptor {
             source,
             dec,
             block_size,
-            iv: vec![0u8; block_size],
             buffer: Vec::with_capacity(block_size),
         })
     }
@@ -140,8 +135,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
             Err(e) => return Err(e),
         }
 
-        self.dec.decrypt(&mut self.iv,
-                         &mut plaintext[pos..pos + to_copy],
+        self.dec.decrypt(&mut plaintext[pos..pos + to_copy],
                          &ciphertext[..])
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                         format!("{}", e)))?;
@@ -179,7 +173,7 @@ impl<R: io::Read> io::Read for Decryptor<R> {
         }
         vec_truncate(&mut self.buffer, ciphertext.len());
 
-        self.dec.decrypt(&mut self.iv, &mut self.buffer, &ciphertext[..])
+        self.dec.decrypt(&mut self.buffer, &ciphertext[..])
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                         format!("{}", e)))?;
 
@@ -312,7 +306,6 @@ pub struct Encryptor<W: io::Write> {
 
     cipher: Box<dyn Mode>,
     block_size: usize,
-    iv: Vec<u8>,
     // Up to a block of unencrypted data.
     buffer: Vec<u8>,
     // A place to write encrypted data into.
@@ -323,8 +316,9 @@ assert_send_and_sync!(Encryptor<W> where W: io::Write);
 impl<W: io::Write> Encryptor<W> {
     /// Instantiate a new symmetric encryptor.
     pub fn new(algo: SymmetricAlgorithm, key: &[u8], sink: W) -> Result<Self> {
-        let cipher = algo.make_encrypt_cfb(key)?;
         let block_size = algo.block_size()?;
+        let iv = vec![0; block_size];
+        let cipher = algo.make_encrypt_cfb(key, iv)?;
         let mut scratch = Vec::with_capacity(block_size);
         unsafe { scratch.set_len(block_size); }
 
@@ -332,7 +326,6 @@ impl<W: io::Write> Encryptor<W> {
             inner: Some(sink),
             cipher,
             block_size,
-            iv: vec![0u8; block_size],
             buffer: Vec::with_capacity(block_size),
             scratch,
         })
@@ -343,7 +336,7 @@ impl<W: io::Write> Encryptor<W> {
         if let Some(mut inner) = self.inner.take() {
             if self.buffer.len() > 0 {
                 unsafe { self.scratch.set_len(self.buffer.len()) }
-                self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer)?;
+                self.cipher.encrypt(&mut self.scratch, &self.buffer)?;
                 crate::vec_truncate(&mut self.buffer, 0);
                 inner.write_all(&self.scratch)?;
             }
@@ -384,7 +377,7 @@ impl<W: io::Write> io::Write for Encryptor<W> {
 
             // And possibly encrypt the block.
             if self.buffer.len() == self.block_size {
-                self.cipher.encrypt(&mut self.iv, &mut self.scratch, &self.buffer)
+                self.cipher.encrypt(&mut self.scratch, &self.buffer)
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                                 format!("{}", e)))?;
                 crate::vec_truncate(&mut self.buffer, 0);
@@ -397,7 +390,7 @@ impl<W: io::Write> io::Write for Encryptor<W> {
         for block in buf.chunks(self.block_size) {
             if block.len() == self.block_size {
                 // Complete block.
-                self.cipher.encrypt(&mut self.iv, &mut self.scratch, block)
+                self.cipher.encrypt(&mut self.scratch, block)
                     .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput,
                                                 format!("{}", e)))?;
                 inner.write_all(&self.scratch)?;
@@ -445,37 +438,41 @@ mod tests {
         let algo = SymmetricAlgorithm::AES128;
         let key = &hex::decode("2b7e151628aed2a6abf7158809cf4f3c").unwrap();
         assert_eq!(key.len(), 16);
-        // Ensure we use CFB128 by default
-        let mut cfb = algo.make_encrypt_cfb(&key).unwrap();
 
-        let mut iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        // Ensure we use CFB128 by default
+        let iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let mut cfb = algo.make_encrypt_cfb(&key, iv).unwrap();
         let msg = hex::decode("6bc1bee22e409f96e93d7e117393172a").unwrap();
         let mut dst = vec![0; msg.len()];
-
-        cfb.encrypt(&mut iv, &mut dst, &*msg).unwrap();
-        assert_eq!(&iv, &hex::decode("3b3fd92eb72dad20333449f8e83cfb4a").unwrap());
+        cfb.encrypt(&mut dst, &*msg).unwrap();
         assert_eq!(&dst[..16], &*hex::decode("3b3fd92eb72dad20333449f8e83cfb4a").unwrap());
+
         // 32-byte long message
-        let mut iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let mut cfb = algo.make_encrypt_cfb(&key, iv).unwrap();
         let msg = b"This is a very important message";
         let mut dst = vec![0; msg.len()];
-        cfb.encrypt(&mut iv, &mut dst, &*msg).unwrap();
+        cfb.encrypt(&mut dst, &*msg).unwrap();
         assert_eq!(&dst, &hex::decode(
             "04960ebfb9044196bb29418ce9d6cc0939d5ccb1d0712fa8e45fe5673456fded"
         ).unwrap());
+
         // 33-byte (uneven) long message
-        let mut iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let mut cfb = algo.make_encrypt_cfb(&key, iv).unwrap();
         let msg = b"This is a very important message!";
         let mut dst = vec![0; msg.len()];
-        cfb.encrypt(&mut iv, &mut dst, &*msg).unwrap();
+        cfb.encrypt(&mut dst, &*msg).unwrap();
         assert_eq!(&dst, &hex::decode(
             "04960ebfb9044196bb29418ce9d6cc0939d5ccb1d0712fa8e45fe5673456fded0b"
         ).unwrap());
+
         // 33-byte (uneven) long message, chunked
-        let mut iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let iv = hex::decode("000102030405060708090A0B0C0D0E0F").unwrap();
+        let mut cfb = algo.make_encrypt_cfb(&key, iv).unwrap();
         let mut dst = vec![0; msg.len()];
         for (mut dst, msg) in dst.chunks_mut(16).zip(msg.chunks(16)) {
-            cfb.encrypt(&mut iv, &mut dst, msg).unwrap();
+            cfb.encrypt(&mut dst, msg).unwrap();
         }
         assert_eq!(&dst, &hex::decode(
             "04960ebfb9044196bb29418ce9d6cc0939d5ccb1d0712fa8e45fe5673456fded0b"

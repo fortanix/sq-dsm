@@ -3,21 +3,34 @@ use std::sync::Mutex;
 
 use win_crypto_ng::symmetric as cng;
 
+use crate::crypto::mem::Protected;
 use crate::crypto::symmetric::Mode;
 
 use crate::{Error, Result};
 use crate::types::SymmetricAlgorithm;
 
+struct KeyWrapper {
+    key: Mutex<cng::SymmetricAlgorithmKey>,
+    iv: Option<Protected>,
+}
 
-impl Mode for Mutex<cng::SymmetricAlgorithmKey> {
+impl KeyWrapper {
+    fn new(key: cng::SymmetricAlgorithmKey, iv: Option<Vec<u8>>) -> KeyWrapper {
+        KeyWrapper {
+            key: Mutex::new(key),
+            iv: iv.map(|iv| iv.into()),
+        }
+    }
+}
+
+impl Mode for KeyWrapper {
     fn block_size(&self) -> usize {
-        self.lock().expect("Mutex not to be poisoned")
+        self.key.lock().expect("Mutex not to be poisoned")
             .block_size().expect("CNG not to fail internally")
     }
 
     fn encrypt(
         &mut self,
-        iv: &mut [u8],
         dst: &mut [u8],
         src: &[u8],
     ) -> Result<()> {
@@ -36,16 +49,14 @@ impl Mode for Mutex<cng::SymmetricAlgorithmKey> {
         };
 
         let len = std::cmp::min(src.len(), dst.len());
-        // NOTE: `None` IV is required for ECB mode but we don't ever use it.
         let buffer = cng::SymmetricAlgorithmKey::encrypt(
-            &*self.lock().expect("Mutex not to be poisoned"),
-            Some(iv), src, None)?;
+            &*self.key.lock().expect("Mutex not to be poisoned"),
+            self.iv.as_deref_mut(), src, None)?;
         Ok(dst[..len].copy_from_slice(&buffer.as_slice()[..len]))
     }
 
     fn decrypt(
         &mut self,
-        iv: &mut [u8],
         dst: &mut [u8],
         src: &[u8],
     ) -> Result<()> {
@@ -64,10 +75,9 @@ impl Mode for Mutex<cng::SymmetricAlgorithmKey> {
         };
 
         let len = std::cmp::min(src.len(), dst.len());
-        // NOTE: `None` IV is required for ECB mode but we don't ever use it.
         let buffer = cng::SymmetricAlgorithmKey::decrypt(
-            &*self.lock().expect("Mutex not to be poisoned"),
-            Some(iv), src, None)?;
+            &*self.key.lock().expect("Mutex not to be poisoned"),
+            self.iv.as_deref_mut(), src, None)?;
         dst[..len].copy_from_slice(&buffer.as_slice()[..len]);
 
         Ok(())
@@ -149,7 +159,7 @@ impl SymmetricAlgorithm {
     }
 
     /// Creates a symmetric cipher context for encrypting in CFB mode.
-    pub(crate) fn make_encrypt_cfb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
+    pub(crate) fn make_encrypt_cfb(self, key: &[u8], iv: Vec<u8>) -> Result<Box<dyn Mode>> {
         let (algo, _) = TryFrom::try_from(self)?;
 
         let algo = cng::SymmetricAlgorithm::open(algo, cng::ChainingMode::Cfb)?;
@@ -158,37 +168,26 @@ impl SymmetricAlgorithm {
         // set to 8-bit CFB)
         key.set_msg_block_len(key.block_size()?)?;
 
-        Ok(Box::new(Mutex::new(key)))
+        Ok(Box::new(KeyWrapper::new(key, Some(iv))))
     }
 
     /// Creates a symmetric cipher context for decrypting in CFB mode.
-    pub(crate) fn make_decrypt_cfb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
-        Self::make_encrypt_cfb(self, key)
+    pub(crate) fn make_decrypt_cfb(self, key: &[u8], iv: Vec<u8>) -> Result<Box<dyn Mode>> {
+        Self::make_encrypt_cfb(self, key, iv)
     }
 
-    /// Creates a Nettle context for encrypting in CBC mode.
-    pub(crate) fn make_encrypt_cbc(self, key: &[u8]) -> Result<Box<dyn Mode>> {
+    /// Creates a symmetric cipher context for encrypting in ECB mode.
+    pub(crate) fn make_encrypt_ecb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
         let (algo, _) = TryFrom::try_from(self)?;
 
-        let algo = cng::SymmetricAlgorithm::open(algo, cng::ChainingMode::Cbc)?;
+        let algo = cng::SymmetricAlgorithm::open(algo, cng::ChainingMode::Ecb)?;
+        let key = algo.new_key(key)?;
 
-        Ok(Box::new(Mutex::new(
-            algo.new_key(key).expect(
-                "CNG to successfully create a symmetric key for valid/supported algorithm"
-            )
-        )))
+        Ok(Box::new(KeyWrapper::new(key, None)))
     }
 
-    /// Creates a Nettle context for decrypting in CBC mode.
-    pub(crate) fn make_decrypt_cbc(self, key: &[u8]) -> Result<Box<dyn Mode>> {
-        let (algo, _) = TryFrom::try_from(self)?;
-
-        let algo = cng::SymmetricAlgorithm::open(algo, cng::ChainingMode::Cbc)?;
-
-        Ok(Box::new(Mutex::new(
-            algo.new_key(key).expect(
-                "CNG to successfully create a symmetric key for valid/supported algorithm"
-            )
-        )))
+    /// Creates a symmetric cipher context for decrypting in ECB mode.
+    pub(crate) fn make_decrypt_ecb(self, key: &[u8]) -> Result<Box<dyn Mode>> {
+        Self::make_encrypt_ecb(self, key)
     }
 }

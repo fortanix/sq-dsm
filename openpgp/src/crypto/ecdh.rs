@@ -209,10 +209,8 @@ fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
         return Err(Error::InvalidArgument("Bad key size".into()).into());
     }
 
-    // We need ECB for the algorithm. However, there is no nettle::Mode:ECB,
-    // so to  work around this, we use CBC, and always use an all-zero IV.
     let mut cipher = match algo {
-        AES128 | AES192 | AES256 => algo.make_encrypt_cbc(key)?,
+        AES128 | AES192 | AES256 => algo.make_encrypt_ecb(key)?,
         _ => return Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
     };
 
@@ -235,7 +233,6 @@ fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
 
         let mut b = [0; 16];
         let mut tmp = [0; 16];
-        let mut iv: Protected = vec![0; cipher.block_size()].into();
 
         //   2) Calculate intermediate values.
 
@@ -246,8 +243,7 @@ fn aes_key_wrap(algo: SymmetricAlgorithm, key: &Protected,
                 // B = AES(K, A | R[i])
                 write_be_u64(&mut tmp[..8], a);
                 &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
-                iv.iter_mut().for_each(|p| *p = 0); // Turn CBC into ECB.
-                cipher.encrypt(&mut iv, &mut b, &tmp)?;
+                cipher.encrypt(&mut b, &tmp)?;
 
                 // A = MSB(64, B) ^ t where t = (n*j)+i
                 a = read_be_u64(&b[..8]) ^ ((n * j) + i + 1) as u64;
@@ -288,10 +284,8 @@ fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
         return Err(Error::InvalidArgument("Bad key size".into()).into());
     }
 
-    // We need ECB for the algorithm. However, there is no nettle::Mode:ECB,
-    // so to  work around this, we use CBC, and always use an all-zero IV.
     let mut cipher = match algo {
-        AES128 | AES192 | AES256 => algo.make_decrypt_cbc(key)?,
+        AES128 | AES192 | AES256 => algo.make_decrypt_ecb(key)?,
         _ => return Err(Error::UnsupportedSymmetricAlgorithm(algo).into()),
     };
 
@@ -316,7 +310,6 @@ fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
 
         let mut b = [0; 16];
         let mut tmp = [0; 16];
-        let mut iv: Protected = vec![0; cipher.block_size()].into();
 
         // For j = 5 to 0
         for j in (0..=5).rev() {
@@ -327,8 +320,7 @@ fn aes_key_unwrap(algo: SymmetricAlgorithm, key: &Protected,
                 &mut tmp[8..].copy_from_slice(&r[8 * i..8 * (i + 1)]);
                 // (Note that our i runs from n-1 to 0 instead of n to
                 // 1, hence the index shift.
-                iv.iter_mut().for_each(|p| *p = 0); // Turn CBC into ECB.
-                cipher.decrypt(&mut iv, &mut b, &tmp)?;
+                cipher.decrypt(&mut b, &tmp)?;
 
                 // A = MSB(64, B)
                 a = read_be_u64(&b[..8]);
