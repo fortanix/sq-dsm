@@ -328,8 +328,8 @@ impl fmt::Debug for Duration {
 
 impl Duration {
     /// Returns a `Duration` with the given number of seconds.
-    pub fn seconds(n: u32) -> Duration {
-        n.into()
+    pub const fn seconds(n: u32) -> Duration {
+        Self(n)
     }
 
     /// Returns a `Duration` with the given number of minutes, if
