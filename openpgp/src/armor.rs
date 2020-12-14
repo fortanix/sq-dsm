@@ -1278,7 +1278,7 @@ impl<'a> BufferedReader<Cookie> for Reader<'a> {
 }
 
 const CRC24_INIT: u32 = 0xB704CE;
-const CRC24_POLY: u32 = 0x1864CFB;
+const CRC24_POLY: u32 = 0x864CFB;
 
 #[derive(Debug)]
 struct CRC {
