@@ -514,8 +514,10 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
             Box::new(self.reader).into_inner().unwrap()
         };
 
-        // We know the data has been read, so this cannot fail.
-        reader.data_consume_hard(total_out).unwrap();
+        if total_out > 0 {
+            // We know the data has been read, so this cannot fail.
+            reader.data_consume_hard(total_out).unwrap();
+        }
 
         Ok(PacketParser {
             header: self.header,
@@ -6055,6 +6057,27 @@ mod test {
         let data = vec![0x8c, 0x34, 0x05, 0x12, 0x02, 0x00, 0xaf, 0x0d,
                         0xff, 0xff, 0x65];
         let _ = PacketParser::from_bytes(&data);
+        Ok(())
+    }
+
+    /// Tests for a panic in the packet parser.
+    #[test]
+    fn packet_parser_on_mangled_cert() -> Result<()> {
+        // The armored input cert is mangled.  Currently, Sequoia
+        // doesn't grok the mangled armor, but it should not panic.
+        let mut ppr = match PacketParser::from_bytes(
+            crate::tests::key("bobs-cert-badly-mangled.asc")) {
+            Ok(ppr) => ppr,
+            Err(_) => return Ok(()),
+        };
+        while let PacketParserResult::Some(pp) = ppr {
+            dbg!(&pp.packet);
+            if let Ok((_, tmp)) = pp.recurse() {
+                ppr = tmp;
+            } else {
+                break;
+            }
+        }
         Ok(())
     }
 }
