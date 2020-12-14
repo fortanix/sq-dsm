@@ -1,7 +1,7 @@
 //! Brings most relevant types and traits into scope for working with
 //! certificates.
 //!
-//! Less often used types and types that are more likely to lead to a
+//! Less often used types and traits that are more likely to lead to a
 //! naming conflict are not brought into scope.
 //!
 //! Traits are brought into scope anonymously.

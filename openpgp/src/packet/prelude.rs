@@ -1,7 +1,7 @@
 //! Brings the most relevant types and traits into scope for working
 //! with packets.
 //!
-//! Less often used types and types that are more likely to lead to a
+//! Less often used types and traits that are more likely to lead to a
 //! naming conflict are not brought into scope.  For instance, the
 //! markers [`PublicParts`], etc. are not imported to avoid potential
 //! naming conflicts.  Instead, they should be accessed as
