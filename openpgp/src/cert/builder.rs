@@ -233,9 +233,10 @@ impl CertBuilder<'_> {
     /// Generates a general-purpose certificate.
     ///
     /// The returned builder is set to generate a certificate with a
-    /// certification- and signature-capable primary key, and an
-    /// encryption-capable subkey.  The subkey is marked as being
-    /// appropriate for both data in transit and data at rest.
+    /// certification-capable primary key, a signing-capable subkye,
+    /// and an encryption-capable subkey.  The encryption subkey is
+    /// marked as being appropriate for both data in transit and data
+    /// at rest.
     ///
     /// # Examples
     ///
@@ -248,7 +249,7 @@ impl CertBuilder<'_> {
     ///     CertBuilder::general_purpose(None,
     ///                                  Some("Alice Lovelace <alice@example.org>"))
     ///         .generate()?;
-    /// # assert_eq!(cert.keys().count(), 2);
+    /// # assert_eq!(cert.keys().count(), 3);
     /// # assert_eq!(cert.userids().count(), 1);
     /// # Ok(())
     /// # }
@@ -262,12 +263,17 @@ impl CertBuilder<'_> {
             ciphersuite: ciphersuite.into().unwrap_or(Default::default()),
             primary: KeyBlueprint {
                 flags: KeyFlags::empty()
-                    .set_certification()
-                    .set_signing(),
+                    .set_certification(),
                 validity: Some(time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
                 ciphersuite: None,
             },
             subkeys: vec![
+                KeyBlueprint {
+                    flags: KeyFlags::empty()
+                        .set_signing(),
+                    validity: None,
+                    ciphersuite: None,
+                },
                 KeyBlueprint {
                     flags: KeyFlags::empty()
                         .set_transport_encryption()

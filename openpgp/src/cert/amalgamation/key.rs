@@ -154,7 +154,8 @@
 //! #         CertBuilder::general_purpose(None, Some("alice@example.org"))
 //! #         .generate()?;
 //! #     let timestamp = None;
-//! #     let issuer = cert.fingerprint();
+//! #     let issuer = cert.with_policy(p, None)?.keys()
+//! #         .for_signing().nth(0).unwrap().fingerprint();
 //! #     let mut i = 0;
 //! let cert = cert.with_policy(p, timestamp)?;
 //! if let RevocationStatus::Revoked(_) = cert.revocation_status() {

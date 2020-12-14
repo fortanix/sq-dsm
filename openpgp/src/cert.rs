@@ -4034,6 +4034,8 @@ mod test {
                    + 1 // binding signature
                    + 1 // subkey
                    + 1 // binding signature
+                   + 1 // subkey
+                   + 1 // binding signature
         );
         let cert = check_set_validity_period(p, cert);
         assert_eq!(cert.clone().into_packet_pile().children().count(),
@@ -4043,6 +4045,8 @@ mod test {
                    + 1 // userid
                    + 1 // binding signature
                    + 2 // two new binding signatures
+                   + 1 // subkey
+                   + 1 // binding signature
                    + 1 // subkey
                    + 1 // binding signature
         );
@@ -4075,6 +4079,8 @@ mod test {
                    + 1 // binding signature
                    + 1 // subkey
                    + 1 // binding signature
+                   + 1 // subkey
+                   + 1 // binding signature
         );
         let cert = check_set_validity_period(p, cert);
         assert_eq!(cert.clone().into_packet_pile().children().count(),
@@ -4087,6 +4093,8 @@ mod test {
                    + 1 // userid
                    + 1 // binding signature
                    + 2 // two new binding signatures
+                   + 1 // subkey
+                   + 1 // binding signature
                    + 1 // subkey
                    + 1 // binding signature
         );
@@ -5674,11 +5682,12 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let (cert, _) = CertBuilder::general_purpose(
             None, Some("alice@example.org")).generate().unwrap();
         assert_eq!(cert.userids().count(), 1);
-        assert_eq!(cert.subkeys().count(), 1);
+        assert_eq!(cert.subkeys().count(), 2);
         assert_eq!(cert.unknowns().count(), 0);
         assert_eq!(cert.bad_signatures().count(), 0);
         assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
         assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
+        assert_eq!(cert.subkeys().nth(1).unwrap().self_signatures().len(), 1);
 
         // Create a variant of cert where the signatures have
         // additional information in the unhashed area.
@@ -5698,11 +5707,12 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let cert_b = Cert::from_packets(packets.into_iter())?;
         let cert = cert.merge_public_and_secret(cert_b)?;
         assert_eq!(cert.userids().count(), 1);
-        assert_eq!(cert.subkeys().count(), 1);
+        assert_eq!(cert.subkeys().count(), 2);
         assert_eq!(cert.unknowns().count(), 0);
         assert_eq!(cert.bad_signatures().count(), 0);
         assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
         assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
+        assert_eq!(cert.subkeys().nth(1).unwrap().self_signatures().len(), 1);
 
         Ok(())
     }

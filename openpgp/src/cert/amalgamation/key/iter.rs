@@ -434,7 +434,7 @@ impl<'a, P, R> KeyAmalgamationIter<'a, P, R>
     ///     // Use it.
     /// #   i += 1;
     /// }
-    /// # assert_eq!(i, 2);
+    /// # assert_eq!(i, 3);
     /// # Ok(()) }
     /// ```
     pub fn supported(mut self) -> Self {
@@ -1553,7 +1553,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
     ///     // Use it.
     /// #   i += 1;
     /// }
-    /// # assert_eq!(i, 2);
+    /// # assert_eq!(i, 3);
     /// # Ok(()) }
     /// ```
     pub fn supported(mut self) -> Self {
