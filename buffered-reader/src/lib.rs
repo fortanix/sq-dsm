@@ -822,20 +822,21 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
     /// A helpful debugging aid to pretty print a Buffered Reader stack.
     ///
     /// Uses the Buffered Readers' `fmt::Display` implementations.
-    fn dump(&self) where Self: std::marker::Sized {
+    fn dump(&self, sink: &mut dyn std::io::Write) -> std::io::Result<()>
+        where Self: std::marker::Sized
+    {
         let mut i = 1;
         let mut reader: Option<&dyn BufferedReader<C>> = Some(self);
         while let Some(r) = reader {
             {
                 let cookie = r.cookie_ref();
-                eprintln!("  {}. {}, {:?}", i, r, cookie);
+                writeln!(sink, "  {}. {}, {:?}", i, r, cookie)?;
             }
             reader = r.get_ref();
             i = i + 1;
         }
+        Ok(())
     }
-
-
 
     /// Boxes the reader.
     fn as_boxed<'a>(self) -> Box<dyn BufferedReader<C> + 'a>
