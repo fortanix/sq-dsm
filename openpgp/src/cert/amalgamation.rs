@@ -1156,7 +1156,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     pub fn self_signatures(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
         std::ops::Deref::deref(self).self_signatures()
           .filter(move |sig| self.cert.policy().signature(sig,
-            HashAlgoSecurity::SecondPreImageResistance).is_ok())
+            self.hash_algo_security).is_ok())
     }
 
     /// The component's third-party certifications.
@@ -1175,7 +1175,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     pub fn self_revocations(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
         std::ops::Deref::deref(self).self_revocations()
           .filter(move |sig|self.cert.policy().signature(sig,
-            HashAlgoSecurity::SecondPreImageResistance).is_ok())
+            self.hash_algo_security).is_ok())
     }
 
     /// The component's revocations that were issued by other
