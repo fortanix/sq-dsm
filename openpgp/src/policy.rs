@@ -603,18 +603,18 @@ impl<'a> From<&'a StandardPolicy<'a>> for Option<&'a dyn Policy> {
 // for more details.
 a_cutoff_list!(CollisionResistantHashCutoffList, HashAlgorithm, 12,
                [
-                   REJECT,                 // 0. Not assigned.
-                   Some(Timestamp::Y1997), // 1. MD5
-                   Some(Timestamp::Y2013), // 2. SHA-1
-                   Some(Timestamp::Y2013), // 3. RIPE-MD/160
-                   REJECT,                 // 4. Reserved.
-                   REJECT,                 // 5. Reserved.
-                   REJECT,                 // 6. Reserved.
-                   REJECT,                 // 7. Reserved.
-                   ACCEPT,                 // 8. SHA256
-                   ACCEPT,                 // 9. SHA384
-                   ACCEPT,                 // 10. SHA512
-                   ACCEPT,                 // 11. SHA224
+                   REJECT,                   // 0. Not assigned.
+                   Some(Timestamp::Y1997M2), // 1. MD5
+                   Some(Timestamp::Y2013M2), // 2. SHA-1
+                   Some(Timestamp::Y2013M2), // 3. RIPE-MD/160
+                   REJECT,                   // 4. Reserved.
+                   REJECT,                   // 5. Reserved.
+                   REJECT,                   // 6. Reserved.
+                   REJECT,                   // 7. Reserved.
+                   ACCEPT,                   // 8. SHA256
+                   ACCEPT,                   // 9. SHA384
+                   ACCEPT,                   // 10. SHA512
+                   ACCEPT,                   // 11. SHA224
                ]);
 // Signatures that *only* require a hash with Second Pre-image
 // Resistance.  See the documentation for HashAlgoSecurity for more
@@ -622,9 +622,9 @@ a_cutoff_list!(CollisionResistantHashCutoffList, HashAlgorithm, 12,
 a_cutoff_list!(SecondPreImageResistantHashCutoffList, HashAlgorithm, 12,
                [
                    REJECT,                   // 0. Not assigned.
-                   Some(Timestamp::Y2004),   // 1. MD5
-                   Some(Timestamp::Y2023),   // 2. SHA-1
-                   Some(Timestamp::Y2013),   // 3. RIPE-MD/160
+                   Some(Timestamp::Y2004M2), // 1. MD5
+                   Some(Timestamp::Y2023M2), // 2. SHA-1
+                   Some(Timestamp::Y2013M2), // 3. RIPE-MD/160
                    REJECT,                   // 4. Reserved.
                    REJECT,                   // 5. Reserved.
                    REJECT,                   // 6. Reserved.
@@ -680,42 +680,42 @@ a_cutoff_list!(SubpacketTagCutoffList, SubpacketTag, 36,
 
 a_cutoff_list!(AsymmetricAlgorithmCutoffList, AsymmetricAlgorithm, 18,
                [
-                   Some(Timestamp::Y2014), // 0. RSA1024.
-                   ACCEPT,                 // 1. RSA2048.
-                   ACCEPT,                 // 2. RSA3072.
-                   ACCEPT,                 // 3. RSA4096.
-                   Some(Timestamp::Y2014), // 4. ElGamal1024.
-                   ACCEPT,                 // 5. ElGamal2048.
-                   ACCEPT,                 // 6. ElGamal3072.
-                   ACCEPT,                 // 7. ElGamal4096.
-                   Some(Timestamp::Y2014), // 8. DSA1024.
-                   ACCEPT,                 // 9. DSA2048.
-                   ACCEPT,                 // 10. DSA3072.
-                   ACCEPT,                 // 11. DSA4096.
-                   ACCEPT,                 // 12. NistP256.
-                   ACCEPT,                 // 13. NistP384.
-                   ACCEPT,                 // 14. NistP521.
-                   ACCEPT,                 // 15. BrainpoolP256.
-                   ACCEPT,                 // 16. BrainpoolP512.
-                   ACCEPT,                 // 17. Cv25519.
+                   Some(Timestamp::Y2014M2), // 0. RSA1024.
+                   ACCEPT,                   // 1. RSA2048.
+                   ACCEPT,                   // 2. RSA3072.
+                   ACCEPT,                   // 3. RSA4096.
+                   Some(Timestamp::Y2014M2), // 4. ElGamal1024.
+                   ACCEPT,                   // 5. ElGamal2048.
+                   ACCEPT,                   // 6. ElGamal3072.
+                   ACCEPT,                   // 7. ElGamal4096.
+                   Some(Timestamp::Y2014M2), // 8. DSA1024.
+                   ACCEPT,                   // 9. DSA2048.
+                   ACCEPT,                   // 10. DSA3072.
+                   ACCEPT,                   // 11. DSA4096.
+                   ACCEPT,                   // 12. NistP256.
+                   ACCEPT,                   // 13. NistP384.
+                   ACCEPT,                   // 14. NistP521.
+                   ACCEPT,                   // 15. BrainpoolP256.
+                   ACCEPT,                   // 16. BrainpoolP512.
+                   ACCEPT,                   // 17. Cv25519.
                ]);
 
 a_cutoff_list!(SymmetricAlgorithmCutoffList, SymmetricAlgorithm, 14,
                [
-                   REJECT,                 // 0. Unencrypted.
-                   ACCEPT,                 // 1. IDEA.
-                   Some(Timestamp::Y2017), // 2. TripleDES.
-                   ACCEPT,                 // 3. CAST5.
-                   ACCEPT,                 // 4. Blowfish.
-                   REJECT,                 // 5. Reserved.
-                   REJECT,                 // 6. Reserved.
-                   ACCEPT,                 // 7. AES128.
-                   ACCEPT,                 // 8. AES192.
-                   ACCEPT,                 // 9. AES256.
-                   ACCEPT,                 // 10. Twofish.
-                   ACCEPT,                 // 11. Camellia128.
-                   ACCEPT,                 // 12. Camellia192.
-                   ACCEPT,                 // 13. Camellia256.
+                   REJECT,                   // 0. Unencrypted.
+                   ACCEPT,                   // 1. IDEA.
+                   Some(Timestamp::Y2017M2), // 2. TripleDES.
+                   ACCEPT,                   // 3. CAST5.
+                   ACCEPT,                   // 4. Blowfish.
+                   REJECT,                   // 5. Reserved.
+                   REJECT,                   // 6. Reserved.
+                   ACCEPT,                   // 7. AES128.
+                   ACCEPT,                   // 8. AES192.
+                   ACCEPT,                   // 9. AES256.
+                   ACCEPT,                   // 10. Twofish.
+                   ACCEPT,                   // 11. Camellia128.
+                   ACCEPT,                   // 12. Camellia192.
+                   ACCEPT,                   // 13. Camellia256.
                ]);
 
 a_cutoff_list!(AEADAlgorithmCutoffList, AEADAlgorithm, 3,
@@ -727,27 +727,27 @@ a_cutoff_list!(AEADAlgorithmCutoffList, AEADAlgorithm, 3,
 
 a_cutoff_list!(PacketTagCutoffList, Tag, 21,
                [
-                   REJECT,                 // 0. Reserved.
-                   ACCEPT,                 // 1. PKESK.
-                   ACCEPT,                 // 2. Signature.
-                   ACCEPT,                 // 3. SKESK.
-                   ACCEPT,                 // 4. OnePassSig.
-                   ACCEPT,                 // 5. SecretKey.
-                   ACCEPT,                 // 6. PublicKey.
-                   ACCEPT,                 // 7. SecretSubkey.
-                   ACCEPT,                 // 8. CompressedData.
-                   Some(Timestamp::Y2004), // 9. SED.
-                   ACCEPT,                 // 10. Marker.
-                   ACCEPT,                 // 11. Literal.
-                   ACCEPT,                 // 12. Trust.
-                   ACCEPT,                 // 13. UserID.
-                   ACCEPT,                 // 14. PublicSubkey.
-                   REJECT,                 // 15. Not assigned.
-                   REJECT,                 // 16. Not assigned.
-                   ACCEPT,                 // 17. UserAttribute.
-                   ACCEPT,                 // 18. SEIP.
-                   ACCEPT,                 // 19. MDC.
-                   ACCEPT,                 // 20. AED.
+                   REJECT,                   // 0. Reserved.
+                   ACCEPT,                   // 1. PKESK.
+                   ACCEPT,                   // 2. Signature.
+                   ACCEPT,                   // 3. SKESK.
+                   ACCEPT,                   // 4. OnePassSig.
+                   ACCEPT,                   // 5. SecretKey.
+                   ACCEPT,                   // 6. PublicKey.
+                   ACCEPT,                   // 7. SecretSubkey.
+                   ACCEPT,                   // 8. CompressedData.
+                   Some(Timestamp::Y2004M2), // 9. SED.
+                   ACCEPT,                   // 10. Marker.
+                   ACCEPT,                   // 11. Literal.
+                   ACCEPT,                   // 12. Trust.
+                   ACCEPT,                   // 13. UserID.
+                   ACCEPT,                   // 14. PublicSubkey.
+                   REJECT,                   // 15. Not assigned.
+                   REJECT,                   // 16. Not assigned.
+                   ACCEPT,                   // 17. UserAttribute.
+                   ACCEPT,                   // 18. SEIP.
+                   ACCEPT,                   // 19. MDC.
+                   ACCEPT,                   // 20. AED.
                ]);
 
 // We need to convert a `SystemTime` to a `Timestamp` in
