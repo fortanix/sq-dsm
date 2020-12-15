@@ -409,12 +409,13 @@ pub enum HashAlgoSecurity {
     ///   - Primary key binding signatures
     ///   - Self revocations
     ///
-    /// Due to the structure of User IDs (they are short UTF-8 encoded
-    /// RFC 2822 mailboxes), self signatures over short, reasonable
-    /// User IDs (**not** User Attributes) also don't require
-    /// collision resistance:
+    /// Due to the structure of User IDs (they are normally short,
+    /// UTF-8 encoded RFC 2822 mailboxes), self signatures over short,
+    /// reasonable User IDs (**not** User Attributes) also don't
+    /// require strong collision resistance.  Thus, we also only
+    /// require a signature with second pre-image resistance for:
     ///
-    ///   - Self signatures over User IDs
+    ///   - Self signatures over reasonable User IDs
     SecondPreImageResistance,
     /// The signed data requires collision resistance.
     ///
@@ -424,7 +425,9 @@ pub enum HashAlgoSecurity {
     /// and third-party revocations.
     ///
     /// Note: collision resistance implies second pre-image
-    /// resistance.
+    /// resistance.  Thus, when evaluating whether a hash algorithm
+    /// has collision resistance, we also check whether it has second
+    /// pre-image resistance.
     CollisionResistance,
 }
 
@@ -556,7 +559,10 @@ pub struct StandardPolicy<'a> {
     time: Option<Timestamp>,
 
     // Hash algorithms.
-    hash_algos: HashCutoffList,
+    collision_resistant_hash_algos:
+        CollisionResistantHashCutoffList,
+    second_pre_image_resistant_hash_algos:
+        SecondPreImageResistantHashCutoffList,
     hash_revocation_tolerance: types::Duration,
 
     // Critical subpacket tags.
@@ -592,7 +598,10 @@ impl<'a> From<&'a StandardPolicy<'a>> for Option<&'a dyn Policy> {
     }
 }
 
-a_cutoff_list!(HashCutoffList, HashAlgorithm, 12,
+// Signatures that require a hash with collision Resistance and second
+// Pre-image Resistance.  See the documentation for HashAlgoSecurity
+// for more details.
+a_cutoff_list!(CollisionResistantHashCutoffList, HashAlgorithm, 12,
                [
                    REJECT,                 // 0. Not assigned.
                    Some(Timestamp::Y1997), // 1. MD5
@@ -606,6 +615,24 @@ a_cutoff_list!(HashCutoffList, HashAlgorithm, 12,
                    ACCEPT,                 // 9. SHA384
                    ACCEPT,                 // 10. SHA512
                    ACCEPT,                 // 11. SHA224
+               ]);
+// Signatures that *only* require a hash with Second Pre-image
+// Resistance.  See the documentation for HashAlgoSecurity for more
+// details.
+a_cutoff_list!(SecondPreImageResistantHashCutoffList, HashAlgorithm, 12,
+               [
+                   REJECT,                   // 0. Not assigned.
+                   Some(Timestamp::Y2004),   // 1. MD5
+                   Some(Timestamp::Y2023),   // 2. SHA-1
+                   Some(Timestamp::Y2013),   // 3. RIPE-MD/160
+                   REJECT,                   // 4. Reserved.
+                   REJECT,                   // 5. Reserved.
+                   REJECT,                   // 6. Reserved.
+                   REJECT,                   // 7. Reserved.
+                   ACCEPT,                   // 8. SHA256
+                   ACCEPT,                   // 9. SHA384
+                   ACCEPT,                   // 10. SHA512
+                   ACCEPT,                   // 11. SHA224
                ]);
 
 a_cutoff_list!(SubpacketTagCutoffList, SubpacketTag, 36,
@@ -754,7 +781,10 @@ impl<'a> StandardPolicy<'a> {
         const EMPTY_LIST: &'static [&'static str] = &[];
         Self {
             time: None,
-            hash_algos: HashCutoffList::Default(),
+            collision_resistant_hash_algos:
+                CollisionResistantHashCutoffList::Default(),
+            second_pre_image_resistant_hash_algos:
+                SecondPreImageResistantHashCutoffList::Default(),
             // There are 365.2425 days in a year.  Use a reasonable
             // approximation.
             hash_revocation_tolerance:
@@ -814,37 +844,120 @@ impl<'a> StandardPolicy<'a> {
     }
 
     /// Always considers `h` to be secure.
-    pub fn accept_hash(&mut self, h: HashAlgorithm) {
-        self.hash_algos.set(h, ACCEPT);
-    }
-
-    /// Always considers `h` to be insecure.
-    pub fn reject_hash(&mut self, h: HashAlgorithm) {
-        self.hash_algos.set(h, REJECT);
-    }
-
-    /// Considers `h` to be insecure starting at `normal` for normal
-    /// signatures and at `revocation` for revocation certificates.
     ///
-    /// For each algorithm, there are two different cutoffs: when the
-    /// algorithm is no longer safe for normal use (e.g., binding
-    /// signatures, document signatures), and when the algorithm is no
-    /// longer safe for revocations.  Normally, an algorithm should be
-    /// allowed for use in a revocation longer than it should be
-    /// allowed for normal use, because once we consider a revocation
-    /// certificate to be invalid, it may cause something else to be
-    /// considered valid!
+    /// A cryptographic hash algorithm normally has three security
+    /// properties:
+    ///
+    ///   - Pre-image resistance,
+    ///   - Second pre-image resistance, and
+    ///   - Collision resistance.
+    ///
+    /// A hash algorithm should only be unconditionally accepted if it
+    /// has all three of these properties.  See the documentation for
+    /// [`HashAlgoSecurity`] for more details.
+    ///
+    ///   [`HashAlgoSecurity`]: enum.HashAlgoSecurity.html
+    pub fn accept_hash(&mut self, h: HashAlgorithm) {
+        self.collision_resistant_hash_algos.set(h, ACCEPT);
+        self.second_pre_image_resistant_hash_algos.set(h, ACCEPT);
+    }
+
+    /// Considers `h` to be insecure in all security contexts.
+    ///
+    /// A cryptographic hash algorithm normally has three security
+    /// properties:
+    ///
+    ///   - Pre-image resistance,
+    ///   - Second pre-image resistance, and
+    ///   - Collision resistance.
+    ///
+    /// This method causes the hash algorithm to be considered unsafe
+    /// in all security contexts.
+    ///
+    /// See the documentation for [`HashAlgoSecurity`] for more
+    /// details.
+    ///
+    ///   [`HashAlgoSecurity`]: enum.HashAlgoSecurity.html
+    ///
+    /// To express a more nuanced policy, use
+    /// [`StandardPolicy::reject_hash_at`] or
+    /// [`StandardPolicy::reject_hash_property_at`].
+    ///
+    ///   [`StandardPolicy::reject_hash_at`]: #method.reject_hash_at
+    ///   [`StandardPolicy::reject_hash_property_at`]: #method.reject_hash_property_at
+    pub fn reject_hash(&mut self, h: HashAlgorithm) {
+        self.collision_resistant_hash_algos.set(h, REJECT);
+        self.second_pre_image_resistant_hash_algos.set(h, REJECT);
+    }
+
+    /// Considers `h` to be insecure in all security contexts starting
+    /// at time `t`.
+    ///
+    /// A cryptographic hash algorithm normally has three security
+    /// properties:
+    ///
+    ///   - Pre-image resistance,
+    ///   - Second pre-image resistance, and
+    ///   - Collision resistance.
+    ///
+    /// This method causes the hash algorithm to be considered unsafe
+    /// in all security contexts starting at time `t`.
+    ///
+    /// See the documentation for [`HashAlgoSecurity`] for more
+    /// details.
+    ///
+    ///   [`HashAlgoSecurity`]: enum.HashAlgoSecurity.html
+    ///
+    /// To express a more nuanced policy, use
+    /// [`StandardPolicy::reject_hash_property_at`].
+    ///
+    ///   [`StandardPolicy::reject_hash_property_at`]: #method.reject_hash_property_at
+    pub fn reject_hash_at<T>(&mut self, h: HashAlgorithm, t: T)
+        where T: Into<Option<SystemTime>>,
+    {
+        let t = t.into().and_then(system_time_cutoff_to_timestamp);
+        self.collision_resistant_hash_algos.set(h, t);
+        self.second_pre_image_resistant_hash_algos.set(h, t);
+    }
+
+    /// Considers `h` to be insecure starting at `t` for the specified
+    /// security property.
+    ///
+    /// A hash algorithm is considered secure if it has all of the
+    /// following security properties:
+    ///
+    ///   - Pre-image resistance,
+    ///   - Second pre-image resistance, and
+    ///   - Collision resistance.
+    ///
+    /// Some contexts only require a subset of these security
+    /// properties.  Specifically, if an attacker is unable to
+    /// influence the data that a user signs, then the hash algorithm
+    /// only needs second pre-image resistance; it doesn't need
+    /// collision resistance.  See the documentation for
+    /// [`HashAlgoSecurity`] for more details.
+    ///
+    ///   [`HashAlgoSecurity`]: enum.HashAlgoSecurity.html
+    ///
+    /// This method makes it possible to specify different policies
+    /// depending on the security requirements.
     ///
     /// A cutoff of `None` means that there is no cutoff and the
-    /// algorithm has no known vulnerabilities.
+    /// algorithm has no known vulnerabilities for the specified
+    /// security policy.
     ///
-    /// As a rule of thumb, we want to stop accepting a Hash algorithm
-    /// for normal signature when there is evidence that it is broken,
-    /// and we want to stop accepting it for revocations shortly
-    /// before collisions become practical.
+    /// As a rule of thumb, collision resistance is easier to attack
+    /// than second pre-image resistance.  And in practice there are
+    /// practical attacks against several widely-used hash algorithms'
+    /// collision resistance, but only theoretical attacks against
+    /// their second pre-image resistance.  Nevertheless, once one
+    /// property of a hash has been compromised, we want to deprecate
+    /// its use as soon as it is feasible.  Unfortunately, because
+    /// OpenPGP certificates are long-lived, this can take years.
     ///
-    /// As such, we start rejecting [MD5] in 1997 and completely
-    /// reject it starting in 2004:
+    /// Given this, we start rejecting [MD5] in cases where collision
+    /// resistance is required in 1997 and completely reject it
+    /// starting in 2004:
     ///
     /// >  In 1996, Dobbertin announced a collision of the
     /// >  compression function of MD5 (Dobbertin, 1996). While this
@@ -859,10 +972,11 @@ impl<'a> StandardPolicy<'a> {
     /// >
     /// > (Accessed Feb. 2020.)
     ///
-    /// [MD5]: https://en.wikipedia.org/wiki/MD5
+    ///   [MD5]: https://en.wikipedia.org/wiki/MD5
     ///
-    /// And we start rejecting [SHA-1] in 2013 and completely reject
-    /// it in 2020:
+    /// And we start rejecting [SHA-1] in cases where collision
+    /// resistance is required in 2013, and completely reject it in
+    /// 2023:
     ///
     /// > Since 2005 SHA-1 has not been considered secure against
     /// > well-funded opponents, as of 2010 many organizations have
@@ -876,23 +990,52 @@ impl<'a> StandardPolicy<'a> {
     /// >
     /// > (Accessed Feb. 2020.)
     ///
-    /// [SHA-1]: https://en.wikipedia.org/wiki/SHA-1
+    ///   [SHA-1]: https://en.wikipedia.org/wiki/SHA-1
+    ///
+    /// There are two main reasons why we have decided to accept SHA-1
+    /// for so long.  First, as of the end of 2020, there are still a
+    /// large number of [certificates that rely on SHA-1].  Second,
+    /// Sequoia uses a variant of SHA-1 called [SHA1CD], which is able
+    /// to detect and *mitigate* the known attacks on SHA-1's
+    /// collision resistance.
+    ///
+    ///   [certificates that rely on SHA-1]: https://gitlab.com/sequoia-pgp/sequoia/-/issues/595
+    ///   [SHA1CD]: https://github.com/cr-marcstevens/sha1collisiondetection
     ///
     /// Since RIPE-MD is structured similarly to SHA-1, we
-    /// conservatively consider it to be broken as well.
-    pub fn reject_hash_at<T>(&mut self, h: HashAlgorithm, t: T)
+    /// conservatively consider it to be broken as well.  But, because
+    /// it is not widely used in the OpenPGP ecosystem, we don't make
+    /// provisions for it.
+    ///
+    /// Note: if a context indicates that it requires collision
+    /// resistance, then it requires both collision resistance and
+    /// second pre-image resistance, and both policies must indicate
+    /// that the hash algorithm can be safely used at the specified
+    /// time.
+    pub fn reject_hash_property_at<T>(&mut self, h: HashAlgorithm,
+                                      sec: HashAlgoSecurity, t: T)
         where T: Into<Option<SystemTime>>,
     {
-        self.hash_algos.set(
-            h,
-            t.into().and_then(system_time_cutoff_to_timestamp));
+        let t = t.into().and_then(system_time_cutoff_to_timestamp);
+        match sec {
+            HashAlgoSecurity::CollisionResistance =>
+                self.collision_resistant_hash_algos.set(h, t),
+            HashAlgoSecurity::SecondPreImageResistance =>
+                self.second_pre_image_resistant_hash_algos.set(h, t),
+        }
     }
 
-    /// Returns the cutoff times for the specified hash algorithm.
-    pub fn hash_cutoff(&self, h: HashAlgorithm)
+    /// Returns the cutoff time for the specified hash algorithm and
+    /// security policy.
+    pub fn hash_cutoff(&self, h: HashAlgorithm, sec: HashAlgoSecurity)
         -> Option<SystemTime>
     {
-        self.hash_algos.cutoff(h).map(|t| t.into())
+        match sec {
+            HashAlgoSecurity::CollisionResistance =>
+                self.collision_resistant_hash_algos.cutoff(h),
+            HashAlgoSecurity::SecondPreImageResistance =>
+                self.second_pre_image_resistant_hash_algos.cutoff(h),
+        }.map(|t| t.into())
     }
 
     /// Sets the amount of time to continue to accept revocation
@@ -1146,7 +1289,7 @@ impl<'a> StandardPolicy<'a> {
 }
 
 impl<'a> Policy for StandardPolicy<'a> {
-    fn signature(&self, sig: &Signature, _sec: HashAlgoSecurity) -> Result<()> {
+    fn signature(&self, sig: &Signature, sec: HashAlgoSecurity) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
 
         let rev = match sig.typ() {
@@ -1156,18 +1299,41 @@ impl<'a> Policy for StandardPolicy<'a> {
             _ => false,
         };
 
+        // Note: collision resistance requires 2nd pre-image resistance.
+        if sec == HashAlgoSecurity::CollisionResistance {
+            if rev {
+                self
+                    .collision_resistant_hash_algos
+                    .check(sig.hash_algo(), time,
+                           Some(self.hash_revocation_tolerance))
+                    .context(format!(
+                        "Policy rejected revocation signature ({}) requiring \
+                         collision resistance", sig.typ()))?
+            } else {
+                self
+                    .collision_resistant_hash_algos
+                    .check(sig.hash_algo(), time, None)
+                    .context(format!(
+                        "Policy rejected non-revocation signature ({}) requiring \
+                         collision resistance", sig.typ()))?
+            }
+        }
+
         if rev {
             self
-                .hash_algos.check(
-                    sig.hash_algo(), time, Some(self.hash_revocation_tolerance))
+                .second_pre_image_resistant_hash_algos
+                .check(sig.hash_algo(), time,
+                       Some(self.hash_revocation_tolerance))
                 .context(format!(
-                    "Policy rejected revocation signature ({})", sig.typ()))?
+                    "Policy rejected revocation signature ({}) requiring \
+                     second pre-image resistance", sig.typ()))?
         } else {
             self
-                .hash_algos.check(
-                    sig.hash_algo(), time, None)
+                .second_pre_image_resistant_hash_algos
+                .check(sig.hash_algo(), time, None)
                 .context(format!(
-                    "Policy rejected non-revocation signature ({})", sig.typ()))?
+                    "Policy rejected non-revocation signature ({}) requiring \
+                     second pre-image resistance", sig.typ()))?
         }
 
         for csp in sig.hashed_area().iter().filter(|sp| sp.critical()) {

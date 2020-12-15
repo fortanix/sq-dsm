@@ -3482,6 +3482,7 @@ mod test {
     use crate::policy::StandardPolicy as P;
     use crate::types::Curve;
     use crate::packet::signature;
+    use crate::policy::HashAlgoSecurity;
     use super::*;
 
     use crate::{
@@ -5322,10 +5323,13 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     #[test]
     fn canonicalize_with_v3_sig() -> Result<()> {
         // This test relies on being able to validate SHA-1
-        // signatures.  The standard policy reject SHA-1.  So, use a
+        // signatures.  The standard policy rejects SHA-1.  So, use a
         // custom policy.
         let p = &P::new();
-        let sha1 = p.hash_cutoff(HashAlgorithm::SHA1).unwrap();
+        let sha1 =
+            p.hash_cutoff(
+                HashAlgorithm::SHA1, HashAlgoSecurity::CollisionResistance)
+            .unwrap();
         let p = &P::at(sha1 - std::time::Duration::from_secs(1));
 
         let cert = Cert::from_bytes(
@@ -5657,8 +5661,9 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             Cert::from_bytes(crate::tests::key("peter-sha1-backsig.pgp"))?;
         let p = &crate::policy::NullPolicy::new();
         assert_eq!(cert.with_policy(p, None)?.keys().for_signing().count(), 1);
-        let p = &crate::policy::StandardPolicy::new();
-        assert_eq!(cert.with_policy(p, None)?.keys().for_signing().count(), 0);
+        let mut p = crate::policy::StandardPolicy::new();
+        p.reject_hash(HashAlgorithm::SHA1);
+        assert_eq!(cert.with_policy(&p, None)?.keys().for_signing().count(), 0);
         Ok(())
     }
 
