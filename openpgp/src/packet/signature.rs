@@ -3379,13 +3379,13 @@ mod test {
         let mut primary_signer = alice.primary_key().key().clone()
             .parts_into_secret()?.into_keypair()?;
         assert_eq!(alice.userids().len(), 1);
-        assert_eq!(alice.userids().nth(0).unwrap().self_signatures().len(), 1);
+        assert_eq!(alice.userids().nth(0).unwrap().self_signatures().count(), 1);
         let creation_time =
-            alice.userids().nth(0).unwrap().self_signatures()[0]
+            alice.userids().nth(0).unwrap().self_signatures().nth(0).unwrap()
                 .signature_creation_time().unwrap();
 
         for i in 0..2 * SIG_BACKDATE_BY {
-            assert_eq!(alice.userids().nth(0).unwrap().self_signatures().len(),
+            assert_eq!(alice.userids().nth(0).unwrap().self_signatures().count(),
                        1 + i as usize);
 
             // Get the binding signature so that we can modify it.
@@ -3474,11 +3474,11 @@ mod test {
         assert_eq!(cert.bad_signatures().count(), 1);
         assert_eq!(cert.keys().subkeys().count(), 1);
         let subkey = cert.keys().subkeys().nth(0).unwrap();
-        assert_eq!(subkey.self_signatures().len(), 1);
+        assert_eq!(subkey.self_signatures().count(), 1);
 
         // All the authentic information in the self signature has
         // been authenticated by the verification process.
-        let sig = &subkey.self_signatures()[0];
+        let sig = &subkey.self_signatures().nth(0).unwrap();
         assert!(sig.hashed_area().iter().all(|p| p.authenticated()));
         // All but our fake issuer information.
         assert!(sig.unhashed_area().iter().all(|p| {

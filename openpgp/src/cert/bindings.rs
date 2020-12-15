@@ -176,7 +176,7 @@ impl UserID {
     ///
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.userids().nth(0).unwrap()
-    ///            .certifications().len(), 1);
+    ///            .certifications().count(), 1);
     /// # Ok(()) }
     pub fn certify<S, H, T>(&self, signer: &mut dyn Signer, cert: &Cert,
                             signature_type: S,
@@ -314,7 +314,7 @@ impl UserAttribute {
     ///
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.user_attributes().nth(0).unwrap()
-    ///            .certifications().len(),
+    ///            .certifications().count(),
     ///            1);
     /// # Ok(()) }
     pub fn certify<S, H, T>(&self, signer: &mut dyn Signer, cert: &Cert,

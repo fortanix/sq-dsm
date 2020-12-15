@@ -1261,14 +1261,13 @@ impl Cert {
                 // All valid self-signatures.
                 let sec = ua.hash_algo_security;
                 ua.self_signatures()
-                    .iter()
                     .filter(move |sig| {
                         policy.signature(sig, sec).is_ok()
                    })
             })
             // All direct-key signatures.
             .chain(self.primary_key()
-                   .self_signatures().iter()
+                   .self_signatures()
                    .filter(|sig| {
                        policy.signature(sig, pk_sec).is_ok()
                    }))
@@ -2228,9 +2227,9 @@ impl Cert {
     ///
     ///
     /// // Merge in the revocation certificate.
-    /// assert_eq!(cert.primary_key().self_revocations().len(), 0);
+    /// assert_eq!(cert.primary_key().self_revocations().count(), 0);
     /// let cert = cert.insert_packets(rev)?;
-    /// assert_eq!(cert.primary_key().self_revocations().len(), 1);
+    /// assert_eq!(cert.primary_key().self_revocations().count(), 1);
     ///
     ///
     /// // Add an unknown packet.
@@ -2303,11 +2302,12 @@ impl Cert {
     /// let (cert, _) =
     ///       CertBuilder::general_purpose(None, Some("alice@example.org"))
     ///       .generate()?;
-    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
+    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures().count(), 1);
     ///
     /// // Grab the binding signature so that we can modify it.
     /// let mut sig =
-    ///     cert.userids().nth(0).unwrap().self_signatures()[0].clone();
+    ///     cert.userids().nth(0).unwrap().self_signatures().nth(0)
+    ///     .unwrap().clone();
     ///
     /// // Add a notation subpacket.  Note that the information is not
     /// // authenticated, therefore it may only be trusted if the
@@ -2324,8 +2324,9 @@ impl Cert {
     /// let cert = cert.insert_packets(sig)?;
     ///
     /// // The old binding signature is replaced.
-    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
-    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures()[0]
+    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures().count(), 1);
+    /// assert_eq!(cert.userids().nth(0).unwrap().self_signatures().nth(0)
+    ///                .unwrap()
     ///                .unhashed_area()
     ///                .subpackets(SubpacketTag::NotationData).count(), 1);
     /// # Ok(()) }
@@ -4865,10 +4866,10 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         for uid in neal.userids() {
             for sigs in [
-                uid.self_signatures(),
-                    uid.certifications(),
-                uid.self_revocations(),
-                uid.other_revocations()
+                uid.self_signatures().collect::<Vec<_>>(),
+                uid.certifications().collect::<Vec<_>>(),
+                uid.self_revocations().collect::<Vec<_>>(),
+                uid.other_revocations().collect::<Vec<_>>()
             ].iter() {
                 for sigs in sigs.windows(2) {
                     cmps += 1;
@@ -4878,7 +4879,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             }
 
             // Make sure we return the most recent first.
-            assert_eq!(uid.self_signatures().first().unwrap(),
+            assert_eq!(uid.self_signatures().nth(0).unwrap(),
                        uid.binding_signature(p, None).unwrap());
         }
 
@@ -5212,8 +5213,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // type (GenericCertification), we know that it can only
             // go to the only userid, so there is no ambiguity in this
             // case.
-            assert_eq!(bob_userid_binding.certifications(),
-                       &[ alice_certifies_bob.clone() ]);
+            assert_eq!(bob_userid_binding.certifications().collect::<Vec<_>>(),
+                       vec![&alice_certifies_bob]);
 
             // Make sure the certification is correct.
             alice_certifies_bob
@@ -5312,8 +5313,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.unknowns().count(), 1);
         assert_eq!(cert.unknowns().nth(0).unwrap().unknown().tag(),
                    packet::Tag::PublicSubkey);
-        assert_eq!(cert.unknowns().nth(0).unwrap().self_signatures(),
-                   &[fake_binding]);
+        assert_eq!(cert.unknowns().nth(0).unwrap().self_signatures().collect::<Vec<_>>(),
+                   vec![&fake_binding]);
 
         Ok(())
     }
@@ -5685,9 +5686,9 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.subkeys().count(), 2);
         assert_eq!(cert.unknowns().count(), 0);
         assert_eq!(cert.bad_signatures().count(), 0);
-        assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
-        assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
-        assert_eq!(cert.subkeys().nth(1).unwrap().self_signatures().len(), 1);
+        assert_eq!(cert.userids().nth(0).unwrap().self_signatures().count(), 1);
+        assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().count(), 1);
+        assert_eq!(cert.subkeys().nth(1).unwrap().self_signatures().count(), 1);
 
         // Create a variant of cert where the signatures have
         // additional information in the unhashed area.
@@ -5710,9 +5711,9 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.subkeys().count(), 2);
         assert_eq!(cert.unknowns().count(), 0);
         assert_eq!(cert.bad_signatures().count(), 0);
-        assert_eq!(cert.userids().nth(0).unwrap().self_signatures().len(), 1);
-        assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().len(), 1);
-        assert_eq!(cert.subkeys().nth(1).unwrap().self_signatures().len(), 1);
+        assert_eq!(cert.userids().nth(0).unwrap().self_signatures().count(), 1);
+        assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().count(), 1);
+        assert_eq!(cert.subkeys().nth(1).unwrap().self_signatures().count(), 1);
 
         Ok(())
     }
@@ -5868,11 +5869,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // Specifically, the issuer information should have been added
         // back by the canonicalization.
         assert_eq!(
-            cert.userids().nth(0).unwrap().self_signatures()[0]
+            cert.userids().nth(0).unwrap().self_signatures().nth(0).unwrap()
                 .unhashed_area().subpackets(SubpacketTag::Issuer).count(),
             1);
         assert_eq!(
-            cert.keys().subkeys().nth(0).unwrap().self_signatures()[0]
+            cert.keys().subkeys().nth(0).unwrap().self_signatures().nth(0).unwrap()
                 .unhashed_area().subpackets(SubpacketTag::Issuer).count(),
             1);
         Ok(())

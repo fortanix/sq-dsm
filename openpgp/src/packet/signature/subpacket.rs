@@ -4393,7 +4393,7 @@ impl signature::SignatureBuilder {
     /// // Merge in the new signature.
     /// let bob = bob.insert_packets(certification)?;
     /// # assert_eq!(bob.bad_signatures().count(), 0);
-    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().count(), 1);
     /// # Ok(()) }
     /// ```
     pub fn set_exportable_certification(mut self, exportable: bool)
@@ -4474,7 +4474,7 @@ impl signature::SignatureBuilder {
     /// // Merge in the new signature.
     /// let bob = bob.insert_packets(certification)?;
     /// # assert_eq!(bob.bad_signatures().count(), 0);
-    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().count(), 1);
     /// # Ok(()) }
     /// ```
     pub fn set_trust_signature(mut self, level: u8, trust: u8)
@@ -4568,7 +4568,7 @@ impl signature::SignatureBuilder {
     /// // Merge in the new signature.
     /// let example_com = example_com.insert_packets(certification)?;
     /// # assert_eq!(example_com.bad_signatures().count(), 0);
-    /// # assert_eq!(example_com.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # assert_eq!(example_com.userids().nth(0).unwrap().certifications().count(), 1);
     /// # Ok(()) }
     /// ```
     pub fn set_regular_expression<R>(mut self, re: R) -> Result<Self>
@@ -4665,7 +4665,7 @@ impl signature::SignatureBuilder {
     /// // Merge in the new signature.
     /// let example_com = example_com.insert_packets(certification)?;
     /// # assert_eq!(example_com.bad_signatures().count(), 0);
-    /// # assert_eq!(example_com.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # assert_eq!(example_com.userids().nth(0).unwrap().certifications().count(), 1);
     /// # Ok(()) }
     /// ```
     pub fn add_regular_expression<R>(mut self, re: R) -> Result<Self>
@@ -4747,7 +4747,7 @@ impl signature::SignatureBuilder {
     /// // Merge in the new signature.
     /// let bob = bob.insert_packets(certification)?;
     /// # assert_eq!(bob.bad_signatures().count(), 0);
-    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().len(), 1);
+    /// # assert_eq!(bob.userids().nth(0).unwrap().certifications().count(), 1);
     /// # Ok(()) }
     /// ```
     pub fn set_revocable(mut self, revocable: bool) -> Result<Self> {
@@ -5127,7 +5127,7 @@ impl signature::SignatureBuilder {
     /// // Merge in the new signature.
     /// let alice = alice.insert_packets(sig)?;
     /// # assert_eq!(alice.bad_signatures().count(), 0);
-    /// # assert_eq!(alice.primary_key().self_signatures().len(), 2);
+    /// # assert_eq!(alice.primary_key().self_signatures().count(), 2);
     /// # Ok(()) }
     /// ```
     pub fn set_revocation_key(mut self, rk: Vec<RevocationKey>) -> Result<Self> {

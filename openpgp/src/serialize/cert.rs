@@ -63,7 +63,7 @@ impl Cert {
         }
 
         for u in self.userids() {
-            if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
+            if export && ! u.self_signatures().chain(u.self_revocations()).any(
                 |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
@@ -86,7 +86,7 @@ impl Cert {
         }
 
         for u in self.user_attributes() {
-            if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
+            if export && ! u.self_signatures().chain(u.self_revocations()).any(
                 |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
@@ -109,7 +109,7 @@ impl Cert {
         }
 
         for k in self.subkeys() {
-            if export && ! k.self_signatures().iter().chain(k.self_revocations()).any(
+            if export && ! k.self_signatures().chain(k.self_revocations()).any(
                 |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
@@ -132,7 +132,7 @@ impl Cert {
         }
 
         for u in self.unknowns() {
-            if export && ! u.certifications().iter().any(
+            if export && ! u.certifications().any(
                 |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
@@ -546,7 +546,7 @@ impl<'a> TSK<'a> {
         }
 
         for u in self.cert.userids() {
-            if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
+            if export && ! u.self_signatures().chain(u.self_revocations()).any(
                 |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
@@ -569,7 +569,7 @@ impl<'a> TSK<'a> {
         }
 
         for u in self.cert.user_attributes() {
-            if export && ! u.self_signatures().iter().chain(u.self_revocations()).any(
+            if export && ! u.self_signatures().chain(u.self_revocations()).any(
                 |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
@@ -592,7 +592,7 @@ impl<'a> TSK<'a> {
         }
 
         for k in self.cert.subkeys() {
-            if export && ! k.self_signatures().iter().chain(k.self_revocations()).any(
+            if export && ! k.self_signatures().chain(k.self_revocations()).any(
                 |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.
@@ -616,7 +616,7 @@ impl<'a> TSK<'a> {
         }
 
         for u in self.cert.unknowns() {
-            if export && ! u.certifications().iter().any(
+            if export && ! u.certifications().any(
                 |s| s.exportable().is_ok())
             {
                 // No exportable selfsig on this component, skip it.

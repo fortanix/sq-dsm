@@ -278,7 +278,7 @@ fn inspect_key(policy: &dyn Policy,
             writeln!(output, "{}      Key flags: {}", indent, flags)?;
         }
     }
-    inspect_certifications(output, bundle.certifications(),
+    inspect_certifications(output, bundle.certifications().iter(),
                            print_certifications)?;
 
     Ok(())
@@ -382,11 +382,14 @@ fn inspect_signatures(output: &mut dyn io::Write,
     Ok(())
 }
 
-fn inspect_certifications(output: &mut dyn io::Write,
-                          certs: &[openpgp::packet::Signature],
-                          print_certifications: bool) -> Result<()> {
+fn inspect_certifications<'a, A>(output: &mut dyn io::Write,
+                          certs: A,
+                          print_certifications: bool) -> Result<()> where
+        A: std::iter::Iterator<Item=&'a openpgp::packet::Signature> {
     if print_certifications {
+        let mut verified_cerifications = false;
         for sig in certs {
+            verified_cerifications = true;
             let mut fps: Vec<_> = sig.issuer_fingerprints().collect();
             fps.sort();
             fps.dedup();
@@ -403,14 +406,15 @@ fn inspect_certifications(output: &mut dyn io::Write,
                 }
             }
         }
-        if ! certs.is_empty() {
+        if !verified_cerifications {
             writeln!(output, "                 \
                               Certifications have NOT been verified!")?;
         }
     } else {
-        if ! certs.is_empty() {
+        let count = certs.count();
+        if count > 0 {
             writeln!(output, " Certifications: {}, \
-                              use --certifications to list", certs.len())?;
+                              use --certifications to list", count)?;
         }
     }
 

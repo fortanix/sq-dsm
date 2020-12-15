@@ -114,7 +114,7 @@ impl AutocryptHeader {
         // The primary key and the most recent selfsig.
         let primary = cert.primary_key().with_policy(policy, None)?;
         acc.push(primary.key().clone().into());
-        primary.self_signatures().iter().take(1)
+        primary.self_signatures().take(1)
             .for_each(|s| acc.push(s.clone().into()));
 
         // The subkeys and the most recent selfsig.

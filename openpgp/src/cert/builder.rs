@@ -342,7 +342,8 @@ impl CertBuilder<'_> {
     ///                                  Some("Alice Lovelace <alice@example.org>"))
     ///         .set_creation_time(t)
     ///         .generate()?;
-    /// assert_eq!(cert.primary_key().self_signatures()[0].signature_creation_time(),
+    /// assert_eq!(cert.primary_key().self_signatures().nth(0).unwrap()
+    ///            .signature_creation_time(),
     ///            Some(t));
     /// # Ok(())
     /// # }

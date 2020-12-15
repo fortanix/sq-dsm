@@ -800,65 +800,25 @@ impl<'a, C> ComponentAmalgamation<'a, C> {
     }
 
     /// The component's self-signatures.
-    ///
-    /// This method is a forwarder for
-    /// [`ComponentBundle::self_signatures`].  Although
-    /// `ComponentAmalgamation` derefs to a `&ComponentBundle`, this
-    /// method provides a more accurate lifetime, which is helpful
-    /// when returning the reference from a function.  [See the
-    /// module's documentation] for more details.
-    ///
-    /// [`ComponentBundle::self_signatures`]: ../bundle/struct.ComponentBundle.html#method.self_signatures
-    /// [See the module's documentation]: index.html
-    pub fn self_signatures(&self) -> &'a [Signature] {
-        self.bundle().self_signatures()
+    pub fn self_signatures(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync {
+        self.bundle().self_signatures().iter()
     }
 
     /// The component's third-party certifications.
-    ///
-    /// This method is a forwarder for
-    /// [`ComponentBundle::certifications`].  Although
-    /// `ComponentAmalgamation` derefs to a `&ComponentBundle`, this
-    /// method provides a more accurate lifetime, which is helpful
-    /// when returning the reference from a function.  [See the
-    /// module's documentation] for more details.
-    ///
-    /// [`ComponentBundle::certifications`]: ../bundle/struct.ComponentBundle.html#method.certifications
-    /// [See the module's documentation]: index.html
-    pub fn certifications(&self) -> &'a [Signature] {
-        self.bundle().certifications()
+    pub fn certifications(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync {
+        self.bundle().certifications().iter()
     }
 
     /// The component's revocations that were issued by the
     /// certificate holder.
-    ///
-    /// This method is a forwarder for
-    /// [`ComponentBundle::self_revocations`].  Although
-    /// `ComponentAmalgamation` derefs to a `&ComponentBundle`, this
-    /// method provides a more accurate lifetime, which is helpful
-    /// when returning the reference from a function.  [See the
-    /// module's documentation] for more details.
-    ///
-    /// [`ComponentBundle::self_revocations`]: ../bundle/struct.ComponentBundle.html#method.self_revocations
-    /// [See the module's documentation]: index.html
-    pub fn self_revocations(&self) -> &'a [Signature] {
-        self.bundle().self_revocations()
+    pub fn self_revocations(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync {
+        self.bundle().self_revocations().iter()
     }
 
     /// The component's revocations that were issued by other
     /// certificates.
-    ///
-    /// This method is a forwarder for
-    /// [`ComponentBundle::other_revocations`].  Although
-    /// `ComponentAmalgamation` derefs to a `&ComponentBundle`, this
-    /// method provides a more accurate lifetime, which is helpful
-    /// when returning the reference from a function.  [See the
-    /// module's documentation] for more details.
-    ///
-    /// [`ComponentBundle::other_revocations`]: ../bundle/struct.ComponentBundle.html#method.other_revocations
-    /// [See the module's documentation]: index.html
-    pub fn other_revocations(&self) -> &'a [Signature] {
-        self.bundle().other_revocations()
+    pub fn other_revocations(&self) -> impl Iterator<Item=&'a Signature> + Send + Sync {
+        self.bundle().other_revocations().iter()
     }
 }
 
@@ -1194,7 +1154,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     ///
     /// This method only returns signatures that are valid under the current policy.
     pub fn self_signatures(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
-        std::ops::Deref::deref(self).self_signatures().iter()
+        std::ops::Deref::deref(self).self_signatures()
           .filter(move |sig| self.cert.policy().signature(sig,
             HashAlgoSecurity::SecondPreImageResistance).is_ok())
     }
@@ -1203,7 +1163,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     ///
     /// This method only returns signatures that are valid under the current policy.
     pub fn certifications(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
-        std::ops::Deref::deref(self).certifications().iter()
+        std::ops::Deref::deref(self).certifications()
           .filter(move |sig| self.cert.policy().signature(sig,
             HashAlgoSecurity::CollisionResistance).is_ok())
     }
@@ -1213,7 +1173,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     ///
     /// This method only returns signatures that are valid under the current policy.
     pub fn self_revocations(&self) -> impl Iterator<Item=&Signature> + Send + Sync  {
-        std::ops::Deref::deref(self).self_revocations().iter()
+        std::ops::Deref::deref(self).self_revocations()
           .filter(move |sig|self.cert.policy().signature(sig,
             HashAlgoSecurity::SecondPreImageResistance).is_ok())
     }
@@ -1223,7 +1183,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
     ///
     /// This method only returns signatures that are valid under the current policy.
     pub fn other_revocations(&self) -> impl Iterator<Item=&Signature> + Send + Sync {
-        std::ops::Deref::deref(self).other_revocations().iter()
+        std::ops::Deref::deref(self).other_revocations()
           .filter(move |sig| self.cert.policy().signature(sig,
             HashAlgoSecurity::CollisionResistance).is_ok())
     }
