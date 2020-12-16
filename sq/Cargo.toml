@@ -1,7 +1,7 @@
 [package]
 name = "sequoia-sq"
 description = "Command-line frontends for Sequoia"
-version = "0.21.0"
+version = "0.22.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
@@ -22,13 +22,13 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-buffered-reader = { path = "../buffered-reader", version = "0.21", default-features = false }
-sequoia-openpgp = { path = "../openpgp", version = "0.21", default-features = false }
-sequoia-autocrypt = { path = "../autocrypt", version = "0.21", default-features = false }
-sequoia-core = { path = "../core", version = "0.21", default-features = false }
-sequoia-ipc = { path = "../ipc", version = "0.21", default-features = false }
-sequoia-net = { path = "../net", version = "0.21", default-features = false }
-sequoia-store = { path = "../store", version = "0.21", default-features = false }
+buffered-reader = { path = "../buffered-reader", version = "1.0.0", default-features = false }
+sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
+sequoia-autocrypt = { path = "../autocrypt", version = "0.22", default-features = false }
+sequoia-core = { path = "../core", version = "0.22", default-features = false }
+sequoia-ipc = { path = "../ipc", version = "0.22", default-features = false }
+sequoia-net = { path = "../net", version = "0.22", default-features = false }
+sequoia-store = { path = "../store", version = "0.22", default-features = false }
 anyhow = "1.0.18"
 chrono = "0.4.10"
 clap = "2.33"

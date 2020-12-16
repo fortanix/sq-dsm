@@ -227,7 +227,7 @@ dependencies = [
 
 [[package]]
 name = "buffered-reader"
-version = "0.21.0"
+version = "1.0.0"
 dependencies = [
  "bzip2",
  "flate2",
@@ -1875,7 +1875,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-autocrypt"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "base64",
  "sequoia-openpgp",
@@ -1883,7 +1883,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-core"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "dirs 2.0.2",
@@ -1893,7 +1893,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-ffi"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "filetime",
@@ -1911,7 +1911,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-ffi-macros"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "lazy_static",
  "proc-macro2",
@@ -1922,7 +1922,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-guide"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "sequoia-openpgp",
@@ -1930,7 +1930,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-ipc"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "buffered-reader",
@@ -1958,7 +1958,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-net"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -1980,7 +1980,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-openpgp"
-version = "0.21.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -2013,7 +2013,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-openpgp-ffi"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "filetime",
@@ -2026,7 +2026,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-sop"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2037,7 +2037,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-sq"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "assert_cli",
@@ -2060,7 +2060,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-sqv"
-version = "0.21.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "assert_cli",
@@ -2071,7 +2071,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-store"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "capnp",

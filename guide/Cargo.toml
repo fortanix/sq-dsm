@@ -1,6 +1,6 @@
 [package]
 name = "sequoia-guide"
-version = "0.21.0"
+version = "0.22.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
@@ -12,5 +12,5 @@ repository = "https://gitlab.com/sequoia-pgp/sequoia"
 build = "build.rs"
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.21" }
+sequoia-openpgp = { path = "../openpgp", version = "1.0.0" }
 anyhow = "1.0.18"

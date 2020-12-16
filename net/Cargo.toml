@@ -1,7 +1,7 @@
 [package]
 name = "sequoia-net"
 description = "Network services for OpenPGP"
-version = "0.21.0"
+version = "0.22.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
@@ -21,8 +21,8 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "0.21", default-features = false }
-sequoia-core = { path = "../core", version = "0.21" }
+sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
+sequoia-core = { path = "../core", version = "0.22" }
 
 anyhow = "1.0.18"
 futures-util = "0.3.5"
