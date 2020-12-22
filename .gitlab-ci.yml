@@ -39,7 +39,7 @@ bullseye:
     RUSTFLAGS: -D warnings -A unused-parens
 
 all_commits:
-  # Test each commit up to master, to facilitate bisecting.
+  # Test each commit up to main, to facilitate bisecting.
   stage: test
   image: rust:1-slim-buster
   needs: ["rust-stable"]
@@ -60,7 +60,7 @@ all_commits:
     # Use dummy identity to make git rebase happy.
     - git config user.name "C.I. McTestface"
     - git config user.email "ci.mctestface@example.com"
-    - if ! git rebase --exec "echo ===; echo ===; echo ===; git log -n 1; cargo test -p sequoia-openpgp" origin/master; then git rebase --abort; false; fi
+    - if ! git rebase --exec "echo ===; echo ===; echo ===; git log -n 1; cargo test -p sequoia-openpgp" origin/main; then git rebase --abort; false; fi
 
   variables:
     CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target.$CI_CONCURRENT_ID.all_commits
