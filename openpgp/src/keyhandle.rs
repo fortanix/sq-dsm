@@ -205,6 +205,25 @@ impl PartialEq for KeyHandle {
     }
 }
 
+impl std::str::FromStr for KeyHandle {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let bytes = &crate::fmt::hex::decode_pretty(s)?[..];
+        match Fingerprint::from_bytes(bytes) {
+            fpr @ Fingerprint::Invalid(_) => {
+                match KeyID::from_bytes(bytes) {
+                    // If it can't be parsed as either a Fingerprint or a
+                    // KeyID, return Fingerprint::Invalid.
+                    KeyID::Invalid(_) => Ok(fpr.into()),
+                    kid => Ok(kid.into()),
+                }
+            }
+            fpr => Ok(fpr.into()),
+        }
+    }
+}
+
 impl KeyHandle {
     /// Returns the raw identifier as a byte slice.
     pub fn as_bytes(&self) -> &[u8] {
@@ -315,5 +334,32 @@ mod tests {
 
         let handle = KeyHandle::KeyID(KeyID::Invalid(Box::new([10, 2])));
         assert_eq!(format!("{:x}", handle), "0a02");
+    }
+
+    #[test]
+    fn parse() -> Result<()> {
+        let handle: KeyHandle =
+            "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567".parse()?;
+        assert_match!(&KeyHandle::Fingerprint(Fingerprint::V4(_)) = &handle);
+        assert_eq!(handle.as_bytes(),
+                   [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23,
+                    0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67]);
+
+        let handle: KeyHandle = "89AB CDEF 0123 4567".parse()?;
+        assert_match!(&KeyHandle::KeyID(KeyID::V4(_)) = &handle);
+        assert_eq!(handle.as_bytes(),
+                   [0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67]);
+
+        // Invalid handles are parsed as invalid Fingerprints, not
+        // invalid KeyIDs.
+        let handle: KeyHandle = "4567 89AB CDEF 0123 4567".parse()?;
+        assert_match!(&KeyHandle::Fingerprint(Fingerprint::Invalid(_)) = &handle);
+        assert_eq!(handle.as_bytes(),
+                   [0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67]);
+
+        let handle: Result<KeyHandle> = "INVALID CHARACTERS".parse();
+        assert!(handle.is_err());
+
+        Ok(())
     }
 }
