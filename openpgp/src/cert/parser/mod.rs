@@ -963,8 +963,27 @@ impl<'a> Iterator for CertParser<'a> {
                 Some(mut iter) => {
                     let r = match iter.next() {
                         Some(Ok(packet)) => {
-                            t!("Got packet #{} ({})",
-                               self.packets.len(), packet.tag());
+                            t!("Got packet #{} ({}{})",
+                               self.packets.len(), packet.tag(),
+                               match &packet {
+                                   Packet::PublicKey(k) =>
+                                       Some(k.fingerprint().to_hex()),
+                                   Packet::SecretKey(k) =>
+                                       Some(k.fingerprint().to_hex()),
+                                   Packet::PublicSubkey(k) =>
+                                       Some(k.fingerprint().to_hex()),
+                                   Packet::SecretSubkey(k) =>
+                                       Some(k.fingerprint().to_hex()),
+                                   Packet::UserID(u) =>
+                                       Some(String::from_utf8_lossy(u.value())
+                                                .into()),
+                                   Packet::Signature(s) =>
+                                       Some(format!("{}", s.typ())),
+                                   _ => None,
+                               }
+                               .map(|s| format!(", {}", s))
+                               .unwrap_or("".into())
+                            );
                             self.source = Some(iter);
                             self.parse(packet)
                         }
