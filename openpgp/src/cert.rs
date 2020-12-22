@@ -2338,30 +2338,45 @@ impl Cert {
     {
         let mut combined = self.into_packets().collect::<Vec<_>>();
 
-        fn replace_or_push<P, R>(acc: &mut Vec<Packet>, k: Key<P, R>)
-            where P: key::KeyParts,
-                  R: key::KeyRole,
-                  Packet: From<packet::Key<P, R>>,
+        fn replace_or_push(acc: &mut Vec<Packet>, p: Packet)
         {
+            match p {
+                Packet::PublicKey(_) => (),
+                Packet::SecretKey(_) => (),
+                Packet::PublicSubkey(_) => (),
+                Packet::SecretSubkey(_) => (),
+                _ => unreachable!(),
+            }
+
             for q in acc.iter_mut() {
-                let replace = match q {
-                    Packet::PublicKey(k_) =>
-                        k_.public_cmp(&k) == Ordering::Equal,
-                    Packet::SecretKey(k_) =>
-                        k_.public_cmp(&k) == Ordering::Equal,
-                    Packet::PublicSubkey(k_) =>
-                        k_.public_cmp(&k) == Ordering::Equal,
-                    Packet::SecretSubkey(k_) =>
-                        k_.public_cmp(&k) == Ordering::Equal,
+                let replace = match (&p, &q) {
+                    (Packet::PublicKey(a), Packet::PublicKey(b)) =>
+                        a.public_cmp(&b) == Ordering::Equal,
+                    (Packet::SecretKey(a), Packet::SecretKey(b)) =>
+                        a.public_cmp(&b) == Ordering::Equal,
+                    (Packet::PublicKey(a), Packet::SecretKey(b)) =>
+                        a.public_cmp(&b) == Ordering::Equal,
+                    (Packet::SecretKey(a), Packet::PublicKey(b)) =>
+                        a.public_cmp(&b) == Ordering::Equal,
+
+                    (Packet::PublicSubkey(a), Packet::PublicSubkey(b)) =>
+                        a.public_cmp(&b) == Ordering::Equal,
+                    (Packet::SecretSubkey(a), Packet::SecretSubkey(b)) =>
+                        a.public_cmp(&b) == Ordering::Equal,
+                    (Packet::PublicSubkey(a), Packet::SecretSubkey(b)) =>
+                        a.public_cmp(&b) == Ordering::Equal,
+                    (Packet::SecretSubkey(a), Packet::PublicSubkey(b)) =>
+                        a.public_cmp(&b) == Ordering::Equal,
+
                     _ => false,
                 };
 
                 if replace {
-                    *q = k.into();
+                    *q = p;
                     return;
                 }
             }
-            acc.push(k.into());
+            acc.push(p);
         };
 
         /// Replaces or pushes a signature.
@@ -2389,10 +2404,10 @@ impl Cert {
             let p = p.into();
             Cert::valid_packet(&p)?;
             match p {
-                Packet::PublicKey(k) => replace_or_push(&mut combined, k),
-                Packet::SecretKey(k) => replace_or_push(&mut combined, k),
-                Packet::PublicSubkey(k) => replace_or_push(&mut combined, k),
-                Packet::SecretSubkey(k) => replace_or_push(&mut combined, k),
+                p @ Packet::PublicKey(_) => replace_or_push(&mut combined, p),
+                p @ Packet::SecretKey(_) => replace_or_push(&mut combined, p),
+                p @ Packet::PublicSubkey(_) => replace_or_push(&mut combined, p),
+                p @ Packet::SecretSubkey(_) => replace_or_push(&mut combined, p),
                 Packet::Signature(sig) => rop_sig(&mut combined, sig),
                 p => combined.push(p),
             }
@@ -5904,6 +5919,58 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let merged = key.clone().merge_public(cert.clone())?;
         assert!(merged.is_tsk());
         assert_eq!(merged, key);
+
+        Ok(())
+    }
+
+    /// Make sure we can parse a key where the primary key is its own
+    /// subkeys.
+    #[test]
+    fn primary_key_is_subkey() -> Result<()> {
+        let p = &crate::policy::StandardPolicy::new();
+
+        let cert =
+            Cert::from_bytes(crate::tests::key("primary-key-is-also-subkey.pgp"))?;
+
+        // There should be three keys:
+        //
+        //     Fingerprint: 8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19
+        // Public-key algo: EdDSA Edwards-curve Digital Signature Algorithm
+        // Public-key size: 256 bits
+        //      Secret key: Unencrypted
+        //   Creation time: 2018-06-11 14:12:09 UTC
+        //       Key flags: certification, signing
+        //
+        //          Subkey: 8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19
+        // Public-key algo: EdDSA Edwards-curve Digital Signature Algorithm
+        // Public-key size: 256 bits
+        //      Secret key: Unencrypted
+        //   Creation time: 2018-06-11 14:12:09 UTC
+        //       Key flags: certification, signing
+        //
+        //          Subkey: 061C 3CA4 4AFF 0EC5 8DC6  6E95 22E3 FAFE 96B5 6C32
+        // Public-key algo: EdDSA Edwards-curve Digital Signature Algorithm
+        // Public-key size: 256 bits
+        //      Secret key: Unencrypted
+        //   Creation time: 2018-08-27 10:55:43 UTC
+        //       Key flags: signing
+        //
+        //          UserID: Emmelie Dorothea Dina Samantha Awina Ed25519
+        assert_eq!(cert.keys().count(), 3);
+
+        // Make sure there is a subkey with the same fingerprint as
+        // the primary key.
+        assert!(cert.keys().subkeys().any(|k| {
+            k.fingerprint() == cert.primary_key().fingerprint()
+        }));
+
+        // Make sure the self sig is valid, too.
+        assert_eq!(cert.keys().count(), 3);
+
+        let vc = cert.with_policy(p, None)?;
+        assert!(vc.keys().subkeys().any(|k| {
+            k.fingerprint() == vc.primary_key().fingerprint()
+        }));
 
         Ok(())
     }
