@@ -485,6 +485,14 @@ pub fn build() -> App<'static, 'static> {
                              .required(true)
                              .help("Adds the specified key or subkey to the \
                                     certificate."))
+                        .arg(Arg::with_name("allow-broken-crypto")
+                             .value_name("ALLOW-BROKEN-CRYPTO")
+                             .long("allow-broken-crypto")
+                             .multiple(false)
+                             .number_of_values(0)
+                             .takes_value(false)
+                             .help("Allows adopting keys from certificates \
+                                    using broken cryptography."))
                         .arg(Arg::with_name("certificate")
                              .value_name("CERT")
                              .required(true)

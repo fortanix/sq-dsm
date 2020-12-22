@@ -273,13 +273,21 @@ pub fn adopt(m: &ArgMatches, p: &dyn Policy) -> Result<()> {
         wanted.push((h, None));
     }
 
+    let null_policy = &crate::openpgp::policy::NullPolicy::new();
+    let adoptee_policy = if m.values_of("allow-broken-crypto").is_some() {
+        null_policy
+    } else {
+        p
+    };
+
     // Find the corresponding keys.
     for keyring in m.values_of("keyring").unwrap_or_default() {
         for cert in CertParser::from_file(keyring)
             .context(format!("Parsing: {}", keyring))?
         {
             let cert = cert.context(format!("Parsing {}", keyring))?;
-            let vc = match cert.with_policy(p, None) {
+
+            let vc = match cert.with_policy(adoptee_policy, None) {
                 Ok(vc) => vc,
                 Err(err) => {
                     eprintln!("Ignoring {} from '{}': {}",

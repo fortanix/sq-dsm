@@ -489,11 +489,12 @@
 //! Bind keys from one certificate to another.
 //!
 //! USAGE:
-//!     sq key adopt [OPTIONS] <CERT> --key <KEY>...
+//!     sq key adopt [FLAGS] [OPTIONS] <CERT> --key <KEY>...
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!         --allow-broken-crypto    Allows adopting keys from certificates using broken cryptography.
+//!     -h, --help                   Prints help information
+//!     -V, --version                Prints version information
 //!
 //! OPTIONS:
 //!     -k, --key <KEY>...            Adds the specified key or subkey to the certificate.
