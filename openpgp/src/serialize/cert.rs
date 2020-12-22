@@ -319,7 +319,7 @@ impl Cert {
 /// # Ok(()) }
 /// ```
 pub struct TSK<'a> {
-    cert: &'a Cert,
+    pub(crate) cert: &'a Cert,
     filter: Option<Box<dyn Fn(&'a key::UnspecifiedSecret) -> bool + 'a>>,
     emit_stubs: bool,
 }

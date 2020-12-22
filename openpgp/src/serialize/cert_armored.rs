@@ -10,6 +10,7 @@ use crate::seal;
 use crate::serialize::{
     Marshal, MarshalInto,
     generic_serialize_into, generic_export_into,
+    TSK,
 };
 use crate::policy::StandardPolicy as P;
 
@@ -91,23 +92,63 @@ impl Cert {
     }
 }
 
-/// A `Cert` to be armored and serialized.
-struct Encoder<'a> {
-    cert: &'a Cert,
+impl<'a> TSK<'a> {
+    /// Wraps this TSK in an armor structure when serialized.
+    ///
+    /// Derives an object from this `TSK` that adds an armor structure
+    /// to the serialized `TSK` when it is serialized.  Additionally,
+    /// the `TSK`'s User IDs are added as comments, so that it is easier
+    /// to identify the `TSK` when looking at the armored data.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::serialize::SerializeInto;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// let (cert, _) =
+    ///     CertBuilder::general_purpose(None, Some("Mr. Pink ☮☮☮"))
+    ///     .generate()?;
+    /// let armored = String::from_utf8(cert.as_tsk().armored().to_vec()?)?;
+    ///
+    /// assert!(armored.starts_with("-----BEGIN PGP PRIVATE KEY BLOCK-----"));
+    /// assert!(armored.contains("Mr. Pink ☮☮☮"));
+    /// # Ok(()) }
+    /// ```
+    pub fn armored(self)
+        -> impl crate::serialize::Serialize + crate::serialize::SerializeInto + 'a
+    {
+        Encoder::new_tsk(self)
+    }
 }
 
+/// A `Cert` or `TSK` to be armored and serialized.
+enum Encoder<'a> {
+    Cert(&'a Cert),
+    TSK(TSK<'a>),
+}
 
 impl<'a> Encoder<'a> {
     /// Returns a new Encoder to enarmor and serialize a `Cert`.
     fn new(cert: &'a Cert) -> Self {
-        Self {
-            cert,
-        }
+        Encoder::Cert(cert)
+    }
+
+    /// Returns a new Encoder to enarmor and serialize a `TSK`.
+    fn new_tsk(tsk: TSK<'a>) -> Self {
+        Encoder::TSK(tsk)
     }
 
     fn serialize_common(&self, o: &mut dyn io::Write, export: bool)
                         -> Result<()> {
-        let headers = self.cert.armor_headers();
+        let (prelude, headers) = match self {
+            Encoder::Cert(ref cert) =>
+                (armor::Kind::PublicKey, cert.armor_headers()),
+            Encoder::TSK(ref tsk) =>
+                (armor::Kind::SecretKey, tsk.cert.armor_headers()),
+        };
 
         // Convert the Vec<String> into Vec<(&str, &str)>
         // `iter_into` can not be used here because will take ownership and
@@ -117,11 +158,17 @@ impl<'a> Encoder<'a> {
             .collect();
 
         let mut w =
-            armor::Writer::with_headers(o, armor::Kind::PublicKey, headers)?;
+            armor::Writer::with_headers(o, prelude, headers)?;
         if export {
-            self.cert.export(&mut w)?;
+            match self {
+                Encoder::Cert(ref cert) => cert.export(&mut w)?,
+                Encoder::TSK(ref tsk) => tsk.export(&mut w)?,
+            }
         } else {
-            self.cert.serialize(&mut w)?;
+            match self {
+                Encoder::Cert(ref cert) => cert.serialize(&mut w)?,
+                Encoder::TSK(ref tsk) => tsk.serialize(&mut w)?,
+            }
         }
         w.finalize()?;
         Ok(())
@@ -144,17 +191,28 @@ impl<'a> crate::serialize::SerializeInto for Encoder<'a> {}
 
 impl<'a> MarshalInto for Encoder<'a> {
     fn serialized_len(&self) -> usize {
-        let h = self.cert.armor_headers();
+        let h = match self {
+            Encoder::Cert(ref cert) => cert.armor_headers(),
+            Encoder::TSK(ref tsk) => tsk.cert.armor_headers(),
+        };
         let headers_len =
             ("Comment: ".len() + 1 /* NL */) * h.len()
             + h.iter().map(|c| c.len()).sum::<usize>();
-        let body_len = (self.cert.serialized_len() + 2) / 3 * 4; // base64
+        let body_len = (match self {
+            Self::Cert(ref cert) => cert.serialized_len(),
+            Self::TSK(ref tsk) => tsk.serialized_len(),
+        } + 2) / 3 * 4; // base64
 
-        "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\n".len()
+        let word = match self {
+            Self::Cert(_) => "PUBLIC",
+            Self::TSK(_) => "PRIVATE",
+        }.len();
+
+        "-----BEGIN PGP ".len() + word + " KEY BLOCK-----\n\n".len()
             + headers_len
             + body_len
             + (body_len + armor::LINE_LENGTH - 1) / armor::LINE_LENGTH // NLs
-            + "=FUaG\n-----END PGP PUBLIC KEY BLOCK-----\n".len()
+            + "=FUaG\n-----END PGP ".len() + word + " KEY BLOCK-----\n".len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
