@@ -299,6 +299,47 @@ impl KeyHandle {
             == Ordering::Equal
     }
 
+    /// Returns whether the KeyHandle is invalid.
+    ///
+    /// A KeyHandle is invalid if the `Fingerprint` or `KeyID` that it
+    /// contains is valid.
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::Fingerprint;
+    /// use openpgp::KeyID;
+    /// use openpgp::KeyHandle;
+    ///
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// // A perfectly valid fingerprint:
+    /// let kh : KeyHandle = "8F17 7771 18A3 3DDA 9BA4  8E62 AACB 3243 6300 52D9"
+    ///     .parse()?;
+    /// assert!(! kh.is_invalid());
+    ///
+    /// // But, V3 fingerprints are invalid.
+    /// let kh : KeyHandle = "9E 94 45 13 39 83 5F 70 7B E7 D8 ED C4 BE 5A A6"
+    ///     .parse()?;
+    /// assert!(kh.is_invalid());
+    ///
+    /// // A perfectly valid Key ID:
+    /// let kh : KeyHandle = "AACB 3243 6300 52D9"
+    ///     .parse()?;
+    /// assert!(! kh.is_invalid());
+    ///
+    /// // But, short Key IDs are invalid:
+    /// let kh : KeyHandle = "6300 52D9"
+    ///     .parse()?;
+    /// assert!(kh.is_invalid());
+    /// # Ok(()) }
+    /// ```
+    pub fn is_invalid(&self) -> bool {
+        match self {
+            KeyHandle::Fingerprint(Fingerprint::Invalid(_)) => true,
+            KeyHandle::KeyID(KeyID::Invalid(_)) => true,
+            _ => false,
+        }
+    }
+
     /// Converts this fingerprint to its canonical hexadecimal
     /// representation.
     ///
