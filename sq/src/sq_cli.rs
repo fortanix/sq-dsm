@@ -462,7 +462,34 @@ pub fn build() -> App<'static, 'static> {
                              .required_if("export", "-")
                              .help("Sets the output file for the revocation \
                                     certificate. Default is <OUTFILE>.rev, \
-                                    mandatory if OUTFILE is '-'."))))
+                                    mandatory if OUTFILE is '-'.")))
+                .subcommand(
+                    SubCommand::with_name("adopt")
+                        .about("Bind keys from one certificate to another.")
+                        .arg(Arg::with_name("keyring")
+                             .value_name("KEYRING")
+                             .long("keyring")
+                             .short("r")
+                             .multiple(true)
+                             .number_of_values(1)
+                             .takes_value(true)
+                             .help("A keyring containing the keys specified \
+                                    in --key."))
+                        .arg(Arg::with_name("key")
+                             .value_name("KEY")
+                             .long("key")
+                             .short("k")
+                             .multiple(true)
+                             .number_of_values(1)
+                             .takes_value(true)
+                             .required(true)
+                             .help("Adds the specified key or subkey to the \
+                                    certificate."))
+                        .arg(Arg::with_name("certificate")
+                             .value_name("CERT")
+                             .required(true)
+                             .help("The certificate to add keys to."))
+                ))
 
         .subcommand(SubCommand::with_name("packet")
                     .about("OpenPGP Packet manipulation")

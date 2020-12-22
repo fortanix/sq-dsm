@@ -26,8 +26,10 @@ use openpgp::{
 };
 use crate::openpgp::{armor, Cert};
 use sequoia_autocrypt as autocrypt;
+use crate::openpgp::crypto::Password;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::types::KeyFlags;
+use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
@@ -160,6 +162,66 @@ fn parse_armor_kind(kind: Option<&str>) -> armor::Kind {
         "signature" => armor::Kind::Signature,
         "file" => armor::Kind::File,
         _ => unreachable!(),
+    }
+}
+
+// Decrypts a key, if possible.
+//
+// The passwords in `passwords` are tried first.  If the key can't be
+// decrypted using those, the user is prompted.  If a valid password
+// is entered, it is added to `passwords`.
+fn decrypt_key<R>(key: Key<key::SecretParts, R>, passwords: &mut Vec<String>)
+    -> Result<Key<key::SecretParts, R>>
+    where R: key::KeyRole + Clone
+{
+    let key = key.parts_as_secret()?;
+    match key.secret() {
+        SecretKeyMaterial::Unencrypted(_) => {
+            Ok(key.clone())
+        }
+        SecretKeyMaterial::Encrypted(_) => {
+            for p in passwords.iter() {
+                if let Ok(key)
+                    = key.clone().decrypt_secret(&Password::from(&p[..]))
+                {
+                    return Ok(key);
+                }
+            }
+
+            let mut first = true;
+            loop {
+                // Prompt the user.
+                match rpassword::read_password_from_tty(
+                    Some(&format!(
+                        "{}Enter password to unlock {} (blank to skip): ",
+                        if first { "" } else { "Invalid password. " },
+                        key.keyid().to_hex())))
+                {
+                    Ok(p) => {
+                        first = false;
+                        if p == "" {
+                            // Give up.
+                            break;
+                        }
+
+                        if let Ok(key) = key
+                            .clone()
+                            .decrypt_secret(&Password::from(&p[..]))
+                        {
+                            passwords.push(p);
+                            return Ok(key);
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!("While reading password: {}", err);
+                        break;
+                    }
+                }
+            }
+
+            Err(anyhow::anyhow!("Key {}: Unable to decrypt secret key material",
+                                key.keyid().to_hex()))
+        }
     }
 }
 
@@ -623,6 +685,7 @@ fn main() -> Result<()> {
         },
         ("key", Some(m)) => match m.subcommand() {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
+            ("adopt", Some(m)) => commands::key::adopt(m, policy)?,
             _ => unreachable!(),
         },
         ("wkd",  Some(m)) => {

@@ -478,8 +478,29 @@
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
+//!     adopt       Bind keys from one certificate to another.
 //!     generate    Generates a new key
 //!     help        Prints this message or the help of the given subcommand(s)
+//! ```
+//!
+//! ### Subcommand key adopt
+//!
+//! ```text
+//! Bind keys from one certificate to another.
+//!
+//! USAGE:
+//!     sq key adopt [OPTIONS] <CERT> --key <KEY>...
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -k, --key <KEY>...            Adds the specified key or subkey to the certificate.
+//!     -r, --keyring <KEYRING>...    A keyring containing the keys specified in --key.
+//!
+//! ARGS:
+//!     <CERT>    The certificate to add keys to.
 //! ```
 //!
 //! ### Subcommand key generate
