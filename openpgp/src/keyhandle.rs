@@ -298,6 +298,32 @@ impl KeyHandle {
         self.partial_cmp(other.borrow()).unwrap_or(Ordering::Equal)
             == Ordering::Equal
     }
+
+    /// Converts this fingerprint to its canonical hexadecimal
+    /// representation.
+    ///
+    /// This representation is always uppercase and without spaces and
+    /// is suitable for stable key identifiers.
+    ///
+    /// The output of this function is exactly the same as formatting
+    /// this object with the `:X` format specifier.
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// use openpgp::KeyHandle;
+    ///
+    /// let h: KeyHandle =
+    ///     "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567".parse()?;
+    ///
+    /// assert_eq!("0123456789ABCDEF0123456789ABCDEF01234567", h.to_hex());
+    /// assert_eq!(format!("{:X}", h), h.to_hex());
+    /// # Ok(()) }
+    /// ```
+    pub fn to_hex(&self) -> String {
+        format!("{:X}", self)
+    }
+
 }
 
 #[cfg(test)]
