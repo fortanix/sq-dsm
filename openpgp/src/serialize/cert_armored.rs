@@ -62,9 +62,9 @@ impl Cert {
 
     /// Wraps this Cert in an armor structure when serialized.
     ///
-    /// Derives an object from this Cert that adds an armor structure
-    /// to the serialized Cert when it is serialized.  Additionally,
-    /// the Cert's userids are added as comments, so that it is easier
+    /// Derives an object from this `Cert` that adds an armor structure
+    /// to the serialized `Cert` when it is serialized.  Additionally,
+    /// the `Cert`'s User IDs are added as comments, so that it is easier
     /// to identify the Cert when looking at the armored data.
     ///
     /// # Examples
