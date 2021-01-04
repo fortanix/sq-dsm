@@ -26,7 +26,6 @@ This is a checklist for doing Sequoia releases.
     publish':
        - buffered-reader
        - openpgp
-       - sop
        - sqv
 10. In case of errors, correct them, and go back to 6.
 11. Merge the branch to master by merging the merge request created in

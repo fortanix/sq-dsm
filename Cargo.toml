@@ -10,7 +10,6 @@ members = [
     "net",
     "openpgp",
     "openpgp-ffi",
-    "sop",
     "sq",
     "sqv",
     "store",

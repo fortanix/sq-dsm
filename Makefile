@@ -101,7 +101,6 @@ build-release:
 	$(MAKE) -Cffi build-release
 	$(MAKE) -Csq build-release
 	$(MAKE) -Csqv build-release
-	$(MAKE) -Csop build-release
 
 .PHONY: install
 install: build-release
@@ -109,7 +108,6 @@ install: build-release
 	$(MAKE) -Cffi install
 	$(MAKE) -Csq install
 	$(MAKE) -Csqv install
-	$(MAKE) -Csop install
 
 # Infrastructure for creating source distributions.
 .PHONY: dist
