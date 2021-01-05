@@ -366,7 +366,7 @@ pub trait Policy : fmt::Debug + Send + Sync {
 /// hidden to avoid making the victim suspicious.  This is
 /// straightforward for User Attributes, which are currently images,
 /// and have many places to hide this type of data.  However, User IDs
-/// are are normally [UTF-8 encoded RFC 2822 mailboxes], which makes
+/// are are normally [UTF-8 encoded RFC 2822 mailbox]es, which makes
 /// hiding half a kilobyte of binary data impractical.  The attacker
 /// does not control the victim's public key (in V).  But, they do
 /// control the malicious User ID or User Attribute that they want to
