@@ -9,7 +9,10 @@ use sequoia_openpgp as openpgp;
 use openpgp::{
     Result,
     armor,
-    cert::CertParser,
+    cert::{
+        Cert,
+        CertParser,
+    },
     parse::Parse,
     serialize::Serialize,
 };
@@ -31,7 +34,7 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
                                                   force,
                                                   m.is_present("binary"),
                                                   armor::Kind::PublicKey)?;
-            join(m.values_of("input"), &mut output)?;
+            filter(m.values_of("input"), &mut output, |c| Some(c))?;
             output.finalize()
         },
         ("list",  Some(m)) => {
@@ -61,21 +64,28 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
     }
 }
 
-/// Joins cert(ring)s into a certring.
-fn join(inputs: Option<clap::Values>, output: &mut dyn io::Write)
-        -> Result<()> {
+/// Joins cert(ring)s into a certring, applying a filter.
+fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
+             mut filter: F)
+             -> Result<()>
+    where F: FnMut(Cert) -> Option<Cert>,
+{
     if let Some(inputs) = inputs {
         for name in inputs {
             for cert in CertParser::from_file(name)? {
                 let cert = cert.context(
                     format!("Malformed certificate in certring {:?}", name))?;
-                cert.serialize(output)?;
+                if let Some(cert) = filter(cert) {
+                    cert.serialize(output)?;
+                }
             }
         }
     } else {
         for cert in CertParser::from_reader(io::stdin())? {
             let cert = cert.context("Malformed certificate in certring")?;
-            cert.serialize(output)?;
+            if let Some(cert) = filter(cert) {
+                cert.serialize(output)?;
+            }
         }
     }
     Ok(())
