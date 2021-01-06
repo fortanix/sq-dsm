@@ -444,6 +444,7 @@
 //! SUBCOMMANDS:
 //!     help     Prints this message or the help of the given subcommand(s)
 //!     join     Joins certs into a certring
+//!     list     Lists certs in a certring
 //!     split    Splits a certring into individual certs
 //! ```
 //!
@@ -465,6 +466,22 @@
 //!
 //! ARGS:
 //!     <FILE>...    Sets the input files to use
+//! ```
+//!
+//! ### Subcommand certring list
+//!
+//! ```text
+//! Lists certs in a certring
+//!
+//! USAGE:
+//!     sq certring list [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
 //! ```
 //!
 //! ### Subcommand certring split

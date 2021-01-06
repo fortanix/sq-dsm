@@ -34,6 +34,10 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
             join(m.values_of("input"), &mut output)?;
             output.finalize()
         },
+        ("list",  Some(m)) => {
+            let mut input = open_or_stdin(m.value_of("input"))?;
+            list(&mut input)
+        },
         ("split",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let prefix =
@@ -73,6 +77,24 @@ fn join(inputs: Option<clap::Values>, output: &mut dyn io::Write)
             let cert = cert.context("Malformed certificate in certring")?;
             cert.serialize(output)?;
         }
+    }
+    Ok(())
+}
+
+/// Lists certs in a certring.
+fn list(input: &mut (dyn io::Read + Sync + Send))
+        -> Result<()> {
+    for (i, cert) in CertParser::from_reader(input)?.enumerate() {
+        let cert = cert.context("Malformed certificate in certring")?;
+        print!("{}. {:X}", i, cert.fingerprint());
+        // Try to be more helpful by including the first userid in the
+        // listing.
+        if let Some(email) = cert.userids().nth(0)
+            .and_then(|uid| uid.email().unwrap_or(None))
+        {
+            print!(" {}", email);
+        }
+        println!();
     }
     Ok(())
 }

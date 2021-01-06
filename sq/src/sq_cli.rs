@@ -531,6 +531,11 @@ pub fn build() -> App<'static, 'static> {
                              .short("B")
                              .help("Don't ASCII-armor the certring")))
                 .subcommand(
+                    SubCommand::with_name("list")
+                        .about("Lists certs in a certring")
+                        .arg(Arg::with_name("input").value_name("FILE")
+                             .help("Sets the input file to use")))
+                .subcommand(
                     SubCommand::with_name("split")
                         .about("Splits a certring into individual certs")
                         .arg(Arg::with_name("input").value_name("FILE")
