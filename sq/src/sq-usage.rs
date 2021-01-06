@@ -443,7 +443,28 @@
 //!
 //! SUBCOMMANDS:
 //!     help     Prints this message or the help of the given subcommand(s)
+//!     join     Joins certs into a certring
 //!     split    Splits a certring into individual certs
+//! ```
+//!
+//! ### Subcommand certring join
+//!
+//! ```text
+//! Joins certs into a certring
+//!
+//! USAGE:
+//!     sq certring join [FLAGS] [OPTIONS] [FILE]...
+//!
+//! FLAGS:
+//!     -B, --binary     Don't ASCII-armor the certring
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Sets the output file to use
+//!
+//! ARGS:
+//!     <FILE>...    Sets the input files to use
 //! ```
 //!
 //! ### Subcommand certring split

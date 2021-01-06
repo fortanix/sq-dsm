@@ -452,7 +452,7 @@ fn main() -> Result<()> {
             commands::inspect(m, policy, &mut output)?;
         },
 
-        ("certring", Some(m)) => commands::certring::dispatch(m)?,
+        ("certring", Some(m)) => commands::certring::dispatch(m, force)?,
 
         ("packet", Some(m)) => match m.subcommand() {
             ("dump",  Some(m)) => {

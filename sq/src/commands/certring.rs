@@ -8,6 +8,7 @@ use anyhow::Context;
 use sequoia_openpgp as openpgp;
 use openpgp::{
     Result,
+    armor,
     cert::CertParser,
     parse::Parse,
     serialize::Serialize,
@@ -15,10 +16,24 @@ use openpgp::{
 
 use crate::{
     open_or_stdin,
+    create_or_stdout_pgp,
 };
 
-pub fn dispatch(m: &clap::ArgMatches) -> Result<()> {
+pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
     match m.subcommand() {
+        ("join",  Some(m)) => {
+            // XXX: Armor type selection is a bit problematic.  If any
+            // of the certificates contain a secret key, it would be
+            // better to use Kind::SecretKey here.  However, this
+            // requires buffering all certs, which has its own
+            // problems.
+            let mut output = create_or_stdout_pgp(m.value_of("output"),
+                                                  force,
+                                                  m.is_present("binary"),
+                                                  armor::Kind::PublicKey)?;
+            join(m.values_of("input"), &mut output)?;
+            output.finalize()
+        },
         ("split",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let prefix =
@@ -40,6 +55,26 @@ pub fn dispatch(m: &clap::ArgMatches) -> Result<()> {
 
         _ => unreachable!(),
     }
+}
+
+/// Joins cert(ring)s into a certring.
+fn join(inputs: Option<clap::Values>, output: &mut dyn io::Write)
+        -> Result<()> {
+    if let Some(inputs) = inputs {
+        for name in inputs {
+            for cert in CertParser::from_file(name)? {
+                let cert = cert.context(
+                    format!("Malformed certificate in certring {:?}", name))?;
+                cert.serialize(output)?;
+            }
+        }
+    } else {
+        for cert in CertParser::from_reader(io::stdin())? {
+            let cert = cert.context("Malformed certificate in certring")?;
+            cert.serialize(output)?;
+        }
+    }
+    Ok(())
 }
 
 /// Splits a certring into individual certs.
