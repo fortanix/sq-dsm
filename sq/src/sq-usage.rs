@@ -30,6 +30,7 @@
 //!     merge-signatures    Merges two signatures
 //!     keyserver           Interacts with keyservers
 //!     autocrypt           Autocrypt support
+//!     certring            Manipulates certificate rings
 //!     dearmor             Removes ASCII Armor from a file
 //!     enarmor             Applies ASCII Armor to a file
 //!     help                Prints this message or the help of the given subcommand(s)
@@ -423,6 +424,43 @@
 //!     -o, --output <FILE>                      Sets the output file to use
 //!         --prefer-encrypt <prefer-encrypt>    Sets the prefer-encrypt attribute [default: nopreference]  [possible
 //!                                              values: nopreference, mutual]
+//!
+//! ARGS:
+//!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand certring
+//!
+//! ```text
+//! Manipulates certificate rings
+//!
+//! USAGE:
+//!     sq certring <SUBCOMMAND>
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! SUBCOMMANDS:
+//!     help     Prints this message or the help of the given subcommand(s)
+//!     split    Splits a certring into individual certs
+//! ```
+//!
+//! ### Subcommand certring split
+//!
+//! ```text
+//! Splits a certring into individual certs
+//!
+//! USAGE:
+//!     sq certring split [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -h, --help       Prints help information
+//!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to the input filename with a dash, or
+//!                            'output' if certring is read from stdin)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use

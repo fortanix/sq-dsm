@@ -452,6 +452,8 @@ fn main() -> Result<()> {
             commands::inspect(m, policy, &mut output)?;
         },
 
+        ("certring", Some(m)) => commands::certring::dispatch(m)?,
+
         ("packet", Some(m)) => match m.subcommand() {
             ("dump",  Some(m)) => {
                 let mut input = open_or_stdin(m.value_of("input"))?;

@@ -512,6 +512,23 @@ pub fn build() -> App<'static, 'static> {
                              .help("The certificate to add keys to."))
                 ))
 
+        .subcommand(
+            SubCommand::with_name("certring")
+                .about("Manipulates certificate rings")
+                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .subcommand(
+                    SubCommand::with_name("split")
+                        .about("Splits a certring into individual certs")
+                        .arg(Arg::with_name("input").value_name("FILE")
+                             .help("Sets the input file to use"))
+                        .arg(Arg::with_name("prefix").value_name("FILE")
+                             .long("prefix")
+                             .short("p")
+                             .help("Sets the prefix to use for output files \
+                                    (defaults to the input filename with a \
+                                    dash, or 'output' if certring is read \
+                                    from stdin)"))))
+
         .subcommand(SubCommand::with_name("packet")
                     .about("OpenPGP Packet manipulation")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
