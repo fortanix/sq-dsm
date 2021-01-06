@@ -438,14 +438,61 @@
 //!     sq certring <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help      
+//!             Prints help information
+//!
+//!     -V, --version   
+//!             Prints version information
+//!
 //!
 //! SUBCOMMANDS:
-//!     help     Prints this message or the help of the given subcommand(s)
-//!     join     Joins certs into a certring
-//!     list     Lists certs in a certring
-//!     split    Splits a certring into individual certs
+//!     filter    Joins certs into a certring applying a filter
+//!     help      Prints this message or the help of the given subcommand(s)
+//!     join      Joins certs into a certring
+//!     list      Lists certs in a certring
+//!     split     Splits a certring into individual certs
+//! ```
+//!
+//! ### Subcommand certring filter
+//!
+//! ```text
+//! If multiple predicates are given, they are or'ed, i.e. a certificate matches if any of the predicates match.  To require
+//! all predicates to match, chain multiple invocations of this command.
+//!
+//! USAGE:
+//!     sq certring filter [FLAGS] [OPTIONS] [--] [FILE]...
+//!
+//! FLAGS:
+//!     -B, --binary        
+//!             Don't ASCII-armor the certring
+//!
+//!     -h, --help          
+//!             Prints help information
+//!
+//!     -P, --prune-certs   
+//!             Remove certificate components not matching the filter
+//!
+//!     -V, --version       
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!         --domain <FQDN>...     
+//!             Match on this email domain name
+//!
+//!         --email <ADDRESS>...   
+//!             Match on this email address
+//!
+//!         --name <NAME>...       
+//!             Match on this name
+//!
+//!     -o, --output <FILE>        
+//!             Sets the output file to use
+//!
+//!
+//! ARGS:
+//!     <FILE>...   
+//!             Sets the input files to use
 //! ```
 //!
 //! ### Subcommand certring join

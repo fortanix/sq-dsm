@@ -13,6 +13,11 @@ use openpgp::{
         Cert,
         CertParser,
     },
+    packet::{
+        UserID,
+        UserAttribute,
+        Key,
+    },
     parse::Parse,
     serialize::Serialize,
 };
@@ -24,6 +29,92 @@ use crate::{
 
 pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
     match m.subcommand() {
+        ("filter",  Some(m)) => {
+            let any_uid_predicates =
+                m.is_present("name")
+                || m.is_present("email")
+                || m.is_present("domain");
+            let uid_predicate = |uid: &UserID| {
+                let mut keep = false;
+
+                if let Some(names) = m.values_of("name") {
+                    for name in names {
+                        keep |= uid
+                            .name().unwrap_or(None)
+                            .map(|n| n == name)
+                            .unwrap_or(false);
+                    }
+                }
+
+                if let Some(emails) = m.values_of("email") {
+                    for email in emails {
+                        keep |= uid
+                            .email().unwrap_or(None)
+                            .map(|n| n == email)
+                            .unwrap_or(false);
+                    }
+                }
+
+                if let Some(domains) = m.values_of("domain") {
+                    for domain in domains {
+                        keep |= uid
+                            .email().unwrap_or(None)
+                            .map(|n| n.ends_with(&format!("@{}", domain)))
+                            .unwrap_or(false);
+                    }
+                }
+
+                keep
+            };
+
+            let any_ua_predicates = false;
+            let ua_predicate = |_ua: &UserAttribute| false;
+
+            let any_key_predicates = false;
+            let key_predicate = |_key: &Key<_, _>| false;
+
+            let filter_fn = |c: Cert| -> Option<Cert> {
+                if ! (c.userids().any(|c| uid_predicate(&c))
+                      || c.user_attributes().any(|c| ua_predicate(&c))
+                      || c.keys().subkeys().any(|c| key_predicate(&c))) {
+                    None
+                } else if m.is_present("prune-certs") {
+                    let c = c
+                        .retain_userids(|c| {
+                            ! any_uid_predicates || uid_predicate(&c)
+                        })
+                        .retain_user_attributes(|c| {
+                            ! any_ua_predicates || ua_predicate(&c)
+                        })
+                        .retain_subkeys(|c| {
+                            ! any_key_predicates || key_predicate(&c)
+                        });
+                    if c.userids().count() == 0
+                        && c.user_attributes().count() == 0
+                        && c.keys().subkeys().count() == 0
+                    {
+                        // We stripped all components, omit this cert.
+                        None
+                    } else {
+                        Some(c)
+                    }
+                } else {
+                    Some(c)
+                }
+            };
+
+            // XXX: Armor type selection is a bit problematic.  If any
+            // of the certificates contain a secret key, it would be
+            // better to use Kind::SecretKey here.  However, this
+            // requires buffering all certs, which has its own
+            // problems.
+            let mut output = create_or_stdout_pgp(m.value_of("output"),
+                                                  force,
+                                                  m.is_present("binary"),
+                                                  armor::Kind::PublicKey)?;
+            filter(m.values_of("input"), &mut output, filter_fn)?;
+            output.finalize()
+        },
         ("join",  Some(m)) => {
             // XXX: Armor type selection is a bit problematic.  If any
             // of the certificates contain a secret key, it would be

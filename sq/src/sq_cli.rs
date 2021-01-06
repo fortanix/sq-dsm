@@ -517,6 +517,46 @@ pub fn build() -> App<'static, 'static> {
                 .about("Manipulates certificate rings")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
+                    SubCommand::with_name("filter")
+                        .about("Joins certs into a certring applying a filter")
+                        .long_about(
+                            "If multiple predicates are given, they are \
+                             or'ed, i.e. a certificate matches if any \
+                             of the predicates match.  To require all \
+                             predicates to match, chain multiple \
+                             invocations of this command.")
+                        .arg(Arg::with_name("input").value_name("FILE")
+                             .multiple(true)
+                             .help("Sets the input files to use"))
+                        .arg(Arg::with_name("output").value_name("FILE")
+                             .long("output")
+                             .short("o")
+                             .help("Sets the output file to use"))
+                        .arg(Arg::with_name("name").value_name("NAME")
+                             .long("name")
+                             .multiple(true)
+                             .number_of_values(1)
+                             .help("Match on this name"))
+                        .arg(Arg::with_name("email").value_name("ADDRESS")
+                             .long("email")
+                             .multiple(true)
+                             .number_of_values(1)
+                             .help("Match on this email address"))
+                        .arg(Arg::with_name("domain").value_name("FQDN")
+                             .long("domain")
+                             .multiple(true)
+                             .number_of_values(1)
+                             .help("Match on this email domain name"))
+                        .arg(Arg::with_name("prune-certs")
+                             .long("prune-certs")
+                             .short("P")
+                             .help("Remove certificate components not matching \
+                                    the filter"))
+                        .arg(Arg::with_name("binary")
+                             .long("binary")
+                             .short("B")
+                             .help("Don't ASCII-armor the certring")))
+                .subcommand(
                     SubCommand::with_name("join")
                         .about("Joins certs into a certring")
                         .arg(Arg::with_name("input").value_name("FILE")
