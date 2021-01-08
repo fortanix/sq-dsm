@@ -2027,6 +2027,7 @@ dependencies = [
  "quickcheck",
  "rand",
  "regex",
+ "regex-syntax",
  "rpassword",
  "sha1collisiondetection",
  "thiserror",

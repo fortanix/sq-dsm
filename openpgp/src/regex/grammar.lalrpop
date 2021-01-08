@@ -1,0 +1,204 @@
+// -*- mode: Rust; -*-
+
+use super::generate_class;
+use super::lexer;
+use super::lexer::{Token, LexicalError};
+use regex_syntax::hir::{self, Hir};
+
+// Pass in the original, untokenized input to facilitate error
+// recovery.
+grammar<'input>(input: &'input str);
+
+// This is a straightforward translation of the regular expression
+// grammar from section 8 of RFC 4880.
+//
+// https://tools.ietf.org/html/rfc4880#section-8
+pub(crate) Regex : Hir = {
+    <l:LBranch> <r:RBranch*> => {
+        let mut r = r;
+        r.insert(0, l);
+        Hir::alternation(r)
+    },
+}
+
+LBranch : Hir = {
+    Branch,
+}
+
+RBranch : Hir = {
+    PIPE <Branch>,
+}
+
+Branch : Hir = {
+    <p:Piece*> => {
+        hir::Hir::group(hir::Group {
+            kind: hir::GroupKind::NonCapturing,
+            hir: Box::new(hir::Hir::concat(p)),
+        })
+    },
+}
+
+Piece : Hir = {
+    <a:Atom> => a,
+    <a:Atom> STAR => {
+        hir::Hir::repetition(hir::Repetition {
+            kind: hir::RepetitionKind::ZeroOrMore,
+            greedy: true,
+            hir: Box::new(a)
+        })
+    },
+    <a:Atom> PLUS => {
+        hir::Hir::repetition(hir::Repetition {
+            kind: hir::RepetitionKind::OneOrMore,
+            greedy: true,
+            hir: Box::new(a)
+        })
+    },
+    <a:Atom> QUESTION => {
+        hir::Hir::repetition(hir::Repetition {
+            kind: hir::RepetitionKind::ZeroOrOne,
+            greedy: true,
+            hir: Box::new(a)
+        })
+    },
+}
+
+Atom : Hir = {
+    LPAREN <r:Regex> RPAREN => {
+        hir::Hir::group(hir::Group {
+            kind: hir::GroupKind::NonCapturing,
+            hir: Box::new(r),
+        })
+    },
+
+    Range,
+
+    DOT => {
+        hir::Hir::any(false)
+    },
+    CARET => {
+        hir::Hir::anchor(hir::Anchor::StartText)
+    },
+    DOLLAR => {
+        hir::Hir::anchor(hir::Anchor::EndText)
+    },
+
+    BACKSLASH <t:AnyChar> => {
+        hir::Hir::literal(hir::Literal::Unicode(t.to_char()))
+    },
+
+    <t:OTHER> => {
+        hir::Hir::literal(hir::Literal::Unicode(t.to_char()))
+    },
+
+}
+
+Range : Hir = {
+    LBRACKET <c:CARET?> <class1:RBRACKET> <class2:NotRBracket*> RBRACKET => {
+        generate_class(c.is_some(),
+                       std::iter::once(class1.to_char())
+                       .chain(class2.into_iter().map(|t| t.to_char())))
+    },
+    LBRACKET CARET <class:NotRBracket+> RBRACKET => {
+        generate_class(true,
+                       class.into_iter().map(|t| t.to_char()))
+    },
+    LBRACKET <class1:NotCaretNotRBracket> <class2:NotRBracket*> RBRACKET => {
+        generate_class(false,
+                       std::iter::once(class1.to_char())
+                       .chain(class2.into_iter().map(|t| t.to_char())))
+    },
+}
+
+NotRBracket : Token = {
+    PIPE => Token::OTHER('|'),
+
+    STAR => Token::OTHER('*'),
+    PLUS => Token::OTHER('+'),
+    QUESTION => Token::OTHER('?'),
+
+    LPAREN => Token::OTHER('('),
+    RPAREN => Token::OTHER(')'),
+
+    DOT => Token::OTHER('.'),
+    CARET => Token::OTHER('^'),
+    DOLLAR => Token::OTHER('$'),
+    BACKSLASH => Token::OTHER('\\'),
+
+    LBRACKET => Token::OTHER('['),
+    // RBRACKET => Token::OTHER(']'),
+    DASH => Token::OTHER('-'),
+
+    OTHER,
+}
+
+NotCaretNotRBracket : Token = {
+    PIPE => Token::OTHER('|'),
+
+    STAR => Token::OTHER('*'),
+    PLUS => Token::OTHER('+'),
+    QUESTION => Token::OTHER('?'),
+
+    LPAREN => Token::OTHER('('),
+    RPAREN => Token::OTHER(')'),
+
+    DOT => Token::OTHER('.'),
+    // CARET => Token::OTHER('^'),
+    DOLLAR => Token::OTHER('$'),
+    BACKSLASH => Token::OTHER('\\'),
+
+    LBRACKET => Token::OTHER('['),
+    // RBRACKET => Token::OTHER(']'),
+    DASH => Token::OTHER('-'),
+
+    OTHER,
+}
+
+AnyChar : Token = {
+    PIPE => Token::OTHER('|'),
+
+    STAR => Token::OTHER('*'),
+    PLUS => Token::OTHER('+'),
+    QUESTION => Token::OTHER('?'),
+
+    LPAREN => Token::OTHER('('),
+    RPAREN => Token::OTHER(')'),
+
+    DOT => Token::OTHER('.'),
+    CARET => Token::OTHER('^'),
+    DOLLAR => Token::OTHER('$'),
+    BACKSLASH => Token::OTHER('\\'),
+
+    LBRACKET => Token::OTHER('['),
+    RBRACKET => Token::OTHER(']'),
+    DASH => Token::OTHER('-'),
+
+    OTHER,
+}
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum lexer::Token {
+        PIPE => lexer::Token::PIPE,
+
+        STAR => lexer::Token::STAR,
+        PLUS => lexer::Token::PLUS,
+        QUESTION => lexer::Token::QUESTION,
+
+        LPAREN => lexer::Token::LPAREN,
+        RPAREN => lexer::Token::RPAREN,
+
+        DOT => lexer::Token::DOT,
+        CARET => lexer::Token::CARET,
+        DOLLAR => lexer::Token::DOLLAR,
+        BACKSLASH => lexer::Token::BACKSLASH,
+
+        LBRACKET => lexer::Token::LBRACKET,
+        RBRACKET => lexer::Token::RBRACKET,
+        DASH => lexer::Token::DASH,
+
+        OTHER => lexer::Token::OTHER(_),
+    }
+}
