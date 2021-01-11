@@ -457,6 +457,68 @@ impl signature::SignatureFields {
     }
 }
 
+/// Hashing-related functionality.
+///
+/// <a name="hashing-functions"></a>
+impl Signature {
+    /// Hashes this signature for use in a Third-Party Confirmation
+    /// signature.
+    pub fn hash_for_confirmation(&self, hash: &mut dyn Digest) {
+        match self {
+            Signature::V4(s) => s.hash_for_confirmation(hash),
+        }
+    }
+}
+
+/// Hashing-related functionality.
+///
+/// <a name="hashing-functions"></a>
+impl Signature4 {
+    /// Hashes this signature for use in a Third-Party Confirmation
+    /// signature.
+    pub fn hash_for_confirmation(&self, hash: &mut dyn Digest) {
+        use crate::serialize::{Marshal, MarshalInto};
+        // Section 5.2.4 of RFC4880:
+        //
+        // > When a signature is made over a Signature packet (type
+        // > 0x50), the hash data starts with the octet 0x88, followed
+        // > by the four-octet length of the signature, and then the
+        // > body of the Signature packet.  (Note that this is an
+        // > old-style packet header for a Signature packet with the
+        // > length-of-length set to zero.)  The unhashed subpacket
+        // > data of the Signature packet being hashed is not included
+        // > in the hash, and the unhashed subpacket data length value
+        // > is set to zero.
+
+        // This code assumes that the signature has been verified
+        // prior to being confirmed, so it is well-formed.
+        let mut body = Vec::new();
+        body.push(self.version());
+        body.push(self.typ().into());
+        body.push(self.pk_algo().into());
+        body.push(self.hash_algo().into());
+
+        // The hashed area.
+        let l = self.hashed_area().serialized_len()
+             // Assumes well-formedness.
+            .min(std::u16::MAX as usize);
+        body.extend(&(l as u16).to_be_bytes());
+         // Assumes well-formedness.
+        let _ = self.hashed_area().serialize(&mut body);
+
+        // The unhashed area.
+        body.extend(&[0, 0]); // Size replaced by zero.
+        // Unhashed packets omitted.
+
+        body.extend(self.digest_prefix());
+        let _ = self.mpis().serialize(&mut body);
+
+        hash.update(&[0x88]);
+        hash.update(&(body.len() as u32).to_be_bytes());
+        hash.update(&body);
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
