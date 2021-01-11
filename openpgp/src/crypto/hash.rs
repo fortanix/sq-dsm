@@ -383,20 +383,20 @@ impl Hash for signature::SignatureFields {
 ///
 /// <a name="hashing-functions"></a>
 impl signature::SignatureFields {
-    /// Computes the message digest of standalone signatures.
+    /// Hashes this standalone signature.
     pub fn hash_standalone(&self, hash: &mut dyn Digest)
     {
         self.hash(hash);
     }
 
-    /// Computes the message digest of timestamp signatures.
+    /// Hashes this timestamp signature.
     pub fn hash_timestamp(&self, hash: &mut dyn Digest)
     {
         self.hash_standalone(hash);
     }
 
-    /// Returns the message digest of the direct key signature over
-    /// the specified primary key.
+    /// Hashes this direct key signature over the specified primary
+    /// key, and the primary key.
     pub fn hash_direct_key<P>(&self, hash: &mut dyn Digest,
                               key: &Key<P, key::PrimaryRole>)
         where P: key::KeyParts,
@@ -405,8 +405,8 @@ impl signature::SignatureFields {
         self.hash(hash);
     }
 
-    /// Returns the message digest of the subkey binding over the
-    /// specified primary key and subkey.
+    /// Hashes this subkey binding over the specified primary key and
+    /// subkey, the primary key, and the subkey.
     pub fn hash_subkey_binding<P, Q>(&self, hash: &mut dyn Digest,
                                      key: &Key<P, key::PrimaryRole>,
                                      subkey: &Key<Q, key::SubordinateRole>)
@@ -418,8 +418,8 @@ impl signature::SignatureFields {
         self.hash(hash);
     }
 
-    /// Returns the message digest of the primary key binding over the
-    /// specified primary key and subkey.
+    /// Hashes this primary key binding over the specified primary key
+    /// and subkey, the primary key, and the subkey.
     pub fn hash_primary_key_binding<P, Q>(&self, hash: &mut dyn Digest,
                                           key: &Key<P, key::PrimaryRole>,
                                           subkey: &Key<Q, key::SubordinateRole>)
@@ -429,8 +429,8 @@ impl signature::SignatureFields {
         self.hash_subkey_binding(hash, key, subkey);
     }
 
-    /// Returns the message digest of the user ID binding over the
-    /// specified primary key, user ID, and signature.
+    /// Hashes this user ID binding over the specified primary key and
+    /// user ID, the primary key, and the userid.
     pub fn hash_userid_binding<P>(&self, hash: &mut dyn Digest,
                                   key: &Key<P, key::PrimaryRole>,
                                   userid: &UserID)
@@ -441,8 +441,9 @@ impl signature::SignatureFields {
         self.hash(hash);
     }
 
-    /// Returns the message digest of the user attribute binding over
-    /// the specified primary key, user attribute, and signature.
+    /// Hashes this user attribute binding over the specified primary
+    /// key and user attribute, the primary key, and the user
+    /// attribute.
     pub fn hash_user_attribute_binding<P>(
         &self,
         hash: &mut dyn Digest,
