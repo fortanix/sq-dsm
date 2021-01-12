@@ -1127,6 +1127,12 @@ pub enum SignatureType {
 }
 assert_send_and_sync!(SignatureType);
 
+/// An attested key signature.
+#[allow(non_upper_case_globals)]
+pub(crate) const SignatureType__AttestedKey: SignatureType =
+    SignatureType::Unknown(0x16);
+
+
 impl From<u8> for SignatureType {
     fn from(u: u8) -> Self {
         match u {

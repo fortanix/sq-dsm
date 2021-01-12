@@ -326,6 +326,11 @@ pub enum SubpacketTag {
 }
 assert_send_and_sync!(SubpacketTag);
 
+/// The proposed Attested Certifications subpacket.
+#[allow(non_upper_case_globals)]
+pub(crate) const SubpacketTag__AttestedCertifications: SubpacketTag =
+    SubpacketTag::Unknown(37);
+
 impl fmt::Display for SubpacketTag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)

@@ -2787,6 +2787,71 @@ impl Signature {
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
 
+    /// Verifies an attested key signature on a user id.
+    ///
+    /// `self` is the attested key signature, `signer` is the key that
+    /// allegedly made the signature, `pk` is the primary key, and
+    /// `userid` is the user id.
+    ///
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
+    #[allow(dead_code)]
+    pub(crate) fn verify_userid_attestation<P, Q, R>(
+        &mut self,
+        signer: &Key<P, R>,
+        pk: &Key<Q, key::PrimaryRole>,
+        userid: &UserID)
+        -> Result<()>
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
+    {
+        use crate::types::SignatureType__AttestedKey;
+        use crate::packet::signature::subpacket
+            ::SubpacketTag__AttestedCertifications;
+
+        if self.typ() != SignatureType__AttestedKey {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
+        }
+
+        let mut hash = self.hash_algo().context()?;
+
+        if self.hashed_area()
+            .subpackets(SubpacketTag__AttestedCertifications).count() != 1
+            || self.unhashed_area()
+            .subpackets(SubpacketTag__AttestedCertifications).count() != 0
+        {
+            return Err(Error::BadSignature(
+                "Wrong number of attested certification subpackets".into())
+                       .into());
+        }
+
+        if let SubpacketValue::Unknown { body, .. } =
+            self.subpacket(SubpacketTag__AttestedCertifications).unwrap()
+            .value()
+        {
+            if body.len() % hash.digest_size() != 0 {
+                return Err(Error::BadSignature(
+                    "Wrong number of bytes in certification subpacket".into())
+                           .into());
+            }
+        } else {
+            unreachable!("Selected attested certifications, got wrong value");
+        }
+
+        self.hash_userid_binding(&mut hash, pk, userid);
+        self.verify_digest(signer, &hash.into_digest()?[..])
+    }
+
     /// Verifies the user attribute binding.
     ///
     /// `self` is the user attribute binding signature, `signer` is
@@ -2861,6 +2926,71 @@ impl Signature {
         }
 
         let mut hash = self.hash_algo().context()?;
+        self.hash_user_attribute_binding(&mut hash, pk, ua);
+        self.verify_digest(signer, &hash.into_digest()?[..])
+    }
+
+    /// Verifies an attested key signature on a user attribute.
+    ///
+    /// `self` is the attested key signature, `signer` is the key that
+    /// allegedly made the signature, `pk` is the primary key, and
+    /// `ua` is the user attribute.
+    ///
+    /// Note: Due to limited context, this only verifies the
+    /// cryptographic signature, checks the signature's type, and
+    /// checks that the key predates the signature.  Further
+    /// constraints on the signature, like creation and expiration
+    /// time, or signature revocations must be checked by the caller.
+    ///
+    /// Likewise, this function does not check whether `signer` can
+    /// made valid signatures; it is up to the caller to make sure the
+    /// key is not revoked, not expired, has a valid self-signature,
+    /// has a subkey binding signature (if appropriate), has the
+    /// signing capability, etc.
+    #[allow(dead_code)]
+    pub(crate) fn verify_user_attribute_attestation<P, Q, R>(
+        &mut self,
+        signer: &Key<P, R>,
+        pk: &Key<Q, key::PrimaryRole>,
+        ua: &UserAttribute)
+        -> Result<()>
+        where P: key::KeyParts,
+              Q: key::KeyParts,
+              R: key::KeyRole,
+    {
+        use crate::types::SignatureType__AttestedKey;
+        use crate::packet::signature::subpacket
+            ::SubpacketTag__AttestedCertifications;
+
+        if self.typ() != SignatureType__AttestedKey {
+            return Err(Error::UnsupportedSignatureType(self.typ()).into());
+        }
+
+        let mut hash = self.hash_algo().context()?;
+
+        if self.hashed_area()
+            .subpackets(SubpacketTag__AttestedCertifications).count() != 1
+            || self.unhashed_area()
+            .subpackets(SubpacketTag__AttestedCertifications).count() != 0
+        {
+            return Err(Error::BadSignature(
+                "Wrong number of attested certification subpackets".into())
+                       .into());
+        }
+
+        if let SubpacketValue::Unknown { body, .. } =
+            self.subpacket(SubpacketTag__AttestedCertifications).unwrap()
+            .value()
+        {
+            if body.len() % hash.digest_size() != 0 {
+                return Err(Error::BadSignature(
+                    "Wrong number of bytes in certification subpacket".into())
+                           .into());
+            }
+        } else {
+            unreachable!("Selected attested certifications, got wrong value");
+        }
+
         self.hash_user_attribute_binding(&mut hash, pk, ua);
         self.verify_digest(signer, &hash.into_digest()?[..])
     }
