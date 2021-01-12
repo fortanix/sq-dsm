@@ -494,6 +494,44 @@ impl<C> ComponentBundle<C> {
         &self.other_revocations
     }
 
+    /// Returns all of the component's signatures.
+    ///
+    /// Only the self-signatures are validated.  The signatures are
+    /// sorted first by type, then by creation time.  The self
+    /// revocations come first, then the self signatures,
+    /// certifications, and third-party revocations coming last.  This
+    /// function may return additional types of signatures that could
+    /// be associated to this component.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// #
+    /// # fn main() -> openpgp::Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, ka) in cert.keys().enumerate() {
+    ///     eprintln!("Key #{} ({}) has {:?} signatures",
+    ///               i, ka.fingerprint(),
+    ///               ka.signatures().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn signatures(&self)
+                      -> impl Iterator<Item = &Signature> + Send + Sync
+    {
+        self.self_revocations.iter()
+            .chain(self.self_signatures.iter())
+            .chain(self.certifications.iter())
+            .chain(self.other_revocations.iter())
+    }
+
     /// Returns the component's revocation status at time `t`.
     ///
     /// A component is considered to be revoked at time `t` if:
