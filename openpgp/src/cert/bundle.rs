@@ -397,7 +397,7 @@ impl<C> ComponentBundle<C> {
     /// for (i, ka) in cert.keys().enumerate() {
     ///     eprintln!("Key #{} ({}) has {:?} self signatures",
     ///               i, ka.fingerprint(),
-    ///               ka.self_signatures().count());
+    ///               ka.bundle().self_signatures().len());
     /// }
     /// # Ok(()) }
     /// ```
@@ -426,7 +426,7 @@ impl<C> ComponentBundle<C> {
     /// for ua in cert.userids() {
     ///     eprintln!("User ID {} has {:?} unverified, third-party certifications",
     ///               String::from_utf8_lossy(ua.userid().value()),
-    ///               ua.certifications().count());
+    ///               ua.bundle().certifications().len());
     /// }
     /// # Ok(()) }
     /// ```
@@ -456,7 +456,7 @@ impl<C> ComponentBundle<C> {
     /// for u in cert.userids() {
     ///     eprintln!("User ID {} has {:?} revocation certificates.",
     ///               String::from_utf8_lossy(u.userid().value()),
-    ///               u.self_revocations().count());
+    ///               u.bundle().self_revocations().len());
     /// }
     /// # Ok(()) }
     /// ```
@@ -486,7 +486,7 @@ impl<C> ComponentBundle<C> {
     /// for u in cert.userids() {
     ///     eprintln!("User ID {} has {:?} unverified, third-party revocation certificates.",
     ///               String::from_utf8_lossy(u.userid().value()),
-    ///               u.other_revocations().count());
+    ///               u.bundle().other_revocations().len());
     /// }
     /// # Ok(()) }
     /// ```
