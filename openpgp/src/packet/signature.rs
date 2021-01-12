@@ -2804,7 +2804,6 @@ impl Signature {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    #[allow(dead_code)]
     pub(crate) fn verify_userid_attestation<P, Q, R>(
         &mut self,
         signer: &Key<P, R>,
@@ -2947,7 +2946,6 @@ impl Signature {
     /// key is not revoked, not expired, has a valid self-signature,
     /// has a subkey binding signature (if appropriate), has the
     /// signing capability, etc.
-    #[allow(dead_code)]
     pub(crate) fn verify_user_attribute_attestation<P, Q, R>(
         &mut self,
         signer: &Key<P, R>,

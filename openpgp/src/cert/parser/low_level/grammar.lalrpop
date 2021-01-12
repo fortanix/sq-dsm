@@ -52,6 +52,7 @@ pub Cert: Option<Cert> = {
                         hash_algo_security: sec,
                         self_signatures: vec![],
                         certifications: sigs,
+                        attestations: vec![],
                         self_revocations: vec![],
                         other_revocations: vec![],
                     },
@@ -165,6 +166,7 @@ Component: Option<Component> = {
                     hash_algo_security: sec,
                     self_signatures: vec![],
                     certifications: sigs,
+                    attestations: vec![],
                     self_revocations: vec![],
                     other_revocations: vec![],
                 }))
@@ -184,6 +186,7 @@ Component: Option<Component> = {
                     hash_algo_security: sec,
                     self_signatures: vec![],
                     certifications: sigs,
+                    attestations: vec![],
                     self_revocations: vec![],
                     other_revocations: vec![],
                 }))
@@ -203,6 +206,7 @@ Component: Option<Component> = {
                     hash_algo_security: sec,
                     self_signatures: vec![],
                     certifications: sigs,
+                    attestations: vec![],
                     self_revocations: vec![],
                     other_revocations: vec![],
                 }))
@@ -222,6 +226,7 @@ Component: Option<Component> = {
                     hash_algo_security: sec,
                     self_signatures: vec![],
                     certifications: sigs,
+                    attestations: vec![],
                     self_revocations: vec![],
                     other_revocations: vec![],
                 }))

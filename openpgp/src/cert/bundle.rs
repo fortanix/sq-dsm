@@ -122,6 +122,9 @@ pub struct ComponentBundle<C> {
     // designated revokers.)
     pub(crate) certifications: Vec<Signature>,
 
+    // Attestation key signatures.
+    pub(crate) attestations: Vec<Signature>,
+
     // Self revocations.
     pub(crate) self_revocations: Vec<Signature>,
 
@@ -528,6 +531,7 @@ impl<C> ComponentBundle<C> {
     {
         self.self_revocations.iter()
             .chain(self.self_signatures.iter())
+            .chain(self.attestations.iter())
             .chain(self.certifications.iter())
             .chain(self.other_revocations.iter())
     }
@@ -664,6 +668,7 @@ impl<C> ComponentBundle<C> {
         std::iter::once(p)
             .chain(self.self_revocations.into_iter().map(|s| s.into()))
             .chain(self.self_signatures.into_iter().map(|s| s.into()))
+            .chain(self.attestations.into_iter().map(|s| s.into()))
             .chain(self.certifications.into_iter().map(|s| s.into()))
             .chain(self.other_revocations.into_iter().map(|s| s.into()))
     }
@@ -711,6 +716,11 @@ impl<C> ComponentBundle<C> {
         // first.
         self.self_signatures.sort_by(sig_cmp);
         self.self_signatures.iter_mut().for_each(sig_fixup);
+
+        self.attestations.sort_by(Signature::normalized_cmp);
+        self.attestations.dedup_by(sig_merge);
+        self.attestations.sort_by(sig_cmp);
+        self.attestations.iter_mut().for_each(sig_fixup);
 
         self.certifications.sort_by(Signature::normalized_cmp);
         self.certifications.dedup_by(sig_merge);

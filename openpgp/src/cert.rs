@@ -331,6 +331,7 @@ impl<C> ComponentBundles<C>
 
                 // Recall: if a and b are equal, a will be dropped.
                 b.self_signatures.append(&mut a.self_signatures);
+                b.attestations.append(&mut a.attestations);
                 b.certifications.append(&mut a.certifications);
                 b.self_revocations.append(&mut a.self_revocations);
                 b.other_revocations.append(&mut a.other_revocations);
@@ -1805,6 +1806,23 @@ impl Cert {
                     }
                 },
 
+                crate::types::SignatureType__AttestedKey => {
+                    for binding in self.userids.iter_mut() {
+                        check_one!(format!("userid \"{}\"",
+                                           String::from_utf8_lossy(
+                                               binding.userid().value())),
+                                   binding.attestations, sig,
+                                   verify_userid_attestation, binding.userid());
+                    }
+
+                    for binding in self.user_attributes.iter_mut() {
+                        check_one!("user attribute",
+                                   binding.attestations, sig,
+                                   verify_user_attribute_attestation,
+                                   binding.user_attribute());
+                    }
+                },
+
                 CertificationRevocation => {
                     for binding in self.userids.iter_mut() {
                         check_one!(format!("userid \"{}\"",
@@ -2116,6 +2134,8 @@ impl Cert {
 
         self.primary.self_signatures.append(
             &mut other.primary.self_signatures);
+        self.primary.attestations.append(
+            &mut other.primary.attestations);
         self.primary.certifications.append(
             &mut other.primary.certifications);
         self.primary.self_revocations.append(
@@ -5964,6 +5984,92 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert!(vc.keys().subkeys().any(|k| {
             k.fingerprint() == vc.primary_key().fingerprint()
         }));
+
+        Ok(())
+    }
+
+    /// Makes sure that attested key signatures are correctly handled.
+    #[test]
+    fn attested_key_signatures() -> Result<()> {
+        use crate::{
+            crypto::hash::Hash,
+            packet::signature::{SignatureBuilder, subpacket::*},
+            types::*,
+        };
+
+        let (alice, _) = CertBuilder::new()
+            .add_userid("alice@foo.com")
+            .generate()?;
+        let mut alice_signer =
+            alice.primary_key().key().clone().parts_into_secret()?
+            .into_keypair()?;
+
+        let (bob, _) = CertBuilder::new()
+            .add_userid("bob@bar.com")
+            .generate()?;
+        let mut bob_signer =
+            bob.primary_key().key().clone().parts_into_secret()?
+            .into_keypair()?;
+        let bob_pristine = bob.clone();
+
+        // Have Alice certify the binding between "bob@bar.com" and
+        // Bob's key.
+        let alice_certifies_bob
+            = bob.userids().nth(0).unwrap().userid().bind(
+                &mut alice_signer, &bob,
+                SignatureBuilder::new(SignatureType::GenericCertification))?;
+
+        // Have Bob attest that certification.
+        let hash_algo = HashAlgorithm::default();
+
+        // First, hash the certification.
+        let mut h = hash_algo.context()?;
+        alice_certifies_bob.hash_for_confirmation(&mut h);
+        let digest = h.into_digest()?;
+
+        // Then, prepare an attested key signature.
+        let mut h = hash_algo.context()?;
+        bob.primary_key().key().hash(&mut h);
+        bob.userids().nth(0).unwrap().userid().hash(&mut h);
+
+        let attestation = SignatureBuilder::new(SignatureType__AttestedKey)
+            .modify_hashed_area(|mut a| {
+                a.add(Subpacket::new(
+                    SubpacketValue::Unknown {
+                        tag: SubpacketTag__AttestedCertifications,
+                        body: digest,
+                    },
+                    true)?)?;
+                Ok(a)
+            })?
+            .sign_hash(&mut bob_signer, h)?;
+
+        let bob = bob.insert_packets(vec![
+            alice_certifies_bob.clone(),
+            attestation.clone(),
+        ])?;
+
+        assert_eq!(bob.bad_signatures().count(), 0);
+        assert_eq!(bob.userids().nth(0).unwrap().certifications().nth(0),
+                   Some(&alice_certifies_bob));
+        assert_eq!(&bob.userids().nth(0).unwrap().bundle().attestations[0],
+                   &attestation);
+
+        // Check that attested key signatures are kept over merges.
+        let bob_ = bob.clone().merge_public(bob_pristine.clone())?;
+        assert_eq!(bob_.bad_signatures().count(), 0);
+        assert_eq!(bob_.userids().nth(0).unwrap().certifications().nth(0),
+                   Some(&alice_certifies_bob));
+        assert_eq!(&bob_.userids().nth(0).unwrap().bundle().attestations[0],
+                   &attestation);
+
+        // And the other way around.
+        let bob_ = bob_pristine.clone().merge_public(bob.clone())?;
+        assert_eq!(bob_.bad_signatures().count(), 0);
+        assert_eq!(bob_.userids().nth(0).unwrap().certifications().nth(0),
+                   Some(&alice_certifies_bob));
+        assert_eq!(&bob_.userids().nth(0).unwrap().bundle().attestations[0],
+                   &attestation);
 
         Ok(())
     }
