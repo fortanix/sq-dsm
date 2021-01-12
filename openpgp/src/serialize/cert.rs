@@ -49,16 +49,7 @@ impl Cert {
             Ok(())
         };
 
-        for s in primary.self_revocations() {
-            serialize_sig(o, s)?;
-        }
-        for s in primary.self_signatures() {
-            serialize_sig(o, s)?;
-        }
-        for s in primary.certifications() {
-            serialize_sig(o, s)?;
-        }
-        for s in primary.other_revocations() {
+        for s in primary.signatures() {
             serialize_sig(o, s)?;
         }
 
@@ -71,16 +62,7 @@ impl Cert {
             }
 
             PacketRef::UserID(u.userid()).serialize(o)?;
-            for s in u.self_revocations() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.self_signatures() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.certifications() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 serialize_sig(o, s)?;
             }
         }
@@ -94,16 +76,7 @@ impl Cert {
             }
 
             PacketRef::UserAttribute(u.user_attribute()).serialize(o)?;
-            for s in u.self_revocations() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.self_signatures() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.certifications() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 serialize_sig(o, s)?;
             }
         }
@@ -117,16 +90,7 @@ impl Cert {
             }
 
             PacketRef::PublicSubkey(k.key()).serialize(o)?;
-            for s in k.self_revocations() {
-                serialize_sig(o, s)?;
-            }
-            for s in k.self_signatures() {
-                serialize_sig(o, s)?;
-            }
-            for s in k.certifications() {
-                serialize_sig(o, s)?;
-            }
-            for s in k.other_revocations() {
+            for s in k.signatures() {
                 serialize_sig(o, s)?;
             }
         }
@@ -141,16 +105,7 @@ impl Cert {
 
             PacketRef::Unknown(u.unknown()).serialize(o)?;
 
-            for s in u.self_revocations() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.self_signatures() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.certifications() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 serialize_sig(o, s)?;
             }
         }
@@ -184,32 +139,14 @@ impl MarshalInto for Cert {
         let primary = self.primary_key();
         l += PacketRef::PublicKey(primary.key()).serialized_len();
 
-        for s in primary.self_revocations() {
-            l += PacketRef::Signature(s).serialized_len();
-        }
-        for s in primary.self_signatures() {
-            l += PacketRef::Signature(s).serialized_len();
-        }
-        for s in primary.certifications() {
-            l += PacketRef::Signature(s).serialized_len();
-        }
-        for s in primary.other_revocations() {
+        for s in primary.signatures() {
             l += PacketRef::Signature(s).serialized_len();
         }
 
         for u in self.userids() {
             l += PacketRef::UserID(u.userid()).serialized_len();
 
-            for s in u.self_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.self_signatures() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.certifications() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -217,16 +154,7 @@ impl MarshalInto for Cert {
         for u in self.user_attributes() {
             l += PacketRef::UserAttribute(u.user_attribute()).serialized_len();
 
-            for s in u.self_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.self_signatures() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.certifications() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -234,16 +162,7 @@ impl MarshalInto for Cert {
         for k in self.subkeys() {
             l += PacketRef::PublicSubkey(k.key()).serialized_len();
 
-            for s in k.self_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in k.self_signatures() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in k.certifications() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in k.other_revocations() {
+            for s in k.signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -251,16 +170,7 @@ impl MarshalInto for Cert {
         for u in self.unknowns() {
             l += PacketRef::Unknown(u.unknown()).serialized_len();
 
-            for s in u.self_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.self_signatures() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.certifications() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -532,16 +442,7 @@ impl<'a> TSK<'a> {
         serialize_key(o, primary.key().into(),
                       Tag::PublicKey, Tag::SecretKey)?;
 
-        for s in primary.self_signatures() {
-            serialize_sig(o, s)?;
-        }
-        for s in primary.self_revocations() {
-            serialize_sig(o, s)?;
-        }
-        for s in primary.certifications() {
-            serialize_sig(o, s)?;
-        }
-        for s in primary.other_revocations() {
+        for s in primary.signatures() {
             serialize_sig(o, s)?;
         }
 
@@ -554,16 +455,7 @@ impl<'a> TSK<'a> {
             }
 
             PacketRef::UserID(u.userid()).serialize(o)?;
-            for s in u.self_revocations() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.self_signatures() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.certifications() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 serialize_sig(o, s)?;
             }
         }
@@ -577,16 +469,7 @@ impl<'a> TSK<'a> {
             }
 
             PacketRef::UserAttribute(u.user_attribute()).serialize(o)?;
-            for s in u.self_revocations() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.self_signatures() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.certifications() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 serialize_sig(o, s)?;
             }
         }
@@ -601,16 +484,7 @@ impl<'a> TSK<'a> {
 
             serialize_key(o, k.key().into(),
                           Tag::PublicSubkey, Tag::SecretSubkey)?;
-            for s in k.self_revocations() {
-                serialize_sig(o, s)?;
-            }
-            for s in k.self_signatures() {
-                serialize_sig(o, s)?;
-            }
-            for s in k.certifications() {
-                serialize_sig(o, s)?;
-            }
-            for s in k.other_revocations() {
+            for s in k.signatures() {
                 serialize_sig(o, s)?;
             }
         }
@@ -625,16 +499,7 @@ impl<'a> TSK<'a> {
 
             PacketRef::Unknown(&u.unknown()).serialize(o)?;
 
-            for s in u.self_revocations() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.self_signatures() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.certifications() {
-                serialize_sig(o, s)?;
-            }
-            for s in u.other_revocations() {
+            for s in u.signatures() {
                 serialize_sig(o, s)?;
             }
         }
@@ -702,32 +567,14 @@ impl<'a> MarshalInto for TSK<'a> {
         l += serialized_len_key(primary.key().into(),
                                 Tag::PublicKey, Tag::SecretKey);
 
-        for s in primary.self_signatures() {
-            l += PacketRef::Signature(s).serialized_len();
-        }
-        for s in primary.self_revocations() {
-            l += PacketRef::Signature(s).serialized_len();
-        }
-        for s in primary.other_revocations() {
-            l += PacketRef::Signature(s).serialized_len();
-        }
-        for s in primary.certifications() {
+        for s in primary.signatures() {
             l += PacketRef::Signature(s).serialized_len();
         }
 
         for u in self.cert.userids() {
             l += PacketRef::UserID(u.userid()).serialized_len();
 
-            for s in u.self_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.self_signatures() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.other_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.certifications() {
+            for s in u.signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -735,16 +582,7 @@ impl<'a> MarshalInto for TSK<'a> {
         for u in self.cert.user_attributes() {
             l += PacketRef::UserAttribute(u.user_attribute()).serialized_len();
 
-            for s in u.self_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.self_signatures() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.other_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.certifications() {
+            for s in u.signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -753,16 +591,7 @@ impl<'a> MarshalInto for TSK<'a> {
             l += serialized_len_key(k.key().into(),
                                     Tag::PublicSubkey, Tag::SecretSubkey);
 
-            for s in k.self_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in k.self_signatures() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in k.other_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in k.certifications() {
+            for s in k.signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
@@ -770,16 +599,7 @@ impl<'a> MarshalInto for TSK<'a> {
         for u in self.cert.unknowns() {
             l += PacketRef::Unknown(u.unknown()).serialized_len();
 
-            for s in u.self_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.self_signatures() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.other_revocations() {
-                l += PacketRef::Signature(s).serialized_len();
-            }
-            for s in u.certifications() {
+            for s in u.signatures() {
                 l += PacketRef::Signature(s).serialized_len();
             }
         }
