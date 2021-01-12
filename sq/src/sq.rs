@@ -498,6 +498,8 @@ fn main() -> Result<()> {
         ("key", Some(m)) => match m.subcommand() {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
             ("adopt", Some(m)) => commands::key::adopt(m, policy)?,
+            ("attest-certifications", Some(m)) =>
+                commands::key::attest_certifications(m, policy)?,
             _ => unreachable!(),
         },
 

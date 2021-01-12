@@ -452,3 +452,101 @@ pub fn adopt(m: &ArgMatches, p: &dyn Policy) -> Result<()> {
 
     Ok(())
 }
+
+pub fn attest_certifications(m: &ArgMatches, _p: &dyn Policy) -> Result<()> {
+    // XXX: This function has to do some steps manually, because
+    // Sequoia does not expose this functionality because it has not
+    // been standardized yet.
+    use sequoia_openpgp::{
+        crypto::hash::{Hash, Digest},
+        packet::signature::subpacket::*,
+        types::HashAlgorithm,
+    };
+    #[allow(non_upper_case_globals)]
+    const SignatureType__AttestedKey: SignatureType =
+        SignatureType::Unknown(0x16);
+    #[allow(non_upper_case_globals)]
+    const SubpacketTag__AttestedCertifications: SubpacketTag =
+        SubpacketTag::Unknown(37);
+
+    // Some configuration.
+    let hash_algo = HashAlgorithm::default();
+    let digest_size = hash_algo.context()?.digest_size();
+    let reserve_area_space = 256; // For the other subpackets.
+    let digests_per_sig = ((1usize << 16) - reserve_area_space) / digest_size;
+
+    let key = m.value_of("key").unwrap();
+    let key = Cert::from_file(key)
+        .context(format!("Parsing key {:?}", key))?;
+
+    // First, remove all attestations.
+    let key = Cert::from_packets(
+        key.into_packets().filter(|p| match p {
+            Packet::Signature(s) if s.typ() == SignatureType__AttestedKey =>
+                false,
+            _ => true,
+        }))?;
+
+
+    // Get a signer.
+    let mut passwords = Vec::new();
+    let pk = key.primary_key().key();
+    let mut pk_signer =
+        decrypt_key(
+            pk.clone().parts_into_secret()?,
+            &mut passwords)?
+        .into_keypair()?;
+
+    // Now, create new attestation signatures.
+    let mut attestation_signatures = Vec::new();
+    for uid in key.userids() {
+        let mut attestations = Vec::new();
+
+        if m.is_present("all") {
+            for certification in uid.certifications() {
+                let mut h = hash_algo.context()?;
+                certification.hash_for_confirmation(&mut h);
+                attestations.push(h.into_digest()?);
+            }
+        }
+
+        // Hashes SHOULD be sorted.
+        attestations.sort();
+
+        // All attestation signatures we generate for this component
+        // should have the same creation time.  Fix it now.
+        let t = std::time::SystemTime::now();
+
+        // Hash the components like in a binding signature.
+        let mut hash = hash_algo.context()?;
+        key.primary_key().hash(&mut hash);
+        uid.hash(&mut hash);
+
+        for digests in attestations.chunks(digests_per_sig) {
+            let mut body = Vec::with_capacity(digest_size * digests.len());
+            digests.iter().for_each(|d| body.extend(d));
+
+            attestation_signatures.push(
+                SignatureBuilder::new(SignatureType__AttestedKey)
+                    .set_signature_creation_time(t)?
+                    .modify_hashed_area(|mut a| {
+                        a.add(Subpacket::new(
+                            SubpacketValue::Unknown {
+                                tag: SubpacketTag__AttestedCertifications,
+                                body,
+                            },
+                            true)?)?;
+                        Ok(a)
+                    })?
+                    .sign_hash(&mut pk_signer, hash.clone())?);
+        }
+    }
+
+    // XXX: Do the same for user attributes.
+
+    // Finally, add the new signatures.
+    let key = key.insert_packets(attestation_signatures)?;
+
+    key.as_tsk().armored().serialize(&mut std::io::stdout())?;
+    Ok(())
+}

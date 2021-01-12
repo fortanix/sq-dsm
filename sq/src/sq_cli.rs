@@ -395,8 +395,26 @@ pub fn build() -> App<'static, 'static> {
                              .value_name("CERT")
                              .required(true)
                              .help("The certificate to add keys to."))
-                ))
+                )
 
+                .subcommand(
+                    SubCommand::with_name("attest-certifications")
+                        .about("Attests third-party certifications allowing \
+                                for their distribution")
+                        .arg(Arg::with_name("none")
+                             .long("none")
+                             .conflicts_with("all")
+                             .help("Remove all prior attestations"))
+                        .arg(Arg::with_name("all")
+                             .long("all")
+                             .conflicts_with("none")
+                             .help("Attest to all certifications"))
+                        .arg(Arg::with_name("key")
+                             .value_name("KEY")
+                             .required(true)
+                             .help("Change attestations on this key."))
+                )
+        )
         .subcommand(
             SubCommand::with_name("certring")
                 .about("Manipulates certificate rings")

@@ -477,9 +477,10 @@
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
-//!     adopt       Bind keys from one certificate to another.
-//!     generate    Generates a new key
-//!     help        Prints this message or the help of the given subcommand(s)
+//!     adopt                    Bind keys from one certificate to another.
+//!     attest-certifications    Attests third-party certifications allowing for their distribution
+//!     generate                 Generates a new key
+//!     help                     Prints this message or the help of the given subcommand(s)
 //! ```
 //!
 //! ### Subcommand key adopt
@@ -501,6 +502,24 @@
 //!
 //! ARGS:
 //!     <CERT>    The certificate to add keys to.
+//! ```
+//!
+//! ### Subcommand key attest-certifications
+//!
+//! ```text
+//! Attests third-party certifications allowing for their distribution
+//!
+//! USAGE:
+//!     sq key attest-certifications [FLAGS] <KEY>
+//!
+//! FLAGS:
+//!         --all        Attest to all certifications
+//!     -h, --help       Prints help information
+//!         --none       Remove all prior attestations
+//!     -V, --version    Prints version information
+//!
+//! ARGS:
+//!     <KEY>    Change attestations on this key.
 //! ```
 //!
 //! ### Subcommand key generate
