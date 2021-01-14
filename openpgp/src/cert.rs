@@ -2062,14 +2062,7 @@ impl Cert {
     /// ```
     pub fn merge_public(self, other: Cert) -> Result<Self> {
         // Strip all secrets from `other`.
-        let other_public = Cert::from_packets(
-            other.into_packets().map(|p| match p {
-                Packet::PublicKey(k) => k.take_secret().0.into(),
-                Packet::SecretKey(k) => k.take_secret().0.into(),
-                Packet::PublicSubkey(k) => k.take_secret().0.into(),
-                Packet::SecretSubkey(k) => k.take_secret().0.into(),
-                p => p,
-            }))?;
+        let other_public = other.strip_secret_key_material();
         // Then merge it.
         self.merge_public_and_secret(other_public)
     }
