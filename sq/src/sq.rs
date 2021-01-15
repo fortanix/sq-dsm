@@ -4,7 +4,6 @@ use crossterm;
 
 use crossterm::terminal;
 use anyhow::Context as _;
-use prettytable::{Table, Cell, Row, row, cell};
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -15,7 +14,7 @@ use buffered_reader::File;
 use sequoia_openpgp as openpgp;
 use sequoia_core;
 use sequoia_net;
-use sequoia_store as store;
+use sequoia_store::Mapping;
 
 use openpgp::{
     Result,
@@ -37,11 +36,9 @@ use crate::openpgp::policy::StandardPolicy as P;
 use sequoia_core::Context;
 use sequoia_net as net;
 use sequoia_net::{KeyServer, wkd};
-use store::{Mapping, LogIter};
 
 mod sq_cli;
 mod commands;
-use commands::dump::Convert;
 
 fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read + Send + Sync>> {
     match f {
@@ -238,6 +235,14 @@ fn help_warning(arg: &str) {
     }
 }
 
+pub struct Config {
+    force: bool,
+    network_policy: net::Policy,
+    context: sequoia_core::Context,
+    realm_name: String,
+    mapping_name: String,
+}
+
 fn main() -> Result<()> {
     let policy = &mut P::new();
 
@@ -273,6 +278,16 @@ fn main() -> Result<()> {
         builder = builder.home(dir);
     }
     let ctx = builder.build()?;
+
+    let config = Config {
+        force,
+        network_policy,
+        context: ctx,
+        realm_name: realm_name.into(),
+        mapping_name: mapping_name.into(),
+    };
+
+
     let mut rt = tokio::runtime::Builder::new()
         .basic_scheduler()
         .enable_io()
@@ -291,18 +306,22 @@ fn main() -> Result<()> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;
-            let mut mapping = Mapping::open(&ctx, network_policy, realm_name,
-                                            mapping_name)
+            let mut mapping = Mapping::open(&config.context,
+                                            config.network_policy,
+                                            &config.realm_name,
+                                            &config.mapping_name)
                 .context("Failed to open the mapping")?;
-            commands::decrypt(&ctx, policy, &mut mapping,
+            commands::decrypt(&config.context, policy, &mut mapping,
                               &mut input, &mut output,
                               signatures, certs, secrets,
                               m.is_present("dump-session-key"),
                               m.is_present("dump"), m.is_present("hex"))?;
         },
         ("encrypt",  Some(m)) => {
-            let mapping = Mapping::open(&ctx, network_policy, realm_name,
-                                        mapping_name)
+            let mapping = Mapping::open(&config.context,
+                                        config.network_policy,
+                                        &config.realm_name,
+                                        &config.mapping_name)
                 .context("Failed to open the mapping")?;
             let mut recipients = m.values_of("recipients-cert-file")
                 .map(load_certs)
@@ -386,10 +405,12 @@ fn main() -> Result<()> {
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
-            let mut mapping = Mapping::open(&ctx, network_policy, realm_name,
-                                            mapping_name)
+            let mut mapping = Mapping::open(&config.context,
+                                            config.network_policy,
+                                            &config.realm_name,
+                                            &config.mapping_name)
                 .context("Failed to open the mapping")?;
-            commands::verify(&ctx, policy, &mut mapping, &mut input,
+            commands::verify(&config.context, policy, &mut mapping, &mut input,
                              detached.as_mut().map(|r| r as &mut (dyn io::Read + Sync + Send)),
                              &mut output, signatures, certs)?;
         },
@@ -482,11 +503,13 @@ fn main() -> Result<()> {
                 let secrets = m.values_of("secret-key-file")
                     .map(load_keys)
                     .unwrap_or(Ok(vec![]))?;
-                let mut mapping = Mapping::open(&ctx, network_policy,
-                                                realm_name, mapping_name)
+                let mut mapping = Mapping::open(&config.context,
+                                                config.network_policy,
+                                                &config.realm_name,
+                                                &config.mapping_name)
                     .context("Failed to open the mapping")?;
                 commands::decrypt::decrypt_unwrap(
-                    &ctx, policy, &mut mapping,
+                    &config.context, policy, &mut mapping,
                     &mut input, &mut output,
                     secrets, m.is_present("dump-session-key"))?;
                 output.finalize()?;
@@ -585,117 +608,10 @@ fn main() -> Result<()> {
                 _ => unreachable!(),
             }
         },
-        ("mapping",  Some(m)) => {
-            let mapping = Mapping::open(&ctx, network_policy, realm_name,
-                                        mapping_name)
-                .context("Failed to open the mapping")?;
-
-            match m.subcommand() {
-                ("list",  Some(_)) => {
-                    list_bindings(&mapping, realm_name, mapping_name)?;
-                },
-                ("add",  Some(m)) => {
-                    let fp = m.value_of("fingerprint").unwrap().parse()
-                        .expect("Malformed fingerprint");
-                    mapping.add(m.value_of("label").unwrap(), &fp)?;
-                },
-                ("import",  Some(m)) => {
-                    let label = m.value_of("label").unwrap();
-                    help_warning(label);
-                    let mut input = open_or_stdin(m.value_of("input"))?;
-                    let cert = Cert::from_reader(&mut input)?;
-                    mapping.import(label, &cert)?;
-                },
-                ("export",  Some(m)) => {
-                    let cert = mapping.lookup(m.value_of("label").unwrap())?.cert()?;
-                    let mut output = create_or_stdout(m.value_of("output"), force)?;
-                    if m.is_present("binary") {
-                        cert.serialize(&mut output)?;
-                    } else {
-                        cert.armored().serialize(&mut output)?;
-                    }
-                },
-                ("delete",  Some(m)) => {
-                    if m.is_present("label") == m.is_present("the-mapping") {
-                        eprintln!("Please specify either a label or --the-mapping.");
-                        exit(1);
-                    }
-
-                    if m.is_present("the-mapping") {
-                        mapping.delete().context("Failed to delete the mapping")?;
-                    } else {
-                        let binding = mapping.lookup(m.value_of("label").unwrap())
-                            .context("Failed to get key")?;
-                        binding.delete().context("Failed to delete the binding")?;
-                    }
-                },
-                ("stats",  Some(m)) => {
-                    commands::mapping_print_stats(&mapping,
-                                                m.value_of("label").unwrap())?;
-                },
-                ("log",  Some(m)) => {
-                    if m.is_present("label") {
-                        let binding = mapping.lookup(m.value_of("label").unwrap())
-                            .context("No such key")?;
-                        print_log(binding.log().context("Failed to get log")?, false);
-                    } else {
-                        print_log(mapping.log().context("Failed to get log")?, true);
-                    }
-                },
-                _ => unreachable!(),
-            }
-        },
-        ("list",  Some(m)) => {
-            match m.subcommand() {
-                ("mappings",  Some(m)) => {
-                    let mut table = Table::new();
-                    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                    table.set_titles(row!["realm", "name", "network policy"]);
-
-                    for (realm, name, network_policy, _)
-                        in Mapping::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
-                            table.add_row(Row::new(vec![
-                                Cell::new(&realm),
-                                Cell::new(&name),
-                                Cell::new(&format!("{:?}", network_policy))
-                            ]));
-                        }
-
-                    table.printstd();
-                },
-                ("bindings",  Some(m)) => {
-                    for (realm, name, _, mapping)
-                        in Mapping::list(&ctx, m.value_of("prefix").unwrap_or(""))? {
-                            list_bindings(&mapping, &realm, &name)?;
-                        }
-                },
-                ("keys",  Some(_)) => {
-                    let mut table = Table::new();
-                    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-                    table.set_titles(row!["fingerprint", "updated", "status"]);
-
-                    for (fingerprint, key) in store::Store::list_keys(&ctx)? {
-                            let stats = key.stats()
-                                .context("Failed to get key stats")?;
-                            table.add_row(Row::new(vec![
-                                Cell::new(&fingerprint.to_string()),
-                                if let Some(t) = stats.updated {
-                                    Cell::new(&t.convert().to_string())
-                                } else {
-                                    Cell::new("")
-                                },
-                                Cell::new("")
-                            ]));
-                        }
-
-                    table.printstd();
-                },
-                ("log",  Some(_)) => {
-                    print_log(store::Store::server_log(&ctx)?, true);
-                },
-                _ => unreachable!(),
-            }
-        },
+        ("mapping",  Some(m)) =>
+            commands::mappings::dispatch_mapping(config, m)?,
+        ("list",  Some(m)) =>
+            commands::mappings::dispatch_list(config, m)?,
         ("key", Some(m)) => match m.subcommand() {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
             ("adopt", Some(m)) => commands::key::adopt(m, policy)?,
@@ -756,49 +672,6 @@ fn main() -> Result<()> {
     }
 
     return Ok(())
-}
-
-fn list_bindings(mapping: &Mapping, realm: &str, name: &str)
-                 -> Result<()> {
-    if mapping.iter()?.count() == 0 {
-        println!("No label-key bindings in the \"{}/{}\" mapping.",
-                 realm, name);
-        return Ok(());
-    }
-
-    println!("Realm: {:?}, mapping: {:?}:", realm, name);
-
-    let mut table = Table::new();
-    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-    table.set_titles(row!["label", "fingerprint"]);
-    for (label, fingerprint, _) in mapping.iter()? {
-        table.add_row(Row::new(vec![
-            Cell::new(&label),
-            Cell::new(&fingerprint.to_string())]));
-    }
-    table.printstd();
-    Ok(())
-}
-
-fn print_log(iter: LogIter, with_slug: bool) {
-    let mut table = Table::new();
-    table.set_format(*prettytable::format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-    let mut head = row!["timestamp", "message"];
-    if with_slug {
-        head.insert_cell(1, Cell::new("slug"));
-    }
-    table.set_titles(head);
-
-    for entry in iter {
-        let mut row = row![&entry.timestamp.convert().to_string(),
-                           &entry.short()];
-        if with_slug {
-            row.insert_cell(1, Cell::new(&entry.slug));
-        }
-        table.add_row(row);
-    }
-
-    table.printstd();
 }
 
 /// Parses the given string depicting a ISO 8601 timestamp.

@@ -33,7 +33,6 @@ pub use self::decrypt::decrypt;
 mod sign;
 pub use self::sign::sign;
 pub mod dump;
-use dump::Convert;
 pub use self::dump::dump;
 mod inspect;
 pub use self::inspect::inspect;
@@ -41,6 +40,7 @@ pub mod key;
 pub mod merge_signatures;
 pub use self::merge_signatures::merge_signatures;
 pub mod certring;
+pub mod mappings;
 
 /// Returns suitable signing keys from a given list of Certs.
 fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
@@ -505,40 +505,5 @@ pub fn join(inputs: Option<clap::Values>, output: &mut dyn io::Write)
             .map(true).build()?;
         copy(ppr, output)?;
     }
-    Ok(())
-}
-
-pub fn mapping_print_stats(mapping: &store::Mapping, label: &str) -> Result<()> {
-    fn print_stamps(st: &store::Stamps) -> Result<()> {
-        println!("{} messages using this key", st.count);
-        if let Some(t) = st.first {
-            println!("    First: {}", t.convert());
-        }
-        if let Some(t) = st.last {
-            println!("    Last: {}", t.convert());
-        }
-        Ok(())
-    }
-
-    fn print_stats(st: &store::Stats) -> Result<()> {
-        if let Some(t) = st.created {
-            println!("  Created: {}", t.convert());
-        }
-        if let Some(t) = st.updated {
-            println!("  Updated: {}", t.convert());
-        }
-        print!("  Encrypted ");
-        print_stamps(&st.encryption)?;
-        print!("  Verified ");
-        print_stamps(&st.verification)?;
-        Ok(())
-    }
-
-    let binding = mapping.lookup(label)?;
-    println!("Binding {:?}", label);
-    print_stats(&binding.stats().context("Failed to get stats")?)?;
-    let key = binding.key().context("Failed to get key")?;
-    println!("Key");
-    print_stats(&key.stats().context("Failed to get stats")?)?;
     Ok(())
 }
