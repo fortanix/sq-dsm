@@ -12,9 +12,7 @@ use chrono::{DateTime, offset::Utc};
 
 use buffered_reader::File;
 use sequoia_openpgp as openpgp;
-use sequoia_core;
 use sequoia_net;
-use sequoia_store::Mapping;
 
 use openpgp::{
     Result,
@@ -33,7 +31,6 @@ use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
-use sequoia_core::Context;
 use sequoia_net as net;
 use sequoia_net::{KeyServer, wkd};
 
@@ -228,6 +225,7 @@ fn decrypt_key<R>(key: Key<key::SecretParts, R>, passwords: &mut Vec<String>)
 ///
 /// This should be used wherever a positional argument is followed by
 /// an optional positional argument.
+#[allow(dead_code)]
 fn help_warning(arg: &str) {
     if arg == "help" {
         eprintln!("Warning: \"help\" is not a subcommand here.  \
@@ -235,12 +233,10 @@ fn help_warning(arg: &str) {
     }
 }
 
+#[allow(dead_code)]
 pub struct Config {
     force: bool,
     network_policy: net::Policy,
-    context: sequoia_core::Context,
-    realm_name: String,
-    mapping_name: String,
 }
 
 fn main() -> Result<()> {
@@ -265,26 +261,10 @@ fn main() -> Result<()> {
         },
     };
     let force = matches.is_present("force");
-    let (realm_name, mapping_name) = {
-        let s = matches.value_of("mapping").expect("has a default value");
-        if let Some(i) = s.find('/') {
-            (&s[..i], &s[i+1..])
-        } else {
-            (s, "default")
-        }
-    };
-    let mut builder = Context::configure();
-    if let Some(dir) = matches.value_of("home") {
-        builder = builder.home(dir);
-    }
-    let ctx = builder.build()?;
 
     let config = Config {
         force,
         network_policy,
-        context: ctx,
-        realm_name: realm_name.into(),
-        mapping_name: mapping_name.into(),
     };
 
 
@@ -313,20 +293,9 @@ fn main() -> Result<()> {
                               m.is_present("dump"), m.is_present("hex"))?;
         },
         ("encrypt",  Some(m)) => {
-            let mapping = Mapping::open(&config.context,
-                                        config.network_policy,
-                                        &config.realm_name,
-                                        &config.mapping_name)
-                .context("Failed to open the mapping")?;
-            let mut recipients = m.values_of("recipients-cert-file")
+            let recipients = m.values_of("recipients-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
-            if let Some(r) = m.values_of("recipient") {
-                for recipient in r {
-                    recipients.push(mapping.lookup(recipient)
-                                    .context("No such key found")?.cert()?);
-                }
-            }
             let mut input = open_or_stdin(m.value_of("input"))?;
             let output =
                 create_or_stdout_pgp(m.value_of("output"), force,
@@ -593,10 +562,6 @@ fn main() -> Result<()> {
                 _ => unreachable!(),
             }
         },
-        ("mapping",  Some(m)) =>
-            commands::mappings::dispatch_mapping(config, m)?,
-        ("list",  Some(m)) =>
-            commands::mappings::dispatch_list(config, m)?,
         ("key", Some(m)) => match m.subcommand() {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
             ("adopt", Some(m)) => commands::key::adopt(m, policy)?,

@@ -25,15 +25,12 @@ maintenance = { status = "actively-developed" }
 buffered-reader = { path = "../buffered-reader", version = "1.0.0", default-features = false }
 sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
 sequoia-autocrypt = { path = "../autocrypt", version = "0.22", default-features = false }
-sequoia-core = { path = "../core", version = "0.22", default-features = false }
 sequoia-ipc = { path = "../ipc", version = "0.22", default-features = false }
 sequoia-net = { path = "../net", version = "0.22", default-features = false }
-sequoia-store = { path = "../store", version = "0.22", default-features = false }
 anyhow = "1.0.18"
 chrono = "0.4.10"
 clap = "2.33"
 itertools = "0.9"
-prettytable-rs = "0.8.0"
 tempfile = "3.1"
 crossterm = "0.13"
 tokio = { version = "0.2.19", features = ["rt-core", "io-util", "io-driver"] }
@@ -55,7 +52,6 @@ path = "src/sq-usage.rs"
 default = [
     "buffered-reader/compression",
     "sequoia-openpgp/default",
-    "sequoia-store/background-services"
 ]
 crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
 crypto-cng = ["sequoia-openpgp/crypto-cng"]

@@ -25,7 +25,6 @@ use crate::openpgp::serialize::stream::{
     padding::Padder,
 };
 use crate::openpgp::policy::Policy;
-use sequoia_store as store;
 
 use crate::{
     Config,
@@ -43,7 +42,6 @@ pub mod key;
 pub mod merge_signatures;
 pub use self::merge_signatures::merge_signatures;
 pub mod certring;
-pub mod mappings;
 
 /// Returns suitable signing keys from a given list of Certs.
 fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
@@ -200,6 +198,7 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
 }
 
 struct VHelper {
+    #[allow(dead_code)]
     config: Config,
     signatures: usize,
     certs: Option<Vec<Cert>>,
@@ -325,8 +324,8 @@ impl VHelper {
 }
 
 impl VerificationHelper for VHelper {
-    fn get_certs(&mut self, ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
-        let mut certs = self.certs.take().unwrap();
+    fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
+        let certs = self.certs.take().unwrap();
         // Get all keys.
         let seen: HashSet<_> = certs.iter()
             .flat_map(|cert| {
@@ -336,51 +335,6 @@ impl VerificationHelper for VHelper {
         // Explicitly provided keys are trusted.
         self.trusted = seen.clone();
 
-        use sequoia_store::Mapping;
-        let mapping = Mapping::open(&self.config.context,
-                                    self.config.network_policy,
-                                    &self.config.realm_name,
-                                    &self.config.mapping_name)
-            .context("Failed to open the mapping")?;
-
-        // Try to get missing Certs from the mapping.
-        for id in ids.iter().map(|i| KeyID::from(i))
-            .filter(|i| !seen.contains(i))
-        {
-            let _ =
-                mapping.lookup_by_subkeyid(&id)
-                .and_then(|binding| {
-                    self.labels.insert(id.clone(), binding.label()?);
-
-                    // Keys from our mapping are trusted.
-                    self.trusted.insert(id.clone());
-
-                    binding.cert()
-                })
-                .and_then(|cert| {
-                    certs.push(cert);
-                    Ok(())
-                });
-        }
-
-        // Update seen.
-        let seen = self.trusted.clone();
-
-        // Try to get missing Certs from the pool.
-        for id in ids.iter().map(|i| KeyID::from(i.clone()))
-            .filter(|i| !seen.contains(i))
-        {
-            let _ =
-                store::Store::lookup_by_subkeyid(&self.config.context, &id)
-                .and_then(|key| {
-                    // Keys from the pool are NOT trusted.
-                    key.cert()
-                })
-                .and_then(|cert| {
-                    certs.push(cert);
-                    Ok(())
-                });
-        }
         Ok(certs)
     }
 

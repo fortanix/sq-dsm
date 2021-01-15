@@ -14,11 +14,9 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!         --home <DIRECTORY>                Sets the home directory to use
 //!         --known-notation <NOTATION>...    The notation name is considered known. This is used when validating
 //!                                           signatures. Signatures that have unknown notations with the critical bit set
 //!                                           are considered invalid.
-//!     -m, --mapping <MAPPING>               Sets the realm and mapping to use [default: org.sequoia-pgp.contacts/default]
 //!     -p, --policy <NETWORK-POLICY>         Sets the network policy to use
 //!
 //! SUBCOMMANDS:
@@ -26,7 +24,6 @@
 //!     encrypt             Encrypts a message
 //!     sign                Signs a message
 //!     verify              Verifies a message
-//!     mapping             Interacts with key mappings
 //!     merge-signatures    Merges two signatures
 //!     keyserver           Interacts with keyservers
 //!     autocrypt           Autocrypt support
@@ -36,7 +33,6 @@
 //!     help                Prints this message or the help of the given subcommand(s)
 //!     inspect             Inspects a sequence of OpenPGP packets
 //!     key                 Manipulates keys
-//!     list                Lists key mappings and known keys
 //!     packet              OpenPGP Packet manipulation
 //!     wkd                 Interacts with Web Key Directories
 //! ```
@@ -92,7 +88,6 @@
 //!             transport encryption, rest selects those for encrypting data at rest, and all selects all encryption-capable
 //!             subkeys [default: all]  [possible values: transport, rest, all]
 //!     -o, --output <FILE>                           Sets the output file to use
-//!     -r, --recipient <LABEL>...                    Recipient to encrypt for (can be given multiple times)
 //!         --recipients-cert-file <CERTS-FILE>...
 //!             Recipients to encrypt for, given as a file (can be given multiple times)
 //!
@@ -152,145 +147,6 @@
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
-//! ```
-//!
-//! ## Subcommand mapping
-//!
-//! ```text
-//! Interacts with key mappings
-//!
-//! USAGE:
-//!     sq mapping <SUBCOMMAND>
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! SUBCOMMANDS:
-//!     add       Add a key identified by fingerprint
-//!     delete    Deletes bindings or mappings
-//!     export    Exports a key
-//!     help      Prints this message or the help of the given subcommand(s)
-//!     import    Imports a key
-//!     list      Lists keys in the mapping
-//!     log       Lists the keystore log
-//!     stats     Get stats for the given label
-//! ```
-//!
-//! ### Subcommand mapping add
-//!
-//! ```text
-//! Add a key identified by fingerprint
-//!
-//! USAGE:
-//!     sq mapping add <LABEL> <FINGERPRINT>
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <LABEL>          Label to use
-//!     <FINGERPRINT>    Key to add
-//! ```
-//!
-//! ### Subcommand mapping delete
-//!
-//! ```text
-//! Deletes bindings or mappings
-//!
-//! USAGE:
-//!     sq mapping delete [FLAGS] [LABEL]
-//!
-//! FLAGS:
-//!     -h, --help           Prints help information
-//!         --the-mapping    Delete the selected mapping (change with --mapping)
-//!     -V, --version        Prints version information
-//!
-//! ARGS:
-//!     <LABEL>    Delete binding with this label
-//! ```
-//!
-//! ### Subcommand mapping export
-//!
-//! ```text
-//! Exports a key
-//!
-//! USAGE:
-//!     sq mapping export [FLAGS] [OPTIONS] <LABEL>
-//!
-//! FLAGS:
-//!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! OPTIONS:
-//!     -o, --output <FILE>    Sets the output file to use
-//!
-//! ARGS:
-//!     <LABEL>    Label to use
-//! ```
-//!
-//! ### Subcommand mapping import
-//!
-//! ```text
-//! Imports a key
-//!
-//! USAGE:
-//!     sq mapping import <LABEL> [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <LABEL>    Label to use
-//!     <FILE>     Sets the input file to use
-//! ```
-//!
-//! ### Subcommand mapping list
-//!
-//! ```text
-//! Lists keys in the mapping
-//!
-//! USAGE:
-//!     sq mapping list
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//! ```
-//!
-//! ### Subcommand mapping log
-//!
-//! ```text
-//! Lists the keystore log
-//!
-//! USAGE:
-//!     sq mapping log [LABEL]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <LABEL>    List messages related to this label
-//! ```
-//!
-//! ### Subcommand mapping stats
-//!
-//! ```text
-//! Get stats for the given label
-//!
-//! USAGE:
-//!     sq mapping stats <LABEL>
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <LABEL>    Label to use
 //! ```
 //!
 //! ## Subcommand merge-signatures
@@ -676,84 +532,6 @@
 //!         --rev-cert <FILE or ->           Sets the output file for the revocation certificate. Default is <OUTFILE>.rev,
 //!                                          mandatory if OUTFILE is '-'.
 //!     -u, --userid <EMAIL>...              Add userid to the key (can be given multiple times)
-//! ```
-//!
-//! ## Subcommand list
-//!
-//! ```text
-//! Lists key mappings and known keys
-//!
-//! USAGE:
-//!     sq list <SUBCOMMAND>
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! SUBCOMMANDS:
-//!     bindings    Lists all bindings in all key mappings
-//!     help        Prints this message or the help of the given subcommand(s)
-//!     keys        Lists all keys in the common key pool
-//!     log         Lists the server log
-//!     mappings    Lists key mappings
-//! ```
-//!
-//! ### Subcommand list bindings
-//!
-//! ```text
-//! Lists all bindings in all key mappings
-//!
-//! USAGE:
-//!     sq list bindings [PREFIX]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <PREFIX>    List only bindings from mappings with the given realm prefix
-//! ```
-//!
-//! ### Subcommand list keys
-//!
-//! ```text
-//! Lists all keys in the common key pool
-//!
-//! USAGE:
-//!     sq list keys
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//! ```
-//!
-//! ### Subcommand list log
-//!
-//! ```text
-//! Lists the server log
-//!
-//! USAGE:
-//!     sq list log
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//! ```
-//!
-//! ### Subcommand list mappings
-//!
-//! ```text
-//! Lists key mappings
-//!
-//! USAGE:
-//!     sq list mappings [PREFIX]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <PREFIX>    List only mappings with the given realm prefix
 //! ```
 //!
 //! ## Subcommand packet
