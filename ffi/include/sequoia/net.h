@@ -9,6 +9,33 @@
 typedef struct sq_keyserver *sq_keyserver_t;
 
 /*/
+/// Network policy for Sequoia.
+///
+/// With this policy you can control how Sequoia accesses remote
+/// systems.
+/*/
+typedef enum sq_network_policy {
+  /* Do not contact remote systems.  */
+  SQ_NETWORK_POLICY_OFFLINE = 0,
+
+  /* Only contact remote systems using anonymization techniques like
+   * TOR.  */
+  SQ_NETWORK_POLICY_ANONYMIZED = 1,
+
+  /* Only contact remote systems using transports offering
+   * encryption and authentication like TLS.  */
+  SQ_NETWORK_POLICY_ENCRYPTED = 2,
+
+  /* Contact remote systems even with insecure transports.  */
+  SQ_NETWORK_POLICY_INSECURE = 3,
+
+  /* Dummy value to make sure the enumeration has a defined size.  Do
+     not use this value.  */
+  SQ_NETWORK_POLICY_FORCE_WIDTH = INT_MAX,
+} sq_network_policy_t;
+
+
+/*/
 /// Returns a handle for the given URI.
 ///
 /// `uri` is a UTF-8 encoded value of a keyserver URI,
@@ -17,6 +44,7 @@ typedef struct sq_keyserver *sq_keyserver_t;
 /// Returns `NULL` on errors.
 /*/
 sq_keyserver_t sq_keyserver_new (sq_context_t ctx,
+				 sq_network_policy_t policy,
 				 const char *uri);
 
 /*/
@@ -29,6 +57,7 @@ sq_keyserver_t sq_keyserver_new (sq_context_t ctx,
 /// Returns `NULL` on errors.
 /*/
 sq_keyserver_t sq_keyserver_with_cert (sq_context_t ctx,
+				       sq_network_policy_t policy,
 				       const char *uri,
 				       const uint8_t *cert,
 				       size_t len);
@@ -41,7 +70,8 @@ sq_keyserver_t sq_keyserver_with_cert (sq_context_t ctx,
 ///
 /// Returns `NULL` on errors.
 /*/
-sq_keyserver_t sq_keyserver_keys_openpgp_org (sq_context_t ctx);
+sq_keyserver_t sq_keyserver_keys_openpgp_org (sq_context_t ctx,
+					      sq_network_policy_t policy);
 
 /*/
 /// Frees a keyserver object.

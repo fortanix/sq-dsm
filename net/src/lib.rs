@@ -15,11 +15,9 @@
 //!
 //! ```no_run
 //! # use sequoia_openpgp::KeyID;
-//! # use sequoia_core::Context;
-//! # use sequoia_net::{KeyServer, Result};
+//! # use sequoia_net::{KeyServer, Policy, Result};
 //! # async fn f() -> Result<()> {
-//! let ctx = Context::new()?;
-//! let mut ks = KeyServer::keys_openpgp_org(&ctx)?;
+//! let mut ks = KeyServer::keys_openpgp_org(Policy::Encrypted)?;
 //! let keyid: KeyID = "31855247603831FD".parse()?;
 //! println!("{:?}", ks.get(keyid).await?);
 //! # Ok(())
@@ -36,6 +34,7 @@ use native_tls::{Certificate, TlsConnector};
 use percent_encoding::{percent_encode, AsciiSet, CONTROLS};
 
 use std::convert::From;
+use std::fmt;
 use std::io::Cursor;
 use url::Url;
 
@@ -48,7 +47,6 @@ use openpgp::{
     parse::Parse,
     serialize::Serialize,
 };
-use sequoia_core::{Context, NetworkPolicy};
 
 pub mod wkd;
 
@@ -61,6 +59,75 @@ const KEYSERVER_ENCODE_SET: &AsciiSet =
     // respect to the encoding.
     .add(b'-').add(b'+').add(b'/');
 
+/// Network policy for Sequoia.
+///
+/// With this policy you can control how Sequoia accesses remote
+/// systems.
+#[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
+pub enum Policy {
+    /// Do not contact remote systems.
+    Offline,
+
+    /// Only contact remote systems using anonymization techniques
+    /// like TOR.
+    Anonymized,
+
+    /// Only contact remote systems using transports offering
+    /// encryption and authentication like TLS.
+    Encrypted,
+
+    /// Contact remote systems even with insecure transports.
+    Insecure,
+}
+
+impl fmt::Display for Policy {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            &Policy::Offline    => "Offline",
+            &Policy::Anonymized => "Anonymized",
+            &Policy::Encrypted  => "Encrypted",
+            &Policy::Insecure   => "Insecure",
+        })
+    }
+}
+
+impl Policy {
+    /// Asserts that this policy allows an action requiring policy
+    /// `action`.
+    pub fn assert(&self, action: Policy) -> Result<()> {
+        if action > *self {
+            Err(Error::PolicyViolation(action).into())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+impl<'a> From<&'a Policy> for u8 {
+    fn from(policy: &Policy) -> Self {
+        match policy {
+            &Policy::Offline    => 0,
+            &Policy::Anonymized => 1,
+            &Policy::Encrypted  => 2,
+            &Policy::Insecure   => 3,
+        }
+    }
+}
+
+
+// XXX: TryFrom would be nice.
+impl From<u8> for Policy {
+    fn from(policy: u8) -> Self {
+        match policy {
+            0 => Policy::Offline,
+            1 => Policy::Anonymized,
+            2 => Policy::Encrypted,
+            3 => Policy::Insecure,
+            n => panic!("Bad network policy: {}", n),
+        }
+    }
+}
+
 /// For accessing keyservers using HKP.
 pub struct KeyServer {
     client: Box<dyn AClient>,
@@ -69,7 +136,7 @@ pub struct KeyServer {
 
 impl KeyServer {
     /// Returns a handle for the given URI.
-    pub fn new(ctx: &Context, uri: &str) -> Result<Self> {
+    pub fn new(p: Policy, uri: &str) -> Result<Self> {
         let uri: Url = uri.parse()
             .or_else(|_| format!("hkps://{}", uri).parse())?;
 
@@ -82,13 +149,13 @@ impl KeyServer {
             _ => return Err(Error::MalformedUri.into()),
         };
 
-        Self::make(ctx, client, uri)
+        Self::make(p, client, uri)
     }
 
     /// Returns a handle for the given URI.
     ///
     /// `cert` is used to authenticate the server.
-    pub fn with_cert(ctx: &Context, uri: &str, cert: Certificate)
+    pub fn with_cert(p: Policy, uri: &str, cert: Certificate)
                      -> Result<Self> {
         let uri: Url = uri.parse()?;
 
@@ -103,23 +170,23 @@ impl KeyServer {
                      .build(HttpsConnector::from((http, tls.into()))))
         };
 
-        Self::make(ctx, client, uri)
+        Self::make(p, client, uri)
     }
 
     /// Returns a handle for keys.openpgp.org.
     ///
     /// The server at `hkps://keys.openpgp.org` distributes updates
     /// for OpenPGP certificates.  It is a good default choice.
-    pub fn keys_openpgp_org(ctx: &Context) -> Result<Self> {
-        Self::new(ctx, "hkps://keys.openpgp.org")
+    pub fn keys_openpgp_org(p: Policy) -> Result<Self> {
+        Self::new(p, "hkps://keys.openpgp.org")
     }
 
     /// Common code for the above functions.
-    fn make(ctx: &Context, client: Box<dyn AClient>, uri: Url) -> Result<Self> {
+    fn make(p: Policy, client: Box<dyn AClient>, uri: Url) -> Result<Self> {
         let s = uri.scheme();
         match s {
-            "hkp" => ctx.network_policy().assert(NetworkPolicy::Insecure),
-            "hkps" => ctx.network_policy().assert(NetworkPolicy::Encrypted),
+            "hkp" => p.assert(Policy::Insecure),
+            "hkps" => p.assert(Policy::Encrypted),
             _ => return Err(Error::MalformedUri.into())
         }?;
         let uri =
@@ -301,6 +368,10 @@ pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 #[derive(thiserror::Error, Debug)]
 /// Errors returned from the network routines.
 pub enum Error {
+    /// The network policy was violated by the given action.
+    #[error("Unmet network policy requirement: {0}")]
+    PolicyViolation(Policy),
+
     /// A requested key was not found.
     #[error("Key not found")]
     NotFound,
@@ -346,22 +417,63 @@ pub enum Error {
 mod tests {
     use super::*;
 
+    fn ok(policy: Policy, required: Policy) {
+        assert!(policy.assert(required).is_ok());
+    }
+
+    fn fail(policy: Policy, required: Policy) {
+        assert!(matches!(
+            policy.assert(required)
+                .err().unwrap().downcast::<Error>().unwrap(),
+            Error::PolicyViolation(_)));
+    }
+
+    #[test]
+    fn offline() {
+        let p = Policy::Offline;
+        ok(p, Policy::Offline);
+        fail(p, Policy::Anonymized);
+        fail(p, Policy::Encrypted);
+        fail(p, Policy::Insecure);
+    }
+
+    #[test]
+    fn anonymized() {
+        let p = Policy::Anonymized;
+        ok(p, Policy::Offline);
+        ok(p, Policy::Anonymized);
+        fail(p, Policy::Encrypted);
+        fail(p, Policy::Insecure);
+    }
+
+    #[test]
+    fn encrypted() {
+        let p = Policy::Encrypted;
+        ok(p, Policy::Offline);
+        ok(p, Policy::Anonymized);
+        ok(p, Policy::Encrypted);
+        fail(p, Policy::Insecure);
+    }
+
+    #[test]
+    fn insecure() {
+        let p = Policy::Insecure;
+        ok(p, Policy::Offline);
+        ok(p, Policy::Anonymized);
+        ok(p, Policy::Encrypted);
+        ok(p, Policy::Insecure);
+    }
+
     #[test]
     fn uris() {
-        let ctx = Context::configure()
-            .network_policy(sequoia_core::NetworkPolicy::Insecure)
-            .build().unwrap();
+        let p = Policy::Insecure;
+        assert!(KeyServer::new(p, "keys.openpgp.org").is_ok());
+        assert!(KeyServer::new(p, "hkp://keys.openpgp.org").is_ok());
+        assert!(KeyServer::new(p, "hkps://keys.openpgp.org").is_ok());
 
-        assert!(KeyServer::new(&ctx, "keys.openpgp.org").is_ok());
-        assert!(KeyServer::new(&ctx, "hkp://keys.openpgp.org").is_ok());
-        assert!(KeyServer::new(&ctx, "hkps://keys.openpgp.org").is_ok());
-
-        let ctx = Context::configure()
-            .network_policy(sequoia_core::NetworkPolicy::Encrypted)
-            .build().unwrap();
-
-        assert!(KeyServer::new(&ctx, "keys.openpgp.org").is_ok());
-        assert!(KeyServer::new(&ctx, "hkp://keys.openpgp.org").is_err());
-        assert!(KeyServer::new(&ctx, "hkps://keys.openpgp.org").is_ok());
+        let p = Policy::Encrypted;
+        assert!(KeyServer::new(p, "keys.openpgp.org").is_ok());
+        assert!(KeyServer::new(p, "hkp://keys.openpgp.org").is_err());
+        assert!(KeyServer::new(p, "hkps://keys.openpgp.org").is_ok());
     }
 }

@@ -14,22 +14,23 @@
 //! Sequoia updates keys in compliance with the [network policy] used
 //! to create the mapping.
 //!
-//! [network policy]: ../sequoia_core/enum.NetworkPolicy.html
+//! [network policy]: ../sequoia_net/enum.Policy.html
 //!
 //! # Examples
 //!
 //! ```
 //! # use sequoia_openpgp as openpgp;
 //! # use openpgp::Fingerprint;
-//! # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+//! # use sequoia_core::{Context, IPCPolicy};
+//! # use sequoia_net as net;
 //! # use sequoia_store::*;
 //! # fn main() { f().unwrap(); }
 //! # fn f() -> Result<()> {
 //! # let ctx = Context::configure()
-//! #     .network_policy(NetworkPolicy::Offline)
 //! #     .ipc_policy(IPCPolicy::Internal)
 //! #     .ephemeral().build()?;
-//! let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+//! let mapping = Mapping::open(&ctx, net::Policy::Offline,
+//!                             REALM_CONTACTS, "default")?;
 //!
 //! let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
 //! let binding = mapping.add("Mister B.", &fp)?;
@@ -63,7 +64,7 @@ use capnp_rpc::rpc_twoparty_capnp::Side;
 
 use sequoia_openpgp as openpgp;
 #[allow(unused_imports)]
-use sequoia_core;
+use sequoia_core as core;
 use sequoia_ipc;
 
 use crate::openpgp::Fingerprint;
@@ -71,9 +72,9 @@ use crate::openpgp::KeyID;
 use crate::openpgp::Cert;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
-use sequoia_core as core;
 use sequoia_core::Context;
 use sequoia_ipc as ipc;
+use sequoia_net as net;
 
 #[allow(dead_code)] mod store_protocol_capnp;
 use crate::store_protocol_capnp::node;
@@ -151,12 +152,11 @@ impl Store {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let cert = Cert::from_bytes(
@@ -185,12 +185,11 @@ impl Store {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let cert = Cert::from_bytes(
@@ -218,12 +217,11 @@ impl Store {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let cert = Cert::from_bytes(
@@ -252,12 +250,11 @@ impl Store {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Cert, KeyID};
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let cert = Cert::from_bytes(
@@ -333,12 +330,13 @@ impl Mapping {
     /// of the context that created the mapping in the first place.
     /// Opening the mapping with a different network policy is
     /// forbidden.
-    pub fn open(c: &Context, realm: &str, name: &str) -> Result<Self> {
+    pub fn open(c: &Context, p: net::Policy, realm: &str, name: &str)
+                -> Result<Self> {
         let (mut core, client) = Store::connect(c)?;
 
         let mut request = client.open_request();
         request.get().set_realm(realm);
-        request.get().set_network_policy(c.network_policy().into());
+        request.get().set_network_policy(p.into());
         request.get().set_ephemeral(c.ephemeral());
         request.get().set_name(name);
 
@@ -366,15 +364,16 @@ impl Mapping {
     /// ```
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// mapping.add("Mister B.", &fp)?;
     /// # Ok(())
@@ -396,17 +395,18 @@ impl Mapping {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let cert = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// mapping.import("Testy McTestface", &cert)?;
     /// # Ok(())
     /// # }
@@ -428,20 +428,22 @@ impl Mapping {
     /// ```
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// mapping.add("Mister B.", &fp)?;
     /// drop(mapping);
     /// // ...
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// let binding = mapping.lookup("Mister B.")?;
     /// # Ok(())
     /// # }
@@ -463,18 +465,19 @@ impl Mapping {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Cert, KeyID};
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let cert = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/emmelie-dorothea-dina-samantha-awina-ed25519.pgp")[..])
     /// #     .unwrap();
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// mapping.import("Emmelie", &cert)?;
     ///
     /// // Lookup by the primary key's KeyID.
@@ -506,20 +509,22 @@ impl Mapping {
     /// # use sequoia_openpgp as openpgp;
     /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// mapping.add("Mister B.", &fp)?;
     /// mapping.delete()?;
     /// // ...
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// let binding = mapping.lookup("Mister B.");
     /// assert!(binding.is_err()); // not found
     /// # Ok(())
@@ -596,15 +601,16 @@ impl Binding {
     /// ```
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     ///
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// let binding = mapping.add("Mister B.", &fp)?;
@@ -659,19 +665,20 @@ impl Binding {
     /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let old = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// # let new = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// mapping.import("Testy McTestface", &old)?;
     /// // later...
     /// let binding = mapping.lookup("Testy McTestface")?;
@@ -713,19 +720,20 @@ impl Binding {
     /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let old = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// # let new = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// mapping.import("Testy McTestface", &old)?;
     /// // later...
     /// let binding = mapping.lookup("Testy McTestface")?;
@@ -756,15 +764,16 @@ impl Binding {
     /// # use sequoia_openpgp as openpgp;
     /// # #[macro_use] use sequoia_core;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
     /// let binding = mapping.add("Mister B.", &fp)?;
     /// binding.delete()?;
@@ -863,19 +872,20 @@ impl Key {
     /// # use openpgp::Fingerprint;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, NetworkPolicy, IPCPolicy};
+    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
     /// # let ctx = Context::configure()
-    /// #     .network_policy(NetworkPolicy::Offline)
     /// #     .ipc_policy(IPCPolicy::Internal)
     /// #     .ephemeral().build()?;
     /// # let old = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy.pgp")[..]).unwrap();
     /// # let new = Cert::from_bytes(
     /// #     &include_bytes!("../../openpgp/tests/data/keys/testy-new.pgp")[..]).unwrap();
-    /// let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default")?;
+    /// let mapping = Mapping::open(&ctx, net::Policy::Offline,
+    ///                             REALM_CONTACTS, "default")?;
     /// let fp = "3E8877C877274692975189F5D03F6F865226FE8B".parse().unwrap();
     /// let binding = mapping.add("Testy McTestface", &fp)?;
     /// let key = binding.key()?;
@@ -1036,7 +1046,7 @@ pub struct MappingIter {
 }
 
 impl Iterator for MappingIter {
-    type Item = (String, String, core::NetworkPolicy, Mapping);
+    type Item = (String, String, net::Policy, Mapping);
 
     fn next(&mut self) -> Option<Self::Item> {
         let request = self.iter.next_request();
@@ -1152,13 +1162,13 @@ impl From<node::Error> for anyhow::Error {
             node::Error::MalformedFingerprint =>
                 Error::MalformedFingerprint.into(),
             node::Error::NetworkPolicyViolationOffline =>
-                core::Error::NetworkPolicyViolation(core::NetworkPolicy::Offline).into(),
+                net::Error::PolicyViolation(net::Policy::Offline).into(),
             node::Error::NetworkPolicyViolationAnonymized =>
-                core::Error::NetworkPolicyViolation(core::NetworkPolicy::Anonymized).into(),
+                net::Error::PolicyViolation(net::Policy::Anonymized).into(),
             node::Error::NetworkPolicyViolationEncrypted =>
-                core::Error::NetworkPolicyViolation(core::NetworkPolicy::Encrypted).into(),
+                net::Error::PolicyViolation(net::Policy::Encrypted).into(),
             node::Error::NetworkPolicyViolationInsecure =>
-                core::Error::NetworkPolicyViolation(core::NetworkPolicy::Insecure).into(),
+                net::Error::PolicyViolation(net::Policy::Insecure).into(),
         }
     }
 }
@@ -1232,34 +1242,34 @@ mod test {
         ( $x:expr ) => { include_bytes!(concat!("../../openpgp/tests/data/keys/", $x)) };
     }
 
+    const P: net::Policy = net::Policy::Offline;
+
     #[test]
     fn mapping_network_policy_mismatch() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
         // Create mapping.
-        Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
 
         let ctx2 = core::Context::configure()
             .home(ctx.home())
-            .network_policy(core::NetworkPolicy::Encrypted)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let mapping = Mapping::open(&ctx2, REALM_CONTACTS, "default");
-        assert_match!(core::Error::NetworkPolicyViolation(_)
-                      = mapping.err().unwrap().downcast::<core::Error>().unwrap());
+        let mapping = Mapping::open(&ctx2, net::Policy::Encrypted,
+                                    REALM_CONTACTS, "default");
+        assert_match!(net::Error::PolicyViolation(_)
+                      = mapping.err().unwrap().downcast::<net::Error>().unwrap());
     }
 
     #[test]
     fn import_key() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         let cert = Cert::from_bytes(&bytes!("testy.pgp")[..]).unwrap();
         mapping.import("Mr. McTestface", &cert).unwrap();
         let binding = mapping.lookup("Mr. McTestface").unwrap();
@@ -1271,10 +1281,9 @@ mod test {
     fn key_not_found() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         let r = mapping.lookup("I do not exist");
         assert_match!(Error::NotFound
                       = r.err().unwrap().downcast::<Error>().unwrap());
@@ -1284,10 +1293,9 @@ mod test {
     fn add_then_import_wrong_key() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         let cert = Cert::from_bytes(&bytes!("testy.pgp")[..]).unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = mapping.add("Mister B.", &fp).unwrap();
@@ -1300,10 +1308,9 @@ mod test {
     fn add_then_add_different_key() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         let b = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         mapping.add("Mister B.", &b).unwrap();
         let c = Fingerprint::from_bytes(b"cccccccccccccccccccc");
@@ -1316,11 +1323,10 @@ mod test {
     fn delete_mapping_twice() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let s0 = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let s1 = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let s0 = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
+        let s1 = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         s0.delete().unwrap();
         s1.delete().unwrap();
     }
@@ -1329,11 +1335,10 @@ mod test {
     fn delete_mapping_then_use() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let s0 = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
-        let s1 = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let s0 = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
+        let s1 = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         s0.delete().unwrap();
         let binding = s1.lookup("Foobarbaz");
         assert_match!(Error::NotFound
@@ -1348,10 +1353,9 @@ mod test {
     fn delete_binding_twice() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let b0 = mapping.add("Mister B.", &fp).unwrap();
         let b1 = mapping.lookup("Mister B.").unwrap();
@@ -1363,10 +1367,9 @@ mod test {
     fn delete_binding_then_use() {
         let ctx = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let b0 = mapping.add("Mister B.", &fp).unwrap();
         let b1 = mapping.lookup("Mister B.").unwrap();
@@ -1380,23 +1383,21 @@ mod test {
     fn make_some_mappings() -> core::Context {
         let ctx0 = core::Context::configure()
             .ephemeral()
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
-        let mapping = Mapping::open(&ctx0, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx0, P, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         mapping.add("Mister B.", &fp).unwrap();
         mapping.add("B4", &fp).unwrap();
 
-        Mapping::open(&ctx0, REALM_CONTACTS, "another mapping").unwrap();
+        Mapping::open(&ctx0, P, REALM_CONTACTS, "another mapping").unwrap();
 
         let ctx1 = core::Context::configure()
             .home(ctx0.home())
-            .network_policy(core::NetworkPolicy::Offline)
             .ipc_policy(core::IPCPolicy::Internal)
             .build().unwrap();
         let mapping =
-            Mapping::open(&ctx1, REALM_SOFTWARE_UPDATES, "default").unwrap();
+            Mapping::open(&ctx1, P, REALM_SOFTWARE_UPDATES, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"cccccccccccccccccccc");
         mapping.add("Mister C.", &fp).unwrap();
 
@@ -1406,7 +1407,7 @@ mod test {
     #[test]
     fn stats() {
         let ctx = make_some_mappings();
-        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         let binding = mapping.add("Mister B.", &fp).unwrap();
 
@@ -1446,13 +1447,13 @@ mod test {
         let (realm, name, network_policy, mapping) = iter.next().unwrap();
         assert_eq!(realm, REALM_CONTACTS);
         assert_eq!(name, "default");
-        assert_eq!(network_policy, core::NetworkPolicy::Offline);
+        assert_eq!(network_policy, net::Policy::Offline);
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");
         mapping.add("Mister B.", &fp).unwrap();
         let (realm, name, network_policy, mapping) = iter.next().unwrap();
         assert_eq!(realm, REALM_CONTACTS);
         assert_eq!(name, "another mapping");
-        assert_eq!(network_policy, core::NetworkPolicy::Offline);
+        assert_eq!(network_policy, net::Policy::Offline);
         mapping.add("Mister B.", &fp).unwrap();
         assert!(iter.next().is_none());
     }
@@ -1460,7 +1461,7 @@ mod test {
     #[test]
     fn binding_iterator() {
         let ctx = make_some_mappings();
-        let mapping = Mapping::open(&ctx, REALM_CONTACTS, "default").unwrap();
+        let mapping = Mapping::open(&ctx, P, REALM_CONTACTS, "default").unwrap();
         let mut iter = mapping.iter().unwrap();
         let (label, fingerprint, binding) = iter.next().unwrap();
         let fp = Fingerprint::from_bytes(b"bbbbbbbbbbbbbbbbbbbb");

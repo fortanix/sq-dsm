@@ -6,12 +6,10 @@
 //!
 //! # Examples
 //!
-//! We provide a very reasonable default key server backed by
-//! `hkps.pool.sks-keyservers.net`, the subset of the [SKS keyserver]
-//! network that uses https to protect integrity and confidentiality
-//! of the communication with the client:
+//! As reasonable default key server we provide a shortcut to use
+//! [`keys.openpgp.org`]:
 //!
-//! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
+//! [`keys.openpgp.org`]: https://keys.openpgp.org
 //!
 //! ```c
 //! #include <sequoia.h>
@@ -22,7 +20,7 @@
 //! pgp_cert_t cert;
 //!
 //! ctx = sq_context_new (NULL);
-//! ks = sq_keyserver_keys_openpgp_org (ctx);
+//! ks = sq_keyserver_keys_openpgp_org (ctx, SQ_NETWORK_POLICY_ENCRYPTED);
 //! id = pgp_keyid_from_bytes ((uint8_t *) "\x24\x7F\x6D\xAB\xC8\x49\x14\xFE");
 //! cert = sq_keyserver_get (ctx, ks, id);
 //!
@@ -54,12 +52,14 @@ use crate::Maybe;
 ///
 /// Returns `NULL` on errors.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_keyserver_new(ctx: *mut Context, uri: *const c_char) -> *mut KeyServer {
+fn sq_keyserver_new(ctx: *mut Context, policy: u8, uri: *const c_char)
+                    -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
+    let policy = policy.into();
     let uri = ffi_param_cstr!(uri).to_string_lossy();
 
-    ffi_try_box!(KeyServer::new(&ctx.c, &uri))
+    ffi_try_box!(KeyServer::new(policy, &uri))
 }
 
 /// Returns a handle for the given URI.
@@ -70,12 +70,13 @@ fn sq_keyserver_new(ctx: *mut Context, uri: *const c_char) -> *mut KeyServer {
 ///
 /// Returns `NULL` on errors.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_keyserver_with_cert(ctx: *mut Context,
+fn sq_keyserver_with_cert(ctx: *mut Context, policy: u8,
                           uri: *const c_char,
                           cert: *const u8,
                           len: size_t) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
+    let policy = policy.into();
     let uri = ffi_param_cstr!(uri).to_string_lossy();
 
     if cert.is_null() {
@@ -88,7 +89,7 @@ fn sq_keyserver_with_cert(ctx: *mut Context,
 
     let cert = ffi_try!(Certificate::from_der(cert)
                     .map_err(|e| ::anyhow::Error::from(e)));
-    ffi_try_box!(KeyServer::with_cert(&ctx.c, &uri, cert))
+    ffi_try_box!(KeyServer::with_cert(policy, &uri, cert))
 }
 
 /// Returns a handle for keys.openpgp.org.
@@ -98,10 +99,12 @@ fn sq_keyserver_with_cert(ctx: *mut Context,
 ///
 /// Returns `NULL` on errors.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_keyserver_keys_openpgp_org(ctx: *mut Context) -> *mut KeyServer {
+fn sq_keyserver_keys_openpgp_org(ctx: *mut Context, policy: u8)
+                                 -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    ffi_try_box!(KeyServer::keys_openpgp_org(&ctx.c))
+    let policy = policy.into();
+    ffi_try_box!(KeyServer::keys_openpgp_org(policy))
 }
 
 /// Frees a keyserver object.

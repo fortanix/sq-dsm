@@ -1993,7 +1993,6 @@ dependencies = [
  "native-tls",
  "percent-encoding",
  "rand",
- "sequoia-core",
  "sequoia-openpgp",
  "tempfile",
  "thiserror",

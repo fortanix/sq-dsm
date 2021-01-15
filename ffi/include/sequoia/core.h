@@ -33,32 +33,6 @@ pgp_error_t sq_context_last_error (sq_context_t ctx);
 typedef struct sq_config *sq_config_t;
 
 /*/
-/// Network policy for Sequoia.
-///
-/// With this policy you can control how Sequoia accesses remote
-/// systems.
-/*/
-typedef enum sq_network_policy {
-  /* Do not contact remote systems.  */
-  SQ_NETWORK_POLICY_OFFLINE = 0,
-
-  /* Only contact remote systems using anonymization techniques like
-   * TOR.  */
-  SQ_NETWORK_POLICY_ANONYMIZED = 1,
-
-  /* Only contact remote systems using transports offering
-   * encryption and authentication like TLS.  */
-  SQ_NETWORK_POLICY_ENCRYPTED = 2,
-
-  /* Contact remote systems even with insecure transports.  */
-  SQ_NETWORK_POLICY_INSECURE = 3,
-
-  /* Dummy value to make sure the enumeration has a defined size.  Do
-     not use this value.  */
-  SQ_NETWORK_POLICY_FORCE_WIDTH = INT_MAX,
-} sq_network_policy_t;
-
-/*/
 /// IPC policy for Sequoia.
 ///
 /// With this policy you can control how Sequoia starts background
@@ -155,11 +129,6 @@ const char *sq_context_home(const sq_context_t ctx);
 const char *sq_context_lib(const sq_context_t ctx);
 
 /*/
-/// Returns the network policy.
-/*/
-sq_network_policy_t sq_context_network_policy(const sq_context_t ctx);
-
-/*/
 /// Returns the IPC policy.
 /*/
 sq_ipc_policy_t sq_context_ipc_policy(const sq_context_t ctx);
@@ -189,11 +158,6 @@ void sq_config_home(sq_config_t cfg, const char *home);
 /// Sets the directory containing backend servers.
 /*/
 void sq_config_lib(sq_config_t cfg, const char *lib);
-
-/*/
-/// Sets the network policy.
-/*/
-void sq_config_network_policy(sq_config_t cfg, sq_network_policy_t policy);
 
 /*/
 /// Sets the IPC policy.

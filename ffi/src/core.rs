@@ -30,7 +30,7 @@
 //! sq_context_t ctx;
 //!
 //! cfg = sq_context_configure ();
-//! sq_config_network_policy (cfg, SQ_NETWORK_POLICY_OFFLINE);
+//! sq_config_ipc_policy (cfg, SQ_IPC_POLICY_ROBUST);
 //! ctx = sq_config_build (cfg, NULL);
 //!
 //! /* Use Sequoia.  */
@@ -111,13 +111,6 @@ fn sq_context_lib(ctx: *const Context) -> *const c_char {
     ctx.c.lib().to_string_lossy().as_bytes().as_ptr() as *const c_char
 }
 
-/// Returns the network policy.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_context_network_policy(ctx: *const Context) -> c_int {
-    let ctx = ffi_param_ref!(ctx);
-    u8::from(ctx.c.network_policy()) as c_int
-}
-
 /// Returns the IPC policy.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_ipc_policy(ctx: *const Context) -> c_int {
@@ -162,16 +155,6 @@ fn sq_config_lib(cfg: *mut Config, lib: *const c_char) {
     let cfg = ffi_param_ref_mut!(cfg);
     let lib = ffi_param_cstr!(lib).to_string_lossy();
     cfg.set_lib(&lib.as_ref());
-}
-
-/// Sets the network policy.
-#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
-fn sq_config_network_policy(cfg: *mut Config, policy: c_int) {
-    let cfg = ffi_param_ref_mut!(cfg);
-    if policy < 0 || policy > 3 {
-        panic!("Bad network policy: {}", policy);
-    }
-    cfg.set_network_policy((policy as u8).into());
 }
 
 /// Sets the IPC policy.

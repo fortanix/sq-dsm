@@ -190,15 +190,17 @@ fn sq_log_iter_free(iter: Option<&mut LogIter>) {
 /// forbidden.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_mapping_open(ctx: *mut Context,
+                   policy: u8,
                  realm: *const c_char,
                  name: *const c_char)
                  -> *mut Mapping {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
+    let policy = policy.into();
     let realm = ffi_param_cstr!(realm).to_string_lossy();
     let name = ffi_param_cstr!(name).to_string_lossy();
 
-    ffi_try_box!(Mapping::open(&ctx.c, &realm, &name))
+    ffi_try_box!(Mapping::open(&ctx.c, policy, &realm, &name))
 }
 
 /// Frees a sq_mapping_t.

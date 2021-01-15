@@ -285,10 +285,10 @@ impl MappingServer {
         MappingServer{c: c, id: id}
     }
 
-    fn open(c: Rc<Connection>, realm: &str, policy: core::NetworkPolicy, name: &str)
+    fn open(c: Rc<Connection>, realm: &str, policy: net::Policy, name: &str)
            -> Result<Self> {
         // We cannot implement ToSql and friends for
-        // core::NetworkPolicy, hence we need to do it by foot.
+        // net::Policy, hence we need to do it by foot.
         let p: u8 = (&policy).into();
 
         c.execute(
@@ -300,14 +300,14 @@ impl MappingServer {
             |row| Ok((row.get(0)?, row.get(1)?)))?;
 
         // We cannot implement FromSql and friends for
-        // core::NetworkPolicy, hence we need to do it by foot.
+        // net::Policy, hence we need to do it by foot.
         if mapping_policy < 0 || mapping_policy > 3 {
             return Err(super::Error::ProtocolError.into());
         }
-        let mapping_policy = core::NetworkPolicy::from(mapping_policy as u8);
+        let mapping_policy = net::Policy::from(mapping_policy as u8);
 
         if mapping_policy != policy {
-            return Err(core::Error::NetworkPolicyViolation(mapping_policy)
+            return Err(net::Error::PolicyViolation(mapping_policy)
                        .into());
         }
 
@@ -839,7 +839,7 @@ impl KeyServer {
     }
 
     /// Returns when the next key using the given policy should be updated.
-    fn next_update_at(c: &Rc<Connection>, network_policy: core::NetworkPolicy)
+    fn next_update_at(c: &Rc<Connection>, network_policy: net::Policy)
                       -> Option<Timestamp> {
         let network_policy_u8 = u8::from(&network_policy);
 
@@ -856,7 +856,7 @@ impl KeyServer {
     }
 
     /// Returns the number of keys using the given policy.
-    fn need_update(c: &Rc<Connection>, network_policy: core::NetworkPolicy)
+    fn need_update(c: &Rc<Connection>, network_policy: net::Policy)
                    -> Result<u32> {
         let network_policy_u8 = u8::from(&network_policy);
 
@@ -872,11 +872,11 @@ impl KeyServer {
 
     /// Helper for `update`.
     fn update_helper(c: &Rc<Connection>,
-                     network_policy: core::NetworkPolicy)
+                     network_policy: net::Policy)
                      -> Result<(KeyServer,
                                 openpgp::KeyID,
                                 net::KeyServer)> {
-        assert!(network_policy != core::NetworkPolicy::Offline);
+        assert!(network_policy != net::Policy::Offline);
         let network_policy_u8 = u8::from(&network_policy);
 
         // Select the key that was updated least recently.
@@ -892,9 +892,7 @@ impl KeyServer {
         let fingerprint = fingerprint.parse::<openpgp::Fingerprint>()
             .map_err(|_| node::Error::SystemError)?;
 
-        let ctx = core::Context::configure()
-            .network_policy(network_policy).build()?;
-        let keyserver = net::KeyServer::keys_openpgp_org(&ctx)?;
+        let keyserver = net::KeyServer::keys_openpgp_org(network_policy)?;
 
         Ok((KeyServer::new(c.clone(), id),
             fingerprint.into(),
@@ -903,7 +901,7 @@ impl KeyServer {
 
     /// Updates the key that was least recently updated.
     async fn update(c: &Rc<Connection>,
-              network_policy: core::NetworkPolicy)
+              network_policy: net::Policy)
               -> Result<Duration> {
         let (key, id, mut keyserver) = Self::update_helper(c, network_policy)?;
 
@@ -938,7 +936,7 @@ impl KeyServer {
     /// Perform periodic housekeeping.
     async fn start_housekeeping(c: Rc<Connection>) {
         loop {
-            let duration = Self::update(&c, core::NetworkPolicy::Encrypted).await;
+            let duration = Self::update(&c, net::Policy::Encrypted).await;
 
             let duration = duration.unwrap_or(min_sleep_time());
             tokio::time::delay_for(random_duration(duration)).await;
@@ -1110,11 +1108,11 @@ impl node::mapping_iter::Server for MappingIterServer {
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))));
 
         // We cannot implement FromSql and friends for
-        // core::NetworkPolicy, hence we need to do it by foot.
+        // net::Policy, hence we need to do it by foot.
         if network_policy < 0 || network_policy > 3 {
             fail!(node::Error::SystemError);
         }
-        let network_policy = core::NetworkPolicy::from(network_policy as u8);
+        let network_policy = net::Policy::from(network_policy as u8);
 
         let mut entry = pry!(results.get().get_result()).init_ok();
         entry.set_realm(&realm);
@@ -1255,17 +1253,17 @@ impl From<anyhow::Error> for node::Error {
             }
         }
 
-        if let Some(e) = e.downcast_ref::<core::Error>() {
+        if let Some(e) = e.downcast_ref::<net::Error>() {
             return match e {
-                &core::Error::NetworkPolicyViolation(p) =>
+                &net::Error::PolicyViolation(p) =>
                     match p {
-                        core::NetworkPolicy::Offline =>
+                        net::Policy::Offline =>
                             node::Error::NetworkPolicyViolationOffline,
-                        core::NetworkPolicy::Anonymized =>
+                        net::Policy::Anonymized =>
                             node::Error::NetworkPolicyViolationAnonymized,
-                        core::NetworkPolicy::Encrypted =>
+                        net::Policy::Encrypted =>
                             node::Error::NetworkPolicyViolationEncrypted,
-                        core::NetworkPolicy::Insecure =>
+                        net::Policy::Insecure =>
                             node::Error::NetworkPolicyViolationInsecure,
                     },
                 _ => unreachable!(),
@@ -1399,30 +1397,30 @@ CREATE TABLE log (
 
 /* Miscellaneous.  */
 
-impl<'a> From<&'a core::NetworkPolicy> for node::NetworkPolicy {
-    fn from(policy: &core::NetworkPolicy) -> Self {
+impl<'a> From<&'a net::Policy> for node::NetworkPolicy {
+    fn from(policy: &net::Policy) -> Self {
         match policy {
-            &core::NetworkPolicy::Offline    => node::NetworkPolicy::Offline,
-            &core::NetworkPolicy::Anonymized => node::NetworkPolicy::Anonymized,
-            &core::NetworkPolicy::Encrypted  => node::NetworkPolicy::Encrypted,
-            &core::NetworkPolicy::Insecure   => node::NetworkPolicy::Insecure,
+            &net::Policy::Offline    => node::NetworkPolicy::Offline,
+            &net::Policy::Anonymized => node::NetworkPolicy::Anonymized,
+            &net::Policy::Encrypted  => node::NetworkPolicy::Encrypted,
+            &net::Policy::Insecure   => node::NetworkPolicy::Insecure,
         }
     }
 }
 
-impl From<core::NetworkPolicy> for node::NetworkPolicy {
-    fn from(policy: core::NetworkPolicy) -> Self {
+impl From<net::Policy> for node::NetworkPolicy {
+    fn from(policy: net::Policy) -> Self {
         (&policy).into()
     }
 }
 
-impl From<node::NetworkPolicy> for core::NetworkPolicy {
+impl From<node::NetworkPolicy> for net::Policy {
     fn from(policy: node::NetworkPolicy) -> Self {
         match policy {
-            node::NetworkPolicy::Offline    => core::NetworkPolicy::Offline,
-            node::NetworkPolicy::Anonymized => core::NetworkPolicy::Anonymized,
-            node::NetworkPolicy::Encrypted  => core::NetworkPolicy::Encrypted,
-            node::NetworkPolicy::Insecure   => core::NetworkPolicy::Insecure,
+            node::NetworkPolicy::Offline    => net::Policy::Offline,
+            node::NetworkPolicy::Anonymized => net::Policy::Anonymized,
+            node::NetworkPolicy::Encrypted  => net::Policy::Encrypted,
+            node::NetworkPolicy::Insecure   => net::Policy::Insecure,
         }
     }
 }

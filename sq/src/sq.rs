@@ -34,7 +34,8 @@ use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
-use sequoia_core::{Context, NetworkPolicy};
+use sequoia_core::Context;
+use sequoia_net as net;
 use sequoia_net::{KeyServer, wkd};
 use store::{Mapping, LogIter};
 
@@ -248,11 +249,11 @@ fn main() -> Result<()> {
     policy.good_critical_notations(&known_notations);
 
     let network_policy = match matches.value_of("policy") {
-        None => NetworkPolicy::Encrypted,
-        Some("offline") => NetworkPolicy::Offline,
-        Some("anonymized") => NetworkPolicy::Anonymized,
-        Some("encrypted") => NetworkPolicy::Encrypted,
-        Some("insecure") => NetworkPolicy::Insecure,
+        None => net::Policy::Encrypted,
+        Some("offline") => net::Policy::Offline,
+        Some("anonymized") => net::Policy::Anonymized,
+        Some("encrypted") => net::Policy::Encrypted,
+        Some("insecure") => net::Policy::Insecure,
         Some(_) => {
             eprintln!("Bad network policy, must be offline, anonymized, encrypted, or insecure.");
             exit(1);
@@ -267,8 +268,7 @@ fn main() -> Result<()> {
             (s, "default")
         }
     };
-    let mut builder = Context::configure()
-        .network_policy(network_policy);
+    let mut builder = Context::configure();
     if let Some(dir) = matches.value_of("home") {
         builder = builder.home(dir);
     }
@@ -291,7 +291,8 @@ fn main() -> Result<()> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;
-            let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
+            let mut mapping = Mapping::open(&ctx, network_policy, realm_name,
+                                            mapping_name)
                 .context("Failed to open the mapping")?;
             commands::decrypt(&ctx, policy, &mut mapping,
                               &mut input, &mut output,
@@ -300,7 +301,8 @@ fn main() -> Result<()> {
                               m.is_present("dump"), m.is_present("hex"))?;
         },
         ("encrypt",  Some(m)) => {
-            let mapping = Mapping::open(&ctx, realm_name, mapping_name)
+            let mapping = Mapping::open(&ctx, network_policy, realm_name,
+                                        mapping_name)
                 .context("Failed to open the mapping")?;
             let mut recipients = m.values_of("recipients-cert-file")
                 .map(load_certs)
@@ -384,7 +386,8 @@ fn main() -> Result<()> {
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
-            let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
+            let mut mapping = Mapping::open(&ctx, network_policy, realm_name,
+                                            mapping_name)
                 .context("Failed to open the mapping")?;
             commands::verify(&ctx, policy, &mut mapping, &mut input,
                              detached.as_mut().map(|r| r as &mut (dyn io::Read + Sync + Send)),
@@ -479,7 +482,8 @@ fn main() -> Result<()> {
                 let secrets = m.values_of("secret-key-file")
                     .map(load_keys)
                     .unwrap_or(Ok(vec![]))?;
-                let mut mapping = Mapping::open(&ctx, realm_name, mapping_name)
+                let mut mapping = Mapping::open(&ctx, network_policy,
+                                                realm_name, mapping_name)
                     .context("Failed to open the mapping")?;
                 commands::decrypt::decrypt_unwrap(
                     &ctx, policy, &mut mapping,
@@ -519,9 +523,9 @@ fn main() -> Result<()> {
 
         ("keyserver",  Some(m)) => {
             let mut ks = if let Some(uri) = m.value_of("server") {
-                KeyServer::new(&ctx, &uri)
+                KeyServer::new(network_policy, &uri)
             } else {
-                KeyServer::keys_openpgp_org(&ctx)
+                KeyServer::keys_openpgp_org(network_policy)
             }.context("Malformed keyserver URI")?;
 
             match m.subcommand() {
@@ -582,7 +586,8 @@ fn main() -> Result<()> {
             }
         },
         ("mapping",  Some(m)) => {
-            let mapping = Mapping::open(&ctx, realm_name, mapping_name)
+            let mapping = Mapping::open(&ctx, network_policy, realm_name,
+                                        mapping_name)
                 .context("Failed to open the mapping")?;
 
             match m.subcommand() {

@@ -21,7 +21,6 @@
 use dirs;
 use tempfile;
 
-use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -45,12 +44,12 @@ use std::path::{Path, PathBuf};
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_core::{Context, NetworkPolicy, Result};
+/// # use sequoia_core::{Context, IPCPolicy, Result};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// let c = Context::configure()
 /// #           .ephemeral()
-///             .network_policy(NetworkPolicy::Offline)
+///             .ipc_policy(IPCPolicy::Robust)
 ///             .build()?;
 /// # Ok(())
 /// # }
@@ -58,7 +57,6 @@ use std::path::{Path, PathBuf};
 pub struct Context {
     home: PathBuf,
     lib: PathBuf,
-    network_policy: NetworkPolicy,
     ipc_policy: IPCPolicy,
     ephemeral: bool,
     cleanup: bool,
@@ -69,7 +67,6 @@ impl Clone for Context {
         Context {
             home: self.home.clone(),
             lib: self.lib.clone(),
-            network_policy: self.network_policy,
             ipc_policy: self.ipc_policy,
             ephemeral: self.ephemeral,
             cleanup: false, // Prevent cleanup.
@@ -108,7 +105,6 @@ impl Context {
         Config(Context {
             home: PathBuf::from(""),  // Defer computation of default.
             lib: prefix().join("lib").join("sequoia"),
-            network_policy: NetworkPolicy::Encrypted,
             ipc_policy: IPCPolicy::Robust,
             ephemeral: false,
             cleanup: false,
@@ -123,11 +119,6 @@ impl Context {
     /// Returns the directory containing backend servers.
     pub fn lib(&self) -> &Path {
         &self.lib
-    }
-
-    /// Returns the network policy.
-    pub fn network_policy(&self) -> &NetworkPolicy {
-        &self.network_policy
     }
 
     /// Returns the IPC policy.
@@ -147,12 +138,12 @@ impl Context {
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_core::{Context, NetworkPolicy, Result};
+/// # use sequoia_core::{Context, IPCPolicy, Result};
 /// # f().unwrap();
 /// # fn f() -> Result<()> {
 /// let c = Context::configure()
 /// #           .ephemeral()
-///             .network_policy(NetworkPolicy::Offline)
+///             .ipc_policy(IPCPolicy::Robust)
 ///             .build()?;
 /// # Ok(())
 /// # }
@@ -226,18 +217,6 @@ impl Config {
         ::std::mem::replace(&mut self.0.lib, PathBuf::new().join(lib))
     }
 
-    /// Sets the network policy.
-    pub fn network_policy(mut self, policy: NetworkPolicy) -> Self {
-        self.set_network_policy(policy);
-        self
-    }
-
-    /// Sets the network policy.
-    pub fn set_network_policy(&mut self, policy: NetworkPolicy) -> NetworkPolicy
-    {
-        ::std::mem::replace(&mut self.0.network_policy, policy)
-    }
-
     /// Sets the IPC policy.
     pub fn ipc_policy(mut self, policy: IPCPolicy) -> Self {
         self.set_ipc_policy(policy);
@@ -269,82 +248,9 @@ pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 #[derive(thiserror::Error, Debug)]
 /// Errors for Sequoia.
 pub enum Error {
-    /// The network policy was violated by the given action.
-    #[error("Unmet network policy requirement: {0}")]
-    NetworkPolicyViolation(NetworkPolicy),
-
     /// An `io::Error` occurred.
     #[error("{0}")]
     IoError(#[from] io::Error),
-}
-
-/* Network policy.  */
-
-/// Network policy for Sequoia.
-///
-/// With this policy you can control how Sequoia accesses remote
-/// systems.
-#[derive(PartialEq, PartialOrd, Debug, Copy, Clone)]
-pub enum NetworkPolicy {
-    /// Do not contact remote systems.
-    Offline,
-
-    /// Only contact remote systems using anonymization techniques
-    /// like TOR.
-    Anonymized,
-
-    /// Only contact remote systems using transports offering
-    /// encryption and authentication like TLS.
-    Encrypted,
-
-    /// Contact remote systems even with insecure transports.
-    Insecure,
-}
-
-impl fmt::Display for NetworkPolicy {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match self {
-            &NetworkPolicy::Offline    => "Offline",
-            &NetworkPolicy::Anonymized => "Anonymized",
-            &NetworkPolicy::Encrypted  => "Encrypted",
-            &NetworkPolicy::Insecure   => "Insecure",
-        })
-    }
-}
-
-impl NetworkPolicy {
-    pub fn assert(&self, action: NetworkPolicy) -> Result<()> {
-        if action > *self {
-            Err(Error::NetworkPolicyViolation(action).into())
-        } else {
-            Ok(())
-        }
-    }
-}
-
-impl<'a> From<&'a NetworkPolicy> for u8 {
-    fn from(policy: &NetworkPolicy) -> Self {
-        match policy {
-            &NetworkPolicy::Offline    => 0,
-            &NetworkPolicy::Anonymized => 1,
-            &NetworkPolicy::Encrypted  => 2,
-            &NetworkPolicy::Insecure   => 3,
-        }
-    }
-}
-
-
-// XXX: TryFrom would be nice.
-impl From<u8> for NetworkPolicy {
-    fn from(policy: u8) -> Self {
-        match policy {
-            0 => NetworkPolicy::Offline,
-            1 => NetworkPolicy::Anonymized,
-            2 => NetworkPolicy::Encrypted,
-            3 => NetworkPolicy::Insecure,
-            n => panic!("Bad network policy: {}", n),
-        }
-    }
 }
 
 /* IPC policy.  */
@@ -434,55 +340,4 @@ macro_rules! assert_match {
             panic!("Expected {}, got {:?}.", stringify!($error), x);
         }
     };
-}
-
-#[cfg(test)]
-mod test {
-    use super::{Error, NetworkPolicy};
-
-    fn ok(policy: NetworkPolicy, required: NetworkPolicy) {
-        assert!(policy.assert(required).is_ok());
-    }
-
-    fn fail(policy: NetworkPolicy, required: NetworkPolicy) {
-        assert_match!(Error::NetworkPolicyViolation(_)
-                      = policy.assert(required)
-                      .err().unwrap().downcast::<Error>().unwrap());
-    }
-
-    #[test]
-    fn offline() {
-        let p = NetworkPolicy::Offline;
-        ok(p, NetworkPolicy::Offline);
-        fail(p, NetworkPolicy::Anonymized);
-        fail(p, NetworkPolicy::Encrypted);
-        fail(p, NetworkPolicy::Insecure);
-    }
-
-    #[test]
-    fn anonymized() {
-        let p = NetworkPolicy::Anonymized;
-        ok(p, NetworkPolicy::Offline);
-        ok(p, NetworkPolicy::Anonymized);
-        fail(p, NetworkPolicy::Encrypted);
-        fail(p, NetworkPolicy::Insecure);
-    }
-
-    #[test]
-    fn encrypted() {
-        let p = NetworkPolicy::Encrypted;
-        ok(p, NetworkPolicy::Offline);
-        ok(p, NetworkPolicy::Anonymized);
-        ok(p, NetworkPolicy::Encrypted);
-        fail(p, NetworkPolicy::Insecure);
-    }
-
-    #[test]
-    fn insecure() {
-        let p = NetworkPolicy::Insecure;
-        ok(p, NetworkPolicy::Offline);
-        ok(p, NetworkPolicy::Anonymized);
-        ok(p, NetworkPolicy::Encrypted);
-        ok(p, NetworkPolicy::Insecure);
-    }
 }

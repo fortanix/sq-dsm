@@ -2,6 +2,7 @@
 #define SEQUOIA_STORE_H
 
 #include <sequoia/core.h>
+#include <sequoia/net.h>
 
 /*/
 /// Keys used for communications.
@@ -262,7 +263,8 @@ sq_key_iter_t sq_store_list_keys (sq_context_t ctx);
 /// Opening the mapping with a different network policy is
 /// forbidden.
 /*/
-sq_mapping_t sq_mapping_open (sq_context_t ctx, const char *realm, const char *name);
+sq_mapping_t sq_mapping_open (sq_context_t ctx, sq_network_policy_t policy,
+                              const char *realm, const char *name);
 
 /*/
 /// Adds a key identified by fingerprint to the mapping.

@@ -25,13 +25,13 @@ main (int argc, char **argv)
   sq_keyserver_t ks;
 
   cfg = sq_context_configure ();
-  sq_config_network_policy (cfg, SQ_NETWORK_POLICY_OFFLINE);
+  sq_config_home (cfg, "/tmp");
   ctx = sq_config_build (cfg, &err);
   if (ctx == NULL)
     error (1, 0, "Initializing sequoia failed: %s",
            pgp_error_to_string (err));
 
-  ks = sq_keyserver_keys_openpgp_org (ctx);
+  ks = sq_keyserver_keys_openpgp_org (ctx, SQ_NETWORK_POLICY_OFFLINE);
   if (ks == NULL)
     {
       pgp_error_t err = sq_context_last_error (ctx);

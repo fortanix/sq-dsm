@@ -11,7 +11,7 @@ use sequoia_openpgp::KeyID;
 use sequoia_openpgp::armor::Reader;
 use sequoia_openpgp::Cert;
 use sequoia_openpgp::parse::Parse;
-use sequoia_core::{Context, NetworkPolicy};
+use sequoia_net as net;
 use sequoia_net::KeyServer;
 
 const RESPONSE: &'static str = "-----BEGIN PGP PUBLIC KEY BLOCK-----
@@ -118,17 +118,14 @@ fn start_server() -> SocketAddr {
     addr
 }
 
+const P: net::Policy = net::Policy::Insecure;
+
 #[tokio::test]
 async fn get() -> anyhow::Result<()> {
-    let ctx = Context::configure()
-        .ephemeral()
-        .network_policy(NetworkPolicy::Insecure)
-        .build()?;
-
     // Start server.
     let addr = start_server();
 
-    let mut keyserver = KeyServer::new(&ctx, &format!("hkp://{}", addr))?;
+    let mut keyserver = KeyServer::new(P, &format!("hkp://{}", addr))?;
     let keyid: KeyID = ID.parse()?;
     let key = keyserver.get(keyid).await?;
 
@@ -139,16 +136,11 @@ async fn get() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn send() -> anyhow::Result<()> {
-    let ctx = Context::configure()
-        .ephemeral()
-        .network_policy(NetworkPolicy::Insecure)
-        .build()?;
-
     // Start server.
     let addr = start_server();
     eprintln!("{}", format!("hkp://{}", addr));
     let mut keyserver =
-        KeyServer::new(&ctx, &format!("hkp://{}", addr))?;
+        KeyServer::new(P, &format!("hkp://{}", addr))?;
     let key = Cert::from_reader(Reader::new(Cursor::new(RESPONSE), None))?;
     keyserver.send(&key).await?;
 

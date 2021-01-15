@@ -4,6 +4,7 @@ use std::io;
 
 use sequoia_openpgp as openpgp;
 use sequoia_core as core;
+use sequoia_net as net;
 pub use crate::openpgp::error::Status;
 
 pub(crate) use crate::openpgp::error::Error;
@@ -16,10 +17,20 @@ impl<'a> FromSequoiaError<'a> for Status {
     fn from_sequoia_error(e: &'a anyhow::Error) -> Self {
         if let Some(e) = e.downcast_ref::<core::Error>() {
             return match e {
-                &core::Error::NetworkPolicyViolation(_) =>
-                    Status::NetworkPolicyViolation,
                 &core::Error::IoError(_) =>
                     Status::IoError,
+            }
+        }
+
+        if let Some(e) = e.downcast_ref::<net::Error>() {
+            return match e {
+                net::Error::PolicyViolation(_) =>
+                    Status::NetworkPolicyViolation,
+                e => {
+                    // XXX
+                    eprintln!("ffi: net error not converted: {}", e);
+                    Status::UnknownError
+                },
             }
         }
 
