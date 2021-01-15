@@ -458,7 +458,6 @@
 //! FLAGS:
 //!         --certifications    Print third-party certifications
 //!     -h, --help              Prints help information
-//!         --keygrips          Print keygrips of keys and subkeys
 //!     -V, --version           Prints version information
 //!
 //! ARGS:

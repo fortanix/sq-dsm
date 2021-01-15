@@ -1977,7 +1977,6 @@ dependencies = [
  "predicates",
  "rpassword",
  "sequoia-autocrypt",
- "sequoia-ipc",
  "sequoia-net",
  "sequoia-openpgp",
  "tempfile",

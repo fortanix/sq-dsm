@@ -25,7 +25,6 @@ maintenance = { status = "actively-developed" }
 buffered-reader = { path = "../buffered-reader", version = "1.0.0", default-features = false }
 sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
 sequoia-autocrypt = { path = "../autocrypt", version = "0.22", default-features = false }
-sequoia-ipc = { path = "../ipc", version = "0.22", default-features = false }
 sequoia-net = { path = "../net", version = "0.22", default-features = false, optional = true }
 anyhow = "1.0.18"
 chrono = "0.4.10"
