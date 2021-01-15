@@ -2,8 +2,7 @@
 mod integration {
     use std::path;
 
-    use assert_cmd::Command;
-    use predicates::prelude::*;
+    use assert_cli::Assert;
 
     use sequoia_openpgp as openpgp;
 
@@ -141,15 +140,15 @@ mod integration {
     #[test]
     fn adopt_encryption() -> Result<()> {
         // Adopt an encryption subkey.
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(bob())
-            .arg("--keyring").arg(alice())
-            .arg("--key").arg(alice_encryption().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 2, (bob_primary(), &[alice_encryption()])).is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            bob().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--key", &alice_encryption().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 2, (bob_primary(), &[alice_encryption()]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
@@ -157,15 +156,15 @@ mod integration {
     #[test]
     fn adopt_signing() -> Result<()> {
         // Adopt a signing subkey (subkey has secret key material).
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(bob())
-            .arg("--keyring").arg(alice())
-            .arg("--key").arg(alice_signing().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 2, (bob_primary(), &[alice_signing()])).is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            bob().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--key", &alice_signing().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 2, (bob_primary(), &[alice_signing()]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
@@ -173,15 +172,15 @@ mod integration {
     #[test]
     fn adopt_certification() -> Result<()> {
         // Adopt a certification subkey (subkey has secret key material).
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(carol())
-            .arg("--keyring").arg(alice())
-            .arg("--key").arg(alice_primary().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 4, (carol_primary(), &[alice_primary()])).is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            carol().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--key", &alice_primary().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 4, (carol_primary(), &[alice_primary()]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
@@ -189,19 +188,18 @@ mod integration {
     #[test]
     fn adopt_encryption_and_signing() -> Result<()> {
         // Adopt an encryption subkey and a signing subkey.
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(bob())
-            .arg("--keyring").arg(alice())
-            .arg("--key").arg(alice_signing().0.to_hex())
-            .arg("--key").arg(alice_encryption().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 3,
-                      (bob_primary(),
-                       &[alice_signing(), alice_encryption()]))
-                    .is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            bob().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--key", &alice_signing().0.to_hex(),
+            "--key", &alice_encryption().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 3,
+                  (bob_primary(),
+                   &[alice_signing(), alice_encryption()]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
@@ -209,16 +207,16 @@ mod integration {
     #[test]
     fn adopt_twice() -> Result<()> {
         // Adopt the same an encryption subkey twice.
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(bob())
-            .arg("--keyring").arg(alice())
-            .arg("--key").arg(alice_encryption().0.to_hex())
-            .arg("--key").arg(alice_encryption().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 2, (bob_primary(), &[alice_encryption()])).is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            bob().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--key", &alice_encryption().0.to_hex(),
+            "--key", &alice_encryption().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 2, (bob_primary(), &[alice_encryption()]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
@@ -226,16 +224,16 @@ mod integration {
     #[test]
     fn adopt_key_appears_twice() -> Result<()> {
         // Adopt the an encryption subkey that appears twice.
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(bob())
-            .arg("--keyring").arg(alice())
-            .arg("--keyring").arg(alice())
-            .arg("--key").arg(alice_encryption().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 2, (bob_primary(), &[alice_encryption()])).is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            bob().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--key", &alice_encryption().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 2, (bob_primary(), &[alice_encryption()]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
@@ -243,15 +241,16 @@ mod integration {
     #[test]
     fn adopt_own_encryption() -> Result<()> {
         // Adopt its own encryption subkey.  This should be a noop.
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(alice())
-            .arg("--keyring").arg(alice())
-            .arg("--key").arg(alice_encryption().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 3, (alice_primary(), &[alice_encryption()])).is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            alice().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--key", &alice_encryption().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 3, (alice_primary(),
+                                         &[alice_encryption()]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
@@ -259,15 +258,15 @@ mod integration {
     #[test]
     fn adopt_own_primary() -> Result<()> {
         // Adopt own primary key.
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(bob())
-            .arg("--keyring").arg(bob())
-            .arg("--key").arg(bob_primary().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 2, (bob_primary(), &[bob_primary()])).is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            bob().to_str().unwrap(),
+            "--keyring", bob().to_str().unwrap(),
+            "--key", &bob_primary().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 2, (bob_primary(), &[bob_primary()]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
@@ -275,12 +274,12 @@ mod integration {
     #[test]
     fn adopt_missing() -> Result<()> {
         // Adopt a key that is not present.
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(bob())
-            .arg("--keyring").arg(bob())
-            .arg("--key").arg("1234 5678 90AB CDEF  1234 5678 90AB CDEF")
-            .assert()
-            .code(1);
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            bob().to_str().unwrap(),
+            "--keyring", bob().to_str().unwrap(),
+            "--key", "1234 5678 90AB CDEF  1234 5678 90AB CDEF"
+        ]).fails().unwrap();
 
         Ok(())
     }
@@ -288,25 +287,24 @@ mod integration {
     #[test]
     fn adopt_from_multiple() -> Result<()> {
         // Adopt from multiple certificates simultaneously.
-        Command::cargo_bin("sq").unwrap().arg("key").arg("adopt")
-            .arg(bob())
-            .arg("--keyring").arg(alice())
-            .arg("--key").arg(alice_signing().0.to_hex())
-            .arg("--key").arg(alice_encryption().0.to_hex())
-            .arg("--keyring").arg(carol())
-            .arg("--key").arg(carol_signing().0.to_hex())
-            .arg("--key").arg(carol_encryption().0.to_hex())
-            .assert()
-            .code(0)
-            .stdout(predicate::function(|output: &[u8]| -> bool {
-                check(output, 5,
-                      (bob_primary(),
-                       &[
-                           alice_signing(), alice_encryption(),
-                           carol_signing(), carol_encryption()
-                       ]))
-                    .is_ok()
-            }));
+        Assert::cargo_binary("sq").with_args(&[
+            "key", "adopt",
+            bob().to_str().unwrap(),
+            "--keyring", alice().to_str().unwrap(),
+            "--key", &alice_signing().0.to_hex(),
+            "--key", &alice_encryption().0.to_hex(),
+            "--keyring", carol().to_str().unwrap(),
+            "--key", &carol_signing().0.to_hex(),
+            "--key", &carol_encryption().0.to_hex(),
+        ]).stdout().satisfies(|output| {
+            check(output.as_bytes(), 5,
+                  (bob_primary(),
+                   &[
+                       alice_signing(), alice_encryption(),
+                       carol_signing(), carol_encryption()
+                   ]))
+                .is_ok()
+        }, "check failed").unwrap();
 
         Ok(())
     }
