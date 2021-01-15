@@ -35,6 +35,7 @@ assert_cli = "0.6"
 [[bin]]
 name = "sqv"
 path = "src/sqv-usage.rs"
+bench = false
 
 [features]
 default = ["crypto-nettle"]

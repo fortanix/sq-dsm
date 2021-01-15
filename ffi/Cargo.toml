@@ -39,6 +39,7 @@ filetime = "0.2"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
+bench = false
 
 [features]
 default = ["sequoia-openpgp/default", "sequoia-store/default"]

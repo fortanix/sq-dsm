@@ -77,6 +77,9 @@ compression-bzip2 = ["bzip2", "buffered-reader/compression-bzip2"]
 vendored = ["vendored-nettle"]
 vendored-nettle = ["nettle/vendored"]
 
+[lib]
+bench = false
+
 [[example]]
 name = "pad"
 required-features = ["compression-deflate"]

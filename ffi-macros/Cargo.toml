@@ -30,3 +30,4 @@ features = ["full"]
 
 [lib]
 proc-macro = true
+bench = false

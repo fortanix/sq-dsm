@@ -55,9 +55,11 @@ capnpc = "0.13"
 [lib]
 name = "sequoia_store"
 path = "src/lib.rs"
+bench = false
 
 [[bin]]
 name = "sequoia-public-key-store"
 path = "src/server.rs"
 doc = false
 required-features = ["background-services"]
+bench = false

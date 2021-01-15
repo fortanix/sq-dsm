@@ -24,6 +24,9 @@ maintenance = { status = "actively-developed" }
 sequoia-openpgp = { path = "../openpgp", version = "1", default-features = false }
 base64 = ">=0.12"
 
+[lib]
+bench = false
+
 [features]
 default = ["sequoia-openpgp/default"]
 crypto-nettle = ["sequoia-openpgp/crypto-nettle"]

@@ -49,6 +49,7 @@ assert_cli = "0.6"
 [[bin]]
 name = "sq"
 path = "src/sq-usage.rs"
+bench = false
 
 [features]
 default = [
