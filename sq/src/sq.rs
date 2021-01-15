@@ -237,6 +237,11 @@ pub struct Config {
 }
 
 fn main() -> Result<()> {
+    if term_size::dimensions_stdout().is_none() {
+        eprintln!("\nWARNING: sq does not have a stable CLI interface.  \
+                   Use with caution in scripts.\n");
+    }
+
     let policy = &mut P::new();
 
     let matches = sq_cli::build().get_matches();
