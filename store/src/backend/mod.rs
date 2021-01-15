@@ -1,6 +1,7 @@
 //! Storage backend.
 
 use std::cmp;
+use std::convert::TryFrom;
 use std::fmt;
 use std::io;
 use std::rc::Rc;
@@ -304,7 +305,7 @@ impl MappingServer {
         if mapping_policy < 0 || mapping_policy > 3 {
             return Err(super::Error::ProtocolError.into());
         }
-        let mapping_policy = net::Policy::from(mapping_policy as u8);
+        let mapping_policy = net::Policy::try_from(mapping_policy as u8)?;
 
         if mapping_policy != policy {
             return Err(net::Error::PolicyViolation(mapping_policy)
@@ -1112,7 +1113,7 @@ impl node::mapping_iter::Server for MappingIterServer {
         if network_policy < 0 || network_policy > 3 {
             fail!(node::Error::SystemError);
         }
-        let network_policy = net::Policy::from(network_policy as u8);
+        let network_policy = sry!(net::Policy::try_from(network_policy as u8));
 
         let mut entry = pry!(results.get().get_result()).init_ok();
         entry.set_realm(&realm);
@@ -1306,6 +1307,12 @@ impl From<core::Error> for node::Error {
 
 impl From<net::Error> for node::Error {
     fn from(_: net::Error) -> Self {
+        node::Error::SystemError
+    }
+}
+
+impl From<net::TryFromU8Error> for node::Error {
+    fn from(_: net::TryFromU8Error) -> Self {
         node::Error::SystemError
     }
 }

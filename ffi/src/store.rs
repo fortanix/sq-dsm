@@ -24,11 +24,13 @@
 
 
 use libc::c_char;
+use std::convert::TryInto;
 use std::ptr;
 
 use sequoia_store::{
     self, Mapping, MappingIter, Binding, BundleIter, Key, KeyIter, LogIter, Store,
 };
+use sequoia_net as net;
 
 use super::error::Status;
 use super::core::Context;
@@ -196,7 +198,7 @@ fn sq_mapping_open(ctx: *mut Context,
                  -> *mut Mapping {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let policy = policy.into();
+    let policy: net::Policy = ffi_try!(policy.try_into());
     let realm = ffi_param_cstr!(realm).to_string_lossy();
     let name = ffi_param_cstr!(name).to_string_lossy();
 

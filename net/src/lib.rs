@@ -33,7 +33,7 @@ use hyper_tls::HttpsConnector;
 use native_tls::{Certificate, TlsConnector};
 use percent_encoding::{percent_encode, AsciiSet, CONTROLS};
 
-use std::convert::From;
+use std::convert::{From, TryFrom};
 use std::fmt;
 use std::io::Cursor;
 use url::Url;
@@ -114,19 +114,31 @@ impl<'a> From<&'a Policy> for u8 {
     }
 }
 
+impl TryFrom<u8> for Policy {
+    type Error = TryFromU8Error;
 
-// XXX: TryFrom would be nice.
-impl From<u8> for Policy {
-    fn from(policy: u8) -> Self {
+    fn try_from(policy: u8) -> std::result::Result<Self, Self::Error> {
         match policy {
-            0 => Policy::Offline,
-            1 => Policy::Anonymized,
-            2 => Policy::Encrypted,
-            3 => Policy::Insecure,
-            n => panic!("Bad network policy: {}", n),
+            0 => Ok(Policy::Offline),
+            1 => Ok(Policy::Anonymized),
+            2 => Ok(Policy::Encrypted),
+            3 => Ok(Policy::Insecure),
+            n => Err(TryFromU8Error(n)),
         }
     }
 }
+
+/// Indicates errors converting `u8` to `Policy`.
+#[derive(Debug)]
+pub struct TryFromU8Error(u8);
+
+impl fmt::Display for TryFromU8Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Bad network policy: {}", self.0)
+    }
+}
+
+impl std::error::Error for TryFromU8Error {}
 
 /// For accessing keyservers using HKP.
 pub struct KeyServer {

@@ -32,10 +32,11 @@
 
 use libc::{c_char, size_t};
 use native_tls::Certificate;
+use std::convert::TryInto;
 use std::ptr;
 use std::slice;
 
-use sequoia_net::KeyServer;
+use sequoia_net::{KeyServer, Policy};
 
 use super::error::Status;
 use super::core::Context;
@@ -56,7 +57,7 @@ fn sq_keyserver_new(ctx: *mut Context, policy: u8, uri: *const c_char)
                     -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let policy = policy.into();
+    let policy: Policy = ffi_try!(policy.try_into());
     let uri = ffi_param_cstr!(uri).to_string_lossy();
 
     ffi_try_box!(KeyServer::new(policy, &uri))
@@ -76,7 +77,7 @@ fn sq_keyserver_with_cert(ctx: *mut Context, policy: u8,
                           len: size_t) -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let policy = policy.into();
+    let policy: Policy = ffi_try!(policy.try_into());
     let uri = ffi_param_cstr!(uri).to_string_lossy();
 
     if cert.is_null() {
@@ -103,7 +104,7 @@ fn sq_keyserver_keys_openpgp_org(ctx: *mut Context, policy: u8)
                                  -> *mut KeyServer {
     let ctx = ffi_param_ref_mut!(ctx);
     ffi_make_fry_from_ctx!(ctx);
-    let policy = policy.into();
+    let policy: Policy = ffi_try!(policy.try_into());
     ffi_try_box!(KeyServer::keys_openpgp_org(policy))
 }
 
