@@ -4,7 +4,6 @@ use anyhow::Context as _;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::exit;
 use chrono::{DateTime, offset::Utc};
 
 use buffered_reader::File;
@@ -23,6 +22,7 @@ use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
+#[cfg(feature = "net")]
 use sequoia_net as net;
 
 mod sq_cli;
@@ -105,6 +105,7 @@ fn load_certs<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
 }
 
 /// Serializes a keyring, adding descriptive headers if armored.
+#[allow(dead_code)]
 fn serialize_keyring(mut output: &mut dyn io::Write, certs: &[Cert], binary: bool)
                      -> openpgp::Result<()> {
     // Handle the easy options first.  No armor no cry:
@@ -227,6 +228,7 @@ fn help_warning(arg: &str) {
 #[allow(dead_code)]
 pub struct Config {
     force: bool,
+    #[cfg(feature = "net")]
     network_policy: net::Policy,
 }
 
@@ -245,6 +247,7 @@ fn main() -> Result<()> {
         .collect();
     policy.good_critical_notations(&known_notations);
 
+    #[cfg(feature = "net")]
     let network_policy = match matches.value_of("policy") {
         None => net::Policy::Encrypted,
         Some("offline") => net::Policy::Offline,
@@ -253,13 +256,14 @@ fn main() -> Result<()> {
         Some("insecure") => net::Policy::Insecure,
         Some(_) => {
             eprintln!("Bad network policy, must be offline, anonymized, encrypted, or insecure.");
-            exit(1);
+            std::process::exit(1);
         },
     };
     let force = matches.is_present("force");
 
     let config = Config {
         force,
+        #[cfg(feature = "net")]
         network_policy,
     };
 
@@ -487,6 +491,7 @@ fn main() -> Result<()> {
             _ => unreachable!(),
         },
 
+        #[cfg(feature = "net")]
         ("keyserver",  Some(m)) =>
             commands::net::dispatch_keyserver(config, m)?,
 
@@ -496,6 +501,7 @@ fn main() -> Result<()> {
             _ => unreachable!(),
         },
 
+        #[cfg(feature = "net")]
         ("wkd",  Some(m)) => commands::net::dispatch_wkd(config, m)?,
         _ => unreachable!(),
     }

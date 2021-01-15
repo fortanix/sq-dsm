@@ -42,6 +42,7 @@ pub mod key;
 pub mod merge_signatures;
 pub use self::merge_signatures::merge_signatures;
 pub mod certring;
+#[cfg(feature = "net")]
 pub mod net;
 
 /// Returns suitable signing keys from a given list of Certs.

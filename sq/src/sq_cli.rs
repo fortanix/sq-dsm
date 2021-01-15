@@ -7,7 +7,7 @@
 use clap::{App, Arg, ArgGroup, SubCommand, AppSettings};
 
 pub fn build() -> App<'static, 'static> {
-    App::new("sq")
+    let app = App::new("sq")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Sequoia is an implementation of OpenPGP.  This is a command-line frontend.")
         .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -284,35 +284,6 @@ pub fn build() -> App<'static, 'static> {
                     .arg(Arg::with_name("certifications")
                          .long("certifications")
                          .help("Print third-party certifications")))
-
-        .subcommand(SubCommand::with_name("keyserver")
-                    .display_order(40)
-                    .about("Interacts with keyservers")
-                    .setting(AppSettings::SubcommandRequiredElseHelp)
-                    .arg(Arg::with_name("server").value_name("URI")
-                         .long("server")
-                         .short("s")
-                         .help("Sets the keyserver to use"))
-                    .subcommand(SubCommand::with_name("get")
-                                .about("Retrieves a key")
-                                .arg(Arg::with_name("output").value_name("FILE")
-                                     .long("output")
-                                     .short("o")
-                                     .help("Sets the output file to use"))
-                                .arg(Arg::with_name("binary")
-                                     .long("binary")
-                                     .short("B")
-                                     .help("Don't ASCII-armor encode the OpenPGP data"))
-                                .arg(Arg::with_name("query").value_name("QUERY")
-                                     .required(true)
-                                     .help(
-                                         "Fingerprint, KeyID, or email \
-                                          address of the cert(s) to retrieve"
-                                     )))
-                    .subcommand(SubCommand::with_name("send")
-                                .about("Sends a key")
-                                .arg(Arg::with_name("input").value_name("FILE")
-                                     .help("Sets the input file to use"))))
 
         .subcommand(
             SubCommand::with_name("key")
@@ -592,7 +563,42 @@ pub fn build() -> App<'static, 'static> {
                                      .long("binary")
                                      .short("B")
                                      .help("Don't ASCII-armor encode the \
-                                            OpenPGP data"))))
+                                            OpenPGP data"))));
+
+    let app = if ! cfg!(feature = "net") {
+        // Without networking support.
+        app
+    } else {
+        // With networking support.
+        app
+        .subcommand(SubCommand::with_name("keyserver")
+                    .display_order(40)
+                    .about("Interacts with keyservers")
+                    .setting(AppSettings::SubcommandRequiredElseHelp)
+                    .arg(Arg::with_name("server").value_name("URI")
+                         .long("server")
+                         .short("s")
+                         .help("Sets the keyserver to use"))
+                    .subcommand(SubCommand::with_name("get")
+                                .about("Retrieves a key")
+                                .arg(Arg::with_name("output").value_name("FILE")
+                                     .long("output")
+                                     .short("o")
+                                     .help("Sets the output file to use"))
+                                .arg(Arg::with_name("binary")
+                                     .long("binary")
+                                     .short("B")
+                                     .help("Don't ASCII-armor encode the OpenPGP data"))
+                                .arg(Arg::with_name("query").value_name("QUERY")
+                                     .required(true)
+                                     .help(
+                                         "Fingerprint, KeyID, or email \
+                                          address of the cert(s) to retrieve"
+                                     )))
+                    .subcommand(SubCommand::with_name("send")
+                                .about("Sends a key")
+                                .arg(Arg::with_name("input").value_name("FILE")
+                                     .help("Sets the input file to use"))))
 
         .subcommand(SubCommand::with_name("wkd")
                     .about("Interacts with Web Key Directories")
@@ -645,6 +651,8 @@ pub fn build() -> App<'static, 'static> {
                                      .short("d")
                                      .help("Use the direct method. \
                                             [default: advanced method]"))
-                    )
-        )
+                    ))
+    };
+
+    app
 }
