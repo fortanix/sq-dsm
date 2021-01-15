@@ -1,4 +1,3 @@
-use crossterm::terminal;
 use anyhow::Context as _;
 use std::collections::HashMap;
 use std::io;
@@ -77,7 +76,7 @@ impl Helper {
             key_hints: hints,
             dump_session_key: dump_session_key,
             dumper: if dump {
-                let width = terminal::size().ok().map(|(cols, _)| cols as usize)
+                let width = term_size::dimensions_stdout().map(|(w, _)| w)
                     .unwrap_or(80);
                 Some(PacketDumper::new(width, false))
             } else {

@@ -455,28 +455,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossterm"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "759f2256ab248ad498bdd62038187450921b1b8d24c348d198f3425b0bd289cb"
-dependencies = [
- "crossterm_winapi",
- "lazy_static",
- "libc",
- "mio",
- "winapi 0.3.9",
-]
-
-[[package]]
-name = "crossterm_winapi"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02de3a35bcabb5bb6dc7d4449abb546d23f123b06f074e2cf1c50db516da6ac8"
-dependencies = [
- "winapi 0.3.9",
-]
-
-[[package]]
 name = "crypto-mac"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1995,7 +1973,6 @@ dependencies = [
  "buffered-reader",
  "chrono",
  "clap",
- "crossterm",
  "itertools",
  "predicates",
  "rpassword",
@@ -2004,6 +1981,7 @@ dependencies = [
  "sequoia-net",
  "sequoia-openpgp",
  "tempfile",
+ "term_size",
  "tokio",
 ]
 
@@ -2238,6 +2216,16 @@ checksum = "edd106a334b7657c10b7c540a0106114feadeb4dc314513e97df481d5d966f42"
 dependencies = [
  "byteorder",
  "dirs 1.0.5",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "term_size"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e4129646ca0ed8f45d09b929036bafad5377103edd06e50bf574b353d2b08d9"
+dependencies = [
+ "libc",
  "winapi 0.3.9",
 ]
 

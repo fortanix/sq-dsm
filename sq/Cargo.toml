@@ -32,7 +32,7 @@ chrono = "0.4.10"
 clap = "2.33"
 itertools = "0.9"
 tempfile = "3.1"
-crossterm = "0.13"
+term_size = "0.3"
 tokio = { version = "0.2.19", features = ["rt-core", "io-util", "io-driver"] }
 rpassword = "5.0"
 

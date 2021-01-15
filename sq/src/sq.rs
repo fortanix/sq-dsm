@@ -1,8 +1,5 @@
 /// A command-line frontend for Sequoia.
 
-use crossterm;
-
-use crossterm::terminal;
 use anyhow::Context as _;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
@@ -447,7 +444,7 @@ fn main() -> Result<()> {
                     } else {
                         None
                     };
-                let width = terminal::size().ok().map(|(cols, _)| cols as usize);
+                let width = term_size::dimensions_stdout().map(|(w, _)| w);
                 commands::dump(&mut input, &mut output,
                                m.is_present("mpis"), m.is_present("hex"),
                                session_key.as_ref(), width)?;
