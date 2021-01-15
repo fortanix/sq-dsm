@@ -5,7 +5,6 @@ use std::io;
 use rpassword;
 
 use sequoia_openpgp as openpgp;
-use sequoia_core::Context;
 use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::crypto::{self, SessionKey};
@@ -21,12 +20,17 @@ use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
 use crate::openpgp::policy::Policy;
-use sequoia_store as store;
 
-use super::{dump::PacketDumper, VHelper};
+use crate::{
+    Config,
+    commands::{
+        dump::PacketDumper,
+        VHelper,
+    },
+};
 
-struct Helper<'a> {
-    vhelper: VHelper<'a>,
+struct Helper {
+    vhelper: VHelper,
     secret_keys:
         HashMap<KeyID, Key<key::SecretParts, key::UnspecifiedRole>>,
     key_identities: HashMap<KeyID, Fingerprint>,
@@ -35,12 +39,11 @@ struct Helper<'a> {
     dumper: Option<PacketDumper>,
 }
 
-impl<'a> Helper<'a> {
-    fn new(ctx: &'a Context, policy: &'a dyn Policy,
-           mapping: &'a mut store::Mapping,
-           signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
-           dump_session_key: bool, dump: bool)
-           -> Self
+impl Helper {
+    fn new<'a>(config: Config, policy: &'a dyn Policy,
+               signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
+               dump_session_key: bool, dump: bool)
+               -> Self
     {
         let mut keys = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
@@ -68,7 +71,7 @@ impl<'a> Helper<'a> {
         }
 
         Helper {
-            vhelper: VHelper::new(ctx, mapping, signatures, certs),
+            vhelper: VHelper::new(config, signatures, certs),
             secret_keys: keys,
             key_identities: identities,
             key_hints: hints,
@@ -109,7 +112,7 @@ impl<'a> Helper<'a> {
     }
 }
 
-impl<'a> VerificationHelper for Helper<'a> {
+impl VerificationHelper for Helper {
     fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
         if let Some(dumper) = self.dumper.as_mut() {
             dumper.packet(&mut io::stderr(),
@@ -128,7 +131,7 @@ impl<'a> VerificationHelper for Helper<'a> {
     }
 }
 
-impl<'a> DecryptionHelper for Helper<'a> {
+impl DecryptionHelper for Helper {
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
@@ -274,14 +277,14 @@ impl<'a> DecryptionHelper for Helper<'a> {
     }
 }
 
-pub fn decrypt(ctx: &Context, policy: &dyn Policy, mapping: &mut store::Mapping,
+pub fn decrypt(config: Config, policy: &dyn Policy,
                input: &mut (dyn io::Read + Sync + Send),
                output: &mut dyn io::Write,
                signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
                dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
-    let helper = Helper::new(ctx, policy, mapping, signatures, certs, secrets,
+    let helper = Helper::new(config, policy, signatures, certs, secrets,
                              dump_session_key, dump || hex);
     let mut decryptor = DecryptorBuilder::from_reader(input)?
         .mapping(hex)
@@ -298,14 +301,13 @@ pub fn decrypt(ctx: &Context, policy: &dyn Policy, mapping: &mut store::Mapping,
     return Ok(());
 }
 
-pub fn decrypt_unwrap(ctx: &Context, policy: &dyn Policy,
-                      mapping: &mut store::Mapping,
+pub fn decrypt_unwrap(config: Config, policy: &dyn Policy,
                       input: &mut (dyn io::Read + Sync + Send),
                       output: &mut dyn io::Write,
                       secrets: Vec<Cert>, dump_session_key: bool)
                       -> Result<()>
 {
-    let mut helper = Helper::new(ctx, policy, mapping, 0, Vec::new(), secrets,
+    let mut helper = Helper::new(config, policy, 0, Vec::new(), secrets,
                                  dump_session_key, false);
 
     let mut ppr = PacketParser::from_reader(input)?;

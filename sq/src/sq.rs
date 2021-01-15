@@ -306,12 +306,7 @@ fn main() -> Result<()> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;
-            let mut mapping = Mapping::open(&config.context,
-                                            config.network_policy,
-                                            &config.realm_name,
-                                            &config.mapping_name)
-                .context("Failed to open the mapping")?;
-            commands::decrypt(&config.context, policy, &mut mapping,
+            commands::decrypt(config, policy,
                               &mut input, &mut output,
                               signatures, certs, secrets,
                               m.is_present("dump-session-key"),
@@ -405,12 +400,7 @@ fn main() -> Result<()> {
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
-            let mut mapping = Mapping::open(&config.context,
-                                            config.network_policy,
-                                            &config.realm_name,
-                                            &config.mapping_name)
-                .context("Failed to open the mapping")?;
-            commands::verify(&config.context, policy, &mut mapping, &mut input,
+            commands::verify(config, policy, &mut input,
                              detached.as_mut().map(|r| r as &mut (dyn io::Read + Sync + Send)),
                              &mut output, signatures, certs)?;
         },
@@ -503,13 +493,8 @@ fn main() -> Result<()> {
                 let secrets = m.values_of("secret-key-file")
                     .map(load_keys)
                     .unwrap_or(Ok(vec![]))?;
-                let mut mapping = Mapping::open(&config.context,
-                                                config.network_policy,
-                                                &config.realm_name,
-                                                &config.mapping_name)
-                    .context("Failed to open the mapping")?;
                 commands::decrypt::decrypt_unwrap(
-                    &config.context, policy, &mut mapping,
+                    config, policy,
                     &mut input, &mut output,
                     secrets, m.is_present("dump-session-key"))?;
                 output.finalize()?;
