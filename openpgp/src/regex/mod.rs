@@ -496,6 +496,7 @@ impl Regex {
 enum RegexSet_ {
     Regex(Regex),
     Invalid,
+    Everything,
 }
 assert_send_and_sync!(RegexSet_);
 
@@ -615,13 +616,7 @@ impl RegexSet {
             // Match everything.
             t!("No regular expressions provided.");
             Ok(RegexSet {
-                re_set: RegexSet_::Regex(
-                    Regex {
-                        regex: regex::RegexBuilder::new(
-                            &Hir::empty().to_string())
-                            .build()?,
-                        disable_sanitizations: false,
-                    }),
+                re_set: RegexSet_::Everything,
                 disable_sanitizations: false,
             })
         } else {
@@ -850,6 +845,69 @@ impl RegexSet {
         Self::from_bytes(sig.regular_expressions())
     }
 
+    /// Returns a `RegexSet` that matches everything.
+    ///
+    /// Note: sanitizations are still enabled.  So, to really match
+    /// everything, you still need to call
+    /// [`RegexSet::disable_sanitizations`].
+    ///
+    ///   [`RegexSet::disable_sanitizations`]: #method.disable_sanitizations
+    ///
+    /// This can be used to optimize the evaluation of scoping rules
+    /// along a path: if a `RegexSet` matches everything, then it
+    /// doesn't further contrain the path.
+    pub fn everything() -> Result<Self>
+    {
+        Ok(Self {
+            re_set: RegexSet_::Everything,
+            disable_sanitizations: false,
+        })
+    }
+
+    /// Returns whether a `RegexSet` matches everything.
+    ///
+    /// Normally, this only returns true if the `RegexSet` was created
+    /// using [`RegexSet::everything`].  [`RegexSet::new`],
+    /// [`RegexSet::from_bytes`], [`RegexSet::from_signature`] do
+    /// detect some regular expressions that match everything (e.g.,
+    /// if no regular expressions are supplied).  But, they do not
+    /// guarantee that a `RegexSet` containing a regular expression
+    /// like `.?`, which does in fact match everything, is detected as
+    /// matching everything.
+    ///
+    ///   [`RegexSet::everything`]: #method.everything
+    ///   [`RegexSet::new`]: #method.everything
+    ///   [`RegexSet::from_bytes`]: #method.from_bytes
+    ///   [`RegexSet::from_signature`]: #method.from_signature
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// use openpgp::regex::RegexSet;
+    ///
+    /// # fn main() -> openpgp::Result<()> {
+    /// assert!(RegexSet::everything()?.matches_everything());
+    /// let empty: &[ &str ] = &[];
+    /// assert!(RegexSet::new(empty.iter())?.matches_everything());
+    ///
+    /// // A regular expression that matches everything.  But
+    /// // `RegexSet` returns false, because it can't detect it.
+    /// let res: &[ &str ] = &[
+    ///     &".?"[..],
+    /// ];
+    /// let re_set = RegexSet::new(res.into_iter())?;
+    /// assert!(! re_set.matches_everything());
+    /// # Ok(()) }
+    /// ```
+    pub fn matches_everything(&self) -> bool {
+        if let RegexSet_::Everything = self.re_set {
+            true
+        } else {
+            false
+        }
+    }
+
     /// Controls whether strings with control characters are allowed.
     ///
     /// If `false` (the default), i.e., sanity checks are enabled, and
@@ -916,6 +974,8 @@ impl RegexSet {
                 re.is_match_clean(s),
             RegexSet_::Invalid =>
                 false,
+            RegexSet_::Everything =>
+                true,
         }
     }
 
