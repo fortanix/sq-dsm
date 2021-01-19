@@ -28,7 +28,7 @@ sequoia-autocrypt = { path = "../autocrypt", version = "0.22", default-features 
 sequoia-net = { path = "../net", version = "0.22", default-features = false, optional = true }
 anyhow = "1.0.18"
 chrono = "0.4.10"
-clap = "2.33"
+clap = { version = "2.33", features = ["wrap_help"] }
 itertools = "0.9"
 tempfile = "3.1"
 term_size = "0.3"
