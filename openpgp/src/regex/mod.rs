@@ -386,6 +386,7 @@ pub struct Regex {
     regex: regex::Regex,
     disable_sanitizations: bool,
 }
+assert_send_and_sync!(Regex);
 
 impl Regex {
     /// Parses and compiles the regular expression.
@@ -496,6 +497,7 @@ enum RegexSet_ {
     Regex(Regex),
     Invalid,
 }
+assert_send_and_sync!(RegexSet_);
 
 /// A set of regular expressions.
 ///
@@ -538,6 +540,7 @@ pub struct RegexSet {
     re_set: RegexSet_,
     disable_sanitizations: bool,
 }
+assert_send_and_sync!(RegexSet);
 
 impl RegexSet {
     /// Parses and compiles the regular expressions.
