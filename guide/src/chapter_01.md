@@ -6,7 +6,7 @@ will construct this program from top to bottom, concatenating the
 fragments yields the [`openpgp/examples/generate-sign-verify.rs`].
 
 [low-level API]: ../../sequoia_openpgp/index.html
-[`openpgp/examples/generate-sign-verify.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/master/openpgp/examples/generate-sign-verify.rs
+[`openpgp/examples/generate-sign-verify.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/main/openpgp/examples/generate-sign-verify.rs
 
 ```rust
 use std::io::{self, Write};
@@ -622,5 +622,5 @@ create a signed message, or a detached signature, see
 [`openpgp/examples/sign.rs`] and
 [`openpgp/examples/sign-detached.rs`].
 
-[`openpgp/examples/sign.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/master/openpgp/examples/sign.rs
-[`openpgp/examples/sign-detached.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/master/openpgp/examples/sign-detached.rs
+[`openpgp/examples/sign.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/main/openpgp/examples/sign.rs
+[`openpgp/examples/sign-detached.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/main/openpgp/examples/sign-detached.rs

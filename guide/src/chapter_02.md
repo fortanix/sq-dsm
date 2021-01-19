@@ -6,7 +6,7 @@ We will construct this program from top to bottom, concatenating the
 fragments yields the [`openpgp/examples/generate-encrypt-decrypt.rs`].
 
 [low-level API]: ../../sequoia_openpgp/index.html
-[`openpgp/examples/generate-encrypt-decrypt.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/master/openpgp/examples/generate-encrypt-decrypt.rs
+[`openpgp/examples/generate-encrypt-decrypt.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/main/openpgp/examples/generate-encrypt-decrypt.rs
 
 ```rust
 use std::io::{self, Write};
@@ -613,5 +613,5 @@ encrypt or decrypt some messages, see
 [`openpgp/examples/encrypt-for.rs`] and
 [`openpgp/examples/decrypt-with.rs`].
 
-[`openpgp/examples/encrypt-for.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/master/openpgp/examples/encrypt-for.rs
-[`openpgp/examples/decrypt-with.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/master/openpgp/examples/decrypt-with.rs
+[`openpgp/examples/encrypt-for.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/main/openpgp/examples/encrypt-for.rs
+[`openpgp/examples/decrypt-with.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/main/openpgp/examples/decrypt-with.rs

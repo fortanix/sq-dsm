@@ -183,7 +183,7 @@ e.g. for collecting statistics about the SKS keyserver dump.  For a
 complete example, see [`openpgp/examples/statistics.rs`].
 
 [`PacketParser`]: ../../sequoia_openpgp/parse/struct.PacketParser.html
-[`openpgp/examples/statistics.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/master/openpgp/examples/statistics.rs
+[`openpgp/examples/statistics.rs`]: https://gitlab.com/sequoia-pgp/sequoia/blob/main/openpgp/examples/statistics.rs
 
 ```rust
 use std::io::Read;

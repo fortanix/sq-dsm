@@ -1,6 +1,6 @@
 This is a checklist for doing Sequoia releases.
 
- 0. Starting from origin/master, create a branch XXX for the release.
+ 0. Starting from origin/main, create a branch XXX for the release.
  1. For all 'Cargo.toml's: Bump version = "XXX".
        - Only do this for non-released crates and those with changes
          relative to the last released version.
@@ -28,7 +28,7 @@ This is a checklist for doing Sequoia releases.
        - openpgp
        - sqv
 10. In case of errors, correct them, and go back to 6.
-11. Merge the branch to master by merging the merge request created in
+11. Merge the branch to main by merging the merge request created in
     step 6, push the tag.
 12. Make a source distribution, put it on
     https://sequoia-pgp.org/dist/, collect and merge signatures.
