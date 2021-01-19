@@ -294,10 +294,10 @@
 //!     sq certring <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help      
+//!     -h, --help
 //!             Prints help information
 //!
-//!     -V, --version   
+//!     -V, --version
 //!             Prints version information
 //!
 //!
@@ -319,35 +319,35 @@
 //!     sq certring filter [FLAGS] [OPTIONS] [--] [FILE]...
 //!
 //! FLAGS:
-//!     -B, --binary        
+//!     -B, --binary
 //!             Don't ASCII-armor the certring
 //!
-//!     -h, --help          
+//!     -h, --help
 //!             Prints help information
 //!
-//!     -P, --prune-certs   
+//!     -P, --prune-certs
 //!             Remove certificate components not matching the filter
 //!
-//!     -V, --version       
+//!     -V, --version
 //!             Prints version information
 //!
 //!
 //! OPTIONS:
-//!         --domain <FQDN>...     
+//!         --domain <FQDN>...
 //!             Match on this email domain name
 //!
-//!         --email <ADDRESS>...   
+//!         --email <ADDRESS>...
 //!             Match on this email address
 //!
-//!         --name <NAME>...       
+//!         --name <NAME>...
 //!             Match on this name
 //!
-//!     -o, --output <FILE>        
+//!     -o, --output <FILE>
 //!             Sets the output file to use
 //!
 //!
 //! ARGS:
-//!     <FILE>...   
+//!     <FILE>...
 //!             Sets the input files to use
 //! ```
 //!

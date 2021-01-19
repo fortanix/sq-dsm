@@ -13,8 +13,6 @@ else
 	INSTALL		?= install
 endif
 
-all: src/sq-usage.rs
-
 # Installation.
 .PHONY: build-release
 build-release:
@@ -36,10 +34,3 @@ install: build-release
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/share/fish/completions \
 	    $(CARGO_TARGET_DIR)/sq.fish
 	$(MAKE) -C../store install
-
-# Maintenance.
-.PHONY: update-usage
-update-usage: src/sq-usage.rs
-
-src/sq-usage.rs: make-usage.sh $(SQ)
-	sh make-usage.sh $(SQ) >$@~ && mv $@~ $@

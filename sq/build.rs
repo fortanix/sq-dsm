@@ -1,7 +1,6 @@
-use clap;
-
 use std::env;
 use std::fs;
+use std::io::{self, Write};
 use clap::Shell;
 
 mod sq_cli {
@@ -9,6 +8,19 @@ mod sq_cli {
 }
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+
+    // XXX: Revisit once
+    // https://github.com/rust-lang/rust/issues/44732 is stabilized.
+
+    let mut sq = sq_cli::build();
+    let mut main = fs::File::create("src/sq-usage.rs").unwrap();
+    dump_help(&mut main,
+              &mut sq,
+              vec![],
+              "#").unwrap();
+    writeln!(main, "\ninclude!(\"sq.rs\");").unwrap();
+
     let outdir = match env::var_os("CARGO_TARGET_DIR") {
         None => return,
         Some(outdir) => outdir,
@@ -19,4 +31,66 @@ fn main() {
                    Shell::Elvish] {
         sq.gen_completions("sq", *shell, &outdir);
     }
+}
+
+fn dump_help(sink: &mut dyn io::Write,
+             sq: &mut clap::App,
+             cmd: Vec<String>,
+             heading: &str)
+             -> io::Result<()>
+{
+
+    if cmd.is_empty() {
+        writeln!(sink, "//! A command-line frontend for Sequoia.")?;
+        writeln!(sink, "//!")?;
+        writeln!(sink, "//! # Usage")?;
+    } else {
+        writeln!(sink, "//!")?;
+        writeln!(sink, "//! {} Subcommand {}", heading, cmd.join(" "))?;
+    }
+
+    writeln!(sink, "//!")?;
+
+    let args = std::iter::once("sq")
+        .chain(cmd.iter().map(|s| s.as_str()))
+        .chain(std::iter::once("--help"))
+        .collect::<Vec<_>>();
+
+    let help = sq.get_matches_from_safe_borrow(&args)
+        .unwrap_err().to_string();
+
+    writeln!(sink, "//! ```text")?;
+    for line in help.trim_end().split("\n").skip(1) {
+        if line == "" {
+            writeln!(sink, "//!")?;
+        } else {
+            writeln!(sink, "//! {}", line.trim_end())?;
+        }
+    }
+    writeln!(sink, "//! ```")?;
+
+    // Recurse.
+    let mut found_subcommands = false;
+    for subcmd in help.split("\n").filter_map(move |line| {
+        if line == "SUBCOMMANDS:" {
+            found_subcommands = true;
+            None
+        } else if found_subcommands {
+            if line.chars().nth(4).map(|c| ! c.is_ascii_whitespace())
+                .unwrap_or(false)
+            {
+                line.trim_start().split(" ").nth(0)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }).filter(|subcmd| *subcmd != "help") {
+        let mut c = cmd.clone();
+        c.push(subcmd.into());
+        dump_help(sink, sq, c, &format!("{}#", heading))?;
+    }
+
+    Ok(())
 }
