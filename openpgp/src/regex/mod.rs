@@ -572,14 +572,15 @@ impl RegexSet {
     ///     "[..",
     /// ];
     ///
-    /// let res = RegexSet::new(res.iter())?;
+    /// let res = RegexSet::new(res)?;
     ///
     /// assert!(res.is_match("Alice <alice@example.org>"));
     /// assert!(! res.is_match("Bob <bob@example.com>"));
     /// # Ok(()) }
     /// ```
-    pub fn new<'a, RE>(res: impl Iterator<Item=RE>) -> Result<Self>
-        where RE: Borrow<&'a str>
+    pub fn new<'a, RE, I>(res: I) -> Result<Self>
+    where RE: Borrow<&'a str>,
+          I: IntoIterator<Item=RE>,
     {
         tracer!(TRACE, "RegexSet::new");
 
@@ -696,13 +697,15 @@ impl RegexSet {
     /// assert!(re_set.is_match("Bob <bob@example.com>"));
     /// # Ok(()) }
     /// ```
-    pub fn from_bytes<'a, RE>(res: impl Iterator<Item=RE>) -> Result<Self>
-        where RE: Borrow<&'a [u8]>
+    pub fn from_bytes<'a, I, RE>(res: I) -> Result<Self>
+    where I: IntoIterator<Item=RE>,
+          RE: Borrow<&'a [u8]>,
     {
         let mut have_valid_utf8 = false;
         let mut have_invalid_utf8 = false;
         let re_set = Self::new(
             res
+                .into_iter()
                 .scan((&mut have_valid_utf8, &mut have_invalid_utf8),
                       |(valid, invalid), re|
                       {
@@ -889,7 +892,7 @@ impl RegexSet {
     /// # fn main() -> openpgp::Result<()> {
     /// assert!(RegexSet::everything()?.matches_everything());
     /// let empty: &[ &str ] = &[];
-    /// assert!(RegexSet::new(empty.iter())?.matches_everything());
+    /// assert!(RegexSet::new(empty)?.matches_everything());
     ///
     /// // A regular expression that matches everything.  But
     /// // `RegexSet` returns false, because it can't detect it.
@@ -1958,18 +1961,18 @@ mod tests {
 
     #[test]
     fn regex_set() -> Result<()> {
-        let re = RegexSet::new([ "ab", "cd" ].iter())?;
+        let re = RegexSet::new(&[ "ab", "cd" ])?;
         assert!(re.is_match("ab"));
         assert!(re.is_match("cdef"));
         assert!(!re.is_match("xxx"));
 
         // Try to make sure one re does not leak into another.
-        let re = RegexSet::new([ "cd$", "^ab" ].iter())?;
+        let re = RegexSet::new(&[ "cd$", "^ab" ])?;
         assert!(re.is_match("abxx"));
         assert!(re.is_match("xxcd"));
 
         // Invalid regular expressions should be ignored.
-        let re = RegexSet::new([ "[ab", "cd]", "x" ].iter())?;
+        let re = RegexSet::new(&[ "[ab", "cd]", "x" ])?;
         assert!(!re.is_match("a"));
         assert!(!re.is_match("ab"));
         assert!(!re.is_match("[ab"));
@@ -1980,7 +1983,7 @@ mod tests {
 
         // If all regular expressions are invalid, nothing should
         // match.
-        let re = RegexSet::new([ "[ab", "cd]" ].iter())?;
+        let re = RegexSet::new(&[ "[ab", "cd]" ])?;
         assert!(!re.is_match("a"));
         assert!(!re.is_match("ab"));
         assert!(!re.is_match("[ab"));
@@ -1992,7 +1995,7 @@ mod tests {
         // If there are no regular expressions, everything should
         // match.
         let s: [&str; 0] = [];
-        let re = RegexSet::new(s.iter())?;
+        let re = RegexSet::new(&s)?;
         assert!(re.is_match("a"));
         assert!(re.is_match("ab"));
         assert!(re.is_match("[ab"));
