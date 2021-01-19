@@ -92,3 +92,7 @@ harness = false
 [[bench]]
 name = "parse_cert"
 harness = false
+
+[[bench]]
+name = "encrypt_message"
+harness = false
