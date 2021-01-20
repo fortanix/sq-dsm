@@ -182,6 +182,7 @@ impl AutocryptHeader {
         None
     }
 
+    /// Writes a serialized version of the object to `o`.
     pub fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         if self.key.is_none() {
             return Err(Error::InvalidOperation("No key".into()).into());

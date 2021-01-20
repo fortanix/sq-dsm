@@ -224,7 +224,7 @@ impl Sexp {
         }
     }
 
-
+    /// Writes a serialized version of the object to `o`.
     pub fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         match self {
             Sexp::String(ref s) => s.serialize(o),
@@ -382,6 +382,7 @@ impl String_ {
         self.1.as_ref().map(|b| b.as_ref())
     }
 
+    /// Writes a serialized version of the object to `o`.
     pub fn serialize(&self, o: &mut dyn std::io::Write) -> Result<()> {
         if let Some(display) = self.display_hint() {
             write!(o, "[{}:", display.len())?;
