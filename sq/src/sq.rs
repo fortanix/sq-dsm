@@ -367,7 +367,7 @@ fn main() -> Result<()> {
                              &mut output, signatures, certs)?;
         },
 
-        ("enarmor",  Some(m)) => {
+        ("armor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output =
                 create_or_stdout_pgp(m.value_of("output"), force,

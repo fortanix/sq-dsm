@@ -31,7 +31,7 @@
 //!     autocrypt           Autocrypt support
 //!     keyserver           Interacts with keyservers
 //!     wkd                 Interacts with Web Key Directories
-//!     enarmor             Applies ASCII Armor to a file
+//!     armor               Applies ASCII Armor to a file
 //!     dearmor             Removes ASCII Armor from a file
 //!     inspect             Inspects a sequence of OpenPGP packets
 //!     packet              OpenPGP Packet manipulation
@@ -621,13 +621,13 @@
 //!     <EMAIL_ADDRESS>    The email address from which to obtain the WKD URI.
 //! ```
 //!
-//! ## Subcommand enarmor
+//! ## Subcommand armor
 //!
 //! ```text
 //! Applies ASCII Armor to a file
 //!
 //! USAGE:
-//!     sq enarmor [OPTIONS] [FILE]
+//!     sq armor [OPTIONS] [FILE]
 //!
 //! FLAGS:
 //!     -h, --help       Prints help information

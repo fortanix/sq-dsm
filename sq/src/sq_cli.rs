@@ -193,7 +193,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 (can be given multiple times)"))
         )
 
-        .subcommand(SubCommand::with_name("enarmor")
+        .subcommand(SubCommand::with_name("armor")
                     .display_order(500)
                     .about("Applies ASCII Armor to a file")
                     .arg(Arg::with_name("input")
