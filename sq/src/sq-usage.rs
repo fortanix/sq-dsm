@@ -53,11 +53,11 @@
 //!     -V, --version             Prints version information
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>                      Sets the output file to use
-//!         --secret-key-file <TSK-FILE>...      Secret key to decrypt with, given as a file (can be given multiple times)
-//!         --sender-cert-file <CERT-FILE>...    The sender's certificate to verify signatures with, given as a file (can be
-//!                                              given multiple times)
-//!     -n, --signatures <N>                     The number of valid signatures required.  Default: 0
+//!     -o, --output <FILE>             Sets the output file to use
+//!         --recipient-key <KEY>...    Secret key to decrypt with, given as a file (can be given multiple times)
+//!         --signer-cert <CERT>...     The signer's certificate to verify signatures with, given as a file (can be given
+//!                                     multiple times)
+//!     -n, --signatures <N>            The number of valid signatures required.  Default: 0
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -80,21 +80,17 @@
 //!     -V, --version               Prints version information
 //!
 //! OPTIONS:
-//!         --compression <KIND>
-//!             Selects compression scheme to use [default: pad]  [possible values: none, pad, zip, zlib, bzip2]
-//!
-//!         --mode <MODE>
-//!             Selects what kind of keys are considered for encryption.  Transport select subkeys marked as suitable for
-//!             transport encryption, rest selects those for encrypting data at rest, and all selects all encryption-capable
-//!             subkeys [default: all]  [possible values: transport, rest, all]
-//!     -o, --output <FILE>                           Sets the output file to use
-//!         --recipients-cert-file <CERTS-FILE>...
-//!             Recipients to encrypt for, given as a file (can be given multiple times)
-//!
-//!         --signer-key-file <TSK-FILE>...           Secret key to sign with, given as a file (can be given multiple times)
-//!     -t, --time <TIME>
-//!             Chooses keys valid at the specified time and sets the signature's creation time
-//!
+//!         --compression <KIND>               Selects compression scheme to use [default: pad]  [possible values: none,
+//!                                            pad, zip, zlib, bzip2]
+//!         --mode <MODE>                      Selects what kind of keys are considered for encryption.  Transport select
+//!                                            subkeys marked as suitable for transport encryption, rest selects those for
+//!                                            encrypting data at rest, and all selects all encryption-capable subkeys
+//!                                            [default: all]  [possible values: transport, rest, all]
+//!     -o, --output <FILE>                    Sets the output file to use
+//!         --recipient-cert <CERT-RING>...    Recipients to encrypt for, given as a file (can be given multiple times)
+//!         --signer-key <KEY>...              Secret key to sign with, given as a file (can be given multiple times)
+//!     -t, --time <TIME>                      Chooses keys valid at the specified time and sets the signature's creation
+//!                                            time
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -117,10 +113,9 @@
 //!     -V, --version     Prints version information
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>                    Sets the output file to use
-//!         --secret-key-file <TSK-FILE>...    Secret key to sign with, given as a file (can be given multiple times)
-//!     -t, --time <TIME>                      Chooses keys valid at the specified time and sets the signature's creation
-//!                                            time
+//!     -o, --output <FILE>          Sets the output file to use
+//!         --signer-key <KEY>...    Secret key to sign with, given as a file (can be given multiple times)
+//!     -t, --time <TIME>            Chooses keys valid at the specified time and sets the signature's creation time
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -139,11 +134,11 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!         --detached <SIG-FILE>                Verifies a detached signature
-//!     -o, --output <FILE>                      Sets the output file to use
-//!         --sender-cert-file <CERT-FILE>...    The sender's certificate to verify signatures with, given as a file (can be
-//!                                              given multiple times)
-//!     -n, --signatures <N>                     The number of valid signatures required.  Default: 0
+//!         --detached <SIG>           Verifies a detached signature
+//!     -o, --output <FILE>            Sets the output file to use
+//!         --signer-cert <CERT>...    The signer's certificate to verify signatures with, given as a file (can be given
+//!                                    multiple times)
+//!     -n, --signatures <N>           The number of valid signatures required.  Default: 0
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -588,8 +583,8 @@
 //!     -V, --version             Prints version information
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>                    Sets the output file to use
-//!         --secret-key-file <TSK-FILE>...    Secret key to decrypt with, given as a file (can be given multiple times)
+//!     -o, --output <FILE>             Sets the output file to use
+//!         --recipient-key <KEY>...    Secret key to decrypt with, given as a file (can be given multiple times)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use

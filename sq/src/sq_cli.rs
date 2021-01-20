@@ -37,19 +37,19 @@ pub fn build() -> App<'static, 'static> {
                          .short("n")
                          .takes_value(true))
                     .arg(Arg::with_name("sender-cert-file")
-                         .long("sender-cert-file")
+                         .long("signer-cert")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("CERT-FILE")
+                         .value_name("CERT")
                          .number_of_values(1)
-                         .help("The sender's certificate to verify signatures \
+                         .help("The signer's certificate to verify signatures \
                                 with, given as a file \
                                 (can be given multiple times)"))
                     .arg(Arg::with_name("secret-key-file")
-                         .long("secret-key-file")
+                         .long("recipient-key")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("TSK-FILE")
+                         .value_name("KEY")
                          .number_of_values(1)
                          .help("Secret key to decrypt with, given as a file \
                                 (can be given multiple times)"))
@@ -77,18 +77,18 @@ pub fn build() -> App<'static, 'static> {
                          .short("B")
                          .help("Don't ASCII-armor encode the OpenPGP data"))
                     .arg(Arg::with_name("recipients-cert-file")
-                         .long("recipients-cert-file")
+                         .long("recipient-cert")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("CERTS-FILE")
+                         .value_name("CERT-RING")
                          .number_of_values(1)
                          .help("Recipients to encrypt for, given as a file \
                                 (can be given multiple times)"))
                     .arg(Arg::with_name("signer-key-file")
-                         .long("signer-key-file")
+                         .long("signer-key")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("TSK-FILE")
+                         .value_name("KEY")
                          .number_of_values(1)
                          .help("Secret key to sign with, given as a file \
                                 (can be given multiple times)"))
@@ -167,10 +167,10 @@ pub fn build() -> App<'static, 'static> {
                          .conflicts_with("append")
                          .help("Signs a message and all existing signatures"))
                     .arg(Arg::with_name("secret-key-file")
-                         .long("secret-key-file")
+                         .long("signer-key")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("TSK-FILE")
+                         .value_name("KEY")
                          .number_of_values(1)
                          .help("Secret key to sign with, given as a file \
                                 (can be given multiple times)"))
@@ -191,7 +191,7 @@ pub fn build() -> App<'static, 'static> {
                     .arg(Arg::with_name("detached")
                          .long("detached")
                          .takes_value(true)
-                         .value_name("SIG-FILE")
+                         .value_name("SIG")
                          .help("Verifies a detached signature"))
                     .arg(Arg::with_name("signatures").value_name("N")
                          .help("The number of valid signatures required.  \
@@ -200,12 +200,12 @@ pub fn build() -> App<'static, 'static> {
                          .short("n")
                          .takes_value(true))
                     .arg(Arg::with_name("sender-cert-file")
-                         .long("sender-cert-file")
+                         .long("signer-cert")
                          .multiple(true)
                          .takes_value(true)
-                         .value_name("CERT-FILE")
+                         .value_name("CERT")
                          .number_of_values(1)
-                         .help("The sender's certificate to verify signatures \
+                         .help("The signer's certificate to verify signatures \
                                 with, given as a file \
                                 (can be given multiple times)")))
         .subcommand(SubCommand::with_name("enarmor")
@@ -525,10 +525,10 @@ pub fn build() -> App<'static, 'static> {
                                      .help("Don't ASCII-armor encode the \
                                             OpenPGP data"))
                                 .arg(Arg::with_name("secret-key-file")
-                                     .long("secret-key-file")
+                                     .long("recipient-key")
                                      .multiple(true)
                                      .takes_value(true)
-                                     .value_name("TSK-FILE")
+                                     .value_name("KEY")
                                      .number_of_values(1)
                                      .help("Secret key to decrypt with, given \
                                             as a file \
