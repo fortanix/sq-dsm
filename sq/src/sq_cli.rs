@@ -18,7 +18,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .arg(Arg::with_name("known-notation")
              .long("known-notation")
              .multiple(true)
-             .takes_value(true)
              .value_name("NOTATION")
              .number_of_values(1)
              .help("The notation name is considered known. \
@@ -38,12 +37,10 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                          .help("The number of valid signatures required.  \
                                 Default: 0")
                          .long("signatures")
-                         .short("n")
-                         .takes_value(true))
+                         .short("n"))
                     .arg(Arg::with_name("sender-cert-file")
                          .long("signer-cert")
                          .multiple(true)
-                         .takes_value(true)
                          .value_name("CERT")
                          .number_of_values(1)
                          .help("The signer's certificate to verify signatures \
@@ -52,7 +49,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .arg(Arg::with_name("secret-key-file")
                          .long("recipient-key")
                          .multiple(true)
-                         .takes_value(true)
                          .value_name("KEY")
                          .number_of_values(1)
                          .help("Secret key to decrypt with, given as a file \
@@ -83,7 +79,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .arg(Arg::with_name("recipients-cert-file")
                          .long("recipient-cert")
                          .multiple(true)
-                         .takes_value(true)
                          .value_name("CERT-RING")
                          .number_of_values(1)
                          .help("Recipients to encrypt for, given as a file \
@@ -91,7 +86,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .arg(Arg::with_name("signer-key-file")
                          .long("signer-key")
                          .multiple(true)
-                         .takes_value(true)
                          .value_name("KEY")
                          .number_of_values(1)
                          .help("Secret key to sign with, given as a file \
@@ -173,7 +167,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .arg(Arg::with_name("secret-key-file")
                          .long("signer-key")
                          .multiple(true)
-                         .takes_value(true)
                          .value_name("KEY")
                          .number_of_values(1)
                          .help("Secret key to sign with, given as a file \
@@ -194,19 +187,16 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                          .help("Sets the output file to use"))
                     .arg(Arg::with_name("detached")
                          .long("detached")
-                         .takes_value(true)
                          .value_name("SIG")
                          .help("Verifies a detached signature"))
                     .arg(Arg::with_name("signatures").value_name("N")
                          .help("The number of valid signatures required.  \
                                 Default: 0")
                          .long("signatures")
-                         .short("n")
-                         .takes_value(true))
+                         .short("n"))
                     .arg(Arg::with_name("sender-cert-file")
                          .long("signer-cert")
                          .multiple(true)
-                         .takes_value(true)
                          .value_name("CERT")
                          .number_of_values(1)
                          .help("The signer's certificate to verify signatures \
@@ -291,7 +281,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              .short("u")
                              .multiple(true)
                              .number_of_values(1)
-                             .takes_value(true)
                              .help("Add userid to the key \
                                     (can be given multiple times)"))
                         .arg(Arg::with_name("cipher-suite")
@@ -366,7 +355,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              .short("r")
                              .multiple(true)
                              .number_of_values(1)
-                             .takes_value(true)
                              .help("A keyring containing the keys specified \
                                     in --key."))
                         .arg(Arg::with_name("key")
@@ -375,16 +363,11 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              .short("k")
                              .multiple(true)
                              .number_of_values(1)
-                             .takes_value(true)
                              .required(true)
                              .help("Adds the specified key or subkey to the \
                                     certificate."))
                         .arg(Arg::with_name("allow-broken-crypto")
-                             .value_name("ALLOW-BROKEN-CRYPTO")
                              .long("allow-broken-crypto")
-                             .multiple(false)
-                             .number_of_values(0)
-                             .takes_value(false)
                              .help("Allows adopting keys from certificates \
                                     using broken cryptography."))
                         .arg(Arg::with_name("certificate")
@@ -500,7 +483,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                      .help("Sets the output file to use"))
                                 .arg(Arg::with_name("session-key")
                                      .long("session-key")
-                                     .takes_value(true)
                                      .value_name("SESSION-KEY")
                                      .help("Session key to decrypt encryption \
                                             containers"))
@@ -531,7 +513,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 .arg(Arg::with_name("secret-key-file")
                                      .long("recipient-key")
                                      .multiple(true)
-                                     .takes_value(true)
                                      .value_name("KEY")
                                      .number_of_values(1)
                                      .help("Secret key to decrypt with, given \
