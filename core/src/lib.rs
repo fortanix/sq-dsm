@@ -4,19 +4,20 @@
 //! Therefore, we need you to provide a little information about the
 //! context you are using Sequoia in.
 //!
-/// # Examples
-///
-/// A context with reasonable defaults can be created using
-/// `Context::new`:
-///
-/// ```no_run
-/// # use sequoia_core::{Context, Result};
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
-/// let c = Context::new();
-/// # Ok(())
-/// # }
-/// ```
+//! # Examples
+//!
+//! A context with reasonable defaults can be created using
+//! `Context::new`:
+//!
+//! ```no_run
+//! # use sequoia_core::{Context, Result};
+//! # f().unwrap();
+//! # fn f() -> Result<()> {
+//! let c = Context::new();
+//! # Ok(())
+//! # }
+//! ```
+
 
 use dirs;
 use tempfile;
