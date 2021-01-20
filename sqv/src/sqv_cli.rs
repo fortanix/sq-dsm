@@ -4,7 +4,11 @@ use clap::{App, Arg, AppSettings};
 
 // The argument parser.
 pub fn build() -> App<'static, 'static> {
-    App::new("sqv")
+    configure(App::new("sqv"))
+}
+
+pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
+    app
         .version(env!("CARGO_PKG_VERSION"))
         .about("sqv is a command-line OpenPGP signature verification tool.")
         .setting(AppSettings::ArgRequiredElseHelp)

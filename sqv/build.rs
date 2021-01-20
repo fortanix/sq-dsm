@@ -13,7 +13,7 @@ fn main() {
     // XXX: Revisit once
     // https://github.com/rust-lang/rust/issues/44732 is stabilized.
 
-    let mut sqv = sqv_cli::build();
+    let mut sqv = sqv_cli::configure(clap::App::new("sqv").set_term_width(80));
     let mut main = fs::File::create("src/sqv-usage.rs").unwrap();
     dump_help(&mut main,
               &mut sqv,
