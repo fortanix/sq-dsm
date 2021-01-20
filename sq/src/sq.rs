@@ -4,7 +4,9 @@ use anyhow::Context as _;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use chrono::{DateTime, offset::Utc};
+use itertools::Itertools;
 
 use buffered_reader::File;
 use sequoia_openpgp as openpgp;
@@ -68,6 +70,72 @@ fn create_or_stdout_pgp<'a>(f: Option<&str>, force: bool,
         message = Armorer::new(message).kind(kind).build()?;
     }
     Ok(message)
+}
+
+const SECONDS_IN_DAY : u64 = 24 * 60 * 60;
+const SECONDS_IN_YEAR : u64 =
+    // Average number of days in a year.
+    (365.2422222 * SECONDS_IN_DAY as f64) as u64;
+
+fn parse_duration(expiry: &str) -> Result<Duration> {
+    let mut expiry = expiry.chars().peekable();
+
+    let _ = expiry.by_ref()
+        .peeking_take_while(|c| c.is_whitespace())
+        .for_each(|_| ());
+    let digits = expiry.by_ref()
+        .peeking_take_while(|c| {
+            *c == '+' || *c == '-' || c.is_digit(10)
+        }).collect::<String>();
+    let _ = expiry.by_ref()
+        .peeking_take_while(|c| c.is_whitespace())
+        .for_each(|_| ());
+    let suffix = expiry.next();
+    let _ = expiry.by_ref()
+        .peeking_take_while(|c| c.is_whitespace())
+        .for_each(|_| ());
+    let junk = expiry.collect::<String>();
+
+    if digits == "" {
+        return Err(anyhow::anyhow!(
+            "--expiry: missing count \
+             (try: '2y' for 2 years)"));
+    }
+
+    let count = match digits.parse::<i32>() {
+        Ok(count) if count < 0 =>
+            return Err(anyhow::anyhow!(
+                "--expiry: Expiration can't be in the past")),
+        Ok(count) => count as u64,
+        Err(err) =>
+            return Err(err).context("--expiry: count is out of range"),
+    };
+
+    let factor = match suffix {
+        Some('y') | Some('Y') => SECONDS_IN_YEAR,
+        Some('m') | Some('M') => SECONDS_IN_YEAR / 12,
+        Some('w') | Some('W') => 7 * SECONDS_IN_DAY,
+        Some('d') | Some('D') => SECONDS_IN_DAY,
+        None =>
+            return Err(anyhow::anyhow!(
+                "--expiry: missing suffix \
+                 (try: '{}y', '{}m', '{}w' or '{}d' instead)",
+                digits, digits, digits, digits)),
+        Some(suffix) =>
+            return Err(anyhow::anyhow!(
+                "--expiry: invalid suffix '{}' \
+                 (try: '{}y', '{}m', '{}w' or '{}d' instead)",
+                suffix, digits, digits, digits, digits)),
+    };
+
+    if junk != "" {
+        return Err(anyhow::anyhow!(
+            "--expiry: contains trailing junk ('{:?}') \
+             (try: '{}{}')",
+            junk, count, factor));
+    }
+
+    Ok(Duration::new(count * factor, 0))
 }
 
 /// Loads one TSK from every given file.
