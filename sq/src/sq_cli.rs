@@ -6,6 +6,16 @@ pub fn build() -> App<'static, 'static> {
     configure(App::new("sq"))
 }
 
+/// Defines the CLI.
+///
+/// The order of top-level subcommands is:
+///
+///   - Encryption & decryption             (1xx)
+///   - Signing & verification              (2xx)
+///   - Key & cert-ring management          (3xx)
+///   - Key discovery & networking          (4xx)
+///   - Armor                               (5xx)
+///   - Inspection & packet manipulation    (6xx)
 pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
     let app = app
         .version(env!("CARGO_PKG_VERSION"))
@@ -23,7 +33,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                critical bit set are considered invalid."))
 
         .subcommand(SubCommand::with_name("decrypt")
-                    .display_order(10)
+                    .display_order(110)
                     .about("Decrypts an OpenPGP message")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
@@ -58,7 +68,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("encrypt")
-                    .display_order(20)
+                    .display_order(100)
                     .about("Encrypts a message")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
@@ -112,7 +122,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("merge-signatures")
-                    .display_order(31)
+                    .display_order(250)
                     .about("Merges two signatures")
                     .arg(Arg::with_name("input1")
                          .value_name("FILE")
@@ -126,7 +136,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("sign")
-                    .display_order(25)
+                    .display_order(200)
                     .about("Signs a message")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
@@ -160,7 +170,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("verify")
-                    .display_order(26)
+                    .display_order(210)
                     .about("Verifies a message")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
@@ -184,6 +194,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("enarmor")
+                    .display_order(500)
                     .about("Applies ASCII Armor to a file")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
@@ -200,6 +211,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("dearmor")
+                    .display_order(510)
                     .about("Removes ASCII Armor from a file")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
@@ -210,6 +222,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("autocrypt")
+                    .display_order(400)
                     .about("Autocrypt support")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("decode")
@@ -248,6 +261,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("inspect")
+                    .display_order(600)
                     .about("Inspects a sequence of OpenPGP packets")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
@@ -259,6 +273,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
         .subcommand(
             SubCommand::with_name("key")
+                .display_order(300)
                 .about("Manipulates keys")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
@@ -372,6 +387,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
         .subcommand(
             SubCommand::with_name("certring")
+                .display_order(310)
                 .about("Manipulates certificate rings")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
@@ -446,6 +462,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("packet")
+                    .display_order(610)
                     .about("OpenPGP Packet manipulation")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("dump")
@@ -536,7 +553,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
              .short("p").long("policy").value_name("NETWORK-POLICY")
              .help("Sets the network policy to use"))
         .subcommand(SubCommand::with_name("keyserver")
-                    .display_order(40)
+                    .display_order(410)
                     .about("Interacts with keyservers")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .arg(Arg::with_name("server")
@@ -567,6 +584,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         )
 
         .subcommand(SubCommand::with_name("wkd")
+                    .display_order(420)
                     .about("Interacts with Web Key Directories")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("url")
