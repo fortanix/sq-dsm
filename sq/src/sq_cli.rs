@@ -299,7 +299,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
                         .arg(Arg::with_name("expires")
                              .long("expires").value_name("TIME")
-                             .help("Absolute time When the key should expire, \
+                             .help("Absolute time when the key should expire, \
                                     or 'never'."))
                         .arg(Arg::with_name("expires-in")
                              .long("expires-in").value_name("DURATION")

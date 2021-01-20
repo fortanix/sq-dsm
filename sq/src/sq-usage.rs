@@ -281,7 +281,7 @@
 //!             Cryptographic algorithms used for the key. [default: cv25519]
 //!             [possible values: rsa3k, rsa4k, cv25519]
 //!         --expires <TIME>
-//!             Absolute time When the key should expire, or 'never'.
+//!             Absolute time when the key should expire, or 'never'.
 //!
 //!         --expires-in <DURATION>
 //!             Relative time when the key should expire.  Either 'N[ymwd]', for N
