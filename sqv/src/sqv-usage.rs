@@ -31,4 +31,7 @@
 //! '2017-03-04', '2017031', ...). If no timezone is specified, UTC is assumed.
 //! ```
 
+#![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
+#![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
+
 include!("sqv.rs");

@@ -19,6 +19,10 @@ fn main() {
               &mut sq,
               vec![],
               "#").unwrap();
+    writeln!(main, "\n#![doc(html_favicon_url = \"https://docs.sequoia-pgp.org/favicon.png\")]")
+        .unwrap();
+    writeln!(main, "#![doc(html_logo_url = \"https://docs.sequoia-pgp.org/logo.svg\")]")
+        .unwrap();
     writeln!(main, "\ninclude!(\"sq.rs\");").unwrap();
 
     let outdir = match env::var_os("CARGO_TARGET_DIR") {
