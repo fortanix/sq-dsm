@@ -642,8 +642,8 @@ a_cutoff_list!(SubpacketTagCutoffList, SubpacketTag, 36,
                    ACCEPT,                 // 2. SignatureCreationTime.
                    ACCEPT,                 // 3. SignatureExpirationTime.
                    ACCEPT,                 // 4. ExportableCertification.
-                   REJECT,                 // 5. TrustSignature.
-                   REJECT,                 // 6. RegularExpression.
+                   ACCEPT,                 // 5. TrustSignature.
+                   ACCEPT,                 // 6. RegularExpression.
                    // Note: Even though we don't explicitly honor the
                    // Revocable flag, we don't support signature
                    // revocations, hence it is safe to ACCEPT it.
