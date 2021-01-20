@@ -7,10 +7,6 @@ pub fn build() -> App<'static, 'static> {
         .version(env!("CARGO_PKG_VERSION"))
         .about("Sequoia is an implementation of OpenPGP.  This is a command-line frontend.")
         .setting(AppSettings::SubcommandRequiredElseHelp)
-        .arg(Arg::with_name("policy").value_name("NETWORK-POLICY")
-             .long("policy")
-             .short("p")
-             .help("Sets the network policy to use"))
         .arg(Arg::with_name("force")
              .long("force")
              .short("f")
@@ -582,6 +578,10 @@ pub fn build() -> App<'static, 'static> {
     } else {
         // With networking support.
         app
+        .arg(Arg::with_name("policy").value_name("NETWORK-POLICY")
+             .long("policy")
+             .short("p")
+             .help("Sets the network policy to use"))
         .subcommand(SubCommand::with_name("keyserver")
                     .display_order(40)
                     .about("Interacts with keyservers")
