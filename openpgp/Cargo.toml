@@ -96,3 +96,7 @@ harness = false
 [[bench]]
 name = "encrypt_message"
 harness = false
+
+[[bench]]
+name = "decrypt_message"
+harness = false
