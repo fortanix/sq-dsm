@@ -332,15 +332,3 @@ impl From<u8> for IPCPolicy {
         }
     }
 }
-
-#[macro_export]
-macro_rules! assert_match {
-    ( $error: pat = $expr:expr ) => {
-        let x = $expr;
-        if let $error = x {
-            /* Pass.  */
-        } else {
-            panic!("Expected {}, got {:?}.", stringify!($error), x);
-        }
-    };
-}
