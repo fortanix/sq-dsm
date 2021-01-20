@@ -35,6 +35,7 @@
 //!     dearmor             Removes ASCII Armor from a file
 //!     inspect             Inspects a sequence of OpenPGP packets
 //!     packet              OpenPGP Packet manipulation
+//!     certify             Certify a User ID for a Certificate
 //!     help                Prints this message or the help of the given
 //!                         subcommand(s)
 //! ```
@@ -790,6 +791,54 @@
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
+//! ```
+//!
+//! ## Subcommand certify
+//!
+//! ```text
+//! Certify a User ID for a Certificate
+//!
+//! USAGE:
+//!     sq certify [FLAGS] [OPTIONS] <CERTIFIER> <CERTIFICATE> <USERID>
+//!
+//! FLAGS:
+//!     -h, --help             Prints help information
+//!     -l, --local            Makes the certification a local certification.
+//!                            Normally, local certifications are not exported.
+//!         --non-revocable    Marks the certification as being non-revocable. That
+//!                            is, you cannot later revoke this certification.  This
+//!                            should normally only be used with an expiration.
+//!     -V, --version          Prints version information
+//!
+//! OPTIONS:
+//!     -a, --amount <TRUST_AMOUNT>
+//!             The amount of trust.  Values between 1 and 120 are meaningful. 120
+//!             means fully trusted.  Values less than 120 indicate the degree of
+//!             trust.  60 is usually used for partially trusted.  The default is
+//!             120.
+//!     -d, --depth <TRUST_DEPTH>
+//!             The trust depth (sometimes referred to as the trust level).  0 means
+//!             a normal certification of <CERTIFICATE, USERID>.  1 means
+//!             CERTIFICATE is also a trusted introducer, 2 means CERTIFICATE is a
+//!             meta-trusted introducer, etc.  The default is 0.
+//!         --expires <TIME>
+//!             Absolute time when the certification should expire, or 'never'.
+//!
+//!         --expires-in <DURATION>
+//!             Relative time when the certification should expire.  Either
+//!             'N[ymwd]', for N years, months, weeks, or days, or 'never'.  The
+//!             default is 5 years.
+//!     -r, --regex <REGEX>...
+//!             Adds a regular expression to constrain what a trusted introducer can
+//!             certify.  The regular expression must match the certified User ID in
+//!             all intermediate introducers, and the certified certificate.
+//!             Multiple regular expressions may be specified.  In that case, at
+//!             least one must match.
+//!
+//! ARGS:
+//!     <CERTIFIER>      The key to certify the certificate.
+//!     <CERTIFICATE>    The certificate to certify.
+//!     <USERID>         The User ID to certify.
 //! ```
 
 #![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]

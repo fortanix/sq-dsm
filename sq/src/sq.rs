@@ -573,6 +573,11 @@ fn main() -> Result<()> {
 
         #[cfg(feature = "net")]
         ("wkd",  Some(m)) => commands::net::dispatch_wkd(config, m)?,
+
+        ("certify",  Some(m)) => {
+            commands::certify::certify(policy, m, force)?;
+        },
+
         _ => unreachable!(),
     }
 

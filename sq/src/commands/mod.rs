@@ -44,6 +44,7 @@ pub use self::merge_signatures::merge_signatures;
 pub mod certring;
 #[cfg(feature = "net")]
 pub mod net;
+pub mod certify;
 
 /// Returns suitable signing keys from a given list of Certs.
 fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
