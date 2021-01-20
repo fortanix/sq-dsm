@@ -14,9 +14,10 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!         --known-notation <NOTATION>...    The notation name is considered known. This is used when validating
-//!                                           signatures. Signatures that have unknown notations with the critical bit set
-//!                                           are considered invalid.
+//!         --known-notation <NOTATION>...
+//!             The notation name is considered known. This is used when validating
+//!             signatures. Signatures that have unknown notations with the critical
+//!             bit set are considered invalid.
 //!     -p, --policy <NETWORK-POLICY>         Sets the network policy to use
 //!
 //! SUBCOMMANDS:
@@ -30,7 +31,8 @@
 //!     certring            Manipulates certificate rings
 //!     dearmor             Removes ASCII Armor from a file
 //!     enarmor             Applies ASCII Armor to a file
-//!     help                Prints this message or the help of the given subcommand(s)
+//!     help                Prints this message or the help of the given
+//!                         subcommand(s)
 //!     inspect             Inspects a sequence of OpenPGP packets
 //!     key                 Manipulates keys
 //!     packet              OpenPGP Packet manipulation
@@ -54,10 +56,15 @@
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>             Sets the output file to use
-//!         --recipient-key <KEY>...    Secret key to decrypt with, given as a file (can be given multiple times)
-//!         --signer-cert <CERT>...     The signer's certificate to verify signatures with, given as a file (can be given
-//!                                     multiple times)
-//!     -n, --signatures <N>            The number of valid signatures required.  Default: 0
+//!         --recipient-key <KEY>...
+//!             Secret key to decrypt with, given as a file (can be given multiple
+//!             times)
+//!         --signer-cert <CERT>...
+//!             The signer's certificate to verify signatures with, given as a file
+//!             (can be given multiple times)
+//!     -n, --signatures <N>
+//!             The number of valid signatures required.  Default: 0
+//!
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -74,23 +81,33 @@
 //! FLAGS:
 //!     -B, --binary                Don't ASCII-armor encode the OpenPGP data
 //!     -h, --help                  Prints help information
-//!     -s, --symmetric             Encrypt with a password (can be given multiple times)
-//!         --use-expired-subkey    If a certificate has only expired encryption-capable subkeys, fall back to using the one
-//!                                 that expired last
+//!     -s, --symmetric             Encrypt with a password (can be given multiple
+//!                                 times)
+//!         --use-expired-subkey    If a certificate has only expired encryption-
+//!                                 capable subkeys, fall back to using
+//!                                 the one that expired last
 //!     -V, --version               Prints version information
 //!
 //! OPTIONS:
-//!         --compression <KIND>               Selects compression scheme to use [default: pad]  [possible values: none,
-//!                                            pad, zip, zlib, bzip2]
-//!         --mode <MODE>                      Selects what kind of keys are considered for encryption.  Transport select
-//!                                            subkeys marked as suitable for transport encryption, rest selects those for
-//!                                            encrypting data at rest, and all selects all encryption-capable subkeys
-//!                                            [default: all]  [possible values: transport, rest, all]
+//!         --compression <KIND>
+//!             Selects compression scheme to use [default: pad]  [possible values:
+//!             none, pad, zip, zlib, bzip2]
+//!         --mode <MODE>
+//!             Selects what kind of keys are considered for encryption.  Transport
+//!             select subkeys marked as suitable for transport encryption, rest
+//!             selects those for encrypting data at rest, and all selects all
+//!             encryption-capable subkeys [default: all]  [possible values:
+//!             transport, rest, all]
 //!     -o, --output <FILE>                    Sets the output file to use
-//!         --recipient-cert <CERT-RING>...    Recipients to encrypt for, given as a file (can be given multiple times)
-//!         --signer-key <KEY>...              Secret key to sign with, given as a file (can be given multiple times)
-//!     -t, --time <TIME>                      Chooses keys valid at the specified time and sets the signature's creation
-//!                                            time
+//!         --recipient-cert <CERT-RING>...
+//!             Recipients to encrypt for, given as a file (can be given multiple
+//!             times)
+//!         --signer-key <KEY>...
+//!             Secret key to sign with, given as a file (can be given multiple
+//!             times)
+//!     -t, --time <TIME>
+//!             Chooses keys valid at the specified time and sets the signature's
+//!             creation time
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -114,8 +131,12 @@
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>          Sets the output file to use
-//!         --signer-key <KEY>...    Secret key to sign with, given as a file (can be given multiple times)
-//!     -t, --time <TIME>            Chooses keys valid at the specified time and sets the signature's creation time
+//!         --signer-key <KEY>...
+//!             Secret key to sign with, given as a file (can be given multiple
+//!             times)
+//!     -t, --time <TIME>
+//!             Chooses keys valid at the specified time and sets the signature's
+//!             creation time
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -136,9 +157,12 @@
 //! OPTIONS:
 //!         --detached <SIG>           Verifies a detached signature
 //!     -o, --output <FILE>            Sets the output file to use
-//!         --signer-cert <CERT>...    The signer's certificate to verify signatures with, given as a file (can be given
-//!                                    multiple times)
-//!     -n, --signatures <N>           The number of valid signatures required.  Default: 0
+//!         --signer-cert <CERT>...
+//!             The signer's certificate to verify signatures with, given as a file
+//!             (can be given multiple times)
+//!     -n, --signatures <N>
+//!             The number of valid signatures required.  Default: 0
+//!
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -202,7 +226,8 @@
 //!     -o, --output <FILE>    Sets the output file to use
 //!
 //! ARGS:
-//!     <QUERY>    Fingerprint, KeyID, or email address of the cert(s) to retrieve
+//!     <QUERY>    Fingerprint, KeyID, or email address of the cert(s) to
+//!                retrieve
 //! ```
 //!
 //! ### Subcommand keyserver send
@@ -235,8 +260,10 @@
 //!
 //! SUBCOMMANDS:
 //!     decode           Converts Autocrypt-encoded keys to OpenPGP Certificates
-//!     encode-sender    Encodes the sender's OpenPGP Certificates into an Autocrypt header
-//!     help             Prints this message or the help of the given subcommand(s)
+//!     encode-sender    Encodes the sender's OpenPGP Certificates into an
+//!                      Autocrypt header
+//!     help             Prints this message or the help of the given
+//!                      subcommand(s)
 //! ```
 //!
 //! ### Subcommand autocrypt decode
@@ -271,10 +298,13 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!         --address <address>                  Select userid to use.  [default: primary userid]
+//!         --address <address>
+//!             Select userid to use.  [default: primary userid]
+//!
 //!     -o, --output <FILE>                      Sets the output file to use
-//!         --prefer-encrypt <prefer-encrypt>    Sets the prefer-encrypt attribute [default: nopreference]  [possible
-//!                                              values: nopreference, mutual]
+//!         --prefer-encrypt <prefer-encrypt>
+//!             Sets the prefer-encrypt attribute [default: nopreference]  [possible
+//!             values: nopreference, mutual]
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -307,8 +337,9 @@
 //! ### Subcommand certring filter
 //!
 //! ```text
-//! If multiple predicates are given, they are or'ed, i.e. a certificate matches if any of the predicates match.  To require
-//! all predicates to match, chain multiple invocations of this command.
+//! If multiple predicates are given, they are or'ed, i.e. a certificate matches if
+//! any of the predicates match.  To require all predicates to match, chain multiple
+//! invocations of this command.
 //!
 //! USAGE:
 //!     sq certring filter [FLAGS] [OPTIONS] [--] [FILE]...
@@ -395,8 +426,9 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to the input filename with a dash, or
-//!                            'output' if certring is read from stdin)
+//!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to
+//!                            the input filename with a dash, or 'output' if
+//!                            certring is read from stdin)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -434,8 +466,9 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!         --kind <KIND>      Selects the kind of header line to produce [default: file]  [possible values: message,
-//!                            publickey, secretkey, signature, file]
+//!         --kind <KIND>      Selects the kind of header line to produce [default:
+//!                            file]  [possible values: message, publickey,
+//!                            secretkey, signature, file]
 //!     -o, --output <FILE>    Sets the output file to use
 //!
 //! ARGS:
@@ -473,9 +506,12 @@
 //!
 //! SUBCOMMANDS:
 //!     adopt                    Bind keys from one certificate to another.
-//!     attest-certifications    Attests third-party certifications allowing for their distribution
+//!     attest-certifications
+//!             Attests third-party certifications allowing for their distribution
+//!
 //!     generate                 Generates a new key
-//!     help                     Prints this message or the help of the given subcommand(s)
+//!     help
+//!             Prints this message or the help of the given subcommand(s)
 //! ```
 //!
 //! ### Subcommand key adopt
@@ -487,13 +523,19 @@
 //!     sq key adopt [FLAGS] [OPTIONS] <CERT> --key <KEY>...
 //!
 //! FLAGS:
-//!         --allow-broken-crypto    Allows adopting keys from certificates using broken cryptography.
+//!         --allow-broken-crypto
+//!             Allows adopting keys from certificates using broken cryptography.
+//!
 //!     -h, --help                   Prints help information
 //!     -V, --version                Prints version information
 //!
 //! OPTIONS:
-//!     -k, --key <KEY>...            Adds the specified key or subkey to the certificate.
-//!     -r, --keyring <KEYRING>...    A keyring containing the keys specified in --key.
+//!     -k, --key <KEY>...
+//!             Adds the specified key or subkey to the certificate.
+//!
+//!     -r, --keyring <KEYRING>...
+//!             A keyring containing the keys specified in --key.
+//!
 //!
 //! ARGS:
 //!     <CERT>    The certificate to add keys to.
@@ -531,20 +573,30 @@
 //!         --cannot-sign       The key will not be able to sign data
 //!     -h, --help              Prints help information
 //!     -V, --version           Prints version information
-//!         --with-password     Prompt for a password to protect the generated key with.
+//!         --with-password     Prompt for a password to protect the generated key
+//!                             with.
 //!
 //! OPTIONS:
-//!         --can-encrypt <PURPOSE>          The key has an encryption-capable subkey (default: universal) [possible values:
-//!                                          transport, storage, universal]
-//!     -c, --cipher-suite <CIPHER-SUITE>    Cryptographic algorithms used for the key. [default: cv25519]  [possible
-//!                                          values: rsa3k, rsa4k, cv25519]
-//!         --expires <TIME>                 Absolute time When the key should expire, or 'never'.
-//!         --expires-in <DURATION>          Relative time when the key should expire.  Either 'N[ymwd]', for N years,
-//!                                          months, weeks, or days, or 'never'.
-//!     -e, --export <OUTFILE>               Exports the key instead of saving it in the store
-//!         --rev-cert <FILE or ->           Sets the output file for the revocation certificate. Default is <OUTFILE>.rev,
-//!                                          mandatory if OUTFILE is '-'.
-//!     -u, --userid <EMAIL>...              Add userid to the key (can be given multiple times)
+//!         --can-encrypt <PURPOSE>
+//!             The key has an encryption-capable subkey (default: universal)
+//!             [possible values: transport, storage, universal]
+//!     -c, --cipher-suite <CIPHER-SUITE>
+//!             Cryptographic algorithms used for the key. [default: cv25519]
+//!             [possible values: rsa3k, rsa4k, cv25519]
+//!         --expires <TIME>
+//!             Absolute time When the key should expire, or 'never'.
+//!
+//!         --expires-in <DURATION>
+//!             Relative time when the key should expire.  Either 'N[ymwd]', for N
+//!             years, months, weeks, or days, or 'never'.
+//!     -e, --export <OUTFILE>
+//!             Exports the key instead of saving it in the store
+//!
+//!         --rev-cert <FILE or ->
+//!             Sets the output file for the revocation certificate. Default is
+//!             <OUTFILE>.rev, mandatory if OUTFILE is '-'.
+//!     -u, --userid <EMAIL>...
+//!             Add userid to the key (can be given multiple times)
 //! ```
 //!
 //! ## Subcommand packet
@@ -560,8 +612,8 @@
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
-//!     decrypt    Decrypts an OpenPGP message, dumping the content of the encryption container without further
-//!                processing
+//!     decrypt    Decrypts an OpenPGP message, dumping the content of the
+//!                encryption container without further processing
 //!     dump       Lists OpenPGP packets
 //!     help       Prints this message or the help of the given subcommand(s)
 //!     join       Joins OpenPGP packets split across files
@@ -571,7 +623,8 @@
 //! ### Subcommand packet decrypt
 //!
 //! ```text
-//! Decrypts an OpenPGP message, dumping the content of the encryption container without further processing
+//! Decrypts an OpenPGP message, dumping the content of the encryption container
+//! without further processing
 //!
 //! USAGE:
 //!     sq packet decrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -584,7 +637,9 @@
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>             Sets the output file to use
-//!         --recipient-key <KEY>...    Secret key to decrypt with, given as a file (can be given multiple times)
+//!         --recipient-key <KEY>...
+//!             Secret key to decrypt with, given as a file (can be given multiple
+//!             times)
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -606,7 +661,9 @@
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>                Sets the output file to use
-//!         --session-key <SESSION-KEY>    Session key to decrypt encryption containers
+//!         --session-key <SESSION-KEY>
+//!             Session key to decrypt encryption containers
+//!
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -626,8 +683,9 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!         --kind <KIND>      Selects the kind of header line to produce [default: file]  [possible values: message,
-//!                            publickey, secretkey, signature, file]
+//!         --kind <KIND>      Selects the kind of header line to produce [default:
+//!                            file]  [possible values: message, publickey,
+//!                            secretkey, signature, file]
 //!     -o, --output <FILE>    Sets the output file to use
 //!
 //! ARGS:
@@ -647,8 +705,8 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to the input filename with a dash, or
-//!                            'output')
+//!     -p, --prefix <FILE>    Sets the prefix to use for output files (defaults to
+//!                            the input filename with a dash, or 'output')
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -667,9 +725,11 @@
 //!     -V, --version    Prints version information
 //!
 //! SUBCOMMANDS:
-//!     generate    Generates a Web Key Directory for the given domain and keys.  If the WKD exists, the new keys will
-//!                 be inserted and it is updated and existing ones will be updated.
-//!     get         Writes to the standard output the Cert retrieved from a Web Key Directory, given an email address
+//!     generate    Generates a Web Key Directory for the given domain and keys.
+//!                 If the WKD exists, the new keys will be inserted and it is
+//!                 updated and existing ones will be updated.
+//!     get         Writes to the standard output the Cert retrieved from a Web
+//!                 Key Directory, given an email address
 //!     help        Prints this message or the help of the given subcommand(s)
 //!     url         Prints the Web Key Directory URL of an email address.
 //! ```
@@ -677,8 +737,9 @@
 //! ### Subcommand wkd generate
 //!
 //! ```text
-//! Generates a Web Key Directory for the given domain and keys.  If the WKD exists, the new keys will be inserted and it is
-//! updated and existing ones will be updated.
+//! Generates a Web Key Directory for the given domain and keys.  If the WKD exists,
+//! the new keys will be inserted and it is updated and existing ones will be
+//! updated.
 //!
 //! USAGE:
 //!     sq wkd generate [FLAGS] <WEB-ROOT> <DOMAIN> [KEYRING]
@@ -689,8 +750,9 @@
 //!     -V, --version          Prints version information
 //!
 //! ARGS:
-//!     <WEB-ROOT>    The location to write the WKD to. This must be the directory the webserver is serving the '.well-
-//!                   known' directory from.
+//!     <WEB-ROOT>    The location to write the WKD to. This must be the
+//!                   directory the webserver is serving the '.well-known'
+//!                   directory from.
 //!     <DOMAIN>      The domain for the WKD.
 //!     <KEYRING>     The keyring file with the keys to add to the WKD.
 //! ```
@@ -698,7 +760,8 @@
 //! ### Subcommand wkd get
 //!
 //! ```text
-//! Writes to the standard output the Cert retrieved from a Web Key Directory, given an email address
+//! Writes to the standard output the Cert retrieved from a Web Key Directory, given
+//! an email address
 //!
 //! USAGE:
 //!     sq wkd get [FLAGS] <EMAIL_ADDRESS>
@@ -709,7 +772,8 @@
 //!     -V, --version    Prints version information
 //!
 //! ARGS:
-//!     <EMAIL_ADDRESS>    The email address from which to obtain the Cert from a WKD.
+//!     <EMAIL_ADDRESS>    The email address from which to obtain the Cert from
+//!                        a WKD.
 //! ```
 //!
 //! ### Subcommand wkd url

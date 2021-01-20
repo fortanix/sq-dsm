@@ -3,7 +3,11 @@
 use clap::{App, Arg, ArgGroup, SubCommand, AppSettings};
 
 pub fn build() -> App<'static, 'static> {
-    let app = App::new("sq")
+    configure(App::new("sq"))
+}
+
+pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
+    let app = app
         .version(env!("CARGO_PKG_VERSION"))
         .about("Sequoia is an implementation of OpenPGP.  This is a command-line frontend.")
         .setting(AppSettings::SubcommandRequiredElseHelp)
