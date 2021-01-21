@@ -304,6 +304,11 @@ fn main() -> Result<()> {
 
     let policy = &mut P::new();
 
+    // XXX: Compat with sequoia-openpgp 1.0.0:
+    use openpgp::packet::signature::subpacket::SubpacketTag;
+    policy.accept_critical_subpacket(SubpacketTag::TrustSignature);
+    policy.accept_critical_subpacket(SubpacketTag::RegularExpression);
+
     let matches = sq_cli::build().get_matches();
 
     let known_notations: Vec<&str> = matches.values_of("known-notation")
