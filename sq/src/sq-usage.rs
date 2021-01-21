@@ -22,7 +22,7 @@
 //!
 //! SUBCOMMANDS:
 //!     encrypt             Encrypts a message
-//!     decrypt             Decrypts an OpenPGP message
+//!     decrypt             Decrypts a message
 //!     sign                Signs a message
 //!     verify              Verifies a message
 //!     merge-signatures    Merges two signatures
@@ -33,8 +33,8 @@
 //!     wkd                 Interacts with Web Key Directories
 //!     armor               Applies ASCII Armor to a file
 //!     dearmor             Removes ASCII Armor from a file
-//!     inspect             Inspects a sequence of OpenPGP packets
-//!     packet              OpenPGP Packet manipulation
+//!     inspect             Inspects data, like file(1)
+//!     packet              Packet manipulation
 //!     certify             Certify a User ID for a Certificate
 //!     help                Prints this message or the help of the given
 //!                         subcommand(s)
@@ -85,7 +85,7 @@
 //! ## Subcommand decrypt
 //!
 //! ```text
-//! Decrypts an OpenPGP message
+//! Decrypts a message
 //!
 //! USAGE:
 //!     sq decrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -652,7 +652,7 @@
 //! ## Subcommand inspect
 //!
 //! ```text
-//! Inspects a sequence of OpenPGP packets
+//! Inspects data, like file(1)
 //!
 //! USAGE:
 //!     sq inspect [FLAGS] [FILE]
@@ -668,7 +668,7 @@
 //! ## Subcommand packet
 //!
 //! ```text
-//! OpenPGP Packet manipulation
+//! Packet manipulation
 //!
 //! USAGE:
 //!     sq packet <SUBCOMMAND>
@@ -677,19 +677,19 @@
 //!     -h, --help    Prints help information
 //!
 //! SUBCOMMANDS:
-//!     decrypt    Decrypts an OpenPGP message, dumping the content of the
-//!                encryption container without further processing
-//!     dump       Lists OpenPGP packets
+//!     decrypt    Decrypts a message, dumping the content of the encryption
+//!                container without further processing
+//!     dump       Lists packets
 //!     help       Prints this message or the help of the given subcommand(s)
-//!     join       Joins OpenPGP packets split across files
-//!     split      Splits a message into OpenPGP packets
+//!     join       Joins packets split across files
+//!     split      Splits a message into packets
 //! ```
 //!
 //! ### Subcommand packet decrypt
 //!
 //! ```text
-//! Decrypts an OpenPGP message, dumping the content of the encryption container
-//! without further processing
+//! Decrypts a message, dumping the content of the encryption container without
+//! further processing
 //!
 //! USAGE:
 //!     sq packet decrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -713,7 +713,7 @@
 //! ### Subcommand packet dump
 //!
 //! ```text
-//! Lists OpenPGP packets
+//! Lists packets
 //!
 //! USAGE:
 //!     sq packet dump [FLAGS] [OPTIONS] [FILE]
@@ -737,7 +737,7 @@
 //! ### Subcommand packet join
 //!
 //! ```text
-//! Joins OpenPGP packets split across files
+//! Joins packets split across files
 //!
 //! USAGE:
 //!     sq packet join [FLAGS] [OPTIONS] [FILE]...
@@ -760,7 +760,7 @@
 //! ### Subcommand packet split
 //!
 //! ```text
-//! Splits a message into OpenPGP packets
+//! Splits a message into packets
 //!
 //! USAGE:
 //!     sq packet split [OPTIONS] [FILE]

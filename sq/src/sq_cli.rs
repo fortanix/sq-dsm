@@ -37,7 +37,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("decrypt")
                     .display_order(110)
-                    .about("Decrypts an OpenPGP message")
+                    .about("Decrypts a message")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Sets the input file to use"))
@@ -265,7 +265,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("inspect")
                     .display_order(600)
-                    .about("Inspects a sequence of OpenPGP packets")
+                    .about("Inspects data, like file(1)")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Sets the input file to use"))
@@ -550,10 +550,10 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("packet")
                     .display_order(610)
-                    .about("OpenPGP Packet manipulation")
+                    .about("Packet manipulation")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("dump")
-                                .about("Lists OpenPGP packets")
+                                .about("Lists packets")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .help("Sets the input file to use"))
@@ -573,7 +573,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     )
                     .subcommand(SubCommand::with_name("decrypt")
                                 .display_order(10)
-                                .about("Decrypts an OpenPGP message, dumping \
+                                .about("Decrypts a message, dumping \
                                         the content of the encryption \
                                         container without further processing")
                                 .arg(Arg::with_name("input")
@@ -597,7 +597,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                      .help("Prints the session key to stderr"))
                     )
                     .subcommand(SubCommand::with_name("split")
-                                .about("Splits a message into OpenPGP packets")
+                                .about("Splits a message into packets")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .help("Sets the input file to use"))
@@ -608,7 +608,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                             or 'output')"))
                     )
                     .subcommand(SubCommand::with_name("join")
-                                .about("Joins OpenPGP packets split across \
+                                .about("Joins packets split across \
                                         files")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
