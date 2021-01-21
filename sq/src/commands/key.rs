@@ -484,7 +484,48 @@ pub fn attest_certifications(config: Config, m: &ArgMatches, _p: &dyn Policy)
         }
     }
 
-    // XXX: Do the same for user attributes.
+    for ua in key.user_attributes() {
+        let mut attestations = Vec::new();
+
+        if m.is_present("all") {
+            for certification in ua.certifications() {
+                let mut h = hash_algo.context()?;
+                hash_for_confirmation(certification, &mut h);
+                attestations.push(h.into_digest()?);
+            }
+        }
+
+        // Hashes SHOULD be sorted.
+        attestations.sort();
+
+        // All attestation signatures we generate for this component
+        // should have the same creation time.  Fix it now.
+        let t = std::time::SystemTime::now();
+
+        // Hash the components like in a binding signature.
+        let mut hash = hash_algo.context()?;
+        key.primary_key().hash(&mut hash);
+        ua.hash(&mut hash);
+
+        for digests in attestations.chunks(digests_per_sig) {
+            let mut body = Vec::with_capacity(digest_size * digests.len());
+            digests.iter().for_each(|d| body.extend(d));
+
+            attestation_signatures.push(
+                SignatureBuilder::new(SignatureType__AttestedKey)
+                    .set_signature_creation_time(t)?
+                    .modify_hashed_area(|mut a| {
+                        a.add(Subpacket::new(
+                            SubpacketValue::Unknown {
+                                tag: SubpacketTag__AttestedCertifications,
+                                body,
+                            },
+                            true)?)?;
+                        Ok(a)
+                    })?
+                    .sign_hash(&mut pk_signer, hash.clone())?);
+        }
+    }
 
     // Finally, add the new signatures.
     let key = key.insert_packets(attestation_signatures)?;
