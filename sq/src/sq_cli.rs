@@ -513,7 +513,11 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              .help("Writes to files with prefix FILE \
                                     [defaults to the input filename with a \
                                     dash, or 'output' if certring is read \
-                                    from stdin]")))
+                                    from stdin]"))
+                        .arg(Arg::with_name("binary")
+                             .short("B").long("binary")
+                             .help("Emits binary data"))
+                )
         )
 
         .subcommand(SubCommand::with_name("certify")

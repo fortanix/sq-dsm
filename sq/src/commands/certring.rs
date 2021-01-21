@@ -159,7 +159,7 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
                         .unwrap_or(String::from("output"))
                     // ... finally, add a hyphen to the derived prefix.
                         + "-");
-            split(&mut input, &prefix)
+            split(&mut input, &prefix, m.is_present("binary"))
         },
 
         _ => unreachable!(),
@@ -212,7 +212,7 @@ fn list(input: &mut (dyn io::Read + Sync + Send))
 }
 
 /// Splits a certring into individual certs.
-fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str)
+fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str, binary: bool)
          -> Result<()> {
     for (i, cert) in CertParser::from_reader(input)?.enumerate() {
         let cert = cert.context("Malformed certificate in certring")?;
@@ -242,7 +242,11 @@ fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str)
                 .context(format!("Writing cert to {:?} failed", filename))?
         };
 
-        cert.armored().serialize(&mut sink)?;
+        if binary {
+            cert.serialize(&mut sink)?;
+        } else {
+            cert.armored().serialize(&mut sink)?;
+        }
     }
     Ok(())
 }

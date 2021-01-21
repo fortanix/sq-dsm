@@ -448,9 +448,10 @@
 //! Splits a certring into individual certs
 //!
 //! USAGE:
-//!     sq certring split [OPTIONS] [FILE]
+//!     sq certring split [FLAGS] [OPTIONS] [FILE]
 //!
 //! FLAGS:
+//!     -B, --binary     Emits binary data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
