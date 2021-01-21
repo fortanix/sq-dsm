@@ -26,23 +26,21 @@
 //!             the critical bit set are considered invalid.
 //!
 //! SUBCOMMANDS:
-//!     encrypt             Encrypts a message
-//!     decrypt             Decrypts a message
-//!     sign                Signs messages or data files
-//!     verify              Verifies signed messages or detached signatures
-//!     merge-signatures    Merges two signatures
-//!     key                 Manages keys
-//!     certring            Manages collections of certificates
-//!     certify             Certifies a User ID for a Certificate
-//!     autocrypt           Communicates certificates using Autocrypt
-//!     keyserver           Interacts with keyservers
-//!     wkd                 Interacts with Web Key Directories
-//!     armor               Converts binary data to ASCII
-//!     dearmor             Converts ASCII to binary
-//!     inspect             Inspects data, like file(1)
-//!     packet              Low-level packet manipulation
-//!     help                Prints this message or the help of the given
-//!                         subcommand(s)
+//!     encrypt      Encrypts a message
+//!     decrypt      Decrypts a message
+//!     sign         Signs messages or data files
+//!     verify       Verifies signed messages or detached signatures
+//!     key          Manages keys
+//!     certring     Manages collections of certificates
+//!     certify      Certifies a User ID for a Certificate
+//!     autocrypt    Communicates certificates using Autocrypt
+//!     keyserver    Interacts with keyservers
+//!     wkd          Interacts with Web Key Directories
+//!     armor        Converts binary data to ASCII
+//!     dearmor      Converts ASCII to binary
+//!     inspect      Inspects data, like file(1)
+//!     packet       Low-level packet manipulation
+//!     help         Prints this message or the help of the given subcommand(s)
 //! ```
 //!
 //! ## Subcommand encrypt
@@ -153,8 +151,11 @@
 //!     -n, --notarize    Signs a message and all existing signatures
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>          Writes to FILE or stdout if omitted
-//!         --signer-key <KEY>...    Signs using KEY
+//!         --merge <SIGNED-MESSAGE>
+//!             Merges signatures from the input and SIGNED-MESSAGE
+//!
+//!     -o, --output <FILE>             Writes to FILE or stdout if omitted
+//!         --signer-key <KEY>...       Signs using KEY
 //!     -t, --time <TIME>
 //!             Chooses keys valid at the specified time and sets the signature's
 //!             creation time
@@ -194,25 +195,6 @@
 //! ARGS:
 //!     <FILE>
 //!             Reads from FILE or stdin if omitted
-//! ```
-//!
-//! ## Subcommand merge-signatures
-//!
-//! ```text
-//! Merges two signatures
-//!
-//! USAGE:
-//!     sq merge-signatures [OPTIONS] [ARGS]
-//!
-//! FLAGS:
-//!     -h, --help    Prints help information
-//!
-//! OPTIONS:
-//!     -o, --output <FILE>    Writes to FILE or stdout if omitted
-//!
-//! ARGS:
-//!     <FILE>    Reads first message from FILE
-//!     <FILE>    Reads second message from FILE
 //! ```
 //!
 //! ## Subcommand key

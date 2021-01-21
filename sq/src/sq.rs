@@ -378,12 +378,6 @@ fn main() -> Result<()> {
                               m.is_present("use-expired-subkey"),
             )?;
         },
-        ("merge-signatures",  Some(m)) => {
-            let mut input1 = open_or_stdin(m.value_of("input1"))?;
-            let mut input2 = open_or_stdin(m.value_of("input2"))?;
-            let output = m.value_of("output");
-            commands::merge_signatures(&mut input1, &mut input2, output)?;
-        },
         ("sign",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let output = m.value_of("output");
@@ -401,8 +395,15 @@ fn main() -> Result<()> {
             } else {
                 None
             };
-            commands::sign(policy, &mut input, output, secrets, detached, binary,
-                           append, notarize, time, force)?;
+            if let Some(merge) = m.value_of("merge") {
+                let output = create_or_stdout_pgp(output, force, binary,
+                                                  armor::Kind::Message)?;
+                let mut input2 = open_or_stdin(Some(merge))?;
+                commands::merge_signatures(&mut input, &mut input2, output)?;
+            } else {
+                commands::sign(policy, &mut input, output, secrets, detached,
+                               binary, append, notarize, time, force)?;
+            }
         },
         ("verify",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;

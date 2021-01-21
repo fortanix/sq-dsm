@@ -2,7 +2,6 @@ use anyhow::Context as _;
 use std::io;
 
 extern crate sequoia_openpgp as openpgp;
-use crate::create_or_stdout;
 use crate::openpgp::packet::Literal;
 use crate::openpgp::packet::Tag;
 use crate::openpgp::parse::{PacketParser, PacketParserResult, Parse};
@@ -13,15 +12,12 @@ use crate::openpgp::{Packet, Result};
 pub fn merge_signatures(
     input1: &mut (dyn io::Read + Send + Sync),
     input2: &mut (dyn io::Read + Send + Sync),
-    output_path: Option<&str>,
+    mut sink: Message,
 ) -> Result<()> {
     let parser1 =
         PacketParser::from_reader(input1).context("Failed to build parser")?;
     let parser2 =
         PacketParser::from_reader(input2).context("Failed to build parser")?;
-    let mut output = create_or_stdout(output_path, false)?;
-
-    let mut sink = Message::new(&mut output);
 
     let (ops1, post_ops_parser1) = read_while_by_tag(parser1, Tag::OnePassSig)?;
     let (ops2, post_ops_parser2) = read_while_by_tag(parser2, Tag::OnePassSig)?;

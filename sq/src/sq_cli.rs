@@ -132,20 +132,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                               to using the one that expired last"))
         )
 
-        .subcommand(SubCommand::with_name("merge-signatures")
-                    .display_order(250)
-                    .about("Merges two signatures")
-                    .arg(Arg::with_name("input1")
-                         .value_name("FILE")
-                         .help("Reads first message from FILE"))
-                    .arg(Arg::with_name("input2")
-                         .value_name("FILE")
-                         .help("Reads second message from FILE"))
-                    .arg(Arg::with_name("output")
-                         .short("o").long("output").value_name("FILE")
-                         .help("Writes to FILE or stdout if omitted"))
-        )
-
         .subcommand(SubCommand::with_name("sign")
                     .display_order(200)
                     .about("Signs messages or data files")
@@ -169,6 +155,17 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                          .short("n").long("notarize")
                          .conflicts_with("append")
                          .help("Signs a message and all existing signatures"))
+                    .arg(Arg::with_name("merge")
+                         .long("merge").value_name("SIGNED-MESSAGE")
+                         .conflicts_with_all(&[
+                             "append",
+                             "detached",
+                             "notarize",
+                             "secret-key-file",
+                             "time",
+                         ])
+                         .help("Merges signatures from the input and \
+                                SIGNED-MESSAGE"))
                     .arg(Arg::with_name("secret-key-file")
                          .long("signer-key").value_name("KEY")
                          .multiple(true).number_of_values(1)
