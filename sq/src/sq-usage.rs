@@ -23,8 +23,8 @@
 //! SUBCOMMANDS:
 //!     encrypt             Encrypts a message
 //!     decrypt             Decrypts a message
-//!     sign                Signs a message
-//!     verify              Verifies a message
+//!     sign                Signs messages or data files
+//!     verify              Verifies signed messages or detached signatures
 //!     merge-signatures    Merges two signatures
 //!     key                 Manipulates keys
 //!     certring            Manipulates certificate rings
@@ -115,7 +115,7 @@
 //! ## Subcommand sign
 //!
 //! ```text
-//! Signs a message
+//! Signs messages or data files
 //!
 //! USAGE:
 //!     sq sign [FLAGS] [OPTIONS] [--] [FILE]
@@ -143,7 +143,7 @@
 //! ## Subcommand verify
 //!
 //! ```text
-//! Verifies a message
+//! Verifies signed messages or detached signatures
 //!
 //! USAGE:
 //!     sq verify [OPTIONS] [--] [FILE]

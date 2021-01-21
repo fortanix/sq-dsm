@@ -140,7 +140,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("sign")
                     .display_order(200)
-                    .about("Signs a message")
+                    .about("Signs messages or data files")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Sets the input file to use"))
@@ -174,7 +174,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("verify")
                     .display_order(210)
-                    .about("Verifies a message")
+                    .about("Verifies signed messages or detached signatures")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Sets the input file to use"))
