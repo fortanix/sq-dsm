@@ -305,12 +305,14 @@
 //!         --allow-broken-crypto
 //!             Allows adopting keys from certificates using broken cryptography
 //!
+//!     -B, --binary                 Emits binary data
 //!     -h, --help                   Prints help information
 //!     -V, --version                Prints version information
 //!
 //! OPTIONS:
 //!     -k, --key <KEY>...             Adds the key or subkey KEY to the TARGET-KEY
 //!     -r, --keyring <KEY-RING>...    Supplies keys for use in --key.
+//!     -o, --output <FILE>            Writes to FILE or stdout if omitted
 //!
 //! ARGS:
 //!     <TARGET-KEY>    Adds keys to TARGET-KEY

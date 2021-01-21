@@ -191,7 +191,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn adopt(m: &ArgMatches, p: &dyn Policy) -> Result<()> {
+pub fn adopt(config: Config, m: &ArgMatches, p: &dyn Policy) -> Result<()> {
     let cert = m.value_of("certificate").unwrap();
     let cert = Cert::from_file(cert)
         .context(format!("Parsing {}", cert))?;
@@ -358,7 +358,8 @@ pub fn adopt(m: &ArgMatches, p: &dyn Policy) -> Result<()> {
     let cert = cert.clone().insert_packets(packets.clone())?;
 
     let mut message = crate::create_or_stdout_pgp(
-        None, false, false, sequoia_openpgp::armor::Kind::SecretKey)?;
+        m.value_of("output"), config.force,
+        m.is_present("binary"), sequoia_openpgp::armor::Kind::SecretKey)?;
     cert.as_tsk().serialize(&mut message)?;
     message.finalize()?;
 

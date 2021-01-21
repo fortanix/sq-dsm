@@ -553,7 +553,7 @@ fn main() -> Result<()> {
 
         ("key", Some(m)) => match m.subcommand() {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
-            ("adopt", Some(m)) => commands::key::adopt(m, policy)?,
+            ("adopt", Some(m)) => commands::key::adopt(config, m, policy)?,
             ("attest-certifications", Some(m)) =>
                 commands::key::attest_certifications(config, m, policy)?,
             _ => unreachable!(),
