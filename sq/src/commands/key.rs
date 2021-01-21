@@ -16,6 +16,7 @@ use crate::openpgp::serialize::Serialize;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::types::SignatureType;
 
+use crate::Config;
 use crate::create_or_stdout;
 use crate::SECONDS_IN_YEAR;
 use crate::parse_duration;
@@ -392,7 +393,8 @@ pub fn adopt(m: &ArgMatches, p: &dyn Policy) -> Result<()> {
     Ok(())
 }
 
-pub fn attest_certifications(m: &ArgMatches, _p: &dyn Policy) -> Result<()> {
+pub fn attest_certifications(config: Config, m: &ArgMatches, _p: &dyn Policy)
+                             -> Result<()> {
     // XXX: This function has to do some steps manually, because
     // Sequoia does not expose this functionality because it has not
     // been standardized yet.
@@ -487,7 +489,8 @@ pub fn attest_certifications(m: &ArgMatches, _p: &dyn Policy) -> Result<()> {
     let key = key.insert_packets(attestation_signatures)?;
 
     let mut message = crate::create_or_stdout_pgp(
-        None, false, false, sequoia_openpgp::armor::Kind::SecretKey)?;
+        m.value_of("output"), config.force, m.is_present("binary"),
+        sequoia_openpgp::armor::Kind::SecretKey)?;
     key.as_tsk().serialize(&mut message)?;
     message.finalize()?;
     Ok(())

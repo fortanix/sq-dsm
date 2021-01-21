@@ -555,7 +555,7 @@ fn main() -> Result<()> {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
             ("adopt", Some(m)) => commands::key::adopt(m, policy)?,
             ("attest-certifications", Some(m)) =>
-                commands::key::attest_certifications(m, policy)?,
+                commands::key::attest_certifications(config, m, policy)?,
             _ => unreachable!(),
         },
 

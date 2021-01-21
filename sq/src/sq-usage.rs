@@ -277,13 +277,17 @@
 //! Attests third-party certifications allowing for their distribution
 //!
 //! USAGE:
-//!     sq key attest-certifications [FLAGS] <KEY>
+//!     sq key attest-certifications [FLAGS] [OPTIONS] <KEY>
 //!
 //! FLAGS:
 //!         --all        Attests to all certifications
+//!     -B, --binary     Emits binary data
 //!     -h, --help       Prints help information
 //!         --none       Removes all prior attestations
 //!     -V, --version    Prints version information
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>    Writes to FILE or stdout if omitted
 //!
 //! ARGS:
 //!     <KEY>    Changes attestations on KEY
