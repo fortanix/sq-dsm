@@ -1,6 +1,4 @@
-//! Autocrypt.
-//!
-//! This module deals with Autocrypt encoded data (see the [Autocrypt
+//! This crate deals with Autocrypt encoded data (see the [Autocrypt
 //! Spec]).
 //!
 //!   [Autocrypt Spec]: https://autocrypt.org/level1.html#openpgp-based-key-data
