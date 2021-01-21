@@ -26,11 +26,12 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         ])
         .arg(Arg::with_name("force")
              .short("f").long("force")
-             .help("Overwrite existing files"))
+             .help("Overwrites existing files"))
         .arg(Arg::with_name("known-notation")
              .long("known-notation").value_name("NOTATION")
              .multiple(true).number_of_values(1)
-             .help("The notation name is considered known. \
+             .help("Adds NOTATION to the list of known notations")
+             .long_help("Adds NOTATION to the list of known notations. \
                This is used when validating signatures. \
                Signatures that have unknown notations with the \
                critical bit set are considered invalid."))
@@ -40,34 +41,35 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .about("Decrypts a message")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
-                         .help("Sets the input file to use"))
+                         .help("Reads from FILE or stdin if omitted"))
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
-                         .help("Sets the output file to use"))
-                    .arg(Arg::with_name("signatures").value_name("N")
-                         .help("The number of valid signatures required.  \
-                                Default: 0")
-                         .short("n").long("signatures"))
+                         .help("Writes to FILE or stdout if omitted"))
+                    .arg(Arg::with_name("signatures")
+                         .short("n").long("signatures").value_name("N")
+                         .default_value("0")
+                         .help("Sets the threshold of valid signatures to N")
+                         .long_help(
+                             "Sets the threshold of valid signatures to N. \
+                              If this threshold is not reached, the message \
+                              will not be considered verified."))
                     .arg(Arg::with_name("sender-cert-file")
                          .long("signer-cert").value_name("CERT")
                          .multiple(true).number_of_values(1)
-                         .help("The sender's certificate to verify signatures \
-                                with, given as a file \
-                                (can be given multiple times)"))
+                         .help("Verifies signatures with CERT"))
                     .arg(Arg::with_name("secret-key-file")
                          .long("recipient-key").value_name("KEY")
                          .multiple(true).number_of_values(1)
-                         .help("Secret key to decrypt with, given as a file \
-                                (can be given multiple times)"))
+                         .help("Decrypts with KEY"))
                     .arg(Arg::with_name("dump-session-key")
                          .long("dump-session-key")
                          .help("Prints the session key to stderr"))
                     .arg(Arg::with_name("dump")
                          .long("dump")
-                         .help("Print a packet dump to stderr"))
+                         .help("Prints a packet dump to stderr"))
                     .arg(Arg::with_name("hex")
                          .short("x").long("hex")
-                         .help("Print a hexdump (implies --dump)"))
+                         .help("Prints a hexdump (implies --dump)"))
         )
 
         .subcommand(SubCommand::with_name("encrypt")
@@ -75,38 +77,42 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .about("Encrypts a message")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
-                         .help("Sets the input file to use"))
+                         .help("Reads from FILE or stdin if omitted"))
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
-                         .help("Sets the output file to use"))
+                         .help("Writes to FILE or stdout if omitted"))
                     .arg(Arg::with_name("binary")
                          .short("B").long("binary")
-                         .help("Emit binary data"))
+                         .help("Emits binary data"))
                     .arg(Arg::with_name("recipients-cert-file")
                          .long("recipient-cert").value_name("CERT-RING")
                          .multiple(true).number_of_values(1)
-                         .help("Recipients to encrypt for, given as a file \
-                                (can be given multiple times)"))
+                         .help("Encrypts for all recipients in CERT-RING"))
                     .arg(Arg::with_name("signer-key-file")
                          .long("signer-key").value_name("KEY")
                          .multiple(true).number_of_values(1)
-                         .help("Secret key to sign with, given as a file \
-                                (can be given multiple times)"))
+                         .help("Signs the message with KEY"))
                     .arg(Arg::with_name("symmetric")
                          .short("s").long("symmetric")
                          .multiple(true)
-                         .help("Encrypt with a password \
-                                (can be given multiple times)"))
+                         .help("Adds a password to encrypt with")
+                         .long_help("Adds a password to encrypt with.  \
+                                     The message can be decrypted with \
+                                     either one of the recipient's keys, \
+                                     or any password."))
                     .arg(Arg::with_name("mode")
                          .long("mode").value_name("MODE")
                          .possible_values(&["transport", "rest", "all"])
                          .default_value("all")
                          .help("Selects what kind of keys are considered for \
+                                encryption.")
+                         .long_help(
+                             "Selects what kind of keys are considered for \
                                 encryption.  Transport select subkeys marked \
                                 as suitable for transport encryption, rest \
                                 selects those for encrypting data at rest, \
                                 and all selects all encryption-capable \
-                                subkeys"))
+                                subkeys."))
                     .arg(Arg::with_name("compression")
                          .long("compression").value_name("KIND")
                          .possible_values(&["none", "pad", "zip", "zlib",
@@ -119,9 +125,11 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 sets the signature's creation time"))
                     .arg(Arg::with_name("use-expired-subkey")
                          .long("use-expired-subkey")
-                         .help("If a certificate has only expired \
-                                encryption-capable subkeys, fall back \
-                                to using the one that expired last"))
+                         .help("Falls back to expired encryption subkeys")
+                         .long_help(
+                             "If a certificate has only expired \
+                              encryption-capable subkeys, falls back \
+                              to using the one that expired last"))
         )
 
         .subcommand(SubCommand::with_name("merge-signatures")
@@ -129,13 +137,13 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .about("Merges two signatures")
                     .arg(Arg::with_name("input1")
                          .value_name("FILE")
-                         .help("Sets the first input file to use"))
+                         .help("Reads first message from FILE"))
                     .arg(Arg::with_name("input2")
                          .value_name("FILE")
-                         .help("Sets the second input file to use"))
+                         .help("Reads second message from FILE"))
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
-                         .help("Sets the output file to use"))
+                         .help("Writes to FILE or stdout if omitted"))
         )
 
         .subcommand(SubCommand::with_name("sign")
@@ -143,20 +151,20 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .about("Signs messages or data files")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
-                         .help("Sets the input file to use"))
+                         .help("Reads from FILE or stdin if omitted"))
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
-                         .help("Sets the output file to use"))
+                         .help("Writes to FILE or stdout if omitted"))
                     .arg(Arg::with_name("binary")
                          .short("B").long("binary")
-                         .help("Emit binary data"))
+                         .help("Emits binary data"))
                     .arg(Arg::with_name("detached")
                          .long("detached")
-                         .help("Create a detached signature"))
+                         .help("Creates a detached signature"))
                     .arg(Arg::with_name("append")
                          .short("a").long("append")
                          .conflicts_with("notarize")
-                         .help("Append signature to existing signature"))
+                         .help("Appends a signature to existing signature"))
                     .arg(Arg::with_name("notarize")
                          .short("n").long("notarize")
                          .conflicts_with("append")
@@ -164,8 +172,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .arg(Arg::with_name("secret-key-file")
                          .long("signer-key").value_name("KEY")
                          .multiple(true).number_of_values(1)
-                         .help("Secret key to sign with, given as a file \
-                                (can be given multiple times)"))
+                         .help("Signs using KEY"))
                     .arg(Arg::with_name("time")
                          .short("t").long("time").value_name("TIME")
                          .help("Chooses keys valid at the specified time and \
@@ -177,66 +184,67 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .about("Verifies signed messages or detached signatures")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
-                         .help("Sets the input file to use"))
+                         .help("Reads from FILE or stdin if omitted"))
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
-                         .help("Sets the output file to use"))
+                         .help("Writes to FILE or stdout if omitted"))
                     .arg(Arg::with_name("detached")
                          .long("detached").value_name("SIG")
                          .help("Verifies a detached signature"))
                     .arg(Arg::with_name("signatures")
                          .short("n").long("signatures").value_name("N")
-                         .help("The number of valid signatures required.  \
-                                Default: 0"))
+                         .default_value("0")
+                         .help("Sets the threshold of valid signatures to N")
+                         .long_help(
+                             "Sets the threshold of valid signatures to N. \
+                              If this threshold is not reached, the message \
+                              will not be considered verified."))
                     .arg(Arg::with_name("sender-cert-file")
                          .long("signer-cert").value_name("CERT")
                          .multiple(true).number_of_values(1)
-                         .help("The sender's certificate to verify signatures \
-                                with, given as a file \
-                                (can be given multiple times)"))
+                         .help("Verifies signatures with CERT"))
         )
 
         .subcommand(SubCommand::with_name("armor")
                     .display_order(500)
-                    .about("Applies ASCII Armor to a file")
+                    .about("Converts binary data to ASCII")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
-                         .help("Sets the input file to use"))
+                         .help("Reads from FILE or stdin if omitted"))
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
-                         .help("Sets the output file to use"))
+                         .help("Writes to FILE or stdout if omitted"))
                     .arg(Arg::with_name("kind")
                          .long("kind").value_name("KIND")
                          .possible_values(&["message", "publickey", "secretkey",
                                             "signature", "file"])
                          .default_value("file")
-                         .help("Selects the kind of header line to produce"))
+                         .help("Selects the kind of armor header"))
         )
 
         .subcommand(SubCommand::with_name("dearmor")
                     .display_order(510)
-                    .about("Removes ASCII Armor from a file")
+                    .about("Converts ASCII to binary")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
-                         .help("Sets the input file to use"))
+                         .help("Reads from FILE or stdin if omitted"))
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
-                         .help("Sets the output file to use"))
+                         .help("Writes to FILE or stdout if omitted"))
         )
 
         .subcommand(SubCommand::with_name("autocrypt")
                     .display_order(400)
-                    .about("Autocrypt support")
+                    .about("Communicates certificates using Autocrypt")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("decode")
-                                .about("Converts Autocrypt-encoded keys to \
-                                        OpenPGP Certificates")
+                                .about("Reads Autocrypt-encoded certificates")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
-                                     .help("Sets the input file to use"))
+                                     .help("Reads from FILE or stdin if omitted"))
                                 .arg(Arg::with_name("output")
                                      .short("o").long("output").value_name("FILE")
-                                     .help("Sets the output file to use"))
+                                     .help("Writes to FILE or stdout if omitted"))
                     )
                     .subcommand(SubCommand::with_name("encode-sender")
                                 .about("Encodes the sender's OpenPGP \
@@ -244,14 +252,13 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                         an Autocrypt header")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
-                                     .help("Sets the input file to use"))
+                                     .help("Reads from FILE or stdin if omitted"))
                                 .arg(Arg::with_name("output")
                                      .short("o").long("output").value_name("FILE")
-                                     .help("Sets the output file to use"))
+                                     .help("Writes to FILE or stdout if omitted"))
                                 .arg(Arg::with_name("address")
-                                     .long("address")
-                                     .takes_value(true)
-                                     .help("Select userid to use.  \
+                                     .long("email").value_name("ADDRESS")
+                                     .help("Sets the address \
                                             [default: primary userid]"))
                                 .arg(Arg::with_name("prefer-encrypt")
                                      .long("prefer-encrypt")
@@ -268,59 +275,64 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .about("Inspects data, like file(1)")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
-                         .help("Sets the input file to use"))
+                         .help("Reads from FILE or stdin if omitted"))
                     .arg(Arg::with_name("certifications")
                          .long("certifications")
-                         .help("Print third-party certifications"))
+                         .help("Prints third-party certifications"))
         )
 
         .subcommand(
             SubCommand::with_name("key")
                 .display_order(300)
-                .about("Manipulates keys")
+                .about("Manages keys")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("generate")
+                        .display_order(100)
                         .about("Generates a new key")
                         .arg(Arg::with_name("userid")
                              .short("u").long("userid").value_name("EMAIL")
                              .multiple(true).number_of_values(1)
-                             .help("Add userid to the key \
-                                    (can be given multiple times)"))
+                             .help("Adds a userid to the key"))
                         .arg(Arg::with_name("cipher-suite")
                              .short("c").long("cipher-suite").value_name("CIPHER-SUITE")
                              .possible_values(&["rsa3k", "rsa4k", "cv25519"])
                              .default_value("cv25519")
-                             .help("Cryptographic algorithms used for the key."))
+                             .help("Selects the cryptographic algorithms for \
+                                    the key"))
                         .arg(Arg::with_name("with-password")
                              .long("with-password")
-                             .help("Prompt for a password to protect the \
-                                    generated key with."))
+                             .help("Protects the key with a password"))
 
                         .group(ArgGroup::with_name("expiration-group")
                                .args(&["expires", "expires-in"]))
 
                         .arg(Arg::with_name("expires")
                              .long("expires").value_name("TIME")
-                             .help("Absolute time when the key should expire, \
-                                    or 'never'."))
+                             .help("Makes the key expire at TIME (as ISO 8601)")
+                             .long_help(
+                                 "Makes the key expire at TIME (as ISO 8601). \
+                                  Use 'never' to create keys that do not \
+                                  expire."))
                         .arg(Arg::with_name("expires-in")
                              .long("expires-in").value_name("DURATION")
                              // Catch negative numbers.
                              .allow_hyphen_values(true)
-                             .help("Relative time when the key should expire.  \
-                                    Either 'N[ymwd]', for N years, months, \
-                                    weeks, or days, or 'never'."))
+                             .help("Makes the key expire after DURATION \
+                                    (as N[ymwd])")
+                             .long_help(
+                                 "Makes the key expire after DURATION. \
+                                  Either 'N[ymwd]', for N years, months, \
+                                  weeks, or days, or 'never'."))
 
                         .group(ArgGroup::with_name("cap-sign")
                                .args(&["can-sign", "cannot-sign"]))
                         .arg(Arg::with_name("can-sign")
                              .long("can-sign")
-                             .help("The key has a signing-capable subkey \
-                                    (default)"))
+                             .help("Adds a signing-capable subkey (default)"))
                         .arg(Arg::with_name("cannot-sign")
                              .long("cannot-sign")
-                             .help("The key will not be able to sign data"))
+                             .help("Adds no signing-capable subkey"))
 
                         .group(ArgGroup::with_name("cap-encrypt")
                                .args(&["can-encrypt", "cannot-encrypt"]))
@@ -328,106 +340,119 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              .long("can-encrypt").value_name("PURPOSE")
                              .possible_values(&["transport", "storage",
                                                 "universal"])
-                             .help("The key has an encryption-capable subkey \
-                                    (default: universal)"))
+                             .help("Adds an encryption-capable subkey \
+                                    [default: universal]")
+                             .long_help(
+                                 "Adds an encryption-capable subkey. \
+                                  Encryption-capable subkeys can be marked as \
+                                  suitable for transport encryption, storage \
+                                  encryption, or both. \
+                                  [default: universal]"))
                         .arg(Arg::with_name("cannot-encrypt")
                              .long("cannot-encrypt")
-                             .help("The key will not be able to encrypt data"))
+                             .help("Adds no encryption-capable subkey"))
 
                         .arg(Arg::with_name("export")
                              .short("e").long("export").value_name("OUTFILE")
-                             .help("Exports the key instead of saving it in \
-                                    the store")
+                             .help("Writes the key to OUTFILE")
                              .required(true))
                         .arg(Arg::with_name("rev-cert")
                              .long("rev-cert").value_name("FILE or -")
                              .required_if("export", "-")
-                             .help("Sets the output file for the revocation \
-                                    certificate. Default is <OUTFILE>.rev, \
-                                    mandatory if OUTFILE is '-'."))
+                             .help("Writes the revocation certificate to FILE")
+                             .long_help(
+                                 "Writes the revocation certificate to FILE. \
+                                  mandatory if OUTFILE is '-'. \
+                                  [default: <OUTFILE>.rev]"))
                 )
                 .subcommand(
                     SubCommand::with_name("adopt")
-                        .about("Bind keys from one certificate to another.")
+                        .display_order(800)
+                        .about("Binds keys from one certificate to another")
                         .arg(Arg::with_name("keyring")
-                             .short("r").long("keyring").value_name("KEYRING")
+                             .short("r").long("keyring").value_name("KEY-RING")
                              .multiple(true).number_of_values(1)
-                             .help("A keyring containing the keys specified \
-                                    in --key."))
+                             .help("Supplies keys for use in --key."))
                         .arg(Arg::with_name("key")
                              .short("k").long("key").value_name("KEY")
                              .multiple(true).number_of_values(1)
                              .required(true)
-                             .help("Adds the specified key or subkey to the \
-                                    certificate."))
+                             .help("Adds the key or subkey KEY to the \
+                                    TARGET-KEY"))
                         .arg(Arg::with_name("allow-broken-crypto")
                              .long("allow-broken-crypto")
                              .help("Allows adopting keys from certificates \
-                                    using broken cryptography."))
+                                    using broken cryptography"))
                         .arg(Arg::with_name("certificate")
-                             .value_name("CERT")
+                             .value_name("TARGET-KEY")
                              .required(true)
-                             .help("The certificate to add keys to."))
+                             .help("Adds keys to TARGET-KEY"))
                 )
                 .subcommand(
                     SubCommand::with_name("attest-certifications")
+                        .display_order(200)
                         .about("Attests third-party certifications allowing \
                                 for their distribution")
                         .arg(Arg::with_name("none")
                              .long("none")
                              .conflicts_with("all")
-                             .help("Remove all prior attestations"))
+                             .help("Removes all prior attestations"))
                         .arg(Arg::with_name("all")
                              .long("all")
                              .conflicts_with("none")
-                             .help("Attest to all certifications"))
+                             .help("Attests to all certifications"))
                         .arg(Arg::with_name("key")
                              .value_name("KEY")
                              .required(true)
-                             .help("Change attestations on this key."))
+                             .help("Changes attestations on KEY"))
                 )
         )
 
         .subcommand(
             SubCommand::with_name("certring")
                 .display_order(310)
-                .about("Manipulates certificate rings")
+                .about("Manages collections of certificates")
+                .long_about(
+                    "Manages collections of certificates \
+                     (also known as 'keyrings)'.")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("filter")
                         .about("Joins certs into a certring applying a filter")
-                        .long_about(
+                        .after_help(
                             "If multiple predicates are given, they are \
                              or'ed, i.e. a certificate matches if any \
                              of the predicates match.  To require all \
                              predicates to match, chain multiple \
-                             invocations of this command.")
+                             invocations of this command:\n\
+                             \n\
+                             $ cat certs.pgp | sq certring filter --domain example.org | sq certring filter --name Juliett")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .multiple(true)
-                             .help("Sets the input files to use"))
+                             .help("Reads from FILE or stdin if omitted"))
                         .arg(Arg::with_name("output")
                              .short("o").long("output").value_name("FILE")
-                             .help("Sets the output file to use"))
+                             .help("Writes to FILE or stdout if omitted"))
                         .arg(Arg::with_name("name")
                              .long("name").value_name("NAME")
                              .multiple(true).number_of_values(1)
-                             .help("Match on this name"))
+                             .help("Matches on NAME"))
                         .arg(Arg::with_name("email")
                              .long("email").value_name("ADDRESS")
                              .multiple(true).number_of_values(1)
-                             .help("Match on this email address"))
+                             .help("Matches on email ADDRESS"))
                         .arg(Arg::with_name("domain")
                              .long("domain").value_name("FQDN")
                              .multiple(true).number_of_values(1)
-                             .help("Match on this email domain name"))
+                             .help("Matches on email domain FQDN"))
                         .arg(Arg::with_name("prune-certs")
                              .short("P").long("prune-certs")
-                             .help("Remove certificate components not matching \
-                                    the filter"))
+                             .help("Removes certificate components not \
+                                    matching the filter"))
                         .arg(Arg::with_name("binary")
                              .short("B").long("binary")
-                             .help("Emit binary data"))
+                             .help("Emits binary data"))
                 )
                 .subcommand(
                     SubCommand::with_name("join")
@@ -435,42 +460,43 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .multiple(true)
-                             .help("Sets the input files to use"))
+                             .help("Reads from FILE"))
                         .arg(Arg::with_name("output")
                              .short("o").long("output").value_name("FILE")
-                             .help("Sets the output file to use"))
+                             .help("Writes to FILE or stdout if omitted"))
                         .arg(Arg::with_name("binary")
                              .short("B").long("binary")
-                             .help("Emit binary data"))
+                             .help("Emits binary data"))
                 )
                 .subcommand(
                     SubCommand::with_name("list")
                         .about("Lists certs in a certring")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
-                             .help("Sets the input file to use"))
+                             .help("Reads from FILE or stdin if omitted"))
                 )
                 .subcommand(
                     SubCommand::with_name("split")
                         .about("Splits a certring into individual certs")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
-                             .help("Sets the input file to use"))
+                             .help("Reads from FILE or stdin if omitted"))
                         .arg(Arg::with_name("prefix")
                              .short("p").long("prefix").value_name("FILE")
-                             .help("Sets the prefix to use for output files \
-                                    (defaults to the input filename with a \
+                             .help("Writes to files with prefix FILE \
+                                    [defaults to the input filename with a \
                                     dash, or 'output' if certring is read \
-                                    from stdin)")))
+                                    from stdin]")))
         )
-
 
         .subcommand(SubCommand::with_name("certify")
                     .display_order(320)
-                    .about("Certify a User ID for a Certificate")
+                    .about("Certifies a User ID for a Certificate")
                     .arg(Arg::with_name("depth")
                          .short("d").long("depth").value_name("TRUST_DEPTH")
-                         .help("The trust depth (sometimes referred to as \
+                         .help("Sets the trust depth")
+                         .long_help(
+                             "Sets the trust depth (sometimes referred to as \
                                 the trust level).  0 means a normal \
                                 certification of <CERTIFICATE, USERID>.  \
                                 1 means CERTIFICATE is also a trusted \
@@ -479,7 +505,9 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 default is 0."))
                     .arg(Arg::with_name("amount")
                          .short("a").long("amount").value_name("TRUST_AMOUNT")
-                         .help("The amount of trust.  \
+                         .help("Sets the amount of trust")
+                         .long_help(
+                             "Sets the amount of trust.  \
                                 Values between 1 and 120 are meaningful. \
                                 120 means fully trusted.  \
                                 Values less than 120 indicate the degree \
@@ -489,6 +517,9 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                          .short("r").long("regex").value_name("REGEX")
                          .multiple(true).number_of_values(1)
                          .help("Adds a regular expression to constrain \
+                                what a trusted introducer can certify")
+                         .long_help(
+                             "Adds a regular expression to constrain \
                                 what a trusted introducer can certify.  \
                                 The regular expression must match \
                                 the certified User ID in all intermediate \
@@ -499,11 +530,16 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .arg(Arg::with_name("local")
                          .short("l").long("local")
                          .help("Makes the certification a local \
+                                certification")
+                         .long_help(
+                             "Makes the certification a local \
                                 certification.  Normally, local \
                                 certifications are not exported."))
                     .arg(Arg::with_name("non-revocable")
                          .long("non-revocable")
-                         .help("Marks the certification as being non-revocable. \
+                         .help("Marks the certification as being non-revocable")
+                         .long_help(
+                             "Marks the certification as being non-revocable. \
                                 That is, you cannot later revoke this \
                                 certification.  This should normally only \
                                 be used with an expiration."))
@@ -512,113 +548,120 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                            .args(&["expires", "expires-in"]))
                     .arg(Arg::with_name("expires")
                          .long("expires").value_name("TIME")
-                         .help("Absolute time when the certification should \
-                                expire, or 'never'."))
+                         .help("Makes the certification expire at TIME (as ISO 8601)")
+                         .long_help(
+                             "Makes the certification expire at TIME (as ISO 8601). \
+                              Use 'never' to create certifications that do not \
+                              expire."))
                     .arg(Arg::with_name("expires-in")
                          .long("expires-in").value_name("DURATION")
                          // Catch negative numbers.
                          .allow_hyphen_values(true)
-                         .help("Relative time when the certification should \
-                                expire.  Either 'N[ymwd]', for N years, \
-                                months, weeks, or days, or 'never'.  The \
-                                default is 5 years."))
+                         .help("Makes the certification expire after DURATION \
+                                (as N[ymwd]) [default: 5y]")
+                         .long_help(
+                             "Makes the certification expire after DURATION. \
+                              Either 'N[ymwd]', for N years, months, \
+                              weeks, or days, or 'never'.  [default: 5y]"))
 
                     .arg(Arg::with_name("certifier")
-                         .value_name("CERTIFIER")
+                         .value_name("CERTIFIER-KEY")
                          .required(true)
                          .index(1)
-                         .help("The key to certify the certificate."))
+                         .help("Creates the certificate using CERTIFIER-KEY."))
                     .arg(Arg::with_name("certificate")
                          .value_name("CERTIFICATE")
                          .required(true)
                          .index(2)
-                         .help("The certificate to certify."))
+                         .help("Certifies CERTIFICATE."))
                     .arg(Arg::with_name("userid")
                          .value_name("USERID")
                          .required(true)
                          .index(3)
-                         .help("The User ID to certify."))
+                         .help("Certifies USERID for CERTIFICATE."))
         )
 
         .subcommand(SubCommand::with_name("packet")
                     .display_order(610)
-                    .about("Packet manipulation")
+                    .about("Low-level packet manipulation")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("dump")
+                                .display_order(100)
                                 .about("Lists packets")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
-                                     .help("Sets the input file to use"))
+                                     .help("Reads from FILE or stdin if omitted"))
                                 .arg(Arg::with_name("output")
                                      .short("o").long("output").value_name("FILE")
-                                     .help("Sets the output file to use"))
+                                     .help("Writes to FILE or stdout if omitted"))
                                 .arg(Arg::with_name("session-key")
                                      .long("session-key").value_name("SESSION-KEY")
-                                     .help("Session key to decrypt encryption \
-                                            containers"))
+                                     .help("Decrypts an encrypted message using \
+                                            SESSION-KEY"))
                                 .arg(Arg::with_name("mpis")
                                      .long("mpis")
-                                     .help("Print MPIs"))
+                                     .help("Prints cryptographic artifacts"))
                                 .arg(Arg::with_name("hex")
                                      .short("x").long("hex")
-                                     .help("Print a hexdump"))
+                                     .help("Prints a hexdump"))
                     )
                     .subcommand(SubCommand::with_name("decrypt")
-                                .display_order(10)
-                                .about("Decrypts a message, dumping \
+                                .display_order(200)
+                                .about("Unwraps an encryption container")
+                                .long_about("Decrypts a message, dumping \
                                         the content of the encryption \
                                         container without further processing")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
-                                     .help("Sets the input file to use"))
+                                     .help("Reads from FILE or stdin if omitted"))
                                 .arg(Arg::with_name("output")
                                      .short("o").long("output").value_name("FILE")
-                                     .help("Sets the output file to use"))
+                                     .help("Writes to FILE or stdout if omitted"))
                                 .arg(Arg::with_name("binary")
                                      .short("B").long("binary")
-                                     .help("Emit binary data"))
+                                     .help("Emits binary data"))
                                 .arg(Arg::with_name("secret-key-file")
                                      .long("recipient-key").value_name("KEY")
                                      .multiple(true).number_of_values(1)
-                                     .help("Secret key to decrypt with, given \
-                                            as a file \
-                                            (can be given multiple times)"))
+                                     .help("Decrypts the message with KEY"))
                                 .arg(Arg::with_name("dump-session-key")
                                      .long("dump-session-key")
                                      .help("Prints the session key to stderr"))
                     )
                     .subcommand(SubCommand::with_name("split")
+                                .display_order(300)
                                 .about("Splits a message into packets")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
-                                     .help("Sets the input file to use"))
+                                     .help("Reads from FILE or stdin if omitted"))
                                 .arg(Arg::with_name("prefix")
-                                     .short("p").long("prefix").value_name("FILE")
-                                     .help("Sets the prefix to use for output files \
-                                            (defaults to the input filename with a dash, \
-                                            or 'output')"))
+                                     .short("p").long("prefix").value_name("PREFIX")
+                                     .help("Writes to files with PREFIX \
+                                            [defaults: FILE a dash, \
+                                            or 'output' if read from stdin)"))
                     )
                     .subcommand(SubCommand::with_name("join")
+                                .display_order(310)
                                 .about("Joins packets split across \
                                         files")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .multiple(true)
-                                     .help("Sets the input files to use"))
+                                     .help("Reads from FILE or stdin if omitted"))
                                 .arg(Arg::with_name("output")
                                      .short("o").long("output").value_name("FILE")
-                                     .help("Sets the output file to use"))
+                                     .help("Writes to FILE or stdout if omitted"))
                                 .arg(Arg::with_name("kind")
                                      .long("kind").value_name("KIND")
                                      .possible_values(&["message", "publickey",
                                                         "secretkey",
                                                         "signature", "file"])
                                      .default_value("file")
-                                     .help("Selects the kind of header line to \
-                                            produce"))
+                                     .conflicts_with("binary")
+                                     .help("Selects the kind of armor header"))
                                 .arg(Arg::with_name("binary")
                                      .short("B").long("binary")
-                                     .help("Emit binary data"))));
+                                     .help("Emits binary data"))));
 
     let app = if ! cfg!(feature = "net") {
         // Without networking support.
@@ -643,23 +686,23 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 .about("Retrieves a key")
                                 .arg(Arg::with_name("output")
                                      .short("o").long("output").value_name("FILE")
-                                     .help("Sets the output file to use"))
+                                     .help("Writes to FILE or stdout if omitted"))
                                 .arg(Arg::with_name("binary")
                                      .short("B").long("binary")
-                                     .help("Emit binary data"))
+                                     .help("Emits binary data"))
                                 .arg(Arg::with_name("query")
                                      .value_name("QUERY")
                                      .required(true)
                                      .help(
-                                         "Fingerprint, KeyID, or email \
-                                          address of the cert(s) to retrieve"
-                                     ))
+                                         "Retrieve certificate(s) using QUERY. \
+                                          This may be a fingerprint, a KeyID, \
+                                          or an email address."))
                     )
                     .subcommand(SubCommand::with_name("send")
                                 .about("Sends a key")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
-                                     .help("Sets the input file to use"))
+                                     .help("Reads from FILE or stdin if omitted"))
                     )
         )
 
@@ -677,24 +720,20 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 .about("Prints the Web Key Directory URL of \
                                         an email address.")
                                 .arg(Arg::with_name("input")
-                                    .value_name("EMAIL_ADDRESS")
+                                    .value_name("ADDRESS")
                                     .required(true)
-                                    .help("The email address from which to \
-                                           obtain the WKD URI."))
+                                    .help("Queries for ADDRESS"))
                     )
                     .subcommand(SubCommand::with_name("get")
-                                .about("Writes to the standard output the \
-                                        Cert retrieved \
-                                        from a Web Key Directory, given an \
-                                        email address")
+                                .about("Queries for certs using \
+                                        Web Key Directory")
                                 .arg(Arg::with_name("input")
-                                    .value_name("EMAIL_ADDRESS")
+                                    .value_name("ADDRESS")
                                     .required(true)
-                                    .help("The email address from which to \
-                                            obtain the Cert from a WKD."))
+                                    .help("Queries a cert for ADDRESS"))
                                 .arg(Arg::with_name("binary")
                                      .short("B").long("binary")
-                                     .help("Emit binary data"))
+                                     .help("Emits binary data"))
                     )
                     .subcommand(SubCommand::with_name("generate")
                                 .about("Generates a Web Key Directory \
@@ -706,20 +745,22 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 .arg(Arg::with_name("base_directory")
                                      .value_name("WEB-ROOT")
                                      .required(true)
-                                     .help("The location to write the WKD to. \
-                                            This must be the directory the \
-                                            webserver is serving the \
-                                            '.well-known' directory from."))
+                                     .help("Writes the WKD to WEB-ROOT")
+                                     .long_help(
+                                         "Writes the WKD to WEB-ROOT. \
+                                          Transfer this directory to \
+                                          the webserver."))
                                 .arg(Arg::with_name("domain")
-                                    .value_name("DOMAIN")
-                                    .help("The domain for the WKD.")
+                                    .value_name("FQDN")
+                                    .help("Generates a WKD for FQDN")
                                     .required(true))
                                 .arg(Arg::with_name("input")
-                                    .value_name("KEYRING")
-                                    .help("The keyring file with the keys to add to the WKD."))
+                                    .value_name("CERT-RING")
+                                    .help("Adds certificates from CERT-RING to \
+                                           the WKD"))
                                 .arg(Arg::with_name("direct_method")
-                                     .short("d").long("direct_method")
-                                     .help("Use the direct method. \
+                                     .short("d").long("direct-method")
+                                     .help("Uses the direct method \
                                             [default: advanced method]"))
                     )
         )

@@ -322,7 +322,7 @@ fn main() -> Result<()> {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"), force)?;
             let signatures: usize =
-                m.value_of("signatures").unwrap_or("0").parse()?;
+                m.value_of("signatures").expect("has a default").parse()?;
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
@@ -408,7 +408,7 @@ fn main() -> Result<()> {
                 None
             };
             let signatures: usize =
-                m.value_of("signatures").unwrap_or("0").parse()?;
+                m.value_of("signatures").expect("has a default").parse()?;
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
