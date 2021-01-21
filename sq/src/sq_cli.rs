@@ -429,7 +429,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                 .about("Manages collections of certificates")
                 .long_about(
                     "Manages collections of certificates \
-                     (also known as 'keyrings)'.")
+                     (also known as 'keyrings').")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("filter")

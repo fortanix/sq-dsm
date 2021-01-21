@@ -321,7 +321,7 @@
 //! ## Subcommand certring
 //!
 //! ```text
-//! Manages collections of certificates (also known as 'keyrings)'.
+//! Manages collections of certificates (also known as 'keyrings').
 //!
 //! USAGE:
 //!     sq certring <SUBCOMMAND>
