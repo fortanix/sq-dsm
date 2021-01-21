@@ -56,7 +56,6 @@
 //!         --use-expired-subkey    If a certificate has only expired encryption-
 //!                                 capable subkeys, fall back to using
 //!                                 the one that expired last
-//!     -V, --version               Prints version information
 //!
 //! OPTIONS:
 //!         --compression <KIND>
@@ -96,7 +95,6 @@
 //!         --dump-session-key    Prints the session key to stderr
 //!     -h, --help                Prints help information
 //!     -x, --hex                 Print a hexdump (implies --dump)
-//!     -V, --version             Prints version information
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>             Sets the output file to use
@@ -128,7 +126,6 @@
 //!         --detached    Create a detached signature
 //!     -h, --help        Prints help information
 //!     -n, --notarize    Signs a message and all existing signatures
-//!     -V, --version     Prints version information
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>          Sets the output file to use
@@ -152,8 +149,7 @@
 //!     sq verify [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! OPTIONS:
 //!         --detached <SIG>           Verifies a detached signature
@@ -178,8 +174,7 @@
 //!     sq merge-signatures [OPTIONS] [ARGS]
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>    Sets the output file to use
@@ -198,8 +193,7 @@
 //!     sq key <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! SUBCOMMANDS:
 //!     adopt                    Bind keys from one certificate to another.
@@ -307,9 +301,6 @@
 //! FLAGS:
 //!     -h, --help
 //!             Prints help information
-//!
-//!     -V, --version
-//!             Prints version information
 //!
 //!
 //! SUBCOMMANDS:
@@ -429,8 +420,7 @@
 //!     sq autocrypt <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! SUBCOMMANDS:
 //!     decode           Converts Autocrypt-encoded keys to OpenPGP Certificates
@@ -493,8 +483,7 @@
 //!     sq keyserver [OPTIONS] <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! OPTIONS:
 //!     -s, --server <URI>    Sets the keyserver to use
@@ -551,8 +540,7 @@
 //!     sq wkd <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! SUBCOMMANDS:
 //!     generate    Generates a Web Key Directory for the given domain and keys.
@@ -631,8 +619,7 @@
 //!     sq armor [OPTIONS] [FILE]
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! OPTIONS:
 //!         --kind <KIND>      Selects the kind of header line to produce [default:
@@ -653,8 +640,7 @@
 //!     sq dearmor [OPTIONS] [FILE]
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! OPTIONS:
 //!     -o, --output <FILE>    Sets the output file to use
@@ -674,7 +660,6 @@
 //! FLAGS:
 //!         --certifications    Print third-party certifications
 //!     -h, --help              Prints help information
-//!     -V, --version           Prints version information
 //!
 //! ARGS:
 //!     <FILE>    Sets the input file to use
@@ -689,8 +674,7 @@
 //!     sq packet <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help    Prints help information
 //!
 //! SUBCOMMANDS:
 //!     decrypt    Decrypts an OpenPGP message, dumping the content of the
@@ -808,7 +792,6 @@
 //!         --non-revocable    Marks the certification as being non-revocable. That
 //!                            is, you cannot later revoke this certification.  This
 //!                            should normally only be used with an expiration.
-//!     -V, --version          Prints version information
 //!
 //! OPTIONS:
 //!     -a, --amount <TRUST_AMOUNT>

@@ -20,7 +20,10 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
     let app = app
         .version(env!("CARGO_PKG_VERSION"))
         .about("Sequoia is an implementation of OpenPGP.  This is a command-line frontend.")
-        .setting(AppSettings::SubcommandRequiredElseHelp)
+        .settings(&[
+            AppSettings::SubcommandRequiredElseHelp,
+            AppSettings::VersionlessSubcommands,
+        ])
         .arg(Arg::with_name("force")
              .short("f").long("force")
              .help("Overwrite existing files"))
