@@ -466,30 +466,28 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
 
         .subcommand(SubCommand::with_name("certify")
+                    .display_order(320)
                     .about("Certify a User ID for a Certificate")
                     .arg(Arg::with_name("depth")
-                         .value_name("TRUST_DEPTH")
+                         .short("d").long("depth").value_name("TRUST_DEPTH")
                          .help("The trust depth (sometimes referred to as \
                                 the trust level).  0 means a normal \
                                 certification of <CERTIFICATE, USERID>.  \
                                 1 means CERTIFICATE is also a trusted \
                                 introducer, 2 means CERTIFICATE is a \
                                 meta-trusted introducer, etc.  The \
-                                default is 0.")
-                         .long("depth")
-                         .short("d"))
+                                default is 0."))
                     .arg(Arg::with_name("amount")
-                         .value_name("TRUST_AMOUNT")
+                         .short("a").long("amount").value_name("TRUST_AMOUNT")
                          .help("The amount of trust.  \
                                 Values between 1 and 120 are meaningful. \
                                 120 means fully trusted.  \
                                 Values less than 120 indicate the degree \
                                 of trust.  60 is usually used for partially \
-                                trusted.  The default is 120.")
-                         .long("amount")
-                         .short("a"))
+                                trusted.  The default is 120."))
                     .arg(Arg::with_name("regex")
-                         .value_name("REGEX")
+                         .short("r").long("regex").value_name("REGEX")
+                         .multiple(true).number_of_values(1)
                          .help("Adds a regular expression to constrain \
                                 what a trusted introducer can certify.  \
                                 The regular expression must match \
@@ -497,33 +495,27 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 introducers, and the certified certificate. \
                                 Multiple regular expressions may be \
                                 specified.  In that case, at least \
-                                one must match.")
-                         .long("regex")
-                         .short("r")
-                         .multiple(true))
+                                one must match."))
                     .arg(Arg::with_name("local")
+                         .short("l").long("local")
                          .help("Makes the certification a local \
                                 certification.  Normally, local \
-                                certifications are not exported.")
-                         .long("local")
-                         .short("l"))
+                                certifications are not exported."))
                     .arg(Arg::with_name("non-revocable")
+                         .long("non-revocable")
                          .help("Marks the certification as being non-revocable. \
                                 That is, you cannot later revoke this \
                                 certification.  This should normally only \
-                                be used with an expiration.")
-                         .long("non-revocable"))
+                                be used with an expiration."))
 
                     .group(ArgGroup::with_name("expiration-group")
                            .args(&["expires", "expires-in"]))
                     .arg(Arg::with_name("expires")
-                         .value_name("TIME")
-                         .long("expires")
+                         .long("expires").value_name("TIME")
                          .help("Absolute time when the certification should \
                                 expire, or 'never'."))
                     .arg(Arg::with_name("expires-in")
-                         .value_name("DURATION")
-                         .long("expires-in")
+                         .long("expires-in").value_name("DURATION")
                          // Catch negative numbers.
                          .allow_hyphen_values(true)
                          .help("Relative time when the certification should \
