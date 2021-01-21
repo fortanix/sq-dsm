@@ -13,7 +13,7 @@ use crate::Result;
 /// reference the issuing key of a signature in its [`Issuer`]
 /// subpacket.
 ///
-/// Currently, sequoia supports *version 4* fingerprints and Key IDs
+/// Currently, Sequoia supports *version 4* fingerprints and Key IDs
 /// only.  *Version 3* fingerprints and Key IDs were deprecated by
 /// [RFC 4880] in 2007.
 ///

@@ -16,7 +16,7 @@ use crate::{
 /// This is needed because signatures can reference their issuer
 /// either by `Fingerprint` or by `KeyID`.
 ///
-/// Currently, sequoia supports *version 4* fingerprints and Key ID
+/// Currently, Sequoia supports *version 4* fingerprints and Key ID
 /// only.  *Version 3* fingerprints and Key ID were deprecated by [RFC
 /// 4880] in 2007.
 ///
