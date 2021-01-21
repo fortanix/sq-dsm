@@ -416,7 +416,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              .help("Attests to all certifications"))
                         .arg(Arg::with_name("key")
                              .value_name("KEY")
-                             .required(true)
                              .help("Changes attestations on KEY"))
                         .arg(Arg::with_name("output")
                              .short("o").long("output").value_name("FILE")

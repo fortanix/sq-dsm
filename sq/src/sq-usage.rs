@@ -277,7 +277,7 @@
 //! Attests third-party certifications allowing for their distribution
 //!
 //! USAGE:
-//!     sq key attest-certifications [FLAGS] [OPTIONS] <KEY>
+//!     sq key attest-certifications [FLAGS] [OPTIONS] [KEY]
 //!
 //! FLAGS:
 //!         --all        Attests to all certifications

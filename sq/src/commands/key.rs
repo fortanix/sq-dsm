@@ -16,6 +16,9 @@ use crate::openpgp::serialize::Serialize;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::types::SignatureType;
 
+use crate::{
+    open_or_stdin,
+};
 use crate::Config;
 use crate::create_or_stdout;
 use crate::SECONDS_IN_YEAR;
@@ -417,9 +420,8 @@ pub fn attest_certifications(config: Config, m: &ArgMatches, _p: &dyn Policy)
     let reserve_area_space = 256; // For the other subpackets.
     let digests_per_sig = ((1usize << 16) - reserve_area_space) / digest_size;
 
-    let key = m.value_of("key").unwrap();
-    let key = Cert::from_file(key)
-        .context(format!("Parsing key {:?}", key))?;
+    let input = open_or_stdin(m.value_of("key"))?;
+    let key = Cert::from_reader(input)?;
 
     // First, remove all attestations.
     let key = Cert::from_packets(
