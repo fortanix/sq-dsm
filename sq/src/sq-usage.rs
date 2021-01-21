@@ -374,6 +374,8 @@
 //! ### Subcommand certring join
 //!
 //! ```text
+//! Joins certs or certrings into a single certring.
+//!
 //! Unlike 'sq certring merge', multiple versions of the same certificate are not
 //! merged together.
 //!
@@ -420,6 +422,8 @@
 //! ### Subcommand certring merge
 //!
 //! ```text
+//! Merges certs or certrings into a single certring.
+//!
 //! Unlike 'sq certring join', the certificates are buffered and multiple versions
 //! of the same certificate are merged together.  Where data is replaced (e.g.,
 //! secret key material), data from the later certificate is preferred.

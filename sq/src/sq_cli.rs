@@ -473,7 +473,9 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     SubCommand::with_name("join")
                         .about("Joins certs or certrings into a single certring")
                         .long_about(
-                            "Unlike 'sq certring merge', multiple versions \
+                            "Joins certs or certrings into a single certring.\n\
+                             \n\
+                             Unlike 'sq certring merge', multiple versions \
                              of the same certificate are not merged \
                              together.")
                         .arg(Arg::with_name("input")
@@ -491,7 +493,9 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     SubCommand::with_name("merge")
                         .about("Merges certs or certrings into a single certring")
                         .long_about(
-                            "Unlike 'sq certring join', the certificates \
+                            "Merges certs or certrings into a single certring.\n\
+                             \n\
+                             Unlike 'sq certring join', the certificates \
                              are buffered and multiple versions of the same \
                              certificate are merged together.  Where data \
                              is replaced (e.g., secret key material), data \
