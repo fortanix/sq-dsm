@@ -37,6 +37,7 @@ rpassword = "5.0"
 
 [build-dependencies]
 clap = "2.33"
+sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
 
 [dev-dependencies]
 assert_cli = "0.6"

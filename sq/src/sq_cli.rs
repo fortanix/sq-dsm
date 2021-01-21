@@ -17,8 +17,14 @@ pub fn build() -> App<'static, 'static> {
 ///   - Armor                               (5xx)
 ///   - Inspection & packet manipulation    (6xx)
 pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
+    let version = Box::leak(
+        format!("{} (sequoia-openpgp {})",
+                env!("CARGO_PKG_VERSION"),
+                sequoia_openpgp::VERSION)
+            .into_boxed_str()) as &str;
+
     let app = app
-        .version(env!("CARGO_PKG_VERSION"))
+        .version(version)
         .about("Sequoia is an implementation of OpenPGP.  This is a command-line frontend.")
         .settings(&[
             AppSettings::SubcommandRequiredElseHelp,
