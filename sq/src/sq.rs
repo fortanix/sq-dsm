@@ -563,7 +563,7 @@ fn main() -> Result<()> {
         ("wkd",  Some(m)) => commands::net::dispatch_wkd(config, m)?,
 
         ("certify",  Some(m)) => {
-            commands::certify::certify(policy, m, force)?;
+            commands::certify::certify(config, policy, m)?;
         },
 
         _ => unreachable!(),

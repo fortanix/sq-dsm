@@ -9,10 +9,11 @@ use openpgp::policy::Policy;
 use openpgp::serialize::Serialize;
 use openpgp::types::SignatureType;
 
+use crate::Config;
 use crate::parse_duration;
 use crate::SECONDS_IN_YEAR;
 
-pub fn certify(p: &impl Policy, m: &clap::ArgMatches, _force: bool)
+pub fn certify(config: Config, p: &impl Policy, m: &clap::ArgMatches)
     -> Result<()>
 {
     let certifier = m.value_of("certifier").unwrap();
@@ -136,7 +137,11 @@ pub fn certify(p: &impl Policy, m: &clap::ArgMatches, _force: bool)
 
 
     // And export it.
-    cert.armored().serialize(&mut std::io::stdout())?;
+    let mut message = crate::create_or_stdout_pgp(
+        m.value_of("output"), config.force,
+        m.is_present("binary"), sequoia_openpgp::armor::Kind::PublicKey)?;
+    cert.serialize(&mut message)?;
+    message.finalize()?;
 
     Ok(())
 }

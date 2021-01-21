@@ -479,6 +479,9 @@
 //!     sq certify [FLAGS] [OPTIONS] <CERTIFIER-KEY> <CERTIFICATE> <USERID>
 //!
 //! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
 //!     -h, --help
 //!             Prints help information
 //!
@@ -507,6 +510,9 @@
 //!         --expires-in <DURATION>
 //!             Makes the certification expire after DURATION. Either 'N[ymwd]', for
 //!             N years, months, weeks, or days, or 'never'.  [default: 5y]
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!     -r, --regex <REGEX>...
 //!             Adds a regular expression to constrain what a trusted introducer can
 //!             certify.  The regular expression must match the certified User ID in
