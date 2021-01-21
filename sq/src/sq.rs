@@ -444,7 +444,7 @@ fn main() -> Result<()> {
                     let input = open_or_stdin(m.value_of("input"))?;
                     let mut output =
                         create_or_stdout_pgp(m.value_of("output"), force,
-                                             true,
+                                             m.is_present("binary"),
                                              armor::Kind::PublicKey)?;
                     let ac = autocrypt::AutocryptHeaders::from_reader(input)?;
                     for h in &ac.headers {

@@ -560,9 +560,10 @@
 //! Reads Autocrypt-encoded certificates
 //!
 //! USAGE:
-//!     sq autocrypt decode [OPTIONS] [FILE]
+//!     sq autocrypt decode [FLAGS] [OPTIONS] [FILE]
 //!
 //! FLAGS:
+//!     -B, --binary     Emits binary data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!

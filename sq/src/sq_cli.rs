@@ -248,6 +248,9 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 .arg(Arg::with_name("output")
                                      .short("o").long("output").value_name("FILE")
                                      .help("Writes to FILE or stdout if omitted"))
+                                .arg(Arg::with_name("binary")
+                                     .short("B").long("binary")
+                                     .help("Emits binary data"))
                     )
                     .subcommand(SubCommand::with_name("encode-sender")
                                 .about("Encodes the sender's OpenPGP \
