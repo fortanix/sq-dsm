@@ -33,11 +33,23 @@ use crate::{
     serialize_keyring,
 };
 
+
+fn parse_network_policy(m: &clap::ArgMatches) -> net::Policy {
+    match m.value_of("policy").expect("has default value") {
+        "offline" => net::Policy::Offline,
+        "anonymized" => net::Policy::Anonymized,
+        "encrypted" => net::Policy::Encrypted,
+        "insecure" => net::Policy::Insecure,
+        _ => unreachable!(),
+    }
+}
+
 pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
+    let network_policy = parse_network_policy(m);
     let mut ks = if let Some(uri) = m.value_of("server") {
-        KeyServer::new(config.network_policy, &uri)
+        KeyServer::new(network_policy, &uri)
     } else {
-        KeyServer::keys_openpgp_org(config.network_policy)
+        KeyServer::keys_openpgp_org(network_policy)
     }.context("Malformed keyserver URI")?;
 
     let mut rt = tokio::runtime::Builder::new()
@@ -107,6 +119,8 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
 }
 
 pub fn dispatch_wkd(config: Config, m: &clap::ArgMatches) -> Result<()> {
+    let network_policy = parse_network_policy(m);
+
     let mut rt = tokio::runtime::Builder::new()
         .basic_scheduler()
         .enable_io()
@@ -123,6 +137,9 @@ pub fn dispatch_wkd(config: Config, m: &clap::ArgMatches) -> Result<()> {
             println!("{}", url);
         },
         ("get",  Some(m)) => {
+            // Check that the policy allows https.
+            network_policy.assert(net::Policy::Encrypted)?;
+
             let email_address = m.value_of("input").unwrap();
             // XXX: EmailAddress could be created here to
             // check it's a valid email address, print the error to

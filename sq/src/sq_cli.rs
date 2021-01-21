@@ -626,13 +626,16 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
     } else {
         // With networking support.
         app
-        .arg(Arg::with_name("policy")
-             .short("p").long("policy").value_name("NETWORK-POLICY")
-             .help("Sets the network policy to use"))
         .subcommand(SubCommand::with_name("keyserver")
                     .display_order(410)
                     .about("Interacts with keyservers")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
+                    .arg(Arg::with_name("policy")
+                         .short("p").long("policy").value_name("NETWORK-POLICY")
+                         .possible_values(&["offline", "anonymized",
+                                            "encrypted", "insecure"])
+                         .default_value("encrypted")
+                         .help("Sets the network policy to use"))
                     .arg(Arg::with_name("server")
                          .short("s").long("server").value_name("URI")
                          .help("Sets the keyserver to use"))
@@ -664,6 +667,12 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .display_order(420)
                     .about("Interacts with Web Key Directories")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
+                    .arg(Arg::with_name("policy")
+                         .short("p").long("policy").value_name("NETWORK-POLICY")
+                         .possible_values(&["offline", "anonymized",
+                                            "encrypted", "insecure"])
+                         .default_value("encrypted")
+                         .help("Sets the network policy to use"))
                     .subcommand(SubCommand::with_name("url")
                                 .about("Prints the Web Key Directory URL of \
                                         an email address.")

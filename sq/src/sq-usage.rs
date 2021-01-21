@@ -18,7 +18,6 @@
 //!             The notation name is considered known. This is used when validating
 //!             signatures. Signatures that have unknown notations with the critical
 //!             bit set are considered invalid.
-//!     -p, --policy <NETWORK-POLICY>         Sets the network policy to use
 //!
 //! SUBCOMMANDS:
 //!     encrypt             Encrypts a message
@@ -533,7 +532,10 @@
 //!     -h, --help    Prints help information
 //!
 //! OPTIONS:
-//!     -s, --server <URI>    Sets the keyserver to use
+//!     -p, --policy <NETWORK-POLICY>
+//!             Sets the network policy to use [default: encrypted]  [possible
+//!             values: offline, anonymized, encrypted, insecure]
+//!     -s, --server <URI>               Sets the keyserver to use
 //!
 //! SUBCOMMANDS:
 //!     get     Retrieves a key
@@ -584,10 +586,15 @@
 //! Interacts with Web Key Directories
 //!
 //! USAGE:
-//!     sq wkd <SUBCOMMAND>
+//!     sq wkd [OPTIONS] <SUBCOMMAND>
 //!
 //! FLAGS:
 //!     -h, --help    Prints help information
+//!
+//! OPTIONS:
+//!     -p, --policy <NETWORK-POLICY>
+//!             Sets the network policy to use [default: encrypted]  [possible
+//!             values: offline, anonymized, encrypted, insecure]
 //!
 //! SUBCOMMANDS:
 //!     generate    Generates a Web Key Directory for the given domain and keys.

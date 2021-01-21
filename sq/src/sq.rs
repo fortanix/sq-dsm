@@ -24,8 +24,6 @@ use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
-#[cfg(feature = "net")]
-use sequoia_net as net;
 
 mod sq_cli;
 mod commands;
@@ -296,8 +294,6 @@ fn help_warning(arg: &str) {
 #[allow(dead_code)]
 pub struct Config {
     force: bool,
-    #[cfg(feature = "net")]
-    network_policy: net::Policy,
 }
 
 fn main() -> Result<()> {
@@ -315,24 +311,10 @@ fn main() -> Result<()> {
         .collect();
     policy.good_critical_notations(&known_notations);
 
-    #[cfg(feature = "net")]
-    let network_policy = match matches.value_of("policy") {
-        None => net::Policy::Encrypted,
-        Some("offline") => net::Policy::Offline,
-        Some("anonymized") => net::Policy::Anonymized,
-        Some("encrypted") => net::Policy::Encrypted,
-        Some("insecure") => net::Policy::Insecure,
-        Some(_) => {
-            eprintln!("Bad network policy, must be offline, anonymized, encrypted, or insecure.");
-            std::process::exit(1);
-        },
-    };
     let force = matches.is_present("force");
 
     let config = Config {
         force,
-        #[cfg(feature = "net")]
-        network_policy,
     };
 
     match matches.subcommand() {
