@@ -73,7 +73,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> io::Read for Dup<T, C> {
         let data = &data[self.cursor..];
 
         let amount = cmp::min(buf.len(), data.len());
-        buf.copy_from_slice(&data[..amount]);
+        buf[..amount].copy_from_slice(&data[..amount]);
 
         self.cursor += amount;
 
