@@ -280,7 +280,7 @@
 //!     sq key attest-certifications [FLAGS] [OPTIONS] [KEY]
 //!
 //! FLAGS:
-//!         --all        Attests to all certifications
+//!         --all        Attests to all certifications [default]
 //!     -B, --binary     Emits binary data
 //!     -h, --help       Prints help information
 //!         --none       Removes all prior attestations

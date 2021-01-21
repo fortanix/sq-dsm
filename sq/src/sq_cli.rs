@@ -412,7 +412,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                         .arg(Arg::with_name("all")
                              .long("all")
                              .conflicts_with("none")
-                             .help("Attests to all certifications"))
+                             .help("Attests to all certifications [default]"))
                         .arg(Arg::with_name("key")
                              .value_name("KEY")
                              .help("Changes attestations on KEY"))

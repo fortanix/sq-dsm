@@ -413,6 +413,9 @@ pub fn attest_certifications(config: Config, m: &ArgMatches, _p: &dyn Policy)
     const SubpacketTag__AttestedCertifications: SubpacketTag =
         SubpacketTag::Unknown(37);
 
+    // Attest to all certifications?
+    let all = ! m.is_present("none"); // All is the default.
+
     // Some configuration.
     let hash_algo = HashAlgorithm::default();
     let digest_size = hash_algo.context()?.digest_size();
@@ -445,7 +448,7 @@ pub fn attest_certifications(config: Config, m: &ArgMatches, _p: &dyn Policy)
     for uid in key.userids() {
         let mut attestations = Vec::new();
 
-        if m.is_present("all") {
+        if all {
             for certification in uid.certifications() {
                 let mut h = hash_algo.context()?;
                 hash_for_confirmation(certification, &mut h);
@@ -488,7 +491,7 @@ pub fn attest_certifications(config: Config, m: &ArgMatches, _p: &dyn Policy)
     for ua in key.user_attributes() {
         let mut attestations = Vec::new();
 
-        if m.is_present("all") {
+        if all {
             for certification in ua.certifications() {
                 let mut h = hash_algo.context()?;
                 hash_for_confirmation(certification, &mut h);
