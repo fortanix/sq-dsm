@@ -761,9 +761,9 @@
 //!     -h, --help    Prints help information
 //!
 //! OPTIONS:
-//!         --kind <KIND>      Selects the kind of armor header [default: file]
-//!                            [possible values: message, publickey, secretkey,
-//!                            signature, file]
+//!         --label <LABEL>    Selects the kind of armor header [default: auto]
+//!                            [possible values: auto, message, cert, key, sig,
+//!                            file]
 //!     -o, --output <FILE>    Writes to FILE or stdout if omitted
 //!
 //! ARGS:
@@ -919,9 +919,9 @@
 //!     -V, --version    Prints version information
 //!
 //! OPTIONS:
-//!         --kind <KIND>      Selects the kind of armor header [default: file]
-//!                            [possible values: message, publickey, secretkey,
-//!                            signature, file]
+//!         --label <LABEL>    Selects the kind of armor header [default: auto]
+//!                            [possible values: auto, message, cert, key, sig,
+//!                            file]
 //!     -o, --output <FILE>    Writes to FILE or stdout if omitted
 //!
 //! ARGS:

@@ -218,10 +218,11 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                          .short("o").long("output").value_name("FILE")
                          .help("Writes to FILE or stdout if omitted"))
                     .arg(Arg::with_name("kind")
-                         .long("kind").value_name("KIND")
-                         .possible_values(&["message", "publickey", "secretkey",
-                                            "signature", "file"])
-                         .default_value("file")
+                         .long("label").value_name("LABEL")
+                         .possible_values(&["auto", "message",
+                                            "cert", "key", "sig",
+                                            "file"])
+                         .default_value("auto")
                          .help("Selects the kind of armor header"))
         )
 
@@ -708,11 +709,11 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                      .short("o").long("output").value_name("FILE")
                                      .help("Writes to FILE or stdout if omitted"))
                                 .arg(Arg::with_name("kind")
-                                     .long("kind").value_name("KIND")
-                                     .possible_values(&["message", "publickey",
-                                                        "secretkey",
-                                                        "signature", "file"])
-                                     .default_value("file")
+                                     .long("label").value_name("LABEL")
+                                     .possible_values(&["auto", "message",
+                                                        "cert", "key", "sig",
+                                                        "file"])
+                                     .default_value("auto")
                                      .conflicts_with("binary")
                                      .help("Selects the kind of armor header"))
                                 .arg(Arg::with_name("binary")

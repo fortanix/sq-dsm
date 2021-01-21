@@ -2,13 +2,13 @@
 
 use anyhow::Context as _;
 use std::fs::OpenOptions;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use chrono::{DateTime, offset::Utc};
 use itertools::Itertools;
 
-use buffered_reader::File;
+use buffered_reader::{BufferedReader, Dup, File, Generic, Limitor};
 use sequoia_openpgp as openpgp;
 
 use openpgp::{
@@ -20,7 +20,7 @@ use crate::openpgp::crypto::Password;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::packet::prelude::*;
-use crate::openpgp::parse::Parse;
+use crate::openpgp::parse::{Parse, PacketParser, PacketParserResult};
 use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
@@ -28,11 +28,12 @@ use crate::openpgp::policy::StandardPolicy as P;
 mod sq_cli;
 mod commands;
 
-fn open_or_stdin(f: Option<&str>) -> Result<Box<dyn io::Read + Send + Sync>> {
+fn open_or_stdin(f: Option<&str>)
+                 -> Result<Box<dyn BufferedReader<()>>> {
     match f {
         Some(f) => Ok(Box::new(File::open(f)
                                .context("Failed to open input file")?)),
-        None => Ok(Box::new(io::stdin())),
+        None => Ok(Box::new(Generic::new(io::stdin(), None))),
     }
 }
 
@@ -207,15 +208,45 @@ fn serialize_keyring(mut output: &mut dyn io::Write, certs: &[Cert], binary: boo
     Ok(())
 }
 
-fn parse_armor_kind(kind: Option<&str>) -> armor::Kind {
+fn parse_armor_kind(kind: Option<&str>) -> Option<armor::Kind> {
     match kind.expect("has default value") {
-        "message" => armor::Kind::Message,
-        "publickey" => armor::Kind::PublicKey,
-        "secretkey" => armor::Kind::SecretKey,
-        "signature" => armor::Kind::Signature,
-        "file" => armor::Kind::File,
+        "auto" =>    None,
+        "message" => Some(armor::Kind::Message),
+        "cert" =>    Some(armor::Kind::PublicKey),
+        "key" =>     Some(armor::Kind::SecretKey),
+        "sig" =>     Some(armor::Kind::Signature),
+        "file" =>    Some(armor::Kind::File),
         _ => unreachable!(),
     }
+}
+
+/// Peeks at the first packet to guess the type.
+///
+/// Returns the given reader unchanged.  If the detection fails,
+/// armor::Kind::File is returned as safe default.
+fn detect_armor_kind(input: Box<dyn BufferedReader<()>>)
+                     -> (Box<dyn BufferedReader<()>>, armor::Kind) {
+    let mut dup = Limitor::new(Dup::new(input), 1 << 24).as_boxed();
+    let kind = 'detection: loop {
+        if let Ok(ppr) = PacketParser::from_reader(&mut dup) {
+            if let PacketParserResult::Some(pp) = ppr {
+                let (packet, _) = match pp.next() {
+                    Ok(v) => v,
+                    Err(_) => break 'detection armor::Kind::File,
+                };
+
+                break 'detection match packet {
+                    Packet::Signature(_) => armor::Kind::Signature,
+                    Packet::SecretKey(_) => armor::Kind::SecretKey,
+                    Packet::PublicKey(_) => armor::Kind::PublicKey,
+                    Packet::PKESK(_) | Packet::SKESK(_) =>
+                        armor::Kind::Message,
+                    _ => armor::Kind::File,
+                };
+            }
+        }
+    };
+    (dup.into_inner().unwrap().into_inner().unwrap(), kind)
 }
 
 // Decrypts a key, if possible.
@@ -424,12 +455,54 @@ fn main() -> Result<()> {
         },
 
         ("armor",  Some(m)) => {
-            let mut input = open_or_stdin(m.value_of("input"))?;
+            let input = open_or_stdin(m.value_of("input"))?;
+            let mut want_kind = parse_armor_kind(m.value_of("kind"));
+
+            // Peek at the data.  If it looks like it is armored
+            // data, avoid armoring it again.
+            let mut dup = Limitor::new(Dup::new(input), 1 << 24);
+            let (already_armored, have_kind) = {
+                let mut reader =
+                    armor::Reader::new(&mut dup,
+                                       armor::ReaderMode::Tolerant(None));
+                let mut buf = [0; 8];
+                (reader.read(&mut buf).is_ok(), reader.kind())
+            };
+            let mut input =
+                dup.as_boxed().into_inner().unwrap().into_inner().unwrap();
+
+            if already_armored
+                && (want_kind.is_none() || want_kind == have_kind)
+            {
+                // It is already armored and has the correct kind.
+                let mut output =
+                    create_or_stdout(m.value_of("output"), force)?;
+                io::copy(&mut input, &mut output)?;
+                return Ok(());
+            }
+
+            if want_kind.is_none() {
+                let (tmp, kind) = detect_armor_kind(input);
+                input = tmp;
+                want_kind = Some(kind);
+            }
+
+            // At this point, want_kind is determined.
+            let want_kind = want_kind.expect("given or detected");
+
             let mut output =
                 create_or_stdout_pgp(m.value_of("output"), force,
-                                     false,
-                                     parse_armor_kind(m.value_of("kind")))?;
-            io::copy(&mut input, &mut output)?;
+                                     false, want_kind)?;
+
+            if already_armored {
+                // Dearmor and copy to change the type.
+                let mut reader =
+                    armor::Reader::new(input,
+                                       armor::ReaderMode::Tolerant(None));
+                io::copy(&mut reader, &mut output)?;
+            } else {
+                io::copy(&mut input, &mut output)?;
+            }
             output.finalize()?;
         },
         ("dearmor",  Some(m)) => {
@@ -536,14 +609,7 @@ fn main() -> Result<()> {
                             + "-");
                 commands::split(&mut input, &prefix)?;
             },
-            ("join",  Some(m)) => {
-                let mut output =
-                    create_or_stdout_pgp(m.value_of("output"), force,
-                                         m.is_present("binary"),
-                                         parse_armor_kind(m.value_of("kind")))?;
-                commands::join(m.values_of("input"), &mut output)?;
-                output.finalize()?;
-            },
+            ("join",  Some(m)) => commands::join(config, m)?,
             _ => unreachable!(),
         },
 
