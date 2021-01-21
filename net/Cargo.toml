@@ -1,16 +1,16 @@
 [package]
 name = "sequoia-net"
 description = "Network services for OpenPGP"
-version = "0.22.0"
+version = "0.23.0"
 authors = [
     "Justus Winter <justus@sequoia-pgp.org>",
     "Kai Michaelis <kai@sequoia-pgp.org>",
     "Neal H. Walfield <neal@sequoia-pgp.org>",
 ]
-documentation = "https://docs.sequoia-pgp.org/0.21.0/sequoia_net"
+documentation = "https://docs.rs/sequoia-net"
 homepage = "https://sequoia-pgp.org/"
 repository = "https://gitlab.com/sequoia-pgp/sequoia"
-readme = "../README.md"
+readme = "README.md"
 keywords = ["cryptography", "openpgp", "pgp", "hkp", "keyserver"]
 categories = ["cryptography", "authentication", "email"]
 license = "GPL-2.0-or-later"
@@ -21,7 +21,7 @@ gitlab = { repository = "sequoia-pgp/sequoia" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
+sequoia-openpgp = { path = "../openpgp", version = "1", default-features = false }
 
 anyhow = "1.0.18"
 futures-util = "0.3.5"
@@ -41,10 +41,10 @@ rand = { version = "0.7", default-features = false }
 tokio = { version = "0.2.19", features = ["full"] }
 
 [features]
-default = ["compression"]
-
-# The compression algorithms.
-compression = ["compression-deflate", "compression-bzip2"]
+default = ["sequoia-openpgp/default"]
+crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
+crypto-cng = ["sequoia-openpgp/crypto-cng"]
+compression = ["sequoia-openpgp/compression"]
 compression-deflate = ["sequoia-openpgp/compression-deflate"]
 compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
 

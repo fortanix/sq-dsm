@@ -1841,7 +1841,7 @@ dependencies = [
 
 [[package]]
 name = "sequoia-net"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "anyhow",
  "futures-util",

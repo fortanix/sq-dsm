@@ -1,17 +1,15 @@
-//! For accessing keys over the network.
+//! Discovering and publishing OpenPGP certificates over the network.
 //!
-//! Currently, this module provides access to keyservers providing the [HKP] protocol.
+//! This crate provides access to keyservers using the [HKP] protocol,
+//! and searching and publishing [Web Key Directories].
 //!
 //! [HKP]: https://tools.ietf.org/html/draft-shaw-openpgp-hkp-00
+//! [Web Key Directories]: https://datatracker.ietf.org/doc/html/draft-koch-openpgp-webkey-service
 //!
 //! # Examples
 //!
-//! We provide a very reasonable default key server backed by
-//! `hkps.pool.sks-keyservers.net`, the subset of the [SKS keyserver]
-//! network that uses https to protect integrity and confidentiality
-//! of the communication with the client:
-//!
-//! [SKS keyserver]: https://www.sks-keyservers.net/overview-of-pools.php#pool_hkps
+//! This example demonstrates how to fetch a certificate from the
+//! default key server:
 //!
 //! ```no_run
 //! # use sequoia_openpgp::KeyID;
@@ -22,6 +20,14 @@
 //! println!("{:?}", ks.get(keyid).await?);
 //! # Ok(())
 //! # }
+//! ```
+//!
+//! This example demonstrates how to fetch a certificate using WKD:
+//!
+//! ```no_run
+//! # async fn f() -> sequoia_net::Result<()> {
+//! let certs = sequoia_net::wkd::get("juliett@example.org").await?;
+//! # Ok(()) }
 //! ```
 
 #![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
