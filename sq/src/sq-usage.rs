@@ -49,7 +49,7 @@
 //!     sq encrypt [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
-//!     -B, --binary                Don't ASCII-armor encode the OpenPGP data
+//!     -B, --binary                Emit binary data
 //!     -h, --help                  Prints help information
 //!     -s, --symmetric             Encrypt with a password (can be given multiple
 //!                                 times)
@@ -122,7 +122,7 @@
 //!
 //! FLAGS:
 //!     -a, --append      Append signature to existing signature
-//!     -B, --binary      Don't ASCII-armor encode the OpenPGP data
+//!     -B, --binary      Emit binary data
 //!         --detached    Create a detached signature
 //!     -h, --help        Prints help information
 //!     -n, --notarize    Signs a message and all existing signatures
@@ -323,7 +323,7 @@
 //!
 //! FLAGS:
 //!     -B, --binary
-//!             Don't ASCII-armor the certring
+//!             Emit binary data
 //!
 //!     -h, --help
 //!             Prints help information
@@ -363,7 +363,7 @@
 //!     sq certring join [FLAGS] [OPTIONS] [FILE]...
 //!
 //! FLAGS:
-//!     -B, --binary     Don't ASCII-armor the certring
+//!     -B, --binary     Emit binary data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
@@ -550,7 +550,7 @@
 //!     sq keyserver get [FLAGS] [OPTIONS] <QUERY>
 //!
 //! FLAGS:
-//!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
+//!     -B, --binary     Emit binary data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
@@ -632,7 +632,7 @@
 //!     sq wkd get [FLAGS] <EMAIL_ADDRESS>
 //!
 //! FLAGS:
-//!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
+//!     -B, --binary     Emit binary data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!
@@ -742,7 +742,7 @@
 //!     sq packet decrypt [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
-//!     -B, --binary              Don't ASCII-armor encode the OpenPGP data
+//!     -B, --binary              Emit binary data
 //!         --dump-session-key    Prints the session key to stderr
 //!     -h, --help                Prints help information
 //!     -V, --version             Prints version information
@@ -790,7 +790,7 @@
 //!     sq packet join [FLAGS] [OPTIONS] [FILE]...
 //!
 //! FLAGS:
-//!     -B, --binary     Don't ASCII-armor encode the OpenPGP data
+//!     -B, --binary     Emit binary data
 //!     -h, --help       Prints help information
 //!     -V, --version    Prints version information
 //!

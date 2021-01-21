@@ -81,7 +81,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                          .help("Sets the output file to use"))
                     .arg(Arg::with_name("binary")
                          .short("B").long("binary")
-                         .help("Don't ASCII-armor encode the OpenPGP data"))
+                         .help("Emit binary data"))
                     .arg(Arg::with_name("recipients-cert-file")
                          .long("recipient-cert").value_name("CERT-RING")
                          .multiple(true).number_of_values(1)
@@ -149,7 +149,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                          .help("Sets the output file to use"))
                     .arg(Arg::with_name("binary")
                          .short("B").long("binary")
-                         .help("Don't ASCII-armor encode the OpenPGP data"))
+                         .help("Emit binary data"))
                     .arg(Arg::with_name("detached")
                          .long("detached")
                          .help("Create a detached signature"))
@@ -427,7 +427,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                     the filter"))
                         .arg(Arg::with_name("binary")
                              .short("B").long("binary")
-                             .help("Don't ASCII-armor the certring"))
+                             .help("Emit binary data"))
                 )
                 .subcommand(
                     SubCommand::with_name("join")
@@ -441,7 +441,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              .help("Sets the output file to use"))
                         .arg(Arg::with_name("binary")
                              .short("B").long("binary")
-                             .help("Don't ASCII-armor the certring"))
+                             .help("Emit binary data"))
                 )
                 .subcommand(
                     SubCommand::with_name("list")
@@ -576,8 +576,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                      .help("Sets the output file to use"))
                                 .arg(Arg::with_name("binary")
                                      .short("B").long("binary")
-                                     .help("Don't ASCII-armor encode the \
-                                            OpenPGP data"))
+                                     .help("Emit binary data"))
                                 .arg(Arg::with_name("secret-key-file")
                                      .long("recipient-key").value_name("KEY")
                                      .multiple(true).number_of_values(1)
@@ -619,8 +618,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                             produce"))
                                 .arg(Arg::with_name("binary")
                                      .short("B").long("binary")
-                                     .help("Don't ASCII-armor encode the \
-                                            OpenPGP data"))));
+                                     .help("Emit binary data"))));
 
     let app = if ! cfg!(feature = "net") {
         // Without networking support.
@@ -645,7 +643,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                      .help("Sets the output file to use"))
                                 .arg(Arg::with_name("binary")
                                      .short("B").long("binary")
-                                     .help("Don't ASCII-armor encode the OpenPGP data"))
+                                     .help("Emit binary data"))
                                 .arg(Arg::with_name("query")
                                      .value_name("QUERY")
                                      .required(true)
@@ -687,7 +685,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                             obtain the Cert from a WKD."))
                                 .arg(Arg::with_name("binary")
                                      .short("B").long("binary")
-                                     .help("Don't ASCII-armor encode the OpenPGP data"))
+                                     .help("Emit binary data"))
                     )
                     .subcommand(SubCommand::with_name("generate")
                                 .about("Generates a Web Key Directory \
