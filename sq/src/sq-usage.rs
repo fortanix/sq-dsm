@@ -328,8 +328,9 @@
 //! SUBCOMMANDS:
 //!     filter    Joins certs into a certring applying a filter
 //!     help      Prints this message or the help of the given subcommand(s)
-//!     join      Joins certs into a certring
+//!     join      Joins certs or certrings into a single certring
 //!     list      Lists certs in a certring
+//!     merge     Merges certs or certrings into a single certring
 //!     split     Splits a certring into individual certs
 //! ```
 //!
@@ -367,21 +368,31 @@
 //! ### Subcommand certring join
 //!
 //! ```text
-//! Joins certs into a certring
+//! Unlike 'sq certring merge', multiple versions of the same certificate are not
+//! merged together.
 //!
 //! USAGE:
 //!     sq certring join [FLAGS] [OPTIONS] [FILE]...
 //!
 //! FLAGS:
-//!     -B, --binary     Emits binary data
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -B, --binary
+//!             Don't ASCII-armor the certring
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>    Writes to FILE or stdout if omitted
+//!     -o, --output <FILE>
+//!             Sets the output file to use
+//!
 //!
 //! ARGS:
-//!     <FILE>...    Reads from FILE
+//!     <FILE>...
+//!             Sets the input files to use
 //! ```
 //!
 //! ### Subcommand certring list
@@ -398,6 +409,37 @@
 //!
 //! ARGS:
 //!     <FILE>    Reads from FILE or stdin if omitted
+//! ```
+//!
+//! ### Subcommand certring merge
+//!
+//! ```text
+//! Unlike 'sq certring join', the certificates are buffered and multiple versions
+//! of the same certificate are merged together.  Where data is replaced (e.g.,
+//! secret key material), data from the later certificate is preferred.
+//!
+//! USAGE:
+//!     sq certring merge [FLAGS] [OPTIONS] [FILE]...
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!
+//! ARGS:
+//!     <FILE>...
+//!             Reads from FILE
 //! ```
 //!
 //! ### Subcommand certring split

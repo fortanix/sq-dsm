@@ -459,7 +459,31 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                 )
                 .subcommand(
                     SubCommand::with_name("join")
-                        .about("Joins certs into a certring")
+                        .about("Joins certs or certrings into a single certring")
+                        .long_about(
+                            "Unlike 'sq certring merge', multiple versions \
+                             of the same certificate are not merged \
+                             together.")
+                        .arg(Arg::with_name("input")
+                             .value_name("FILE")
+                             .multiple(true)
+                             .help("Sets the input files to use"))
+                        .arg(Arg::with_name("output")
+                             .short("o").long("output").value_name("FILE")
+                             .help("Sets the output file to use"))
+                        .arg(Arg::with_name("binary")
+                             .short("B").long("binary")
+                             .help("Don't ASCII-armor the certring"))
+                )
+                .subcommand(
+                    SubCommand::with_name("merge")
+                        .about("Merges certs or certrings into a single certring")
+                        .long_about(
+                            "Unlike 'sq certring join', the certificates \
+                             are buffered and multiple versions of the same \
+                             certificate are merged together.  Where data \
+                             is replaced (e.g., secret key material), data \
+                             from the later certificate is preferred.")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .multiple(true)

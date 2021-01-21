@@ -1,4 +1,6 @@
 use std::{
+    collections::HashMap,
+    collections::hash_map::Entry,
     fs::File,
     io,
     path::PathBuf,
@@ -13,6 +15,7 @@ use openpgp::{
         Cert,
         CertParser,
     },
+    Fingerprint,
     packet::{
         UserID,
         UserAttribute,
@@ -128,6 +131,14 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
             filter(m.values_of("input"), &mut output, |c| Some(c))?;
             output.finalize()
         },
+        ("merge",  Some(m)) => {
+            let mut output = create_or_stdout_pgp(m.value_of("output"),
+                                                  force,
+                                                  m.is_present("binary"),
+                                                  armor::Kind::PublicKey)?;
+            merge(m.values_of("input"), &mut output)?;
+            output.finalize()
+        },
         ("list",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             list(&mut input)
@@ -233,6 +244,54 @@ fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str)
 
         cert.armored().serialize(&mut sink)?;
     }
+    Ok(())
+}
+
+/// Merge multiple certrings.
+fn merge(inputs: Option<clap::Values>, output: &mut dyn io::Write)
+             -> Result<()>
+{
+    let mut certs: HashMap<Fingerprint, Option<Cert>> = HashMap::new();
+
+    if let Some(inputs) = inputs {
+        for name in inputs {
+            for cert in CertParser::from_file(name)? {
+                let cert = cert.context(
+                    format!("Malformed certificate in certring {:?}", name))?;
+                match certs.entry(cert.fingerprint()) {
+                    e @ Entry::Vacant(_) => {
+                        e.or_insert(Some(cert));
+                    }
+                    Entry::Occupied(mut e) => {
+                        let e = e.get_mut();
+                        let curr = e.take().unwrap();
+                        *e = Some(curr.merge_public_and_secret(cert)
+                            .expect("Same certificate"));
+                    }
+                }
+            }
+        }
+    } else {
+        for cert in CertParser::from_reader(io::stdin())? {
+            let cert = cert.context("Malformed certificate in certring")?;
+            match certs.entry(cert.fingerprint()) {
+                e @ Entry::Vacant(_) => {
+                    e.or_insert(Some(cert));
+                }
+                Entry::Occupied(mut e) => {
+                    let e = e.get_mut();
+                    let curr = e.take().unwrap();
+                    *e = Some(curr.merge_public_and_secret(cert)
+                              .expect("Same certificate"));
+                }
+            }
+        }
+    }
+
+    for (_, cert) in certs.iter_mut() {
+        cert.take().unwrap().as_tsk().serialize(output)?;
+    }
+
     Ok(())
 }
 
