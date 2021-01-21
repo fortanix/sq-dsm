@@ -239,6 +239,7 @@
 //! ```
 
 use std::borrow::Borrow;
+use std::fmt;
 
 use lalrpop_util::ParseError;
 use regex_syntax::hir::{self, Hir};
@@ -536,12 +537,31 @@ assert_send_and_sync!(RegexSet_);
 /// See the [module-level documentation] for more details.
 ///
 ///   [module-level documentation]: index.html
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct RegexSet {
     re_set: RegexSet_,
     disable_sanitizations: bool,
 }
 assert_send_and_sync!(RegexSet);
+
+impl fmt::Debug for RegexSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_struct("RegexSet");
+        match self.re_set {
+            RegexSet_::Everything => {
+                d.field("regex", &"<Everything>")
+            }
+            RegexSet_::Invalid => {
+                d.field("regex", &"<Invalid>")
+            }
+            RegexSet_::Regex(ref r) => {
+                d.field("regex", &r.regex)
+            }
+        }
+        .field("sanitizations", &!self.disable_sanitizations)
+            .finish()
+    }
+}
 
 impl RegexSet {
     /// Parses and compiles the regular expressions.
