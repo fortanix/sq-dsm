@@ -392,7 +392,6 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                     using broken cryptography"))
                         .arg(Arg::with_name("certificate")
                              .value_name("TARGET-KEY")
-                             .required(true)
                              .help("Adds keys to TARGET-KEY"))
                         .arg(Arg::with_name("output")
                              .short("o").long("output").value_name("FILE")

@@ -195,9 +195,8 @@ pub fn generate(m: &ArgMatches, force: bool) -> Result<()> {
 }
 
 pub fn adopt(config: Config, m: &ArgMatches, p: &dyn Policy) -> Result<()> {
-    let cert = m.value_of("certificate").unwrap();
-    let cert = Cert::from_file(cert)
-        .context(format!("Parsing {}", cert))?;
+    let input = open_or_stdin(m.value_of("certificate"))?;
+    let cert = Cert::from_reader(input)?;
     let mut wanted: Vec<(KeyHandle,
                          Option<(Key<key::PublicParts, key::SubordinateRole>,
                                  SignatureBuilder)>)>

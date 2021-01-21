@@ -299,7 +299,7 @@
 //! Binds keys from one certificate to another
 //!
 //! USAGE:
-//!     sq key adopt [FLAGS] [OPTIONS] <TARGET-KEY> --key <KEY>...
+//!     sq key adopt [FLAGS] [OPTIONS] --key <KEY>... [--] [TARGET-KEY]
 //!
 //! FLAGS:
 //!         --allow-broken-crypto
