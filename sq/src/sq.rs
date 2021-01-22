@@ -2,7 +2,7 @@
 
 use anyhow::Context as _;
 use std::fs::OpenOptions;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use chrono::{DateTime, offset::Utc};
@@ -465,8 +465,7 @@ fn main() -> Result<()> {
                 let mut reader =
                     armor::Reader::new(&mut dup,
                                        armor::ReaderMode::Tolerant(None));
-                let mut buf = [0; 8];
-                (reader.read(&mut buf).is_ok(), reader.kind())
+                (reader.data(8).is_ok(), reader.kind())
             };
             let mut input =
                 dup.as_boxed().into_inner().unwrap().into_inner().unwrap();
