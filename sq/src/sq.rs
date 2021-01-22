@@ -220,13 +220,16 @@ fn parse_armor_kind(kind: Option<&str>) -> Option<armor::Kind> {
     }
 }
 
+/// How much data to look at when detecting armor kinds.
+const ARMOR_DETECTION_LIMIT: u64 = 1 << 24;
+
 /// Peeks at the first packet to guess the type.
 ///
 /// Returns the given reader unchanged.  If the detection fails,
 /// armor::Kind::File is returned as safe default.
 fn detect_armor_kind(input: Box<dyn BufferedReader<()>>)
                      -> (Box<dyn BufferedReader<()>>, armor::Kind) {
-    let mut dup = Limitor::new(Dup::new(input), 1 << 24).as_boxed();
+    let mut dup = Limitor::new(Dup::new(input), ARMOR_DETECTION_LIMIT).as_boxed();
     let kind = 'detection: loop {
         if let Ok(ppr) = PacketParser::from_reader(&mut dup) {
             if let PacketParserResult::Some(pp) = ppr {
@@ -461,7 +464,7 @@ fn main() -> Result<()> {
 
             // Peek at the data.  If it looks like it is armored
             // data, avoid armoring it again.
-            let mut dup = Limitor::new(Dup::new(input), 1 << 24);
+            let mut dup = Limitor::new(Dup::new(input), ARMOR_DETECTION_LIMIT);
             let (already_armored, have_kind) = {
                 let mut reader =
                     armor::Reader::new(&mut dup,
