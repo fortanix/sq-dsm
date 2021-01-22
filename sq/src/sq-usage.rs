@@ -3,7 +3,19 @@
 //! # Usage
 //!
 //! ```text
-//! Sequoia is an implementation of OpenPGP.  This is a command-line frontend.
+//! A command-line frontend for Sequoia, an implementation of OpenPGP
+//!
+//! Functionality is grouped and available using subcommands.  Currently,
+//! this interface is completely stateless.  Therefore, you need to supply
+//! all configuration and certificates explicitly on each invocation.
+//!
+//! OpenPGP data can be provided in binary or ASCII armored form.  This
+//! will be handled automatically.  Emitted OpenPGP data is ASCII armored
+//! by default.
+//!
+//! We use the term 'certificate', or cert for short, to refer to OpenPGP
+//! keys that do not contain secrets.  Conversely, we use the term 'key'
+//! to refer to OpenPGP keys that do contain secrets.
 //!
 //! USAGE:
 //!     sq [FLAGS] [OPTIONS] <SUBCOMMAND>
@@ -31,12 +43,12 @@
 //!     sign         Signs messages or data files
 //!     verify       Verifies signed messages or detached signatures
 //!     key          Manages keys
-//!     keyring      Manages collections of certificates
+//!     keyring      Manages collections of keys or certs
 //!     certify      Certifies a User ID for a Certificate
 //!     autocrypt    Communicates certificates using Autocrypt
 //!     keyserver    Interacts with keyservers
 //!     wkd          Interacts with Web Key Directories
-//!     armor        Converts binary data to ASCII
+//!     armor        Converts binary to ASCII
 //!     dearmor      Converts ASCII to binary
 //!     inspect      Inspects data, like file(1)
 //!     packet       Low-level packet manipulation
@@ -47,6 +59,11 @@
 //!
 //! ```text
 //! Encrypts a message
+//!
+//! Encrypts a message for any number of recipients and with any number of
+//! passwords, optionally signing the message in the process.
+//!
+//! The converse operation is 'sq decrypt'.
 //!
 //! USAGE:
 //!     sq encrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -91,12 +108,29 @@
 //! ARGS:
 //!     <FILE>
 //!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Encrypt a file using a certificate
+//! $ sq encrypt --recipient-key romeo.pgp message.txt
+//!
+//! # Encrypt a file creating a signature in the process
+//! $ sq encrypt --recipient-key romeo.pgp --signer-cert juliet.pgp message.txt
+//!
+//! # Encrypt a file using a password
+//! $ sq encrypt --symmetric message.txt
 //! ```
 //!
 //! ## Subcommand decrypt
 //!
 //! ```text
 //! Decrypts a message
+//!
+//! Decrypts a message using either supplied keys, or by prompting for a
+//! password.  Any signatures are checked using the supplied certificates.
+//!
+//! The converse operation is 'sq encrypt'.
 //!
 //! USAGE:
 //!     sq decrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -133,12 +167,29 @@
 //! ARGS:
 //!     <FILE>
 //!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Decrypt a file using a secret key
+//! $ sq decrypt --recipient-key juliet.pgp ciphertext.pgp
+//!
+//! # Decrypt a file verifying signatures
+//! $ sq decrypt --recipient-key juliet.pgp --signer-cert romeo.pgp ciphertext.pgp
+//!
+//! # Decrypt a file using a password
+//! $ sq decrypt ciphertext.pgp
 //! ```
 //!
 //! ## Subcommand sign
 //!
 //! ```text
 //! Signs messages or data files
+//!
+//! Creates signed messages or detached signatures.  Detached signatures
+//! are often used to sign software packages.
+//!
+//! The converse operation is 'sq verify'.
 //!
 //! USAGE:
 //!     sq sign [FLAGS] [OPTIONS] [--] [FILE]
@@ -184,12 +235,29 @@
 //! ARGS:
 //!     <FILE>
 //!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Create a signed message
+//! $ sq sign --signer-key juliet.pgp message.txt
+//!
+//! # Create a detached signature
+//! $ sq sign --detached --signer-key juliet.pgp message.txt
 //! ```
 //!
 //! ## Subcommand verify
 //!
 //! ```text
 //! Verifies signed messages or detached signatures
+//!
+//! When verifying signed messages, the message is written to stdout or
+//! the file given to --output.
+//!
+//! When a detached message is verified, no output is produced.  Detached
+//! signatures are often used to sign software packages.
+//!
+//! The converse operation is 'sq sign'.
 //!
 //! USAGE:
 //!     sq verify [OPTIONS] [--] [FILE]
@@ -217,6 +285,20 @@
 //! ARGS:
 //!     <FILE>
 //!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Verify a signed message
+//! $ sq verify --signer-key juliet.pgp signed-message.pgp
+//!
+//! # Verify a detached message
+//! $ sq verify --signer-key juliet.pgp --detached message.sig message.txt
+//!
+//! SEE ALSO:
+//!
+//! If you are looking for a standalone program to verify detached
+//! signatures, consider using sequoia-sqv.
 //! ```
 //!
 //! ## Subcommand key
@@ -224,17 +306,25 @@
 //! ```text
 //! Manages keys
 //!
+//! We use the term 'key' to refer to OpenPGP keys that do contain
+//! secrets.  This subcommand provides primitives to generate and
+//! otherwise manipulate keys.
+//!
+//! Conversely, we use the term 'certificate', or cert for short, to refer
+//! to OpenPGP keys that do not contain secrets.  See 'sq certring' for
+//! operations on certificates.
+//!
 //! USAGE:
 //!     sq key <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help    Prints help information
+//!     -h, --help
+//!             Prints help information
+//!
 //!
 //! SUBCOMMANDS:
 //!     generate                 Generates a new key
-//!     attest-certifications
-//!             Attests third-party certifications allowing for their distribution
-//!
+//!     attest-certifications    Attests to third-party certifications
 //!     adopt                    Binds keys from one certificate to another
 //!     help
 //!             Prints this message or the help of the given subcommand(s)
@@ -244,6 +334,14 @@
 //!
 //! ```text
 //! Generates a new key
+//!
+//! Generating a key is the prerequisite to receiving encrypted messages
+//! and creating signatures.  There are a few parameters to this process,
+//! but we provide reasonable defaults for most users.
+//!
+//! When generating a key, we also generate a revocation certificate.
+//! This can be used in case the key is superseded, lost, or compromised.
+//! It is a good idea to keep a copy of this in a safe place.
 //!
 //! USAGE:
 //!     sq key generate [FLAGS] [OPTIONS] --export <OUTFILE>
@@ -291,34 +389,87 @@
 //!             '-'. [default: <OUTFILE>.rev]
 //!     -u, --userid <EMAIL>...
 //!             Adds a userid to the key
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Generates a key
+//! $ sq key generate --userid '<juliet@example.org>'
+//!
+//! # Generates a key protecting it with a password
+//! $ sq key generate --userid '<juliet@example.org>' --with-password
+//!
+//! # Generates a key with multiple userids
+//! $ sq key generate --userid '<juliet@example.org>' --userid 'Juliet Capulet'
 //! ```
 //!
 //! ### Subcommand key attest-certifications
 //!
 //! ```text
-//! Attests third-party certifications allowing for their distribution
+//!
+//! Attests to third-party certifications allowing for their distribution
+//!
+//! To prevent certificate flooding attacks, modern key servers prevent
+//! uncontrolled distribution of third-party certifications on
+//! certificates.  To make the key holder the sovereign over the
+//! information over what information is distributed with the certificate,
+//! the key holder needs to explicitly attest to third-party
+//! certifications.
+//!
+//! After the attestation has been created, the certificate has to be
+//! distributed, e.g. by uploading it to a keyserver.
 //!
 //! USAGE:
 //!     sq key attest-certifications [FLAGS] [OPTIONS] [KEY]
 //!
 //! FLAGS:
-//!         --all        Attests to all certifications [default]
-//!     -B, --binary     Emits binary data
-//!     -h, --help       Prints help information
-//!         --none       Removes all prior attestations
-//!     -V, --version    Prints version information
+//!         --all
+//!             Attests to all certifications [default]
+//!
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!         --none
+//!             Removes all prior attestations
+//!
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>    Writes to FILE or stdout if omitted
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!
 //! ARGS:
-//!     <KEY>    Changes attestations on KEY
+//!     <KEY>
+//!             Changes attestations on KEY
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Attest to all certifications present on the key
+//! $ sq key attest-certifications juliet.pgp
+//!
+//! # Retract prior attestations on the key
+//! $ sq key attest-certifications --none juliet.pgp
 //! ```
 //!
 //! ### Subcommand key adopt
 //!
 //! ```text
+//!
 //! Binds keys from one certificate to another
+//!
+//! This command allows one to transfer primary keys and subkeys into an
+//! existing certificate.  Say you want to transition to a new
+//! certificate, but have an authentication subkey on your current
+//! certificate.  You want to keep the authentication subkey because it
+//! allows access to SSH servers and updating their configuration is not
+//! feasible.
 //!
 //! USAGE:
 //!     sq key adopt [FLAGS] [OPTIONS] --key <KEY>... [--] [TARGET-KEY]
@@ -327,29 +478,50 @@
 //!         --allow-broken-crypto
 //!             Allows adopting keys from certificates using broken cryptography
 //!
-//!     -B, --binary                 Emits binary data
-//!     -h, --help                   Prints help information
-//!     -V, --version                Prints version information
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
-//!     -k, --key <KEY>...             Adds the key or subkey KEY to the TARGET-KEY
-//!     -r, --keyring <KEY-RING>...    Supplies keys for use in --key.
-//!     -o, --output <FILE>            Writes to FILE or stdout if omitted
+//!     -k, --key <KEY>...
+//!             Adds the key or subkey KEY to the TARGET-KEY
+//!
+//!     -r, --keyring <KEY-RING>...
+//!             Supplies keys for use in --key.
+//!
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!
 //! ARGS:
-//!     <TARGET-KEY>    Adds keys to TARGET-KEY
+//!     <TARGET-KEY>
+//!             Adds keys to TARGET-KEY
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Adopt an subkey into the new cert
+//! $ sq key adopt --keyring juliet-old.pgp juliet-new.pgp --key 0123456789ABCDEF
 //! ```
 //!
 //! ## Subcommand keyring
 //!
 //! ```text
-//! Manages collections of certificates (also known as 'keyrings' when they contain
-//! secret key material, and 'certrings' when they don't).
+//! Manages collections of keys or certs
 //!
-//! To convert a key to a certificate (i.e.,
-//! remove any secret key material), do:
+//! Collections of keys or certficicates (also known as 'keyrings' when
+//! they contain secret key material, and 'certrings' when they don't) are
+//! any number of concatenated certificates.  This subcommand provides
+//! tools to list, split, join, merge, and filter keyrings.
 //!
-//! $ cat keys.pgp | sq keyring filter --to-certificate
+//! Note: In the documentation of this subcommand, we sometimes use the
+//! terms keys and certs interchangeably.
 //!
 //! USAGE:
 //!     sq keyring <SUBCOMMAND>
@@ -360,59 +532,99 @@
 //!
 //!
 //! SUBCOMMANDS:
-//!     filter    Joins certs into a keyring applying a filter
+//!     list      Lists keys in a keyring
+//!     split     Splits a keyring into individual keys
+//!     join      Joins keys or keyrings into a single keyring
+//!     merge     Merges keys or keyrings into a single keyring
+//!     filter    Joins keys into a keyring applying a filter
 //!     help      Prints this message or the help of the given subcommand(s)
-//!     join      Joins certs or keyrings into a single keyring
-//!     list      Lists certs in a keyring
-//!     merge     Merges certs or keyrings into a single keyring
-//!     split     Splits a keyring into individual certs
 //! ```
 //!
-//! ### Subcommand keyring filter
+//! ### Subcommand keyring list
 //!
 //! ```text
-//! Joins certs into a keyring applying a filter
+//! Lists keys in a keyring
+//!
+//! Prints the fingerprint as well one userid for every certificate
+//! encountered in the keyring.
 //!
 //! USAGE:
-//!     sq keyring filter [FLAGS] [OPTIONS] [--] [FILE]...
+//!     sq keyring list [FILE]
 //!
 //! FLAGS:
-//!     -B, --binary            Emits binary data
-//!     -h, --help              Prints help information
-//!     -P, --prune-certs       Removes certificate components not matching the
-//!                             filter
-//!         --to-certificate    Converts any keys in the input to certificates.
-//!                             Converting a key to a certificate removes secret key
-//!                             material from the key thereby turning it into a
-//!                             certificate.
-//!     -V, --version           Prints version information
+//!     -h, --help
+//!             Prints help information
 //!
-//! OPTIONS:
-//!         --domain <FQDN>...      Matches on email domain FQDN
-//!         --email <ADDRESS>...    Matches on email ADDRESS
-//!         --name <NAME>...        Matches on NAME
-//!     -o, --output <FILE>         Writes to FILE or stdout if omitted
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! ARGS:
-//!     <FILE>...    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
 //!
-//! If multiple predicates are given, they are or'ed, i.e. a certificate matches if
-//! any of the predicates match.  To require all predicates to match, chain multiple
-//! invocations of this command:
 //!
-//! $ cat certs.pgp | sq keyring filter --domain example.org | sq keyring filter
-//! --name Juliett
+//! EXAMPLES:
 //!
-//! If no filters are supplied, everything matches.
+//! # List all certs
+//! $ sq keyring list certs.pgp
+//!
+//! # List all certs with a userid on example.org
+//! $ sq keyring filter --domain example.org certs.pgp | sq keyring list
+//! ```
+//!
+//! ### Subcommand keyring split
+//!
+//! ```text
+//! Splits a keyring into individual keys
+//!
+//! Splitting up a keyring into individual keys helps with curating a
+//! keyring.
+//!
+//! The converse operation is 'sq keyring join'.
+//!
+//! USAGE:
+//!     sq keyring split [FLAGS] [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!     -p, --prefix <FILE>
+//!             Writes to files with prefix FILE [defaults to the input filename
+//!             with a dash, or 'output' if keyring is read from stdin]
+//!
+//! ARGS:
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Split all certs
+//! $ sq keyring split certs.pgp
+//!
+//! # Split all certs, merging them first to avoid duplicates
+//! $ sq keyring merge certs.pgp | sq keyring split
 //! ```
 //!
 //! ### Subcommand keyring join
 //!
 //! ```text
-//! Joins certs or keyrings into a single keyring.
+//! Joins keys or keyrings into a single keyring
 //!
-//! Unlike 'sq keyring merge', multiple versions of the same certificate are not
+//! Unlike 'sq keyring merge', multiple versions of the same key are not
 //! merged together.
+//!
+//! The converse operation is 'sq keyring split'.
 //!
 //! USAGE:
 //!     sq keyring join [FLAGS] [OPTIONS] [FILE]...
@@ -436,32 +648,23 @@
 //! ARGS:
 //!     <FILE>...
 //!             Sets the input files to use
-//! ```
 //!
-//! ### Subcommand keyring list
 //!
-//! ```text
-//! Lists certs in a keyring
+//! EXAMPLES:
 //!
-//! USAGE:
-//!     sq keyring list [FILE]
-//!
-//! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
-//!
-//! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//! # Collect certs for an email conversation
+//! $ sq keyring join juliet.pgp romeo.pgp alice.pgp
 //! ```
 //!
 //! ### Subcommand keyring merge
 //!
 //! ```text
-//! Merges certs or keyrings into a single keyring.
+//! Merges keys or keyrings into a single keyring
 //!
-//! Unlike 'sq keyring join', the certificates are buffered and multiple versions of
-//! the same certificate are merged together.  Where data is replaced (e.g., secret
-//! key material), data from the later certificate is preferred.
+//! Unlike 'sq keyring join', the certificates are buffered and multiple
+//! versions of the same certificate are merged together.  Where data is
+//! replaced (e.g., secret key material), data from the later certificate
+//! is preferred.
 //!
 //! USAGE:
 //!     sq keyring merge [FLAGS] [OPTIONS] [FILE]...
@@ -485,34 +688,109 @@
 //! ARGS:
 //!     <FILE>...
 //!             Reads from FILE
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Merge certificate updates
+//! $ sq keyring merge certs.pgp romeo-updates.pgp
 //! ```
 //!
-//! ### Subcommand keyring split
+//! ### Subcommand keyring filter
 //!
 //! ```text
-//! Splits a keyring into individual certs
+//! Joins keys into a keyring applying a filter
+//!
+//! This can be used to filter keys based on given predicates,
+//! e.g. whether they have a user id containing an email address with a
+//! certain domain.  Additionally, the keys can be pruned to only include
+//! components matching the predicates.
+//!
+//! If no filters are supplied, everything matches.
+//!
+//! If multiple predicates are given, they are or'ed, i.e. a key matches
+//! if any of the predicates match.  To require all predicates to match,
+//! chain multiple invocations of this command.  See EXAMPLES for
+//! inspiration.
 //!
 //! USAGE:
-//!     sq keyring split [FLAGS] [OPTIONS] [FILE]
+//!     sq keyring filter [FLAGS] [OPTIONS] [--] [FILE]...
 //!
 //! FLAGS:
-//!     -B, --binary     Emits binary data
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -P, --prune-certs
+//!             Removes certificate components not matching the filter
+//!
+//!         --to-certificate
+//!             Converts any keys in the input to certificates.  Converting a key to
+//!             a certificate removes secret key material from the key thereby
+//!             turning it into a certificate.
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
-//!     -p, --prefix <FILE>    Writes to files with prefix FILE [defaults to the
-//!                            input filename with a dash, or 'output' if keyring is
-//!                            read from stdin]
+//!         --domain <FQDN>...
+//!             Matches on email domain FQDN
+//!
+//!         --email <ADDRESS>...
+//!             Matches on email ADDRESS
+//!
+//!         --name <NAME>...
+//!             Matches on NAME
+//!
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>...
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Converts a key to a cert (i.e., remove any secret key material)
+//! $ sq keyring filter --to-certificate cat juliet.pgp
+//!
+//! # Gets the keys with a user id on example.org
+//! $ sq keyring filter --domain example.org keys.pgp
+//!
+//! # Gets the keys with a user id on example.org or example.net
+//! $ sq keyring filter --domain example.org --domain example.net keys.pgp
+//!
+//! # Gets the keys with a user id with the name Juliet
+//! $ sq keyring filter --name Juliet keys.pgp
+//!
+//! # Gets the keys with a user id with the name Juliet on example.org
+//! $ sq keyring filter --domain example.org keys.pgp | \
+//!   sq keyring filter --name Juliet
+//!
+//! # Gets the keys with a user id on example.org, pruning other userids
+//! $ sq keyring filter --domain example.org --prune-certs certs.pgp
 //! ```
 //!
 //! ## Subcommand certify
 //!
 //! ```text
+//!
 //! Certifies a User ID for a Certificate
+//!
+//! Using a certification a keyholder may vouch for the fact that another
+//! certificate legitimately belongs to a user id.  In the context of
+//! emails this means that the same entity controls the key and the email
+//! address.  These kind of certifications form the basis for the Web Of
+//! Trust.
+//!
+//! This command emits the certificate with the new certification.  The
+//! updated certificate has to be distributed, preferably by sending it to
+//! the certificate holder for attestation.  See also 'sq key
+//! attest-certification'.
 //!
 //! USAGE:
 //!     sq certify [FLAGS] [OPTIONS] <CERTIFIER-KEY> <CERTIFICATE> <USERID>
@@ -575,6 +853,12 @@
 //!
 //!     <USERID>
 //!             Certifies USERID for CERTIFICATE.
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Juliet certifies that Romeo controls romeo.pgp and romeo@example.org
+//! $ sq certify juliet.pgp romeo.pgp '<romeo@example.org>'
 //! ```
 //!
 //! ## Subcommand autocrypt
@@ -582,16 +866,24 @@
 //! ```text
 //! Communicates certificates using Autocrypt
 //!
+//! Autocrypt is a standard for mail user agents to provide convenient
+//! end-to-end encryption of emails.  This subcommand provides a limited
+//! way to produce and consume headers that are used by Autocrypt to
+//! communicate certificates between clients.
+//!
+//! See https://autocrypt.org/
+//!
 //! USAGE:
 //!     sq autocrypt <SUBCOMMAND>
 //!
 //! FLAGS:
-//!     -h, --help    Prints help information
+//!     -h, --help
+//!             Prints help information
+//!
 //!
 //! SUBCOMMANDS:
 //!     decode           Reads Autocrypt-encoded certificates
-//!     encode-sender    Encodes the sender's OpenPGP Certificates into an
-//!                      Autocrypt header
+//!     encode-sender    Encodes a certificate into an Autocrypt header
 //!     help             Prints this message or the help of the given
 //!                      subcommand(s)
 //! ```
@@ -601,44 +893,91 @@
 //! ```text
 //! Reads Autocrypt-encoded certificates
 //!
+//! Given an autocrypt header (or an key-gossip header), this command
+//! extracts the certificate encoded within it.
+//!
+//! The converse operation is 'sq autocrypt encode-sender'.
+//!
 //! USAGE:
 //!     sq autocrypt decode [FLAGS] [OPTIONS] [FILE]
 //!
 //! FLAGS:
-//!     -B, --binary     Emits binary data
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>    Writes to FILE or stdout if omitted
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Extract all certificates from a mail
+//! $ sq autocrypt decode autocrypt.eml
 //! ```
 //!
 //! ### Subcommand autocrypt encode-sender
 //!
 //! ```text
-//! Encodes the sender's OpenPGP Certificates into an Autocrypt header
+//! Encodes a certificate into an Autocrypt header
+//!
+//! A certificate can be encoded and included in a header of an email
+//! message.  This command encodes the certificate, adds the senders email
+//! address (which must match the one used in the 'From' header), and the
+//! senders 'prefer-encrypt' state (see the Autocrypt spec for more
+//! information).
+//!
+//! The converse operation is 'sq autocrypt decode'.
 //!
 //! USAGE:
 //!     sq autocrypt encode-sender [OPTIONS] [FILE]
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
 //!         --email <ADDRESS>
 //!             Sets the address [default: primary userid]
 //!
-//!     -o, --output <FILE>                      Writes to FILE or stdout if omitted
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!         --prefer-encrypt <prefer-encrypt>
 //!             Sets the prefer-encrypt attribute [default: nopreference]  [possible
 //!             values: nopreference, mutual]
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Encodes a certificate
+//! $ sq autocrypt encode-sender juliet.pgp
+//!
+//! # Encodes a certificate with an explicit sender address
+//! $ sq autocrypt encode-sender --email juliet@example.org juliet.pgp
+//!
+//! # Encodes a certificate while indicating the willingness to encrypt
+//! $ sq autocrypt encode-sender --prefer-encrypt mutual juliet.pgp
 //! ```
 //!
 //! ## Subcommand keyserver
@@ -794,22 +1133,43 @@
 //! ## Subcommand armor
 //!
 //! ```text
-//! Converts binary data to ASCII
+//! Converts binary to ASCII
+//!
+//! To make encrypted data easier to handle and transport, OpenPGP data
+//! can be transformed to an ASCII representation called ASCII Armor.  sq
+//! emits armored data by default, but this subcommand can be used to
+//! convert existing OpenPGP data to its ASCII-encoded representation.
+//!
+//! The converse operation is 'sq dearmor'.
 //!
 //! USAGE:
 //!     sq armor [OPTIONS] [FILE]
 //!
 //! FLAGS:
-//!     -h, --help    Prints help information
+//!     -h, --help
+//!             Prints help information
+//!
 //!
 //! OPTIONS:
-//!         --label <LABEL>    Selects the kind of armor header [default: auto]
-//!                            [possible values: auto, message, cert, key, sig,
-//!                            file]
-//!     -o, --output <FILE>    Writes to FILE or stdout if omitted
+//!         --label <LABEL>
+//!             Selects the kind of armor header [default: auto]  [possible values:
+//!             auto, message, cert, key, sig, file]
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Convert a binary certificate to ASCII
+//! $ sq armor binary-juliet.pgp
+//!
+//! # Convert a binary message to ASCII
+//! $ sq armor binary-message.pgp
 //! ```
 //!
 //! ## Subcommand dearmor
@@ -817,17 +1177,39 @@
 //! ```text
 //! Converts ASCII to binary
 //!
+//! To make encrypted data easier to handle and transport, OpenPGP data
+//! can be transformed to an ASCII representation called ASCII Armor.  sq
+//! transparently handles armored data, but this subcommand can be used to
+//! explicitly convert existing ASCII-encoded OpenPGP data to its binary
+//! representation.
+//!
+//! The converse operation is 'sq armor'.
+//!
 //! USAGE:
 //!     sq dearmor [OPTIONS] [FILE]
 //!
 //! FLAGS:
-//!     -h, --help    Prints help information
+//!     -h, --help
+//!             Prints help information
+//!
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>    Writes to FILE or stdout if omitted
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Convert a ASCII certificate to binary
+//! $ sq dearmor ascii-juliet.pgp
+//!
+//! # Convert a ASCII message to binary
+//! $ sq dearmor ascii-message.pgp
 //! ```
 //!
 //! ## Subcommand inspect
@@ -835,21 +1217,53 @@
 //! ```text
 //! Inspects data, like file(1)
 //!
+//! It is often difficult to tell from cursory inspection using cat(1) or
+//! file(1) what kind of OpenPGP one is looking at.  This subcommand
+//! inspects the data and provides a meaningful human-readable description
+//! of it.
+//!
 //! USAGE:
 //!     sq inspect [FLAGS] [FILE]
 //!
 //! FLAGS:
-//!         --certifications    Prints third-party certifications
-//!     -h, --help              Prints help information
+//!         --certifications
+//!             Prints third-party certifications
+//!
+//!     -h, --help
+//!             Prints help information
+//!
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Inspects a certificate
+//! $ sq inspect juliet.pgp
+//!
+//! # Inspects a certificate ring
+//! $ sq inspect certs.pgp
+//!
+//! # Inspects a message
+//! $ sq inspect message.pgp
+//!
+//! # Inspects a detached signature
+//! $ sq inspect message.sig
 //! ```
 //!
 //! ## Subcommand packet
 //!
 //! ```text
+//!
 //! Low-level packet manipulation
+//!
+//! An OpenPGP data stream consists of packets.  These tools allow working
+//! with packet streams.  They are mostly of interest to developers, but
+//! 'sq packet dump' may be helpful to a wider audience both to provide
+//! valuable information in bug reports to OpenPGP-related software, and
+//! as a learning tool.
 //!
 //! USAGE:
 //!     sq packet <SUBCOMMAND>
@@ -870,32 +1284,71 @@
 //! ### Subcommand packet dump
 //!
 //! ```text
+//!
 //! Lists packets
+//!
+//! Creates a human-readable description of the packet sequence.
+//! Additionally, it can print cryptographic artifacts, and print the raw
+//! octet stream similar to hexdump(1), annotating specifically which
+//! bytes are parsed into OpenPGP values.
+//!
+//! To inspect encrypted messages, either supply the session key, or see
+//! 'sq decrypt --dump' or 'sq packet decrypt'.
 //!
 //! USAGE:
 //!     sq packet dump [FLAGS] [OPTIONS] [FILE]
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -x, --hex        Prints a hexdump
-//!         --mpis       Prints cryptographic artifacts
-//!     -V, --version    Prints version information
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -x, --hex
+//!             Prints a hexdump
+//!
+//!         --mpis
+//!             Prints cryptographic artifacts
+//!
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
-//!     -o, --output <FILE>                Writes to FILE or stdout if omitted
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!         --session-key <SESSION-KEY>
 //!             Decrypts an encrypted message using SESSION-KEY
 //!
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Prints the packets of a certificate
+//! $ sq packet dump juliet.pgp
+//!
+//! # Prints cryptographic artifacts of a certificate
+//! $ sq packet dump --mpis juliet.pgp
+//!
+//! # Prints a hexdump of a certificate
+//! $ sq packet dump --hex juliet.pgp
+//!
+//! # Prints the packets of an encrypted message
+//! $ sq packet dump --session-key AAAABBBBCCCC... ciphertext.pgp
 //! ```
 //!
 //! ### Subcommand packet decrypt
 //!
 //! ```text
-//! Decrypts a message, dumping the content of the encryption container without
-//! further processing
+//!
+//! Unwraps an encryption container
+//!
+//! Decrypts a message, dumping the content of the encryption container
+//! without further processing.  The result is a valid OpenPGP message
+//! that can, among other things, be inspected using 'sq packet dump'.
 //!
 //! USAGE:
 //!     sq packet decrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -925,49 +1378,99 @@
 //! ARGS:
 //!     <FILE>
 //!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Unwraps the encryption revealing the signed message
+//! $ sq packet decrypt --recipient-key juliet.pgp ciphertext.pgp
 //! ```
 //!
 //! ### Subcommand packet split
 //!
 //! ```text
+//!
 //! Splits a message into packets
+//!
+//! Splitting a packet sequence into individual packets, then recombining
+//! them freely with 'sq packet join' is a great way to experiment with
+//! OpenPGP data.
+//!
+//! The converse operation is 'sq packet join'.
 //!
 //! USAGE:
 //!     sq packet split [OPTIONS] [FILE]
 //!
 //! FLAGS:
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
-//!     -p, --prefix <PREFIX>    Writes to files with PREFIX [defaults: FILE a dash,
-//!                              or 'output' if read from stdin)
+//!     -p, --prefix <PREFIX>
+//!             Writes to files with PREFIX [defaults: FILE a dash, or 'output' if
+//!             read from stdin)
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Split a certificate into individual packets
+//! $ sq packet split juliet.pgp
 //! ```
 //!
 //! ### Subcommand packet join
 //!
 //! ```text
+//!
 //! Joins packets split across files
+//!
+//! Splitting a packet sequence into individual packets, then recombining
+//! them freely with 'sq packet join' is a great way to experiment with
+//! OpenPGP data.
+//!
+//! The converse operation is 'sq packet split'.
 //!
 //! USAGE:
 //!     sq packet join [FLAGS] [OPTIONS] [FILE]...
 //!
 //! FLAGS:
-//!     -B, --binary     Emits binary data
-//!     -h, --help       Prints help information
-//!     -V, --version    Prints version information
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
 //!
 //! OPTIONS:
-//!         --label <LABEL>    Selects the kind of armor header [default: auto]
-//!                            [possible values: auto, message, cert, key, sig,
-//!                            file]
-//!     -o, --output <FILE>    Writes to FILE or stdout if omitted
+//!         --label <LABEL>
+//!             Selects the kind of armor header [default: auto]  [possible values:
+//!             auto, message, cert, key, sig, file]
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
 //!
 //! ARGS:
-//!     <FILE>...    Reads from FILE or stdin if omitted
+//!     <FILE>...
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # Split a certificate into individual packets
+//! $ sq packet split juliet.pgp
+//!
+//! # Then join only a subset of these packets
+//! $ sq packet join juliet.pgp-[0-3]*
 //! ```
 
 #![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]

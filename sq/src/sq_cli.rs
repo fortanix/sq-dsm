@@ -25,7 +25,23 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
     let app = app
         .version(version)
-        .about("Sequoia is an implementation of OpenPGP.  This is a command-line frontend.")
+        .about("A command-line frontend for Sequoia, \
+                an implementation of OpenPGP")
+        .long_about(
+"A command-line frontend for Sequoia, an implementation of OpenPGP
+
+Functionality is grouped and available using subcommands.  Currently,
+this interface is completely stateless.  Therefore, you need to supply
+all configuration and certificates explicitly on each invocation.
+
+OpenPGP data can be provided in binary or ASCII armored form.  This
+will be handled automatically.  Emitted OpenPGP data is ASCII armored
+by default.
+
+We use the term 'certificate', or cert for short, to refer to OpenPGP
+keys that do not contain secrets.  Conversely, we use the term 'key'
+to refer to OpenPGP keys that do contain secrets.
+")
         .settings(&[
             AppSettings::SubcommandRequiredElseHelp,
             AppSettings::VersionlessSubcommands,
@@ -45,6 +61,26 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("decrypt")
                     .display_order(110)
                     .about("Decrypts a message")
+                    .long_about(
+"Decrypts a message
+
+Decrypts a message using either supplied keys, or by prompting for a
+password.  Any signatures are checked using the supplied certificates.
+
+The converse operation is 'sq encrypt'.
+")
+                    .after_help(
+"EXAMPLES:
+
+# Decrypt a file using a secret key
+$ sq decrypt --recipient-key juliet.pgp ciphertext.pgp
+
+# Decrypt a file verifying signatures
+$ sq decrypt --recipient-key juliet.pgp --signer-cert romeo.pgp ciphertext.pgp
+
+# Decrypt a file using a password
+$ sq decrypt ciphertext.pgp
+")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Reads from FILE or stdin if omitted"))
@@ -81,6 +117,26 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("encrypt")
                     .display_order(100)
                     .about("Encrypts a message")
+                    .long_about(
+"Encrypts a message
+
+Encrypts a message for any number of recipients and with any number of
+passwords, optionally signing the message in the process.
+
+The converse operation is 'sq decrypt'.
+")
+                    .after_help(
+"EXAMPLES:
+
+# Encrypt a file using a certificate
+$ sq encrypt --recipient-key romeo.pgp message.txt
+
+# Encrypt a file creating a signature in the process
+$ sq encrypt --recipient-key romeo.pgp --signer-cert juliet.pgp message.txt
+
+# Encrypt a file using a password
+$ sq encrypt --symmetric message.txt
+")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Reads from FILE or stdin if omitted"))
@@ -141,6 +197,23 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("sign")
                     .display_order(200)
                     .about("Signs messages or data files")
+                    .long_about(
+"Signs messages or data files
+
+Creates signed messages or detached signatures.  Detached signatures
+are often used to sign software packages.
+
+The converse operation is 'sq verify'.
+")
+                    .after_help(
+"EXAMPLES:
+
+# Create a signed message
+$ sq sign --signer-key juliet.pgp message.txt
+
+# Create a detached signature
+$ sq sign --detached --signer-key juliet.pgp message.txt
+")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Reads from FILE or stdin if omitted"))
@@ -201,6 +274,31 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("verify")
                     .display_order(210)
                     .about("Verifies signed messages or detached signatures")
+                    .long_about(
+"Verifies signed messages or detached signatures
+
+When verifying signed messages, the message is written to stdout or
+the file given to --output.
+
+When a detached message is verified, no output is produced.  Detached
+signatures are often used to sign software packages.
+
+The converse operation is 'sq sign'.
+")
+                    .after_help(
+"EXAMPLES:
+
+# Verify a signed message
+$ sq verify --signer-key juliet.pgp signed-message.pgp
+
+# Verify a detached message
+$ sq verify --signer-key juliet.pgp --detached message.sig message.txt
+
+SEE ALSO:
+
+If you are looking for a standalone program to verify detached
+signatures, consider using sequoia-sqv.
+")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Reads from FILE or stdin if omitted"))
@@ -226,7 +324,26 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
 
         .subcommand(SubCommand::with_name("armor")
                     .display_order(500)
-                    .about("Converts binary data to ASCII")
+                    .about("Converts binary to ASCII")
+                    .long_about(
+"Converts binary to ASCII
+
+To make encrypted data easier to handle and transport, OpenPGP data
+can be transformed to an ASCII representation called ASCII Armor.  sq
+emits armored data by default, but this subcommand can be used to
+convert existing OpenPGP data to its ASCII-encoded representation.
+
+The converse operation is 'sq dearmor'.
+")
+                    .after_help(
+"EXAMPLES:
+
+# Convert a binary certificate to ASCII
+$ sq armor binary-juliet.pgp
+
+# Convert a binary message to ASCII
+$ sq armor binary-message.pgp
+")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Reads from FILE or stdin if omitted"))
@@ -245,6 +362,26 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("dearmor")
                     .display_order(510)
                     .about("Converts ASCII to binary")
+                    .long_about(
+"Converts ASCII to binary
+
+To make encrypted data easier to handle and transport, OpenPGP data
+can be transformed to an ASCII representation called ASCII Armor.  sq
+transparently handles armored data, but this subcommand can be used to
+explicitly convert existing ASCII-encoded OpenPGP data to its binary
+representation.
+
+The converse operation is 'sq armor'.
+")
+                    .after_help(
+"EXAMPLES:
+
+# Convert a ASCII certificate to binary
+$ sq dearmor ascii-juliet.pgp
+
+# Convert a ASCII message to binary
+$ sq dearmor ascii-message.pgp
+")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Reads from FILE or stdin if omitted"))
@@ -256,9 +393,33 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("autocrypt")
                     .display_order(400)
                     .about("Communicates certificates using Autocrypt")
+                    .long_about(
+"Communicates certificates using Autocrypt
+
+Autocrypt is a standard for mail user agents to provide convenient
+end-to-end encryption of emails.  This subcommand provides a limited
+way to produce and consume headers that are used by Autocrypt to
+communicate certificates between clients.
+
+See https://autocrypt.org/
+")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("decode")
                                 .about("Reads Autocrypt-encoded certificates")
+                                .long_about(
+"Reads Autocrypt-encoded certificates
+
+Given an autocrypt header (or an key-gossip header), this command
+extracts the certificate encoded within it.
+
+The converse operation is 'sq autocrypt encode-sender'.
+")
+                                .after_help(
+"EXAMPLES:
+
+# Extract all certificates from a mail
+$ sq autocrypt decode autocrypt.eml
+")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .help("Reads from FILE or stdin if omitted"))
@@ -270,9 +431,31 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                      .help("Emits binary data"))
                     )
                     .subcommand(SubCommand::with_name("encode-sender")
-                                .about("Encodes the sender's OpenPGP \
-                                        Certificates into \
+                                .about("Encodes a certificate into \
                                         an Autocrypt header")
+                                .long_about(
+"Encodes a certificate into an Autocrypt header
+
+A certificate can be encoded and included in a header of an email
+message.  This command encodes the certificate, adds the senders email
+address (which must match the one used in the 'From' header), and the
+senders 'prefer-encrypt' state (see the Autocrypt spec for more
+information).
+
+The converse operation is 'sq autocrypt decode'.
+")
+                                .after_help(
+"EXAMPLES:
+
+# Encodes a certificate
+$ sq autocrypt encode-sender juliet.pgp
+
+# Encodes a certificate with an explicit sender address
+$ sq autocrypt encode-sender --email juliet@example.org juliet.pgp
+
+# Encodes a certificate while indicating the willingness to encrypt
+$ sq autocrypt encode-sender --prefer-encrypt mutual juliet.pgp
+")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .help("Reads from FILE or stdin if omitted"))
@@ -296,6 +479,29 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("inspect")
                     .display_order(600)
                     .about("Inspects data, like file(1)")
+                    .long_about(
+"Inspects data, like file(1)
+
+It is often difficult to tell from cursory inspection using cat(1) or
+file(1) what kind of OpenPGP one is looking at.  This subcommand
+inspects the data and provides a meaningful human-readable description
+of it.
+")
+                    .after_help(
+"EXAMPLES:
+
+# Inspects a certificate
+$ sq inspect juliet.pgp
+
+# Inspects a certificate ring
+$ sq inspect certs.pgp
+
+# Inspects a message
+$ sq inspect message.pgp
+
+# Inspects a detached signature
+$ sq inspect message.sig
+")
                     .arg(Arg::with_name("input")
                          .value_name("FILE")
                          .help("Reads from FILE or stdin if omitted"))
@@ -308,11 +514,45 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
             SubCommand::with_name("key")
                 .display_order(300)
                 .about("Manages keys")
+                    .long_about(
+"Manages keys
+
+We use the term 'key' to refer to OpenPGP keys that do contain
+secrets.  This subcommand provides primitives to generate and
+otherwise manipulate keys.
+
+Conversely, we use the term 'certificate', or cert for short, to refer
+to OpenPGP keys that do not contain secrets.  See 'sq certring' for
+operations on certificates.
+")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("generate")
                         .display_order(100)
                         .about("Generates a new key")
+                        .long_about(
+"Generates a new key
+
+Generating a key is the prerequisite to receiving encrypted messages
+and creating signatures.  There are a few parameters to this process,
+but we provide reasonable defaults for most users.
+
+When generating a key, we also generate a revocation certificate.
+This can be used in case the key is superseded, lost, or compromised.
+It is a good idea to keep a copy of this in a safe place.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Generates a key
+$ sq key generate --userid '<juliet@example.org>'
+
+# Generates a key protecting it with a password
+$ sq key generate --userid '<juliet@example.org>' --with-password
+
+# Generates a key with multiple userids
+$ sq key generate --userid '<juliet@example.org>' --userid 'Juliet Capulet'
+")
                         .arg(Arg::with_name("userid")
                              .short("u").long("userid").value_name("EMAIL")
                              .multiple(true).number_of_values(1)
@@ -342,7 +582,7 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              // Catch negative numbers.
                              .allow_hyphen_values(true)
                              .help("Makes the key expire after DURATION \
-                                    (as N[ymwd])")
+                                    (as N[ymwd]) [default: 3y]")
                              .long_help(
                                  "Makes the key expire after DURATION. \
                                   Either 'N[ymwd]', for N years, months, \
@@ -392,6 +632,23 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     SubCommand::with_name("adopt")
                         .display_order(800)
                         .about("Binds keys from one certificate to another")
+                        .long_about(
+"
+Binds keys from one certificate to another
+
+This command allows one to transfer primary keys and subkeys into an
+existing certificate.  Say you want to transition to a new
+certificate, but have an authentication subkey on your current
+certificate.  You want to keep the authentication subkey because it
+allows access to SSH servers and updating their configuration is not
+feasible.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Adopt an subkey into the new cert
+$ sq key adopt --keyring juliet-old.pgp juliet-new.pgp --key 0123456789ABCDEF
+")
                         .arg(Arg::with_name("keyring")
                              .short("r").long("keyring").value_name("KEY-RING")
                              .multiple(true).number_of_values(1)
@@ -419,8 +676,30 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                 .subcommand(
                     SubCommand::with_name("attest-certifications")
                         .display_order(200)
-                        .about("Attests third-party certifications allowing \
-                                for their distribution")
+                        .about("Attests to third-party certifications")
+                        .long_about(
+"
+Attests to third-party certifications allowing for their distribution
+
+To prevent certificate flooding attacks, modern key servers prevent
+uncontrolled distribution of third-party certifications on
+certificates.  To make the key holder the sovereign over the
+information over what information is distributed with the certificate,
+the key holder needs to explicitly attest to third-party
+certifications.
+
+After the attestation has been created, the certificate has to be
+distributed, e.g. by uploading it to a keyserver.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Attest to all certifications present on the key
+$ sq key attest-certifications juliet.pgp
+
+# Retract prior attestations on the key
+$ sq key attest-certifications --none juliet.pgp
+")
                         .arg(Arg::with_name("none")
                              .long("none")
                              .conflicts_with("all")
@@ -444,31 +723,60 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(
             SubCommand::with_name("keyring")
                 .display_order(310)
-                .about("Manages collections of certificates")
+                .about("Manages collections of keys or certs")
                 .long_about(
-                    "Manages collections of certificates \
-                     (also known as 'keyrings' when they contain \
-                     secret key material, and 'certrings' when they \
-                     don't).\n\
-                     \n\
-                     To convert a key to a certificate (i.e.,\n\
-                     remove any secret key material), do:\n\
-                     \n\
-                     $ cat keys.pgp | sq keyring filter --to-certificate")
+"Manages collections of keys or certs
+
+Collections of keys or certficicates (also known as 'keyrings' when
+they contain secret key material, and 'certrings' when they don't) are
+any number of concatenated certificates.  This subcommand provides
+tools to list, split, join, merge, and filter keyrings.
+
+Note: In the documentation of this subcommand, we sometimes use the
+terms keys and certs interchangeably.
+")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("filter")
-                        .about("Joins certs into a keyring applying a filter")
+                        .display_order(600)
+                        .about("Joins keys into a keyring applying a filter")
+                        .long_about(
+"Joins keys into a keyring applying a filter
+
+This can be used to filter keys based on given predicates,
+e.g. whether they have a user id containing an email address with a
+certain domain.  Additionally, the keys can be pruned to only include
+components matching the predicates.
+
+If no filters are supplied, everything matches.
+
+If multiple predicates are given, they are or'ed, i.e. a key matches
+if any of the predicates match.  To require all predicates to match,
+chain multiple invocations of this command.  See EXAMPLES for
+inspiration.
+")
                         .after_help(
-                            "If multiple predicates are given, they are \
-                             or'ed, i.e. a certificate matches if any \
-                             of the predicates match.  To require all \
-                             predicates to match, chain multiple \
-                             invocations of this command:\n\
-                             \n\
-                             $ cat certs.pgp | sq keyring filter --domain example.org | sq keyring filter --name Juliett\n\
-                             \n\
-                             If no filters are supplied, everything matches.")
+"EXAMPLES:
+
+# Converts a key to a cert (i.e., remove any secret key material)
+$ sq keyring filter --to-certificate cat juliet.pgp
+
+# Gets the keys with a user id on example.org
+$ sq keyring filter --domain example.org keys.pgp
+
+# Gets the keys with a user id on example.org or example.net
+$ sq keyring filter --domain example.org --domain example.net keys.pgp
+
+# Gets the keys with a user id with the name Juliet
+$ sq keyring filter --name Juliet keys.pgp
+
+# Gets the keys with a user id with the name Juliet on example.org
+$ sq keyring filter --domain example.org keys.pgp | \\
+  sq keyring filter --name Juliet
+
+# Gets the keys with a user id on example.org, pruning other userids
+$ sq keyring filter --domain example.org --prune-certs certs.pgp
+")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .multiple(true)
@@ -505,13 +813,22 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                 )
                 .subcommand(
                     SubCommand::with_name("join")
-                        .about("Joins certs or keyrings into a single keyring")
+                        .display_order(300)
+                        .about("Joins keys or keyrings into a single keyring")
                         .long_about(
-                            "Joins certs or keyrings into a single keyring.\n\
-                             \n\
-                             Unlike 'sq keyring merge', multiple versions \
-                             of the same certificate are not merged \
-                             together.")
+"Joins keys or keyrings into a single keyring
+
+Unlike 'sq keyring merge', multiple versions of the same key are not
+merged together.
+
+The converse operation is 'sq keyring split'.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Collect certs for an email conversation
+$ sq keyring join juliet.pgp romeo.pgp alice.pgp
+")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .multiple(true)
@@ -525,15 +842,22 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                 )
                 .subcommand(
                     SubCommand::with_name("merge")
-                        .about("Merges certs or keyrings into a single keyring")
+                        .display_order(350)
+                        .about("Merges keys or keyrings into a single keyring")
                         .long_about(
-                            "Merges certs or keyrings into a single keyring.\n\
-                             \n\
-                             Unlike 'sq keyring join', the certificates \
-                             are buffered and multiple versions of the same \
-                             certificate are merged together.  Where data \
-                             is replaced (e.g., secret key material), data \
-                             from the later certificate is preferred.")
+"Merges keys or keyrings into a single keyring
+
+Unlike 'sq keyring join', the certificates are buffered and multiple
+versions of the same certificate are merged together.  Where data is
+replaced (e.g., secret key material), data from the later certificate
+is preferred.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Merge certificate updates
+$ sq keyring merge certs.pgp romeo-updates.pgp
+")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .multiple(true)
@@ -547,14 +871,48 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                 )
                 .subcommand(
                     SubCommand::with_name("list")
-                        .about("Lists certs in a keyring")
+                        .about("Lists keys in a keyring")
+                        .display_order(100)
+                        .long_about(
+"Lists keys in a keyring
+
+Prints the fingerprint as well one userid for every certificate
+encountered in the keyring.
+")
+                        .after_help(
+"EXAMPLES:
+
+# List all certs
+$ sq keyring list certs.pgp
+
+# List all certs with a userid on example.org
+$ sq keyring filter --domain example.org certs.pgp | sq keyring list
+")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .help("Reads from FILE or stdin if omitted"))
                 )
                 .subcommand(
                     SubCommand::with_name("split")
-                        .about("Splits a keyring into individual certs")
+                        .display_order(200)
+                        .about("Splits a keyring into individual keys")
+                        .long_about(
+"Splits a keyring into individual keys
+
+Splitting up a keyring into individual keys helps with curating a
+keyring.
+
+The converse operation is 'sq keyring join'.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Split all certs
+$ sq keyring split certs.pgp
+
+# Split all certs, merging them first to avoid duplicates
+$ sq keyring merge certs.pgp | sq keyring split
+")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .help("Reads from FILE or stdin if omitted"))
@@ -573,6 +931,27 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("certify")
                     .display_order(320)
                     .about("Certifies a User ID for a Certificate")
+                        .long_about(
+"
+Certifies a User ID for a Certificate
+
+Using a certification a keyholder may vouch for the fact that another
+certificate legitimately belongs to a user id.  In the context of
+emails this means that the same entity controls the key and the email
+address.  These kind of certifications form the basis for the Web Of
+Trust.
+
+This command emits the certificate with the new certification.  The
+updated certificate has to be distributed, preferably by sending it to
+the certificate holder for attestation.  See also 'sq key
+attest-certification'.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Juliet certifies that Romeo controls romeo.pgp and romeo@example.org
+$ sq certify juliet.pgp romeo.pgp '<romeo@example.org>'
+")
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
                          .help("Writes to FILE or stdout if omitted"))
@@ -686,10 +1065,47 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
         .subcommand(SubCommand::with_name("packet")
                     .display_order(610)
                     .about("Low-level packet manipulation")
+                    .long_about(
+"
+Low-level packet manipulation
+
+An OpenPGP data stream consists of packets.  These tools allow working
+with packet streams.  They are mostly of interest to developers, but
+'sq packet dump' may be helpful to a wider audience both to provide
+valuable information in bug reports to OpenPGP-related software, and
+as a learning tool.
+")
                     .setting(AppSettings::SubcommandRequiredElseHelp)
                     .subcommand(SubCommand::with_name("dump")
                                 .display_order(100)
                                 .about("Lists packets")
+                                .long_about(
+"
+Lists packets
+
+Creates a human-readable description of the packet sequence.
+Additionally, it can print cryptographic artifacts, and print the raw
+octet stream similar to hexdump(1), annotating specifically which
+bytes are parsed into OpenPGP values.
+
+To inspect encrypted messages, either supply the session key, or see
+'sq decrypt --dump' or 'sq packet decrypt'.
+")
+                                .after_help(
+"EXAMPLES:
+
+# Prints the packets of a certificate
+$ sq packet dump juliet.pgp
+
+# Prints cryptographic artifacts of a certificate
+$ sq packet dump --mpis juliet.pgp
+
+# Prints a hexdump of a certificate
+$ sq packet dump --hex juliet.pgp
+
+# Prints the packets of an encrypted message
+$ sq packet dump --session-key AAAABBBBCCCC... ciphertext.pgp
+")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .help("Reads from FILE or stdin if omitted"))
@@ -710,9 +1126,20 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .subcommand(SubCommand::with_name("decrypt")
                                 .display_order(200)
                                 .about("Unwraps an encryption container")
-                                .long_about("Decrypts a message, dumping \
-                                        the content of the encryption \
-                                        container without further processing")
+                                .long_about(
+"
+Unwraps an encryption container
+
+Decrypts a message, dumping the content of the encryption container
+without further processing.  The result is a valid OpenPGP message
+that can, among other things, be inspected using 'sq packet dump'.
+")
+                                .after_help(
+"EXAMPLES:
+
+# Unwraps the encryption revealing the signed message
+$ sq packet decrypt --recipient-key juliet.pgp ciphertext.pgp
+")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .help("Reads from FILE or stdin if omitted"))
@@ -733,6 +1160,22 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     .subcommand(SubCommand::with_name("split")
                                 .display_order(300)
                                 .about("Splits a message into packets")
+                                .long_about(
+"
+Splits a message into packets
+
+Splitting a packet sequence into individual packets, then recombining
+them freely with 'sq packet join' is a great way to experiment with
+OpenPGP data.
+
+The converse operation is 'sq packet join'.
+")
+                                .after_help(
+"EXAMPLES:
+
+# Split a certificate into individual packets
+$ sq packet split juliet.pgp
+")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .help("Reads from FILE or stdin if omitted"))
@@ -746,6 +1189,25 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 .display_order(310)
                                 .about("Joins packets split across \
                                         files")
+                                .long_about(
+"
+Joins packets split across files
+
+Splitting a packet sequence into individual packets, then recombining
+them freely with 'sq packet join' is a great way to experiment with
+OpenPGP data.
+
+The converse operation is 'sq packet split'.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Split a certificate into individual packets
+$ sq packet split juliet.pgp
+
+# Then join only a subset of these packets
+$ sq packet join juliet.pgp-[0-3]*
+")
                                 .arg(Arg::with_name("input")
                                      .value_name("FILE")
                                      .multiple(true)
