@@ -449,7 +449,12 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                     "Manages collections of certificates \
                      (also known as 'keyrings' when they contain \
                      secret key material, and 'certrings' when they \
-                     don't).")
+                     don't).\n\
+                     \n\
+                     To convert a key to a certificate (i.e.,\n\
+                     remove any secret key material), do:\n\
+                     \n\
+                     $ cat keys.pgp | sq keyring filter --to-certificate")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
                 .subcommand(
                     SubCommand::with_name("filter")
@@ -488,6 +493,13 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                         .arg(Arg::with_name("binary")
                              .short("B").long("binary")
                              .help("Emits binary data"))
+                        .arg(Arg::with_name("to-certificate")
+                             .long("to-certificate")
+                             .help("Converts any keys in the input to \
+                                    certificates.  Converting a key to a \
+                                    certificate removes secret key material \
+                                    from the key thereby turning it into \
+                                    a certificate."))
                 )
                 .subcommand(
                     SubCommand::with_name("join")

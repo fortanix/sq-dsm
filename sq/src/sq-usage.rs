@@ -346,6 +346,11 @@
 //! Manages collections of certificates (also known as 'keyrings' when they contain
 //! secret key material, and 'certrings' when they don't).
 //!
+//! To convert a key to a certificate (i.e.,
+//! remove any secret key material), do:
+//!
+//! $ cat keys.pgp | sq keyring filter --to-certificate
+//!
 //! USAGE:
 //!     sq keyring <SUBCOMMAND>
 //!
@@ -372,10 +377,15 @@
 //!     sq keyring filter [FLAGS] [OPTIONS] [--] [FILE]...
 //!
 //! FLAGS:
-//!     -B, --binary         Emits binary data
-//!     -h, --help           Prints help information
-//!     -P, --prune-certs    Removes certificate components not matching the filter
-//!     -V, --version        Prints version information
+//!     -B, --binary            Emits binary data
+//!     -h, --help              Prints help information
+//!     -P, --prune-certs       Removes certificate components not matching the
+//!                             filter
+//!         --to-certificate    Converts any keys in the input to certificates.
+//!                             Converting a key to a certificate removes secret key
+//!                             material from the key thereby turning it into a
+//!                             certificate.
+//!     -V, --version           Prints version information
 //!
 //! OPTIONS:
 //!         --domain <FQDN>...      Matches on email domain FQDN

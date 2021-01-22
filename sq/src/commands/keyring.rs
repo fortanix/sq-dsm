@@ -106,6 +106,8 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
                 }
             };
 
+            let to_certificate = m.is_present("to-certificate");
+
             // XXX: Armor type selection is a bit problematic.  If any
             // of the certificates contain a secret key, it would be
             // better to use Kind::SecretKey here.  However, this
@@ -115,7 +117,8 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
                                                   force,
                                                   m.is_present("binary"),
                                                   armor::Kind::PublicKey)?;
-            filter(m.values_of("input"), &mut output, filter_fn)?;
+            filter(m.values_of("input"), &mut output, filter_fn,
+                   to_certificate)?;
             output.finalize()
         },
         ("join",  Some(m)) => {
@@ -128,7 +131,7 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
                                                   force,
                                                   m.is_present("binary"),
                                                   armor::Kind::PublicKey)?;
-            filter(m.values_of("input"), &mut output, |c| Some(c))?;
+            filter(m.values_of("input"), &mut output, |c| Some(c), false)?;
             output.finalize()
         },
         ("merge",  Some(m)) => {
@@ -168,7 +171,7 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
 
 /// Joins certificates and keyrings into a keyring, applying a filter.
 fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
-             mut filter: F)
+             mut filter: F, to_certificate: bool)
              -> Result<()>
     where F: FnMut(Cert) -> Option<Cert>,
 {
@@ -178,7 +181,11 @@ fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
                 let cert = cert.context(
                     format!("Malformed certificate in keyring {:?}", name))?;
                 if let Some(cert) = filter(cert) {
-                    cert.as_tsk().serialize(output)?;
+                    if to_certificate {
+                        cert.serialize(output)?;
+                    } else {
+                        cert.as_tsk().serialize(output)?;
+                    }
                 }
             }
         }
@@ -186,7 +193,11 @@ fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
         for cert in CertParser::from_reader(io::stdin())? {
             let cert = cert.context("Malformed certificate in keyring")?;
             if let Some(cert) = filter(cert) {
-                cert.as_tsk().serialize(output)?;
+                if to_certificate {
+                    cert.serialize(output)?;
+                } else {
+                    cert.as_tsk().serialize(output)?;
+                }
             }
         }
     }
