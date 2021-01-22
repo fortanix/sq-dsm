@@ -1,0 +1,64 @@
+.TH SQ-AUTOCRYPT-ENCODE-SENDER "1" "JANUARY 2021" " " "USER COMMANDS" 5
+.SH NAME
+sq autocrypt encode\-sender \- Encodes a certificate into an Autocrypt header
+
+A certificate can be encoded and included in a header of an email
+message.  This command encodes the certificate, adds the senders email
+address (which must match the one used in the 'From' header), and the
+senders 'prefer\-encrypt' state (see the Autocrypt spec for more
+information).
+
+The converse operation is 'sq autocrypt decode'.
+
+.SH SYNOPSIS
+\fBsq autocrypt encode\-sender\fR [FLAGS] [OPTIONS] [\-\-] [FILE]
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+.SH OPTIONS
+.TP
+\fB\-o\fR, \fB\-\-output\fR FILE
+Writes to FILE or stdout if omitted
+
+.TP
+\fB\-\-email\fR ADDRESS
+Sets the address [default: primary userid]
+
+.TP
+\fB\-\-prefer\-encrypt\fR prefer\-encrypt
+Sets the prefer\-encrypt attribute  [default: nopreference]  [possible values: nopreference, mutual]
+.SH ARGS
+.TP
+FILE
+Reads from FILE or stdin if omitted
+.SH EXAMPLES
+.TP
+Encodes a certificate
+\fB$ sq autocrypt encode\-sender juliet.pgp\fR
+.TP
+Encodes a certificate with an explicit sender address
+\fB$ sq autocrypt encode\-sender \-\-email juliet@example.org juliet.pgp\fR
+.TP
+Encodes a certificate while indicating the willingness to encrypt
+\fB$ sq autocrypt encode\-sender \-\-prefer\-encrypt mutual juliet.pgp\fR
+
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-autocrypt(1), sq\-autocrypt\-decode(1), sq\-autocrypt\-encode\-sender(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-keyring(1), sq\-packet(1), sq\-sign(1), sq\-verify(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

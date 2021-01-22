@@ -1,0 +1,82 @@
+.TH SQ-SIGN "1" "JANUARY 2021" " " "USER COMMANDS" 5
+.SH NAME
+sq sign \- Signs messages or data files
+
+Creates signed messages or detached signatures.  Detached signatures
+are often used to sign software packages.
+
+The converse operation is 'sq verify'.
+
+.SH SYNOPSIS
+\fBsq sign\fR [FLAGS] [OPTIONS] [\-\-] [FILE]
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+
+.TP
+\fB\-B\fR, \fB\-\-binary\fR
+Emits binary data
+
+.TP
+\fB\-\-detached\fR
+Creates a detached signature
+
+.TP
+\fB\-a\fR, \fB\-\-append\fR
+Appends a signature to existing signature
+
+.TP
+\fB\-n\fR, \fB\-\-notarize\fR
+Signs a message and all existing signatures
+.SH OPTIONS
+.TP
+\fB\-o\fR, \fB\-\-output\fR FILE
+Writes to FILE or stdout if omitted
+
+.TP
+\fB\-\-merge\fR SIGNED\-MESSAGE
+Merges signatures from the input and SIGNED\-MESSAGE
+
+.TP
+\fB\-\-signer\-key\fR KEY
+Signs using KEY
+
+.TP
+\fB\-t\fR, \fB\-\-time\fR TIME
+Chooses keys valid at the specified time and sets the signature's creation time
+
+.TP
+\fB\-\-notation\fR NAME
+Adds a notation to the certification.  A user\-defined notation's name must be of the form 'name@a.domain.you.control.org'. If the notation's name starts with a !, then the notation is marked as being critical.  If a consumer of a signature doesn't understand a critical notation, then it will ignore the signature.  The notation is marked as being human readable.
+.SH ARGS
+.TP
+FILE
+Reads from FILE or stdin if omitted
+.SH EXAMPLES
+.TP
+Create a signed message
+\fB$ sq sign \-\-signer\-key juliet.pgp message.txt\fR
+.TP
+Create a detached signature
+\fB$ sq sign \-\-detached \-\-signer\-key juliet.pgp message.txt\fR
+
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-autocrypt(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-keyring(1), sq\-packet(1), sq\-sign(1), sq\-verify(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>
