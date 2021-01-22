@@ -245,6 +245,7 @@ fn detect_armor_kind(input: Box<dyn BufferedReader<()>>)
                 };
             }
         }
+        break 'detection armor::Kind::File;
     };
     (dup.into_inner().unwrap().into_inner().unwrap(), kind)
 }
