@@ -166,7 +166,7 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
     }
 }
 
-/// Joins cert(ring)s into a certring, applying a filter.
+/// Joins certificates and keyrings into a keyring, applying a filter.
 fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
              mut filter: F)
              -> Result<()>
@@ -176,28 +176,28 @@ fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
         for name in inputs {
             for cert in CertParser::from_file(name)? {
                 let cert = cert.context(
-                    format!("Malformed certificate in certring {:?}", name))?;
+                    format!("Malformed certificate in keyring {:?}", name))?;
                 if let Some(cert) = filter(cert) {
-                    cert.serialize(output)?;
+                    cert.as_tsk().serialize(output)?;
                 }
             }
         }
     } else {
         for cert in CertParser::from_reader(io::stdin())? {
-            let cert = cert.context("Malformed certificate in certring")?;
+            let cert = cert.context("Malformed certificate in keyring")?;
             if let Some(cert) = filter(cert) {
-                cert.serialize(output)?;
+                cert.as_tsk().serialize(output)?;
             }
         }
     }
     Ok(())
 }
 
-/// Lists certs in a certring.
+/// Lists certs in a keyring.
 fn list(input: &mut (dyn io::Read + Sync + Send))
         -> Result<()> {
     for (i, cert) in CertParser::from_reader(input)?.enumerate() {
-        let cert = cert.context("Malformed certificate in certring")?;
+        let cert = cert.context("Malformed certificate in keyring")?;
         print!("{}. {:X}", i, cert.fingerprint());
         // Try to be more helpful by including the first userid in the
         // listing.
@@ -211,11 +211,11 @@ fn list(input: &mut (dyn io::Read + Sync + Send))
     Ok(())
 }
 
-/// Splits a certring into individual certs.
+/// Splits a keyring into individual certs.
 fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str, binary: bool)
          -> Result<()> {
     for (i, cert) in CertParser::from_reader(input)?.enumerate() {
-        let cert = cert.context("Malformed certificate in certring")?;
+        let cert = cert.context("Malformed certificate in keyring")?;
         let filename = format!(
             "{}{}-{:X}",
             prefix,
@@ -243,15 +243,15 @@ fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str, binary: bool)
         };
 
         if binary {
-            cert.serialize(&mut sink)?;
+            cert.as_tsk().serialize(&mut sink)?;
         } else {
-            cert.armored().serialize(&mut sink)?;
+            cert.as_tsk().armored().serialize(&mut sink)?;
         }
     }
     Ok(())
 }
 
-/// Merge multiple certrings.
+/// Merge multiple keyrings.
 fn merge(inputs: Option<clap::Values>, output: &mut dyn io::Write)
              -> Result<()>
 {
@@ -261,7 +261,7 @@ fn merge(inputs: Option<clap::Values>, output: &mut dyn io::Write)
         for name in inputs {
             for cert in CertParser::from_file(name)? {
                 let cert = cert.context(
-                    format!("Malformed certificate in certring {:?}", name))?;
+                    format!("Malformed certificate in keyring {:?}", name))?;
                 match certs.entry(cert.fingerprint()) {
                     e @ Entry::Vacant(_) => {
                         e.or_insert(Some(cert));
@@ -277,7 +277,7 @@ fn merge(inputs: Option<clap::Values>, output: &mut dyn io::Write)
         }
     } else {
         for cert in CertParser::from_reader(io::stdin())? {
-            let cert = cert.context("Malformed certificate in certring")?;
+            let cert = cert.context("Malformed certificate in keyring")?;
             match certs.entry(cert.fingerprint()) {
                 e @ Entry::Vacant(_) => {
                     e.or_insert(Some(cert));

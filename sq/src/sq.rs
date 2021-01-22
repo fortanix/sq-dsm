@@ -585,7 +585,7 @@ fn main() -> Result<()> {
             commands::inspect(m, policy, &mut output)?;
         },
 
-        ("certring", Some(m)) => commands::certring::dispatch(m, force)?,
+        ("keyring", Some(m)) => commands::keyring::dispatch(m, force)?,
 
         ("packet", Some(m)) => match m.subcommand() {
             ("dump",  Some(m)) => {
