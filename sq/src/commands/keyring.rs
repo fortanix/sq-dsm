@@ -257,7 +257,14 @@ fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str, binary: bool)
         if binary {
             cert.as_tsk().serialize(&mut sink)?;
         } else {
-            cert.as_tsk().armored().serialize(&mut sink)?;
+            use sequoia_openpgp::serialize::stream::{Message, Armorer};
+            let message = Message::new(sink);
+            let mut message = Armorer::new(message)
+            // XXX: should detect kind, see above
+                .kind(sequoia_openpgp::armor::Kind::PublicKey)
+                .build()?;
+            cert.as_tsk().serialize(&mut message)?;
+            message.finalize()?;
         }
     }
     Ok(())
