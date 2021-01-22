@@ -466,7 +466,9 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                              predicates to match, chain multiple \
                              invocations of this command:\n\
                              \n\
-                             $ cat certs.pgp | sq keyring filter --domain example.org | sq keyring filter --name Juliett")
+                             $ cat certs.pgp | sq keyring filter --domain example.org | sq keyring filter --name Juliett\n\
+                             \n\
+                             If no filters are supplied, everything matches.")
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .multiple(true)

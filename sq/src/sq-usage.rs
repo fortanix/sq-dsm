@@ -402,6 +402,8 @@
 //!
 //! $ cat certs.pgp | sq keyring filter --domain example.org | sq keyring filter
 //! --name Juliett
+//!
+//! If no filters are supplied, everything matches.
 //! ```
 //!
 //! ### Subcommand keyring join

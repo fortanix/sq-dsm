@@ -80,7 +80,8 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
                 if ! (c.userids().any(|c| uid_predicate(&c))
                       || c.user_attributes().any(|c| ua_predicate(&c))
                       || c.keys().subkeys().any(|c| key_predicate(&c))) {
-                    None
+                    // If there are no filters, pass it through.
+                    Some(c)
                 } else if m.is_present("prune-certs") {
                     let c = c
                         .retain_userids(|c| {
