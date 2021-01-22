@@ -180,6 +180,22 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                          .short("t").long("time").value_name("TIME")
                          .help("Chooses keys valid at the specified time and \
                                 sets the signature's creation time"))
+                    .arg(Arg::with_name("notation")
+                         .value_names(&["NAME", "VALUE"])
+                         .long("notation")
+                         .multiple(true).number_of_values(2)
+                         .help("Adds a notation to the certification.")
+                         .long_help(
+                             "Adds a notation to the certification.  \
+                              A user-defined notation's name must be of \
+                              the form 'name@a.domain.you.control.org'. \
+                              If the notation's name starts with a !, \
+                              then the notation is marked as being \
+                              critical.  If a consumer of a signature \
+                              doesn't understand a critical notation, \
+                              then it will ignore the signature.  The \
+                              notation is marked as being human readable.")
+                         .conflicts_with("merge"))
         )
 
         .subcommand(SubCommand::with_name("verify")
@@ -598,6 +614,21 @@ pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
                                 That is, you cannot later revoke this \
                                 certification.  This should normally only \
                                 be used with an expiration."))
+                    .arg(Arg::with_name("notation")
+                         .value_names(&["NAME", "VALUE"])
+                         .long("notation")
+                         .multiple(true).number_of_values(2)
+                         .help("Adds a notation to the certification.")
+                         .long_help(
+                             "Adds a notation to the certification.  \
+                              A user-defined notation's name must be of \
+                              the form 'name@a.domain.you.control.org'. \
+                              If the notation's name starts with a !, \
+                              then the notation is marked as being \
+                              critical.  If a consumer of a signature \
+                              doesn't understand a critical notation, \
+                              then it will ignore the signature.  The \
+                              notation is marked as being human readable."))
 
                     .group(ArgGroup::with_name("expiration-group")
                            .args(&["expires", "expires-in"]))

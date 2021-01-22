@@ -10,6 +10,8 @@ use sequoia_openpgp as openpgp;
 use crate::openpgp::{Packet, PacketPile, Cert};
 use crate::openpgp::crypto::KeyPair;
 use crate::openpgp::packet::key::SecretKeyMaterial;
+use crate::openpgp::packet::signature::subpacket::NotationData;
+use crate::openpgp::packet::signature::subpacket::NotationDataFlags;
 use crate::openpgp::types::{CompressionAlgorithm, SignatureType};
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::stream::{Message, Signer, Compressor, LiteralWriter};
@@ -62,6 +64,85 @@ fn sq_sign() {
     Assert::cargo_binary("sq")
         .with_args(
             &["verify",
+              "--signer-cert",
+              &artifact("keys/dennis-simon-anton.pgp"),
+              &sig.to_string_lossy()])
+        .unwrap();
+}
+
+#[test]
+fn sq_sign_with_notations() {
+    let tmp_dir = TempDir::new().unwrap();
+    let sig = tmp_dir.path().join("sig0");
+
+    // Sign message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["sign",
+              "--signer-key",
+              &artifact("keys/dennis-simon-anton-private.pgp"),
+              "--output",
+              &sig.to_string_lossy(),
+              "--notation", "foo", "bar",
+              "--notation", "!foo", "xyzzy",
+              "--notation", "hello@example.org", "1234567890",
+              &artifact("messages/a-cypherpunks-manifesto.txt")])
+        .unwrap();
+
+    // Check that the content is sane.
+    let packets: Vec<Packet> =
+        PacketPile::from_file(&sig).unwrap().into_children().collect();
+    assert_eq!(packets.len(), 3);
+    if let Packet::OnePassSig(ref ops) = packets[0] {
+        assert!(ops.last());
+        assert_eq!(ops.typ(), SignatureType::Binary);
+    } else {
+        panic!("expected one pass signature");
+    }
+    if let Packet::Literal(_) = packets[1] {
+        // Do nothing.
+    } else {
+        panic!("expected literal");
+    }
+    if let Packet::Signature(ref sig) = packets[2] {
+        assert_eq!(sig.typ(), SignatureType::Binary);
+
+        eprintln!("{:?}", sig);
+
+        let hr = NotationDataFlags::empty().set_human_readable();
+        let notations = &mut [
+            (NotationData::new("foo", "bar", hr.clone()), false),
+            (NotationData::new("foo", "xyzzy", hr.clone()), false),
+            (NotationData::new("hello@example.org", "1234567890", hr), false)
+        ];
+
+        for n in sig.notation_data() {
+            if n.name() == "salt@notations.sequoia-pgp.org" {
+                continue;
+            }
+
+            for (m, found) in notations.iter_mut() {
+                if n == m {
+                    assert!(!*found);
+                    *found = true;
+                }
+            }
+        }
+        for (n, found) in notations.iter() {
+            assert!(found, "Missing: {:?}", n);
+        }
+    } else {
+        panic!("expected signature");
+    }
+
+    let content = fs::read(&sig).unwrap();
+    assert!(&content[..].starts_with(b"-----BEGIN PGP MESSAGE-----\n\n"));
+
+    // Verify signed message.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["--known-notation", "foo",
+              "verify",
               "--signer-cert",
               &artifact("keys/dennis-simon-anton.pgp"),
               &sig.to_string_lossy()])

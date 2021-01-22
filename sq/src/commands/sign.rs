@@ -8,7 +8,8 @@ use tempfile::NamedTempFile;
 use sequoia_openpgp as openpgp;
 use crate::openpgp::armor;
 use crate::openpgp::{Packet, Result};
-use crate::openpgp::packet::Signature;
+use crate::openpgp::packet::prelude::*;
+use crate::openpgp::packet::signature::subpacket::NotationData;
 use crate::openpgp::parse::{
     Parse,
     PacketParserResult,
@@ -18,6 +19,7 @@ use crate::openpgp::serialize::stream::{
     Message, Armorer, Signer, LiteralWriter,
 };
 use crate::openpgp::policy::Policy;
+use crate::openpgp::types::SignatureType;
 use crate::{
     create_or_stdout,
     create_or_stdout_pgp,
@@ -28,22 +30,25 @@ pub fn sign(policy: &dyn Policy,
             output_path: Option<&str>,
             secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
             append: bool, notarize: bool, time: Option<SystemTime>,
+            notations: &[(bool, NotationData)],
             force: bool)
             -> Result<()> {
     match (detached, append|notarize) {
         (_, false) | (true, true) =>
             sign_data(policy, input, output_path, secrets, detached, binary,
-                      append, time, force),
+                      append, time, notations, force),
         (false, true) =>
             sign_message(policy, input, output_path, secrets, binary, notarize,
-                         time, force),
+                         time, notations, force),
     }
 }
 
 fn sign_data(policy: &dyn Policy,
              input: &mut dyn io::Read, output_path: Option<&str>,
              secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
-             append: bool, time: Option<SystemTime>, force: bool)
+             append: bool, time: Option<SystemTime>,
+             notations: &[(bool, NotationData)],
+             force: bool)
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
     (Box<dyn io::Write + Sync + Send>, Vec<Signature>, Option<PathBuf>) =
@@ -103,7 +108,17 @@ fn sign_data(policy: &dyn Policy,
         Packet::Signature(sig).serialize(&mut message)?;
     }
 
-    let mut signer = Signer::new(message, keypairs.pop().unwrap());
+    let mut builder = SignatureBuilder::new(SignatureType::Binary);
+    for (critical, n) in notations.iter() {
+        builder = builder.add_notation(
+            n.name(),
+            n.value(),
+            Some(n.flags().clone()),
+            *critical)?;
+    }
+
+    let mut signer = Signer::with_template(
+        message, keypairs.pop().unwrap(), builder);
     for s in keypairs {
         signer = signer.add_signer(s);
         if let Some(time) = time {
@@ -144,13 +159,15 @@ fn sign_message(policy: &dyn Policy,
                 input: &mut (dyn io::Read + Sync + Send),
                 output_path: Option<&str>,
                 secrets: Vec<openpgp::Cert>, binary: bool, notarize: bool,
-                time: Option<SystemTime>, force: bool)
+                time: Option<SystemTime>,
+                notations: &[(bool, NotationData)],
+                force: bool)
              -> Result<()> {
     let mut output =
         create_or_stdout_pgp(output_path, force,
                              binary,
                              armor::Kind::Message)?;
-    sign_message_(policy, input, &mut output, secrets, notarize, time)?;
+    sign_message_(policy, input, &mut output, secrets, notarize, time, notations)?;
     output.finalize()?;
     Ok(())
 }
@@ -159,7 +176,8 @@ fn sign_message_(policy: &dyn Policy,
                  input: &mut (dyn io::Read + Sync + Send),
                  output: &mut (dyn io::Write + Sync + Send),
                  secrets: Vec<openpgp::Cert>, notarize: bool,
-                 time: Option<SystemTime>)
+                 time: Option<SystemTime>,
+                 notations: &[(bool, NotationData)])
                  -> Result<()>
 {
     let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;
@@ -231,7 +249,17 @@ fn sign_message_(policy: &dyn Policy,
             State::AfterFirstSigGroup => {
                 // After the first signature group, we push the signer
                 // onto the writer stack.
-                let mut signer = Signer::new(sink, keypairs.pop().unwrap());
+                let mut builder = SignatureBuilder::new(SignatureType::Binary);
+                for (critical, n) in notations.iter() {
+                    builder = builder.add_notation(
+                        n.name(),
+                        n.value(),
+                        Some(n.flags().clone()),
+                        *critical)?;
+                }
+
+                let mut signer = Signer::with_template(
+                    sink, keypairs.pop().unwrap(), builder);
                 for s in keypairs.drain(..) {
                     signer = signer.add_signer(s);
                     if let Some(time) = time {

@@ -21,6 +21,8 @@ use crate::openpgp::fmt::hex;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::{Parse, PacketParser, PacketParserResult};
+use crate::openpgp::packet::signature::subpacket::NotationData;
+use crate::openpgp::packet::signature::subpacket::NotationDataFlags;
 use crate::openpgp::serialize::{Serialize, stream::{Message, Armorer}};
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::policy::StandardPolicy as P;
@@ -436,8 +438,31 @@ fn main() -> Result<()> {
                 let mut input2 = open_or_stdin(Some(merge))?;
                 commands::merge_signatures(&mut input, &mut input2, output)?;
             } else {
+                // Each --notation takes two values.  The iterator
+                // returns them one at a time, however.
+                let mut notations: Vec<(bool, NotationData)> = Vec::new();
+                if let Some(mut n) = m.values_of("notation") {
+                    while let Some(name) = n.next() {
+                        let value = n.next().unwrap();
+
+                        let (critical, name) = if name.len() > 0
+                            && Some('!') == name.chars().next()
+                        {
+                            (true, &name[1..])
+                        } else {
+                            (false, name)
+                        };
+
+                        notations.push(
+                            (critical,
+                             NotationData::new(
+                                 name, value,
+                                 NotationDataFlags::empty().set_human_readable())));
+                    }
+                }
+
                 commands::sign(policy, &mut input, output, secrets, detached,
-                               binary, append, notarize, time, force)?;
+                               binary, append, notarize, time, &notations, force)?;
             }
         },
         ("verify",  Some(m)) => {

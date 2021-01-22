@@ -144,24 +144,46 @@
 //!     sq sign [FLAGS] [OPTIONS] [--] [FILE]
 //!
 //! FLAGS:
-//!     -a, --append      Appends a signature to existing signature
-//!     -B, --binary      Emits binary data
-//!         --detached    Creates a detached signature
-//!     -h, --help        Prints help information
-//!     -n, --notarize    Signs a message and all existing signatures
+//!     -a, --append
+//!             Appends a signature to existing signature
+//!
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!         --detached
+//!             Creates a detached signature
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -n, --notarize
+//!             Signs a message and all existing signatures
+//!
 //!
 //! OPTIONS:
 //!         --merge <SIGNED-MESSAGE>
 //!             Merges signatures from the input and SIGNED-MESSAGE
 //!
-//!     -o, --output <FILE>             Writes to FILE or stdout if omitted
-//!         --signer-key <KEY>...       Signs using KEY
+//!         --notation <NAME> <VALUE>
+//!             Adds a notation to the certification.  A user-defined notation's
+//!             name must be of the form 'name@a.domain.you.control.org'. If the
+//!             notation's name starts with a !, then the notation is marked as
+//!             being critical.  If a consumer of a signature doesn't understand a
+//!             critical notation, then it will ignore the signature.  The notation
+//!             is marked as being human readable.
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!         --signer-key <KEY>...
+//!             Signs using KEY
+//!
 //!     -t, --time <TIME>
 //!             Chooses keys valid at the specified time and sets the signature's
 //!             creation time
 //!
 //! ARGS:
-//!     <FILE>    Reads from FILE or stdin if omitted
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
 //! ```
 //!
 //! ## Subcommand verify
@@ -514,6 +536,13 @@
 //!         --expires-in <DURATION>
 //!             Makes the certification expire after DURATION. Either 'N[ymwd]', for
 //!             N years, months, weeks, or days, or 'never'.  [default: 5y]
+//!         --notation <NAME> <VALUE>
+//!             Adds a notation to the certification.  A user-defined notation's
+//!             name must be of the form 'name@a.domain.you.control.org'. If the
+//!             notation's name starts with a !, then the notation is marked as
+//!             being critical.  If a consumer of a signature doesn't understand a
+//!             critical notation, then it will ignore the signature.  The notation
+//!             is marked as being human readable.
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!

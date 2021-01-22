@@ -4,6 +4,7 @@ use sequoia_openpgp as openpgp;
 use openpgp::Result;
 use openpgp::cert::prelude::*;
 use openpgp::packet::prelude::*;
+use openpgp::packet::signature::subpacket::NotationDataFlags;
 use openpgp::parse::Parse;
 use openpgp::policy::Policy;
 use openpgp::serialize::Serialize;
@@ -115,6 +116,28 @@ pub fn certify(config: Config, p: &impl Policy, m: &clap::ArgMatches)
             builder = builder.set_signature_validity_period(d)?;
         },
         (Some(_), Some(_)) => unreachable!("conflicting args"),
+    }
+
+    // Each --notation takes two values.  The iterator returns them
+    // one at a time, however.
+    if let Some(mut n) = m.values_of("notation") {
+        while let Some(name) = n.next() {
+            let value = n.next().unwrap();
+
+            let (critical, name) = if name.len() > 0
+                && Some('!') == name.chars().next()
+            {
+                (true, &name[1..])
+            } else {
+                (false, name)
+            };
+
+            builder = builder.add_notation(
+                name,
+                value,
+                NotationDataFlags::empty().set_human_readable(),
+                critical)?;
+        }
     }
 
 

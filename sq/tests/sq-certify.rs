@@ -9,9 +9,11 @@ use tempfile::TempDir;
 use sequoia_openpgp as openpgp;
 use openpgp::Result;
 use openpgp::cert::prelude::*;
+use openpgp::packet::signature::subpacket::NotationData;
+use openpgp::packet::signature::subpacket::NotationDataFlags;
 use openpgp::parse::Parse;
-use openpgp::serialize::Serialize;
 use openpgp::policy::StandardPolicy;
+use openpgp::serialize::Serialize;
 
 #[test]
 fn sq_certify() -> Result<()> {
@@ -164,6 +166,85 @@ fn sq_certify() -> Result<()> {
               "bob",
             ])
         .fails()
+        .unwrap();
+
+    // With a notation.
+    Assert::cargo_binary("sq")
+        .with_args(
+            &["certify",
+              "--notation", "foo", "bar",
+              "--notation", "!foo", "xyzzy",
+              "--notation", "hello@example.org", "1234567890",
+              alice_pgp.to_str().unwrap(),
+              bob_pgp.to_str().unwrap(),
+              "bob@example.org",
+            ])
+        .stdout().satisfies(|output| {
+            let p = &mut StandardPolicy::new();
+
+            let cert = Cert::from_bytes(output).unwrap();
+
+            // The standard policy will reject the
+            // certification, because it has an unknown
+            // critical notation.
+            let vc = cert.with_policy(p, None).unwrap();
+            for ua in vc.userids() {
+                if ua.userid().value() == b"bob@example.org" {
+                    let certifications: Vec<_>
+                        = ua.certifications().collect();
+                    assert_eq!(certifications.len(), 0);
+                }
+            }
+
+            // Accept the critical notation.
+            p.good_critical_notations(&["foo"]);
+            let vc = cert.with_policy(p, None).unwrap();
+
+            for ua in vc.userids() {
+                if ua.userid().value() == b"bob@example.org" {
+                    let certifications: Vec<_>
+                        = ua.certifications().collect();
+                    assert_eq!(certifications.len(), 1);
+
+                    let c = certifications[0];
+
+                    assert_eq!(c.trust_signature(), None);
+                    assert_eq!(c.regular_expressions().count(), 0);
+                    assert_eq!(c.revocable().unwrap_or(true), true);
+                    assert_eq!(c.exportable_certification().unwrap_or(true), true);
+                    // By default, we set a duration.
+                    assert!(c.signature_validity_period().is_some());
+
+                    let hr = NotationDataFlags::empty().set_human_readable();
+                    let notations = &mut [
+                        (NotationData::new("foo", "bar", hr.clone()), false),
+                        (NotationData::new("foo", "xyzzy", hr.clone()), false),
+                        (NotationData::new("hello@example.org", "1234567890", hr), false)
+                    ];
+
+                    for n in c.notation_data() {
+                        if n.name() == "salt@notations.sequoia-pgp.org" {
+                            continue;
+                        }
+
+                        for (m, found) in notations.iter_mut() {
+                            if n == m {
+                                assert!(!*found);
+                                *found = true;
+                            }
+                        }
+                    }
+                    for (n, found) in notations.iter() {
+                        assert!(found, "Missing: {:?}", n);
+                    }
+
+                    return true;
+                }
+            }
+
+            false
+        },
+                            "Bad certification")
         .unwrap();
 
     Ok(())
