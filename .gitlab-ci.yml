@@ -11,9 +11,9 @@ before_script:
   - clang --version
 
 after_script:
-  - find $CARGO_TARGET_DIR -type f -atime +7 -delete
-  - du -sh $CARGO_TARGET_DIR
-  - du -sh $CARGO_HOME
+  - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR -type f -atime +7 -delete; fi
+  - if [ -d $CARGO_TARGET_DIR ]; then du -sh $CARGO_TARGET_DIR; fi
+  - if [ -d $CARGO_HOME ]; then du -sh $CARGO_HOME; fi
 
 bullseye:
   tags:
@@ -55,10 +55,7 @@ all_commits:
     - clang --version
 
   script:
-    # Use dummy identity to make git rebase happy.
-    - git config user.name "C.I. McTestface"
-    - git config user.email "ci.mctestface@example.com"
-    - if ! git rebase --exec "echo ===; echo ===; echo ===; git log -n 1; cargo test -p sequoia-openpgp" origin/main; then git rebase --abort; false; fi
+    - .ci/all_commits.sh
 
   variables:
     CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target.$CI_CONCURRENT_ID.all_commits
