@@ -8,7 +8,6 @@ use openpgp::{
     KeyHandle,
     KeyID,
     Fingerprint,
-    armor,
     cert::{
         Cert,
         CertParser,
@@ -29,7 +28,6 @@ use crate::{
     Config,
     open_or_stdin,
     create_or_stdout,
-    create_or_stdout_pgp,
     serialize_keyring,
 };
 
@@ -89,15 +87,10 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
                 let certs = rt.block_on(ks.search(addr))
                     .context("Failed to retrieve certs")?;
 
-                let mut output =
-                    create_or_stdout_pgp(m.value_of("output"), config.force,
-                                         m.is_present("binary"),
-                                         armor::Kind::PublicKey)?;
-                for cert in certs {
-                    cert.serialize(&mut output)
-                        .context("Failed to serialize cert")?;
-                }
-                output.finalize()?;
+                let mut output = create_or_stdout(m.value_of("output"),
+                                                  config.force)?;
+                serialize_keyring(&mut output, &certs,
+                                  m.is_present("binary"))?;
             } else {
                 Err(anyhow::anyhow!(
                     "Query must be a fingerprint, a keyid, \
