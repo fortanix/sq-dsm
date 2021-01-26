@@ -133,12 +133,14 @@ impl AutocryptHeader {
         }
 
         // The UserIDs matching ADDR.
+        let mut found_one = false;
         for uidb in cert.userids().with_policy(policy, None) {
             // XXX: Fix match once we have the rfc2822-name-addr.
             if let Ok(Some(a)) = uidb.userid().email() {
                 if &a == addr {
                     acc.push(uidb.userid().clone().into());
                     acc.push(uidb.binding_signature().clone().into());
+                    found_one = true;
                 } else {
                     // Address is not matching.
                     continue;
@@ -146,6 +148,16 @@ impl AutocryptHeader {
             } else {
                 // Malformed UserID.
                 continue;
+            }
+        }
+
+        // User ids are only decorative in Autocrypt.  By convention,
+        // the cert should include a user id matching the sender's
+        // address, but we should include at least one user id.
+        if ! found_one {
+            if let Ok(uidb) = cert.with_policy(policy, None)?.primary_userid() {
+                acc.push(uidb.userid().clone().into());
+                acc.push(uidb.binding_signature().clone().into());
             }
         }
 
@@ -1061,5 +1073,40 @@ mod test {
         assert_eq!(cert.keys().subkeys().count(), 1);
         assert_eq!(cert.userids().next().unwrap().userid().value(),
                    &b"Testy McTestface <testy@example.org>"[..]);
+    }
+
+    #[test]
+    fn autocrypt_header_new_address_mismatch() -> Result<()> {
+        let p = &P::new();
+
+        let cert =
+            Cert::from_bytes(&include_bytes!("../tests/data/testy.pgp")[..])?;
+        let header = AutocryptHeader::new_sender(p, &cert,
+                                                 "anna-lena@example.org",
+                                                 "mutual")?;
+        let mut buf = Vec::new();
+        write!(&mut buf, "Autocrypt: ")?;
+        header.serialize(&mut buf)?;
+
+        let ac = AutocryptHeaders::from_bytes(&buf)?;
+
+        // We expect exactly one Autocrypt header.
+        assert_eq!(ac.headers.len(), 1);
+
+        assert_eq!(ac.headers[0].get("addr").unwrap().value,
+                   "anna-lena@example.org");
+
+        assert_eq!(ac.headers[0].get("prefer-encrypt").unwrap().value,
+                   "mutual");
+
+        let cert = ac.headers[0].key.as_ref()
+            .expect("Failed to parse key material.");
+        assert_eq!(&cert.fingerprint().to_string(),
+                   "3E88 77C8 7727 4692 9751  89F5 D03F 6F86 5226 FE8B");
+        assert_eq!(cert.userids().len(), 1);
+        assert_eq!(cert.keys().subkeys().count(), 1);
+        assert_eq!(cert.userids().next().unwrap().userid().value(),
+                   &b"Testy McTestface <testy@example.org>"[..]);
+        Ok(())
     }
 }
