@@ -569,7 +569,7 @@ feasible.
 "EXAMPLES:
 
 # Adopt an subkey into the new cert
-$ sq key adopt --keyring juliet-old.pgp juliet-new.pgp --key 0123456789ABCDEF
+$ sq key adopt --keyring juliet-old.pgp --key 0123456789ABCDEF -- juliet-new.pgp
 ")
                         .arg(Arg::with_name("keyring")
                              .short("r").long("keyring").value_name("KEY-RING")
