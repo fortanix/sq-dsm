@@ -19,7 +19,7 @@ bullseye:
   tags:
     - linux
   stage: build
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye:latest
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
   dependencies:
     - codespell
 
@@ -33,8 +33,11 @@ bullseye:
     - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi
 
   variables:
-    CARGO_TARGET_DIR: $CI_PROJECT_DIR/../target.$CI_CONCURRENT_ID.bullseye
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
     RUSTFLAGS: -D warnings -A unused-parens
+
+  after_script: []
 
 all_commits:
   # Test each commit up to main, to facilitate bisecting.
