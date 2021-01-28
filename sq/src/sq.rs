@@ -626,13 +626,7 @@ fn main() -> Result<()> {
         ("keyserver",  Some(m)) =>
             commands::net::dispatch_keyserver(config, m)?,
 
-        ("key", Some(m)) => match m.subcommand() {
-            ("generate", Some(m)) => commands::key::generate(m, force)?,
-            ("adopt", Some(m)) => commands::key::adopt(config, m)?,
-            ("attest-certifications", Some(m)) =>
-                commands::key::attest_certifications(config, m)?,
-            _ => unreachable!(),
-        },
+        ("key", Some(m)) => commands::key::dispatch(config, m)?,
 
         #[cfg(feature = "net")]
         ("wkd",  Some(m)) => commands::net::dispatch_wkd(config, m)?,
