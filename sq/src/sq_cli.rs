@@ -3,7 +3,9 @@
 use clap::{App, Arg, ArgGroup, SubCommand, AppSettings};
 
 pub fn build() -> App<'static, 'static> {
-    configure(App::new("sq"))
+    configure(App::new("sq"),
+              cfg!(feature = "net"),
+    )
 }
 
 /// Defines the CLI.
@@ -16,7 +18,10 @@ pub fn build() -> App<'static, 'static> {
 ///   - Key discovery & networking          (4xx)
 ///   - Armor                               (5xx)
 ///   - Inspection & packet manipulation    (6xx)
-pub fn configure(app: App<'static, 'static>) -> App<'static, 'static> {
+pub fn configure(
+    app: App<'static, 'static>,
+    feature_net: bool,
+) -> App<'static, 'static> {
     let version = Box::leak(
         format!("{} (sequoia-openpgp {})",
                 env!("CARGO_PKG_VERSION"),
@@ -1227,7 +1232,7 @@ $ sq packet join juliet.pgp-[0-3]*
                                      .short("B").long("binary")
                                      .help("Emits binary data"))));
 
-    let app = if ! cfg!(feature = "net") {
+    let app = if ! feature_net {
         // Without networking support.
         app
     } else {
