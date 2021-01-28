@@ -1,0 +1,94 @@
+.TH SQ-KEYRING-FILTER "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq\-keyring\-filter \- Joins keys into a keyring applying a filter
+
+This can be used to filter keys based on given predicates,
+e.g. whether they have a user id containing an email address with a
+certain domain.  Additionally, the keys can be pruned to only include
+components matching the predicates.
+
+If no filters are supplied, everything matches.
+
+If multiple predicates are given, they are or'ed, i.e. a key matches
+if any of the predicates match.  To require all predicates to match,
+chain multiple invocations of this command.  See EXAMPLES for
+inspiration.
+
+.SH SYNOPSIS
+\fBsq keyring filter\fR [FLAGS] [OPTIONS] [\-\-] [FILE]
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+
+.TP
+\fB\-P\fR, \fB\-\-prune\-certs\fR
+Removes certificate components not matching the filter
+
+.TP
+\fB\-B\fR, \fB\-\-binary\fR
+Emits binary data
+
+.TP
+\fB\-\-to\-cert\fR
+Converts any keys in the input to certificates.  Converting a key to a certificate removes secret key material from the key thereby turning it into a certificate.
+.SH OPTIONS
+.TP
+\fB\-o\fR, \fB\-\-output\fR FILE
+Writes to FILE or stdout if omitted
+
+.TP
+\fB\-\-name\fR NAME
+Matches on NAME
+
+.TP
+\fB\-\-email\fR ADDRESS
+Matches on email ADDRESS
+
+.TP
+\fB\-\-domain\fR FQDN
+Matches on email domain FQDN
+.SH ARGS
+.TP
+FILE
+Reads from FILE or stdin if omitted
+.SH EXAMPLES
+.TP
+# Converts a key to a cert (i.e., remove any secret key material)
+\fB $ sq keyring filter \-\-to\-cert cat juliet.pgp\fR
+.TP
+# Gets the keys with a user id on example.org
+\fB $ sq keyring filter \-\-domain example.org keys.pgp\fR
+.TP
+# Gets the keys with a user id on example.org or example.net
+\fB $ sq keyring filter \-\-domain example.org \-\-domain example.net keys.pgp\fR
+.TP
+# Gets the keys with a user id with the name Juliet
+\fB $ sq keyring filter \-\-name Juliet keys.pgp\fR
+.TP
+# Gets the keys with a user id with the name Juliet on example.org
+\fB $ sq keyring filter \-\-domain example.org keys.pgp | \
+  sq keyring filter \-\-name Juliet\fR
+.TP
+# Gets the keys with a user id on example.org, pruning other userids
+\fB $ sq keyring filter \-\-domain example.org \-\-prune\-certs certs.pgp\fR
+
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-autocrypt(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-key\-adopt(1), sq\-key\-attest\-certifications(1), sq\-key\-extract\-cert(1), sq\-key\-generate(1), sq\-keyring(1), sq\-keyring\-filter(1), sq\-keyring\-join(1), sq\-keyring\-list(1), sq\-keyring\-merge(1), sq\-keyring\-split(1), sq\-keyserver(1), sq\-keyserver\-get(1), sq\-keyserver\-send(1), sq\-packet(1), sq\-sign(1), sq\-verify(1), sq\-wkd(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

@@ -1,0 +1,56 @@
+.TH SQ-ARMOR "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq\-armor \- Converts binary to ASCII
+
+To make encrypted data easier to handle and transport, OpenPGP data
+can be transformed to an ASCII representation called ASCII Armor.  sq
+emits armored data by default, but this subcommand can be used to
+convert existing OpenPGP data to its ASCII\-encoded representation.
+
+The converse operation is "sq dearmor".
+
+.SH SYNOPSIS
+\fBsq armor\fR [FLAGS] [OPTIONS] [\-\-] [FILE]
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+.SH OPTIONS
+.TP
+\fB\-o\fR, \fB\-\-output\fR FILE
+Writes to FILE or stdout if omitted
+
+.TP
+\fB\-\-label\fR LABEL
+Selects the kind of armor header  [default: auto]  [possible values: auto, message, cert, key, sig, file]
+.SH ARGS
+.TP
+FILE
+Reads from FILE or stdin if omitted
+.SH EXAMPLES
+.TP
+# Convert a binary certificate to ASCII
+\fB $ sq armor binary\-juliet.pgp\fR
+.TP
+# Convert a binary message to ASCII
+\fB $ sq armor binary\-message.pgp\fR
+
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-autocrypt(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-keyring(1), sq\-packet(1), sq\-sign(1), sq\-verify(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

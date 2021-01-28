@@ -1,7 +1,7 @@
 [package]
 name = "sequoia-sq"
 description = "Command-line frontends for Sequoia"
-version = "0.23.0"
+version = "0.24.0"
 authors = [
     "Azul <azul@sequoia-pgp.org>",
     "Igor Matuszewski <igor@sequoia-pgp.org>",

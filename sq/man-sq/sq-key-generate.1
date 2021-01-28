@@ -1,0 +1,100 @@
+.TH SQ-KEY-GENERATE "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq\-key\-generate \- Generates a new key
+
+Generating a key is the prerequisite to receiving encrypted messages
+and creating signatures.  There are a few parameters to this process,
+but we provide reasonable defaults for most users.
+
+When generating a key, we also generate a revocation certificate.
+This can be used in case the key is superseded, lost, or compromised.
+It is a good idea to keep a copy of this in a safe place.
+
+After generating a key, use "sq key extract\-cert" to get the
+certificate corresponding to the key.  The key must be kept secure,
+while the certificate should be handed out to correspondents, e.g. by
+uploading it to a keyserver.
+
+.SH SYNOPSIS
+\fBsq key generate\fR [FLAGS] [OPTIONS]
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+
+.TP
+\fB\-\-with\-password\fR
+Protects the key with a password
+
+.TP
+\fB\-\-can\-sign\fR
+Adds a signing\-capable subkey (default)
+
+.TP
+\fB\-\-cannot\-sign\fR
+Adds no signing\-capable subkey
+
+.TP
+\fB\-\-cannot\-encrypt\fR
+Adds no encryption\-capable subkey
+.SH OPTIONS
+.TP
+\fB\-u\fR, \fB\-\-userid\fR EMAIL
+Adds a userid to the key
+
+.TP
+\fB\-c\fR, \fB\-\-cipher\-suite\fR CIPHER\-SUITE
+Selects the cryptographic algorithms for the key  [default: cv25519]  [possible values: rsa3k, rsa4k, cv25519]
+
+.TP
+\fB\-\-expires\fR TIME
+Makes the key expire at TIME (as ISO 8601). Use "never" to create keys that do not expire.
+
+.TP
+\fB\-\-expires\-in\fR DURATION
+Makes the key expire after DURATION. Either "N[ymwd]", for N years, months, weeks, or days, or "never".
+
+.TP
+\fB\-\-can\-encrypt\fR PURPOSE
+Adds an encryption\-capable subkey. Encryption\-capable subkeys can be marked as suitable for transport encryption, storage encryption, or both. [default: universal]  [possible values: transport, storage, universal]
+
+.TP
+\fB\-e\fR, \fB\-\-export\fR OUTFILE
+Writes the key to OUTFILE
+
+.TP
+\fB\-\-rev\-cert\fR FILE or \-
+Writes the revocation certificate to FILE. mandatory if OUTFILE is "\-". [default: <OUTFILE>.rev]
+.SH EXAMPLES
+.TP
+# First, this generates a key
+\fB $ sq key generate \-\-userid "<juliet@example.org>" \-\-export juliet.key.pgp\fR
+.TP
+# Then, this extracts the certificate for distribution
+\fB $ sq key extract\-cert \-\-output juliet.cert.pgp juliet.key.pgp\fR
+.TP
+# Generates a key protecting it with a password
+\fB $ sq key generate \-\-userid "<juliet@example.org>" \-\-with\-password\fR
+.TP
+# Generates a key with multiple userids
+\fB $ sq key generate \-\-userid "<juliet@example.org>" \-\-userid "Juliet Capulet"\fR
+
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-key\-adopt(1), sq\-key\-attest\-certifications(1), sq\-key\-extract\-cert(1), sq\-key\-generate(1), sq\-keyring(1), sq\-keyring\-filter(1), sq\-keyring\-join(1), sq\-keyring\-list(1), sq\-keyring\-merge(1), sq\-keyring\-split(1), sq\-packet(1), sq\-sign(1), sq\-verify(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

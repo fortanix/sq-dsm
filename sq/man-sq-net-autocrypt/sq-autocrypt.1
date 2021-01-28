@@ -1,0 +1,61 @@
+.TH SQ-AUTOCRYPT "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq\-autocrypt \- Communicates certificates using Autocrypt
+
+Autocrypt is a standard for mail user agents to provide convenient
+end\-to\-end encryption of emails.  This subcommand provides a limited
+way to produce and consume headers that are used by Autocrypt to
+communicate certificates between clients.
+
+See https://autocrypt.org/
+
+.SH SYNOPSIS
+\fBsq autocrypt\fR [FLAGS] <SUBCOMMAND>
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+.SH SUBCOMMANDS
+.TP
+\fBhelp\fR
+Prints this message or the help of the given subcommand(s)
+
+.TP
+\fBdecode\fR
+Reads Autocrypt\-encoded certificates
+
+Given an autocrypt header (or an key\-gossip header), this command
+extracts the certificate encoded within it.
+
+The converse operation is "sq autocrypt encode\-sender".
+
+.TP
+\fBencode\-sender\fR
+Encodes a certificate into an Autocrypt header
+
+A certificate can be encoded and included in a header of an email
+message.  This command encodes the certificate, adds the senders email
+address (which must match the one used in the "From" header), and the
+senders "prefer\-encrypt" state (see the Autocrypt spec for more
+information).
+
+The converse operation is "sq autocrypt decode".
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-autocrypt(1), sq\-autocrypt\-decode(1), sq\-autocrypt\-encode\-sender(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-keyring(1), sq\-keyserver(1), sq\-packet(1), sq\-sign(1), sq\-verify(1), sq\-wkd(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

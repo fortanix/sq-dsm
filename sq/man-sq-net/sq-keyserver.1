@@ -1,0 +1,48 @@
+.TH SQ-KEYSERVER "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq\-keyserver \- Interacts with keyservers
+.SH SYNOPSIS
+\fBsq keyserver\fR [FLAGS] [OPTIONS] <SUBCOMMAND>
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+.SH OPTIONS
+.TP
+\fB\-p\fR, \fB\-\-policy\fR NETWORK\-POLICY
+Sets the network policy to use  [default: encrypted]  [possible values: offline, anonymized, encrypted, insecure]
+
+.TP
+\fB\-s\fR, \fB\-\-server\fR URI
+Sets the keyserver to use
+.SH SUBCOMMANDS
+.TP
+\fBhelp\fR
+Prints this message or the help of the given subcommand(s)
+
+.TP
+\fBget\fR
+Retrieves a key
+
+.TP
+\fBsend\fR
+Sends a key
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-key\-adopt(1), sq\-key\-attest\-certifications(1), sq\-key\-extract\-cert(1), sq\-key\-generate(1), sq\-keyring(1), sq\-keyring\-filter(1), sq\-keyring\-join(1), sq\-keyring\-list(1), sq\-keyring\-merge(1), sq\-keyring\-split(1), sq\-keyserver(1), sq\-keyserver\-get(1), sq\-keyserver\-send(1), sq\-packet(1), sq\-sign(1), sq\-verify(1), sq\-wkd(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

@@ -1,0 +1,44 @@
+.TH SQ-WKD-GENERATE "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq\-wkd\-generate \- Generates a Web Key Directory for the given domain and keys.  If the WKD exists, the new keys will be inserted and it is updated and existing ones will be updated.
+.SH SYNOPSIS
+\fBsq wkd generate\fR [FLAGS] <WEB\-ROOT> <FQDN> [CERT\-RING]
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+
+.TP
+\fB\-d\fR, \fB\-\-direct\-method\fR
+Uses the direct method [default: advanced method]
+.SH ARGS
+.TP
+WEB\-ROOT
+Writes the WKD to WEB\-ROOT. Transfer this directory to the webserver.
+
+.TP
+FQDN
+Generates a WKD for FQDN
+
+.TP
+CERT\-RING
+Adds certificates from CERT\-RING to the WKD
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-keyring(1), sq\-keyserver(1), sq\-packet(1), sq\-sign(1), sq\-verify(1), sq\-wkd(1), sq\-wkd\-generate(1), sq\-wkd\-get(1), sq\-wkd\-url(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

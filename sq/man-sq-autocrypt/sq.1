@@ -1,0 +1,188 @@
+.TH SQ "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq \- A command\-line frontend for Sequoia, an implementation of OpenPGP
+
+Functionality is grouped and available using subcommands.  Currently,
+this interface is completely stateless.  Therefore, you need to supply
+all configuration and certificates explicitly on each invocation.
+
+OpenPGP data can be provided in binary or ASCII armored form.  This
+will be handled automatically.  Emitted OpenPGP data is ASCII armored
+by default.
+
+We use the term "certificate", or cert for short, to refer to OpenPGP
+keys that do not contain secrets.  Conversely, we use the term "key"
+to refer to OpenPGP keys that do contain secrets.
+
+.SH SYNOPSIS
+\fBsq\fR [FLAGS] [OPTIONS] <SUBCOMMAND>
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Prints version information
+
+.TP
+\fB\-f\fR, \fB\-\-force\fR
+Overwrites existing files
+.SH OPTIONS
+.TP
+\fB\-\-known\-notation\fR NOTATION
+Adds NOTATION to the list of known notations. This is used when validating signatures. Signatures that have unknown notations with the critical bit set are considered invalid.
+.SH SUBCOMMANDS
+.TP
+\fBhelp\fR
+Prints this message or the help of the given subcommand(s)
+
+.TP
+\fBdecrypt\fR
+Decrypts a message
+
+Decrypts a message using either supplied keys, or by prompting for a
+password.  Any signatures are checked using the supplied certificates.
+
+The converse operation is "sq encrypt".
+
+.TP
+\fBencrypt\fR
+Encrypts a message
+
+Encrypts a message for any number of recipients and with any number of
+passwords, optionally signing the message in the process.
+
+The converse operation is "sq decrypt".
+
+.TP
+\fBsign\fR
+Signs messages or data files
+
+Creates signed messages or detached signatures.  Detached signatures
+are often used to sign software packages.
+
+The converse operation is "sq verify".
+
+.TP
+\fBverify\fR
+Verifies signed messages or detached signatures
+
+When verifying signed messages, the message is written to stdout or
+the file given to \-\-output.
+
+When a detached message is verified, no output is produced.  Detached
+signatures are often used to sign software packages.
+
+The converse operation is "sq sign".
+
+.TP
+\fBarmor\fR
+Converts binary to ASCII
+
+To make encrypted data easier to handle and transport, OpenPGP data
+can be transformed to an ASCII representation called ASCII Armor.  sq
+emits armored data by default, but this subcommand can be used to
+convert existing OpenPGP data to its ASCII\-encoded representation.
+
+The converse operation is "sq dearmor".
+
+.TP
+\fBdearmor\fR
+Converts ASCII to binary
+
+To make encrypted data easier to handle and transport, OpenPGP data
+can be transformed to an ASCII representation called ASCII Armor.  sq
+transparently handles armored data, but this subcommand can be used to
+explicitly convert existing ASCII\-encoded OpenPGP data to its binary
+representation.
+
+The converse operation is "sq armor".
+
+.TP
+\fBinspect\fR
+Inspects data, like file(1)
+
+It is often difficult to tell from cursory inspection using cat(1) or
+file(1) what kind of OpenPGP one is looking at.  This subcommand
+inspects the data and provides a meaningful human\-readable description
+of it.
+
+.TP
+\fBkey\fR
+Manages keys
+
+We use the term "key" to refer to OpenPGP keys that do contain
+secrets.  This subcommand provides primitives to generate and
+otherwise manipulate keys.
+
+Conversely, we use the term "certificate", or cert for short, to refer
+to OpenPGP keys that do not contain secrets.  See "sq keyring" for
+operations on certificates.
+
+.TP
+\fBkeyring\fR
+Manages collections of keys or certs
+
+Collections of keys or certficicates (also known as "keyrings" when
+they contain secret key material, and "certrings" when they don't) are
+any number of concatenated certificates.  This subcommand provides
+tools to list, split, join, merge, and filter keyrings.
+
+Note: In the documentation of this subcommand, we sometimes use the
+terms keys and certs interchangeably.
+
+.TP
+\fBcertify\fR
+Certifies a User ID for a Certificate
+
+Using a certification a keyholder may vouch for the fact that another
+certificate legitimately belongs to a user id.  In the context of
+emails this means that the same entity controls the key and the email
+address.  These kind of certifications form the basis for the Web Of
+Trust.
+
+This command emits the certificate with the new certification.  The
+updated certificate has to be distributed, preferably by sending it to
+the certificate holder for attestation.  See also "sq key
+attest\-certification".
+
+.TP
+\fBpacket\fR
+Low\-level packet manipulation
+
+An OpenPGP data stream consists of packets.  These tools allow working
+with packet streams.  They are mostly of interest to developers, but
+"sq packet dump" may be helpful to a wider audience both to provide
+valuable information in bug reports to OpenPGP\-related software, and
+as a learning tool.
+
+.TP
+\fBautocrypt\fR
+Communicates certificates using Autocrypt
+
+Autocrypt is a standard for mail user agents to provide convenient
+end\-to\-end encryption of emails.  This subcommand provides a limited
+way to produce and consume headers that are used by Autocrypt to
+communicate certificates between clients.
+
+See https://autocrypt.org/
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-autocrypt(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-keyring(1), sq\-packet(1), sq\-sign(1), sq\-verify(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

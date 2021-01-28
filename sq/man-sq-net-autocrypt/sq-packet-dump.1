@@ -1,0 +1,72 @@
+.TH SQ-PACKET-DUMP "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq\-packet\-dump \- 
+Lists packets
+
+Creates a human\-readable description of the packet sequence.
+Additionally, it can print cryptographic artifacts, and print the raw
+octet stream similar to hexdump(1), annotating specifically which
+bytes are parsed into OpenPGP values.
+
+To inspect encrypted messages, either supply the session key, or see
+"sq decrypt \-\-dump" or "sq packet decrypt".
+
+.SH SYNOPSIS
+\fBsq packet dump\fR [FLAGS] [OPTIONS] [\-\-] [FILE]
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+
+.TP
+\fB\-\-mpis\fR
+Prints cryptographic artifacts
+
+.TP
+\fB\-x\fR, \fB\-\-hex\fR
+Prints a hexdump
+.SH OPTIONS
+.TP
+\fB\-o\fR, \fB\-\-output\fR FILE
+Writes to FILE or stdout if omitted
+
+.TP
+\fB\-\-session\-key\fR SESSION\-KEY
+Decrypts an encrypted message using SESSION\-KEY
+.SH ARGS
+.TP
+FILE
+Reads from FILE or stdin if omitted
+.SH EXAMPLES
+.TP
+# Prints the packets of a certificate
+\fB $ sq packet dump juliet.pgp\fR
+.TP
+# Prints cryptographic artifacts of a certificate
+\fB $ sq packet dump \-\-mpis juliet.pgp\fR
+.TP
+# Prints a hexdump of a certificate
+\fB $ sq packet dump \-\-hex juliet.pgp\fR
+.TP
+# Prints the packets of an encrypted message
+\fB $ sq packet dump \-\-session\-key AAAABBBBCCCC... ciphertext.pgp\fR
+
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-autocrypt(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-keyring(1), sq\-keyserver(1), sq\-packet(1), sq\-packet\-decrypt(1), sq\-packet\-dump(1), sq\-packet\-join(1), sq\-packet\-split(1), sq\-sign(1), sq\-verify(1), sq\-wkd(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>

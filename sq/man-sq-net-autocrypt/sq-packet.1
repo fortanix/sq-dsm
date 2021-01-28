@@ -1,0 +1,80 @@
+.TH SQ-PACKET "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.SH NAME
+sq\-packet \- 
+Low\-level packet manipulation
+
+An OpenPGP data stream consists of packets.  These tools allow working
+with packet streams.  They are mostly of interest to developers, but
+"sq packet dump" may be helpful to a wider audience both to provide
+valuable information in bug reports to OpenPGP\-related software, and
+as a learning tool.
+
+.SH SYNOPSIS
+\fBsq packet\fR [FLAGS] <SUBCOMMAND>
+.SH FLAGS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Prints help information
+.SH SUBCOMMANDS
+.TP
+\fBhelp\fR
+Prints this message or the help of the given subcommand(s)
+
+.TP
+\fBdump\fR
+Lists packets
+
+Creates a human\-readable description of the packet sequence.
+Additionally, it can print cryptographic artifacts, and print the raw
+octet stream similar to hexdump(1), annotating specifically which
+bytes are parsed into OpenPGP values.
+
+To inspect encrypted messages, either supply the session key, or see
+"sq decrypt \-\-dump" or "sq packet decrypt".
+
+.TP
+\fBdecrypt\fR
+Unwraps an encryption container
+
+Decrypts a message, dumping the content of the encryption container
+without further processing.  The result is a valid OpenPGP message
+that can, among other things, be inspected using "sq packet dump".
+
+.TP
+\fBsplit\fR
+Splits a message into packets
+
+Splitting a packet sequence into individual packets, then recombining
+them freely with "sq packet join" is a great way to experiment with
+OpenPGP data.
+
+The converse operation is "sq packet join".
+
+.TP
+\fBjoin\fR
+Joins packets split across files
+
+Splitting a packet sequence into individual packets, then recombining
+them freely with "sq packet join" is a great way to experiment with
+OpenPGP data.
+
+The converse operation is "sq packet split".
+.SH SEE ALSO
+For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
+
+.ad l
+.nh
+sq(1), sq\-armor(1), sq\-autocrypt(1), sq\-certify(1), sq\-dearmor(1), sq\-decrypt(1), sq\-encrypt(1), sq\-inspect(1), sq\-key(1), sq\-keyring(1), sq\-keyserver(1), sq\-packet(1), sq\-packet\-decrypt(1), sq\-packet\-dump(1), sq\-packet\-join(1), sq\-packet\-split(1), sq\-sign(1), sq\-verify(1), sq\-wkd(1)
+
+
+.SH AUTHORS
+.P
+.RS 2
+.nf
+Azul <azul@sequoia\-pgp.org>
+Igor Matuszewski <igor@sequoia\-pgp.org>
+Justus Winter <justus@sequoia\-pgp.org>
+Kai Michaelis <kai@sequoia\-pgp.org>
+Neal H. Walfield <neal@sequoia\-pgp.org>
+Nora Widdecke <nora@sequoia\-pgp.org>
+Wiktor Kwapisiewicz <wiktor@sequoia\-pgp.org>
