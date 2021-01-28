@@ -28,6 +28,7 @@ use crate::decrypt_key;
 pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("generate", Some(m)) => generate(m, config.force)?,
+        ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("adopt", Some(m)) => adopt(config, m)?,
         ("attest-certifications", Some(m)) =>
             attest_certifications(config, m)?,
@@ -202,6 +203,19 @@ fn generate(m: &ArgMatches, force: bool) -> Result<()> {
                          yet."));
     }
 
+    Ok(())
+}
+
+fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
+    let input = open_or_stdin(m.value_of("input"))?;
+    let mut output = create_or_stdout(m.value_of("output"), config.force)?;
+
+    let cert = Cert::from_reader(input)?;
+    if m.is_present("binary") {
+        cert.serialize(&mut output)?;
+    } else {
+        cert.armored().serialize(&mut output)?;
+    }
     Ok(())
 }
 

@@ -462,12 +462,20 @@ but we provide reasonable defaults for most users.
 When generating a key, we also generate a revocation certificate.
 This can be used in case the key is superseded, lost, or compromised.
 It is a good idea to keep a copy of this in a safe place.
+
+After generating a key, use \"sq key extract-cert\" to get the
+certificate corresponding to the key.  The key must be kept secure,
+while the certificate should be handed out to correspondents, e.g. by
+uploading it to a keyserver.
 ")
                         .after_help(
 "EXAMPLES:
 
-# Generates a key
-$ sq key generate --userid \"<juliet@example.org>\"
+# First, this generates a key
+$ sq key generate --userid \"<juliet@example.org>\" --export juliet.key.pgp
+
+# Then, this extracts the certificate for distribution
+$ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
 
 # Generates a key protecting it with a password
 $ sq key generate --userid \"<juliet@example.org>\" --with-password
@@ -549,6 +557,36 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                                  "Writes the revocation certificate to FILE. \
                                   mandatory if OUTFILE is \"-\". \
                                   [default: <OUTFILE>.rev]"))
+                )
+                .subcommand(SubCommand::with_name("extract-cert")
+                            .display_order(110)
+                            .about("Converts a key to a cert")
+                            .long_about(
+"Converts a key to a cert
+
+After generating a key, use this command to get the certificate
+corresponding to the key.  The key must be kept secure, while the
+certificate should be handed out to correspondents, e.g. by uploading
+it to a keyserver.
+")
+                            .after_help(
+                                "EXAMPLES:
+
+# First, this generates a key
+$ sq key generate --userid \"<juliet@example.org>\" --export juliet.key.pgp
+
+# Then, this extracts the certificate for distribution
+$ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
+")
+                            .arg(Arg::with_name("input")
+                                 .value_name("FILE")
+                                 .help("Reads from FILE or stdin if omitted"))
+                            .arg(Arg::with_name("output")
+                                 .short("o").long("output").value_name("FILE")
+                                 .help("Writes to FILE or stdout if omitted"))
+                            .arg(Arg::with_name("binary")
+                                 .short("B").long("binary")
+                                 .help("Emits binary data"))
                 )
                 .subcommand(
                     SubCommand::with_name("adopt")

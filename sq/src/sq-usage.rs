@@ -324,6 +324,7 @@
 //!
 //! SUBCOMMANDS:
 //!     generate                 Generates a new key
+//!     extract-cert             Converts a key to a cert
 //!     attest-certifications    Attests to third-party certifications
 //!     adopt                    Binds keys from one certificate to another
 //!     help
@@ -342,6 +343,11 @@
 //! When generating a key, we also generate a revocation certificate.
 //! This can be used in case the key is superseded, lost, or compromised.
 //! It is a good idea to keep a copy of this in a safe place.
+//!
+//! After generating a key, use "sq key extract-cert" to get the
+//! certificate corresponding to the key.  The key must be kept secure,
+//! while the certificate should be handed out to correspondents, e.g. by
+//! uploading it to a keyserver.
 //!
 //! USAGE:
 //!     sq key generate [FLAGS] [OPTIONS] --export <OUTFILE>
@@ -393,14 +399,60 @@
 //!
 //! EXAMPLES:
 //!
-//! # Generates a key
-//! $ sq key generate --userid "<juliet@example.org>"
+//! # First, this generates a key
+//! $ sq key generate --userid "<juliet@example.org>" --export juliet.key.pgp
+//!
+//! # Then, this extracts the certificate for distribution
+//! $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
 //!
 //! # Generates a key protecting it with a password
 //! $ sq key generate --userid "<juliet@example.org>" --with-password
 //!
 //! # Generates a key with multiple userids
 //! $ sq key generate --userid "<juliet@example.org>" --userid "Juliet Capulet"
+//! ```
+//!
+//! ### Subcommand key extract-cert
+//!
+//! ```text
+//! Converts a key to a cert
+//!
+//! After generating a key, use this command to get the certificate
+//! corresponding to the key.  The key must be kept secure, while the
+//! certificate should be handed out to correspondents, e.g. by uploading
+//! it to a keyserver.
+//!
+//! USAGE:
+//!     sq key extract-cert [FLAGS] [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!
+//! ARGS:
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # First, this generates a key
+//! $ sq key generate --userid "<juliet@example.org>" --export juliet.key.pgp
+//!
+//! # Then, this extracts the certificate for distribution
+//! $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
 //! ```
 //!
 //! ### Subcommand key attest-certifications
