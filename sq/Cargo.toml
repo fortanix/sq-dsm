@@ -28,7 +28,7 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 buffered-reader = { path = "../buffered-reader", version = "1.0.0", default-features = false }
 sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
-sequoia-autocrypt = { path = "../autocrypt", version = "0.23", default-features = false }
+sequoia-autocrypt = { path = "../autocrypt", version = "0.23", default-features = false, optional = true }
 sequoia-net = { path = "../net", version = "0.23", default-features = false, optional = true }
 anyhow = "1.0.18"
 chrono = "0.4.10"
@@ -55,6 +55,7 @@ default = [
     "buffered-reader/compression",
     "sequoia-openpgp/default",
     "net",
+    "autocrypt",
 ]
 crypto-nettle = ["sequoia-openpgp/crypto-nettle"]
 crypto-cng = ["sequoia-openpgp/crypto-cng"]
@@ -62,3 +63,4 @@ compression = ["buffered-reader/compression", "sequoia-openpgp/compression"]
 compression-deflate = ["buffered-reader/compression-deflate", "sequoia-openpgp/compression-deflate"]
 compression-bzip2 = ["buffered-reader/compression-bzip2", "sequoia-openpgp/compression-bzip2"]
 net = ["sequoia-net", "tokio"]
+autocrypt = ["sequoia-autocrypt"]

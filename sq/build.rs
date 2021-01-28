@@ -16,6 +16,7 @@ fn main() {
     let mut sq = sq_cli::configure(
         clap::App::new("sq").set_term_width(80),
         cfg!(feature = "net"),
+        cfg!(feature = "autocrypt"),
     );
     let mut main = fs::File::create("src/sq-usage.rs").unwrap();
     dump_help(&mut main,

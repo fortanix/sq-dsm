@@ -35,6 +35,8 @@ use crate::{
     create_or_stdout_pgp,
 };
 
+#[cfg(feature = "autocrypt")]
+pub mod autocrypt;
 pub mod decrypt;
 pub use self::decrypt::decrypt;
 mod sign;

@@ -5,6 +5,7 @@ use clap::{App, Arg, ArgGroup, SubCommand, AppSettings};
 pub fn build() -> App<'static, 'static> {
     configure(App::new("sq"),
               cfg!(feature = "net"),
+              cfg!(feature = "autocrypt"),
     )
 }
 
@@ -21,6 +22,7 @@ pub fn build() -> App<'static, 'static> {
 pub fn configure(
     app: App<'static, 'static>,
     feature_net: bool,
+    feature_autocrypt: bool,
 ) -> App<'static, 'static> {
     let version = Box::leak(
         format!("{} (sequoia-openpgp {})",
@@ -395,91 +397,6 @@ $ sq dearmor ascii-message.pgp
                          .help("Writes to FILE or stdout if omitted"))
         )
 
-        .subcommand(SubCommand::with_name("autocrypt")
-                    .display_order(400)
-                    .about("Communicates certificates using Autocrypt")
-                    .long_about(
-"Communicates certificates using Autocrypt
-
-Autocrypt is a standard for mail user agents to provide convenient
-end-to-end encryption of emails.  This subcommand provides a limited
-way to produce and consume headers that are used by Autocrypt to
-communicate certificates between clients.
-
-See https://autocrypt.org/
-")
-                    .setting(AppSettings::SubcommandRequiredElseHelp)
-                    .subcommand(SubCommand::with_name("decode")
-                                .about("Reads Autocrypt-encoded certificates")
-                                .long_about(
-"Reads Autocrypt-encoded certificates
-
-Given an autocrypt header (or an key-gossip header), this command
-extracts the certificate encoded within it.
-
-The converse operation is 'sq autocrypt encode-sender'.
-")
-                                .after_help(
-"EXAMPLES:
-
-# Extract all certificates from a mail
-$ sq autocrypt decode autocrypt.eml
-")
-                                .arg(Arg::with_name("input")
-                                     .value_name("FILE")
-                                     .help("Reads from FILE or stdin if omitted"))
-                                .arg(Arg::with_name("output")
-                                     .short("o").long("output").value_name("FILE")
-                                     .help("Writes to FILE or stdout if omitted"))
-                                .arg(Arg::with_name("binary")
-                                     .short("B").long("binary")
-                                     .help("Emits binary data"))
-                    )
-                    .subcommand(SubCommand::with_name("encode-sender")
-                                .about("Encodes a certificate into \
-                                        an Autocrypt header")
-                                .long_about(
-"Encodes a certificate into an Autocrypt header
-
-A certificate can be encoded and included in a header of an email
-message.  This command encodes the certificate, adds the senders email
-address (which must match the one used in the 'From' header), and the
-senders 'prefer-encrypt' state (see the Autocrypt spec for more
-information).
-
-The converse operation is 'sq autocrypt decode'.
-")
-                                .after_help(
-"EXAMPLES:
-
-# Encodes a certificate
-$ sq autocrypt encode-sender juliet.pgp
-
-# Encodes a certificate with an explicit sender address
-$ sq autocrypt encode-sender --email juliet@example.org juliet.pgp
-
-# Encodes a certificate while indicating the willingness to encrypt
-$ sq autocrypt encode-sender --prefer-encrypt mutual juliet.pgp
-")
-                                .arg(Arg::with_name("input")
-                                     .value_name("FILE")
-                                     .help("Reads from FILE or stdin if omitted"))
-                                .arg(Arg::with_name("output")
-                                     .short("o").long("output").value_name("FILE")
-                                     .help("Writes to FILE or stdout if omitted"))
-                                .arg(Arg::with_name("address")
-                                     .long("email").value_name("ADDRESS")
-                                     .help("Sets the address \
-                                            [default: primary userid]"))
-                                .arg(Arg::with_name("prefer-encrypt")
-                                     .long("prefer-encrypt")
-                                     .possible_values(&["nopreference",
-                                                        "mutual"])
-                                     .default_value("nopreference")
-                                     .help("Sets the prefer-encrypt \
-                                            attribute"))
-                    )
-        )
 
         .subcommand(SubCommand::with_name("inspect")
                     .display_order(600)
@@ -1332,6 +1249,101 @@ $ sq packet join juliet.pgp-[0-3]*
                                      .help("Uses the direct method \
                                             [default: advanced method]"))
                     )
+        )
+    };
+
+    let app = if ! feature_autocrypt {
+        // Without Autocrypt support.
+        app
+    } else {
+        // With Autocrypt support.
+        app.subcommand(
+            SubCommand::with_name("autocrypt")
+                .display_order(400)
+                .about("Communicates certificates using Autocrypt")
+                .long_about(
+"Communicates certificates using Autocrypt
+
+Autocrypt is a standard for mail user agents to provide convenient
+end-to-end encryption of emails.  This subcommand provides a limited
+way to produce and consume headers that are used by Autocrypt to
+communicate certificates between clients.
+
+See https://autocrypt.org/
+")
+                .setting(AppSettings::SubcommandRequiredElseHelp)
+                .subcommand(
+                    SubCommand::with_name("decode")
+                        .about("Reads Autocrypt-encoded certificates")
+                        .long_about(
+"Reads Autocrypt-encoded certificates
+
+Given an autocrypt header (or an key-gossip header), this command
+extracts the certificate encoded within it.
+
+The converse operation is 'sq autocrypt encode-sender'.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Extract all certificates from a mail
+$ sq autocrypt decode autocrypt.eml
+")
+                        .arg(Arg::with_name("input")
+                             .value_name("FILE")
+                             .help("Reads from FILE or stdin if omitted"))
+                        .arg(Arg::with_name("output")
+                             .short("o").long("output").value_name("FILE")
+                             .help("Writes to FILE or stdout if omitted"))
+                        .arg(Arg::with_name("binary")
+                             .short("B").long("binary")
+                             .help("Emits binary data"))
+                )
+                .subcommand(
+                    SubCommand::with_name("encode-sender")
+                        .about("Encodes a certificate into \
+                                an Autocrypt header")
+                        .long_about(
+"Encodes a certificate into an Autocrypt header
+
+A certificate can be encoded and included in a header of an email
+message.  This command encodes the certificate, adds the senders email
+address (which must match the one used in the 'From' header), and the
+senders 'prefer-encrypt' state (see the Autocrypt spec for more
+information).
+
+The converse operation is 'sq autocrypt decode'.
+")
+                        .after_help(
+"EXAMPLES:
+
+# Encodes a certificate
+$ sq autocrypt encode-sender juliet.pgp
+
+# Encodes a certificate with an explicit sender address
+$ sq autocrypt encode-sender --email juliet@example.org juliet.pgp
+
+# Encodes a certificate while indicating the willingness to encrypt
+$ sq autocrypt encode-sender --prefer-encrypt mutual juliet.pgp
+")
+                        .arg(Arg::with_name("input")
+                             .value_name("FILE")
+                             .help("Reads from FILE or stdin if omitted"))
+                        .arg(Arg::with_name("output")
+                             .short("o").long("output").value_name("FILE")
+                             .help("Writes to FILE or stdout if omitted"))
+                        .arg(Arg::with_name("address")
+                             .long("email").value_name("ADDRESS")
+                             .help("Sets the address \
+                                    [default: primary userid]"))
+                             .arg(Arg::with_name("prefer-encrypt")
+                                  .long("prefer-encrypt")
+                                  .possible_values(&["nopreference",
+                                                     "mutual"])
+                                  .default_value("nopreference")
+                                  .help("Sets the prefer-encrypt \
+                                         attribute"))
+                )
         )
     };
 
