@@ -726,7 +726,7 @@
 //!     -P, --prune-certs
 //!             Removes certificate components not matching the filter
 //!
-//!         --to-certificate
+//!         --to-cert
 //!             Converts any keys in the input to certificates.  Converting a key to
 //!             a certificate removes secret key material from the key thereby
 //!             turning it into a certificate.
@@ -756,7 +756,7 @@
 //! EXAMPLES:
 //!
 //! # Converts a key to a cert (i.e., remove any secret key material)
-//! $ sq keyring filter --to-certificate cat juliet.pgp
+//! $ sq keyring filter --to-cert cat juliet.pgp
 //!
 //! # Gets the keys with a user id on example.org
 //! $ sq keyring filter --domain example.org keys.pgp

@@ -681,7 +681,7 @@ inspiration.
 "EXAMPLES:
 
 # Converts a key to a cert (i.e., remove any secret key material)
-$ sq keyring filter --to-certificate cat juliet.pgp
+$ sq keyring filter --to-cert cat juliet.pgp
 
 # Gets the keys with a user id on example.org
 $ sq keyring filter --domain example.org keys.pgp
@@ -726,7 +726,7 @@ $ sq keyring filter --domain example.org --prune-certs certs.pgp
                              .short("B").long("binary")
                              .help("Emits binary data"))
                         .arg(Arg::with_name("to-certificate")
-                             .long("to-certificate")
+                             .long("to-cert")
                              .help("Converts any keys in the input to \
                                     certificates.  Converting a key to a \
                                     certificate removes secret key material \
