@@ -327,6 +327,28 @@ fn help_warning(arg: &str) {
     }
 }
 
+/// Prints a warning if sq is run in a non-interactive setting without
+/// a terminal.
+///
+/// Detecting non-interactive use is done using a heuristic.
+fn emit_unstable_cli_warning() {
+    if term_size::dimensions_stdout().is_some() {
+        // stdout is connected to a terminal, assume interactive use.
+        return;
+    }
+
+    // For bash shells, we can use a very simple heuristic.  We simply
+    // look at whether the COLUMNS variable is defined in our
+    // environment.
+    if std::env::var_os("COLUMNS").is_some() {
+        // Heuristic detected interactive use.
+        return;
+    }
+
+    eprintln!("\nWARNING: sq does not have a stable CLI interface.  \
+               Use with caution in scripts.\n");
+}
+
 #[derive(Clone)]
 pub struct Config<'a> {
     force: bool,
@@ -334,11 +356,6 @@ pub struct Config<'a> {
 }
 
 fn main() -> Result<()> {
-    if term_size::dimensions_stdout().is_none() {
-        eprintln!("\nWARNING: sq does not have a stable CLI interface.  \
-                   Use with caution in scripts.\n");
-    }
-
     let policy = &mut P::new();
 
     // XXX: Compat with sequoia-openpgp 1.0.0:
@@ -347,6 +364,7 @@ fn main() -> Result<()> {
     policy.accept_critical_subpacket(SubpacketTag::RegularExpression);
 
     let matches = sq_cli::build().get_matches();
+    emit_unstable_cli_warning();
 
     let known_notations: Vec<&str> = matches.values_of("known-notation")
         .unwrap_or_default()
