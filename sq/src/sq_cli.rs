@@ -444,7 +444,7 @@ secrets.  This subcommand provides primitives to generate and
 otherwise manipulate keys.
 
 Conversely, we use the term \"certificate\", or cert for short, to refer
-to OpenPGP keys that do not contain secrets.  See \"sq certring\" for
+to OpenPGP keys that do not contain secrets.  See \"sq keyring\" for
 operations on certificates.
 ")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
