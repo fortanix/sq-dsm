@@ -15,6 +15,40 @@ after_script:
   - if [ -d $CARGO_TARGET_DIR ]; then du -sh $CARGO_TARGET_DIR; fi
   - if [ -d $CARGO_HOME ]; then du -sh $CARGO_HOME; fi
 
+build-bullseye:
+  tags:
+    - linux
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
+  dependencies:
+    - codespell
+  script:
+    - make
+    - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
+    - if ! git diff --quiet sq ; then echo "Please commit the changes to sq/src/sq-usage.rs." ; false ; fi
+    - if ! git diff --quiet sqv ; then echo "Please commit the changes to sqv/src/sqv-usage.rs." ; false ; fi
+    - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+  after_script: []
+
+valgrind:
+  tags:
+    - linux
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
+  dependencies:
+    - codespell
+  script:
+    - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind cargo test -p sequoia-openpgp-ffi
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+  after_script: []
+
 bullseye:
   tags:
     - linux
@@ -22,21 +56,12 @@ bullseye:
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
   dependencies:
     - codespell
-
   script:
-    - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind cargo test -p sequoia-openpgp-ffi
     - cargo test --all --exclude sequoia-openpgp-ffi
-    - make
-    - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
-    - if ! git diff --quiet sq ; then echo "Please commit the changes to sq/src/sq-usage.rs." ; false ; fi
-    - if ! git diff --quiet sqv ; then echo "Please commit the changes to sqv/src/sqv-usage.rs." ; false ; fi
-    - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi
-
   variables:
     CARGO_TARGET_DIR: /target
     CARGO_HOME: /cargo
     RUSTFLAGS: -D warnings -A unused-parens
-
   after_script: []
 
 all_commits:
