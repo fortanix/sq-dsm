@@ -136,10 +136,10 @@ The converse operation is \"sq decrypt\".
 "EXAMPLES:
 
 # Encrypt a file using a certificate
-$ sq encrypt --recipient-key romeo.pgp message.txt
+$ sq encrypt --recipient-cert romeo.pgp message.txt
 
 # Encrypt a file creating a signature in the process
-$ sq encrypt --recipient-key romeo.pgp --signer-cert juliet.pgp message.txt
+$ sq encrypt --recipient-cert romeo.pgp --signer-key juliet.pgp message.txt
 
 # Encrypt a file using a password
 $ sq encrypt --symmetric message.txt
@@ -296,10 +296,10 @@ The converse operation is \"sq sign\".
 "EXAMPLES:
 
 # Verify a signed message
-$ sq verify --signer-key juliet.pgp signed-message.pgp
+$ sq verify --signer-cert juliet.pgp signed-message.pgp
 
 # Verify a detached message
-$ sq verify --signer-key juliet.pgp --detached message.sig message.txt
+$ sq verify --signer-cert juliet.pgp --detached message.sig message.txt
 
 SEE ALSO:
 
