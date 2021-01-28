@@ -13,8 +13,8 @@
 //! will be handled automatically.  Emitted OpenPGP data is ASCII armored
 //! by default.
 //!
-//! We use the term 'certificate', or cert for short, to refer to OpenPGP
-//! keys that do not contain secrets.  Conversely, we use the term 'key'
+//! We use the term "certificate", or cert for short, to refer to OpenPGP
+//! keys that do not contain secrets.  Conversely, we use the term "key"
 //! to refer to OpenPGP keys that do contain secrets.
 //!
 //! USAGE:
@@ -63,7 +63,7 @@
 //! Encrypts a message for any number of recipients and with any number of
 //! passwords, optionally signing the message in the process.
 //!
-//! The converse operation is 'sq decrypt'.
+//! The converse operation is "sq decrypt".
 //!
 //! USAGE:
 //!     sq encrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -130,7 +130,7 @@
 //! Decrypts a message using either supplied keys, or by prompting for a
 //! password.  Any signatures are checked using the supplied certificates.
 //!
-//! The converse operation is 'sq encrypt'.
+//! The converse operation is "sq encrypt".
 //!
 //! USAGE:
 //!     sq decrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -189,7 +189,7 @@
 //! Creates signed messages or detached signatures.  Detached signatures
 //! are often used to sign software packages.
 //!
-//! The converse operation is 'sq verify'.
+//! The converse operation is "sq verify".
 //!
 //! USAGE:
 //!     sq sign [FLAGS] [OPTIONS] [--] [FILE]
@@ -217,7 +217,7 @@
 //!
 //!         --notation <NAME> <VALUE>
 //!             Adds a notation to the certification.  A user-defined notation's
-//!             name must be of the form 'name@a.domain.you.control.org'. If the
+//!             name must be of the form "name@a.domain.you.control.org". If the
 //!             notation's name starts with a !, then the notation is marked as
 //!             being critical.  If a consumer of a signature doesn't understand a
 //!             critical notation, then it will ignore the signature.  The notation
@@ -257,7 +257,7 @@
 //! When a detached message is verified, no output is produced.  Detached
 //! signatures are often used to sign software packages.
 //!
-//! The converse operation is 'sq sign'.
+//! The converse operation is "sq sign".
 //!
 //! USAGE:
 //!     sq verify [OPTIONS] [--] [FILE]
@@ -306,12 +306,12 @@
 //! ```text
 //! Manages keys
 //!
-//! We use the term 'key' to refer to OpenPGP keys that do contain
+//! We use the term "key" to refer to OpenPGP keys that do contain
 //! secrets.  This subcommand provides primitives to generate and
 //! otherwise manipulate keys.
 //!
-//! Conversely, we use the term 'certificate', or cert for short, to refer
-//! to OpenPGP keys that do not contain secrets.  See 'sq certring' for
+//! Conversely, we use the term "certificate", or cert for short, to refer
+//! to OpenPGP keys that do not contain secrets.  See "sq certring" for
 //! operations on certificates.
 //!
 //! USAGE:
@@ -376,17 +376,17 @@
 //!             Selects the cryptographic algorithms for the key [default: cv25519]
 //!             [possible values: rsa3k, rsa4k, cv25519]
 //!         --expires <TIME>
-//!             Makes the key expire at TIME (as ISO 8601). Use 'never' to create
+//!             Makes the key expire at TIME (as ISO 8601). Use "never" to create
 //!             keys that do not expire.
 //!         --expires-in <DURATION>
-//!             Makes the key expire after DURATION. Either 'N[ymwd]', for N years,
-//!             months, weeks, or days, or 'never'.
+//!             Makes the key expire after DURATION. Either "N[ymwd]", for N years,
+//!             months, weeks, or days, or "never".
 //!     -e, --export <OUTFILE>
 //!             Writes the key to OUTFILE
 //!
 //!         --rev-cert <FILE or ->
 //!             Writes the revocation certificate to FILE. mandatory if OUTFILE is
-//!             '-'. [default: <OUTFILE>.rev]
+//!             "-". [default: <OUTFILE>.rev]
 //!     -u, --userid <EMAIL>...
 //!             Adds a userid to the key
 //!
@@ -394,13 +394,13 @@
 //! EXAMPLES:
 //!
 //! # Generates a key
-//! $ sq key generate --userid '<juliet@example.org>'
+//! $ sq key generate --userid "<juliet@example.org>"
 //!
 //! # Generates a key protecting it with a password
-//! $ sq key generate --userid '<juliet@example.org>' --with-password
+//! $ sq key generate --userid "<juliet@example.org>" --with-password
 //!
 //! # Generates a key with multiple userids
-//! $ sq key generate --userid '<juliet@example.org>' --userid 'Juliet Capulet'
+//! $ sq key generate --userid "<juliet@example.org>" --userid "Juliet Capulet"
 //! ```
 //!
 //! ### Subcommand key attest-certifications
@@ -515,8 +515,8 @@
 //! ```text
 //! Manages collections of keys or certs
 //!
-//! Collections of keys or certficicates (also known as 'keyrings' when
-//! they contain secret key material, and 'certrings' when they don't) are
+//! Collections of keys or certficicates (also known as "keyrings" when
+//! they contain secret key material, and "certrings" when they don't) are
 //! any number of concatenated certificates.  This subcommand provides
 //! tools to list, split, join, merge, and filter keyrings.
 //!
@@ -581,7 +581,7 @@
 //! Splitting up a keyring into individual keys helps with curating a
 //! keyring.
 //!
-//! The converse operation is 'sq keyring join'.
+//! The converse operation is "sq keyring join".
 //!
 //! USAGE:
 //!     sq keyring split [FLAGS] [OPTIONS] [FILE]
@@ -600,7 +600,7 @@
 //! OPTIONS:
 //!     -p, --prefix <FILE>
 //!             Writes to files with prefix FILE [defaults to the input filename
-//!             with a dash, or 'output' if keyring is read from stdin]
+//!             with a dash, or "output" if keyring is read from stdin]
 //!
 //! ARGS:
 //!     <FILE>
@@ -621,10 +621,10 @@
 //! ```text
 //! Joins keys or keyrings into a single keyring
 //!
-//! Unlike 'sq keyring merge', multiple versions of the same key are not
+//! Unlike "sq keyring merge", multiple versions of the same key are not
 //! merged together.
 //!
-//! The converse operation is 'sq keyring split'.
+//! The converse operation is "sq keyring split".
 //!
 //! USAGE:
 //!     sq keyring join [FLAGS] [OPTIONS] [FILE]...
@@ -661,7 +661,7 @@
 //! ```text
 //! Merges keys or keyrings into a single keyring
 //!
-//! Unlike 'sq keyring join', the certificates are buffered and multiple
+//! Unlike "sq keyring join", the certificates are buffered and multiple
 //! versions of the same certificate are merged together.  Where data is
 //! replaced (e.g., secret key material), data from the later certificate
 //! is preferred.
@@ -789,8 +789,8 @@
 //!
 //! This command emits the certificate with the new certification.  The
 //! updated certificate has to be distributed, preferably by sending it to
-//! the certificate holder for attestation.  See also 'sq key
-//! attest-certification'.
+//! the certificate holder for attestation.  See also "sq key
+//! attest-certification".
 //!
 //! USAGE:
 //!     sq certify [FLAGS] [OPTIONS] <CERTIFIER-KEY> <CERTIFICATE> <USERID>
@@ -822,14 +822,14 @@
 //!             CERTIFICATE is also a trusted introducer, 2 means CERTIFICATE is a
 //!             meta-trusted introducer, etc.  The default is 0.
 //!         --expires <TIME>
-//!             Makes the certification expire at TIME (as ISO 8601). Use 'never' to
+//!             Makes the certification expire at TIME (as ISO 8601). Use "never" to
 //!             create certifications that do not expire.
 //!         --expires-in <DURATION>
-//!             Makes the certification expire after DURATION. Either 'N[ymwd]', for
-//!             N years, months, weeks, or days, or 'never'.  [default: 5y]
+//!             Makes the certification expire after DURATION. Either "N[ymwd]", for
+//!             N years, months, weeks, or days, or "never".  [default: 5y]
 //!         --notation <NAME> <VALUE>
 //!             Adds a notation to the certification.  A user-defined notation's
-//!             name must be of the form 'name@a.domain.you.control.org'. If the
+//!             name must be of the form "name@a.domain.you.control.org". If the
 //!             notation's name starts with a !, then the notation is marked as
 //!             being critical.  If a consumer of a signature doesn't understand a
 //!             critical notation, then it will ignore the signature.  The notation
@@ -858,7 +858,7 @@
 //! EXAMPLES:
 //!
 //! # Juliet certifies that Romeo controls romeo.pgp and romeo@example.org
-//! $ sq certify juliet.pgp romeo.pgp '<romeo@example.org>'
+//! $ sq certify juliet.pgp romeo.pgp "<romeo@example.org>"
 //! ```
 //!
 //! ## Subcommand autocrypt
@@ -896,7 +896,7 @@
 //! Given an autocrypt header (or an key-gossip header), this command
 //! extracts the certificate encoded within it.
 //!
-//! The converse operation is 'sq autocrypt encode-sender'.
+//! The converse operation is "sq autocrypt encode-sender".
 //!
 //! USAGE:
 //!     sq autocrypt decode [FLAGS] [OPTIONS] [FILE]
@@ -935,11 +935,11 @@
 //!
 //! A certificate can be encoded and included in a header of an email
 //! message.  This command encodes the certificate, adds the senders email
-//! address (which must match the one used in the 'From' header), and the
-//! senders 'prefer-encrypt' state (see the Autocrypt spec for more
+//! address (which must match the one used in the "From" header), and the
+//! senders "prefer-encrypt" state (see the Autocrypt spec for more
 //! information).
 //!
-//! The converse operation is 'sq autocrypt decode'.
+//! The converse operation is "sq autocrypt decode".
 //!
 //! USAGE:
 //!     sq autocrypt encode-sender [OPTIONS] [FILE]
@@ -1140,7 +1140,7 @@
 //! emits armored data by default, but this subcommand can be used to
 //! convert existing OpenPGP data to its ASCII-encoded representation.
 //!
-//! The converse operation is 'sq dearmor'.
+//! The converse operation is "sq dearmor".
 //!
 //! USAGE:
 //!     sq armor [OPTIONS] [FILE]
@@ -1183,7 +1183,7 @@
 //! explicitly convert existing ASCII-encoded OpenPGP data to its binary
 //! representation.
 //!
-//! The converse operation is 'sq armor'.
+//! The converse operation is "sq armor".
 //!
 //! USAGE:
 //!     sq dearmor [OPTIONS] [FILE]
@@ -1261,7 +1261,7 @@
 //!
 //! An OpenPGP data stream consists of packets.  These tools allow working
 //! with packet streams.  They are mostly of interest to developers, but
-//! 'sq packet dump' may be helpful to a wider audience both to provide
+//! "sq packet dump" may be helpful to a wider audience both to provide
 //! valuable information in bug reports to OpenPGP-related software, and
 //! as a learning tool.
 //!
@@ -1293,7 +1293,7 @@
 //! bytes are parsed into OpenPGP values.
 //!
 //! To inspect encrypted messages, either supply the session key, or see
-//! 'sq decrypt --dump' or 'sq packet decrypt'.
+//! "sq decrypt --dump" or "sq packet decrypt".
 //!
 //! USAGE:
 //!     sq packet dump [FLAGS] [OPTIONS] [FILE]
@@ -1348,7 +1348,7 @@
 //!
 //! Decrypts a message, dumping the content of the encryption container
 //! without further processing.  The result is a valid OpenPGP message
-//! that can, among other things, be inspected using 'sq packet dump'.
+//! that can, among other things, be inspected using "sq packet dump".
 //!
 //! USAGE:
 //!     sq packet decrypt [FLAGS] [OPTIONS] [--] [FILE]
@@ -1393,10 +1393,10 @@
 //! Splits a message into packets
 //!
 //! Splitting a packet sequence into individual packets, then recombining
-//! them freely with 'sq packet join' is a great way to experiment with
+//! them freely with "sq packet join" is a great way to experiment with
 //! OpenPGP data.
 //!
-//! The converse operation is 'sq packet join'.
+//! The converse operation is "sq packet join".
 //!
 //! USAGE:
 //!     sq packet split [OPTIONS] [FILE]
@@ -1411,7 +1411,7 @@
 //!
 //! OPTIONS:
 //!     -p, --prefix <PREFIX>
-//!             Writes to files with PREFIX [defaults: FILE a dash, or 'output' if
+//!             Writes to files with PREFIX [defaults: FILE a dash, or "output" if
 //!             read from stdin)
 //!
 //! ARGS:
@@ -1432,10 +1432,10 @@
 //! Joins packets split across files
 //!
 //! Splitting a packet sequence into individual packets, then recombining
-//! them freely with 'sq packet join' is a great way to experiment with
+//! them freely with "sq packet join" is a great way to experiment with
 //! OpenPGP data.
 //!
-//! The converse operation is 'sq packet split'.
+//! The converse operation is "sq packet split".
 //!
 //! USAGE:
 //!     sq packet join [FLAGS] [OPTIONS] [FILE]...

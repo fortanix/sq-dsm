@@ -45,8 +45,8 @@ OpenPGP data can be provided in binary or ASCII armored form.  This
 will be handled automatically.  Emitted OpenPGP data is ASCII armored
 by default.
 
-We use the term 'certificate', or cert for short, to refer to OpenPGP
-keys that do not contain secrets.  Conversely, we use the term 'key'
+We use the term \"certificate\", or cert for short, to refer to OpenPGP
+keys that do not contain secrets.  Conversely, we use the term \"key\"
 to refer to OpenPGP keys that do contain secrets.
 ")
         .settings(&[
@@ -74,7 +74,7 @@ to refer to OpenPGP keys that do contain secrets.
 Decrypts a message using either supplied keys, or by prompting for a
 password.  Any signatures are checked using the supplied certificates.
 
-The converse operation is 'sq encrypt'.
+The converse operation is \"sq encrypt\".
 ")
                     .after_help(
 "EXAMPLES:
@@ -130,7 +130,7 @@ $ sq decrypt ciphertext.pgp
 Encrypts a message for any number of recipients and with any number of
 passwords, optionally signing the message in the process.
 
-The converse operation is 'sq decrypt'.
+The converse operation is \"sq decrypt\".
 ")
                     .after_help(
 "EXAMPLES:
@@ -210,7 +210,7 @@ $ sq encrypt --symmetric message.txt
 Creates signed messages or detached signatures.  Detached signatures
 are often used to sign software packages.
 
-The converse operation is 'sq verify'.
+The converse operation is \"sq verify\".
 ")
                     .after_help(
 "EXAMPLES:
@@ -268,7 +268,7 @@ $ sq sign --detached --signer-key juliet.pgp message.txt
                          .long_help(
                              "Adds a notation to the certification.  \
                               A user-defined notation's name must be of \
-                              the form 'name@a.domain.you.control.org'. \
+                              the form \"name@a.domain.you.control.org\". \
                               If the notation's name starts with a !, \
                               then the notation is marked as being \
                               critical.  If a consumer of a signature \
@@ -290,7 +290,7 @@ the file given to --output.
 When a detached message is verified, no output is produced.  Detached
 signatures are often used to sign software packages.
 
-The converse operation is 'sq sign'.
+The converse operation is \"sq sign\".
 ")
                     .after_help(
 "EXAMPLES:
@@ -340,7 +340,7 @@ can be transformed to an ASCII representation called ASCII Armor.  sq
 emits armored data by default, but this subcommand can be used to
 convert existing OpenPGP data to its ASCII-encoded representation.
 
-The converse operation is 'sq dearmor'.
+The converse operation is \"sq dearmor\".
 ")
                     .after_help(
 "EXAMPLES:
@@ -378,7 +378,7 @@ transparently handles armored data, but this subcommand can be used to
 explicitly convert existing ASCII-encoded OpenPGP data to its binary
 representation.
 
-The converse operation is 'sq armor'.
+The converse operation is \"sq armor\".
 ")
                     .after_help(
 "EXAMPLES:
@@ -439,12 +439,12 @@ $ sq inspect message.sig
                     .long_about(
 "Manages keys
 
-We use the term 'key' to refer to OpenPGP keys that do contain
+We use the term \"key\" to refer to OpenPGP keys that do contain
 secrets.  This subcommand provides primitives to generate and
 otherwise manipulate keys.
 
-Conversely, we use the term 'certificate', or cert for short, to refer
-to OpenPGP keys that do not contain secrets.  See 'sq certring' for
+Conversely, we use the term \"certificate\", or cert for short, to refer
+to OpenPGP keys that do not contain secrets.  See \"sq certring\" for
 operations on certificates.
 ")
                 .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -467,13 +467,13 @@ It is a good idea to keep a copy of this in a safe place.
 "EXAMPLES:
 
 # Generates a key
-$ sq key generate --userid '<juliet@example.org>'
+$ sq key generate --userid \"<juliet@example.org>\"
 
 # Generates a key protecting it with a password
-$ sq key generate --userid '<juliet@example.org>' --with-password
+$ sq key generate --userid \"<juliet@example.org>\" --with-password
 
 # Generates a key with multiple userids
-$ sq key generate --userid '<juliet@example.org>' --userid 'Juliet Capulet'
+$ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
 ")
                         .arg(Arg::with_name("userid")
                              .short("u").long("userid").value_name("EMAIL")
@@ -497,7 +497,7 @@ $ sq key generate --userid '<juliet@example.org>' --userid 'Juliet Capulet'
                              .help("Makes the key expire at TIME (as ISO 8601)")
                              .long_help(
                                  "Makes the key expire at TIME (as ISO 8601). \
-                                  Use 'never' to create keys that do not \
+                                  Use \"never\" to create keys that do not \
                                   expire."))
                         .arg(Arg::with_name("expires-in")
                              .long("expires-in").value_name("DURATION")
@@ -507,8 +507,8 @@ $ sq key generate --userid '<juliet@example.org>' --userid 'Juliet Capulet'
                                     (as N[ymwd]) [default: 3y]")
                              .long_help(
                                  "Makes the key expire after DURATION. \
-                                  Either 'N[ymwd]', for N years, months, \
-                                  weeks, or days, or 'never'."))
+                                  Either \"N[ymwd]\", for N years, months, \
+                                  weeks, or days, or \"never\"."))
 
                         .group(ArgGroup::with_name("cap-sign")
                                .args(&["can-sign", "cannot-sign"]))
@@ -547,7 +547,7 @@ $ sq key generate --userid '<juliet@example.org>' --userid 'Juliet Capulet'
                              .help("Writes the revocation certificate to FILE")
                              .long_help(
                                  "Writes the revocation certificate to FILE. \
-                                  mandatory if OUTFILE is '-'. \
+                                  mandatory if OUTFILE is \"-\". \
                                   [default: <OUTFILE>.rev]"))
                 )
                 .subcommand(
@@ -649,8 +649,8 @@ $ sq key attest-certifications --none juliet.pgp
                 .long_about(
 "Manages collections of keys or certs
 
-Collections of keys or certficicates (also known as 'keyrings' when
-they contain secret key material, and 'certrings' when they don't) are
+Collections of keys or certficicates (also known as \"keyrings\" when
+they contain secret key material, and \"certrings\" when they don't) are
 any number of concatenated certificates.  This subcommand provides
 tools to list, split, join, merge, and filter keyrings.
 
@@ -740,10 +740,10 @@ $ sq keyring filter --domain example.org --prune-certs certs.pgp
                         .long_about(
 "Joins keys or keyrings into a single keyring
 
-Unlike 'sq keyring merge', multiple versions of the same key are not
+Unlike \"sq keyring merge\", multiple versions of the same key are not
 merged together.
 
-The converse operation is 'sq keyring split'.
+The converse operation is \"sq keyring split\".
 ")
                         .after_help(
 "EXAMPLES:
@@ -769,7 +769,7 @@ $ sq keyring join juliet.pgp romeo.pgp alice.pgp
                         .long_about(
 "Merges keys or keyrings into a single keyring
 
-Unlike 'sq keyring join', the certificates are buffered and multiple
+Unlike \"sq keyring join\", the certificates are buffered and multiple
 versions of the same certificate are merged together.  Where data is
 replaced (e.g., secret key material), data from the later certificate
 is preferred.
@@ -824,7 +824,7 @@ $ sq keyring filter --domain example.org certs.pgp | sq keyring list
 Splitting up a keyring into individual keys helps with curating a
 keyring.
 
-The converse operation is 'sq keyring join'.
+The converse operation is \"sq keyring join\".
 ")
                         .after_help(
 "EXAMPLES:
@@ -842,7 +842,7 @@ $ sq keyring merge certs.pgp | sq keyring split
                              .short("p").long("prefix").value_name("FILE")
                              .help("Writes to files with prefix FILE \
                                     [defaults to the input filename with a \
-                                    dash, or 'output' if keyring is read \
+                                    dash, or \"output\" if keyring is read \
                                     from stdin]"))
                         .arg(Arg::with_name("binary")
                              .short("B").long("binary")
@@ -865,14 +865,14 @@ Trust.
 
 This command emits the certificate with the new certification.  The
 updated certificate has to be distributed, preferably by sending it to
-the certificate holder for attestation.  See also 'sq key
-attest-certification'.
+the certificate holder for attestation.  See also \"sq key
+attest-certification\".
 ")
                         .after_help(
 "EXAMPLES:
 
 # Juliet certifies that Romeo controls romeo.pgp and romeo@example.org
-$ sq certify juliet.pgp romeo.pgp '<romeo@example.org>'
+$ sq certify juliet.pgp romeo.pgp \"<romeo@example.org>\"
 ")
                     .arg(Arg::with_name("output")
                          .short("o").long("output").value_name("FILE")
@@ -939,7 +939,7 @@ $ sq certify juliet.pgp romeo.pgp '<romeo@example.org>'
                          .long_help(
                              "Adds a notation to the certification.  \
                               A user-defined notation's name must be of \
-                              the form 'name@a.domain.you.control.org'. \
+                              the form \"name@a.domain.you.control.org\". \
                               If the notation's name starts with a !, \
                               then the notation is marked as being \
                               critical.  If a consumer of a signature \
@@ -954,7 +954,7 @@ $ sq certify juliet.pgp romeo.pgp '<romeo@example.org>'
                          .help("Makes the certification expire at TIME (as ISO 8601)")
                          .long_help(
                              "Makes the certification expire at TIME (as ISO 8601). \
-                              Use 'never' to create certifications that do not \
+                              Use \"never\" to create certifications that do not \
                               expire."))
                     .arg(Arg::with_name("expires-in")
                          .long("expires-in").value_name("DURATION")
@@ -964,8 +964,8 @@ $ sq certify juliet.pgp romeo.pgp '<romeo@example.org>'
                                 (as N[ymwd]) [default: 5y]")
                          .long_help(
                              "Makes the certification expire after DURATION. \
-                              Either 'N[ymwd]', for N years, months, \
-                              weeks, or days, or 'never'.  [default: 5y]"))
+                              Either \"N[ymwd]\", for N years, months, \
+                              weeks, or days, or \"never\".  [default: 5y]"))
 
                     .arg(Arg::with_name("certifier")
                          .value_name("CERTIFIER-KEY")
@@ -993,7 +993,7 @@ Low-level packet manipulation
 
 An OpenPGP data stream consists of packets.  These tools allow working
 with packet streams.  They are mostly of interest to developers, but
-'sq packet dump' may be helpful to a wider audience both to provide
+\"sq packet dump\" may be helpful to a wider audience both to provide
 valuable information in bug reports to OpenPGP-related software, and
 as a learning tool.
 ")
@@ -1011,7 +1011,7 @@ octet stream similar to hexdump(1), annotating specifically which
 bytes are parsed into OpenPGP values.
 
 To inspect encrypted messages, either supply the session key, or see
-'sq decrypt --dump' or 'sq packet decrypt'.
+\"sq decrypt --dump\" or \"sq packet decrypt\".
 ")
                                 .after_help(
 "EXAMPLES:
@@ -1054,7 +1054,7 @@ Unwraps an encryption container
 
 Decrypts a message, dumping the content of the encryption container
 without further processing.  The result is a valid OpenPGP message
-that can, among other things, be inspected using 'sq packet dump'.
+that can, among other things, be inspected using \"sq packet dump\".
 ")
                                 .after_help(
 "EXAMPLES:
@@ -1087,10 +1087,10 @@ $ sq packet decrypt --recipient-key juliet.pgp ciphertext.pgp
 Splits a message into packets
 
 Splitting a packet sequence into individual packets, then recombining
-them freely with 'sq packet join' is a great way to experiment with
+them freely with \"sq packet join\" is a great way to experiment with
 OpenPGP data.
 
-The converse operation is 'sq packet join'.
+The converse operation is \"sq packet join\".
 ")
                                 .after_help(
 "EXAMPLES:
@@ -1105,7 +1105,7 @@ $ sq packet split juliet.pgp
                                      .short("p").long("prefix").value_name("PREFIX")
                                      .help("Writes to files with PREFIX \
                                             [defaults: FILE a dash, \
-                                            or 'output' if read from stdin)"))
+                                            or \"output\" if read from stdin)"))
                     )
                     .subcommand(SubCommand::with_name("join")
                                 .display_order(310)
@@ -1116,10 +1116,10 @@ $ sq packet split juliet.pgp
 Joins packets split across files
 
 Splitting a packet sequence into individual packets, then recombining
-them freely with 'sq packet join' is a great way to experiment with
+them freely with \"sq packet join\" is a great way to experiment with
 OpenPGP data.
 
-The converse operation is 'sq packet split'.
+The converse operation is \"sq packet split\".
 ")
                         .after_help(
 "EXAMPLES:
@@ -1281,7 +1281,7 @@ See https://autocrypt.org/
 Given an autocrypt header (or an key-gossip header), this command
 extracts the certificate encoded within it.
 
-The converse operation is 'sq autocrypt encode-sender'.
+The converse operation is \"sq autocrypt encode-sender\".
 ")
                         .after_help(
 "EXAMPLES:
@@ -1308,11 +1308,11 @@ $ sq autocrypt decode autocrypt.eml
 
 A certificate can be encoded and included in a header of an email
 message.  This command encodes the certificate, adds the senders email
-address (which must match the one used in the 'From' header), and the
-senders 'prefer-encrypt' state (see the Autocrypt spec for more
+address (which must match the one used in the \"From\" header), and the
+senders \"prefer-encrypt\" state (see the Autocrypt spec for more
 information).
 
-The converse operation is 'sq autocrypt decode'.
+The converse operation is \"sq autocrypt decode\".
 ")
                         .after_help(
 "EXAMPLES:
