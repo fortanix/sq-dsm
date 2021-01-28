@@ -205,9 +205,9 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
     Ok(())
 }
 
-struct VHelper {
+struct VHelper<'a> {
     #[allow(dead_code)]
-    config: Config,
+    config: Config<'a>,
     signatures: usize,
     certs: Option<Vec<Cert>>,
     labels: HashMap<KeyID, String>,
@@ -220,12 +220,12 @@ struct VHelper {
     broken_signatures: usize,
 }
 
-impl VHelper {
-    fn new(config: Config, signatures: usize,
+impl<'a> VHelper<'a> {
+    fn new(config: &Config<'a>, signatures: usize,
            certs: Vec<Cert>)
            -> Self {
         VHelper {
-            config,
+            config: config.clone(),
             signatures: signatures,
             certs: Some(certs),
             labels: HashMap::new(),
@@ -331,7 +331,7 @@ impl VHelper {
     }
 }
 
-impl VerificationHelper for VHelper {
+impl<'a> VerificationHelper for VHelper<'a> {
     fn get_certs(&mut self, _ids: &[openpgp::KeyHandle]) -> Result<Vec<Cert>> {
         let certs = self.certs.take().unwrap();
         // Get all keys.
@@ -373,21 +373,21 @@ impl VerificationHelper for VHelper {
     }
 }
 
-pub fn verify(config: Config, policy: &dyn Policy,
+pub fn verify(config: Config,
               input: &mut (dyn io::Read + Sync + Send),
               detached: Option<&mut (dyn io::Read + Sync + Send)>,
               output: &mut dyn io::Write,
               signatures: usize, certs: Vec<Cert>)
               -> Result<()> {
-    let helper = VHelper::new(config, signatures, certs);
+    let helper = VHelper::new(&config, signatures, certs);
     let helper = if let Some(dsig) = detached {
         let mut v = DetachedVerifierBuilder::from_reader(dsig)?
-            .with_policy(policy, None, helper)?;
+            .with_policy(&config.policy, None, helper)?;
         v.verify_reader(input)?;
         v.into_helper()
     } else {
         let mut v = VerifierBuilder::from_reader(input)?
-            .with_policy(policy, None, helper)?;
+            .with_policy(&config.policy, None, helper)?;
         io::copy(&mut v, output)?;
         v.into_helper()
     };

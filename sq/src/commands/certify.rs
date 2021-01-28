@@ -6,7 +6,6 @@ use openpgp::cert::prelude::*;
 use openpgp::packet::prelude::*;
 use openpgp::packet::signature::subpacket::NotationDataFlags;
 use openpgp::parse::Parse;
-use openpgp::policy::Policy;
 use openpgp::serialize::Serialize;
 use openpgp::types::SignatureType;
 
@@ -14,7 +13,7 @@ use crate::Config;
 use crate::parse_duration;
 use crate::SECONDS_IN_YEAR;
 
-pub fn certify(config: Config, p: &impl Policy, m: &clap::ArgMatches)
+pub fn certify(config: Config, m: &clap::ArgMatches)
     -> Result<()>
 {
     let certifier = m.value_of("certifier").unwrap();
@@ -23,7 +22,7 @@ pub fn certify(config: Config, p: &impl Policy, m: &clap::ArgMatches)
 
     let certifier = Cert::from_file(certifier)?;
     let cert = Cert::from_file(cert)?;
-    let vc = cert.with_policy(p, None)?;
+    let vc = cert.with_policy(&config.policy, None)?;
 
     let trust_depth: u8 = m.value_of("depth")
         .map(|s| s.parse()).unwrap_or(Ok(0))?;

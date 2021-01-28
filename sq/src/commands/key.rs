@@ -194,7 +194,7 @@ pub fn generate(m: &ArgMatches, force: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn adopt(config: Config, m: &ArgMatches, p: &dyn Policy) -> Result<()> {
+pub fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
     let input = open_or_stdin(m.value_of("certificate"))?;
     let cert = Cert::from_reader(input)?;
     let mut wanted: Vec<(KeyHandle,
@@ -213,11 +213,12 @@ pub fn adopt(config: Config, m: &ArgMatches, p: &dyn Policy) -> Result<()> {
     }
 
     let null_policy = &crate::openpgp::policy::NullPolicy::new();
-    let adoptee_policy = if m.values_of("allow-broken-crypto").is_some() {
-        null_policy
-    } else {
-        p
-    };
+    let adoptee_policy: &dyn Policy =
+        if m.values_of("allow-broken-crypto").is_some() {
+            null_policy
+        } else {
+            &config.policy
+        };
 
     // Find the corresponding keys.
     for keyring in m.values_of("keyring").unwrap_or_default() {
@@ -365,7 +366,7 @@ pub fn adopt(config: Config, m: &ArgMatches, p: &dyn Policy) -> Result<()> {
     cert.as_tsk().serialize(&mut message)?;
     message.finalize()?;
 
-    let vc = cert.with_policy(p, None).expect("still valid");
+    let vc = cert.with_policy(&config.policy, None).expect("still valid");
     for pair in packets[..].chunks(2) {
         let newkey: &Key<key::PublicParts, key::UnspecifiedRole> = match pair[0] {
             Packet::PublicKey(ref k) => k.into(),
@@ -396,7 +397,7 @@ pub fn adopt(config: Config, m: &ArgMatches, p: &dyn Policy) -> Result<()> {
     Ok(())
 }
 
-pub fn attest_certifications(config: Config, m: &ArgMatches, _p: &dyn Policy)
+pub fn attest_certifications(config: Config, m: &ArgMatches)
                              -> Result<()> {
     // XXX: This function has to do some steps manually, because
     // Sequoia does not expose this functionality because it has not

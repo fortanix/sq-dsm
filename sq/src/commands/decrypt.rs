@@ -18,7 +18,6 @@ use crate::openpgp::parse::{
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
-use crate::openpgp::policy::Policy;
 
 use crate::{
     Config,
@@ -28,8 +27,8 @@ use crate::{
     },
 };
 
-struct Helper {
-    vhelper: VHelper,
+struct Helper<'a> {
+    vhelper: VHelper<'a>,
     secret_keys:
         HashMap<KeyID, Key<key::SecretParts, key::UnspecifiedRole>>,
     key_identities: HashMap<KeyID, Fingerprint>,
@@ -38,17 +37,17 @@ struct Helper {
     dumper: Option<PacketDumper>,
 }
 
-impl Helper {
-    fn new<'a>(config: Config, policy: &'a dyn Policy,
-               signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
-               dump_session_key: bool, dump: bool)
-               -> Self
+impl<'a> Helper<'a> {
+    fn new(config: &Config<'a>,
+           signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
+           dump_session_key: bool, dump: bool)
+           -> Self
     {
         let mut keys = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
         for tsk in secrets {
-            let hint = match tsk.with_policy(policy, None)
+            let hint = match tsk.with_policy(&config.policy, None)
                 .and_then(|valid_cert| valid_cert.primary_userid()).ok()
             {
                 Some(uid) => format!("{} ({})", uid.userid(),
@@ -58,7 +57,7 @@ impl Helper {
 
             for ka in tsk.keys()
             // XXX: Should use the message's creation time that we do not know.
-                .with_policy(policy, None)
+                .with_policy(&config.policy, None)
                 .for_transport_encryption().for_storage_encryption()
                 .secret()
             {
@@ -111,7 +110,7 @@ impl Helper {
     }
 }
 
-impl VerificationHelper for Helper {
+impl<'a> VerificationHelper for Helper<'a> {
     fn inspect(&mut self, pp: &PacketParser) -> Result<()> {
         if let Some(dumper) = self.dumper.as_mut() {
             dumper.packet(&mut io::stderr(),
@@ -130,7 +129,7 @@ impl VerificationHelper for Helper {
     }
 }
 
-impl DecryptionHelper for Helper {
+impl<'a> DecryptionHelper for Helper<'a> {
     fn decrypt<D>(&mut self, pkesks: &[PKESK], skesks: &[SKESK],
                   sym_algo: Option<SymmetricAlgorithm>,
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
@@ -276,18 +275,18 @@ impl DecryptionHelper for Helper {
     }
 }
 
-pub fn decrypt(config: Config, policy: &dyn Policy,
+pub fn decrypt(config: Config,
                input: &mut (dyn io::Read + Sync + Send),
                output: &mut dyn io::Write,
                signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
                dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
-    let helper = Helper::new(config, policy, signatures, certs, secrets,
+    let helper = Helper::new(&config, signatures, certs, secrets,
                              dump_session_key, dump || hex);
     let mut decryptor = DecryptorBuilder::from_reader(input)?
         .mapping(hex)
-        .with_policy(policy, None, helper)
+        .with_policy(&config.policy, None, helper)
         .context("Decryption failed")?;
 
     io::copy(&mut decryptor, output).context("Decryption failed")?;
@@ -300,13 +299,13 @@ pub fn decrypt(config: Config, policy: &dyn Policy,
     return Ok(());
 }
 
-pub fn decrypt_unwrap(config: Config, policy: &dyn Policy,
+pub fn decrypt_unwrap(config: Config,
                       input: &mut (dyn io::Read + Sync + Send),
                       output: &mut dyn io::Write,
                       secrets: Vec<Cert>, dump_session_key: bool)
                       -> Result<()>
 {
-    let mut helper = Helper::new(config, policy, 0, Vec::new(), secrets,
+    let mut helper = Helper::new(&config, 0, Vec::new(), secrets,
                                  dump_session_key, false);
 
     let mut ppr = PacketParser::from_reader(input)?;

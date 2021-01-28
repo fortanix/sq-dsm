@@ -328,9 +328,10 @@ fn help_warning(arg: &str) {
     }
 }
 
-#[allow(dead_code)]
-pub struct Config {
+#[derive(Clone)]
+pub struct Config<'a> {
     force: bool,
+    policy: P<'a>,
 }
 
 fn main() -> Result<()> {
@@ -357,6 +358,7 @@ fn main() -> Result<()> {
 
     let config = Config {
         force,
+        policy: policy.clone(),
     };
 
     match matches.subcommand() {
@@ -371,7 +373,7 @@ fn main() -> Result<()> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;
-            commands::decrypt(config, policy,
+            commands::decrypt(config,
                               &mut input, &mut output,
                               signatures, certs, secrets,
                               m.is_present("dump-session-key"),
@@ -478,7 +480,7 @@ fn main() -> Result<()> {
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
-            commands::verify(config, policy, &mut input,
+            commands::verify(config, &mut input,
                              detached.as_mut().map(|r| r as &mut (dyn io::Read + Sync + Send)),
                              &mut output, signatures, certs)?;
         },
@@ -613,7 +615,7 @@ fn main() -> Result<()> {
                     .map(load_keys)
                     .unwrap_or(Ok(vec![]))?;
                 commands::decrypt::decrypt_unwrap(
-                    config, policy,
+                    config,
                     &mut input, &mut output,
                     secrets, m.is_present("dump-session-key"))?;
                 output.finalize()?;
@@ -647,9 +649,9 @@ fn main() -> Result<()> {
 
         ("key", Some(m)) => match m.subcommand() {
             ("generate", Some(m)) => commands::key::generate(m, force)?,
-            ("adopt", Some(m)) => commands::key::adopt(config, m, policy)?,
+            ("adopt", Some(m)) => commands::key::adopt(config, m)?,
             ("attest-certifications", Some(m)) =>
-                commands::key::attest_certifications(config, m, policy)?,
+                commands::key::attest_certifications(config, m)?,
             _ => unreachable!(),
         },
 
@@ -657,7 +659,7 @@ fn main() -> Result<()> {
         ("wkd",  Some(m)) => commands::net::dispatch_wkd(config, m)?,
 
         ("certify",  Some(m)) => {
-            commands::certify::certify(config, policy, m)?;
+            commands::certify::certify(config, m)?;
         },
 
         _ => unreachable!(),
