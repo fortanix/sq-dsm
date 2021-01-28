@@ -5220,7 +5220,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                       .set_trust_signature(255, 120)
                       .unwrap();
 
-            // Have alice cerify the binding "bob@bar.com" and bob's key.
+            // Have alice certify the binding "bob@bar.com" and bob's key.
             let mut alice_certifies_bob
                 = bob_userid_binding.userid().bind(
                     &mut alice.primary_key().key().clone().parts_into_secret()
