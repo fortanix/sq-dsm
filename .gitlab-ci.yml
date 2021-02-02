@@ -34,21 +34,6 @@ build-bullseye:
     RUSTFLAGS: -D warnings -A unused-parens
   after_script: []
 
-valgrind:
-  tags:
-    - linux
-  stage: build
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
-  dependencies:
-    - codespell
-  script:
-    - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind cargo test -p sequoia-openpgp-ffi
-  variables:
-    CARGO_TARGET_DIR: /target
-    CARGO_HOME: /cargo
-    RUSTFLAGS: -D warnings -A unused-parens
-  after_script: []
-
 bullseye:
   tags:
     - linux
@@ -57,7 +42,7 @@ bullseye:
   dependencies:
     - codespell
   script:
-    - cargo test --all --exclude sequoia-openpgp-ffi
+    - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
   variables:
     CARGO_TARGET_DIR: /target
     CARGO_HOME: /cargo
@@ -98,7 +83,7 @@ rust-stable:
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild:latest
   script:
-    - cargo test -p buffered-reader -p sequoia-openpgp -p sequoia-sqv
+    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" make test
   variables:
     CARGO_TARGET_DIR: /target
     CARGO_HOME: /cargo
