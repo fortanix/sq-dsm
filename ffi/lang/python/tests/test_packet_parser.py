@@ -1,13 +1,12 @@
 from enum import Enum
-from sequoia.core import Context, NetworkPolicy
+from sequoia.core import Context
 from sequoia.openpgp import Tag, PacketParser
 
 pgp = "../../../openpgp/tests/data/messages/encrypted-aes128-password-123456789.gpg"
 plain = "../../../openpgp/tests/data/messages/a-cypherpunks-manifesto.txt"
 
 def test_decryption():
-    ctx = Context(network_policy=NetworkPolicy.Offline,
-                  ephemeral=True)
+    ctx = Context(ephemeral=True)
 
     class State(Enum):
         # XXX: In Python 3.6, we can use enum.auto() to assign values.

@@ -2,13 +2,12 @@ import os
 from os.path import join
 from tempfile import TemporaryDirectory
 
-from sequoia.core import Context, NetworkPolicy, Reader, Writer
+from sequoia.core import Context, Reader, Writer
 from sequoia.openpgp import ArmorReader, ArmorWriter, Kind
 
 TEST_VECTORS = [0, 1, 2, 3, 47, 48, 49, 50, 51]
 
-ctx = Context(network_policy=NetworkPolicy.Offline,
-              ephemeral=True)
+ctx = Context(ephemeral=True)
 
 def fn_bin(t):
     return "../../../openpgp/tests/data/armor/test-{}.bin".format(t)

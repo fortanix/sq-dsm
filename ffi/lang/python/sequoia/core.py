@@ -5,12 +5,6 @@ from _sequoia import ffi, lib
 from .error import Error
 from .glue import SQObject, invoke
 
-class NetworkPolicy(Enum):
-    Offline = lib.SQ_NETWORK_POLICY_OFFLINE
-    Anonymized = lib.SQ_NETWORK_POLICY_ANONYMIZED
-    Encrypted = lib.SQ_NETWORK_POLICY_ENCRYPTED
-    Insecure = lib.SQ_NETWORK_POLICY_INSECURE
-
 class IPCPolicy(Enum):
     External = lib.SQ_IPC_POLICY_EXTERNAL
     Internal = lib.SQ_IPC_POLICY_INTERNAL
@@ -20,13 +14,11 @@ class Context(SQObject):
     _del = lib.sq_context_free
     def __init__(self,
                  home=None,
-                 network_policy=NetworkPolicy.Encrypted,
                  ipc_policy=IPCPolicy.Robust,
                  ephemeral=False):
         cfg = lib.sq_context_configure()
         if home:
             lib.sq_config_home(cfg, home.encode())
-        lib.sq_config_network_policy(cfg, network_policy.value)
         lib.sq_config_ipc_policy(cfg, ipc_policy.value)
         if ephemeral:
             lib.sq_config_ephemeral(cfg)
