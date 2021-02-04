@@ -233,7 +233,7 @@ impl CertBuilder<'_> {
     /// Generates a general-purpose certificate.
     ///
     /// The returned builder is set to generate a certificate with a
-    /// certification-capable primary key, a signing-capable subkye,
+    /// certification-capable primary key, a signing-capable subkey,
     /// and an encryption-capable subkey.  The encryption subkey is
     /// marked as being appropriate for both data in transit and data
     /// at rest.
