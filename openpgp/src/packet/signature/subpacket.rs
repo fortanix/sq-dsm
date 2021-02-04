@@ -6119,7 +6119,7 @@ impl signature::SignatureBuilder {
     {
         self.hashed_area.replace(Subpacket::new(
             SubpacketValue::SignersUserID(uid.as_ref().to_vec()),
-            true)?)?;
+            false)?)?;
 
         Ok(self)
     }
