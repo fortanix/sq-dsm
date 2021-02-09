@@ -1481,20 +1481,18 @@ impl<'a> DetachedVerifierBuilder<'a> {
     /// #   }
     /// }
     ///
-    /// let message =
+    /// let signature =
     ///     // ...
-    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #  b"-----BEGIN PGP SIGNATURE-----
     /// #
-    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
-    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
-    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
-    /// #    YmAFv/UfO0vYBw==
-    /// #    =+l94
-    /// #    -----END PGP MESSAGE-----
-    /// #    "[..];
+    /// #    wnUEABYKACcFglt+z/EWoQSOjDP6RiYzeXbZeXgGnAw0jdgsGQmQBpwMNI3YLBkA
+    /// #    AHmUAP9mpj2wV0/ekDuzxZrPQ0bnobFVaxZGg7YzdlksSOERrwEA6v6czXQjKcv2
+    /// #    KOwGTamb+ajTLQ3YRG9lh+ZYIXynvwE=
+    /// #    =IJ29
+    /// #    -----END PGP SIGNATURE-----";
     ///
     /// let h = Helper {};
-    /// let mut v = DetachedVerifierBuilder::from_bytes(message)?
+    /// let mut v = DetachedVerifierBuilder::from_bytes(&signature[..])?
     ///     .mapping(true)
     ///     .with_policy(p, None, h)?;
     /// # let _ = v;
@@ -1541,20 +1539,18 @@ impl<'a> DetachedVerifierBuilder<'a> {
     /// #   }
     /// }
     ///
-    /// let message =
+    /// let signature =
     ///     // ...
-    /// # &b"-----BEGIN PGP MESSAGE-----
+    /// #  b"-----BEGIN PGP SIGNATURE-----
     /// #
-    /// #    xA0DAAoW+zdR8Vh9rvEByxJiAAAAAABIZWxsbyBXb3JsZCHCdQQAFgoABgWCXrLl
-    /// #    AQAhCRD7N1HxWH2u8RYhBDnRAKtn1b2MBAECBfs3UfFYfa7xRUsBAJaxkU/RCstf
-    /// #    UD7TM30IorO1Mb9cDa/hPRxyzipulT55AQDN1m9LMqi9yJDjHNHwYYVwxDcg+pLY
-    /// #    YmAFv/UfO0vYBw==
-    /// #    =+l94
-    /// #    -----END PGP MESSAGE-----
-    /// #    "[..];
+    /// #    wnUEABYKACcFglt+z/EWoQSOjDP6RiYzeXbZeXgGnAw0jdgsGQmQBpwMNI3YLBkA
+    /// #    AHmUAP9mpj2wV0/ekDuzxZrPQ0bnobFVaxZGg7YzdlksSOERrwEA6v6czXQjKcv2
+    /// #    KOwGTamb+ajTLQ3YRG9lh+ZYIXynvwE=
+    /// #    =IJ29
+    /// #    -----END PGP SIGNATURE-----";
     ///
     /// let h = Helper {};
-    /// let mut v = DetachedVerifierBuilder::from_bytes(message)?
+    /// let mut v = DetachedVerifierBuilder::from_bytes(&signature[..])?
     ///     // Customize the `DetachedVerifier` here.
     ///     .with_policy(p, None, h)?;
     /// # let _ = v;
@@ -2332,7 +2328,13 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             // When verifying detached signatures, we parse only the
             // signatures here, which on their own are not a valid
             // message.
-            if v.mode != Mode::VerifyDetached {
+            if v.mode == Mode::VerifyDetached {
+                if pp.packet.tag() != packet::Tag::Signature {
+                    return Err(Error::MalformedMessage(
+                        format!("Expected signature, got {}", pp.packet.tag()))
+                               .into());
+                }
+            } else {
                 if let Err(err) = pp.possible_message() {
                     t!("Malformed message: {}", err);
                     return Err(err.context("Malformed OpenPGP message").into());
