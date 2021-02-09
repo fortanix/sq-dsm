@@ -5,7 +5,7 @@ use openpgp::packet::prelude::*;
 use openpgp::packet::{PKESK, SKESK};
 use openpgp::parse::stream::{
     DecryptionHelper, DecryptorBuilder, MessageLayer, MessageStructure,
-    VerificationHelper, VerificationError
+    VerificationError, VerificationHelper,
 };
 use openpgp::parse::Parse;
 use openpgp::policy::StandardPolicy;
@@ -141,15 +141,15 @@ impl DecryptionHelper for CertHelper<'_> {
     {
         let p = &StandardPolicy::new();
 
-        let cand_secret_keys: Vec<Key<key::SecretParts, key::UnspecifiedRole>> = self
-            .recipient
-            .keys()
-            .with_policy(p, None)
-            .for_transport_encryption()
-            .for_storage_encryption()
-            .secret()
-            .map(|amalgamation| amalgamation.key().clone().into())
-            .collect();
+        let cand_secret_keys: Vec<Key<key::SecretParts, key::UnspecifiedRole>> =
+            self.recipient
+                .keys()
+                .with_policy(p, None)
+                .for_transport_encryption()
+                .for_storage_encryption()
+                .secret()
+                .map(|amalgamation| amalgamation.key().clone().into())
+                .collect();
 
         // check that pkesk has right recipient
         // if yes, use decrypt function

@@ -108,3 +108,7 @@ harness = false
 [[bench]]
 name = "decrypt_verify_message"
 harness = false
+
+[[bench]]
+name = "sign_message"
+harness = false

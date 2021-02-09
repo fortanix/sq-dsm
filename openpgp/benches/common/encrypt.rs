@@ -69,6 +69,32 @@ pub fn encrypt_to_cert_and_sign(
     Ok(sink)
 }
 
+// naively sign, without caring for revocation or expiration
+pub fn sign(bytes: &[u8], sender: &Cert) -> openpgp::Result<Vec<u8>> {
+    let mut sink = vec![];
+
+    let p = &StandardPolicy::new();
+    let signing_keypair = sender
+        .keys()
+        .with_policy(p, None)
+        .secret()
+        .for_signing()
+        .nth(0)
+        .unwrap()
+        .key()
+        .clone()
+        .into_keypair()?;
+
+    let message = Message::new(&mut sink);
+    let message = Armorer::new(message).build()?;
+    let message = Padder::new(message).build()?;
+    let message = Signer::new(message, signing_keypair).build()?;
+    let mut w = LiteralWriter::new(message).build()?;
+    w.write_all(bytes)?;
+    w.finalize()?;
+    Ok(sink)
+}
+
 pub fn encrypt_with_password(
     bytes: &[u8],
     password: &str,
