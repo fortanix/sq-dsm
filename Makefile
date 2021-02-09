@@ -73,8 +73,8 @@ test check:
 	then \
 		echo 'WARNING: Not running other tests, because $$CARGO_PACKAGES specifies a package.'; \
 	else \
-		$(MAKE) -Copenpgp-ffi test; \
-		$(MAKE) -Cffi test; \
+		$(MAKE) -Copenpgp-ffi test && \
+		$(MAKE) -Cffi test && \
 		$(MAKE) examples; \
 	fi
 
