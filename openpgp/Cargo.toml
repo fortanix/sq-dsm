@@ -100,3 +100,11 @@ harness = false
 [[bench]]
 name = "decrypt_message"
 harness = false
+
+[[bench]]
+name = "encrypt_sign_message"
+harness = false
+
+[[bench]]
+name = "decrypt_verify_message"
+harness = false

@@ -2,8 +2,9 @@ use criterion::{
     criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
 };
 
-use sequoia_openpgp::cert::Cert;
-use sequoia_openpgp::parse::Parse;
+use sequoia_openpgp as openpgp;
+use openpgp::cert::Cert;
+use openpgp::parse::Parse;
 
 mod common;
 use common::decrypt;
