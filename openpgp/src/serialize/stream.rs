@@ -639,7 +639,7 @@ pub struct Signer<'a> {
     inner: Option<writer::BoxStack<'a, Cookie>>,
     signers: Vec<Box<dyn crypto::Signer + Send + Sync + 'a>>,
     intended_recipients: Vec<Fingerprint>,
-    detached: bool,
+    mode: SignatureMode,
     template: signature::SignatureBuilder,
     creation_time: Option<SystemTime>,
     hash: Box<dyn crypto::hash::Digest>,
@@ -647,6 +647,12 @@ pub struct Signer<'a> {
     position: u64,
 }
 assert_send_and_sync!(Signer<'_>);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SignatureMode {
+    Inline,
+    Detached,
+}
 
 impl<'a> Signer<'a> {
     /// Creates a signer.
@@ -803,7 +809,7 @@ impl<'a> Signer<'a> {
             inner: Some(inner),
             signers: vec![Box::new(signer)],
             intended_recipients: Vec::new(),
-            detached: false,
+            mode: SignatureMode::Inline,
             template: template.into(),
             creation_time: None,
             hash: HashAlgorithm::default().context().unwrap(),
@@ -887,7 +893,7 @@ impl<'a> Signer<'a> {
     /// # Ok(()) }
     /// ```
     pub fn detached(mut self) -> Self {
-        self.detached = true;
+        self.mode = SignatureMode::Detached;
         self
     }
 
@@ -1123,19 +1129,22 @@ impl<'a> Signer<'a> {
         assert!(self.signers.len() > 0, "The constructor adds a signer.");
         assert!(self.inner.is_some(), "The constructor adds an inner writer.");
 
-        if ! self.detached {
-            // For every key we collected, build and emit a one pass
-            // signature packet.
-            for (i, keypair) in self.signers.iter().enumerate() {
-                let key = keypair.public();
-                let mut ops = OnePassSig3::new(self.template.typ());
-                ops.set_pk_algo(key.pk_algo());
-                ops.set_hash_algo(self.hash.algo());
-                ops.set_issuer(key.keyid());
-                ops.set_last(i == self.signers.len() - 1);
-                Packet::OnePassSig(ops.into())
-                    .serialize(self.inner.as_mut().unwrap())?;
-            }
+        match self.mode {
+            SignatureMode::Inline => {
+                // For every key we collected, build and emit a one pass
+                // signature packet.
+                for (i, keypair) in self.signers.iter().enumerate() {
+                    let key = keypair.public();
+                    let mut ops = OnePassSig3::new(self.template.typ());
+                    ops.set_pk_algo(key.pk_algo());
+                    ops.set_hash_algo(self.hash.algo());
+                    ops.set_issuer(key.keyid());
+                    ops.set_last(i == self.signers.len() - 1);
+                    Packet::OnePassSig(ops.into())
+                        .serialize(self.inner.as_mut().unwrap())?;
+                }
+            },
+            SignatureMode::Detached => (), // Do nothing.
         }
 
         Ok(Message::from(Box::new(self)))
@@ -1178,22 +1187,24 @@ impl<'a> fmt::Debug for Signer<'a> {
         f.debug_struct("Signer")
             .field("inner", &self.inner)
             .field("cookie", &self.cookie)
+            .field("mode", &self.mode)
             .finish()
     }
 }
 
 impl<'a> Write for Signer<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let written = match self.inner.as_mut() {
+        use SignatureMode::*;
+        let written = match (self.inner.as_mut(), self.mode) {
             // If we are creating a normal signature, pass data
             // through.
-            Some(ref mut w) if ! self.detached => w.write(buf),
+            (Some(ref mut w), Inline) => w.write(buf),
             // If we are creating a detached signature, just hash all
             // bytes.
-            Some(_) => Ok(buf.len()),
+            (Some(_), Detached) => Ok(buf.len()),
             // When we are popped off the stack, we have no inner
             // writer.  Just hash all bytes.
-            None => Ok(buf.len()),
+            (None, _) => Ok(buf.len()),
         };
 
         if let Ok(amount) = written {
