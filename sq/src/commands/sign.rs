@@ -21,6 +21,7 @@ use crate::openpgp::serialize::stream::{
 use crate::openpgp::policy::Policy;
 use crate::openpgp::types::SignatureType;
 use crate::{
+    Config,
     create_or_stdout,
     create_or_stdout_pgp,
 };
@@ -373,6 +374,51 @@ fn sign_message_(policy: &dyn Policy,
         State::Done => (),
         _ => panic!("Unexpected state: {:?}", state),
     }
+
+    Ok(())
+}
+
+pub fn clearsign(config: Config,
+                 mut input: impl io::Read + Sync + Send,
+                 mut output: impl io::Write + Sync + Send,
+                 secrets: Vec<openpgp::Cert>,
+                 time: Option<SystemTime>,
+                 notations: &[(bool, NotationData)])
+                 -> Result<()>
+{
+    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
+    if keypairs.is_empty() {
+        return Err(anyhow::anyhow!("No signing keys found"));
+    }
+
+    // Prepare a signature template.
+    let mut builder = SignatureBuilder::new(SignatureType::Text);
+    for (critical, n) in notations.iter() {
+        builder = builder.add_notation(
+            n.name(),
+            n.value(),
+            Some(n.flags().clone()),
+            *critical)?;
+    }
+
+    let message = Message::new(&mut output);
+    let mut signer = Signer::with_template(
+        message, keypairs.pop().unwrap(), builder)
+        .cleartext();
+    if let Some(time) = time {
+        signer = signer.creation_time(time);
+    }
+    for s in keypairs {
+        signer = signer.add_signer(s);
+    }
+    let mut message = signer.build().context("Failed to create signer")?;
+
+    // Finally, copy stdin to our writer stack to sign the data.
+    io::copy(&mut input, &mut message)
+        .context("Failed to sign")?;
+
+    message.finalize()
+        .context("Failed to sign")?;
 
     Ok(())
 }

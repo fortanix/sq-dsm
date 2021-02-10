@@ -39,7 +39,7 @@ use crate::{
 pub mod autocrypt;
 pub mod decrypt;
 pub use self::decrypt::decrypt;
-mod sign;
+pub mod sign;
 pub use self::sign::sign;
 pub mod dump;
 pub use self::dump::dump;

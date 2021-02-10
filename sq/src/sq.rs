@@ -451,35 +451,39 @@ fn main() -> Result<()> {
             } else {
                 None
             };
+            // Each --notation takes two values.  The iterator
+            // returns them one at a time, however.
+            let mut notations: Vec<(bool, NotationData)> = Vec::new();
+            if let Some(mut n) = m.values_of("notation") {
+                while let Some(name) = n.next() {
+                    let value = n.next().unwrap();
+
+                    let (critical, name) = if name.len() > 0
+                        && Some('!') == name.chars().next()
+                    {
+                        (true, &name[1..])
+                    } else {
+                        (false, name)
+                    };
+
+                    notations.push(
+                        (critical,
+                         NotationData::new(
+                             name, value,
+                             NotationDataFlags::empty().set_human_readable())));
+                }
+            }
+
             if let Some(merge) = m.value_of("merge") {
                 let output = create_or_stdout_pgp(output, force, binary,
                                                   armor::Kind::Message)?;
                 let mut input2 = open_or_stdin(Some(merge))?;
                 commands::merge_signatures(&mut input, &mut input2, output)?;
+            } else if m.is_present("clearsign") {
+                let output = create_or_stdout(output, force)?;
+                commands::sign::clearsign(config, input, output, secrets,
+                                          time, &notations)?;
             } else {
-                // Each --notation takes two values.  The iterator
-                // returns them one at a time, however.
-                let mut notations: Vec<(bool, NotationData)> = Vec::new();
-                if let Some(mut n) = m.values_of("notation") {
-                    while let Some(name) = n.next() {
-                        let value = n.next().unwrap();
-
-                        let (critical, name) = if name.len() > 0
-                            && Some('!') == name.chars().next()
-                        {
-                            (true, &name[1..])
-                        } else {
-                            (false, name)
-                        };
-
-                        notations.push(
-                            (critical,
-                             NotationData::new(
-                                 name, value,
-                                 NotationDataFlags::empty().set_human_readable())));
-                    }
-                }
-
                 commands::sign(policy, &mut input, output, secrets, detached,
                                binary, append, notarize, time, &notations, force)?;
             }

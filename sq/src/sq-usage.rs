@@ -201,6 +201,9 @@
 //!     -B, --binary
 //!             Emits binary data
 //!
+//!         --cleartext-signature
+//!             Creates a cleartext signature
+//!
 //!         --detached
 //!             Creates a detached signature
 //!

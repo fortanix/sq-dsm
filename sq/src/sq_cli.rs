@@ -233,6 +233,15 @@ $ sq sign --detached --signer-key juliet.pgp message.txt
                     .arg(Arg::with_name("detached")
                          .long("detached")
                          .help("Creates a detached signature"))
+                    .arg(Arg::with_name("clearsign")
+                         .long("cleartext-signature")
+                         .conflicts_with_all(&[
+                             "detached",
+                             "append",
+                             "notarize",
+                             "binary",
+                         ])
+                         .help("Creates a cleartext signature"))
                     .arg(Arg::with_name("append")
                          .short("a").long("append")
                          .conflicts_with("notarize")
@@ -246,6 +255,7 @@ $ sq sign --detached --signer-key juliet.pgp message.txt
                          .conflicts_with_all(&[
                              "append",
                              "detached",
+                             "clearsign",
                              "notarize",
                              "secret-key-file",
                              "time",
