@@ -1017,19 +1017,19 @@ impl FromStr for HashAlgorithm {
     type Err = ();
 
     fn from_str(s: &str) -> result::Result<Self, ()> {
-        if s == "MD5" {
+        if s.eq_ignore_ascii_case("MD5") {
             Ok(HashAlgorithm::MD5)
-        } else if s == "SHA1" {
+        } else if s.eq_ignore_ascii_case("SHA1") {
             Ok(HashAlgorithm::SHA1)
-        } else if s == "RipeMD160" {
+        } else if s.eq_ignore_ascii_case("RipeMD160") {
             Ok(HashAlgorithm::RipeMD)
-        } else if s == "SHA256" {
+        } else if s.eq_ignore_ascii_case("SHA256") {
             Ok(HashAlgorithm::SHA256)
-        } else if s == "SHA384" {
+        } else if s.eq_ignore_ascii_case("SHA384") {
             Ok(HashAlgorithm::SHA384)
-        } else if s == "SHA512" {
+        } else if s.eq_ignore_ascii_case("SHA512") {
             Ok(HashAlgorithm::SHA512)
-        } else if s == "SHA224" {
+        } else if s.eq_ignore_ascii_case("SHA224") {
             Ok(HashAlgorithm::SHA224)
         } else {
             Err(())
