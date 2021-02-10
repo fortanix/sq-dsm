@@ -1055,6 +1055,42 @@ impl fmt::Display for HashAlgorithm {
     }
 }
 
+impl HashAlgorithm {
+    /// Returns the text name of this algorithm.
+    ///
+    /// [Section 9.4 of RFC 4880] defines a textual representation of
+    /// hash algorithms.  This is used in cleartext signed messages
+    /// (see [Section 7 of RFC 4880]).
+    ///
+    ///   [Section 9.4 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-9.4
+    ///   [Section 7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::types::HashAlgorithm;
+    /// # fn main() -> openpgp::Result<()> {
+    /// assert_eq!(HashAlgorithm::RipeMD.text_name()?, "RIPEMD160");
+    /// # Ok(()) }
+    /// ```
+    pub fn text_name(&self) -> Result<&str> {
+        match self {
+            HashAlgorithm::MD5 =>    Ok("MD5"),
+            HashAlgorithm::SHA1 =>   Ok("SHA1"),
+            HashAlgorithm::RipeMD => Ok("RIPEMD160"),
+            HashAlgorithm::SHA256 => Ok("SHA256"),
+            HashAlgorithm::SHA384 => Ok("SHA384"),
+            HashAlgorithm::SHA512 => Ok("SHA512"),
+            HashAlgorithm::SHA224 => Ok("SHA224"),
+            HashAlgorithm::Private(_) =>
+                Err(Error::UnsupportedHashAlgorithm(*self).into()),
+            HashAlgorithm::Unknown(_) =>
+                Err(Error::UnsupportedHashAlgorithm(*self).into()),
+        }
+    }
+}
+
 #[cfg(test)]
 impl Arbitrary for HashAlgorithm {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
@@ -1822,6 +1858,18 @@ mod tests {
                 hash => {
                     let s = format!("{}", hash);
                     hash == HashAlgorithm::from_str(&s).unwrap()
+                }
+            }
+        }
+    }
+
+    quickcheck! {
+        fn hash_roundtrip_text_name(hash: HashAlgorithm) -> bool {
+            match hash {
+                HashAlgorithm::Private(_) | HashAlgorithm::Unknown(_) => true,
+                hash => {
+                    let s = hash.text_name().unwrap();
+                    hash == HashAlgorithm::from_str(s).unwrap()
                 }
             }
         }
