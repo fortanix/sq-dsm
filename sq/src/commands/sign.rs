@@ -119,11 +119,11 @@ fn sign_data(policy: &dyn Policy,
 
     let mut signer = Signer::with_template(
         message, keypairs.pop().unwrap(), builder);
+    if let Some(time) = time {
+        signer = signer.creation_time(time);
+    }
     for s in keypairs {
         signer = signer.add_signer(s);
-        if let Some(time) = time {
-            signer = signer.creation_time(time);
-        }
     }
     if detached {
         signer = signer.detached();
@@ -260,11 +260,11 @@ fn sign_message_(policy: &dyn Policy,
 
                 let mut signer = Signer::with_template(
                     sink, keypairs.pop().unwrap(), builder);
+                if let Some(time) = time {
+                    signer = signer.creation_time(time);
+                }
                 for s in keypairs.drain(..) {
                     signer = signer.add_signer(s);
-                    if let Some(time) = time {
-                        signer = signer.creation_time(time);
-                    }
                 }
                 sink = signer.build().context("Failed to create signer")?;
                 state = State::Signing { signature_count: 0, };
