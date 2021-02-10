@@ -1,13 +1,10 @@
-use criterion::{
-    criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{criterion_group, BenchmarkId, Criterion, Throughput};
 
 use sequoia_openpgp as openpgp;
 use openpgp::cert::Cert;
 use openpgp::parse::Parse;
 
-mod common;
-use common::{decrypt, encrypt};
+use crate::common::{decrypt, encrypt};
 
 lazy_static::lazy_static! {
     static ref SENDER: Cert =
@@ -45,4 +42,3 @@ fn bench_verify(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_verify);
-criterion_main!(benches);

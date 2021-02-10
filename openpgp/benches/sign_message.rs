@@ -6,8 +6,7 @@ use sequoia_openpgp as openpgp;
 use openpgp::cert::Cert;
 use openpgp::parse::Parse;
 
-mod common;
-use common::encrypt;
+use crate::common::encrypt;
 
 lazy_static::lazy_static! {
     static ref ZEROS_1_MB: Vec<u8> = vec![0; 1 * 1024 * 1024];

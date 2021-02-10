@@ -6,9 +6,7 @@ use sequoia_openpgp as openpgp;
 use openpgp::cert::Cert;
 use openpgp::parse::Parse;
 
-mod common;
-use common::decrypt;
-use common::encrypt;
+use crate::common::{decrypt, encrypt};
 
 lazy_static::lazy_static! {
     static ref SENDER: Cert =

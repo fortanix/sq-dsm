@@ -1,13 +1,10 @@
-use criterion::{
-    criterion_group, criterion_main, BenchmarkId, Criterion, Throughput,
-};
+use criterion::{criterion_group, BenchmarkId, Criterion, Throughput};
 
 use sequoia_openpgp as openpgp;
 use openpgp::cert::Cert;
 use openpgp::parse::Parse;
 
-mod common;
-use common::encrypt;
+use crate::common::encrypt;
 
 lazy_static::lazy_static! {
     static ref ZEROS_1_MB: Vec<u8> = vec![0; 1 * 1024 * 1024];
@@ -44,4 +41,3 @@ fn bench_encrypt_sign(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_encrypt_sign);
-criterion_main!(benches);

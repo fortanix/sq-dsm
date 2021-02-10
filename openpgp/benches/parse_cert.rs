@@ -1,6 +1,5 @@
 use criterion::{
-    criterion_group, criterion_main, BenchmarkGroup, BenchmarkId, Criterion,
-    Throughput,
+    criterion_group, BenchmarkGroup, BenchmarkId, Criterion, Throughput,
 };
 
 use sequoia_openpgp as openpgp;
@@ -103,4 +102,3 @@ fn bench_parse_certs(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_parse_certs, bench_parse_certs_generated);
-criterion_main!(benches);

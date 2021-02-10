@@ -6,9 +6,7 @@ use sequoia_openpgp as openpgp;
 use openpgp::cert::Cert;
 use openpgp::parse::Parse;
 
-mod common;
-use common::decrypt;
-use common::encrypt;
+use crate::common::{decrypt, encrypt};
 
 static PASSWORD: &'static str = "password";
 

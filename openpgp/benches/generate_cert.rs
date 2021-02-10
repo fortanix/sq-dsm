@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, Criterion};
 
 use sequoia_openpgp as openpgp;
 use openpgp::cert::{CertBuilder, CipherSuite};
@@ -35,4 +35,3 @@ fn bench_generate_certs(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_generate_certs);
-criterion_main!(benches);
