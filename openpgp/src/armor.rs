@@ -1190,25 +1190,8 @@ fn base64_size_test() {
     assert_eq!(base64_size(7), 12);
 }
 
-impl<'a> Read for IoReader<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        if ! self.initialized {
-            self.initialize()?;
-        }
-
-        if buf.len() == 0 {
-            // Short-circuit here.  Otherwise, we copy 0 bytes into
-            // the buffer, which means we decoded 0 bytes, and we
-            // wrongfully assume that we reached the end of the
-            // armored block.
-            return Ok(0);
-        }
-
-        if self.finalized {
-            assert_eq!(self.buffer.len(), 0);
-            return Ok(0);
-        }
-
+impl<'a> IoReader<'a> {
+    fn read_armored_data(&mut self, buf: &mut [u8]) -> Result<usize> {
         let (consumed, decoded) = if self.buffer.len() > 0 {
             // We have something buffered, use that.
 
@@ -1396,6 +1379,29 @@ impl<'a> Read for IoReader<'a> {
         }
 
         Ok(decoded)
+    }
+}
+
+impl<'a> Read for IoReader<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if ! self.initialized {
+            self.initialize()?;
+        }
+
+        if buf.len() == 0 {
+            // Short-circuit here.  Otherwise, we copy 0 bytes into
+            // the buffer, which means we decoded 0 bytes, and we
+            // wrongfully assume that we reached the end of the
+            // armored block.
+            return Ok(0);
+        }
+
+        if self.finalized {
+            assert_eq!(self.buffer.len(), 0);
+            return Ok(0);
+        }
+
+        self.read_armored_data(buf)
     }
 }
 
