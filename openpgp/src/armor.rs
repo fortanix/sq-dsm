@@ -854,6 +854,12 @@ impl<'a> IoReader<'a> {
             return Ok(());
         }
 
+        self.prefix = prefix;
+        self.read_headers()
+    }
+
+    /// Reads headers and finishes the initialization.
+    fn read_headers(&mut self) -> Result<()> {
         // We consumed the header above, but not any trailing
         // whitespace and the trailing new line.  We do that now.
         // Other data between the header and the new line are not
@@ -867,14 +873,15 @@ impl<'a> IoReader<'a> {
         };
         self.source.consume(n);
 
-        let next_prefix = &self.source.data_hard(prefix.len())?[..prefix.len()];
-        if prefix != next_prefix {
+        let next_prefix =
+            &self.source.data_hard(self.prefix.len())?[..self.prefix.len()];
+        if self.prefix != next_prefix {
             // If the next line doesn't start with the same prefix, we assume
             // it was garbage on the front and drop the prefix so long as it
             // was purely whitespace.  Any non-whitespace remains an error
             // while searching for the armor header if it's not repeated.
-            if prefix.iter().all(|b| (*b as char).is_ascii_whitespace()) {
-                crate::vec_truncate(&mut prefix, 0);
+            if self.prefix.iter().all(|b| (*b as char).is_ascii_whitespace()) {
+                crate::vec_truncate(&mut self.prefix, 0);
             } else {
                 // Nope, we have actually failed to read this properly
                 return Err(
@@ -897,7 +904,7 @@ impl<'a> IoReader<'a> {
             // the control flow wraps around, we need to make sure
             // that we buffer the prefix in addition to the line.
             self.source.consume(
-                prefix_len.take().unwrap_or_else(|| prefix.len()));
+                prefix_len.take().unwrap_or_else(|| self.prefix.len()));
 
             self.source.consume(n);
 
@@ -912,8 +919,9 @@ impl<'a> IoReader<'a> {
                 // Buffer the next line and the prefix that is going
                 // to be consumed in the next iteration.
                 let next_prefix =
-                    &self.source.data_hard(n + prefix.len())?[n..n + prefix.len()];
-                if prefix != next_prefix {
+                    &self.source.data_hard(n + self.prefix.len())?
+                        [n..n + self.prefix.len()];
+                if self.prefix != next_prefix {
                     return Err(
                         Error::new(ErrorKind::InvalidInput,
                                    "Inconsistent quoting of armored data"));
@@ -962,15 +970,16 @@ impl<'a> IoReader<'a> {
             // Buffer the next line and the prefix that is going to be
             // consumed in the next iteration.
             let next_prefix =
-                &self.source.data_hard(n + prefix.len())?[n..n + prefix.len()];
+                &self.source.data_hard(n + self.prefix.len())?
+                    [n..n + self.prefix.len()];
 
             // Sometimes, we find a truncated prefix.
-            let l = common_prefix(&prefix, next_prefix);
-            let full_prefix = l == prefix.len();
+            let l = common_prefix(&self.prefix, next_prefix);
+            let full_prefix = l == self.prefix.len();
             if ! (full_prefix
                   // Truncation is okay if the rest of the prefix
                   // contains only whitespace.
-                  || prefix[l..].iter().all(|c| c.is_ascii_whitespace()))
+                  || self.prefix[l..].iter().all(|c| c.is_ascii_whitespace()))
             {
                 return Err(
                     Error::new(ErrorKind::InvalidInput,
@@ -985,8 +994,7 @@ impl<'a> IoReader<'a> {
         self.source.consume(n);
 
         self.initialized = true;
-        self.prefix_remaining = prefix.len();
-        self.prefix = prefix;
+        self.prefix_remaining = self.prefix.len();
         Ok(())
     }
 }
