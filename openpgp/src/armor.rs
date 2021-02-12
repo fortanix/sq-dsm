@@ -994,27 +994,29 @@ fn common_prefix<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> usize {
     a.as_ref().iter().zip(b.as_ref().iter()).take_while(|(a, b)| a == b).count()
 }
 
-// Remove whitespace, etc. from the base64 data.
-//
-// This function returns the filtered base64 data (i.e., stripped of
-// all skipable data like whitespace), and the amount of unfiltered
-// data that corresponds to.  Thus, if we have the following 7 bytes:
-//
-//     ab  cde
-//     0123456
-//
-// This function returns ("abcd", 6), because the 'd' is the last
-// character in the last complete base64 chunk, and it is at offset 5.
-//
-// If 'd' is followed by whitespace, it is undefined whether that
-// whitespace is included in the count.
-//
-// This function only returns full chunks of base64 data.  As a
-// consequence, if base64_data_max is less than 4, then this will not
-// return any data.
-//
-// This function will stop after it sees base64 padding, and if it
-// sees invalid base64 data.
+/// Remove whitespace, etc. from the base64 data.
+///
+/// This function returns the filtered base64 data (i.e., stripped of
+/// all skipable data like whitespace), and the amount of unfiltered
+/// data that corresponds to.  Thus, if we have the following 7 bytes:
+///
+/// ```text
+///     ab  cde
+///     0123456
+/// ```
+///
+/// This function returns ("abcd", 6), because the 'd' is the last
+/// character in the last complete base64 chunk, and it is at offset 5.
+///
+/// If 'd' is followed by whitespace, it is undefined whether that
+/// whitespace is included in the count.
+///
+/// This function only returns full chunks of base64 data.  As a
+/// consequence, if base64_data_max is less than 4, then this will not
+/// return any data.
+///
+/// This function will stop after it sees base64 padding, and if it
+/// sees invalid base64 data.
 fn base64_filter(mut bytes: Cow<[u8]>, base64_data_max: usize,
                  mut prefix_remaining: usize, prefix_len: usize)
     -> (Cow<[u8]>, usize, usize)
