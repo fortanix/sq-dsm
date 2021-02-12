@@ -488,7 +488,7 @@ struct IoReader<'a> {
     initialized: bool,
     headers: Vec<(String, String)>,
     finalized: bool,
-    prefix_len: usize,
+    prefix: Vec<u8>,
     prefix_remaining: usize,
 }
 assert_send_and_sync!(IoReader<'_>);
@@ -627,7 +627,7 @@ impl<'a> Reader<'a> {
             headers: Vec::new(),
             initialized: false,
             finalized: false,
-            prefix_len: 0,
+            prefix: Vec::with_capacity(0),
             prefix_remaining: 0,
         };
 
@@ -849,8 +849,8 @@ impl<'a> IoReader<'a> {
         if found_blob {
             // Skip the rest of the initialization.
             self.initialized = true;
-            self.prefix_len = prefix.len();
             self.prefix_remaining = prefix.len();
+            self.prefix = prefix;
             return Ok(());
         }
 
@@ -985,8 +985,8 @@ impl<'a> IoReader<'a> {
         self.source.consume(n);
 
         self.initialized = true;
-        self.prefix_len = prefix.len();
         self.prefix_remaining = prefix.len();
+        self.prefix = prefix;
         Ok(())
     }
 }
@@ -1060,7 +1060,7 @@ impl<'a> IoReader<'a> {
                                 // buffer partial chunks.
                                 cmp::max(THRESHOLD, buf.len() / 3 * 4),
                                 self.prefix_remaining,
-                                self.prefix_len);
+                                self.prefix.len());
 
             // We shouldn't have any partial chunks.
             assert_eq!(base64data.len() % 4, 0);
@@ -1145,7 +1145,7 @@ impl<'a> IoReader<'a> {
             self.source.consume(consumed);
 
             // Skip any expected prefix
-            self.source.data_consume_hard(self.prefix_len)?;
+            self.source.data_consume_hard(self.prefix.len())?;
             // Look for a footer.
             let consumed = {
                 // Skip whitespace.
