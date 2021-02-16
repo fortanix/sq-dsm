@@ -93,6 +93,9 @@ impl Cookie {
         let ngroups = self.sig_groups.len();
 
         tracer!(TRACE, "Cookie::hash_update", level);
+        t!("({} bytes, {} hashes, enabled: {:?})",
+           data.len(), self.sig_group().hashes.len(), self.hashing);
+
 
         // Hash stashed data first.
         if let Some(stashed_data) = self.hash_stash.take() {
@@ -121,9 +124,6 @@ impl Cookie {
             return;
         }
 
-        t!("({} bytes, {} hashes, enabled: {:?})",
-           data.len(), self.sig_group().hashes.len(), self.hashing);
-
         if self.hashing == Hashing::Disabled {
             t!("    hash_update: NOT hashing {} bytes: {}.",
                data.len(), crate::fmt::to_hex(data, true));
@@ -140,7 +140,7 @@ impl Cookie {
             }
 
             for mode in sig_group.hashes.iter_mut() {
-                t!("{:?}): group {} {:?} hashing {} bytes.",
+                t!("{:?}: group {} {:?} hashing {} bytes.",
                    hashes_for, i, mode.map(|ctx| ctx.algo()), data.len());
                 match mode {
                     HashingMode::Binary(h) => h.update(&data),
