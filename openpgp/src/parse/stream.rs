@@ -2935,22 +2935,38 @@ mod test {
          .map(|f| Cert::from_bytes(crate::tests::key(f)).unwrap())
          .collect::<Vec<_>>();
         let tests = &[
-            ("messages/signed-1.gpg",                      VHelper::new(1, 0, 0, 0, keys.clone())),
-            ("messages/signed-1-sha256-testy.gpg",         VHelper::new(0, 1, 0, 0, keys.clone())),
-            ("messages/signed-1-notarized-by-ed25519.pgp", VHelper::new(2, 0, 0, 0, keys.clone())),
-            ("keys/neal.pgp",                              VHelper::new(0, 0, 0, 1, keys.clone())),
+            // Signed messages.
+            ("messages/signed-1.gpg",
+             crate::tests::manifesto(),
+             true,
+             Some(crate::frozen_time()),
+             VHelper::new(1, 0, 0, 0, keys.clone())),
+            ("messages/signed-1-sha256-testy.gpg",
+             crate::tests::manifesto(),
+             true,
+             Some(crate::frozen_time()),
+             VHelper::new(0, 1, 0, 0, keys.clone())),
+            ("messages/signed-1-notarized-by-ed25519.pgp",
+             crate::tests::manifesto(),
+             true,
+             Some(crate::frozen_time()),
+             VHelper::new(2, 0, 0, 0, keys.clone())),
+            // A key as example of an invalid message.
+            ("keys/neal.pgp",
+             crate::tests::manifesto(),
+             true,
+             Some(crate::frozen_time()),
+             VHelper::new(0, 0, 0, 1, keys.clone())),
         ];
 
-        let reference = crate::tests::manifesto();
-
-        for (f, r) in tests {
+        for (f, reference, test_decryptor, time, r) in tests {
             eprintln!("{}...", f);
 
             // Test Verifier.
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
                 match VerifierBuilder::from_bytes(crate::tests::file(f))?
-                    .with_policy(&p, crate::frozen_time(), h) {
+                    .with_policy(&p, *time, h) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -2972,12 +2988,16 @@ mod test {
             let mut content = Vec::new();
             v.read_to_end(&mut content).unwrap();
             assert_eq!(reference.len(), content.len());
-            assert_eq!(reference, &content[..]);
+            assert_eq!(&reference[..], &content[..]);
+
+            if ! test_decryptor {
+                continue;
+            }
 
             // Test Decryptor.
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v = match DecryptorBuilder::from_bytes(crate::tests::file(f))?
-                .with_policy(&p, crate::frozen_time(), h) {
+                .with_policy(&p, *time, h) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
                         // Expected error.  No point in trying to read
@@ -2999,7 +3019,7 @@ mod test {
             let mut content = Vec::new();
             v.read_to_end(&mut content).unwrap();
             assert_eq!(reference.len(), content.len());
-            assert_eq!(reference, &content[..]);
+            assert_eq!(&reference[..], &content[..]);
         }
         Ok(())
     }
