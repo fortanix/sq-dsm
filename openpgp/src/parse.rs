@@ -947,7 +947,6 @@ fn buffered_reader_stack_pop<'a>(
     t!("(reader level: {:?}, pop through: {})",
        reader.cookie_ref().level, depth);
 
-    let mut last_level = None;
     while let Some(level) = reader.cookie_ref().level {
         assert!(level <= depth // Peel off exactly one level.
                 || depth < 0); // Except for the topmost filters.
@@ -958,28 +957,15 @@ fn buffered_reader_stack_pop<'a>(
             t!("top reader at level {:?} (fake eof: {}), pop through: {}",
                reader.cookie_ref().level, fake_eof, depth);
 
-            let (dropping_content, dropped_content)
-                = if Some(level) != last_level {
-                    // Only drop the content of the top BufferedReader at
-                    // a given level.
-                    (true, reader.drop_eof()?)
-                } else {
-                    assert_eq!(reader.buffer().len(), 0);
-                    (false, false)
-                };
-
-            t!("popping level {:?} reader, {}dropping content ({}), \
-                reader: {:?}",
+            t!("popping level {:?} reader, reader: {:?}",
                reader.cookie_ref().level,
-               if dropping_content { "" } else { "not " },
-               if dropped_content { "something dropped" }
-               else { "nothing to drop" },
                reader);
 
             if reader.eof() && ! reader.consummated() {
                 return Err(Error::MalformedPacket("Truncated packet".into())
                            .into());
             }
+            reader.drop_eof()?;
             reader = reader.into_inner().unwrap();
 
             if level == depth && fake_eof {
@@ -992,8 +978,6 @@ fn buffered_reader_stack_pop<'a>(
         } else {
             break;
         }
-
-        last_level = Some(level);
     }
 
     Ok((false, reader))
