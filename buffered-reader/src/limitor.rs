@@ -7,10 +7,9 @@ use super::*;
 /// `BufferedReader`.
 #[derive(Debug)]
 pub struct Limitor<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> {
-    reader: T,
     limit: u64,
-
     cookie: C,
+    reader: T,
 }
 
 assert_send_and_sync!(Limitor<T, C>

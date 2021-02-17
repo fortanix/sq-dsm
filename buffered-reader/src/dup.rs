@@ -12,13 +12,13 @@ use super::*;
 /// at the underlying `BufferedReader`.
 #[derive(Debug)]
 pub struct Dup<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> {
-    reader: T,
-
     // The number of bytes that have been consumed.
     cursor: usize,
 
     // The user settable cookie.
     cookie: C,
+
+    reader: T,
 }
 
 assert_send_and_sync!(Dup<T, C>

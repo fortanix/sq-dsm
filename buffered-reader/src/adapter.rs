@@ -11,9 +11,9 @@ use super::*;
 /// own.
 #[derive(Debug)]
 pub struct Adapter<T: BufferedReader<B>, B: fmt::Debug + Send + Sync, C: fmt::Debug + Sync + Send> {
-    reader: T,
     _ghostly_cookie: std::marker::PhantomData<B>,
     cookie: C,
+    reader: T,
 }
 
 assert_send_and_sync!(Adapter<T, B, C>

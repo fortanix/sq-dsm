@@ -11,10 +11,9 @@ use super::*;
 /// it causes at least N bytes to by buffered.
 #[derive(Debug)]
 pub struct Reserve<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> {
-    reader: T,
     reserve: usize,
-
     cookie: C,
+    reader: T,
 }
 
 assert_send_and_sync!(Reserve<T, C>
