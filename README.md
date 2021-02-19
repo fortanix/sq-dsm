@@ -279,30 +279,30 @@ The FFI crate contains Python bindings.  To disable building, testing,
 and installing the Python bindings, use `make PYTHON=disable`.
 
 To build the Python bindings, you will need the Python headers,
-setuptools, cffi, and pytest for Python3.
+setuptools, pip, cffi, and pytest for Python3.
 
 #### Debian
 
 ```shell
-$ sudo apt install python3-dev python3-setuptools python3-cffi python3-pytest
+$ sudo apt install python3-dev python3-setuptools python3-cffi python3-pytest python3-pip
 ```
 
 #### Fedora
 
 ```shell
-$ sudo dnf install python3-devel python3-setuptools python3-cffi python3-pytest
+$ sudo dnf install python3-devel python3-setuptools python3-cffi python3-pytest python3-pip
 ```
 
 #### macOS (Mojave), using MacPorts
 
 ```shell
-$ sudo port install py37-setuptools
+$ sudo port install py-setuptools py-cffi py-pytest py-pip
 ```
 
 #### BSD
 
 ```shell
-# pkg install capnproto coreutils gmake lang/rust llvm nettle pkgconf py37-setuptools python3 sqlite
+# pkg install capnproto coreutils gmake lang/rust llvm nettle pkgconf py37-setuptools py37-pip python3 sqlite
 ```
 
 Getting help
