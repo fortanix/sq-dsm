@@ -454,11 +454,9 @@ impl SubkeyRevocationBuilder {
         where H: Into<Option<HashAlgorithm>>,
               P: key::KeyParts,
     {
-        let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
+        self.builder = self.builder
+            .set_hash_algo(hash_algo.into().unwrap_or(HashAlgorithm::SHA512));
 
-        if let Some(algo) = hash_algo.into() {
-            self.builder = self.builder.set_hash_algo(algo);
-        }
         key.bind(signer, cert, self.builder)
     }
 }
@@ -692,11 +690,9 @@ impl UserIDRevocationBuilder {
         -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>
     {
-        let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
+        self.builder = self.builder
+            .set_hash_algo(hash_algo.into().unwrap_or(HashAlgorithm::SHA512));
 
-        if let Some(algo) = hash_algo.into() {
-            self.builder = self.builder.set_hash_algo(algo);
-        }
         userid.bind(signer, cert, self.builder)
     }
 }
@@ -944,11 +940,9 @@ impl UserAttributeRevocationBuilder {
         -> Result<Signature>
         where H: Into<Option<HashAlgorithm>>
     {
-        let hash_algo = hash_algo.into().unwrap_or(HashAlgorithm::SHA512);
+        self.builder = self.builder
+            .set_hash_algo(hash_algo.into().unwrap_or(HashAlgorithm::SHA512));
 
-        if let Some(algo) = hash_algo.into() {
-            self.builder = self.builder.set_hash_algo(algo);
-        }
         ua.bind(signer, cert, self.builder)
     }
 }
