@@ -482,7 +482,7 @@ struct IoReader<'a> {
     source: Box<dyn BufferedReader<Cookie> + 'a>,
     kind: Option<Kind>,
     mode: ReaderMode,
-    buffer: Vec<u8>,
+    decode_buffer: Vec<u8>,
     crc: CRC,
     expect_crc: Option<u32>,
     initialized: bool,
@@ -621,7 +621,7 @@ impl<'a> Reader<'a> {
             source: inner,
             kind: None,
             mode,
-            buffer: Vec::<u8>::with_capacity(1024),
+            decode_buffer: Vec::<u8>::with_capacity(1024),
             crc: CRC::new(),
             expect_crc: None,
             headers: Vec::new(),
@@ -1006,12 +1006,12 @@ fn common_prefix<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> usize {
 
 impl<'a> IoReader<'a> {
     fn read_armored_data(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let (consumed, decoded) = if self.buffer.len() > 0 {
+        let (consumed, decoded) = if self.decode_buffer.len() > 0 {
             // We have something buffered, use that.
 
-            let amount = cmp::min(buf.len(), self.buffer.len());
-            buf[..amount].copy_from_slice(&self.buffer[..amount]);
-            crate::vec_drain_prefix(&mut self.buffer, amount);
+            let amount = cmp::min(buf.len(), self.decode_buffer.len());
+            buf[..amount].copy_from_slice(&self.decode_buffer[..amount]);
+            crate::vec_drain_prefix(&mut self.decode_buffer, amount);
 
             (0, amount)
         } else {
@@ -1078,15 +1078,15 @@ impl<'a> IoReader<'a> {
                 // (Note: the computed size *might* be a slight
                 // overestimate, because the last base64 chunk may
                 // include padding.)
-                self.buffer = base64::decode_config(
+                self.decode_buffer = base64::decode_config(
                     &base64data, base64::STANDARD)
                     .map_err(|e| Error::new(ErrorKind::InvalidData, e))?;
 
-                self.crc.update(&self.buffer);
+                self.crc.update(&self.decode_buffer);
 
-                let copied = cmp::min(buf.len(), self.buffer.len());
-                buf[..copied].copy_from_slice(&self.buffer[..copied]);
-                crate::vec_drain_prefix(&mut self.buffer, copied);
+                let copied = cmp::min(buf.len(), self.decode_buffer.len());
+                buf[..copied].copy_from_slice(&self.decode_buffer[..copied]);
+                crate::vec_drain_prefix(&mut self.decode_buffer, copied);
 
                 copied
             } else {
@@ -1211,7 +1211,7 @@ impl<'a> Read for IoReader<'a> {
         }
 
         if self.finalized {
-            assert_eq!(self.buffer.len(), 0);
+            assert_eq!(self.decode_buffer.len(), 0);
             return Ok(0);
         }
 
