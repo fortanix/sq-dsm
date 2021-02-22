@@ -95,6 +95,7 @@ pub struct PacketParserBuilder<'a> {
     bio: Box<dyn BufferedReader<Cookie> + 'a>,
     dearmor: Dearmor,
     settings: PacketParserSettings,
+    csf_transformation: bool,
 }
 assert_send_and_sync!(PacketParserBuilder<'_>);
 
@@ -136,6 +137,7 @@ impl<'a> PacketParserBuilder<'a> {
             bio: bio,
             dearmor: Default::default(),
             settings: PacketParserSettings::default(),
+            csf_transformation: false,
         })
     }
 
@@ -364,6 +366,16 @@ impl<'a> PacketParserBuilder<'a> {
         self
     }
 
+    /// Controls transparent transformation of messages using the
+    /// cleartext signature framework into signed messages.
+    ///
+    /// XXX: This could be controlled by `Dearmor`, but we cannot add
+    /// values to that now.
+    pub(crate) fn csf_transformation(mut self, enable: bool) -> Self {
+        self.csf_transformation = enable;
+        self
+    }
+
     /// Builds the `PacketParser`.
     ///
     /// # Examples
@@ -424,8 +436,8 @@ impl<'a> PacketParserBuilder<'a> {
             // Add a top-level filter so that it is peeled off when
             // the packet parser is finished.  We use level -2 for that.
             self.bio =
-                armor::Reader::from_buffered_reader(self.bio, Some(mode),
-                    Cookie::new(ARMOR_READER_LEVEL))
+                armor::Reader::from_buffered_reader_csft(self.bio, Some(mode),
+                    Cookie::new(ARMOR_READER_LEVEL), self.csf_transformation)
                 .as_boxed();
         }
 

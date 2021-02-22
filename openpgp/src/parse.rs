@@ -603,6 +603,7 @@ pub(crate) enum HashesFor {
     Nothing,
     MDC,
     Signature,
+    CleartextSignature,
 }
 
 /// Controls whether or not a hashed reader hashes data.
@@ -708,6 +709,11 @@ pub struct Cookie {
     /// When set, buffered_reader_stack_pop will return early when it
     /// encounters a fake EOF at the level it is popping to.
     fake_eof: bool,
+
+    /// Indicates that this is the top-level armor reader that is
+    /// doing a transformation of a message using the cleartext
+    /// signature framework into a signed message.
+    csf_transformation: bool,
 }
 assert_send_and_sync!(Cookie);
 
@@ -846,6 +852,7 @@ impl Default for Cookie {
             sig_groups_max_len: 1,
             hash_stash: None,
             fake_eof: false,
+            csf_transformation: false,
         }
     }
 }
@@ -861,6 +868,7 @@ impl Cookie {
             sig_groups_max_len: 1,
             hash_stash: None,
             fake_eof: false,
+            csf_transformation: false,
         }
     }
 
@@ -926,7 +934,9 @@ impl Cookie {
                         break;
                     }
                     if br_level == level
-                        && cookie.hashes_for == HashesFor::Signature {
+                        && (cookie.hashes_for == HashesFor::Signature
+                            || cookie.hashes_for == HashesFor::CleartextSignature)
+                    {
                         cookie.hashing = how;
                     }
                 } else {
@@ -935,6 +945,34 @@ impl Cookie {
             }
             reader = r.get_mut();
         }
+    }
+
+    /// Signals that we are processing a message using the Cleartext
+    /// Signature Framework.
+    ///
+    /// This is used by the armor reader to signal that it has
+    /// encountered such a message and is transforming it into an
+    /// inline signed message.
+    pub(crate) fn set_processing_csf_message(&mut self) {
+        tracer!(TRACE, "set_processing_csf_message", self.level.unwrap_or(0));
+        t!("Enabling CSF Transformation mode");
+        self.csf_transformation = true;
+    }
+
+    /// Checks if we are processing a signed message using the
+    /// Cleartext Signature Framework.
+    fn processing_csf_message(reader: &dyn BufferedReader<Cookie>)
+                              -> bool {
+        let mut reader: Option<&dyn BufferedReader<Cookie>>
+            = Some(reader);
+        while let Some(r) = reader {
+            if r.cookie_ref().level == Some(ARMOR_READER_LEVEL) {
+                return r.cookie_ref().csf_transformation;
+            } else {
+                reader = r.get_ref();
+            }
+        }
+        false
     }
 }
 
@@ -1339,7 +1377,21 @@ impl Signature4 {
                         }
 
                     if cookie.hashes_for == HashesFor::Signature {
+                        // When verifying cleartext signed messages,
+                        // we may have more signatures than
+                        // one-pass-signature packets, but are
+                        // guaranteed to only have one signature
+                        // group.
+                        //
+                        // Only decrement the count when hashing for
+                        // signatures, not when hashing for cleartext
+                        // signatures.
                         cookie.sig_group_mut().ops_count -= 1;
+                    }
+
+                    if cookie.hashes_for == HashesFor::Signature
+                        || cookie.hashes_for == HashesFor::CleartextSignature
+                    {
                         if let Some(hash) =
                             cookie.sig_group().hashes.iter().find_map(
                                 |mode|
@@ -1814,6 +1866,13 @@ impl OnePassSig3 {
 
         let recursion_depth = php.recursion_depth();
 
+        // Check if we are processing a cleartext signed message.
+        let want_hashes_for = if Cookie::processing_csf_message(&php.reader) {
+            HashesFor::CleartextSignature
+        } else {
+            HashesFor::Signature
+        };
+
         // Walk up the reader chain to see if there is already a
         // hashed reader on level recursion_depth - 1.
         let done = {
@@ -1828,7 +1887,7 @@ impl OnePassSig3 {
                             break;
                         }
                         if br_level == recursion_depth - 1
-                            && cookie.hashes_for == HashesFor::Signature {
+                            && cookie.hashes_for == want_hashes_for {
                                 // We found a suitable hashed reader.
                                 if cookie.saw_last {
                                     cookie.sig_group_push();
@@ -1901,7 +1960,7 @@ impl OnePassSig3 {
         assert!(! fake_eof);
 
         let mut reader = HashedReader::new(
-            reader, HashesFor::Signature, algos);
+            reader, want_hashes_for, algos);
         reader.cookie_mut().level = Some(recursion_depth - 1);
         // Account for this OPS packet.
         reader.cookie_mut().sig_group_mut().ops_count += 1;
@@ -4200,8 +4259,20 @@ impl <'a> PacketParser<'a> {
             Cookie::hashing(
                 &mut bio, Hashing::Disabled, recursion_depth - 1);
         } else if tag == Tag::OnePassSig || tag == Tag::Signature {
-            Cookie::hashing(
-                &mut bio, Hashing::Notarized, recursion_depth - 1);
+            if Cookie::processing_csf_message(&bio) {
+                // When processing a CSF message, the hashing reader
+                // is not peeled off, because the number of signature
+                // packets cannot be known from the number of OPS
+                // packets.  Instead, we simply disable hashing.
+                //
+                // XXX: It would be nice to peel off the hashing
+                // reader and drop this workaround.
+                Cookie::hashing(
+                    &mut bio, Hashing::Disabled, recursion_depth - 1);
+            } else {
+                Cookie::hashing(
+                    &mut bio, Hashing::Notarized, recursion_depth - 1);
+            }
         }
 
         // Save header for the map or nested signatures.

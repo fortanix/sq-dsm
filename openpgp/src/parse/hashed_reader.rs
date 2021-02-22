@@ -96,6 +96,9 @@ impl Cookie {
         t!("({} bytes, {} hashes, enabled: {:?})",
            data.len(), self.sig_group().hashes.len(), self.hashing);
 
+        if self.hashes_for == HashesFor::CleartextSignature {
+            return self.hash_update_csf(data);
+        }
 
         // Hash stashed data first.
         if let Some(stashed_data) = self.hash_stash.take() {
@@ -148,6 +151,93 @@ impl Cookie {
                 }
             }
         }
+    }
+
+    fn hash_update_csf(&mut self, mut data: &[u8]) {
+        let level = self.level.unwrap_or(0);
+        let hashes_for = self.hashes_for;
+        let ngroups = self.sig_groups.len();
+
+        assert_eq!(self.hashes_for, HashesFor::CleartextSignature);
+        // There is exactly one group.
+        assert_eq!(ngroups, 1);
+
+        tracer!(TRACE, "Cookie::hash_update_csf", level);
+        t!("Cleartext Signature Framework message");
+
+        // If we stashed half of a \r\n newline away, see if we get
+        // the second half now.  If we do, and data is empty then, we
+        // return without hashing it.  This is important so that we
+        // can avoid hashing the final newline, even if we happen to
+        // read it in two invocations of this function.
+        if self.hash_stash.as_ref().map(|buf| buf.as_slice() == &b"\r"[..])
+            .unwrap_or(false)
+            && data.get(0).cloned() == Some(b'\n')
+        {
+            self.hash_stash.as_mut().expect("checked above").push(b'\n');
+            data = &data[1..];
+        }
+
+        if data.len() == 0 {
+            return;
+        }
+
+        if self.hashing == Hashing::Disabled {
+            t!("    hash_update: NOT hashing {} bytes: {}.",
+               data.len(), crate::fmt::to_hex(data, true));
+            return;
+        }
+
+        // Hash stashed data first.
+        if let Some(stashed_data) = self.hash_stash.take() {
+            for mode in self.sig_groups[0].hashes.iter_mut() {
+                t!("{:?}: {:?} hashing {} stashed bytes.",
+                   hashes_for, mode.map(|ctx| ctx.algo()),
+                   stashed_data.len());
+                match mode {
+                    HashingMode::Binary(_) =>
+                        unreachable!("CSF transformation uses \
+                                      text signatures"),
+                    HashingMode::Text(h) =>
+                        hash_update_text(h, &stashed_data[..]),
+                }
+            }
+        }
+
+        // We hash everything but the last newline.
+
+        // There is exactly one group.
+        assert_eq!(ngroups, 1);
+
+        // Compute the length of data that should be hashed.
+        // If it ends in a newline, we delay hashing it.
+        let l = data.len() - if data.ends_with(b"\r\n") {
+            2
+        } else if data.ends_with(b"\n") || data.ends_with(b"\r") {
+            1
+        } else {
+            0
+        };
+
+        // Hash everything but the last newline now.
+        for mode in self.sig_groups[0].hashes.iter_mut() {
+            t!("{:?}: {:?} hashing {} bytes.",
+               hashes_for, mode.map(|ctx| ctx.algo()), l);
+            match mode {
+                HashingMode::Binary(_) =>
+                    unreachable!("CSF transformation uses text signatures"),
+                HashingMode::Text(h) => hash_update_text(h, &data[..l]),
+            }
+        }
+
+        // The newline we stash away.  If more text is written
+        // later, we will hash it then.  Otherwise, it is
+        // implicitly omitted when the filter is dropped.
+        if ! data[l..].is_empty() {
+            t!("Stashing newline: {:?}", &data[l..]);
+            self.hash_stash = Some(data[l..].to_vec());
+        }
+        return;
     }
 }
 

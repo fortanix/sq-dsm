@@ -30,6 +30,7 @@
 
 use base64;
 use buffered_reader::BufferedReader;
+use std::convert::TryFrom;
 use std::fmt;
 use std::io;
 use std::io::{Cursor, Read, Write};
@@ -94,7 +95,51 @@ impl Arbitrary for Kind {
     }
 }
 
-impl Kind {
+/// Specifies the kind of data as indicated by the label.
+///
+/// This is a non-public variant of `Kind` that is currently only used
+/// for detecting the kind on consumption.
+///
+/// See also https://gitlab.com/sequoia-pgp/sequoia/-/issues/672
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Label {
+    /// A generic OpenPGP message.  (Since its structure hasn't been
+    /// validated, in this crate's terminology, this is just a
+    /// `PacketPile`.)
+    Message,
+    /// A certificate.
+    PublicKey,
+    /// A transferable secret key.
+    SecretKey,
+    /// A detached signature.
+    Signature,
+    /// A message using the Cleartext Signature Framework.
+    ///
+    /// See [Section 7 of RFC 4880].
+    ///
+    ///   [Section 7 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7
+    CleartextSignature,
+    /// A generic file.  This is a GnuPG extension.
+    File,
+}
+assert_send_and_sync!(Label);
+
+impl TryFrom<Label> for Kind {
+    type Error = crate::Error;
+    fn try_from(l: Label) -> std::result::Result<Self, Self::Error> {
+        match l {
+            Label::Message => Ok(Kind::Message),
+            Label::PublicKey => Ok(Kind::PublicKey),
+            Label::SecretKey => Ok(Kind::SecretKey),
+            Label::Signature => Ok(Kind::Signature),
+            Label::File => Ok(Kind::File),
+            Label::CleartextSignature => Err(crate::Error::InvalidOperation(
+                "armor::Kind cannot express cleartext signatures".into()).into()),
+        }
+    }
+}
+
+impl Label {
     /// Detects the header returning the kind and length of the
     /// header.
     fn detect_header(blurb: &[u8]) -> Option<(Self, usize)> {
@@ -108,15 +153,17 @@ impl Kind {
 
         // Detect kind.
         let kind = if rest.starts_with(b"MESSAGE") {
-            Kind::Message
+            Label::Message
         } else if rest.starts_with(b"PUBLIC KEY BLOCK") {
-            Kind::PublicKey
+            Label::PublicKey
         } else if rest.starts_with(b"PRIVATE KEY BLOCK") {
-            Kind::SecretKey
+            Label::SecretKey
         } else if rest.starts_with(b"SIGNATURE") {
-            Kind::Signature
+            Label::Signature
+        } else if rest.starts_with(b"SIGNED MESSAGE") {
+            Label::CleartextSignature
         } else if rest.starts_with(b"ARMORED FILE") {
-            Kind::File
+            Label::File
         } else {
             return None;
         };
@@ -128,6 +175,20 @@ impl Kind {
               + trailing_dashes.len()))
     }
 
+    fn blurb(&self) -> &str {
+        match self {
+            Label::Message => "MESSAGE",
+            Label::PublicKey => "PUBLIC KEY BLOCK",
+            Label::SecretKey => "PRIVATE KEY BLOCK",
+            Label::Signature => "SIGNATURE",
+            Label::CleartextSignature => "SIGNED MESSAGE",
+            Label::File => "ARMORED FILE",
+        }
+    }
+
+}
+
+impl Kind {
     /// Detects the footer returning length of the footer.
     fn detect_footer(&self, blurb: &[u8]) -> Option<usize> {
         let (leading_dashes, rest) = dash_prefix(blurb);
@@ -493,6 +554,13 @@ pub struct Reader<'a> {
     finalized: bool,
     prefix: Vec<u8>,
     prefix_remaining: usize,
+
+    /// Controls the transformation of messages using the Cleartext
+    /// Signature Framework into inline signed messages.
+    enable_csft: bool,
+
+    /// State for the CSF transformer.
+    csft: Option<CSFTransformer>,
 }
 assert_send_and_sync!(Reader<'_>);
 
@@ -508,6 +576,21 @@ impl<'a> fmt::Display for Reader<'a> {
 impl Default for ReaderMode {
     fn default() -> Self {
         ReaderMode::Tolerant(None)
+    }
+}
+
+/// State for transforming a message using the Cleartext Signature
+/// Framework into an inline signed message.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CSFTransformer {
+    OPS,
+    Literal,
+    Signatures,
+}
+
+impl Default for CSFTransformer {
+    fn default() -> Self {
+        CSFTransformer::OPS
     }
 }
 
@@ -627,7 +710,18 @@ impl<'a> Reader<'a> {
         -> Self
         where M: Into<Option<ReaderMode>>
     {
-        let mode = mode.into().unwrap_or(Default::default());
+        Self::from_buffered_reader_csft(inner, mode.into(), cookie, false)
+    }
+
+    pub(crate) fn from_buffered_reader_csft(
+        inner: Box<dyn BufferedReader<Cookie> + 'a>,
+        mode: Option<ReaderMode>,
+        cookie: Cookie,
+        enable_csft: bool,
+    )
+        -> Self
+    {
+        let mode = mode.unwrap_or(Default::default());
 
         Reader {
             // The embedded generic reader's fields.
@@ -649,6 +743,8 @@ impl<'a> Reader<'a> {
             finalized: false,
             prefix: Vec::with_capacity(0),
             prefix_remaining: 0,
+            enable_csft,
+            csft: None,
         }
     }
 
@@ -828,7 +924,36 @@ impl<'a> Reader<'a> {
                 }
 
                 // Possible ASCII-armor header.
-                if let Some((kind, len)) = Kind::detect_header(&input) {
+                if let Some((label, len)) = Label::detect_header(&input) {
+                    if label == Label::CleartextSignature && ! self.enable_csft
+                    {
+                        // We found a message using the Cleartext
+                        // Signature Framework, but the CSF
+                        // transformation is not enabled.  Continue
+                        // searching until we find the bare signature.
+                        continue 'search;
+                    }
+
+                    if label == Label::CleartextSignature && self.enable_csft
+                    {
+                        // Initialize the transformer.
+                        self.csft = Some(CSFTransformer::default());
+
+                        // Signal to the parser stack that the CSF
+                        // transformation is happening.  This will be
+                        // used by the HashedReader (specifically, in
+                        // Cookie::processing_csf_message and
+                        // Cookie::hash_update) to select the correct
+                        // hashing method.
+                        self.cookie.set_processing_csf_message();
+
+                        // We'll be looking for the signature framing next.
+                        self.kind = Some(Kind::Signature);
+                        break 'search len;
+                    }
+                    let kind = Kind::try_from(label)
+                        .expect("cleartext signature handled above");
+
                     let mut expected_kind = None;
                     if let ReaderMode::Tolerant(Some(kind)) = self.mode {
                         expected_kind = Some(kind);
@@ -1209,6 +1334,169 @@ impl<'a> Reader<'a> {
         Ok(decoded)
     }
 
+    fn read_clearsigned_message(&mut self, buf: &mut [u8]) -> Result<usize> {
+        // XXX: We're not terribly concerned with performance at this
+        // point, there is room for improvement.
+
+        use std::collections::HashSet;
+        use crate::{
+            types::{DataFormat, HashAlgorithm, SignatureType},
+            serialize::Serialize,
+        };
+
+        assert!(self.csft.is_some());
+        if self.decode_buffer.is_empty() {
+            match self.csft.as_ref().expect("CSFT has been initialized") {
+                CSFTransformer::OPS => {
+                    // Determine the set of hash algorithms.
+                    let mut algos: HashSet<HashAlgorithm> = self.headers.iter()
+                        .filter(|(key, _value)| key == "Hash")
+                        .flat_map(|(_key, value)| {
+                            value.split(',')
+                                .filter_map(|hash| hash.parse().ok())
+                        }).collect();
+
+                    if algos.is_empty() {
+                        // The default is MD5.
+                        #[allow(deprecated)]
+                        algos.insert(HashAlgorithm::MD5);
+                    }
+
+                    // Now create an OPS packet for every algorithm.
+                    let count = algos.len();
+                    for (i, &algo) in algos.iter().enumerate() {
+                        let mut ops = OnePassSig3::new(SignatureType::Text);
+                        ops.set_hash_algo(algo);
+                        ops.set_last(i + 1 == count);
+                        Packet::from(ops).serialize(&mut self.decode_buffer)
+                            .expect("writing to vec does not fail");
+                    }
+
+                    // We will let the caller consume the buffer.
+                    // Once drained, we start decoding the message.
+                    self.csft = Some(CSFTransformer::Literal);
+                },
+
+                CSFTransformer::Literal => {
+                    // XXX: We should create a partial-body encoded
+                    // literal packet, but for now we construct the
+                    // whole packet in core.
+
+                    let mut text = Vec::new();
+                    loop {
+                        let prefixed_line = self.source.read_to(b'\n')?;
+
+                        if prefixed_line.len() == 0 {
+                            // Truncated?
+                            break;
+                        }
+
+                        // Treat lines shorter than the prefix as
+                        // empty lines.
+                        let n = prefixed_line.len().min(self.prefix.len());
+                        let prefix = &prefixed_line[..n];
+                        let mut line = &prefixed_line[n..];
+
+                        // Check that we see the correct prefix.
+                        let l = common_prefix(&self.prefix, prefix);
+                        let full_prefix = l == self.prefix.len();
+                        if ! (full_prefix
+                              // Truncation is okay if the rest of the prefix
+                              // contains only whitespace.
+                              || self.prefix[l..].iter().all(
+                                  |c| c.is_ascii_whitespace()))
+                        {
+                            return Err(
+                                Error::new(ErrorKind::InvalidInput,
+                                           "Inconsistent quoting of \
+                                            armored data"));
+                        }
+
+                        let (dashes, rest) = dash_prefix(&line);
+                        if dashes.len() > 2 // XXX: heuristic...
+                            && rest.starts_with(b"BEGIN PGP SIGNATURE")
+                        {
+                            // We reached the end of the signed
+                            // message.  Consuming this line and break
+                            // the loop.
+                            let l = prefixed_line.len();
+                            self.source.consume(l);
+                            break;
+                        }
+
+                        // Undo the dash-escaping.
+                        if line.starts_with(b"- ") {
+                            line = &line[2..];
+                        }
+
+                        // Trim trailing whitespace according to
+                        // Section 7.1 of RFC4880, i.e. "spaces (0x20)
+                        // and tabs (0x09)".  We do this here, because
+                        // we transform the CSF message into an inline
+                        // signed message, which does not make a
+                        // distinction between the literal text and
+                        // the signed text (modulo the newline
+                        // normalization).
+
+                        // First, split off the line ending.
+                        let crlf_line_end = line.ends_with(b"\r\n");
+                        line = &line[..line.len()
+                                         - if crlf_line_end { 2 } else { 1 }];
+
+                        // Now, trim whitespace off the line.
+                        while Some(&b' ') == line.last()
+                            || Some(&b'\t') == line.last()
+                        {
+                            line = &line[..line.len() - 1];
+                        }
+
+                        text.extend_from_slice(line);
+                        if crlf_line_end {
+                            text.extend_from_slice(&b"\r\n"[..]);
+                        } else {
+                            text.extend_from_slice(&b"\n"[..]);
+                        }
+
+                        // Finally, consume this line.
+                        let l = prefixed_line.len();
+                        self.source.consume(l);
+                    }
+
+                    // Now, we have the whole text.
+                    let mut literal = Literal::new(DataFormat::Text);
+                    literal.set_body(text);
+                    Packet::from(literal).serialize(&mut self.decode_buffer)
+                        .expect("writing to vec does not fail");
+
+                    // We will let the caller consume the buffer.
+                    // Once drained, we start streaming the
+                    // signatures.
+                    self.csft = Some(CSFTransformer::Signatures);
+                },
+
+                CSFTransformer::Signatures => {
+                    // Drop transformer to revert to normal armor
+                    // reader.
+                    self.csft = None;
+
+                    // Consume any headers.
+                    self.read_headers()?;
+
+                    // Then start streaming the signatures.  We call
+                    // this function explicitly once, but next time
+                    // the caller reads, it will shortcut to that
+                    // function.
+                    return self.read_armored_data(buf);
+                },
+            }
+        }
+
+        let amount = cmp::min(buf.len(), self.decode_buffer.len());
+        buf[..amount].copy_from_slice(&self.decode_buffer[..amount]);
+        crate::vec_drain_prefix(&mut self.decode_buffer, amount);
+        Ok(amount)
+    }
+
     /// The io::Read interface that the embedded generic reader uses
     /// to implement the BufferedReader protocol.
     fn do_read(&mut self, buf: &mut [u8]) -> Result<usize> {
@@ -1229,7 +1517,11 @@ impl<'a> Reader<'a> {
             return Ok(0);
         }
 
-        self.read_armored_data(buf)
+        if self.csft.is_some() {
+            self.read_clearsigned_message(buf)
+        } else {
+            self.read_armored_data(buf)
+        }
     }
 
     /// Return the buffer.  Ensure that it contains at least `amount`
@@ -2014,5 +2306,87 @@ mod test {
         let mut reader = Reader::from_bytes(
             crate::tests::file("armor/test-3.no-dashes.asc"), None);
         reader.read_to_end(&mut buf).unwrap();
+    }
+
+    /// Tests the transformation of a cleartext signed message into a
+    /// signed message.
+    ///
+    /// This test is merely concerned with the transformation, not
+    /// with the signature verification.
+    #[test]
+    fn cleartext_signed_message() -> crate::Result<()> {
+        use crate::{
+            Packet,
+            parse::Parse,
+            types::HashAlgorithm,
+        };
+
+        fn f<R>(clearsig: &[u8], reference: R) -> crate::Result<()>
+        where R: AsRef<[u8]>
+        {
+            let mut reader = Reader::from_buffered_reader_csft(
+                Box::new(buffered_reader::Memory::with_cookie(
+                    clearsig, Default::default())),
+                None, Default::default(), true);
+
+            let mut buf = Vec::new();
+            reader.read_to_end(&mut buf)?;
+
+            let message = crate::Message::from_bytes(&buf)?;
+            assert_eq!(message.children().count(), 3);
+
+            // First, an one-pass-signature packet.
+            if let Some(Packet::OnePassSig(ops)) = message.path_ref(&[0]) {
+                assert_eq!(ops.hash_algo(), HashAlgorithm::SHA256);
+            } else {
+                panic!("expected an OPS packet");
+            }
+
+            // A literal packet.
+            assert_eq!(message.body().unwrap().body(), reference.as_ref());
+
+            // And, the signature.
+            if let Some(Packet::Signature(sig)) = message.path_ref(&[2]) {
+                assert_eq!(sig.hash_algo(), HashAlgorithm::SHA256);
+            } else {
+                panic!("expected an signature packet");
+            }
+
+            // If we parse it without enabling the CSF transformation,
+            // we should only find the signature.
+            let mut reader = Reader::from_buffered_reader_csft(
+                Box::new(buffered_reader::Memory::with_cookie(
+                    clearsig, Default::default())),
+                None, Default::default(), false);
+
+            let mut buf = Vec::new();
+            reader.read_to_end(&mut buf)?;
+
+            let pp = crate::PacketPile::from_bytes(&buf)?;
+            assert_eq!(pp.children().count(), 1);
+
+            // The signature.
+            if let Some(Packet::Signature(sig)) = pp.path_ref(&[0]) {
+                assert_eq!(sig.hash_algo(), HashAlgorithm::SHA256);
+            } else {
+                panic!("expected an signature packet");
+            }
+            Ok(())
+        }
+
+        f(crate::tests::message("a-problematic-poem.txt.cleartext.sig"),
+          crate::tests::message("a-problematic-poem.txt"))?;
+        f(crate::tests::message("a-cypherpunks-manifesto.txt.cleartext.sig"),
+          {
+              // The transformation process trims trailing whitespace,
+              // and the manifesto has a trailing whitespace right at
+              // the end.
+              let mut manifesto = crate::tests::manifesto().to_vec();
+              let ws_at = manifesto.len() - 2;
+              let ws = manifesto.remove(ws_at);
+              assert_eq!(ws, b' ');
+              manifesto
+          })?;
+        Ok(())
     }
 }

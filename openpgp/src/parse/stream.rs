@@ -1212,7 +1212,7 @@ impl<'a> VerifierBuilder<'a> {
                 policy,
                 self.message,
                 NoDecryptionHelper { v: helper, },
-                t, Mode::Verify, self.buffer_size, self.mapping)?,
+                t, Mode::Verify, self.buffer_size, self.mapping, true)?,
         })
     }
 }
@@ -1568,7 +1568,7 @@ impl<'a> DetachedVerifierBuilder<'a> {
                 policy,
                 self.signatures,
                 NoDecryptionHelper { v: helper, },
-                t, Mode::VerifyDetached, 0, self.mapping)?,
+                t, Mode::VerifyDetached, 0, self.mapping, false)?,
         })
     }
 }
@@ -2013,7 +2013,7 @@ impl<'a> DecryptorBuilder<'a> {
             policy,
             self.message,
             helper,
-            t, Mode::Decrypt, self.buffer_size, self.mapping)
+            t, Mode::Decrypt, self.buffer_size, self.mapping, false)
     }
 }
 
@@ -2291,7 +2291,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         helper: H, time: T,
         mode: Mode,
         buffer_size: usize,
-        mapping: bool)
+        mapping: bool,
+        csf_transformation: bool,
+    )
         -> Result<Decryptor<'a, H>>
         where T: Into<Option<time::SystemTime>>
     {
@@ -2305,7 +2307,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         let time = time.unwrap_or_else(time::SystemTime::now);
 
         let mut ppr = PacketParserBuilder::from_buffered_reader(bio)?
-            .map(mapping).build()?;
+            .map(mapping)
+            .csf_transformation(csf_transformation)
+            .build()?;
 
         let mut v = Decryptor {
             helper,
@@ -2957,6 +2961,7 @@ mod test {
 
         let keys = [
             "neal.pgp",
+            "testy-new.pgp",
             "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
         ].iter()
          .map(|f| Cert::from_bytes(crate::tests::key(f)).unwrap())
@@ -2964,23 +2969,43 @@ mod test {
         let tests = &[
             // Signed messages.
             ("messages/signed-1.gpg",
-             crate::tests::manifesto(),
+             crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
              VHelper::new(1, 0, 0, 0, keys.clone())),
             ("messages/signed-1-sha256-testy.gpg",
-             crate::tests::manifesto(),
+             crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
              VHelper::new(0, 1, 0, 0, keys.clone())),
             ("messages/signed-1-notarized-by-ed25519.pgp",
-             crate::tests::manifesto(),
+             crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
              VHelper::new(2, 0, 0, 0, keys.clone())),
+            // Signed messages using the Cleartext Signature Framework.
+            ("messages/a-cypherpunks-manifesto.txt.cleartext.sig",
+             {
+                 // The transformation process trims trailing whitespace,
+                 // and the manifesto has a trailing whitespace right at
+                 // the end.
+                 let mut manifesto = crate::tests::manifesto().to_vec();
+                 let ws_at = manifesto.len() - 2;
+                 let ws = manifesto.remove(ws_at);
+                 assert_eq!(ws, b' ');
+                 manifesto
+             },
+             false,
+             None,
+             VHelper::new(1, 0, 0, 0, keys.clone())),
+            ("messages/a-problematic-poem.txt.cleartext.sig",
+             crate::tests::message("a-problematic-poem.txt").to_vec(),
+             false,
+             None,
+             VHelper::new(1, 0, 0, 0, keys.clone())),
             // A key as example of an invalid message.
             ("keys/neal.pgp",
-             crate::tests::manifesto(),
+             crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
              VHelper::new(0, 0, 0, 1, keys.clone())),

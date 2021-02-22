@@ -951,7 +951,7 @@ impl<'a> Signer<'a> {
     ///
     /// ```
     /// # fn main() -> sequoia_openpgp::Result<()> {
-    /// use std::io::Write;
+    /// use std::io::{Write, Read};
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Signer};
     /// use openpgp::policy::StandardPolicy;
@@ -983,6 +983,32 @@ impl<'a> Signer<'a> {
     ///     // In reality, just io::copy() the file to be signed.
     ///     signer.finalize()?;
     /// }
+    ///
+    /// // Now check the signature.
+    /// struct Helper<'a>(&'a openpgp::Cert);
+    /// impl<'a> VerificationHelper for Helper<'a> {
+    ///     fn get_certs(&mut self, _: &[openpgp::KeyHandle])
+    ///                        -> openpgp::Result<Vec<openpgp::Cert>> {
+    ///         Ok(vec![self.0.clone()])
+    ///     }
+    ///
+    ///     fn check(&mut self, structure: MessageStructure)
+    ///              -> openpgp::Result<()> {
+    ///         if let MessageLayer::SignatureGroup { ref results } =
+    ///             structure.iter().nth(0).unwrap()
+    ///         {
+    ///             results.get(0).unwrap().as_ref().unwrap();
+    ///             Ok(())
+    ///         } else { panic!() }
+    ///     }
+    /// }
+    ///
+    /// let mut verifier = VerifierBuilder::from_bytes(&sink)?
+    ///     .with_policy(p, None, Helper(&cert))?;
+    ///
+    /// let mut content = Vec::new();
+    /// verifier.read_to_end(&mut content)?;
+    /// assert_eq!(content, b"Make it so, number one!\n");
     /// # Ok(()) }
     /// ```
     //
