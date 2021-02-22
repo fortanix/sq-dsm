@@ -69,6 +69,12 @@ build:
 .PHONY: test check
 test check:
 	CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) test $(CARGO_FLAGS) $(CARGO_PACKAGES) $(CARGO_TEST_ARGS)
+	if echo "$(CARGO_TEST_ARGS)" | grep -q -e '--benches'; \
+	  then \
+	  echo 'Already tested the benchmarks.'; \
+	  else \
+	  CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) test $(CARGO_FLAGS) $(CARGO_PACKAGES) --benches; \
+	fi
 	if echo "$(CARGO_PACKAGES)" | grep -q -E -e '(^| )[-]p +.'; \
 	then \
 		echo 'WARNING: Not running other tests, because $$CARGO_PACKAGES specifies a package.'; \
