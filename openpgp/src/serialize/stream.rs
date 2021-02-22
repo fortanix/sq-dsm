@@ -2325,11 +2325,11 @@ impl<'a> Encryptor<'a> {
     /// To add more recipients, use [`Encryptor::add_recipients`].  To
     /// add a password, use [`Encryptor::add_password`].  To change
     /// the symmetric encryption algorithm, use
-    /// [`Encryptor::sym_algo`].
+    /// [`Encryptor::symmetric_algo`].
     ///
     ///   [`Encryptor::add_recipients`]: #method.add_recipients
     ///   [`Encryptor::add_password`]: #method.add_password
-    ///   [`Encryptor::sym_algo`]: #method.sym_algo
+    ///   [`Encryptor::symmetric_algo`]: #method.symmetric_algo
     ///
     /// # Examples
     ///
@@ -2399,11 +2399,11 @@ impl<'a> Encryptor<'a> {
     /// To add more passwords, use [`Encryptor::add_password`].  To
     /// add an recipient, use [`Encryptor::add_recipients`].  To change
     /// the symmetric encryption algorithm, use
-    /// [`Encryptor::sym_algo`].
+    /// [`Encryptor::symmetric_algo`].
     ///
     ///   [`Encryptor::add_recipients`]: #method.add_recipients
     ///   [`Encryptor::add_password`]: #method.add_password
-    ///   [`Encryptor::sym_algo`]: #method.sym_algo
+    ///   [`Encryptor::symmetric_algo`]: #method.symmetric_algo
     ///
     /// # Examples
     ///
