@@ -99,6 +99,11 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
 
     /// Return the buffer.  Ensure that it contains at least `amount`
     /// bytes.
+    //
+    // Note:
+    //
+    // If you find a bug in this function, consider whether
+    // sequoia_openpgp::armor::Reader::data_helper is also affected.
     fn data_helper(&mut self, amount: usize, hard: bool, and_consume: bool)
                    -> Result<&[u8], io::Error> {
         // println!("Generic.data_helper(\
@@ -229,6 +234,10 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> BufferedReader<C> f
         return self.data_helper(amount, true, false);
     }
 
+    // Note:
+    //
+    // If you find a bug in this function, consider whether
+    // sequoia_openpgp::armor::Reader::consume is also affected.
     fn consume(&mut self, amount: usize) -> &[u8] {
         // println!("Generic.consume({}) \
         //           (cursor: {}, buffer: {:?})",

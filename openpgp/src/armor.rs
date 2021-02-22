@@ -31,6 +31,7 @@
 use base64;
 use buffered_reader::BufferedReader;
 use std::fmt;
+use std::io;
 use std::io::{Cursor, Read, Write};
 use std::io::{Result, Error, ErrorKind};
 use std::path::Path;
@@ -45,6 +46,7 @@ use crate::packet::prelude::*;
 use crate::packet::header::{BodyLength, CTBNew, CTBOld};
 use crate::parse::Cookie;
 use crate::serialize::MarshalInto;
+use crate::vec_truncate;
 
 mod base64_utils;
 use base64_utils::*;
@@ -458,28 +460,29 @@ pub enum ReaderMode {
 assert_send_and_sync!(ReaderMode);
 
 /// A filter that strips ASCII Armor from a stream of data.
-pub struct Reader<'a> {
-    reader: buffered_reader::Generic<IoReader<'a>, Cookie>,
-}
-assert_send_and_sync!(Reader<'_>);
-
-impl<'a> fmt::Debug for Reader<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("armor::Reader")
-            .field("reader", self.reader.reader_ref())
-            .finish()
-    }
-}
-
-impl<'a> fmt::Display for Reader<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "armor::Reader")
-    }
-}
-
 #[derive(Debug)]
-struct IoReader<'a> {
+pub struct Reader<'a> {
+    // The following fields are the state of an embedded
+    // buffered_reader::Generic.  We need to be able to access the
+    // cookie in Self::initialize, therefore using
+    // buffered_reader::Generic as we used to is no longer an option.
+    //
+    // XXX: Directly implement the BufferedReader protocol.  This may
+    // actually simplify the code and reduce the required buffering.
+
+    buffer: Option<Box<[u8]>>,
+    // The next byte to read in the buffer.
+    cursor: usize,
+    // The preferred chunk size.  This is just a hint.
+    preferred_chunk_size: usize,
+    // The wrapped reader.
     source: Box<dyn BufferedReader<Cookie> + 'a>,
+    // Stashed error, if any.
+    error: Option<Error>,
+    // The user settable cookie.
+    cookie: Cookie,
+    // End fields of the embedded generic reader.
+
     kind: Option<Kind>,
     mode: ReaderMode,
     decode_buffer: Vec<u8>,
@@ -491,7 +494,16 @@ struct IoReader<'a> {
     prefix: Vec<u8>,
     prefix_remaining: usize,
 }
-assert_send_and_sync!(IoReader<'_>);
+assert_send_and_sync!(Reader<'_>);
+
+// The default buffer size.
+const DEFAULT_BUF_SIZE: usize = 8 * 1024;
+
+impl<'a> fmt::Display for Reader<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "armor::Reader")
+    }
+}
 
 impl Default for ReaderMode {
     fn default() -> Self {
@@ -617,8 +629,16 @@ impl<'a> Reader<'a> {
     {
         let mode = mode.into().unwrap_or(Default::default());
 
-        let io_reader = IoReader {
+        Reader {
+            // The embedded generic reader's fields.
+            buffer: None,
+            cursor: 0,
+            preferred_chunk_size: DEFAULT_BUF_SIZE,
             source: inner,
+            error: None,
+            cookie,
+            // End of the embedded generic reader's fields.
+
             kind: None,
             mode,
             decode_buffer: Vec::<u8>::with_capacity(1024),
@@ -629,12 +649,6 @@ impl<'a> Reader<'a> {
             finalized: false,
             prefix: Vec::with_capacity(0),
             prefix_remaining: 0,
-        };
-
-        Reader {
-            reader: buffered_reader::Generic::with_cookie(io_reader,
-                                                          None,
-                                                          cookie),
         }
     }
 
@@ -644,7 +658,7 @@ impl<'a> Reader<'a> {
     /// header has not been encountered yet (try reading some data
     /// first!), this function returns None.
     pub fn kind(&self) -> Option<Kind> {
-        self.reader.reader_ref().kind
+        self.kind
     }
 
     /// Returns the armored headers.
@@ -684,12 +698,12 @@ impl<'a> Reader<'a> {
     /// # }
     /// ```
     pub fn headers(&mut self) -> Result<&[(String, String)]> {
-        self.reader.reader_mut().initialize()?;
-        Ok(&self.reader.reader_ref().headers[..])
+        self.initialize()?;
+        Ok(&self.headers[..])
     }
 }
 
-impl<'a> IoReader<'a> {
+impl<'a> Reader<'a> {
     /// Consumes the header if not already done.
     fn initialize(&mut self) -> Result<()> {
         if self.initialized { return Ok(()) }
@@ -1004,7 +1018,7 @@ fn common_prefix<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> usize {
     a.as_ref().iter().zip(b.as_ref().iter()).take_while(|(a, b)| a == b).count()
 }
 
-impl<'a> IoReader<'a> {
+impl<'a> Reader<'a> {
     fn read_armored_data(&mut self, buf: &mut [u8]) -> Result<usize> {
         let (consumed, decoded) = if self.decode_buffer.len() > 0 {
             // We have something buffered, use that.
@@ -1194,10 +1208,10 @@ impl<'a> IoReader<'a> {
 
         Ok(decoded)
     }
-}
 
-impl<'a> Read for IoReader<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+    /// The io::Read interface that the embedded generic reader uses
+    /// to implement the BufferedReader protocol.
+    fn do_read(&mut self, buf: &mut [u8]) -> Result<usize> {
         if ! self.initialized {
             self.initialize()?;
         }
@@ -1217,63 +1231,197 @@ impl<'a> Read for IoReader<'a> {
 
         self.read_armored_data(buf)
     }
-}
 
-impl<'a> Read for Reader<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        self.reader.read(buf)
+    /// Return the buffer.  Ensure that it contains at least `amount`
+    /// bytes.
+    // XXX: This is a verbatim copy of
+    // buffered_reader::Generic::data_helper, the only modification is
+    // that it uses the above do_read function.
+    fn data_helper(&mut self, amount: usize, hard: bool, and_consume: bool)
+                   -> Result<&[u8]> {
+        // println!("Generic.data_helper(\
+        //           amount: {}, hard: {}, and_consume: {} (cursor: {}, buffer: {:?})",
+        //          amount, hard, and_consume,
+        //          self.cursor,
+        //          if let Some(ref buffer) = self.buffer { Some(buffer.len()) }
+        //          else { None });
+
+
+        // See if there is an error from the last invocation.
+        if let Some(e) = self.error.take() {
+            return Err(e);
+        }
+
+        if let Some(ref buffer) = self.buffer {
+            // We have a buffer.  Make sure `cursor` is sane.
+            assert!(self.cursor <= buffer.len());
+        } else {
+            // We don't have a buffer.  Make sure cursor is 0.
+            assert_eq!(self.cursor, 0);
+        }
+
+        let amount_buffered
+            = self.buffer.as_ref().map(|b| b.len() - self.cursor).unwrap_or(0);
+        if amount > amount_buffered {
+            // The caller wants more data than we have readily
+            // available.  Read some more.
+
+            let capacity : usize = cmp::max(cmp::max(
+                DEFAULT_BUF_SIZE,
+                2 * self.preferred_chunk_size), amount);
+
+            let mut buffer_new : Vec<u8> = vec![0u8; capacity];
+
+            let mut amount_read = 0;
+            while amount_buffered + amount_read < amount {
+                match self.do_read(&mut buffer_new
+                                   [amount_buffered + amount_read..]) {
+                    Ok(read) => {
+                        if read == 0 {
+                            break;
+                        } else {
+                            amount_read += read;
+                            continue;
+                        }
+                    },
+                    Err(ref err) if err.kind() == ErrorKind::Interrupted =>
+                        continue,
+                    Err(err) => {
+                        // Don't return yet, because we may have
+                        // actually read something.
+                        self.error = Some(err);
+                        break;
+                    },
+                }
+            }
+
+            if amount_read > 0 {
+                // We read something.
+                if let Some(ref buffer) = self.buffer {
+                    // We need to copy in the old data.
+                    buffer_new[0..amount_buffered]
+                        .copy_from_slice(
+                            &buffer[self.cursor..self.cursor + amount_buffered]);
+                }
+
+                vec_truncate(&mut buffer_new, amount_buffered + amount_read);
+                buffer_new.shrink_to_fit();
+
+                self.buffer = Some(buffer_new.into_boxed_slice());
+                self.cursor = 0;
+            }
+        }
+
+        let amount_buffered
+            = self.buffer.as_ref().map(|b| b.len() - self.cursor).unwrap_or(0);
+
+        if self.error.is_some() {
+            // An error occurred.  If we have enough data to fulfill
+            // the caller's request, then don't return the error.
+            if hard && amount > amount_buffered {
+                return Err(self.error.take().unwrap());
+            }
+            if !hard && amount_buffered == 0 {
+                return Err(self.error.take().unwrap());
+            }
+        }
+
+        if hard && amount_buffered < amount {
+            Err(Error::new(ErrorKind::UnexpectedEof, "EOF"))
+        } else if amount == 0 || amount_buffered == 0 {
+            Ok(&b""[..])
+        } else {
+            let buffer = self.buffer.as_ref().unwrap();
+            if and_consume {
+                let amount_consumed = cmp::min(amount_buffered, amount);
+                self.cursor += amount_consumed;
+                assert!(self.cursor <= buffer.len());
+                Ok(&buffer[self.cursor-amount_consumed..])
+            } else {
+                Ok(&buffer[self.cursor..])
+            }
+        }
     }
 }
 
-impl<'a> BufferedReader<Cookie> for Reader<'a> {
+impl io::Read for Reader<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+        buffered_reader::buffered_reader_generic_read_impl(self, buf)
+    }
+}
+
+impl BufferedReader<Cookie> for Reader<'_> {
     fn buffer(&self) -> &[u8] {
-        self.reader.buffer()
+        if let Some(ref buffer) = self.buffer {
+            &buffer[self.cursor..]
+        } else {
+            &b""[..]
+        }
     }
 
     fn data(&mut self, amount: usize) -> Result<&[u8]> {
-        self.reader.data(amount)
+        return self.data_helper(amount, false, false);
+    }
+
+    fn data_hard(&mut self, amount: usize) -> Result<&[u8]> {
+        return self.data_helper(amount, true, false);
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
-        self.reader.consume(amount)
+        // println!("Generic.consume({}) \
+        //           (cursor: {}, buffer: {:?})",
+        //          amount, self.cursor,
+        //          if let Some(ref buffer) = self.buffer { Some(buffer.len()) }
+        //          else { None });
+
+        // The caller can't consume more than is buffered!
+        if let Some(ref buffer) = self.buffer {
+            assert!(self.cursor <= buffer.len());
+            assert!(amount <= buffer.len() - self.cursor,
+                    "buffer contains just {} bytes, but you are trying to \
+                    consume {} bytes.  Did you forget to call data()?",
+                    buffer.len() - self.cursor, amount);
+
+            self.cursor += amount;
+            return &self.buffer.as_ref().unwrap()[self.cursor - amount..];
+        } else {
+            assert_eq!(amount, 0);
+            return &b""[..];
+        }
     }
 
     fn data_consume(&mut self, amount: usize) -> Result<&[u8]> {
-        self.reader.data_consume(amount)
+        return self.data_helper(amount, false, true);
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8]> {
-        self.reader.data_consume_hard(amount)
-    }
-
-    fn consummated(&mut self) -> bool {
-        self.reader.consummated()
+        return self.data_helper(amount, true, true);
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {
-        Some(&mut self.reader.reader_mut().source)
+        Some(&mut self.source)
     }
 
     fn get_ref(&self) -> Option<&dyn BufferedReader<Cookie>> {
-        Some(&self.reader.reader_ref().source)
+        Some(&self.source)
     }
 
     fn into_inner<'b>(self: Box<Self>)
                       -> Option<Box<dyn BufferedReader<Cookie> + 'b>>
         where Self: 'b {
-        Some(self.reader.into_reader().source)
+        Some(self.source)
     }
 
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
-        self.reader.cookie_set(cookie)
+        std::mem::replace(&mut self.cookie, cookie)
     }
 
     fn cookie_ref(&self) -> &Cookie {
-        self.reader.cookie_ref()
+        &self.cookie
     }
 
     fn cookie_mut(&mut self) -> &mut Cookie {
-        self.reader.cookie_mut()
+        &mut self.cookie
     }
 }
 
