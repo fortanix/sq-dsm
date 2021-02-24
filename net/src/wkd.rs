@@ -21,8 +21,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use futures_util::future::TryFutureExt;
-use hyper::{Uri, Client};
+use futures_util::{FutureExt, future::{BoxFuture, TryFutureExt}};
+use http::Response;
+use hyper::{Body, Client, Uri};
 use hyper_tls::HttpsConnector;
 
 use sequoia_openpgp::{
@@ -233,6 +234,32 @@ fn parse_body<S: AsRef<str>>(body: &[u8], email_address: S)
     }
 }
 
+fn get_following_redirects<'a, T>(
+    client: &'a hyper::client::Client<T>,
+    url: Uri,
+) -> BoxFuture<'a, hyper::Result<Response<Body>>>
+where
+    T: hyper::client::connect::Connect + Clone + Send + Sync + 'static,
+{
+    async move {
+        let response = client.get(url).await;
+
+        if let Ok(ref resp) = response {
+            if resp.status().is_redirection() {
+                let url = resp.headers().get("Location")
+                    .map(|value| value.to_str().ok())
+                    .flatten()
+                    .map(|value| value.parse::<Uri>());
+                if let Some(Ok(url)) = url {
+                    return get_following_redirects(&client, url).await;
+                }
+            }
+        }
+
+        response
+    }
+    .boxed()
+}
 
 /// Retrieves the Certs that contain userids with a given email address
 /// from a Web Key Directory URL.
@@ -285,11 +312,10 @@ pub async fn get<S: AsRef<str>>(email_address: S) -> Result<Vec<Cert>> {
     let advanced_uri = wkd_url.to_uri(Variant::Advanced)?;
     let direct_uri = wkd_url.to_uri(Variant::Direct)?;
 
-    let res = client
-        // First, try the Advanced Method.
-        .get(advanced_uri)
+    // First, try the Advanced Method.
+    let res = get_following_redirects(&client, advanced_uri)
         // Fall back to the Direct Method.
-        .or_else(|_| client.get(direct_uri))
+        .or_else(|_| get_following_redirects(&client, direct_uri))
         .await?;
     let body = hyper::body::to_bytes(res.into_body()).await?;
 
