@@ -853,7 +853,7 @@ impl<'a> Signer<'a> {
     /// use std::io::Write;
     /// use sequoia_openpgp as openpgp;
     /// use openpgp::serialize::stream::{Message, Signer};
-    /// use sequoia_openpgp::policy::StandardPolicy;
+    /// use openpgp::policy::StandardPolicy;
     /// # use openpgp::{Result, Cert};
     /// # use openpgp::packet::prelude::*;
     /// # use openpgp::crypto::KeyPair;
