@@ -100,8 +100,8 @@ $ sq decrypt ciphertext.pgp
                          .help("Sets the threshold of valid signatures to N")
                          .long_help(
                              "Sets the threshold of valid signatures to N. \
-                              If this threshold is not reached, the message \
-                              will not be considered verified."))
+                              The message will only be considered \
+                              verified if this threshold is reached."))
                     .arg(Arg::with_name("sender-cert-file")
                          .long("signer-cert").value_name("CERT")
                          .multiple(true).number_of_values(1)

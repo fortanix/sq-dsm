@@ -160,9 +160,8 @@
 //!             Verifies signatures with CERT
 //!
 //!     -n, --signatures <N>
-//!             Sets the threshold of valid signatures to N. If this threshold is
-//!             not reached, the message will not be considered verified. [default:
-//!             0]
+//!             Sets the threshold of valid signatures to N. The message will only
+//!             be considered verified if this threshold is reached. [default: 0]
 //!
 //! ARGS:
 //!     <FILE>
