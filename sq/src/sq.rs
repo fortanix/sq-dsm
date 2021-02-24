@@ -383,11 +383,24 @@ fn main() -> Result<()> {
         ("decrypt",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
             let mut output = create_or_stdout(m.value_of("output"), force)?;
-            let signatures: usize =
-                m.value_of("signatures").expect("has a default").parse()?;
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
+            // Fancy default for --signatures.  If you change this,
+            // also change the description in the CLI definition.
+            let signatures: usize =
+                if let Some(n) = m.value_of("signatures") {
+                    n.parse()?
+                } else if certs.is_empty() {
+                    // No certs are given for verification, use 0 as
+                    // threshold so we handle only-encrypted messages
+                    // gracefully.
+                    0
+                } else {
+                    // At least one cert given, expect at least one
+                    // valid signature.
+                    1
+                };
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;

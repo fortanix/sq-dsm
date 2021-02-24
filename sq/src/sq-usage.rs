@@ -128,7 +128,20 @@
 //! Decrypts a message
 //!
 //! Decrypts a message using either supplied keys, or by prompting for a
-//! password.  Any signatures are checked using the supplied certificates.
+//! password.  If message tampering is detected, an error is returned.
+//! See below for details.
+//!
+//! If certificates are supplied using the "--signer-cert" option, any
+//! signatures that are found are checked using these certificates.
+//! Verification is only successful if there is no bad signature, and the
+//! number of successfully verified signatures reaches the threshold
+//! configured with the "--signatures" parameter.
+//!
+//! If the signature verification fails, or if message tampering is
+//! detected, the program terminates with an exit status indicating
+//! failure.  In addition to that, the last 25 MiB of the message are
+//! withheld, i.e. if the message is smaller than 25 MiB, no output is
+//! produced, and if it is larger, then the output will be truncated.
 //!
 //! The converse operation is "sq encrypt".
 //!
@@ -161,7 +174,8 @@
 //!
 //!     -n, --signatures <N>
 //!             Sets the threshold of valid signatures to N. The message will only
-//!             be considered verified if this threshold is reached. [default: 0]
+//!             be considered verified if this threshold is reached. [default: 1 if
+//!             at least one signer cert file is given, 0 otherwise]
 //!
 //! ARGS:
 //!     <FILE>
@@ -259,6 +273,14 @@
 //! When a detached message is verified, no output is produced.  Detached
 //! signatures are often used to sign software packages.
 //!
+//! Verification is only successful if there is no bad signature, and the
+//! number of successfully verified signatures reaches the threshold
+//! configured with the "--signatures" parameter.  If the verification
+//! fails, the program terminates with an exit status indicating failure.
+//! In addition to that, the last 25 MiB of the message are withheld,
+//! i.e. if the message is smaller than 25 MiB, no output is produced, and
+//! if it is larger, then the output will be truncated.
+//!
 //! The converse operation is "sq sign".
 //!
 //! USAGE:
@@ -282,7 +304,7 @@
 //!     -n, --signatures <N>
 //!             Sets the threshold of valid signatures to N. If this threshold is
 //!             not reached, the message will not be considered verified. [default:
-//!             0]
+//!             1]
 //!
 //! ARGS:
 //!     <FILE>

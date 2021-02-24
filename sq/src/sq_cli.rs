@@ -72,7 +72,20 @@ to refer to OpenPGP keys that do contain secrets.
 "Decrypts a message
 
 Decrypts a message using either supplied keys, or by prompting for a
-password.  Any signatures are checked using the supplied certificates.
+password.  If message tampering is detected, an error is returned.
+See below for details.
+
+If certificates are supplied using the \"--signer-cert\" option, any
+signatures that are found are checked using these certificates.
+Verification is only successful if there is no bad signature, and the
+number of successfully verified signatures reaches the threshold
+configured with the \"--signatures\" parameter.
+
+If the signature verification fails, or if message tampering is
+detected, the program terminates with an exit status indicating
+failure.  In addition to that, the last 25 MiB of the message are
+withheld, i.e. if the message is smaller than 25 MiB, no output is
+produced, and if it is larger, then the output will be truncated.
 
 The converse operation is \"sq encrypt\".
 ")
@@ -96,12 +109,13 @@ $ sq decrypt ciphertext.pgp
                          .help("Writes to FILE or stdout if omitted"))
                     .arg(Arg::with_name("signatures")
                          .short("n").long("signatures").value_name("N")
-                         .default_value("0")
                          .help("Sets the threshold of valid signatures to N")
                          .long_help(
                              "Sets the threshold of valid signatures to N. \
                               The message will only be considered \
-                              verified if this threshold is reached."))
+                              verified if this threshold is reached. \
+                              [default: 1 if at least one signer cert file \
+                              is given, 0 otherwise]"))
                     .arg(Arg::with_name("sender-cert-file")
                          .long("signer-cert").value_name("CERT")
                          .multiple(true).number_of_values(1)
@@ -300,6 +314,14 @@ the file given to --output.
 When a detached message is verified, no output is produced.  Detached
 signatures are often used to sign software packages.
 
+Verification is only successful if there is no bad signature, and the
+number of successfully verified signatures reaches the threshold
+configured with the \"--signatures\" parameter.  If the verification
+fails, the program terminates with an exit status indicating failure.
+In addition to that, the last 25 MiB of the message are withheld,
+i.e. if the message is smaller than 25 MiB, no output is produced, and
+if it is larger, then the output will be truncated.
+
 The converse operation is \"sq sign\".
 ")
                     .after_help(
@@ -327,7 +349,7 @@ signatures, consider using sequoia-sqv.
                          .help("Verifies a detached signature"))
                     .arg(Arg::with_name("signatures")
                          .short("n").long("signatures").value_name("N")
-                         .default_value("0")
+                         .default_value("1")
                          .help("Sets the threshold of valid signatures to N")
                          .long_help(
                              "Sets the threshold of valid signatures to N. \
