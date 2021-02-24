@@ -368,7 +368,7 @@ fn inspect_signatures(output: &mut dyn io::Write,
         }
     }
     if ! sigs.is_empty() {
-        writeln!(output, "                 \
+        writeln!(output, "           Note: \
                           Signatures have NOT been verified!")?;
     }
 
@@ -400,7 +400,7 @@ fn inspect_certifications<'a, A>(output: &mut dyn io::Write,
             }
         }
         if emit_warning {
-            writeln!(output, "                 \
+            writeln!(output, "             Note: \
                               Certifications have NOT been verified!")?;
         }
     } else {
