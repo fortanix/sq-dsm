@@ -91,9 +91,15 @@ impl TryFrom<SystemTime> for Timestamp {
     }
 }
 
+/// SystemTime's underlying datatype may be only `i32`, e.g. on 32bit Unix.
+/// As OpenPGP's timestamp datatype is `u32`, there are timestamps (`i32::MAX + 1`
+/// to `u32::MAX`) which are not representable on such systems.
+///
+/// In this case, the result is clamped to `i32::MAX`.
 impl From<Timestamp> for SystemTime {
     fn from(t: Timestamp) -> Self {
-        UNIX_EPOCH + SystemDuration::new(t.0 as u64, 0)
+        UNIX_EPOCH.checked_add(SystemDuration::new(t.0 as u64, 0))
+            .unwrap_or_else(|| UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0))
     }
 }
 
@@ -659,6 +665,25 @@ mod tests {
         assert!(d < u);
         assert_eq!(u, ceil);
 
+        Ok(())
+    }
+
+    // #668
+    // Ensure that, on x86, Timestamps between i32::MAX + 1 and u32::MAX are
+    // clamped down to i32::MAX, and values below are not altered.
+    #[cfg(target_arch = "x86")]
+    #[test]
+    fn system_time_32_bit() -> Result<()> {
+        let t1 = Timestamp::from(u32::MAX);
+        let t2 = Timestamp::from(i32::MAX as u32 + 1);
+        assert_eq!(SystemTime::from(t1),
+                   UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
+        assert_eq!(SystemTime::from(t2),
+                   UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
+
+        let t3 = Timestamp::from(i32::MAX as u32 - 1);
+        assert!(SystemTime::from(t3),
+                UNIX_EPOCH + SystemDuration::new(i32::MAX as u64 - 1, 0));
         Ok(())
     }
 }
