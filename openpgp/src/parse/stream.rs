@@ -2438,7 +2438,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             ppr = ppr_tmp;
         }
 
-        if v.mode == Mode::VerifyDetached {
+        if v.mode == Mode::VerifyDetached && !v.structure.layers.is_empty() {
             return Ok(v);
         }
 
@@ -3261,6 +3261,25 @@ mod test {
             assert_eq!(h.good, 1);
             assert_eq!(h.bad, 0);
         }
+    }
+
+    #[test]
+    fn test_streaming_verifier_bug_issue_682() -> Result<()> {
+        let p = P::new();
+        let sig = crate::tests::message("signature-with-broken-mpis.sig");
+
+        let h = VHelper::new(0, 0, 0, 0, vec![]);
+        let result = DetachedVerifierBuilder::from_bytes(sig)?
+        .with_policy(&p, None, h);
+
+        if let Err(e) = result {
+            let error = e.downcast::<crate::Error>()?;
+            assert!(matches!(error, Error::MalformedMessage(..)));
+        } else {
+            unreachable!("Should error out as the signature is broken.");
+        }
+
+        Ok(())
     }
 
     #[test]
