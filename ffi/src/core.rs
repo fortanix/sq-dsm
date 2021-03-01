@@ -61,6 +61,16 @@ impl Context {
     }
 }
 
+impl Drop for Context {
+    fn drop(&mut self) {
+        if !self.e.is_null() {
+            unsafe {
+                drop(Box::from_raw(self.e));
+            }
+        }
+    }
+}
+
 /// Returns the last error.
 ///
 /// Returns and removes the last error from the context.
@@ -172,4 +182,20 @@ fn sq_config_ipc_policy(cfg: *mut Config, policy: c_int) {
 fn sq_config_ephemeral(cfg: *mut Config) {
     let cfg = ffi_param_ref_mut!(cfg);
     cfg.set_ephemeral();
+}
+
+#[test]
+fn test_drop_context() {
+    {
+        use crate::MoveIntoRaw;
+
+        let c = sq_context_new(None);
+        let ctx = ffi_param_ref_mut!(c);
+        let errp = ctx.errp();
+        {
+            let e = anyhow::anyhow!("bad");
+            *errp = e.move_into_raw();
+        }
+        sq_context_free(Some(ctx));
+    }
 }
