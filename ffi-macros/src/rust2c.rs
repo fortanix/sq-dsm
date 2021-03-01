@@ -1,5 +1,5 @@
 use syn;
-use syn::export::ToTokens;
+use quote::ToTokens;
 use proc_macro2;
 
 const PREFIX: &'static str = "pgp_";
