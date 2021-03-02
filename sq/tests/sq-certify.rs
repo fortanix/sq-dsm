@@ -124,11 +124,7 @@ fn sq_certify() -> Result<()> {
               "--expires-in", "1d",
             ])
         .stdout().satisfies(|output| {
-            let p = &mut StandardPolicy::new();
-            // XXX: Compat with sequoia-openpgp 1.0.0:
-            use openpgp::packet::signature::subpacket::SubpacketTag;
-            p.accept_critical_subpacket(SubpacketTag::TrustSignature);
-            p.accept_critical_subpacket(SubpacketTag::RegularExpression);
+            let p = &StandardPolicy::new();
 
             let cert = Cert::from_bytes(output).unwrap();
             let vc = cert.with_policy(p, None).unwrap();

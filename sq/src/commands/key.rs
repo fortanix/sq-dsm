@@ -228,8 +228,8 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
 
     // Gather the Key IDs / Fingerprints and make sure they are valid.
     for id in m.values_of("key").unwrap_or_default() {
-        let h = keyhandle_from_str(&id)?;
-        if keyhandle_is_invalid(&h) {
+        let h = id.parse::<KeyHandle>()?;
+        if h.is_invalid() {
             return Err(anyhow::anyhow!(
                 "Invalid Fingerprint or KeyID ('{:?}')", id));
         }
@@ -317,7 +317,7 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
     if missing.len() > 0 {
         return Err(anyhow::anyhow!(
             "Keys not found: {}",
-            missing.iter().map(|&h| format!("{:X}", h)).join(", ")));
+            missing.iter().map(|&h| h.to_hex()).join(", ")));
     }
 
 
@@ -384,11 +384,12 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
 
     let cert = cert.clone().insert_packets(packets.clone())?;
 
-    let mut message = config.create_or_stdout_pgp(
-        m.value_of("output"),
-        m.is_present("binary"), sequoia_openpgp::armor::Kind::SecretKey)?;
-    cert.as_tsk().serialize(&mut message)?;
-    message.finalize()?;
+    let mut sink = config.create_or_stdout_safe(m.value_of("output"))?;
+    if m.is_present("binary") {
+        cert.as_tsk().serialize(&mut sink)?;
+    } else {
+        cert.as_tsk().armored().serialize(&mut sink)?;
+    }
 
     let vc = cert.with_policy(&config.policy, None).expect("still valid");
     for pair in packets[..].chunks(2) {
@@ -476,7 +477,7 @@ fn attest_certifications(config: Config, m: &ArgMatches)
         if all {
             for certification in uid.certifications() {
                 let mut h = hash_algo.context()?;
-                hash_for_confirmation(certification, &mut h);
+                certification.hash_for_confirmation(&mut h);
                 attestations.push(h.into_digest()?);
             }
         }
@@ -519,7 +520,7 @@ fn attest_certifications(config: Config, m: &ArgMatches)
         if all {
             for certification in ua.certifications() {
                 let mut h = hash_algo.context()?;
-                hash_for_confirmation(certification, &mut h);
+                certification.hash_for_confirmation(&mut h);
                 attestations.push(h.into_digest()?);
             }
         }
@@ -559,84 +560,12 @@ fn attest_certifications(config: Config, m: &ArgMatches)
     // Finally, add the new signatures.
     let key = key.insert_packets(attestation_signatures)?;
 
-    let mut message = config.create_or_stdout_pgp(
-        m.value_of("output"), m.is_present("binary"),
-        sequoia_openpgp::armor::Kind::SecretKey)?;
-    key.as_tsk().serialize(&mut message)?;
-    message.finalize()?;
+    let mut sink = config.create_or_stdout_safe(m.value_of("output"))?;
+    if m.is_present("binary") {
+        key.as_tsk().serialize(&mut sink)?;
+    } else {
+        key.as_tsk().armored().serialize(&mut sink)?;
+    }
+
     Ok(())
-}
-
-// XXX: The following functions are backports from sequoia-openpgp
-// 1.1.  Remove them by reverting the commit that introduced them once
-// sequoia-sq depends on a newer version of sequoia-openpgp.
-
-fn keyhandle_from_str(s: &str) -> Result<KeyHandle> {
-    use sequoia_openpgp::{Fingerprint, KeyID};
-    let bytes = &sequoia_openpgp::fmt::hex::decode_pretty(s)?[..];
-    match Fingerprint::from_bytes(bytes) {
-        fpr @ Fingerprint::Invalid(_) => {
-            match KeyID::from_bytes(bytes) {
-                // If it can't be parsed as either a Fingerprint or a
-                // KeyID, return Fingerprint::Invalid.
-                KeyID::Invalid(_) => Ok(fpr.into()),
-                kid => Ok(kid.into()),
-            }
-        }
-        fpr => Ok(fpr.into()),
-    }
-}
-
-fn keyhandle_is_invalid(h: &KeyHandle) -> bool {
-    use sequoia_openpgp::{Fingerprint, KeyID};
-    match h {
-        KeyHandle::Fingerprint(Fingerprint::Invalid(_)) => true,
-        KeyHandle::KeyID(KeyID::Invalid(_)) => true,
-        _ => false,
-    }
-}
-
-/// Hashes this signature for use in a Third-Party Confirmation
-/// signature.
-use sequoia_openpgp::{crypto::hash::Digest, packet::Signature};
-pub fn hash_for_confirmation(sig: &Signature, hash: &mut dyn Digest) {
-    use sequoia_openpgp::serialize::{Marshal, MarshalInto};
-    // Section 5.2.4 of RFC4880:
-    //
-    // > When a signature is made over a Signature packet (type
-    // > 0x50), the hash data starts with the octet 0x88, followed
-    // > by the four-octet length of the signature, and then the
-    // > body of the Signature packet.  (Note that this is an
-    // > old-style packet header for a Signature packet with the
-    // > length-of-length set to zero.)  The unhashed subpacket
-    // > data of the Signature packet being hashed is not included
-    // > in the hash, and the unhashed subpacket data length value
-    // > is set to zero.
-
-    // This code assumes that the signature has been verified
-    // prior to being confirmed, so it is well-formed.
-    let mut body = Vec::new();
-    body.push(sig.version());
-    body.push(sig.typ().into());
-    body.push(sig.pk_algo().into());
-    body.push(sig.hash_algo().into());
-
-    // The hashed area.
-    let l = sig.hashed_area().serialized_len()
-    // Assumes well-formedness.
-        .min(std::u16::MAX as usize);
-    body.extend(&(l as u16).to_be_bytes());
-    // Assumes well-formedness.
-    let _ = sig.hashed_area().serialize(&mut body);
-
-    // The unhashed area.
-    body.extend(&[0, 0]); // Size replaced by zero.
-    // Unhashed packets omitted.
-
-    body.extend(sig.digest_prefix());
-    let _ = sig.mpis().serialize(&mut body);
-
-    hash.update(&[0x88]);
-    hash.update(&(body.len() as u32).to_be_bytes());
-    hash.update(&body);
 }
