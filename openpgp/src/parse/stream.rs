@@ -3171,10 +3171,10 @@ mod test {
                             }) = &results[0] {
                                 assert_eq!(
                                     &sig.issuer_fingerprints().nth(0).unwrap()
-                                        .to_string(),
+                                        .to_hex(),
                                     match i {
-                                        0 => "8E8C 33FA 4626 3379 76D9  7978 069C 0C34 8DD8 2C19",
-                                        1 => "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528",
+                                        0 => "8E8C33FA4626337976D97978069C0C348DD82C19",
+                                        1 => "C03FA6411B03AE12576461187223B56678E02528",
                                         _ => unreachable!(),
                                     }
                                 );

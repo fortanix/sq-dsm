@@ -43,8 +43,8 @@ const KEY: &str =
 fn main() -> openpgp::Result<()> {
     let cert = openpgp::Cert::from_bytes(KEY.as_bytes())?;
 
-    assert_eq!(cert.fingerprint().to_string(),
-               "C087 4478 A65C 540A 1F73  72B4 A22E AD61 4D11 744A");
+    assert_eq!(cert.fingerprint().to_hex(),
+               "C0874478A65C540A1F7372B4A22EAD614D11744A");
 
     // Iterate over UserIDs.
     assert_eq!(cert.userids().count(), 1);
@@ -52,10 +52,10 @@ fn main() -> openpgp::Result<()> {
 
     // Iterate over subkeys.
     assert_eq!(cert.keys().subkeys().count(), 2);
-    assert_eq!(cert.keys().subkeys().nth(0).unwrap().key().fingerprint().to_string(),
-               "67A4 8753 A380 A6B3 B7DF  7DC5 E6C6 897A 4CEF 8924");
-    assert_eq!(cert.keys().subkeys().nth(1).unwrap().key().fingerprint().to_string(),
-               "185C DAA1 2723 0423 19E4  7F67 108F 2CAF 9034 356D");
+    assert_eq!(cert.keys().subkeys().nth(0).unwrap().key().fingerprint().to_hex(),
+               "67A48753A380A6B3B7DF7DC5E6C6897A4CEF8924");
+    assert_eq!(cert.keys().subkeys().nth(1).unwrap().key().fingerprint().to_hex(),
+               "185CDAA12723042319E47F67108F2CAF9034356D");
 
     Ok(())
 }
@@ -132,7 +132,7 @@ fn main() -> openpgp::Result<()> {
 
     // First, we expect an one pass signature packet.
     if let openpgp::Packet::OnePassSig(ref ops) = packets[0] {
-        assert_eq!(ops.issuer().to_string(), "E6C6 897A 4CEF 8924");
+        assert_eq!(ops.issuer().to_hex(), "E6C6897A4CEF8924");
     } else {
         panic!("expected one pass signature packet");
     }
@@ -146,8 +146,8 @@ fn main() -> openpgp::Result<()> {
 
     // Finally, we expect the signature itself.
     if let openpgp::Packet::Signature(ref signature) = packets[2] {
-        assert_eq!(signature.issuer_fingerprints().nth(0).unwrap().to_string(),
-                   "67A4 8753 A380 A6B3 B7DF  7DC5 E6C6 897A 4CEF 8924");
+        assert_eq!(signature.issuer_fingerprints().nth(0).unwrap().to_hex(),
+                   "67A48753A380A6B3B7DF7DC5E6C6897A4CEF8924");
     } else {
         panic!("expected signature packet");
     }

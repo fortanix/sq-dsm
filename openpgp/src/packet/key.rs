@@ -2035,14 +2035,14 @@ mod tests {
         let mut pki = 0;
         let mut ski = 0;
 
-        let pks = [ "8F17 7771 18A3 3DDA 9BA4  8E62 AACB 3243 6300 52D9" ];
-        let sks = [ "C03F A641 1B03 AE12 5764  6118 7223 B566 78E0 2528",
-                    "50E6 D924 308D BF22 3CFB  510A C2B8 1905 6C65 2598",
-                    "2DC5 0AB5 5BE2 F3B0 4C2D  2CF8 A350 6AFB 820A BD08"];
+        let pks = [ "8F17777118A33DDA9BA48E62AACB3243630052D9" ];
+        let sks = [ "C03FA6411B03AE12576461187223B56678E02528",
+                    "50E6D924308DBF223CFB510AC2B819056C652598",
+                    "2DC50AB55BE2F3B04C2D2CF8A3506AFB820ABD08"];
 
         for p in pile.descendants() {
             if let &Packet::PublicKey(ref p) = p {
-                let fp = p.fingerprint().to_string();
+                let fp = p.fingerprint().to_hex();
                 // eprintln!("PK: {:?}", fp);
 
                 assert!(pki < pks.len());
@@ -2051,7 +2051,7 @@ mod tests {
             }
 
             if let &Packet::PublicSubkey(ref p) = p {
-                let fp = p.fingerprint().to_string();
+                let fp = p.fingerprint().to_hex();
                 // eprintln!("SK: {:?}", fp);
 
                 assert!(ski < sks.len());
