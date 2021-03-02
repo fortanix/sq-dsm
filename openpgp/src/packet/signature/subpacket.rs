@@ -1086,6 +1086,26 @@ pub struct NotationData {
 }
 assert_send_and_sync!(NotationData);
 
+impl fmt::Display for NotationData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.name)?;
+
+        let flags = format!("{:?}", self.flags);
+        if ! flags.is_empty() {
+            write!(f, " ({})", flags)?;
+        }
+
+        if self.flags.human_readable() {
+            write!(f, ": {}", String::from_utf8_lossy(&self.value))?;
+        } else {
+            let hex = crate::fmt::hex::encode(&self.value);
+            write!(f, ": {}", hex)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl fmt::Debug for NotationData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut dbg = f.debug_struct("NotationData");
