@@ -340,7 +340,7 @@ impl KeyHandle {
         }
     }
 
-    /// Converts this fingerprint to its canonical hexadecimal
+    /// Converts this `KeyHandle` to its canonical hexadecimal
     /// representation.
     ///
     /// This representation is always uppercase and without spaces and
