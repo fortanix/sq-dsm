@@ -1078,13 +1078,43 @@ impl SubpacketArea {
 /// 5.2.3.16 of RFC 4880] for details.
 ///
 ///   [Section 5.2.3.16 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NotationData {
     flags: NotationDataFlags,
     name: String,
     value: Vec<u8>,
 }
 assert_send_and_sync!(NotationData);
+
+impl fmt::Debug for NotationData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut dbg = f.debug_struct("NotationData");
+        dbg.field("name", &self.name);
+
+        let flags = format!("{:?}", self.flags);
+        if ! flags.is_empty() {
+            dbg.field("flags", &flags);
+        }
+
+        if self.flags.human_readable() {
+            match std::str::from_utf8(&self.value) {
+                Ok(s) => {
+                    dbg.field("value", &s);
+                },
+                Err(e) => {
+                    let s = format!("({}): {}", e,
+                                    crate::fmt::hex::encode(&self.value));
+                    dbg.field("value", &s);
+                },
+            }
+        } else {
+            let hex = crate::fmt::hex::encode(&self.value);
+            dbg.field("value", &hex);
+        }
+
+        dbg.finish()
+    }
+}
 
 #[cfg(test)]
 impl Arbitrary for NotationData {
