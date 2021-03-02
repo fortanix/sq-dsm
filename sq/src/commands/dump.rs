@@ -761,7 +761,7 @@ impl PacketDumper {
             Unknown { body, .. } => {
                 writeln!(output, "{}    {:?}{}:", i, s.tag(),
                          if s.critical() { " (critical)" } else { "" })?;
-                hexdump_unknown(output, body)?;
+                hexdump_unknown(output, body.as_slice())?;
             },
             SignatureCreationTime(t) =>
                 write!(output, "{}    Signature creation time: {}", i,
@@ -802,8 +802,24 @@ impl PacketDumper {
             },
             Issuer(ref is) =>
                 write!(output, "{}    Issuer: {}", i, is)?,
-            NotationData(ref n) =>
-                write!(output, "{}    Notation: {:?}", i, n)?,
+            NotationData(n) => if n.flags().human_readable() {
+                write!(output, "{}    Notation: {}", i, n)?;
+                if s.critical() {
+                    write!(output, " (critical)")?;
+                }
+                writeln!(output)?;
+            } else {
+                write!(output, "{}    Notation: {}", i, n.name())?;
+                let flags = format!("{:?}", n.flags());
+                if ! flags.is_empty() {
+                    write!(output, "{}", flags)?;
+                }
+                if s.critical() {
+                    write!(output, " (critical)")?;
+                }
+                writeln!(output)?;
+                hexdump_unknown(output, n.value())?;
+            },
             PreferredHashAlgorithms(ref h) =>
                 write!(output, "{}    Hash preferences: {}", i,
                        h.iter().map(|h| format!("{:?}", h))
@@ -855,6 +871,7 @@ impl PacketDumper {
 
         match s.value() {
             Unknown { .. } => (),
+            NotationData { .. } => (),
             EmbeddedSignature(ref sig) => {
                 if s.critical() {
                     write!(output, " (critical)")?;
