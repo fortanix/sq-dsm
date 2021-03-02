@@ -159,8 +159,8 @@ pub fn certify(config: Config, m: &clap::ArgMatches)
 
 
     // And export it.
-    let mut message = crate::create_or_stdout_pgp(
-        m.value_of("output"), config.force,
+    let mut message = config.create_or_stdout_pgp(
+        m.value_of("output"),
         m.is_present("binary"), sequoia_openpgp::armor::Kind::PublicKey)?;
     cert.serialize(&mut message)?;
     message.finalize()?;

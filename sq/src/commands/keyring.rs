@@ -26,11 +26,11 @@ use openpgp::{
 };
 
 use crate::{
+    Config,
     open_or_stdin,
-    create_or_stdout_pgp,
 };
 
-pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
+pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("filter",  Some(m)) => {
             let any_uid_predicates =
@@ -114,10 +114,10 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
             // better to use Kind::SecretKey here.  However, this
             // requires buffering all certs, which has its own
             // problems.
-            let mut output = create_or_stdout_pgp(m.value_of("output"),
-                                                  force,
-                                                  m.is_present("binary"),
-                                                  armor::Kind::PublicKey)?;
+            let mut output =
+                config.create_or_stdout_pgp(m.value_of("output"),
+                                            m.is_present("binary"),
+                                            armor::Kind::PublicKey)?;
             filter(m.values_of("input"), &mut output, filter_fn,
                    to_certificate)?;
             output.finalize()
@@ -128,18 +128,18 @@ pub fn dispatch(m: &clap::ArgMatches, force: bool) -> Result<()> {
             // better to use Kind::SecretKey here.  However, this
             // requires buffering all certs, which has its own
             // problems.
-            let mut output = create_or_stdout_pgp(m.value_of("output"),
-                                                  force,
-                                                  m.is_present("binary"),
-                                                  armor::Kind::PublicKey)?;
+            let mut output =
+                config.create_or_stdout_pgp(m.value_of("output"),
+                                            m.is_present("binary"),
+                                            armor::Kind::PublicKey)?;
             filter(m.values_of("input"), &mut output, |c| Some(c), false)?;
             output.finalize()
         },
         ("merge",  Some(m)) => {
-            let mut output = create_or_stdout_pgp(m.value_of("output"),
-                                                  force,
-                                                  m.is_present("binary"),
-                                                  armor::Kind::PublicKey)?;
+            let mut output =
+                config.create_or_stdout_pgp(m.value_of("output"),
+                                            m.is_present("binary"),
+                                            armor::Kind::PublicKey)?;
             merge(m.values_of("input"), &mut output)?;
             output.finalize()
         },

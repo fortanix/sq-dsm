@@ -27,7 +27,6 @@ use net::{
 use crate::{
     Config,
     open_or_stdin,
-    create_or_stdout,
     serialize_keyring,
 };
 
@@ -77,7 +76,7 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
                     .context("Failed to retrieve cert")?;
 
                 let mut output =
-                    create_or_stdout(m.value_of("output"), config.force)?;
+                    config.create_or_stdout_safe(m.value_of("output"))?;
                 if ! m.is_present("binary") {
                     cert.armored().serialize(&mut output)
                 } else {
@@ -87,8 +86,8 @@ pub fn dispatch_keyserver(config: Config, m: &clap::ArgMatches) -> Result<()> {
                 let certs = rt.block_on(ks.search(addr))
                     .context("Failed to retrieve certs")?;
 
-                let mut output = create_or_stdout(m.value_of("output"),
-                                                  config.force)?;
+                let mut output =
+                    config.create_or_stdout_safe(m.value_of("output"))?;
                 serialize_keyring(&mut output, &certs,
                                   m.is_present("binary"))?;
             } else {
@@ -147,8 +146,8 @@ pub fn dispatch_wkd(config: Config, m: &clap::ArgMatches) -> Result<()> {
             // ```
             // But to keep the parallelism with `store export` and `keyserver get`,
             // The output is armored if not `--binary` option is given.
-            let mut output = create_or_stdout(m.value_of("output"),
-                                              config.force)?;
+            let mut output =
+                config.create_or_stdout_safe(m.value_of("output"))?;
             serialize_keyring(&mut output, &certs,
                               m.is_present("binary"))?;
         },

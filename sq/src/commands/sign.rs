@@ -18,38 +18,33 @@ use crate::openpgp::serialize::Serialize;
 use crate::openpgp::serialize::stream::{
     Message, Armorer, Signer, LiteralWriter,
 };
-use crate::openpgp::policy::Policy;
 use crate::openpgp::types::SignatureType;
 use crate::{
     Config,
-    create_or_stdout,
-    create_or_stdout_pgp,
 };
 
-pub fn sign(policy: &dyn Policy,
+pub fn sign(config: Config,
             input: &mut (dyn io::Read + Sync + Send),
             output_path: Option<&str>,
             secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
             append: bool, notarize: bool, time: Option<SystemTime>,
-            notations: &[(bool, NotationData)],
-            force: bool)
+            notations: &[(bool, NotationData)])
             -> Result<()> {
     match (detached, append|notarize) {
         (_, false) | (true, true) =>
-            sign_data(policy, input, output_path, secrets, detached, binary,
-                      append, time, notations, force),
+            sign_data(config, input, output_path, secrets, detached, binary,
+                      append, time, notations),
         (false, true) =>
-            sign_message(policy, input, output_path, secrets, binary, notarize,
-                         time, notations, force),
+            sign_message(config, input, output_path, secrets, binary, notarize,
+                         time, notations),
     }
 }
 
-fn sign_data(policy: &dyn Policy,
+fn sign_data(config: Config,
              input: &mut dyn io::Read, output_path: Option<&str>,
              secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
              append: bool, time: Option<SystemTime>,
-             notations: &[(bool, NotationData)],
-             force: bool)
+             notations: &[(bool, NotationData)])
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
     (Box<dyn io::Write + Sync + Send>, Vec<Signature>, Option<PathBuf>) =
@@ -81,10 +76,10 @@ fn sign_data(policy: &dyn Policy,
             let tmp_path = tmp_file.path().into();
             (Box::new(tmp_file), sigs, Some(tmp_path))
         } else {
-            (create_or_stdout(output_path, force)?, Vec::new(), None)
+            (config.create_or_stdout_safe(output_path)?, Vec::new(), None)
         };
 
-    let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;
+    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
     if keypairs.is_empty() {
         return Err(anyhow::anyhow!("No signing keys found"));
     }
@@ -156,24 +151,23 @@ fn sign_data(policy: &dyn Policy,
     Ok(())
 }
 
-fn sign_message(policy: &dyn Policy,
+fn sign_message(config: Config,
                 input: &mut (dyn io::Read + Sync + Send),
                 output_path: Option<&str>,
                 secrets: Vec<openpgp::Cert>, binary: bool, notarize: bool,
                 time: Option<SystemTime>,
-                notations: &[(bool, NotationData)],
-                force: bool)
+                notations: &[(bool, NotationData)])
              -> Result<()> {
     let mut output =
-        create_or_stdout_pgp(output_path, force,
-                             binary,
-                             armor::Kind::Message)?;
-    sign_message_(policy, input, &mut output, secrets, notarize, time, notations)?;
+        config.create_or_stdout_pgp(output_path,
+                                    binary,
+                                    armor::Kind::Message)?;
+    sign_message_(config, input, &mut output, secrets, notarize, time, notations)?;
     output.finalize()?;
     Ok(())
 }
 
-fn sign_message_(policy: &dyn Policy,
+fn sign_message_(config: Config,
                  input: &mut (dyn io::Read + Sync + Send),
                  output: &mut (dyn io::Write + Sync + Send),
                  secrets: Vec<openpgp::Cert>, notarize: bool,
@@ -181,7 +175,7 @@ fn sign_message_(policy: &dyn Policy,
                  notations: &[(bool, NotationData)])
                  -> Result<()>
 {
-    let mut keypairs = super::get_signing_keys(&secrets, policy, time)?;
+    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
     if keypairs.is_empty() {
         return Err(anyhow::anyhow!("No signing keys found"));
     }

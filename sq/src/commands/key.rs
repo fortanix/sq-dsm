@@ -20,14 +20,13 @@ use crate::{
     open_or_stdin,
 };
 use crate::Config;
-use crate::create_or_stdout;
 use crate::SECONDS_IN_YEAR;
 use crate::parse_duration;
 use crate::decrypt_key;
 
 pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
-        ("generate", Some(m)) => generate(m, config.force)?,
+        ("generate", Some(m)) => generate(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("adopt", Some(m)) => adopt(config, m)?,
         ("attest-certifications", Some(m)) =>
@@ -37,7 +36,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     Ok(())
 }
 
-fn generate(m: &ArgMatches, force: bool) -> Result<()> {
+fn generate(config: Config, m: &ArgMatches) -> Result<()> {
     let mut builder = CertBuilder::new();
 
     // User ID
@@ -179,7 +178,7 @@ fn generate(m: &ArgMatches, force: bool) -> Result<()> {
                 .map(|value| ("Comment", value.as_str()))
                 .collect();
 
-            let w = create_or_stdout(Some(&key_path), force)?;
+            let w = config.create_or_stdout_safe(Some(&key_path))?;
             let mut w = Writer::with_headers(w, Kind::SecretKey, headers)?;
             cert.as_tsk().serialize(&mut w)?;
             w.finalize()?;
@@ -192,7 +191,7 @@ fn generate(m: &ArgMatches, force: bool) -> Result<()> {
                 .collect();
             headers.insert(0, ("Comment", "Revocation certificate for"));
 
-            let w = create_or_stdout(Some(&rev_path), force)?;
+            let w = config.create_or_stdout_safe(Some(&rev_path))?;
             let mut w = Writer::with_headers(w, Kind::Signature, headers)?;
             Packet::Signature(rev).serialize(&mut w)?;
             w.finalize()?;
@@ -208,7 +207,7 @@ fn generate(m: &ArgMatches, force: bool) -> Result<()> {
 
 fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
     let input = open_or_stdin(m.value_of("input"))?;
-    let mut output = create_or_stdout(m.value_of("output"), config.force)?;
+    let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
 
     let cert = Cert::from_reader(input)?;
     if m.is_present("binary") {
@@ -385,8 +384,8 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
 
     let cert = cert.clone().insert_packets(packets.clone())?;
 
-    let mut message = crate::create_or_stdout_pgp(
-        m.value_of("output"), config.force,
+    let mut message = config.create_or_stdout_pgp(
+        m.value_of("output"),
         m.is_present("binary"), sequoia_openpgp::armor::Kind::SecretKey)?;
     cert.as_tsk().serialize(&mut message)?;
     message.finalize()?;
@@ -560,8 +559,8 @@ fn attest_certifications(config: Config, m: &ArgMatches)
     // Finally, add the new signatures.
     let key = key.insert_packets(attestation_signatures)?;
 
-    let mut message = crate::create_or_stdout_pgp(
-        m.value_of("output"), config.force, m.is_present("binary"),
+    let mut message = config.create_or_stdout_pgp(
+        m.value_of("output"), m.is_present("binary"),
         sequoia_openpgp::armor::Kind::SecretKey)?;
     key.as_tsk().serialize(&mut message)?;
     message.finalize()?;

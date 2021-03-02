@@ -38,6 +38,7 @@ fn open_or_stdin(f: Option<&str>)
     }
 }
 
+#[deprecated(note = "Use the appropriate function on Config instead")]
 fn create_or_stdout(f: Option<&str>, force: bool)
     -> Result<Box<dyn io::Write + Sync + Send>> {
     match f {
@@ -59,18 +60,6 @@ fn create_or_stdout(f: Option<&str>, force: bool)
             }
         }
     }
-}
-
-fn create_or_stdout_pgp<'a>(f: Option<&str>, force: bool,
-                            binary: bool, kind: armor::Kind)
-                            -> Result<Message<'a>>
-{
-    let sink = create_or_stdout(f, force)?;
-    let mut message = Message::new(sink);
-    if ! binary {
-        message = Armorer::new(message).kind(kind).build()?;
-    }
-    Ok(message)
 }
 
 const SECONDS_IN_DAY : u64 = 24 * 60 * 60;
@@ -356,6 +345,43 @@ pub struct Config<'a> {
     policy: P<'a>,
 }
 
+impl Config<'_> {
+    /// Opens the file (or stdout) for writing data that is safe for
+    /// non-interactive use.
+    ///
+    /// This is suitable for any kind of OpenPGP data, or decrypted or
+    /// authenticated payloads.
+    fn create_or_stdout_safe(&self, f: Option<&str>)
+                             -> Result<Box<dyn io::Write + Sync + Send>> {
+        #[allow(deprecated)]
+        create_or_stdout(f, self.force)
+    }
+
+    /// Opens the file (or stdout) for writing data that is NOT safe
+    /// for non-interactive use.
+    ///
+    /// If our heuristic detects non-interactive use, we will emit a
+    /// warning.
+    fn create_or_stdout_unsafe(&self, f: Option<&str>)
+                               -> Result<Box<dyn io::Write + Sync + Send>> {
+        #[allow(deprecated)]
+        create_or_stdout(f, self.force)
+    }
+
+    /// Opens the file (or stdout) for writing data that is safe for
+    /// non-interactive use because it is an OpenPGP data stream.
+    fn create_or_stdout_pgp<'a>(&self, f: Option<&str>,
+                                binary: bool, kind: armor::Kind)
+                                -> Result<Message<'a>> {
+        let sink = self.create_or_stdout_safe(f)?;
+        let mut message = Message::new(sink);
+        if ! binary {
+            message = Armorer::new(message).kind(kind).build()?;
+        }
+        Ok(message)
+    }
+}
+
 fn main() -> Result<()> {
     let policy = &mut P::new();
 
@@ -382,7 +408,8 @@ fn main() -> Result<()> {
     match matches.subcommand() {
         ("decrypt",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"), force)?;
+            let mut output =
+                config.create_or_stdout_safe(m.value_of("output"))?;
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
                 .unwrap_or(Ok(vec![]))?;
@@ -416,9 +443,9 @@ fn main() -> Result<()> {
                 .unwrap_or(Ok(vec![]))?;
             let mut input = open_or_stdin(m.value_of("input"))?;
             let output =
-                create_or_stdout_pgp(m.value_of("output"), force,
-                                     m.is_present("binary"),
-                                     armor::Kind::Message)?;
+                config.create_or_stdout_pgp(m.value_of("output"),
+                                            m.is_present("binary"),
+                                            armor::Kind::Message)?;
             let additional_secrets = m.values_of("signer-key-file")
                 .map(load_keys)
                 .unwrap_or(Ok(vec![]))?;
@@ -489,22 +516,23 @@ fn main() -> Result<()> {
             }
 
             if let Some(merge) = m.value_of("merge") {
-                let output = create_or_stdout_pgp(output, force, binary,
-                                                  armor::Kind::Message)?;
+                let output = config.create_or_stdout_pgp(output, binary,
+                                                         armor::Kind::Message)?;
                 let mut input2 = open_or_stdin(Some(merge))?;
                 commands::merge_signatures(&mut input, &mut input2, output)?;
             } else if m.is_present("clearsign") {
-                let output = create_or_stdout(output, force)?;
+                let output = config.create_or_stdout_safe(output)?;
                 commands::sign::clearsign(config, input, output, secrets,
                                           time, &notations)?;
             } else {
-                commands::sign(policy, &mut input, output, secrets, detached,
-                               binary, append, notarize, time, &notations, force)?;
+                commands::sign(config, &mut input, output, secrets, detached,
+                               binary, append, notarize, time, &notations)?;
             }
         },
         ("verify",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"), force)?;
+            let mut output =
+                config.create_or_stdout_safe(m.value_of("output"))?;
             let mut detached = if let Some(f) = m.value_of("detached") {
                 Some(File::open(f)?)
             } else {
@@ -541,7 +569,7 @@ fn main() -> Result<()> {
             {
                 // It is already armored and has the correct kind.
                 let mut output =
-                    create_or_stdout(m.value_of("output"), force)?;
+                    config.create_or_stdout_safe(m.value_of("output"))?;
                 io::copy(&mut input, &mut output)?;
                 return Ok(());
             }
@@ -556,8 +584,8 @@ fn main() -> Result<()> {
             let want_kind = want_kind.expect("given or detected");
 
             let mut output =
-                create_or_stdout_pgp(m.value_of("output"), force,
-                                     false, want_kind)?;
+                config.create_or_stdout_pgp(m.value_of("output"),
+                                            false, want_kind)?;
 
             if already_armored {
                 // Dearmor and copy to change the type.
@@ -572,7 +600,8 @@ fn main() -> Result<()> {
         },
         ("dearmor",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"), force)?;
+            let mut output =
+                config.create_or_stdout_safe(m.value_of("output"))?;
             let mut filter = armor::Reader::new(&mut input, None);
             io::copy(&mut filter, &mut output)?;
         },
@@ -580,16 +609,18 @@ fn main() -> Result<()> {
         ("autocrypt", Some(m)) => commands::autocrypt::dispatch(config, m)?,
 
         ("inspect",  Some(m)) => {
-            let mut output = create_or_stdout(m.value_of("output"), force)?;
+            let mut output =
+                config.create_or_stdout_unsafe(m.value_of("output"))?;
             commands::inspect(m, policy, &mut output)?;
         },
 
-        ("keyring", Some(m)) => commands::keyring::dispatch(m, force)?,
+        ("keyring", Some(m)) => commands::keyring::dispatch(config, m)?,
 
         ("packet", Some(m)) => match m.subcommand() {
             ("dump",  Some(m)) => {
                 let mut input = open_or_stdin(m.value_of("input"))?;
-                let mut output = create_or_stdout(m.value_of("output"), force)?;
+                let mut output =
+                    config.create_or_stdout_unsafe(m.value_of("output"))?;
                 let session_key: Option<openpgp::crypto::SessionKey> =
                     if let Some(sk) = m.value_of("session-key") {
                         Some(hex::decode_pretty(sk)?.into())
@@ -605,9 +636,9 @@ fn main() -> Result<()> {
             ("decrypt",  Some(m)) => {
                 let mut input = open_or_stdin(m.value_of("input"))?;
                 let mut output =
-                    create_or_stdout_pgp(m.value_of("output"), force,
-                                         m.is_present("binary"),
-                                         armor::Kind::Message)?;
+                    config.create_or_stdout_pgp(m.value_of("output"),
+                                                m.is_present("binary"),
+                                                armor::Kind::Message)?;
                 let secrets = m.values_of("secret-key-file")
                     .map(load_keys)
                     .unwrap_or(Ok(vec![]))?;

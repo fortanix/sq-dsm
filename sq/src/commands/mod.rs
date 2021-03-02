@@ -32,7 +32,6 @@ use crate::openpgp::policy::Policy;
 use crate::{
     Config,
     parse_armor_kind,
-    create_or_stdout_pgp,
 };
 
 #[cfg(feature = "autocrypt")]
@@ -454,21 +453,22 @@ pub fn join(config: Config, m: &clap::ArgMatches)
     let mut sink =
         if m.is_present("binary") {
             // No need for any auto-detection.
-            Some(create_or_stdout_pgp(output, config.force,
-                                      true, // Binary.
-                                      armor::Kind::File)?)
+            Some(config.create_or_stdout_pgp(output,
+                                             true, // Binary.
+                                             armor::Kind::File)?)
         } else if let Some(kind) = kind {
-            Some(create_or_stdout_pgp(output, config.force,
-                                      false, // Armored.
-                                      kind)?)
+            Some(config.create_or_stdout_pgp(output,
+                                             false, // Armored.
+                                             kind)?)
         } else {
             None // Defer.
         };
 
     /// Writes a bit-accurate copy of all top-level packets in PPR to
     /// OUTPUT.
-    fn copy(mut ppr: PacketParserResult,
-            output: Option<&str>, force: bool,
+    fn copy(config: &Config,
+            mut ppr: PacketParserResult,
+            output: Option<&str>,
             sink: &mut Option<Message>)
             -> Result<()> {
         while let PacketParserResult::Some(pp) = ppr {
@@ -483,9 +483,9 @@ pub fn join(config: Config, m: &clap::ArgMatches)
                     _ => armor::Kind::File,
                 };
 
-                *sink = Some(create_or_stdout_pgp(output, force,
-                                                  false, // Armored.
-                                                  kind)?);
+                *sink = Some(config.create_or_stdout_pgp(output,
+                                                         false, // Armored.
+                                                         kind)?);
             }
 
             // We (ab)use the mapping feature to create byte-accurate
@@ -505,13 +505,13 @@ pub fn join(config: Config, m: &clap::ArgMatches)
             let ppr =
                 openpgp::parse::PacketParserBuilder::from_file(name)?
                 .map(true).build()?;
-            copy(ppr, output, config.force, &mut sink)?;
+            copy(&config, ppr, output, &mut sink)?;
         }
     } else {
         let ppr =
             openpgp::parse::PacketParserBuilder::from_reader(io::stdin())?
             .map(true).build()?;
-        copy(ppr, output, config.force, &mut sink)?;
+        copy(&config, ppr, output, &mut sink)?;
     }
 
     sink.unwrap().finalize()?;

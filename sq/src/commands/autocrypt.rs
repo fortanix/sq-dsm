@@ -10,8 +10,6 @@ use sequoia_autocrypt as autocrypt;
 
 use crate::{
     Config,
-    create_or_stdout,
-    create_or_stdout_pgp,
     open_or_stdin,
 };
 
@@ -20,10 +18,9 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         ("decode",  Some(m)) => {
             let input = open_or_stdin(m.value_of("input"))?;
             let mut output =
-                create_or_stdout_pgp(m.value_of("output"),
-                                     config.force,
-                                     m.is_present("binary"),
-                                     armor::Kind::PublicKey)?;
+                config.create_or_stdout_pgp(m.value_of("output"),
+                                            m.is_present("binary"),
+                                            armor::Kind::PublicKey)?;
             let ac = autocrypt::AutocryptHeaders::from_reader(input)?;
             for h in &ac.headers {
                 if let Some(ref cert) = h.key {
@@ -34,8 +31,8 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         },
         ("encode-sender",  Some(m)) => {
             let input = open_or_stdin(m.value_of("input"))?;
-            let mut output = create_or_stdout(m.value_of("output"),
-                                              config.force)?;
+            let mut output =
+                config.create_or_stdout_safe(m.value_of("output"))?;
             let cert = Cert::from_reader(input)?;
             let addr = m.value_of("address").map(|a| a.to_string())
                 .or_else(|| {
