@@ -343,6 +343,8 @@ fn emit_unstable_cli_warning() {
 pub struct Config<'a> {
     force: bool,
     policy: P<'a>,
+    /// Have we emitted the warning yet?
+    unstable_cli_warning_emitted: bool,
 }
 
 impl Config<'_> {
@@ -362,8 +364,12 @@ impl Config<'_> {
     ///
     /// If our heuristic detects non-interactive use, we will emit a
     /// warning.
-    fn create_or_stdout_unsafe(&self, f: Option<&str>)
+    fn create_or_stdout_unsafe(&mut self, f: Option<&str>)
                                -> Result<Box<dyn io::Write + Sync + Send>> {
+        if ! self.unstable_cli_warning_emitted {
+            emit_unstable_cli_warning();
+            self.unstable_cli_warning_emitted = true;
+        }
         #[allow(deprecated)]
         create_or_stdout(f, self.force)
     }
@@ -391,7 +397,6 @@ fn main() -> Result<()> {
     policy.accept_critical_subpacket(SubpacketTag::RegularExpression);
 
     let matches = sq_cli::build().get_matches();
-    emit_unstable_cli_warning();
 
     let known_notations: Vec<&str> = matches.values_of("known-notation")
         .unwrap_or_default()
@@ -400,9 +405,10 @@ fn main() -> Result<()> {
 
     let force = matches.is_present("force");
 
-    let config = Config {
+    let mut config = Config {
         force,
         policy: policy.clone(),
+        unstable_cli_warning_emitted: false,
     };
 
     match matches.subcommand() {
