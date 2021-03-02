@@ -171,6 +171,38 @@ impl Fingerprint {
         format!("{:X}", self)
     }
 
+    /// Converts this fingerprint to its hexadecimal representation
+    /// with spaces.
+    ///
+    /// This representation is always uppercase and with spaces
+    /// grouping the hexadecimal digits into groups of four with a
+    /// double space in the middle.  It is only suitable for manual
+    /// comparison of fingerprints.
+    ///
+    /// Note: The spaces will hinder other kind of use cases.  For
+    /// example, it is harder to select the whole fingerprint for
+    /// copying, and it has to be quoted when used as a command line
+    /// argument.  Only use this form for displaying a fingerprint
+    /// with the intent of manual comparisons.
+    ///
+    /// See also [`Fingerprint::to_icao`].
+    ///
+    ///   [`Fingerprint::to_icao`]: #method.to_icao
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// let fp: openpgp::Fingerprint =
+    ///     "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567".parse()?;
+    ///
+    /// assert_eq!("0123 4567 89AB CDEF 0123  4567 89AB CDEF 0123 4567",
+    ///            fp.to_spaced_hex());
+    /// # Ok(()) }
+    /// ```
+    pub fn to_spaced_hex(&self) -> String {
+        self.convert_to_string(true)
+    }
+
     /// Parses the hexadecimal representation of an OpenPGP
     /// fingerprint.
     ///

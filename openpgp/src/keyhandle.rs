@@ -365,6 +365,37 @@ impl KeyHandle {
         format!("{:X}", self)
     }
 
+    /// Converts this `KeyHandle` to its hexadecimal representation
+    /// with spaces.
+    ///
+    /// This representation is always uppercase and with spaces
+    /// grouping the hexadecimal digits into groups of four.  It is
+    /// only suitable for manual comparison of key handles.
+    ///
+    /// Note: The spaces will hinder other kind of use cases.  For
+    /// example, it is harder to select the whole key handle for
+    /// copying, and it has to be quoted when used as a command line
+    /// argument.  Only use this form for displaying a key handle with
+    /// the intent of manual comparisons.
+    ///
+    /// ```rust
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// use openpgp::KeyHandle;
+    ///
+    /// let h: KeyHandle =
+    ///     "0123 4567 89AB CDEF 0123 4567 89AB CDEF 0123 4567".parse()?;
+    ///
+    /// assert_eq!("0123 4567 89AB CDEF 0123  4567 89AB CDEF 0123 4567",
+    ///            h.to_spaced_hex());
+    /// # Ok(()) }
+    /// ```
+    pub fn to_spaced_hex(&self) -> String {
+        match self {
+            KeyHandle::Fingerprint(v) => v.to_spaced_hex(),
+            KeyHandle::KeyID(v) => v.to_spaced_hex(),
+        }
+    }
 }
 
 #[cfg(test)]
