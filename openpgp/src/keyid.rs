@@ -29,7 +29,7 @@ use crate::Result;
 /// In previous versions of OpenPGP, the Key ID used to be called
 /// "long Key ID", as there even was a "short Key ID". At only 4 bytes
 /// length, short Key IDs vulnerable to preimage attacks. That is, an
-/// attacker can create a key with any given short key ID in short
+/// attacker can create a key with any given short Key ID in short
 /// amount of time.
 ///
 /// See also [`Fingerprint`] and [`KeyHandle`].
@@ -357,11 +357,11 @@ impl KeyID {
             &KeyID::Invalid(ref fp) => &fp[..],
         };
 
-        // We currently only handle V4 key IDs, which look like:
+        // We currently only handle V4 Key IDs, which look like:
         //
         //   AACB 3243 6300 52D9
         //
-        // Since we have no idea how to format an invalid key ID, just
+        // Since we have no idea how to format an invalid Key ID, just
         // format it like a V4 fingerprint and hope for the best.
 
         let mut output = Vec::with_capacity(
