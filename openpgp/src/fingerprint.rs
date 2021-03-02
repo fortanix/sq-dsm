@@ -57,7 +57,7 @@ assert_send_and_sync!(Fingerprint);
 
 impl fmt::Display for Fingerprint {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.convert_to_string(true))
+        write!(f, "{:X}", self)
     }
 }
 

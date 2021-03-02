@@ -48,7 +48,7 @@ pub struct KeyID(openpgp::KeyID);
 ///     pgp_keyid_from_bytes ((uint8_t *) "\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb");
 ///
 /// char *mr_b_as_string = pgp_keyid_to_string (mr_b);
-/// assert (strcmp (mr_b_as_string, "BBBB BBBB BBBB BBBB") == 0);
+/// assert (strcmp (mr_b_as_string, "BBBBBBBBBBBBBBBB") == 0);
 ///
 /// pgp_keyid_free (mr_b);
 /// free (mr_b_as_string);
@@ -73,7 +73,7 @@ fn pgp_keyid_from_bytes(id: *const u8) -> *mut KeyID {
 /// pgp_keyid_t mr_b = pgp_keyid_from_hex ("bbbbbbbbbbbbbbbb");
 ///
 /// char *mr_b_as_string = pgp_keyid_to_string (mr_b);
-/// assert (strcmp (mr_b_as_string, "BBBB BBBB BBBB BBBB") == 0);
+/// assert (strcmp (mr_b_as_string, "BBBBBBBBBBBBBBBB") == 0);
 ///
 /// free (mr_b_as_string);
 /// pgp_keyid_free (mr_b);

@@ -6,12 +6,12 @@ pretty = "247F 6DAB C849 14FE"
 
 def test_from_bytes():
     k = KeyID.from_bytes(binary)
-    assert str(k) == pretty
+    assert str(k) == hexy
     assert k.hex() == hexy
 
 def test_from_hex():
     k = KeyID.from_hex(hexy)
-    assert str(k) == pretty
+    assert str(k) == hexy
     assert k.hex() == hexy
 
 fp_hexy   = "7DCA58B54EB143169DDEE15F247F6DABC84914FE"

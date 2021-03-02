@@ -56,7 +56,7 @@ impl Cert {
             }).collect();
 
         // Add the fingerprint to the front.
-        headers.insert(0, self.fingerprint().to_string());
+        headers.insert(0, self.fingerprint().to_spaced_hex());
 
         headers
     }

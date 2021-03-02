@@ -61,7 +61,7 @@ fn pgp_fingerprint_from_bytes(buf: *const u8,
 ///
 /// char *pretty = pgp_fingerprint_to_string (fp);
 /// assert (strcmp (pretty,
-///                 "D2F2 C5D4 5BE9 FDE6 A4EE  0AAF 3185 5247 6038 31FD") == 0);
+///                 "D2F2C5D45BE9FDE6A4EE0AAF31855247603831FD") == 0);
 ///
 /// free (pretty);
 /// pgp_fingerprint_free (fp);

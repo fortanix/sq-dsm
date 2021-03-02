@@ -6,12 +6,12 @@ pretty = "7DCA 58B5 4EB1 4316 9DDE  E15F 247F 6DAB C849 14FE"
 
 def test_from_bytes():
     f = Fingerprint.from_bytes(binary)
-    assert str(f) == pretty
+    assert str(f) == hexy
     assert f.hex() == hexy
 
 def test_from_hex():
     f = Fingerprint.from_hex(hexy)
-    assert str(f) == pretty
+    assert str(f) == hexy
     assert f.hex() == hexy
 
 def test_to_keyid():
