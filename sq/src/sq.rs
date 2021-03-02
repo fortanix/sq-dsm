@@ -762,3 +762,9 @@ fn test_parse_iso8601() {
     parse_iso8601("2017031", z).unwrap();
     // parse_iso8601("2017", z).unwrap(); // ditto
 }
+
+/// Prints the error and causes, if any.
+pub fn print_error_chain(err: &anyhow::Error) {
+    eprintln!("           {}", err);
+    err.chain().skip(1).for_each(|cause| eprintln!("  because: {}", cause));
+}

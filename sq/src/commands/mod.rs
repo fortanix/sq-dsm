@@ -264,13 +264,15 @@ impl<'a> VHelper<'a> {
     }
 
     fn print_sigs(&mut self, results: &[VerificationResult]) {
+        use crate::print_error_chain;
         use self::VerificationError::*;
         for result in results {
             let (issuer, level) = match result {
                 Ok(GoodChecksum { sig, ka, .. }) =>
                     (ka.key().keyid(), sig.level()),
                 Err(MalformedSignature { error, .. }) => {
-                    eprintln!("Malformed signature: {}", error);
+                    eprintln!("Malformed signature:");
+                    print_error_chain(error);
                     self.broken_signatures += 1;
                     continue;
                 },
@@ -287,14 +289,16 @@ impl<'a> VHelper<'a> {
                     continue;
                 },
                 Err(UnboundKey { cert, error, .. }) => {
-                    eprintln!("Signing key on {} is not bound: {}",
-                              cert.fingerprint(), error);
+                    eprintln!("Signing key on {} is not bound:",
+                              cert.fingerprint());
+                    print_error_chain(error);
                     self.bad_checksums += 1;
                     continue;
                 },
                 Err(BadKey { ka, error, .. }) => {
-                    eprintln!("Signing key on {} is bad: {}",
-                              ka.cert().fingerprint(), error);
+                    eprintln!("Signing key on {} is bad:",
+                              ka.cert().fingerprint());
+                    print_error_chain(error);
                     self.bad_checksums += 1;
                     continue;
                 },
@@ -304,8 +308,9 @@ impl<'a> VHelper<'a> {
                         0 => "checksum".into(),
                         n => format!("level {} notarizing checksum", n),
                     };
-                    eprintln!("Error verifying {} from {}: {}",
-                              what, issuer, error);
+                    eprintln!("Error verifying {} from {}:",
+                              what, issuer);
+                    print_error_chain(error);
                     self.bad_checksums += 1;
                     continue;
                 }
