@@ -229,6 +229,67 @@ $ sudo pacman -S git cargo clang make pkg-config nettle openssl capnproto sqlite
 $ sudo dnf install git rustc cargo clang make pkg-config nettle-devel openssl-devel capnproto sqlite-devel
 ```
 
+### NixOS
+
+Development environment for use with `nix-shell` or `direnv`:
+<details>
+  <summary>
+    `shell.nix`
+  </summary>
+
+```nix
+let
+  moz_overlay = import (builtins.fetchTarball
+    "https://github.com/mozilla/nixpkgs-mozilla/archive/master.tar.gz");
+  nixpkgs = import <nixpkgs> { overlays = [ moz_overlay ]; };
+  rust_channel = (nixpkgs.rustChannelOf { rustToolchain = ./rust-toolchain; });
+in with nixpkgs;
+pkgs.mkShell {
+  buildInputs = [
+    nettle
+    openssl
+    sqlite
+
+    # for the python bindings
+    (python3.withPackages
+      (python-packages: with python-packages; [ setuptools pip ]))
+  ];
+
+  nativeBuildInputs = [
+    (rust_channel.rust.override{
+        extensions = [ "rust-src" "rust-std" ];
+    })
+
+    llvmPackages.clang
+    pkgconfig
+    capnproto
+
+    # for the python bindings
+    (python3.withPackages
+      (python-packages: with python-packages; [ setuptools pip ]))
+
+    # tools
+    codespell
+  ];
+
+  RUST_BACKTRACE = 1;
+
+  # NixOS enables "fortify" by default, but that is incompatible with
+  # gcc -O0 in `make -Cffi examples`.
+  hardeningDisable = [ "fortify" ];
+
+  # compilation of -sys packages requires manually setting LIBCLANG_PATH
+  LIBCLANG_PATH = "${pkgs.llvmPackages.libclang}/lib";
+
+  # Workaround for https://github.com/mozilla/nixpkgs-mozilla/issues/240
+  # with Rust 1.46.0
+  LD_LIBRARY_PATH = ''${zlib.out}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}'';
+}
+```
+
+</details>
+
+
 ### macOS (Mojave), using MacPorts
 
 ```shell
