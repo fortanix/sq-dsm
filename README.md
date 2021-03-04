@@ -239,10 +239,10 @@ Development environment for use with `nix-shell` or `direnv`:
 
 ```nix
 let
-  moz_overlay = import (builtins.fetchTarball
-    "https://github.com/mozilla/nixpkgs-mozilla/archive/master.tar.gz");
-  nixpkgs = import <nixpkgs> { overlays = [ moz_overlay ]; };
-  rust_channel = (nixpkgs.rustChannelOf { rustToolchain = ./rust-toolchain; });
+  oxalica_overlay = import (builtins.fetchTarball
+    "https://github.com/oxalica/rust-overlay/archive/master.tar.gz");
+  nixpkgs = import <nixpkgs> { overlays = [ oxalica_overlay ]; };
+  rust_channel = nixpkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain;
 in with nixpkgs;
 pkgs.mkShell {
   buildInputs = [
@@ -256,7 +256,7 @@ pkgs.mkShell {
   ];
 
   nativeBuildInputs = [
-    (rust_channel.rust.override{
+    (rust_channel.override{
         extensions = [ "rust-src" "rust-std" ];
     })
 
