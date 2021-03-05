@@ -2,6 +2,29 @@
 #+TITLE: sequoia-openpgp NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.1.0
+** New functionality
+   - The new regex module provides regular expression support for
+     scoping trust signatures.
+   - Sequoia now supports the Cleartext Signature Framework.
+   - ComponentAmalgamation::signatures
+   - ComponentBundle::signatures
+   - Fingerprint::to_spaced_hex
+   - HashAlgorithm::text_name
+   - KeyHandle now implements FromStr
+   - KeyHandle::is_invalid
+   - KeyHandle::to_hex
+   - KeyHandle::to_spaced_hex
+   - KeyID::to_spaced_hex
+   - Signature4::hash_for_confirmation
+   - Signature::hash_for_confirmation
+   - TSK::armored
+   - ValidComponentAmalgamation::signatures
+** Notable fixes
+   - Fixed two crashes related to detached signature verification.
+   - Fixed a parsing bug where the parser did not consume all data in
+     an compressed data packet.
+
 * Changes in 1.0.0
 
 This is the initial stable release.
