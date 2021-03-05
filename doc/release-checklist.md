@@ -15,6 +15,13 @@ This is a checklist for doing Sequoia releases.
        - Run 'cargo run -p sequoia-openpgp --example statistics
          --release -- ../sks-dump-*.pgp' and update
          https://sequoia-pgp.org/tmp/stats.txt .
+  - Update manpage for sqv and sq:
+      - Clone https://gitlab.com/sequoia-pgp/manpage-maker to a
+        separate location.
+      - Add symlinks and run as described in the manpage-maker's readme
+      - Copy man-sqv/sqv.1 to sequoia/sqv/man-sqv/sqv.1
+      - Copy man-sq*/*.1 to sequoia/sq/man-sq*
+      - Make a commit with the message "sq, sqv: Update manpage."
   - Make a commit with the message "Release XXX.".
        - Push this to gitlab, and create a merge request.
   - Make a tag vXXX with the message "Release XXX." signed with an
