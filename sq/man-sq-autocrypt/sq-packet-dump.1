@@ -1,4 +1,4 @@
-.TH SQ-PACKET-DUMP "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-PACKET-DUMP "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-packet\-dump \- 
 Lists packets
@@ -40,16 +40,16 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Prints the packets of a certificate
-\fB $ sq packet dump juliet.pgp\fR
+\fB$ sq packet dump juliet.pgp\fR
 .TP
 # Prints cryptographic artifacts of a certificate
-\fB $ sq packet dump \-\-mpis juliet.pgp\fR
+\fB$ sq packet dump \-\-mpis juliet.pgp\fR
 .TP
 # Prints a hexdump of a certificate
-\fB $ sq packet dump \-\-hex juliet.pgp\fR
+\fB$ sq packet dump \-\-hex juliet.pgp\fR
 .TP
 # Prints the packets of an encrypted message
-\fB $ sq packet dump \-\-session\-key AAAABBBBCCCC... ciphertext.pgp\fR
+\fB$ sq packet dump \-\-session\-key AAAABBBBCCCC... ciphertext.pgp\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

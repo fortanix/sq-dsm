@@ -1,4 +1,4 @@
-.TH SQ-PACKET-JOIN "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-PACKET-JOIN "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-packet\-join \- 
 Joins packets split across files
@@ -34,10 +34,10 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Split a certificate into individual packets
-\fB $ sq packet split juliet.pgp\fR
+\fB$ sq packet split juliet.pgp\fR
 .TP
 # Then join only a subset of these packets
-\fB $ sq packet join juliet.pgp\-[0\-3]*\fR
+\fB$ sq packet join juliet.pgp\-[0\-3]*\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

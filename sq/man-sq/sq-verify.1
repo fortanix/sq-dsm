@@ -1,4 +1,4 @@
-.TH SQ-VERIFY "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-VERIFY "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-verify \- Verifies signed messages or detached signatures
 
@@ -7,6 +7,14 @@ the file given to \-\-output.
 
 When a detached message is verified, no output is produced.  Detached
 signatures are often used to sign software packages.
+
+Verification is only successful if there is no bad signature, and the
+number of successfully verified signatures reaches the threshold
+configured with the "\-\-signatures" parameter.  If the verification
+fails, the program terminates with an exit status indicating failure.
+In addition to that, the last 25 MiB of the message are withheld,
+i.e. if the message is smaller than 25 MiB, no output is produced, and
+if it is larger, then the output will be truncated.
 
 The converse operation is "sq sign".
 
@@ -27,7 +35,7 @@ Verifies a detached signature
 
 .TP
 \fB\-n\fR, \fB\-\-signatures\fR N
-Sets the threshold of valid signatures to N. If this threshold is not reached, the message will not be considered verified.  [default: 0]
+Sets the threshold of valid signatures to N. If this threshold is not reached, the message will not be considered verified.  [default: 1]
 
 .TP
 \fB\-\-signer\-cert\fR CERT
@@ -39,13 +47,14 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Verify a signed message
-\fB $ sq verify \-\-signer\-cert juliet.pgp signed\-message.pgp\fR
+\fB$ sq verify \-\-signer\-cert juliet.pgp signed\-message.pgp\fR
 .TP
 # Verify a detached message
-\fB $ sq verify \-\-signer\-cert juliet.pgp \-\-detached message.sig message.txt\fR
+\fB$ sq verify \-\-signer\-cert juliet.pgp \-\-detached message.sig message.txt\fR
 
 .SH SEE ALSO
-If you are looking for a standalone program to verify detached signatures, consider using sequoia\-sqv.
+If you are looking for a standalone program to verify detached
+signatures, consider using sequoia\-sqv.
 
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
 

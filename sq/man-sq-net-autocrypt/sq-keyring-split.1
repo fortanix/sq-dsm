@@ -1,4 +1,4 @@
-.TH SQ-KEYRING-SPLIT "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-KEYRING-SPLIT "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-keyring\-split \- Splits a keyring into individual keys
 
@@ -28,10 +28,10 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Split all certs
-\fB $ sq keyring split certs.pgp\fR
+\fB$ sq keyring split certs.pgp\fR
 .TP
 # Split all certs, merging them first to avoid duplicates
-\fB $ sq keyring merge certs.pgp | sq keyring split\fR
+\fB$ sq keyring merge certs.pgp | sq keyring split\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

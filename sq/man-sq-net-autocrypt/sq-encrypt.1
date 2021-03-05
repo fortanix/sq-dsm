@@ -1,4 +1,4 @@
-.TH SQ-ENCRYPT "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-ENCRYPT "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-encrypt \- Encrypts a message
 
@@ -56,13 +56,13 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Encrypt a file using a certificate
-\fB $ sq encrypt \-\-recipient\-cert romeo.pgp message.txt\fR
+\fB$ sq encrypt \-\-recipient\-cert romeo.pgp message.txt\fR
 .TP
 # Encrypt a file creating a signature in the process
-\fB $ sq encrypt \-\-recipient\-cert romeo.pgp \-\-signer\-key juliet.pgp message.txt\fR
+\fB$ sq encrypt \-\-recipient\-cert romeo.pgp \-\-signer\-key juliet.pgp message.txt\fR
 .TP
 # Encrypt a file using a password
-\fB $ sq encrypt \-\-symmetric message.txt\fR
+\fB$ sq encrypt \-\-symmetric message.txt\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

@@ -1,4 +1,4 @@
-.TH SQ-KEYRING-FILTER "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-KEYRING-FILTER "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-keyring\-filter \- Joins keys into a keyring applying a filter
 
@@ -55,23 +55,23 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Converts a key to a cert (i.e., remove any secret key material)
-\fB $ sq keyring filter \-\-to\-cert cat juliet.pgp\fR
+\fB$ sq keyring filter \-\-to\-cert cat juliet.pgp\fR
 .TP
 # Gets the keys with a user id on example.org
-\fB $ sq keyring filter \-\-domain example.org keys.pgp\fR
+\fB$ sq keyring filter \-\-domain example.org keys.pgp\fR
 .TP
 # Gets the keys with a user id on example.org or example.net
-\fB $ sq keyring filter \-\-domain example.org \-\-domain example.net keys.pgp\fR
+\fB$ sq keyring filter \-\-domain example.org \-\-domain example.net keys.pgp\fR
 .TP
 # Gets the keys with a user id with the name Juliet
-\fB $ sq keyring filter \-\-name Juliet keys.pgp\fR
+\fB$ sq keyring filter \-\-name Juliet keys.pgp\fR
 .TP
 # Gets the keys with a user id with the name Juliet on example.org
-\fB $ sq keyring filter \-\-domain example.org keys.pgp | \
-  sq keyring filter \-\-name Juliet\fR
+\fB$ sq keyring filter \-\-domain example.org keys.pgp | \
+keyring filter \-\-name Juliet\fR
 .TP
 # Gets the keys with a user id on example.org, pruning other userids
-\fB $ sq keyring filter \-\-domain example.org \-\-prune\-certs certs.pgp\fR
+\fB$ sq keyring filter \-\-domain example.org \-\-prune\-certs certs.pgp\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

@@ -1,4 +1,4 @@
-.TH SQ-AUTOCRYPT-ENCODE-SENDER "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-AUTOCRYPT-ENCODE-SENDER "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-autocrypt\-encode\-sender \- Encodes a certificate into an Autocrypt header
 
@@ -35,13 +35,13 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Encodes a certificate
-\fB $ sq autocrypt encode\-sender juliet.pgp\fR
+\fB$ sq autocrypt encode\-sender juliet.pgp\fR
 .TP
 # Encodes a certificate with an explicit sender address
-\fB $ sq autocrypt encode\-sender \-\-email juliet@example.org juliet.pgp\fR
+\fB$ sq autocrypt encode\-sender \-\-email juliet@example.org juliet.pgp\fR
 .TP
 # Encodes a certificate while indicating the willingness to encrypt
-\fB $ sq autocrypt encode\-sender \-\-prefer\-encrypt mutual juliet.pgp\fR
+\fB$ sq autocrypt encode\-sender \-\-prefer\-encrypt mutual juliet.pgp\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

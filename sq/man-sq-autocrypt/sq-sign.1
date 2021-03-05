@@ -1,4 +1,4 @@
-.TH SQ-SIGN "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-SIGN "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-sign \- Signs messages or data files
 
@@ -21,6 +21,10 @@ Emits binary data
 .TP
 \fB\-\-detached\fR
 Creates a detached signature
+
+.TP
+\fB\-\-cleartext\-signature\fR
+Creates a cleartext signature
 
 .TP
 \fB\-a\fR, \fB\-\-append\fR
@@ -56,10 +60,10 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Create a signed message
-\fB $ sq sign \-\-signer\-key juliet.pgp message.txt\fR
+\fB$ sq sign \-\-signer\-key juliet.pgp message.txt\fR
 .TP
 # Create a detached signature
-\fB $ sq sign \-\-detached \-\-signer\-key juliet.pgp message.txt\fR
+\fB$ sq sign \-\-detached \-\-signer\-key juliet.pgp message.txt\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

@@ -1,4 +1,4 @@
-.TH SQ-KEY-EXTRACT-CERT "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-KEY-EXTRACT-CERT "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-key\-extract\-cert \- Converts a key to a cert
 
@@ -28,10 +28,10 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # First, this generates a key
-\fB $ sq key generate \-\-userid "<juliet@example.org>" \-\-export juliet.key.pgp\fR
+\fB$ sq key generate \-\-userid "<juliet@example.org>" \-\-export juliet.key.pgp\fR
 .TP
 # Then, this extracts the certificate for distribution
-\fB $ sq key extract\-cert \-\-output juliet.cert.pgp juliet.key.pgp\fR
+\fB$ sq key extract\-cert \-\-output juliet.cert.pgp juliet.key.pgp\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

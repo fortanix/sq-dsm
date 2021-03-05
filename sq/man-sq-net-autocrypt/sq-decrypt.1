@@ -1,9 +1,22 @@
-.TH SQ-DECRYPT "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-DECRYPT "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-decrypt \- Decrypts a message
 
 Decrypts a message using either supplied keys, or by prompting for a
-password.  Any signatures are checked using the supplied certificates.
+password.  If message tampering is detected, an error is returned.
+See below for details.
+
+If certificates are supplied using the "\-\-signer\-cert" option, any
+signatures that are found are checked using these certificates.
+Verification is only successful if there is no bad signature, and the
+number of successfully verified signatures reaches the threshold
+configured with the "\-\-signatures" parameter.
+
+If the signature verification fails, or if message tampering is
+detected, the program terminates with an exit status indicating
+failure.  In addition to that, the last 25 MiB of the message are
+withheld, i.e. if the message is smaller than 25 MiB, no output is
+produced, and if it is larger, then the output will be truncated.
 
 The converse operation is "sq encrypt".
 
@@ -32,7 +45,7 @@ Writes to FILE or stdout if omitted
 
 .TP
 \fB\-n\fR, \fB\-\-signatures\fR N
-Sets the threshold of valid signatures to N. If this threshold is not reached, the message will not be considered verified.  [default: 0]
+Sets the threshold of valid signatures to N. The message will only be considered verified if this threshold is reached. [default: 1 if at least one signer cert file is given, 0 otherwise]
 
 .TP
 \fB\-\-signer\-cert\fR CERT
@@ -48,13 +61,13 @@ Reads from FILE or stdin if omitted
 .SH EXAMPLES
 .TP
 # Decrypt a file using a secret key
-\fB $ sq decrypt \-\-recipient\-key juliet.pgp ciphertext.pgp\fR
+\fB$ sq decrypt \-\-recipient\-key juliet.pgp ciphertext.pgp\fR
 .TP
 # Decrypt a file verifying signatures
-\fB $ sq decrypt \-\-recipient\-key juliet.pgp \-\-signer\-cert romeo.pgp ciphertext.pgp\fR
+\fB$ sq decrypt \-\-recipient\-key juliet.pgp \-\-signer\-cert romeo.pgp ciphertext.pgp\fR
 .TP
 # Decrypt a file using a password
-\fB $ sq decrypt ciphertext.pgp\fR
+\fB$ sq decrypt ciphertext.pgp\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.

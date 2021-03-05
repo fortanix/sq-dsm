@@ -1,4 +1,4 @@
-.TH SQ-KEY-GENERATE "1" "JANUARY 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
+.TH SQ-KEY-GENERATE "1" "MARCH 2021" "0.24.0 (SEQUOIA-OPENPGP 1.0.0)" "USER COMMANDS" 5
 .SH NAME
 sq\-key\-generate \- Generates a new key
 
@@ -68,16 +68,16 @@ Writes the revocation certificate to FILE. mandatory if OUTFILE is "\-". [defaul
 .SH EXAMPLES
 .TP
 # First, this generates a key
-\fB $ sq key generate \-\-userid "<juliet@example.org>" \-\-export juliet.key.pgp\fR
+\fB$ sq key generate \-\-userid "<juliet@example.org>" \-\-export juliet.key.pgp\fR
 .TP
 # Then, this extracts the certificate for distribution
-\fB $ sq key extract\-cert \-\-output juliet.cert.pgp juliet.key.pgp\fR
+\fB$ sq key extract\-cert \-\-output juliet.cert.pgp juliet.key.pgp\fR
 .TP
 # Generates a key protecting it with a password
-\fB $ sq key generate \-\-userid "<juliet@example.org>" \-\-with\-password\fR
+\fB$ sq key generate \-\-userid "<juliet@example.org>" \-\-with\-password\fR
 .TP
 # Generates a key with multiple userids
-\fB $ sq key generate \-\-userid "<juliet@example.org>" \-\-userid "Juliet Capulet"\fR
+\fB$ sq key generate \-\-userid "<juliet@example.org>" \-\-userid "Juliet Capulet"\fR
 
 .SH SEE ALSO
 For the full documentation see <https://docs.sequoia\-pgp.org/sq/>.
