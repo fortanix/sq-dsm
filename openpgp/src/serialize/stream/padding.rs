@@ -41,10 +41,12 @@
 //! transparent for the recipient (for example, no weird packets are
 //! inserted).
 //!
-//! Cursory [testing] (RNP, DKGPG, PGPy, OpenKeychain, GnuPG classic
-//! and modern) revealed no problems.
+//! Unfortunately, [testing] discovered problems when the resulting
+//! messages are consumed by (at the time of this writing) OpenPGP.js,
+//! RNP, and GnuPG.  If compatibility with these implementations is a
+//! concern, using this padding method is not advisable.
 //!
-//!   [testing]: https://tests.sequoia-pgp.org/#Encrypt-Decrypt_roundtrip_with_key__Bob___AES256
+//!   [testing]: https://tests.sequoia-pgp.org/#Packet_excess_consumption
 //!
 //! To be effective, the padding layer must be placed inside the
 //! encryption container.  To increase compatibility, the padding

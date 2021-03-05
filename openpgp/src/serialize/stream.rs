@@ -75,9 +75,7 @@
 //!
 //! This example demonstrates how to create the most common OpenPGP
 //! message structure (see [Section 11.3 of RFC 4880]).  The plaintext
-//! is first signed, then compressed, encrypted, and finally ASCII
-//! armored.  Our example pads the plaintext instead of compressing
-//! it, but the resulting message structure is the same.
+//! is first signed, then encrypted, and finally ASCII armored.
 //!
 //! ```
 //! # fn main() -> sequoia_openpgp::Result<()> {
@@ -87,7 +85,6 @@
 //! use openpgp::cert::prelude::*;
 //! use openpgp::serialize::stream::{
 //!     Message, Armorer, Encryptor, Signer, LiteralWriter,
-//!     padding::Padder,
 //! };
 //! # use openpgp::parse::Parse;
 //!
@@ -114,7 +111,6 @@
 //! let message = Armorer::new(message).build()?;
 //! let message = Encryptor::for_recipients(message, recipients).build()?;
 //! // Reduce metadata leakage by concealing the message size.
-//! let message = Padder::new(message).build()?;
 //! let message = Signer::new(message, signing_keypair)
 //!     // Prevent Surreptitious Forwarding.
 //!     .add_intended_recipient(&recipient)
