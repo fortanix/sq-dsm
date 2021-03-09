@@ -98,10 +98,15 @@ windows-gnu:
   # This job takes ~20 minutes to run, let's only execute it manually or for
   # scheduled builds, otherwise this will stall MRs often not related to Windows
   only:
-    - /windows/i # refs containing 'windows' keyword
-    - tags
-    - web
-    - scheduled
+    refs:
+      - /windows/i # refs containing 'windows' keyword
+      - tags
+      - web
+      - scheduled
+    variables:
+      # Forks of this project most likely use gitlab's shared windows runners, which
+      # do not use the docker executor, so disable the windows jobs for forks.
+      - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
   before_script:
     - clang -v
     - rustc --version --verbose
@@ -120,6 +125,11 @@ windows-msvc:
     - win2019
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/windows-msvc
+  only:
+    variables:
+      # Forks of this project most likely use gitlab's shared windows runners, which
+      # do not use the docker executor, so disable the windows jobs for forks.
+      - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
   before_script:
     - rustc --version --verbose
     - cargo --version
