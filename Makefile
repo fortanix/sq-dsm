@@ -11,7 +11,7 @@ CARGO_TARGET_DIR	?= $(shell pwd)/target
 # We currently only support absolute paths.
 CARGO_TARGET_DIR	:= $(abspath $(CARGO_TARGET_DIR))
 # The packages to build, test and document, e.g., "-p sequoia-openpgp"
-CARGO_PACKAGES	?= --all
+CARGO_PACKAGES	?= --workspace
 # Additional arguments to pass to cargo test, e.g., "--doc".
 CARGO_TEST_ARGS	?=
 # Version as stated in the top-level Cargo.toml.
