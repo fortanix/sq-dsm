@@ -812,14 +812,15 @@
 //!
 //! OPTIONS:
 //!         --domain <FQDN>...
-//!             Matches on email domain FQDN
-//!
+//!             Parses user ids into name and email address and case-sensitively
+//!             matches on the domain of the email address, requiring an exact
+//!             match.
 //!         --email <ADDRESS>...
-//!             Matches on email ADDRESS
-//!
+//!             Parses user ids into name and email address and case-sensitively
+//!             matches on the email address, requiring an exact match.
 //!         --name <NAME>...
-//!             Matches on NAME
-//!
+//!             Parses user ids into name and email and case-sensitively matches on
+//!             the name, requiring an exact match.
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!

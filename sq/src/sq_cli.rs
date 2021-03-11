@@ -779,15 +779,29 @@ $ sq keyring filter --domain example.org --prune-certs certs.pgp
                         .arg(Arg::with_name("name")
                              .long("name").value_name("NAME")
                              .multiple(true).number_of_values(1)
-                             .help("Matches on NAME"))
+                             .help("Matches on NAME")
+                             .long_help(
+                                 "Parses user ids into name and email \
+                                  and case-sensitively matches on the \
+                                  name, requiring an exact match."))
                         .arg(Arg::with_name("email")
                              .long("email").value_name("ADDRESS")
                              .multiple(true).number_of_values(1)
-                             .help("Matches on email ADDRESS"))
+                             .help("Matches on email ADDRESS")
+                             .long_help(
+                                 "Parses user ids into name and email \
+                                  address and case-sensitively matches \
+                                  on the email address, requiring an \
+                                  exact match."))
                         .arg(Arg::with_name("domain")
                              .long("domain").value_name("FQDN")
                              .multiple(true).number_of_values(1)
-                             .help("Matches on email domain FQDN"))
+                             .help("Matches on email domain FQDN")
+                             .long_help(
+                                 "Parses user ids into name and email \
+                                  address and case-sensitively matches \
+                                  on the domain of the email address, \
+                                  requiring an exact match."))
                         .arg(Arg::with_name("prune-certs")
                              .short("P").long("prune-certs")
                              .help("Removes certificate components not \
