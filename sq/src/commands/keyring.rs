@@ -34,11 +34,18 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("filter",  Some(m)) => {
             let any_uid_predicates =
-                m.is_present("name")
+                m.is_present("userid")
+                || m.is_present("name")
                 || m.is_present("email")
                 || m.is_present("domain");
             let uid_predicate = |uid: &UserID| {
                 let mut keep = false;
+
+                if let Some(userids) = m.values_of("userid") {
+                    for userid in userids {
+                        keep |= uid.value() == userid.as_bytes();
+                    }
+                }
 
                 if let Some(names) = m.values_of("name") {
                     for name in names {

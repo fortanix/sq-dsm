@@ -824,6 +824,9 @@
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
+//!         --userid <USERID>...
+//!             Case-sensitively matches on the user id, requiring an exact match.
+//!
 //!
 //! ARGS:
 //!     <FILE>...

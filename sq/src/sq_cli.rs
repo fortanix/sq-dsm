@@ -776,6 +776,13 @@ $ sq keyring filter --domain example.org --prune-certs certs.pgp
                         .arg(Arg::with_name("output")
                              .short("o").long("output").value_name("FILE")
                              .help("Writes to FILE or stdout if omitted"))
+                        .arg(Arg::with_name("userid")
+                             .long("userid").value_name("USERID")
+                             .multiple(true).number_of_values(1)
+                             .help("Matches on USERID")
+                             .long_help(
+                                 "Case-sensitively matches on the \
+                                  user id, requiring an exact match."))
                         .arg(Arg::with_name("name")
                              .long("name").value_name("NAME")
                              .multiple(true).number_of_values(1)
