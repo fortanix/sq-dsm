@@ -77,11 +77,15 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
             let key_predicate = |_key: &Key<_, _>| false;
 
             let filter_fn = |c: Cert| -> Option<Cert> {
-                if ! (c.userids().any(|c| uid_predicate(&c))
-                      || c.user_attributes().any(|c| ua_predicate(&c))
-                      || c.keys().subkeys().any(|c| key_predicate(&c))) {
+                if ! (any_uid_predicates
+                      || any_ua_predicates
+                      || any_key_predicates) {
                     // If there are no filters, pass it through.
                     Some(c)
+                } else if ! (c.userids().any(|c| uid_predicate(&c))
+                             || c.user_attributes().any(|c| ua_predicate(&c))
+                             || c.keys().subkeys().any(|c| key_predicate(&c))) {
+                    None
                 } else if m.is_present("prune-certs") {
                     let c = c
                         .retain_userids(|c| {
