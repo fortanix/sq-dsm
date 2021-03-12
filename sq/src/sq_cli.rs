@@ -889,8 +889,8 @@ $ sq keyring merge certs.pgp romeo-updates.pgp
                         .long_about(
 "Lists keys in a keyring
 
-Prints the fingerprint as well one userid for every certificate
-encountered in the keyring.
+Prints the fingerprint as well as the primary userid for every
+certificate encountered in the keyring.
 ")
                         .after_help(
 "EXAMPLES:
@@ -904,6 +904,13 @@ $ sq keyring filter --domain example.org certs.pgp | sq keyring list
                         .arg(Arg::with_name("input")
                              .value_name("FILE")
                              .help("Reads from FILE or stdin if omitted"))
+                        .arg(Arg::with_name("all-userids")
+                             .long("--all-userids")
+                             .help("Lists all user ids")
+                             .long_help(
+                                 "Lists all user ids, even those that are \
+                                  expired, revoked, or not valid under the \
+                                  standard policy."))
                 )
                 .subcommand(
                     SubCommand::with_name("split")

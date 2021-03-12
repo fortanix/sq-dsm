@@ -621,13 +621,16 @@
 //! ```text
 //! Lists keys in a keyring
 //!
-//! Prints the fingerprint as well one userid for every certificate
-//! encountered in the keyring.
+//! Prints the fingerprint as well as the primary userid for every
+//! certificate encountered in the keyring.
 //!
 //! USAGE:
-//!     sq keyring list [FILE]
+//!     sq keyring list [FLAGS] [FILE]
 //!
 //! FLAGS:
+//!         --all-userids
+//!             Lists all user ids, even those that are expired, revoked, or not
+//!             valid under the standard policy.
 //!     -h, --help
 //!             Prints help information
 //!

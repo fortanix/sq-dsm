@@ -156,7 +156,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
         },
         ("list",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
-            list(&mut input)
+            list(config, &mut input, m.is_present("all-userids"))
         },
         ("split",  Some(m)) => {
             let mut input = open_or_stdin(m.value_of("input"))?;
@@ -217,19 +217,68 @@ fn filter<F>(inputs: Option<clap::Values>, output: &mut dyn io::Write,
 }
 
 /// Lists certs in a keyring.
-fn list(input: &mut (dyn io::Read + Sync + Send))
-        -> Result<()> {
+fn list(config: Config,
+        input: &mut (dyn io::Read + Sync + Send),
+        list_all_uids: bool)
+        -> Result<()>
+{
     for (i, cert) in CertParser::from_reader(input)?.enumerate() {
         let cert = cert.context("Malformed certificate in keyring")?;
-        print!("{}. {:X}", i, cert.fingerprint());
-        // Try to be more helpful by including the first userid in the
-        // listing.
-        if let Some(email) = cert.userids().nth(0)
-            .and_then(|uid| uid.email().unwrap_or(None))
-        {
-            print!(" {}", email);
+        let line = format!("{}. {:X}", i, cert.fingerprint());
+        let indent = line.chars().map(|_| ' ').collect::<String>();
+        print!("{}", line);
+
+        // Try to be more helpful by including a User ID in the
+        // listing.  We'd like it to be the primary one.  Use
+        // decreasingly strict policies.
+        let mut primary_uid = None;
+
+        // First, apply our policy.
+        if let Ok(vcert) = cert.with_policy(&config.policy, None) {
+            if let Ok(primary) = vcert.primary_userid() {
+                println!(" {}", String::from_utf8_lossy(primary.value()));
+                primary_uid = Some(primary.value().to_vec());
+            }
         }
-        println!();
+
+        // Second, apply the null policy.
+        if primary_uid.is_none() {
+            let null = openpgp::policy::NullPolicy::new();
+            if let Ok(vcert) = cert.with_policy(&null, None) {
+                if let Ok(primary) = vcert.primary_userid() {
+                    println!(" {}", String::from_utf8_lossy(primary.value()));
+                    primary_uid = Some(primary.value().to_vec());
+                }
+            }
+        }
+
+        // As a last resort, pick the first user id.
+        if primary_uid.is_none() {
+            if let Some(primary) = cert.userids().nth(0) {
+                println!(" {}", String::from_utf8_lossy(primary.value()));
+                primary_uid = Some(primary.value().to_vec());
+            }
+        }
+
+        if primary_uid.is_none() {
+            // No dice.
+            println!();
+        }
+
+        if list_all_uids {
+            // List all user ids independently of their validity.
+            for u in cert.userids() {
+                if primary_uid.as_ref()
+                    .map(|p| &p[..] == u.value()).unwrap_or(false)
+                {
+                    // Skip the user id we already printed.
+                    continue;
+                }
+
+                println!("{} {}", indent,
+                         String::from_utf8_lossy(u.value()));
+            }
+        }
     }
     Ok(())
 }
