@@ -34,11 +34,45 @@ build-bullseye:
     RUSTFLAGS: -D warnings -A unused-parens
   after_script: []
 
+build-bullseye:arm64:
+  tags:
+    - linux
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
+  dependencies:
+    - codespell
+  script:
+    - make
+    - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
+    - if ! git diff --quiet sq ; then echo "Please commit the changes to sq/src/sq-usage.rs." ; false ; fi
+    - if ! git diff --quiet sqv ; then echo "Please commit the changes to sqv/src/sqv-usage.rs." ; false ; fi
+    - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+  after_script: []
+
 bullseye:
   tags:
     - linux
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild:latest
+  dependencies:
+    - codespell
+  script:
+    - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+  after_script: []
+
+bullseye:arm64:
+  tags:
+    - docker-arm64
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
     - codespell
   script:
@@ -65,6 +99,22 @@ all_commits:
     RUSTFLAGS: -D warnings -A unused-parens
     GIT_STRATEGY: clone
 
+all_commits:arm64:
+  # Test each commit up to main, to facilitate bisecting.
+  stage: test
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild-arm64:latest
+  needs: ["rust-stable"]
+  except:
+    # Do not run for pushes to the pep-engine branch.
+    - /^pep-engine$/
+  script:
+    - .ci/all_commits.sh
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+    GIT_STRATEGY: clone
+
 codespell:
   tags:
     - linux
@@ -77,11 +127,35 @@ codespell:
     - make codespell CODESPELL_FLAGS=--summary
   after_script: []
 
+codespell:arm64:
+  tags:
+    - linux
+  stage: pre-check
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-arm64:latest
+
+  before_script:
+    - codespell --version
+  script:
+    - make codespell CODESPELL_FLAGS=--summary
+  after_script: []
+
 rust-stable:
   tags:
     - linux
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild:latest
+  script:
+    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" make test
+  variables:
+    CARGO_TARGET_DIR: /target
+    CARGO_HOME: /cargo
+    RUSTFLAGS: -D warnings -A unused-parens
+
+rust-stable:arm64:
+  tags:
+    - linux
+  stage: build
+  image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild-arm64:latest
   script:
     - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" make test
   variables:
