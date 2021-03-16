@@ -606,13 +606,37 @@ impl IMessageStructure {
         });
     }
 
-    fn new_encryption_layer(&mut self, sym_algo: SymmetricAlgorithm,
+    fn new_encryption_layer(&mut self,
+                            depth: isize,
+                            expect_mdc: bool,
+                            sym_algo: SymmetricAlgorithm,
                             aead_algo: Option<AEADAlgorithm>) {
         self.insert_missing_signature_group();
         self.layers.push(IMessageLayer::Encryption {
+            depth,
+            expect_mdc,
             sym_algo: sym_algo,
             aead_algo: aead_algo,
         });
+    }
+
+    /// Returns whether or not we expect an MDC packet in an
+    /// encryption container at this recursion depth.
+    ///
+    /// Handling MDC packets has to be done carefully, otherwise, we
+    /// may create a decryption oracle.
+    fn expect_mdc_at(&self, at: isize) -> bool {
+        for l in &self.layers {
+            match l {
+                IMessageLayer::Encryption {
+                    depth,
+                    expect_mdc,
+                    ..
+                } if *depth == at && *expect_mdc => return true,
+                _ => (),
+            }
+        }
+        false
     }
 
     /// Makes sure that we insert a signature group even if the
@@ -687,6 +711,12 @@ enum IMessageLayer {
         algo: CompressionAlgorithm,
     },
     Encryption {
+        /// Recursion depth of this container.
+        depth: isize,
+        /// Do we expect an MDC packet?
+        ///
+        /// I.e. is this a SEIP container?
+        expect_mdc: bool,
         sym_algo: SymmetricAlgorithm,
         aead_algo: Option<AEADAlgorithm>,
     },
@@ -2396,6 +2426,8 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                     }
 
                     v.structure.new_encryption_layer(
+                        pp.recursion_depth(),
+                        pp.packet.tag() == packet::Tag::SEIP,
                         sym_algo,
                         if let Packet::AED(ref p) = pp.packet {
                             Some(p.aead())
@@ -2568,21 +2600,55 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                         self.helper.inspect(&pp)?;
                     }
 
-                    if let Err(err) = pp.possible_message() {
+                    let possible_message = pp.possible_message();
+
+                    // If we are ascending, and the packet was the
+                    // last packet in a SEIP container, we need to be
+                    // extra careful with reporting errors to avoid
+                    // creating a decryption oracle.
+
+                    let last_recursion_depth = pp.recursion_depth();
+                    let (p, ppr_tmp) = match pp.recurse() {
+                        Ok(v) => v,
+                        Err(e) => {
+                            // Assuming we just tried to ascend,
+                            // should there have been a MDC packet?
+                            // If so, this may be an attack.
+                            if self.structure.expect_mdc_at(
+                                last_recursion_depth - 1)
+                            {
+                                return Err(Error::ManipulatedMessage.into());
+                            } else {
+                                return Err(e);
+                            }
+                        },
+                    };
+                    ppr = ppr_tmp;
+                    let recursion_depth = ppr.as_ref()
+                        .map(|pp| pp.recursion_depth()).unwrap_or(0);
+
+                    // Did we just ascend?
+                    if recursion_depth + 1 == last_recursion_depth
+                        && self.structure.expect_mdc_at(recursion_depth)
+                    {
+                        match &p {
+                            Packet::MDC(mdc) if mdc.valid() =>
+                                (), // Good.
+                            _ =>    // Bad.
+                                return Err(Error::ManipulatedMessage.into()),
+                        }
+
+                        if possible_message.is_err() {
+                            return Err(Error::ManipulatedMessage.into());
+                        }
+                    }
+
+                    if let Err(err) = possible_message {
                         return Err(err.context(
                             "Malformed OpenPGP message").into());
                     }
 
-                    match pp.packet {
-                        Packet::MDC(ref mdc) => if ! mdc.valid() {
-                            return Err(Error::ManipulatedMessage.into());
-                        }
-                        _ => (),
-                    }
-
-                    let (p, ppr_tmp) = pp.recurse()?;
                     self.push_sig(p)?;
-                    ppr = ppr_tmp;
                 }
 
                 self.verify_signatures()
@@ -2608,7 +2674,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             match layer {
                 IMessageLayer::Compression { algo } =>
                     results.new_compression_layer(*algo),
-                IMessageLayer::Encryption { sym_algo, aead_algo } =>
+                IMessageLayer::Encryption { sym_algo, aead_algo, .. } =>
                     results.new_encryption_layer(*sym_algo, *aead_algo),
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
@@ -3449,6 +3515,90 @@ mod test {
         assert!(v.helper_ref().bad == 1);
         assert!(v.helper_ref().unknown == 0);
         assert!(v.helper_ref().error == 0);
+        Ok(())
+    }
+
+    /// Checks that tampering with the MDC yields a uniform error
+    /// response.
+    #[test]
+    fn issue_693() -> Result<()> {
+        struct H();
+        impl VerificationHelper for H {
+            fn get_certs(&mut self, _ids: &[crate::KeyHandle])
+                         -> Result<Vec<Cert>> {
+                Ok(Vec::new())
+            }
+
+            fn check(&mut self, _: MessageStructure)
+                     -> Result<()> {
+                Ok(())
+            }
+        }
+        impl DecryptionHelper for H {
+            fn decrypt<D>(&mut self, _: &[PKESK], s: &[SKESK],
+                          _: Option<SymmetricAlgorithm>, mut decrypt: D)
+                          -> Result<Option<Fingerprint>>
+            where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+            {
+                let (algo, sk) = s[0].decrypt(&"123".into()).unwrap();
+                let r = decrypt(algo, &sk);
+                assert!(r);
+                Ok(None)
+            }
+        }
+
+        fn check(m: &str) -> Result<()> {
+            let doit = || -> Result<()> {
+                let p = &P::new();
+                let mut decryptor = DecryptorBuilder::from_bytes(m.as_bytes())?
+                    .with_policy(p, None, H())?;
+                let mut b = Vec::new();
+                decryptor.read_to_end(&mut b)?;
+                Ok(())
+            };
+
+            let e = doit().unwrap_err();
+            match e.downcast::<io::Error>() {
+                Ok(e) =>
+                    assert_eq!(e.into_inner().unwrap().downcast().unwrap(),
+                               Box::new(Error::ManipulatedMessage)),
+                Err(e) =>
+                    assert_eq!(e.downcast::<Error>().unwrap(),
+                               Error::ManipulatedMessage),
+            };
+            Ok(())
+        }
+
+        // Bad hash.
+        check("-----BEGIN PGP MESSAGE-----
+
+wx4EBwMI7dKRUiOYGCUAWmzhiYGS8Pn/16QkyTous6vSOgFMcilte26C7kej
+rKhvjj6uYNT+mt+L2Yg/FHFvpgVF3KfP0fb+9jZwgt4qpDkTMY7AWPTK6wXX
+Jo8=
+=LS8u
+-----END PGP MESSAGE-----
+")?;
+
+        // Bad header.
+        check("-----BEGIN PGP MESSAGE-----
+
+wx4EBwMI7sPTdlgQwd8AogIcbF/hLVrYbvVbgj4EC6/SOgGNaCyffrR4Fuwl
+Ft2w56/hB/gTaGEhCgDGXg8NiFGIURqF3eIwxxdKWghUutYmsGwqOZmdJ49a
+9gE=
+=DzKF
+-----END PGP MESSAGE-----
+")?;
+
+        // Bad header matching other packet type.
+        check("-----BEGIN PGP MESSAGE-----
+
+wx4EBwMIhpEGBh3v0oMAYgGcj+4CG1mcWQwmyGIDRdvSOgFSHlL2GZ1ZKeXS
+29kScqGg2U8N6ZF9vmj/9Sn7CFtO5PGXn2owQVsopeUSTofV3BNUBpxaBDCO
+EK8=
+=TgeJ
+-----END PGP MESSAGE-----
+")?;
+
         Ok(())
     }
 }
