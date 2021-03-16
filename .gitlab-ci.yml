@@ -36,11 +36,11 @@ build-bullseye:
 
 build-bullseye:arm64:
   tags:
-    - linux
+    - docker-arm64
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
-    - codespell
+    - codespell:arm64
   script:
     - make
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
@@ -74,7 +74,7 @@ bullseye:arm64:
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
-    - codespell
+    - codespell:arm64
   script:
     - SEQUOIA_CTEST_VALGRIND=/usr/bin/valgrind make test
   variables:
@@ -101,9 +101,11 @@ all_commits:
 
 all_commits:arm64:
   # Test each commit up to main, to facilitate bisecting.
+  tags:
+    - docker-arm64
   stage: test
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild-arm64:latest
-  needs: ["rust-stable"]
+  needs: ["rust-stable:arm64"]
   except:
     # Do not run for pushes to the pep-engine branch.
     - /^pep-engine$/
@@ -129,7 +131,7 @@ codespell:
 
 codespell:arm64:
   tags:
-    - linux
+    - docker-arm64
   stage: pre-check
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-arm64:latest
 
@@ -153,7 +155,7 @@ rust-stable:
 
 rust-stable:arm64:
   tags:
-    - linux
+    - docker-arm64
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild-arm64:latest
   script:
