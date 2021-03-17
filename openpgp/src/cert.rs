@@ -5254,24 +5254,43 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
    }
 
     #[test]
-    fn decrypt_secrets() {
-        let (cert, _) = CertBuilder::new()
+    fn decrypt_encrypt_secrets() -> Result<()> {
+        let p: crate::crypto::Password = "streng geheim".into();
+        let (mut cert, _) = CertBuilder::new()
             .add_transport_encryption_subkey()
-            .set_password(Some(String::from("streng geheim").into()))
-            .generate().unwrap();
+            .set_password(Some(p.clone()))
+            .generate()?;
         assert_eq!(cert.keys().secret().count(), 2);
         assert_eq!(cert.keys().unencrypted_secret().count(), 0);
 
-        let mut primary = cert.primary_key().key().clone()
-            .parts_into_secret().unwrap();
-        let algo = primary.pk_algo();
-        primary.secret_mut()
-            .decrypt_in_place(algo, &"streng geheim".into()).unwrap();
-        let cert = cert.insert_packets(
-            primary.parts_into_secret().unwrap().role_into_primary()).unwrap();
+        for (i, ka) in cert.clone().keys().secret().enumerate() {
+            let key = ka.key().clone().decrypt_secret(&p)?;
+            cert = if i == 0 {
+                cert.insert_packets(key.role_into_primary())?
+            } else {
+                cert.insert_packets(key.role_into_subordinate())?
+            };
+            assert_eq!(cert.keys().secret().count(), 2);
+            assert_eq!(cert.keys().unencrypted_secret().count(), i + 1);
+        }
 
         assert_eq!(cert.keys().secret().count(), 2);
-        assert_eq!(cert.keys().unencrypted_secret().count(), 1);
+        assert_eq!(cert.keys().unencrypted_secret().count(), 2);
+
+        for (i, ka) in cert.clone().keys().secret().enumerate() {
+            let key = ka.key().clone().encrypt_secret(&p)?;
+            cert = if i == 0 {
+                cert.insert_packets(key.role_into_primary())?
+            } else {
+                cert.insert_packets(key.role_into_subordinate())?
+            };
+            assert_eq!(cert.keys().secret().count(), 2);
+            assert_eq!(cert.keys().unencrypted_secret().count(), 2 - 1 - i);
+        }
+
+        assert_eq!(cert.keys().secret().count(), 2);
+        assert_eq!(cert.keys().unencrypted_secret().count(), 0);
+        Ok(())
     }
 
     /// Tests that Cert::into_packets() and Cert::serialize(..) agree.

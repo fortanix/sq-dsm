@@ -1743,6 +1743,35 @@ mod tests {
     }
 
     #[test]
+    fn key_encrypt_decrypt() -> Result<()> {
+        let mut g = quickcheck::StdThreadGen::new(256);
+        let p: Password = Vec::<u8>::arbitrary(&mut g).into();
+
+        let check = |key: Key4<SecretParts, UnspecifiedRole>| -> Result<()> {
+            let key: Key<_, _> = key.into();
+            let encrypted = key.clone().encrypt_secret(&p)?;
+            let decrypted = encrypted.decrypt_secret(&p)?;
+            assert_eq!(key, decrypted);
+            Ok(())
+        };
+
+        use crate::types::Curve::*;
+        for curve in vec![NistP256, NistP384, NistP521, Ed25519] {
+            let key: Key4<_, key::UnspecifiedRole>
+                = Key4::generate_ecc(true, curve.clone())?;
+            check(key)?;
+        }
+
+        for bits in vec![2048, 3072] {
+            let key: Key4<_, key::UnspecifiedRole>
+                = Key4::generate_rsa(bits)?;
+            check(key)?;
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn eq() {
         use crate::types::Curve::*;
 
