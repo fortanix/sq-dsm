@@ -2869,7 +2869,7 @@ mod test {
         unknown: usize,
         bad: usize,
         error: usize,
-        keys: Vec<Cert>,
+        certs: Vec<Cert>,
         error_out: bool,
     }
 
@@ -2892,20 +2892,22 @@ mod test {
                 unknown: 0,
                 bad: 0,
                 error: 0,
-                keys: Vec::default(),
+                certs: Vec::default(),
                 error_out: true,
             }
         }
     }
 
     impl VHelper {
-        fn new(good: usize, unknown: usize, bad: usize, error: usize, keys: Vec<Cert>) -> Self {
+        fn new(good: usize, unknown: usize, bad: usize, error: usize,
+               certs: Vec<Cert>)
+               -> Self {
             VHelper {
                 good,
                 unknown,
                 bad,
                 error,
-                keys,
+                certs,
                 error_out: true,
             }
         }
@@ -2913,7 +2915,7 @@ mod test {
 
     impl VerificationHelper for VHelper {
         fn get_certs(&mut self, _ids: &[crate::KeyHandle]) -> Result<Vec<Cert>> {
-            Ok(self.keys.clone())
+            Ok(self.certs.clone())
         }
 
         fn check(&mut self, structure: MessageStructure) -> Result<()> {
@@ -2961,7 +2963,7 @@ mod test {
     fn verifier() -> Result<()> {
         let p = P::new();
 
-        let keys = [
+        let certs = [
             "neal.pgp",
             "testy-new.pgp",
             "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
@@ -2974,7 +2976,7 @@ mod test {
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
-             VHelper::new(1, 0, 0, 0, keys.clone())),
+             VHelper::new(1, 0, 0, 0, certs.clone())),
             // The same, but with a marker packet.
             ({
                 let pp = crate::PacketPile::from_bytes(
@@ -2987,18 +2989,18 @@ mod test {
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
-             VHelper::new(1, 0, 0, 0, keys.clone())),
+             VHelper::new(1, 0, 0, 0, certs.clone())),
             (crate::tests::message("signed-1-sha256-testy.gpg").to_vec(),
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
-             VHelper::new(0, 1, 0, 0, keys.clone())),
+             VHelper::new(0, 1, 0, 0, certs.clone())),
             (crate::tests::message("signed-1-notarized-by-ed25519.pgp")
              .to_vec(),
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
-             VHelper::new(2, 0, 0, 0, keys.clone())),
+             VHelper::new(2, 0, 0, 0, certs.clone())),
             // Signed messages using the Cleartext Signature Framework.
             (crate::tests::message("a-cypherpunks-manifesto.txt.cleartext.sig")
              .to_vec(),
@@ -3014,19 +3016,19 @@ mod test {
              },
              false,
              None,
-             VHelper::new(1, 0, 0, 0, keys.clone())),
+             VHelper::new(1, 0, 0, 0, certs.clone())),
             (crate::tests::message("a-problematic-poem.txt.cleartext.sig")
              .to_vec(),
              crate::tests::message("a-problematic-poem.txt").to_vec(),
              false,
              None,
-             VHelper::new(1, 0, 0, 0, keys.clone())),
+             VHelper::new(1, 0, 0, 0, certs.clone())),
             // A key as example of an invalid message.
             (crate::tests::key("neal.pgp").to_vec(),
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
-             VHelper::new(0, 0, 0, 1, keys.clone())),
+             VHelper::new(0, 0, 0, 1, certs.clone())),
         ];
 
         for (i, (signed, reference, test_decryptor, time, r))
@@ -3035,7 +3037,7 @@ mod test {
             eprintln!("{}...", i);
 
             // Test Verifier.
-            let h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let h = VHelper::new(0, 0, 0, 0, certs.clone());
             let mut v =
                 match VerifierBuilder::from_bytes(&signed)?
                     .with_policy(&p, *time, h) {
@@ -3067,7 +3069,7 @@ mod test {
             }
 
             // Test Decryptor.
-            let h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let h = VHelper::new(0, 0, 0, 0, certs.clone());
             let mut v = match DecryptorBuilder::from_bytes(&signed)?
                 .with_policy(&p, *time, h) {
                     Ok(v) => v,
@@ -3113,14 +3115,14 @@ mod test {
             eprintln!("{}...", msg);
             let p = P::new();
 
-            let keys = [
+            let certs = [
                 "neal.pgp",
             ]
                 .iter()
                 .map(|f| Cert::from_bytes(crate::tests::key(f)).unwrap())
                 .collect::<Vec<_>>();
 
-            let mut h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let mut h = VHelper::new(0, 0, 0, 0, certs.clone());
             h.error_out = false;
             let mut v = VerifierBuilder::from_bytes(buf)?
                 .with_policy(&p, crate::frozen_time(), h)?;
@@ -3276,7 +3278,7 @@ mod test {
             },
         ];
 
-        let keys = [
+        let certs = [
             "emmelie-dorothea-dina-samantha-awina-ed25519.pgp"
         ].iter()
             .map(|f| Cert::from_bytes(crate::tests::key(f)).unwrap())
@@ -3287,7 +3289,7 @@ mod test {
             let content = test.content;
             let reference = test.reference;
 
-            let h = VHelper::new(0, 0, 0, 0, keys.clone());
+            let h = VHelper::new(0, 0, 0, 0, certs.clone());
             let mut v = DetachedVerifierBuilder::from_bytes(sig).unwrap()
                 .with_policy(&p, reference, h).unwrap();
             v.verify_bytes(content).unwrap();
