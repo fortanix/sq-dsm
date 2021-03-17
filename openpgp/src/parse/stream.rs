@@ -2968,23 +2968,38 @@ mod test {
          .collect::<Vec<_>>();
         let tests = &[
             // Signed messages.
-            ("messages/signed-1.gpg",
+            (crate::tests::message("signed-1.gpg").to_vec(),
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
              VHelper::new(1, 0, 0, 0, keys.clone())),
-            ("messages/signed-1-sha256-testy.gpg",
+            // The same, but with a marker packet.
+            ({
+                let pp = crate::PacketPile::from_bytes(
+                    crate::tests::message("signed-1.gpg"))?;
+                let mut buf = Vec::new();
+                Packet::Marker(Default::default()).serialize(&mut buf)?;
+                pp.serialize(&mut buf)?;
+                buf
+            },
+             crate::tests::manifesto().to_vec(),
+             true,
+             Some(crate::frozen_time()),
+             VHelper::new(1, 0, 0, 0, keys.clone())),
+            (crate::tests::message("signed-1-sha256-testy.gpg").to_vec(),
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
              VHelper::new(0, 1, 0, 0, keys.clone())),
-            ("messages/signed-1-notarized-by-ed25519.pgp",
+            (crate::tests::message("signed-1-notarized-by-ed25519.pgp")
+             .to_vec(),
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
              VHelper::new(2, 0, 0, 0, keys.clone())),
             // Signed messages using the Cleartext Signature Framework.
-            ("messages/a-cypherpunks-manifesto.txt.cleartext.sig",
+            (crate::tests::message("a-cypherpunks-manifesto.txt.cleartext.sig")
+             .to_vec(),
              {
                  // The transformation process trims trailing whitespace,
                  // and the manifesto has a trailing whitespace right at
@@ -2998,26 +3013,29 @@ mod test {
              false,
              None,
              VHelper::new(1, 0, 0, 0, keys.clone())),
-            ("messages/a-problematic-poem.txt.cleartext.sig",
+            (crate::tests::message("a-problematic-poem.txt.cleartext.sig")
+             .to_vec(),
              crate::tests::message("a-problematic-poem.txt").to_vec(),
              false,
              None,
              VHelper::new(1, 0, 0, 0, keys.clone())),
             // A key as example of an invalid message.
-            ("keys/neal.pgp",
+            (crate::tests::key("neal.pgp").to_vec(),
              crate::tests::manifesto().to_vec(),
              true,
              Some(crate::frozen_time()),
              VHelper::new(0, 0, 0, 1, keys.clone())),
         ];
 
-        for (f, reference, test_decryptor, time, r) in tests {
-            eprintln!("{}...", f);
+        for (i, (signed, reference, test_decryptor, time, r))
+            in tests.iter().enumerate()
+        {
+            eprintln!("{}...", i);
 
             // Test Verifier.
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
             let mut v =
-                match VerifierBuilder::from_bytes(crate::tests::file(f))?
+                match VerifierBuilder::from_bytes(&signed)?
                     .with_policy(&p, *time, h) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
@@ -3025,7 +3043,7 @@ mod test {
                         // something.
                         continue;
                     } else {
-                        panic!("{}: {}", f, e);
+                        panic!("{}: {}", i, e);
                     },
                 };
             assert!(v.message_processed());
@@ -3048,7 +3066,7 @@ mod test {
 
             // Test Decryptor.
             let h = VHelper::new(0, 0, 0, 0, keys.clone());
-            let mut v = match DecryptorBuilder::from_bytes(crate::tests::file(f))?
+            let mut v = match DecryptorBuilder::from_bytes(&signed)?
                 .with_policy(&p, *time, h) {
                     Ok(v) => v,
                     Err(e) => if r.error > 0 || r.unknown > 0 {
@@ -3056,7 +3074,7 @@ mod test {
                         // something.
                         continue;
                     } else {
-                        panic!("{}: {}", f, e);
+                        panic!("{}: {}", i, e);
                     },
                 };
             assert!(v.message_processed());
