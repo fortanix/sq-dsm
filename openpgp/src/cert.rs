@@ -6128,4 +6128,17 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         Ok(())
     }
+
+    /// Makes sure that marker packets are ignored when parsing certs.
+    #[test]
+    fn marker_packets() -> Result<()> {
+        let cert = Cert::from_bytes(crate::tests::key("neal.pgp"))?;
+        let mut buf = Vec::new();
+        Packet::Marker(Default::default()).serialize(&mut buf)?;
+        cert.serialize(&mut buf)?;
+
+        let cert_ = Cert::from_bytes(&buf)?;
+        assert_eq!(cert, cert_);
+        Ok(())
+    }
 }
