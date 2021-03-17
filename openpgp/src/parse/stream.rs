@@ -2338,7 +2338,9 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             // signatures here, which on their own are not a valid
             // message.
             if v.mode == Mode::VerifyDetached {
-                if pp.packet.tag() != packet::Tag::Signature {
+                if pp.packet.tag() != packet::Tag::Signature
+                    && pp.packet.tag() != packet::Tag::Marker
+                {
                     return Err(Error::MalformedMessage(
                         format!("Expected signature, got {}", pp.packet.tag()))
                                .into());
@@ -3231,7 +3233,7 @@ mod test {
     }
 
     #[test]
-    fn detached_verifier() {
+    fn detached_verifier() -> Result<()> {
         lazy_static::lazy_static! {
             static ref ZEROS: Vec<u8> = vec![0; 100 * 1024 * 1024];
         }
@@ -3239,20 +3241,35 @@ mod test {
         let p = P::new();
 
         struct Test<'a> {
-            sig: &'a [u8],
+            sig: Vec<u8>,
             content: &'a [u8],
             reference: time::SystemTime,
         };
         let tests = [
             Test {
                 sig: crate::tests::message(
-                    "a-cypherpunks-manifesto.txt.ed25519.sig"),
+                    "a-cypherpunks-manifesto.txt.ed25519.sig").to_vec(),
+                content: crate::tests::manifesto(),
+                reference: crate::frozen_time(),
+            },
+            // The same, but with a marker packet.
+            Test {
+                sig: {
+                    let sig = crate::PacketPile::from_bytes(
+                        crate::tests::message(
+                            "a-cypherpunks-manifesto.txt.ed25519.sig"))?;
+                    let mut buf = Vec::new();
+                    Packet::Marker(Default::default()).serialize(&mut buf)?;
+                    sig.serialize(&mut buf)?;
+                    buf
+                },
                 content: crate::tests::manifesto(),
                 reference: crate::frozen_time(),
             },
             Test {
                 sig: crate::tests::message(
-                    "emmelie-dorothea-dina-samantha-awina-detached-signature-of-100MB-of-zeros.sig"),
+                    "emmelie-dorothea-dina-samantha-awina-detached-signature-of-100MB-of-zeros.sig")
+                    .to_vec(),
                 content: &ZEROS[..],
                 reference:
                 crate::types::Timestamp::try_from(1572602018).unwrap().into(),
@@ -3266,7 +3283,7 @@ mod test {
             .collect::<Vec<_>>();
 
         for test in tests.iter() {
-            let sig = test.sig;
+            let sig = &test.sig;
             let content = test.content;
             let reference = test.reference;
 
@@ -3279,6 +3296,7 @@ mod test {
             assert_eq!(h.good, 1);
             assert_eq!(h.bad, 0);
         }
+        Ok(())
     }
 
     #[test]
