@@ -6073,4 +6073,59 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         Ok(())
     }
+
+    /// Makes sure that attested key signatures are correctly handled.
+    #[test]
+    fn attested_key_signatures_dkgpg() -> Result<()> {
+        const DUMP: bool = false;
+        use crate::{
+            packet::signature::subpacket::*,
+            crypto::hash::Digest,
+        };
+
+        let test = Cert::from_bytes(crate::tests::key("1pa3pc-dkgpg.pgp"))?;
+        assert_eq!(test.bad_signatures().count(), 0);
+        assert_eq!(test.userids().nth(0).unwrap().certifications().count(),
+                   1);
+        assert_eq!(test.userids().nth(0).unwrap().bundle().attestations.len(),
+                   1);
+
+        let attestation =
+            &test.userids().nth(0).unwrap().bundle().attestations[0];
+
+        let digest_size = attestation.hash_algo().context()?.digest_size();
+        let digests = if let Some(SubpacketValue::Unknown { body, .. }) =
+            attestation.subpacket(SubpacketTag__AttestedCertifications)
+                .map(|sp| sp.value())
+        {
+            body.chunks(digest_size).map(|d| d.to_vec()).collect::<Vec<_>>()
+        } else {
+            unreachable!("Valid attestation signatures contain one");
+        };
+
+        if DUMP {
+            for (i, d) in digests.iter().enumerate() {
+                crate::fmt::hex::Dumper::new(std::io::stderr(), "")
+                    .write(d, format!("expected digest {}", i))?;
+            }
+        }
+
+        for (i, certification) in
+            test.userids().nth(0).unwrap().certifications().enumerate()
+        {
+            // Hash the certification.
+            let mut h = attestation.hash_algo().context()?;
+            certification.hash_for_confirmation(&mut h);
+            let digest = h.into_digest()?;
+
+            if DUMP {
+                crate::fmt::hex::Dumper::new(std::io::stderr(), "")
+                    .write(&digest, format!("computed digest {}", i))?;
+            }
+
+            assert!(digests.contains(&digest));
+        }
+
+        Ok(())
+    }
 }
