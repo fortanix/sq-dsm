@@ -2927,6 +2927,9 @@ mod test {
     use crate::parse::Parse;
     use crate::policy::StandardPolicy as P;
     use crate::serialize::Serialize;
+    use crate::{
+        crypto::Password,
+    };
 
     #[derive(PartialEq)]
     struct VHelper {
@@ -2935,6 +2938,9 @@ mod test {
         bad: usize,
         error: usize,
         certs: Vec<Cert>,
+        keys: Vec<Cert>,
+        passwords: Vec<Password>,
+        for_decryption: bool,
         error_out: bool,
     }
 
@@ -2958,6 +2964,9 @@ mod test {
                 bad: 0,
                 error: 0,
                 certs: Vec::default(),
+                keys: Vec::default(),
+                passwords: Default::default(),
+                for_decryption: false,
                 error_out: true,
             }
         }
@@ -2973,6 +2982,27 @@ mod test {
                 bad,
                 error,
                 certs,
+                keys: Default::default(),
+                passwords: Default::default(),
+                for_decryption: false,
+                error_out: true,
+            }
+        }
+
+        fn for_decryption(good: usize, unknown: usize, bad: usize, error: usize,
+                          certs: Vec<Cert>,
+                          keys: Vec<Cert>,
+                          passwords: Vec<Password>)
+               -> Self {
+            VHelper {
+                good,
+                unknown,
+                bad,
+                error,
+                certs,
+                keys,
+                passwords,
+                for_decryption: true,
                 error_out: true,
             }
         }
@@ -3002,11 +3032,13 @@ mod test {
                             }
                         }
                     MessageLayer::Compression { .. } => (),
-                    _ => unreachable!(),
+                    MessageLayer::Encryption { .. } => (),
                 }
             }
 
-            if ! self.error_out || (self.good > 0 && self.bad == 0) {
+            if ! self.error_out || (self.good > 0 && self.bad == 0)
+                || (self.for_decryption && self.certs.is_empty())
+            {
                 Ok(())
             } else {
                 Err(anyhow::anyhow!("Verification failed: {:?}", self))
@@ -3015,12 +3047,34 @@ mod test {
     }
 
     impl DecryptionHelper for VHelper {
-        fn decrypt<D>(&mut self, _: &[PKESK], _: &[SKESK],
-                      _: Option<SymmetricAlgorithm>, _: D)
+        fn decrypt<D>(&mut self, pkesks: &[PKESK], _skesks: &[SKESK],
+                      sym_algo: Option<SymmetricAlgorithm>, mut decrypt: D)
                       -> Result<Option<Fingerprint>>
             where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
         {
-            unreachable!();
+            let p = P::new();
+            if ! self.for_decryption {
+                unreachable!("Shouldn't be called for verifications");
+            }
+
+            for pkesk in pkesks {
+                for key in &self.keys {
+                    for subkey in key.with_policy(&p, None)?.keys().secret()
+                        .key_handle(pkesk.recipient())
+                    {
+                        if let Some((algo, sk)) =
+                            subkey.key().clone().into_keypair().ok()
+                            .and_then(|mut k| pkesk.decrypt(&mut k, sym_algo))
+                        {
+                            if decrypt(algo, &sk) {
+                                return Ok(None);
+                            }
+                        }
+                    }
+                }
+            }
+
+            Err(Error::MissingSessionKey("Decryption failed".into()).into())
         }
     }
 
@@ -3160,6 +3214,62 @@ mod test {
             assert_eq!(reference.len(), content.len());
             assert_eq!(&reference[..], &content[..]);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn decryptor() -> Result<()> {
+        let p = P::new();
+        for alg in &[
+            "rsa", "elg", "cv25519", "cv25519.unclamped",
+            "nistp256", "nistp384", "nistp521",
+            "brainpoolP256r1", "brainpoolP384r1", "brainpoolP512r1",
+            "secp256k1",
+        ] {
+            let key = Cert::from_bytes(crate::tests::message(
+                &format!("encrypted/{}.sec.pgp", alg)))?;
+            if let Some(k) =
+                key.with_policy(&p, None)?.keys().subkeys().supported().next()
+            {
+                use crate::crypto::mpi::PublicKey;
+                match k.mpis() {
+                    PublicKey::ECDH { curve, .. } if ! curve.is_supported() => {
+                        eprintln!("Skipping {} because we don't support \
+                                   the curve {}", alg, curve);
+                        continue;
+                    },
+                    _ => (),
+                }
+            } else {
+                eprintln!("Skipping {} because we don't support algorithm",
+                          alg);
+                continue;
+            }
+
+            let h = VHelper::for_decryption(0, 0, 0, 0, Vec::new(),
+                                            vec![key], Vec::new());
+            let mut d = DecryptorBuilder::from_bytes(
+                crate::tests::message(&format!("encrypted/{}.msg.pgp", alg)))?
+                .with_policy(&p, None, h)?;
+            assert!(d.message_processed());
+
+            if d.helper_ref().error > 0 {
+                // Expected error.  No point in trying to read
+                // something.
+                continue;
+            }
+
+            let mut content = Vec::new();
+            d.read_to_end(&mut content).unwrap();
+            if content[0] == b'H' {
+                assert_eq!(&b"Hello World!\n"[..], &content[..]);
+            } else {
+                assert_eq!("дружба", &String::from_utf8_lossy(&content));
+            }
+            eprintln!("decrypted {:?} using {}",
+                      String::from_utf8(content).unwrap(), alg);
+        }
+
         Ok(())
     }
 
