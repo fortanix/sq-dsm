@@ -315,6 +315,10 @@ pub trait KeyParts: fmt::Debug + seal::Sealed {
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>>
         where Self: Sized;
+
+    /// Indicates that secret key material should be considered when
+    /// comparing or hashing this key.
+    fn significant_secrets() -> bool;
 }
 
 /// A marker trait that captures a `Key`'s role.
@@ -477,6 +481,10 @@ impl KeyParts for PublicParts {
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
         Ok(ka.into())
     }
+
+    fn significant_secrets() -> bool {
+        false
+    }
 }
 
 /// A marker that indicates that a `Key` should be treated like a
@@ -529,6 +537,10 @@ impl KeyParts for SecretParts {
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
         ka.try_into()
+    }
+
+    fn significant_secrets() -> bool {
+        true
     }
 }
 
@@ -590,6 +602,10 @@ impl KeyParts for UnspecifiedParts {
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
         Ok(ka.into())
+    }
+
+    fn significant_secrets() -> bool {
+        true
     }
 }
 
@@ -790,7 +806,7 @@ impl<P: KeyParts, R: KeyRole> PartialEq for Key4<P, R> {
         self.creation_time == other.creation_time
             && self.pk_algo == other.pk_algo
             && self.mpis == other.mpis
-            && self.secret == other.secret
+            && (! P::significant_secrets() || self.secret == other.secret)
     }
 }
 
@@ -801,7 +817,9 @@ impl<P: KeyParts, R: KeyRole> std::hash::Hash for Key4<P, R> {
         std::hash::Hash::hash(&self.creation_time, state);
         std::hash::Hash::hash(&self.pk_algo, state);
         std::hash::Hash::hash(&self.mpis, state);
-        std::hash::Hash::hash(&self.secret, state);
+        if P::significant_secrets() {
+            std::hash::Hash::hash(&self.secret, state);
+        }
     }
 }
 

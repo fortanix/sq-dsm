@@ -1812,7 +1812,7 @@ impl<P, R> Marshal for Key4<P, R>
           R: key::KeyRole,
 {
     fn serialize(&self, o: &mut dyn io::Write) -> Result<()> {
-        self.serialize_key(o, true)
+        self.serialize_key(o, P::significant_secrets())
     }
 }
 
@@ -1883,7 +1883,7 @@ impl<P, R> MarshalInto for Key4<P, R>
           R: key::KeyRole,
 {
     fn serialized_len(&self) -> usize {
-        self.net_len_key(true)
+        self.net_len_key(P::significant_secrets())
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {

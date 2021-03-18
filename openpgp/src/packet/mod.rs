@@ -1379,10 +1379,12 @@ impl From<SKESK> for Packet {
 /// # A note on equality
 ///
 /// The implementation of `Eq` for `Key` compares the serialized form
-/// of `Key`s.  Notably this includes the secret key material, but
-/// excludes the `KeyParts` and `KeyRole` marker traits.
-/// To exclude the secret key material from the comparison, use
-/// [`Key::public_cmp`] or [`Key::public_eq`].
+/// of `Key`s.  Comparing or serializing values of `Key<PublicParts,
+/// _>` ignore secret key material, whereas the secret key material is
+/// considered and serialized for `Key<SecretParts, _>`, and for
+/// `Key<UnspecifiedParts, _>` if present.  To explicitly exclude the
+/// secret key material from the comparison, use [`Key::public_cmp`]
+/// or [`Key::public_eq`].
 ///
 /// When merging in secret key material from untrusted sources, you
 /// need to be very careful: secret key material is not
@@ -1404,26 +1406,35 @@ impl From<SKESK> for Packet {
 /// use sequoia_openpgp as openpgp;
 /// use openpgp::cert::prelude::*;
 /// use openpgp::packet::prelude::*;
+/// use openpgp::packet::key::*;
 ///
 /// # fn main() -> openpgp::Result<()> {
 /// // Generate a new certificate.  It has secret key material.
 /// let (cert, _) = CertBuilder::new()
 ///     .generate()?;
 ///
-/// let sk = cert.primary_key().key();
+/// let sk: &Key<PublicParts, _> = cert.primary_key().key();
 /// assert!(sk.has_secret());
 ///
 /// // Strip the secret key material.
 /// let cert = cert.clone().strip_secret_key_material();
-/// let pk = cert.primary_key().key();
+/// let pk: &Key<PublicParts, _> = cert.primary_key().key();
 /// assert!(! pk.has_secret());
 ///
-/// // Eq compares both the public and the secret bits, so it
-/// // considers pk and sk to be different.
+/// // Eq on Key<PublicParts, _> compares only the public bits, so it
+/// // considers pk and sk to be equal.
+/// assert_eq!(pk, sk);
+///
+/// // Convert to Key<UnspecifiedParts, _>.
+/// let sk: &Key<UnspecifiedParts, _> = sk.parts_as_unspecified();
+/// let pk: &Key<UnspecifiedParts, _> = pk.parts_as_unspecified();
+///
+/// // Eq on Key<UnspecifiedParts, _> compares both the public and the
+/// // secret bits, so it considers pk and sk to be different.
 /// assert_ne!(pk, sk);
 ///
-/// // Key::public_eq only compares the public bits, so it considers
-/// // them to be equal.
+/// // In any case, Key::public_eq only compares the public bits,
+/// // so it considers them to be equal.
 /// assert!(Key::public_eq(pk, sk));
 /// # Ok(())
 /// # }
