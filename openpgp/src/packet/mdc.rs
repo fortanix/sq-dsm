@@ -1,4 +1,7 @@
+use std::cmp::Ordering;
+
 use crate::crypto;
+use crate::crypto::mem;
 use crate::packet;
 use crate::Packet;
 
@@ -67,7 +70,7 @@ impl MDC {
             // return false.
             false
         } else {
-            self.computed_digest == self.digest
+            mem::secure_cmp(&self.computed_digest, &self.digest) == Ordering::Equal
         }
     }
 }
