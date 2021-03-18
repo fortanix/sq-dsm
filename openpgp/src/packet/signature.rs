@@ -49,13 +49,13 @@
 //! packet is created as a side effect of parsing a signed message
 //! using the [`PacketParser`].
 //!
-//! The [`SigntaureBuilder`] can be used to create a binding
+//! The [`SignatureBuilder`] can be used to create a binding
 //! signature, a certification, etc.  The motivation for having a
 //! separate data structure for creating signatures is that it
 //! decreases the chance that a half-constructed signature is
 //! accidentally exported.  When modifying an existing signature, you
 //! can use, for instance, `SignatureBuilder::from` to convert a
-//! `Signtaure` into a `SigntaureBuilder`:
+//! `Signature` into a `SignatureBuilder`:
 //!
 //! ```
 //! use sequoia_openpgp as openpgp;
@@ -107,7 +107,7 @@
 //! [`Signature4`]: struct.Signature4.html
 //! [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
 //! [`PacketParser`]: ../../parse/index.html
-//! [`SigntaureBuilder`]: struct.SignatureBuilder.html
+//! [`SignatureBuilder`]: struct.SignatureBuilder.html
 //! [hints]: https://tools.ietf.org/html/rfc4880#section-5.13
 //! [`Signature::normalize`]: ../enum.Signature.html#method.normalize
 //! [`SubpacketArea`]: subpacket/struct.SubpacketArea.html
