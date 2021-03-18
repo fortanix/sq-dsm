@@ -5,6 +5,7 @@ use crate::seal;
 use crate::serialize::{
     PacketRef,
     Marshal, MarshalInto,
+    NetLength,
     generic_serialize_into, generic_export_into,
 };
 
@@ -546,7 +547,7 @@ impl<'a> MarshalInto for TSK<'a> {
                                    || tag == Tag::PublicSubkey) {
                 // Emit a GnuPG-style secret key stub.  The stub
                 // extends the public key by 8 bytes.
-                let l = key.net_len_key(false) + 8;
+                let l = key.parts_as_public().net_len() + 8;
                 return 1 // CTB
                     + BodyLength::Full(l as u32).serialized_len()
                     + l;
