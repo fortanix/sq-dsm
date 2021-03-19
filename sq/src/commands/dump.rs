@@ -268,7 +268,7 @@ impl PacketDumper {
         Ok(())
     }
 
-    fn dump_packet(&self, output: &mut dyn io::Write, i: &str,
+    fn dump_packet(&self, mut output: &mut dyn io::Write, i: &str,
                   header: Option<&Header>, p: &Packet, map: Option<&Map>,
                   additional_fields: Option<&Vec<String>>)
                   -> Result<()> {
@@ -552,7 +552,11 @@ impl PacketDumper {
             },
 
             Trust(ref p) => {
-                writeln!(output, "{}  Value: {}", i, hex::encode(p.value()))?;
+                writeln!(output, "{}  Value:", i)?;
+                let mut hd = hex::Dumper::new(
+                    &mut output,
+                    self.indentation_for_hexdump(&format!("{}  ", i), 16));
+                hd.write_ascii(p.value())?;
             },
 
             UserID(ref u) => {
