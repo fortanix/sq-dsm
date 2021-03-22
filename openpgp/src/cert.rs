@@ -6160,4 +6160,73 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert, cert_);
         Ok(())
     }
+
+    /// Checks that messing with a revocation signature merely
+    /// invalidates the signature and keeps the cert's revocation
+    /// status unchanged.
+    #[test]
+    fn issue_486() -> Result<()> {
+        use crate::{
+            crypto::mpi,
+            types::RevocationStatus::*,
+            packet::signature::Signature4,
+            policy::StandardPolicy,
+        };
+        let p = &StandardPolicy::new();
+
+        let (cert, revocation) = CertBuilder::new().generate()?;
+
+        // Base case.
+        let c = cert.clone().insert_packets(Some(revocation.clone()))?;
+        if let Revoked(_) = c.revocation_status(p, None) {
+            // cert is considered revoked
+        } else {
+            panic!("Should be revoked, but is not: {:?}",
+                   c.revocation_status(p, None));
+        }
+
+        // Breaking the revocation signature by changing the MPIs.
+        let c = cert.clone().insert_packets(Some(
+            Signature4::new(
+                revocation.typ(),
+                revocation.pk_algo(),
+                revocation.hash_algo(),
+                revocation.hashed_area().clone(),
+                revocation.unhashed_area().clone(),
+                *revocation.digest_prefix(),
+                // MPI is replaced with a dummy one
+                mpi::Signature::RSA {
+                    s: mpi::MPI::from(vec![1, 2, 3])
+                })))?;
+        if let NotAsFarAsWeKnow = c.revocation_status(p, None) {
+            assert_eq!(c.bad_signatures().count(), 1);
+        } else {
+            panic!("Should not be revoked, but is: {:?}",
+                   c.revocation_status(p, None));
+        }
+
+        // Breaking the revocation signature by changing the MPIs and
+        // the digest prefix.
+        let c = cert.clone().insert_packets(Some(
+            Signature4::new(
+                revocation.typ(),
+                revocation.pk_algo(),
+                revocation.hash_algo(),
+                revocation.hashed_area().clone(),
+                revocation.unhashed_area().clone(),
+                // Prefix replaced with a dummy one
+                [0, 1],
+                // MPI is replaced with a dummy one
+                mpi::Signature::RSA {
+                    s: mpi::MPI::from(vec![1, 2, 3])
+                })))?;
+        if let NotAsFarAsWeKnow = c.revocation_status(p, None) {
+            assert_eq!(c.bad_signatures().count(), 1);
+        } else {
+            panic!("Should not be revoked, but is: {:?}",
+                   c.revocation_status(p, None));
+        }
+
+        Ok(())
+    }
 }
