@@ -669,9 +669,9 @@ mod tests {
     }
 
     // #668
-    // Ensure that, on x86, Timestamps between i32::MAX + 1 and u32::MAX are
+    // Ensure that, on 32-bit platforms, Timestamps between i32::MAX + 1 and u32::MAX are
     // clamped down to i32::MAX, and values below are not altered.
-    #[cfg(target_arch = "x86")]
+    #[cfg(any(target_arch = "x86", target_arch = "arm", target_arch = "mips"))]
     #[test]
     fn system_time_32_bit() -> Result<()> {
         let t1 = Timestamp::from(u32::MAX);
