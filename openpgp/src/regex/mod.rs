@@ -1197,6 +1197,31 @@ mod tests {
             (true, "d"),
             (true, "eeee"),
         ]);
+        // A nested empty.
+        a("(a|)|b", &[
+            (true, "a"),
+            (true, "b"),
+        ]);
+        // empty+
+        a("(a|b|()+)", &[
+            (true, "a"),
+            (true, "b"),
+        ]);
+        // (empty)+
+        a("(a|b|(())+)", &[
+            (true, "a"),
+            (true, "b"),
+        ]);
+        // Multiple empty branches.
+        a("(a|b|(()())())", &[
+            (true, "a"),
+            (true, "b"),
+        ]);
+        a("(a|b|(()())())|", &[
+            (true, "a"),
+            (true, "b"),
+        ]);
+
         // This is: "ab" or "cd", not a followed by b or c followed by d:
         //
         //   A regular expression is zero or more branches, separated by '|'.

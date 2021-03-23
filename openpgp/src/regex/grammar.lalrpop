@@ -17,7 +17,19 @@ pub(crate) Regex : Hir = {
     <l:LBranch> <r:RBranch*> => {
         let mut r = r;
         r.insert(0, l);
-        Hir::alternation(r)
+
+        // If any of the branches are empty, then that branch matches
+        // everything, and we can just short circuit the whole
+        // alternation.
+        //
+        // This is actually required for version 1.3.7 of the regex
+        // crate, which is the version that is in Debian Bullseye.
+        // See issue #694 for details.
+        if r.iter().any(|b| b.kind().is_empty()) {
+            hir::Hir::empty()
+        } else {
+            Hir::alternation(r)
+        }
     },
 }
 
@@ -30,45 +42,75 @@ RBranch : Hir = {
 }
 
 Branch : Hir = {
-    <p:Piece*> => {
-        hir::Hir::group(hir::Group {
-            kind: hir::GroupKind::NonCapturing,
-            hir: Box::new(hir::Hir::concat(p)),
-        })
+    => {
+        hir::Hir::empty()
+    },
+    <p:Piece+> => {
+        if p.iter().all(|p| p.kind().is_empty()) {
+            // All pieces are empty.  Just return empty.
+            hir::Hir::empty()
+        } else {
+            hir::Hir::group(hir::Group {
+                kind: hir::GroupKind::NonCapturing,
+                hir: Box::new(hir::Hir::concat(p)),
+            })
+        }
     },
 }
 
 Piece : Hir = {
     <a:Atom> => a,
     <a:Atom> STAR => {
-        hir::Hir::repetition(hir::Repetition {
-            kind: hir::RepetitionKind::ZeroOrMore,
-            greedy: true,
-            hir: Box::new(a)
-        })
+        if a.kind().is_empty() {
+            // Piece is empty.  This is equivalent to empty so just
+            // return it.
+            a
+        } else {
+            hir::Hir::repetition(hir::Repetition {
+                kind: hir::RepetitionKind::ZeroOrMore,
+                greedy: true,
+                hir: Box::new(a)
+            })
+        }
     },
     <a:Atom> PLUS => {
-        hir::Hir::repetition(hir::Repetition {
-            kind: hir::RepetitionKind::OneOrMore,
-            greedy: true,
-            hir: Box::new(a)
-        })
+        if a.kind().is_empty() {
+            // Piece is empty.  This is equivalent to empty so just
+            // return it.
+            a
+        } else {
+            hir::Hir::repetition(hir::Repetition {
+                kind: hir::RepetitionKind::OneOrMore,
+                greedy: true,
+                hir: Box::new(a)
+            })
+        }
     },
     <a:Atom> QUESTION => {
-        hir::Hir::repetition(hir::Repetition {
-            kind: hir::RepetitionKind::ZeroOrOne,
-            greedy: true,
-            hir: Box::new(a)
-        })
+        if a.kind().is_empty() {
+            // Piece is empty.  This is equivalent to empty so just
+            // return it.
+            a
+        } else {
+            hir::Hir::repetition(hir::Repetition {
+                kind: hir::RepetitionKind::ZeroOrOne,
+                greedy: true,
+                hir: Box::new(a)
+            })
+        }
     },
 }
 
 Atom : Hir = {
     LPAREN <r:Regex> RPAREN => {
-        hir::Hir::group(hir::Group {
-            kind: hir::GroupKind::NonCapturing,
-            hir: Box::new(r),
-        })
+        if r.kind().is_empty() {
+            r
+        } else {
+            hir::Hir::group(hir::Group {
+                kind: hir::GroupKind::NonCapturing,
+                hir: Box::new(r),
+            })
+        }
     },
 
     Range,
