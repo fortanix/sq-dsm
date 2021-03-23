@@ -682,7 +682,7 @@ mod tests {
                    UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
 
         let t3 = Timestamp::from(i32::MAX as u32 - 1);
-        assert!(SystemTime::from(t3),
+        assert_eq!(SystemTime::from(t3),
                 UNIX_EPOCH + SystemDuration::new(i32::MAX as u64 - 1, 0));
         Ok(())
     }
