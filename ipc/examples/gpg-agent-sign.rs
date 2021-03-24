@@ -6,9 +6,8 @@ use clap;
 use sequoia_openpgp as openpgp;
 use sequoia_ipc as ipc;
 
-use crate::openpgp::armor;
 use crate::openpgp::parse::Parse;
-use crate::openpgp::serialize::stream::{Message, LiteralWriter, Signer};
+use crate::openpgp::serialize::stream::{Armorer, Message, LiteralWriter, Signer};
 use crate::openpgp::policy::StandardPolicy as P;
 use crate::ipc::gnupg::{Context, KeyPair};
 
@@ -49,13 +48,14 @@ fn main() {
     }).collect::<Vec<KeyPair>>();
 
     // Compose a writer stack corresponding to the output format and
-    // packet structure we want.  First, we want the output to be
-    // ASCII armored.
-    let sink = armor::Writer::new(io::stdout(), armor::Kind::Message)
-        .expect("Failed to create an armored writer.");
+    // packet structure we want.
 
     // Stream an OpenPGP message.
-    let message = Message::new(sink);
+    let message = Message::new(io::stdout());
+
+    // We want the output to be ASCII armored.
+    let message = Armorer::new(message).build()
+        .expect("Failed to create the armorer.");
 
     // Now, create a signer that emits the signature(s).
     let mut signer =
