@@ -264,6 +264,10 @@ pub mod stream;
 // Whether to trace execution by default (on stderr).
 const TRACE : bool = false;
 
+// How much junk the packet parser is willing to skip when recovering.
+// This is an internal implementation detail and hence not exported.
+pub(crate) const RECOVERY_THRESHOLD: usize = 32 * 1024;
+
 /// Parsing of packets and related structures.
 ///
 /// This is a uniform interface to parse packets, messages, keys, and
@@ -4254,7 +4258,7 @@ impl <'a> PacketParser<'a> {
                         orig_error = Some(err);
                     }
 
-                    if state.first_packet || skip > 32 * 1024 {
+                    if state.first_packet || skip > RECOVERY_THRESHOLD {
                         // Limit the search space.  This should be
                         // enough to find a reasonable recovery point
                         // in a Cert.

@@ -28,6 +28,7 @@
    - ValidUserIDAmalgamation::attested_certifications
  ** Notable fixes
    - Improve Cert::insert_packets runtime from O(n^2) to O(n log n).
+   - CertParser returned errors out of order (#699).
 * Changes in 1.1.0
 ** New functionality
    - The new regex module provides regular expression support for
