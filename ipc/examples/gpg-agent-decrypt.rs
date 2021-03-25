@@ -7,11 +7,11 @@ use clap;
 use sequoia_openpgp as openpgp;
 use sequoia_ipc as ipc;
 
-use crate::openpgp::cert::prelude::*;
-use crate::openpgp::crypto::SessionKey;
-use crate::openpgp::types::SymmetricAlgorithm;
-use crate::openpgp::packet::key;
-use crate::openpgp::parse::{
+use openpgp::cert::prelude::*;
+use openpgp::crypto::SessionKey;
+use openpgp::types::SymmetricAlgorithm;
+use openpgp::packet::key;
+use openpgp::parse::{
     Parse,
     stream::{
         DecryptionHelper,
@@ -23,11 +23,11 @@ use crate::openpgp::parse::{
         MessageLayer,
     },
 };
-use crate::openpgp::policy::Policy;
-use crate::openpgp::policy::StandardPolicy as P;
-use crate::ipc::gnupg::{Context, KeyPair};
+use openpgp::policy::Policy;
+use openpgp::policy::StandardPolicy as P;
+use ipc::gnupg::{Context, KeyPair};
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let p = &P::new();
 
     let matches = clap::App::new("gpg-agent-decrypt")
@@ -43,25 +43,25 @@ fn main() {
         .get_matches();
 
     let ctx = if let Some(homedir) = matches.value_of("homedir") {
-        Context::with_homedir(homedir).unwrap()
+        Context::with_homedir(homedir)?
     } else {
-        Context::new().unwrap()
+        Context::new()?
     };
 
     // Read the Certs from the given files.
     let certs =
-        matches.values_of("cert").expect("required").map(|f| {
-            openpgp::Cert::from_file(f)
-                .expect("Failed to read key")
-        }).collect();
+        matches.values_of("cert").expect("required").map(
+            openpgp::Cert::from_file
+        ).collect::<Result<_, _>>()?;
 
     // Now, create a decryptor with a helper using the given Certs.
-    let mut decryptor = DecryptorBuilder::from_reader(io::stdin()).unwrap()
-        .with_policy(p, None, Helper::new(&ctx, p, certs)).unwrap();
+    let mut decryptor = DecryptorBuilder::from_reader(io::stdin())?
+        .with_policy(p, None, Helper::new(&ctx, p, certs))?;
 
     // Finally, stream the decrypted data to stdout.
-    io::copy(&mut decryptor, &mut io::stdout())
-        .expect("Decryption failed");
+    io::copy(&mut decryptor, &mut io::stdout())?;
+
+    Ok(())
 }
 
 /// This helper provides secrets for the decryption, fetches public

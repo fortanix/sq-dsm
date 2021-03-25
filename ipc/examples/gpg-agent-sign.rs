@@ -6,12 +6,12 @@ use clap;
 use sequoia_openpgp as openpgp;
 use sequoia_ipc as ipc;
 
-use crate::openpgp::parse::Parse;
-use crate::openpgp::serialize::stream::{Armorer, Message, LiteralWriter, Signer};
-use crate::openpgp::policy::StandardPolicy as P;
-use crate::ipc::gnupg::{Context, KeyPair};
+use openpgp::parse::Parse;
+use openpgp::serialize::stream::{Armorer, Message, LiteralWriter, Signer};
+use openpgp::policy::StandardPolicy as P;
+use ipc::gnupg::{Context, KeyPair};
 
-fn main() {
+fn main() -> openpgp::Result<()> {
     let p = &P::new();
 
     let matches = clap::App::new("gpg-agent-sign")
@@ -27,17 +27,16 @@ fn main() {
         .get_matches();
 
     let ctx = if let Some(homedir) = matches.value_of("homedir") {
-        Context::with_homedir(homedir).unwrap()
+        Context::with_homedir(homedir)?
     } else {
-        Context::new().unwrap()
+        Context::new()?
     };
 
     // Read the Certs from the given files.
     let certs =
-        matches.values_of("cert").expect("required").map(|f| {
-            openpgp::Cert::from_file(f)
-                .expect("Failed to read key")
-        }).collect::<Vec<_>>();
+        matches.values_of("cert").expect("required").map(
+            openpgp::Cert::from_file
+        ).collect::<Result<Vec<_>, _>>()?;
 
     // Construct a KeyPair for every signing-capable (sub)key.
     let mut signers = certs.iter().flat_map(|cert| {
@@ -54,8 +53,7 @@ fn main() {
     let message = Message::new(io::stdout());
 
     // We want the output to be ASCII armored.
-    let message = Armorer::new(message).build()
-        .expect("Failed to create the armorer.");
+    let message = Armorer::new(message).build()?;
 
     // Now, create a signer that emits the signature(s).
     let mut signer =
@@ -63,18 +61,17 @@ fn main() {
     for s in signers {
         signer = signer.add_signer(s);
     }
-    let signer = signer.build().expect("Failed to create signer");
+    let signer = signer.build()?;
 
     // Then, create a literal writer to wrap the data in a literal
     // message packet.
-    let mut literal = LiteralWriter::new(signer).build()
-        .expect("Failed to create literal writer");
+    let mut literal = LiteralWriter::new(signer).build()?;
 
     // Copy all the data.
-    io::copy(&mut io::stdin(), &mut literal)
-        .expect("Failed to sign data");
+    io::copy(&mut io::stdin(), &mut literal)?;
 
     // Finally, teardown the stack to ensure all the data is written.
-    literal.finalize()
-        .expect("Failed to write data");
+    literal.finalize()?;
+
+    Ok(())
 }
