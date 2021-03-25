@@ -554,23 +554,26 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
     }
 
     fn parse_u8(&mut self, name: &'static str) -> Result<u8> {
+        let r = self.reader.data_consume_hard(1)?[0];
         self.field(name, 1);
-        Ok(self.reader.data_consume_hard(1)?[0])
+        Ok(r)
     }
 
     fn parse_be_u16(&mut self, name: &'static str) -> Result<u16> {
+        let r = self.reader.read_be_u16()?;
         self.field(name, 2);
-        Ok(self.reader.read_be_u16()?)
+        Ok(r)
     }
 
     fn parse_be_u32(&mut self, name: &'static str) -> Result<u32> {
+        let r = self.reader.read_be_u32()?;
         self.field(name, 4);
-        Ok(self.reader.read_be_u32()?)
+        Ok(r)
     }
 
     fn parse_bool(&mut self, name: &'static str) -> Result<bool> {
-        self.field(name, 1);
         let v = self.reader.data_consume_hard(1)?[0];
+        self.field(name, 1);
         match v {
             0 => Ok(false),
             1 => Ok(true),
@@ -581,8 +584,9 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
 
     fn parse_bytes(&mut self, name: &'static str, amount: usize)
                    -> Result<Vec<u8>> {
+        let r = self.reader.steal(amount)?;
         self.field(name, amount);
-        Ok(self.reader.steal(amount)?)
+        Ok(r)
     }
 
     fn parse_bytes_eof(&mut self, name: &'static str) -> Result<Vec<u8>> {
