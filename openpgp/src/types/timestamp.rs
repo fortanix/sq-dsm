@@ -669,21 +669,46 @@ mod tests {
     }
 
     // #668
-    // Ensure that, on 32-bit platforms, Timestamps between i32::MAX + 1 and u32::MAX are
-    // clamped down to i32::MAX, and values below are not altered.
-    #[cfg(any(target_arch = "x86", target_arch = "arm", target_arch = "mips"))]
+    // Ensure that, on systems where the SystemTime can only represent values
+    // up to i32::MAX (generally, 32-bit systems), Timestamps between
+    // i32::MAX + 1 and u32::MAX are clamped down to i32::MAX, and values below
+    // are not altered.
     #[test]
     fn system_time_32_bit() -> Result<()> {
-        let t1 = Timestamp::from(u32::MAX);
-        let t2 = Timestamp::from(i32::MAX as u32 + 1);
-        assert_eq!(SystemTime::from(t1),
-                   UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
-        assert_eq!(SystemTime::from(t2),
-                   UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
+        let is_system_time_too_small = UNIX_EPOCH
+            .checked_add(SystemDuration::new(i32::MAX as u64 + 1, 0))
+            .is_none();
 
-        let t3 = Timestamp::from(i32::MAX as u32 - 1);
-        assert_eq!(SystemTime::from(t3),
-                UNIX_EPOCH + SystemDuration::new(i32::MAX as u64 - 1, 0));
+        let t1 = Timestamp::from(i32::MAX as u32 - 1);
+        let t2 = Timestamp::from(i32::MAX as u32);
+        let t3 = Timestamp::from(i32::MAX as u32 + 1);
+        let t4 = Timestamp::from(u32::MAX);
+
+        if is_system_time_too_small {
+          assert_eq!(SystemTime::from(t1),
+                     UNIX_EPOCH + SystemDuration::new(i32::MAX as u64 - 1, 0));
+
+          assert_eq!(SystemTime::from(t2),
+                     UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
+
+          assert_eq!(SystemTime::from(t3),
+                     UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
+
+          assert_eq!(SystemTime::from(t4),
+                     UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
+        } else {
+          assert_eq!(SystemTime::from(t1),
+                     UNIX_EPOCH + SystemDuration::new(i32::MAX as u64 - 1, 0));
+
+          assert_eq!(SystemTime::from(t2),
+                     UNIX_EPOCH + SystemDuration::new(i32::MAX as u64, 0));
+
+          assert_eq!(SystemTime::from(t3),
+                     UNIX_EPOCH + SystemDuration::new(i32::MAX as u64 + 1, 0));
+
+          assert_eq!(SystemTime::from(t4),
+                     UNIX_EPOCH + SystemDuration::new(u32::MAX as u64, 0));
+        }
         Ok(())
     }
 }
