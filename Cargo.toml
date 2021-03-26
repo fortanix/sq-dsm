@@ -2,7 +2,6 @@
 members = [
     "autocrypt",
     "buffered-reader",
-    "core",
     "ffi",
     "ffi-macros",
     "guide",

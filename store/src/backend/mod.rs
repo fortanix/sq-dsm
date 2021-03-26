@@ -24,7 +24,7 @@ use tokio_util::compat::Compat;
 use crate::openpgp::{self, Cert, KeyID, Fingerprint};
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
-use sequoia_core as core;
+use sequoia_ipc::core as core;
 use sequoia_net as net;
 use sequoia_ipc as ipc;
 

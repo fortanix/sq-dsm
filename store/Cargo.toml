@@ -33,7 +33,6 @@ compression-bzip2 = ["sequoia-openpgp/compression-bzip2"]
 
 [dependencies]
 sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
-sequoia-core = { path = "../core", version = "0.22" }
 sequoia-ipc = { path = "../ipc", version = "0.22", default-features = false }
 sequoia-net = { path = "../net", version = "0.23", default-features = false }
 anyhow = "1.0.18"

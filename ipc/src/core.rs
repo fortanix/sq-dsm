@@ -10,9 +10,8 @@
 //! `Context::new`:
 //!
 //! ```no_run
-//! # use sequoia_core::{Context, Result};
-//! # f().unwrap();
-//! # fn f() -> Result<()> {
+//! # use sequoia_ipc::core::{Context, Result};
+//! # fn main() -> Result<()> {
 //! let c = Context::new();
 //! # Ok(())
 //! # }
@@ -36,9 +35,8 @@ use std::path::{Path, PathBuf};
 /// `Context::new`:
 ///
 /// ```no_run
-/// # use sequoia_core::{Context, Result};
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
+/// # use sequoia_ipc::core::{Context, Result};
+/// # fn main() -> Result<()> {
 /// let c = Context::new()?;
 /// # Ok(())
 /// # }
@@ -48,9 +46,8 @@ use std::path::{Path, PathBuf};
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_core::{Context, IPCPolicy, Result};
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
+/// # use sequoia_ipc::core::{Context, IPCPolicy, Result};
+/// # fn main() -> Result<()> {
 /// let c = Context::configure()
 /// #           .ephemeral()
 ///             .ipc_policy(IPCPolicy::Robust)
@@ -142,9 +139,8 @@ impl Context {
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_core::{Context, IPCPolicy, Result};
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
+/// # use sequoia_ipc::core::{Context, IPCPolicy, Result};
+/// # fn main() -> Result<()> {
 /// let c = Context::configure()
 /// #           .ephemeral()
 ///             .ipc_policy(IPCPolicy::Robust)
@@ -157,10 +153,9 @@ impl Context {
 /// one-shot programs:
 ///
 /// ```
-/// # use sequoia_core::{Context, Result};
+/// # use sequoia_ipc::core::{Context, Result};
 /// # use std::path::Path;
-/// # f().unwrap();
-/// # fn f() -> Result<()> {
+/// # fn main() -> Result<()> {
 /// let c = Context::configure().ephemeral().build()?;
 /// let ephemeral_home = c.home().to_path_buf();
 /// // Do some tests.
@@ -256,6 +251,7 @@ pub enum Error {
     #[error("{0}")]
     IoError(#[from] io::Error),
 }
+
 
 /* IPC policy.  */
 

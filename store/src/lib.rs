@@ -21,7 +21,7 @@
 //! ```
 //! # use sequoia_openpgp as openpgp;
 //! # use openpgp::Fingerprint;
-//! # use sequoia_core::{Context, IPCPolicy};
+//! # use sequoia_ipc::core::{Context, IPCPolicy};
 //! # use sequoia_net as net;
 //! # use sequoia_store::*;
 //! # fn main() { f().unwrap(); }
@@ -66,15 +66,14 @@ use capnp_rpc::rpc_twoparty_capnp::Side;
 
 use sequoia_openpgp as openpgp;
 #[allow(unused_imports)]
-use sequoia_core as core;
-use sequoia_ipc;
+use sequoia_ipc::core as core;
 
 use crate::openpgp::Fingerprint;
 use crate::openpgp::KeyID;
 use crate::openpgp::Cert;
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
-use sequoia_core::Context;
+use sequoia_ipc::core::Context;
 use sequoia_ipc as ipc;
 use sequoia_net as net;
 
@@ -154,7 +153,7 @@ impl Store {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
@@ -187,7 +186,7 @@ impl Store {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
@@ -219,7 +218,7 @@ impl Store {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
@@ -252,7 +251,7 @@ impl Store {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Cert, KeyID};
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_store::{Store, Result};
     /// # fn main() { f().unwrap(); }
     /// # fn f() -> Result<()> {
@@ -366,7 +365,7 @@ impl Mapping {
     /// ```
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -397,7 +396,7 @@ impl Mapping {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -430,7 +429,7 @@ impl Mapping {
     /// ```
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -467,7 +466,7 @@ impl Mapping {
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::{Cert, KeyID};
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -509,9 +508,9 @@ impl Mapping {
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
-    /// # #[macro_use] use sequoia_core;
+    /// # #[macro_use] use sequoia_ipc::core;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -603,7 +602,7 @@ impl Binding {
     /// ```
     /// # use sequoia_openpgp as openpgp;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -664,10 +663,10 @@ impl Binding {
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
-    /// # #[macro_use] use sequoia_core;
+    /// # #[macro_use] use sequoia_ipc::core;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -719,10 +718,10 @@ impl Binding {
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
-    /// # #[macro_use] use sequoia_core;
+    /// # #[macro_use] use sequoia_ipc::core;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -764,9 +763,9 @@ impl Binding {
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
-    /// # #[macro_use] use sequoia_core;
+    /// # #[macro_use] use sequoia_ipc::core;
     /// # use openpgp::Fingerprint;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }
@@ -870,11 +869,11 @@ impl Key {
     ///
     /// ```
     /// # use sequoia_openpgp as openpgp;
-    /// # #[macro_use] use sequoia_core;
+    /// # #[macro_use] use sequoia_ipc::core;
     /// # use openpgp::Fingerprint;
     /// # use openpgp::Cert;
     /// # use openpgp::parse::Parse;
-    /// # use sequoia_core::{Context, IPCPolicy};
+    /// # use sequoia_ipc::core::{Context, IPCPolicy};
     /// # use sequoia_net as net;
     /// # use sequoia_store::*;
     /// # fn main() { f().unwrap(); }

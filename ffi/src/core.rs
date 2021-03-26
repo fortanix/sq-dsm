@@ -41,8 +41,8 @@
 use std::ptr;
 use libc::{c_char, c_int};
 
-use sequoia_core as core;
-use sequoia_core::Config;
+use sequoia_ipc::core as core;
+use sequoia_ipc::core::Config;
 
 /// Wraps a Context and provides an error slot.
 #[doc(hidden)]

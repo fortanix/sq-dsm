@@ -3,7 +3,7 @@
 use std::io;
 
 use sequoia_openpgp as openpgp;
-use sequoia_core as core;
+use sequoia_ipc::core as core;
 use sequoia_net as net;
 pub use crate::openpgp::error::Status;
 

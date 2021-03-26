@@ -1,10 +1,9 @@
-use sequoia_core;
 use sequoia_store;
 
 use std::env::current_exe;
 use std::path::PathBuf;
 
-use sequoia_core::{Context, IPCPolicy};
+use sequoia_ipc::core::{Context, IPCPolicy};
 use sequoia_store::{Mapping, REALM_CONTACTS};
 use sequoia_net as net;
 
