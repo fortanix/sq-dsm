@@ -496,7 +496,7 @@ pub trait Preferences<'a>: seal::Sealed {
 /// structures] defined in RFC 4880.  Specifically, it contains
 /// components ([`Key`]s, [`UserID`]s, and [`UserAttribute`]s), their
 /// associated self signatures, self revocations, third-party
-/// signatures, and third-party revocations, use useful methods.
+/// signatures, and third-party revocations, as well as useful methods.
 ///
 /// [TPK and TSK data structures]: https://tools.ietf.org/html/rfc4880#section-11
 /// [`Key`]: ../packet/enum.Key.html
