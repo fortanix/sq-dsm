@@ -29,7 +29,7 @@
 //!
 //! Describes a key that has been designated to issue revocation signatures.
 //!
-//! # `ServerPreferences`
+//! # `KeyServerPreferences`
 //!
 //! Describes preferences regarding to key servers.
 //!

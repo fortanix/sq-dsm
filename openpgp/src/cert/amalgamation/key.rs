@@ -71,7 +71,7 @@
 //! # Selecting Keys
 //!
 //! It is essential to choose the right keys, and to make sure that
-//! they appropriate.  Below, we present some guidelines for the most
+//! they are appropriate.  Below, we present some guidelines for the most
 //! common situations.
 //!
 //! ## Encrypting and Signing Messages
@@ -190,7 +190,7 @@
 //!
 //! ## Decrypting a Message
 //!
-//! When decrypting a message, it seems like one ought to only keys
+//! When decrypting a message, it seems like one ought to only use keys
 //! that were alive, not revoked, and encryption-capable when the
 //! message was encrypted.  Unfortunately, we don't know when a
 //! message was encrypted.  But anyway, due to the slow propagation of
