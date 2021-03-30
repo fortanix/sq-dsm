@@ -126,7 +126,7 @@ impl UserID {
             signer, cert.primary_key().key(), self)
     }
 
-    /// Returns a certificate for the user id.
+    /// Returns a certification for the user id.
     ///
     /// The signature binds this userid to `cert`. `signer` will be
     /// used to create a certification signature of type
@@ -142,7 +142,7 @@ impl UserID {
     ///
     /// Returns `Error::InvalidArgument` if `signature_type` is not
     /// one of `SignatureType::{Generic, Persona, Casual,
-    /// Positive}Certificate`
+    /// Positive}Certification`
     ///
     /// # Examples
     ///
@@ -166,13 +166,13 @@ impl UserID {
     ///     .generate()?;
     ///
     /// // Alice now certifies the binding between `bob@example.org` and `bob`.
-    /// let certificate =
+    /// let certification =
     ///     bob.userids().nth(0).unwrap()
     ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertification,
     ///              None, None)?;
     ///
-    /// // `certificate` can now be used, e.g. by merging it into `bob`.
-    /// let bob = bob.insert_packets(certificate)?;
+    /// // `certification` can now be used, e.g. by merging it into `bob`.
+    /// let bob = bob.insert_packets(certification)?;
     ///
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.userids().nth(0).unwrap()
@@ -260,7 +260,7 @@ impl UserAttribute {
             signer, cert.primary_key().key(), self)
     }
 
-    /// Returns a certificate for the user attribute.
+    /// Returns a certification for the user attribute.
     ///
     /// The signature binds this user attribute to `cert`. `signer` will be
     /// used to create a certification signature of type
@@ -276,7 +276,7 @@ impl UserAttribute {
     ///
     /// Returns `Error::InvalidArgument` if `signature_type` is not
     /// one of `SignatureType::{Generic, Persona, Casual,
-    /// Positive}Certificate`
+    /// Positive}Certification`
     ///
     /// # Examples
     ///
@@ -304,13 +304,13 @@ impl UserAttribute {
     ///     .generate()?;
     ///
     /// // Alice now certifies the binding between `bob@example.org` and `bob`.
-    /// let certificate =
+    /// let certification =
     ///     bob.user_attributes().nth(0).unwrap()
     ///     .certify(&mut keypair, &bob, SignatureType::PositiveCertification,
     ///              None, None)?;
     ///
-    /// // `certificate` can now be used, e.g. by merging it into `bob`.
-    /// let bob = bob.insert_packets(certificate)?;
+    /// // `certification` can now be used, e.g. by merging it into `bob`.
+    /// let bob = bob.insert_packets(certification)?;
     ///
     /// // Check that we have a certification on the userid.
     /// assert_eq!(bob.user_attributes().nth(0).unwrap()
