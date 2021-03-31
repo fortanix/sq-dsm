@@ -86,5 +86,9 @@ name = "pad"
 required-features = ["compression-deflate"]
 
 [[bench]]
+name = "generate_cert"
+harness = false
+
+[[bench]]
 name = "parse_cert"
 harness = false
