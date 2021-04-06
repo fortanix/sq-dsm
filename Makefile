@@ -152,21 +152,6 @@ clean:
 	$(MAKE) -Copenpgp-ffi clean
 	$(MAKE) -Cffi clean
 
-.PHONY: sanity-check-versions
-sanity-check-versions:
-	set -e ; V=$(VERSION) ; VV=$(shell echo $(VERSION) | cut -d. -f1-2) ;\
-        bad() { echo "bad $$*." ; exit 1 ; } ;\
-	for TOML in */Cargo.toml ; do \
-	  echo -n "$$TOML " ;\
-	  grep '^version *=' $$TOML | grep -q $$V || bad version ;\
-	  grep '^documentation *=' $$TOML \
-	    | egrep -q "($${V})|(https://docs.rs/)" || bad documentation ;\
-	  grep '{ *path *= *"' $$TOML | while read L ; do \
-	    echo $$L | grep -q $$VV || bad intra-workspace dependency ;\
-	  done ;\
-	  echo good. ;\
-	done
-
 .PHONY: codespell
 codespell:
 	$(CODESPELL) $(CODESPELL_FLAGS) \

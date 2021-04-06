@@ -6,8 +6,6 @@ This is a checklist for doing Sequoia releases.
          relative to the last released version.
   - For all 'Cargo.toml's: Bump documentation = "https://.../XXX/...".
   - For all 'Cargo.toml's: Bump intra-workspace dependencies.
-  - Run 'make sanity-check-versions'.
-       - This simple check fails if not all versions are in sync.
   - Update dependencies and run tests.
        - Run 'cargo update' to update the dependencies.  If some
          dependency is updated and breaks due to our MSRV, find a good
