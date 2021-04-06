@@ -216,6 +216,8 @@ pub mod aed;
 ///
 /// The different OpenPGP packets are detailed in [Section 5 of RFC 4880].
 ///
+///   [Section 5 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-5
+///
 /// The [`Unknown`] packet allows Sequoia to deal with packets that it
 /// doesn't understand.  It is basically a binary blob that includes
 /// the packet's [tag].  See the [module-level documentation] for
