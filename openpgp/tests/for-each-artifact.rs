@@ -10,12 +10,6 @@ use sequoia_openpgp as openpgp;
 use crate::openpgp::parse::*;
 use crate::openpgp::PacketPile;
 use crate::openpgp::Result;
-// Rustc 1.34 thinks SerializeInto is unused, but if we don't import
-// it, it correctly complains about no trait being in scope providing
-// .to_vec().  This seems to be a compiler bug, because rustc 1.40
-// behaves correctly.  Hence, we work around the unused import warning
-// until we rise our MSRV.
-#[allow(unused_imports)] // XXX: Remove me.
 use crate::openpgp::serialize::{Serialize, SerializeInto};
 
 mod for_each_artifact {

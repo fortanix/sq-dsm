@@ -199,7 +199,7 @@ PYTHON=disable`.
 
 ## Requirements
 
-To build Sequoia, you need at least Rust 1.46 and a few libraries,
+To build Sequoia, you need at least Rust 1.48 and a few libraries,
 notably the Nettle cryptographic library version 3.4.1 or up.  Please
 see below for OS-specific commands to install the needed libraries:
 
@@ -211,7 +211,7 @@ $ sudo apt install git rustc cargo clang libclang1-9 make pkg-config nettle-dev 
 
 Notes:
 
-  - You need at least rustc version 1.46.  The version in Debian 10
+  - You need at least rustc version 1.48.  The version in Debian 10
     (Buster) is too old.  The version from Debian 11 (Bullseye) works
     fine.
   - You need at least Nettle 3.4.1.  Both the versions in Debian 10 (Buster)
@@ -280,10 +280,6 @@ pkgs.mkShell {
 
   # compilation of -sys packages requires manually setting LIBCLANG_PATH
   LIBCLANG_PATH = "${pkgs.llvmPackages.libclang}/lib";
-
-  # Workaround for https://github.com/mozilla/nixpkgs-mozilla/issues/240
-  # with Rust 1.46.0
-  LD_LIBRARY_PATH = ''${zlib.out}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}'';
 }
 ```
 

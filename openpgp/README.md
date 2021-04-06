@@ -90,4 +90,4 @@ support.
 
 # Minimum Supported Rust Version (MSRV)
 
-`sequoia-openpgp` requires Rust 1.46.
+`sequoia-openpgp` requires Rust 1.48.
