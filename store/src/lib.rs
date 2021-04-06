@@ -697,7 +697,7 @@ impl Binding {
         make_request_map!(
             self.core.borrow_mut(),
             request,
-            |data| Cert::from_bytes(data).map_err(|e| e.into()))
+            |data| Cert::from_bytes(data))
     }
 
     /// Forces a keyrotation to the given Cert.
@@ -754,7 +754,7 @@ impl Binding {
         make_request_map!(
             self.core.borrow_mut(),
             request,
-            |data| Cert::from_bytes(data).map_err(|e| e.into()))
+            |data| Cert::from_bytes(data))
     }
 
     /// Deletes this binding.
@@ -846,7 +846,7 @@ impl Key {
     pub fn cert(&self) -> Result<Cert> {
         make_request_map!(self.core.borrow_mut(),
                           self.key.cert_request(),
-                          |cert| Cert::from_bytes(cert).map_err(|e| e.into()))
+                          |cert| Cert::from_bytes(cert))
     }
 
     /// Returns stats for this key.
@@ -905,7 +905,7 @@ impl Key {
         make_request_map!(
             self.core.borrow_mut(),
             request,
-            |data| Cert::from_bytes(data).map_err(|e| e.into()))
+            |data| Cert::from_bytes(data))
     }
 
     /// Lists all log entries related to this key.

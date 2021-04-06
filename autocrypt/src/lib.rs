@@ -619,8 +619,7 @@ impl AutocryptSetupMessage {
             Packet::SKESK(skesk) => skesk,
             p => return Err(
                 Error::MalformedMessage(
-                    format!("Expected a SKESK packet, found a {}", p.tag())
-                        .into())
+                    format!("Expected a SKESK packet, found a {}", p.tag()))
                 .into()),
         };
 
@@ -636,8 +635,7 @@ impl AutocryptSetupMessage {
                     ref p => return Err(
                         Error::MalformedMessage(
                             format!("Expected a SEIP packet, found a {}",
-                                    p.tag())
-                                .into())
+                                    p.tag()))
                         .into()),
                 }
 
@@ -733,7 +731,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                 p => return Err(Error::MalformedMessage(
                     format!("SEIP container contains a {}, \
                              expected a Literal Data packet",
-                            p.tag()).into()).into()),
+                            p.tag())).into()),
             }
 
             // The inner message consists of an ASCII-armored encoded
@@ -787,8 +785,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                 ref p => return
                     Err(Error::MalformedMessage(
                         format!("Expected an MDC packet, got a {}",
-                                p.tag())
-                            .into())
+                                p.tag()))
                         .into()),
             }
 
@@ -802,8 +799,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                 // has the right sequence of packets, but we haven't
                 // carefully checked the nesting.  We do that now.
                 if let Err(err) = pp.is_message() {
-                    return Err(err.context(
-                        "Invalid OpenPGP Message").into());
+                    return Err(err.context("Invalid OpenPGP Message"));
                 }
             }
             PacketParserResult::Some(pp) =>

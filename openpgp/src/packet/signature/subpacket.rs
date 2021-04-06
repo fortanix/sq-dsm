@@ -7089,8 +7089,8 @@ fn accessors() {
     sig = sig.set_signature_target(pk_algo, hash_algo, &digest).unwrap();
     let sig_ =
         sig.clone().sign_hash(&mut keypair, hash.clone()).unwrap();
-    assert_eq!(sig_.signature_target(), Some((pk_algo.into(),
-                                             hash_algo.into(),
+    assert_eq!(sig_.signature_target(), Some((pk_algo,
+                                             hash_algo,
                                              &digest[..])));
 
     let embedded_sig = sig_.clone();

@@ -779,7 +779,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
             } else {
                 let ka : ErasedKeyAmalgamation<'a, key::PublicParts>
                     = SubordinateKeyAmalgamation::new(
-                        cert.into(), self.subkey_iter.next()?).into();
+                        cert, self.subkey_iter.next()?).into();
                 match ka.with_policy(self.policy, self.time) {
                     Ok(ka) => ka,
                     Err(err) => {
@@ -885,7 +885,7 @@ impl<'a, P, R> ValidKeyAmalgamationIter<'a, P, R>
                 }
             }
 
-            return Some(ka.into());
+            return Some(ka);
         }
     }
 }

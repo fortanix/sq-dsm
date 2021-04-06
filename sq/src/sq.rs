@@ -472,7 +472,7 @@ fn main() -> Result<()> {
                               &recipients, additional_secrets,
                               mode,
                               m.value_of("compression").expect("has default"),
-                              time.into(),
+                              time,
                               m.is_present("use-expired-subkey"),
             )?;
         },

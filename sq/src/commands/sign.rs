@@ -63,7 +63,7 @@ fn sign_data(config: Config,
                     p => return Err(
                         anyhow::anyhow!(
                             format!("{} in detached signature", p.tag()))
-                            .context("Invalid detached signature").into()),
+                            .context("Invalid detached signature")),
                 }
             }
 
@@ -211,7 +211,7 @@ fn sign_message_(config: Config,
 
     while let PacketParserResult::Some(mut pp) = ppr {
         if let Err(err) = pp.possible_message() {
-            return Err(err.context("Malformed OpenPGP message").into());
+            return Err(err.context("Malformed OpenPGP message"));
         }
 
         match pp.packet {
@@ -353,7 +353,7 @@ fn sign_message_(config: Config,
 
     if let PacketParserResult::EOF(eof) = ppr {
         if let Err(err) = eof.is_message() {
-            return Err(err.context("Malformed OpenPGP message").into());
+            return Err(err.context("Malformed OpenPGP message"));
         }
     } else {
         unreachable!()

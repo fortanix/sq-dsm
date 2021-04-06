@@ -62,7 +62,7 @@ impl<'a> Helper<'a> {
                 .secret()
             {
                 let id: KeyID = ka.key().fingerprint().into();
-                keys.insert(id.clone(), ka.key().clone().into());
+                keys.insert(id.clone(), ka.key().clone());
                 identities.insert(id.clone(), tsk.fingerprint());
                 hints.insert(id, hint.clone());
             }

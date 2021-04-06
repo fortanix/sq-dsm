@@ -296,7 +296,7 @@ fn create_key() {
     };
 
     // Create primary key.
-    let mut key: Key<_, PrimaryRole> = make_key().into();
+    let mut key: Key<_, PrimaryRole> = make_key();
     key.set_creation_time(t1).unwrap();
     let mut signer = key.clone().into_keypair().unwrap();
 

@@ -595,13 +595,13 @@ impl KeyParts for UnspecifiedParts {
     fn convert_key_amalgamation<'a, R: KeyRole>(
         ka: ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>> {
-        Ok(ka.into())
+        Ok(ka)
     }
 
     fn convert_key_amalgamation_ref<'a, R: KeyRole>(
         ka: &'a ComponentAmalgamation<'a, Key<UnspecifiedParts, R>>)
         -> Result<&'a ComponentAmalgamation<'a, Key<Self, R>>> {
-        Ok(ka.into())
+        Ok(ka)
     }
 
     fn significant_secrets() -> bool {
@@ -1367,7 +1367,7 @@ impl SecretKeyMaterial {
         match self {
             SecretKeyMaterial::Unencrypted(ref u) => {
                 *self = SecretKeyMaterial::Encrypted(
-                    u.encrypt(password)?.into());
+                    u.encrypt(password)?);
                 Ok(())
             }
             SecretKeyMaterial::Encrypted(_) =>

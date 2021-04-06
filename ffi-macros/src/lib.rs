@@ -428,7 +428,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
                 return
                     syn::Error::new(argument_span,
                                     "expected a single field")
-                    .to_compile_error().into();
+                    .to_compile_error();
             }
             fields.unnamed.pop();
             fields.unnamed.push(
@@ -463,7 +463,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
             syn::Error::new(argument_span,
                             format!("expected tuple struct, try: {}(...)",
                             wrapper))
-            .to_compile_error().into(),
+            .to_compile_error(),
     };
 
     quote! {

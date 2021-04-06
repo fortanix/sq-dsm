@@ -177,7 +177,7 @@ impl<'a> Padder<'a> {
     /// ```
     pub fn new(inner: Message<'a>) -> Self {
         Self {
-            inner: writer::BoxStack::from(inner).into(),
+            inner: writer::BoxStack::from(inner),
             policy: padme,
         }
     }

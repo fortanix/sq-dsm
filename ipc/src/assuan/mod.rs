@@ -409,7 +409,7 @@ impl Response {
                     }
                 }
                 Err(anyhow::anyhow!(
-                    String::from_utf8_lossy(&msg).to_string()).into())
+                    String::from_utf8_lossy(&msg).to_string()))
             },
         }
     }

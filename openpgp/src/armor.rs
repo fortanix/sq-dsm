@@ -134,7 +134,7 @@ impl TryFrom<Label> for Kind {
             Label::Signature => Ok(Kind::Signature),
             Label::File => Ok(Kind::File),
             Label::CleartextSignature => Err(crate::Error::InvalidOperation(
-                "armor::Kind cannot express cleartext signatures".into()).into()),
+                "armor::Kind cannot express cleartext signatures".into())),
         }
     }
 }

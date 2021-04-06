@@ -465,7 +465,7 @@ impl VerificationHelper for VHelper {
                 Status::Success => Ok(()),
                 // XXX: Convert the status to an error better.
                 status => Err(anyhow::anyhow!(
-                    "Inspect Callback returned an error: {:?}", status).into()),
+                    "Inspect Callback returned an error: {:?}", status)),
             }
         } else {
             Ok(())

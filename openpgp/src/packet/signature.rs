@@ -3410,8 +3410,8 @@ mod test {
         let embedded_sig = SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
             .sign_hash(&mut pair, hash.clone()).unwrap();
         builder.unhashed_area_mut().add(Subpacket::new(
-            SubpacketValue::EmbeddedSignature(embedded_sig.into()), false)
-                                        .unwrap()).unwrap();
+            SubpacketValue::EmbeddedSignature(embedded_sig), false).unwrap())
+            .unwrap();
         let sig = builder.sign_hash(&mut pair,
                                     hash.clone()).unwrap().normalize();
         assert_eq!(sig.unhashed_area().iter().count(), 3);

@@ -852,7 +852,7 @@ impl RegexSet {
                 Error::InvalidArgument(
                     format!(
                         "Expected a certification signature, found a {}",
-                        t).into())
+                        t))
                     .into()),
         }
 

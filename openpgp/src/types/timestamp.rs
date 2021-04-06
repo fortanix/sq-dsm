@@ -341,44 +341,57 @@ impl Duration {
     /// Returns a `Duration` with the given number of minutes, if
     /// representable.
     pub fn minutes(n: u32) -> Result<Duration> {
-        60u32.checked_mul(n).ok_or(())
-            .map(Self::seconds)
-            .map_err(|_| Error::InvalidArgument(
-                format!("Not representable: {} minutes in seconds exceeds u32",
-                        n)).into())
+        match 60u32.checked_mul(n) {
+            Some(val) => Ok(Self::seconds(val)),
+            None => {
+                Err(Error::InvalidArgument(format!(
+                    "Not representable: {} minutes in seconds exceeds u32",
+                    n
+                )).into())
+            }
+        }
     }
 
     /// Returns a `Duration` with the given number of hours, if
     /// representable.
     pub fn hours(n: u32) -> Result<Duration> {
-        60u32.checked_mul(n)
-            .ok_or(Error::InvalidArgument("".into()).into())
-            .and_then(Self::minutes)
-            .map_err(|_| Error::InvalidArgument(
-                format!("Not representable: {} hours in seconds exceeds u32",
-                        n)).into())
+        match 60u32.checked_mul(n) {
+            Some(val) => Self::minutes(val),
+            None => {
+                Err(Error::InvalidArgument(format!(
+                    "Not representable: {} hours in seconds exceeds u32",
+                    n
+                )).into())
+            }
+        }
     }
 
     /// Returns a `Duration` with the given number of days, if
     /// representable.
     pub fn days(n: u32) -> Result<Duration> {
-        24u32.checked_mul(n)
-            .ok_or(Error::InvalidArgument("".into()).into())
-            .and_then(Self::hours)
-            .map_err(|_| Error::InvalidArgument(
-                format!("Not representable: {} days in seconds exceeds u32",
-                        n)).into())
+        match 24u32.checked_mul(n) {
+            Some(val) => Self::hours(val),
+            None => {
+                Err(Error::InvalidArgument(format!(
+                    "Not representable: {} days in seconds exceeds u32",
+                    n
+                )).into())
+            }
+        }
     }
 
     /// Returns a `Duration` with the given number of weeks, if
     /// representable.
     pub fn weeks(n: u32) -> Result<Duration> {
-        7u32.checked_mul(n)
-            .ok_or(Error::InvalidArgument("".into()).into())
-            .and_then(Self::days)
-            .map_err(|_| Error::InvalidArgument(
-                format!("Not representable: {} weeks in seconds exceeds u32",
-                        n)).into())
+        match 7u32.checked_mul(n) {
+            Some(val) => Self::days(val),
+            None => {
+                Err(Error::InvalidArgument(format!(
+                    "Not representable: {} weeks in seconds exceeds u32",
+                    n
+                )).into())
+            }
+        }
     }
 
     /// Returns a `Duration` with the given number of years, if

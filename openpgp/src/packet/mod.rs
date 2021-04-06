@@ -1516,28 +1516,28 @@ impl<P: key::KeyParts, R: key::KeyRole> Key<P, R> {
 impl From<Key<key::PublicParts, key::PrimaryRole>> for Packet {
     /// Convert the `Key` struct to a `Packet`.
     fn from(k: Key<key::PublicParts, key::PrimaryRole>) -> Self {
-        Packet::PublicKey(k.into())
+        Packet::PublicKey(k)
     }
 }
 
 impl From<Key<key::PublicParts, key::SubordinateRole>> for Packet {
     /// Convert the `Key` struct to a `Packet`.
     fn from(k: Key<key::PublicParts, key::SubordinateRole>) -> Self {
-        Packet::PublicSubkey(k.into())
+        Packet::PublicSubkey(k)
     }
 }
 
 impl From<Key<key::SecretParts, key::PrimaryRole>> for Packet {
     /// Convert the `Key` struct to a `Packet`.
     fn from(k: Key<key::SecretParts, key::PrimaryRole>) -> Self {
-        Packet::SecretKey(k.into())
+        Packet::SecretKey(k)
     }
 }
 
 impl From<Key<key::SecretParts, key::SubordinateRole>> for Packet {
     /// Convert the `Key` struct to a `Packet`.
     fn from(k: Key<key::SecretParts, key::SubordinateRole>) -> Self {
-        Packet::SecretSubkey(k.into())
+        Packet::SecretSubkey(k)
     }
 }
 

@@ -450,8 +450,8 @@ impl<R> Key4<SecretParts, R>
         let (public, private) = rsa::generate_keypair(&mut rng, bits as u32)?;
         let (p, q, u) = private.as_rfc4880();
         let public_mpis = PublicKey::RSA {
-            e: MPI::new(&*public.e()).into(),
-            n: MPI::new(&*public.n()).into(),
+            e: MPI::new(&*public.e()),
+            n: MPI::new(&*public.n()),
         };
         let private_mpis = mpi::SecretKeyMaterial::RSA {
             d: MPI::new(&*private.d()).into(),

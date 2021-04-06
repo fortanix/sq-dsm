@@ -51,7 +51,7 @@ fn pgp_literal_into_packet(l: *mut Literal) -> *mut Packet {
 /// returns NULL in such cases.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_literal_filename(l: *const Literal) -> *mut c_char {
-    let l : &openpgp::packet::Literal = l.ref_raw().into();
+    let l : &openpgp::packet::Literal = l.ref_raw();
     if let Some(filename) = l.filename() {
         ffi_return_maybe_string!(filename)
     } else {

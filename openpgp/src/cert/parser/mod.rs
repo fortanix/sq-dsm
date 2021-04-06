@@ -174,7 +174,7 @@ impl KeyringValidator {
                 self.error = Some(CertParserError::OpenPGP(
                     Error::MalformedMessage(
                         format!("Invalid Cert: {:?} packet (at {}) not expected",
-                                tag, self.n_packets).into())));
+                                tag, self.n_packets))));
                 self.tokens.clear();
                 return;
             }
@@ -921,15 +921,15 @@ pub(crate) fn split_sigs<C>(primary: &KeyHandle, primary_keyid: &KeyHandle,
             || typ == CertificationRevocation
         {
             if is_selfsig {
-                self_revs.push(sig.into());
+                self_revs.push(sig);
             } else {
-                other_revs.push(sig.into());
+                other_revs.push(sig);
             }
         } else {
             if is_selfsig {
-                self_signatures.push(sig.into());
+                self_signatures.push(sig);
             } else {
-                certifications.push(sig.into());
+                certifications.push(sig);
             }
         }
     }
@@ -1206,8 +1206,8 @@ mod test {
         let userid : Packet = cert.clone()
             .into_iter()
             .filter(|p| p.tag() == Tag::UserID)
-            .nth(0).unwrap()
-            .into();
+            .nth(0)
+            .unwrap();
 
         // An unknown packet.
         let tag = Tag::Private(61);

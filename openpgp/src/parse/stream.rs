@@ -2378,7 +2378,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
             } else {
                 if let Err(err) = pp.possible_message() {
                     t!("Malformed message: {}", err);
-                    return Err(err.context("Malformed OpenPGP message").into());
+                    return Err(err.context("Malformed OpenPGP message"));
                 }
             }
 
@@ -2519,7 +2519,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 // Attach digest to the signature.
                 let mut digest = vec![0; hash.digest_size()];
                 let _ = hash.digest(&mut digest);
-                sig.set_computed_digest(Some(digest.into()));
+                sig.set_computed_digest(Some(digest));
             }
         }
 
@@ -2645,7 +2645,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
                     if let Err(err) = possible_message {
                         return Err(err.context(
-                            "Malformed OpenPGP message").into());
+                            "Malformed OpenPGP message"));
                     }
 
                     self.push_sig(p)?;

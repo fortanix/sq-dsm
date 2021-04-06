@@ -229,7 +229,7 @@ impl MessageValidator {
                     Error::MalformedMessage(
                         format!("Invalid OpenPGP message: \
                                  {:?} packet (at {:?}) not expected",
-                                tag, path).into())));
+                                tag, path))));
                 self.tokens.clear();
                 return;
             }
@@ -454,7 +454,7 @@ impl TryFrom<PacketPile> for Message {
                         Error::MalformedMessage(
                             format!("Invalid OpenPGP message: \
                                      {:?} packet (at {:?}) not expected: {}",
-                                    u.tag(), path, u.error()).into()))
+                                    u.tag(), path, u.error())))
                                .into()),
                 _ => v.push(packet.tag(), &path),
             }
@@ -481,7 +481,7 @@ impl TryFrom<PacketPile> for Message {
             // We really want to squash the lexer's error: it is an
             // internal detail that may change, and meaningless even
             // to an immediate user of this crate.
-            MessageValidity::Error(e) => Err(e.into()),
+            MessageValidity::Error(e) => Err(e),
         }
     }
 }

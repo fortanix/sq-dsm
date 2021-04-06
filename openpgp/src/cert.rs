@@ -2161,7 +2161,7 @@ impl Cert {
             Tag::SecretKey | Tag::PublicKey => Ok(()),
             _ => Err(Error::MalformedCert(
                 format!("A certificate does not start with a {}",
-                        tag).into()).into()),
+                        tag)).into()),
         }
     }
 
@@ -2191,7 +2191,7 @@ impl Cert {
             {
                 Err(Error::MalformedCert(
                     format!("A certificate cannot not include a {}",
-                            tag).into()).into())
+                            tag)).into())
             }
             // The rest either definitely belong in a certificate or
             // are unknown (and conservatively accepted for future

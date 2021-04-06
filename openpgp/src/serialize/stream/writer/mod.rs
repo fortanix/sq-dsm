@@ -275,7 +275,7 @@ assert_send_and_sync!(Generic<W, C> where W: io::Write, C);
 impl<'a, W: 'a + io::Write + Send + Sync> Generic<W, Cookie> {
     /// Wraps an `io::Write`r.
     pub fn new(inner: W, cookie: Cookie) -> Message<'a> {
-        Message::from(Box::new(Self::new_unboxed(inner.into(), cookie)))
+        Message::from(Box::new(Self::new_unboxed(inner, cookie)))
     }
 
     fn new_unboxed(inner: W, cookie: Cookie) -> Self {

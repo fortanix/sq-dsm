@@ -1119,7 +1119,7 @@ impl CertBuilder<'_> {
             .expect("key generated above has a secret");
         let sig = sig.sign_direct_key(&mut signer, key.parts_as_public())?;
 
-        Ok((key, sig.into()))
+        Ok((key, sig))
     }
 }
 

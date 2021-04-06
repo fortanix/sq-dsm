@@ -2773,7 +2773,7 @@ impl<'a> Encryptor<'a> {
             aed.serialize_headers(&mut inner)?;
 
             writer::AEADEncryptor::new(
-                inner.into(),
+                inner,
                 Cookie::new(level),
                 aed.symmetric_algo(),
                 aed.aead(),
@@ -2790,7 +2790,7 @@ impl<'a> Encryptor<'a> {
 
             // Install encryptor.
             self.inner = Some(writer::Encryptor::new(
-                inner.into(),
+                inner,
                 Cookie::new(level),
                 self.sym_algo,
                 &sk,

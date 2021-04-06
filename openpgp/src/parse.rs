@@ -1352,7 +1352,7 @@ impl Signature4 {
         let typ = typ.into();
         let need_hash = HashingMode::for_signature(hash_algo, typ);
         let mut pp = php.ok(Packet::Signature(Signature4::new(
-            typ, pk_algo.into(), hash_algo,
+            typ, pk_algo, hash_algo,
             hashed_area,
             unhashed_area,
             [digest_prefix1, digest_prefix2],
@@ -1455,8 +1455,7 @@ impl Signature4 {
             return Err(
                 Error::MalformedPacket(
                     format!("Unexpected body length encoding: {:?}",
-                            header.length())
-                        .into()).into());
+                            header.length())).into());
         }
 
         // Make sure we have a minimum header.
@@ -2256,14 +2255,13 @@ impl Key4<key::UnspecifiedParts, key::UnspecifiedRole>
             if len < 6 {
                 // Much too short.
                 return Err(Error::MalformedPacket(
-                    format!("Packet too short ({} bytes)", len).into()).into());
+                    format!("Packet too short ({} bytes)", len)).into());
             }
         } else {
             return Err(
                 Error::MalformedPacket(
                     format!("Unexpected body length encoding: {:?}",
-                            header.length())
-                        .into()).into());
+                            header.length())).into());
         }
 
         // Make sure we have a minimum header.
@@ -2373,7 +2371,7 @@ impl Marker {
         } else {
             return Err(Error::MalformedPacket(
                 format!("Unexpected body length encoding: {:?}",
-                        header.length()).into()).into());
+                        header.length())).into());
         }
 
         // Check the body.
@@ -4224,7 +4222,7 @@ impl <'a> PacketParser<'a> {
                 }
                 Err(err) => {
                     if orig_error.is_none() {
-                        orig_error = Some(err.into());
+                        orig_error = Some(err);
                     }
 
                     if state.first_packet || skip > 32 * 1024 {
