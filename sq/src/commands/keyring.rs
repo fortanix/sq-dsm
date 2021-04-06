@@ -171,7 +171,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
                         p.file_name().map(|f| String::from(f.to_string_lossy()))
                     })
                     // ... or we use a generic prefix...
-                        .unwrap_or(String::from("output"))
+                        .unwrap_or_else(|| String::from("output"))
                     // ... finally, add a hyphen to the derived prefix.
                         + "-");
             split(&mut input, &prefix, m.is_present("binary"))

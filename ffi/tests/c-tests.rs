@@ -230,7 +230,7 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
         .collect::<Vec<String>>().join(" ");
     let st = Command::new("make")
         .env("CFLAGS", &format!("-Wall -O0 -ggdb {} {}", includes,
-                                env::var("CFLAGS").unwrap_or("".into())))
+                                env::var("CFLAGS").unwrap_or_else(|_| "".into())))
         .env("LDFLAGS", &format!("-L{:?}", ldpath))
         .env("LDLIBS", "-lsequoia_ffi")
         .arg("-C").arg(&target_dir)

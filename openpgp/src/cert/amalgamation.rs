@@ -1150,7 +1150,7 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
             .ok_or_else(|| {
                 error.map(|e| e.context(format!(
                     "No binding signature at time {}", crate::fmt::time(&t))))
-                    .unwrap_or(Error::NoBindingSignature(t).into())
+                    .unwrap_or_else(|| Error::NoBindingSignature(t).into())
             })
             .and_then(|c| ComponentAmalgamation::new(cert, (c.0).0)
                       .with_policy_relaxed(policy, t, valid_cert))

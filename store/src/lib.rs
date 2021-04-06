@@ -1139,7 +1139,7 @@ impl Iterator for LogIter {
                              r.get_error().ok()
                          } else {
                              None
-                         }).ok_or(Error::StoreError.into()))
+                         }).ok_or_else(|| Error::StoreError.into()))
         };
         doit().ok()
     }

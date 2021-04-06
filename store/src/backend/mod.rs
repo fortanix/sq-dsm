@@ -915,7 +915,7 @@ impl KeyServer {
 
             let next = Self::need_update(&c, network_policy)
                 .map(|c| refresh_interval() / c)
-                .unwrap_or(min_sleep_time());
+                .unwrap_or_else(|_| min_sleep_time());
 
             if let Err(e) = cert.map(|t| key.merge(t)) {
                 key.error("Update unsuccessful",
@@ -939,7 +939,7 @@ impl KeyServer {
         loop {
             let duration = Self::update(&c, net::Policy::Encrypted).await;
 
-            let duration = duration.unwrap_or(min_sleep_time());
+            let duration = duration.unwrap_or_else(|_| min_sleep_time());
             tokio::time::delay_for(random_duration(duration)).await;
         }
     }
@@ -990,7 +990,7 @@ impl node::key::Server for KeyServer {
             self.c.query_row(
                 "SELECT key FROM keys WHERE id = ?1",
                 &[&self.id],
-                |row| Ok(row.get(0).unwrap_or(vec![]))));
+                |row| Ok(row.get(0).unwrap_or_default())));
         pry!(pry!(results.get().get_result()).set_ok(key.as_slice()));
         Promise::ok(())
     }

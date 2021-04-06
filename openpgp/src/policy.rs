@@ -765,7 +765,7 @@ fn system_time_cutoff_to_timestamp(t: SystemTime) -> Option<Timestamp> {
         // An error can only occur if the SystemTime is less than the
         // reference time (SystemTime::UNIX_EPOCH).  Map that to
         // SystemTime::UNIX_EPOCH, as above.
-        .unwrap_or(Duration::new(0, 0));
+        .unwrap_or_else(|_| Duration::new(0, 0));
     let t = t.as_secs();
     if t > u32::MAX as u64 {
         // Map to None, as above.

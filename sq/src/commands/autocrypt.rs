@@ -43,7 +43,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
             let ac = autocrypt::AutocryptHeader::new_sender(
                 &config.policy,
                 &cert,
-                &addr.ok_or(anyhow::anyhow!(
+                &addr.ok_or_else(|| anyhow::anyhow!(
                     "No well-formed primary userid found, use \
                      --address to specify one"))?,
                 m.value_of("prefer-encrypt").expect("has default"))?;

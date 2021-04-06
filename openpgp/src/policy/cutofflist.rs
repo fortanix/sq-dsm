@@ -162,7 +162,7 @@ impl<A> CutoffList<A>
     {
         if let Some(cutoff) = self.cutoff(a.clone()) {
             let cutoff = cutoff
-                .checked_add(tolerance.unwrap_or(Duration::seconds(0)))
+                .checked_add(tolerance.unwrap_or_else(|| Duration::seconds(0)))
                 .unwrap_or(Timestamp::MAX);
             if time >= cutoff {
                 Err(Error::PolicyViolation(

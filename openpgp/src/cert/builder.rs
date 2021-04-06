@@ -260,7 +260,7 @@ impl CertBuilder<'_> {
     {
         CertBuilder {
             creation_time: None,
-            ciphersuite: ciphersuite.into().unwrap_or(Default::default()),
+            ciphersuite: ciphersuite.into().unwrap_or_default(),
             primary: KeyBlueprint {
                 flags: KeyFlags::empty()
                     .set_certification(),

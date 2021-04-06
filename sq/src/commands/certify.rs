@@ -29,7 +29,7 @@ pub fn certify(config: Config, m: &clap::ArgMatches)
     let trust_amount: u8 = m.value_of("amount")
         .map(|s| s.parse()).unwrap_or(Ok(120))?;
     let regex = m.values_of("regex").map(|v| v.collect::<Vec<_>>())
-        .unwrap_or(vec![]);
+        .unwrap_or_default();
     if trust_depth == 0 && regex.len() > 0 {
         return Err(
             anyhow::format_err!("A regex only makes sense \

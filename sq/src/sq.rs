@@ -413,7 +413,7 @@ fn main() -> Result<()> {
                 config.create_or_stdout_safe(m.value_of("output"))?;
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
-                .unwrap_or(Ok(vec![]))?;
+                .unwrap_or_else(|| Ok(vec![]))?;
             // Fancy default for --signatures.  If you change this,
             // also change the description in the CLI definition.
             let signatures: usize =
@@ -431,7 +431,7 @@ fn main() -> Result<()> {
                 };
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
-                .unwrap_or(Ok(vec![]))?;
+                .unwrap_or_else(|| Ok(vec![]))?;
             commands::decrypt(config,
                               &mut input, &mut output,
                               signatures, certs, secrets,
@@ -441,7 +441,7 @@ fn main() -> Result<()> {
         ("encrypt",  Some(m)) => {
             let recipients = m.values_of("recipients-cert-file")
                 .map(load_certs)
-                .unwrap_or(Ok(vec![]))?;
+                .unwrap_or_else(|| Ok(vec![]))?;
             let mut input = open_or_stdin(m.value_of("input"))?;
             let output =
                 config.create_or_stdout_pgp(m.value_of("output"),
@@ -449,7 +449,7 @@ fn main() -> Result<()> {
                                             armor::Kind::Message)?;
             let additional_secrets = m.values_of("signer-key-file")
                 .map(load_keys)
-                .unwrap_or(Ok(vec![]))?;
+                .unwrap_or_else(|| Ok(vec![]))?;
             let mode = match m.value_of("mode").expect("has default") {
                 "rest" => KeyFlags::empty()
                     .set_storage_encryption(),
@@ -485,7 +485,7 @@ fn main() -> Result<()> {
             let notarize = m.is_present("notarize");
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
-                .unwrap_or(Ok(vec![]))?;
+                .unwrap_or_else(|| Ok(vec![]))?;
             let time = if let Some(time) = m.value_of("time") {
                 Some(parse_iso8601(time, chrono::NaiveTime::from_hms(0, 0, 0))
                          .context(format!("Bad value passed to --time: {:?}",
@@ -543,7 +543,7 @@ fn main() -> Result<()> {
                 m.value_of("signatures").expect("has a default").parse()?;
             let certs = m.values_of("sender-cert-file")
                 .map(load_certs)
-                .unwrap_or(Ok(vec![]))?;
+                .unwrap_or_else(|| Ok(vec![]))?;
             commands::verify(config, &mut input,
                              detached.as_mut().map(|r| r as &mut (dyn io::Read + Sync + Send)),
                              &mut output, signatures, certs)?;
@@ -642,7 +642,7 @@ fn main() -> Result<()> {
                                                 armor::Kind::Message)?;
                 let secrets = m.values_of("secret-key-file")
                     .map(load_keys)
-                    .unwrap_or(Ok(vec![]))?;
+                    .unwrap_or_else(|| Ok(vec![]))?;
                 commands::decrypt::decrypt_unwrap(
                     config,
                     &mut input, &mut output,
@@ -663,7 +663,7 @@ fn main() -> Result<()> {
                             p.file_name().map(|f| String::from(f.to_string_lossy()))
                         })
                         // ... or we use a generic prefix...
-                            .unwrap_or(String::from("output"))
+                            .unwrap_or_else(|| String::from("output"))
                         // ... finally, add a hyphen to the derived prefix.
                             + "-");
                 commands::split(&mut input, &prefix)?;

@@ -721,7 +721,7 @@ impl<'a> Reader<'a> {
     )
         -> Self
     {
-        let mode = mode.unwrap_or(Default::default());
+        let mode = mode.unwrap_or_default();
 
         Reader {
             // The embedded generic reader's fields.

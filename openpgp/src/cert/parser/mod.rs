@@ -982,7 +982,7 @@ impl<'a> Iterator for CertParser<'a> {
                                    _ => None,
                                }
                                .map(|s| format!(", {}", s))
-                               .unwrap_or("".into())
+                               .unwrap_or_else(|| "".into())
                             );
                             self.source = Some(iter);
                             self.parse(packet)

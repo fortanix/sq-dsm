@@ -292,7 +292,7 @@ impl KeyServer {
                                          -> Result<Vec<Cert>>
     {
         let userid = userid.into();
-        let email = userid.email().and_then(|addr| addr.ok_or(
+        let email = userid.email().and_then(|addr| addr.ok_or_else(||
             openpgp::Error::InvalidArgument(
                 "UserID does not contain an email address".into()).into()))?;
         let uri = self.uri.join(

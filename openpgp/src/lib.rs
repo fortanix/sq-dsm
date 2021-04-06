@@ -305,7 +305,7 @@ pub enum Error {
     /// determined to no longer be secure.
     #[error("{0} is not considered secure{}",
             .1.as_ref().map(|t| format!(" since {}", crate::fmt::time(t)))
-            .unwrap_or("".into()))]
+            .unwrap_or_else(|| "".into()))]
     PolicyViolation(String, Option<std::time::SystemTime>),
 }
 

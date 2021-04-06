@@ -258,8 +258,8 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     let wrapper = st.ident.clone();
-    let name = name.unwrap_or(ident2c(&st.ident));
-    let prefix = prefix.unwrap_or("".into());
+    let name = name.unwrap_or_else(|| ident2c(&st.ident));
+    let prefix = prefix.unwrap_or_else(|| "".into());
 
     // Parse the type of the wrapped object.
     let argument_span = st.fields.span();
