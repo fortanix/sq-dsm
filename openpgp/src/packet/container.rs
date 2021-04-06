@@ -34,36 +34,55 @@ use crate::{
 ///
 /// There are three different types of packets:
 ///
-///   - Packets like the [`UserID`] and [`Signature`] packets, don't
+///   - Most packets like the [`UserID`] and [`Signature`] packets, don't
 ///     actually have a body.
 ///
 ///   [`UserID`]: ../packet/struct.UserID.html
 ///   [`Signature`]: ../packet/signature/struct.Signature.html
 ///
-///   - One packet, the literal data packet, includes unstructured
-///     data.  That data is stored in [`Literal`].
+///   - Some packets have an unprocessed body.  The [`Literal`] data
+///     packet wraps unstructured plaintext, and the [`Unknown`]
+///     packet contains data that we failed to process, say because we
+///     didn't support the packet's version.
 ///
 ///   [`Literal`]: ../packet/struct.Literal.html
+///   [`Unknown`]: ../packet/struct.Unknown.html
 ///
 ///   - Some packets are containers.  If the parser does not parse the
 ///     packet's child, either because the caller used
 ///     [`PacketParser::next`] to get the next packet, or the maximum
-///     recursion depth was reached, then the packets can be stored here
-///     as a byte stream.  (If the caller so chooses, the content can be
-///     parsed later using the regular deserialization routines, since
-///     the content is just an OpenPGP message.)
+///     recursion depth was reached, then the packets can be stored
+///     here as an unstructured byte stream.  (If the caller so
+///     chooses, the content can be parsed later using the regular
+///     deserialization routines, since the content is just an OpenPGP
+///     message.)
 ///
 ///   [`PacketParser::next`]: ../parse/struct.PacketParser.html#method.next
 #[derive(Clone, Debug)]
 pub enum Body {
     /// Unprocessed packet body.
     ///
-    /// The body has not been processed, i.e. it is still encrypted.
+    /// The body has not been processed.  This happens in the
+    /// following cases:
+    ///
+    ///   - The packet is a [`Literal`] packet.
+    ///
+    ///   - The packet is an [`Unknown`] packet, i.e. it contains data
+    ///     that we failed to process, say because we didn't support
+    ///     the packet's version.
+    ///
+    ///   - The packet is an encryption container ([`SEIP`] or
+    ///     [`AED1`]) and the body is encrypted.
     ///
     /// Note: if some of a packet's data is streamed, and the
     /// `PacketParser` is configured to buffer unread content, then
     /// this is not the packet's entire content; it is just the unread
     /// content.
+    ///
+    ///   [`Literal`]: ../packet/struct.Literal.html
+    ///   [`Unknown`]: ../packet/struct.Unknown.html
+    ///   [`SEIP`]: ../packet/enum.SEIP.html
+    ///   [`AED`]: ../packet/enum.AED.html
     Unprocessed(Vec<u8>),
 
     /// Processed packed body.
@@ -351,7 +370,7 @@ macro_rules! impl_body_forwards {
         /// Container packets like this one can contain unprocessed
         /// data.
         impl $typ {
-        /// Returns a reference to the container.
+            /// Returns a reference to the container.
             pub(crate) fn container_ref(&self) -> &packet::Container {
                 &self.container
             }
