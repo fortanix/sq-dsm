@@ -71,6 +71,14 @@ bullseye:
 bullseye:arm64:
   tags:
     - docker-arm64
+  # This job takes ~50 minutes to run, let's only execute it manually or for
+  # scheduled builds, otherwise this will stall MRs.
+  only:
+    refs:
+      - /arm64/i # refs containing 'arm64' keyword
+      - tags
+      - web
+      - scheduled
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
