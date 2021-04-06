@@ -40,7 +40,7 @@ build-bullseye:arm64:
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
-    - codespell:arm64
+    - codespell
   script:
     - make
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
@@ -74,7 +74,7 @@ bullseye:arm64:
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
-    - codespell:arm64
+    - codespell
   script:
     # valgrind reports a false positive, see !1035. Run the tests without it for now.
     - make test
@@ -123,18 +123,6 @@ codespell:
     - linux
   stage: pre-check
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye:latest
-
-  before_script:
-    - codespell --version
-  script:
-    - make codespell CODESPELL_FLAGS=--summary
-  after_script: []
-
-codespell:arm64:
-  tags:
-    - docker-arm64
-  stage: pre-check
-  image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-arm64:latest
 
   before_script:
     - codespell --version
