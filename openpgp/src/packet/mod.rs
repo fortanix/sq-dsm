@@ -475,7 +475,7 @@ impl fmt::Debug for Packet {
 impl Arbitrary for Packet {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         use rand::Rng;
-        match g.gen_range(0, 14) {
+        match g.gen_range(0, 15) {
             0 => Signature::arbitrary(g).into(),
             1 => OnePassSig::arbitrary(g).into(),
             2 => Key::<key::PublicParts, key::UnspecifiedRole>::arbitrary(g)
@@ -494,6 +494,24 @@ impl Arbitrary for Packet {
             11 => CompressedData::arbitrary(g).into(),
             12 => PKESK::arbitrary(g).into(),
             13 => SKESK::arbitrary(g).into(),
+            14 => loop {
+                let mut u = Unknown::new(
+                    Tag::arbitrary(g), anyhow::anyhow!("Arbitrary::arbitrary"));
+                u.set_body(Arbitrary::arbitrary(g));
+                let u = Packet::Unknown(u);
+
+                // Check that we didn't accidentally make a valid
+                // packet.
+                use crate::parse::Parse;
+                use crate::serialize::SerializeInto;
+                if let Ok(Packet::Unknown(_)) = Packet::from_bytes(
+                    &u.to_vec().unwrap())
+                {
+                    break u;
+                }
+
+                // Try again!
+            },
             _ => unreachable!(),
         }
     }
