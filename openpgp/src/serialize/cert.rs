@@ -755,11 +755,11 @@ mod test {
         ]).unwrap();
 
         assert_eq!(cert.subkeys().count(), 1);
-        cert.subkeys().nth(0).unwrap().binding_signature(p, None).unwrap();
+        cert.subkeys().next().unwrap().binding_signature(p, None).unwrap();
         assert_eq!(cert.userids().count(), 1);
-        assert!(cert.userids().with_policy(p, None).nth(0).is_some());
+        assert!(cert.userids().with_policy(p, None).next().is_some());
         assert_eq!(cert.user_attributes().count(), 1);
-        assert!(cert.user_attributes().with_policy(p, None).nth(0).is_some());
+        assert!(cert.user_attributes().with_policy(p, None).next().is_some());
 
         // The binding signature is not exportable, so when we export
         // and re-parse, we expect the userid to be gone.

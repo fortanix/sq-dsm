@@ -64,7 +64,7 @@ impl Sexp {
         };
 
         let value = self.get(b"value")?.ok_or_else(not_a_session_key)?
-            .into_iter().nth(0).ok_or_else(not_a_session_key)?;
+            .into_iter().next().ok_or_else(not_a_session_key)?;
 
         match value {
             Sexp::String(ref s) => match recipient.mpis() {
@@ -153,7 +153,7 @@ impl Sexp {
         };
 
         let sig = self.get(b"sig-val")?.ok_or_else(not_a_signature)?
-            .into_iter().nth(0).ok_or_else(not_a_signature)?;
+            .into_iter().next().ok_or_else(not_a_signature)?;
 
         if let Some(param) = sig.get(b"eddsa")? {
             let r = param.iter().find_map(|p| {

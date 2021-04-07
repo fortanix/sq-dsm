@@ -4387,7 +4387,7 @@ mod test {
             .generate().unwrap();
 
         let sig = {
-            let subkey = cert.subkeys().nth(0).unwrap();
+            let subkey = cert.subkeys().next().unwrap();
             assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                        subkey.revocation_status(p, None));
 
@@ -4405,7 +4405,7 @@ mod test {
         assert_eq!(RevocationStatus::NotAsFarAsWeKnow,
                    cert.revocation_status(p, None));
 
-        let subkey = cert.subkeys().nth(0).unwrap();
+        let subkey = cert.subkeys().next().unwrap();
         assert_match!(RevocationStatus::Revoked(_)
                       = subkey.revocation_status(p, None));
     }
@@ -4555,7 +4555,7 @@ mod test {
             where T: Into<Option<time::SystemTime>>
         {
             !matches!(
-                cert.subkeys().nth(0).unwrap().bundle().revocation_status(p, t),
+                cert.subkeys().next().unwrap().bundle().revocation_status(p, t),
                 RevocationStatus::NotAsFarAsWeKnow
             )
         }
@@ -4663,7 +4663,7 @@ mod test {
                           = cert.revocation_status(p, None));
 
             assert_eq!(cert.user_attributes().count(), 1);
-            let ua = cert.user_attributes().nth(0).unwrap();
+            let ua = cert.user_attributes().next().unwrap();
             if revoked {
                 assert_match!(RevocationStatus::Revoked(_)
                               = ua.revocation_status(p, t));
@@ -4908,7 +4908,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             }
 
             // Make sure we return the most recent first.
-            assert_eq!(uid.self_signatures().nth(0).unwrap(),
+            assert_eq!(uid.self_signatures().next().unwrap(),
                        uid.binding_signature(p, None).unwrap());
         }
 
@@ -5212,7 +5212,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                 .generate().unwrap();
 
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().next().unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             let sig_template
@@ -5233,7 +5233,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             // Make sure the certification is merged, and put in the right
             // place.
             assert_eq!(bob.userids().len(), 1);
-            let bob_userid_binding = bob.userids().nth(0).unwrap();
+            let bob_userid_binding = bob.userids().next().unwrap();
             assert_eq!(bob_userid_binding.userid().value(), b"bob@bar.com");
 
             // Canonicalizing Bob's cert without having Alice's key
@@ -5359,9 +5359,9 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let cert = cert.insert_packets(vec![Packet::from(fake_key),
                                            fake_binding.clone().into()])?;
         assert_eq!(cert.unknowns().count(), 1);
-        assert_eq!(cert.unknowns().nth(0).unwrap().unknown().tag(),
+        assert_eq!(cert.unknowns().next().unwrap().unknown().tag(),
                    packet::Tag::PublicSubkey);
-        assert_eq!(cert.unknowns().nth(0).unwrap().self_signatures().collect::<Vec<_>>(),
+        assert_eq!(cert.unknowns().next().unwrap().self_signatures().collect::<Vec<_>>(),
                    vec![&fake_binding]);
 
         Ok(())
@@ -5533,7 +5533,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             crate::tests::key("different-preferences.asc"))?;
         assert_eq!(cert.userids().count(), 2);
 
-        if let Some(userid) = cert.userids().nth(0) {
+        if let Some(userid) = cert.userids().next() {
             assert_eq!(userid.userid().value(),
                        &b"Alice Confusion <alice@example.com>"[..]);
 
@@ -5562,7 +5562,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             panic!("two user ids");
         }
 
-        if let Some(userid) = cert.userids().nth(0) {
+        if let Some(userid) = cert.userids().next() {
             assert_eq!(userid.userid().value(),
                        &b"Alice Confusion <alice@example.com>"[..]);
 
@@ -5738,8 +5738,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.subkeys().count(), 2);
         assert_eq!(cert.unknowns().count(), 0);
         assert_eq!(cert.bad_signatures().count(), 0);
-        assert_eq!(cert.userids().nth(0).unwrap().self_signatures().count(), 1);
-        assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().count(), 1);
+        assert_eq!(cert.userids().next().unwrap().self_signatures().count(), 1);
+        assert_eq!(cert.subkeys().next().unwrap().self_signatures().count(), 1);
         assert_eq!(cert.subkeys().nth(1).unwrap().self_signatures().count(), 1);
 
         // Create a variant of cert where the signatures have
@@ -5763,8 +5763,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(cert.subkeys().count(), 2);
         assert_eq!(cert.unknowns().count(), 0);
         assert_eq!(cert.bad_signatures().count(), 0);
-        assert_eq!(cert.userids().nth(0).unwrap().self_signatures().count(), 1);
-        assert_eq!(cert.subkeys().nth(0).unwrap().self_signatures().count(), 1);
+        assert_eq!(cert.userids().next().unwrap().self_signatures().count(), 1);
+        assert_eq!(cert.subkeys().next().unwrap().self_signatures().count(), 1);
         assert_eq!(cert.subkeys().nth(1).unwrap().self_signatures().count(), 1);
 
         Ok(())
@@ -5802,7 +5802,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                         .sign_primary_key_binding(
                             &mut pair,
                             cert.primary_key().key(),
-                            cert.keys().subkeys().nth(0).unwrap().key())?),
+                            cert.keys().subkeys().next().unwrap().key())?),
                 false)?)?;
         } else {
             panic!("expected a signature");
@@ -5850,14 +5850,14 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         if let Some(Packet::Signature(sig)) = pp.path_ref_mut(&[4]) {
             // Prepend a bad backsig.
-            let backsig = sig.embedded_signatures().nth(0).unwrap().clone();
+            let backsig = sig.embedded_signatures().next().unwrap().clone();
             sig.unhashed_area_mut().replace(Subpacket::new(
                 SubpacketValue::EmbeddedSignature(
                     SignatureBuilder::new(SignatureType::PrimaryKeyBinding)
                         .sign_primary_key_binding(
                             &mut pair,
                             cert.primary_key().key(),
-                            cert.keys().subkeys().nth(0).unwrap().key())?),
+                            cert.keys().subkeys().next().unwrap().key())?),
                 false)?)?;
             sig.unhashed_area_mut().add(Subpacket::new(
                 SubpacketValue::EmbeddedSignature(backsig), false)?)?;
@@ -5880,7 +5880,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(merged.with_policy(p, None)?.keys().subkeys()
                    .for_signing().count(), 1);
         let sig = merged.with_policy(p, None)?.keys().subkeys()
-            .for_signing().nth(0).unwrap().binding_signature();
+            .for_signing().next().unwrap().binding_signature();
         assert_eq!(sig.embedded_signatures().count(), 2);
 
         // Now the other way around.
@@ -5889,7 +5889,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         assert_eq!(merged.with_policy(p, None)?.keys().subkeys()
                    .for_signing().count(), 1);
         let sig = merged.with_policy(p, None)?.keys().subkeys()
-            .for_signing().nth(0).unwrap().binding_signature();
+            .for_signing().next().unwrap().binding_signature();
         assert_eq!(sig.embedded_signatures().count(), 2);
         Ok(())
     }
@@ -5921,11 +5921,11 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // Specifically, the issuer information should have been added
         // back by the canonicalization.
         assert_eq!(
-            cert.userids().nth(0).unwrap().self_signatures().nth(0).unwrap()
+            cert.userids().next().unwrap().self_signatures().next().unwrap()
                 .unhashed_area().subpackets(SubpacketTag::Issuer).count(),
             1);
         assert_eq!(
-            cert.keys().subkeys().nth(0).unwrap().self_signatures().nth(0).unwrap()
+            cert.keys().subkeys().next().unwrap().self_signatures().next().unwrap()
                 .unhashed_area().subpackets(SubpacketTag::Issuer).count(),
             1);
         Ok(())
@@ -6034,7 +6034,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // Have Alice certify the binding between "bob@bar.com" and
         // Bob's key.
         let alice_certifies_bob
-            = bob.userids().nth(0).unwrap().userid().bind(
+            = bob.userids().next().unwrap().userid().bind(
                 &mut alice_signer, &bob,
                 SignatureBuilder::new(SignatureType::GenericCertification))?;
 
@@ -6049,7 +6049,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         // Then, prepare an attested key signature.
         let mut h = hash_algo.context()?;
         bob.primary_key().key().hash(&mut h);
-        bob.userids().nth(0).unwrap().userid().hash(&mut h);
+        bob.userids().next().unwrap().userid().hash(&mut h);
 
         let attestation = SignatureBuilder::new(SignatureType__AttestedKey)
             .modify_hashed_area(|mut a| {
@@ -6069,25 +6069,25 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         ])?;
 
         assert_eq!(bob.bad_signatures().count(), 0);
-        assert_eq!(bob.userids().nth(0).unwrap().certifications().nth(0),
+        assert_eq!(bob.userids().next().unwrap().certifications().next(),
                    Some(&alice_certifies_bob));
-        assert_eq!(&bob.userids().nth(0).unwrap().bundle().attestations[0],
+        assert_eq!(&bob.userids().next().unwrap().bundle().attestations[0],
                    &attestation);
 
         // Check that attested key signatures are kept over merges.
         let bob_ = bob.clone().merge_public(bob_pristine.clone())?;
         assert_eq!(bob_.bad_signatures().count(), 0);
-        assert_eq!(bob_.userids().nth(0).unwrap().certifications().nth(0),
+        assert_eq!(bob_.userids().next().unwrap().certifications().next(),
                    Some(&alice_certifies_bob));
-        assert_eq!(&bob_.userids().nth(0).unwrap().bundle().attestations[0],
+        assert_eq!(&bob_.userids().next().unwrap().bundle().attestations[0],
                    &attestation);
 
         // And the other way around.
         let bob_ = bob_pristine.clone().merge_public(bob.clone())?;
         assert_eq!(bob_.bad_signatures().count(), 0);
-        assert_eq!(bob_.userids().nth(0).unwrap().certifications().nth(0),
+        assert_eq!(bob_.userids().next().unwrap().certifications().next(),
                    Some(&alice_certifies_bob));
-        assert_eq!(&bob_.userids().nth(0).unwrap().bundle().attestations[0],
+        assert_eq!(&bob_.userids().next().unwrap().bundle().attestations[0],
                    &attestation);
 
         Ok(())
@@ -6104,13 +6104,13 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 
         let test = Cert::from_bytes(crate::tests::key("1pa3pc-dkgpg.pgp"))?;
         assert_eq!(test.bad_signatures().count(), 0);
-        assert_eq!(test.userids().nth(0).unwrap().certifications().count(),
+        assert_eq!(test.userids().next().unwrap().certifications().count(),
                    1);
-        assert_eq!(test.userids().nth(0).unwrap().bundle().attestations.len(),
+        assert_eq!(test.userids().next().unwrap().bundle().attestations.len(),
                    1);
 
         let attestation =
-            &test.userids().nth(0).unwrap().bundle().attestations[0];
+            &test.userids().next().unwrap().bundle().attestations[0];
 
         let digest_size = attestation.hash_algo().context()?.digest_size();
         let digests = if let Some(SubpacketValue::Unknown { body, .. }) =
@@ -6130,7 +6130,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         }
 
         for (i, certification) in
-            test.userids().nth(0).unwrap().certifications().enumerate()
+            test.userids().next().unwrap().certifications().enumerate()
         {
             // Hash the certification.
             let mut h = attestation.hash_algo().context()?;

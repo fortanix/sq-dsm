@@ -3257,7 +3257,7 @@ mod test {
                                 sig, ..
                             }) = &results[0] {
                                 assert_eq!(
-                                    &sig.issuer_fingerprints().nth(0).unwrap()
+                                    &sig.issuer_fingerprints().next().unwrap()
                                         .to_hex(),
                                     match i {
                                         0 => "8E8C33FA4626337976D97978069C0C348DD82C19",
@@ -3400,7 +3400,7 @@ mod test {
         // sign 3MiB message
         let mut buf = vec![];
         {
-            let key = cert.keys().with_policy(p, None).for_signing().nth(0).unwrap().key();
+            let key = cert.keys().with_policy(p, None).for_signing().next().unwrap().key();
             let keypair =
                 key.clone().parts_into_secret().unwrap()
                 .into_keypair().unwrap();

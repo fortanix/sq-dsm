@@ -125,7 +125,7 @@ impl<'a> DecryptionHelper for Helper<'a> {
     {
         let key = self.secret.keys().unencrypted_secret()
             .with_policy(self.policy, None)
-            .for_transport_encryption().nth(0).unwrap().key().clone();
+            .for_transport_encryption().next().unwrap().key().clone();
 
         // The secret key is not encrypted.
         let mut pair = key.into_keypair()?;

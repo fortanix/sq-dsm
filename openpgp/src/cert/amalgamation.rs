@@ -1303,7 +1303,7 @@ mod test {
             .generate()
             .unwrap();
 
-        let userid : UserIDAmalgamation = cert.userids().nth(0).unwrap();
+        let userid : UserIDAmalgamation = cert.userids().next().unwrap();
         assert_eq!(userid.userid(), userid.clone().userid());
 
         let userid : ValidUserIDAmalgamation

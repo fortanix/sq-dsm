@@ -2278,7 +2278,7 @@ mod test {
         let mut primary_signer = cert.primary_key().key().clone()
             .parts_into_secret().unwrap().into_keypair().unwrap();
         let mut signing_subkey_signer = cert.with_policy(p, None).unwrap()
-            .keys().for_signing().nth(0).unwrap()
+            .keys().for_signing().next().unwrap()
             .key().clone().parts_into_secret().unwrap()
             .into_keypair().unwrap();
 

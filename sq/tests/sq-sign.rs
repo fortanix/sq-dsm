@@ -278,7 +278,7 @@ fn sq_sign_append_on_compress_then_sign() {
     // message by foot.
     let tsk = Cert::from_file(&artifact("keys/dennis-simon-anton-private.pgp"))
         .unwrap();
-    let key = tsk.keys().with_policy(p, None).for_signing().nth(0).unwrap().key();
+    let key = tsk.keys().with_policy(p, None).for_signing().next().unwrap().key();
     let sec = match key.optional_secret() {
         Some(SecretKeyMaterial::Unencrypted(ref u)) => u.clone(),
         _ => unreachable!(),

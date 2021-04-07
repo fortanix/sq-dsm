@@ -254,7 +254,7 @@ fn list(config: Config,
 
         // As a last resort, pick the first user id.
         if primary_uid.is_none() {
-            if let Some(primary) = cert.userids().nth(0) {
+            if let Some(primary) = cert.userids().next() {
                 println!(" {}", String::from_utf8_lossy(primary.value()));
                 primary_uid = Some(primary.value().to_vec());
             }
@@ -296,7 +296,7 @@ fn split(input: &mut (dyn io::Read + Sync + Send), prefix: &str, binary: bool)
 
         // Try to be more helpful by including the first userid in the
         // filename.
-        let mut sink = if let Some(f) = cert.userids().nth(0)
+        let mut sink = if let Some(f) = cert.userids().next()
             .and_then(|uid| uid.email().unwrap_or(None))
             .and_then(to_filename_fragment)
         {

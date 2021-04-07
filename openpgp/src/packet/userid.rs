@@ -222,7 +222,7 @@ impl ConventionallyParsedUserID {
 
         // The regex is anchored at the start and at the end so we
         // have either 0 or 1 matches.
-        if let Some(cap) = USER_ID_PARSER.captures_iter(&userid).nth(0) {
+        if let Some(cap) = USER_ID_PARSER.captures_iter(&userid).next() {
             let to_range = |m: regex::Match| (m.start(), m.end());
 
             // We need to figure out which branch matched.  Match on a

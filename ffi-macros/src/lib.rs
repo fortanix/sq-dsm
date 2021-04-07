@@ -393,7 +393,7 @@ fn derive_conversion_functions(mut st: syn::ItemStruct,
     let generics = &st.generics;
 
     let ref_lifetime = if generics.lifetimes().count() > 0 {
-        generics.lifetimes().nth(0).unwrap().clone()
+        generics.lifetimes().next().unwrap().clone()
     } else {
         syn::parse_quote!('static)
     };

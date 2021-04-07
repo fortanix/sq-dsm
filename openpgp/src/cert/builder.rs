@@ -1311,15 +1311,13 @@ mod tests {
         assert!(! sig.key_alive(key, now + 610 * s).is_ok());
 
         let ka = cert.keys().with_policy(p, now).alive().revoked(false)
-            .for_signing()
-            .nth(0).unwrap();
+            .for_signing().next().unwrap();
         assert!(ka.alive().is_ok());
         assert!(ka.clone().with_policy(p, now + 290 * s).unwrap().alive().is_ok());
         assert!(! ka.clone().with_policy(p, now + 310 * s).unwrap().alive().is_ok());
 
         let ka = cert.keys().with_policy(p, now).alive().revoked(false)
-            .for_authentication()
-            .nth(0).unwrap();
+            .for_authentication().next().unwrap();
         assert!(ka.alive().is_ok());
         assert!(ka.clone().with_policy(p, now + 590 * s).unwrap().alive().is_ok());
         assert!(! ka.clone().with_policy(p, now + 610 * s).unwrap().alive().is_ok());

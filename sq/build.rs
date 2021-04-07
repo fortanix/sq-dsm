@@ -87,7 +87,7 @@ fn dump_help(sink: &mut dyn io::Write,
             if line.chars().nth(4).map(|c| ! c.is_ascii_whitespace())
                 .unwrap_or(false)
             {
-                line.trim_start().split(" ").nth(0)
+                line.trim_start().split(" ").next()
             } else {
                 None
             }

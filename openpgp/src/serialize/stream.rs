@@ -3113,7 +3113,7 @@ mod test {
         let mut good = 0;
         while let PacketParserResult::Some(mut pp) = ppr {
             if let Packet::Signature(sig) = &mut pp.packet {
-                let key = keys.get(&sig.issuer_fingerprints().nth(0).unwrap())
+                let key = keys.get(&sig.issuer_fingerprints().next().unwrap())
                     .unwrap();
                 sig.verify(key).unwrap();
                 good += 1;
@@ -3410,7 +3410,7 @@ mod test {
             .generate().unwrap();
 
         // What we're going to sign with.
-        let ka = cert.keys().with_policy(p, None).for_signing().nth(0).unwrap();
+        let ka = cert.keys().with_policy(p, None).for_signing().next().unwrap();
 
         // A timestamp later than the key's creation.
         let timestamp = ka.key().creation_time()
@@ -3479,8 +3479,7 @@ mod test {
             eprintln!("{:?}", String::from_utf8(data.to_vec())?);
             let signing_keypair = cert.keys().secret()
                 .with_policy(p, None).supported()
-                .alive().revoked(false).for_signing()
-                .nth(0).unwrap()
+                .alive().revoked(false).for_signing().next().unwrap()
                 .key().clone().into_keypair()?;
             let mut signature = vec![];
             {

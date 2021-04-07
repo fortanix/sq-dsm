@@ -142,7 +142,7 @@ fn inspect_cert(policy: &dyn Policy,
     writeln!(output)?;
     writeln!(output, "    Fingerprint: {}", cert.fingerprint())?;
     inspect_revocation(output, "", cert.revocation_status(policy, None))?;
-    inspect_key(policy, output, "", cert.keys().nth(0).unwrap(),
+    inspect_key(policy, output, "", cert.keys().next().unwrap(),
                 print_certifications)?;
     writeln!(output)?;
 

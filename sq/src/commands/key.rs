@@ -357,7 +357,7 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
                         &cert.primary_key(),
                         &key).is_ok()
                 })
-                .nth(0)
+                .next()
                 .map(|sig| SignatureBuilder::from(sig.clone()))
                 .unwrap_or_else(|| {
                     SignatureBuilder::new(SignatureType::PrimaryKeyBinding)

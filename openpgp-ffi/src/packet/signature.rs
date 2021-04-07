@@ -53,7 +53,7 @@ fn pgp_signature_into_packet(s: *mut Signature) -> *mut Packet {
 /// subpacket, this still returns NULL.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_issuer(sig: *const Signature) -> Maybe<KeyID> {
-    sig.ref_raw().issuers().nth(0).move_into_raw()
+    sig.ref_raw().issuers().next().move_into_raw()
 }
 
 /// Returns the value of the `Signature` packet's IssuerFingerprint subpacket.
@@ -64,7 +64,7 @@ fn pgp_signature_issuer(sig: *const Signature) -> Maybe<KeyID> {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_signature_issuer_fingerprint(sig: *const Signature)
                                     -> Maybe<Fingerprint> {
-    sig.ref_raw().issuer_fingerprints().nth(0).move_into_raw()
+    sig.ref_raw().issuer_fingerprints().next().move_into_raw()
 }
 
 

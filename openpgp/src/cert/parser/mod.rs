@@ -1150,7 +1150,7 @@ mod test {
         testy_with_marker.extend_from_slice(crate::tests::key("testy.pgp"));
         CertParser::from(
             PacketParser::from_bytes(&testy_with_marker).unwrap())
-            .nth(0).unwrap().unwrap();
+            .next().unwrap().unwrap();
     }
 
     #[test]
@@ -1182,7 +1182,7 @@ mod test {
         let userid : Packet = cert.clone()
             .into_iter()
             .filter(|p| p.tag() == Tag::UserID)
-            .nth(0)
+            .next()
             .unwrap();
 
         // An unknown packet.

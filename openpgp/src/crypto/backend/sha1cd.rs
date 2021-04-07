@@ -69,7 +69,7 @@ mod test {
         assert_eq!(bob.path_ref(&[6]).unwrap(), alice.path_ref(&[3]).unwrap());
         match bob.path_ref(&[6]).unwrap() {
             Packet::Signature(s) => {
-                assert_eq!(s.issuers().nth(0).unwrap(), &ca_keyid);
+                assert_eq!(s.issuers().next().unwrap(), &ca_keyid);
             },
             o => panic!("unexpected packet: {:?}", o),
         }
@@ -116,7 +116,7 @@ mod test {
             }
             fn check(&mut self, structure: MessageStructure) -> Result<()> {
                 if let MessageLayer::SignatureGroup { results } =
-                    structure.into_iter().nth(0).unwrap()
+                    structure.into_iter().next().unwrap()
                 {
                     assert_eq!(results.len(), 1);
                     assert!(results[0].is_err());

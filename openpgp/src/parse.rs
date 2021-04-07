@@ -6052,8 +6052,7 @@ mod test {
         let cert: Cert =
             Cert::from_bytes(crate::tests::key("testy-new-private.pgp"))?;
         let signing_keypair = cert.keys().secret()
-            .with_policy(p, None).alive().revoked(false).for_signing()
-            .nth(0).unwrap()
+            .with_policy(p, None).alive().revoked(false).for_signing().next().unwrap()
             .key().clone().into_keypair()?;
         let mut signature = vec![];
         {
