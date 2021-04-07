@@ -2668,28 +2668,7 @@ impl NetLength for Packet {
 impl SerializeInto for Packet {}
 impl MarshalInto for Packet {
     fn serialized_len(&self) -> usize {
-        (match self {
-            &Packet::Unknown(ref p) => p.serialized_len(),
-            &Packet::Signature(ref p) => p.serialized_len(),
-            &Packet::OnePassSig(ref p) => p.serialized_len(),
-            &Packet::PublicKey(ref p) => p.serialized_len(),
-            &Packet::PublicSubkey(ref p) => p.serialized_len(),
-            &Packet::SecretKey(ref p) => p.serialized_len(),
-            &Packet::SecretSubkey(ref p) => p.serialized_len(),
-            &Packet::Marker(ref p) => p.serialized_len(),
-            &Packet::Trust(ref p) => p.serialized_len(),
-            &Packet::UserID(ref p) => p.serialized_len(),
-            &Packet::UserAttribute(ref p) => p.serialized_len(),
-            &Packet::Literal(ref p) => p.serialized_len(),
-            &Packet::CompressedData(ref p) => p.serialized_len(),
-            &Packet::PKESK(ref p) => p.serialized_len(),
-            &Packet::SKESK(ref p) => p.serialized_len(),
-            &Packet::SEIP(ref p) => p.serialized_len(),
-            &Packet::MDC(ref p) => p.serialized_len(),
-            &Packet::AED(ref p) => p.serialized_len(),
-        })
-            + 1 // CTB.
-            + BodyLength::Full(self.net_len() as u32).serialized_len()
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -2894,28 +2873,7 @@ impl<'a> NetLength for PacketRef<'a> {
 impl<'a> SerializeInto for PacketRef<'a> {}
 impl<'a> MarshalInto for PacketRef<'a> {
     fn serialized_len(&self) -> usize {
-        (match self {
-            PacketRef::Unknown(p) => p.serialized_len(),
-            PacketRef::Signature(p) => p.serialized_len(),
-            PacketRef::OnePassSig(p) => p.serialized_len(),
-            PacketRef::PublicKey(p) => p.serialized_len(),
-            PacketRef::PublicSubkey(p) => p.serialized_len(),
-            PacketRef::SecretKey(p) => p.serialized_len(),
-            PacketRef::SecretSubkey(p) => p.serialized_len(),
-            PacketRef::Marker(p) => p.serialized_len(),
-            PacketRef::Trust(p) => p.serialized_len(),
-            PacketRef::UserID(p) => p.serialized_len(),
-            PacketRef::UserAttribute(p) => p.serialized_len(),
-            PacketRef::Literal(p) => p.serialized_len(),
-            PacketRef::CompressedData(p) => p.serialized_len(),
-            PacketRef::PKESK(p) => p.serialized_len(),
-            PacketRef::SKESK(p) => p.serialized_len(),
-            PacketRef::SEIP(p) => p.serialized_len(),
-            PacketRef::MDC(p) => p.serialized_len(),
-            PacketRef::AED(p) => p.serialized_len(),
-        })
-            + 1 // CTB.
-            + BodyLength::Full(self.net_len() as u32).serialized_len()
+        self.gross_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
