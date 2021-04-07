@@ -221,7 +221,7 @@ fn build(include_dirs: &[PathBuf], ldpath: &Path, target_dir: &Path,
         // rust source.
         use filetime::FileTime;
         let mtime = FileTime::from_last_modification_time(&meta_rs);
-        filetime::set_file_times(target_c, mtime.clone(), mtime).unwrap();
+        filetime::set_file_times(target_c, mtime, mtime).unwrap();
     }
 
     let includes =

@@ -40,7 +40,7 @@ pub fn cdecl(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Extract all information from the parsed function that we need
     // to compose the new function.
-    let summary = fun.attrs.iter().next();
+    let summary = fun.attrs.get(0);
     let attrs = fun.attrs.iter().skip(1)
         .fold(TokenStream2::new(),
               |mut acc, attr| {
