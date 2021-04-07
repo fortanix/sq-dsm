@@ -1696,20 +1696,12 @@ impl MarshalInto for Signature4 {
     }
 
     fn export_into(&self, buf: &mut [u8]) -> Result<usize> {
-        if ! self.exportable_certification().unwrap_or(true) {
-            return Err(Error::InvalidOperation(
-                "Cannot export non-exportable certification".into()).into());
-        }
-
+        self.exportable()?;
         self.serialize_into(buf)
     }
 
     fn export_to_vec(&self) -> Result<Vec<u8>> {
-        if ! self.exportable_certification().unwrap_or(true) {
-            return Err(Error::InvalidOperation(
-                "Cannot export non-exportable certification".into()).into());
-        }
-
+        self.exportable()?;
         self.to_vec()
     }
 }
