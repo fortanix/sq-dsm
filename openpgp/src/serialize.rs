@@ -3516,4 +3516,21 @@ mod test {
             .unwrap_err();
         (&pp as &dyn MarshalInto).export_to_vec().unwrap_err();
     }
+
+    quickcheck! {
+        /// Checks that SerializeInto::serialized_len computes the
+        /// exact size (except for CompressedData packets where we may
+        /// overestimate the size).
+        fn packet_serialized_len(p: Packet) -> bool {
+            let p_as_vec = SerializeInto::to_vec(&p).unwrap();
+            if let Packet::CompressedData(_) = p {
+                // serialized length may be an over-estimate
+                assert!(SerializeInto::serialized_len(&p) >= p_as_vec.len());
+            } else {
+                // serialized length should be exact
+                assert_eq!(SerializeInto::serialized_len(&p), p_as_vec.len());
+            }
+            true
+        }
+    }
 }
