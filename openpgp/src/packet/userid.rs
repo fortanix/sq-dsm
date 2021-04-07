@@ -292,8 +292,8 @@ impl ConventionallyParsedUserID {
                 panic!("Unexpected result");
             }
         } else {
-            return Err(Error::InvalidArgument(
-                "Failed to parse UserID".into()).into());
+            Err(Error::InvalidArgument(
+                "Failed to parse UserID".into()).into())
         }
     }
 }

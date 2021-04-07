@@ -498,7 +498,7 @@ impl<'a> PacketPileParser<'a> {
     /// # Ok(()) }
     /// ```
     pub fn finish(self) -> PacketPile {
-        return self.pile;
+        self.pile
     }
 }
 

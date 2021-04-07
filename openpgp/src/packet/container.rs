@@ -341,7 +341,7 @@ impl Container {
         use std::cmp;
 
         let s = "                                                  ";
-        return &s[0..cmp::min(depth, s.len())];
+        &s[0..cmp::min(depth, s.len())]
     }
 
     // Pretty prints the container to stderr.

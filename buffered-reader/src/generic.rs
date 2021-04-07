@@ -213,7 +213,7 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> Generic<T, C> {
 
 impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> io::Read for Generic<T, C> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
-        return buffered_reader_generic_read_impl(self, buf);
+        buffered_reader_generic_read_impl(self, buf)
     }
 }
 
@@ -227,11 +227,11 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> BufferedReader<C> f
     }
 
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.data_helper(amount, false, false);
+        self.data_helper(amount, false, false)
     }
 
     fn data_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.data_helper(amount, true, false);
+        self.data_helper(amount, true, false)
     }
 
     // Note:
@@ -257,16 +257,16 @@ impl<T: io::Read + Send + Sync, C: fmt::Debug + Sync + Send> BufferedReader<C> f
             return &self.buffer.as_ref().unwrap()[self.cursor - amount..];
         } else {
             assert_eq!(amount, 0);
-            return &b""[..];
+            &b""[..]
         }
     }
 
     fn data_consume(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.data_helper(amount, false, true);
+        self.data_helper(amount, false, true)
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.data_helper(amount, true, true);
+        self.data_helper(amount, true, true)
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {

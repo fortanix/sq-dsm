@@ -54,48 +54,48 @@ impl<R: BufferedReader<C>, C: fmt::Debug + Sync + Send> fmt::Display for Deflate
 impl<R: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C>
         for Deflate<R, C> {
     fn buffer(&self) -> &[u8] {
-        return self.reader.buffer();
+        self.reader.buffer()
     }
 
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.reader.data(amount);
+        self.reader.data(amount)
     }
 
     fn data_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.reader.data_hard(amount);
+        self.reader.data_hard(amount)
     }
 
     fn data_eof(&mut self) -> Result<&[u8], io::Error> {
-        return self.reader.data_eof();
+        self.reader.data_eof()
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
-        return self.reader.consume(amount);
+        self.reader.consume(amount)
     }
 
     fn data_consume(&mut self, amount: usize)
                     -> Result<&[u8], io::Error> {
-        return self.reader.data_consume(amount);
+        self.reader.data_consume(amount)
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.reader.data_consume_hard(amount);
+        self.reader.data_consume_hard(amount)
     }
 
     fn read_be_u16(&mut self) -> Result<u16, io::Error> {
-        return self.reader.read_be_u16();
+        self.reader.read_be_u16()
     }
 
     fn read_be_u32(&mut self) -> Result<u32, io::Error> {
-        return self.reader.read_be_u32();
+        self.reader.read_be_u32()
     }
 
     fn steal(&mut self, amount: usize) -> Result<Vec<u8>, io::Error> {
-        return self.reader.steal(amount);
+        self.reader.steal(amount)
     }
 
     fn steal_eof(&mut self) -> Result<Vec<u8>, io::Error> {
-        return self.reader.steal_eof();
+        self.reader.steal_eof()
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {
@@ -180,48 +180,48 @@ impl<R: BufferedReader<C>, C: fmt::Debug + Sync + Send> fmt::Debug for Zlib<R, C
 impl<R: BufferedReader<C>, C: fmt::Debug + Send + Sync> BufferedReader<C>
         for Zlib<R, C> {
     fn buffer(&self) -> &[u8] {
-        return self.reader.buffer();
+        self.reader.buffer()
     }
 
     fn data(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.reader.data(amount);
+        self.reader.data(amount)
     }
 
     fn data_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.reader.data_hard(amount);
+        self.reader.data_hard(amount)
     }
 
     fn data_eof(&mut self) -> Result<&[u8], io::Error> {
-        return self.reader.data_eof();
+        self.reader.data_eof()
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
-        return self.reader.consume(amount);
+        self.reader.consume(amount)
     }
 
     fn data_consume(&mut self, amount: usize)
                     -> Result<&[u8], io::Error> {
-        return self.reader.data_consume(amount);
+        self.reader.data_consume(amount)
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.reader.data_consume_hard(amount);
+        self.reader.data_consume_hard(amount)
     }
 
     fn read_be_u16(&mut self) -> Result<u16, io::Error> {
-        return self.reader.read_be_u16();
+        self.reader.read_be_u16()
     }
 
     fn read_be_u32(&mut self) -> Result<u32, io::Error> {
-        return self.reader.read_be_u32();
+        self.reader.read_be_u32()
     }
 
     fn steal(&mut self, amount: usize) -> Result<Vec<u8>, io::Error> {
-        return self.reader.steal(amount);
+        self.reader.steal(amount)
     }
 
     fn steal_eof(&mut self) -> Result<Vec<u8>, io::Error> {
-        return self.reader.steal_eof();
+        self.reader.steal_eof()
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>> {

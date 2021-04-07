@@ -688,7 +688,7 @@ fn main() -> Result<()> {
         _ => unreachable!(),
     }
 
-    return Ok(())
+    Ok(())
 }
 
 /// Parses the given string depicting a ISO 8601 timestamp.

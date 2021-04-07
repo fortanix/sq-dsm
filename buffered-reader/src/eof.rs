@@ -40,26 +40,26 @@ impl<C> EOF<C> {
 
 impl<C> Read for EOF<C> {
     fn read(&mut self, _buf: &mut [u8]) -> Result<usize, io::Error> {
-        return Ok(0);
+        Ok(0)
     }
 }
 
 impl<C: fmt::Debug + Sync + Send> BufferedReader<C> for EOF<C> {
     fn buffer(&self) -> &[u8] {
-        return &b""[..];
+        &b""[..]
     }
 
     fn data(&mut self, _amount: usize) -> Result<&[u8], io::Error> {
-        return Ok(&b""[..]);
+        Ok(&b""[..])
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
         assert_eq!(amount, 0);
-        return &b""[..];
+        &b""[..]
     }
 
     fn data_consume(&mut self, _amount: usize) -> Result<&[u8], io::Error> {
-        return Ok(&b""[..]);
+        Ok(&b""[..])
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
@@ -73,17 +73,17 @@ impl<C: fmt::Debug + Sync + Send> BufferedReader<C> for EOF<C> {
     fn into_inner<'a>(self: Box<Self>) -> Option<Box<dyn BufferedReader<C> + 'a>>
         where Self: 'a
     {
-        return None;
+        None
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<C>>
     {
-        return None;
+        None
     }
 
     fn get_ref(&self) -> Option<&dyn BufferedReader<C>>
     {
-        return None;
+        None
     }
 
 

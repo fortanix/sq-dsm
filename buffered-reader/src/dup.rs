@@ -57,7 +57,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> Dup<T, C> {
 
     /// Returns the number of bytes that this reader has consumed.
     pub fn total_out(&self) -> usize {
-        return self.cursor;
+        self.cursor
     }
 
     /// Resets the cursor to the beginning of the stream.

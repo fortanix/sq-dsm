@@ -283,7 +283,7 @@ impl PacketPile {
 
             return None;
         }
-        return packet;
+        packet
     }
 
     /// Returns a mutable reference to the packet at the location
@@ -433,7 +433,7 @@ impl PacketPile {
                 .expect("The above packets are structured containers");
         }
 
-        return Err(Error::IndexOutOfRange.into());
+        Err(Error::IndexOutOfRange.into())
     }
 
     /// Returns an iterator over all of the packet's descendants, in
@@ -628,7 +628,7 @@ impl<'a> TryFrom<PacketParserResult<'a>> for PacketPile {
             }
         }
 
-        return Ok(PacketPile { top_level });
+        Ok(PacketPile { top_level })
     }
 }
 

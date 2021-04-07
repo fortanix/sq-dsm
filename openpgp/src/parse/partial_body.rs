@@ -213,9 +213,9 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
         self.cursor = 0;
 
         if let Some(err) = err {
-            return Err(err)
+            Err(err)
         } else {
-            return Ok(());
+            Ok(())
         }
     }
 
@@ -311,7 +311,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
         if and_consume {
             self.cursor += cmp::min(amount, buffer.len());
         }
-        return Ok(buffer);
+        Ok(buffer)
     }
 
 }
@@ -319,7 +319,7 @@ impl<T: BufferedReader<Cookie>> BufferedReaderPartialBodyFilter<T> {
 impl<T: BufferedReader<Cookie>> std::io::Read
         for BufferedReaderPartialBodyFilter<T> {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, std::io::Error> {
-        return buffered_reader_generic_read_impl(self, buf);
+        buffered_reader_generic_read_impl(self, buf)
     }
 }
 
@@ -339,11 +339,11 @@ impl<T: BufferedReader<Cookie>> BufferedReader<Cookie>
     // we require that usize is at least as large as u32.
     // #[cfg(target_point_with = "32") or cfg(target_point_with = "64")]
     fn data(&mut self, amount: usize) -> Result<&[u8], std::io::Error> {
-        return self.data_helper(amount, false, false);
+        self.data_helper(amount, false, false)
     }
 
     fn data_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
-        return self.data_helper(amount, true, false);
+        self.data_helper(amount, true, false)
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
@@ -354,22 +354,22 @@ impl<T: BufferedReader<Cookie>> BufferedReader<Cookie>
             // The caller can't consume more than is buffered!
             assert!(self.cursor <= buffer.len());
 
-            return &buffer[self.cursor - amount..];
+            &buffer[self.cursor - amount..]
         } else {
             // Since we don't have a buffer, just pass through to the
             // underlying reader.
             assert!(amount <= self.partial_body_length as usize);
             self.partial_body_length -= amount as u32;
-            return self.reader.consume(amount);
+            self.reader.consume(amount)
         }
     }
 
     fn data_consume(&mut self, amount: usize) -> Result<&[u8], std::io::Error> {
-        return self.data_helper(amount, false, true);
+        self.data_helper(amount, false, true)
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], std::io::Error> {
-        return self.data_helper(amount, true, true);
+        self.data_helper(amount, true, true)
     }
 
     fn consummated(&mut self) -> bool {

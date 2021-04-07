@@ -402,7 +402,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
                                       "unexpected EOF"));
             }
         }
-        return result;
+        result
     }
 
     /// Returns all of the data until EOF.  Like `data()`, this does not
@@ -472,7 +472,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
 
         let buffer = self.buffer();
         assert_eq!(buffer.len(), s);
-        return Ok(buffer);
+        Ok(buffer)
     }
 
     /// Consumes some of the data.
@@ -747,7 +747,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
         };
 
         self.consume(position);
-        return Ok(total + position);
+        Ok(total + position)
     }
 
     /// Discards the input until one of the bytes in `terminals` is
@@ -785,7 +785,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
         if data.len() > amount {
             data = &data[..amount];
         }
-        return Ok(data.to_vec());
+        Ok(data.to_vec())
     }
 
     /// Like `steal()`, but instead of stealing a fixed number of
@@ -793,7 +793,7 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
     fn steal_eof(&mut self) -> Result<Vec<u8>, std::io::Error> {
         let len = self.data_eof()?.len();
         let data = self.steal(len)?;
-        return Ok(data);
+        Ok(data)
     }
 
     /// Like `steal_eof()`, but instead of returning the data, the
@@ -912,14 +912,13 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
 /// implementations of trait `std::io::Read` for type `&mut _`").
 pub fn buffered_reader_generic_read_impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send>
         (bio: &mut T, buf: &mut [u8]) -> Result<usize, io::Error> {
-    match bio.data_consume(buf.len()) {
-        Ok(inner) => {
+    bio
+        .data_consume(buf.len())
+        .map(|inner| {
             let amount = cmp::min(buf.len(), inner.len());
             buf[0..amount].copy_from_slice(&inner[0..amount]);
-            return Ok(amount);
-        },
-        Err(err) => return Err(err),
-    }
+            amount
+        })
 }
 
 /// Make a `Box<BufferedReader>` look like a BufferedReader.

@@ -1141,8 +1141,8 @@ impl<'a, C> ValidComponentAmalgamation<'a, C>
                 // Fallback to a lexographical comparison.  Prefer
                 // the "smaller" one.
                 match a.0.component().cmp(&b.0.component()) {
-                    Ordering::Less => return Ordering::Greater,
-                    Ordering::Greater => return Ordering::Less,
+                    Ordering::Less => Ordering::Greater,
+                    Ordering::Greater => Ordering::Less,
                     Ordering::Equal =>
                         panic!("non-canonicalized Cert (duplicate components)"),
                 }

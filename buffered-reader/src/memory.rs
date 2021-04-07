@@ -56,7 +56,7 @@ impl<'a, C: fmt::Debug + Sync + Send> Memory<'a, C> {
     /// Returns the number of bytes that have been consumed by this
     /// reader.
     pub fn total_out(&self) -> usize {
-        return self.cursor;
+        self.cursor
     }
 
     #[allow(dead_code)]
@@ -71,7 +71,7 @@ impl<'a, C: fmt::Debug + Sync + Send> io::Read for Memory<'a, C> {
         buf[0..amount].copy_from_slice(
                 &self.buffer[self.cursor..self.cursor+amount]);
         self.consume(amount);
-        return Ok(amount);
+        Ok(amount)
     }
 }
 
@@ -82,7 +82,7 @@ impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for Memory<'a, C> {
 
     fn data(&mut self, _amount: usize) -> Result<&[u8], io::Error> {
         assert!(self.cursor <= self.buffer.len());
-        return Ok(&self.buffer[self.cursor..]);
+        Ok(&self.buffer[self.cursor..])
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
@@ -92,7 +92,7 @@ impl<'a, C: fmt::Debug + Sync + Send> BufferedReader<C> for Memory<'a, C> {
                 amount, self.buffer.len() - self.cursor);
         self.cursor += amount;
         assert!(self.cursor <= self.buffer.len());
-        return &self.buffer[self.cursor - amount..];
+        &self.buffer[self.cursor - amount..]
     }
 
     fn data_consume(&mut self, amount: usize) -> Result<&[u8], io::Error> {

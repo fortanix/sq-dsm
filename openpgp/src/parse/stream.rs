@@ -2545,7 +2545,6 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
         match issuer {
             KeyHandle::KeyID(id) if id.is_wildcard() => {
                 // Ignore, they are not useful for lookups.
-                return;
             },
 
             KeyHandle::KeyID(_) => {

@@ -1128,7 +1128,7 @@ impl Header {
             CTB::Old(ref ctb) =>
                 BodyLength::parse_old_format(bio, ctb.length_type())?,
         };
-        return Ok(Header::new(ctb, length));
+        Ok(Header::new(ctb, length))
     }
 }
 
@@ -3645,7 +3645,7 @@ impl<'a> PacketParserResult<'a> {
     ///   [`PacketParserEOF`]: struct.PacketParserEOF.html
     pub fn expect(self, msg: &str) -> PacketParser<'a> {
         if let PacketParserResult::Some(pp) = self {
-            return pp;
+            pp
         } else {
             panic!("{}", msg);
         }
@@ -5502,7 +5502,7 @@ mod test {
 
             ppr = pp.recurse().unwrap().1;
         }
-        return ppr;
+        ppr
     }
 
     #[test]

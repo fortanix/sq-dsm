@@ -76,11 +76,11 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> BufferedReader<C> for Li
         match result {
             Ok(ref buffer) =>
                 if buffer.len() as u64 > self.limit {
-                    return Ok(&buffer[0..self.limit as usize]);
+                    Ok(&buffer[0..self.limit as usize])
                 } else {
-                    return Ok(buffer);
+                    Ok(buffer)
                 },
-            Err(err) => return Err(err),
+            Err(err) => Err(err),
         }
     }
 
@@ -88,7 +88,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> BufferedReader<C> for Li
         assert!(amount as u64 <= self.limit);
         self.limit -= amount as u64;
         let data = self.reader.consume(amount);
-        return &data[..cmp::min(self.limit + amount as u64, data.len() as u64) as usize];
+        &data[..cmp::min(self.limit + amount as u64, data.len() as u64) as usize]
     }
 
     fn data_consume(&mut self, amount: usize) -> Result<&[u8], io::Error> {
@@ -100,7 +100,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> BufferedReader<C> for Li
             return Ok(&buffer[
                 ..cmp::min(buffer.len() as u64, self.limit + amount as u64) as usize]);
         }
-        return result;
+        result
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8], io::Error> {
@@ -114,7 +114,7 @@ impl<T: BufferedReader<C>, C: fmt::Debug + Sync + Send> BufferedReader<C> for Li
             return Ok(&buffer[
                 ..cmp::min(buffer.len() as u64, self.limit + amount as u64) as usize]);
         }
-        return result;
+        result
     }
 
     fn consummated(&mut self) -> bool {

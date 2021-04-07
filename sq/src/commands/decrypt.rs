@@ -296,7 +296,7 @@ pub fn decrypt(config: Config,
         dumper.flush(&mut io::stderr())?;
     }
     helper.vhelper.print_status();
-    return Ok(());
+    Ok(())
 }
 
 pub fn decrypt_unwrap(config: Config,

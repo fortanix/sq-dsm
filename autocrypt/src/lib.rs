@@ -274,7 +274,7 @@ impl AutocryptHeaders {
             }
         }
 
-        return Ok(headers)
+        Ok(headers)
     }
 
     /// Decode header that has the same format as the Autocrypt header.

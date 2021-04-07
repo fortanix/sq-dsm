@@ -1650,11 +1650,11 @@ impl BufferedReader<Cookie> for Reader<'_> {
     }
 
     fn data(&mut self, amount: usize) -> Result<&[u8]> {
-        return self.data_helper(amount, false, false);
+        self.data_helper(amount, false, false)
     }
 
     fn data_hard(&mut self, amount: usize) -> Result<&[u8]> {
-        return self.data_helper(amount, true, false);
+        self.data_helper(amount, true, false)
     }
 
     fn consume(&mut self, amount: usize) -> &[u8] {
@@ -1676,16 +1676,16 @@ impl BufferedReader<Cookie> for Reader<'_> {
             return &self.buffer.as_ref().unwrap()[self.cursor - amount..];
         } else {
             assert_eq!(amount, 0);
-            return &b""[..];
+            &b""[..]
         }
     }
 
     fn data_consume(&mut self, amount: usize) -> Result<&[u8]> {
-        return self.data_helper(amount, false, true);
+        self.data_helper(amount, false, true)
     }
 
     fn data_consume_hard(&mut self, amount: usize) -> Result<&[u8]> {
-        return self.data_helper(amount, true, true);
+        self.data_helper(amount, true, true)
     }
 
     fn get_mut(&mut self) -> Option<&mut dyn BufferedReader<Cookie>> {

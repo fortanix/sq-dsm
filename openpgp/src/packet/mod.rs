@@ -652,7 +652,7 @@ impl<'a> Iterator for Iter<'a> {
         // First return the child itself.  Subsequent calls will
         // return its grandchildren.
         self.depth = 0;
-        return self.child;
+        self.child
     }
 }
 
