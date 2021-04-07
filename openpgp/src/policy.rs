@@ -778,7 +778,7 @@ fn system_time_cutoff_to_timestamp(t: SystemTime) -> Option<Timestamp> {
 impl<'a> StandardPolicy<'a> {
     /// Instantiates a new `StandardPolicy` with the default parameters.
     pub const fn new() -> Self {
-        const EMPTY_LIST: &'static [&'static str] = &[];
+        const EMPTY_LIST: &[&str] = &[];
         Self {
             time: None,
             collision_resistant_hash_algos:

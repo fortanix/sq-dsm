@@ -14,7 +14,7 @@ use sequoia_openpgp::parse::Parse;
 use sequoia_net as net;
 use sequoia_net::KeyServer;
 
-const RESPONSE: &'static str = "-----BEGIN PGP PUBLIC KEY BLOCK-----
+const RESPONSE: &str = "-----BEGIN PGP PUBLIC KEY BLOCK-----
 
 xsBNBFoVcvoBCACykTKOJddF8SSUAfCDHk86cNTaYnjCoy72rMgWJsrMLnz/V16B
 J9M7l6nrQ0JMnH2Du02A3w+kNb5q97IZ/M6NkqOOl7uqjyRGPV+XKwt0G5mN/ovg
@@ -46,8 +46,8 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
 -----END PGP PUBLIC KEY BLOCK-----
 ";
 
-const FP: &'static str = "3E8877C877274692975189F5D03F6F865226FE8B";
-const ID: &'static str = "D03F6F865226FE8B";
+const FP: &str = "3E8877C877274692975189F5D03F6F865226FE8B";
+const ID: &str = "D03F6F865226FE8B";
 
 async fn service(req: Request<Body>)
            -> Result<Response<Body>, Box<dyn std::error::Error + Send + Sync>> {

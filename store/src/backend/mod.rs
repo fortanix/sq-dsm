@@ -1327,7 +1327,7 @@ impl From<io::Error> for node::Error {
 /* Database schemata and migrations.  */
 
 /* Version 1.  */
-const DB_SCHEMA_1: &'static str = "
+const DB_SCHEMA_1: &str = "
 CREATE TABLE version (
     id INTEGER PRIMARY KEY,
     version INTEGER);

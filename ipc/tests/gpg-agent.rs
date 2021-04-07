@@ -62,7 +62,7 @@ async fn help() -> openpgp::Result<()>  {
     Ok(())
 }
 
-const MESSAGE: &'static str = "дружба";
+const MESSAGE: &str = "дружба";
 
 fn gpg_import(ctx: &Context, what: &[u8]) {
     use std::process::{Command, Stdio};

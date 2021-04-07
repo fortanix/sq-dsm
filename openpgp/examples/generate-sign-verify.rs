@@ -10,7 +10,7 @@ use crate::openpgp::parse::{Parse, stream::*};
 use crate::openpgp::policy::Policy;
 use crate::openpgp::policy::StandardPolicy as P;
 
-const MESSAGE: &'static str = "дружба";
+const MESSAGE: &str = "дружба";
 
 fn main() -> openpgp::Result<()> {
     let p = &P::new();

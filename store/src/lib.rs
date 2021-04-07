@@ -110,11 +110,11 @@ pub fn descriptor(c: &Context) -> ipc::Descriptor {
 }
 
 /// Keys used for communications.
-pub const REALM_CONTACTS: &'static str =
+pub const REALM_CONTACTS: &str =
     "org.sequoia-pgp.contacts";
 
 /// Keys used for signing software updates.
-pub const REALM_SOFTWARE_UPDATES: &'static str =
+pub const REALM_SOFTWARE_UPDATES: &str =
     "org.sequoia-pgp.software-updates";
 
 /// The common key pool.
