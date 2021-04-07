@@ -220,7 +220,12 @@ impl fmt::Display for Tag {
 #[cfg(test)]
 impl Arbitrary for Tag {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        u8::arbitrary(g).into()
+        loop {
+            match u8::arbitrary(g) {
+                n @ 0..=63 => break n.into(),
+                _ => (), // try again
+            }
+        }
     }
 }
 
