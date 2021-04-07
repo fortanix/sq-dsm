@@ -382,7 +382,7 @@ fn create_key() {
             .set_signature_creation_time(t2).unwrap();
 
         if let Some(r) = reason {
-            b = b.set_reason_for_revocation(r.clone(), r.to_string().as_bytes())
+            b = b.set_reason_for_revocation(*r, r.to_string().as_bytes())
                 .unwrap();
         }
 
@@ -409,7 +409,7 @@ fn create_key() {
             .set_signature_creation_time(t2).unwrap();
 
         if let Some(r) = reason {
-            b = b.set_reason_for_revocation(r.clone(), r.to_string().as_bytes())
+            b = b.set_reason_for_revocation(*r, r.to_string().as_bytes())
                 .unwrap();
         }
 

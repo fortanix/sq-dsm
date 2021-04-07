@@ -1564,7 +1564,7 @@ impl SignatureBuilder {
         if ! self.overrode_creation_time {
             self =
                 // See if we want to backdate the signature.
-                if let Some(oct) = self.original_creation_time.clone() {
+                if let Some(oct) = self.original_creation_time {
                     let t =
                         (oct + time::Duration::new(1, 0)).max(
                             time::SystemTime::now() -

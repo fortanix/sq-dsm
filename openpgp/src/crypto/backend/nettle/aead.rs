@@ -59,7 +59,7 @@ impl AEADAlgorithm {
                 )),
                 _ => Err(Error::UnsupportedSymmetricAlgorithm(sym_algo).into()),
             },
-            _ => Err(Error::UnsupportedAEADAlgorithm(self.clone()).into()),
+            _ => Err(Error::UnsupportedAEADAlgorithm(*self).into()),
         }
     }
 }

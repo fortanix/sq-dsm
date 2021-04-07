@@ -2678,7 +2678,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
                 IMessageLayer::SignatureGroup { sigs, .. } => {
                     results.new_signature_group();
                     'sigs: for sig in sigs.iter_mut() {
-                        let sigid = sig.digest_prefix().clone();
+                        let sigid = *sig.digest_prefix();
 
                         let sig_time = if let Some(t) = sig.signature_creation_time() {
                             t

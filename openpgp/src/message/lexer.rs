@@ -70,7 +70,7 @@ impl<'input> Iterator for Lexer<'input> {
     type Item = LexerItem<Token, usize, LexicalError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let n = self.iter.next().map(|(pos, tok)| (pos, tok.clone()));
+        let n = self.iter.next().map(|(pos, tok)| (pos, *tok));
         if let Some((pos, tok)) = n {
             Some(Ok((pos, tok, pos)))
         } else {
