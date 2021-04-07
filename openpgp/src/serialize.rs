@@ -2441,7 +2441,7 @@ impl NetLength for SEIP {
 
 impl MarshalInto for SEIP {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
@@ -2546,7 +2546,7 @@ impl NetLength for AED1 {
 
 impl MarshalInto for AED1 {
     fn serialized_len(&self) -> usize {
-        self.gross_len()
+        self.net_len()
     }
 
     fn serialize_into(&self, buf: &mut [u8]) -> Result<usize> {
