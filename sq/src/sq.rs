@@ -86,7 +86,7 @@ fn parse_duration(expiry: &str) -> Result<Duration> {
         .for_each(|_| ());
     let junk = expiry.collect::<String>();
 
-    if digits == "" {
+    if digits.is_empty() {
         return Err(anyhow::anyhow!(
             "--expiry: missing count \
              (try: '2y' for 2 years)"));
@@ -118,7 +118,7 @@ fn parse_duration(expiry: &str) -> Result<Duration> {
                 suffix, digits, digits, digits, digits)),
     };
 
-    if junk != "" {
+    if !junk.is_empty() {
         return Err(anyhow::anyhow!(
             "--expiry: contains trailing junk ('{:?}') \
              (try: '{}{}')",
@@ -278,7 +278,7 @@ fn decrypt_key<R>(key: Key<key::SecretParts, R>, passwords: &mut Vec<String>)
                 {
                     Ok(p) => {
                         first = false;
-                        if p == "" {
+                        if p.is_empty() {
                             // Give up.
                             break;
                         }
@@ -500,7 +500,7 @@ fn main() -> Result<()> {
                 while let Some(name) = n.next() {
                     let value = n.next().unwrap();
 
-                    let (critical, name) = if name.len() > 0
+                    let (critical, name) = if !name.is_empty()
                         && Some('!') == name.chars().next()
                     {
                         (true, &name[1..])

@@ -370,7 +370,7 @@ impl<W: Write> Writer<W> {
         self.finalize_headers()?;
 
         // Write any stashed bytes and pad.
-        if self.stash.len() > 0 {
+        if !self.stash.is_empty() {
             self.sink.write_all(base64::encode_config(
                 &self.stash, base64::STANDARD).as_bytes())?;
             self.column += 4;
@@ -430,9 +430,9 @@ impl<W: Write> Write for Writer<W> {
         // and encode it.  If writing out the stash fails below, we
         // might end up with a stash of size 3.
         assert!(self.stash.len() <= 3);
-        if self.stash.len() > 0 {
+        if !self.stash.is_empty() {
             while self.stash.len() < 3 {
-                if input.len() == 0 {
+                if input.is_empty() {
                     /* We exhausted the input.  Return now, any
                      * stashed bytes are encoded when finalizing the
                      * writer.  */
@@ -470,7 +470,7 @@ impl<W: Write> Write for Writer<W> {
         let encoded = base64::encode_config(input, base64::STANDARD_NO_PAD);
         written += input.len();
         let mut enc = encoded.as_bytes();
-        while enc.len() > 0 {
+        while !enc.is_empty() {
             let n = cmp::min(LINE_LENGTH - self.column, enc.len());
             self.sink
                 .write_all(&enc[..n])?;
@@ -1086,7 +1086,7 @@ impl<'a> Reader<'a> {
             /* Process headers.  */
             let key_value = line.splitn(2, ": ").collect::<Vec<&str>>();
             if key_value.len() == 1 {
-                if line.trim_start().len() == 0 {
+                if line.trim_start().is_empty() {
                     // Empty line.
                     break;
                 } else if lines == 1 {
@@ -1143,7 +1143,7 @@ fn common_prefix<A: AsRef<[u8]>, B: AsRef<[u8]>>(a: A, b: B) -> usize {
 
 impl<'a> Reader<'a> {
     fn read_armored_data(&mut self, buf: &mut [u8]) -> Result<usize> {
-        let (consumed, decoded) = if self.decode_buffer.len() > 0 {
+        let (consumed, decoded) = if !self.decode_buffer.is_empty() {
             // We have something buffered, use that.
 
             let amount = cmp::min(buf.len(), self.decode_buffer.len());
@@ -1250,7 +1250,7 @@ impl<'a> Reader<'a> {
             /* Look for CRC.  The CRC is optional.  */
             let consumed = {
                 // Skip whitespace.
-                while self.source.data(1)?.len() > 0
+                while !self.source.data(1)?.is_empty()
                     && self.source.buffer()[0].is_ascii_whitespace()
                 {
                     self.source.consume(1);
@@ -1294,7 +1294,7 @@ impl<'a> Reader<'a> {
             // Look for a footer.
             let consumed = {
                 // Skip whitespace.
-                while self.source.data(1)?.len() > 0
+                while !self.source.data(1)?.is_empty()
                     && self.source.buffer()[0].is_ascii_whitespace()
                 {
                     self.source.consume(1);
@@ -1384,7 +1384,7 @@ impl<'a> Reader<'a> {
                     loop {
                         let prefixed_line = self.source.read_to(b'\n')?;
 
-                        if prefixed_line.len() == 0 {
+                        if prefixed_line.is_empty() {
                             // Truncated?
                             break;
                         }
@@ -1502,7 +1502,7 @@ impl<'a> Reader<'a> {
             self.initialize()?;
         }
 
-        if buf.len() == 0 {
+        if buf.is_empty() {
             // Short-circuit here.  Otherwise, we copy 0 bytes into
             // the buffer, which means we decoded 0 bytes, and we
             // wrongfully assume that we reached the end of the

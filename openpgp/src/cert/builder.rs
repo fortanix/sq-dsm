@@ -1006,7 +1006,7 @@ impl CertBuilder<'_> {
 
         let mut cert = Cert::try_from(packets)?;
 
-        let have_userids = self.userids.len() > 0;
+        let have_userids = !self.userids.is_empty();
 
         // Sign UserIDs.
         for (i, uid) in self.userids.into_iter().enumerate() {

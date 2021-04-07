@@ -314,7 +314,7 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
             }
         })
         .collect();
-    if missing.len() > 0 {
+    if !missing.is_empty() {
         return Err(anyhow::anyhow!(
             "Keys not found: {}",
             missing.iter().map(|&h| h.to_hex()).join(", ")));

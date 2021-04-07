@@ -97,11 +97,11 @@ impl Sexp {
                     }
 
                     // Skip non-zero bytes.
-                    while s.len() > 0 && s[0] > 0 {
+                    while !s.is_empty() && s[0] > 0 {
                         s = &s[1..];
                     }
 
-                    if s.len() == 0 {
+                    if s.is_empty() {
                         return Err(Error::MalformedMPI(
                             "Invalid DEK encoding, no zero found".into())
                                    .into());

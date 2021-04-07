@@ -172,7 +172,7 @@ impl<'a> Iterator for SubpacketIterator<'a> {
             Err(e) => return Some(Err(e.into())),
         };
 
-        if raw.len() == 0 {
+        if raw.is_empty() {
             return Some(Err(Error::MalformedPacket(
                 "Subpacket without type octet".into()).into()));
         }

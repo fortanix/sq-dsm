@@ -227,7 +227,7 @@ impl<'a> Decryptor<'a> {
         let mut digest = vec![0u8; self.digest_size];
 
         // 1. Copy any buffered data.
-        if self.buffer.len() > 0 {
+        if !self.buffer.is_empty() {
             let to_copy = cmp::min(self.buffer.len(), plaintext.len());
             &plaintext[..to_copy].copy_from_slice(&self.buffer[..to_copy]);
             crate::vec_drain_prefix(&mut self.buffer, to_copy);
@@ -292,7 +292,7 @@ impl<'a> Decryptor<'a> {
             let check_final_tag;
             let chunk = match result {
                 Ok(chunk) => {
-                    if chunk.len() == 0 {
+                    if chunk.is_empty() {
                         // Exhausted source.
                         return Ok(pos);
                     }
@@ -311,7 +311,7 @@ impl<'a> Decryptor<'a> {
 
             assert!(chunk.len() <= chunk_digest_size);
 
-            if chunk.len() == 0 {
+            if chunk.is_empty() {
                 // There is nothing to decrypt: all that is left is
                 // the final tag.
             } else if chunk.len() <= self.digest_size {
@@ -639,7 +639,7 @@ impl<W: io::Write> Encryptor<W> {
         let amount = buf.len();
 
         // First, fill the buffer if there is something in it.
-        if self.buffer.len() > 0 {
+        if !self.buffer.is_empty() {
             let n = cmp::min(buf.len(), self.chunk_size - self.buffer.len());
             self.buffer.extend_from_slice(&buf[..n]);
             assert!(self.buffer.len() <= self.chunk_size);
@@ -696,7 +696,7 @@ impl<W: io::Write> Encryptor<W> {
     /// Finish encryption and write last partial chunk.
     pub fn finish(&mut self) -> Result<W> {
         if let Some(mut inner) = self.inner.take() {
-            if self.buffer.len() > 0 {
+            if !self.buffer.is_empty() {
                 let mut aead = self.make_aead(CipherOp::Encrypt)?;
                 self.hash_associated_data(&mut aead, false);
 

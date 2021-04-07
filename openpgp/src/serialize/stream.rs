@@ -1255,7 +1255,7 @@ impl<'a> Signer<'a> {
     /// ```
     pub fn build(mut self) -> Result<Message<'a>>
     {
-        assert!(self.signers.len() > 0, "The constructor adds a signer.");
+        assert!(!self.signers.is_empty(), "The constructor adds a signer.");
         assert!(self.inner.is_some(), "The constructor adds an inner writer.");
 
         match self.mode {
@@ -1364,7 +1364,7 @@ impl<'a> Write for Signer<'a> {
         // Shortcut empty writes.  This is important for the code
         // below that delays hashing newlines when creating cleartext
         // signed messages.
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return Ok(0);
         }
 

@@ -98,7 +98,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
         let (certs, errs) = certs.into_iter().fold(
             (Vec::with_capacity(count), Vec::new()),
             |(mut certs, mut errs), a| {
-                if certs.len() == 0 {
+                if certs.is_empty() {
                     certs.push(a);
                 } else if certs[certs.len() - 1].fingerprint() == a.fingerprint() {
                     // Merge `a` into the last element.
@@ -113,7 +113,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
                 (certs, errs)
             });
 
-        if errs.len() > 0 {
+        if !errs.is_empty() {
             eprintln!("Error merging duplicate keys:");
             for err in errs.iter() {
                 eprintln!("  {}", err);

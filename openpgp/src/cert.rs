@@ -1903,7 +1903,7 @@ impl Cert {
             }
         }
 
-        if self.bad.len() > 0 {
+        if !self.bad.is_empty() {
             t!("{}: ignoring {} bad self signatures",
                self.keyid(), self.bad.len());
         }
@@ -3739,7 +3739,7 @@ mod test {
 
         assert!(cert_donald_signs_base.userids.len() == 1);
         assert!(cert_donald_signs_base.userids[0].self_signatures.len() == 1);
-        assert!(cert_base.userids[0].certifications.len() == 0);
+        assert!(cert_base.userids[0].certifications.is_empty());
         assert!(cert_donald_signs_base.userids[0].certifications.len() == 1);
 
         let merged = cert_donald_signs_base.clone()

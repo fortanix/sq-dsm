@@ -77,7 +77,7 @@ impl Bitfield {
 
     /// Remove any trailing padding.
     fn clear_padding(mut self) -> Self {
-        while self.raw.len() > 0 && self.raw[self.raw.len() - 1] == 0 {
+        while !self.raw.is_empty() && self.raw[self.raw.len() - 1] == 0 {
             self.raw.truncate(self.raw.len() - 1);
         }
 

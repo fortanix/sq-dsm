@@ -364,7 +364,7 @@ pub fn insert<P, S, V>(base_path: P, domain: S, variant: V,
     }).collect::<Vec<_>>();
 
     // Any?
-    if addresses.len() == 0 {
+    if addresses.is_empty() {
         return Err(openpgp::Error::InvalidArgument(
             format!("Key {} does not have a UserID in {}", cert, domain)
         ).into());

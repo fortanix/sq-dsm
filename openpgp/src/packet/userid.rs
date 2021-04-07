@@ -627,7 +627,7 @@ impl UserID {
                 }
             }
 
-            if value.len() > 0 {
+            if !value.is_empty() {
                 value.push_str(" ");
             }
             value.push_str("(");
@@ -655,7 +655,7 @@ impl UserID {
             }
         }
 
-        let something = value.len() > 0;
+        let something = !value.is_empty();
         if something {
             value.push_str(" <");
         }

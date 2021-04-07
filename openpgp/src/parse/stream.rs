@@ -2868,7 +2868,7 @@ impl<'a, H: VerificationHelper + DecryptionHelper> Decryptor<'a, H> {
 
     /// Like `io::Read::read()`, but returns our `Result`.
     fn read_helper(&mut self, buf: &mut [u8]) -> Result<usize> {
-        if buf.len() == 0 {
+        if buf.is_empty() {
             return Ok(0);
         }
 
@@ -3456,7 +3456,7 @@ mod test {
 
         // Check that we only got a truncated message.
         assert!(v.message_processed());
-        assert!(message.len() > 0);
+        assert!(!message.is_empty());
         assert!(message.len() <= 1 * 1024 * 1024);
         assert!(message.iter().all(|&b| b == 42));
         assert!(v.helper_ref().good == 1);
@@ -3507,7 +3507,7 @@ mod test {
 
         // Check that we only got a truncated message.
         assert!(v.message_processed());
-        assert!(message.len() > 0);
+        assert!(!message.is_empty());
         assert!(message.len() <= 1 * 1024 * 1024);
         assert!(message.iter().all(|&b| b == 42));
         assert!(v.helper_ref().good == 1);

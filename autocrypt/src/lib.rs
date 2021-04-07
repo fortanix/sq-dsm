@@ -239,7 +239,7 @@ impl AutocryptHeaders {
             // Return any error.
             let mut line = line?;
 
-            if line == "" {
+            if line.is_empty() {
                 // End of headers.
                 break;
             }
@@ -252,7 +252,7 @@ impl AutocryptHeaders {
             //
             // See https://tools.ietf.org/html/rfc5322#section-2.2.3
             while let Some(Ok(nl)) = next_line {
-                if nl.len() > 0 && (&nl[0..1] == " " || &nl[0..1] == "\t") {
+                if !nl.is_empty() && (&nl[0..1] == " " || &nl[0..1] == "\t") {
                     line.push_str(&nl[..]);
                     next_line = lines.next();
                 } else {
@@ -315,7 +315,7 @@ impl AutocryptHeaders {
                 }
             }
 
-            let critical = key.len() >= 1 && &key[0..1] == "_";
+            let critical = !key.is_empty() && &key[0..1] == "_";
             header.attributes.push(Attribute {
                 critical,
                 key: if critical {
@@ -571,7 +571,7 @@ impl AutocryptSetupMessage {
                     if k == "Passphrase-Format" { Some(v) } else { None }
                 })
                 .collect::<Vec<&String>>();
-            let format = if format.len() > 0 {
+            let format = if !format.is_empty() {
                 // If there are multiple headers, then just silently take
                 // the first one.
                 Some(format[0].clone())
@@ -584,7 +584,7 @@ impl AutocryptSetupMessage {
                     if k == "Passphrase-Begin" { Some(v) } else { None }
                 })
                 .collect::<Vec<&String>>();
-            let begin = if begin.len() > 0 {
+            let begin = if !begin.is_empty() {
                 // If there are multiple headers, then just silently take
                 // the first one.
                 Some(begin[0].clone())
@@ -754,7 +754,7 @@ impl<'a> AutocryptSetupMessageParser<'a> {
                         })
                         .collect::<Vec<&String>>();
 
-                    if prefer_encrypt.len() > 0 {
+                    if !prefer_encrypt.is_empty() {
                         // If there are multiple headers, then just
                         // silently take the first one.
                         Some(prefer_encrypt[0].clone())

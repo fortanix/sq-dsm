@@ -389,7 +389,7 @@ fn to_filename_fragment<S: AsRef<str>>(s: S) -> Option<String> {
         _ => None,
     }).for_each(|c| r.push(c));
 
-    if r.len() > 0 {
+    if !r.is_empty() {
         Some(r)
     } else {
         None

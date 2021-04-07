@@ -179,7 +179,7 @@ impl Context {
         if output.status.success() {
             let mut result = Vec::new();
             for mut line in output.stdout.split(nl) {
-                if line.len() == 0 {
+                if line.is_empty() {
                     // EOF.
                     break;
                 }

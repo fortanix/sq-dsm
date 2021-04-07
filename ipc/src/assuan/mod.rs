@@ -163,7 +163,7 @@ impl Client {
         let mut data = data.as_ref();
         let mut request = Vec::with_capacity(data.len());
         while ! data.is_empty() {
-            if request.len() > 0 {
+            if !request.is_empty() {
                 request.push(0x0a);
             }
             write!(&mut request, "D ").unwrap();

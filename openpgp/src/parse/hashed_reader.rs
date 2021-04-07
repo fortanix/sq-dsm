@@ -123,7 +123,7 @@ impl Cookie {
             }
         }
 
-        if data.len() == 0 {
+        if data.is_empty() {
             return;
         }
 
@@ -178,7 +178,7 @@ impl Cookie {
             data = &data[1..];
         }
 
-        if data.len() == 0 {
+        if data.is_empty() {
             return;
         }
 

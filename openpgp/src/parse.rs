@@ -441,7 +441,7 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
            path: Vec<usize>, header: Header,
            header_bytes: Vec<u8>) -> Self
     {
-        assert!(path.len() > 0);
+        assert!(!path.is_empty());
 
         let mut cookie = Cookie::default();
         cookie.level = inner.cookie_ref().level;
@@ -490,7 +490,7 @@ impl<'a, T: 'a + BufferedReader<Cookie>> PacketHeaderParser<T> {
             //
             // XXX avoid the extra copy.
             let body = self.reader.steal_eof()?;
-            if body.len() > 0 {
+            if !body.is_empty() {
                 self.field("body", body.len());
             }
 
@@ -878,13 +878,13 @@ impl Cookie {
 
     /// Returns a reference to the topmost signature group.
     pub(crate) fn sig_group(&self) -> &SignatureGroup {
-        assert!(self.sig_groups.len() > 0);
+        assert!(!self.sig_groups.is_empty());
         &self.sig_groups[self.sig_groups.len() - 1]
     }
 
     /// Returns a mutable reference to the topmost signature group.
     pub(crate) fn sig_group_mut(&mut self) -> &mut SignatureGroup {
-        assert!(self.sig_groups.len() > 0);
+        assert!(!self.sig_groups.is_empty());
         let len = self.sig_groups.len();
         &mut self.sig_groups[len - 1]
     }
@@ -898,7 +898,7 @@ impl Cookie {
 
     /// Tests whether the topmost signature group is no longer used.
     fn sig_group_unused(&self) -> bool {
-        assert!(self.sig_groups.len() > 0);
+        assert!(!self.sig_groups.is_empty());
         self.sig_groups[self.sig_groups.len() - 1].ops_count == 0
     }
 
@@ -1573,7 +1573,7 @@ impl Subpacket {
                 },
             SubpacketTag::RegularExpression => {
                 let mut v = php.parse_bytes("regular expr", len)?;
-                if v.len() == 0 || v[v.len() - 1] != 0 {
+                if v.is_empty() || v[v.len() - 1] != 0 {
                     return Err(Error::MalformedPacket(
                         "Regular expression not 0-terminated".into())
                                .into());
@@ -2769,7 +2769,7 @@ impl MDC {
                 {
                     let state = bio.cookie_mut();
                     if state.hashes_for == HashesFor::MDC {
-                        if state.sig_group().hashes.len() > 0 {
+                        if !state.sig_group().hashes.is_empty() {
                             let h = state.sig_group_mut().hashes
                                 .iter_mut().find_map(
                                     |mode|
@@ -3587,7 +3587,7 @@ impl<'a> PacketParserEOF<'a> {
     /// # Ok(()) }
     /// ```
     pub fn last_recursion_depth(&self) -> Option<isize> {
-        if self.last_path.len() == 0 {
+        if self.last_path.is_empty() {
             None
         } else {
             Some(self.last_path.len() as isize - 1)
@@ -3972,7 +3972,7 @@ impl <'a> PacketParser<'a> {
     /// # Ok(()) }
     /// ```
     pub fn last_recursion_depth(&self) -> Option<isize> {
-        if self.last_path.len() == 0 {
+        if self.last_path.is_empty() {
             assert_eq!(&self.path[..], &[ 0 ]);
             None
         } else {
@@ -4160,7 +4160,7 @@ impl <'a> PacketParser<'a> {
              path: Vec<usize>)
         -> Result<ParserResult<'a>>
     {
-        assert!(path.len() > 0);
+        assert!(!path.is_empty());
 
         let indent = path.len() as isize - 1;
         tracer!(TRACE, "PacketParser::parse", indent);
@@ -4170,7 +4170,7 @@ impl <'a> PacketParser<'a> {
 
         // When header encounters an EOF, it returns an error.  But,
         // we want to return None.  Try a one byte read.
-        if bio.data(1)?.len() == 0 {
+        if bio.data(1)?.is_empty() {
             t!("No packet at {:?} (EOF).", path);
             return Ok(ParserResult::EOF((bio, state, path)));
         }
@@ -4692,7 +4692,7 @@ impl <'a> PacketParser<'a> {
 
         fn set_or_extend(rest: Vec<u8>, c: &mut Container, processed: bool)
                          -> Result<&[u8]> {
-            if rest.len() > 0 {
+            if !rest.is_empty() {
                 let current = match c.body() {
                     Body::Unprocessed(bytes) => &bytes[..],
                     Body::Processed(bytes) => &bytes[..],
@@ -4701,7 +4701,7 @@ impl <'a> PacketParser<'a> {
                         "cannot append unread bytes to parsed packets"
                             .into()).into()),
                 };
-                let rest = if current.len() > 0 {
+                let rest = if !current.is_empty() {
                     let mut new =
                         Vec::with_capacity(current.len() + rest.len());
                     new.extend_from_slice(current);
@@ -4739,7 +4739,7 @@ impl <'a> PacketParser<'a> {
             Packet::AED(p) =>
                 set_or_extend(rest, p.deref_mut(), ! self.encrypted),
             p => {
-                if rest.len() > 0 {
+                if !rest.is_empty() {
                     Err(Error::MalformedPacket(
                         format!("Unexpected body data for {:?}: {}",
                                 p, crate::fmt::hex::encode_pretty(rest)))
@@ -4794,7 +4794,7 @@ impl <'a> PacketParser<'a> {
                self.packet.tag(), recursion_depth,
                self.data_eof().unwrap_or(&[]).len());
 
-            self.buffer_unread_content()?.len() > 0
+            !self.buffer_unread_content()?.is_empty()
         } else {
             t!("({:?} at depth {}): dropping {} bytes of unread content",
                self.packet.tag(), recursion_depth,
@@ -4830,7 +4830,7 @@ impl <'a> PacketParser<'a> {
 
     /// Hashes content that has been streamed.
     fn hash_read_content(&mut self, b: &[u8]) {
-        if b.len() > 0 {
+        if !b.is_empty() {
             assert!(self.body_hash.is_some());
             self.body_hash.as_mut().map(|h| h.update(b));
             self.content_was_read = true;

@@ -294,7 +294,7 @@ mod test {
 
         for i in 0..input_raw.len() {
             let data = reader.data(DEFAULT_BUF_SIZE + 1).unwrap().to_vec();
-            assert!(data.len() > 0);
+            assert!(!data.is_empty());
             assert_eq!(data, reader.buffer());
             // And, we may as well check to make sure we read the
             // right data.

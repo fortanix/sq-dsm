@@ -164,7 +164,7 @@ impl MessageValidator {
         assert!(!self.finished);
         assert!(self.depth.is_some());
         assert!(token != Token::Pop);
-        assert!(path.len() > 0);
+        assert!(!path.is_empty());
 
         if self.error.is_some() {
             return;

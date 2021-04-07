@@ -752,7 +752,7 @@ impl<'a> CertParser<'a> {
             return Ok(None);
         }
 
-        if self.packets.len() > 0 {
+        if !self.packets.is_empty() {
             if self.packets.len() == 1 {
                 if let Err(err) = Cert::valid_start(&self.packets[0]) {
                     t!("{}", err);
@@ -927,7 +927,7 @@ impl<'a> Iterator for CertParser<'a> {
                 None => {
                     t!("EOF.");
 
-                    if self.packets.len() == 0 {
+                    if self.packets.is_empty() {
                         return None;
                     }
                     match self.cert(None) {
@@ -968,7 +968,7 @@ impl<'a> Iterator for CertParser<'a> {
                             self.saw_error = true;
                             return Some(Err(err));
                         }
-                        None if self.packets.len() == 0 => {
+                        None if self.packets.is_empty() => {
                             t!("Packet iterator was empty");
                             Ok(None)
                         }

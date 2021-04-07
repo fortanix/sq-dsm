@@ -162,7 +162,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
             }
 
             if let Some(name) = exported_function_name(&line) {
-                if test.len() > 0 {
+                if !test.is_empty() {
                     fun(path, test_starts_at, &name, replace(&mut test, vec![]),
                         run)?;
                     test.clear();
@@ -174,7 +174,7 @@ fn for_all_tests<F>(path: &Path, mut fun: F)
                 continue;
             }
 
-            if line == "//! ```" && test.len() > 0 {
+            if line == "//! ```" && !test.is_empty() {
                 let name = format!("{}_{}",
                                    path.file_stem().unwrap().to_string_lossy(),
                                    lineno); // XXX: nicer to point to the top

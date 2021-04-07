@@ -334,7 +334,7 @@ fn inspect_key_flags(flags: openpgp::types::KeyFlags) -> Option<String> {
         capabilities.push("split key")
     }
 
-    if capabilities.len() > 0 {
+    if !capabilities.is_empty() {
         Some(capabilities.join(", "))
     } else {
         None

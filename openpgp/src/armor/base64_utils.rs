@@ -165,7 +165,7 @@ pub fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
     match base64::decode_config(&bytes, base64::STANDARD) {
         Ok(d) => {
             // Don't consider an empty message to be valid.
-            if d.len() == 0 {
+            if d.is_empty() {
                 false
             } else {
                 let mut br = buffered_reader::Memory::new(&d);

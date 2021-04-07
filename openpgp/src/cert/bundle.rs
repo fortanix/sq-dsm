@@ -623,7 +623,7 @@ impl<C> ComponentBundle<C> {
                 }
             }).collect::<Vec<&Signature>>();
 
-            if revs.len() == 0 {
+            if revs.is_empty() {
                 None
             } else {
                 Some(revs)

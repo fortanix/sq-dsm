@@ -723,13 +723,13 @@ pub trait BufferedReader<C> : io::Read + fmt::Debug + fmt::Display + Send + Sync
             let len = {
                 // Try self.buffer.  Only if it is empty, use
                 // self.data.
-                let buffer = if self.buffer().len() == 0 {
+                let buffer = if self.buffer().is_empty() {
                     self.data(DEFAULT_BUF_SIZE)?
                 } else {
                     self.buffer()
                 };
 
-                if buffer.len() == 0 {
+                if buffer.is_empty() {
                     break 'outer 0;
                 }
 
@@ -1096,7 +1096,7 @@ mod test {
             {
                 let result = bio.data(buffer.len());
                 let buffer = result.unwrap();
-                if buffer.len() > 0 {
+                if !buffer.is_empty() {
                     assert_eq!(buffer,
                                &data[data_start..data_start + buffer.len()]);
                 }

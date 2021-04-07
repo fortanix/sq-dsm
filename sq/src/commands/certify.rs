@@ -30,7 +30,7 @@ pub fn certify(config: Config, m: &clap::ArgMatches)
         .map(|s| s.parse()).unwrap_or(Ok(120))?;
     let regex = m.values_of("regex").map(|v| v.collect::<Vec<_>>())
         .unwrap_or_default();
-    if trust_depth == 0 && regex.len() > 0 {
+    if trust_depth == 0 && !regex.is_empty() {
         return Err(
             anyhow::format_err!("A regex only makes sense \
                                  if the trust depth is greater than 0"));
@@ -123,7 +123,7 @@ pub fn certify(config: Config, m: &clap::ArgMatches)
         while let Some(name) = n.next() {
             let value = n.next().unwrap();
 
-            let (critical, name) = if name.len() > 0
+            let (critical, name) = if !name.is_empty()
                 && Some('!') == name.chars().next()
             {
                 (true, &name[1..])

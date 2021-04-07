@@ -66,7 +66,7 @@ fn dump_help(sink: &mut dyn io::Write,
 
     writeln!(sink, "//! ```text")?;
     for line in help.trim_end().split("\n").skip(1) {
-        if line == "" {
+        if line.is_empty() {
             writeln!(sink, "//!")?;
         } else {
             writeln!(sink, "//! {}", line.trim_end())?;

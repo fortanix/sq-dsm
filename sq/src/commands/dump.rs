@@ -941,7 +941,7 @@ impl PacketDumper {
     fn dump_mpis(&self, output: &mut dyn io::Write, i: &str,
                  chunks: &[&[u8]], keys: &[&str]) -> Result<()> {
         assert_eq!(chunks.len(), keys.len());
-        if chunks.len() == 0 {
+        if chunks.is_empty() {
             return Ok(());
         }
 

@@ -427,7 +427,7 @@ fn main() -> openpgp::Result<()> {
         }
     }
 
-    if key_flags.len() > 0 {
+    if !key_flags.is_empty() {
         println!();
         println!("# KeyFlags statistics");
         println!();
@@ -443,7 +443,7 @@ fn main() -> openpgp::Result<()> {
         }
     }
 
-    if p_sym.len() > 0 {
+    if !p_sym.is_empty() {
         println!();
         println!("# PreferredSymmetricAlgorithms statistics");
         println!();
@@ -462,7 +462,7 @@ fn main() -> openpgp::Result<()> {
         }
     }
 
-    if p_hashes.len() > 0 {
+    if !p_hashes.is_empty() {
         println!();
         println!("# PreferredHashlgorithms statistics");
         println!();
@@ -482,7 +482,7 @@ fn main() -> openpgp::Result<()> {
         }
     }
 
-    if p_comp.len() > 0 {
+    if !p_comp.is_empty() {
         println!();
         println!("# PreferredCompressionAlgorithms statistics");
         println!();
@@ -502,7 +502,7 @@ fn main() -> openpgp::Result<()> {
         }
     }
 
-    if p_aead.len() > 0 {
+    if !p_aead.is_empty() {
         println!();
         println!("# PreferredAEADAlgorithms statistics");
         println!();
