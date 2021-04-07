@@ -1005,7 +1005,7 @@ impl<'a> Reader<'a> {
         // allowed.  But, instead of failing, we try to recover, by
         // stopping at the first non-whitespace character.
         let n = {
-            let line = self.source.read_to('\n' as u8)?;
+            let line = self.source.read_to(b'\n')?;
             line.iter().position(|&c| {
                 !c.is_ascii_whitespace()
             }).unwrap_or(line.len())
@@ -1048,7 +1048,7 @@ impl<'a> Reader<'a> {
             self.source.consume(n);
 
             // Buffer the next line.
-            let line = self.source.read_to('\n' as u8)?;
+            let line = self.source.read_to(b'\n')?;
             n = line.len();
             lines += 1;
 
@@ -1266,7 +1266,7 @@ impl<'a> Reader<'a> {
                 };
 
                 if data.len() == 5
-                    && data[0] == '=' as u8
+                    && data[0] == b'='
                     && data[1..5].iter().all(is_base64_char)
                 {
                     /* Found.  */

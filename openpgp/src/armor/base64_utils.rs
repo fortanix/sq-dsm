@@ -183,7 +183,7 @@ pub fn is_armored_pgp_blob(bytes: &[u8]) -> bool {
 
 /// Checks whether the given byte is in the base64 character set.
 pub fn is_base64_char(b: &u8) -> bool {
-    b.is_ascii_alphanumeric() || *b == '+' as u8 || *b == '/' as u8
+    b.is_ascii_alphanumeric() || *b == b'+' || *b == b'/'
 }
 
 /// Returns the number of bytes of base64 data are needed to encode

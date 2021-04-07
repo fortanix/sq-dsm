@@ -256,26 +256,26 @@ impl Fingerprint {
 
         for (i, b) in raw.iter().enumerate() {
             if pretty && i > 0 && i % 2 == 0 {
-                output.push(' ' as u8);
+                output.push(b' ');
             }
 
             if pretty && i > 0 && i % 10 == 0 {
-                output.push(' ' as u8);
+                output.push(b' ');
             }
 
             let top = b >> 4;
             let bottom = b & 0xFu8;
 
             if top < 10u8 {
-                output.push('0' as u8 + top)
+                output.push(b'0' + top)
             } else {
-                output.push('A' as u8 + (top - 10u8))
+                output.push(b'A' + (top - 10u8))
             }
 
             if bottom < 10u8 {
-                output.push('0' as u8 + bottom)
+                output.push(b'0' + bottom)
             } else {
-                output.push('A' as u8 + (bottom - 10u8))
+                output.push(b'A' + (bottom - 10u8))
             }
         }
 

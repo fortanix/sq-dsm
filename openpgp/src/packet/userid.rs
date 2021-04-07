@@ -1377,11 +1377,11 @@ mod tests {
 
         // Long strings.
         assert_eq!(
-            UserID::from(String::from_utf8(vec!['a' as u8; 90]).unwrap())
+            UserID::from(String::from_utf8(vec![b'a'; 90]).unwrap())
                 .hash_algo_security(),
             HashAlgoSecurity::SecondPreImageResistance);
         assert_eq!(
-            UserID::from(String::from_utf8(vec!['a' as u8; 100]).unwrap())
+            UserID::from(String::from_utf8(vec![b'a'; 100]).unwrap())
                 .hash_algo_security(),
             HashAlgoSecurity::CollisionResistance);
     }

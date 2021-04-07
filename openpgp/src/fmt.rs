@@ -216,7 +216,7 @@ pub(crate) fn to_hex(s: &[u8], pretty: bool) -> String {
 /// This function skips whitespace if `pretty` is set.
 pub(crate) fn from_hex(hex: &str, pretty: bool) -> Result<Vec<u8>> {
     const BAD: u8 = 255u8;
-    const X: u8 = 'x' as u8;
+    const X: u8 = b'x';
 
     let mut nibbles = hex.chars().filter_map(|x| {
         match x {

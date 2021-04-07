@@ -468,10 +468,10 @@ impl AutocryptSetupMessage {
         let mut p : Vec<u8> = Vec::new();
         for i in 0..36 {
             if i > 0 && i % 4 == 0 {
-                p.push('-' as u8);
+                p.push(b'-');
             }
 
-            p.push(('0' as u8) + ((p_as_u128 as u8) % 10));
+            p.push(b'0' + ((p_as_u128 as u8) % 10));
             p_as_u128 = p_as_u128 / 10;
         }
 

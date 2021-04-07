@@ -238,7 +238,7 @@ impl TryFrom<u8> for CTB {
                 Error::MalformedPacket(
                     format!("Malformed CTB: MSB of ptag ({:#010b}) not set{}.",
                             ptag,
-                            if ptag == '-' as u8 {
+                            if ptag == b'-' {
                                 " (ptag is a dash, perhaps this is an \
                                  ASCII-armor encoded message)"
                             } else {
