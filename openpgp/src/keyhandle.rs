@@ -333,11 +333,9 @@ impl KeyHandle {
     /// # Ok(()) }
     /// ```
     pub fn is_invalid(&self) -> bool {
-        match self {
-            KeyHandle::Fingerprint(Fingerprint::Invalid(_)) => true,
-            KeyHandle::KeyID(KeyID::Invalid(_)) => true,
-            _ => false,
-        }
+        matches!(self,
+                 KeyHandle::Fingerprint(Fingerprint::Invalid(_))
+                 | KeyHandle::KeyID(KeyID::Invalid(_)))
     }
 
     /// Converts this `KeyHandle` to its canonical hexadecimal

@@ -451,14 +451,14 @@ fn attest_certifications(config: Config, m: &ArgMatches)
     let input = open_or_stdin(m.value_of("key"))?;
     let key = Cert::from_reader(input)?;
 
-    // First, remove all attestations.
-    let key = Cert::from_packets(
-        key.into_packets().filter(|p| match p {
-            Packet::Signature(s) if s.typ() == SignatureType__AttestedKey =>
-                false,
-            _ => true,
-        }))?;
 
+    // First, remove all attestations.
+    let key = Cert::from_packets(key.into_packets().filter(|p| {
+        !matches!(
+                p,
+                Packet::Signature(s) if s.typ() == SignatureType__AttestedKey
+        )
+    }))?;
 
     // Get a signer.
     let mut passwords = Vec::new();

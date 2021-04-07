@@ -245,10 +245,8 @@ impl S2K {
     /// Returns whether this S2K mechanism is supported.
     pub fn is_supported(&self) -> bool {
         use self::S2K::*;
-        #[allow(deprecated)]
-        match self {
-            Simple { .. } | Salted { .. } | Iterated { .. } => true,
-            _ => false,
+        #[allow(deprecated)] {
+            matches!(self, Simple { .. } | Salted { .. } | Iterated { .. })
         }
     }
 

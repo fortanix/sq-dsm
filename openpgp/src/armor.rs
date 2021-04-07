@@ -884,14 +884,12 @@ impl<'a> Reader<'a> {
             lines += 1;
 
             // Ignore leading whitespace, etc.
-            while match self.source.data_hard(1)?[0] {
+            while matches!(self.source.data_hard(1)?[0],
                 // Skip some whitespace (previously .is_ascii_whitespace())
-                b' ' | b'\t' | b'\r' | b'\n' => true,
+                b' ' | b'\t' | b'\r' | b'\n' |
                 // Also skip common quote characters
-                b'>' | b'|' | b']' | b'}' => true,
-                // Do not skip anything else
-                _ => false,
-            } {
+                b'>' | b'|' | b']' | b'}' )
+            {
                 let c = self.source.data(1)?[0];
                 if c == b'\n' {
                     // We found a newline while walking whitespace, reset prefix

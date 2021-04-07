@@ -1669,14 +1669,10 @@ impl<'a> LiteralWriter<'a> {
         // Signer, and if so, we pop it off the stack and
         // store it in 'self.signature_writer'.
         let signer_above =
-            if let &Cookie {
+            matches!(self.inner.cookie_ref(), &Cookie {
                 private: Private::Signer{..},
                 ..
-            } = self.inner.cookie_ref() {
-                true
-            } else {
-                false
-            };
+            });
 
         if signer_above {
             let stack = self.inner.pop()?;

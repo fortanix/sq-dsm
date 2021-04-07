@@ -923,11 +923,7 @@ impl RegexSet {
     /// # Ok(()) }
     /// ```
     pub fn matches_everything(&self) -> bool {
-        if let RegexSet_::Everything = self.re_set {
-            true
-        } else {
-            false
-        }
+        matches!(self.re_set, RegexSet_::Everything)
     }
 
     /// Controls whether strings with control characters are allowed.

@@ -2346,13 +2346,10 @@ mod test {
         // Remove the direct key signatures.
         let cert = Cert::from_packets(Vec::from(cert)
             .into_iter()
-            .filter(|p| {
-                match p {
-                    Packet::Signature(s)
-                        if s.typ() == SignatureType::DirectKey => false,
-                    _ => true,
-                }
-            }))?;
+            .filter(|p| ! matches!(
+                        p,
+                        Packet::Signature(s) if s.typ() == SignatureType::DirectKey
+            )))?;
 
         let vc = cert.with_policy(p, None)?;
 

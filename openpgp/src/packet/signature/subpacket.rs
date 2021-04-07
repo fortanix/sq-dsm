@@ -5458,11 +5458,9 @@ impl signature::SignatureBuilder {
               F: Into<Option<NotationDataFlags>>,
     {
         self.hashed_area.packets.retain(|s| {
-            match s.value {
-                SubpacketValue::NotationData(ref v)
-                    if v.name == name.as_ref() => false,
-                _ => true,
-            }
+            ! matches!(
+                s.value,
+                SubpacketValue::NotationData(ref v) if v.name == name.as_ref())
         });
         self.add_notation(name.as_ref(), value.as_ref(),
                           flags.into().unwrap_or_else(NotationDataFlags::empty),

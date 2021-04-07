@@ -416,26 +416,17 @@ impl Response {
 
     /// Returns true if this message indicates success.
     pub fn is_ok(&self) -> bool {
-        match self {
-            Response::Ok { .. } => true,
-            _ => false,
-        }
+        matches!(self, Response::Ok { .. } )
     }
 
     /// Returns true if this message indicates an error.
     pub fn is_err(&self) -> bool {
-        match self {
-            Response::Error { .. } => true,
-            _ => false,
-        }
+        matches!(self, Response::Error { .. })
     }
 
     /// Returns true if this message is an inquiry.
     pub fn is_inquire(&self) -> bool {
-        match self {
-            Response::Inquire { .. } => true,
-            _ => false,
-        }
+        matches!(self, Response::Inquire { .. })
     }
 
     /// Returns true if this response concludes the server's response.

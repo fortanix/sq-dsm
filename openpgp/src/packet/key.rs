@@ -1100,10 +1100,7 @@ impl<P, R> Key4<P, R>
     /// This returns false if the `Key` doesn't contain any secret key
     /// material.
     pub fn has_unencrypted_secret(&self) -> bool {
-        match self.secret {
-            Some(SecretKeyMaterial::Unencrypted { .. }) => true,
-            _ => false,
-        }
+        matches!(self.secret, Some(SecretKeyMaterial::Unencrypted { .. }))
     }
 
     /// Returns `Key`'s secret key material, if any.

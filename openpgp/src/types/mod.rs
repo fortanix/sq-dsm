@@ -145,11 +145,13 @@ impl PublicKeyAlgorithm {
     /// ```
     pub fn for_signing(&self) -> bool {
         use self::PublicKeyAlgorithm::*;
-        #[allow(deprecated)]
-        match &self {
-            RSAEncryptSign | RSASign | DSA | ECDSA | ElGamalEncryptSign
-                | EdDSA => true,
-            _ => false,
+        #[allow(deprecated)] {
+            matches!(self, RSAEncryptSign
+                     | RSASign
+                     | DSA
+                     | ECDSA
+                     | ElGamalEncryptSign
+                     | EdDSA)
         }
     }
 
@@ -167,11 +169,12 @@ impl PublicKeyAlgorithm {
     /// ```
     pub fn for_encryption(&self) -> bool {
         use self::PublicKeyAlgorithm::*;
-        #[allow(deprecated)]
-        match &self {
-            RSAEncryptSign | RSAEncrypt | ElGamalEncrypt | ECDH
-                | ElGamalEncryptSign => true,
-            _ => false,
+        #[allow(deprecated)] {
+            matches!(self, RSAEncryptSign
+                     | RSAEncrypt
+                     | ElGamalEncrypt
+                     | ECDH
+                     | ElGamalEncryptSign)
         }
     }
 

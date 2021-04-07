@@ -1292,12 +1292,9 @@ impl<'a> Policy for StandardPolicy<'a> {
     fn signature(&self, sig: &Signature, sec: HashAlgoSecurity) -> Result<()> {
         let time = self.time.unwrap_or_else(Timestamp::now);
 
-        let rev = match sig.typ() {
-            SignatureType::KeyRevocation
+        let rev = matches!(sig.typ(), SignatureType::KeyRevocation
                 | SignatureType::SubkeyRevocation
-                | SignatureType::CertificationRevocation => true,
-            _ => false,
-        };
+                | SignatureType::CertificationRevocation);
 
         // Note: collision resistance requires 2nd pre-image resistance.
         if sec == HashAlgoSecurity::CollisionResistance {

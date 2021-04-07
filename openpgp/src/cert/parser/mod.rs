@@ -51,11 +51,7 @@ impl KeyringValidity {
     /// Note: a `KeyringValidator` will only return this after
     /// `KeyringValidator::finish` has been called.
     pub fn is_keyring(&self) -> bool {
-        if let KeyringValidity::Keyring = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, KeyringValidity::Keyring)
     }
 
     /// Returns whether the packet sequence is a valid Keyring prefix.
@@ -63,21 +59,13 @@ impl KeyringValidity {
     /// Note: a `KeyringValidator` will only return this before
     /// `KeyringValidator::finish` has been called.
     pub fn is_keyring_prefix(&self) -> bool {
-        if let KeyringValidity::KeyringPrefix = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, KeyringValidity::KeyringPrefix)
     }
 
     /// Returns whether the packet sequence is definitely not a valid
     /// keyring.
     pub fn is_err(&self) -> bool {
-        if let KeyringValidity::Error(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, KeyringValidity::Error(_))
     }
 }
 
@@ -257,11 +245,7 @@ impl CertValidity {
     /// Note: a `CertValidator` will only return this after
     /// `CertValidator::finish` has been called.
     pub fn is_cert(&self) -> bool {
-        if let CertValidity::Cert = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, CertValidity::Cert)
     }
 
     /// Returns whether the packet sequence is a valid Cert prefix.
@@ -269,21 +253,13 @@ impl CertValidity {
     /// Note: a `CertValidator` will only return this before
     /// `CertValidator::finish` has been called.
     pub fn is_cert_prefix(&self) -> bool {
-        if let CertValidity::CertPrefix = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, CertValidity::CertPrefix)
     }
 
     /// Returns whether the packet sequence is definitely not a valid
     /// Cert.
     pub fn is_err(&self) -> bool {
-        if let CertValidity::Error(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, CertValidity::Error(_))
     }
 }
 

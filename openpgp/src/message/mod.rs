@@ -88,11 +88,7 @@ impl MessageValidity {
     /// Note: a `MessageValidator` will only return this after
     /// `MessageValidator::finish` has been called.
     pub fn is_message(&self) -> bool {
-        if let MessageValidity::Message = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, MessageValidity::Message)
     }
 
     /// Returns whether the packet sequence forms a valid message
@@ -101,21 +97,13 @@ impl MessageValidity {
     /// Note: a `MessageValidator` will only return this before
     /// `MessageValidator::finish` has been called.
     pub fn is_message_prefix(&self) -> bool {
-        if let MessageValidity::MessagePrefix = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, MessageValidity::MessagePrefix)
     }
 
     /// Returns whether the packet sequence is definitely not a valid
     /// OpenPGP Message.
     pub fn is_err(&self) -> bool {
-        if let MessageValidity::Error(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, MessageValidity::Error(_))
     }
 }
 
@@ -1194,7 +1182,7 @@ mod tests {
         let mut l = MessageValidator::new();
         l.push_token(Token::Literal, &[0]);
         l.finish();
-        assert!(if let MessageValidity::Message = l.check() { true } else { false });
+        assert!(matches!(l.check(), MessageValidity::Message));
     }
 
     #[test]
@@ -1205,7 +1193,7 @@ mod tests {
         l.push_token(Token::Literal, &[0]);
         l.finish();
 
-        assert!(if let MessageValidity::Message = l.check() { true } else { false });
+        assert!(matches!(l.check(), MessageValidity::Message));
     }
 
     #[test]
@@ -1217,7 +1205,7 @@ mod tests {
         l.push(Tag::Literal, &[0]);
         l.finish();
 
-        assert!(if let MessageValidity::Message = l.check() { true } else { false });
+        assert!(matches!(l.check(), MessageValidity::Message));
     }
 
     #[test]
@@ -1227,7 +1215,7 @@ mod tests {
         let mut l = MessageValidator::new();
         l.finish();
 
-        assert!(if let MessageValidity::Error(_) = l.check() { true } else { false });
+        assert!(matches!(l.check(), MessageValidity::Error(_)));
     }
 
     #[test]
@@ -1237,17 +1225,17 @@ mod tests {
 
         // No packets will return an error.
         let mut l = MessageValidator::new();
-        assert!(if let MessageValidity::MessagePrefix = l.check() { true } else { false });
+        assert!(matches!(l.check(), MessageValidity::MessagePrefix));
         l.finish();
 
-        assert!(if let MessageValidity::Error(_) = l.check() { true } else { false });
+        assert!(matches!(l.check(), MessageValidity::Error(_)));
 
         // Simple one-literal message.
         let mut l = MessageValidator::new();
         l.push(Tag::Literal, &[0]);
-        assert!(if let MessageValidity::MessagePrefix = l.check() { true } else { false });
+        assert!(matches!(l.check(), MessageValidity::MessagePrefix));
         l.finish();
 
-        assert!(if let MessageValidity::Message = l.check() { true } else { false });
+        assert!(matches!(l.check(), MessageValidity::Message));
     }
 }

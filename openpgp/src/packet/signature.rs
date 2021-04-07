@@ -2229,10 +2229,7 @@ impl crate::packet::Signature {
         // Filters subpackets that usually are in the unhashed area.
         fn prefer(p: &Subpacket) -> bool {
             use SubpacketTag::*;
-            match p.tag() {
-                Issuer | EmbeddedSignature | IssuerFingerprint => true,
-                _ => false,
-            }
+            matches!(p.tag(), Issuer | EmbeddedSignature | IssuerFingerprint)
         }
 
         // Collect subpackets keeping track of the size.

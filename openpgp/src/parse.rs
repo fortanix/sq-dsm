@@ -3626,11 +3626,7 @@ assert_send_and_sync!(PacketParserResult<'_>);
 impl<'a> PacketParserResult<'a> {
     /// Returns `true` if the result is `EOF`.
     pub fn is_eof(&self) -> bool {
-        if let PacketParserResult::EOF(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, PacketParserResult::EOF(_))
     }
 
     /// Returns `true` if the result is `Some`.
