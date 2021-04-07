@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::io::{self, Read};
 
-use clap;
+
 
 use sequoia_openpgp as openpgp;
 use crate::openpgp::{KeyHandle, Packet, Result};

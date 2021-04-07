@@ -6,7 +6,6 @@
 use std::process::exit;
 
 use chrono::{DateTime, offset::Utc};
-use clap;
 use anyhow::Context;
 
 use sequoia_openpgp as openpgp;

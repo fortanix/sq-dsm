@@ -1,5 +1,4 @@
 use futures::StreamExt;
-use clap;
 use sequoia_ipc as ipc;
 use crate::ipc::assuan::Client;
 

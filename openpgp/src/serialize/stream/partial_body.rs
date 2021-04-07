@@ -1,6 +1,5 @@
 //! Encodes a byte stream using OpenPGP's partial body encoding.
 
-use std;
 use std::fmt;
 use std::io;
 use std::cmp;

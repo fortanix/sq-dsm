@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 use std::io;
 
-use clap;
 use sequoia_openpgp as openpgp;
 use sequoia_ipc as ipc;
 

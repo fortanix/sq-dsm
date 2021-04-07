@@ -176,7 +176,7 @@
 //!   [`SEIP`]: ../packet/enum.SEIP.html
 //!   [`MDC`]: ../packet/struct.MDC.html
 //!   [`AED`]: ../packet/enum.AED.html
-use std;
+
 use std::io;
 use std::io::prelude::*;
 use std::convert::TryFrom;

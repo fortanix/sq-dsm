@@ -1,5 +1,3 @@
-use sequoia_ipc;
-use sequoia_store;
 
 use sequoia_ipc::Server;
 

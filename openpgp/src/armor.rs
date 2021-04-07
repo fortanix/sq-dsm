@@ -28,7 +28,6 @@
 //! # Ok(()) }
 //! ```
 
-use base64;
 use buffered_reader::BufferedReader;
 use std::convert::TryFrom;
 use std::fmt;

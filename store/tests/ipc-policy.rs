@@ -1,4 +1,3 @@
-use sequoia_store;
 
 use std::env::current_exe;
 use std::path::PathBuf;

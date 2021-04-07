@@ -1,9 +1,7 @@
 use std::fs::File;
 use std::time::Duration;
 
-use assert_cli;
 use assert_cli::Assert;
-use tempfile;
 use tempfile::TempDir;
 
 use sequoia_openpgp as openpgp;

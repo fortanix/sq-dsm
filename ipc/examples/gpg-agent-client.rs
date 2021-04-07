@@ -1,7 +1,6 @@
 /// Connects to and sends commands to gpg-agent.
 
 use futures::StreamExt;
-use clap;
 use sequoia_ipc as ipc;
 use crate::ipc::gnupg::{Context, Agent};
 

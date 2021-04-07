@@ -5,7 +5,7 @@ use std::io;
 
 use anyhow::Context;
 
-use rpassword;
+
 
 use sequoia_openpgp as openpgp;
 

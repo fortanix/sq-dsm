@@ -5,7 +5,7 @@ use rusqlite::{Connection, types::ToSql};
 use super::{
     ID, Timestamp, Rc, Result, node,
     MappingServer, BindingServer, KeyServer,
-    Promise, capnp, capnp_rpc
+    Promise, capnp_rpc
 };
 
 /// Models entries referring to other objects.

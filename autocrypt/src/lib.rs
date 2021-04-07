@@ -13,8 +13,6 @@
 #![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
 #![warn(missing_docs)]
 
-use base64;
-
 use std::convert::TryFrom;
 use std::io;
 use std::io::prelude::*;

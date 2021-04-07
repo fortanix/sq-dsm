@@ -243,7 +243,6 @@ use std::fmt;
 
 use lalrpop_util::ParseError;
 use regex_syntax::hir::{self, Hir};
-use regex;
 
 use crate::Error;
 use crate::Result;

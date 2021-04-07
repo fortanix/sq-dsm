@@ -5,7 +5,6 @@
 //!
 //!   [Section 7.1 of RFC 4880]: https://tools.ietf.org/html/rfc4880#section-7.1
 
-use std;
 use std::fmt;
 use std::io;
 

@@ -51,7 +51,6 @@
 #![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
 #![warn(missing_docs)]
 
-use capnp;
 #[macro_use]
 extern crate capnp_rpc;
 

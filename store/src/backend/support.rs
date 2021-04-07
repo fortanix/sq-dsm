@@ -1,6 +1,5 @@
 //! Data types for working with `rusqlite`.
 
-use rusqlite;
 use rusqlite::types::{ToSql, ToSqlOutput, FromSql, FromSqlResult, ValueRef};
 use std::fmt;
 use std::ops::Add;

@@ -1,4 +1,4 @@
-use std;
+
 use std::cmp;
 use std::io;
 use std::io::{Error, ErrorKind};

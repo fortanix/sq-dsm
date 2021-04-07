@@ -317,9 +317,6 @@
 #![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
 #![warn(missing_docs)]
 
-use libc;
-
-use sequoia_ffi_macros;
 use sequoia_ffi_macros::{
     ffi_wrapper_type,
 };

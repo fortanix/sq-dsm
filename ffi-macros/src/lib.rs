@@ -9,12 +9,9 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use lazy_static::lazy_static;
-use syn;
+
 use syn::parse_quote;
 use syn::spanned::Spanned;
-use proc_macro;
-use proc_macro2;
-use sha2;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;

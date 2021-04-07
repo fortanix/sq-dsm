@@ -1,7 +1,6 @@
 use anyhow::Context as _;
 use std::collections::HashMap;
 use std::io;
-use rpassword;
 
 use sequoia_openpgp as openpgp;
 use crate::openpgp::types::SymmetricAlgorithm;

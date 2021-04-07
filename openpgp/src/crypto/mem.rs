@@ -26,7 +26,6 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 
-use memsec;
 
 /// Protected memory.
 ///
@@ -247,7 +246,6 @@ const ENCRYPTED_MEMORY_PAGE_SIZE: usize = 4096;
 /// Code outside of it cannot access it, because `PREKEY` is private.
 mod has_access_to_prekey {
     use std::io::{self, Cursor, Write};
-    use lazy_static;
     use crate::types::{AEADAlgorithm, HashAlgorithm, SymmetricAlgorithm};
     use crate::crypto::{aead, SessionKey};
     use crate::crypto::hash::Digest;

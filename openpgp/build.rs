@@ -2,7 +2,6 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
-use lalrpop;
 
 fn main() {
     lalrpop::process_root().unwrap();

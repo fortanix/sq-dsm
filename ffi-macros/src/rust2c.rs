@@ -1,6 +1,4 @@
-use syn;
 use quote::ToTokens;
-use proc_macro2;
 
 const PREFIX: &str = "pgp_";
 

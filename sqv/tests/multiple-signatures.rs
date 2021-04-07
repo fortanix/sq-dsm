@@ -1,4 +1,3 @@
-use assert_cli;
 
 use assert_cli::Assert;
 

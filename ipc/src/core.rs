@@ -21,8 +21,6 @@
 #![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
 #![warn(missing_docs)]
 
-use dirs;
-use tempfile;
 
 use std::io;
 use std::path::{Path, PathBuf};

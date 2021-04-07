@@ -8,7 +8,6 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use capnp::capability::Promise;
-use capnp;
 use capnp_rpc::rpc_twoparty_capnp::Side;
 use capnp_rpc::{self, RpcSystem, twoparty};
 use rand::distributions::{Distribution, Uniform};
