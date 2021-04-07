@@ -528,8 +528,12 @@ fn generic_serialize_into(o: &dyn Marshal, serialized_len: usize,
                     false
                 };
             return if short_write {
-                assert!(buf_len < serialized_len,
-                        "o.serialized_len() underestimated the required space");
+                if buf_len >= serialized_len {
+                    let mut b = Vec::new();
+                    let need_len = o.serialize(&mut b).map(|_| b.len());
+                    panic!("o.serialized_len() = {} underestimated required \
+                            space, need {:?}", serialized_len, need_len);
+                }
                 Err(Error::InvalidArgument(
                     format!("Invalid buffer size, expected {}, got {}",
                             serialized_len, buf_len)).into())
@@ -562,8 +566,12 @@ fn generic_export_into(o: &dyn Marshal, serialized_len: usize,
                     false
                 };
             return if short_write {
-                assert!(buf_len < serialized_len,
-                        "o.serialized_len() underestimated the required space");
+                if buf_len >= serialized_len {
+                    let mut b = Vec::new();
+                    let need_len = o.serialize(&mut b).map(|_| b.len());
+                    panic!("o.serialized_len() = {} underestimated required \
+                            space, need {:?}", serialized_len, need_len);
+                }
                 Err(Error::InvalidArgument(
                     format!("Invalid buffer size, expected {}, got {}",
                             serialized_len, buf_len)).into())
