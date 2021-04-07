@@ -373,7 +373,7 @@ impl Packet {
 }
 
 // Allow transparent access of common fields.
-impl<'a> Deref for Packet {
+impl Deref for Packet {
     type Target = Common;
 
     fn deref(&self) -> &Self::Target {
@@ -401,7 +401,7 @@ impl<'a> Deref for Packet {
     }
 }
 
-impl<'a> DerefMut for Packet {
+impl DerefMut for Packet {
     fn deref_mut(&mut self) -> &mut Common {
         match self {
             &mut Packet::Unknown(ref mut packet) => &mut packet.common,
