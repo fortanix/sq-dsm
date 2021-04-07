@@ -646,7 +646,7 @@ impl<'a> Iterator for Iter<'a> {
         // Get the next child and the iterator for its children.
         self.child = self.children.next();
         if let Some(child) = self.child {
-            self.grandchildren = child.descendants().map(|d| Box::new(d));
+            self.grandchildren = child.descendants().map(Box::new);
         }
 
         // First return the child itself.  Subsequent calls will

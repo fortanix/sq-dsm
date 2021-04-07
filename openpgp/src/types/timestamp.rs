@@ -133,7 +133,7 @@ impl Timestamp {
     /// Returns `None` if the resulting timestamp is not
     /// representable.
     pub fn checked_add(&self, d: Duration) -> Option<Timestamp> {
-        self.0.checked_add(d.0).map(|v| Self(v))
+        self.0.checked_add(d.0).map(Self)
     }
 
     /// Subtracts a duration from this timestamp.
@@ -141,7 +141,7 @@ impl Timestamp {
     /// Returns `None` if the resulting timestamp is not
     /// representable.
     pub fn checked_sub(&self, d: Duration) -> Option<Timestamp> {
-        self.0.checked_sub(d.0).map(|v| Self(v))
+        self.0.checked_sub(d.0).map(Self)
     }
 
     /// Rounds down to the given level of precision.

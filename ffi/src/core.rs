@@ -88,7 +88,7 @@ fn sq_context_last_error(ctx: *mut Context) -> *mut crate::error::Error {
 fn sq_context_new(errp: Option<&mut *mut crate::error::Error>)
                   -> *mut Context {
     ffi_make_fry_from_errp!(errp);
-    ffi_try_box!(core::Context::new().map(|ctx| Context::new(ctx)))
+    ffi_try_box!(core::Context::new().map(Context::new))
 }
 
 /// Frees a context.
@@ -148,7 +148,7 @@ fn sq_config_build(cfg: *mut Config, errp: Option<&mut *mut crate::error::Error>
     ffi_make_fry_from_errp!(errp);
     let cfg = ffi_param_move!(cfg);
 
-    ffi_try_box!(cfg.build().map(|ctx| Context::new(ctx)))
+    ffi_try_box!(cfg.build().map(Context::new))
 }
 
 /// Sets the directory containing shared state.

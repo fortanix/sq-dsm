@@ -48,7 +48,7 @@ pub extern "C" fn pgp_reader_from_file(errp: Option<&mut *mut crate::error::Erro
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     File::open(Path::new(&filename))
         .map(|r| ReaderKind::Generic(Box::new(r)))
-        .map_err(|e| ::anyhow::Error::from(e))
+        .map_err(::anyhow::Error::from)
         .move_into_raw(errp)
 }
 
@@ -229,7 +229,7 @@ fn pgp_writer_from_file(errp: Option<&mut *mut crate::error::Error>,
     let filename = ffi_param_cstr!(filename).to_string_lossy().into_owned();
     File::create(Path::new(&filename))
         .map(|w| WriterKind::Generic(Box::new(w)))
-        .map_err(|e| ::anyhow::Error::from(e))
+        .map_err(::anyhow::Error::from)
         .move_into_raw(errp)
 }
 

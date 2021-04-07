@@ -308,7 +308,7 @@ fn generate_class(caret: bool, chars: impl Iterator<Item=char>) -> Hir
         // Pad it out so what we can use windows to get three
         // characters at a time, and be sure to process all
         // characters.
-        .map(|c| Some(c))
+        .map(Some)
         .chain(std::iter::once(None))
         .chain(std::iter::once(None))
         .collect();

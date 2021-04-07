@@ -2637,7 +2637,7 @@ impl SKESK {
                 // parameters if the S2K method is not supported, and
                 // we don't know the size of the ESK.
                 let mut esk = php_try!(php.reader.steal_eof()
-                                       .map_err(|e| anyhow::Error::from(e)));
+                                       .map_err(anyhow::Error::from));
                 let aead_iv = if s2k_supported && esk.len() >= iv_size {
                     // We know the S2K method, so the parameters have
                     // been parsed into the S2K object.  So, `esk`

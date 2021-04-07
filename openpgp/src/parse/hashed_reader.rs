@@ -422,7 +422,7 @@ mod test {
             let mut reader
                 = HashedReader::new(reader, HashesFor::MDC,
                                     test.expected.keys().cloned()
-                                    .map(|algo| HashingMode::Binary(algo))
+                                    .map(HashingMode::Binary)
                                     .collect());
 
             assert_eq!(reader.steal_eof().unwrap(), test.data);
@@ -485,7 +485,7 @@ mod test {
             hash_buffered_reader(
                 reader,
                 &expected.keys().cloned()
-                    .map(|algo| HashingMode::Binary(algo)).
+                    .map(HashingMode::Binary).
                     collect::<Vec<_>>())
             .unwrap();
 

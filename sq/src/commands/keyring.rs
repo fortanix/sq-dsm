@@ -143,7 +143,7 @@ pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
                 config.create_or_stdout_pgp(m.value_of("output"),
                                             m.is_present("binary"),
                                             armor::Kind::PublicKey)?;
-            filter(m.values_of("input"), &mut output, |c| Some(c), false)?;
+            filter(m.values_of("input"), &mut output, Some, false)?;
             output.finalize()
         },
         ("merge",  Some(m)) => {

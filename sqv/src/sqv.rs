@@ -274,7 +274,7 @@ fn main() -> Result<()> {
                  .into())
         } else {
             None
-        }.unwrap_or_else(|| std::time::SystemTime::now());
+        }.unwrap_or_else(std::time::SystemTime::now);
 
     let keyrings = matches.values_of_os("keyring")
         .expect("No keyring specified.");

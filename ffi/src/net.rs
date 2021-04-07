@@ -89,7 +89,7 @@ fn sq_keyserver_with_cert(ctx: *mut Context, policy: u8,
     };
 
     let cert = ffi_try!(Certificate::from_der(cert)
-                    .map_err(|e| ::anyhow::Error::from(e)));
+                    .map_err(::anyhow::Error::from));
     ffi_try_box!(KeyServer::with_cert(policy, &uri, cert))
 }
 

@@ -895,7 +895,7 @@ impl DecryptionHelper for DHelper {
         let result = (self.decrypt_cb)(
             closure.cookie,
             pkesks.as_ptr(), pkesks.len(), skesks.as_ptr(), skesks.len(),
-            sym_algo.map(|s| u8::from(s)).unwrap_or(0),
+            sym_algo.map(u8::from).unwrap_or(0),
             trampoline::<D>,
             &mut decrypt as *mut _ as *mut c_void,
             &mut identity);
