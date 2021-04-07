@@ -400,7 +400,6 @@ impl Regex {
     ///   [`Regex::disable_sanitizations`]: #method.disable_sanitizations
     pub fn new(re: &str) -> Result<Self>
     {
-        let re = re.as_ref();
         let lexer = Lexer::new(re);
         let hir = match grammar::RegexParser::new().parse(re, lexer) {
             Ok(hir) => hir,
