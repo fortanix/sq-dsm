@@ -67,7 +67,7 @@ pub fn cdecl(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut cdecl = TokenStream2::new();
     doc(" # C Declaration", &mut cdecl);
     doc(" ```c", &mut cdecl);
-    for line in rust2c::rust2c(&fun).split("\n") {
+    for line in rust2c::rust2c(&fun).split('\n') {
         doc(&format!(" {}", line), &mut cdecl);
     }
     doc(" ```", &mut cdecl);
@@ -212,11 +212,11 @@ pub fn ffi_wrapper_type(args: TokenStream, input: TokenStream) -> TokenStream {
                     "name" => name = Some(value),
                     "prefix" => prefix = Some(value),
                     "derive" => {
-                        for ident in value.split(",").map(|d| d.trim()
+                        for ident in value.split(',').map(|d| d.trim()
                                                           .to_string()) {
                             let (ident, arg) =
                                 if let Some(i) = ident.find('(') {
-                                    if ! ident.ends_with(")") {
+                                    if ! ident.ends_with(')') {
                                         return syn::Error::new(
                                             mnv.path.span(),
                                             format!("missing closing \

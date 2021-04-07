@@ -334,7 +334,7 @@ impl Fingerprint {
             };
 
             if !ret.is_empty() {
-                ret.push_str(" ");
+                ret.push(' ');
             }
             ret.push_str(word);
         }

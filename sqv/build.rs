@@ -65,7 +65,7 @@ fn dump_help(sink: &mut dyn io::Write,
         .unwrap_err().to_string();
 
     writeln!(sink, "//! ```text")?;
-    for line in help.trim_end().split("\n").skip(1) {
+    for line in help.trim_end().split('\n').skip(1) {
         if line.is_empty() {
             writeln!(sink, "//!")?;
         } else {
@@ -76,7 +76,7 @@ fn dump_help(sink: &mut dyn io::Write,
 
     // Recurse.
     let mut found_subcommands = false;
-    for subcmd in help.split("\n").filter_map(move |line| {
+    for subcmd in help.split('\n').filter_map(move |line| {
         if line == "SUBCOMMANDS:" {
             found_subcommands = true;
             None
@@ -84,7 +84,7 @@ fn dump_help(sink: &mut dyn io::Write,
             if line.chars().nth(4).map(|c| ! c.is_ascii_whitespace())
                 .unwrap_or(false)
             {
-                line.trim_start().split(" ").next()
+                line.trim_start().split(' ').next()
             } else {
                 None
             }

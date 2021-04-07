@@ -628,11 +628,11 @@ impl UserID {
             }
 
             if !value.is_empty() {
-                value.push_str(" ");
+                value.push(' ');
             }
-            value.push_str("(");
+            value.push('(');
             value.push_str(comment);
-            value.push_str(")");
+            value.push(')');
         }
 
         if check_address {
@@ -661,7 +661,7 @@ impl UserID {
         }
         value.push_str(address);
         if something {
-            value.push_str(">");
+            value.push('>');
         }
 
         if check_address {

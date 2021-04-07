@@ -1074,7 +1074,7 @@ impl<'a> Reader<'a> {
             let line = if line.ends_with(&"\r\n"[..]) {
                 // \r\n.
                 &line[..line.len() - 2]
-            } else if line.ends_with("\n") {
+            } else if line.ends_with('\n') {
                 // \n.
                 &line[..line.len() - 1]
             } else {
