@@ -115,6 +115,12 @@ all_commits:arm64:
   stage: test
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild-arm64:latest
   needs: ["rust-stable:arm64"]
+  only:
+    refs:
+      - /arm64/i # refs containing 'arm64' keyword
+      - tags
+      - web
+      - scheduled
   except:
     # Do not run for pushes to the pep-engine branch.
     - /^pep-engine$/
