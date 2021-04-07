@@ -997,7 +997,7 @@ impl CertBuilder<'_> {
         }));
         packets.push(sig.clone().into());
 
-        let sig = signature::SignatureBuilder::from(sig.clone())
+        let sig = signature::SignatureBuilder::from(sig)
             .set_signature_creation_time(creation_time)?;
 
         // Remove subpackets that needn't be copied into the binding

@@ -346,7 +346,7 @@ impl<'a> VerificationHelper for VHelper<'a> {
             }).collect();
 
         // Explicitly provided keys are trusted.
-        self.trusted = seen.clone();
+        self.trusted = seen;
 
         Ok(certs)
     }

@@ -463,20 +463,20 @@ mod tests {
              .well-known/openpgpkey/example.com/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1";
         let wkd_url = Url::from("test1@example.com").unwrap();
-        assert_eq!(expected_url, wkd_url.clone().to_string());
+        assert_eq!(expected_url, wkd_url.to_string());
         assert_eq!(url::Url::parse(expected_url).unwrap(),
-                   wkd_url.clone().to_url(None).unwrap());
+                   wkd_url.to_url(None).unwrap());
         assert_eq!(expected_url.parse::<Uri>().unwrap(),
-                   wkd_url.clone().to_uri(None).unwrap());
+                   wkd_url.to_uri(None).unwrap());
 
         // Direct method
         let expected_url =
             "https://example.com/\
              .well-known/openpgpkey/hu/\
              stnkabub89rpcphiz4ppbxixkwyt1pic?l=test1";
-        assert_eq!(expected_url, wkd_url.clone().build(Direct));
+        assert_eq!(expected_url, wkd_url.build(Direct));
         assert_eq!(url::Url::parse(expected_url).unwrap(),
-                   wkd_url.clone().to_url(Direct).unwrap());
+                   wkd_url.to_url(Direct).unwrap());
         assert_eq!(expected_url.parse::<Uri>().unwrap(),
                    wkd_url.to_uri(Direct).unwrap());
     }
@@ -489,7 +489,7 @@ mod tests {
              stnkabub89rpcphiz4ppbxixkwyt1pic";
         let wkd_url = Url::from("test1@example.com").unwrap();
         assert_eq!(expected_path,
-            wkd_url.clone().to_file_path(None).unwrap().to_str().unwrap());
+            wkd_url.to_file_path(None).unwrap().to_str().unwrap());
 
         // Direct method
         let expected_path =
