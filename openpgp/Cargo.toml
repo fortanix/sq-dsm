@@ -112,3 +112,7 @@ harness = false
 [[bench]]
 name = "sign_message"
 harness = false
+
+[[bench]]
+name = "verify_message"
+harness = false
