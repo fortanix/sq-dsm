@@ -288,10 +288,24 @@ pkgs.mkShell {
 </details>
 
 
-### macOS (Mojave), using MacPorts
+### macOS
+
+#### MacPorts
 
 ```shell
 $ sudo port install cargo rust capnproto nettle pkgconfig coreutils
+```
+
+#### Brew
+
+```shell
+$ brew install rust capnp nettle
+```
+
+If building the transitive dependency `nettle-sys` reports missing `libclang.dylib` file make sure that `DYLD_LIBRARY_PATH` is set correctly:
+
+```shell
+export DYLD_LIBRARY_PATH=/Library/Developer/CommandLineTools/usr/lib/
 ```
 
 ### Windows
