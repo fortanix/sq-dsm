@@ -206,16 +206,18 @@ see below for OS-specific commands to install the needed libraries:
 ### Debian
 
 ```shell
-$ sudo apt install git rustc cargo clang libclang1-9 make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
+$ sudo apt install git rustc cargo clang libclang-dev make pkg-config nettle-dev libssl-dev capnproto libsqlite3-dev
 ```
 
 Notes:
 
-  - You need at least rustc version 1.48.  The version in Debian 10
-    (Buster) is too old.  The version from Debian 11 (Bullseye) works
-    fine.
+  - You need at least `rustc` version 1.48.  The version in Debian 10
+    (Buster) is too old, but you can use [rustup].  The version from
+    Debian 11 (Bullseye) works fine.
   - You need at least Nettle 3.4.1.  Both the versions in Debian 10 (Buster)
     and Debian 11 (Bullseye) are fine.
+
+[rustup]: https://rustup.rs/
 
 ### Arch Linux
 
