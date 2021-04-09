@@ -199,7 +199,7 @@ fn sign_message_(config: Config,
             signature_count: isize,
         },
         Done,
-    };
+    }
     let mut state =
         if ! notarize {
             State::InFirstSigGroup

@@ -2390,7 +2390,7 @@ impl Cert {
                 }
             }
             acc.push(p);
-        };
+        }
 
         /// Replaces or pushes a signature.
         ///
@@ -2411,7 +2411,7 @@ impl Cert {
                 }
             }
             acc.push(sig.into());
-        };
+        }
 
         for p in packets {
             let p = p.into();
