@@ -72,7 +72,7 @@ pub enum Body {
     ///     the packet's version.
     ///
     ///   - The packet is an encryption container ([`SEIP`] or
-    ///     [`AED1`]) and the body is encrypted.
+    ///     [`AED`]) and the body is encrypted.
     ///
     /// Note: if some of a packet's data is streamed, and the
     /// `PacketParser` is configured to buffer unread content, then
