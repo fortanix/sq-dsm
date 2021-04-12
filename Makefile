@@ -102,6 +102,8 @@ build-release:
 	$(MAKE) -Csq build-release
 	$(MAKE) -Csqv build-release
 
+# "install" needs "build-release" as it builds the project
+# with optimizations enabled.
 .PHONY: install
 install: build-release
 	$(MAKE) -Copenpgp-ffi install
