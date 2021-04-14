@@ -2,3 +2,4 @@
 Dockerfile
 .dockerignore
 .git
+target

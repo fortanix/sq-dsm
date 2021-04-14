@@ -1,6 +1,6 @@
-# we do not use the rust image because it's based on Debian stretch
-# where nettle and rustc are too old
-FROM debian:buster AS build
+# See https://gitlab.com/sequoia-pgp/sequoia/-/blob/main/README.md#debian
+# for system requirements
+FROM debian:bullseye AS build
 
 # create a sandbox user for the build (in ~builder) and install (in /opt)
 # give it permissions to the build dir and home
@@ -8,13 +8,14 @@ FROM debian:buster AS build
 # add dependencies, as specified by the Sequoia README.md file
 RUN groupadd builder && \
     useradd --no-log-init --create-home --gid builder builder && \
-    apt update && apt upgrade -yy && \
-    apt install -y --no-install-recommends \
+    apt-get update && \
+    apt-get upgrade --assume-yes && \
+    apt-get install --assume-yes --no-install-recommends \
         ca-certificates \
         capnproto \
         cargo \
-        clang \
         git \
+        libclang-dev \
         libsqlite3-dev \
         libssl-dev \
         make \
@@ -26,7 +27,7 @@ RUN groupadd builder && \
         python3-pytest \
         rustc \
         && \
-    apt clean && \
+    apt-get clean && \
     chown builder /opt
 
 COPY --chown=builder:builder . /home/builder/sequoia
@@ -40,20 +41,21 @@ USER builder
 # `install` calls it after anyways
 RUN cd /home/builder/sequoia && \
     CARGO_TARGET_DIR=target cargo build -p sequoia-sqv --release && \
-    CARGO_TARGET_DIR=target cargo build -p sequoia-tool --release && \
+    CARGO_TARGET_DIR=target cargo build -p sequoia-sq --release && \
     install --strip -D --target-directory /opt/usr/local/bin \
                   target/release/sq \
                   target/release/sqv
 
-FROM debian:buster-slim AS sq-base
+FROM debian:bullseye-slim AS sq-base
 
 RUN groupadd user && \
     useradd --no-log-init -g user user && \
     mkdir /home/user && \
     chown -R user:user /home/user && \
-    apt update && apt upgrade -y && \
-    apt install -y libssl1.1 libsqlite3-0 && \
-    apt clean && \
+    apt-get update && \
+    apt-get upgrade --assume-yes && \
+    apt-get install --assume-yes ca-certificates libssl1.1 libsqlite3-0 && \
+    apt-get clean && \
     rm -fr -- /var/lib/apt/lists/* /var/cache/*
 
 FROM sq-base AS sqv
@@ -66,8 +68,9 @@ WORKDIR /home/user
 ENTRYPOINT ["/usr/local/bin/sqv"]
 CMD ["--help"]
 
-FROM sqv AS sq
+FROM sq-base AS sq
 
 COPY --from=build /opt/usr/local/bin/sq /usr/local/bin/sq
+COPY --from=build /etc/ssl/certs /etc/ssl/certs
 
 ENTRYPOINT ["/usr/local/bin/sq"]
