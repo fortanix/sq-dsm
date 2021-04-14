@@ -1,0 +1,15 @@
+[package]
+name = "sdkms-pgp"
+version = "0.1.0"
+authors = ["Francisco Vial-Prado <francisco.vialprado@fortanix.com>"]
+edition = "2018"
+
+[dependencies]
+anyhow = "1.0.18"
+mbedtls = { version = "0.7.0", features = ["dsa", "rdrand", "force_aesni_support", "mpi_force_c_code"], default-features = false }
+sdkms = "0.2.1"
+sequoia-openpgp = "1.1.0"
+uuid = "0.7.4"
+
+[build-dependencies]
+bindgen57 = { version = "0.57", package = "bindgen", default-features = false, features = ["runtime"] }
