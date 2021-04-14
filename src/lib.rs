@@ -6,7 +6,7 @@ use std::str::FromStr;
 use anyhow::{Context, Result};
 use log::info;
 use mbedtls::pk::Pk;
-use openpgp::crypto::SessionKey;
+use openpgp::crypto::{mpi, SessionKey};
 use openpgp::packet::key::{
     Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole,
 };
@@ -20,13 +20,14 @@ use openpgp::policy::Policy as PgpPolicy;
 use openpgp::serialize::stream::{Armorer, Message, Signer};
 use openpgp::serialize::SerializeInto;
 use openpgp::types::{
-    HashAlgorithm, KeyFlags, SignatureType, SymmetricAlgorithm,
+    Curve, HashAlgorithm, KeyFlags, PublicKeyAlgorithm, SignatureType,
+    SymmetricAlgorithm,
 };
 use openpgp::{Cert, KeyHandle, Packet};
 use sdkms::api_model::{
-    KeyOperations, ObjectType, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
-    RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, Sobject,
-    SobjectDescriptor, SobjectRequest,
+    EllipticCurve, KeyOperations, ObjectType, RsaEncryptionPaddingPolicy,
+    RsaEncryptionPolicy, RsaOptions, RsaSignaturePaddingPolicy,
+    RsaSignaturePolicy, Sobject, SobjectDescriptor, SobjectRequest,
 };
 use sdkms::SdkmsClient;
 use sequoia_openpgp as openpgp;
@@ -56,14 +57,15 @@ struct PublicKey {
     sequoia_key: Option<Key<PublicParts, UnspecifiedRole>>,
 }
 
+pub enum SupportedPkAlgo {
+    Rsa(u32),
+    Ec(EllipticCurve),
+}
+
 #[derive(Clone)]
 enum KeyRole {
     Primary,
     Subkey,
-}
-
-pub enum SupportedPkAlgo {
-    Rsa(u32),
 }
 
 impl PgpAgent {
@@ -236,7 +238,6 @@ impl PgpAgent {
             .with_api_key(&api_key)
             .build()?;
 
-        // Get primary key by name and subkey by UID
         let (primary, metadata) = {
             let req = SobjectDescriptor::Name(key_name.to_string());
             let sobject = http_client
@@ -383,9 +384,7 @@ impl PgpAgent {
             .get_sobject(None, &self.subkey.descriptor)
             .context("could not get subkey".to_string())?;
         let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
-        let key = key
-            .sequoia_key
-            .context("could not get subkey".to_string())?;
+        let key = key.sequoia_key.unwrap();
 
         self.subkey.sequoia_key = Some(key);
 
@@ -444,6 +443,32 @@ impl PublicKey {
                     ..Default::default()
                 }
             }
+            (KeyRole::Primary, SupportedPkAlgo::Ec(curve)) => {
+                let ops = KeyOperations::SIGN | KeyOperations::APPMANAGEABLE;
+
+                SobjectRequest {
+                    name: Some(name),
+                    description,
+                    obj_type: Some(ObjectType::Ec),
+                    key_ops: Some(ops),
+                    elliptic_curve: Some(*curve),
+                    ..Default::default()
+                }
+            }
+            (KeyRole::Subkey, SupportedPkAlgo::Ec(curve)) => {
+                let ops =
+                    KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE;
+                let name = name + " (PGP: decryption subkey)";
+
+                SobjectRequest {
+                    name: Some(name),
+                    description,
+                    obj_type: Some(ObjectType::Ec),
+                    key_ops: Some(ops),
+                    elliptic_curve: Some(*curve),
+                    ..Default::default()
+                }
+            }
         };
 
         let sobject = client.create_sobject(&sobject_request)?;
@@ -452,12 +477,55 @@ impl PublicKey {
     }
 
     fn from_sobject(sob: Sobject, role: KeyRole) -> Result<Self> {
-        let des = SobjectDescriptor::Kid(sob.kid.context("no kid in sobject")?);
+        let descriptor =
+            SobjectDescriptor::Kid(sob.kid.context("no kid in sobject")?);
         let time = sob.created_at.to_datetime();
         let raw_pk =
             sob.pub_key.context("public bits of sobject not returned")?;
 
         match sob.obj_type {
+            ObjectType::Ec => match sob.elliptic_curve {
+                Some(EllipticCurve::NistP256) => {
+                    let deserialized_pk = Pk::from_public_key(&raw_pk)
+                        .context(
+                            "cannot deserialize SDKMS key into mbedTLS object",
+                        )?;
+                    let mbed_point = deserialized_pk.ec_public()?;
+                    let point = mpi::MPI::new_point(
+                        &mbed_point.x()?.to_binary()?,
+                        &mbed_point.y()?.to_binary()?,
+                        256,
+                    );
+                    let (pk_algo, ec_pk) = match role {
+                        KeyRole::Primary => (
+                            PublicKeyAlgorithm::ECDSA,
+                            mpi::PublicKey::ECDSA {
+                                curve: Curve::NistP256,
+                                q:     point,
+                            },
+                        ),
+                        KeyRole::Subkey => (
+                            PublicKeyAlgorithm::ECDH,
+                            mpi::PublicKey::ECDH {
+                                curve: Curve::NistP256,
+                                q:     point,
+                                hash:  HashAlgorithm::SHA512,
+                                sym:   SymmetricAlgorithm::AES256,
+                            },
+                        ),
+                    };
+                    let key =
+                        Key::V4(Key4::new(time, pk_algo, ec_pk).context(
+                            "cannot import EC key into Sequoia object",
+                        )?);
+                    return Ok(PublicKey {
+                        descriptor,
+                        role,
+                        sequoia_key: Some(key),
+                    });
+                }
+                _ => unimplemented!(),
+            },
             ObjectType::Rsa => {
                 let deserialized_pk = Pk::from_public_key(&raw_pk).context(
                     "cannot deserialize SDKMS key into mbedTLS object",
@@ -473,7 +541,7 @@ impl PublicKey {
                 );
 
                 Ok(PublicKey {
-                    descriptor: des,
+                    descriptor,
                     role,
                     sequoia_key: Some(key),
                 })

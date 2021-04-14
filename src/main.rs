@@ -1,11 +1,13 @@
-use std::io::{BufRead, Write};
-use std::path::{Path, PathBuf};
-use std::{env, fs};
+use std::{
+    env, fs,
+    io::{BufRead, Write},
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use log::info;
-use sequoia_openpgp::policy::StandardPolicy;
-use sequoia_openpgp::serialize::SerializeInto;
+use sdkms::api_model::EllipticCurve;
+use sequoia_openpgp::{policy::StandardPolicy, serialize::SerializeInto};
 use sq_sdkms::{PgpAgent, SupportedPkAlgo};
 use structopt::StructOpt;
 
@@ -83,18 +85,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
 
     let (output_file, output_material) = match cli.cmd {
-        Command::GenerateKey { args, user_id, pk_algo } => {
+        Command::GenerateKey {
+            args,
+            user_id,
+            pk_algo,
+        } => {
             info!("sq-sdkms generate-key");
             not_exists(&args.output_file)?;
 
             let algo = match pk_algo {
-                Some(algorithm) => {
-                    match &*algorithm {
-                        "rsa2048" => SupportedPkAlgo::Rsa(2048),
-                        "rsa3072" => SupportedPkAlgo::Rsa(3072),
-                        "rsa4096" => SupportedPkAlgo::Rsa(4096),
-                        _ => unimplemented!()
-                    }
+                Some(algorithm) => match &*algorithm {
+                    "rsa2048" => SupportedPkAlgo::Rsa(2048),
+                    "rsa3072" => SupportedPkAlgo::Rsa(3072),
+                    "rsa4096" => SupportedPkAlgo::Rsa(4096),
+                    _ => unimplemented!(),
                 },
                 None => pk_algo_prompt()?,
             };
@@ -192,13 +196,15 @@ fn not_exists(path: &Option<PathBuf>) -> Result<()> {
 fn pk_algo_prompt() -> Result<SupportedPkAlgo> {
     loop {
         println!("\nSelect public key algorithm:\n");
-        println!("   (1) RSA");
+        println!("   (1) ECDSA with curve NistP256 (recommended)");
+        println!("   (2) RSA");
         print!("\nYour choice: ");
         std::io::stdout().flush()?;
         let mut line = String::new();
         std::io::stdin().read_line(&mut line)?;
         match line.trim().parse::<u32>()? {
-            1 => {
+            1 => return Ok(SupportedPkAlgo::Ec(EllipticCurve::NistP256)),
+            2 => {
                 let key_size = loop {
                     println!("\nSelect RSA key size:\n");
                     println!("   (1) 2048");
