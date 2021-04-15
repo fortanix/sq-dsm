@@ -28,6 +28,8 @@ pub enum Error {
     SdkmsBadResponse,
 }
 
+type Result<T> = core::result::Result<T, Error>;
+
 pub mod signer;
 
 pub mod decryptor;
@@ -52,7 +54,7 @@ impl<O: Operation> Agent<O> {
         api_endpoint: Option<String>,
         api_key: String,
         key_name: &'static str,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         let endpoint = match api_endpoint {
             Some(s) => s,
             None => Self::DEFAULT_API_ENDPOINT.to_string(),
@@ -65,6 +67,7 @@ impl<O: Operation> Agent<O> {
         let public_key = {
             let req = SobjectDescriptor::Name(key_name.to_string());
             let resp = http_client.get_sobject(None, &req)?;
+            // TODO: Set creation time!
             let raw_pk = resp.pub_key.ok_or(Error::SdkmsBadResponse)?;
             let deserialized_pk = Pk::from_public_key(&raw_pk)?;
             let e = deserialized_pk.rsa_public_exponent()?.to_be_bytes();
@@ -81,23 +84,20 @@ impl<O: Operation> Agent<O> {
     }
 }
 
-impl From<SdkmsError> for Error {
-    fn from(other: sdkms::Error) -> Self {
-        Error::Sdkms(other)
+// Error conversions
+macro_rules! define_from {
+    ($error:ident, $variant:ident) => {
+        impl From<$error> for Error {
+            fn from(other: $error) -> Self {
+                Error::$variant(other)
+            }
+        }
     }
 }
 
-impl From<MbedtlsError> for Error {
-    fn from(other: mbedtls::Error) -> Self {
-        Error::Mbedtls(other)
-    }
-}
-
-impl From<SequoiaError> for Error {
-    fn from(other: SequoiaError) -> Self {
-        Error::Sequoia(other)
-    }
-}
+define_from!(SdkmsError, Sdkms);
+define_from!(MbedtlsError, Mbedtls);
+define_from!(SequoiaError, Sequoia);
 
 #[cfg(test)]
 mod tests;

@@ -16,7 +16,7 @@ fn get_signer_public_key() {
         Some(API_ENDPOINT.to_string()),
         MY_API_KEY.to_string(),
         "Sobject Rsa").unwrap();
-    let pk = signer.public();
+    signer.public();
 }
 
 #[test]
@@ -25,7 +25,23 @@ fn get_decryptor_public_key() {
         Some(API_ENDPOINT.to_string()),
         MY_API_KEY.to_string(),
         "Sobject Rsa").unwrap();
-    PgpDecryptor::public(&decryptor);
+    decryptor.public();
+}
+
+#[test]
+fn get_armored_public_key() {
+    let mut signer = PgpSigner::new(
+        Some(API_ENDPOINT.to_string()),
+        MY_API_KEY.to_string(),
+        "Sobject Rsa").unwrap();
+    let armored = signer.get_armored_key().unwrap();
+
+    use std::io::{self, Write};
+
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+
+    handle.write_all(&armored).unwrap();
 }
 
 #[test]
@@ -34,5 +50,5 @@ fn sign() {
         Some(API_ENDPOINT.to_string()),
         MY_API_KEY.to_string(),
         "Sobject Rsa").unwrap();
-    let sig = signer.sign(HashAlgorithm::SHA1, &vec![0; 32]);
+    signer.sign(HashAlgorithm::SHA1, &vec![0; 20]).unwrap();
 }
