@@ -4,6 +4,11 @@ This crate leverages [sdkms-client-rust][sdkms-client-rust] and
 [Sequoia-PGP][Sequoia] to perform OpenPGP operations with keys stored in the
 [Fortanix Self-Defending Key-Management System][SDKMS].
 
+### Requirements
+
+You need to install Sequoia-PGP ([instructions][instructions-sequoia]) and
+[rust-mbedtls][rust-mbedtls].
+
 # Contributing
 
 We gratefully accept bug reports and contributions from the community.
@@ -40,6 +45,8 @@ this project or the open source license(s) involved.
 
 This project is primarily distributed under the terms of the Mozilla Public License (MPL) 2.0, see [LICENSE](./LICENSE) for details.
 
+[instructions-sequoia]: https://docs.sequoia-pgp.org/sequoia_guide/chapter_00/index.html
+[rust-mbedtls]: https://github.com/fortanix/rust-mbedtls
 [Sequoia]: https://sequoia-pgp.org/
 [sdkms-client-rust]: https://github.com/fortanix/sdkms-client-rust
 [SDKMS]: https://fortanix.com/products/data-security-manager/sdkms
