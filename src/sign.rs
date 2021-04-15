@@ -1,4 +1,7 @@
-use sdkms::api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor};
+use sdkms::{
+    api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor},
+    SdkmsClient,
+};
 
 use sequoia_openpgp::{
     crypto::{mpi, Signer},
@@ -6,20 +9,17 @@ use sequoia_openpgp::{
         key::{PublicParts, UnspecifiedRole},
         Key,
     },
-    types::HashAlgorithm,
     Result as SequoiaResult,
+    types::HashAlgorithm,
 };
 
-use super::Operation;
+pub(crate) struct RawSigner<'a> {
+    pub(crate) http_client: &'a SdkmsClient,
+    pub(crate) sobject_name: &'static str,
+    pub(crate) public_key: Key<PublicParts, UnspecifiedRole>,
+}
 
-pub(crate) struct Sign {}
-
-impl Operation for Sign {}
-
-
-pub(crate) type PgpSigner = super::Agent<Sign>;
-
-impl Signer for PgpSigner {
+impl Signer for RawSigner<'_> {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
         &self.public_key
     }
@@ -32,11 +32,15 @@ impl Signer for PgpSigner {
         let signature = {
             let hash_alg = match hash_algo {
                 HashAlgorithm::SHA1 => DigestAlgorithm::Sha1,
-                _ => unimplemented!(),
+                HashAlgorithm::SHA512 => DigestAlgorithm::Sha512,
+                HashAlgorithm::SHA256 => DigestAlgorithm::Sha256,
+                _ => {
+                    panic!("unimplemented hash algorithm");
+                }
             };
 
             let sign_req = SignRequest {
-                key: Some(SobjectDescriptor::Name(self.key_name.to_string())),
+                key: Some(SobjectDescriptor::Name(self.sobject_name.to_string())),
                 hash_alg: hash_alg,
                 hash: Some(digest.to_vec().into()),
                 data: None,
