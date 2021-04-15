@@ -9,17 +9,16 @@ use sequoia_openpgp::{
 
 use sdkms::{
     api_model::{DecryptRequest, SobjectDescriptor},
+    SdkmsClient,
 };
 
-use super::Operation;
+pub(crate) struct RawDecryptor {
+    http_client: SdkmsClient,
+    sobject_name: &'static str,
+    public_key: Key<PublicParts, UnspecifiedRole>,
+}
 
-pub(crate) struct Decrypt {}
-
-impl Operation for Decrypt {}
-
-pub(crate) type PgpDecryptor = super::Agent<Decrypt>;
-
-impl Decryptor for PgpDecryptor {
+impl Decryptor for RawDecryptor {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
         &self.public_key
     }
@@ -37,7 +36,7 @@ impl Decryptor for PgpDecryptor {
         let decrypt_req = DecryptRequest {
             cipher: raw_ciphertext.into(),
             iv: None,
-            key: Some(SobjectDescriptor::Name(self.key_name.to_string())),
+            key: Some(SobjectDescriptor::Name(self.sobject_name.to_string())),
             mode: None,
             alg: None,
             ad: None,
