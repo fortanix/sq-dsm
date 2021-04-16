@@ -109,6 +109,7 @@ impl Keygrip {
         }
 
         fn hash_ecc(hash: &mut dyn hash::Digest, curve: &Curve, q: &MPI)
+            -> Result<()>
         {
             for (i, name) in "pabgnhq".chars().enumerate() {
                 if i == 5 {
@@ -119,7 +120,7 @@ impl Keygrip {
                 let mut m = if i == 6 {
                     q.value()
                 } else {
-                    param = ecc_param(curve, i);
+                    param = ecc_param(curve, i)?;
                     param.value()
                 };
 
@@ -131,6 +132,8 @@ impl Keygrip {
 
                 hash_sexp(hash, name, &[], m);
             }
+
+            Ok(())
         }
 
         match key {
@@ -164,9 +167,9 @@ impl Keygrip {
                 hash_sexp_mpi(&mut hash, 'y', b"", y);
             },
 
-            &EdDSA { ref curve, ref q } => hash_ecc(&mut hash, curve, q),
-            &ECDSA { ref curve, ref q } => hash_ecc(&mut hash, curve, q),
-            &ECDH { ref curve, ref q, .. } => hash_ecc(&mut hash, curve, q),
+            &EdDSA { ref curve, ref q } => hash_ecc(&mut hash, curve, q)?,
+            &ECDSA { ref curve, ref q } => hash_ecc(&mut hash, curve, q)?,
+            &ECDH { ref curve, ref q, .. } => hash_ecc(&mut hash, curve, q)?,
 
             // crypto::mpi::PublicKey is non_exhaustive, match on &_ to handle
             // future additions.
@@ -185,7 +188,7 @@ impl Keygrip {
 /// Returns curve parameters.
 ///
 /// These parameters are a courtesy of libgcrypt.
-fn ecc_param(curve: &Curve, i: usize) -> MPI {
+fn ecc_param(curve: &Curve, i: usize) -> Result<MPI> {
     use self::Curve::*;
     assert!(i < 6);
     let hex = match (curve, i) {
@@ -252,10 +255,15 @@ fn ecc_param(curve: &Curve, i: usize) -> MPI {
                          20AE19A1B8A086B4E01EDD2C7748D14C923D4D7E6D7C61B229E9C5A27ECED3D9",
         (Cv25519, 5) => "0x08",
 
-        (_, _) => unreachable!(),
+        (_, _) => {
+            return Err(Error::InvalidArgument(
+                format!("Invalid or unknown curve parameters: \
+                         curve: {}, i: {}",
+                        curve, i)).into());
+        }
     };
 
-    openpgp::fmt::hex::decode_pretty(hex).unwrap().into()
+    Ok(openpgp::fmt::hex::decode_pretty(hex).unwrap().into())
 }
 
 #[cfg(test)]
