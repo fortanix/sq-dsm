@@ -81,7 +81,7 @@ test check:
 	else \
 		$(MAKE) -Copenpgp-ffi test && \
 		$(MAKE) -Cffi test && \
-		$(MAKE) examples; \
+		$(MAKE) --file=.Makefile examples; \
 	fi
 
 .PHONY: examples
@@ -150,7 +150,7 @@ dist-test dist-check: $(CARGO_TARGET_DIR)/dist/sequoia-$(VERSION).tar.pgp.gz
 		$(GPG) -o - --verify |\
 		$(TAR) xf - -C "$(CARGO_TARGET_DIR)/dist-check"
 	cd "$(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)" && \
-		CARGO_HOME=$$(mktemp -d) $(MAKE) test CARGO_FLAGS=--locked
+		CARGO_HOME=$$(mktemp -d) $(MAKE) --file=.Makefile test CARGO_FLAGS=--locked
 	rm -rf "$(CARGO_TARGET_DIR)/dist-check/sequoia-$(VERSION)"
 
 # Housekeeping.

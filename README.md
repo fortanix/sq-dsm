@@ -167,35 +167,13 @@ feature).
 Building Sequoia
 ================
 
-Using cargo
+Using Cargo
 -----------
 
 To build all Sequoia components, simply execute `cargo build
 [--release] --all`.  Individual components may be built independently,
 e.g. to build `sq`, run `cargo build [--release] -p sequoia-sq`, or
 build `sequoia-openpgp-ffi` to build a shared object with the C API.
-
-Using the Makefile
-------------------
-
-We also consider the needs of packagers in times
-where distribution support for packaging Rust projects is not yet
-mature enough to handle a project like Sequoia.  Therefore, we provide
-a `Makefile` to simplify building, testing, and installing Sequoia.
-
-To build Sequoia, simply execute `make`.  To run the test suites,
-execute `make test` (or use the `check` alias).  To install Sequoia,
-use `make install`.  The latter target honors `PREFIX` and `DESTDIR`.
-Finally, to return your source tree to its pristine state, run `make
-clean`.
-
-You can specify subdirectories to build individual modules, e.g. use
-`make -Copenpgp-ffi install` to only install the shared object with
-the C API.
-
-**Note:** By default the Python FFI bindings are also built. To skip
-these add `PYTHON=disable` to all `make` invocations. E.g. `make
-PYTHON=disable`.
 
 Using Docker
 ------------
