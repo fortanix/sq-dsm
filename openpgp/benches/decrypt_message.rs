@@ -40,7 +40,7 @@ fn bench_decrypt(c: &mut Criterion) {
         let encrypted = encrypt::encrypt_with_password(m, PASSWORD).unwrap();
         group.throughput(Throughput::Bytes(encrypted.len() as u64));
         group.bench_with_input(
-            BenchmarkId::new("password", encrypted.len()),
+            BenchmarkId::new("password", m.len()),
             &encrypted,
             |b, e| b.iter(|| decrypt_password(&e)),
         );
