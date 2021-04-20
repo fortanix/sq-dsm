@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::ops::Deref;
 use std::time;
 
@@ -240,6 +241,21 @@ impl Deref for CertRevocationBuilder {
     }
 }
 
+impl TryFrom<signature::SignatureBuilder> for CertRevocationBuilder {
+    type Error = anyhow::Error;
+
+    fn try_from(builder: signature::SignatureBuilder) -> Result<Self> {
+        if builder.typ() != SignatureType::KeyRevocation {
+            return Err(
+                crate::Error::InvalidArgument(
+                    format!("Expected signature type to be KeyRevocation but got {}",
+                            builder.typ()).into()).into());
+        }
+        Ok(Self {
+            builder
+        })
+    }
+}
 
 /// A builder for revocation certificates for subkeys.
 ///
@@ -466,6 +482,22 @@ impl Deref for SubkeyRevocationBuilder {
 
     fn deref(&self) -> &Self::Target {
         &self.builder
+    }
+}
+
+impl TryFrom<signature::SignatureBuilder> for SubkeyRevocationBuilder {
+    type Error = anyhow::Error;
+
+    fn try_from(builder: signature::SignatureBuilder) -> Result<Self> {
+        if builder.typ() != SignatureType::SubkeyRevocation {
+            return Err(
+                crate::Error::InvalidArgument(
+                    format!("Expected signature type to be SubkeyRevocation but got {}",
+                            builder.typ()).into()).into());
+        }
+        Ok(Self {
+            builder
+        })
     }
 }
 
@@ -953,4 +985,82 @@ impl Deref for UserAttributeRevocationBuilder {
     fn deref(&self) -> &Self::Target {
         &self.builder
     }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn try_into_cert_revocation_builder_success() -> crate::Result<()> {
+        use std::convert::TryInto;
+        use crate as openpgp;
+        use openpgp::cert::prelude::*;
+        use openpgp::packet::signature::SignatureBuilder;
+        use openpgp::cert::CertRevocationBuilder;
+        use openpgp::types::SignatureType;
+
+        let (cert, _) = CertBuilder::new()
+            .generate()?;
+
+        // Create and sign a revocation certificate.
+        let mut signer = cert.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+        let builder = SignatureBuilder::new(SignatureType::KeyRevocation);
+        let revocation_builder: CertRevocationBuilder = builder.try_into()?;
+        let sig = revocation_builder.build(&mut signer, &cert, None)?;
+        assert_eq!(sig.typ(), SignatureType::KeyRevocation);
+        Ok(())
+    }
+
+    #[test]
+    fn try_into_cert_revocation_builder_failure() -> crate::Result<()> {
+        use std::convert::TryInto;
+        use crate as openpgp;
+        use openpgp::packet::signature::SignatureBuilder;
+        use openpgp::cert::CertRevocationBuilder;
+        use openpgp::types::SignatureType;
+
+        let builder = SignatureBuilder::new(SignatureType::Binary);
+        let result: openpgp::Result<CertRevocationBuilder> = builder.try_into();
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn try_into_subkey_revocation_builder_success() -> crate::Result<()> {
+        use std::convert::TryInto;
+        use crate as openpgp;
+        use openpgp::cert::prelude::*;
+        use openpgp::packet::signature::SignatureBuilder;
+        use openpgp::cert::SubkeyRevocationBuilder;
+        use openpgp::types::SignatureType;
+
+        let (cert, _) = CertBuilder::new()
+            .add_transport_encryption_subkey()
+            .generate()?;
+
+        // Create and sign a revocation certificate.
+        let mut signer = cert.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+        let subkey = cert.keys().subkeys().nth(0).unwrap();
+        let builder = SignatureBuilder::new(SignatureType::SubkeyRevocation);
+        let revocation_builder: SubkeyRevocationBuilder = builder.try_into()?;
+        let sig = revocation_builder.build(&mut signer, &cert, subkey.key(), None)?;
+        assert_eq!(sig.typ(), SignatureType::SubkeyRevocation);
+        Ok(())
+    }
+
+    #[test]
+    fn try_into_subkey_revocation_builder_failure() -> crate::Result<()> {
+        use std::convert::TryInto;
+        use crate as openpgp;
+        use openpgp::packet::signature::SignatureBuilder;
+        use openpgp::cert::SubkeyRevocationBuilder;
+        use openpgp::types::SignatureType;
+
+        let builder = SignatureBuilder::new(SignatureType::Binary);
+        let result: openpgp::Result<SubkeyRevocationBuilder> = builder.try_into();
+        assert!(result.is_err());
+        Ok(())
+    }
+
 }
