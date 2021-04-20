@@ -3311,7 +3311,7 @@ mod test {
             sig: Vec<u8>,
             content: &'a [u8],
             reference: time::SystemTime,
-        };
+        }
         let tests = [
             Test {
                 sig: crate::tests::message(

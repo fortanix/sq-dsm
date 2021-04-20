@@ -3273,7 +3273,7 @@ mod test {
         struct Helper<'a> {
             policy: &'a dyn Policy,
             tsk: &'a Cert,
-        };
+        }
         impl<'a> VerificationHelper for Helper<'a> {
             fn get_certs(&mut self, _ids: &[crate::KeyHandle])
                                -> Result<Vec<Cert>> {
@@ -3492,7 +3492,7 @@ mod test {
                 message.finalize()?;
             }
 
-            struct Helper {};
+            struct Helper {}
             impl VerificationHelper for Helper {
                 fn get_certs(&mut self, _ids: &[KeyHandle]) -> Result<Vec<Cert>>
                 {

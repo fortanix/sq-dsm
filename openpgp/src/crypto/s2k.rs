@@ -420,7 +420,7 @@ mod tests {
             cipher_algo: SymmetricAlgorithm,
             password: Password,
             key_hex: &'a str,
-        };
+        }
 
         // Note: this test only works with SK-ESK packets that don't
         // contain an encrypted session key, i.e., the session key is

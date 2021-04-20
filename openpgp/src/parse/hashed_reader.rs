@@ -387,7 +387,7 @@ mod test {
         struct Test<'a> {
             data: &'a [u8],
             expected: HashMap<HashAlgorithm, &'a str>,
-        };
+        }
 
         let tests = [
             Test {
