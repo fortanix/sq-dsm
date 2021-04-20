@@ -197,6 +197,23 @@ the C API.
 these add `PYTHON=disable` to all `make` invocations. E.g. `make
 PYTHON=disable`.
 
+Using Docker
+------------
+
+Command line tools can also be built using Docker:
+
+```shell
+$ docker build -t sq .
+$ docker run --rm -i sq --help
+```
+
+For example retrieving a certificate and inspecting its contents:
+
+```shell
+$ docker run --rm -i sq keyserver get 653909A2F0E37C106F5FAF546C8857E0D8E8F074 > cert.asc
+$ docker run --rm -i sq packet dump < cert.asc
+```
+
 ## Requirements
 
 To build Sequoia, you need at least Rust 1.48 and a few libraries,
