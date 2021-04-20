@@ -102,7 +102,7 @@
 //! [`Signature`]: ../enum.Signature.html
 //! [version 3]: https://tools.ietf.org/html/rfc1991#section-5.2.2
 //! [version 4]: https://tools.ietf.org/html/rfc4880#section-5.2.3
-//! [version 5]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-version-4-and-5-signature-p
+//! [version 5]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-version-4-and-5-signature-p
 //! [notations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
 //! [`Signature4`]: struct.Signature4.html
 //! [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
@@ -356,7 +356,7 @@ impl SignatureFields {
 /// method, respectively).
 ///
 ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
 ///   [`Signer`]: ../../crypto/trait.Signer.html
 ///   [`set_issuer`]: #method.set_issuer
 ///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
@@ -533,7 +533,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -644,7 +644,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -751,7 +751,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -891,7 +891,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -1024,7 +1024,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -1170,7 +1170,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -1300,7 +1300,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -1413,7 +1413,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -1482,7 +1482,7 @@ impl SignatureBuilder {
     ///
     ///   [`Issuer`]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
     ///   [`SignatureBuilder::set_issuer`]: #method.set_issuer
-    ///   [`Issuer Fingerprint`]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [`Issuer Fingerprint`]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// Likewise, a [`Signature Creation Time`] subpacket set to the
@@ -1900,7 +1900,7 @@ impl crate::packet::Signature {
     /// unhashed subpacket area.
     ///
     ///   [Issuer subpacket]: https://tools.ietf.org/html/rfc4880#section-5.2.3.5
-    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///
     /// This function returns all instances of the Issuer subpacket
     /// and the Issuer Fingerprint subpacket in both the hashed

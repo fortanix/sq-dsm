@@ -36,7 +36,7 @@
 //! [`Key4`]: struct.Key4.html
 //! [version 3]: https://tools.ietf.org/html/rfc1991#section-6.6
 //! [version 4]: https://tools.ietf.org/html/rfc4880#section-5.5.2
-//! [version 5]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-public-key-packet-formats
+//! [version 5]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-public-key-packet-formats
 //! [public keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.1
 //! [secret keys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.3
 //! [public subkeys]: https://tools.ietf.org/html/rfc4880#section-5.5.1.2

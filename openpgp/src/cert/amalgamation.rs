@@ -219,7 +219,7 @@
 //! [MD5 collisions]: https://en.wikipedia.org/wiki/MD5
 //! [`Policy`]: ../../policy/index.html
 //! [streaming verifier]: ../../parse/stream.html
-//! [Intended Recipients]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
+//! [Intended Recipients]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
 //! [signature expirations]: https://tools.ietf.org/html/rfc4880#section-5.2.3.10
 //! [`Deref` trait]: https://doc.rust-lang.org/stable/std/ops/trait.Deref.html
 //! [`ComponentAmalgamation::component`]: struct.ComponentAmalgamation.html#method.component

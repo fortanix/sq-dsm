@@ -303,19 +303,19 @@ pub enum SubpacketTag {
     ///
     /// See [Section 5.2.3.28 of RFC 4880bis] for details.
     ///
-    ///  [Section 5.2.3.28 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///  [Section 5.2.3.28 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     IssuerFingerprint,
     /// The AEAD algorithms that the certificate holder prefers (proposed).
     ///
     /// See [Section 5.2.3.8 of RFC 4880bis] for details.
     ///
-    ///  [Section 5.2.3.8 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
+    ///  [Section 5.2.3.8 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
     PreferredAEADAlgorithms,
     /// Who the signed message was intended for (proposed).
     ///
     /// See [Section 5.2.3.29 of RFC 4880bis] for details.
     ///
-    ///  [Section 5.2.3.29 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
+    ///  [Section 5.2.3.29 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     IntendedRecipient,
     /// Reserved subpacket tag.
     Reserved(u8),
@@ -1561,19 +1561,19 @@ pub enum SubpacketValue {
     ///
     /// See [Section 5.2.3.28 of RFC 4880bis] for details.
     ///
-    ///  [Section 5.2.3.28 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///  [Section 5.2.3.28 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     IssuerFingerprint(Fingerprint),
     /// The AEAD algorithms that the certificate holder prefers (proposed).
     ///
     /// See [Section 5.2.3.8 of RFC 4880bis] for details.
     ///
-    ///  [Section 5.2.3.8 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
+    ///  [Section 5.2.3.8 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
     PreferredAEADAlgorithms(Vec<AEADAlgorithm>),
     /// Who the signed message was intended for (proposed).
     ///
     /// See [Section 5.2.3.29 of RFC 4880bis] for details.
     ///
-    ///  [Section 5.2.3.29 of RFC 4880bis]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
+    ///  [Section 5.2.3.29 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     IntendedRecipient(Fingerprint),
 }
 assert_send_and_sync!(SubpacketValue);
@@ -2901,7 +2901,7 @@ impl SubpacketAreas {
     /// validating the signature authenticates the subpacket), it is
     /// normally stored in the unhashed subpacket area.
     ///
-    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///
     /// This returns all instances of the Issuer Fingerprint subpacket
     /// in both the hashed subpacket area and the unhashed subpacket
@@ -2930,7 +2930,7 @@ impl SubpacketAreas {
     /// subpacket] started life.
     ///
     /// [Notation Data subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
+    /// [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
     ///
     /// Notation names are structured, and are divided into two
     /// namespaces: the user namespace and the IETF namespace.  Names
@@ -2969,7 +2969,7 @@ impl SubpacketAreas {
     /// subpacket] started life.
     ///
     /// [Notation Data subpackets]: https://tools.ietf.org/html/rfc4880#section-5.2.3.16
-    /// [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
+    /// [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
     ///
     /// Notation names are structured, and are divided into two
     /// namespaces: the user namespace and the IETF namespace.  Names
@@ -3155,8 +3155,8 @@ impl SubpacketAreas {
     /// Note: because support for AEAD has not yet been standardized,
     /// we recommend not yet advertising support for it.
     ///
-    /// [Preferred AEAD Algorithms subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
-    /// [Features subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
+    /// [Preferred AEAD Algorithms subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
+    /// [Features subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
     ///
     /// This subpacket is a type of preference.  When looking up a
     /// preference, an OpenPGP implementation should first look for
@@ -3618,7 +3618,7 @@ impl SubpacketAreas {
     /// The [Intended Recipient subpacket] holds the fingerprint of a
     /// certificate.
     ///
-    ///   [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
+    ///   [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     ///
     /// When signing a message, the message should include one such
     /// subpacket for each intended recipient.  Note: not all messages
@@ -5226,7 +5226,7 @@ impl signature::SignatureBuilder {
     /// subpacket, if they have not been set explicitly.
     ///
     /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
-    /// [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    /// [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     /// [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// # Examples
@@ -5316,7 +5316,7 @@ impl signature::SignatureBuilder {
     /// subpacket, if they have not been set explicitly.
     ///
     /// [streaming `Signer`]: ../../serialize/stream/struct.Signer.html
-    /// [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    /// [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     /// [`SignatureBuilder::set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// # Examples
@@ -5393,7 +5393,7 @@ impl signature::SignatureBuilder {
     /// extensions.  This is how the [Intended Recipient subpacket]
     /// started life.
     ///
-    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
+    /// [Intended Recipient subpacket]:https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
     ///
     /// Notation names are structured, and are divided into two
     /// namespaces: the user namespace and the IETF namespace.  Names
@@ -5486,7 +5486,7 @@ impl signature::SignatureBuilder {
     /// extensions.  This is how the [Intended Recipient subpacket]
     /// started life.
     ///
-    /// [Intended Recipient subpacket]:https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
+    /// [Intended Recipient subpacket]:https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#name-intended-recipient-fingerpr
     ///
     /// Notation names are structured, and are divided into two
     /// namespaces: the user namespace and the IETF namespace.  Names
@@ -6451,7 +6451,7 @@ impl signature::SignatureBuilder {
     /// function first removes any existing Issuer Fingerprint
     /// subpackets from the hashed and unhashed subpacket area.
     ///
-    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`add_issuer_fingerprint`]: #method.add_issuer_fingerprint
     ///
     /// The Issuer Fingerprint subpacket is used when processing a
@@ -6543,7 +6543,7 @@ impl signature::SignatureBuilder {
     /// subpacket from neither the hashed nor the unhashed subpacket
     /// area.
     ///
-    ///   [Issuer Fingerprint subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
+    ///   [Issuer Fingerprint subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.28
     ///   [`set_issuer_fingerprint`]: #method.set_issuer_fingerprint
     ///
     /// The Issuer Fingerprint subpacket is used when processing a
@@ -6634,7 +6634,7 @@ impl signature::SignatureBuilder {
     /// Preferred AEAD Algorithms subpacket from the hashed subpacket
     /// area, and then adds a Preferred AEAD Algorithms subpacket.
     ///
-    /// [Preferred AEAD Algorithms subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
+    /// [Preferred AEAD Algorithms subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.8
     ///
     /// The Preferred AEAD Algorithms subpacket indicates what AEAD
     /// algorithms the key holder prefers ordered by preference.  If
@@ -6644,7 +6644,7 @@ impl signature::SignatureBuilder {
     /// Note: because support for AEAD has not yet been standardized,
     /// we recommend not yet advertising support for it.
     ///
-    /// [Features subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
+    /// [Features subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.25
     ///
     /// This subpacket is a type of preference.  When looking up a
     /// preference, an OpenPGP implementation should first look for
@@ -6733,7 +6733,7 @@ impl signature::SignatureBuilder {
     /// first removes any Intended Recipient subpackets from the
     /// hashed subpacket area, and then adds new ones.
     ///
-    ///   [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
+    ///   [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     ///   [`SignatureBuilder::add_intended_recipient`]: #method.add_intended_recipient
     ///
     /// The Intended Recipient subpacket holds the fingerprint of a
@@ -6817,7 +6817,7 @@ impl signature::SignatureBuilder {
     /// not first remove any Intended Recipient subpackets from the
     /// hashed subpacket area.
     ///
-    ///   [Intended Recipient subpacket]: https://www.ietf.org/id/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
+    ///   [Intended Recipient subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     ///   [`SignatureBuilder::set_intended_recipients`]: #method.set_intended_recipients
     ///
     /// The Intended Recipient subpacket holds the fingerprint of a
