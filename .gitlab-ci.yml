@@ -177,6 +177,13 @@ rust-stable:
     - linux
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild:latest
+  before_script:
+    - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
+    - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
+    - rustup override set stable
+    - rustc --version
+    - cargo --version
+    - clang --version
   script:
     - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" make test
   variables:
@@ -189,6 +196,13 @@ rust-stable:arm64:
     - docker-arm64
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/rust-stable-prebuild-arm64:latest
+  before_script:
+    - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
+    - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
+    - rustup override set stable
+    - rustc --version
+    - cargo --version
+    - clang --version
   script:
     - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" make test
   variables:
