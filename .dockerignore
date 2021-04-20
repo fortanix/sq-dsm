@@ -3,3 +3,5 @@ Dockerfile
 .dockerignore
 .git
 target
+doc
+*.md
