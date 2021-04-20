@@ -1483,6 +1483,11 @@ impl Marshal for SubpacketValue {
                 _ => return Err(Error::InvalidArgument(
                     "Unknown kind of fingerprint".into()).into()),
             }
+            AttestedCertifications(digests) => {
+                for digest in digests {
+                    o.write_all(digest)?;
+                }
+            },
             Unknown { body, .. } =>
                 o.write_all(body)?,
         }
@@ -1530,6 +1535,8 @@ impl MarshalInto for SubpacketValue {
                 // Educated guess for unknown versions.
                 Fingerprint::Invalid(_) => 1 + fp.as_bytes().len(),
             },
+            AttestedCertifications(digests) =>
+                digests.iter().map(|d| d.len()).sum(),
             Unknown { body, .. } => body.len(),
         }
     }

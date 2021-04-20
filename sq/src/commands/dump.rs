@@ -868,6 +868,17 @@ impl PacketDumper {
                        .collect::<Vec<String>>().join(", "))?,
             IntendedRecipient(ref fp) =>
                 write!(output, "{}    Intended Recipient: {}", i, fp)?,
+            AttestedCertifications(digests) => {
+                write!(output, "{}    Attested Certifications:", i)?;
+                if digests.is_empty() {
+                    writeln!(output, " None")?;
+                } else {
+                    writeln!(output)?;
+                    for d in digests {
+                        writeln!(output, "{}      {}", i, hex::encode(d))?;
+                    }
+                }
+            },
 
             // SubpacketValue is non-exhaustive.
             u => writeln!(output, "{}    Unknown variant: {:?}", i, u)?,

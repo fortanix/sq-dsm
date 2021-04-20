@@ -2,6 +2,12 @@
 #+TITLE: sequoia-openpgp NEWS – history of user-visible changes
 #+STARTUP: content hidestars
 
+* Changes in 1.2.0
+** New functionality
+   - SignatureBuilder::set_attested_certifications
+   - SubpacketAreas::attested_certifications
+   - SubpacketTag::AttestedCertifications
+   - SubpacketValue::AttestedCertifications
 * Changes in 1.1.0
 ** New functionality
    - The new regex module provides regular expression support for

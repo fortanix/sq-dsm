@@ -429,15 +429,11 @@ fn attest_certifications(config: Config, m: &ArgMatches)
     // been standardized yet.
     use sequoia_openpgp::{
         crypto::hash::{Hash, Digest},
-        packet::signature::subpacket::*,
         types::HashAlgorithm,
     };
     #[allow(non_upper_case_globals)]
     const SignatureType__AttestedKey: SignatureType =
         SignatureType::Unknown(0x16);
-    #[allow(non_upper_case_globals)]
-    const SubpacketTag__AttestedCertifications: SubpacketTag =
-        SubpacketTag::Unknown(37);
 
     // Attest to all certifications?
     let all = ! m.is_present("none"); // All is the default.
@@ -495,21 +491,10 @@ fn attest_certifications(config: Config, m: &ArgMatches)
         uid.hash(&mut hash);
 
         for digests in attestations.chunks(digests_per_sig) {
-            let mut body = Vec::with_capacity(digest_size * digests.len());
-            digests.iter().for_each(|d| body.extend(d));
-
             attestation_signatures.push(
                 SignatureBuilder::new(SignatureType__AttestedKey)
                     .set_signature_creation_time(t)?
-                    .modify_hashed_area(|mut a| {
-                        a.add(Subpacket::new(
-                            SubpacketValue::Unknown {
-                                tag: SubpacketTag__AttestedCertifications,
-                                body,
-                            },
-                            true)?)?;
-                        Ok(a)
-                    })?
+                    .set_attested_certifications(digests)?
                     .sign_hash(&mut pk_signer, hash.clone())?);
         }
     }
@@ -538,21 +523,10 @@ fn attest_certifications(config: Config, m: &ArgMatches)
         ua.hash(&mut hash);
 
         for digests in attestations.chunks(digests_per_sig) {
-            let mut body = Vec::with_capacity(digest_size * digests.len());
-            digests.iter().for_each(|d| body.extend(d));
-
             attestation_signatures.push(
                 SignatureBuilder::new(SignatureType__AttestedKey)
                     .set_signature_creation_time(t)?
-                    .modify_hashed_area(|mut a| {
-                        a.add(Subpacket::new(
-                            SubpacketValue::Unknown {
-                                tag: SubpacketTag__AttestedCertifications,
-                                body,
-                            },
-                            true)?)?;
-                        Ok(a)
-                    })?
+                    .set_attested_certifications(digests)?
                     .sign_hash(&mut pk_signer, hash.clone())?);
         }
     }

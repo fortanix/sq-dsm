@@ -317,6 +317,17 @@ pub enum SubpacketTag {
     ///
     ///  [Section 5.2.3.29 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     IntendedRecipient,
+    /// The Attested Certifications subpacket (proposed).
+    ///
+    /// Allows the certificate holder to attest to third party
+    /// certifications, allowing them to be distributed with the
+    /// certificate.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    /// See [Section 5.2.3.30 of RFC 4880bis] for details.
+    ///
+    ///  [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    AttestedCertifications,
     /// Reserved subpacket tag.
     Reserved(u8),
     /// Private subpacket tag.
@@ -325,11 +336,6 @@ pub enum SubpacketTag {
     Unknown(u8),
 }
 assert_send_and_sync!(SubpacketTag);
-
-/// The proposed Attested Certifications subpacket.
-#[allow(non_upper_case_globals)]
-pub(crate) const SubpacketTag__AttestedCertifications: SubpacketTag =
-    SubpacketTag::Unknown(37);
 
 impl fmt::Display for SubpacketTag {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -367,6 +373,7 @@ impl From<u8> for SubpacketTag {
             33 => SubpacketTag::IssuerFingerprint,
             34 => SubpacketTag::PreferredAEADAlgorithms,
             35 => SubpacketTag::IntendedRecipient,
+            37 => SubpacketTag::AttestedCertifications,
             0| 1| 8| 13| 14| 15| 17| 18| 19 => SubpacketTag::Reserved(u),
             100..=110 => SubpacketTag::Private(u),
             _ => SubpacketTag::Unknown(u),
@@ -404,6 +411,7 @@ impl From<SubpacketTag> for u8 {
             SubpacketTag::IssuerFingerprint => 33,
             SubpacketTag::PreferredAEADAlgorithms => 34,
             SubpacketTag::IntendedRecipient => 35,
+            SubpacketTag::AttestedCertifications => 37,
             SubpacketTag::Reserved(u) => u,
             SubpacketTag::Private(u) => u,
             SubpacketTag::Unknown(u) => u,
@@ -1575,6 +1583,17 @@ pub enum SubpacketValue {
     ///
     ///  [Section 5.2.3.29 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-09.html#section-5.2.3.29
     IntendedRecipient(Fingerprint),
+    /// The Attested Certifications subpacket (proposed).
+    ///
+    /// Allows the certificate holder to attest to third party
+    /// certifications, allowing them to be distributed with the
+    /// certificate.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    /// See [Section 5.2.3.30 of RFC 4880bis] for details.
+    ///
+    ///  [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    AttestedCertifications(Vec<Box<[u8]>>),
 }
 assert_send_and_sync!(SubpacketValue);
 
@@ -1669,6 +1688,7 @@ impl SubpacketValue {
             PreferredAEADAlgorithms(_) =>
                 SubpacketTag::PreferredAEADAlgorithms,
             IntendedRecipient(_) => SubpacketTag::IntendedRecipient,
+            AttestedCertifications(_) => SubpacketTag::AttestedCertifications,
             Unknown { tag, .. } => *tag,
         }
     }
@@ -3651,6 +3671,59 @@ impl SubpacketAreas {
                     _ => unreachable!(),
                 }
             })
+    }
+
+    /// Returns the digests of attested certifications.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Allows the certificate holder to attest to third party
+    /// certifications, allowing them to be distributed with the
+    /// certificate.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    /// Note: The maximum size of the hashed signature subpacket area
+    /// constrains the number of attestations that can be stored in a
+    /// signature.  If the certificate holder attested to more
+    /// certifications, the digests are split across multiple attested
+    /// key signatures with the same creation time.
+    ///
+    /// The standard strongly suggests that the digests should be
+    /// sorted.  However, this function returns the digests in the
+    /// order they are stored in the subpacket, which may not be
+    /// sorted.
+    ///
+    /// To address both issues, collect all digests from all attested
+    /// key signatures with the most recent creation time into a data
+    /// structure that allows efficient lookups, such as [`HashSet`]
+    /// or [`BTreeSet`].
+    ///
+    /// See [Section 5.2.3.30 of RFC 4880bis] for details.
+    ///
+    ///   [`HashSet`]: std::collections::HashSet
+    ///   [`BTreeSet`]: std::collections::BTreeSet
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    pub fn attested_certifications(&self)
+        -> Result<impl Iterator<Item=&[u8]> + Send + Sync>
+    {
+        if self.hashed_area()
+            .subpackets(SubpacketTag::AttestedCertifications).count() > 1
+            || self.unhashed_area()
+            .subpackets(SubpacketTag::AttestedCertifications).count() != 0
+        {
+            return Err(Error::BadSignature(
+                "Wrong number of attested certification subpackets".into())
+                       .into());
+        }
+
+        Ok(self.subpackets(SubpacketTag::AttestedCertifications)
+           .flat_map(|sb| {
+               match sb.value() {
+                   SubpacketValue::AttestedCertifications(digests) =>
+                       digests.iter().map(|d| d.as_ref()),
+                   _ => unreachable!(),
+               }
+           }))
     }
 }
 
@@ -6889,6 +6962,59 @@ impl signature::SignatureBuilder {
         self.hashed_area.add(
             Subpacket::new(SubpacketValue::IntendedRecipient(recipient),
                            false)?)?;
+
+        Ok(self)
+    }
+
+    /// Adds an attested certifications subpacket.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Allows the certificate holder to attest to third party
+    /// certifications, allowing them to be distributed with the
+    /// certificate.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    /// Sorts the digests and adds an [Attested Certification
+    /// subpacket] to the hashed subpacket area.  The digests must be
+    /// calculated using the same hash algorithm that is used in the
+    /// resulting signature.  To attest a signature, hash it with
+    /// [`super::Signature::hash_for_confirmation`].
+    ///
+    /// Note: The maximum size of the hashed signature subpacket area
+    /// constrains the number of attestations that can be stored in a
+    /// signature.  If you need to attest to more certifications,
+    /// split the digests into chunks and create multiple attested key
+    /// signatures with the same creation time.
+    ///
+    /// See [Section 5.2.3.30 of RFC 4880bis] for details.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///   [Attested Certification subpacket]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    pub fn set_attested_certifications<A, C>(mut self, certifications: C)
+                                             -> Result<Self>
+    where C: IntoIterator<Item = A>,
+          A: AsRef<[u8]>,
+    {
+        let mut digests: Vec<_> = certifications.into_iter()
+            .map(|d| d.as_ref().to_vec().into_boxed_slice())
+            .collect();
+
+        if let Some(first) = digests.get(0) {
+            if digests.iter().any(|d| d.len() != first.len()) {
+                return Err(Error::InvalidOperation(
+                    "Inconsistent digest algorithm used".into()).into());
+            }
+        }
+
+        // Hashes SHOULD be sorted.  This optimizes lookups for the
+        // consumer and provides a canonical form.
+        digests.sort_unstable();
+
+        self.hashed_area_mut().replace(
+            Subpacket::new(
+                SubpacketValue::AttestedCertifications(digests),
+                true)?)?;
 
         Ok(self)
     }

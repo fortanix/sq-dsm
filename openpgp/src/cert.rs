@@ -6012,7 +6012,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     fn attested_key_signatures() -> Result<()> {
         use crate::{
             crypto::hash::Hash,
-            packet::signature::{SignatureBuilder, subpacket::*},
+            packet::signature::SignatureBuilder,
             types::*,
         };
 
@@ -6052,15 +6052,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         bob.userids().next().unwrap().userid().hash(&mut h);
 
         let attestation = SignatureBuilder::new(SignatureType__AttestedKey)
-            .modify_hashed_area(|mut a| {
-                a.add(Subpacket::new(
-                    SubpacketValue::Unknown {
-                        tag: SubpacketTag__AttestedCertifications,
-                        body: digest,
-                    },
-                    true)?)?;
-                Ok(a)
-            })?
+            .set_attested_certifications(vec![digest])?
             .sign_hash(&mut bob_signer, h)?;
 
         let bob = bob.insert_packets(vec![
@@ -6098,7 +6090,6 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
     fn attested_key_signatures_dkgpg() -> Result<()> {
         const DUMP: bool = false;
         use crate::{
-            packet::signature::subpacket::*,
             crypto::hash::Digest,
         };
 
@@ -6112,22 +6103,15 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         let attestation =
             &test.userids().next().unwrap().bundle().attestations[0];
 
-        let digest_size = attestation.hash_algo().context()?.digest_size();
-        let digests = if let Some(SubpacketValue::Unknown { body, .. }) =
-            attestation.subpacket(SubpacketTag__AttestedCertifications)
-                .map(|sp| sp.value())
-        {
-            body.chunks(digest_size).map(|d| d.to_vec()).collect::<Vec<_>>()
-        } else {
-            unreachable!("Valid attestation signatures contain one");
-        };
-
         if DUMP {
-            for (i, d) in digests.iter().enumerate() {
+            for (i, d) in attestation.attested_certifications()?.enumerate() {
                 crate::fmt::hex::Dumper::new(std::io::stderr(), "")
                     .write(d, format!("expected digest {}", i))?;
             }
         }
+
+        let digests: std::collections::HashSet<_> =
+            attestation.attested_certifications()?.collect();
 
         for (i, certification) in
             test.userids().next().unwrap().certifications().enumerate()
@@ -6142,7 +6126,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
                     .write(&digest, format!("computed digest {}", i))?;
             }
 
-            assert!(digests.contains(&digest));
+            assert!(digests.contains(&digest[..]));
         }
 
         Ok(())

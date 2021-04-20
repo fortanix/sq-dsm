@@ -2214,6 +2214,7 @@ impl crate::packet::Signature {
                     | SignatureTarget
                     | PreferredAEADAlgorithms
                     | IntendedRecipient
+                    | AttestedCertifications
                     | Reserved(_)
                     => false,
                 Issuer
@@ -2812,8 +2813,6 @@ impl Signature {
               R: key::KeyRole,
     {
         use crate::types::SignatureType__AttestedKey;
-        use crate::packet::signature::subpacket
-            ::SubpacketTag__AttestedCertifications;
 
         if self.typ() != SignatureType__AttestedKey {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -2821,27 +2820,12 @@ impl Signature {
 
         let mut hash = self.hash_algo().context()?;
 
-        if self.hashed_area()
-            .subpackets(SubpacketTag__AttestedCertifications).count() != 1
-            || self.unhashed_area()
-            .subpackets(SubpacketTag__AttestedCertifications).count() != 0
+        if self.attested_certifications()?
+            .any(|d| d.len() != hash.digest_size())
         {
             return Err(Error::BadSignature(
-                "Wrong number of attested certification subpackets".into())
+                "Wrong number of bytes in certification subpacket".into())
                        .into());
-        }
-
-        if let SubpacketValue::Unknown { body, .. } =
-            self.subpacket(SubpacketTag__AttestedCertifications).unwrap()
-            .value()
-        {
-            if body.len() % hash.digest_size() != 0 {
-                return Err(Error::BadSignature(
-                    "Wrong number of bytes in certification subpacket".into())
-                           .into());
-            }
-        } else {
-            unreachable!("Selected attested certifications, got wrong value");
         }
 
         self.hash_userid_binding(&mut hash, pk, userid);
@@ -2954,8 +2938,6 @@ impl Signature {
               R: key::KeyRole,
     {
         use crate::types::SignatureType__AttestedKey;
-        use crate::packet::signature::subpacket
-            ::SubpacketTag__AttestedCertifications;
 
         if self.typ() != SignatureType__AttestedKey {
             return Err(Error::UnsupportedSignatureType(self.typ()).into());
@@ -2963,27 +2945,12 @@ impl Signature {
 
         let mut hash = self.hash_algo().context()?;
 
-        if self.hashed_area()
-            .subpackets(SubpacketTag__AttestedCertifications).count() != 1
-            || self.unhashed_area()
-            .subpackets(SubpacketTag__AttestedCertifications).count() != 0
+        if self.attested_certifications()?
+            .any(|d| d.len() != hash.digest_size())
         {
             return Err(Error::BadSignature(
-                "Wrong number of attested certification subpackets".into())
+                "Wrong number of bytes in certification subpacket".into())
                        .into());
-        }
-
-        if let SubpacketValue::Unknown { body, .. } =
-            self.subpacket(SubpacketTag__AttestedCertifications).unwrap()
-            .value()
-        {
-            if body.len() % hash.digest_size() != 0 {
-                return Err(Error::BadSignature(
-                    "Wrong number of bytes in certification subpacket".into())
-                           .into());
-            }
-        } else {
-            unreachable!("Selected attested certifications, got wrong value");
         }
 
         self.hash_user_attribute_binding(&mut hash, pk, ua);

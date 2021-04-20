@@ -1331,15 +1331,18 @@ impl Signature4 {
 
         let typ = php_try!(php.parse_u8("type"));
         let pk_algo: PublicKeyAlgorithm = php_try!(php.parse_u8("pk_algo")).into();
-        let hash_algo = php_try!(php.parse_u8("hash_algo"));
+        let hash_algo: HashAlgorithm =
+            php_try!(php.parse_u8("hash_algo")).into();
         let hashed_area_len = php_try!(php.parse_be_u16("hashed_area_len"));
         let hashed_area
             = php_try!(SubpacketArea::parse(&mut php,
-                                            hashed_area_len as usize));
+                                            hashed_area_len as usize,
+                                            hash_algo));
         let unhashed_area_len = php_try!(php.parse_be_u16("unhashed_area_len"));
         let unhashed_area
             = php_try!(SubpacketArea::parse(&mut php,
-                                            unhashed_area_len as usize));
+                                            unhashed_area_len as usize,
+                                            hash_algo));
         let digest_prefix1 = php_try!(php.parse_u8("digest_prefix1"));
         let digest_prefix2 = php_try!(php.parse_u8("digest_prefix2"));
         if ! pk_algo.for_signing() {
@@ -1348,7 +1351,6 @@ impl Signature4 {
         let mpis = php_try!(
             crypto::mpi::Signature::_parse(pk_algo, &mut php));
 
-        let hash_algo = hash_algo.into();
         let typ = typ.into();
         let need_hash = HashingMode::for_signature(hash_algo, typ);
         let mut pp = php.ok(Packet::Signature(Signature4::new(
@@ -1511,12 +1513,15 @@ fn signature_parser_test () {
 
 impl SubpacketArea {
     // Parses a subpacket area.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(php: &mut PacketHeaderParser<T>, mut limit: usize)
-                 -> Result<Self>
+    fn parse<'a, T>(php: &mut PacketHeaderParser<T>,
+                    mut limit: usize,
+                    hash_algo: HashAlgorithm)
+                    -> Result<Self>
+    where T: 'a + BufferedReader<Cookie>,
     {
         let mut packets = Vec::new();
         while limit > 0 {
-            let p = Subpacket::parse(php, limit)?;
+            let p = Subpacket::parse(php, limit, hash_algo)?;
             assert!(limit >= p.length.len() + p.length.serialized_len());
             limit -= p.length.len() + p.length.serialized_len();
             packets.push(p);
@@ -1528,8 +1533,12 @@ impl SubpacketArea {
 
 impl Subpacket {
     // Parses a raw subpacket.
-    fn parse<'a, T: 'a + BufferedReader<Cookie>>(php: &mut PacketHeaderParser<T>, limit: usize)
-                 -> Result<Self> {
+    fn parse<'a, T>(php: &mut PacketHeaderParser<T>,
+                    limit: usize,
+                    hash_algo: HashAlgorithm)
+                    -> Result<Self>
+    where T: 'a + BufferedReader<Cookie>,
+    {
         let length = SubpacketLength::parse(&mut php.reader)?;
         php.field("subpacket length", length.serialized_len());
         let len = length.len() as usize;
@@ -1744,6 +1753,24 @@ impl Subpacket {
                         5 => Fingerprint::Invalid(bytes.into()),
                         _ => Fingerprint::Invalid(bytes.into()),
                     })
+            },
+            SubpacketTag::AttestedCertifications => {
+                // If we don't know the hash algorithm, put all digest
+                // into one bucket.  That way, at least it will
+                // roundtrip.  It will never verify, because we don't
+                // know the hash.
+                let digest_size =
+                    hash_algo.context().map(|c| c.digest_size())
+                    .unwrap_or(len);
+
+                if len % digest_size != 0 {
+                    return Err(Error::BadSignature(
+                        "Wrong number of bytes in certification subpacket".into())
+                               .into());
+                }
+                let bytes = php.parse_bytes("attested crts", len)?;
+                SubpacketValue::AttestedCertifications(
+                    bytes.chunks(digest_size).map(Into::into).collect())
             },
             SubpacketTag::Reserved(_)
                 | SubpacketTag::PlaceholderForBackwardCompatibility
