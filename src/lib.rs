@@ -16,14 +16,17 @@ use mbedtls::{
 use sequoia_openpgp::{
     Cert,
     packet::{
-        key::{Key4, PublicParts, UnspecifiedRole, PrimaryRole, SubordinateRole},
+        key::{
+            Key4, PublicParts, PrimaryRole, SubordinateRole,
+            UnspecifiedRole
+        },
         Key,
         signature::SignatureBuilder,
         UserID,
     },
     Packet,
     serialize::SerializeInto,
-    types::{HashAlgorithm, SignatureType, PublicKeyAlgorithm},
+    types::{KeyFlags, HashAlgorithm, SymmetricAlgorithm, SignatureType},
 };
 
 use anyhow::Error as SequoiaError;
@@ -171,7 +174,7 @@ impl PgpAgent {
             .build()?;
 
         // Get primary key by name, but subkeys by UID
-        let (mut primary_key, sig_uid, dec_uid) = {
+        let (primary_key, sig_uid, dec_uid) = {
             let req = SobjectDescriptor::Name(key_name.to_string());
             let sobject = http_client.get_sobject(None, &req)?;
             let (e, n, time) = {
@@ -195,9 +198,8 @@ impl PgpAgent {
                 }
             }
         };
-        primary_key.set_pk_algo(PublicKeyAlgorithm::RSASign);
 
-        let mut sig_subkey = {
+        let sig_subkey = {
             let kid = Uuid::parse_str(&sig_uid)?;
             let req = SobjectDescriptor::Kid(kid);
             let sobject = http_client.get_sobject(None, &req)?;
@@ -213,9 +215,8 @@ impl PgpAgent {
 
             Key::V4(Key4::import_public_rsa(&e, &n, Some(time.into()))?)
         };
-        sig_subkey.set_pk_algo(PublicKeyAlgorithm::RSASign);
 
-        let mut dec_subkey = {
+        let dec_subkey = {
             let kid = Uuid::parse_str(&dec_uid)?;
             let req = SobjectDescriptor::Kid(kid);
             let sobject = http_client.get_sobject(None, &req)?;
@@ -231,7 +232,6 @@ impl PgpAgent {
 
             Key::V4(Key4::import_public_rsa(&e, &n, Some(time.into()))?)
         };
-        dec_subkey.set_pk_algo(PublicKeyAlgorithm::RSAEncrypt);
 
         Ok(PgpAgent {
             key_name,
@@ -256,7 +256,17 @@ impl PgpAgent {
             };
             let sig = {
                 let builder = SignatureBuilder::new(SignatureType::DirectKey)
-                    .set_hash_algo(HashAlgorithm::SHA512);
+                    .set_hash_algo(HashAlgorithm::SHA512)
+                    .set_key_flags(KeyFlags::empty().set_certification())?
+                    .set_preferred_hash_algorithms(vec![
+                        HashAlgorithm::SHA512,
+                        HashAlgorithm::SHA256,
+                    ])?
+                    .set_preferred_symmetric_algorithms(vec![
+                        SymmetricAlgorithm::AES256,
+                        SymmetricAlgorithm::AES128,
+                    ])?;
+
                 builder.sign_direct_key(&mut prim_signer, prim_key.parts_as_public())?
             };
 
@@ -275,16 +285,42 @@ impl PgpAgent {
             cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
 
             // Sign subkeys
-            let mut subkeys: Vec<Key<PublicParts, SubordinateRole>> = vec![];
-            subkeys.push(self.dec_subkey.clone().into());
-            subkeys.push(self.sig_subkey.clone().into());
+            struct KeyAndFlags {
+                key: Key<PublicParts, SubordinateRole>,
+                flags: KeyFlags,
+            }
+            let dec_subkey = KeyAndFlags {
+                key: self.dec_subkey.clone().into(),
+                flags: KeyFlags::empty()
+                    .set_storage_encryption()
+                    .set_transport_encryption(),
+            };
+            let sig_subkey = KeyAndFlags {
+                key: self.sig_subkey.clone().into(),
+                flags: KeyFlags::empty()
+                    .set_signing(),
+            };
+
+            let mut subkeys: Vec<KeyAndFlags> = vec![];
+            subkeys.push(dec_subkey);
+            subkeys.push(sig_subkey);
             for subkey in subkeys {
                 let builder =
                     SignatureBuilder::new(SignatureType::SubkeyBinding)
-                    .set_hash_algo(HashAlgorithm::SHA512);
-                let signature = subkey.bind(&mut prim_signer, &cert, builder)?;
+                    .set_hash_algo(HashAlgorithm::SHA512)
+                    .set_key_flags(subkey.flags)?
+                    .set_preferred_hash_algorithms(vec![
+                        HashAlgorithm::SHA512,
+                        HashAlgorithm::SHA256,
+                    ])?
+                    .set_preferred_symmetric_algorithms(vec![
+                        SymmetricAlgorithm::AES256,
+                        SymmetricAlgorithm::AES128,
+                    ])?;
+
+                let signature = subkey.key.bind(&mut prim_signer, &cert, builder)?;
                 cert = cert.insert_packets(
-                    vec![Packet::from(subkey.clone()), signature.into()])?;
+                    vec![Packet::from(subkey.key.clone()), signature.into()])?;
             }
 
             cert

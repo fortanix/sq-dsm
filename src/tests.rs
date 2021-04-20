@@ -9,7 +9,7 @@ fn generate() {
     PgpAgent::generate_key(
         Some(API_ENDPOINT.to_string()),
         MY_API_KEY.to_string(),
-        "Test-PGP"
+        "Test"
     ).unwrap();
 }
 
@@ -18,7 +18,7 @@ fn armored_public_key() {
     let mut agent = PgpAgent::from_key_name(
         Some(API_ENDPOINT.to_string()),
         MY_API_KEY.to_string(),
-        "My Key").unwrap();
+        "Test").unwrap();
 
     let armored = agent.get_armored_key().unwrap();
 
