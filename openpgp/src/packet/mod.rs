@@ -234,10 +234,10 @@ pub mod aed;
 /// are equal, modulo the OpenPGP framing ([`CTB`] and [length style],
 /// potential [partial body encoding]).
 ///
-/// [`Unknown`]: struct.Unknown.html
+/// [`Unknown`]: crate::packet::Unknown
 /// [tag]: https://tools.ietf.org/html/rfc4880#section-4.3
-/// [module-level documentation]: index.html#unknown-packets
-/// [`CTB`]: header/enum.CTB.html
+/// [module-level documentation]: crate::packet#unknown-packets
+/// [`CTB`]: crate::packet::header::CTB
 /// [length style]: https://tools.ietf.org/html/rfc4880#section-4.2
 /// [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
 #[non_exhaustive]

@@ -54,7 +54,7 @@
 //!
 //! For a more complete example, see the [streaming examples].
 //!
-//!   [streaming examples]: streaming/index.html#examples
+//!   [streaming examples]: stream#examples
 //!
 //! # Serializing objects
 //!

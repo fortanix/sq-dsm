@@ -109,7 +109,7 @@
 //!
 //! [Section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
 //! [`Cert`]: struct.Cert.html
-//! [`ComponentBundle`]: bindle/index.html
+//! [`ComponentBundle`]: bundle::ComponentBundle
 //! [`ComponentAmalgamation`]: amalgamation/index.html
 //! [`CertBuilder`]: struct.CertBuilder.html
 //! [`Parser` implementation]: struct.Cert.html#impl-Parse%3C%27a%2C%20Cert%3E

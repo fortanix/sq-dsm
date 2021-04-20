@@ -11,10 +11,9 @@
 //! [`Encryptor`] and [`Signer`].  This is illustrated in this
 //! [example].
 //!
-//!   [`Padder`]: struct.Padder.html
-//!   [`Encryptor`]: ../stream/struct.Encryptor.html
-//!   [`Signer`]: ../stream/struct.Signer.html
-//!   [example]: struct.Padder.html#example
+//!   [`Encryptor`]: super::Encryptor
+//!   [`Signer`]: super::Signer
+//!   [example]: Padder#examples
 //!
 //! # Padding in OpenPGP
 //!
@@ -363,8 +362,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Padder<'a>
 /// This function is meant to be used with [`Padder`], see this
 /// [example].
 ///
-///   [`Padder`]: struct.Padder.html
-///   [example]: struct.Padder.html#example
+///   [example]: Padder#examples
 pub fn padme(l: u64) -> u64 {
     if l < 2 {
         return 1; // Avoid cornercase.
