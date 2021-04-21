@@ -497,11 +497,51 @@ impl<C> ComponentBundle<C> {
         &self.other_revocations
     }
 
+    /// Returns all of the component's Attestation Key Signatures.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// The signatures are validated, and they are sorted by their
+    /// creation time, most recent first.
+    ///
+    /// A certificate owner can use Attestation Key Signatures to
+    /// attest to third party certifications.  Currently, only userid
+    /// and user attribute certifications can be attested.  See
+    /// [Section 5.2.3.30 of RFC 4880bis] for details.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # fn main() -> openpgp::Result<()> {
+    /// # use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// let p = &StandardPolicy::new();
+    ///
+    /// # let (cert, _) =
+    /// #     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    /// #     .generate()?;
+    /// for (i, uid) in cert.userids().enumerate() {
+    ///     eprintln!("UserID #{} ({:?}) has {:?} attestation key signatures",
+    ///               i, uid.email(),
+    ///               uid.attestations().count());
+    /// }
+    /// # Ok(()) }
+    /// ```
+    pub fn attestations(&self)
+                      -> impl Iterator<Item = &Signature> + Send + Sync
+    {
+        self.attestations.iter()
+    }
+
     /// Returns all of the component's signatures.
     ///
     /// Only the self-signatures are validated.  The signatures are
     /// sorted first by type, then by creation time.  The self
     /// revocations come first, then the self signatures,
+    /// then any key attestation signatures,
     /// certifications, and third-party revocations coming last.  This
     /// function may return additional types of signatures that could
     /// be associated to this component.

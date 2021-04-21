@@ -626,6 +626,7 @@ pub trait Preferences<'a>: seal::Sealed {
 ///     for c in cert.userids() {
 ///         acc.push(c.userid().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
+///         for s in c.attestations()      { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
 ///         for s in c.self_revocations()  { acc.push(s.clone().into()) }
 ///         for s in c.other_revocations() { acc.push(s.clone().into()) }
@@ -635,6 +636,7 @@ pub trait Preferences<'a>: seal::Sealed {
 ///     for c in cert.user_attributes() {
 ///         acc.push(c.user_attribute().clone().into());
 ///         for s in c.self_signatures()   { acc.push(s.clone().into()) }
+///         for s in c.attestations()      { acc.push(s.clone().into()) }
 ///         for s in c.certifications()    { acc.push(s.clone().into()) }
 ///         for s in c.self_revocations()  { acc.push(s.clone().into()) }
 ///         for s in c.other_revocations() { acc.push(s.clone().into()) }
