@@ -1556,7 +1556,51 @@ impl SignatureBuilder {
         self.sign(signer, digest)
     }
 
-    fn pre_sign(mut self, signer: &dyn Signer) -> Result<Self> {
+    /// Adjusts signature prior to signing.
+    ///
+    /// This function is called implicitly when a signature is created
+    /// (e.g. using [`SignatureBuilder::sign_message`]).  Usually,
+    /// there is no need to call it explicitly.
+    ///
+    /// This function makes sure that generated signatures have a
+    /// creation time, issuer information, and are not predictable by
+    /// including a salt.  Then, it sorts the subpackets.  The
+    /// function is idempotent modulo salt value.
+    ///
+    /// # Examples
+    ///
+    /// Occasionally, it is useful to determine the available space in
+    /// a subpacket area.  To take the effect of this function into
+    /// account, call this function explicitly:
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # fn main() -> openpgp::Result<()> {
+    /// # use openpgp::packet::prelude::*;
+    /// # use openpgp::types::Curve;
+    /// # use openpgp::packet::signature::subpacket::SubpacketArea;
+    /// # use openpgp::types::SignatureType;
+    /// #
+    /// # let key: Key<key::SecretParts, key::PrimaryRole>
+    /// #     = Key::from(Key4::generate_ecc(true, Curve::Ed25519)?);
+    /// # let mut signer = key.into_keypair()?;
+    /// let sig = SignatureBuilder::new(SignatureType::Binary)
+    ///     .pre_sign(&mut signer)?; // Important for size calculation.
+    ///
+    /// // Compute the available space in the hashed area.  For this,
+    /// // it is important that template.pre_sign has been called.
+    /// use openpgp::serialize::MarshalInto;
+    /// let available_space =
+    ///     SubpacketArea::MAX_SIZE - sig.hashed_area().serialized_len();
+    ///
+    /// // Let's check whether our prediction was right.
+    /// let sig = sig.sign_message(&mut signer, b"Hello World :)")?;
+    /// assert_eq!(
+    ///     available_space,
+    ///     SubpacketArea::MAX_SIZE - sig.hashed_area().serialized_len());
+    /// # Ok(()) }
+    /// ```
+    pub fn pre_sign(mut self, signer: &dyn Signer) -> Result<Self> {
         use std::time;
         self.pk_algo = signer.public().pk_algo();
 

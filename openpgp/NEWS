@@ -6,6 +6,7 @@
 ** New functionality
    - Signature::verify_user_attribute_attestation
    - Signature::verify_userid_attestation
+   - SignatureBuilder::pre_sign
    - SignatureBuilder::set_attested_certifications
    - SignatureType::AttestationKey
    - SubpacketAreas::MAX_SIZE
