@@ -4,7 +4,10 @@
 
 * Changes in 1.2.0
 ** New functionality
+   - Signature::verify_user_attribute_attestation
+   - Signature::verify_userid_attestation
    - SignatureBuilder::set_attested_certifications
+   - SignatureType::AttestationKey
    - SubpacketAreas::attested_certifications
    - SubpacketTag::AttestedCertifications
    - SubpacketValue::AttestedCertifications

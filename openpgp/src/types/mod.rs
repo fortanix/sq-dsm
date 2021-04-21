@@ -1142,6 +1142,15 @@ pub enum SignatureType {
     /// Positive certification of a User ID and Public-Key packet.
     PositiveCertification,
 
+    /// Attestation Key Signature (proposed).
+    ///
+    /// Allows the certificate owner to attest to third party
+    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// details.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    AttestationKey,
+
     /// Subkey Binding Signature
     SubkeyBinding,
     /// Primary Key Binding Signature
@@ -1166,11 +1175,6 @@ pub enum SignatureType {
 }
 assert_send_and_sync!(SignatureType);
 
-/// An attested key signature.
-#[allow(non_upper_case_globals)]
-pub(crate) const SignatureType__AttestedKey: SignatureType =
-    SignatureType::Unknown(0x16);
-
 
 impl From<u8> for SignatureType {
     fn from(u: u8) -> Self {
@@ -1182,6 +1186,7 @@ impl From<u8> for SignatureType {
             0x11 => SignatureType::PersonaCertification,
             0x12 => SignatureType::CasualCertification,
             0x13 => SignatureType::PositiveCertification,
+            0x16 => SignatureType::AttestationKey,
             0x18 => SignatureType::SubkeyBinding,
             0x19 => SignatureType::PrimaryKeyBinding,
             0x1f => SignatureType::DirectKey,
@@ -1205,6 +1210,7 @@ impl From<SignatureType> for u8 {
             SignatureType::PersonaCertification => 0x11,
             SignatureType::CasualCertification => 0x12,
             SignatureType::PositiveCertification => 0x13,
+            SignatureType::AttestationKey => 0x16,
             SignatureType::SubkeyBinding => 0x18,
             SignatureType::PrimaryKeyBinding => 0x19,
             SignatureType::DirectKey => 0x1f,
@@ -1235,6 +1241,8 @@ impl fmt::Display for SignatureType {
                 f.write_str("CasualCertification"),
             SignatureType::PositiveCertification =>
                 f.write_str("PositiveCertification"),
+            SignatureType::AttestationKey =>
+                f.write_str("AttestationKey"),
             SignatureType::SubkeyBinding =>
                 f.write_str("SubkeyBinding"),
             SignatureType::PrimaryKeyBinding =>

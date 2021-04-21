@@ -1806,7 +1806,7 @@ impl Cert {
                     }
                 },
 
-                crate::types::SignatureType__AttestedKey => {
+                crate::types::SignatureType::AttestationKey => {
                     for binding in self.userids.iter_mut() {
                         check_one!(format!("userid \"{}\"",
                                            String::from_utf8_lossy(
@@ -6051,7 +6051,7 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
         bob.primary_key().key().hash(&mut h);
         bob.userids().next().unwrap().userid().hash(&mut h);
 
-        let attestation = SignatureBuilder::new(SignatureType__AttestedKey)
+        let attestation = SignatureBuilder::new(SignatureType::AttestationKey)
             .set_attested_certifications(vec![digest])?
             .sign_hash(&mut bob_signer, h)?;
 

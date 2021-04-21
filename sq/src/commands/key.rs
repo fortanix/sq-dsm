@@ -431,9 +431,6 @@ fn attest_certifications(config: Config, m: &ArgMatches)
         crypto::hash::{Hash, Digest},
         types::HashAlgorithm,
     };
-    #[allow(non_upper_case_globals)]
-    const SignatureType__AttestedKey: SignatureType =
-        SignatureType::Unknown(0x16);
 
     // Attest to all certifications?
     let all = ! m.is_present("none"); // All is the default.
@@ -452,7 +449,7 @@ fn attest_certifications(config: Config, m: &ArgMatches)
     let key = Cert::from_packets(key.into_packets().filter(|p| {
         !matches!(
                 p,
-                Packet::Signature(s) if s.typ() == SignatureType__AttestedKey
+                Packet::Signature(s) if s.typ() == SignatureType::AttestationKey
         )
     }))?;
 
@@ -492,7 +489,7 @@ fn attest_certifications(config: Config, m: &ArgMatches)
 
         for digests in attestations.chunks(digests_per_sig) {
             attestation_signatures.push(
-                SignatureBuilder::new(SignatureType__AttestedKey)
+                SignatureBuilder::new(SignatureType::AttestationKey)
                     .set_signature_creation_time(t)?
                     .set_attested_certifications(digests)?
                     .sign_hash(&mut pk_signer, hash.clone())?);
@@ -524,7 +521,7 @@ fn attest_certifications(config: Config, m: &ArgMatches)
 
         for digests in attestations.chunks(digests_per_sig) {
             attestation_signatures.push(
-                SignatureBuilder::new(SignatureType__AttestedKey)
+                SignatureBuilder::new(SignatureType::AttestationKey)
                     .set_signature_creation_time(t)?
                     .set_attested_certifications(digests)?
                     .sign_hash(&mut pk_signer, hash.clone())?);
