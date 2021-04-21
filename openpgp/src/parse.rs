@@ -1519,9 +1519,15 @@ impl SubpacketArea {
                     -> Result<Self>
     where T: 'a + BufferedReader<Cookie>,
     {
+        let indent = php.recursion_depth();
+        tracer!(TRACE, "SubpacketArea::parse", indent);
+
         let mut packets = Vec::new();
         while limit > 0 {
-            let p = Subpacket::parse(php, limit, hash_algo)?;
+            let r = Subpacket::parse(php, limit, hash_algo);
+            t!("Subpacket::parse(_, {}, {:?}) => {:?}",
+               limit, hash_algo, r);
+            let p = r?;
             assert!(limit >= p.length.len() + p.length.serialized_len());
             limit -= p.length.len() + p.length.serialized_len();
             packets.push(p);
