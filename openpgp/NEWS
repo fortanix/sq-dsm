@@ -8,6 +8,7 @@
    - Signature::verify_userid_attestation
    - SignatureBuilder::set_attested_certifications
    - SignatureType::AttestationKey
+   - SubpacketAreas::MAX_SIZE
    - SubpacketAreas::attested_certifications
    - SubpacketTag::AttestedCertifications
    - SubpacketValue::AttestedCertifications

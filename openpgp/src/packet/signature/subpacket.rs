@@ -591,6 +591,9 @@ impl<'a> IntoIterator for &'a SubpacketArea {
 }
 
 impl SubpacketArea {
+    /// The maximum size of a subpacket area.
+    pub const MAX_SIZE: usize = (1 << 16) - 1;
+
     /// Returns a new subpacket area containing the given `packets`.
     pub fn new(packets: Vec<Subpacket>) -> Result<SubpacketArea> {
         let area = SubpacketArea {
