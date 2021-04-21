@@ -3,7 +3,12 @@ use std::{collections::HashMap, convert::TryFrom, io::{Error as StdIoError, Writ
 use uuid::{Uuid, parser::ParseError as UuidError};
 
 use sdkms::{
-    api_model::{KeyOperations, ObjectType, SobjectDescriptor, SobjectRequest},
+    api_model::{
+        KeyOperations, ObjectType, SobjectDescriptor, SobjectRequest,
+        RsaEncryptionPolicy, RsaEncryptionPaddingPolicy,
+        RsaOptions,
+        RsaSignaturePolicy, RsaSignaturePaddingPolicy,
+    },
     Error as SdkmsError,
     SdkmsClient,
 };
@@ -13,23 +18,44 @@ use mbedtls::{
     pk::Pk,
 };
 
-use sequoia_openpgp::{
+extern crate sequoia_openpgp as openpgp;
+
+use openpgp::{
     Cert,
+    crypto::SessionKey,
     packet::{
         key::{
             Key4, PublicParts, PrimaryRole, SubordinateRole,
             UnspecifiedRole
         },
         Key,
+        PKESK,
         signature::SignatureBuilder,
+        SKESK,
         UserID,
     },
+    KeyHandle,
     Packet,
-    serialize::{SerializeInto, stream::{Armorer, Message, Signer, LiteralWriter}},
+    policy::StandardPolicy,
+    parse::{
+        stream::{DecryptionHelper, DecryptorBuilder, VerificationHelper, MessageStructure},
+        Parse,
+    },
+    serialize::{stream::{Armorer, Message, Signer, LiteralWriter}},
     types::{KeyFlags, HashAlgorithm, SymmetricAlgorithm, SignatureType},
 };
 
 use anyhow::Error as SequoiaError;
+
+type Result<T> = core::result::Result<T, Error>;
+
+pub mod signer;
+
+pub mod decryptor;
+
+use signer::RawSigner;
+use decryptor::RawDecryptor;
+
 
 #[derive(Debug)]
 pub enum Error {
@@ -41,14 +67,6 @@ pub enum Error {
     SdkmsBadResponse,
     SdkmsSubkeyNotFound,
 }
-
-type Result<T> = core::result::Result<T, Error>;
-
-pub mod signer;
-
-use signer::RawSigner;
-
-pub mod decryptor;
 
 #[derive(Clone)]
 struct SequoiaKey {
@@ -62,7 +80,6 @@ struct PgpAgent {
     key_name: &'static str,
     primary: SequoiaKey,
     subkey: SequoiaKey,
-    http_client: SdkmsClient,
 }
 
 enum KeyRole {
@@ -76,10 +93,6 @@ impl PgpAgent {
         sink: &mut (dyn Write + Send + Sync),
         plaintext: &str,
     ) -> Result<()> {
-        // Start streaming an OpenPGP message.
-        let message = Message::new(sink);
-
-        let message = Armorer::new(message).build()?;
 
         let signer = RawSigner {
             api_endpoint: self.api_endpoint,
@@ -87,17 +100,80 @@ impl PgpAgent {
             sequoia_key: self.primary.clone(),
         };
 
+        let message = Message::new(sink);
+
+        let message = Armorer::new(message).build()?;
+
         let message = Signer::new(message, signer).build()?;
 
-        // Emit a literal data packet.
         let mut message = LiteralWriter::new(message).build()?;
 
-        // Sign the data.
         message.write_all(plaintext.as_bytes())?;
 
-        // Finalize the OpenPGP message to make sure that all data is
-        // written.
         message.finalize()?;
+
+        Ok(())
+    }
+
+    pub(crate) fn decrypt(
+        &self,
+        sink: &mut dyn Write,
+        ciphertext: &[u8],
+        recipient: &Cert
+    ) -> Result<()>
+    {
+        struct Helper {
+            decryptor: RawDecryptor,
+        }
+
+        impl VerificationHelper for Helper {
+            fn get_certs(&mut self, _ids: &[KeyHandle])
+                -> openpgp::Result<Vec<Cert>> {
+                    // Return public keys for signature verification here.
+                    // TODO
+                    Ok(Vec::new())
+            }
+
+            fn check(&mut self, _structure: MessageStructure)
+                -> openpgp::Result<()> {
+                    // Implement your signature verification policy here.
+                    // TODO
+                    Ok(())
+            }
+        }
+
+        impl DecryptionHelper for Helper {
+            fn decrypt<D>(&mut self,
+                pkesks: &[PKESK],
+                _skesks: &[SKESK],
+                sym_algo: Option<SymmetricAlgorithm>,
+                mut decrypt: D)
+                -> openpgp::Result<Option<openpgp::Fingerprint>>
+                    where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+            {
+
+                pkesks[0].decrypt(&mut self.decryptor, sym_algo)
+                    .map(|(algo, session_key)| decrypt(algo, &session_key));
+
+                // XXX: In production code, return the Fingerprint of the
+                // recipient's Cert here
+                Ok(None)
+            }
+        }
+
+        let decryptor = RawDecryptor {
+            api_key: self.api_key,
+            api_endpoint: self.api_endpoint,
+            sequoia_key: self.subkey.clone(),
+        };
+
+        let h = Helper { decryptor };
+
+        let p = &StandardPolicy::new();
+        let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
+            .with_policy(p, None, h)?;
+
+        std::io::copy(&mut decryptor, sink)?;
 
         Ok(())
     }
@@ -124,6 +200,20 @@ impl PgpAgent {
                 _ => ()
             }
 
+            let enc_policy = RsaEncryptionPolicy {
+                padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15{}),
+            };
+
+            let sig_policy = RsaSignaturePolicy {
+                padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15{}),
+            };
+
+            let rsa_options = RsaOptions {
+                encryption_policy: vec![enc_policy],
+                signature_policy: vec![sig_policy],
+                ..Default::default()
+            };
+
             let sobject_req = SobjectRequest {
                 name: Some(name),
                 description: Some("SDKMS-PGP Tool".to_string()),
@@ -131,6 +221,7 @@ impl PgpAgent {
                 key_ops: Some(op),
                 key_size: Some(2048),
                 custom_metadata: metadata,
+                rsa: Some(rsa_options),
                 ..Default::default()
             };
 
@@ -180,13 +271,12 @@ impl PgpAgent {
             api_endpoint,
             api_key,
             key_name,
-            http_client,
             primary,
             subkey,
         })
     }
 
-    pub(crate) fn from_key_name(
+    pub(crate) fn summon(
         api_endpoint: &'static str,
         api_key: &'static str,
         key_name: &'static str,
@@ -196,7 +286,7 @@ impl PgpAgent {
             .with_api_key(&api_key)
             .build()?;
 
-        // Get primary key by name, but subkeys by UID
+        // Get primary key by name and subkey by UID
         let (primary, subkey_uid) = {
             let req = SobjectDescriptor::Name(key_name.to_string());
             let sobject = http_client.get_sobject(None, &req)?;
@@ -228,8 +318,8 @@ impl PgpAgent {
 
         let subkey = {
             let kid = Uuid::parse_str(&subkey_uid)?;
-            let req = SobjectDescriptor::Kid(kid); // TODO: Rename
-            let sobject = http_client.get_sobject(None, &req)?;
+            let descriptor = SobjectDescriptor::Kid(kid);
+            let sobject = http_client.get_sobject(None, &descriptor)?;
             let (e, n, time) = {
                 let raw_pk = sobject.pub_key.ok_or(Error::SdkmsBadResponse)?;
                 let deserialized_pk = Pk::from_public_key(&raw_pk)?;
@@ -241,7 +331,7 @@ impl PgpAgent {
             };
 
             SequoiaKey {
-                descriptor: req,
+                descriptor: descriptor,
                 public_key: Key::V4(Key4::import_public_rsa(&e, &n, Some(time.into()))?)
             }
         };
@@ -250,7 +340,6 @@ impl PgpAgent {
             key_name,
             api_endpoint,
             api_key,
-            http_client,
             primary,
             subkey,
         })
@@ -300,8 +389,8 @@ impl PgpAgent {
         // Subkey + signature
         let subkey_public: Key<PublicParts, SubordinateRole> = self.subkey.public_key.clone().into();
         let flags = KeyFlags::empty()
-                .set_storage_encryption()
-                .set_transport_encryption();
+            .set_storage_encryption()
+            .set_transport_encryption();
 
         let builder =
             SignatureBuilder::new(SignatureType::SubkeyBinding)
@@ -322,7 +411,6 @@ impl PgpAgent {
 
         Ok(cert)
     }
-
 }
 
 // Error conversions
