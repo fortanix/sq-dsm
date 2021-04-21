@@ -14,6 +14,14 @@
    - SubpacketAreas::attested_certifications
    - SubpacketTag::AttestedCertifications
    - SubpacketValue::AttestedCertifications
+   - UserAttributeAmalgamation::attest_certifications
+   - UserIDAmalgamation::attest_certifications
+   - ValidUserAttributeAmalgamation::attest_certifications
+   - ValidUserAttributeAmalgamation::attestation_key_signatures
+   - ValidUserAttributeAmalgamation::attested_certifications
+   - ValidUserIDAmalgamation::attest_certifications
+   - ValidUserIDAmalgamation::attestation_key_signatures
+   - ValidUserIDAmalgamation::attested_certifications
 * Changes in 1.1.0
 ** New functionality
    - The new regex module provides regular expression support for

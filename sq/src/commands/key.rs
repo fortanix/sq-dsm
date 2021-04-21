@@ -424,34 +424,11 @@ fn adopt(config: Config, m: &ArgMatches) -> Result<()> {
 
 fn attest_certifications(config: Config, m: &ArgMatches)
                          -> Result<()> {
-    // XXX: This function has to do some steps manually, because
-    // Sequoia does not expose this functionality because it has not
-    // been standardized yet.
-    use sequoia_openpgp::{
-        crypto::hash::{Hash, Digest},
-        types::HashAlgorithm,
-    };
-
     // Attest to all certifications?
     let all = ! m.is_present("none"); // All is the default.
 
-    // Some configuration.
-    let hash_algo = HashAlgorithm::default();
-    let digest_size = hash_algo.context()?.digest_size();
-    let reserve_area_space = 256; // For the other subpackets.
-    let digests_per_sig = ((1usize << 16) - reserve_area_space) / digest_size;
-
     let input = open_or_stdin(m.value_of("key"))?;
     let key = Cert::from_reader(input)?;
-
-
-    // First, remove all attestations.
-    let key = Cert::from_packets(key.into_packets().filter(|p| {
-        !matches!(
-                p,
-                Packet::Signature(s) if s.typ() == SignatureType::AttestationKey
-        )
-    }))?;
 
     // Get a signer.
     let mut passwords = Vec::new();
@@ -465,66 +442,28 @@ fn attest_certifications(config: Config, m: &ArgMatches)
     // Now, create new attestation signatures.
     let mut attestation_signatures = Vec::new();
     for uid in key.userids() {
-        let mut attestations = Vec::new();
-
         if all {
-            for certification in uid.certifications() {
-                let mut h = hash_algo.context()?;
-                certification.hash_for_confirmation(&mut h);
-                attestations.push(h.into_digest()?);
-            }
-        }
-
-        // Hashes SHOULD be sorted.
-        attestations.sort();
-
-        // All attestation signatures we generate for this component
-        // should have the same creation time.  Fix it now.
-        let t = std::time::SystemTime::now();
-
-        // Hash the components like in a binding signature.
-        let mut hash = hash_algo.context()?;
-        key.primary_key().hash(&mut hash);
-        uid.hash(&mut hash);
-
-        for digests in attestations.chunks(digests_per_sig) {
-            attestation_signatures.push(
-                SignatureBuilder::new(SignatureType::AttestationKey)
-                    .set_signature_creation_time(t)?
-                    .set_attested_certifications(digests)?
-                    .sign_hash(&mut pk_signer, hash.clone())?);
+            attestation_signatures.append(
+                &mut uid.attest_certifications(&config.policy,
+                                               &mut pk_signer,
+                                               uid.certifications())?);
+        } else {
+            attestation_signatures.append(
+                &mut uid.attest_certifications(&config.policy,
+                                               &mut pk_signer, &[])?);
         }
     }
 
     for ua in key.user_attributes() {
-        let mut attestations = Vec::new();
-
         if all {
-            for certification in ua.certifications() {
-                let mut h = hash_algo.context()?;
-                certification.hash_for_confirmation(&mut h);
-                attestations.push(h.into_digest()?);
-            }
-        }
-
-        // Hashes SHOULD be sorted.
-        attestations.sort();
-
-        // All attestation signatures we generate for this component
-        // should have the same creation time.  Fix it now.
-        let t = std::time::SystemTime::now();
-
-        // Hash the components like in a binding signature.
-        let mut hash = hash_algo.context()?;
-        key.primary_key().hash(&mut hash);
-        ua.hash(&mut hash);
-
-        for digests in attestations.chunks(digests_per_sig) {
-            attestation_signatures.push(
-                SignatureBuilder::new(SignatureType::AttestationKey)
-                    .set_signature_creation_time(t)?
-                    .set_attested_certifications(digests)?
-                    .sign_hash(&mut pk_signer, hash.clone())?);
+            attestation_signatures.append(
+                &mut ua.attest_certifications(&config.policy,
+                                              &mut pk_signer,
+                                              ua.certifications())?);
+        } else {
+            attestation_signatures.append(
+                &mut ua.attest_certifications(&config.policy,
+                                              &mut pk_signer, &[])?);
         }
     }
 

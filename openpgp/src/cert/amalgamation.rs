@@ -226,9 +226,11 @@
 use std::time;
 use std::time::SystemTime;
 use std::clone::Clone;
+use std::borrow::Borrow;
 
 use crate::{
     cert::prelude::*,
+    crypto::{Signer, hash::{Hash, Digest}},
     Error,
     packet::{
         Signature,
@@ -249,6 +251,7 @@ use crate::{
         HashAlgorithm,
         KeyServerPreferences,
         RevocationStatus,
+        SignatureType,
         SymmetricAlgorithm,
     },
 };
@@ -886,6 +889,89 @@ impl<'a> UserIDAmalgamation<'a> {
     pub fn userid(&self) -> &'a UserID {
         self.component()
     }
+
+    /// Attests to third-party certifications.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Allows the certificate owner to attest to third party
+    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// details.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    /// A policy is needed, because the expiration is updated by
+    /// updating the current binding signatures.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # fn main() -> openpgp::Result<()> {
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::types::*;
+    /// # let policy = &openpgp::policy::StandardPolicy::new();
+    /// let (alice, _) = CertBuilder::new()
+    ///     .add_userid("alice@example.org")
+    ///     .generate()?;
+    /// let mut alice_signer =
+    ///     alice.primary_key().key().clone().parts_into_secret()?
+    ///     .into_keypair()?;
+    ///
+    /// let (bob, _) = CertBuilder::new()
+    ///     .add_userid("bob@example.org")
+    ///     .generate()?;
+    /// let mut bob_signer =
+    ///     bob.primary_key().key().clone().parts_into_secret()?
+    ///     .into_keypair()?;
+    /// let bob_pristine = bob.clone();
+    ///
+    /// // Have Alice certify the binding between "bob@example.org" and
+    /// // Bob's key.
+    /// let alice_certifies_bob
+    ///     = bob.userids().next().unwrap().userid().bind(
+    ///         &mut alice_signer, &bob,
+    ///         SignatureBuilder::new(SignatureType::GenericCertification))?;
+    /// let bob = bob.insert_packets(vec![alice_certifies_bob.clone()])?;
+    ///
+    /// // Have Bob attest that certification.
+    /// let bobs_uid = bob.userids().next().unwrap();
+    /// let attestations =
+    ///     bobs_uid.attest_certifications(
+    ///         policy,
+    ///         &mut bob_signer,
+    ///         bobs_uid.certifications())?;
+    /// let bob = bob.insert_packets(attestations)?;
+    ///
+    /// assert_eq!(bob.bad_signatures().count(), 0);
+    /// assert_eq!(bob.userids().next().unwrap().certifications().next(),
+    ///            Some(&alice_certifies_bob));
+    /// # Ok(()) }
+    /// ```
+    pub fn attest_certifications<C, S>(&self,
+                                       policy: &dyn Policy,
+                                       primary_signer: &mut dyn Signer,
+                                       certifications: C)
+                                       -> Result<Vec<Signature>>
+    where C: IntoIterator<Item = S>,
+          S: Borrow<Signature>,
+    {
+        // Hash the components like in a binding signature.
+        let mut hash = HashAlgorithm::default().context()?;
+        self.cert().primary_key().hash(&mut hash);
+        self.userid().hash(&mut hash);
+
+        // Check if there is a previous attestation.  If so, we need
+        // that to robustly override it.
+        let old = self.clone()
+            .with_policy(policy, None)
+            .ok()
+            .and_then(|v| v.attestation_key_signatures().cloned().next());
+
+        attest_certifications_common(hash, old, primary_signer, certifications)
+    }
 }
 
 impl<'a> UserAttributeAmalgamation<'a> {
@@ -901,6 +987,136 @@ impl<'a> UserAttributeAmalgamation<'a> {
     pub fn user_attribute(&self) -> &'a UserAttribute {
         self.component()
     }
+
+    /// Attests to third-party certifications.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Allows the certificate owner to attest to third party
+    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// details.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    /// A policy is needed, because the expiration is updated by
+    /// updating the current binding signatures.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///
+    /// # Examples
+    ///
+    /// See [`UserIDAmalgamation::attest_certifications#examples`].
+    ///
+    ///   [`UserIDAmalgamation::attest_certifications#examples`]: type.UserIDAmalgamation.html#examples
+    // The explicit link works around a bug in rustdoc.
+    pub fn attest_certifications<C, S>(&self,
+                                       policy: &dyn Policy,
+                                       primary_signer: &mut dyn Signer,
+                                       certifications: C)
+                                       -> Result<Vec<Signature>>
+    where C: IntoIterator<Item = S>,
+          S: Borrow<Signature>,
+    {
+        // Hash the components like in a binding signature.
+        let mut hash = HashAlgorithm::default().context()?;
+        self.cert().primary_key().hash(&mut hash);
+        self.user_attribute().hash(&mut hash);
+
+        // Check if there is a previous attestation.  If so, we need
+        // that to robustly override it.
+        let old = self.clone()
+            .with_policy(policy, None)
+            .ok()
+            .and_then(|v| v.attestation_key_signatures().cloned().next());
+
+        attest_certifications_common(hash, old, primary_signer, certifications)
+    }
+}
+
+/// Attests to third-party certifications.
+fn attest_certifications_common<C, S>(hash: Box<dyn Digest>,
+                                      old_attestation: Option<Signature>,
+                                      primary_signer: &mut dyn Signer,
+                                      certifications: C)
+                                      -> Result<Vec<Signature>>
+where C: IntoIterator<Item = S>,
+      S: Borrow<Signature>,
+{
+    use crate::{
+        packet::signature::{SignatureBuilder, subpacket::SubpacketArea},
+        serialize::MarshalInto,
+    };
+
+    let hash_algo = hash.algo();
+    let digest_size = hash.digest_size();
+
+    let mut attestations = Vec::new();
+    for certification in certifications.into_iter() {
+        let mut h = hash_algo.context()?;
+        certification.borrow().hash_for_confirmation(&mut h);
+        attestations.push(h.into_digest()?);
+    }
+
+    // Hashes SHOULD be sorted.
+    attestations.sort();
+
+    // All attestation signatures we generate for this component
+    // should have the same creation time.  Fix it now.  We also like
+    // our signatures to be newer than any existing signatures.  Do so
+    // by using the old attestation as template.
+    let template = if let Some(old) = old_attestation {
+        let mut s: SignatureBuilder = old.into();
+        s.hashed_area_mut().clear();
+        s.unhashed_area_mut().clear();
+        s
+    } else {
+        // Backdate the signature a little so that we can immediately
+        // override it.
+        use crate::packet::signature::SIG_BACKDATE_BY;
+        let creation_time =
+            time::SystemTime::now() - time::Duration::new(SIG_BACKDATE_BY, 0);
+
+        let template = SignatureBuilder::new(SignatureType::AttestationKey)
+            .set_signature_creation_time(creation_time)?;
+        template
+    };
+
+    let template = template
+        .set_hash_algo(hash_algo)
+    // Important for size calculation.
+        .pre_sign(primary_signer)?;
+
+    // Compute the available space in the hashed area.  For this,
+    // it is important that template.pre_sign has been called.
+    let available_space =
+        SubpacketArea::MAX_SIZE - template.hashed_area().serialized_len();
+
+    // Reserve space for the subpacket header, length and tag.
+    const SUBPACKET_HEADER_MAX_LEN: usize = 5 + 1;
+
+    // Compute the chunk size for each signature.
+    let digests_per_sig =
+        (available_space - SUBPACKET_HEADER_MAX_LEN) / digest_size;
+
+    // Now create the signatures.
+    let mut sigs = Vec::new();
+    for digests in attestations.chunks(digests_per_sig) {
+        sigs.push(
+            template.clone()
+                .set_attested_certifications(digests)?
+                .sign_hash(primary_signer, hash.clone())?);
+    }
+
+    if attestations.is_empty() {
+        // The certificate owner can withdraw attestations by issuing
+        // an empty attestation key signature.
+        assert!(sigs.is_empty());
+        sigs.push(
+            template
+                .set_attested_certifications(Option::<&[u8]>::None)?
+                .sign_hash(primary_signer, hash.clone())?);
+    }
+
+    Ok(sigs)
 }
 
 /// A `ComponentAmalgamation` plus a `Policy` and a reference time.
@@ -1002,6 +1218,170 @@ assert_send_and_sync!(ValidComponentAmalgamation<'_, C> where C);
 /// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
 pub type ValidUserIDAmalgamation<'a> = ValidComponentAmalgamation<'a, UserID>;
 
+impl<'a> ValidUserIDAmalgamation<'a> {
+    /// Returns the userid's attested third-party certifications.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Allows the certificate owner to attest to third party
+    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// details.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    /// This method only returns signatures that are valid under the
+    /// current policy and are attested by the certificate holder.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    pub fn attested_certifications(&self)
+        -> impl Iterator<Item=&Signature> + Send + Sync
+    {
+        let mut hash_algo = None;
+        let digests: std::collections::HashSet<_> =
+            self.attestation_key_signatures()
+            .filter_map(|sig| {
+                sig.attested_certifications().ok()
+                    .map(|digest_iter| (sig, digest_iter))
+            })
+            .flat_map(|(sig, digest_iter)| {
+                hash_algo = Some(sig.hash_algo());
+                digest_iter
+            })
+            .collect();
+
+        self.certifications()
+            .filter_map(move |sig| {
+                let mut hash = hash_algo.and_then(|a| a.context().ok())?;
+                sig.hash_for_confirmation(&mut hash);
+                let digest = hash.into_digest().ok()?;
+                if digests.contains(&digest[..]) {
+                    Some(sig)
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Returns set of active attestation key signatures.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Returns the set of signatures with the newest valid signature
+    /// creation time.  Older signatures are not returned.  The sum of
+    /// all digests in these signatures are the set of attested
+    /// third-party certifications.
+    ///
+    /// This interface is useful for pruning old attestation key
+    /// signatures when filtering a certificate.
+    ///
+    /// Note: This is a low-level interface.  Consider using
+    /// [`ValidUserIDAmalgamation::attested_certifications`] to
+    /// iterate over all attested certifications.
+    ///
+    ///   [`ValidUserIDAmalgamation::attested_certifications`]: #method.attested_certifications
+    // The explicit link works around a bug in rustdoc.
+    pub fn attestation_key_signatures(&'a self)
+        -> impl Iterator<Item=&'a Signature> + Send + Sync
+    {
+        let mut first = None;
+
+        // The newest valid signature will be returned first.
+        self.attestations()
+        // First, filter out any invalid (e.g. too new) signatures.
+            .filter(move |sig| self.cert.policy().signature(
+                sig,
+                HashAlgoSecurity::CollisionResistance).is_ok())
+            .take_while(move |sig| {
+                let time_hash = (
+                    if let Some(t) = sig.signature_creation_time() {
+                        (t, sig.hash_algo())
+                    } else {
+                        // Something is off.  Just stop.
+                        return false;
+                    },
+                    sig.hash_algo());
+
+                if let Some(reference) = first {
+                    // Stop looking once we see an older signature or one
+                    // with a different hash algo.
+                    reference == time_hash
+                } else {
+                    first = Some(time_hash);
+                    true
+                }
+            })
+    }
+
+    /// Attests to third-party certifications.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Allows the certificate owner to attest to third party
+    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// details.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use sequoia_openpgp as openpgp;
+    /// # fn main() -> openpgp::Result<()> {
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::signature::SignatureBuilder;
+    /// # use openpgp::types::*;
+    /// # let policy = &openpgp::policy::StandardPolicy::new();
+    /// let (alice, _) = CertBuilder::new()
+    ///     .add_userid("alice@example.org")
+    ///     .generate()?;
+    /// let mut alice_signer =
+    ///     alice.primary_key().key().clone().parts_into_secret()?
+    ///     .into_keypair()?;
+    ///
+    /// let (bob, _) = CertBuilder::new()
+    ///     .add_userid("bob@example.org")
+    ///     .generate()?;
+    /// let mut bob_signer =
+    ///     bob.primary_key().key().clone().parts_into_secret()?
+    ///     .into_keypair()?;
+    /// let bob_pristine = bob.clone();
+    ///
+    /// // Have Alice certify the binding between "bob@example.org" and
+    /// // Bob's key.
+    /// let alice_certifies_bob
+    ///     = bob.userids().next().unwrap().userid().bind(
+    ///         &mut alice_signer, &bob,
+    ///         SignatureBuilder::new(SignatureType::GenericCertification))?;
+    /// let bob = bob.insert_packets(vec![alice_certifies_bob.clone()])?;
+    ///
+    /// // Have Bob attest that certification.
+    /// let bobs_uid = bob.userids().next().unwrap();
+    /// let attestations =
+    ///     bobs_uid.attest_certifications(
+    ///         policy,
+    ///         &mut bob_signer,
+    ///         bobs_uid.certifications())?;
+    /// let bob = bob.insert_packets(attestations)?;
+    ///
+    /// assert_eq!(bob.bad_signatures().count(), 0);
+    /// assert_eq!(bob.userids().next().unwrap().certifications().next(),
+    ///            Some(&alice_certifies_bob));
+    /// # Ok(()) }
+    /// ```
+    pub fn attest_certifications<C, S>(&self,
+                                       primary_signer: &mut dyn Signer,
+                                       certifications: C)
+                                       -> Result<Vec<Signature>>
+    where C: IntoIterator<Item = S>,
+          S: Borrow<Signature>,
+    {
+        std::ops::Deref::deref(self)
+            .attest_certifications(self.policy(),
+                                   primary_signer,
+                                   certifications)
+    }
+}
+
 /// A Valid User Attribute and its associated data.
 ///
 /// A specialized version of [`ValidComponentAmalgamation`].
@@ -1009,6 +1389,130 @@ pub type ValidUserIDAmalgamation<'a> = ValidComponentAmalgamation<'a, UserID>;
 /// [`ValidComponentAmalgamation`]: struct.ValidComponentAmalgamation.html
 pub type ValidUserAttributeAmalgamation<'a>
     = ValidComponentAmalgamation<'a, UserAttribute>;
+
+impl<'a> ValidUserAttributeAmalgamation<'a> {
+    /// Returns the user attributes's attested third-party certifications.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Allows the certificate owner to attest to third party
+    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// details.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    /// This method only returns signatures that are valid under the
+    /// current policy and are attested by the certificate holder.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    pub fn attested_certifications(&self)
+        -> impl Iterator<Item=&Signature> + Send + Sync
+    {
+        let mut hash_algo = None;
+        let digests: std::collections::HashSet<_> =
+            self.attestation_key_signatures()
+            .filter_map(|sig| {
+                sig.attested_certifications().ok()
+                    .map(|digest_iter| (sig, digest_iter))
+            })
+            .flat_map(|(sig, digest_iter)| {
+                hash_algo = Some(sig.hash_algo());
+                digest_iter
+            })
+            .collect();
+
+        self.certifications()
+            .filter_map(move |sig| {
+                let mut hash = hash_algo.and_then(|a| a.context().ok())?;
+                sig.hash_for_confirmation(&mut hash);
+                let digest = hash.into_digest().ok()?;
+                if digests.contains(&digest[..]) {
+                    Some(sig)
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Returns set of active attestation key signatures.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Returns the set of signatures with the newest valid signature
+    /// creation time.  Older signatures are not returned.  The sum of
+    /// all digests in these signatures are the set of attested
+    /// third-party certifications.
+    ///
+    /// This interface is useful for pruning old attestation key
+    /// signatures when filtering a certificate.
+    ///
+    /// Note: This is a low-level interface.  Consider using
+    /// [`ValidUserAttributeAmalgamation::attested_certifications`] to
+    /// iterate over all attested certifications.
+    ///
+    ///   [`ValidUserAttributeAmalgamation::attested_certifications`]: #method.attested_certifications
+    // The explicit link works around a bug in rustdoc.
+    pub fn attestation_key_signatures(&'a self)
+        -> impl Iterator<Item=&'a Signature> + Send + Sync
+    {
+        let mut first = None;
+
+        // The newest valid signature will be returned first.
+        self.attestations()
+        // First, filter out any invalid (e.g. too new) signatures.
+            .filter(move |sig| self.cert.policy().signature(
+                sig,
+                HashAlgoSecurity::CollisionResistance).is_ok())
+            .take_while(move |sig| {
+                let time_hash = (
+                    if let Some(t) = sig.signature_creation_time() {
+                        (t, sig.hash_algo())
+                    } else {
+                        // Something is off.  Just stop.
+                        return false;
+                    },
+                    sig.hash_algo());
+
+                if let Some(reference) = first {
+                    // Stop looking once we see an older signature or one
+                    // with a different hash algo.
+                    reference == time_hash
+                } else {
+                    first = Some(time_hash);
+                    true
+                }
+            })
+    }
+
+    /// Attests to third-party certifications.
+    ///
+    /// This feature is [experimental](crate#experimental-features).
+    ///
+    /// Allows the certificate owner to attest to third party
+    /// certifications. See [Section 5.2.3.30 of RFC 4880bis] for
+    /// details.  This can be used to address certificate flooding
+    /// concerns.
+    ///
+    ///   [Section 5.2.3.30 of RFC 4880bis]: https://tools.ietf.org/html/draft-ietf-openpgp-rfc4880bis-10.html#section-5.2.3.30
+    ///
+    /// # Examples
+    ///
+    /// See [`ValidUserIDAmalgamation::attest_certifications#examples`].
+    ///
+    ///   [`ValidUserIDAmalgamation::attest_certifications#examples`]: type.ValidUserIDAmalgamation.html#examples
+    // The explicit link works around a bug in rustdoc.
+    pub fn attest_certifications<C, S>(&self,
+                                       primary_signer: &mut dyn Signer,
+                                       certifications: C)
+                                       -> Result<Vec<Signature>>
+    where C: IntoIterator<Item = S>,
+          S: Borrow<Signature>,
+    {
+        std::ops::Deref::deref(self)
+            .attest_certifications(self.policy(),
+                                   primary_signer,
+                                   certifications)
+    }
+}
 
 // derive(Clone) doesn't work with generic parameters that don't
 // implement clone.  But, we don't need to require that C implements
