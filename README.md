@@ -214,6 +214,13 @@ $ docker run --rm -i sq keyserver get 653909A2F0E37C106F5FAF546C8857E0D8E8F074 >
 $ docker run --rm -i sq packet dump < cert.asc
 ```
 
+Building and running `sqv` the command line OpenPGP signature verification tool:
+
+```shell
+docker build --target sqv -t sqv
+docker run --rm -i sqv --help
+```
+
 ## Requirements
 
 To build Sequoia, you need at least Rust 1.48 and a few libraries,
