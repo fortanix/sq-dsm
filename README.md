@@ -1,8 +1,8 @@
-# sdkms-pgp
+# sq-sdkms
 
 This crate leverages [sdkms-client-rust][sdkms-client-rust] and
-[Sequoia-PGP][Sequoia] to perform OpenPGP operations with keys stored in the
-[Fortanix Self-Defending Key-Management System][SDKMS].
+[Sequoia-PGP][Sequoia] to perform sensitive OpenPGP operations with keys stored
+in the [Fortanix Self-Defending Key-Management System][SDKMS].
 
 ### Requirements
 

@@ -16,8 +16,8 @@ use sequoia_openpgp::{
 use super::SequoiaKey;
 
 pub(crate) struct RawSigner {
-    pub(crate) api_endpoint: &'static str,
-    pub(crate) api_key: &'static str,
+    pub(crate) api_endpoint: String,
+    pub(crate) api_key: String,
     pub(crate) sequoia_key: SequoiaKey,
 }
 
