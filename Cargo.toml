@@ -1,14 +1,17 @@
 [package]
-name = "sdkms-pgp"
+name = "sq-sdkms"
 version = "0.1.0"
 authors = ["Francisco Vial-Prado <francisco.vialprado@fortanix.com>"]
 edition = "2018"
 
 [dependencies]
 anyhow = "1.0.18"
-mbedtls = { version = "0.7.0", features = ["dsa", "rdrand", "force_aesni_support", "mpi_force_c_code"], default-features = false }
+env_logger = "0.8.3"
+mbedtls = "0.7.0"
+log = "0.4.14"
 sdkms = "0.2.1"
 sequoia-openpgp = "1.1.0"
+structopt = "0.3.13"
 uuid = "0.7.4"
 
 [build-dependencies]
