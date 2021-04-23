@@ -68,6 +68,7 @@ use sequoia_openpgp as openpgp;
 #[macro_use] mod trace;
 pub mod assuan;
 pub mod gnupg;
+pub mod keybox;
 mod keygrip;
 pub use self::keygrip::Keygrip;
 pub mod sexp;
