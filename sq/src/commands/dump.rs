@@ -372,7 +372,7 @@ impl PacketDumper {
                     },
 
                     // crypto::mpi:Publickey is non-exhaustive
-                    _ => writeln!(output, "{}  Unknown variant", ii)?,
+                    u => writeln!(output, "{}Unknown variant: {:?}", ii, u)?,
                 }
             }
 
@@ -430,7 +430,7 @@ impl PacketDumper {
                                     },
 
                                     // crypto::mpi::SecretKeyMaterial is non-exhaustive.
-                                    _ => writeln!(output, "{}  Unknown variant", ii)?,
+                                    u => writeln!(output, "{}Unknown variant: {:?}", ii, u)?,
                                 }
                                 Ok(())
                             })?;
@@ -537,7 +537,7 @@ impl PacketDumper {
                         },
 
                         // crypto::mpi::Signature is non-exhaustive.
-                        _ => writeln!(output, "{}  Unknown variant", ii)?,
+                        u => writeln!(output, "{}Unknown variant: {:?}", ii, u)?,
                     }
                 }
             },
@@ -652,7 +652,7 @@ impl PacketDumper {
                         },
 
                         // crypto::mpi::Ciphertext is non-exhaustive.
-                        _ => writeln!(output, "{}  Unknown variant", ii)?,
+                        u => writeln!(output, "{}Unknown variant: {:?}", ii, u)?,
                     }
                 }
             },
@@ -691,7 +691,7 @@ impl PacketDumper {
                     },
 
                     // SKESK is non-exhaustive.
-                    _ => writeln!(output, "{}  Unknown variant", i)?,
+                    u => writeln!(output, "{}    Unknown variant: {:?}", i, u)?,
                 }
             },
 
@@ -715,7 +715,7 @@ impl PacketDumper {
             },
 
             // openpgp::Packet is non-exhaustive.
-            _ => writeln!(output, "{}  Unknown variant", i)?,
+            u => writeln!(output, "{}    Unknown variant: {:?}", i, u)?,
         }
 
         if let Some(fields) = additional_fields {
@@ -870,7 +870,7 @@ impl PacketDumper {
                 write!(output, "{}    Intended Recipient: {}", i, fp)?,
 
             // SubpacketValue is non-exhaustive.
-            _ => writeln!(output, "{}  Unknown variant", i)?,
+            u => writeln!(output, "{}    Unknown variant: {:?}", i, u)?,
         }
 
         match s.value() {
@@ -933,7 +933,7 @@ impl PacketDumper {
             },
 
             // S2K is non-exhaustive
-            _ => writeln!(output, "{}  Unknown variant", i)?,
+            u => writeln!(output, "{}    Unknown variant: {:?}", i, u)?,
         }
         Ok(())
     }
