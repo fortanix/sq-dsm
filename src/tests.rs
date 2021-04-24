@@ -1,6 +1,4 @@
-use super::PgpAgent;
-
-use std::io::Write;
+use std::{env, io::Write};
 
 use sequoia_openpgp as openpgp;
 
@@ -8,45 +6,48 @@ use openpgp::serialize::{stream::*, SerializeInto};
 use openpgp::policy::Policy;
 use openpgp::policy::StandardPolicy;
 
-const API_ENDPOINT: &'static str = "https://sdkms.test.fortanix.com";
-const MY_API_KEY: &'static str = "YOUR_API_KEY";
-const KEY_NAME: &'static str = "MyKey";
+use super::PgpAgent;
 
-#[test]
-fn generate() {
-    PgpAgent::generate_key(
-        &API_ENDPOINT,
-        &MY_API_KEY,
-        &KEY_NAME,
-    ).unwrap();
+const TEST_ENV: &'static str = ".test.env";
+const TEST_ENV_API_KEY: &'static str = "TEST_SQ_SDKMS_API_KEY";
+const TEST_ENV_API_ENDPOINT: &'static str = "TEST_SQ_SDKMS_API_ENDPOINT";
+const KEY_NAME: &'static str = "MyTestKey";
+
+use std::sync::Once;
+
+static INIT: Once = Once::new();
+
+fn init() {
+    INIT.call_once(|| {
+        dotenv::from_filename(TEST_ENV).ok();
+        PgpAgent::generate_key(
+            &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
+            &env::var(TEST_ENV_API_KEY).unwrap(),
+            &KEY_NAME,
+        ).unwrap();
+    });
 }
 
 #[test]
 fn armored_public_key() {
+    init();
     let agent = PgpAgent::summon(
-        &API_ENDPOINT,
-        &MY_API_KEY,
+        &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
+        &env::var(TEST_ENV_API_KEY).unwrap(),
         &KEY_NAME,
     ).unwrap();
 
     let armored = agent.certificate.armored().to_vec().unwrap();
 
     assert_eq!(&armored[..36], "-----BEGIN PGP PUBLIC KEY BLOCK-----".as_bytes());
-
-    {
-        use std::io::{self, Write};
-        let stdout = io::stdout();
-        let mut handle = stdout.lock();
-
-        handle.write_all(&armored).unwrap();
-    }
 }
 
 #[test]
 fn armored_signature() {
+    init();
     let agent = PgpAgent::summon(
-        &API_ENDPOINT,
-        &MY_API_KEY,
+        &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
+        &env::var(TEST_ENV_API_KEY).unwrap(),
         &KEY_NAME,
     ).unwrap();
 
@@ -55,23 +56,16 @@ fn armored_signature() {
     // Sign the message.
     let mut signed_message = Vec::new();
     agent.sign(&mut signed_message, MESSAGE.as_bytes()).unwrap();
-
-    {
-        use std::io::{self, Write};
-        let stdout = io::stdout();
-        let mut handle = stdout.lock();
-
-        handle.write_all(&signed_message).unwrap();
-    }
 }
 
 #[test]
 fn encrypt_decrypt_roundtrip() {
+    init();
     const MESSAGE: &'static str = "дружба\nRoyale With Cheese\n ";
 
     let agent = PgpAgent::summon(
-        &API_ENDPOINT,
-        &MY_API_KEY,
+        &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
+        &env::var(TEST_ENV_API_KEY).unwrap(),
         &KEY_NAME,
     ).unwrap();
 
@@ -79,15 +73,6 @@ fn encrypt_decrypt_roundtrip() {
     let mut ciphertext = Vec::new();
     let p = &StandardPolicy::new();
     encrypt(p, &mut ciphertext, MESSAGE, &agent.certificate).unwrap();
-
-    // Stdout the message
-    {
-        use std::io::{self, Write};
-        let stdout = io::stdout();
-        let mut handle = stdout.lock();
-
-        handle.write_all(&ciphertext).unwrap();
-    }
 
     // Decrypt the message.
     let mut plaintext = Vec::new();
@@ -98,7 +83,7 @@ fn encrypt_decrypt_roundtrip() {
 
 /// Encrypts the given message.
 fn encrypt(p: &dyn Policy, sink: &mut (dyn Write + Send + Sync),
-           plaintext: &str, recipient: &openpgp::Cert)
+    plaintext: &str, recipient: &openpgp::Cert)
     -> openpgp::Result<()>
 {
     let recipients =

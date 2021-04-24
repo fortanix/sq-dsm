@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use log::info;
 
-use std::{path::{Path, PathBuf}, io::{Read, Write}, fs::{OpenOptions}};
+use std::{path::{Path, PathBuf}, io::{Read, Write}, fs::{OpenOptions}, env};
 
 use structopt::StructOpt;
 
@@ -10,15 +10,23 @@ use sequoia_openpgp::serialize::SerializeInto;
 
 use sq_sdkms::PgpAgent;
 
-const DEFAULT_API_ENDPOINT: &'static str = "https://sdkms.test.fortanix.com";
+const ENV_API_KEY: &'static str = "SQ_SDKMS_API_KEY";
+const ENV_API_ENDPOINT: &'static str = "SQ_SDKMS_API_ENDPOINT";
+const DEFAULT_API_ENDPOINT: &'static str = "https://sdkms.fortanix.com";
 
 #[derive(StructOpt)]
 #[structopt(about = "OpenPGP integration for Fortanix SDKMS")]
 /// TODO: Document me!
 struct Cli {
+    /// .env file containing SQ_SDKMS_API_KEY, SQ_SDKMS_API_ENDPOINT
+    #[structopt(long, parse(from_os_str))]
+    env_file: Option<PathBuf>,
+    /// Endpoint URL (overloaded by .env file)
     #[structopt(long)]
-    /// (Optional) Endpoint URL
     api_endpoint: Option<String>,
+    #[structopt(long, required_unless("env-file"))]
+    /// The SDKMS API key
+    api_key: Option<String>,
     #[structopt(subcommand)]
     cmd: Command,
 }
@@ -39,12 +47,12 @@ enum Command {
         #[structopt(parse(from_os_str))]
         file: PathBuf,
     },
-    /// Generates a PGP key in SDKMS, and outputs the public key
+    /// Generates a PGP key in SDKMS, and outputs the Transferable Public Key
     GenerateKey {
         #[structopt(flatten)]
         args: CommonArgs,
     },
-    /// Retrieves and outputs the public key
+    /// Retrieves and outputs the Transferable Public Key
     PublicKey {
         #[structopt(flatten)]
         args: CommonArgs,
@@ -53,9 +61,6 @@ enum Command {
 
 #[derive(StructOpt)]
 struct CommonArgs {
-    #[structopt(long)]
-    /// The SDKMS API key
-    api_key: String,
     #[structopt(long)]
     /// The name of the SDKMS key
     key_name: String,
@@ -69,21 +74,40 @@ struct CommonArgs {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    let cmd = Cli::from_args();
+    let cli = Cli::from_args();
 
-    let api_endpoint = match cmd.api_endpoint {
-        Some(endpoint) => endpoint,
-        None => DEFAULT_API_ENDPOINT.to_string(),
+    let (api_key, api_endpoint) = match cli.env_file {
+        Some(file) => {
+            dotenv::from_filename(file).ok();
+            let api_key = env::var(ENV_API_KEY)?;
+            let api_endpoint = match env::var(ENV_API_ENDPOINT) {
+                Ok(endpoint) => endpoint,
+                _ => DEFAULT_API_ENDPOINT.to_string(),
+            };
+
+            (api_key, api_endpoint)
+        }
+        None =>{
+            let api_key = match cli.api_key {
+                Some(api_key) => api_key,
+                None => unreachable!(),
+            };
+            let api_endpoint = match cli.api_endpoint {
+                Some(endpoint) => endpoint,
+                None => DEFAULT_API_ENDPOINT.to_string(),
+            };
+            (api_key, api_endpoint)
+        }
     };
 
-    let (output_file, pgp_material) = match cmd.cmd {
+    let (output_file, pgp_material) = match cli.cmd {
         Command::GenerateKey {args} => {
             info!("sq-sdkms generate-key");
             not_exists(&args.output_file)?;
 
             let agent = PgpAgent::generate_key(
                 &api_endpoint,
-                &args.api_key,
+                &api_key,
                 &args.key_name,
             )?;
             let cert = match args.armor {
@@ -99,7 +123,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let agent = PgpAgent::summon(
                 &api_endpoint,
-                &args.api_key,
+                &api_key,
                 &args.key_name,
             )?;
 
@@ -121,7 +145,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let agent = PgpAgent::summon(
                 &api_endpoint,
-                &args.api_key,
+                &api_key,
                 &args.key_name,
             )?;
 
@@ -139,7 +163,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let agent = PgpAgent::summon(
                 &api_endpoint,
-                &args.api_key,
+                &api_key,
                 &args.key_name,
             )?;
 
