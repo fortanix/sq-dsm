@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use log::info;
 
@@ -68,7 +68,7 @@ struct CommonArgs {
     /// Outputs material in PGP armored format
     armor: bool,
     /// Output file
-    #[structopt(short = "o", parse(from_os_str), required_unless("armor"))]
+    #[structopt(long, short = "o", parse(from_os_str), required_unless("armor"))]
     output_file: Option<PathBuf>,
 }
 
@@ -79,7 +79,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (api_key, api_endpoint) = match cli.env_file {
         Some(file) => {
             dotenv::from_filename(file).ok();
-            let api_key = env::var(ENV_API_KEY)?;
+            let api_key = env::var(ENV_API_KEY)
+                .with_context(|| format!("{} variable absent", ENV_API_KEY))?;
             let api_endpoint = match env::var(ENV_API_ENDPOINT) {
                 Ok(endpoint) => endpoint,
                 _ => DEFAULT_API_ENDPOINT.to_string(),
@@ -110,10 +111,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &api_key,
                 &args.key_name,
             )?;
+
             let cert = match args.armor {
-                true => agent.certificate.armored().to_vec()?,
-                false => agent.certificate.to_vec()?,
-            };
+                true => agent.certificate.armored().to_vec(),
+                false => agent.certificate.to_vec(),
+            }?;
 
             (args.output_file, cert)
         },
@@ -125,7 +127,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &api_endpoint,
                 &api_key,
                 &args.key_name,
-            )?;
+            ).context("Could not summon the PGP agent")?;
 
             let cert = match args.armor {
                 true => agent.certificate.armored().to_vec()?,
@@ -147,9 +149,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &api_endpoint,
                 &api_key,
                 &args.key_name,
-            )?;
+            ).context("Could not summon the PGP agent")?;
 
-            agent.sign(&mut signed_message, &content)?;
+            agent.sign(&mut signed_message, &content)
+                .context("Could not sign the message")?;
 
             (args.output_file, signed_message)
         },
@@ -165,10 +168,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &api_endpoint,
                 &api_key,
                 &args.key_name,
-            )?;
+            ).context("Could not summon the PGP agent")?;
 
             let mut plaintext = Vec::new();
-            agent.decrypt(&mut plaintext, &ciphertext)?;
+            agent.decrypt(&mut plaintext, &ciphertext)
+                .context("Could not sign the message")?;
 
             (args.output_file, plaintext)
         }
@@ -195,7 +199,7 @@ fn not_exists(path: &Option<PathBuf>) -> Result<()> {
         None => Ok(()),
         Some(file) => {
             if Path::new(&file).exists() {
-                return Err(anyhow::Error::msg("Output file already exists".to_string()))
+                return Err(anyhow::Error::msg("Output file exists".to_string()))
             }
             Ok(())
         },

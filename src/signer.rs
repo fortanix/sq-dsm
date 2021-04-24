@@ -1,8 +1,3 @@
-use sdkms::{
-    api_model::{DigestAlgorithm, SignRequest},
-    SdkmsClient,
-};
-
 use sequoia_openpgp::{
     crypto::{mpi, Signer},
     packet::{
@@ -11,6 +6,11 @@ use sequoia_openpgp::{
     },
     Result as SequoiaResult,
     types::HashAlgorithm,
+};
+
+use sdkms::{
+    api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor},
+    SdkmsClient,
 };
 
 use super::SequoiaKey;
@@ -47,7 +47,7 @@ impl Signer for RawSigner {
             };
 
             let sign_req = SignRequest {
-                key: Some(self.sequoia_key.descriptor.clone()),
+                key: Some(SobjectDescriptor::Kid(self.sequoia_key.kid)),
                 hash_alg: hash_alg,
                 hash: Some(digest.to_vec().into()),
                 data: None,
