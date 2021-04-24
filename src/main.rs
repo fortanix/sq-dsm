@@ -1,7 +1,5 @@
 use anyhow::Result;
 
-use dotenv::dotenv;
-
 use log::info;
 
 use std::{path::{Path, PathBuf}, io::{Read, Write}, fs::{OpenOptions}, env};
@@ -14,7 +12,7 @@ use sq_sdkms::PgpAgent;
 
 const ENV_API_KEY: &'static str = "SQ_SDKMS_API_KEY";
 const ENV_API_ENDPOINT: &'static str = "SQ_SDKMS_API_ENDPOINT";
-const DEFAULT_API_ENDPOINT: &'static str = "https://sdkms.test.fortanix.com";
+const DEFAULT_API_ENDPOINT: &'static str = "https://sdkms.fortanix.com";
 
 #[derive(StructOpt)]
 #[structopt(about = "OpenPGP integration for Fortanix SDKMS")]
