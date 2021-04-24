@@ -8,7 +8,7 @@ use sequoia_openpgp::{
 };
 
 use sdkms::{
-    api_model::{Algorithm::Rsa, DecryptRequest},
+    api_model::{Algorithm::Rsa, DecryptRequest, SobjectDescriptor},
     SdkmsClient,
 };
 
@@ -44,7 +44,7 @@ impl Decryptor for RawDecryptor {
             cipher: raw_ciphertext.into(),
             alg: Some(Rsa),
             iv: None,
-            key: Some(self.sequoia_key.descriptor.clone()),
+            key: Some(SobjectDescriptor::Kid(self.sequoia_key.kid)),
             mode: None,
             ad: None,
             tag: None,

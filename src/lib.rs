@@ -1,30 +1,27 @@
+use anyhow::{Context, Result};
+
 use std::{
     collections::HashMap,
     convert::TryFrom,
-    io::{Error as StdIoError, Write},
-    string::FromUtf8Error,
+    io::Write,
     str::FromStr,
 };
 
 use log::info;
 
-use uuid::{Uuid, parser::ParseError as UuidError};
+use uuid::Uuid;
 
 use sdkms::{
     api_model::{
-        KeyOperations, ObjectType, SobjectDescriptor, SobjectRequest,
+        KeyOperations, ObjectType, Sobject, SobjectDescriptor, SobjectRequest,
         RsaEncryptionPolicy, RsaEncryptionPaddingPolicy,
         RsaOptions,
         RsaSignaturePolicy, RsaSignaturePaddingPolicy,
     },
-    Error as SdkmsError,
     SdkmsClient,
 };
 
-use mbedtls::{
-    Error as MbedtlsError,
-    pk::Pk,
-};
+use mbedtls::pk::Pk;
 
 extern crate sequoia_openpgp as openpgp;
 
@@ -53,36 +50,13 @@ use openpgp::{
     types::{KeyFlags, HashAlgorithm, SymmetricAlgorithm, SignatureType},
 };
 
-use anyhow::Error as SequoiaError;
-
-type Result<T> = core::result::Result<T, Error>;
-
 mod signer;
 
 mod decryptor;
 
 use signer::RawSigner;
+
 use decryptor::RawDecryptor;
-
-#[derive(Debug)]
-pub enum Error {
-    Mbedtls(MbedtlsError),
-    SdkmsBadResponse,
-    SdkmsSubkeyNotFound,
-    Sdkms(SdkmsError),
-    Sequoia(SequoiaError),
-    StdIo(StdIoError),
-    Uuid(UuidError),
-    Utf8(FromUtf8Error),
-}
-
-impl std::error::Error for Error {}
-
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
-    }
-}
 
 pub struct PgpAgent {
     api_endpoint: String,
@@ -95,8 +69,33 @@ pub struct PgpAgent {
 #[derive(Clone)]
 struct SequoiaKey {
     kid: Uuid,
-    descriptor: SobjectDescriptor,
+    name: String,
     public_key: Key<PublicParts, UnspecifiedRole>,
+}
+
+impl SequoiaKey {
+    fn new_from_raw(sobject: Sobject) -> Result<Self> {
+        let (e, n, time) = {
+            let raw_pk = sobject.pub_key
+                .context(format!("public bits of sobject not returned"))?;
+            let deserialized_pk = Pk::from_public_key(&raw_pk)
+                .context("cannot deserialize SDKMS public key into Sequoia object")?;
+            (
+                deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
+                deserialized_pk.rsa_public_modulus()?.to_binary()?,
+                sobject.created_at.to_datetime(),
+            )
+        };
+
+        Ok(SequoiaKey{
+            kid: sobject.kid.context("uuid not returned by SDKMS")?,
+            name: sobject.name.context("name not returned by SDKMS")?,
+            public_key: Key::V4(
+                Key4::import_public_rsa(&e, &n, Some(time.into()))
+                .context("cannot import RSA parameters into Sequoia object")?
+            ),
+        })
+    }
 }
 
 enum KeyRole {
@@ -114,36 +113,40 @@ impl PgpAgent {
         let http_client = SdkmsClient::builder()
             .with_api_endpoint(&api_endpoint)
             .with_api_key(&api_key)
-            .build()?;
+            .build()
+            .context("could not initiate an SDKMS client")?;
 
         fn raw_key(
-            client: &SdkmsClient,
-            mut name: String,
-            op: KeyOperations,
-            role: KeyRole,
+            client: &SdkmsClient, name: String, op: KeyOperations, role: KeyRole,
         ) -> Result<SequoiaKey> {
-            match role {
-                KeyRole::Subkey => name += " (PGP: decryption subkey)",
-                _ => ()
-            }
+            let (name, rsa_options) = match role {
+                KeyRole::Subkey => {
+                    let enc_policy = RsaEncryptionPolicy {
+                        padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15{}),
+                    };
+                    let rsa_options = RsaOptions {
+                        encryption_policy: vec![enc_policy],
+                        ..Default::default()
+                    };
 
-            let enc_policy = RsaEncryptionPolicy {
-                padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15{}),
-            };
+                    (name + " (PGP: decryption subkey)", rsa_options)
+                }
+                KeyRole::Primary => {
+                    let sig_policy = RsaSignaturePolicy {
+                        padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15{}),
+                    };
+                    let rsa_options = RsaOptions {
+                        signature_policy: vec![sig_policy],
+                        ..Default::default()
+                    };
 
-            let sig_policy = RsaSignaturePolicy {
-                padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15{}),
-            };
-
-            let rsa_options = RsaOptions {
-                encryption_policy: vec![enc_policy],
-                signature_policy: vec![sig_policy],
-                ..Default::default()
+                    (name, rsa_options)
+                }
             };
 
             let sobject_req = SobjectRequest {
                 name: Some(name),
-                description: Some("SDKMS-PGP Tool".to_string()),
+                description: Some("Created with sq-sdkms".to_string()),
                 obj_type: Some(ObjectType::Rsa),
                 key_ops: Some(op),
                 key_size: Some(2048),
@@ -152,22 +155,8 @@ impl PgpAgent {
             };
 
             let sobject = client.create_sobject(&sobject_req)?;
-            let (e, n, time) = {
-                let raw_pk = sobject.pub_key.ok_or(Error::SdkmsBadResponse)?;
-                let deserialized_pk = Pk::from_public_key(&raw_pk)?;
-                (
-                    deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
-                    deserialized_pk.rsa_public_modulus()?.to_binary()?,
-                    sobject.created_at.to_datetime(),
-                )
-            };
 
-            let descriptor = sobject.kid.ok_or_else(|| Error::SdkmsBadResponse)?;
-            Ok(SequoiaKey{
-                kid: descriptor,
-                descriptor: SobjectDescriptor::Kid(descriptor),
-                public_key: Key::V4(Key4::import_public_rsa(&e, &n, Some(time.into()))?),
-            })
+            SequoiaKey::new_from_raw(sobject)
         }
 
         info!("create primary key");
@@ -191,7 +180,7 @@ impl PgpAgent {
             api_key,
             primary.clone(),
             subkey.clone(),
-        )?;
+        ).context("could not generate public certificate")?;
 
         Ok(PgpAgent {
             api_endpoint: api_endpoint.to_string(),
@@ -202,8 +191,8 @@ impl PgpAgent {
         })
     }
 
-    /// Generates the certificate (`----- BEGIN PUBLIC KEY BLOCK -----`), caches
-    /// it, and stores it in SDKMS.
+    /// Generates the Transferable Public Key certificate, caches it, and stores
+    /// it in SDKMS.
     fn bind_sdkms_keys_and_generate_cert(
         api_endpoint: &str,
         api_key: &str,
@@ -211,7 +200,6 @@ impl PgpAgent {
         subkey: SequoiaKey,
     ) -> Result<Cert> {
         info!("generate certificate");
-
         // Primary + self signature, UserID + sig, subkey + sig
         let mut packets = Vec::<Packet>::with_capacity(6);
 
@@ -310,27 +298,12 @@ impl PgpAgent {
         // Get primary key by name and subkey by UID
         let (primary, metadata) = {
             let req = SobjectDescriptor::Name(key_name.to_string());
-            let sobject = http_client.get_sobject(None, &req)?;
-            let (e, n, time) = {
-                let raw_pk = sobject.pub_key.ok_or(Error::SdkmsBadResponse)?;
-                let deserialized_pk = Pk::from_public_key(&raw_pk)?;
-                (
-                    deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
-                    deserialized_pk.rsa_public_modulus()?.to_binary()?,
-                    sobject.created_at.to_datetime(),
-                )
-            };
-
-            let kid = sobject.kid.ok_or_else(|| Error::SdkmsBadResponse)?;
-
-            let key = SequoiaKey {
-                kid: kid,
-                descriptor: req,
-                public_key: Key::V4(Key4::import_public_rsa(&e, &n, Some(time.into()))?),
-            };
+            let sobject = http_client.get_sobject(None, &req)
+                .context(format!("could not get primary key {}", key_name))?;
+            let key = SequoiaKey::new_from_raw(sobject.clone())?;
 
             match sobject.custom_metadata {
-                None => return Err(Error::SdkmsSubkeyNotFound),
+                None => return Err(anyhow::Error::msg("subkey not found".to_string())),
                 Some(dict) => (key, dict),
             }
         };
@@ -338,25 +311,12 @@ impl PgpAgent {
         let subkey = {
             let kid = Uuid::parse_str(&metadata["subkey"])?;
             let descriptor = SobjectDescriptor::Kid(kid);
-            let sobject = http_client.get_sobject(None, &descriptor)?;
-            let (e, n, time) = {
-                let raw_pk = sobject.pub_key.ok_or(Error::SdkmsBadResponse)?;
-                let deserialized_pk = Pk::from_public_key(&raw_pk)?;
-                (
-                    deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
-                    deserialized_pk.rsa_public_modulus()?.to_binary()?,
-                    sobject.created_at.to_datetime(),
-                )
-            };
+            let sobject = http_client.get_sobject(None, &descriptor)
+                .context(format!("could not get subkey (sobject {})", kid))?;
 
-            SequoiaKey {
-                kid: kid,
-                descriptor: descriptor,
-                public_key: Key::V4(Key4::import_public_rsa(&e, &n, Some(time.into()))?)
-            }
+            SequoiaKey::new_from_raw(sobject.clone())?
         };
 
-        // Parse certificate
         let cert = Cert::from_str(&metadata["certificate"])?;
 
         Ok(PgpAgent {
@@ -457,24 +417,6 @@ impl PgpAgent {
         Ok(())
     }
 }
-
-// Error conversions
-macro_rules! define_from {
-    ($error:ident, $variant:ident) => {
-        impl From<$error> for Error {
-            fn from(other: $error) -> Self {
-                Error::$variant(other)
-            }
-        }
-    }
-}
-
-define_from!(SdkmsError, Sdkms);
-define_from!(MbedtlsError, Mbedtls);
-define_from!(SequoiaError, Sequoia);
-define_from!(UuidError, Uuid);
-define_from!(StdIoError, StdIo);
-define_from!(FromUtf8Error, Utf8);
 
 #[cfg(test)]
 mod tests;
