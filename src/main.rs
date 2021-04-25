@@ -61,6 +61,9 @@ enum Command {
     GenerateKey {
         #[structopt(flatten)]
         args: CommonArgs,
+        #[structopt(long, short)]
+        /// An RFC2822-compliant user ID (e.g., "Paul Morphy <paul@fortanix.com>")
+        user_id: String,
     },
     /// Retrieves and outputs the Transferable Public Key
     Certificate {
@@ -112,11 +115,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let (output_file, pgp_material) = match cli.cmd {
-        Command::GenerateKey { args } => {
+        Command::GenerateKey { args, user_id } => {
             info!("sq-sdkms generate-key");
             not_exists(&args.output_file)?;
 
-            let agent = PgpAgent::generate_key(&endpoint, &api_key, &args.key_name)?;
+            let agent = PgpAgent::generate_key(
+                &endpoint,
+                &api_key,
+                &args.key_name,
+                &user_id,
+            )?;
 
             let cert = match args.armor {
                 true => agent.certificate.armored().to_vec(),

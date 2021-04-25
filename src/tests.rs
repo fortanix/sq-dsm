@@ -11,7 +11,8 @@ use super::PgpAgent;
 const TEST_ENV: &'static str = ".test.env";
 const TEST_ENV_API_KEY: &'static str = "TEST_SQ_SDKMS_API_KEY";
 const TEST_ENV_API_ENDPOINT: &'static str = "TEST_SQ_SDKMS_API_ENDPOINT";
-const KEY_NAME: &'static str = "SundayTesting";
+const TEST_KEY_NAME: &'static str = "My PGP Test Key";
+const TEST_USER_ID: &'static str = "Владимир Борисович Крамник <vlad@fortanix.com>";
 
 use std::sync::Once;
 
@@ -23,7 +24,8 @@ fn init() {
         PgpAgent::generate_key(
             &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
             &env::var(TEST_ENV_API_KEY).unwrap(),
-            &KEY_NAME,
+            &TEST_KEY_NAME,
+            &TEST_USER_ID,
         )
         .unwrap();
     });
@@ -35,7 +37,7 @@ fn armored_public_key() {
     let agent = PgpAgent::summon(
         &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
         &env::var(TEST_ENV_API_KEY).unwrap(),
-        &KEY_NAME,
+        &TEST_KEY_NAME,
     )
     .unwrap();
 
@@ -53,7 +55,7 @@ fn armored_signature() {
     let agent = PgpAgent::summon(
         &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
         &env::var(TEST_ENV_API_KEY).unwrap(),
-        &KEY_NAME,
+        &TEST_KEY_NAME,
     )
     .unwrap();
 
@@ -74,7 +76,7 @@ fn encrypt_decrypt_roundtrip() {
     let agent = PgpAgent::summon(
         &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
         &env::var(TEST_ENV_API_KEY).unwrap(),
-        &KEY_NAME,
+        &TEST_KEY_NAME,
     )
     .unwrap();
 

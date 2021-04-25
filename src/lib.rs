@@ -101,7 +101,8 @@ impl PgpAgent {
     pub fn generate_key(
         api_endpoint: &str,
         api_key: &str,
-        key_name: &str
+        key_name: &str,
+        user_id: &str
     ) -> Result<Self> {
         let http_client = SdkmsClient::builder()
             .with_api_endpoint(&api_endpoint)
@@ -174,6 +175,7 @@ impl PgpAgent {
         let cert = Self::bind_sdkms_keys_and_generate_cert(
             api_endpoint,
             api_key,
+            user_id,
             primary.clone(),
             subkey.clone(),
         )
@@ -193,6 +195,7 @@ impl PgpAgent {
     fn bind_sdkms_keys_and_generate_cert(
         api_endpoint: &str,
         api_key: &str,
+        user_id: &str,
         primary: SequoiaKey,
         subkey: SequoiaKey,
     ) -> Result<Cert> {
@@ -233,7 +236,7 @@ impl PgpAgent {
         // User ID + signature
         let builder = SignatureBuilder::new(SignatureType::GenericCertification)
             .set_primary_userid(true)?;
-        let uid: UserID = "Alice Lovelace <alice@example.org>".into();
+        let uid: UserID = user_id.into();
         let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
         cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
