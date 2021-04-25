@@ -1,11 +1,6 @@
 use anyhow::{Context, Result};
 
-use std::{
-    collections::HashMap,
-    convert::TryFrom,
-    io::Write,
-    str::FromStr,
-};
+use std::{collections::HashMap, convert::TryFrom, io::Write, str::FromStr};
 
 use log::info;
 
@@ -13,10 +8,9 @@ use uuid::Uuid;
 
 use sdkms::{
     api_model::{
-        KeyOperations, ObjectType, Sobject, SobjectDescriptor, SobjectRequest,
-        RsaEncryptionPolicy, RsaEncryptionPaddingPolicy,
-        RsaOptions,
-        RsaSignaturePolicy, RsaSignaturePaddingPolicy,
+        KeyOperations, ObjectType, RsaEncryptionPaddingPolicy,
+        RsaEncryptionPolicy, RsaOptions, RsaSignaturePaddingPolicy,
+        RsaSignaturePolicy, Sobject, SobjectDescriptor, SobjectRequest,
     },
     SdkmsClient,
 };
@@ -26,28 +20,26 @@ use mbedtls::pk::Pk;
 extern crate sequoia_openpgp as openpgp;
 
 use openpgp::{
-    Cert,
     crypto::SessionKey,
-    KeyHandle,
     packet::{
-        key::{
-            Key4, PublicParts, PrimaryRole, SubordinateRole,
-            UnspecifiedRole
-        },
-        Key,
-        PKESK,
+        key::{Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole},
         signature::SignatureBuilder,
-        SKESK,
-        UserID,
+        Key, UserID, PKESK, SKESK,
     },
     parse::{
-        stream::{DecryptionHelper, DecryptorBuilder, VerificationHelper, MessageStructure},
+        stream::{
+            DecryptionHelper, DecryptorBuilder, MessageStructure,
+            VerificationHelper
+        },
         Parse,
     },
-    Packet,
     policy::Policy as PgpPolicy,
-    serialize::{SerializeInto, stream::{Armorer, LiteralWriter, Message, Signer}},
-    types::{KeyFlags, HashAlgorithm, SymmetricAlgorithm, SignatureType},
+    serialize::{
+        stream::{Armorer, LiteralWriter, Message, Signer},
+        SerializeInto,
+    },
+    types::{HashAlgorithm, KeyFlags, SignatureType, SymmetricAlgorithm},
+    Cert, KeyHandle, Packet,
 };
 
 mod signer;
@@ -76,10 +68,11 @@ struct SequoiaKey {
 impl SequoiaKey {
     fn new_from_raw(sobject: Sobject) -> Result<Self> {
         let (e, n, time) = {
-            let raw_pk = sobject.pub_key
-                .context(format!("public bits of sobject not returned"))?;
+            let raw_pk = sobject
+                .pub_key
+                .context("public bits of sobject not returned")?;
             let deserialized_pk = Pk::from_public_key(&raw_pk)
-                .context("cannot deserialize SDKMS public key into Sequoia object")?;
+                .context("cannot deserialize SDKMS key into Sequoia object")?;
             (
                 deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
                 deserialized_pk.rsa_public_modulus()?.to_binary()?,
@@ -87,12 +80,12 @@ impl SequoiaKey {
             )
         };
 
-        Ok(SequoiaKey{
+        Ok(SequoiaKey {
             kid: sobject.kid.context("uuid not returned by SDKMS")?,
             name: sobject.name.context("name not returned by SDKMS")?,
             public_key: Key::V4(
                 Key4::import_public_rsa(&e, &n, Some(time.into()))
-                .context("cannot import RSA parameters into Sequoia object")?
+                    .context("cannot import RSA key into Sequoia object")?,
             ),
         })
     }
@@ -108,7 +101,7 @@ impl PgpAgent {
     pub fn generate_key(
         api_endpoint: &str,
         api_key: &str,
-        key_name: &str,
+        key_name: &str
     ) -> Result<Self> {
         let http_client = SdkmsClient::builder()
             .with_api_endpoint(&api_endpoint)
@@ -117,12 +110,15 @@ impl PgpAgent {
             .context("could not initiate an SDKMS client")?;
 
         fn raw_key(
-            client: &SdkmsClient, name: String, op: KeyOperations, role: KeyRole,
+            client: &SdkmsClient,
+            name: String,
+            op: KeyOperations,
+            role: KeyRole,
         ) -> Result<SequoiaKey> {
             let (name, rsa_options) = match role {
                 KeyRole::Subkey => {
                     let enc_policy = RsaEncryptionPolicy {
-                        padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15{}),
+                        padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
                     };
                     let rsa_options = RsaOptions {
                         encryption_policy: vec![enc_policy],
@@ -133,7 +129,7 @@ impl PgpAgent {
                 }
                 KeyRole::Primary => {
                     let sig_policy = RsaSignaturePolicy {
-                        padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15{}),
+                        padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
                     };
                     let rsa_options = RsaOptions {
                         signature_policy: vec![sig_policy],
@@ -180,7 +176,8 @@ impl PgpAgent {
             api_key,
             primary.clone(),
             subkey.clone(),
-        ).context("could not generate public certificate")?;
+        )
+            .context("could not generate public certificate")?;
 
         Ok(PgpAgent {
             api_endpoint: api_endpoint.to_string(),
@@ -211,19 +208,19 @@ impl PgpAgent {
             sequoia_key: primary.clone(),
         };
 
+        let pref_hashes = vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256];
+        let pref_ciphers = vec![
+            SymmetricAlgorithm::AES256,
+            SymmetricAlgorithm::AES128,
+        ];
+
         let sig = {
             let flags = KeyFlags::empty().set_certification().set_signing();
             let builder = SignatureBuilder::new(SignatureType::DirectKey)
                 .set_hash_algo(HashAlgorithm::SHA512)
                 .set_key_flags(flags)?
-                .set_preferred_hash_algorithms(vec![
-                    HashAlgorithm::SHA512,
-                    HashAlgorithm::SHA256,
-                ])?
-                .set_preferred_symmetric_algorithms(vec![
-                    SymmetricAlgorithm::AES256,
-                    SymmetricAlgorithm::AES128,
-                ])?;
+                .set_preferred_hash_algorithms(pref_hashes.clone())?
+                .set_preferred_symmetric_algorithms(pref_ciphers.clone())?;
 
             builder.sign_direct_key(&mut prim_signer, prim_key.parts_as_public())?
         };
@@ -234,9 +231,9 @@ impl PgpAgent {
         let mut cert = Cert::try_from(packets)?;
 
         // User ID + signature
-        let sig = SignatureBuilder::new(SignatureType::GenericCertification);
+        let builder = SignatureBuilder::new(SignatureType::GenericCertification)
+            .set_primary_userid(true)?;
         let uid: UserID = "Alice Lovelace <alice@example.org>".into();
-        let builder = SignatureBuilder::from(sig).set_primary_userid(true)?;
         let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
         cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
@@ -247,22 +244,14 @@ impl PgpAgent {
             .set_storage_encryption()
             .set_transport_encryption();
 
-        let builder =
-            SignatureBuilder::new(SignatureType::SubkeyBinding)
+        let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_hash_algo(HashAlgorithm::SHA512)
             .set_key_flags(flags)?
-            .set_preferred_hash_algorithms(vec![
-                HashAlgorithm::SHA512,
-                HashAlgorithm::SHA256,
-            ])?
-            .set_preferred_symmetric_algorithms(vec![
-                SymmetricAlgorithm::AES256,
-                SymmetricAlgorithm::AES128,
-            ])?;
+            .set_preferred_hash_algorithms(pref_hashes.clone())?
+            .set_preferred_symmetric_algorithms(pref_ciphers.clone())?;
 
         let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
-        cert = cert.insert_packets(
-            vec![Packet::from(subkey_public), signature.into()])?;
+        cert = cert.insert_packets(vec![Packet::from(subkey_public), signature.into()])?;
 
         info!("bind keys and store certificate in SDKMS");
         let armored = String::from_utf8(cert.armored().to_vec()?)?;
@@ -272,7 +261,8 @@ impl PgpAgent {
         metadata.insert("certificate".to_string(), armored);
 
         let update_req = SobjectRequest {
-            custom_metadata: Some(metadata), ..Default::default()
+            custom_metadata: Some(metadata),
+            ..Default::default()
         };
 
         let http_client = SdkmsClient::builder()
@@ -285,11 +275,7 @@ impl PgpAgent {
         Ok(cert)
     }
 
-    pub fn summon(
-        api_endpoint: &str,
-        api_key: &str,
-        key_name: &str,
-    ) -> Result<Self> {
+    pub fn summon(api_endpoint: &str, api_key: &str, key_name: &str) -> Result<Self> {
         info!("summon PGP agent");
         let http_client = SdkmsClient::builder()
             .with_api_endpoint(&api_endpoint)
@@ -299,7 +285,8 @@ impl PgpAgent {
         // Get primary key by name and subkey by UID
         let (primary, metadata) = {
             let req = SobjectDescriptor::Name(key_name.to_string());
-            let sobject = http_client.get_sobject(None, &req)
+            let sobject = http_client
+                .get_sobject(None, &req)
                 .context(format!("could not get primary key {}", key_name))?;
             let key = SequoiaKey::new_from_raw(sobject.clone())?;
 
@@ -312,10 +299,11 @@ impl PgpAgent {
         let subkey = {
             let kid = Uuid::parse_str(&metadata["subkey"])?;
             let descriptor = SobjectDescriptor::Kid(kid);
-            let sobject = http_client.get_sobject(None, &descriptor)
+            let sobject = http_client
+                .get_sobject(None, &descriptor)
                 .context(format!("could not get subkey (sobject {})", kid))?;
 
-            SequoiaKey::new_from_raw(sobject.clone())?
+            SequoiaKey::new_from_raw(sobject)?
         };
 
         let cert = Cert::from_str(&metadata["certificate"])?;
@@ -336,7 +324,6 @@ impl PgpAgent {
         detached: bool,
         armored: bool,
     ) -> Result<()> {
-
         let signer = RawSigner {
             api_endpoint: self.api_endpoint.clone(),
             api_key: self.api_key.clone(),
@@ -347,13 +334,15 @@ impl PgpAgent {
             true => {
                 let message = Message::new(sink);
                 Armorer::new(message).build()?
-            },
+            }
             false => Message::new(sink),
         };
 
         match detached {
             true => {
-                let mut message = Signer::new(message, signer).detached().build()?;
+                let mut message = Signer::new(message, signer)
+                    .detached()
+                    .build()?;
                 message.write_all(plaintext)?;
                 message.finalize()?;
             }
@@ -372,40 +361,39 @@ impl PgpAgent {
         &self,
         sink: &mut dyn Write,
         ciphertext: &[u8],
-        policy: &PgpPolicy,
-    ) -> Result<()>
-    {
+        policy: &(dyn PgpPolicy + 'static),
+    ) -> Result<()> {
         struct Helper {
             decryptor: RawDecryptor,
         }
 
         impl VerificationHelper for Helper {
-            fn get_certs(&mut self, _ids: &[KeyHandle])
-                -> openpgp::Result<Vec<Cert>> {
-                    // Return public keys for signature verification here.
-                    // TODO
-                    Ok(Vec::new())
+            fn get_certs(&mut self, _ids: &[KeyHandle]) -> openpgp::Result<Vec<Cert>> {
+                // Return public keys for signature verification here.
+                // TODO
+                Ok(Vec::new())
             }
 
-            fn check(&mut self, _structure: MessageStructure)
-                -> openpgp::Result<()> {
-                    // Implement your signature verification policy here.
-                    // TODO
-                    Ok(())
+            fn check(&mut self, _structure: MessageStructure) -> openpgp::Result<()> {
+                // Implement your signature verification policy here.
+                // TODO
+                Ok(())
             }
         }
 
         impl DecryptionHelper for Helper {
-            fn decrypt<D>(&mut self,
+            fn decrypt<D>(
+                &mut self,
                 pkesks: &[PKESK],
                 _skesks: &[SKESK],
                 sym_algo: Option<SymmetricAlgorithm>,
-                mut decrypt: D)
-                -> openpgp::Result<Option<openpgp::Fingerprint>>
-                    where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
+                mut decrypt: D,
+            ) -> openpgp::Result<Option<openpgp::Fingerprint>>
+            where
+                D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool,
             {
-
-                pkesks[0].decrypt(&mut self.decryptor, sym_algo)
+                pkesks[0]
+                    .decrypt(&mut self.decryptor, sym_algo)
                     .map(|(algo, session_key)| decrypt(algo, &session_key));
 
                 // XXX: In production code, return the Fingerprint of the
@@ -422,7 +410,8 @@ impl PgpAgent {
 
         let h = Helper { decryptor };
 
-        let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
+        let mut decryptor =
+            DecryptorBuilder::from_bytes(ciphertext)?
             .with_policy(policy, None, h)?;
 
         std::io::copy(&mut decryptor, sink)?;

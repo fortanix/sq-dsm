@@ -4,8 +4,8 @@ use sequoia_openpgp::{
         key::{PublicParts, UnspecifiedRole},
         Key,
     },
-    Result as SequoiaResult,
     types::HashAlgorithm,
+    Result as SequoiaResult,
 };
 
 use sdkms::{
@@ -26,11 +26,7 @@ impl Signer for RawSigner {
         &self.sequoia_key.public_key
     }
 
-    fn sign(
-        &mut self,
-        hash_algo: HashAlgorithm,
-        digest: &[u8]
-    ) -> SequoiaResult<mpi::Signature> {
+    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8]) -> SequoiaResult<mpi::Signature> {
         let http_client = SdkmsClient::builder()
             .with_api_endpoint(&self.api_endpoint)
             .with_api_key(&self.api_key)
@@ -48,7 +44,7 @@ impl Signer for RawSigner {
 
             let sign_req = SignRequest {
                 key: Some(SobjectDescriptor::Kid(self.sequoia_key.kid)),
-                hash_alg: hash_alg,
+                hash_alg,
                 hash: Some(digest.to_vec().into()),
                 data: None,
                 mode: None,

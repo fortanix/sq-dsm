@@ -2,9 +2,9 @@ use std::{env, io::Write};
 
 use sequoia_openpgp as openpgp;
 
-use openpgp::serialize::{stream::*, SerializeInto};
 use openpgp::policy::Policy;
 use openpgp::policy::StandardPolicy;
+use openpgp::serialize::{stream::*, SerializeInto};
 
 use super::PgpAgent;
 
@@ -24,7 +24,8 @@ fn init() {
             &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
             &env::var(TEST_ENV_API_KEY).unwrap(),
             &KEY_NAME,
-        ).unwrap();
+        )
+        .unwrap();
     });
 }
 
@@ -35,11 +36,15 @@ fn armored_public_key() {
         &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
         &env::var(TEST_ENV_API_KEY).unwrap(),
         &KEY_NAME,
-    ).unwrap();
+    )
+    .unwrap();
 
     let armored = agent.certificate.armored().to_vec().unwrap();
 
-    assert_eq!(&armored[..36], "-----BEGIN PGP PUBLIC KEY BLOCK-----".as_bytes());
+    assert_eq!(
+        &armored[..36],
+        "-----BEGIN PGP PUBLIC KEY BLOCK-----".as_bytes()
+    );
 }
 
 #[test]
@@ -49,13 +54,16 @@ fn armored_signature() {
         &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
         &env::var(TEST_ENV_API_KEY).unwrap(),
         &KEY_NAME,
-    ).unwrap();
+    )
+    .unwrap();
 
     const MESSAGE: &'static str = "дружба\nRoyale With Cheese\n ";
 
     // Sign the message.
     let mut signed_message = Vec::new();
-    agent.sign(&mut signed_message, MESSAGE.as_bytes(), true, true).unwrap();
+    agent
+        .sign(&mut signed_message, MESSAGE.as_bytes(), true, true)
+        .unwrap();
 }
 
 #[test]
@@ -67,7 +75,8 @@ fn encrypt_decrypt_roundtrip() {
         &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
         &env::var(TEST_ENV_API_KEY).unwrap(),
         &KEY_NAME,
-    ).unwrap();
+    )
+    .unwrap();
 
     // Encrypt the message.
     let mut ciphertext = Vec::new();
@@ -76,26 +85,33 @@ fn encrypt_decrypt_roundtrip() {
 
     // Decrypt the message.
     let mut plaintext = Vec::new();
-    agent.decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new()).unwrap();
+    agent
+        .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
+        .unwrap();
 
     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 }
 
 /// Encrypts the given message.
-fn encrypt(p: &dyn Policy, sink: &mut (dyn Write + Send + Sync),
-    plaintext: &str, recipient: &openpgp::Cert)
-    -> openpgp::Result<()>
-{
-    let recipients =
-        recipient.keys().with_policy(p, None).supported().alive().revoked(false)
+fn encrypt(
+    p: &dyn Policy,
+    sink: &mut (dyn Write + Send + Sync),
+    plaintext: &str,
+    recipient: &openpgp::Cert,
+) -> openpgp::Result<()> {
+    let recipients = recipient
+        .keys()
+        .with_policy(p, None)
+        .supported()
+        .alive()
+        .revoked(false)
         .for_transport_encryption();
 
     let message = Message::new(sink);
 
     let message = Armorer::new(message).build().unwrap();
 
-    let message = Encryptor::for_recipients(message, recipients)
-        .build()?;
+    let message = Encryptor::for_recipients(message, recipients).build()?;
 
     let mut message = LiteralWriter::new(message).build()?;
 
