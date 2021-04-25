@@ -2,11 +2,11 @@ use anyhow::{Context, Result};
 
 use log::info;
 
-use std::{path::{Path, PathBuf}, io::{Read, Write}, fs::{OpenOptions}, env};
+use std::{path::{Path, PathBuf}, io::Write, fs, env};
 
 use structopt::StructOpt;
 
-use sequoia_openpgp::serialize::SerializeInto;
+use sequoia_openpgp::{serialize::SerializeInto, policy::{StandardPolicy, NullPolicy}};
 
 use sq_sdkms::PgpAgent;
 
@@ -16,7 +16,6 @@ const DEFAULT_API_ENDPOINT: &'static str = "https://sdkms.fortanix.com";
 
 #[derive(StructOpt)]
 #[structopt(about = "OpenPGP integration for Fortanix SDKMS")]
-/// TODO: Document me!
 struct Cli {
     /// .env file containing SQ_SDKMS_API_KEY, SQ_SDKMS_API_ENDPOINT
     #[structopt(long, parse(from_os_str))]
@@ -33,8 +32,8 @@ struct Cli {
 
 #[derive(StructOpt)]
 enum Command {
-    /// Signs the given file with SDKMS
-    Sign {
+    /// Produces a detached signature of the given file with SDKMS
+    SignDetached {
         #[structopt(flatten)]
         args: CommonArgs,
         #[structopt(parse(from_os_str))]
@@ -46,6 +45,10 @@ enum Command {
         args: CommonArgs,
         #[structopt(parse(from_os_str))]
         file: PathBuf,
+        #[structopt(long)]
+        /// If absent, Sequoia standard PGP policy applies (set if you
+        /// **really** know what you are doing)
+        no_policy: bool,
     },
     /// Generates a PGP key in SDKMS, and outputs the Transferable Public Key
     GenerateKey {
@@ -53,7 +56,7 @@ enum Command {
         args: CommonArgs,
     },
     /// Retrieves and outputs the Transferable Public Key
-    PublicKey {
+    Certificate {
         #[structopt(flatten)]
         args: CommonArgs,
     },
@@ -62,13 +65,13 @@ enum Command {
 #[derive(StructOpt)]
 struct CommonArgs {
     #[structopt(long)]
-    /// The name of the SDKMS key
+    /// Name of the SDKMS key
     key_name: String,
     #[structopt(long)]
     /// Outputs material in PGP armored format
     armor: bool,
     /// Output file
-    #[structopt(long, short = "o", parse(from_os_str), required_unless("armor"))]
+    #[structopt(long, short = "o", parse(from_os_str))]
     output_file: Option<PathBuf>,
 }
 
@@ -119,7 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             (args.output_file, cert)
         },
-        Command::PublicKey {args} => {
+        Command::Certificate {args} => {
             info!("sq-sdkms public-key");
             not_exists(&args.output_file)?;
 
@@ -136,13 +139,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             (args.output_file, cert)
         }
-        Command::Sign { args, file } => {
+        Command::SignDetached { args, file } => {
             info!("sq-sdkms sign");
             not_exists(&args.output_file)?;
 
-            let mut input_file = OpenOptions::new().read(true).open(file)?;
-            let mut content = Vec::new();
-            input_file.read(&mut content)?;
+            let content = fs::read(file)?;
             let mut signed_message = Vec::new();
 
             let agent = PgpAgent::summon(
@@ -151,18 +152,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &args.key_name,
             ).context("Could not summon the PGP agent")?;
 
-            agent.sign(&mut signed_message, &content)
-                .context("Could not sign the message")?;
+            agent.sign(&mut signed_message, &content, true, args.armor)
+                .context("Could not sign the file")?;
 
             (args.output_file, signed_message)
         },
-        Command::Decrypt { args, file } => {
+        Command::Decrypt { args, file, no_policy } => {
             info!("sq-sdkms decrypt");
             not_exists(&args.output_file)?;
 
-            let mut input_file = OpenOptions::new().read(true).open(file)?;
-            let mut ciphertext = Vec::new();
-            input_file.read(&mut ciphertext)?;
+            let ciphertext = fs::read(file)?;
 
             let agent = PgpAgent::summon(
                 &api_endpoint,
@@ -171,8 +170,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ).context("Could not summon the PGP agent")?;
 
             let mut plaintext = Vec::new();
-            agent.decrypt(&mut plaintext, &ciphertext)
-                .context("Could not sign the message")?;
+
+            match no_policy {
+                false => {
+                    agent.decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
+                        .context("Could not decrypt the file")?;
+                }
+                true => {
+                    agent.decrypt(&mut plaintext, &ciphertext, &NullPolicy::new())
+                        .context("Could not decrypt the file")?;
+                }
+            };
 
             (args.output_file, plaintext)
         }
@@ -183,7 +191,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::io::stdout().write(&pgp_material)?;
         }
         Some(file) => {
-            let mut buf = OpenOptions::new().write(true)
+            let mut buf = fs::OpenOptions::new().write(true)
                 .create_new(true)
                 .open(file)?;
             buf.write_all(&pgp_material)?;

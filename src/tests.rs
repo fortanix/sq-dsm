@@ -11,7 +11,7 @@ use super::PgpAgent;
 const TEST_ENV: &'static str = ".test.env";
 const TEST_ENV_API_KEY: &'static str = "TEST_SQ_SDKMS_API_KEY";
 const TEST_ENV_API_ENDPOINT: &'static str = "TEST_SQ_SDKMS_API_ENDPOINT";
-const KEY_NAME: &'static str = "MyTestKey";
+const KEY_NAME: &'static str = "SundayTesting";
 
 use std::sync::Once;
 
@@ -55,7 +55,7 @@ fn armored_signature() {
 
     // Sign the message.
     let mut signed_message = Vec::new();
-    agent.sign(&mut signed_message, MESSAGE.as_bytes()).unwrap();
+    agent.sign(&mut signed_message, MESSAGE.as_bytes(), true, true).unwrap();
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn encrypt_decrypt_roundtrip() {
 
     // Decrypt the message.
     let mut plaintext = Vec::new();
-    agent.decrypt(&mut plaintext, &ciphertext).unwrap();
+    agent.decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new()).unwrap();
 
     assert_eq!(MESSAGE.as_bytes(), &plaintext[..]);
 }

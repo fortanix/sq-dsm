@@ -45,7 +45,7 @@ use openpgp::{
         Parse,
     },
     Packet,
-    policy::StandardPolicy,
+    policy::Policy as PgpPolicy,
     serialize::{SerializeInto, stream::{Armorer, LiteralWriter, Message, Signer}},
     types::{KeyFlags, HashAlgorithm, SymmetricAlgorithm, SignatureType},
 };
@@ -212,9 +212,10 @@ impl PgpAgent {
         };
 
         let sig = {
+            let flags = KeyFlags::empty().set_certification().set_signing();
             let builder = SignatureBuilder::new(SignatureType::DirectKey)
                 .set_hash_algo(HashAlgorithm::SHA512)
-                .set_key_flags(KeyFlags::empty().set_certification())?
+                .set_key_flags(flags)?
                 .set_preferred_hash_algorithms(vec![
                     HashAlgorithm::SHA512,
                     HashAlgorithm::SHA256,
@@ -332,6 +333,8 @@ impl PgpAgent {
         &self,
         sink: &mut (dyn Write + Send + Sync),
         plaintext: &[u8],
+        detached: bool,
+        armored: bool,
     ) -> Result<()> {
 
         let signer = RawSigner {
@@ -340,17 +343,27 @@ impl PgpAgent {
             sequoia_key: self.primary.clone(),
         };
 
-        let message = Message::new(sink);
+        let message = match armored {
+            true => {
+                let message = Message::new(sink);
+                Armorer::new(message).build()?
+            },
+            false => Message::new(sink),
+        };
 
-        let message = Armorer::new(message).build()?;
-
-        let message = Signer::new(message, signer).build()?;
-
-        let mut message = LiteralWriter::new(message).build()?;
-
-        message.write_all(plaintext)?;
-
-        message.finalize()?;
+        match detached {
+            true => {
+                let mut message = Signer::new(message, signer).detached().build()?;
+                message.write_all(plaintext)?;
+                message.finalize()?;
+            }
+            false => {
+                let message = Signer::new(message, signer).build()?;
+                let mut message = LiteralWriter::new(message).build()?;
+                message.write_all(plaintext)?;
+                message.finalize()?;
+            }
+        }
 
         Ok(())
     }
@@ -359,6 +372,7 @@ impl PgpAgent {
         &self,
         sink: &mut dyn Write,
         ciphertext: &[u8],
+        policy: &PgpPolicy,
     ) -> Result<()>
     {
         struct Helper {
@@ -408,9 +422,8 @@ impl PgpAgent {
 
         let h = Helper { decryptor };
 
-        let p = &StandardPolicy::new();
         let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
-            .with_policy(p, None, h)?;
+            .with_policy(policy, None, h)?;
 
         std::io::copy(&mut decryptor, sink)?;
 
