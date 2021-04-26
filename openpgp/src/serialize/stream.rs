@@ -2296,12 +2296,7 @@ impl<'a> Recipient<'a> {
 /// # Ok(()) }
 /// ```
 pub struct Encryptor<'a> {
-    // XXX: Opportunity for optimization.  Previously, this writer
-    // implemented `Drop`, so we could not move the inner writer out
-    // of this writer.  We therefore wrapped it with `Option` so that
-    // we can `take()` it.  This writer no longer implements Drop, so
-    // we could avoid the Option here.
-    inner: Option<writer::BoxStack<'a, Cookie>>,
+    inner: writer::BoxStack<'a, Cookie>,
     recipients: Vec<Recipient<'a>>,
     passwords: Vec<Password>,
     sym_algo: SymmetricAlgorithm,
@@ -2376,7 +2371,7 @@ impl<'a> Encryptor<'a> {
               R::Item: Into<Recipient<'a>>,
     {
             Self {
-            inner: Some(inner.into()),
+            inner: inner.into(),
             recipients: recipients.into_iter().map(|r| r.into()).collect(),
             passwords: Vec::new(),
             sym_algo: Default::default(),
@@ -2421,7 +2416,7 @@ impl<'a> Encryptor<'a> {
               P::Item: Into<Password>,
     {
         Self {
-            inner: Some(inner.into()),
+            inner: inner.into(),
             recipients: Vec::new(),
             passwords: passwords.into_iter().map(|p| p.into()).collect(),
             sym_algo: Default::default(),
@@ -2727,7 +2722,7 @@ impl<'a> Encryptor<'a> {
             None
         };
 
-        let mut inner = self.inner.take().expect("Added in constructors");
+        let mut inner = self.inner;
         let level = inner.as_ref().cookie_ref().level + 1;
 
         // Generate a session key.
@@ -2785,12 +2780,12 @@ impl<'a> Encryptor<'a> {
             inner.write_all(&[1])?; // Version.
 
             // Install encryptor.
-            self.inner = Some(writer::Encryptor::new(
+            self.inner = writer::Encryptor::new(
                 inner,
                 Cookie::new(level),
                 self.sym_algo,
                 &sk,
-            )?.into());
+            )?.into();
             self.cookie = Cookie::new(level);
 
             // Write the initialization vector, and the quick-check
@@ -2807,29 +2802,26 @@ impl<'a> Encryptor<'a> {
     }
 
     /// Emits the MDC packet and recovers the original writer.
-    fn emit_mdc(&mut self) -> Result<writer::BoxStack<'a, Cookie>> {
-        if let Some(mut w) = self.inner.take() {
-            // Write the MDC, which must be the last packet inside the
-            // encrypted packet stream.  The hash includes the MDC's
-            // CTB and length octet.
-            let mut header = Vec::new();
-            CTB::new(Tag::MDC).serialize(&mut header)?;
-            BodyLength::Full(20).serialize(&mut header)?;
+    fn emit_mdc(mut self) -> Result<writer::BoxStack<'a, Cookie>> {
+        let mut w = self.inner;
 
-            self.hash.update(&header);
-            Packet::MDC(MDC::from(self.hash.clone())).serialize(&mut w)?;
+        // Write the MDC, which must be the last packet inside the
+        // encrypted packet stream.  The hash includes the MDC's
+        // CTB and length octet.
+        let mut header = Vec::new();
+        CTB::new(Tag::MDC).serialize(&mut header)?;
+        BodyLength::Full(20).serialize(&mut header)?;
 
-            // Now recover the original writer.  First, strip the
-            // Encryptor.
-            let w = w.into_inner()?.unwrap();
-            // And the partial body filter.
-            let w = w.into_inner()?.unwrap();
+        self.hash.update(&header);
+        Packet::MDC(MDC::from(self.hash.clone())).serialize(&mut w)?;
 
-            Ok(w)
-        } else {
-            Err(Error::InvalidOperation(
-                "Inner writer already taken".into()).into())
-        }
+        // Now recover the original writer.  First, strip the
+        // Encryptor.
+        let w = w.into_inner()?.unwrap();
+        // And the partial body filter.
+        let w = w.into_inner()?.unwrap();
+
+        Ok(w)
     }
 }
 
@@ -2843,10 +2835,7 @@ impl<'a> fmt::Debug for Encryptor<'a> {
 
 impl<'a> Write for Encryptor<'a> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let written = match self.inner.as_mut() {
-            Some(ref mut w) => w.write(buf),
-            None => Ok(buf.len()),
-        };
+        let written = self.inner.write(buf);
         if let Ok(amount) = written {
             self.hash.update(&buf[..amount]);
         }
@@ -2854,10 +2843,7 @@ impl<'a> Write for Encryptor<'a> {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        match self.inner.as_mut() {
-            Some(ref mut w) => w.flush(),
-            None => Ok(()),
-        }
+        self.inner.flush()
     }
 }
 
@@ -2870,16 +2856,12 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
         unreachable!("Only implemented by Signer")
     }
     fn inner_ref(&self) -> Option<&(dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
-        self.inner.as_ref().map(|r| r.as_ref())
+        Some(&self.inner)
     }
     fn inner_mut(&mut self) -> Option<&mut (dyn writer::Stackable<'a, Cookie> + Send + Sync)> {
-        if let Some(ref mut i) = self.inner {
-            Some(i)
-        } else {
-            None
-        }
+        Some(&mut self.inner)
     }
-    fn into_inner(mut self: Box<Self>) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
+    fn into_inner(self: Box<Self>) -> Result<Option<writer::BoxStack<'a, Cookie>>> {
         Ok(Some(self.emit_mdc()?))
     }
     fn cookie_set(&mut self, cookie: Cookie) -> Cookie {
@@ -2892,7 +2874,7 @@ impl<'a> writer::Stackable<'a, Cookie> for Encryptor<'a> {
         &mut self.cookie
     }
     fn position(&self) -> u64 {
-        self.inner.as_ref().map(|i| i.position()).unwrap_or(0)
+        self.inner.position()
     }
 }
 
