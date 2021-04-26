@@ -4,15 +4,16 @@ This crate leverages [sdkms-client-rust][sdkms-client-rust] and
 [Sequoia-PGP][Sequoia] to perform sensitive OpenPGP operations with keys stored
 in the [Fortanix Self-Defending Key-Management System][SDKMS].
 
-### Motivation
+## Motivation
 
 Sequoia-PGP defines the [Signer][sequoia::Signer] and
 [Decryptor][sequoia::Decryptor] traits for low-level cryptographic operations
 with secret key material, and astracts over these traits for PGP operations.
-This crate implement these traits with unexportable secrets stored inside
-Fortanix SDKMS, allowing to produce PGP material and decrypt ciphertexts.
+This crate implements these traits with secrets stored inside Fortanix SDKMS,
+allowing to produce PGP material and decrypt ciphertexts without the need to
+export secrets bits.
 
-### CLI
+## CLI
 
 The convenient command-line interface `sq-sdkms` is provided in the
 spirit of Sequoia's `sq` and `sqv`. It can be used in combination with
@@ -33,7 +34,7 @@ commands, flags, and options.
 PGP operations that do not require secrets (such as verify a signature) can be
 performed with any other PGP implementation, such as `sqv`.
 
-### Build instructions
+## Building
 
 First, install Sequoia-PGP ([instructions][instructions-sequoia]) and
 [rust-mbedtls][rust-mbedtls].
@@ -42,12 +43,12 @@ Clone and `cd` to this repository, and build with `cargo build
 --release`. This will create the `sq-sdkms` binary in the `target/release`
 directory.
 
-#### Env variables
+### Env variables
 
-Export the following variables
+The following variables need to be set
 
-- `FORTANIX_API_ENDPOINT`, your SDKMS API endpoint
-- `FORTANIX_API_KEY`, your app's API key
+- `FORTANIX_API_ENDPOINT`, your SDKMS API endpoint,
+- `FORTANIX_API_KEY`, your app's API key.
 
 These variables can also be configured in a .env file and `sq-sdkms` can be ran with the option `--env-file <my .env file>`.
 
@@ -74,8 +75,12 @@ gpg: Total number processed: 1
 gpg:               imported: 1
 ```
 
-Verify the detached signature with `gpg`
+Verify the detached signature with `sqv` and `gpg`
 ```
+$ sqv --verbose --keyring alice.asc msg.txt.asc msg.txt
+63A0B7D62786CC87DE913A6804F593070A9B5600
+1 of 1 signatures are valid (threshold is: 1).
+
 $ gpg --verify msg.txt.asc msg.txt
 gpg: Signature made Mon Apr 26 13:38:30 2021 UTC
 gpg:                using RSA key 63A0B7D62786CC87DE913A6804F593070A9B5600
