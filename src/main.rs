@@ -22,15 +22,15 @@ const ENV_API_ENDPOINT: &str = "SQ_SDKMS_API_ENDPOINT";
 const DEFAULT_API_ENDPOINT: &str = "https://sdkms.fortanix.com";
 
 #[derive(StructOpt)]
-#[structopt(about = "OpenPGP integration for Fortanix SDKMS")]
+/// OpenPGP integration for Fortanix SDKMS
 struct Cli {
     /// .env file containing SQ_SDKMS_API_KEY, SQ_SDKMS_API_ENDPOINT
-    #[structopt(long, parse(from_os_str))]
+    #[structopt(long, parse(from_os_str), required_unless("api-key"))]
     env_file: Option<PathBuf>,
     /// Endpoint URL (overloaded by .env file)
     #[structopt(long)]
     api_endpoint: Option<String>,
-    #[structopt(long, required_unless("env-file"))]
+    #[structopt(long)]
     /// The SDKMS API key
     api_key: Option<String>,
     #[structopt(subcommand)]

@@ -50,6 +50,8 @@ use signer::RawSigner;
 
 use decryptor::RawDecryptor;
 
+/// The PgpAgent is responsible of one PGP key. It talks to SDKMS and produces
+/// valid OpenPGP material
 pub struct PgpAgent {
     api_endpoint: String,
     api_key: String,
@@ -97,7 +99,18 @@ enum KeyRole {
 }
 
 impl PgpAgent {
-    /// TODO: Doc
+    /// Generates an OpenPGP key with secrets stored in SDKMS. At the OpenPGP
+    /// level, this method produces a key consisting of
+    ///
+    /// - A primary signing key (flags C + S),
+    /// - a transport and storage encryption subkey (flags Et + Er).
+    ///
+    /// At the SDKMS level, this method creates the two corresponding Sobjects.
+    /// The encryption key's KID is stored as a custom metadata field of the
+    /// signing key.
+    ///
+    /// The public certificate (Transferable Public Key) is computed, stored as
+    /// an additional custom medatada field on the primary key, and returned.
     pub fn generate_key(
         api_endpoint: &str,
         api_key: &str,
@@ -190,8 +203,8 @@ impl PgpAgent {
         })
     }
 
-    /// Generates the Transferable Public Key certificate, caches it, and stores
-    /// it in SDKMS.
+    // Generates the Transferable Public Key certificate, caches it, and stores
+    // it in SDKMS.
     fn bind_sdkms_keys_and_generate_cert(
         api_endpoint: &str,
         api_key: &str,
@@ -278,6 +291,7 @@ impl PgpAgent {
         Ok(cert)
     }
 
+    /// Given proper credentials, a PgpAgent is created for this key.
     pub fn summon(api_endpoint: &str, api_key: &str, key_name: &str) -> Result<Self> {
         info!("summon PGP agent");
         let http_client = SdkmsClient::builder()
@@ -320,10 +334,11 @@ impl PgpAgent {
         })
     }
 
+    /// Signs the given content and writes it to `sink`.
     pub fn sign(
         &self,
         sink: &mut (dyn Write + Send + Sync),
-        plaintext: &[u8],
+        content: &[u8],
         detached: bool,
         armored: bool,
     ) -> Result<()> {
@@ -346,13 +361,13 @@ impl PgpAgent {
                 let mut message = Signer::new(message, signer)
                     .detached()
                     .build()?;
-                message.write_all(plaintext)?;
+                message.write_all(content)?;
                 message.finalize()?;
             }
             false => {
                 let message = Signer::new(message, signer).build()?;
                 let mut message = LiteralWriter::new(message).build()?;
-                message.write_all(plaintext)?;
+                message.write_all(content)?;
                 message.finalize()?;
             }
         }
@@ -360,6 +375,7 @@ impl PgpAgent {
         Ok(())
     }
 
+    /// Decrypts the given ciphertext and writes the plaintext to `sink`.
     pub fn decrypt(
         &self,
         sink: &mut dyn Write,
