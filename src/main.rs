@@ -17,22 +17,15 @@ use sequoia_openpgp::{
 
 use sq_sdkms::PgpAgent;
 
-const ENV_API_KEY: &str = "SQ_SDKMS_API_KEY";
-const ENV_API_ENDPOINT: &str = "SQ_SDKMS_API_ENDPOINT";
-const DEFAULT_API_ENDPOINT: &str = "https://sdkms.fortanix.com";
+const ENV_API_KEY: &str = "FORTANIX_API_KEY";
+const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
 
 #[derive(StructOpt)]
 /// OpenPGP integration for Fortanix SDKMS
 struct Cli {
     /// .env file containing SQ_SDKMS_API_KEY, SQ_SDKMS_API_ENDPOINT
-    #[structopt(long, parse(from_os_str), required_unless("api-key"))]
+    #[structopt(long, parse(from_os_str))]
     env_file: Option<PathBuf>,
-    /// Endpoint URL (overloaded by .env file)
-    #[structopt(long)]
-    api_endpoint: Option<String>,
-    #[structopt(long)]
-    /// The SDKMS API key
-    api_key: Option<String>,
     #[structopt(subcommand)]
     cmd: Command,
 }
@@ -88,30 +81,20 @@ struct CommonArgs {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let cli = Cli::from_args();
-
-    let (api_key, endpoint) = match cli.env_file {
+    match cli.env_file {
         Some(file) => {
             dotenv::from_filename(file).ok();
-            let api_key = env::var(ENV_API_KEY)
-                .with_context(|| format!("{} variable absent", ENV_API_KEY))?;
-            let endpoint = match env::var(ENV_API_ENDPOINT) {
-                Ok(endpoint) => endpoint,
-                _ => DEFAULT_API_ENDPOINT.to_string(),
-            };
+        }
+        _ => (),
+    }
 
-            (api_key, endpoint)
-        }
-        None => {
-            let api_key = match cli.api_key {
-                Some(api_key) => api_key,
-                None => unreachable!(),
-            };
-            let endpoint = match cli.api_endpoint {
-                Some(endpoint) => endpoint,
-                None => DEFAULT_API_ENDPOINT.to_string(),
-            };
-            (api_key, endpoint)
-        }
+    let (api_key, endpoint) = {
+        let api_key =
+            env::var(ENV_API_KEY).with_context(|| format!("{} env var absent", ENV_API_KEY))?;
+        let endpoint = env::var(ENV_API_ENDPOINT)
+            .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
+
+        (api_key, endpoint)
     };
 
     let (output_file, pgp_material) = match cli.cmd {
@@ -119,12 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("sq-sdkms generate-key");
             not_exists(&args.output_file)?;
 
-            let agent = PgpAgent::generate_key(
-                &endpoint,
-                &api_key,
-                &args.key_name,
-                &user_id,
-            )?;
+            let agent = PgpAgent::generate_key(&endpoint, &api_key, &args.key_name, &user_id)?;
 
             let cert = match args.armor {
                 true => agent.certificate.armored().to_vec(),
