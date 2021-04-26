@@ -388,14 +388,10 @@ impl PgpAgent {
 
         impl VerificationHelper for Helper {
             fn get_certs(&mut self, _ids: &[KeyHandle]) -> openpgp::Result<Vec<Cert>> {
-                // Return public keys for signature verification here.
-                // TODO
                 Ok(Vec::new())
             }
 
             fn check(&mut self, _structure: MessageStructure) -> openpgp::Result<()> {
-                // Implement your signature verification policy here.
-                // TODO
                 Ok(())
             }
         }
@@ -415,9 +411,7 @@ impl PgpAgent {
                     .decrypt(&mut self.decryptor, sym_algo)
                     .map(|(algo, session_key)| decrypt(algo, &session_key));
 
-                // XXX: In production code, return the Fingerprint of the
-                // recipient's Cert here
-                Ok(None)
+                Ok(Some(self.decryptor.sequoia_key.public_key.fingerprint()))
             }
         }
 
