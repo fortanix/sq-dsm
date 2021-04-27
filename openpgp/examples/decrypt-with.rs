@@ -9,10 +9,11 @@ use anyhow::Context;
 
 use sequoia_openpgp as openpgp;
 
-use crate::openpgp::cert::prelude::*;
-use crate::openpgp::crypto::{KeyPair, SessionKey};
-use crate::openpgp::types::SymmetricAlgorithm;
-use crate::openpgp::parse::{
+use openpgp::*;
+use openpgp::cert::prelude::*;
+use openpgp::crypto::{KeyPair, SessionKey};
+use openpgp::types::SymmetricAlgorithm;
+use openpgp::parse::{
     Parse,
     stream::{
         DecryptionHelper,
@@ -23,8 +24,8 @@ use crate::openpgp::parse::{
         MessageLayer,
     },
 };
-use crate::openpgp::policy::Policy;
-use crate::openpgp::policy::StandardPolicy as P;
+use openpgp::policy::Policy;
+use openpgp::policy::StandardPolicy as P;
 
 pub fn main() -> openpgp::Result<()> {
     let p = &P::new();
@@ -44,7 +45,7 @@ pub fn main() -> openpgp::Result<()> {
 
     // Now, create a decryptor with a helper using the given Certs.
     let mut decryptor =
-        DecryptorBuilder::from_reader(io::stdin()).unwrap()
+        DecryptorBuilder::from_reader(io::stdin())?
         .with_policy(p, None, Helper::new(p, certs))?;
 
     // Finally, stream the decrypted data to stdout.
@@ -58,20 +59,22 @@ pub fn main() -> openpgp::Result<()> {
 /// keys for the signature verification and implements the
 /// verification policy.
 struct Helper {
-    keys: HashMap<openpgp::KeyID, KeyPair>,
+    keys: HashMap<KeyID, (Fingerprint, KeyPair)>,
 }
 
 impl Helper {
     /// Creates a Helper for the given Certs with appropriate secrets.
     fn new(p: &dyn Policy, certs: Vec<openpgp::Cert>) -> Self {
-        // Map (sub)KeyIDs to secrets.
+        // Map (sub)KeyIDs to primary fingerprints and secrets.
         let mut keys = HashMap::new();
         for cert in certs {
             for ka in cert.keys().unencrypted_secret().with_policy(p, None)
+                .supported()
                 .for_storage_encryption().for_transport_encryption()
             {
                 keys.insert(ka.key().keyid(),
-                            ka.key().clone().into_keypair().unwrap());
+                            (cert.fingerprint(),
+                             ka.key().clone().into_keypair().unwrap()));
             }
         }
 
@@ -91,20 +94,21 @@ impl DecryptionHelper for Helper {
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
         // Try each PKESK until we succeed.
+        let mut recipient = None;
         for pkesk in pkesks {
-            if let Some(pair) = self.keys.get_mut(pkesk.recipient()) {
+            if let Some((fp, pair)) = self.keys.get_mut(pkesk.recipient()) {
                 if pkesk.decrypt(pair, sym_algo)
                     .map(|(algo, session_key)| decrypt(algo, &session_key))
                     .unwrap_or(false)
                 {
+                    recipient = Some(fp.clone());
                     break;
                 }
             }
         }
-        // XXX: In production code, return the Fingerprint of the
-        // recipient's Cert here
-        Ok(None)
-    }
+
+        Ok(recipient)
+     }
 }
 
 impl VerificationHelper for Helper {
