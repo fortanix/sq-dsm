@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.18"
+bit-vec = "0.6.3"
 dotenv = "0.15.0"
 env_logger = "0.8.3"
 mbedtls = { git = "https://github.com/fortanix/rust-mbedtls" }
@@ -14,6 +15,7 @@ sdkms = "0.2.1"
 sequoia-openpgp = "1.1.0"
 structopt = "0.3.13"
 uuid = "0.7.4"
+yasna = { version = "0.3.2", features = ["num-bigint", "bit-vec"] }
 
 [build-dependencies]
 bindgen57 = { version = "0.57", package = "bindgen", default-features = false, features = ["runtime"] }

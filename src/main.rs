@@ -4,7 +4,7 @@ use log::info;
 
 use std::{
     env, fs,
-    io::Write,
+    io::{BufRead, Write},
     path::{Path, PathBuf},
 };
 
@@ -15,7 +15,7 @@ use sequoia_openpgp::{
     serialize::SerializeInto,
 };
 
-use sq_sdkms::PgpAgent;
+use sq_sdkms::{PgpAgent, SupportedPkAlgo};
 
 const ENV_API_KEY: &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
@@ -45,18 +45,18 @@ enum Command {
         args: CommonArgs,
         #[structopt(parse(from_os_str))]
         file: PathBuf,
-        #[structopt(long)]
         /// If absent, Sequoia standard PGP policy applies (set if you
         /// **really** know what you are doing)
+        #[structopt(long)]
         no_policy: bool,
     },
-    /// Generates a PGP key in SDKMS, and outputs the Transferable Public Key
+    /// Generates a PGP key in SDKMS, and outputs the Transferable Public Key.
     GenerateKey {
         #[structopt(flatten)]
         args: CommonArgs,
-        #[structopt(long, short)]
         /// An RFC2822-compliant user ID (e.g., "Paul Morphy <paul@fortanix.com>")
-        user_id: String,
+        #[structopt(long, short)]
+        user_id: Option<String>,
     },
     /// Retrieves and outputs the Transferable Public Key
     Certificate {
@@ -102,15 +102,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("sq-sdkms generate-key");
             not_exists(&args.output_file)?;
 
-            let agent = PgpAgent::generate_key(&endpoint, &api_key, &args.key_name, &user_id)?;
+            let algo = pk_algo_prompt()?;
+            let user_id = match user_id {
+                Some(user_id) => user_id,
+                None => user_id_prompt()?,
+            };
 
-            let cert = match args.armor {
-                true => agent.certificate.armored().to_vec(),
-                false => agent.certificate.to_vec(),
+            let agent = PgpAgent::generate_key(
+                &endpoint,
+                &api_key,
+                &args.key_name,
+                &user_id,
+                &algo,
+            )?;
+
+            let cert = if args.armor || args.output_file == None {
+                agent.certificate.armored().to_vec()
+            } else {
+                agent.certificate.to_vec()
             }?;
 
             (args.output_file, cert)
-        }
+        },
         Command::Certificate { args } => {
             info!("sq-sdkms public-key");
             not_exists(&args.output_file)?;
@@ -118,10 +131,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let agent = PgpAgent::summon(&endpoint, &api_key, &args.key_name)
                 .context("Could not summon the PGP agent")?;
 
-            let cert = match args.armor {
-                true => agent.certificate.armored().to_vec()?,
-                false => agent.certificate.to_vec()?,
-            };
+            let cert = if args.armor {
+                agent.certificate.armored().to_vec()
+            } else {
+                agent.certificate.to_vec()
+            }?;
 
             (args.output_file, cert)
         }
@@ -156,18 +170,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut plaintext = Vec::new();
 
-            match no_policy {
-                false => {
-                    agent
-                        .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
-                        .context("Could not decrypt the file")?;
-                }
-                true => {
-                    agent
-                        .decrypt(&mut plaintext, &ciphertext, &NullPolicy::new())
-                        .context("Could not decrypt the file")?;
-                }
-            };
+            if no_policy {
+                agent
+                    .decrypt(&mut plaintext, &ciphertext, &NullPolicy::new())
+                    .context("Could not decrypt the file")?;
+            } else {
+                agent
+                    .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
+                    .context("Could not decrypt the file")?;
+            }
 
             (args.output_file, plaintext)
         }
@@ -199,4 +210,70 @@ fn not_exists(path: &Option<PathBuf>) -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn pk_algo_prompt() -> Result<SupportedPkAlgo> {
+    loop {
+        println!("\nSelect public key algorithm:\n");
+        println!("   (1) RSA");
+        print!("\nYour choice: ");
+        std::io::stdout().flush()?;
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line)?;
+        match line.trim().parse::<u32>()? {
+            1 => {
+                let key_size = loop {
+                    println!("\nSelect RSA key size:\n");
+                    println!("   (1) 2048");
+                    println!("   (2) 3072");
+                    println!("   (3) 4096");
+                    print!("\nYour choice: ");
+                    std::io::stdout().flush()?;
+                    let mut input = String::new();
+                    std::io::stdin().read_line(&mut input)?;
+                    match input.trim().parse::<u32>()? {
+                        1 => break 2048,
+                        2 => break 3072,
+                        3 => break 4096,
+                        _ => println!("Invalid input"),
+                    }
+                };
+
+                return Ok(SupportedPkAlgo::Rsa(key_size))
+            },
+            _ => println!("Invalid input"),
+        }
+    }
+}
+
+fn user_id_prompt() -> Result<String> {
+    println!("\nTo identify your key, you need to create a user ID of the form");
+    println!("\n    \"Paul Morphy (Comment) <paul@fortanix.com>\"\n");
+
+    let user_id = loop {
+        print!("Your name: ");
+        std::io::stdout().flush()?;
+        let name = std::io::stdin().lock().lines().next().unwrap()?;
+
+        print!("Optional comment: ");
+        std::io::stdout().flush()?;
+        let comment = std::io::stdin().lock().lines().next().unwrap()?;
+
+        print!("Your email: ");
+        std::io::stdout().flush()?;
+        let email = std::io::stdin().lock().lines().next().unwrap()?;
+
+        let user_id = format!("{} ({}) <{}>", &name, &comment, &email);
+
+        println!("\nIs the following user ID correct?");
+        println!("\n    \"{}\"\n", user_id);
+        print!("(y/n): ");
+        std::io::stdout().flush()?;
+        let choice = std::io::stdin().lock().lines().next().unwrap()?;
+        if choice == "y" {
+            break user_id
+        }
+    };
+
+    Ok(user_id)
 }

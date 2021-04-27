@@ -8,12 +8,14 @@ use uuid::Uuid;
 
 use sdkms::{
     api_model::{
-        KeyOperations, ObjectType, RsaEncryptionPaddingPolicy,
-        RsaEncryptionPolicy, RsaOptions, RsaSignaturePaddingPolicy,
-        RsaSignaturePolicy, Sobject, SobjectDescriptor, SobjectRequest,
+        KeyOperations, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
+        RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, Sobject,
+        SobjectDescriptor, SobjectRequest,
     },
     SdkmsClient,
 };
+
+pub use sdkms::api_model::ObjectType;
 
 use mbedtls::pk::Pk;
 
@@ -55,47 +57,114 @@ use decryptor::RawDecryptor;
 pub struct PgpAgent {
     api_endpoint: String,
     api_key: String,
-    primary: SequoiaKey,
-    subkey: SequoiaKey,
+    primary: PublicKey,
+    subkey: PublicKey,
     pub certificate: Cert,
 }
 
 #[derive(Clone)]
-struct SequoiaKey {
+struct PublicKey {
     kid: Uuid,
     name: String,
-    public_key: Key<PublicParts, UnspecifiedRole>,
+    sequoia_key: Key<PublicParts, UnspecifiedRole>,
 }
 
-impl SequoiaKey {
-    fn new_from_raw(sobject: Sobject) -> Result<Self> {
-        let (e, n, time) = {
-            let raw_pk = sobject
-                .pub_key
-                .context("public bits of sobject not returned")?;
-            let deserialized_pk = Pk::from_public_key(&raw_pk)
-                .context("cannot deserialize SDKMS key into Sequoia object")?;
-            (
-                deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
-                deserialized_pk.rsa_public_modulus()?.to_binary()?,
-                sobject.created_at.to_datetime(),
-            )
-        };
-
-        Ok(SequoiaKey {
-            kid: sobject.kid.context("uuid not returned by SDKMS")?,
-            name: sobject.name.context("name not returned by SDKMS")?,
-            public_key: Key::V4(
-                Key4::import_public_rsa(&e, &n, Some(time.into()))
-                    .context("cannot import RSA key into Sequoia object")?,
-            ),
-        })
-    }
+pub enum SupportedPkAlgo {
+    Rsa(u32),
 }
 
 enum KeyRole {
     Primary,
     Subkey,
+}
+
+impl PublicKey {
+    fn raw_key(
+        client: &SdkmsClient,
+        name: String,
+        role: KeyRole,
+        algo: &SupportedPkAlgo,
+    ) -> Result<Self> {
+        let description = Some("Created with sq-sdkms".to_string());
+
+        let sobject_request = match (&role, algo) {
+            (KeyRole::Primary, SupportedPkAlgo::Rsa(key_size)) => {
+                let ops = KeyOperations::SIGN | KeyOperations::APPMANAGEABLE;
+                let sig_policy = RsaSignaturePolicy {
+                    padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
+                };
+                let rsa_options = Some(RsaOptions {
+                    signature_policy: vec![sig_policy],
+                    ..Default::default()
+                });
+
+                SobjectRequest {
+                    name: Some(name),
+                    description,
+                    obj_type: Some(ObjectType::Rsa),
+                    key_ops: Some(ops),
+                    key_size: Some(*key_size),
+                    rsa: rsa_options,
+                    ..Default::default()
+                }
+            },
+            (KeyRole::Subkey, SupportedPkAlgo::Rsa(key_size)) => {
+                let ops = KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE;
+                let enc_policy = RsaEncryptionPolicy {
+                    padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
+                };
+                let rsa_options = Some(RsaOptions {
+                    encryption_policy: vec![enc_policy],
+                    ..Default::default()
+                });
+                let name = name + " (PGP: decryption subkey)";
+
+                SobjectRequest {
+                    name: Some(name),
+                    description,
+                    obj_type: Some(ObjectType::Rsa),
+                    key_ops: Some(ops),
+                    key_size: Some(*key_size),
+                    rsa: rsa_options,
+                    ..Default::default()
+                }
+            },
+        };
+
+        let sobject = client.create_sobject(&sobject_request)?;
+
+        PublicKey::new_from_raw(sobject, role)
+    }
+
+    fn new_from_raw(sobject: Sobject, _role: KeyRole) -> Result<Self> {
+        let kid = sobject.kid.context("no kid in sobject")?;
+        let name = sobject.name.context("no name in sobject")?;
+        let time = sobject.created_at.to_datetime();
+        let raw_pk = sobject
+            .pub_key
+            .context("public bits of sobject not returned")?;
+
+        match sobject.obj_type {
+            ObjectType::Rsa => {
+                let deserialized_pk = Pk::from_public_key(&raw_pk)
+                    .context("cannot deserialize SDKMS key into mbedTLS object")?;
+
+                let (e, n) = (
+                    deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
+                    deserialized_pk.rsa_public_modulus()?.to_binary()?,
+                );
+
+                return Ok(PublicKey {
+                    kid, name,
+                    sequoia_key: Key::V4(
+                        Key4::import_public_rsa(&e, &n, Some(time.into()))
+                        .context("cannot import RSA key into Sequoia object")?,
+                    ),
+                })
+            },
+            _ => unimplemented!()
+        }
+    }
 }
 
 impl PgpAgent {
@@ -115,7 +184,8 @@ impl PgpAgent {
         api_endpoint: &str,
         api_key: &str,
         key_name: &str,
-        user_id: &str
+        user_id: &str,
+        algorithm: &SupportedPkAlgo,
     ) -> Result<Self> {
         let http_client = SdkmsClient::builder()
             .with_api_endpoint(&api_endpoint)
@@ -123,66 +193,20 @@ impl PgpAgent {
             .build()
             .context("could not initiate an SDKMS client")?;
 
-        fn raw_key(
-            client: &SdkmsClient,
-            name: String,
-            op: KeyOperations,
-            role: KeyRole,
-        ) -> Result<SequoiaKey> {
-            let (name, rsa_options) = match role {
-                KeyRole::Subkey => {
-                    let enc_policy = RsaEncryptionPolicy {
-                        padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
-                    };
-                    let rsa_options = RsaOptions {
-                        encryption_policy: vec![enc_policy],
-                        ..Default::default()
-                    };
-
-                    (name + " (PGP: decryption subkey)", rsa_options)
-                }
-                KeyRole::Primary => {
-                    let sig_policy = RsaSignaturePolicy {
-                        padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
-                    };
-                    let rsa_options = RsaOptions {
-                        signature_policy: vec![sig_policy],
-                        ..Default::default()
-                    };
-
-                    (name, rsa_options)
-                }
-            };
-
-            let sobject_req = SobjectRequest {
-                name: Some(name),
-                description: Some("Created with sq-sdkms".to_string()),
-                obj_type: Some(ObjectType::Rsa),
-                key_ops: Some(op),
-                key_size: Some(2048),
-                rsa: Some(rsa_options),
-                ..Default::default()
-            };
-
-            let sobject = client.create_sobject(&sobject_req)?;
-
-            SequoiaKey::new_from_raw(sobject)
-        }
-
         info!("create primary key");
-        let primary = raw_key(
+        let primary = PublicKey::raw_key(
             &http_client,
             key_name.to_string(),
-            KeyOperations::SIGN | KeyOperations::APPMANAGEABLE,
             KeyRole::Primary,
+            algorithm,
         )?;
 
         info!("create decryption subkey");
-        let subkey = raw_key(
+        let subkey = PublicKey::raw_key(
             &http_client,
             key_name.to_string(),
-            KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE,
             KeyRole::Subkey,
+            algorithm,
         )?;
 
         let cert = Self::bind_sdkms_keys_and_generate_cert(
@@ -209,19 +233,19 @@ impl PgpAgent {
         api_endpoint: &str,
         api_key: &str,
         user_id: &str,
-        primary: SequoiaKey,
-        subkey: SequoiaKey,
+        primary: PublicKey,
+        subkey: PublicKey,
     ) -> Result<Cert> {
         info!("generate certificate");
         // Primary + self signature, UserID + sig, subkey + sig
         let mut packets = Vec::<Packet>::with_capacity(6);
 
         // Self-sign primary key
-        let prim_key: Key<PublicParts, PrimaryRole> = primary.public_key.clone().into();
+        let prim_key: Key<PublicParts, PrimaryRole> = primary.sequoia_key.clone().into();
         let mut prim_signer = RawSigner {
             api_endpoint: api_endpoint.to_string(),
             api_key: api_key.to_string(),
-            sequoia_key: primary.clone(),
+            public: primary.clone(),
         };
 
         let pref_hashes = vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256];
@@ -255,7 +279,7 @@ impl PgpAgent {
         cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
 
         // Subkey + signature
-        let subkey_public: Key<PublicParts, SubordinateRole> = subkey.public_key.clone().into();
+        let subkey_public: Key<PublicParts, SubordinateRole> = subkey.sequoia_key.clone().into();
         let flags = KeyFlags::empty()
             .set_storage_encryption()
             .set_transport_encryption();
@@ -305,7 +329,7 @@ impl PgpAgent {
             let sobject = http_client
                 .get_sobject(None, &req)
                 .context(format!("could not get primary key {}", key_name))?;
-            let key = SequoiaKey::new_from_raw(sobject.clone())?;
+            let key = PublicKey::new_from_raw(sobject.clone(), KeyRole::Primary)?;
 
             match sobject.custom_metadata {
                 None => return Err(anyhow::Error::msg("subkey not found".to_string())),
@@ -320,7 +344,7 @@ impl PgpAgent {
                 .get_sobject(None, &descriptor)
                 .context(format!("could not get subkey (sobject {})", kid))?;
 
-            SequoiaKey::new_from_raw(sobject)?
+            PublicKey::new_from_raw(sobject, KeyRole::Subkey)?
         };
 
         let cert = Cert::from_str(&metadata["certificate"])?;
@@ -345,7 +369,7 @@ impl PgpAgent {
         let signer = RawSigner {
             api_endpoint: self.api_endpoint.clone(),
             api_key: self.api_key.clone(),
-            sequoia_key: self.primary.clone(),
+            public: self.primary.clone(),
         };
 
         let message = match armored {
@@ -406,19 +430,19 @@ impl PgpAgent {
             ) -> openpgp::Result<Option<openpgp::Fingerprint>>
             where
                 D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool,
-            {
-                pkesks[0]
-                    .decrypt(&mut self.decryptor, sym_algo)
-                    .map(|(algo, session_key)| decrypt(algo, &session_key));
+                {
+                    pkesks[0]
+                        .decrypt(&mut self.decryptor, sym_algo)
+                        .map(|(algo, session_key)| decrypt(algo, &session_key));
 
-                Ok(Some(self.decryptor.sequoia_key.public_key.fingerprint()))
-            }
+                    Ok(Some(self.decryptor.public.sequoia_key.fingerprint()))
+                }
         }
 
         let decryptor = RawDecryptor {
             api_key: self.api_key.clone(),
             api_endpoint: self.api_endpoint.clone(),
-            sequoia_key: self.subkey.clone(),
+            public: self.subkey.clone(),
         };
 
         let h = Helper { decryptor };

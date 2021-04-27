@@ -6,7 +6,7 @@ use openpgp::policy::Policy;
 use openpgp::policy::StandardPolicy;
 use openpgp::serialize::{stream::*, SerializeInto};
 
-use super::PgpAgent;
+use super::{PgpAgent, SupportedPkAlgo};
 
 const TEST_ENV: &'static str = ".test.env";
 const TEST_ENV_API_KEY: &'static str = "TEST_SQ_SDKMS_API_KEY";
@@ -26,6 +26,7 @@ fn init() {
             &env::var(TEST_ENV_API_KEY).unwrap(),
             &TEST_KEY_NAME,
             &TEST_USER_ID,
+            &SupportedPkAlgo::Rsa(2048),
         )
         .unwrap();
     });

@@ -4,7 +4,7 @@ use sequoia_openpgp::{
         key::{PublicParts, UnspecifiedRole},
         Key,
     },
-    types::HashAlgorithm,
+    types::{HashAlgorithm, PublicKeyAlgorithm},
     Result as SequoiaResult,
 };
 
@@ -13,17 +13,17 @@ use sdkms::{
     SdkmsClient,
 };
 
-use super::SequoiaKey;
+use super::PublicKey;
 
 pub(crate) struct RawSigner {
     pub(crate) api_endpoint: String,
     pub(crate) api_key: String,
-    pub(crate) sequoia_key: SequoiaKey,
+    pub(crate) public: PublicKey,
 }
 
 impl Signer for RawSigner {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
-        &self.sequoia_key.public_key
+        &self.public.sequoia_key
     }
 
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8]) -> SequoiaResult<mpi::Signature> {
@@ -43,7 +43,7 @@ impl Signer for RawSigner {
             };
 
             let sign_req = SignRequest {
-                key: Some(SobjectDescriptor::Kid(self.sequoia_key.kid)),
+                key: Some(SobjectDescriptor::Kid(self.public.kid)),
                 hash_alg,
                 hash: Some(digest.to_vec().into()),
                 data: None,
@@ -53,7 +53,12 @@ impl Signer for RawSigner {
 
             let sign_resp = http_client.sign(&sign_req)?;
             let plain: Vec<u8> = sign_resp.signature.into();
-            mpi::Signature::RSA { s: plain.into() }
+            match self.public.sequoia_key.pk_algo() {
+                PublicKeyAlgorithm::RSAEncryptSign => {
+                    mpi::Signature::RSA { s: plain.into() }
+                },
+                _ => unimplemented!()
+            }
         };
 
         Ok(signature)
