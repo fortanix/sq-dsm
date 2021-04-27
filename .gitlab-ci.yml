@@ -263,6 +263,35 @@ windows-msvc:
   variables:
     CFLAGS: "" # Silence some C warnings when compiling with MSVC
 
+windows-msvc-32:
+  tags:
+    - win
+    - win2019
+  stage: build
+  image:
+    name: registry.gitlab.com/sequoia-pgp/build-docker-image/windows-msvc
+    # Set up a 32-bit environment with VsDevCmd.bat -arch=x86, line copied from Dockerfile.windows.msvc
+    entrypoint: ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "-arch=x86", "&&", "type", "README", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+  only:
+    variables:
+      # Forks of this project most likely use gitlab's shared windows runners, which
+      # do not use the docker executor, so disable the windows jobs for forks.
+      - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
+  before_script:
+    - rm rust-toolchain
+    - rustup default stable-i686-pc-windows-msvc
+    - rustup show
+    - rustc --version --verbose
+    - cargo --version
+  script:
+    # https://github.com/rust-lang/cargo/issues/5015
+    - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression
+    - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression
+    - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
+  after_script: []
+  variables:
+    CFLAGS: "" # Silence some C warnings when compiling with MSVC
+
 variables:
   DEBIAN_FRONTEND: noninteractive
   CARGO_HOME: $CI_PROJECT_DIR/../cargo
