@@ -5,6 +5,7 @@
 * Changes in 1.2.0
 ** New functionality
    - ComponentBundle::attestations
+   - Encryptor::with_session_key
    - Signature::verify_user_attribute_attestation
    - Signature::verify_userid_attestation
    - SignatureBuilder::pre_sign
