@@ -254,40 +254,24 @@ impl CertBuilder<'_> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn general_purpose<C, U>(ciphersuite: C, userids: Option<U>) -> Self
+    pub fn general_purpose<C, U>(ciphersuite: C, userid: Option<U>) -> Self
         where C: Into<Option<CipherSuite>>,
               U: Into<packet::UserID>
     {
-        CertBuilder {
-            creation_time: None,
-            ciphersuite: ciphersuite.into().unwrap_or_default(),
-            primary: KeyBlueprint {
-                flags: KeyFlags::empty()
-                    .set_certification(),
-                validity: Some(time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0)),
-                ciphersuite: None,
-            },
-            subkeys: vec![
-                KeyBlueprint {
-                    flags: KeyFlags::empty()
-                        .set_signing(),
-                    validity: None,
-                    ciphersuite: None,
-                },
-                KeyBlueprint {
-                    flags: KeyFlags::empty()
+        let mut builder = Self::new()
+            .set_cipher_suite(ciphersuite.into().unwrap_or_default())
+            .set_primary_key_flags(KeyFlags::empty().set_certification())
+            .set_validity_period(
+                time::Duration::new(3 * 52 * 7 * 24 * 60 * 60, 0))
+            .add_signing_subkey()
+            .add_subkey(KeyFlags::empty()
                         .set_transport_encryption()
-                        .set_storage_encryption(),
-                    validity: None,
-                    ciphersuite: None,
-                }
-            ],
-            userids: userids.into_iter().map(|x| x.into()).collect(),
-            user_attributes: vec![],
-            password: None,
-            revocation_keys: None,
-            phantom: PhantomData,
+                        .set_storage_encryption(), None, None);
+        if let Some(u) = userid.map(Into::into) {
+            builder = builder.add_userid(u);
         }
+
+        builder
     }
 
     /// Sets the creation time.
