@@ -348,6 +348,7 @@
 //!
 //! SUBCOMMANDS:
 //!     generate                 Generates a new key
+//!     password                 Changes password protecting secrets
 //!     extract-cert             Converts a key to a cert
 //!     attest-certifications    Attests to third-party certifications
 //!     adopt                    Binds keys from one certificate to another
@@ -434,6 +435,56 @@
 //!
 //! # Generates a key with multiple userids
 //! $ sq key generate --userid "<juliet@example.org>" --userid "Juliet Capulet"
+//! ```
+//!
+//! ### Subcommand key password
+//!
+//! ```text
+//! Changes password protecting secrets
+//!
+//! Secret key material in keys can be protected by a password.  This
+//! subcommand changes or clears this encryption password.
+//!
+//! To emit the key with unencrypted secrets, either use `--clear` or
+//! supply a zero-length password when prompted for the new password.
+//!
+//! USAGE:
+//!     sq key password [FLAGS] [OPTIONS] [FILE]
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!         --clear
+//!             Emit a key with unencrypted secrets
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!
+//! ARGS:
+//!     <FILE>
+//!             Reads from FILE or stdin if omitted
+//!
+//!
+//! EXAMPLES:
+//!
+//! # First, generate a key
+//! $ sq key generate --userid "<juliet@example.org>" --export juliet.key.pgp
+//!
+//! # Then, encrypt the secrets in the key with a password.
+//! $ sq key password < juliet.key.pgp > juliet.encrypted_key.pgp
+//!
+//! # And remove the password again.
+//! $ sq key password --clear < juliet.encrypted_key.pgp > juliet.decrypted_key.pgp
 //! ```
 //!
 //! ### Subcommand key extract-cert

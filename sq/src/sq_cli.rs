@@ -590,6 +590,44 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                                   mandatory if OUTFILE is \"-\". \
                                   [default: <OUTFILE>.rev]"))
                 )
+                .subcommand(
+                    SubCommand::with_name("password")
+                        .display_order(105)
+                        .about("Changes password protecting secrets")
+                        .long_about(
+"Changes password protecting secrets
+
+Secret key material in keys can be protected by a password.  This
+subcommand changes or clears this encryption password.
+
+To emit the key with unencrypted secrets, either use `--clear` or
+supply a zero-length password when prompted for the new password.
+")
+                        .after_help(
+"EXAMPLES:
+
+# First, generate a key
+$ sq key generate --userid \"<juliet@example.org>\" --export juliet.key.pgp
+
+# Then, encrypt the secrets in the key with a password.
+$ sq key password < juliet.key.pgp > juliet.encrypted_key.pgp
+
+# And remove the password again.
+$ sq key password --clear < juliet.encrypted_key.pgp > juliet.decrypted_key.pgp
+")
+                        .arg(Arg::with_name("clear")
+                             .long("clear")
+                             .help("Emit a key with unencrypted secrets"))
+                        .arg(Arg::with_name("output")
+                             .short("o").long("output").value_name("FILE")
+                             .help("Writes to FILE or stdout if omitted"))
+                        .arg(Arg::with_name("binary")
+                             .short("B").long("binary")
+                             .help("Emits binary data"))
+                        .arg(Arg::with_name("key")
+                             .value_name("FILE")
+                             .help("Reads from FILE or stdin if omitted"))
+                )
                 .subcommand(SubCommand::with_name("extract-cert")
                             .display_order(110)
                             .about("Converts a key to a cert")

@@ -27,6 +27,7 @@ use crate::decrypt_key;
 pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("generate", Some(m)) => generate(config, m)?,
+        ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("adopt", Some(m)) => adopt(config, m)?,
         ("attest-certifications", Some(m)) =>
@@ -202,6 +203,73 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
                          yet."));
     }
 
+    Ok(())
+}
+
+fn password(config: Config, m: &ArgMatches) -> Result<()> {
+    let input = open_or_stdin(m.value_of("certificate"))?;
+    let key = Cert::from_reader(input)?;
+
+    if ! key.is_tsk() {
+        return Err(anyhow::anyhow!("Certificate has no secrets"));
+    }
+
+    // First, decrypt all secrets.
+    let passwords = &mut Vec::new();
+    let mut decrypted: Vec<Packet> = Vec::new();
+    decrypted.push(decrypt_key(
+        key.primary_key().key().clone().parts_into_secret()?,
+        passwords)?.into());
+    for ka in key.keys().subkeys().secret() {
+        decrypted.push(decrypt_key(
+            ka.key().clone().parts_into_secret()?,
+            passwords)?.into());
+    }
+    let mut key = key.insert_packets(decrypted)?;
+    assert_eq!(key.keys().secret().count(),
+               key.keys().unencrypted_secret().count());
+
+    let new_password = if m.is_present("clear") {
+        None
+    } else {
+        let prompt_0 =
+            rpassword::read_password_from_tty(Some("New password: "))
+            .context("Error reading password")?;
+        let prompt_1 =
+            rpassword::read_password_from_tty(Some("Repeat new password: "))
+            .context("Error reading password")?;
+
+        if prompt_0 != prompt_1 {
+            return Err(anyhow::anyhow!("Passwords do not match"));
+        }
+
+        if prompt_0.len() == 0 {
+            // Empty password means no password.
+            None
+        } else {
+            Some(prompt_0.into())
+        }
+    };
+
+    if let Some(new) = new_password {
+        let mut encrypted: Vec<Packet> = Vec::new();
+        encrypted.push(
+            key.primary_key().key().clone().parts_into_secret()?
+                .encrypt_secret(&new)?.into());
+        for ka in key.keys().subkeys().unencrypted_secret() {
+            encrypted.push(
+                ka.key().clone().parts_into_secret()?
+                    .encrypt_secret(&new)?.into());
+        }
+        key = key.insert_packets(encrypted)?;
+    }
+
+    let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
+    if m.is_present("binary") {
+        key.as_tsk().serialize(&mut output)?;
+    } else {
+        key.as_tsk().armored().serialize(&mut output)?;
+    }
     Ok(())
 }
 
