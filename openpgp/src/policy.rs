@@ -1421,7 +1421,7 @@ impl<'a> Policy for StandardPolicy<'a> {
 
         let time = self.time.unwrap_or_else(Timestamp::now);
         self.asymmetric_algos.check(a, time, None)
-            .context("Policy rejected encryption algorithm")
+            .context("Policy rejected asymmetric algorithm")
     }
 
     fn packet(&self, packet: &Packet) -> Result<()> {
