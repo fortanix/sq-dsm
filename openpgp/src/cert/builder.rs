@@ -959,10 +959,6 @@ impl CertBuilder<'_> {
                     time::Duration::new(SIG_BACKDATE_BY, 0)
             });
 
-        let mut packets = Vec::<Packet>::with_capacity(
-            1 + 1 + self.subkeys.len() + self.userids.len()
-                + self.user_attributes.len());
-
         // make sure the primary key can sign subkeys
         if !self.subkeys.is_empty() {
             self.primary.flags = self.primary.flags.set_certification();
@@ -972,14 +968,16 @@ impl CertBuilder<'_> {
         let (primary, sig) = self.primary_key(creation_time)?;
         let mut signer = primary.clone().into_keypair().unwrap();
 
-        packets.push(Packet::SecretKey({
-            let mut primary = primary.clone();
-            if let Some(ref password) = self.password {
-                primary.secret_mut().encrypt_in_place(password)?;
-            }
-            primary
-        }));
-        packets.push(sig.clone().into());
+        let mut cert = Cert::try_from(vec![
+            Packet::SecretKey({
+                let mut primary = primary.clone();
+                if let Some(ref password) = self.password {
+                    primary.secret_mut().encrypt_in_place(password)?;
+                }
+                primary
+            }),
+            sig.clone().into(),
+        ])?;
 
         let sig = signature::SignatureBuilder::from(sig)
             .set_signature_creation_time(creation_time)?;
@@ -987,8 +985,6 @@ impl CertBuilder<'_> {
         // Remove subpackets that needn't be copied into the binding
         // signatures.
         let sig = sig.set_revocation_key(vec![])?;
-
-        let mut cert = Cert::try_from(packets)?;
 
         let have_userids = !self.userids.is_empty();
 
