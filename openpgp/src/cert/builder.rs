@@ -12,7 +12,7 @@ use crate::packet::Signature;
 use crate::packet::signature;
 use crate::cert::prelude::*;
 use crate::Error;
-use crate::crypto::Password;
+use crate::crypto::{Password, Signer};
 use crate::types::{
     Features,
     HashAlgorithm,
@@ -965,8 +965,7 @@ impl CertBuilder<'_> {
         }
 
         // Generate & self-sign primary key.
-        let (primary, sig) = self.primary_key(creation_time)?;
-        let mut signer = primary.clone().into_keypair().unwrap();
+        let (primary, sig, mut signer) = self.primary_key(creation_time)?;
 
         let mut cert = Cert::try_from(vec![
             Packet::SecretKey({
@@ -1067,8 +1066,9 @@ impl CertBuilder<'_> {
         Ok((cert, revocation))
     }
 
+    /// Creates the primary key and a direct key signature.
     fn primary_key(&self, creation_time: std::time::SystemTime)
-        -> Result<(key::SecretKey, Signature)>
+        -> Result<(key::SecretKey, Signature, Box<dyn Signer>)>
     {
         let mut key = self.primary.ciphersuite
             .unwrap_or(self.ciphersuite)
@@ -1098,7 +1098,7 @@ impl CertBuilder<'_> {
             .expect("key generated above has a secret");
         let sig = sig.sign_direct_key(&mut signer, key.parts_as_public())?;
 
-        Ok((key, sig))
+        Ok((key, sig, Box::new(signer)))
     }
 }
 
