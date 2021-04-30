@@ -85,16 +85,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         dotenv::from_filename(file).ok();
     }
 
-    let (api_key, endpoint) = {
-        let api_key =
-            env::var(ENV_API_KEY).with_context(|| format!("{} env var absent", ENV_API_KEY))?;
-        let endpoint = env::var(ENV_API_ENDPOINT)
-            .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
+    let api_key = env::var(ENV_API_KEY)
+        .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
+    let endpoint = env::var(ENV_API_ENDPOINT)
+        .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
 
-        (api_key, endpoint)
-    };
-
-    let (output_file, pgp_material) = match cli.cmd {
+    let (output_file, output_material) = match cli.cmd {
         Command::GenerateKey { args, user_id } => {
             info!("sq-sdkms generate-key");
             not_exists(&args.output_file)?;
@@ -181,32 +177,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    match output_file {
-        None => {
-            std::io::stdout().write_all(&pgp_material)?;
-        }
-        Some(file) => {
-            let mut buf = fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(file)?;
-            buf.write_all(&pgp_material)?;
-        }
+    if let Some(file) = output_file {
+        let mut buf = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(file)?;
+        buf.write_all(&output_material)?;
+    } else {
+        std::io::stdout().write_all(&output_material)?;
     }
 
     Ok(())
 }
 
 fn not_exists(path: &Option<PathBuf>) -> Result<()> {
-    match path {
-        None => Ok(()),
-        Some(file) => {
-            if Path::new(&file).exists() {
-                return Err(anyhow::Error::msg("Output file exists".to_string()));
-            }
-            Ok(())
+    if let Some(file) = path {
+        if Path::new(&file).exists() {
+            return Err(anyhow::Error::msg("Output file exists".to_string()));
         }
     }
+
+    Ok(())
 }
 
 fn pk_algo_prompt() -> Result<SupportedPkAlgo> {
