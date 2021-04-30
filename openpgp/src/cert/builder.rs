@@ -1029,7 +1029,6 @@ impl CertBuilder<'_> {
                 .set_signature_creation_time(creation_time)?
                 // GnuPG wants at least a 512-bit hash for P521 keys.
                 .set_hash_algo(HashAlgorithm::SHA512)
-                .set_features(Features::sequoia())?
                 .set_key_flags(flags.clone())?
                 .set_key_validity_period(blueprint.validity.or(self.primary.validity))?;
 
