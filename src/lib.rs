@@ -154,7 +154,7 @@ impl PublicKey {
                     deserialized_pk.rsa_public_modulus()?.to_binary()?,
                 );
 
-                return Ok(PublicKey {
+                Ok(PublicKey {
                     kid, name,
                     sequoia_key: Key::V4(
                         Key4::import_public_rsa(&e, &n, Some(time.into()))
@@ -287,8 +287,8 @@ impl PgpAgent {
         let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_hash_algo(HashAlgorithm::SHA512)
             .set_key_flags(flags)?
-            .set_preferred_hash_algorithms(pref_hashes.clone())?
-            .set_preferred_symmetric_algorithms(pref_ciphers.clone())?;
+            .set_preferred_hash_algorithms(pref_hashes)?
+            .set_preferred_symmetric_algorithms(pref_ciphers)?;
 
         let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
         cert = cert.insert_packets(vec![Packet::from(subkey_public), signature.into()])?;

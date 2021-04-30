@@ -81,11 +81,8 @@ struct CommonArgs {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let cli = Cli::from_args();
-    match cli.env_file {
-        Some(file) => {
-            dotenv::from_filename(file).ok();
-        }
-        _ => (),
+    if let Some(file) = cli.env_file {
+        dotenv::from_filename(file).ok();
     }
 
     let (api_key, endpoint) = {
