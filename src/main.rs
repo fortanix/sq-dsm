@@ -11,7 +11,7 @@ use std::{
 use structopt::StructOpt;
 
 use sequoia_openpgp::{
-    policy::{NullPolicy, StandardPolicy},
+    policy::StandardPolicy,
     serialize::SerializeInto,
 };
 
@@ -39,18 +39,14 @@ enum Command {
         #[structopt(parse(from_os_str))]
         file: PathBuf,
     },
-    /// Decrypts the given file with SDKMS
+    /// Decrypts the given file with SDKMS, using Sequoia's standard policy
     Decrypt {
         #[structopt(flatten)]
         args: CommonArgs,
         #[structopt(parse(from_os_str))]
         file: PathBuf,
-        /// If absent, Sequoia standard PGP policy applies (set if you
-        /// **really** know what you are doing)
-        #[structopt(long)]
-        no_policy: bool,
     },
-    /// Generates a PGP key in SDKMS, and outputs the Transferable Public Key.
+    /// Generates a PGP key in SDKMS, and outputs the Transferable Public Key
     GenerateKey {
         #[structopt(flatten)]
         args: CommonArgs,
@@ -151,7 +147,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Decrypt {
             args,
             file,
-            no_policy,
         } => {
             info!("sq-sdkms decrypt");
             not_exists(&args.output_file)?;
@@ -163,15 +158,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut plaintext = Vec::new();
 
-            if no_policy {
-                agent
-                    .decrypt(&mut plaintext, &ciphertext, &NullPolicy::new())
-                    .context("Could not decrypt the file")?;
-            } else {
-                agent
-                    .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
-                    .context("Could not decrypt the file")?;
-            }
+            agent
+                .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
+                .context("Could not decrypt the file")?;
 
             (args.output_file, plaintext)
         }

@@ -237,8 +237,8 @@ impl PgpAgent {
         subkey: PublicKey,
     ) -> Result<Cert> {
         info!("generate certificate");
-        // Primary + self signature, UserID + sig, subkey + sig
-        let mut packets = Vec::<Packet>::with_capacity(6);
+        // Primary, UserID + sig, subkey + sig
+        let mut packets = Vec::<Packet>::with_capacity(5);
 
         // Self-sign primary key
         let prim_key: Key<PublicParts, PrimaryRole> = primary.sequoia_key.clone().into();
@@ -253,26 +253,20 @@ impl PgpAgent {
             SymmetricAlgorithm::AES256,
             SymmetricAlgorithm::AES128,
         ];
-
-        let sig = {
-            let flags = KeyFlags::empty().set_certification().set_signing();
-            let builder = SignatureBuilder::new(SignatureType::DirectKey)
-                .set_hash_algo(HashAlgorithm::SHA512)
-                .set_key_flags(flags)?
-                .set_preferred_hash_algorithms(pref_hashes.clone())?
-                .set_preferred_symmetric_algorithms(pref_ciphers.clone())?;
-
-            builder.sign_direct_key(&mut prim_signer, prim_key.parts_as_public())?
-        };
+        let primary_flags = KeyFlags::empty()
+            .set_certification()
+            .set_signing();
 
         packets.push(prim_key.into());
-        packets.push(sig.into());
 
         let mut cert = Cert::try_from(packets)?;
 
         // User ID + signature
-        let builder = SignatureBuilder::new(SignatureType::GenericCertification)
-            .set_primary_userid(true)?;
+        let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
+            .set_primary_userid(true)?
+            .set_key_flags(primary_flags)?
+            .set_preferred_hash_algorithms(pref_hashes)?
+            .set_preferred_symmetric_algorithms(pref_ciphers)?;
         let uid: UserID = user_id.into();
         let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
@@ -280,15 +274,13 @@ impl PgpAgent {
 
         // Subkey + signature
         let subkey_public: Key<PublicParts, SubordinateRole> = subkey.sequoia_key.clone().into();
-        let flags = KeyFlags::empty()
+        let subkey_flags = KeyFlags::empty()
             .set_storage_encryption()
             .set_transport_encryption();
 
         let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
             .set_hash_algo(HashAlgorithm::SHA512)
-            .set_key_flags(flags)?
-            .set_preferred_hash_algorithms(pref_hashes)?
-            .set_preferred_symmetric_algorithms(pref_ciphers)?;
+            .set_key_flags(subkey_flags)?;
 
         let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
         cert = cert.insert_packets(vec![Packet::from(subkey_public), signature.into()])?;
