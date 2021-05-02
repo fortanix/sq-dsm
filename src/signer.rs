@@ -13,17 +13,16 @@ use sdkms::{
     SdkmsClient,
 };
 
-use super::PublicKey;
-
-pub(crate) struct RawSigner {
-    pub(crate) api_endpoint: String,
-    pub(crate) api_key: String,
-    pub(crate) public: PublicKey,
+pub(crate) struct RawSigner<'a> {
+    pub(crate) api_endpoint: &'a str,
+    pub(crate) api_key: &'a str,
+    pub(crate) descriptor: &'a SobjectDescriptor,
+    pub(crate) public: &'a Key<PublicParts, UnspecifiedRole>,
 }
 
-impl Signer for RawSigner {
+impl Signer for RawSigner<'_> {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
-        &self.public.sequoia_key
+        &self.public
     }
 
     fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8]) -> SequoiaResult<mpi::Signature> {
@@ -43,7 +42,7 @@ impl Signer for RawSigner {
             };
 
             let sign_req = SignRequest {
-                key: Some(SobjectDescriptor::Kid(self.public.kid)),
+                key: Some(self.descriptor.clone()),
                 hash_alg,
                 hash: Some(digest.to_vec().into()),
                 data: None,
@@ -53,7 +52,7 @@ impl Signer for RawSigner {
 
             let sign_resp = http_client.sign(&sign_req)?;
             let plain: Vec<u8> = sign_resp.signature.into();
-            match self.public.sequoia_key.pk_algo() {
+            match self.public.pk_algo() {
                 PublicKeyAlgorithm::RSAEncryptSign => {
                     mpi::Signature::RSA { s: plain.into() }
                 },

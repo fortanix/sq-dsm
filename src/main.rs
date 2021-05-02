@@ -105,10 +105,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &algo,
             )?;
 
+            let cert = agent.certificate.expect("public certificate");
             let cert = if args.armor || args.output_file == None {
-                agent.certificate.armored().to_vec()
+                cert.armored().to_vec()
             } else {
-                agent.certificate.to_vec()
+                cert.to_vec()
             }?;
 
             (args.output_file, cert)
@@ -120,10 +121,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let agent = PgpAgent::summon(&endpoint, &api_key, &args.key_name)
                 .context("Could not summon the PGP agent")?;
 
-            let cert = if args.armor {
-                agent.certificate.armored().to_vec()
+            let cert = agent.certificate.expect("public certificate");
+            let cert = if args.armor || args.output_file == None {
+                cert.armored().to_vec()
             } else {
-                agent.certificate.to_vec()
+                cert.to_vec()
             }?;
 
             (args.output_file, cert)
@@ -135,11 +137,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let content = fs::read(file)?;
             let mut signed_message = Vec::new();
 
-            let agent = PgpAgent::summon(&endpoint, &api_key, &args.key_name)
-                .context("Could not summon the PGP agent")?;
-
-            agent
-                .sign(&mut signed_message, &content, true, args.armor)
+            PgpAgent::summon(&endpoint, &api_key, &args.key_name)
+                .context("Could not summon the PGP agent")?
+                .sign_detached(&mut signed_message, &content, args.armor)
                 .context("Could not sign the file")?;
 
             (args.output_file, signed_message)
@@ -152,13 +152,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             not_exists(&args.output_file)?;
 
             let ciphertext = fs::read(file)?;
-
-            let agent = PgpAgent::summon(&endpoint, &api_key, &args.key_name)
-                .context("Could not summon the PGP agent")?;
-
             let mut plaintext = Vec::new();
 
-            agent
+            PgpAgent::summon(&endpoint, &api_key, &args.key_name)
+                .context("Could not summon the PGP agent")?
                 .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
                 .context("Could not decrypt the file")?;
 

@@ -42,7 +42,7 @@ fn armored_public_key() {
     )
     .unwrap();
 
-    let armored = agent.certificate.armored().to_vec().unwrap();
+    let armored = agent.certificate.unwrap().armored().to_vec().unwrap();
 
     assert_eq!(
         &armored[..36],
@@ -65,7 +65,7 @@ fn armored_signature() {
     // Sign the message.
     let mut signed_message = Vec::new();
     agent
-        .sign(&mut signed_message, MESSAGE.as_bytes(), true, true)
+        .sign_detached(&mut signed_message, MESSAGE.as_bytes(), true)
         .unwrap();
 }
 
@@ -84,9 +84,17 @@ fn encrypt_decrypt_roundtrip() {
     // Encrypt the message.
     let mut ciphertext = Vec::new();
     let p = &StandardPolicy::new();
-    encrypt(p, &mut ciphertext, MESSAGE, &agent.certificate).unwrap();
+    let cert = agent.certificate.unwrap();
+    encrypt(p, &mut ciphertext, MESSAGE, &cert).unwrap();
 
     // Decrypt the message.
+    let mut agent = PgpAgent::summon(
+        &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
+        &env::var(TEST_ENV_API_KEY).unwrap(),
+        &TEST_KEY_NAME,
+    )
+    .unwrap();
+
     let mut plaintext = Vec::new();
     agent
         .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())

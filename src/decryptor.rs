@@ -12,17 +12,16 @@ use sdkms::{
     SdkmsClient,
 };
 
-use super::PublicKey;
-
-pub(crate) struct RawDecryptor {
-    pub(crate) api_endpoint: String,
-    pub(crate) api_key: String,
-    pub(crate) public: PublicKey,
+pub(crate) struct RawDecryptor<'a> {
+    pub(crate) api_endpoint: &'a str,
+    pub(crate) api_key: &'a str,
+    pub(crate) descriptor: &'a SobjectDescriptor,
+    pub(crate) public: &'a Key<PublicParts, UnspecifiedRole>,
 }
 
-impl Decryptor for RawDecryptor {
+impl Decryptor for RawDecryptor<'_> {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
-        &self.public.sequoia_key
+        &self.public
     }
 
     fn decrypt(
@@ -44,7 +43,7 @@ impl Decryptor for RawDecryptor {
             cipher: raw_ciphertext.into(),
             alg: Some(Rsa),
             iv: None,
-            key: Some(SobjectDescriptor::Kid(self.public.kid)),
+            key: Some(self.descriptor.clone()),
             mode: None,
             ad: None,
             tag: None,
