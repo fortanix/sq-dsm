@@ -1,10 +1,9 @@
 use std::{env, io::Write};
 
-use sequoia_openpgp as openpgp;
-
 use openpgp::policy::Policy;
 use openpgp::policy::StandardPolicy;
 use openpgp::serialize::{stream::*, SerializeInto};
+use sequoia_openpgp as openpgp;
 
 use super::{PgpAgent, SupportedPkAlgo};
 
@@ -12,7 +11,8 @@ const TEST_ENV: &'static str = ".test.env";
 const TEST_ENV_API_KEY: &'static str = "TEST_SQ_SDKMS_API_KEY";
 const TEST_ENV_API_ENDPOINT: &'static str = "TEST_SQ_SDKMS_API_ENDPOINT";
 const TEST_KEY_NAME: &'static str = "My PGP Test Key";
-const TEST_USER_ID: &'static str = "Владимир Борисович Крамник <vlad@fortanix.com>";
+const TEST_USER_ID: &'static str =
+    "Владимир Борисович Крамник <vlad@fortanix.com>";
 
 use std::sync::Once;
 

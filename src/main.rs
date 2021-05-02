@@ -1,21 +1,14 @@
-use anyhow::{Context, Result};
-
-use log::info;
-
 use std::{
     env, fs,
     io::{BufRead, Write},
     path::{Path, PathBuf},
 };
 
-use structopt::StructOpt;
-
-use sequoia_openpgp::{
-    policy::StandardPolicy,
-    serialize::SerializeInto,
-};
-
+use anyhow::{Context, Result};
+use log::info;
+use sequoia_openpgp::{policy::StandardPolicy, serialize::SerializeInto};
 use sq_sdkms::{PgpAgent, SupportedPkAlgo};
+use structopt::StructOpt;
 
 const ENV_API_KEY: &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
@@ -27,7 +20,7 @@ struct Cli {
     #[structopt(long, parse(from_os_str))]
     env_file: Option<PathBuf>,
     #[structopt(subcommand)]
-    cmd: Command,
+    cmd:      Command,
 }
 
 #[derive(StructOpt)]
@@ -49,8 +42,9 @@ enum Command {
     /// Generates a PGP key in SDKMS, and outputs the Transferable Public Key
     GenerateKey {
         #[structopt(flatten)]
-        args: CommonArgs,
-        /// An RFC2822-compliant user ID (e.g., "Paul Morphy <paul@fortanix.com>")
+        args:    CommonArgs,
+        /// An RFC2822-compliant user ID (e.g., "Paul Morphy
+        /// <paul@fortanix.com>")
         #[structopt(long, short)]
         user_id: Option<String>,
     },
@@ -65,10 +59,10 @@ enum Command {
 struct CommonArgs {
     #[structopt(long)]
     /// Name of the SDKMS key
-    key_name: String,
+    key_name:    String,
     #[structopt(long)]
     /// Outputs material in PGP armored format
-    armor: bool,
+    armor:       bool,
     /// Output file
     #[structopt(long, short = "o", parse(from_os_str))]
     output_file: Option<PathBuf>,
@@ -113,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }?;
 
             (args.output_file, cert)
-        },
+        }
         Command::Certificate { args } => {
             info!("sq-sdkms public-key");
             not_exists(&args.output_file)?;
@@ -144,10 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             (args.output_file, signed_message)
         }
-        Command::Decrypt {
-            args,
-            file,
-        } => {
+        Command::Decrypt { args, file } => {
             info!("sq-sdkms decrypt");
             not_exists(&args.output_file)?;
 
@@ -213,15 +204,17 @@ fn pk_algo_prompt() -> Result<SupportedPkAlgo> {
                     }
                 };
 
-                return Ok(SupportedPkAlgo::Rsa(key_size))
-            },
+                return Ok(SupportedPkAlgo::Rsa(key_size));
+            }
             _ => println!("Invalid input"),
         }
     }
 }
 
 fn user_id_prompt() -> Result<String> {
-    println!("\nTo identify your key, you need to create a user ID of the form");
+    println!(
+        "\nTo identify your key, you need to create a user ID of the form"
+    );
     println!("\n    \"Paul Morphy (Comment) <paul@fortanix.com>\"\n");
 
     let user_id = loop {
@@ -245,7 +238,7 @@ fn user_id_prompt() -> Result<String> {
         std::io::stdout().flush()?;
         let choice = std::io::stdin().lock().lines().next().unwrap()?;
         if choice == "y" {
-            break user_id
+            break user_id;
         }
     };
 

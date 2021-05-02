@@ -1,11 +1,9 @@
-use anyhow::{Context, Result};
-
 use std::{collections::HashMap, convert::TryFrom, io::Write, str::FromStr};
 
+use anyhow::{Context, Result};
 use log::info;
-
-use uuid::Uuid;
-
+use mbedtls::pk::Pk;
+pub use sdkms::api_model::ObjectType;
 use sdkms::{
     api_model::{
         KeyOperations, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
@@ -14,24 +12,20 @@ use sdkms::{
     },
     SdkmsClient,
 };
-
-pub use sdkms::api_model::ObjectType;
-
-use mbedtls::pk::Pk;
-
 extern crate sequoia_openpgp as openpgp;
-
 use openpgp::{
     crypto::SessionKey,
     packet::{
-        key::{Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole},
+        key::{
+            Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole,
+        },
         signature::SignatureBuilder,
         Key, UserID, PKESK, SKESK,
     },
     parse::{
         stream::{
             DecryptionHelper, DecryptorBuilder, MessageStructure,
-            VerificationHelper
+            VerificationHelper,
         },
         Parse,
     },
@@ -43,28 +37,29 @@ use openpgp::{
     types::{HashAlgorithm, KeyFlags, SignatureType, SymmetricAlgorithm},
     Cert, KeyHandle, Packet,
 };
+use uuid::Uuid;
 
 mod signer;
 
 mod decryptor;
 
-use signer::RawSigner;
 use decryptor::RawDecryptor;
+use signer::RawSigner;
 
 /// The PgpAgent is responsible for one PGP key. It talks to SDKMS and produces
 /// valid OpenPGP material
 pub struct PgpAgent {
-    api_endpoint: String,
-    api_key: String,
-    primary: PublicKey,
-    subkey: PublicKey,
+    api_endpoint:    String,
+    api_key:         String,
+    primary:         PublicKey,
+    subkey:          PublicKey,
     pub certificate: Option<Cert>,
 }
 
 #[derive(Clone)]
 struct PublicKey {
-    role: KeyRole,
-    descriptor: SobjectDescriptor,
+    role:        KeyRole,
+    descriptor:  SobjectDescriptor,
     sequoia_key: Option<Key<PublicParts, UnspecifiedRole>>,
 }
 
@@ -128,12 +123,11 @@ impl PgpAgent {
             certificate: None,
         };
 
-        agent.bind_sdkms_keys_and_generate_cert(
-            user_id,
-        ).context("could not generate public certificate")?;
+        agent
+            .bind_sdkms_keys_and_generate_cert(user_id)
+            .context("could not generate public certificate")?;
 
         Ok(agent)
-
     }
 
     /// Signs the given content and writes the detached signature to `sink`.
@@ -143,14 +137,14 @@ impl PgpAgent {
         content: &[u8],
         armored: bool,
     ) -> Result<()> {
-        let sequoia_key = &self.primary.sequoia_key
-            .expect("unloaded primary key");
+        let sequoia_key =
+            &self.primary.sequoia_key.expect("unloaded primary key");
 
         let signer = RawSigner {
             api_endpoint: &self.api_endpoint,
-            api_key: &self.api_key,
-            descriptor: &self.primary.descriptor,
-            public: &sequoia_key,
+            api_key:      &self.api_key,
+            descriptor:   &self.primary.descriptor,
+            public:       &sequoia_key,
         };
 
         let mut message = Message::new(sink);
@@ -158,9 +152,7 @@ impl PgpAgent {
             message = Armorer::new(message).build()?;
         }
 
-        let mut message = Signer::new(message, signer)
-            .detached()
-            .build()?;
+        let mut message = Signer::new(message, signer).detached().build()?;
         message.write_all(content)?;
         message.finalize()?;
 
@@ -179,11 +171,17 @@ impl PgpAgent {
         }
 
         impl VerificationHelper for Helper<'_> {
-            fn get_certs(&mut self, _ids: &[KeyHandle]) -> openpgp::Result<Vec<Cert>> {
+            fn get_certs(
+                &mut self,
+                _ids: &[KeyHandle],
+            ) -> openpgp::Result<Vec<Cert>> {
                 Ok(Vec::new())
             }
 
-            fn check(&mut self, _structure: MessageStructure) -> openpgp::Result<()> {
+            fn check(
+                &mut self,
+                _structure: MessageStructure,
+            ) -> openpgp::Result<()> {
                 Ok(())
             }
         }
@@ -210,16 +208,19 @@ impl PgpAgent {
         self.maybe_fetch_subkey()?;
 
         let decryptor = RawDecryptor {
-            api_key: &self.api_key,
+            api_key:      &self.api_key,
             api_endpoint: &self.api_endpoint,
-            descriptor: &self.subkey.descriptor,
-            public: &self.subkey.sequoia_key.as_ref().expect("unloaded subkey"),
+            descriptor:   &self.subkey.descriptor,
+            public:       &self
+                .subkey
+                .sequoia_key
+                .as_ref()
+                .expect("unloaded subkey"),
         };
 
         let h = Helper { decryptor };
 
-        let mut decryptor =
-            DecryptorBuilder::from_bytes(ciphertext)?
+        let mut decryptor = DecryptorBuilder::from_bytes(ciphertext)?
             .with_policy(policy, None, h)?;
 
         std::io::copy(&mut decryptor, sink)?;
@@ -228,7 +229,11 @@ impl PgpAgent {
     }
 
     /// Given proper credentials, a PgpAgent is created for this PGP key.
-    pub fn summon(api_endpoint: &str, api_key: &str, key_name: &str) -> Result<Self> {
+    pub fn summon(
+        api_endpoint: &str,
+        api_key: &str,
+        key_name: &str,
+    ) -> Result<Self> {
         info!("summon PGP agent");
         let http_client = SdkmsClient::builder()
             .with_api_endpoint(&api_endpoint)
@@ -241,18 +246,25 @@ impl PgpAgent {
             let sobject = http_client
                 .get_sobject(None, &req)
                 .context(format!("could not get primary key {}", key_name))?;
-            let key = PublicKey::from_sobject(sobject.clone(), KeyRole::Primary)?;
+            let key =
+                PublicKey::from_sobject(sobject.clone(), KeyRole::Primary)?;
 
             match sobject.custom_metadata {
-                None => return Err(anyhow::Error::msg("subkey not found".to_string())),
+                None => {
+                    return Err(anyhow::Error::msg(
+                        "subkey not found".to_string(),
+                    ))
+                }
                 Some(dict) => (key, dict),
             }
         };
 
         // Don't request for subkey now
+        let des = SobjectDescriptor::Kid(Uuid::parse_str(&metadata["subkey"])?);
+
         let subkey = PublicKey {
-            descriptor: SobjectDescriptor::Kid(Uuid::parse_str(&metadata["subkey"])?),
-            role: KeyRole::Subkey,
+            descriptor:  des,
+            role:        KeyRole::Subkey,
             sequoia_key: None,
         };
 
@@ -278,7 +290,10 @@ impl PgpAgent {
         let mut packets = Vec::<Packet>::with_capacity(5);
 
         // Self-sign primary key
-        let prim: Key<PublicParts, PrimaryRole> = self.primary.sequoia_key.clone()
+        let prim: Key<PublicParts, PrimaryRole> = self
+            .primary
+            .sequoia_key
+            .clone()
             .expect("unloaded primary key")
             .into();
 
@@ -286,40 +301,36 @@ impl PgpAgent {
 
         let mut prim_signer = RawSigner {
             api_endpoint: &self.api_endpoint,
-            api_key: &self.api_key,
-            descriptor: &self.primary.descriptor,
-            public: &prim.into(),
+            api_key:      &self.api_key,
+            descriptor:   &self.primary.descriptor,
+            public:       &prim.into(),
         };
 
-        let pref_hashes = vec![
-            HashAlgorithm::SHA512,
-            HashAlgorithm::SHA256
-        ];
+        let pref_hashes = vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256];
 
-        let pref_ciphers = vec![
-            SymmetricAlgorithm::AES256,
-            SymmetricAlgorithm::AES128,
-        ];
+        let pref_ciphers =
+            vec![SymmetricAlgorithm::AES256, SymmetricAlgorithm::AES128];
 
-        let primary_flags = KeyFlags::empty()
-            .set_certification()
-            .set_signing();
+        let primary_flags = KeyFlags::empty().set_certification().set_signing();
 
         let mut cert = Cert::try_from(packets)?;
 
         // User ID + signature
-        let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
-            .set_primary_userid(true)?
-            .set_key_flags(primary_flags)?
-            .set_preferred_hash_algorithms(pref_hashes)?
-            .set_preferred_symmetric_algorithms(pref_ciphers)?;
+        let builder =
+            SignatureBuilder::new(SignatureType::PositiveCertification)
+                .set_primary_userid(true)?
+                .set_key_flags(primary_flags)?
+                .set_preferred_hash_algorithms(pref_hashes)?
+                .set_preferred_symmetric_algorithms(pref_ciphers)?;
         let uid: UserID = user_id.into();
         let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
         cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
 
         // Subkey + signature
-        let subkey_public: Key<PublicParts, SubordinateRole> = self.subkey.sequoia_key
+        let subkey_public: Key<PublicParts, SubordinateRole> = self
+            .subkey
+            .sequoia_key
             .as_ref()
             .expect("unloaded subkey")
             .clone()
@@ -334,7 +345,10 @@ impl PgpAgent {
             .set_key_flags(subkey_flags)?;
 
         let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
-        cert = cert.insert_packets(vec![Packet::from(subkey_public), signature.into()])?;
+        cert = cert.insert_packets(vec![
+            Packet::from(subkey_public),
+            signature.into(),
+        ])?;
 
         info!("bind keys and store certificate in SDKMS");
         let armored = String::from_utf8(cert.armored().to_vec()?)?;
@@ -362,7 +376,7 @@ impl PgpAgent {
 
     fn maybe_fetch_subkey(&mut self) -> Result<()> {
         if self.subkey.sequoia_key.is_some() {
-            return Ok(())
+            return Ok(());
         }
 
         let http_client = SdkmsClient::builder()
@@ -410,7 +424,7 @@ impl PublicKey {
                     rsa: rsa_options,
                     ..Default::default()
                 }
-            },
+            }
             (KeyRole::Subkey, SupportedPkAlgo::Rsa(key_size)) => {
                 let ops = KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE;
                 let enc_policy = RsaEncryptionPolicy {
@@ -431,7 +445,7 @@ impl PublicKey {
                     rsa: rsa_options,
                     ..Default::default()
                 }
-            },
+            }
         };
 
         let sobject = client.create_sobject(&sobject_request)?;
@@ -440,40 +454,40 @@ impl PublicKey {
     }
 
     fn from_sobject(sob: Sobject, role: KeyRole) -> Result<Self> {
-        let descriptor = SobjectDescriptor::Kid(sob.kid.context("no kid in sobject")?);
+        let des = SobjectDescriptor::Kid(sob.kid.context("no kid in sobject")?);
         let time = sob.created_at.to_datetime();
-        let raw_pk = sob.pub_key
-            .context("public bits of sobject not returned")?;
+        let raw_pk =
+            sob.pub_key.context("public bits of sobject not returned")?;
 
         match sob.obj_type {
             ObjectType::Rsa => {
-                let deserialized_pk = Pk::from_public_key(&raw_pk)
-                    .context("cannot deserialize SDKMS key into mbedTLS object")?;
+                let deserialized_pk = Pk::from_public_key(&raw_pk).context(
+                    "cannot deserialize SDKMS key into mbedTLS object",
+                )?;
 
                 let (e, n) = (
                     deserialized_pk.rsa_public_exponent()?.to_be_bytes(),
                     deserialized_pk.rsa_public_modulus()?.to_binary()?,
                 );
+                let key = Key::V4(
+                    Key4::import_public_rsa(&e, &n, Some(time.into()))
+                        .context("cannot import RSA key into Sequoia object")?,
+                );
 
                 Ok(PublicKey {
-                    descriptor,
+                    descriptor: des,
                     role,
-                    sequoia_key: Some(
-                        Key::V4(
-                            Key4::import_public_rsa(&e, &n, Some(time.into()))
-                            .context("cannot import RSA key into Sequoia object")?,
-                        )
-                    ),
+                    sequoia_key: Some(key),
                 })
-            },
-            _ => unimplemented!()
+            }
+            _ => unimplemented!(),
         }
     }
 
     fn uid(&self) -> Result<Uuid> {
         match self.descriptor {
             SobjectDescriptor::Kid(x) => Ok(x),
-            _ => Err(anyhow::Error::msg("bad descriptor"))
+            _ => Err(anyhow::Error::msg("bad descriptor")),
         }
     }
 }

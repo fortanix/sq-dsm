@@ -1,3 +1,7 @@
+use sdkms::{
+    api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor},
+    SdkmsClient,
+};
 use sequoia_openpgp::{
     crypto::{mpi, Signer},
     packet::{
@@ -8,24 +12,21 @@ use sequoia_openpgp::{
     Result as SequoiaResult,
 };
 
-use sdkms::{
-    api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor},
-    SdkmsClient,
-};
-
 pub(crate) struct RawSigner<'a> {
     pub(crate) api_endpoint: &'a str,
-    pub(crate) api_key: &'a str,
-    pub(crate) descriptor: &'a SobjectDescriptor,
-    pub(crate) public: &'a Key<PublicParts, UnspecifiedRole>,
+    pub(crate) api_key:      &'a str,
+    pub(crate) descriptor:   &'a SobjectDescriptor,
+    pub(crate) public:       &'a Key<PublicParts, UnspecifiedRole>,
 }
 
 impl Signer for RawSigner<'_> {
-    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
-        &self.public
-    }
+    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
 
-    fn sign(&mut self, hash_algo: HashAlgorithm, digest: &[u8]) -> SequoiaResult<mpi::Signature> {
+    fn sign(
+        &mut self,
+        hash_algo: HashAlgorithm,
+        digest: &[u8],
+    ) -> SequoiaResult<mpi::Signature> {
         let http_client = SdkmsClient::builder()
             .with_api_endpoint(&self.api_endpoint)
             .with_api_key(&self.api_key)
@@ -55,8 +56,8 @@ impl Signer for RawSigner<'_> {
             match self.public.pk_algo() {
                 PublicKeyAlgorithm::RSAEncryptSign => {
                     mpi::Signature::RSA { s: plain.into() }
-                },
-                _ => unimplemented!()
+                }
+                _ => unimplemented!(),
             }
         };
 
