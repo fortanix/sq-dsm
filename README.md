@@ -32,8 +32,8 @@ commands, flags, and options.
   PGP key
 - `sq-sdkms decrypt`: Decrypt the given PGP message encrypted to this key
 
-PGP operations that do not require secrets (such as verify a signature) can be
-performed with any other PGP implementation, such as `sqv`.
+PGP operations that do not require secrets (such as verifying a signature) can
+be performed with any other PGP implementation, such as `sqv`.
 
 ## Building
 
@@ -60,7 +60,7 @@ combination with `sq`, `sqv`, or `gpg`.
 
 First, create a PGP key and store the public certificate it in `alice.asc`
 ```
-$ ./sq-sdkms generate-key --key-name="My PGP key" --user-id="Alice Lovelace <alice@fortanix.com>" --armor > alice.asc
+$ ./sq-sdkms generate-key --key-name="My PGP key" --user-id="Alice Lovelace <alice@fortanix.com>" --armor --output-file="alice.asc"
 ```
 Sign a file with this key
 ```
@@ -98,7 +98,7 @@ $ gpg --encrypt -r alice msg.txt
 
 Decrypt the file created by `gpg` with `sq-sdkms`:
 ```
-$ ./sq-sdkms decrypt --key-name="My PGP key" msg.txt.gpg --no-policy
+$ ./sq-sdkms decrypt --key-name="My PGP key" msg.txt.gpg
 Hello, World!
 ```
 
