@@ -387,7 +387,8 @@ impl PgpAgent {
             .get_sobject(None, &self.subkey.descriptor)
             .context("could not get subkey".to_string())?;
         let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
-        let key = key.sequoia_key.unwrap();
+        let key = key.sequoia_key
+            .context("could not get subkey".to_string())?;
 
         self.subkey.sequoia_key = Some(key);
 

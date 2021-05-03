@@ -8,7 +8,7 @@ in the [Fortanix Self-Defending Key-Management System][SDKMS].
 
 Sequoia-PGP defines the [Signer][sequoia::Signer] and
 [Decryptor][sequoia::Decryptor] traits for low-level cryptographic operations
-with secret key material, and astracts over these traits for PGP operations.
+with secret key material, and abstracts over these traits for PGP operations.
 This crate implements these traits with secrets stored inside Fortanix SDKMS,
 allowing to produce PGP material and decrypt ciphertexts without the need to
 export secrets bits.
@@ -28,7 +28,8 @@ commands, flags, and options.
   inside SDKMS (signing primary and encryption subkey) and form the PGP key
 - `sq-sdkms certificate`: For a key created with `sq-sdkms`, retrieve the
   corresponding Transferable Public Key
-- `sq-sdkms sign-detached`: Given a file, create a detached signature with the PGP key
+- `sq-sdkms sign-detached`: Given a file, create a detached signature with the
+  PGP key
 - `sq-sdkms decrypt`: Decrypt the given PGP message encrypted to this key
 
 PGP operations that do not require secrets (such as verify a signature) can be

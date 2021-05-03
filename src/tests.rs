@@ -67,6 +67,11 @@ fn armored_signature() {
     agent
         .sign_detached(&mut signed_message, MESSAGE.as_bytes(), true)
         .unwrap();
+
+    assert_eq!(
+        &signed_message[..27],
+        "-----BEGIN PGP MESSAGE-----".as_bytes()
+    );
 }
 
 #[test]

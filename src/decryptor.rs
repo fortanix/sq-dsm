@@ -46,7 +46,7 @@ impl Decryptor for RawDecryptor<'_> {
             tag:    None,
         };
 
-        let decrypt_resp = http_client.decrypt(&decrypt_req).unwrap();
+        let decrypt_resp = http_client.decrypt(&decrypt_req)?;
 
         Ok(decrypt_resp.plain.to_vec().into())
     }
