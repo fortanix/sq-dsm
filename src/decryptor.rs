@@ -1,21 +1,15 @@
-use sdkms::{
-    api_model::{Algorithm::Rsa, DecryptRequest, SobjectDescriptor},
-    SdkmsClient,
-};
-use sequoia_openpgp::{
-    crypto::{mpi, Decryptor, SessionKey},
-    packet::{
-        key::{PublicParts, UnspecifiedRole},
-        Key,
-    },
-    Result as SequoiaResult,
-};
+use sdkms::api_model::{Algorithm, DecryptRequest, SobjectDescriptor};
+use sdkms::SdkmsClient;
+use sequoia_openpgp::crypto::{mpi, Decryptor, SessionKey};
+use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
+use sequoia_openpgp::packet::Key;
+use sequoia_openpgp::Result as SequoiaResult;
 
-pub(crate) struct RawDecryptor<'a> {
-    pub(crate) api_endpoint: &'a str,
-    pub(crate) api_key:      &'a str,
-    pub(crate) descriptor:   &'a SobjectDescriptor,
-    pub(crate) public:       &'a Key<PublicParts, UnspecifiedRole>,
+pub struct RawDecryptor<'a> {
+    pub api_endpoint: &'a str,
+    pub api_key:      &'a str,
+    pub descriptor:   &'a SobjectDescriptor,
+    pub public:       &'a Key<PublicParts, UnspecifiedRole>,
 }
 
 impl Decryptor for RawDecryptor<'_> {
@@ -38,7 +32,7 @@ impl Decryptor for RawDecryptor<'_> {
 
         let decrypt_req = DecryptRequest {
             cipher: raw_ciphertext.into(),
-            alg:    Some(Rsa),
+            alg:    Some(Algorithm::Rsa),
             iv:     None,
             key:    Some(self.descriptor.clone()),
             mode:   None,

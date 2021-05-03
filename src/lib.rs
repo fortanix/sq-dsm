@@ -1,42 +1,35 @@
-use std::{collections::HashMap, convert::TryFrom, io::Write, str::FromStr};
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::io::Write;
+use std::str::FromStr;
 
 use anyhow::{Context, Result};
 use log::info;
 use mbedtls::pk::Pk;
-pub use sdkms::api_model::ObjectType;
-use sdkms::{
-    api_model::{
-        KeyOperations, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
-        RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, Sobject,
-        SobjectDescriptor, SobjectRequest,
-    },
-    SdkmsClient,
+use openpgp::crypto::SessionKey;
+use openpgp::packet::key::{
+    Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole,
 };
-extern crate sequoia_openpgp as openpgp;
-use openpgp::{
-    crypto::SessionKey,
-    packet::{
-        key::{
-            Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole,
-        },
-        signature::SignatureBuilder,
-        Key, UserID, PKESK, SKESK,
-    },
-    parse::{
-        stream::{
-            DecryptionHelper, DecryptorBuilder, MessageStructure,
-            VerificationHelper,
-        },
-        Parse,
-    },
-    policy::Policy as PgpPolicy,
-    serialize::{
-        stream::{Armorer, Message, Signer},
-        SerializeInto,
-    },
-    types::{HashAlgorithm, KeyFlags, SignatureType, SymmetricAlgorithm},
-    Cert, KeyHandle, Packet,
+use openpgp::packet::signature::SignatureBuilder;
+use openpgp::packet::{Key, UserID, PKESK, SKESK};
+use openpgp::parse::stream::{
+    DecryptionHelper, DecryptorBuilder, MessageStructure, VerificationHelper,
 };
+use openpgp::parse::Parse;
+use openpgp::policy::Policy as PgpPolicy;
+use openpgp::serialize::stream::{Armorer, Message, Signer};
+use openpgp::serialize::SerializeInto;
+use openpgp::types::{
+    HashAlgorithm, KeyFlags, SignatureType, SymmetricAlgorithm,
+};
+use openpgp::{Cert, KeyHandle, Packet};
+use sdkms::api_model::{
+    KeyOperations, ObjectType, RsaEncryptionPaddingPolicy, RsaEncryptionPolicy,
+    RsaOptions, RsaSignaturePaddingPolicy, RsaSignaturePolicy, Sobject,
+    SobjectDescriptor, SobjectRequest,
+};
+use sdkms::SdkmsClient;
+use sequoia_openpgp as openpgp;
 use uuid::Uuid;
 
 mod signer;
@@ -85,7 +78,7 @@ impl PgpAgent {
     /// signing key.
     ///
     /// The public certificate (Transferable Public Key) is computed, stored as
-    /// an additional custom medatada field on the primary key, and returned.
+    /// an additional custom metadata field on the primary key, and returned.
     pub fn generate_key(
         api_endpoint: &str,
         api_key: &str,
@@ -197,6 +190,9 @@ impl PgpAgent {
             where
                 D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool,
             {
+                if pkesks.len() == 0 {
+                    return Err(anyhow::Error::msg("PKESK not found"));
+                }
                 pkesks[0]
                     .decrypt(&mut self.decryptor, sym_algo)
                     .map(|(algo, session_key)| decrypt(algo, &session_key));
@@ -387,7 +383,8 @@ impl PgpAgent {
             .get_sobject(None, &self.subkey.descriptor)
             .context("could not get subkey".to_string())?;
         let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
-        let key = key.sequoia_key
+        let key = key
+            .sequoia_key
             .context("could not get subkey".to_string())?;
 
         self.subkey.sequoia_key = Some(key);

@@ -1,22 +1,16 @@
-use sdkms::{
-    api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor},
-    SdkmsClient,
-};
-use sequoia_openpgp::{
-    crypto::{mpi, Signer},
-    packet::{
-        key::{PublicParts, UnspecifiedRole},
-        Key,
-    },
-    types::{HashAlgorithm, PublicKeyAlgorithm},
-    Result as SequoiaResult,
-};
+use sdkms::api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor};
+use sdkms::SdkmsClient;
+use sequoia_openpgp::crypto::{mpi, Signer};
+use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
+use sequoia_openpgp::packet::Key;
+use sequoia_openpgp::types::{HashAlgorithm, PublicKeyAlgorithm};
+use sequoia_openpgp::Result as SequoiaResult;
 
-pub(crate) struct RawSigner<'a> {
-    pub(crate) api_endpoint: &'a str,
-    pub(crate) api_key:      &'a str,
-    pub(crate) descriptor:   &'a SobjectDescriptor,
-    pub(crate) public:       &'a Key<PublicParts, UnspecifiedRole>,
+pub struct RawSigner<'a> {
+    pub api_endpoint: &'a str,
+    pub api_key:      &'a str,
+    pub descriptor:   &'a SobjectDescriptor,
+    pub public:       &'a Key<PublicParts, UnspecifiedRole>,
 }
 
 impl Signer for RawSigner<'_> {

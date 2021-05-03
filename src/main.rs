@@ -1,12 +1,11 @@
-use std::{
-    env, fs,
-    io::{BufRead, Write},
-    path::{Path, PathBuf},
-};
+use std::io::{BufRead, Write};
+use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 use anyhow::{Context, Result};
 use log::info;
-use sequoia_openpgp::{policy::StandardPolicy, serialize::SerializeInto};
+use sequoia_openpgp::policy::StandardPolicy;
+use sequoia_openpgp::serialize::SerializeInto;
 use sq_sdkms::{PgpAgent, SupportedPkAlgo};
 use structopt::StructOpt;
 
