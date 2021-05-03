@@ -4,6 +4,9 @@
 
 * Changes in 1.2.0
 ** New functionality
+   - CertBuilder::add_subkey_with
+   - CertBuilder::add_user_attribute_with
+   - CertBuilder::add_userid_with
    - ComponentBundle::attestations
    - Encryptor::with_session_key
    - Signature::verify_user_attribute_attestation

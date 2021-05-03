@@ -9,7 +9,11 @@ use crate::packet::{
 };
 use crate::Result;
 use crate::packet::Signature;
-use crate::packet::signature::{self, SignatureBuilder};
+use crate::packet::signature::{
+    self,
+    SignatureBuilder,
+    subpacket::SubpacketTag,
+};
 use crate::cert::prelude::*;
 use crate::Error;
 use crate::crypto::{Password, Signer};
@@ -168,9 +172,9 @@ pub struct CertBuilder<'a> {
     creation_time: Option<std::time::SystemTime>,
     ciphersuite: CipherSuite,
     primary: KeyBlueprint,
-    subkeys: Vec<KeyBlueprint>,
-    userids: Vec<packet::UserID>,
-    user_attributes: Vec<packet::UserAttribute>,
+    subkeys: Vec<(Option<SignatureBuilder>, KeyBlueprint)>,
+    userids: Vec<(Option<SignatureBuilder>, packet::UserID)>,
+    user_attributes: Vec<(Option<SignatureBuilder>, packet::UserAttribute)>,
     password: Option<Password>,
     revocation_keys: Option<Vec<RevocationKey>>,
     phantom: PhantomData<&'a ()>,
@@ -444,8 +448,105 @@ impl CertBuilder<'_> {
     pub fn add_userid<U>(mut self, uid: U) -> Self
         where U: Into<packet::UserID>
     {
-        self.userids.push(uid.into());
+        self.userids.push((None, uid.into()));
         self
+    }
+
+    /// Adds a User ID with a binding signature based on `builder`.
+    ///
+    /// Adds a User ID to the certificate, creating the binding
+    /// signature using `builder`.  The `builder`s signature type must
+    /// be a certification signature (i.e. either
+    /// [`GenericCertification`], [`PersonaCertification`],
+    /// [`CasualCertification`], or [`PositiveCertification`]).
+    ///
+    /// The key generation step uses `builder` as a template, but
+    /// tweaks it so the signature is a valid binding signature.  If
+    /// you need more control, consider using
+    /// [`UserID::bind`](crate::packet::UserID::bind).
+    ///
+    /// The following modifications are performed on `builder`:
+    ///
+    ///   - An appropriate hash algorithm is selected.
+    ///
+    ///   - The creation time is set.
+    ///
+    ///   - Primary key metadata is added (key flags, key validity period).
+    ///
+    ///   - Certificate metadata is added (feature flags, algorithm
+    ///     preferences).
+    ///
+    ///   - The [`CertBuilder`] marks exactly one User ID or User
+    ///     Attribute as primary: The first one provided to
+    ///     [`CertBuilder::add_userid_with`] or
+    ///     [`CertBuilder::add_user_attribute_with`] (the UserID takes
+    ///     precedence) that is marked as primary, or the first User
+    ///     ID or User Attribute added to the [`CertBuilder`].
+    ///
+    ///   [`GenericCertification`]: crate::types::SignatureType::GenericCertification
+    ///   [`PersonaCertification`]: crate::types::SignatureType::PersonaCertification
+    ///   [`CasualCertification`]: crate::types::SignatureType::CasualCertification
+    ///   [`PositiveCertification`]: crate::types::SignatureType::PositiveCertification
+    ///   [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    ///
+    /// # Examples
+    ///
+    /// This example very casually binds a User ID to a certificate.
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::{prelude::*, signature::subpacket::*};
+    /// # use openpgp::policy::StandardPolicy;
+    /// # use openpgp::types::*;
+    /// # let policy = &StandardPolicy::new();
+    /// #
+    /// let (cert, revocation_cert) =
+    ///     CertBuilder::general_purpose(
+    ///         None, Some("Alice Lovelace <alice@example.org>"))
+    ///     .add_userid_with(
+    ///         "trinity",
+    ///         SignatureBuilder::new(SignatureType::CasualCertification)
+    ///             .set_notation("rabbit@example.org", b"follow me",
+    ///                           NotationDataFlags::empty().set_human_readable(),
+    ///                           false)?)?
+    ///     .generate()?;
+    ///
+    /// assert_eq!(cert.userids().count(), 2);
+    /// let mut userids = cert.with_policy(policy, None)?.userids().collect::<Vec<_>>();
+    /// // Sort lexicographically.
+    /// userids.sort_by(|a, b| a.value().cmp(b.value()));
+    /// assert_eq!(userids[0].userid(),
+    ///            &UserID::from("Alice Lovelace <alice@example.org>"));
+    /// assert_eq!(userids[1].userid(),
+    ///            &UserID::from("trinity"));
+    ///
+    /// assert!(userids[0].binding_signature().primary_userid().unwrap_or(false));
+    /// assert!(! userids[1].binding_signature().primary_userid().unwrap_or(false));
+    /// assert_eq!(userids[1].binding_signature().notation("rabbit@example.org")
+    ///            .next().unwrap(), b"follow me");
+    /// # Ok(()) }
+    /// ```
+    pub fn add_userid_with<U, B>(mut self, uid: U, builder: B)
+                                 -> Result<Self>
+    where U: Into<packet::UserID>,
+          B: Into<SignatureBuilder>,
+    {
+        let builder = builder.into();
+        match builder.typ() {
+            SignatureType::GenericCertification
+                | SignatureType::PersonaCertification
+                | SignatureType::CasualCertification
+                | SignatureType::PositiveCertification =>
+            {
+                self.userids.push((Some(builder), uid.into()));
+                Ok(self)
+            },
+            t =>
+                Err(Error::InvalidArgument(format!(
+                    "Signature type is not a certification: {}", t)).into()),
+        }
     }
 
     /// Adds a new User Attribute.
@@ -524,8 +625,104 @@ impl CertBuilder<'_> {
     pub fn add_user_attribute<U>(mut self, ua: U) -> Self
         where U: Into<packet::UserAttribute>
     {
-        self.user_attributes.push(ua.into());
+        self.user_attributes.push((None, ua.into()));
         self
+    }
+
+    /// Adds a User Attribute with a binding signature based on `builder`.
+    ///
+    /// Adds a User Attribute to the certificate, creating the binding
+    /// signature using `builder`.  The `builder`s signature type must
+    /// be a certification signature (i.e. either
+    /// [`GenericCertification`], [`PersonaCertification`],
+    /// [`CasualCertification`], or [`PositiveCertification`]).
+    ///
+    /// The key generation step uses `builder` as a template, but
+    /// tweaks it so the signature is a valid binding signature.  If
+    /// you need more control, consider using
+    /// [`UserAttribute::bind`](crate::packet::UserAttribute::bind).
+    ///
+    /// The following modifications are performed on `builder`:
+    ///
+    ///   - An appropriate hash algorithm is selected.
+    ///
+    ///   - The creation time is set.
+    ///
+    ///   - Primary key metadata is added (key flags, key validity period).
+    ///
+    ///   - Certificate metadata is added (feature flags, algorithm
+    ///     preferences).
+    ///
+    ///   - The [`CertBuilder`] marks exactly one User ID or User
+    ///     Attribute as primary: The first one provided to
+    ///     [`CertBuilder::add_userid_with`] or
+    ///     [`CertBuilder::add_user_attribute_with`] (the UserID takes
+    ///     precedence) that is marked as primary, or the first User
+    ///     ID or User Attribute added to the [`CertBuilder`].
+    ///
+    ///   [`GenericCertification`]: crate::types::SignatureType::GenericCertification
+    ///   [`PersonaCertification`]: crate::types::SignatureType::PersonaCertification
+    ///   [`CasualCertification`]: crate::types::SignatureType::CasualCertification
+    ///   [`PositiveCertification`]: crate::types::SignatureType::PositiveCertification
+    ///   [primary User ID flag]: https://tools.ietf.org/html/rfc4880#section-5.2.3.19
+    ///
+    /// # Examples
+    ///
+    /// This example very casually binds a user attribute to a
+    /// certificate.
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::packet::user_attribute::Subpacket;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::{prelude::*, signature::subpacket::*};
+    /// # use openpgp::policy::StandardPolicy;
+    /// # use openpgp::types::*;
+    /// #
+    /// # let policy = &StandardPolicy::new();
+    /// #
+    /// # // Create some user attribute. Doctests do not pass cfg(test),
+    /// # // so UserAttribute::arbitrary is not available
+    /// # let user_attribute =
+    /// #   UserAttribute::new(&[Subpacket::Unknown(7, vec![7; 7].into())])?;
+    /// let (cert, revocation_cert) =
+    ///     CertBuilder::general_purpose(
+    ///         None, Some("Alice Lovelace <alice@example.org>"))
+    ///     .add_user_attribute_with(
+    ///         user_attribute,
+    ///         SignatureBuilder::new(SignatureType::CasualCertification)
+    ///             .set_notation("rabbit@example.org", b"follow me",
+    ///                           NotationDataFlags::empty().set_human_readable(),
+    ///                           false)?)?
+    ///     .generate()?;
+    ///
+    /// let uas = cert.with_policy(policy, None)?.user_attributes().collect::<Vec<_>>();
+    /// assert_eq!(uas.len(), 1);
+    /// assert!(! uas[0].binding_signature().primary_userid().unwrap_or(false));
+    /// assert_eq!(uas[0].binding_signature().notation("rabbit@example.org")
+    ///            .next().unwrap(), b"follow me");
+    /// # Ok(()) }
+    /// ```
+    pub fn add_user_attribute_with<U, B>(mut self, ua: U, builder: B)
+                                         -> Result<Self>
+    where U: Into<packet::UserAttribute>,
+          B: Into<SignatureBuilder>,
+    {
+        let builder = builder.into();
+        match builder.typ() {
+            SignatureType::GenericCertification
+                | SignatureType::PersonaCertification
+                | SignatureType::CasualCertification
+                | SignatureType::PositiveCertification =>
+            {
+                self.user_attributes.push((Some(builder), ua.into()));
+                Ok(self)
+            },
+            t =>
+                Err(Error::InvalidArgument(format!(
+                    "Signature type is not a certification: {}", t)).into()),
+        }
     }
 
     /// Adds a signing-capable subkey.
@@ -774,12 +971,92 @@ impl CertBuilder<'_> {
         where T: Into<Option<time::Duration>>,
               C: Into<Option<CipherSuite>>,
     {
-        self.subkeys.push(KeyBlueprint {
+        self.subkeys.push((None, KeyBlueprint {
             flags,
             validity: validity.into(),
             ciphersuite: cs.into(),
-        });
+        }));
         self
+    }
+
+    /// Adds a subkey with a binding signature based on `builder`.
+    ///
+    /// Adds a subkey to the certificate, creating the binding
+    /// signature using `builder`.  The `builder`s signature type must
+    /// be [`SubkeyBinding`].
+    ///
+    /// The key generation step uses `builder` as a template, but adds
+    /// all subpackets that the signature needs to be a valid binding
+    /// signature.  If you need more control, or want to adopt
+    /// existing keys, consider using
+    /// [`Key::bind`](crate::packet::Key::bind).
+    ///
+    /// The following modifications are performed on `builder`:
+    ///
+    ///   - An appropriate hash algorithm is selected.
+    ///
+    ///   - The creation time is set.
+    ///
+    ///   - Key metadata is added (key flags, key validity period).
+    ///
+    ///   [`SubkeyBinding`]: crate::types::SignatureType::SubkeyBinding
+    ///
+    /// # Examples
+    ///
+    /// This example binds a signing subkey to a certificate,
+    /// restricting its use to authentication of software.
+    ///
+    /// ```
+    /// # fn main() -> sequoia_openpgp::Result<()> {
+    /// # use sequoia_openpgp as openpgp;
+    /// # use openpgp::packet::user_attribute::Subpacket;
+    /// # use openpgp::cert::prelude::*;
+    /// # use openpgp::packet::{prelude::*, signature::subpacket::*};
+    /// # use openpgp::policy::StandardPolicy;
+    /// # use openpgp::types::*;
+    /// let (cert, revocation_cert) =
+    ///     CertBuilder::general_purpose(
+    ///         None, Some("Alice Lovelace <alice@example.org>"))
+    ///     .add_subkey_with(
+    ///         KeyFlags::empty().set_signing(), None, None,
+    ///         SignatureBuilder::new(SignatureType::SubkeyBinding)
+    ///             // Add a critical notation!
+    ///             .set_notation("code-signing@policy.example.org", b"",
+    ///                           NotationDataFlags::empty(), true)?)?
+    ///     .generate()?;
+    ///
+    /// // Under the standard policy, the additional signing subkey
+    /// // is not bound.
+    /// let p = StandardPolicy::new();
+    /// assert_eq!(cert.with_policy(&p, None)?.keys().for_signing().count(), 1);
+    ///
+    /// // However, software implementing the notation see the additional
+    /// // signing subkey.
+    /// let mut p = StandardPolicy::new();
+    /// p.good_critical_notations(&["code-signing@policy.example.org"]);
+    /// assert_eq!(cert.with_policy(&p, None)?.keys().for_signing().count(), 2);
+    /// # Ok(()) }
+    /// ```
+    pub fn add_subkey_with<T, C, B>(mut self, flags: KeyFlags, validity: T,
+                                    cs: C, builder: B) -> Result<Self>
+        where T: Into<Option<time::Duration>>,
+              C: Into<Option<CipherSuite>>,
+              B: Into<SignatureBuilder>,
+    {
+        let builder = builder.into();
+        match builder.typ() {
+            SignatureType::SubkeyBinding => {
+                self.subkeys.push((Some(builder), KeyBlueprint {
+                    flags,
+                    validity: validity.into(),
+                    ciphersuite: cs.into(),
+                }));
+                Ok(self)
+            },
+            t =>
+                Err(Error::InvalidArgument(format!(
+                    "Signature type is not a subkey binding: {}", t)).into()),
+        }
     }
 
     /// Sets the primary key's key flags.
@@ -978,45 +1255,93 @@ impl CertBuilder<'_> {
             sig.into(),
         ])?;
 
-        let have_userids = !self.userids.is_empty();
+        // We want to mark exactly one User ID or Attribute as primary.
+        // First, figure out whether one of the binding signature
+        // templates have the primary flag set.
+        let have_primary_user_thing = {
+            let is_primary = |osig: &Option<SignatureBuilder>| -> bool {
+                osig.as_ref().and_then(|s| s.primary_userid()).unwrap_or(false)
+            };
+
+            self.userids.iter().map(|(s, _)| s).any(is_primary)
+                || self.user_attributes.iter().map(|(s, _)| s).any(is_primary)
+        };
+        let mut emitted_primary_user_thing = false;
 
         // Sign UserIDs.
-        for (i, uid) in self.userids.into_iter().enumerate() {
-            let sig =
-                SignatureBuilder::new(SignatureType::PositiveCertification);
+        for (template, uid) in self.userids.into_iter() {
+            let sig = template.unwrap_or_else(
+                || SignatureBuilder::new(SignatureType::PositiveCertification));
             let sig = Self::signature_common(sig, creation_time)?;
             let mut sig = Self::add_primary_key_metadata(sig, &self.primary)?;
-            if i == 0 {
-                sig = sig.set_primary_userid(true)?;
+
+            // Make sure we mark exactly one User ID or Attribute as
+            // primary.
+            if emitted_primary_user_thing {
+                sig = sig.modify_hashed_area(|mut a| {
+                    a.remove_all(SubpacketTag::PrimaryUserID);
+                    Ok(a)
+                })?;
+            } else {
+                if have_primary_user_thing {
+                    // Check if this is the first explicitly selected
+                    // user thing.
+                    emitted_primary_user_thing |=
+                        sig.primary_userid().unwrap_or(false);
+                } else {
+                    // Implicitly mark the first as primary.
+                    sig = sig.set_primary_userid(true)?;
+                    emitted_primary_user_thing = true;
+                }
             }
+
             let signature = uid.bind(&mut signer, &cert, sig)?;
             cert = cert.insert_packets(
                 vec![Packet::from(uid), signature.into()])?;
         }
 
         // Sign UserAttributes.
-        for (i, ua) in self.user_attributes.into_iter().enumerate() {
-            let sig =
-                SignatureBuilder::new(SignatureType::PositiveCertification);
+        for (template, ua) in self.user_attributes.into_iter() {
+            let sig = template.unwrap_or_else(
+                || SignatureBuilder::new(SignatureType::PositiveCertification));
             let sig = Self::signature_common(sig, creation_time)?;
             let mut sig = Self::add_primary_key_metadata(sig, &self.primary)?;
-            if i == 0 && ! have_userids {
-                sig = sig.set_primary_userid(true)?;
+
+            // Make sure we mark exactly one User ID or Attribute as
+            // primary.
+            if emitted_primary_user_thing {
+                sig = sig.modify_hashed_area(|mut a| {
+                    a.remove_all(SubpacketTag::PrimaryUserID);
+                    Ok(a)
+                })?;
+            } else {
+                if have_primary_user_thing {
+                    // Check if this is the first explicitly selected
+                    // user thing.
+                    emitted_primary_user_thing |=
+                        sig.primary_userid().unwrap_or(false);
+                } else {
+                    // Implicitly mark the first as primary.
+                    sig = sig.set_primary_userid(true)?;
+                    emitted_primary_user_thing = true;
+                }
             }
+
             let signature = ua.bind(&mut signer, &cert, sig)?;
             cert = cert.insert_packets(
                 vec![Packet::from(ua), signature.into()])?;
         }
 
         // Sign subkeys.
-        for blueprint in self.subkeys {
+        for (template, blueprint) in self.subkeys {
             let flags = &blueprint.flags;
             let mut subkey = blueprint.ciphersuite
                 .unwrap_or(self.ciphersuite)
                 .generate_key(flags)?;
             subkey.set_creation_time(creation_time)?;
 
-            let sig = SignatureBuilder::new(SignatureType::SubkeyBinding);
+            let sig = template.unwrap_or_else(
+                || SignatureBuilder::new(SignatureType::SubkeyBinding));
             let sig = Self::signature_common(sig, creation_time)?;
             let mut builder = sig
                 .set_key_flags(flags.clone())?
@@ -1409,6 +1734,93 @@ mod tests {
         assert!(cert.with_policy(p, then)?.primary_userid().is_err());
         assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
+        Ok(())
+    }
+
+    /// Checks that the builder emits exactly one user id or attribute
+    /// marked as primary.
+    #[test]
+    fn primary_user_things() -> Result<()> {
+        fn count_primary_user_things(c: Cert) -> usize {
+            c.into_packets().map(|p| match p {
+                Packet::Signature(s) if s.primary_userid().unwrap_or(false)
+                    => 1,
+                _ => 0,
+            }).sum()
+        }
+
+        use crate::packet::{prelude::*, user_attribute::Subpacket};
+        let ua_foo =
+            UserAttribute::new(&[Subpacket::Unknown(7, vec![7; 7].into())])?;
+        let ua_bar =
+            UserAttribute::new(&[Subpacket::Unknown(11, vec![11; 11].into())])?;
+
+        let p = &P::new();
+        let positive = SignatureType::PositiveCertification;
+
+        let (c, _) = CertBuilder::new().generate()?;
+        assert_eq!(count_primary_user_things(c), 0);
+
+        let (c, _) = CertBuilder::new()
+            .add_userid("foo")
+            .generate()?;
+        assert_eq!(count_primary_user_things(c), 1);
+
+        let (c, _) = CertBuilder::new()
+            .add_userid("foo")
+            .add_userid("bar")
+            .generate()?;
+        assert_eq!(count_primary_user_things(c), 1);
+
+        let (c, _) = CertBuilder::new()
+            .add_user_attribute(ua_foo.clone())
+            .generate()?;
+        assert_eq!(count_primary_user_things(c), 1);
+
+        let (c, _) = CertBuilder::new()
+            .add_user_attribute(ua_foo.clone())
+            .add_user_attribute(ua_bar.clone())
+            .generate()?;
+        assert_eq!(count_primary_user_things(c), 1);
+
+        let (c, _) = CertBuilder::new()
+            .add_userid("foo")
+            .add_user_attribute(ua_foo.clone())
+            .generate()?;
+        let vc = c.with_policy(p, None)?;
+        assert_eq!(vc.primary_userid()?.binding_signature().primary_userid(),
+                   Some(true));
+        assert_eq!(vc.primary_user_attribute()?.binding_signature().primary_userid(),
+                   None);
+        assert_eq!(count_primary_user_things(c), 1);
+
+        let (c, _) = CertBuilder::new()
+            .add_user_attribute(ua_foo.clone())
+            .add_userid("foo")
+            .generate()?;
+        let vc = c.with_policy(p, None)?;
+        assert_eq!(vc.primary_userid()?.binding_signature().primary_userid(),
+                   Some(true));
+        assert_eq!(vc.primary_user_attribute()?.binding_signature().primary_userid(),
+                   None);
+        assert_eq!(count_primary_user_things(c), 1);
+
+        let (c, _) = CertBuilder::new()
+            .add_userid("foo")
+            .add_userid_with(
+                "buz",
+                SignatureBuilder::new(positive).set_primary_userid(false)?)?
+            .add_userid_with(
+                "bar",
+                SignatureBuilder::new(positive).set_primary_userid(true)?)?
+            .add_userid_with(
+                "baz",
+                SignatureBuilder::new(positive).set_primary_userid(true)?)?
+            .generate()?;
+        let vc = c.with_policy(p, None)?;
+        assert_eq!(vc.primary_userid()?.value(), b"bar");
+        assert_eq!(count_primary_user_things(c), 1);
+
         Ok(())
     }
 }
