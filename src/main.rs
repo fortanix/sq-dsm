@@ -46,6 +46,9 @@ enum Command {
         /// <paul@fortanix.com>")
         #[structopt(long, short)]
         user_id: Option<String>,
+        /// Public-key algorithm ("rsa2048", "rsa3072", "rsa4096")
+        #[structopt(long, short)]
+        pk_algo: Option<String>,
     },
     /// Retrieves and outputs the Transferable Public Key
     Certificate {
@@ -80,11 +83,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
 
     let (output_file, output_material) = match cli.cmd {
-        Command::GenerateKey { args, user_id } => {
+        Command::GenerateKey { args, user_id, pk_algo } => {
             info!("sq-sdkms generate-key");
             not_exists(&args.output_file)?;
 
-            let algo = pk_algo_prompt()?;
+            let algo = match pk_algo {
+                Some(algorithm) => {
+                    match &*algorithm {
+                        "rsa2048" => SupportedPkAlgo::Rsa(2048),
+                        "rsa3072" => SupportedPkAlgo::Rsa(3072),
+                        "rsa4096" => SupportedPkAlgo::Rsa(4096),
+                        _ => unimplemented!()
+                    }
+                },
+                None => pk_algo_prompt()?,
+            };
             let user_id = match user_id {
                 Some(user_id) => user_id,
                 None => user_id_prompt()?,
