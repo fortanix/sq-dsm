@@ -4,6 +4,7 @@ use std::{env, fs};
 
 use anyhow::{Context, Result};
 use log::info;
+use sdkms::SdkmsClient;
 use sequoia_openpgp::policy::StandardPolicy;
 use sequoia_openpgp::serialize::SerializeInto;
 use sq_sdkms::{PgpAgent, SupportedPkAlgo};
@@ -90,9 +91,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 None => user_id_prompt()?,
             };
 
+            let http_client = SdkmsClient::builder()
+                .with_api_endpoint(&endpoint)
+                .with_api_key(&api_key)
+                .build()?;
+
             let agent = PgpAgent::generate_key(
-                &endpoint,
-                &api_key,
+                &http_client,
                 &args.key_name,
                 &user_id,
                 &algo,
@@ -111,7 +116,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("sq-sdkms public-key");
             not_exists(&args.output_file)?;
 
-            let agent = PgpAgent::summon(&endpoint, &api_key, &args.key_name)
+            let http_client = SdkmsClient::builder()
+                .with_api_endpoint(&endpoint)
+                .with_api_key(&api_key)
+                .build()?;
+            let agent = PgpAgent::summon(&http_client, &args.key_name)
                 .context("Could not summon the PGP agent")?;
 
             let cert = agent.certificate.expect("public certificate");
@@ -130,7 +139,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let content = fs::read(file)?;
             let mut signed_message = Vec::new();
 
-            PgpAgent::summon(&endpoint, &api_key, &args.key_name)
+            let http_client = SdkmsClient::builder()
+                .with_api_endpoint(&endpoint)
+                .with_api_key(&api_key)
+                .build()?;
+            PgpAgent::summon(&http_client, &args.key_name)
                 .context("Could not summon the PGP agent")?
                 .sign_detached(&mut signed_message, &content, args.armor)
                 .context("Could not sign the file")?;
@@ -144,7 +157,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let ciphertext = fs::read(file)?;
             let mut plaintext = Vec::new();
 
-            PgpAgent::summon(&endpoint, &api_key, &args.key_name)
+            let http_client = SdkmsClient::builder()
+                .with_api_endpoint(&endpoint)
+                .with_api_key(&api_key)
+                .build()?;
+            PgpAgent::summon(&http_client, &args.key_name)
                 .context("Could not summon the PGP agent")?
                 .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
                 .context("Could not decrypt the file")?;

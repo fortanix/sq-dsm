@@ -3,6 +3,7 @@ use std::{env, io::Write};
 use openpgp::policy::Policy;
 use openpgp::policy::StandardPolicy;
 use openpgp::serialize::{stream::*, SerializeInto};
+use sdkms::SdkmsClient;
 use sequoia_openpgp as openpgp;
 
 use super::{PgpAgent, SupportedPkAlgo};
@@ -21,9 +22,13 @@ static INIT: Once = Once::new();
 fn init() {
     INIT.call_once(|| {
         dotenv::from_filename(TEST_ENV).ok();
+        let http_client = SdkmsClient::builder()
+            .with_api_endpoint(&env::var(TEST_ENV_API_ENDPOINT).unwrap())
+            .with_api_key(&env::var(TEST_ENV_API_KEY).unwrap())
+            .build()
+            .unwrap();
         PgpAgent::generate_key(
-            &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
-            &env::var(TEST_ENV_API_KEY).unwrap(),
+            &http_client,
             &TEST_KEY_NAME,
             &TEST_USER_ID,
             &SupportedPkAlgo::Rsa(2048),
@@ -35,12 +40,12 @@ fn init() {
 #[test]
 fn armored_public_key() {
     init();
-    let agent = PgpAgent::summon(
-        &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
-        &env::var(TEST_ENV_API_KEY).unwrap(),
-        &TEST_KEY_NAME,
-    )
-    .unwrap();
+    let http_client = SdkmsClient::builder()
+        .with_api_endpoint(&env::var(TEST_ENV_API_ENDPOINT).unwrap())
+        .with_api_key(&env::var(TEST_ENV_API_KEY).unwrap())
+        .build()
+        .unwrap();
+    let agent = PgpAgent::summon(&http_client, &TEST_KEY_NAME).unwrap();
 
     let armored = agent.certificate.unwrap().armored().to_vec().unwrap();
 
@@ -53,12 +58,12 @@ fn armored_public_key() {
 #[test]
 fn armored_signature() {
     init();
-    let agent = PgpAgent::summon(
-        &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
-        &env::var(TEST_ENV_API_KEY).unwrap(),
-        &TEST_KEY_NAME,
-    )
-    .unwrap();
+    let http_client = SdkmsClient::builder()
+        .with_api_endpoint(&env::var(TEST_ENV_API_ENDPOINT).unwrap())
+        .with_api_key(&env::var(TEST_ENV_API_KEY).unwrap())
+        .build()
+        .unwrap();
+    let agent = PgpAgent::summon(&http_client, &TEST_KEY_NAME).unwrap();
 
     const MESSAGE: &'static str = "дружба\nRoyale With Cheese\n ";
 
@@ -79,12 +84,12 @@ fn encrypt_decrypt_roundtrip() {
     init();
     const MESSAGE: &'static str = "дружба\nRoyale With Cheese\n ";
 
-    let agent = PgpAgent::summon(
-        &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
-        &env::var(TEST_ENV_API_KEY).unwrap(),
-        &TEST_KEY_NAME,
-    )
-    .unwrap();
+    let http_client = SdkmsClient::builder()
+        .with_api_endpoint(&env::var(TEST_ENV_API_ENDPOINT).unwrap())
+        .with_api_key(&env::var(TEST_ENV_API_KEY).unwrap())
+        .build()
+        .unwrap();
+    let agent = PgpAgent::summon(&http_client, &TEST_KEY_NAME).unwrap();
 
     // Encrypt the message.
     let mut ciphertext = Vec::new();
@@ -93,12 +98,7 @@ fn encrypt_decrypt_roundtrip() {
     encrypt(p, &mut ciphertext, MESSAGE, &cert).unwrap();
 
     // Decrypt the message.
-    let mut agent = PgpAgent::summon(
-        &env::var(TEST_ENV_API_ENDPOINT).unwrap(),
-        &env::var(TEST_ENV_API_KEY).unwrap(),
-        &TEST_KEY_NAME,
-    )
-    .unwrap();
+    let mut agent = PgpAgent::summon(&http_client, &TEST_KEY_NAME).unwrap();
 
     let mut plaintext = Vec::new();
     agent

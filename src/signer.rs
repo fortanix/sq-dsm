@@ -7,13 +7,12 @@ use sequoia_openpgp::types::{HashAlgorithm, PublicKeyAlgorithm};
 use sequoia_openpgp::Result as SequoiaResult;
 
 pub struct RawSigner<'a> {
-    pub api_endpoint: &'a str,
-    pub api_key:      &'a str,
-    pub descriptor:   &'a SobjectDescriptor,
-    pub public:       &'a Key<PublicParts, UnspecifiedRole>,
+    pub http_client: &'a SdkmsClient,
+    pub descriptor:  &'a SobjectDescriptor,
+    pub public:      &'a Key<PublicParts, UnspecifiedRole>,
 }
 
-impl Signer for RawSigner<'_> {
+impl Signer for super::RawSigner<'_> {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
 
     fn sign(
@@ -21,11 +20,6 @@ impl Signer for RawSigner<'_> {
         hash_algo: HashAlgorithm,
         digest: &[u8],
     ) -> SequoiaResult<mpi::Signature> {
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.api_endpoint)
-            .with_api_key(&self.api_key)
-            .build()?;
-
         let signature = {
             let hash_alg = match hash_algo {
                 HashAlgorithm::SHA1 => DigestAlgorithm::Sha1,
@@ -45,7 +39,7 @@ impl Signer for RawSigner<'_> {
                 deterministic_signature: None,
             };
 
-            let sign_resp = http_client.sign(&sign_req)?;
+            let sign_resp = self.http_client.sign(&sign_req)?;
             let plain: Vec<u8> = sign_resp.signature.into();
             match self.public.pk_algo() {
                 PublicKeyAlgorithm::RSAEncryptSign => {

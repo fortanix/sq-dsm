@@ -6,10 +6,9 @@ use sequoia_openpgp::packet::Key;
 use sequoia_openpgp::Result as SequoiaResult;
 
 pub struct RawDecryptor<'a> {
-    pub api_endpoint: &'a str,
-    pub api_key:      &'a str,
-    pub descriptor:   &'a SobjectDescriptor,
-    pub public:       &'a Key<PublicParts, UnspecifiedRole>,
+    pub http_client: &'a SdkmsClient,
+    pub descriptor:  &'a SobjectDescriptor,
+    pub public:      &'a Key<PublicParts, UnspecifiedRole>,
 }
 
 impl Decryptor for RawDecryptor<'_> {
@@ -20,11 +19,6 @@ impl Decryptor for RawDecryptor<'_> {
         ciphertext: &mpi::Ciphertext,
         _plaintext_len: Option<usize>,
     ) -> SequoiaResult<SessionKey> {
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.api_endpoint)
-            .with_api_key(&self.api_key)
-            .build()?;
-
         let raw_ciphertext = match ciphertext {
             mpi::Ciphertext::RSA { c } => c.value().to_vec(),
             _ => unimplemented!(),
@@ -40,7 +34,7 @@ impl Decryptor for RawDecryptor<'_> {
             tag:    None,
         };
 
-        let decrypt_resp = http_client.decrypt(&decrypt_req)?;
+        let decrypt_resp = self.http_client.decrypt(&decrypt_req)?;
 
         Ok(decrypt_resp.plain.to_vec().into())
     }
