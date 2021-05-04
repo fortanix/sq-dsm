@@ -37,8 +37,8 @@ be performed with any other PGP implementation, such as `sqv`.
 
 ## Building
 
-First, install Sequoia-PGP ([instructions][instructions-sequoia]) and
-[rust-mbedtls][rust-mbedtls].
+The minimum required rust version is 1.45.2. First, install Sequoia-PGP
+([instructions][instructions-sequoia]) and [rust-mbedtls][rust-mbedtls].
 
 Clone and `cd` to this repository, and build with `cargo build
 --release`. This will create the `sq-sdkms` binary in the `target/release`
