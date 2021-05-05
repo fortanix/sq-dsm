@@ -108,21 +108,12 @@
 //! structure, which is currently not supported in Rust.
 //!
 //! [Section 11.1]: https://tools.ietf.org/html/rfc4880#section-11.1
-//! [`Cert`]: struct.Cert.html
 //! [`ComponentBundle`]: bundle::ComponentBundle
-//! [`ComponentAmalgamation`]: amalgamation/index.html
-//! [`CertBuilder`]: struct.CertBuilder.html
+//! [`ComponentAmalgamation`]: amalgamation::ComponentAmalgamation
 //! [`Parser` implementation]: struct.Cert.html#impl-Parse%3C%27a%2C%20Cert%3E
-//! [`CertParser`]: struct.CertParser.html
 //! [`Serialize` implementation]: struct.Cert.html#impl-Serialize%3C%27a%2C%20Cert%3E
-//! [`Cert::as_tsk`]: struct.Cert.html#method.as_tsk
-//! [`ValidCert`]: struct.ValidCert.html
-//! [`CertRevocationBuilder`]: struct.CertRevocationBuilder.html
-//! [`Cert::insert_packets`]: struct.Cert.html#method.insert_packets
-//! [`Cert::merge_public`]: struct.Cert.html#method.merge_public
 //! [`UserID::certify`]: ../packet/struct.UserID.html#method.certify
 //! [`UserAttribute::certify`]: ../packet/user_attribute/struct.UserAttribute.html#method.certify
-//! [`ComponentAmalgamation`]: amalgamation/index.html
 //! [`KeyAmalgamation`]: amalgamation/key/index.html
 //! [`UserID::bind`]: ../packet/struct.UserID.html#method.bind
 //! [`UserAttribute::bind`]: ../packet/user_attribute/struct.UserAttribute.html#method.bind
@@ -130,8 +121,7 @@
 //! [`Signature::verify_direct_key`]: ../packet/enum.Signature.html#method.verify_direct_key
 //! [`Signature::verify_userid_binding`]: ../packet/enum.Signature.html#method.verify_userid_binding
 //! [`Signature::verify_user_attribute_binding`]: ../packet/enum.Signature.html#method.verify_user_attribute_binding
-//! [`ValidCert::revocation_keys`]: struct.ValidCert.html#method.revocation_keys
-//! [`ValidAmalgamation::revocation_keys`]: amalgamation/trait.ValidAmalgamation.html#method.revocation_keys
+//! [`ValidAmalgamation::revocation_keys`]: amalgamation::ValidAmalgamation::revocation_keys
 //! [`Signature::verify_primary_key_revocation`]: ../packet/enum.Signature.html#method.verify_primary_key_revocation
 //! [`Signature::verify_userid_revocation`]: ../packet/enum.Signature.html#method.verify_userid_revocation
 //! [`Signature::verify_user_attribute_revocation`]: ../packet/enum.Signature.html#method.verify_user_attribute_revocation
@@ -867,11 +857,12 @@ impl Cert {
         self.primary_key().bundle()._revocation_status(policy, t, true, sig)
     }
 
-    /// Revokes the certificate in place.
+    /// Generates a revocation certificate.
     ///
     /// This is a convenience function around
     /// [`CertRevocationBuilder`] to generate a revocation
-    /// certificate.
+    /// certificate.  To use the revocation certificate, merge it into
+    /// the certificate using [`Cert::insert_packets`].
     ///
     /// [`CertRevocationBuilder`]: struct.CertRevocationBuilder.html
     ///
@@ -1033,8 +1024,10 @@ impl Cert {
 
     /// Returns an iterator over the certificate's User IDs.
     ///
-    /// This returns all User IDs, even those without a binding
-    /// signature.
+    /// **Note:** This returns all User IDs, even those without a
+    /// binding signature.  This is not what you want, unless you are
+    /// doing a low-level inspection of the certificate.  Use
+    /// [`ValidCert::userids`] instead.
     ///
     /// # Examples
     ///
@@ -1065,8 +1058,10 @@ impl Cert {
 
     /// Returns an iterator over the certificate's User Attributes.
     ///
-    /// This returns all User Attributes, even those without a binding
-    /// signature.
+    /// **Note:** This returns all User Attributes, even those without
+    /// a binding signature.  This is not what you want, unless you
+    /// are doing a low-level inspection of the certificate.  Use
+    /// [`ValidCert::user_attributes`] instead.
     ///
     /// # Examples
     ///
@@ -1092,8 +1087,12 @@ impl Cert {
     /// Returns an iterator over the certificate's keys.
     ///
     /// That is, this returns an iterator over the primary key and any
-    /// subkeys.  It returns all keys, even those without a binding
-    /// signature.
+    /// subkeys.
+    ///
+    /// **Note:** This returns all keys, even those without a binding
+    /// signature.  This is not what you want, unless you are doing a
+    /// low-level inspection of the certificate.  Use
+    /// [`ValidCert::keys`] instead.
     ///
     /// By necessity, this function erases the returned keys' roles.
     /// If you are only interested in the primary key, use
