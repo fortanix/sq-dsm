@@ -86,6 +86,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
         let api_key = env::var(ENV_API_KEY)
             .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
+        let proxy = if cli.proxy {
+            let p = env::var(ENV_PROXY)
+                .with_context(|| format!("{} env var absent", ENV_PROXY))?;
+            Some(p)
+        } else {
+            None
+        };
 
         Credentials::new(api_endpoint, api_key)
     };

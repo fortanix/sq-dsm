@@ -1,5 +1,4 @@
 use sdkms::api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor};
-use sdkms::SdkmsClient;
 use sequoia_openpgp::crypto::{mpi, Signer};
 use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
 use sequoia_openpgp::packet::Key;
@@ -22,10 +21,7 @@ impl Signer for RawSigner<'_> {
         hash_algo: HashAlgorithm,
         digest: &[u8],
     ) -> SequoiaResult<mpi::Signature> {
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.credentials.api_endpoint)
-            .with_api_key(&self.credentials.api_key)
-            .build()?;
+        let http_client = self.credentials.http_client()?;
 
         let signature = {
             let hash_alg = match hash_algo {

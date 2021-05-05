@@ -1,5 +1,4 @@
 use sdkms::api_model::{Algorithm, DecryptRequest, SobjectDescriptor};
-use sdkms::SdkmsClient;
 use sequoia_openpgp::crypto::{mpi, Decryptor, SessionKey};
 use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
 use sequoia_openpgp::packet::Key;
@@ -21,10 +20,7 @@ impl Decryptor for RawDecryptor<'_> {
         ciphertext: &mpi::Ciphertext,
         _plaintext_len: Option<usize>,
     ) -> SequoiaResult<SessionKey> {
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.credentials.api_endpoint)
-            .with_api_key(&self.credentials.api_key)
-            .build()?;
+        let http_client = self.credentials.http_client()?;
 
         let raw_ciphertext = match ciphertext {
             mpi::Ciphertext::RSA { c } => c.value().to_vec(),

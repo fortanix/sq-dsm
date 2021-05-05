@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::io::Write;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use hyper::client::Client as HyperClient;
 use log::info;
 use mbedtls::pk::Pk;
 use openpgp::crypto::SessionKey;
@@ -51,12 +53,39 @@ pub struct PgpAgent<'a> {
 pub struct Credentials {
     api_endpoint: String,
     api_key:      String,
+    proxy:        Option<Arc<HyperClient>>,
 }
 
 impl Credentials {
     pub fn new(api_endpoint: String, api_key: String) -> Self {
-        Self { api_endpoint, api_key }
+        Self {
+            api_endpoint,
+            api_key,
+            proxy: None,
+        }
     }
+
+    pub fn with_proxy(&self, proxy: Arc<HyperClient>) -> Self {
+        Self {
+            api_endpoint: self.api_endpoint.clone(),
+            api_key:      self.api_key.clone(),
+            proxy:        Some(proxy),
+        }
+    }
+    fn http_client(&self) -> Result<SdkmsClient> {
+        let mut builder = SdkmsClient::builder()
+            .with_api_endpoint(&self.api_endpoint)
+            .with_api_key(&self.api_key);
+        match &self.proxy {
+            Some(proxy) => {builder = builder.with_hyper_client(proxy.clone());},
+            None => (),
+        }
+
+        Ok(builder
+            .build()
+            .context("could not initiate an SDKMS client")?)
+    }
+
 }
 
 #[derive(Clone)]
@@ -95,11 +124,7 @@ impl<'a> PgpAgent<'a> {
         user_id: &str,
         algorithm: &SupportedPkAlgo,
     ) -> Result<Self> {
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&credentials.api_endpoint)
-            .with_api_key(&credentials.api_key)
-            .build()
-            .context("could not initiate an SDKMS client")?;
+        let http_client = credentials.http_client()?;
 
         info!("create primary key");
         let primary = PublicKey::create(
@@ -231,12 +256,12 @@ impl<'a> PgpAgent<'a> {
     }
 
     /// Given proper credentials, a PgpAgent is created for this PGP key.
-    pub fn summon(credentials: &'a Credentials, key_name: &str) -> Result<Self> {
+    pub fn summon(
+        credentials: &'a Credentials,
+        key_name: &str,
+    ) -> Result<Self> {
         info!("summon PGP agent");
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&credentials.api_endpoint)
-            .with_api_key(&credentials.api_key)
-            .build()?;
+        let http_client = credentials.http_client()?;
 
         // Get primary key by name and subkey by UID
         let (primary, metadata) = {
@@ -358,12 +383,8 @@ impl<'a> PgpAgent<'a> {
             ..Default::default()
         };
 
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.credentials.api_endpoint)
-            .with_api_key(&self.credentials.api_key)
-            .build()?;
-
-        http_client.update_sobject(&self.primary.uid()?, &update_req)?;
+        self.credentials.http_client()?
+            .update_sobject(&self.primary.uid()?, &update_req)?;
 
         self.certificate = Some(cert);
 
@@ -375,11 +396,7 @@ impl<'a> PgpAgent<'a> {
             return Ok(());
         }
 
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.credentials.api_endpoint)
-            .with_api_key(&self.credentials.api_key)
-            .build()?;
-        let sobject = http_client
+        let sobject = self.credentials.http_client()?
             .get_sobject(None, &self.subkey.descriptor)
             .context("could not get subkey".to_string())?;
         let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
