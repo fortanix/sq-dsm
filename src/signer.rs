@@ -6,11 +6,12 @@ use sequoia_openpgp::packet::Key;
 use sequoia_openpgp::types::{HashAlgorithm, PublicKeyAlgorithm};
 use sequoia_openpgp::Result as SequoiaResult;
 
+use super::Credentials;
+
 pub struct RawSigner<'a> {
-    pub api_endpoint: &'a str,
-    pub api_key:      &'a str,
-    pub descriptor:   &'a SobjectDescriptor,
-    pub public:       &'a Key<PublicParts, UnspecifiedRole>,
+    pub credentials: &'a Credentials,
+    pub descriptor:  &'a SobjectDescriptor,
+    pub public:      &'a Key<PublicParts, UnspecifiedRole>,
 }
 
 impl Signer for RawSigner<'_> {
@@ -22,8 +23,8 @@ impl Signer for RawSigner<'_> {
         digest: &[u8],
     ) -> SequoiaResult<mpi::Signature> {
         let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.api_endpoint)
-            .with_api_key(&self.api_key)
+            .with_api_endpoint(&self.credentials.api_endpoint)
+            .with_api_key(&self.credentials.api_key)
             .build()?;
 
         let signature = {

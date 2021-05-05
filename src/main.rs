@@ -6,18 +6,22 @@ use anyhow::{Context, Result};
 use log::info;
 use sequoia_openpgp::policy::StandardPolicy;
 use sequoia_openpgp::serialize::SerializeInto;
-use sq_sdkms::{PgpAgent, SupportedPkAlgo};
+use sq_sdkms::{Credentials, PgpAgent, SupportedPkAlgo};
 use structopt::StructOpt;
 
 const ENV_API_KEY: &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
+const ENV_PROXY: &str = "FORTANIX_PROXY";
 
 #[derive(StructOpt)]
 /// OpenPGP integration for Fortanix SDKMS
 struct Cli {
-    /// .env file containing SQ_SDKMS_API_KEY, SQ_SDKMS_API_ENDPOINT
+    /// .env file containing FORTANIX_API_KEY, FORTANIX_API_ENDPOINT
     #[structopt(long, parse(from_os_str))]
     env_file: Option<PathBuf>,
+    #[structopt(long)]
+    /// Use a forward http proxy determined by the FORTANIX_PROXY env variable
+    proxy:    bool,
     #[structopt(subcommand)]
     cmd:      Command,
 }
@@ -77,24 +81,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         dotenv::from_filename(file).ok();
     }
 
-    let api_key = env::var(ENV_API_KEY)
-        .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
-    let endpoint = env::var(ENV_API_ENDPOINT)
-        .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
+    let credentials = {
+        let api_endpoint = env::var(ENV_API_ENDPOINT)
+            .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
+        let api_key = env::var(ENV_API_KEY)
+            .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
+
+        Credentials::new(api_endpoint, api_key)
+    };
 
     let (output_file, output_material) = match cli.cmd {
-        Command::GenerateKey { args, user_id, pk_algo } => {
+        Command::GenerateKey {
+            args,
+            user_id,
+            pk_algo,
+        } => {
             info!("sq-sdkms generate-key");
             not_exists(&args.output_file)?;
 
             let algo = match pk_algo {
-                Some(algorithm) => {
-                    match &*algorithm {
-                        "rsa2048" => SupportedPkAlgo::Rsa(2048),
-                        "rsa3072" => SupportedPkAlgo::Rsa(3072),
-                        "rsa4096" => SupportedPkAlgo::Rsa(4096),
-                        _ => unimplemented!()
-                    }
+                Some(algorithm) => match &*algorithm {
+                    "rsa2048" => SupportedPkAlgo::Rsa(2048),
+                    "rsa3072" => SupportedPkAlgo::Rsa(3072),
+                    "rsa4096" => SupportedPkAlgo::Rsa(4096),
+                    _ => unimplemented!(),
                 },
                 None => pk_algo_prompt()?,
             };
@@ -104,8 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let agent = PgpAgent::generate_key(
-                &endpoint,
-                &api_key,
+                &credentials,
                 &args.key_name,
                 &user_id,
                 &algo,
@@ -124,7 +133,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             info!("sq-sdkms public-key");
             not_exists(&args.output_file)?;
 
-            let agent = PgpAgent::summon(&endpoint, &api_key, &args.key_name)
+            let agent = PgpAgent::summon(&credentials, &args.key_name)
                 .context("Could not summon the PGP agent")?;
 
             let cert = agent.certificate.expect("public certificate");
@@ -143,7 +152,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let content = fs::read(file)?;
             let mut signed_message = Vec::new();
 
-            PgpAgent::summon(&endpoint, &api_key, &args.key_name)
+            PgpAgent::summon(&credentials, &args.key_name)
                 .context("Could not summon the PGP agent")?
                 .sign_detached(&mut signed_message, &content, args.armor)
                 .context("Could not sign the file")?;
@@ -157,7 +166,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let ciphertext = fs::read(file)?;
             let mut plaintext = Vec::new();
 
-            PgpAgent::summon(&endpoint, &api_key, &args.key_name)
+            PgpAgent::summon(&credentials, &args.key_name)
                 .context("Could not summon the PGP agent")?
                 .decrypt(&mut plaintext, &ciphertext, &StandardPolicy::new())
                 .context("Could not decrypt the file")?;

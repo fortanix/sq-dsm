@@ -41,12 +41,22 @@ use signer::RawSigner;
 
 /// The PgpAgent is responsible for one PGP key. It talks to SDKMS and produces
 /// valid OpenPGP material
-pub struct PgpAgent {
-    api_endpoint:    String,
-    api_key:         String,
+pub struct PgpAgent<'a> {
+    credentials:     &'a Credentials,
     primary:         PublicKey,
     subkey:          PublicKey,
     pub certificate: Option<Cert>,
+}
+
+pub struct Credentials {
+    api_endpoint: String,
+    api_key:      String,
+}
+
+impl Credentials {
+    pub fn new(api_endpoint: String, api_key: String) -> Self {
+        Self { api_endpoint, api_key }
+    }
 }
 
 #[derive(Clone)]
@@ -66,7 +76,7 @@ pub enum SupportedPkAlgo {
     Rsa(u32),
 }
 
-impl PgpAgent {
+impl<'a> PgpAgent<'a> {
     /// Generates an OpenPGP key with secrets stored in SDKMS. At the OpenPGP
     /// level, this method produces a key consisting of
     ///
@@ -80,15 +90,14 @@ impl PgpAgent {
     /// The public certificate (Transferable Public Key) is computed, stored as
     /// an additional custom metadata field on the primary key, and returned.
     pub fn generate_key(
-        api_endpoint: &str,
-        api_key: &str,
+        credentials: &'a Credentials,
         key_name: &str,
         user_id: &str,
         algorithm: &SupportedPkAlgo,
     ) -> Result<Self> {
         let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&api_endpoint)
-            .with_api_key(&api_key)
+            .with_api_endpoint(&credentials.api_endpoint)
+            .with_api_key(&credentials.api_key)
             .build()
             .context("could not initiate an SDKMS client")?;
 
@@ -109,8 +118,7 @@ impl PgpAgent {
         )?;
 
         let mut agent = PgpAgent {
-            api_endpoint: api_endpoint.to_string(),
-            api_key: api_key.to_string(),
+            credentials,
             primary,
             subkey,
             certificate: None,
@@ -134,10 +142,9 @@ impl PgpAgent {
             &self.primary.sequoia_key.expect("unloaded primary key");
 
         let signer = RawSigner {
-            api_endpoint: &self.api_endpoint,
-            api_key:      &self.api_key,
-            descriptor:   &self.primary.descriptor,
-            public:       &sequoia_key,
+            credentials: &self.credentials,
+            descriptor:  &self.primary.descriptor,
+            public:      &sequoia_key,
         };
 
         let mut message = Message::new(sink);
@@ -204,10 +211,9 @@ impl PgpAgent {
         self.maybe_fetch_subkey()?;
 
         let decryptor = RawDecryptor {
-            api_key:      &self.api_key,
-            api_endpoint: &self.api_endpoint,
-            descriptor:   &self.subkey.descriptor,
-            public:       &self
+            credentials: &self.credentials,
+            descriptor:  &self.subkey.descriptor,
+            public:      &self
                 .subkey
                 .sequoia_key
                 .as_ref()
@@ -225,15 +231,11 @@ impl PgpAgent {
     }
 
     /// Given proper credentials, a PgpAgent is created for this PGP key.
-    pub fn summon(
-        api_endpoint: &str,
-        api_key: &str,
-        key_name: &str,
-    ) -> Result<Self> {
+    pub fn summon(credentials: &'a Credentials, key_name: &str) -> Result<Self> {
         info!("summon PGP agent");
         let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&api_endpoint)
-            .with_api_key(&api_key)
+            .with_api_endpoint(&credentials.api_endpoint)
+            .with_api_key(&credentials.api_key)
             .build()?;
 
         // Get primary key by name and subkey by UID
@@ -267,8 +269,7 @@ impl PgpAgent {
         let cert = Cert::from_str(&metadata["certificate"])?;
 
         Ok(PgpAgent {
-            api_endpoint: api_endpoint.to_string(),
-            api_key: api_key.to_string(),
+            credentials,
             primary,
             subkey,
             certificate: Some(cert),
@@ -296,10 +297,9 @@ impl PgpAgent {
         packets.push(prim.clone().into());
 
         let mut prim_signer = RawSigner {
-            api_endpoint: &self.api_endpoint,
-            api_key:      &self.api_key,
-            descriptor:   &self.primary.descriptor,
-            public:       &prim.into(),
+            credentials: &self.credentials,
+            descriptor:  &self.primary.descriptor,
+            public:      &prim.into(),
         };
 
         let pref_hashes = vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256];
@@ -359,8 +359,8 @@ impl PgpAgent {
         };
 
         let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.api_endpoint)
-            .with_api_key(&self.api_key)
+            .with_api_endpoint(&self.credentials.api_endpoint)
+            .with_api_key(&self.credentials.api_key)
             .build()?;
 
         http_client.update_sobject(&self.primary.uid()?, &update_req)?;
@@ -376,8 +376,8 @@ impl PgpAgent {
         }
 
         let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.api_endpoint)
-            .with_api_key(&self.api_key)
+            .with_api_endpoint(&self.credentials.api_endpoint)
+            .with_api_key(&self.credentials.api_key)
             .build()?;
         let sobject = http_client
             .get_sobject(None, &self.subkey.descriptor)
