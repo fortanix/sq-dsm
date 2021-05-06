@@ -1,8 +1,14 @@
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::{env, fs};
 
 use anyhow::{Context, Result};
+use http::uri::Uri;
+use hyper::client::Client as HyperClient;
+use hyper::client::ProxyConfig;
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
 use log::info;
 use sequoia_openpgp::policy::StandardPolicy;
 use sequoia_openpgp::serialize::SerializeInto;
@@ -86,15 +92,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
         let api_key = env::var(ENV_API_KEY)
             .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
-        let proxy = if cli.proxy {
-            let p = env::var(ENV_PROXY)
-                .with_context(|| format!("{} env var absent", ENV_PROXY))?;
-            Some(p)
-        } else {
-            None
-        };
 
-        Credentials::new(api_endpoint, api_key)
+        if cli.proxy {
+            let uri = env::var(ENV_PROXY)
+                .with_context(|| format!("{} env var absent", ENV_PROXY))?
+                .parse::<Uri>()?;
+            let host = uri.host().ok_or_else(|| {
+                anyhow::Error::msg(format!("cannot parse host: {}", uri))
+            })?;
+            let port = uri.port().ok_or_else(|| {
+                anyhow::Error::msg(format!("cannot parse port: {}", uri))
+            })?.as_u16();
+
+            let hyper_client =
+                HyperClient::with_proxy_config(ProxyConfig::new(
+                    "http",
+                    host.to_string(),
+                    port,
+                    HttpsConnector::new(NativeTlsClient::new()?),
+                    NativeTlsClient::new()?,
+                ));
+
+            Credentials::new(api_endpoint, api_key)
+                .with_proxy(Arc::new(hyper_client))
+        } else {
+            Credentials::new(api_endpoint, api_key)
+        }
     };
 
     let (output_file, output_material) = match cli.cmd {

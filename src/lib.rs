@@ -72,12 +72,15 @@ impl Credentials {
             proxy:        Some(proxy),
         }
     }
+
     fn http_client(&self) -> Result<SdkmsClient> {
         let mut builder = SdkmsClient::builder()
             .with_api_endpoint(&self.api_endpoint)
             .with_api_key(&self.api_key);
         match &self.proxy {
-            Some(proxy) => {builder = builder.with_hyper_client(proxy.clone());},
+            Some(proxy) => {
+                builder = builder.with_hyper_client(proxy.clone());
+            }
             None => (),
         }
 
@@ -85,7 +88,6 @@ impl Credentials {
             .build()
             .context("could not initiate an SDKMS client")?)
     }
-
 }
 
 #[derive(Clone)]
@@ -383,7 +385,8 @@ impl<'a> PgpAgent<'a> {
             ..Default::default()
         };
 
-        self.credentials.http_client()?
+        self.credentials
+            .http_client()?
             .update_sobject(&self.primary.uid()?, &update_req)?;
 
         self.certificate = Some(cert);
@@ -396,7 +399,9 @@ impl<'a> PgpAgent<'a> {
             return Ok(());
         }
 
-        let sobject = self.credentials.http_client()?
+        let sobject = self
+            .credentials
+            .http_client()?
             .get_sobject(None, &self.subkey.descriptor)
             .context("could not get subkey".to_string())?;
         let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;

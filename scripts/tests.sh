@@ -1,6 +1,15 @@
 #!/bin/bash
 
-sq_sdkms="cargo run --"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --proxy) proxy="--proxy"; shift 1;;
+    -*) echo "unknown option: $1" >&2; exit 1;;
+    *) handle_argument "$1"; shift 1;;
+  esac
+done
+
+sq_sdkms="cargo run -- $proxy"
+printf "$sq_sdkms"
 
 # tmp directory, erased on exit
 create_tmp_dir() {
