@@ -62,11 +62,9 @@ impl Signer for RawSigner<'_> {
                 }
                 PublicKeyAlgorithm::ECDSA => {
                     let (r, s) = yasna::parse_der(&plain, |reader| {
-                        reader.read_sequence(|seq_reader| {
-                            let r =
-                                seq_reader.next().read_biguint()?.to_bytes_be();
-                            let s =
-                                seq_reader.next().read_biguint()?.to_bytes_be();
+                        reader.read_sequence(|reader| {
+                            let r = reader.next().read_biguint()?.to_bytes_be();
+                            let s = reader.next().read_biguint()?.to_bytes_be();
                             Ok((r, s))
                         })
                     })

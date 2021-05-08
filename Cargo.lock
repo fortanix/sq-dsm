@@ -787,8 +787,9 @@ checksum = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
 
 [[package]]
 name = "mbedtls"
-version = "0.8.0"
-source = "git+https://github.com/fortanix/rust-mbedtls#6c8c19efef50056a4538b264da5a5c37d2593d82"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6720f243c44d3cc5fd557c96c2538ec184fa0de28651002211b5a196e251b87f"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -805,7 +806,8 @@ dependencies = [
 [[package]]
 name = "mbedtls-sys-auto"
 version = "2.26.1"
-source = "git+https://github.com/fortanix/rust-mbedtls#6c8c19efef50056a4538b264da5a5c37d2593d82"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7da15d923e6a393dd8bfab2111cee366a995723fbaa8a0c3ff6bfe324e39291a"
 dependencies = [
  "bindgen 0.58.1",
  "cc",

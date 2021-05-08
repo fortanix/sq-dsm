@@ -1,13 +1,15 @@
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
-    AgreeKeyMechanism, AgreeKeyRequest, Blob, DecryptRequest, EllipticCurve,
+    AgreeKeyMechanism, AgreeKeyRequest, DecryptRequest, EllipticCurve,
     KeyOperations, ObjectType, SobjectDescriptor, SobjectRequest,
 };
 use sdkms::SdkmsClient;
-use sequoia_openpgp::crypto::{mpi, Decryptor, SessionKey};
+use sequoia_openpgp::crypto::mem::Protected;
+use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey};
 use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
 use sequoia_openpgp::packet::Key;
 use sequoia_openpgp::Result as SequoiaResult;
+use yasna::models::ObjectIdentifier;
 
 pub struct RawDecryptor<'a> {
     pub api_endpoint: &'a str,
@@ -29,7 +31,7 @@ impl Decryptor for RawDecryptor<'_> {
             .with_api_key(&self.api_key)
             .build()?;
 
-        let plain: Vec<u8> = match ciphertext {
+        match ciphertext {
             mpi::Ciphertext::RSA { c } => {
                 let decrypt_req = DecryptRequest {
                     cipher: c.value().to_vec().into(),
@@ -41,96 +43,106 @@ impl Decryptor for RawDecryptor<'_> {
                     tag:    None,
                 };
 
-                http_client.decrypt(&decrypt_req)?.plain.into()
+                Ok(http_client.decrypt(&decrypt_req)?.plain.to_vec().into())
             }
-            mpi::Ciphertext::ECDH { e, key: _key } => {
-                // Get primary key public key
-                let sobject =
-                    http_client.get_sobject(None, self.descriptor).unwrap();
-                let blob = sobject.pub_key.unwrap();
-                // println!("{:?}", blob);
-                // println!("raw:        {:?}", e.value());
-                // let (x, y) = e.decode_point(&Curve::NistP256)?;
-                // let mut value = vec![0; 1 + x.len()];
-                // value[0] = 40;
-                // value[1..].copy_from_slice(x);
+            mpi::Ciphertext::ECDH { e, .. } => {
+                let cli =
+                    http_client.authenticate_with_api_key(&self.api_key)?;
 
-                // println!("{:?}", value);
-                // let e = openpgp::crypto::mpi::MPI::new_compressed_point(x);
-                let value = e.value();
+                //
+                // Note: The algorithm OID parsed by SDKMS is UNRESTRICTED
+                // ALGORITHM IDENTIFIER AND PARAMETERS (RFC5480 sec. 2.1.1)
+                //
+                let ephemeral_der = {
+                    let id_ecdh =
+                        ObjectIdentifier::from_slice(&[1, 2, 840, 10045, 2, 1]);
 
-                use yasna::models::ObjectIdentifier;
+                    let named_curve = ObjectIdentifier::from_slice(&[
+                        1, 2, 840, 10045, 3, 1, 7,
+                    ]);
 
-                // DER encode public key (see RFC5480)
-                let ecdh_oid =
-                    ObjectIdentifier::from_slice(&[1, 3, 132, 1, 12]);
-                let curve_oid =
-                    ObjectIdentifier::from_slice(&[1, 2, 840, 10045, 3, 1, 7]);
-
-                let alg_id = yasna::construct_der(|writer| {
-                    writer.write_sequence(|writer| {
-                        writer.next().write_oid(&ecdh_oid); // id-ecDH
-                        writer.next().write_oid(&curve_oid); // named curve
+                    let alg_id = yasna::construct_der(|writer| {
+                        writer.write_sequence(|writer| {
+                            writer.next().write_oid(&id_ecdh);
+                            writer.next().write_oid(&named_curve);
+                        });
                     });
-                });
-                let bv = bit_vec::BitVec::from_bytes(&value);
-                let der = yasna::construct_der(|writer| {
-                    writer.write_sequence(|writer| {
-                        writer.next().write_der(&alg_id); // algorithm
-                        writer.next().write_bitvec(&bv); // subjectPublicKey
-                    });
-                });
 
-                let der: Blob = der.to_vec().into();
-                println!("my:    {:?}", der);
-                println!("");
-                println!("        ID: {:?}", alg_id);
-                println!("ok:    {:?}", blob);
-
-                println!("");
-                println!("point = {:?} ({})", value, value.len());
-                // Import transient Sobject
-                let req = SobjectRequest {
-                    elliptic_curve: Some(EllipticCurve::NistP256),
-                    key_ops: Some(KeyOperations::APPMANAGEABLE),
-                    // key_size: Some(256),
-                    obj_type: Some(ObjectType::Ec),
-                    name: Some("test".to_string()),
-                    // transient: Some(true),
-                    value: Some(der.clone()),
-                    ..Default::default()
-                };
-                let _import_resp = http_client.import_sobject(&req);
-                println!("{:?}", _import_resp);
-                let agree_req = AgreeKeyRequest {
-                    activation_date:   None,
-                    deactivation_date: None,
-                    private_key:       self.descriptor.clone(),
-                    public_key:        SobjectDescriptor::TransientKey(
-                        der.into(),
-                    ),
-                    mechanism:         AgreeKeyMechanism::DiffieHellman,
-                    name:              None,
-                    group_id:          None,
-                    key_type:          ObjectType::Secret,
-                    key_size:          256,
-                    enabled:           true,
-                    description:       None,
-                    custom_metadata:   None,
-                    key_ops:           Some(
-                        KeyOperations::APPMANAGEABLE | KeyOperations::DECRYPT,
-                    ),
-                    state:             None,
-                    transient:         true,
+                    let subj_public_key =
+                        bit_vec::BitVec::from_bytes(&e.value());
+                    yasna::construct_der(|writer| {
+                        writer.write_sequence(|writer| {
+                            writer.next().write_der(&alg_id);
+                            writer.next().write_bitvec(&subj_public_key);
+                        });
+                    })
                 };
 
-                let agree_resp = http_client.agree(&agree_req);
-                println!("{:?}", agree_resp);
-                unimplemented!()
-            }
-            _ => unimplemented!(),
-        };
+                // Import ephemeral public key
+                let e_descriptor = {
+                    let req = SobjectRequest {
+                        elliptic_curve: Some(EllipticCurve::NistP256),
+                        key_ops: Some(KeyOperations::AGREEKEY),
+                        obj_type: Some(ObjectType::Ec),
+                        transient: Some(true),
+                        value: Some(ephemeral_der.into()),
+                        ..Default::default()
+                    };
+                    let e_tkey = cli
+                        .import_sobject(&req)?
+                        .transient_key
+                        .ok_or(anyhow::Error::msg(
+                            "could not retrieve SDKMS transient key \
+                             (representing ECDH ephemeral public key)",
+                        ))?;
 
-        Ok(plain.into())
+                    SobjectDescriptor::TransientKey(e_tkey)
+                };
+
+                // Agree on a ECDH secret between the recipient private key, and
+                // the ephemeral public key.
+                let secret: Protected = {
+                    let agree_req = AgreeKeyRequest {
+                        activation_date:   None,
+                        deactivation_date: None,
+                        private_key:       self.descriptor.clone(),
+                        public_key:        e_descriptor,
+                        mechanism:         AgreeKeyMechanism::DiffieHellman,
+                        name:              None,
+                        group_id:          None,
+                        key_type:          ObjectType::Secret,
+                        key_size:          256,
+                        enabled:           true,
+                        description:       None,
+                        custom_metadata:   None,
+                        key_ops:           Some(KeyOperations::EXPORT),
+                        state:             None,
+                        transient:         true,
+                    };
+
+                    let agreed_tkey =
+                        cli.agree(&agree_req)?.transient_key.ok_or(
+                            anyhow::Error::msg("could not retrieve agreed key"),
+                        )?;
+
+                    let desc = SobjectDescriptor::TransientKey(agreed_tkey);
+
+                    cli.export_sobject(&desc)?
+                        .value
+                        .ok_or(anyhow::Error::msg("could not retrieve secret"))?
+                        .to_vec()
+                        .into()
+                };
+
+                Ok(ecdh::decrypt_unwrap(self.public(), &secret, ciphertext)?
+                    .to_vec()
+                    .into())
+            }
+            _ => {
+                return Err(anyhow::Error::msg(
+                    "unsupported/unknown algorithm",
+                ))?
+            }
+        }
     }
 }

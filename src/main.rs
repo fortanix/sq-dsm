@@ -48,7 +48,7 @@ enum Command {
         /// <paul@fortanix.com>")
         #[structopt(long, short)]
         user_id: Option<String>,
-        /// Public-key algorithm ("rsa2048", "rsa3072", "rsa4096")
+        /// Public-key algorithm ("p256", "rsa2048", "rsa3072", "rsa4096")
         #[structopt(long, short)]
         pk_algo: Option<String>,
     },
@@ -72,7 +72,7 @@ struct CommonArgs {
     output_file: Option<PathBuf>,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), anyhow::Error> {
     env_logger::init();
     let cli = Cli::from_args();
     if let Some(file) = cli.env_file {
@@ -98,7 +98,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "rsa2048" => SupportedPkAlgo::Rsa(2048),
                     "rsa3072" => SupportedPkAlgo::Rsa(3072),
                     "rsa4096" => SupportedPkAlgo::Rsa(4096),
-                    _ => unimplemented!(),
+                    "p256" => SupportedPkAlgo::Ec(EllipticCurve::NistP256),
+                    _ => {
+                        return Err(anyhow::Error::msg(format!(
+                            "Unknown/unsupported public key algorithm {}",
+                            algorithm
+                        )))
+                    }
                 },
                 None => pk_algo_prompt()?,
             };

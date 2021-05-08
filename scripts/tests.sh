@@ -36,6 +36,15 @@ my_cat() {
     head -n1 $1
 }
 
+# Parse input flags
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --p256) pk_algo="p256"; shift 1;;
+    -*) echo "unknown option: $1" >&2; exit 1;;
+    *) handle_argument "$1"; shift 1;;
+  esac
+done
+
 create_tmp_dir data
 create_tmp_dir keyring
 gpg_flags="--homedir "$keyring" --trust-model always"
@@ -48,6 +57,7 @@ alice_public=$data/alice.asc
 encrypted=$data/message.txt.gpg
 signed=$data/message.signed.asc
 
+# Key parameters
 key_name="test-script-$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-10} | head -n 1)"
 
 comm "version"
@@ -55,7 +65,7 @@ $sq_sdkms --version
 check_exit_code $? 0
 
 comm "generate-key"
-$sq_sdkms generate-key --key-name="$key_name" --user-id="Alice Lovelace <alice@openpgp.example>" --pk-algo="rsa2048"
+$sq_sdkms generate-key --key-name="$key_name" --user-id="Alice Lovelace <alice@openpgp.example>" --pk-algo="$pk_algo"
 check_exit_code $? 0
 
 comm "certificate"
