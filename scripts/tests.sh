@@ -39,8 +39,8 @@ my_cat() {
 # Parse input flags
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --p521) pk_algo="p521"; shift 1;;
     --p256) pk_algo="p256"; shift 1;;
+    --p521) pk_algo="p521"; shift 1;;
     --p384) pk_algo="p384"; shift 1;;
     --rsa2048) pk_algo="rsa2048"; shift 1;;
     -*) echo "unknown option: $1" >&2; exit 1;;
@@ -58,6 +58,7 @@ trap "erase_tmp_dir $data && erase_tmp_dir $keyring" EXIT
 message=$data/message.txt
 alice_public=$data/alice.asc
 encrypted=$data/message.txt.gpg
+decrypted=$data/decrypted.txt
 signed=$data/message.signed.asc
 
 # Key parameters
@@ -91,5 +92,9 @@ comm "decrypt"
 gpg $gpg_flags --encrypt -r alice "$message"
 check_exit_code $? 0
 
-$sq_sdkms decrypt --key-name="$key_name" "$encrypted"
+$sq_sdkms decrypt --key-name="$key_name" "$encrypted" > "$decrypted"
+check_exit_code $? 0
+
+printf "Checking for decryption correctness"
+diff "$decrypted" "$message"
 check_exit_code $? 0
