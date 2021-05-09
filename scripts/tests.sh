@@ -39,7 +39,10 @@ my_cat() {
 # Parse input flags
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --p521) pk_algo="p521"; shift 1;;
     --p256) pk_algo="p256"; shift 1;;
+    --p384) pk_algo="p384"; shift 1;;
+    --rsa2048) pk_algo="rsa2048"; shift 1;;
     -*) echo "unknown option: $1" >&2; exit 1;;
     *) handle_argument "$1"; shift 1;;
   esac

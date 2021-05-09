@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use std::io::Write;
 use std::str::FromStr;
 
-use anyhow::{Context, Result};
+use anyhow::{Error, Context, Result};
 use log::info;
 use mbedtls::pk::Pk;
 use openpgp::crypto::{mpi, SessionKey};
@@ -20,14 +20,15 @@ use openpgp::policy::Policy as PgpPolicy;
 use openpgp::serialize::stream::{Armorer, Message, Signer};
 use openpgp::serialize::SerializeInto;
 use openpgp::types::{
-    Curve, HashAlgorithm, KeyFlags, PublicKeyAlgorithm, SignatureType,
-    SymmetricAlgorithm,
+    Curve as SequoiaCurve, HashAlgorithm, KeyFlags, PublicKeyAlgorithm,
+    SignatureType, SymmetricAlgorithm,
 };
 use openpgp::{Cert, KeyHandle, Packet};
 use sdkms::api_model::{
-    EllipticCurve, KeyOperations, ObjectType, RsaEncryptionPaddingPolicy,
-    RsaEncryptionPolicy, RsaOptions, RsaSignaturePaddingPolicy,
-    RsaSignaturePolicy, Sobject, SobjectDescriptor, SobjectRequest,
+    EllipticCurve as ApiCurve, KeyOperations, ObjectType,
+    RsaEncryptionPaddingPolicy, RsaEncryptionPolicy, RsaOptions,
+    RsaSignaturePaddingPolicy, RsaSignaturePolicy, Sobject, SobjectDescriptor,
+    SobjectRequest,
 };
 use sdkms::SdkmsClient;
 use sequoia_openpgp as openpgp;
@@ -59,7 +60,7 @@ struct PublicKey {
 
 pub enum SupportedPkAlgo {
     Rsa(u32),
-    Ec(EllipticCurve),
+    Ec(ApiCurve),
 }
 
 #[derive(Clone)]
@@ -192,8 +193,8 @@ impl PgpAgent {
             where
                 D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool,
             {
-                if pkesks.len() == 0 {
-                    return Err(anyhow::Error::msg("PKESK not found"));
+                if pkesks.is_empty() {
+                    return Err(Error::msg("PKESK not found"));
                 }
                 pkesks[0]
                     .decrypt(&mut self.decryptor, sym_algo)
@@ -248,7 +249,7 @@ impl PgpAgent {
 
             match sobject.custom_metadata {
                 None => {
-                    return Err(anyhow::Error::msg(
+                    return Err(Error::msg(
                         "subkey not found".to_string(),
                     ))
                 }
@@ -485,32 +486,33 @@ impl PublicKey {
 
         match sob.obj_type {
             ObjectType::Ec => match sob.elliptic_curve {
-                Some(EllipticCurve::NistP256) => {
+                Some(curve) => {
+                    let curve = api_curve_to_sequoia_curve(curve)?;
                     let deserialized_pk = Pk::from_public_key(&raw_pk)
                         .context(
                             "cannot deserialize SDKMS key into mbedTLS object",
                         )?;
                     let mbed_point = deserialized_pk.ec_public()?;
+                    let bits_field = curve
+                        .bits()
+                        .ok_or_else(|| Error::msg("bad curve"))?;
                     let point = mpi::MPI::new_point(
                         &mbed_point.x()?.to_binary()?,
                         &mbed_point.y()?.to_binary()?,
-                        256,
+                        bits_field,
                     );
                     let (pk_algo, ec_pk) = match role {
                         KeyRole::Primary => (
                             PublicKeyAlgorithm::ECDSA,
-                            mpi::PublicKey::ECDSA {
-                                curve: Curve::NistP256,
-                                q:     point,
-                            },
+                            mpi::PublicKey::ECDSA { curve, q: point },
                         ),
                         KeyRole::Subkey => (
                             PublicKeyAlgorithm::ECDH,
                             mpi::PublicKey::ECDH {
-                                curve: Curve::NistP256,
-                                q:     point,
-                                hash:  HashAlgorithm::SHA512,
-                                sym:   SymmetricAlgorithm::AES256,
+                                curve,
+                                q: point,
+                                hash: HashAlgorithm::SHA512,
+                                sym: SymmetricAlgorithm::AES256,
                             },
                         ),
                     };
@@ -518,11 +520,11 @@ impl PublicKey {
                         Key::V4(Key4::new(time, pk_algo, ec_pk).context(
                             "cannot import EC key into Sequoia object",
                         )?);
-                    return Ok(PublicKey {
+                    Ok(PublicKey {
                         descriptor,
                         role,
                         sequoia_key: Some(key),
-                    });
+                    })
                 }
                 _ => unimplemented!(),
             },
@@ -553,8 +555,26 @@ impl PublicKey {
     fn uid(&self) -> Result<Uuid> {
         match self.descriptor {
             SobjectDescriptor::Kid(x) => Ok(x),
-            _ => Err(anyhow::Error::msg("bad descriptor")),
+            _ => Err(Error::msg("bad descriptor")),
         }
+    }
+}
+
+fn sequoia_curve_to_api_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
+    match curve {
+        SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
+        SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
+        SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
+        _ => Err(Error::msg("cannot convert curve")),
+    }
+}
+
+fn api_curve_to_sequoia_curve(curve: ApiCurve) -> Result<SequoiaCurve> {
+    match curve {
+        ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
+        ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
+        ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
+        _ => Err(Error::msg("cannot convert curve")),
     }
 }
 

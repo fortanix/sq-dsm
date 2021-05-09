@@ -48,7 +48,7 @@ enum Command {
         /// <paul@fortanix.com>")
         #[structopt(long, short)]
         user_id: Option<String>,
-        /// Public-key algorithm ("p256", "rsa2048", "rsa3072", "rsa4096")
+        /// Public-key algorithm ("p{256, 384, 521}", "rsa{2048, 3072, 4096}")
         #[structopt(long, short)]
         pk_algo: Option<String>,
     },
@@ -99,6 +99,8 @@ fn main() -> Result<(), anyhow::Error> {
                     "rsa3072" => SupportedPkAlgo::Rsa(3072),
                     "rsa4096" => SupportedPkAlgo::Rsa(4096),
                     "p256" => SupportedPkAlgo::Ec(EllipticCurve::NistP256),
+                    "p384" => SupportedPkAlgo::Ec(EllipticCurve::NistP384),
+                    "p521" => SupportedPkAlgo::Ec(EllipticCurve::NistP521),
                     _ => {
                         return Err(anyhow::Error::msg(format!(
                             "Unknown/unsupported public key algorithm {}",
@@ -202,14 +204,33 @@ fn not_exists(path: &Option<PathBuf>) -> Result<()> {
 fn pk_algo_prompt() -> Result<SupportedPkAlgo> {
     loop {
         println!("\nSelect public key algorithm:\n");
-        println!("   (1) ECDSA with curve NistP256 (recommended)");
+        println!("   (1) Elliptic Curve (ECDSA and ECDH, recommended)");
         println!("   (2) RSA");
         print!("\nYour choice: ");
         std::io::stdout().flush()?;
         let mut line = String::new();
         std::io::stdin().read_line(&mut line)?;
         match line.trim().parse::<u32>()? {
-            1 => return Ok(SupportedPkAlgo::Ec(EllipticCurve::NistP256)),
+            1 => {
+                let curve = loop {
+                    println!("\nSelect Curve:\n");
+                    println!("   (1) Nist P256");
+                    println!("   (2) Nist P384");
+                    println!("   (3) Nist P521");
+                    print!("\nYour choice: ");
+                    std::io::stdout().flush()?;
+                    let mut input = String::new();
+                    std::io::stdin().read_line(&mut input)?;
+                    match input.trim().parse::<u32>()? {
+                        1 => break EllipticCurve::NistP256,
+                        2 => break EllipticCurve::NistP384,
+                        3 => break EllipticCurve::NistP521,
+                        _ => println!("Invalid input"),
+                    }
+                };
+
+                return Ok(SupportedPkAlgo::Ec(curve));
+            },
             2 => {
                 let key_size = loop {
                     println!("\nSelect RSA key size:\n");
