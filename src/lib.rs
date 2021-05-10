@@ -61,9 +61,10 @@ struct PublicKey {
 pub enum SupportedPkAlgo {
     Rsa(u32),
     Ec(ApiCurve),
+    Curve25519,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 enum KeyRole {
     Primary,
     Subkey,
@@ -444,6 +445,32 @@ impl PublicKey {
                     ..Default::default()
                 }
             }
+            (KeyRole::Primary, SupportedPkAlgo::Curve25519) => {
+                let ops = KeyOperations::SIGN | KeyOperations::APPMANAGEABLE;
+
+                SobjectRequest {
+                    name: Some(name),
+                    description,
+                    obj_type: Some(ObjectType::Ec),
+                    key_ops: Some(ops),
+                    elliptic_curve: Some(ApiCurve::Ed25519),
+                    ..Default::default()
+                }
+            }
+            (KeyRole::Subkey, SupportedPkAlgo::Curve25519) => {
+                let ops =
+                    KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE;
+                let name = name + " (PGP: decryption subkey)";
+
+                SobjectRequest {
+                    name: Some(name),
+                    description,
+                    obj_type: Some(ObjectType::Ec),
+                    key_ops: Some(ops),
+                    elliptic_curve: Some(ApiCurve::X25519),
+                    ..Default::default()
+                }
+            }
             (KeyRole::Primary, SupportedPkAlgo::Ec(curve)) => {
                 let ops = KeyOperations::SIGN | KeyOperations::APPMANAGEABLE;
 
@@ -481,13 +508,59 @@ impl PublicKey {
         let descriptor =
             SobjectDescriptor::Kid(sob.kid.context("no kid in sobject")?);
         let time = sob.created_at.to_datetime();
-        let raw_pk =
-            sob.pub_key.context("public bits of sobject not returned")?;
+        let raw_pk = sob.pub_key.context("public bits of sobject missing")?;
 
         match sob.obj_type {
             ObjectType::Ec => match sob.elliptic_curve {
+                Some(ApiCurve::Ed25519) => {
+                    if role == KeyRole::Subkey {
+                        return Err(Error::msg("signing subkeys unsupported"));
+                    }
+                    let pk_algo = PublicKeyAlgorithm::EdDSA;
+                    let curve = SequoiaCurve::Ed25519;
+
+                    // Strip the leading OID
+                    let q = &raw_pk[12..];
+
+                    let point = mpi::MPI::new_compressed_point(&q);
+
+                    let ec_pk = mpi::PublicKey::EdDSA{ curve, q: point };
+                    let key = Key::V4(Key4::new(time, pk_algo, ec_pk)
+                        .context("cannot import EC key into Sequoia object")?);
+
+                    Ok(PublicKey {
+                        descriptor,
+                        role: KeyRole::Primary,
+                        sequoia_key: Some(key),
+                    })
+                },
+                Some(ApiCurve::X25519) => {
+                    let pk_algo = PublicKeyAlgorithm::ECDH;
+                    let curve = SequoiaCurve::Cv25519;
+
+                    // Strip the leading OID
+                    let q = &raw_pk[12..];
+
+                    let point = mpi::MPI::new_compressed_point(&q);
+
+                    let ec_pk = mpi::PublicKey::ECDH {
+                        curve,
+                        q: point,
+                        hash: HashAlgorithm::SHA512,
+                        sym: SymmetricAlgorithm::AES256,
+                    };
+
+                    let key = Key::V4(Key4::new(time, pk_algo, ec_pk)
+                        .context("cannot import EC key into Sequoia object")?);
+
+                    Ok(PublicKey {
+                        descriptor,
+                        role: KeyRole::Subkey,
+                        sequoia_key: Some(key),
+                    })
+                },
                 Some(curve) => {
-                    let curve = api_curve_to_sequoia_curve(curve)?;
+                    let curve = api_curve_to_sequoia_curve(&curve)?;
                     let deserialized_pk = Pk::from_public_key(&raw_pk)
                         .context(
                             "cannot deserialize SDKMS key into mbedTLS object",
@@ -560,8 +633,10 @@ impl PublicKey {
     }
 }
 
-fn sequoia_curve_to_api_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
+fn sequoia_curve_to_api_curve(curve: &SequoiaCurve) -> Result<ApiCurve> {
     match curve {
+        SequoiaCurve::Cv25519 => Ok(ApiCurve::X25519),
+        SequoiaCurve::Ed25519 => Ok(ApiCurve::Ed25519),
         SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
         SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
         SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
@@ -569,8 +644,10 @@ fn sequoia_curve_to_api_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
     }
 }
 
-fn api_curve_to_sequoia_curve(curve: ApiCurve) -> Result<SequoiaCurve> {
+fn api_curve_to_sequoia_curve(curve: &ApiCurve) -> Result<SequoiaCurve> {
     match curve {
+        ApiCurve::X25519 => Ok(SequoiaCurve::Cv25519),
+        ApiCurve::Ed25519 => Ok(SequoiaCurve::Ed25519),
         ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
         ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
         ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),

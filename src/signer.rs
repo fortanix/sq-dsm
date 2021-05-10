@@ -1,16 +1,11 @@
-use sdkms::{
-    api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor},
-    SdkmsClient,
-};
-use sequoia_openpgp::{
-    crypto::{mpi, Signer},
-    packet::{
-        key::{PublicParts, UnspecifiedRole},
-        Key,
-    },
-    types::{HashAlgorithm, PublicKeyAlgorithm},
-    Result as SequoiaResult,
-};
+use sdkms::api_model::{DigestAlgorithm, SignRequest, SobjectDescriptor};
+use sdkms::SdkmsClient;
+
+use sequoia_openpgp::crypto::{mpi, Signer};
+use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
+use sequoia_openpgp::packet::Key;
+use sequoia_openpgp::types::{HashAlgorithm, PublicKeyAlgorithm};
+use sequoia_openpgp::Result as SequoiaResult;
 
 pub(crate) struct RawSigner<'a> {
     pub(crate) api_endpoint: &'a str,
@@ -42,25 +37,50 @@ impl Signer for RawSigner<'_> {
                 }
             };
 
-            let sign_req = SignRequest {
-                key: Some(self.descriptor.clone()),
-                hash_alg,
-                hash: Some(digest.to_vec().into()),
-                data: None,
-                mode: None,
-                deterministic_signature: None,
-            };
-
-            let sign_resp = http_client.sign(&sign_req)?;
-            let plain: Vec<u8> = sign_resp.signature.into();
             match self.public.pk_algo() {
                 PublicKeyAlgorithm::RSAEncryptSign => {
+                    let sign_req = SignRequest {
+                        key: Some(self.descriptor.clone()),
+                        hash_alg,
+                        hash: Some(digest.to_vec().into()),
+                        data: None,
+                        mode: None,
+                        deterministic_signature: None,
+                    };
+                    let sign_resp = http_client.sign(&sign_req)?;
+
+                    let plain: Vec<u8> = sign_resp.signature.into();
                     mpi::Signature::RSA { s: plain.into() }
                 }
                 PublicKeyAlgorithm::EdDSA => {
-                    unimplemented!()
+                    let sign_req = SignRequest {
+                        key: Some(self.descriptor.clone()),
+                        hash_alg,
+                        data: Some(digest.to_vec().into()),
+                        hash: None,
+                        mode: None,
+                        deterministic_signature: None,
+                    };
+                    let sign_resp = http_client.sign(&sign_req)?;
+
+                    let plain: Vec<u8> = sign_resp.signature.into();
+                    mpi::Signature::EdDSA {
+                        r: mpi::MPI::new(&plain[..32]),
+                        s: mpi::MPI::new(&plain[32..]),
+                    }
                 }
                 PublicKeyAlgorithm::ECDSA => {
+                    let sign_req = SignRequest {
+                        key: Some(self.descriptor.clone()),
+                        hash_alg,
+                        hash: Some(digest.to_vec().into()),
+                        data: None,
+                        mode: None,
+                        deterministic_signature: None,
+                    };
+                    let sign_resp = http_client.sign(&sign_req)?;
+
+                    let plain: Vec<u8> = sign_resp.signature.into();
                     let (r, s) = yasna::parse_der(&plain, |reader| {
                         reader.read_sequence(|reader| {
                             let r = reader.next().read_biguint()?.to_bytes_be();

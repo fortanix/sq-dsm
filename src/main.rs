@@ -98,6 +98,7 @@ fn main() -> Result<(), anyhow::Error> {
                     "rsa2048" => SupportedPkAlgo::Rsa(2048),
                     "rsa3072" => SupportedPkAlgo::Rsa(3072),
                     "rsa4096" => SupportedPkAlgo::Rsa(4096),
+                    "curve25519" => SupportedPkAlgo::Curve25519,
                     "p256" => SupportedPkAlgo::Ec(EllipticCurve::NistP256),
                     "p384" => SupportedPkAlgo::Ec(EllipticCurve::NistP384),
                     "p521" => SupportedPkAlgo::Ec(EllipticCurve::NistP521),
@@ -214,17 +215,19 @@ fn pk_algo_prompt() -> Result<SupportedPkAlgo> {
             1 => {
                 let curve = loop {
                     println!("\nSelect Curve:\n");
-                    println!("   (1) Nist P256");
-                    println!("   (2) Nist P384");
-                    println!("   (3) Nist P521");
+                    println!("   (1) Ed25519 and X25519 (recommended)");
+                    println!("   (2) Nist P256");
+                    println!("   (3) Nist P384");
+                    println!("   (4) Nist P521");
                     print!("\nYour choice: ");
                     std::io::stdout().flush()?;
                     let mut input = String::new();
                     std::io::stdin().read_line(&mut input)?;
                     match input.trim().parse::<u32>()? {
-                        1 => break EllipticCurve::NistP256,
-                        2 => break EllipticCurve::NistP384,
-                        3 => break EllipticCurve::NistP521,
+                        1 => return Ok(SupportedPkAlgo::Curve25519),
+                        2 => break EllipticCurve::NistP256,
+                        3 => break EllipticCurve::NistP384,
+                        4 => break EllipticCurve::NistP521,
                         _ => println!("Invalid input"),
                     }
                 };

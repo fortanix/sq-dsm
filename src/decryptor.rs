@@ -1,4 +1,5 @@
 use anyhow::Error;
+use bit_vec::BitVec;
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
     AgreeKeyMechanism, AgreeKeyRequest, DecryptRequest, KeyOperations,
@@ -11,8 +12,8 @@ use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey};
 use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
 use sequoia_openpgp::packet::Key;
 use sequoia_openpgp::types::Curve;
-use sequoia_openpgp::Result as SequoiaResult;
-use yasna::models::ObjectIdentifier;
+use sequoia_openpgp::Result;
+use yasna::models::ObjectIdentifier as Oid;
 
 pub struct RawDecryptor<'a> {
     pub api_endpoint: &'a str,
@@ -21,6 +22,8 @@ pub struct RawDecryptor<'a> {
     pub public:       &'a Key<PublicParts, UnspecifiedRole>,
 }
 
+const ID_ECDH: [u64; 6] = [1, 2, 840, 10045, 2, 1];
+
 impl Decryptor for RawDecryptor<'_> {
     fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
 
@@ -28,8 +31,8 @@ impl Decryptor for RawDecryptor<'_> {
         &mut self,
         ciphertext: &mpi::Ciphertext,
         _plaintext_len: Option<usize>,
-    ) -> SequoiaResult<SessionKey> {
-        let http_client = SdkmsClient::builder()
+    ) -> Result<SessionKey> {
+        let mut cli = SdkmsClient::builder()
             .with_api_endpoint(&self.api_endpoint)
             .with_api_key(&self.api_key)
             .build()?;
@@ -46,7 +49,7 @@ impl Decryptor for RawDecryptor<'_> {
                     tag:    None,
                 };
 
-                Ok(http_client.decrypt(&decrypt_req)?.plain.to_vec().into())
+                Ok(cli.decrypt(&decrypt_req)?.plain.to_vec().into())
             }
             mpi::Ciphertext::ECDH { e, .. } => {
                 let curve = match self.public().mpis() {
@@ -54,46 +57,50 @@ impl Decryptor for RawDecryptor<'_> {
                     _ => return Err(Error::msg("inconsistent pk algo")),
                 };
 
-                let (key_size, curve_oid) = match curve {
-                    Curve::NistP256 => (256, vec![1, 2, 840, 10045, 3, 1, 7]),
-                    Curve::NistP384 => (384, vec![1, 3, 132, 0, 34]),
-                    Curve::NistP521 => (521, vec![1, 3, 132, 0, 35]),
-                    _ => return Err(Error::msg("unsupported curve")),
-                };
+                cli = cli.authenticate_with_api_key(&self.api_key)?;
 
-                let cli =
-                    http_client.authenticate_with_api_key(&self.api_key)?;
+                let ephemeral_der = match curve {
+                    Curve::Cv25519 => {
+                        let x = e.value()[1..].to_vec();
 
-                let ephemeral_der = {
-                    //
-                    // Note: The algorithm OID parsed by SDKMS is UNRESTRICTED
-                    // ALGORITHM IDENTIFIER AND PARAMETERS (RFC5480 sec. 2.1.1)
-                    //
-                    let id_ecdh =
-                        ObjectIdentifier::from_slice(&[1, 2, 840, 10045, 2, 1]);
+                        let oid = Oid::from_slice(&[1, 3, 101, 110]);
+                        yasna::construct_der(|w| {
+                            w.write_sequence(|w| {
+                                w.next().write_sequence(|w| {
+                                    w.next().write_oid(&oid);
+                                });
+                                w.next().write_bitvec(&BitVec::from_bytes(&x))
+                            });
+                        })
+                    }
+                    _ => {
+                        //
+                        // Note: SDKMS expects UNRESTRICTED ALGORITHM IDENTIFIER
+                        // AND PARAMETERS (RFC5480 sec. 2.1.1) for Nist curves
+                        //
+                        let id_ecdh = Oid::from_slice(&ID_ECDH);
+                        let named_curve = curve_oid(&curve)?;
 
-                    let named_curve = ObjectIdentifier::from_slice(&curve_oid);
-
-                    let alg_id = yasna::construct_der(|writer| {
-                        writer.write_sequence(|writer| {
-                            writer.next().write_oid(&id_ecdh);
-                            writer.next().write_oid(&named_curve);
+                        let alg_id = yasna::construct_der(|writer| {
+                            writer.write_sequence(|writer| {
+                                writer.next().write_oid(&id_ecdh);
+                                writer.next().write_oid(&named_curve);
+                            });
                         });
-                    });
 
-                    let subj_public_key =
-                        bit_vec::BitVec::from_bytes(&e.value());
-                    yasna::construct_der(|writer| {
-                        writer.write_sequence(|writer| {
-                            writer.next().write_der(&alg_id);
-                            writer.next().write_bitvec(&subj_public_key);
-                        });
-                    })
+                        let subj_public_key = BitVec::from_bytes(&e.value());
+                        yasna::construct_der(|writer| {
+                            writer.write_sequence(|writer| {
+                                writer.next().write_der(&alg_id);
+                                writer.next().write_bitvec(&subj_public_key);
+                            });
+                        })
+                    }
                 };
 
                 // Import ephemeral public key
                 let e_descriptor = {
-                    let api_curve = super::sequoia_curve_to_api_curve(curve)?;
+                    let api_curve = super::sequoia_curve_to_api_curve(&curve)?;
                     let req = SobjectRequest {
                         elliptic_curve: Some(api_curve),
                         key_ops: Some(KeyOperations::AGREEKEY),
@@ -103,7 +110,8 @@ impl Decryptor for RawDecryptor<'_> {
                         ..Default::default()
                     };
                     let e_tkey = cli
-                        .import_sobject(&req)?
+                        .import_sobject(&req)
+                        .unwrap()
                         .transient_key
                         .ok_or_else(|| {
                             Error::msg(
@@ -119,27 +127,30 @@ impl Decryptor for RawDecryptor<'_> {
                 // the ephemeral public key.
                 let secret: Protected = {
                     let agree_req = AgreeKeyRequest {
-                        activation_date: None,
+                        activation_date:   None,
                         deactivation_date: None,
-                        private_key: self.descriptor.clone(),
-                        public_key: e_descriptor,
-                        mechanism: AgreeKeyMechanism::DiffieHellman,
-                        name: None,
-                        group_id: None,
-                        key_type: ObjectType::Secret,
-                        key_size,
-                        enabled: true,
-                        description: None,
-                        custom_metadata: None,
-                        key_ops: Some(KeyOperations::EXPORT),
-                        state: None,
-                        transient: true,
+                        private_key:       self.descriptor.clone(),
+                        public_key:        e_descriptor,
+                        mechanism:         AgreeKeyMechanism::DiffieHellman,
+                        name:              None,
+                        group_id:          None,
+                        key_type:          ObjectType::Secret,
+                        key_size:          curve_key_size(&curve)?,
+                        enabled:           true,
+                        description:       None,
+                        custom_metadata:   None,
+                        key_ops:           Some(KeyOperations::EXPORT),
+                        state:             None,
+                        transient:         true,
                     };
 
-                    let agreed_tkey =
-                        cli.agree(&agree_req)?.transient_key.ok_or_else(
-                            || Error::msg("could not retrieve agreed key"),
-                        )?;
+                    let agreed_tkey = cli
+                        .agree(&agree_req)
+                        .unwrap()
+                        .transient_key
+                        .ok_or_else(|| {
+                            Error::msg("could not retrieve agreed key")
+                        })?;
 
                     let desc = SobjectDescriptor::TransientKey(agreed_tkey);
 
@@ -156,5 +167,25 @@ impl Decryptor for RawDecryptor<'_> {
             }
             _ => Err(Error::msg("unsupported/unknown algorithm")),
         }
+    }
+}
+
+fn curve_oid(curve: &Curve) -> Result<Oid> {
+    match curve {
+        Curve::Cv25519 => Ok(Oid::from_slice(&[1, 3, 101, 110])),
+        Curve::NistP256 => Ok(Oid::from_slice(&[1, 2, 840, 10045, 3, 1, 7])),
+        Curve::NistP384 => Ok(Oid::from_slice(&[1, 3, 132, 0, 34])),
+        Curve::NistP521 => Ok(Oid::from_slice(&[1, 3, 132, 0, 35])),
+        _ => Err(Error::msg("unsupported curve")),
+    }
+}
+
+fn curve_key_size(curve: &Curve) -> Result<u32> {
+    match curve {
+        Curve::Cv25519 => Ok(253),
+        Curve::NistP256 => Ok(256),
+        Curve::NistP384 => Ok(384),
+        Curve::NistP521 => Ok(521),
+        _ => Err(Error::msg("unsupported curve")),
     }
 }

@@ -919,6 +919,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "num-bigint"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e0d047c1062aa51e256408c560894e5251f08925980e53cf1aa5bd00eec6512"
+dependencies = [
+ "autocfg 1.0.1",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1496,6 +1507,7 @@ dependencies = [
  "env_logger",
  "log 0.4.14",
  "mbedtls",
+ "num-bigint 0.4.0",
  "sdkms",
  "sequoia-openpgp",
  "structopt",
@@ -1826,7 +1838,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79af3189e6b0484c9fd54208f8eeb8818cadee00ec81438b67a64c8e6f2f3694"
 dependencies = [
  "bit-vec 0.5.1",
- "num-bigint",
+ "num-bigint 0.2.6",
 ]
 
 [[package]]
@@ -1836,5 +1848,5 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0de7bff972b4f2a06c85f6d8454b09df153af7e3a4ec2aac81db1b105b684ddb"
 dependencies = [
  "bit-vec 0.6.3",
- "num-bigint",
+ "num-bigint 0.2.6",
 ]
