@@ -492,6 +492,10 @@ pub trait Preferences<'a>: seal::Sealed {
 
     /// Returns the certificate holder's feature set.
     fn features(&self) -> Option<Features>;
+
+    /// Returns the URI of a document describing the policy
+    /// the certificate was issued under
+    fn policy_uri(&self) -> Option<&'a [u8]>;
 }
 
 /// A collection of components and their associated signatures.
@@ -3556,6 +3560,7 @@ impl<'a> Preferences<'a> for ValidCert<'a>
     impl_pref!(preferred_aead_algorithms, &'a [AEADAlgorithm]);
     impl_pref!(key_server_preferences, KeyServerPreferences);
     impl_pref!(preferred_key_server, &'a [u8]);
+    impl_pref!(policy_uri, &'a [u8]);
     impl_pref!(features, Features);
 }
 
@@ -5710,6 +5715,45 @@ Pu1xwz57O4zo1VYf6TqHJzVC3OMvMUM2hhdecMUe5x6GorNaj6g=
             .unwrap();
         assert_eq!(cert_at.userids().count(), 1);
         assert_eq!(cert_at.keys().count(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn policy_uri_some() -> Result<()> {
+        use crate::packet::prelude::SignatureBuilder;
+        use crate::policy::StandardPolicy;
+
+        let p = &StandardPolicy::new();
+
+        let (alice, _) = CertBuilder::new().add_userid("Alice").generate()?;
+
+        let sig = SignatureBuilder::from(
+            alice
+            .with_policy(p, None)?
+            .direct_key_signature().expect("Direct key signature")
+            .clone()
+        )
+            .set_policy_uri("https://example.org/~alice/signing-policy.txt")?;
+        assert_eq!(sig.policy_uri(), Some("https://example.org/~alice/signing-policy.txt".as_bytes()));
+        Ok(())
+    }
+
+    #[test]
+    fn policy_uri_none() -> Result<()> {
+        use crate::packet::prelude::SignatureBuilder;
+        use crate::policy::StandardPolicy;
+
+        let p = &StandardPolicy::new();
+
+        let (alice, _) = CertBuilder::new().add_userid("Alice").generate()?;
+
+        let sig = SignatureBuilder::from(
+            alice
+            .with_policy(p, None)?
+            .direct_key_signature().expect("Direct key signature")
+            .clone()
+        );
+        assert_eq!(sig.policy_uri(), None);
         Ok(())
     }
 

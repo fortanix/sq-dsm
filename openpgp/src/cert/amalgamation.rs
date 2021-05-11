@@ -1783,6 +1783,10 @@ impl<'a, C> crate::cert::Preferences<'a>
         self.map(|s| s.preferred_key_server())
     }
 
+    fn policy_uri(&self) -> Option<&'a [u8]> {
+        self.map(|s| s.policy_uri())
+    }
+
     fn features(&self) -> Option<Features> {
         self.map(|s| s.features())
     }
