@@ -737,6 +737,22 @@ impl Deref for UserIDRevocationBuilder {
     }
 }
 
+impl TryFrom<signature::SignatureBuilder> for UserIDRevocationBuilder {
+    type Error = anyhow::Error;
+
+    fn try_from(builder: signature::SignatureBuilder) -> Result<Self> {
+        if builder.typ() != SignatureType::CertificationRevocation {
+            return Err(
+                crate::Error::InvalidArgument(
+                    format!("Expected signature type to be CertificationRevocation but got {}",
+                            builder.typ()).into()).into());
+        }
+        Ok(Self {
+            builder
+        })
+    }
+}
+
 /// A builder for revocation certificates for User Attributes.
 ///
 /// A revocation certificate for a [User Attribute] has three degrees of
@@ -987,6 +1003,22 @@ impl Deref for UserAttributeRevocationBuilder {
     }
 }
 
+impl TryFrom<signature::SignatureBuilder> for UserAttributeRevocationBuilder {
+    type Error = anyhow::Error;
+
+    fn try_from(builder: signature::SignatureBuilder) -> Result<Self> {
+        if builder.typ() != SignatureType::CertificationRevocation {
+            return Err(
+                crate::Error::InvalidArgument(
+                    format!("Expected signature type to be CertificationRevocation but got {}",
+                            builder.typ()).into()).into());
+        }
+        Ok(Self {
+            builder
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -1063,4 +1095,84 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn try_into_userid_revocation_builder_success() -> crate::Result<()> {
+        use std::convert::TryInto;
+        use crate as openpgp;
+        use openpgp::cert::prelude::*;
+        use openpgp::packet::signature::SignatureBuilder;
+        use openpgp::cert::UserIDRevocationBuilder;
+        use openpgp::types::SignatureType;
+
+        let (cert, _) = CertBuilder::new()
+            .add_userid("test@example.com")
+            .generate()?;
+
+        // Create and sign a revocation certificate.
+        let mut signer = cert.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+        let user_id = cert.userids().next().unwrap();
+        let builder = SignatureBuilder::new(SignatureType::CertificationRevocation);
+        let revocation_builder: UserIDRevocationBuilder = builder.try_into()?;
+        let sig = revocation_builder.build(&mut signer, &cert, &user_id, None)?;
+        assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
+        Ok(())
+    }
+
+    #[test]
+    fn try_into_userid_revocation_builder_failure() -> crate::Result<()> {
+        use std::convert::TryInto;
+        use crate as openpgp;
+        use openpgp::packet::signature::SignatureBuilder;
+        use openpgp::cert::UserIDRevocationBuilder;
+        use openpgp::types::SignatureType;
+
+        let builder = SignatureBuilder::new(SignatureType::Binary);
+        let result: openpgp::Result<UserIDRevocationBuilder> = builder.try_into();
+        assert!(result.is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn try_into_userattribute_revocation_builder_success() -> crate::Result<()> {
+        use std::convert::TryInto;
+        use crate as openpgp;
+        use openpgp::cert::prelude::*;
+        use openpgp::packet::prelude::*;
+        use openpgp::packet::signature::SignatureBuilder;
+        use openpgp::packet::user_attribute::Subpacket;
+        use openpgp::cert::UserAttributeRevocationBuilder;
+        use openpgp::types::SignatureType;
+
+        let sp = Subpacket::Unknown(7, vec![7; 7].into_boxed_slice());
+        let user_attribute = UserAttribute::new(&[sp])?;
+
+        let (cert, _) = CertBuilder::new()
+            .add_user_attribute(user_attribute)
+            .generate()?;
+
+        // Create and sign a revocation certificate.
+        let mut signer = cert.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+        let user_attribute = cert.user_attributes().next().unwrap();
+        let builder = SignatureBuilder::new(SignatureType::CertificationRevocation);
+        let revocation_builder: UserAttributeRevocationBuilder = builder.try_into()?;
+        let sig = revocation_builder.build(&mut signer, &cert, &user_attribute, None)?;
+        assert_eq!(sig.typ(), SignatureType::CertificationRevocation);
+        Ok(())
+    }
+
+    #[test]
+    fn try_into_userattribute_revocation_builder_failure() -> crate::Result<()> {
+        use std::convert::TryInto;
+        use crate as openpgp;
+        use openpgp::packet::signature::SignatureBuilder;
+        use openpgp::cert::UserAttributeRevocationBuilder;
+        use openpgp::types::SignatureType;
+
+        let builder = SignatureBuilder::new(SignatureType::Binary);
+        let result: openpgp::Result<UserAttributeRevocationBuilder> = builder.try_into();
+        assert!(result.is_err());
+        Ok(())
+    }
 }
