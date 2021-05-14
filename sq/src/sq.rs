@@ -11,9 +11,7 @@ use itertools::Itertools;
 use buffered_reader::{BufferedReader, Dup, File, Generic, Limitor};
 use sequoia_openpgp as openpgp;
 
-use openpgp::{
-    Result,
-};
+use crate::openpgp::Result;
 use crate::openpgp::{armor, Cert};
 use crate::openpgp::crypto::Password;
 use crate::openpgp::fmt::hex;
@@ -432,9 +430,11 @@ fn main() -> Result<()> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
+
             commands::decrypt(config,
                               &mut input, &mut output,
                               signatures, certs, secrets,
+                              m.value_of("sdkms-key"),
                               m.is_present("dump-session-key"),
                               m.is_present("dump"), m.is_present("hex"))?;
         },
@@ -470,6 +470,7 @@ fn main() -> Result<()> {
             commands::encrypt(policy, &mut input, output,
                               m.occurrences_of("symmetric") as usize,
                               &recipients, additional_secrets,
+                              m.value_of("signer-sdkms-key"),
                               mode,
                               m.value_of("compression").expect("has default"),
                               time,
@@ -524,9 +525,11 @@ fn main() -> Result<()> {
             } else if m.is_present("clearsign") {
                 let output = config.create_or_stdout_safe(output)?;
                 commands::sign::clearsign(config, input, output, secrets,
+                                          m.value_of("sdkms-key"),
                                           time, &notations)?;
             } else {
-                commands::sign(config, &mut input, output, secrets, detached,
+                commands::sign(config, &mut input, output, secrets,
+                               m.value_of("sdkms-key"), detached,
                                binary, append, notarize, time, &notations)?;
             }
         },
@@ -646,7 +649,8 @@ fn main() -> Result<()> {
                 commands::decrypt::decrypt_unwrap(
                     config,
                     &mut input, &mut output,
-                    secrets, m.is_present("dump-session-key"))?;
+                    secrets, m.value_of("sdkms-key"),
+                    m.is_present("dump-session-key"))?;
                 output.finalize()?;
             },
 

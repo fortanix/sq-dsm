@@ -6,6 +6,7 @@ use sequoia_openpgp as openpgp;
 use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::crypto::{self, SessionKey};
+use crate::openpgp::crypto::sdkms::SdkmsAgent;
 use crate::openpgp::{Fingerprint, Cert, KeyID, Result};
 use crate::openpgp::packet;
 use crate::openpgp::packet::prelude::*;
@@ -34,11 +35,13 @@ struct Helper<'a> {
     key_hints: HashMap<KeyID, String>,
     dump_session_key: bool,
     dumper: Option<PacketDumper>,
+    sdkms_key: Option<&'a str>,
 }
 
 impl<'a> Helper<'a> {
     fn new(config: &Config<'a>,
            signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
+           sdkms_key: Option<&'a str>,
            dump_session_key: bool, dump: bool)
            -> Self
     {
@@ -80,6 +83,7 @@ impl<'a> Helper<'a> {
             } else {
                 None
             },
+            sdkms_key: sdkms_key,
         }
     }
 
@@ -134,6 +138,16 @@ impl<'a> DecryptionHelper for Helper<'a> {
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
+        if let Some(sdkms_key) = self.sdkms_key {
+            let mut decryptor = SdkmsAgent::new_decryptor(sdkms_key)?;
+            for pkesk in pkesks {
+                if let Some(fp) = self.try_decrypt(pkesk, sym_algo, &mut decryptor,
+                    &mut decrypt) {
+                    return Ok(fp);
+                }
+            }
+        }
+
         // First, we try those keys that we can use without prompting
         // for a password.
         for pkesk in pkesks {
@@ -278,10 +292,11 @@ pub fn decrypt(config: Config,
                input: &mut (dyn io::Read + Sync + Send),
                output: &mut dyn io::Write,
                signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
+               sdkms_key: Option<&str>,
                dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
-    let helper = Helper::new(&config, signatures, certs, secrets,
+    let helper = Helper::new(&config, signatures, certs, secrets, sdkms_key,
                              dump_session_key, dump || hex);
     let mut decryptor = DecryptorBuilder::from_reader(input)?
         .mapping(hex)
@@ -301,10 +316,11 @@ pub fn decrypt(config: Config,
 pub fn decrypt_unwrap(config: Config,
                       input: &mut (dyn io::Read + Sync + Send),
                       output: &mut dyn io::Write,
-                      secrets: Vec<Cert>, dump_session_key: bool)
+                      secrets: Vec<Cert>, sdkms_key: Option<&str>,
+                      dump_session_key: bool)
                       -> Result<()>
 {
-    let mut helper = Helper::new(&config, 0, Vec::new(), secrets,
+    let mut helper = Helper::new(&config, 0, Vec::new(), secrets, sdkms_key,
                                  dump_session_key, false);
 
     let mut ppr = PacketParser::from_reader(input)?;

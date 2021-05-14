@@ -101,6 +101,9 @@
 //!         --signer-key <KEY>...
 //!             Signs the message with KEY
 //!
+//!         --signer-sdkms-key <SDKMS-KEY-NAME>
+//!             Signs the message with a key stored in Fortanix SDKMS
+//!
 //!     -t, --time <TIME>
 //!             Chooses keys valid at the specified time and sets the signature's
 //!             creation time
@@ -166,6 +169,9 @@
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
+//!         --sdkms-key <SDKMS-KEY-NAME>
+//!             Decrypts with secrets stored inside the Fortanix Self-Defending Key-
+//!             Management System
 //!         --recipient-key <KEY>...
 //!             Decrypts with KEY
 //!
@@ -240,6 +246,9 @@
 //!             is marked as being human readable.
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
+//!
+//!         --sdkms-key <SDKMS-KEY-NAME>
+//!             Signs the message with the Fortanix SDKMS key
 //!
 //!         --signer-key <KEY>...
 //!             Signs using KEY
@@ -405,7 +414,8 @@
 //!             universal]
 //!     -c, --cipher-suite <CIPHER-SUITE>
 //!             Selects the cryptographic algorithms for the key [default: cv25519]
-//!             [possible values: rsa3k, rsa4k, cv25519]
+//!             [possible values: rsa3k, rsa4k, cv25519, nistp256, nistp384,
+//!             nistp521]
 //!         --expires <TIME>
 //!             Makes the key expire at TIME (as ISO 8601). Use "never" to create
 //!             keys that do not expire.
@@ -418,6 +428,9 @@
 //!         --rev-cert <FILE or ->
 //!             Writes the revocation certificate to FILE. mandatory if OUTFILE is
 //!             "-". [default: <OUTFILE>.rev]
+//!         --sdkms-key <SDKMS-KEY-NAME>
+//!             Generate secrets inside Fortanix SDKMS with the given name
+//!
 //!     -u, --userid <EMAIL>...
 //!             Adds a userid to the key
 //!
@@ -515,6 +528,9 @@
 //!     -o, --output <FILE>
 //!             Writes to FILE or stdout if omitted
 //!
+//!         --sdkms-key <SDKMS-KEY-NAME>
+//!             Extracts the certificate from the Fortanix Self-Defending Key-
+//!             Management System
 //!
 //! ARGS:
 //!     <FILE>

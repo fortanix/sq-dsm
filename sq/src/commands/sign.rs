@@ -6,7 +6,10 @@ use std::time::SystemTime;
 use tempfile::NamedTempFile;
 
 use sequoia_openpgp as openpgp;
+
 use crate::openpgp::armor;
+use crate::openpgp::crypto::secrets::Secret;
+use crate::openpgp::crypto::sdkms::SdkmsAgent;
 use crate::openpgp::{Packet, Result};
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::packet::signature::subpacket::NotationData;
@@ -19,31 +22,32 @@ use crate::openpgp::serialize::stream::{
     Message, Armorer, Signer, LiteralWriter,
 };
 use crate::openpgp::types::SignatureType;
-use crate::{
-    Config,
-};
+
+use crate::Config;
 
 pub fn sign(config: Config,
             input: &mut (dyn io::Read + Sync + Send),
             output_path: Option<&str>,
-            secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
+            secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+            detached: bool, binary: bool,
             append: bool, notarize: bool, time: Option<SystemTime>,
             notations: &[(bool, NotationData)])
             -> Result<()> {
     match (detached, append|notarize) {
         (_, false) | (true, true) =>
-            sign_data(config, input, output_path, secrets, detached, binary,
-                      append, time, notations),
+            sign_data(config, input, output_path, secrets, sdkms_key, detached,
+                      binary, append, time, notations),
         (false, true) =>
-            sign_message(config, input, output_path, secrets, binary, notarize,
-                         time, notations),
+            sign_message(config, input, output_path, secrets, sdkms_key, binary,
+                         notarize, time, notations),
     }
 }
 
 fn sign_data(config: Config,
              input: &mut dyn io::Read, output_path: Option<&str>,
-             secrets: Vec<openpgp::Cert>, detached: bool, binary: bool,
-             append: bool, time: Option<SystemTime>,
+             secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+             detached: bool, binary: bool, append: bool,
+             time: Option<SystemTime>,
              notations: &[(bool, NotationData)])
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
@@ -79,11 +83,6 @@ fn sign_data(config: Config,
             (config.create_or_stdout_safe(output_path)?, Vec::new(), None)
         };
 
-    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
-    if keypairs.is_empty() {
-        return Err(anyhow::anyhow!("No signing keys found"));
-    }
-
     // Stream an OpenPGP message.
     // The sink may be a NamedTempFile.  Carefully keep a reference so
     // that we can rename it.
@@ -113,13 +112,29 @@ fn sign_data(config: Config,
             *critical)?;
     }
 
-    let mut signer = Signer::with_template(
-        message, keypairs.pop().unwrap(), builder);
-    if let Some(time) = time {
-        signer = signer.creation_time(time);
-    }
+    let mut keypairs = super::get_signing_keys(&secrets,
+                                               &config.policy,
+                                               time)?;
+    let crypto_signer = match sdkms_key {
+        None => {
+            if keypairs.is_empty() {
+                return Err(anyhow::anyhow!("No signing keys found"));
+            }
+            keypairs.pop().unwrap()
+        },
+        Some(name) => {
+            Secret::Sdkms(SdkmsAgent::new_signer(name)?)
+        }
+    };
+
+    let mut signer = Signer::with_template(message, crypto_signer, builder);
+
     for s in keypairs {
         signer = signer.add_signer(s);
+    }
+
+    if let Some(time) = time {
+        signer = signer.creation_time(time);
     }
     if detached {
         signer = signer.detached();
@@ -154,7 +169,8 @@ fn sign_data(config: Config,
 fn sign_message(config: Config,
                 input: &mut (dyn io::Read + Sync + Send),
                 output_path: Option<&str>,
-                secrets: Vec<openpgp::Cert>, binary: bool, notarize: bool,
+                secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+                binary: bool, notarize: bool,
                 time: Option<SystemTime>,
                 notations: &[(bool, NotationData)])
              -> Result<()> {
@@ -162,7 +178,8 @@ fn sign_message(config: Config,
         config.create_or_stdout_pgp(output_path,
                                     binary,
                                     armor::Kind::Message)?;
-    sign_message_(config, input, &mut output, secrets, notarize, time, notations)?;
+    sign_message_(config, input, &mut output, secrets, sdkms_key, notarize,
+                  time, notations)?;
     output.finalize()?;
     Ok(())
 }
@@ -170,15 +187,13 @@ fn sign_message(config: Config,
 fn sign_message_(config: Config,
                  input: &mut (dyn io::Read + Sync + Send),
                  output: &mut (dyn io::Write + Sync + Send),
-                 secrets: Vec<openpgp::Cert>, notarize: bool,
+                 secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+                 notarize: bool,
                  time: Option<SystemTime>,
                  notations: &[(bool, NotationData)])
                  -> Result<()>
 {
     let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
-    if keypairs.is_empty() {
-        return Err(anyhow::anyhow!("No signing keys found"));
-    }
 
     let mut sink = Message::new(output);
 
@@ -253,8 +268,19 @@ fn sign_message_(config: Config,
                         *critical)?;
                 }
 
+                let crypto_signer = match sdkms_key {
+                    None => {
+                        if keypairs.is_empty() {
+                            return Err(anyhow::anyhow!("No signing keys found"));
+                        }
+                        keypairs.pop().unwrap()
+                    },
+                    Some(name) => {
+                        Secret::Sdkms(SdkmsAgent::new_signer(name)?)
+                    }
+                };
                 let mut signer = Signer::with_template(
-                    sink, keypairs.pop().unwrap(), builder);
+                    sink, crypto_signer, builder);
                 if let Some(time) = time {
                     signer = signer.creation_time(time);
                 }
@@ -375,15 +401,23 @@ fn sign_message_(config: Config,
 pub fn clearsign(config: Config,
                  mut input: impl io::Read + Sync + Send,
                  mut output: impl io::Write + Sync + Send,
-                 secrets: Vec<openpgp::Cert>,
+                 secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
                  time: Option<SystemTime>,
                  notations: &[(bool, NotationData)])
                  -> Result<()>
 {
     let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
-    if keypairs.is_empty() {
-        return Err(anyhow::anyhow!("No signing keys found"));
-    }
+    let crypto_signer = match sdkms_key {
+        None => {
+            if keypairs.is_empty() {
+                return Err(anyhow::anyhow!("No signing keys found"));
+            }
+            keypairs.pop().unwrap()
+        },
+        Some(name) => {
+            Secret::Sdkms(SdkmsAgent::new_signer(name)?)
+        }
+    };
 
     // Prepare a signature template.
     let mut builder = SignatureBuilder::new(SignatureType::Text);
@@ -396,8 +430,8 @@ pub fn clearsign(config: Config,
     }
 
     let message = Message::new(&mut output);
-    let mut signer = Signer::with_template(
-        message, keypairs.pop().unwrap(), builder)
+
+    let mut signer = Signer::with_template(message, crypto_signer, builder)
         .cleartext();
     if let Some(time) = time {
         signer = signer.creation_time(time);

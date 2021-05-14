@@ -14,6 +14,8 @@ use crate::openpgp::types::{
 };
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto;
+use crate::openpgp::crypto::sdkms::SdkmsAgent;
+use crate::openpgp::crypto::secrets::Secret;
 use crate::openpgp::{Cert, KeyID, Result};
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::{
@@ -54,7 +56,7 @@ pub mod certify;
 /// Returns suitable signing keys from a given list of Certs.
 fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
                     timestamp: Option<SystemTime>)
-    -> Result<Vec<crypto::KeyPair>>
+    -> Result<Vec<Secret>>
 {
     let mut keys = Vec::new();
     'next_cert: for tsk in certs {
@@ -75,8 +77,9 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
                     SecretKeyMaterial::Unencrypted(ref u) => u.clone(),
                 };
 
-                keys.push(crypto::KeyPair::new(key.clone(), unencrypted)
-                          .unwrap());
+                keys.push(Secret::InMemory(
+                        crypto::KeyPair::new(key.clone(), unencrypted)
+                          .unwrap()));
                 break 'next_cert;
             }
         }
@@ -92,6 +95,7 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
                    input: &mut dyn io::Read, message: Message<'a>,
                    npasswords: usize, recipients: &'a [openpgp::Cert],
                    signers: Vec<openpgp::Cert>,
+                   sdkms_signer: Option<&str>,
                    mode: openpgp::types::KeyFlags, compression: &str,
                    time: Option<SystemTime>,
                    use_expired_subkey: bool,
@@ -108,12 +112,16 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
             }))?.into());
     }
 
-    if recipients.len() + passwords.len() == 0 {
+    if recipients.len() + passwords.len() == 0 && sdkms_signer.is_none() {
         return Err(anyhow::anyhow!(
             "Neither recipient nor password given"));
     }
 
     let mut signers = get_signing_keys(&signers, policy, time)?;
+
+    if let Some(name) = sdkms_signer {
+        signers.push(Secret::Sdkms(SdkmsAgent::new_signer(name)?));
+    }
 
     // Build a vector of recipients to hand to Encryptor.
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();

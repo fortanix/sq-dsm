@@ -133,6 +133,10 @@ $ sq decrypt ciphertext.pgp
                     .arg(Arg::with_name("hex")
                          .short("x").long("hex")
                          .help("Prints a hexdump (implies --dump)"))
+                    .arg(Arg::with_name("sdkms-key")
+                        .long("sdkms-key").value_name("SDKMS-KEY-NAME")
+                        .help("Decrypts with secrets stored inside the \
+                        Fortanix Self-Defending Key-Management System"))
         )
 
         .subcommand(SubCommand::with_name("encrypt")
@@ -175,6 +179,10 @@ $ sq encrypt --symmetric message.txt
                          .long("signer-key").value_name("KEY")
                          .multiple(true).number_of_values(1)
                          .help("Signs the message with KEY"))
+                    .arg(Arg::with_name("signer-sdkms-key")
+                         .long("signer-sdkms-key").value_name("SDKMS-KEY-NAME")
+                         .help("Signs the message with a key stored in Fortanix \
+                             SDKMS"))
                     .arg(Arg::with_name("symmetric")
                          .short("s").long("symmetric")
                          .multiple(true)
@@ -280,6 +288,9 @@ $ sq sign --detached --signer-key juliet.pgp message.txt
                          .long("signer-key").value_name("KEY")
                          .multiple(true).number_of_values(1)
                          .help("Signs using KEY"))
+                    .arg(Arg::with_name("sdkms-key")
+                        .long("sdkms-key").value_name("SDKMS-KEY-NAME")
+                        .help("Signs the message with the Fortanix SDKMS key"))
                     .arg(Arg::with_name("time")
                          .short("t").long("time").value_name("TIME")
                          .help("Chooses keys valid at the specified time and \
@@ -521,13 +532,35 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                              .help("Adds a userid to the key"))
                         .arg(Arg::with_name("cipher-suite")
                              .short("c").long("cipher-suite").value_name("CIPHER-SUITE")
-                             .possible_values(&["rsa3k", "rsa4k", "cv25519"])
+                             .possible_values(&[
+                                 "rsa3k",
+                                 "rsa4k",
+                                 "cv25519",
+                                 "nistp256",
+                                 "nistp384",
+                                 "nistp521",
+                             ])
                              .default_value("cv25519")
                              .help("Selects the cryptographic algorithms for \
                                     the key"))
                         .arg(Arg::with_name("with-password")
                              .long("with-password")
                              .help("Protects the key with a password"))
+                        .arg(Arg::with_name("sdkms-key")
+                             .long("sdkms-key").value_name("SDKMS-KEY-NAME")
+                             .help("Generate secrets inside Fortanix SDKMS with \
+                                 the given name")
+                             .conflicts_with_all(&[
+                                 "export",
+                                 "cannot-encrypt",
+                                 "can-sign",
+                                 "cannot-sign",
+                                 "with-password",
+                                 "expires",
+                                 "expires-in",
+                                 "rev-cert",
+                             ])
+                             .requires("userid"))
 
                         .group(ArgGroup::with_name("expiration-group")
                                .args(&["expires", "expires-in"]))
@@ -580,7 +613,7 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                         .arg(Arg::with_name("export")
                              .short("e").long("export").value_name("OUTFILE")
                              .help("Writes the key to OUTFILE")
-                             .required(true))
+                             .required_unless("sdkms-key"))
                         .arg(Arg::with_name("rev-cert")
                              .long("rev-cert").value_name("FILE or -")
                              .required_if("export", "-")
@@ -657,7 +690,11 @@ $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
                             .arg(Arg::with_name("binary")
                                  .short("B").long("binary")
                                  .help("Emits binary data"))
-                )
+                            .arg(Arg::with_name("sdkms-key")
+                                .long("sdkms-key").value_name("SDKMS-KEY-NAME")
+                                .help("Extracts the certificate from the Fortanix \
+                                 Self-Defending Key-Management System"))
+                            )
                 .subcommand(
                     SubCommand::with_name("adopt")
                         .display_order(800)

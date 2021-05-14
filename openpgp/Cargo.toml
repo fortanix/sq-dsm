@@ -45,6 +45,18 @@ thiserror = "1.0.2"
 backtrace = "0.3.3"
 unicode-normalization = "0.1.9"
 
+bit-vec = "0.6.3"
+dotenv = "0.15.0"
+env_logger = "0.8.3"
+mbedtls = { version = "0.8.0" }
+num-bigint = "0.4.0"
+log = "0.4.14"
+sdkms = "0.2.1"
+structopt = "0.3.13"
+uuid = "0.7.4"
+yasna = { version = "0.3.2", features = ["num-bigint", "bit-vec"] }
+
+
 [target.'cfg(windows)'.dependencies]
 win-crypto-ng = { version = "0.4", features = ["rand", "block-cipher"], optional = true }
 num-bigint-dig = { version = "0.6", default-features = false, optional = true }
@@ -57,6 +69,7 @@ chrono = { version = "0.4.10", default-features = false, features = ["std"] }
 
 [build-dependencies]
 lalrpop = ">=0.17"
+bindgen57 = { version = "0.57", package = "bindgen", default-features = false, features = ["runtime"] }
 
 [dev-dependencies]
 quickcheck = { version = "0.9", default-features = false }
