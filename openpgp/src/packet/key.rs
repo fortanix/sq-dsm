@@ -753,7 +753,7 @@ pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 /// new key.
 ///
 /// Existing key material can be turned into an OpenPGP key using
-/// [`Key4::with_secret`], [`Key4::import_public_cv25519`],
+/// [`Key4::new`], [`Key4::with_secret`], [`Key4::import_public_cv25519`],
 /// [`Key4::import_public_ed25519`], [`Key4::import_public_rsa`],
 /// [`Key4::import_secret_cv25519`], [`Key4::import_secret_ed25519`],
 /// and [`Key4::import_secret_rsa`].
@@ -768,6 +768,7 @@ pub(crate) type UnspecifiedKey = Key<UnspecifiedParts, UnspecifiedRole>;
 /// See [Section 5.5 of RFC 4880] and [the documentation for `Key`]
 /// for more details.
 ///
+/// [`Key4::new`]: #method.new
 /// [`Key4::with_secret`]: #method.with_secret
 /// [`Key4::generate_rsa`]: #method.generate_rsa
 /// [`Key4::generate_ecc`]: #method.generate_ecc
