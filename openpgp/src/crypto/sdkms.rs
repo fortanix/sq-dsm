@@ -9,15 +9,23 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::net::IpAddr;
+
 
 use anyhow::{Context, Error, Result};
 use bit_vec::BitVec;
+use http::uri::Uri;
+use hyper::client::{Client as HyperClient, ProxyConfig};
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
+use ipnetwork::IpNetwork;
 use log::info;
 use mbedtls::pk::Pk;
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
     AgreeKeyMechanism, AgreeKeyRequest, DecryptRequest, DigestAlgorithm,
-    KeyOperations, EllipticCurve as ApiCurve, ObjectType,
+    EllipticCurve as ApiCurve, KeyOperations, ObjectType,
     RsaEncryptionPaddingPolicy, RsaEncryptionPolicy, RsaOptions,
     RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest, Sobject,
     SobjectDescriptor, SobjectRequest,
@@ -26,9 +34,9 @@ use sdkms::SdkmsClient;
 use uuid::Uuid;
 use yasna::models::ObjectIdentifier as Oid;
 
-use crate::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
-use crate::crypto::mpi::PublicKey::ECDH;
 use crate::crypto::mem::Protected;
+use crate::crypto::mpi::PublicKey::ECDH;
+use crate::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
 use crate::packet::key::{
     Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole
 };
@@ -41,20 +49,59 @@ use crate::types::{
 };
 use crate::{Cert, Packet};
 
-const ENV_API_KEY: &str = "FORTANIX_API_KEY";
-const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
-
 /// SdkmsAgent implements [Signer] and [Decryptor] with secrets stored inside
 /// Fortanix SDKMS.
 ///
 ///   [Decryptor]: ../../crypto/trait.Decryptor.html
 ///   [Signer]: ../../crypto/trait.Signer.html
 pub struct SdkmsAgent {
-    descriptor:   SobjectDescriptor,
-    public:       Key<PublicParts, UnspecifiedRole>,
-    role:         Role,
-    api_key:      String,
+    credentials: Credentials,
+    descriptor:  SobjectDescriptor,
+    public:      Key<PublicParts, UnspecifiedRole>,
+    role:        Role,
+}
+
+const ENV_API_KEY: &str = "FORTANIX_API_KEY";
+const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
+const ENV_HTTP_PROXY: &str = "http_proxy";
+const ENV_NO_PROXY: &str = "no_proxy";
+
+struct Credentials {
     api_endpoint: String,
+    api_key:      String,
+    proxy:        Option<Arc<HyperClient>>,
+}
+
+impl Credentials {
+    fn new_from_env() -> Result<Self> {
+        let api_endpoint = env::var(ENV_API_ENDPOINT)
+            .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
+        let api_key = env::var(ENV_API_KEY)
+            .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
+        let proxy = decide_proxy_from_env(&api_endpoint);
+
+        Ok(Self {
+            api_endpoint,
+            api_key,
+            proxy,
+        })
+    }
+
+    fn http_client(&self) -> Result<SdkmsClient> {
+        let mut builder = SdkmsClient::builder()
+            .with_api_endpoint(&self.api_endpoint)
+            .with_api_key(&self.api_key);
+        match &self.proxy {
+            Some(proxy) => {
+                builder = builder.with_hyper_client(proxy.clone());
+            }
+            None => (),
+        }
+
+        Ok(builder
+            .build()
+            .context("could not initiate an SDKMS client")?)
+    }
 }
 
 #[derive(PartialEq)]
@@ -67,14 +114,8 @@ impl SdkmsAgent {
     /// Returns an SdkmsAgent with signing capabilities, corresponding to the
     /// given key name.
     pub fn new_signer(key_name: &str) -> Result<Self> {
-        let api_key = env::var(ENV_API_KEY)
-            .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
-        let api_endpoint = env::var(ENV_API_ENDPOINT)
-            .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&api_endpoint)
-            .with_api_key(&api_key)
-            .build()?;
+        let credentials = Credentials::new_from_env()?;
+        let http_client = credentials.http_client()?;
 
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
         let sobject = http_client
@@ -83,25 +124,18 @@ impl SdkmsAgent {
         let key = PublicKey::from_sobject(sobject.clone(), KeyRole::Primary)?;
 
         Ok(SdkmsAgent {
+            credentials,
             descriptor: descriptor.clone(),
             public: key.sequoia_key.unwrap(),
             role: Role::Signer,
-            api_key,
-            api_endpoint,
         })
     }
 
     /// Returns an SdkmsAgent with decryption capabilities, corresponding to the
     /// given key name.
     pub fn new_decryptor(key_name: &str) -> Result<Self> {
-        let api_key = env::var(ENV_API_KEY)
-            .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
-        let api_endpoint = env::var(ENV_API_ENDPOINT)
-            .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&api_endpoint)
-            .with_api_key(&api_key)
-            .build()?;
+        let credentials = Credentials::new_from_env()?;
+        let http_client = credentials.http_client()?;
 
         let descriptor = SobjectDescriptor::Name(key_name.to_string());
         let sobject = http_client
@@ -120,9 +154,8 @@ impl SdkmsAgent {
                     descriptor,
                     public: key.sequoia_key.unwrap(),
                     role: Role::Decryptor,
-                    api_key,
-                    api_endpoint,
-                })
+                    credentials,
+                });
             }
         }
         Err(Error::msg("was not able to get decryption subkey"))
@@ -167,7 +200,6 @@ pub fn generate_key(key_name: &str,
         Some(id) => id.into(),
         None => return Err(Error::msg("no User ID")),
     };
-    // TODO: Use CipherSuite instead
     let algorithm = match algo {
         Some("rsa3k") => SupportedPkAlgo::Rsa(3072),
         Some("rsa4k") => SupportedPkAlgo::Rsa(4096),
@@ -177,16 +209,9 @@ pub fn generate_key(key_name: &str,
         Some("nistp521") => SupportedPkAlgo::Ec(ApiCurve::NistP521),
         _ => unreachable!("argument has a default value"),
     };
-    let api_key =
-        env::var(ENV_API_KEY)
-        .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
-    let api_endpoint = env::var(ENV_API_ENDPOINT)
-        .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
-    let http_client = SdkmsClient::builder()
-        .with_api_endpoint(&api_endpoint)
-        .with_api_key(&api_key)
-        .build()
-        .context("could not initiate an SDKMS client")?;
+
+    let credentials = Credentials::new_from_env()?;
+    let http_client = credentials.http_client()?;
 
     info!("create primary key");
     let primary = PublicKey::create(
@@ -194,7 +219,8 @@ pub fn generate_key(key_name: &str,
         key_name.to_string(),
         KeyRole::Primary,
         &algorithm,
-    )?;
+    )
+    .context("could not create primary key")?;
 
     info!("create decryption subkey");
     let subkey = PublicKey::create(
@@ -219,10 +245,7 @@ pub fn generate_key(key_name: &str,
 
     let mut prim_signer = SdkmsAgent::new_signer(&key_name)?;
 
-    let pref_hashes = vec![
-        HashAlgorithm::SHA512,
-        HashAlgorithm::SHA256
-    ];
+    let pref_hashes = vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256];
 
     let pref_ciphers = vec![
         SymmetricAlgorithm::AES256,
@@ -275,11 +298,6 @@ pub fn generate_key(key_name: &str,
         ..Default::default()
     };
 
-    let http_client = SdkmsClient::builder()
-        .with_api_endpoint(&api_endpoint)
-        .with_api_key(&api_key)
-        .build()?;
-
     http_client.update_sobject(&primary.uid()?, &update_req)?;
 
     Ok(())
@@ -290,15 +308,8 @@ pub fn generate_key(key_name: &str,
 /// metadata of the Security Object representing the primary key.
 pub fn extract_cert(key_name: &str) -> Result<Cert> {
     info!("sdkms extract_cert");
-    let api_key =
-        env::var(ENV_API_KEY)
-        .with_context(|| format!("{} env var absent", ENV_API_KEY))?;
-    let api_endpoint = env::var(ENV_API_ENDPOINT)
-        .with_context(|| format!("{} env var absent", ENV_API_ENDPOINT))?;
-    let http_client = SdkmsClient::builder()
-        .with_api_endpoint(&api_endpoint)
-        .with_api_key(&api_key)
-        .build()?;
+    let credentials = Credentials::new_from_env()?;
+    let http_client = credentials.http_client()?;
 
     let metadata = {
         let req = SobjectDescriptor::Name(key_name.to_string());
@@ -552,20 +563,19 @@ impl PublicKey {
 }
 
 impl Signer for SdkmsAgent {
-    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
+    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
+        &self.public
+    }
 
     fn sign(
         &mut self,
         hash_algo: HashAlgorithm,
-        digest: &[u8],
-    ) -> Result<mpi::Signature> {
+        digest: &[u8])
+        -> Result<mpi::Signature> {
         if self.role != Role::Signer {
             return Err(Error::msg("bad role for SDKMS agent"));
         }
-        let http_client = SdkmsClient::builder()
-            .with_api_endpoint(&self.api_endpoint)
-            .with_api_key(&self.api_key)
-            .build()?;
+        let http_client = self.credentials.http_client()?;
 
         let signature = {
             let hash_alg = match hash_algo {
@@ -628,9 +638,7 @@ impl Signer for SdkmsAgent {
                             Ok((r, s))
                         })
                     })
-                    .map_err(|e| {
-                        anyhow::Error::msg(format!("ECDSA signature: {}", e))
-                    })?;
+                    .map_err(|e| anyhow::Error::msg(format!("ECDSA signature: {}", e)))?;
 
                     mpi::Signature::ECDSA {
                         r: r.to_vec().into(),
@@ -648,7 +656,9 @@ impl Signer for SdkmsAgent {
 const ID_ECDH: [u64; 6] = [1, 2, 840, 10045, 2, 1];
 
 impl Decryptor for SdkmsAgent {
-    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
+    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
+        &self.public
+    }
 
     fn decrypt(
         &mut self,
@@ -659,8 +669,8 @@ impl Decryptor for SdkmsAgent {
             return Err(Error::msg("bad role for SDKMS agent"));
         }
         let mut cli = SdkmsClient::builder()
-            .with_api_endpoint(&self.api_endpoint)
-            .with_api_key(&self.api_key)
+            .with_api_endpoint(&self.credentials.api_endpoint)
+            .with_api_key(&self.credentials.api_key)
             .build()?;
 
         match ciphertext {
@@ -683,7 +693,7 @@ impl Decryptor for SdkmsAgent {
                     _ => return Err(Error::msg("inconsistent pk algo")),
                 };
 
-                cli = cli.authenticate_with_api_key(&self.api_key)?;
+                cli = cli.authenticate_with_api_key(&self.credentials.api_key)?;
 
                 let ephemeral_der = match curve {
                     SequoiaCurve::Cv25519 => {
@@ -774,9 +784,7 @@ impl Decryptor for SdkmsAgent {
                         .agree(&agree_req)
                         .unwrap()
                         .transient_key
-                        .ok_or_else(|| {
-                            Error::msg("could not retrieve agreed key")
-                        })?;
+                        .ok_or_else(|| Error::msg("could not retrieve agreed key"))?;
 
                     let desc = SobjectDescriptor::TransientKey(agreed_tkey);
 
@@ -798,9 +806,7 @@ impl Decryptor for SdkmsAgent {
 
 fn curve_oid(curve: &SequoiaCurve) -> Result<Oid> {
     match curve {
-        SequoiaCurve::NistP256 => {
-            Ok(Oid::from_slice(&[1, 2, 840, 10045, 3, 1, 7]))
-        },
+        SequoiaCurve::NistP256 => Ok(Oid::from_slice(&[1, 2, 840, 10045, 3, 1, 7])),
         SequoiaCurve::NistP384 => Ok(Oid::from_slice(&[1, 3, 132, 0, 34])),
         SequoiaCurve::NistP521 => Ok(Oid::from_slice(&[1, 3, 132, 0, 35])),
         SequoiaCurve::Cv25519 => Ok(Oid::from_slice(&[1, 3, 101, 110])),
@@ -838,4 +844,119 @@ fn api_curve_to_sequoia_curve(curve: &ApiCurve) -> Result<SequoiaCurve> {
         ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
         _ => Err(Error::msg("cannot convert curve")),
     }
+}
+
+/// Struct with information of hostnames that should not be accessed through a
+/// proxy.
+#[derive(Clone, Debug)]
+
+pub struct NoProxy(Vec<NoProxyEntry>);
+
+impl NoProxy {
+    /// Parse a comma separated list of no proxy hostnames
+    ///
+    /// Valid format of entries:
+    ///     - hostnames
+    ///     - ip
+    ///     - CIDR
+    pub fn parse(no_proxy: &str) -> Self {
+        Self(
+            no_proxy
+                .split(",")
+                .filter_map(|no_proxy| no_proxy.parse().ok())
+                .collect(),
+        )
+    }
+
+    /// Check is a host is in the no proxy list
+    pub fn is_no_proxy(&self, host: &str, port: u16) -> bool {
+        self.0
+            .iter()
+            .any(|no_proxy| Self::is_no_proxy_match(no_proxy, host, port))
+    }
+
+    ///  Check if a host matches a NoProxyEntry
+    fn is_no_proxy_match(no_proxy: &NoProxyEntry, host: &str, port: u16) -> bool {
+        // check for CIDR
+
+        match (&no_proxy.ipnetwork, IpAddr::from_str(host)) {
+            (Some(cidr), Ok(ip)) if cidr.contains(ip) => return true,
+
+            _ => {}
+        }
+
+        // match host fragments
+
+        let matching_hosts = host
+            .split('.')
+            .rev()
+            .take(no_proxy.split_hostname.len())
+            .cmp(no_proxy.split_hostname.iter().rev().map(|val| val.as_ref()))
+            == std::cmp::Ordering::Equal;
+
+        match (matching_hosts, no_proxy.port) {
+            (false, _) => false,
+            (true, None) => true,
+            (true, Some(no_proxy_port)) => port == no_proxy_port,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+
+pub(crate) struct NoProxyEntry {
+    pub ipnetwork: Option<IpNetwork>,
+    pub split_hostname: Vec<String>,
+    pub port: Option<u16>,
+}
+
+impl FromStr for NoProxyEntry {
+    type Err = ();
+
+    fn from_str(s: &str) -> ::std::result::Result<Self, Self::Err> {
+        // split host and port from no_proxy
+
+        let mut no_proxy_splits = s.trim().splitn(2, ":");
+        let no_proxy_host = no_proxy_splits.next().ok_or_else(|| ())?;
+        let no_proxy_port = no_proxy_splits.next()
+            .and_then(|port| port.parse().ok());
+
+        // remove leading dot
+        let no_proxy_host = no_proxy_host.trim_start_matches('.');
+
+        Ok(NoProxyEntry {
+            ipnetwork: IpNetwork::from_str(no_proxy_host).ok(),
+            split_hostname: no_proxy_host.split(".").map(String::from).collect(),
+            port: no_proxy_port,
+        })
+    }
+}
+
+fn decide_proxy_from_env(endpoint: &str) -> Option<Arc::<HyperClient>> {
+    let uri = endpoint.parse::<Uri>().ok()?;
+    let endpoint_host = uri.host()?;
+    let endpoint_port = uri.port().map_or(80, |p| p.as_u16());
+    if let Ok(proxy) = env::var(ENV_HTTP_PROXY) {
+        let uri = proxy.parse::<Uri>().ok()?;
+        let proxy_host = uri.host()?;
+        let proxy_port = uri.port().map_or(80, |p| p.as_u16());
+
+        //  If host is in no_proxy, then don't use the proxy
+        let no_proxy = env::var(ENV_NO_PROXY).map(|list| NoProxy::parse(&list));
+        if let Ok(s) = no_proxy {
+            if !s.is_no_proxy(endpoint_host, endpoint_port) {
+                let hyper_client = HyperClient::with_proxy_config(
+                    ProxyConfig::new(
+                        "http",
+                        proxy_host.to_string(),
+                        proxy_port,
+                        HttpsConnector::new(NativeTlsClient::new().ok()?),
+                        NativeTlsClient::new().ok()?,
+                ));
+                return Some(Arc::new(hyper_client))
+            }
+        }
+    }
+
+    None
 }
