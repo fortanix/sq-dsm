@@ -89,6 +89,7 @@
 use std::fmt;
 use std::cmp::Ordering;
 use std::convert::TryInto;
+use std::hash::Hasher;
 use std::time;
 
 #[cfg(test)]
@@ -916,6 +917,23 @@ impl<P, R> Key4<P, R>
               RB: key::KeyRole,
     {
         self.public_cmp(b) == Ordering::Equal
+    }
+
+    /// Hashes everything but any secret key material into state.
+    ///
+    /// This is an alternate implementation of [`Hash`], which never
+    /// hashes the secret key material.
+    ///
+    ///   [`Hash`]: https://doc.rust-lang.org/stable/std/hash/trait.Hash.html
+    pub fn public_hash<H>(&self, state: &mut H)
+        where H: Hasher
+    {
+        use std::hash::Hash;
+
+        self.common.hash(state);
+        self.creation_time.hash(state);
+        self.pk_algo.hash(state);
+        Hash::hash(&self.mpis(), state);
     }
 }
 

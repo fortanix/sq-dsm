@@ -157,6 +157,7 @@
 //! [partial body encoding]: https://tools.ietf.org/html/rfc4880#section-4.2.2.4
 //! [`Key::public_cmp`]: enum.Key.html#method.public_cmp
 use std::fmt;
+use std::hash::Hasher;
 use std::ops::{Deref, DerefMut};
 use std::slice;
 use std::iter::IntoIterator;
@@ -368,6 +369,47 @@ impl Packet {
         match self {
             &Packet::Unknown(_) => None,
             _ => Some(self.tag()),
+        }
+    }
+
+    /// Hashes most everything into state.
+    ///
+    /// This is an alternate implementation of [`Hash`], which does
+    /// not hash:
+    ///
+    ///   - The unhashed subpacket area of Signature packets.
+    ///   - Secret key material.
+    ///
+    ///   [`Hash`]: https://doc.rust-lang.org/stable/std/hash/trait.Hash.html
+    ///
+    /// Unlike [`Signature::normalize`], this method ignores
+    /// authenticated packets in the unhashed subpacket area.
+    ///
+    ///   [`Signature::normalize`]: struct.Signature.html#method.normalize
+    pub fn normalized_hash<H>(&self, state: &mut H)
+        where H: Hasher
+    {
+        use std::hash::Hash;
+
+        match self {
+            Packet::Signature(sig) => sig.normalized_hash(state),
+            Packet::OnePassSig(x) => Hash::hash(&x, state),
+            Packet::PublicKey(k) => k.public_hash(state),
+            Packet::PublicSubkey(k) => k.public_hash(state),
+            Packet::SecretKey(k) => k.public_hash(state),
+            Packet::SecretSubkey(k) => k.public_hash(state),
+            Packet::Marker(x) => Hash::hash(&x, state),
+            Packet::Trust(x) => Hash::hash(&x, state),
+            Packet::UserID(x) => Hash::hash(&x, state),
+            Packet::UserAttribute(x) => Hash::hash(&x, state),
+            Packet::Literal(x) => Hash::hash(&x, state),
+            Packet::CompressedData(x) => Hash::hash(&x, state),
+            Packet::PKESK(x) => Hash::hash(&x, state),
+            Packet::SKESK(x) => Hash::hash(&x, state),
+            Packet::SEIP(x) => Hash::hash(&x, state),
+            Packet::MDC(x) => Hash::hash(&x, state),
+            Packet::AED(x) => Hash::hash(&x, state),
+            Packet::Unknown(x) => Hash::hash(&x, state),
         }
     }
 }

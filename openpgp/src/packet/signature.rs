@@ -116,6 +116,7 @@
 
 use std::cmp::Ordering;
 use std::fmt;
+use std::hash::Hasher;
 use std::ops::{Deref, DerefMut};
 use std::time::SystemTime;
 
@@ -1993,6 +1994,11 @@ impl crate::packet::Signature {
     /// which need to be validated.  Ignoring the unhashed subpackets
     /// means that we can deduplicate signatures using this predicate.
     ///
+    /// Unlike [`Signature::normalize`], this method ignores
+    /// authenticated packets in the unhashed subpacket area.
+    ///
+    ///   [`Signature::normalize`]: #method.normalize
+    ///
     /// # Examples
     ///
     /// ```
@@ -2047,6 +2053,11 @@ impl crate::packet::Signature {
     /// which need to be validated.  Ignoring the unhashed subpackets
     /// means that we can deduplicate signatures using this predicate.
     ///
+    /// Unlike [`Signature::normalize`], this method ignores
+    /// authenticated packets in the unhashed subpacket area.
+    ///
+    ///   [`Signature::normalize`]: #method.normalize
+    ///
     /// # Examples
     ///
     /// ```
@@ -2089,6 +2100,31 @@ impl crate::packet::Signature {
             .then_with(|| self.hashed_area().cmp(other.hashed_area()))
             .then_with(|| self.digest_prefix().cmp(other.digest_prefix()))
             .then_with(|| self.mpis().cmp(other.mpis()))
+    }
+
+    /// Hashes everything but the unhashed subpacket area into state.
+    ///
+    /// This is an alternate implementation of [`Hash`], which does
+    /// not hash the unhashed subpacket area.
+    ///
+    ///   [`Hash`]: https://doc.rust-lang.org/stable/std/hash/trait.Hash.html
+    ///
+    /// Unlike [`Signature::normalize`], this method ignores
+    /// authenticated packets in the unhashed subpacket area.
+    ///
+    ///   [`Signature::normalize`]: #method.normalize
+    pub fn normalized_hash<H>(&self, state: &mut H)
+        where H: Hasher
+    {
+        use std::hash::Hash;
+
+        self.version.hash(state);
+        self.typ.hash(state);
+        self.pk_algo.hash(state);
+        self.hash_algo.hash(state);
+        self.hashed_area().hash(state);
+        self.digest_prefix().hash(state);
+        Hash::hash(&self.mpis(), state);
     }
 
     /// Normalizes the signature.

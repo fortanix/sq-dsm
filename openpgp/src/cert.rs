@@ -137,10 +137,14 @@
 //! [`Signature::verify_user_attribute_revocation`]: ../packet/enum.Signature.html#method.verify_user_attribute_revocation
 
 use std::io;
+use std::collections::btree_map::BTreeMap;
+use std::collections::btree_map::Entry;
+use std::collections::hash_map::DefaultHasher;
 use std::cmp;
 use std::cmp::Ordering;
 use std::convert::TryFrom;
 use std::convert::TryInto;
+use std::hash::Hasher;
 use std::path::Path;
 use std::mem;
 use std::fmt;
@@ -2353,78 +2357,127 @@ impl Cert {
     {
         let mut combined = self.into_packets().collect::<Vec<_>>();
 
-        fn replace_or_push(acc: &mut Vec<Packet>, p: Packet)
-        {
-            match p {
-                Packet::PublicKey(_) => (),
-                Packet::SecretKey(_) => (),
-                Packet::PublicSubkey(_) => (),
-                Packet::SecretSubkey(_) => (),
-                _ => unreachable!(),
-            }
+        // Hashes a packet ignoring the unhashed subpacket area and
+        // any secret key material.
+        let hash_packet = |p: &Packet| -> u64 {
+            let mut hasher = DefaultHasher::new();
+            p.normalized_hash(&mut hasher);
+            hasher.finish()
+        };
 
-            for q in acc.iter_mut() {
-                let replace = match (&p, &q) {
-                    (Packet::PublicKey(a), Packet::PublicKey(b)) =>
-                        a.public_cmp(&b) == Ordering::Equal,
-                    (Packet::SecretKey(a), Packet::SecretKey(b)) =>
-                        a.public_cmp(&b) == Ordering::Equal,
-                    (Packet::PublicKey(a), Packet::SecretKey(b)) =>
-                        a.public_cmp(&b) == Ordering::Equal,
-                    (Packet::SecretKey(a), Packet::PublicKey(b)) =>
-                        a.public_cmp(&b) == Ordering::Equal,
-
-                    (Packet::PublicSubkey(a), Packet::PublicSubkey(b)) =>
-                        a.public_cmp(&b) == Ordering::Equal,
-                    (Packet::SecretSubkey(a), Packet::SecretSubkey(b)) =>
-                        a.public_cmp(&b) == Ordering::Equal,
-                    (Packet::PublicSubkey(a), Packet::SecretSubkey(b)) =>
-                        a.public_cmp(&b) == Ordering::Equal,
-                    (Packet::SecretSubkey(a), Packet::PublicSubkey(b)) =>
-                        a.public_cmp(&b) == Ordering::Equal,
-
-                    _ => false,
-                };
-
-                if replace {
-                    *q = p;
-                    return;
+        // BTreeMap of (hash) -> Vec<index in combined>.
+        //
+        // We don't use a HashMap, because the key would be a
+        // reference to the packets in combined, which would prevent
+        // us from modifying combined.
+        //
+        // Note: we really don't want to dedup components now, because
+        // we want to keep signatures immediately after their
+        // components.
+        let mut packet_map: BTreeMap<u64, Vec<usize>> = BTreeMap::new();
+        for (i, p) in combined.iter().enumerate() {
+            match packet_map.entry(hash_packet(p)) {
+                Entry::Occupied(mut oe) => {
+                    oe.get_mut().push(i)
+                }
+                Entry::Vacant(ve) => {
+                    ve.insert(vec![ i ]);
                 }
             }
-            acc.push(p);
         }
 
-        /// Replaces or pushes a signature.
-        ///
-        /// If `sig` is equal to an existing signature modulo unhashed
-        /// subpacket area, replaces the existing signature with it.
-        /// Otherwise, `sig` is pushed to the vector.
-        fn rop_sig(acc: &mut Vec<Packet>, sig: Signature)
-        {
-            for q in acc.iter_mut() {
-                let replace = match q {
-                    Packet::Signature(s) => s.normalized_eq(&sig),
-                    _ => false,
-                };
-
-                if replace {
-                    *q = sig.into();
-                    return;
-                }
-            }
-            acc.push(sig.into());
+        enum Action {
+            Drop,
+            Overwrite(usize),
+            Insert,
         }
+        use Action::*;
 
+        // Now we merge in the new packets.
         for p in packets {
             let p = p.into();
             Cert::valid_packet(&p)?;
-            match p {
-                p @ Packet::PublicKey(_) => replace_or_push(&mut combined, p),
-                p @ Packet::SecretKey(_) => replace_or_push(&mut combined, p),
-                p @ Packet::PublicSubkey(_) => replace_or_push(&mut combined, p),
-                p @ Packet::SecretSubkey(_) => replace_or_push(&mut combined, p),
-                Packet::Signature(sig) => rop_sig(&mut combined, sig),
-                p => combined.push(p),
+
+            let hash = hash_packet(&p);
+            let mut action = Insert;
+            if let Some(combined_i) = packet_map.get(&hash) {
+                for i in combined_i {
+                    let i: usize = *i;
+                    let (same, identical) = match (&p, &combined[i]) {
+                        // For keys, only compare the public bits.  If
+                        // they match, then we keep whatever is in the
+                        // new key.
+                        (Packet::PublicKey(a), Packet::PublicKey(b)) =>
+                            (a.public_cmp(&b) == Ordering::Equal,
+                             a == b),
+                        (Packet::SecretKey(a), Packet::SecretKey(b)) =>
+                            (a.public_cmp(&b) == Ordering::Equal,
+                             a == b),
+                        (Packet::PublicKey(a), Packet::SecretKey(b)) =>
+                            (a.public_cmp(&b) == Ordering::Equal,
+                             false),
+                        (Packet::SecretKey(a), Packet::PublicKey(b)) =>
+                            (a.public_cmp(&b) == Ordering::Equal,
+                             false),
+
+                        (Packet::PublicSubkey(a), Packet::PublicSubkey(b)) =>
+                            (a.public_cmp(&b) == Ordering::Equal,
+                             a == b),
+                        (Packet::SecretSubkey(a), Packet::SecretSubkey(b)) =>
+                            (a.public_cmp(&b) == Ordering::Equal,
+                             a == b),
+                        (Packet::PublicSubkey(a), Packet::SecretSubkey(b)) =>
+                            (a.public_cmp(&b) == Ordering::Equal,
+                             false),
+                        (Packet::SecretSubkey(a), Packet::PublicSubkey(b)) =>
+                            (a.public_cmp(&b) == Ordering::Equal,
+                             false),
+
+                        // For signatures, don't compare the unhashed
+                        // subpacket areas.  If it's the same
+                        // signature, then we keep what is the new
+                        // signature's unhashed subpacket area.
+                        (Packet::Signature(a), Packet::Signature(b)) =>
+                            (a.normalized_eq(b),
+                             a == b),
+
+                        (a, b) => {
+                            let identical = a == b;
+                            (identical, identical)
+                        }
+                    };
+
+                    if same {
+                        if identical {
+                            action = Drop;
+                        } else {
+                            action = Overwrite(i);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            match action {
+                Drop => (),
+                Overwrite(i) => combined[i] = p,
+                Insert => {
+                    // New packet.  Add it to combined.
+                    combined.push(p);
+
+                    // Because the caller might insert the same packet
+                    // multiple times, we need to also add it to
+                    // packet_map.
+                    let i = combined.len() - 1;
+                    match packet_map.entry(hash) {
+                        Entry::Occupied(mut oe) => {
+                            oe.get_mut().push(i)
+                        }
+                        Entry::Vacant(ve) => {
+                            ve.insert(vec![ i ]);
+                        }
+                    }
+                }
             }
         }
 
@@ -4031,7 +4084,7 @@ mod test {
     }
 
     #[test]
-    fn insert_packets() {
+    fn insert_packets_add_sig() {
         use crate::armor;
         use crate::packet::Tag;
 
@@ -4051,6 +4104,145 @@ mod test {
         let cert = cert.insert_packets(rev).unwrap();
         let packets_post_merge = cert.clone().into_packets().count();
         assert_eq!(packets_post_merge, packets_pre_merge + 1);
+    }
+
+    #[test]
+    fn insert_packets_update_sig() -> Result<()> {
+        use std::time::Duration;
+
+        use crate::packet::signature::subpacket::Subpacket;
+        use crate::packet::signature::subpacket::SubpacketValue;
+
+        let (cert, _) = CertBuilder::general_purpose(None, Some("Test"))
+            .generate()?;
+        let packets = cert.clone().into_packets().count();
+
+        // Merge a signature with different unhashed subpacket areas.
+        // Make sure only the last variant is merged.
+        let sig = cert.primary_key().self_signatures().next()
+            .expect("binding signature");
+
+        let a = Subpacket::new(
+            SubpacketValue::SignatureExpirationTime(
+                Duration::new(1, 0).try_into()?),
+            false)?;
+        let b = Subpacket::new(
+            SubpacketValue::SignatureExpirationTime(
+                Duration::new(2, 0).try_into()?),
+            false)?;
+
+        let mut sig_a = sig.clone();
+        sig_a.unhashed_area_mut().add(a)?;
+        let mut sig_b = sig.clone();
+        sig_b.unhashed_area_mut().add(b)?;
+
+        // Insert sig_a, make sure it (and it alone) appears.
+        let cert2 = cert.clone().insert_packets(sig_a.clone())?;
+        let mut sigs = cert2.primary_key().self_signatures();
+        assert_eq!(sigs.next(), Some(&sig_a));
+        assert!(sigs.next().is_none());
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        // Insert sig_b, make sure it (and it alone) appears.
+        let cert2 = cert.clone().insert_packets(sig_b.clone())?;
+        let mut sigs = cert2.primary_key().self_signatures();
+        assert_eq!(sigs.next(), Some(&sig_b));
+        assert!(sigs.next().is_none());
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        // Insert sig_a and sig_b.  Make sure sig_b (and it alone)
+        // appears.
+        let cert2 = cert.clone().insert_packets(
+            vec![ sig_a.clone().into(), sig_b.clone() ])?;
+        let mut sigs = cert2.primary_key().self_signatures();
+        assert_eq!(sigs.next(), Some(&sig_b));
+        assert!(sigs.next().is_none());
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        // Insert sig_b and sig_a.  Make sure sig_a (and it alone)
+        // appears.
+        let cert2 = cert.clone().insert_packets(
+            vec![ sig_b.clone().into(), sig_a.clone() ])?;
+        let mut sigs = cert2.primary_key().self_signatures();
+        assert_eq!(sigs.next(), Some(&sig_a));
+        assert!(sigs.next().is_none());
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        Ok(())
+    }
+
+    #[test]
+    fn insert_packets_add_userid() -> Result<()> {
+        let (cert, _) = CertBuilder::general_purpose(None, Some("a"))
+            .generate()?;
+        let packets = cert.clone().into_packets().count();
+
+        let uid_a = UserID::from("a");
+        let uid_b = UserID::from("b");
+
+        // Insert a, make sure it appears once.
+        let cert2 = cert.clone().insert_packets(uid_a.clone())?;
+        let mut uids = cert2.userids();
+        assert_eq!(uids.next().unwrap().userid(), &uid_a);
+        assert!(uids.next().is_none());
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        // Insert b, make sure it also appears.
+        let cert2 = cert.clone().insert_packets(uid_b.clone())?;
+        let mut uids: Vec<UserID>
+            = cert2.userids().map(|ua| ua.userid().clone()).collect();
+        uids.sort();
+        let mut uids = uids.iter();
+        assert_eq!(uids.next().unwrap(), &uid_a);
+        assert_eq!(uids.next().unwrap(), &uid_b);
+        assert!(uids.next().is_none());
+        assert_eq!(cert2.clone().into_packets().count(), packets + 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn insert_packets_update_key() -> Result<()> {
+        use crate::crypto::Password;
+
+        let (cert, _) = CertBuilder::new().generate()?;
+        let packets = cert.clone().into_packets().count();
+        assert_eq!(cert.keys().count(), 1);
+
+        let key = cert.keys().secret().next().unwrap().key();
+        assert!(key.has_secret());
+        let key_a = key.clone().encrypt_secret(&Password::from("a"))?
+            .role_into_primary();
+        let key_b = key.clone().encrypt_secret(&Password::from("b"))?
+            .role_into_primary();
+
+        // Insert variant a.
+        let cert2 = cert.clone().insert_packets(key_a.clone())?;
+        assert_eq!(cert2.primary_key().key().parts_as_secret().unwrap(),
+                   &key_a);
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        // Insert variant b.
+        let cert2 = cert.clone().insert_packets(key_b.clone())?;
+        assert_eq!(cert2.primary_key().key().parts_as_secret().unwrap(),
+                   &key_b);
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        // Insert variant a then b.  We should keep b.
+        let cert2 = cert.clone().insert_packets(
+            vec![ key_a.clone(), key_b.clone() ])?;
+        assert_eq!(cert2.primary_key().key().parts_as_secret().unwrap(),
+                   &key_b);
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        // Insert variant b then a.  We should keep a.
+        let cert2 = cert.clone().insert_packets(
+            vec![ key_b.clone(), key_a.clone() ])?;
+        assert_eq!(cert2.primary_key().key().parts_as_secret().unwrap(),
+                   &key_a);
+        assert_eq!(cert2.clone().into_packets().count(), packets);
+
+        Ok(())
     }
 
     #[test]
