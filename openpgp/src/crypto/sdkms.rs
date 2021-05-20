@@ -12,7 +12,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::net::IpAddr;
 
-
 use anyhow::{Context, Error, Result};
 use bit_vec::BitVec;
 use http::uri::Uri;
@@ -65,6 +64,7 @@ const ENV_API_KEY: &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
 const ENV_HTTP_PROXY: &str = "http_proxy";
 const ENV_NO_PROXY: &str = "no_proxy";
+const SUBKEY: &str = "subkey";
 
 struct Credentials {
     api_endpoint: String,
@@ -91,11 +91,8 @@ impl Credentials {
         let mut builder = SdkmsClient::builder()
             .with_api_endpoint(&self.api_endpoint)
             .with_api_key(&self.api_key);
-        match &self.proxy {
-            Some(proxy) => {
-                builder = builder.with_hyper_client(proxy.clone());
-            }
-            None => (),
+        if let Some(proxy) = &self.proxy {
+            builder = builder.with_hyper_client(proxy.clone());
         }
 
         Ok(builder
@@ -121,12 +118,12 @@ impl SdkmsAgent {
         let sobject = http_client
             .get_sobject(None, &descriptor)
             .context(format!("could not get primary key {}", key_name))?;
-        let key = PublicKey::from_sobject(sobject.clone(), KeyRole::Primary)?;
+        let key = PublicKey::from_sobject(sobject, KeyRole::Primary)?;
 
         Ok(SdkmsAgent {
             credentials,
-            descriptor: descriptor.clone(),
-            public: key.sequoia_key.unwrap(),
+            descriptor,
+            public: key.sequoia_key.expect("key is not loaded"),
             role: Role::Signer,
         })
     }
@@ -143,8 +140,8 @@ impl SdkmsAgent {
             .context(format!("could not get primary key {}", key_name))?;
 
         if let Some(dict) = sobject.custom_metadata {
-            if dict.contains_key("subkey") {
-                let uid = Uuid::parse_str(&dict["subkey"])?;
+            if dict.contains_key(SUBKEY) {
+                let uid = Uuid::parse_str(&dict[SUBKEY])?;
                 let descriptor = SobjectDescriptor::Kid(uid);
                 let sobject = http_client
                     .get_sobject(None, &descriptor)
@@ -152,7 +149,7 @@ impl SdkmsAgent {
                 let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
                 return Ok(SdkmsAgent {
                     descriptor,
-                    public: key.sequoia_key.unwrap(),
+                    public: key.sequoia_key.expect("key is not loaded"),
                     role: Role::Decryptor,
                     credentials,
                 });
@@ -241,16 +238,11 @@ pub fn generate_key(key_name: &str,
         .expect("unloaded primary key")
         .into();
 
-    packets.push(prim.clone().into());
+    packets.push(prim.into());
 
     let mut prim_signer = SdkmsAgent::new_signer(&key_name)?;
 
-    let pref_hashes = vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256];
 
-    let pref_ciphers = vec![
-        SymmetricAlgorithm::AES256,
-        SymmetricAlgorithm::AES128
-    ];
 
     let primary_flags = KeyFlags::empty().set_certification().set_signing();
 
@@ -260,8 +252,12 @@ pub fn generate_key(key_name: &str,
     let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_primary_userid(true)?
         .set_key_flags(primary_flags)?
-        .set_preferred_hash_algorithms(pref_hashes)?
-        .set_preferred_symmetric_algorithms(pref_ciphers)?;
+        .set_preferred_hash_algorithms(
+            vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256]
+            )?
+        .set_preferred_symmetric_algorithms(
+            vec![SymmetricAlgorithm::AES256, SymmetricAlgorithm::AES128]
+        )?;
     let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
     cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
@@ -290,7 +286,7 @@ pub fn generate_key(key_name: &str,
     let armored = String::from_utf8(cert.armored().to_vec()?)?;
 
     let mut metadata = HashMap::<String, String>::new();
-    metadata.insert("subkey".to_string(), subkey.uid()?.to_string());
+    metadata.insert(SUBKEY.to_string(), subkey.uid()?.to_string());
     metadata.insert("certificate".to_string(), armored);
 
     let update_req = SobjectRequest {
@@ -337,7 +333,6 @@ impl PublicKey {
 
         let sobject_request = match (&role, algo) {
             (KeyRole::Primary, SupportedPkAlgo::Rsa(key_size)) => {
-                let ops = KeyOperations::SIGN | KeyOperations::APPMANAGEABLE;
                 let sig_policy = RsaSignaturePolicy {
                     padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
                 };
@@ -350,7 +345,9 @@ impl PublicKey {
                     name: Some(name),
                     description,
                     obj_type: Some(ObjectType::Rsa),
-                    key_ops: Some(ops),
+                    key_ops: Some(
+                        KeyOperations::SIGN | KeyOperations::APPMANAGEABLE
+                    ),
                     key_size: Some(*key_size),
                     rsa: rsa_options,
                     ..Default::default()
@@ -365,10 +362,9 @@ impl PublicKey {
                     encryption_policy: vec![enc_policy],
                     ..Default::default()
                 });
-                let name = name + " (PGP: decryption subkey)";
 
                 SobjectRequest {
-                    name: Some(name),
+                    name: Some(name + " (PGP: decryption subkey)"),
                     description,
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(ops),
@@ -449,9 +445,7 @@ impl PublicKey {
                     let curve = SequoiaCurve::Ed25519;
 
                     // Strip the leading OID
-                    let q = &raw_pk[12..];
-
-                    let point = mpi::MPI::new_compressed_point(&q);
+                    let point = mpi::MPI::new_compressed_point(&raw_pk[12..]);
 
                     let ec_pk = mpi::PublicKey::EdDSA { curve, q: point };
                     let key = Key::V4(
@@ -470,9 +464,7 @@ impl PublicKey {
                     let curve = SequoiaCurve::Cv25519;
 
                     // Strip the leading OID
-                    let q = &raw_pk[12..];
-
-                    let point = mpi::MPI::new_compressed_point(&q);
+                    let point = mpi::MPI::new_compressed_point(&raw_pk[12..]);
 
                     let ec_pk = mpi::PublicKey::ECDH {
                         curve,
@@ -492,44 +484,51 @@ impl PublicKey {
                         sequoia_key: Some(key),
                     })
                 }
-                Some(curve) => {
-                    let curve = api_curve_to_sequoia_curve(&curve)?;
-                    let deserialized_pk = Pk::from_public_key(&raw_pk)
-                        .context("cannot deserialize SDKMS key into mbedTLS")?;
-                    let mbed_point = deserialized_pk.ec_public()?;
-                    let bits_field = curve.bits()
-                        .ok_or_else(|| Error::msg("bad curve"))?;
-                    let point = mpi::MPI::new_point(
-                        &mbed_point.x()?.to_binary()?,
-                        &mbed_point.y()?.to_binary()?,
-                        bits_field,
-                    );
-                    let (pk_algo, ec_pk) = match role {
-                        KeyRole::Primary => (
-                            PublicKeyAlgorithm::ECDSA,
-                            mpi::PublicKey::ECDSA { curve, q: point },
-                        ),
-                        KeyRole::Subkey => (
-                            PublicKeyAlgorithm::ECDH,
-                            mpi::PublicKey::ECDH {
-                                curve,
-                                q: point,
-                                hash: HashAlgorithm::SHA512,
-                                sym: SymmetricAlgorithm::AES256,
-                            },
-                        ),
-                    };
-                    let key = Key::V4(
-                        Key4::new(time, pk_algo, ec_pk)
+                Some(curve @ ApiCurve::NistP256) |
+                    Some(curve @ ApiCurve::NistP384) |
+                    Some(curve @ ApiCurve::NistP521) => {
+                        let curve = SequoiaCurve::try_from(curve)?;
+                        let deserialized_pk = Pk::from_public_key(&raw_pk)
+                            .context("cannot deserialize key into mbedTLS")?;
+                        let mbed_point = deserialized_pk.ec_public()?;
+                        let bits_field = curve.bits()
+                            .ok_or_else(|| Error::msg("bad curve"))?;
+                        let point = mpi::MPI::new_point(
+                            &mbed_point.x()?.to_binary()?,
+                            &mbed_point.y()?.to_binary()?,
+                            bits_field,
+                        );
+                        let (pk_algo, ec_pk) = match role {
+                            KeyRole::Primary => (
+                                PublicKeyAlgorithm::ECDSA,
+                                mpi::PublicKey::ECDSA { curve, q: point },
+                            ),
+                            KeyRole::Subkey => (
+                                PublicKeyAlgorithm::ECDH,
+                                mpi::PublicKey::ECDH {
+                                    curve,
+                                    q: point,
+                                    hash: HashAlgorithm::SHA512,
+                                    sym: SymmetricAlgorithm::AES256,
+                                },
+                            ),
+                        };
+                        let key = Key::V4(
+                            Key4::new(time, pk_algo, ec_pk)
                             .context("cannot import EC key into Sequoia")?,
-                    );
-                    Ok(PublicKey {
-                        descriptor,
-                        role,
-                        sequoia_key: Some(key),
-                    })
+                        );
+                        Ok(PublicKey {
+                            descriptor,
+                            role,
+                            sequoia_key: Some(key),
+                        })
+                    }
+                Some(curve) => {
+                    return Err(
+                        Error::msg(format!("unimplemented curve: {:?}", curve))
+                    )
                 }
-                _ => unimplemented!(),
+                None => return Err(Error::msg("Sobject has no curve attribute"))
             },
             ObjectType::Rsa => {
                 let deserialized_pk = Pk::from_public_key(&raw_pk)
@@ -541,7 +540,7 @@ impl PublicKey {
                 );
                 let key = Key::V4(
                     Key4::import_public_rsa(&e, &n, Some(time.into()))
-                        .context("cannot import RSA key into Sequoia")?,
+                    .context("cannot import RSA key into Sequoia")?,
                 );
 
                 Ok(PublicKey {
@@ -550,7 +549,9 @@ impl PublicKey {
                     sequoia_key: Some(key),
                 })
             }
-            _ => unimplemented!(),
+            t @ _ => {
+                return Err(Error::msg(format!("unknown object : {:?}", t)));
+            }
         }
     }
 
@@ -570,86 +571,83 @@ impl Signer for SdkmsAgent {
     fn sign(
         &mut self,
         hash_algo: HashAlgorithm,
-        digest: &[u8])
-        -> Result<mpi::Signature> {
+        digest: &[u8]) -> Result<mpi::Signature> {
         if self.role != Role::Signer {
             return Err(Error::msg("bad role for SDKMS agent"));
         }
         let http_client = self.credentials.http_client()?;
 
-        let signature = {
-            let hash_alg = match hash_algo {
-                HashAlgorithm::SHA1 => DigestAlgorithm::Sha1,
-                HashAlgorithm::SHA512 => DigestAlgorithm::Sha512,
-                HashAlgorithm::SHA256 => DigestAlgorithm::Sha256,
-                _ => {
-                    panic!("unimplemented hash algorithm");
-                }
-            };
-
-            match self.public.pk_algo() {
-                PublicKeyAlgorithm::RSAEncryptSign => {
-                    let sign_req = SignRequest {
-                        key: Some(self.descriptor.clone()),
-                        hash_alg,
-                        hash: Some(digest.to_vec().into()),
-                        data: None,
-                        mode: None,
-                        deterministic_signature: None,
-                    };
-                    let sign_resp = http_client.sign(&sign_req)?;
-
-                    let plain: Vec<u8> = sign_resp.signature.into();
-                    mpi::Signature::RSA { s: plain.into() }
-                }
-                PublicKeyAlgorithm::EdDSA => {
-                    let sign_req = SignRequest {
-                        key: Some(self.descriptor.clone()),
-                        hash_alg,
-                        data: Some(digest.to_vec().into()),
-                        hash: None,
-                        mode: None,
-                        deterministic_signature: None,
-                    };
-                    let sign_resp = http_client.sign(&sign_req)?;
-
-                    let plain: Vec<u8> = sign_resp.signature.into();
-                    mpi::Signature::EdDSA {
-                        r: mpi::MPI::new(&plain[..32]),
-                        s: mpi::MPI::new(&plain[32..]),
-                    }
-                }
-                PublicKeyAlgorithm::ECDSA => {
-                    let sign_req = SignRequest {
-                        key: Some(self.descriptor.clone()),
-                        hash_alg,
-                        hash: Some(digest.to_vec().into()),
-                        data: None,
-                        mode: None,
-                        deterministic_signature: None,
-                    };
-                    let sign_resp = http_client.sign(&sign_req)?;
-
-                    let plain: Vec<u8> = sign_resp.signature.into();
-                    let (r, s) = yasna::parse_der(&plain, |reader| {
-                        reader.read_sequence(|reader| {
-                            let r = reader.next().read_biguint()?.to_bytes_be();
-                            let s = reader.next().read_biguint()?.to_bytes_be();
-                            Ok((r, s))
-                        })
-                    })
-                    .map_err(|e| anyhow::Error::msg(format!("ECDSA signature: {}", e)))?;
-
-                    mpi::Signature::ECDSA {
-                        r: r.to_vec().into(),
-                        s: s.to_vec().into(),
-                    }
-                }
-                _ => unimplemented!(),
+        let hash_alg = match hash_algo {
+            HashAlgorithm::SHA1 => DigestAlgorithm::Sha1,
+            HashAlgorithm::SHA512 => DigestAlgorithm::Sha512,
+            HashAlgorithm::SHA256 => DigestAlgorithm::Sha256,
+            hash @ _ => {
+                return Err(Error::msg(format!("unimplemented: {}", hash)));
             }
         };
 
-        Ok(signature)
+        match self.public.pk_algo() {
+            PublicKeyAlgorithm::RSAEncryptSign => {
+                let sign_req = SignRequest {
+                    key: Some(self.descriptor.clone()),
+                    hash_alg,
+                    hash: Some(digest.to_vec().into()),
+                    data: None,
+                    mode: None,
+                    deterministic_signature: None,
+                };
+                let sign_resp = http_client.sign(&sign_req)?;
+
+                let plain: Vec<u8> = sign_resp.signature.into();
+                Ok(mpi::Signature::RSA { s: plain.into() })
+            }
+            PublicKeyAlgorithm::EdDSA => {
+                let sign_req = SignRequest {
+                    key: Some(self.descriptor.clone()),
+                    hash_alg,
+                    data: Some(digest.to_vec().into()),
+                    hash: None,
+                    mode: None,
+                    deterministic_signature: None,
+                };
+                let sign_resp = http_client.sign(&sign_req)?;
+
+                let plain: Vec<u8> = sign_resp.signature.into();
+                Ok(mpi::Signature::EdDSA {
+                    r: mpi::MPI::new(&plain[..32]),
+                    s: mpi::MPI::new(&plain[32..]),
+                })
+            }
+            PublicKeyAlgorithm::ECDSA => {
+                let sign_req = SignRequest {
+                    key: Some(self.descriptor.clone()),
+                    hash_alg,
+                    hash: Some(digest.to_vec().into()),
+                    data: None,
+                    mode: None,
+                    deterministic_signature: None,
+                };
+                let sign_resp = http_client.sign(&sign_req)?;
+
+                let plain: Vec<u8> = sign_resp.signature.into();
+                let (r, s) = yasna::parse_der(&plain, |reader| {
+                    reader.read_sequence(|reader| {
+                        let r = reader.next().read_biguint()?.to_bytes_be();
+                        let s = reader.next().read_biguint()?.to_bytes_be();
+                        Ok((r, s))
+                    })
+                })
+                .map_err(|e| anyhow::Error::msg(format!("ECDSA: {}", e)))?;
+
+                Ok(mpi::Signature::ECDSA {
+                    r: r.to_vec().into(),
+                    s: s.to_vec().into(),
+                })
+            }
+            algo @ _ => {
+                return Err(Error::msg(format!("unknown algo: {}", algo)));
+            }
+        }
     }
 }
 
@@ -736,7 +734,7 @@ impl Decryptor for SdkmsAgent {
 
                 // Import ephemeral public key
                 let e_descriptor = {
-                    let api_curve = sequoia_curve_to_api_curve(&curve)?;
+                    let api_curve = ApiCurve::try_from(curve.clone())?;
                     let req = SobjectRequest {
                         elliptic_curve: Some(api_curve),
                         key_ops: Some(KeyOperations::AGREEKEY),
@@ -747,7 +745,7 @@ impl Decryptor for SdkmsAgent {
                     };
                     let e_tkey = cli
                         .import_sobject(&req)
-                        .unwrap()
+                        .expect("failed import ephemeral public key into SDKMS")
                         .transient_key
                         .ok_or_else(|| {
                             Error::msg(
@@ -782,7 +780,7 @@ impl Decryptor for SdkmsAgent {
 
                     let agreed_tkey = cli
                         .agree(&agree_req)
-                        .unwrap()
+                        .expect("failed ECDH agreement on SDKMS")
                         .transient_key
                         .ok_or_else(|| Error::msg("could not retrieve agreed key"))?;
 
@@ -810,7 +808,7 @@ fn curve_oid(curve: &SequoiaCurve) -> Result<Oid> {
         SequoiaCurve::NistP384 => Ok(Oid::from_slice(&[1, 3, 132, 0, 34])),
         SequoiaCurve::NistP521 => Ok(Oid::from_slice(&[1, 3, 132, 0, 35])),
         SequoiaCurve::Cv25519 => Ok(Oid::from_slice(&[1, 3, 101, 110])),
-        _ => Err(Error::msg("unsupported curve")),
+        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
     }
 }
 
@@ -820,36 +818,43 @@ fn curve_key_size(curve: &SequoiaCurve) -> Result<u32> {
         SequoiaCurve::NistP256 => Ok(256),
         SequoiaCurve::NistP384 => Ok(384),
         SequoiaCurve::NistP521 => Ok(521),
-        _ => Err(Error::msg("unsupported curve")),
+        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
     }
 }
 
-fn sequoia_curve_to_api_curve(curve: &SequoiaCurve) -> Result<ApiCurve> {
-    match curve {
-        SequoiaCurve::Cv25519 => Ok(ApiCurve::X25519),
-        SequoiaCurve::Ed25519 => Ok(ApiCurve::Ed25519),
-        SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
-        SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
-        SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
-        _ => Err(Error::msg("cannot convert curve")),
+impl TryFrom<ApiCurve> for SequoiaCurve {
+    type Error = Error;
+
+    fn try_from(curve: ApiCurve) -> Result<Self> {
+        match curve {
+            ApiCurve::X25519 => Ok(SequoiaCurve::Cv25519),
+            ApiCurve::Ed25519 => Ok(SequoiaCurve::Ed25519),
+            ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
+            ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
+            ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
+            _ => Err(Error::msg("cannot convert curve")),
+        }
     }
 }
 
-fn api_curve_to_sequoia_curve(curve: &ApiCurve) -> Result<SequoiaCurve> {
-    match curve {
-        ApiCurve::X25519 => Ok(SequoiaCurve::Cv25519),
-        ApiCurve::Ed25519 => Ok(SequoiaCurve::Ed25519),
-        ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
-        ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
-        ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
-        _ => Err(Error::msg("cannot convert curve")),
+impl TryFrom<SequoiaCurve> for ApiCurve {
+    type Error = Error;
+
+    fn try_from(curve: SequoiaCurve) -> Result<Self> {
+        match curve {
+            SequoiaCurve::Cv25519 => Ok(ApiCurve::X25519),
+            SequoiaCurve::Ed25519 => Ok(ApiCurve::Ed25519),
+            SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
+            SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
+            SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
+            curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
+        }
     }
 }
 
 /// Struct with information of hostnames that should not be accessed through a
 /// proxy.
 #[derive(Clone, Debug)]
-
 pub struct NoProxy(Vec<NoProxyEntry>);
 
 impl NoProxy {
@@ -862,9 +867,9 @@ impl NoProxy {
     pub fn parse(no_proxy: &str) -> Self {
         Self(
             no_proxy
-                .split(",")
-                .filter_map(|no_proxy| no_proxy.parse().ok())
-                .collect(),
+            .split(",")
+            .filter_map(|no_proxy| no_proxy.parse().ok())
+            .collect(),
         )
     }
 
@@ -903,7 +908,6 @@ impl NoProxy {
 }
 
 #[derive(Clone, Debug)]
-
 pub(crate) struct NoProxyEntry {
     pub ipnetwork: Option<IpNetwork>,
     pub split_hostname: Vec<String>,
@@ -952,7 +956,7 @@ fn decide_proxy_from_env(endpoint: &str) -> Option<Arc::<HyperClient>> {
                         proxy_port,
                         HttpsConnector::new(NativeTlsClient::new().ok()?),
                         NativeTlsClient::new().ok()?,
-                ));
+                    ));
                 return Some(Arc::new(hyper_client))
             }
         }

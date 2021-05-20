@@ -83,7 +83,7 @@ impl<'a> Helper<'a> {
             } else {
                 None
             },
-            sdkms_key: sdkms_key,
+            sdkms_key,
         }
     }
 

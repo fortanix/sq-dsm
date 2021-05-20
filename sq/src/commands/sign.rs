@@ -6,7 +6,6 @@ use std::time::SystemTime;
 use tempfile::NamedTempFile;
 
 use sequoia_openpgp as openpgp;
-
 use crate::openpgp::armor;
 use crate::openpgp::crypto::secrets::Secret;
 use crate::openpgp::crypto::sdkms::SdkmsAgent;
@@ -117,10 +116,11 @@ fn sign_data(config: Config,
                                                time)?;
     let crypto_signer = match sdkms_key {
         None => {
-            if keypairs.is_empty() {
+            if let Some(key) = keypairs.pop() {
+                key
+            } else {
                 return Err(anyhow::anyhow!("No signing keys found"));
             }
-            keypairs.pop().unwrap()
         },
         Some(name) => {
             Secret::Sdkms(SdkmsAgent::new_signer(name)?)
@@ -270,10 +270,11 @@ fn sign_message_(config: Config,
 
                 let crypto_signer = match sdkms_key {
                     None => {
-                        if keypairs.is_empty() {
+                        if let Some(key) = keypairs.pop() {
+                            key
+                        } else {
                             return Err(anyhow::anyhow!("No signing keys found"));
                         }
-                        keypairs.pop().unwrap()
                     },
                     Some(name) => {
                         Secret::Sdkms(SdkmsAgent::new_signer(name)?)
@@ -409,10 +410,11 @@ pub fn clearsign(config: Config,
     let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
     let crypto_signer = match sdkms_key {
         None => {
-            if keypairs.is_empty() {
+            if let Some(key) = keypairs.pop() {
+                key
+            } else {
                 return Err(anyhow::anyhow!("No signing keys found"));
             }
-            keypairs.pop().unwrap()
         },
         Some(name) => {
             Secret::Sdkms(SdkmsAgent::new_signer(name)?)

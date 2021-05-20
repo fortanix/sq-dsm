@@ -430,7 +430,6 @@ fn main() -> Result<()> {
             let secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
-
             commands::decrypt(config,
                               &mut input, &mut output,
                               signatures, certs, secrets,

@@ -112,7 +112,7 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
             }))?.into());
     }
 
-    if recipients.len() + passwords.len() == 0 && sdkms_signer.is_none() {
+    if recipients.len() + passwords.len() == 0 {
         return Err(anyhow::anyhow!(
             "Neither recipient nor password given"));
     }
