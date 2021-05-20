@@ -26,6 +26,8 @@
    - ValidUserIDAmalgamation::attest_certifications
    - ValidUserIDAmalgamation::attestation_key_signatures
    - ValidUserIDAmalgamation::attested_certifications
+ ** Notable fixes
+   - Improve Cert::insert_packets runtime from O(n^2) to O(n log n).
 * Changes in 1.1.0
 ** New functionality
    - The new regex module provides regular expression support for
