@@ -354,7 +354,6 @@ impl PublicKey {
                 }
             }
             (KeyRole::Subkey, SupportedPkAlgo::Rsa(key_size)) => {
-                let ops = KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE;
                 let enc_policy = RsaEncryptionPolicy {
                     padding: Some(RsaEncryptionPaddingPolicy::Pkcs1V15 {}),
                 };
@@ -367,58 +366,60 @@ impl PublicKey {
                     name: Some(name + " (PGP: decryption subkey)"),
                     description,
                     obj_type: Some(ObjectType::Rsa),
-                    key_ops: Some(ops),
+                    key_ops: Some(
+                        KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE
+                        ),
                     key_size: Some(*key_size),
                     rsa: rsa_options,
                     ..Default::default()
                 }
             }
             (KeyRole::Primary, SupportedPkAlgo::Curve25519) => {
-                let ops = KeyOperations::SIGN | KeyOperations::APPMANAGEABLE;
-
                 SobjectRequest {
                     name: Some(name),
                     description,
                     obj_type: Some(ObjectType::Ec),
-                    key_ops: Some(ops),
+                    key_ops: Some(
+                        KeyOperations::SIGN | KeyOperations::APPMANAGEABLE
+                    ),
                     elliptic_curve: Some(ApiCurve::Ed25519),
                     ..Default::default()
                 }
             }
             (KeyRole::Subkey, SupportedPkAlgo::Curve25519) => {
-                let ops = KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE;
                 let name = name + " (PGP: decryption subkey)";
 
                 SobjectRequest {
                     name: Some(name),
                     description,
                     obj_type: Some(ObjectType::Ec),
-                    key_ops: Some(ops),
+                    key_ops: Some(
+                        KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE
+                    ),
                     elliptic_curve: Some(ApiCurve::X25519),
                     ..Default::default()
                 }
             }
             (KeyRole::Primary, SupportedPkAlgo::Ec(curve)) => {
-                let ops = KeyOperations::SIGN | KeyOperations::APPMANAGEABLE;
-
                 SobjectRequest {
                     name: Some(name),
                     description,
                     obj_type: Some(ObjectType::Ec),
-                    key_ops: Some(ops),
+                    key_ops: Some(
+                        KeyOperations::SIGN | KeyOperations::APPMANAGEABLE
+                    ),
                     elliptic_curve: Some(*curve),
                     ..Default::default()
                 }
             }
             (KeyRole::Subkey, SupportedPkAlgo::Ec(curve)) => {
-                let ops = KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE;
-                let name = name + " (PGP: decryption subkey)";
-
                 SobjectRequest {
-                    name: Some(name),
+                    name: Some(name + " (PGP: decryption subkey)"),
                     description,
                     obj_type: Some(ObjectType::Ec),
-                    key_ops: Some(ops),
+                    key_ops: Some(
+                        KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE
+                    ),
                     elliptic_curve: Some(*curve),
                     ..Default::default()
                 }
