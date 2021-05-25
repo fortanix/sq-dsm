@@ -1,10 +1,10 @@
-#!/bin/bash
+#!/bin/bash -e
 
 sq="sq"
 
 # tmp directory, erased on exit
 create_tmp_dir() {
-    eval $1="$(mktemp -d)"
+    eval "$1"="$(mktemp -d)"
     if (( $? != 0 )); then
         echo "Failed to create temporary directory"
         exit $?
@@ -12,28 +12,28 @@ create_tmp_dir() {
 }
 
 erase_tmp_dir() {
-    rm -rf $1
-    if (( $? != 0 )); then
-        echo "Failed to delete temporary directory: $1"
-        exit $?
+    rm -rf "$1"
+    if (( "$?" != 0 )); then
+        echo "Failed to delete temporary directory: '$1'"
+        exit "$?"
     fi
 }
 
 
 exit_code() {
     if (( $1 != $2 )); then
-        echo "Failed: Exit code $1, expected $2"
-        exit $1
+        echo "Failed: Exit code '$1', expected '$2'"
+        exit "$1"
     fi
     echo "    ... OK"
 }
 
 comm() {
-    printf "$ $1\n"
+    printf "$ %s\n" "$1"
 }
 
 my_cat() {
-    head -n1 $1
+    head -n1 "$1"
 }
 
 # Parse input flags
@@ -48,9 +48,10 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+data=""
 create_tmp_dir data
 
-trap "erase_tmp_dir $data" EXIT
+trap 'erase_tmp_dir $data' EXIT
 
 # Test files
 message=$data/message.txt
@@ -62,8 +63,8 @@ encrypted=$data/message.txt.gpg
 decrypted=$data/decrypted.txt
 signed=$data/message.signed.asc
 
-alice_key_name="test-alice-$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-10} | head -n 1)"
-bob_key_name="test-bob-bb$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w ${1:-10} | head -n 1)"
+alice_key_name="test-alice-$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "${1:-10}" | head -n 1)"
+bob_key_name="test-bob-bb$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "${1:-10}" | head -n 1)"
 
 comm "version"
 $sq --version
