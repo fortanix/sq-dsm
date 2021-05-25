@@ -941,18 +941,21 @@ fn decide_proxy_from_env(endpoint: &str) -> Option<Arc::<HyperClient>> {
         //  If host is in no_proxy, then don't use the proxy
         let no_proxy = env::var(ENV_NO_PROXY).map(|list| NoProxy::parse(&list));
         if let Ok(s) = no_proxy {
-            if !s.is_no_proxy(endpoint_host, endpoint_port) {
-                let hyper_client = HyperClient::with_proxy_config(
-                    ProxyConfig::new(
-                        "http",
-                        proxy_host.to_string(),
-                        proxy_port,
-                        HttpsConnector::new(NativeTlsClient::new().ok()?),
-                        NativeTlsClient::new().ok()?,
-                    ));
-                return Some(Arc::new(hyper_client))
+            if s.is_no_proxy(endpoint_host, endpoint_port) {
+                return None;
             }
         }
+
+        let hyper_client = HyperClient::with_proxy_config(
+            ProxyConfig::new(
+                "http",
+                proxy_host.to_string(),
+                proxy_port,
+                HttpsConnector::new(NativeTlsClient::new().ok()?),
+                NativeTlsClient::new().ok()?,
+            ));
+
+        return Some(Arc::new(hyper_client))
     }
 
     None
