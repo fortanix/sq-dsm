@@ -54,3 +54,8 @@ impl Decryptor for Secret {
         }
     }
 }
+
+pub enum PreSecret {
+    InMemory(sequoia_openpgp::Cert),
+    Sdkms(String),
+}

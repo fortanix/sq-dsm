@@ -34,7 +34,7 @@ use crate::{
     parse_armor_kind,
 };
 
-use crate::secrets::Secret;
+use crate::secrets::{PreSecret, Secret};
 
 #[cfg(feature = "autocrypt")]
 pub mod autocrypt;
@@ -55,38 +55,46 @@ pub mod net;
 pub mod certify;
 
 /// Returns suitable signing keys from a given list of Certs.
-fn get_signing_keys (certs: &[openpgp::Cert], p: &dyn Policy,
+fn get_signing_keys (presecrets: &Vec<PreSecret>, p: &dyn Policy,
                     timestamp: Option<SystemTime>)
     -> Result<Vec<Secret>>
 {
     let mut keys = Vec::new();
-    'next_cert: for tsk in certs {
-        for key in tsk.keys().with_policy(p, timestamp).alive().revoked(false)
-            .for_signing()
-            .supported()
-            .map(|ka| ka.key())
-        {
-            if let Some(secret) = key.optional_secret() {
-                let unencrypted = match secret {
-                    SecretKeyMaterial::Encrypted(ref e) => {
-                        let password = rpassword::read_password_from_tty(Some(
-                            &format!("Please enter password to decrypt {}/{}: ",
-                                     tsk, key))).unwrap();
-                        e.decrypt(key.pk_algo(), &password.into())
-                            .expect("decryption failed")
-                    },
-                    SecretKeyMaterial::Unencrypted(ref u) => u.clone(),
-                };
+    'next_cert: for presecret in presecrets {
+        match presecret {
+            PreSecret::Sdkms(name) => {
+                keys.push(Secret::Sdkms(SdkmsAgent::new_signer(name)?));
+            }
+            PreSecret::InMemory(tsk) => {
+            for key in tsk.keys().with_policy(p, timestamp).alive().revoked(false)
+                .for_signing()
+                .supported()
+                .map(|ka| ka.key())
+            {
+                if let Some(secret) = key.optional_secret() {
+                    let unencrypted = match secret {
+                        SecretKeyMaterial::Encrypted(ref e) => {
+                            let password = rpassword::read_password_from_tty(Some(
+                                &format!("Please enter password to decrypt {}/{}: ",
+                                         tsk, key))).unwrap();
+                            e.decrypt(key.pk_algo(), &password.into())
+                                .expect("decryption failed")
+                        },
+                        SecretKeyMaterial::Unencrypted(ref u) => u.clone(),
+                    };
 
-                keys.push(Secret::InMemory(
-                        crypto::KeyPair::new(key.clone(), unencrypted).unwrap()
-                ));
-                break 'next_cert;
+                    keys.push(Secret::InMemory(
+                            crypto::KeyPair::new(key.clone(), unencrypted).unwrap()
+                    ));
+                    break 'next_cert;
+                }
+            }
+
+            return Err(anyhow::anyhow!(
+                format!("Found no suitable signing key on {}", tsk)));
+
             }
         }
-
-        return Err(anyhow::anyhow!(
-            format!("Found no suitable signing key on {}", tsk)));
     }
 
     Ok(keys)
@@ -95,8 +103,7 @@ fn get_signing_keys (certs: &[openpgp::Cert], p: &dyn Policy,
 pub fn encrypt<'a>(policy: &'a dyn Policy,
                    input: &mut dyn io::Read, message: Message<'a>,
                    npasswords: usize, recipients: &'a [openpgp::Cert],
-                   signers: Vec<openpgp::Cert>,
-                   sdkms_signer: Option<&str>,
+                   signers: Vec<PreSecret>,
                    mode: openpgp::types::KeyFlags, compression: &str,
                    time: Option<SystemTime>,
                    use_expired_subkey: bool,
@@ -119,10 +126,6 @@ pub fn encrypt<'a>(policy: &'a dyn Policy,
     }
 
     let mut signers = get_signing_keys(&signers, policy, time)?;
-
-    if let Some(name) = sdkms_signer {
-        signers.push(Secret::Sdkms(SdkmsAgent::new_signer(name)?));
-    }
 
     // Build a vector of recipients to hand to Encryptor.
     let mut recipient_subkeys: Vec<Recipient> = Vec::new();

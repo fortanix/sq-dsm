@@ -20,33 +20,31 @@ use crate::openpgp::serialize::stream::{
 };
 use crate::openpgp::types::SignatureType;
 
-use crate::secrets::Secret;
-
-use openpgp_sdkms::SdkmsAgent;
+use crate::secrets::PreSecret;
 
 use crate::Config;
 
 pub fn sign(config: Config,
             input: &mut (dyn io::Read + Sync + Send),
             output_path: Option<&str>,
-            secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+            secrets: Vec<PreSecret>,
             detached: bool, binary: bool,
             append: bool, notarize: bool, time: Option<SystemTime>,
             notations: &[(bool, NotationData)])
             -> Result<()> {
     match (detached, append|notarize) {
         (_, false) | (true, true) =>
-            sign_data(config, input, output_path, secrets, sdkms_key, detached,
-                      binary, append, time, notations),
+            sign_data(config, input, output_path, secrets, detached, binary,
+                append, time, notations),
         (false, true) =>
-            sign_message(config, input, output_path, secrets, sdkms_key, binary,
-                         notarize, time, notations),
+            sign_message(config, input, output_path, secrets, binary, notarize,
+                time, notations),
     }
 }
 
 fn sign_data(config: Config,
              input: &mut dyn io::Read, output_path: Option<&str>,
-             secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+             presecrets: Vec<PreSecret>,
              detached: bool, binary: bool, append: bool,
              time: Option<SystemTime>,
              notations: &[(bool, NotationData)])
@@ -113,25 +111,18 @@ fn sign_data(config: Config,
             *critical)?;
     }
 
-    let mut keypairs = super::get_signing_keys(&secrets,
+    let mut signing_keys = super::get_signing_keys(&presecrets,
                                                &config.policy,
                                                time)?;
-    let crypto_signer = match sdkms_key {
-        None => {
-            if let Some(key) = keypairs.pop() {
-                key
-            } else {
-                return Err(anyhow::anyhow!("No signing keys found"));
-            }
-        },
-        Some(name) => {
-            Secret::Sdkms(SdkmsAgent::new_signer(name)?)
-        }
+    let crypto_signer = if let Some(key) = signing_keys.pop() {
+        key
+    } else {
+        return Err(anyhow::anyhow!("No signing keys found"));
     };
 
     let mut signer = Signer::with_template(message, crypto_signer, builder);
 
-    for s in keypairs {
+    for s in signing_keys {
         signer = signer.add_signer(s);
     }
 
@@ -171,7 +162,7 @@ fn sign_data(config: Config,
 fn sign_message(config: Config,
                 input: &mut (dyn io::Read + Sync + Send),
                 output_path: Option<&str>,
-                secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+                secrets: Vec<PreSecret>,
                 binary: bool, notarize: bool,
                 time: Option<SystemTime>,
                 notations: &[(bool, NotationData)])
@@ -180,7 +171,7 @@ fn sign_message(config: Config,
         config.create_or_stdout_pgp(output_path,
                                     binary,
                                     armor::Kind::Message)?;
-    sign_message_(config, input, &mut output, secrets, sdkms_key, notarize,
+    sign_message_(config, input, &mut output, secrets, notarize,
                   time, notations)?;
     output.finalize()?;
     Ok(())
@@ -189,7 +180,7 @@ fn sign_message(config: Config,
 fn sign_message_(config: Config,
                  input: &mut (dyn io::Read + Sync + Send),
                  output: &mut (dyn io::Write + Sync + Send),
-                 secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+                 secrets: Vec<PreSecret>,
                  notarize: bool,
                  time: Option<SystemTime>,
                  notations: &[(bool, NotationData)])
@@ -270,17 +261,10 @@ fn sign_message_(config: Config,
                         *critical)?;
                 }
 
-                let crypto_signer = match sdkms_key {
-                    None => {
-                        if let Some(key) = keypairs.pop() {
-                            key
-                        } else {
-                            return Err(anyhow::anyhow!("No signing keys found"));
-                        }
-                    },
-                    Some(name) => {
-                        Secret::Sdkms(SdkmsAgent::new_signer(name)?)
-                    }
+                let crypto_signer = if let Some(key) = keypairs.pop() {
+                    key
+                } else {
+                    return Err(anyhow::anyhow!("No signing keys found"));
                 };
                 let mut signer = Signer::with_template(
                     sink, crypto_signer, builder);
@@ -404,23 +388,16 @@ fn sign_message_(config: Config,
 pub fn clearsign(config: Config,
                  mut input: impl io::Read + Sync + Send,
                  mut output: impl io::Write + Sync + Send,
-                 secrets: Vec<openpgp::Cert>, sdkms_key: Option<&str>,
+                 secrets: Vec<PreSecret>,
                  time: Option<SystemTime>,
                  notations: &[(bool, NotationData)])
                  -> Result<()>
 {
-    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, time)?;
-    let crypto_signer = match sdkms_key {
-        None => {
-            if let Some(key) = keypairs.pop() {
-                key
-            } else {
-                return Err(anyhow::anyhow!("No signing keys found"));
-            }
-        },
-        Some(name) => {
-            Secret::Sdkms(SdkmsAgent::new_signer(name)?)
-        }
+    let mut signing_keys = super::get_signing_keys(&secrets, &config.policy, time)?;
+    let crypto_signer = if let Some(key) = signing_keys.pop() {
+        key
+    } else {
+        return Err(anyhow::anyhow!("No signing keys found"));
     };
 
     // Prepare a signature template.
@@ -440,7 +417,7 @@ pub fn clearsign(config: Config,
     if let Some(time) = time {
         signer = signer.creation_time(time);
     }
-    for s in keypairs {
+    for s in signing_keys {
         signer = signer.add_signer(s);
     }
     let mut message = signer.build().context("Failed to create signer")?;
