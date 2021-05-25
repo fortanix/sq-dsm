@@ -58,11 +58,11 @@ pub enum CipherSuite {
     Cv25519,
     /// 3072 bit RSA with SHA512 and AES256
     RSA3k,
-    /// ECDSA and ECDH over NIST P-256 with SHA256 and AES256
+    /// EdDSA and ECDH over NIST P-256 with SHA256 and AES256
     P256,
-    /// ECDSA and ECDH over NIST P-384 with SHA384 and AES256
+    /// EdDSA and ECDH over NIST P-384 with SHA384 and AES256
     P384,
-    /// ECDSA and ECDH over NIST P-521 with SHA512 and AES256
+    /// EdDSA and ECDH over NIST P-521 with SHA512 and AES256
     P521,
     /// 2048 bit RSA with SHA512 and AES256
     RSA2k,

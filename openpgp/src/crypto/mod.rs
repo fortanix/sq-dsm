@@ -31,8 +31,6 @@ pub mod ecdh;
 pub mod hash;
 pub mod mem;
 pub mod mpi;
-pub mod sdkms;
-pub mod secrets;
 mod s2k;
 pub use s2k::S2K;
 pub(crate) mod symmetric;

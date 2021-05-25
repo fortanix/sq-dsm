@@ -8,7 +8,6 @@ use crate::openpgp::Packet;
 use crate::openpgp::Result;
 use crate::openpgp::armor::{Writer, Kind};
 use crate::openpgp::cert::prelude::*;
-use crate::openpgp::crypto::sdkms;
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::packet::signature::subpacket::SubpacketTag;
 use crate::openpgp::parse::Parse;
@@ -16,6 +15,8 @@ use crate::openpgp::policy::Policy;
 use crate::openpgp::serialize::Serialize;
 use crate::openpgp::types::KeyFlags;
 use crate::openpgp::types::SignatureType;
+
+use openpgp_sdkms as sdkms;
 
 use crate::{
     open_or_stdin,

@@ -7,8 +7,6 @@ use tempfile::NamedTempFile;
 
 use sequoia_openpgp as openpgp;
 use crate::openpgp::armor;
-use crate::openpgp::crypto::secrets::Secret;
-use crate::openpgp::crypto::sdkms::SdkmsAgent;
 use crate::openpgp::{Packet, Result};
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::packet::signature::subpacket::NotationData;
@@ -21,6 +19,10 @@ use crate::openpgp::serialize::stream::{
     Message, Armorer, Signer, LiteralWriter,
 };
 use crate::openpgp::types::SignatureType;
+
+use crate::secrets::Secret;
+
+use openpgp_sdkms::SdkmsAgent;
 
 use crate::Config;
 

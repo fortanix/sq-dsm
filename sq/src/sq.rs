@@ -26,6 +26,7 @@ use crate::openpgp::policy::StandardPolicy as P;
 
 mod sq_cli;
 mod commands;
+mod secrets;
 
 fn open_or_stdin(f: Option<&str>)
                  -> Result<Box<dyn BufferedReader<()>>> {

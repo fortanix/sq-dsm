@@ -14,8 +14,6 @@ use crate::openpgp::types::{
 };
 use crate::openpgp::cert::prelude::*;
 use crate::openpgp::crypto;
-use crate::openpgp::crypto::sdkms::SdkmsAgent;
-use crate::openpgp::crypto::secrets::Secret;
 use crate::openpgp::{Cert, KeyID, Result};
 use crate::openpgp::packet::prelude::*;
 use crate::openpgp::parse::{
@@ -29,11 +27,14 @@ use crate::openpgp::serialize::stream::{
     padding::Padder,
 };
 use crate::openpgp::policy::Policy;
+use openpgp_sdkms::SdkmsAgent;
 
 use crate::{
     Config,
     parse_armor_kind,
 };
+
+use crate::secrets::Secret;
 
 #[cfg(feature = "autocrypt")]
 pub mod autocrypt;
@@ -54,7 +55,7 @@ pub mod net;
 pub mod certify;
 
 /// Returns suitable signing keys from a given list of Certs.
-fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
+fn get_signing_keys (certs: &[openpgp::Cert], p: &dyn Policy,
                     timestamp: Option<SystemTime>)
     -> Result<Vec<Secret>>
 {
@@ -78,8 +79,8 @@ fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
                 };
 
                 keys.push(Secret::InMemory(
-                        crypto::KeyPair::new(key.clone(), unencrypted)
-                          .unwrap()));
+                        crypto::KeyPair::new(key.clone(), unencrypted).unwrap()
+                ));
                 break 'next_cert;
             }
         }

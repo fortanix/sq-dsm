@@ -33,20 +33,20 @@ use sdkms::SdkmsClient;
 use uuid::Uuid;
 use yasna::models::ObjectIdentifier as Oid;
 
-use crate::crypto::mem::Protected;
-use crate::crypto::mpi::PublicKey::ECDH;
-use crate::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
-use crate::packet::key::{
+use sequoia_openpgp::crypto::mem::Protected;
+use sequoia_openpgp::crypto::mpi::PublicKey::ECDH;
+use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
+use sequoia_openpgp::packet::key::{
     Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole
 };
-use crate::packet::signature::SignatureBuilder;
-use crate::packet::{Key, UserID};
-use crate::serialize::SerializeInto;
-use crate::types::{
+use sequoia_openpgp::packet::signature::SignatureBuilder;
+use sequoia_openpgp::packet::{Key, UserID};
+use sequoia_openpgp::serialize::SerializeInto;
+use sequoia_openpgp::types::{
     Curve as SequoiaCurve, HashAlgorithm, KeyFlags, PublicKeyAlgorithm,
     SignatureType, SymmetricAlgorithm,
 };
-use crate::{Cert, Packet};
+use sequoia_openpgp::{Cert, Packet};
 
 /// SdkmsAgent implements [Signer] and [Decryptor] with secrets stored inside
 /// Fortanix SDKMS.
@@ -488,7 +488,7 @@ impl PublicKey {
                 Some(curve @ ApiCurve::NistP256) |
                     Some(curve @ ApiCurve::NistP384) |
                     Some(curve @ ApiCurve::NistP521) => {
-                        let curve = SequoiaCurve::try_from(curve)?;
+                        let curve = sequoia_curve_from_api_curve(curve)?;
                         let deserialized_pk = Pk::from_public_key(&raw_pk)
                             .context("cannot deserialize key into mbedTLS")?;
                         let mbed_point = deserialized_pk.ec_public()?;
@@ -735,7 +735,7 @@ impl Decryptor for SdkmsAgent {
 
                 // Import ephemeral public key
                 let e_descriptor = {
-                    let api_curve = ApiCurve::try_from(curve.clone())?;
+                    let api_curve = api_curve_from_sequoia_curve(curve.clone())?;
                     let req = SobjectRequest {
                         elliptic_curve: Some(api_curve),
                         key_ops: Some(KeyOperations::AGREEKEY),
@@ -823,33 +823,25 @@ fn curve_key_size(curve: &SequoiaCurve) -> Result<u32> {
     }
 }
 
-impl TryFrom<ApiCurve> for SequoiaCurve {
-    type Error = Error;
-
-    fn try_from(curve: ApiCurve) -> Result<Self> {
-        match curve {
-            ApiCurve::X25519 => Ok(SequoiaCurve::Cv25519),
-            ApiCurve::Ed25519 => Ok(SequoiaCurve::Ed25519),
-            ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
-            ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
-            ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
-            _ => Err(Error::msg("cannot convert curve")),
-        }
+fn sequoia_curve_from_api_curve(curve: ApiCurve) -> Result<SequoiaCurve> {
+    match curve {
+        ApiCurve::X25519 => Ok(SequoiaCurve::Cv25519),
+        ApiCurve::Ed25519 => Ok(SequoiaCurve::Ed25519),
+        ApiCurve::NistP256 => Ok(SequoiaCurve::NistP256),
+        ApiCurve::NistP384 => Ok(SequoiaCurve::NistP384),
+        ApiCurve::NistP521 => Ok(SequoiaCurve::NistP521),
+        _ => Err(Error::msg("cannot convert curve")),
     }
 }
 
-impl TryFrom<SequoiaCurve> for ApiCurve {
-    type Error = Error;
-
-    fn try_from(curve: SequoiaCurve) -> Result<Self> {
-        match curve {
-            SequoiaCurve::Cv25519 => Ok(ApiCurve::X25519),
-            SequoiaCurve::Ed25519 => Ok(ApiCurve::Ed25519),
-            SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
-            SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
-            SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
-            curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
-        }
+fn api_curve_from_sequoia_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
+    match curve {
+        SequoiaCurve::Cv25519 => Ok(ApiCurve::X25519),
+        SequoiaCurve::Ed25519 => Ok(ApiCurve::Ed25519),
+        SequoiaCurve::NistP256 => Ok(ApiCurve::NistP256),
+        SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
+        SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
+        curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
     }
 }
 

@@ -2,12 +2,13 @@
 //! cryptographic operations.
 use anyhow::Error;
 
-use crate::crypto::mpi::{Ciphertext, Signature};
-use crate::crypto::sdkms::SdkmsAgent;
-use crate::crypto::{Decryptor, KeyPair, SessionKey, Signer};
-use crate::packet::key::{PublicParts, UnspecifiedRole};
-use crate::packet::Key;
-use crate::types::HashAlgorithm;
+use sequoia_openpgp::crypto::mpi::{Ciphertext, Signature};
+use sequoia_openpgp::crypto::{Decryptor, KeyPair, SessionKey, Signer};
+use sequoia_openpgp::packet::key::{PublicParts, UnspecifiedRole};
+use sequoia_openpgp::packet::Key;
+use sequoia_openpgp::types::HashAlgorithm;
+
+use openpgp_sdkms::SdkmsAgent;
 
 /// A Secret can be a private key loaded from memory, or stored externally. It
 /// implements the [Decryptor] and [Signer] traits.
@@ -19,8 +20,6 @@ pub enum Secret {
     ///
     ///   [KeyPair]: ../../crypto/struct.KeyPair.html
     InMemory(KeyPair),
-    /// An agent capable of requesting signatures and decryptions from a key
-    /// stored in Fortanix Self-Defending KMS
     Sdkms(SdkmsAgent),
 }
 
@@ -51,7 +50,7 @@ impl Decryptor for Secret {
     fn decrypt(&mut self, ciphertext: &Ciphertext, plaintext_len: Option<usize>) -> Result<SessionKey, Error> {
         match self {
             Secret::InMemory(decryptor) => decryptor.decrypt(ciphertext, plaintext_len),
-            Secret::Sdkms(decryptor) => decryptor.decrypt(ciphertext, plaintext_len)
+            Secret::Sdkms(decryptor) => decryptor.decrypt(ciphertext, plaintext_len),
         }
     }
 }

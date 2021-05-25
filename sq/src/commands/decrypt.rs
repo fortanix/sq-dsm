@@ -6,7 +6,6 @@ use sequoia_openpgp as openpgp;
 use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::crypto::{self, SessionKey};
-use crate::openpgp::crypto::sdkms::SdkmsAgent;
 use crate::openpgp::{Fingerprint, Cert, KeyID, Result};
 use crate::openpgp::packet;
 use crate::openpgp::packet::prelude::*;
@@ -18,6 +17,7 @@ use crate::openpgp::parse::{
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
+use openpgp_sdkms::SdkmsAgent;
 
 use crate::{
     Config,
