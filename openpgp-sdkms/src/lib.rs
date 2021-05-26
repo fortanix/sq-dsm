@@ -8,9 +8,9 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::env;
+use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::net::IpAddr;
 
 use anyhow::{Context, Error, Result};
 use bit_vec::BitVec;
@@ -30,14 +30,11 @@ use sdkms::api_model::{
     SobjectDescriptor, SobjectRequest,
 };
 use sdkms::SdkmsClient;
-use uuid::Uuid;
-use yasna::models::ObjectIdentifier as Oid;
-
 use sequoia_openpgp::crypto::mem::Protected;
 use sequoia_openpgp::crypto::mpi::PublicKey::ECDH;
 use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
 use sequoia_openpgp::packet::key::{
-    Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole
+    Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole,
 };
 use sequoia_openpgp::packet::signature::SignatureBuilder;
 use sequoia_openpgp::packet::{Key, UserID};
@@ -47,6 +44,8 @@ use sequoia_openpgp::types::{
     SignatureType, SymmetricAlgorithm,
 };
 use sequoia_openpgp::{Cert, Packet};
+use uuid::Uuid;
+use yasna::models::ObjectIdentifier as Oid;
 
 /// SdkmsAgent implements [Signer] and [Decryptor] with secrets stored inside
 /// Fortanix SDKMS.
@@ -161,8 +160,8 @@ impl SdkmsAgent {
 
 #[derive(Clone)]
 struct PublicKey {
-    role: KeyRole,
-    descriptor: SobjectDescriptor,
+    role:        KeyRole,
+    descriptor:  SobjectDescriptor,
     sequoia_key: Option<Key<PublicParts, UnspecifiedRole>>,
 }
 
@@ -190,9 +189,11 @@ enum KeyRole {
 ///
 /// The public certificate (Transferable Public Key) is computed, stored as
 /// an additional custom metadata field on the primary key, and returned.
-pub fn generate_key(key_name: &str,
-                    user_id: Option<&str>,
-                    algo: Option<&str>) -> Result<()> {
+pub fn generate_key(
+    key_name: &str,
+    user_id: Option<&str>,
+    algo: Option<&str>,
+) -> Result<()> {
     let uid: UserID = match user_id {
         Some(id) => id.into(),
         None => return Err(Error::msg("no User ID")),
@@ -242,8 +243,6 @@ pub fn generate_key(key_name: &str,
 
     let mut prim_signer = SdkmsAgent::new_signer(&key_name)?;
 
-
-
     let primary_flags = KeyFlags::empty().set_certification().set_signing();
 
     let mut cert = Cert::try_from(packets)?;
@@ -252,12 +251,14 @@ pub fn generate_key(key_name: &str,
     let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_primary_userid(true)?
         .set_key_flags(primary_flags)?
-        .set_preferred_hash_algorithms(
-            vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256]
-            )?
-        .set_preferred_symmetric_algorithms(
-            vec![SymmetricAlgorithm::AES256, SymmetricAlgorithm::AES128]
-        )?;
+        .set_preferred_hash_algorithms(vec![
+            HashAlgorithm::SHA512,
+            HashAlgorithm::SHA256,
+        ])?
+        .set_preferred_symmetric_algorithms(vec![
+            SymmetricAlgorithm::AES256,
+            SymmetricAlgorithm::AES128,
+        ])?;
     let uid_sig = uid.bind(&mut prim_signer, &cert, builder)?;
 
     cert = cert.insert_packets(vec![Packet::from(uid), uid_sig.into()])?;
@@ -346,7 +347,7 @@ impl PublicKey {
                     description,
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(
-                        KeyOperations::SIGN | KeyOperations::APPMANAGEABLE
+                        KeyOperations::SIGN | KeyOperations::APPMANAGEABLE,
                     ),
                     key_size: Some(*key_size),
                     rsa: rsa_options,
@@ -367,25 +368,23 @@ impl PublicKey {
                     description,
                     obj_type: Some(ObjectType::Rsa),
                     key_ops: Some(
-                        KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE
-                        ),
+                        KeyOperations::DECRYPT | KeyOperations::APPMANAGEABLE,
+                    ),
                     key_size: Some(*key_size),
                     rsa: rsa_options,
                     ..Default::default()
                 }
             }
-            (KeyRole::Primary, SupportedPkAlgo::Curve25519) => {
-                SobjectRequest {
-                    name: Some(name),
-                    description,
-                    obj_type: Some(ObjectType::Ec),
-                    key_ops: Some(
-                        KeyOperations::SIGN | KeyOperations::APPMANAGEABLE
-                    ),
-                    elliptic_curve: Some(ApiCurve::Ed25519),
-                    ..Default::default()
-                }
-            }
+            (KeyRole::Primary, SupportedPkAlgo::Curve25519) => SobjectRequest {
+                name: Some(name),
+                description,
+                obj_type: Some(ObjectType::Ec),
+                key_ops: Some(
+                    KeyOperations::SIGN | KeyOperations::APPMANAGEABLE,
+                ),
+                elliptic_curve: Some(ApiCurve::Ed25519),
+                ..Default::default()
+            },
             (KeyRole::Subkey, SupportedPkAlgo::Curve25519) => {
                 let name = name + " (PGP: decryption subkey)";
 
@@ -394,36 +393,32 @@ impl PublicKey {
                     description,
                     obj_type: Some(ObjectType::Ec),
                     key_ops: Some(
-                        KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE
+                        KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE,
                     ),
                     elliptic_curve: Some(ApiCurve::X25519),
                     ..Default::default()
                 }
             }
-            (KeyRole::Primary, SupportedPkAlgo::Ec(curve)) => {
-                SobjectRequest {
-                    name: Some(name),
-                    description,
-                    obj_type: Some(ObjectType::Ec),
-                    key_ops: Some(
-                        KeyOperations::SIGN | KeyOperations::APPMANAGEABLE
-                    ),
-                    elliptic_curve: Some(*curve),
-                    ..Default::default()
-                }
-            }
-            (KeyRole::Subkey, SupportedPkAlgo::Ec(curve)) => {
-                SobjectRequest {
-                    name: Some(name + " (PGP: decryption subkey)"),
-                    description,
-                    obj_type: Some(ObjectType::Ec),
-                    key_ops: Some(
-                        KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE
-                    ),
-                    elliptic_curve: Some(*curve),
-                    ..Default::default()
-                }
-            }
+            (KeyRole::Primary, SupportedPkAlgo::Ec(curve)) => SobjectRequest {
+                name: Some(name),
+                description,
+                obj_type: Some(ObjectType::Ec),
+                key_ops: Some(
+                    KeyOperations::SIGN | KeyOperations::APPMANAGEABLE,
+                ),
+                elliptic_curve: Some(*curve),
+                ..Default::default()
+            },
+            (KeyRole::Subkey, SupportedPkAlgo::Ec(curve)) => SobjectRequest {
+                name: Some(name + " (PGP: decryption subkey)"),
+                description,
+                obj_type: Some(ObjectType::Ec),
+                key_ops: Some(
+                    KeyOperations::AGREEKEY | KeyOperations::APPMANAGEABLE,
+                ),
+                elliptic_curve: Some(*curve),
+                ..Default::default()
+            },
         };
 
         let sobject = client.create_sobject(&sobject_request)?;
@@ -485,51 +480,54 @@ impl PublicKey {
                         sequoia_key: Some(key),
                     })
                 }
-                Some(curve @ ApiCurve::NistP256) |
-                    Some(curve @ ApiCurve::NistP384) |
-                    Some(curve @ ApiCurve::NistP521) => {
-                        let curve = sequoia_curve_from_api_curve(curve)?;
-                        let deserialized_pk = Pk::from_public_key(&raw_pk)
-                            .context("cannot deserialize key into mbedTLS")?;
-                        let mbed_point = deserialized_pk.ec_public()?;
-                        let bits_field = curve.bits()
-                            .ok_or_else(|| Error::msg("bad curve"))?;
-                        let point = mpi::MPI::new_point(
-                            &mbed_point.x()?.to_binary()?,
-                            &mbed_point.y()?.to_binary()?,
-                            bits_field,
-                        );
-                        let (pk_algo, ec_pk) = match role {
-                            KeyRole::Primary => (
-                                PublicKeyAlgorithm::ECDSA,
-                                mpi::PublicKey::ECDSA { curve, q: point },
-                            ),
-                            KeyRole::Subkey => (
-                                PublicKeyAlgorithm::ECDH,
-                                mpi::PublicKey::ECDH {
-                                    curve,
-                                    q: point,
-                                    hash: HashAlgorithm::SHA512,
-                                    sym: SymmetricAlgorithm::AES256,
-                                },
-                            ),
-                        };
-                        let key = Key::V4(
-                            Key4::new(time, pk_algo, ec_pk)
+                Some(curve @ ApiCurve::NistP256)
+                | Some(curve @ ApiCurve::NistP384)
+                | Some(curve @ ApiCurve::NistP521) => {
+                    let curve = sequoia_curve_from_api_curve(curve)?;
+                    let deserialized_pk = Pk::from_public_key(&raw_pk)
+                        .context("cannot deserialize key into mbedTLS")?;
+                    let mbed_point = deserialized_pk.ec_public()?;
+                    let bits_field =
+                        curve.bits().ok_or_else(|| Error::msg("bad curve"))?;
+                    let point = mpi::MPI::new_point(
+                        &mbed_point.x()?.to_binary()?,
+                        &mbed_point.y()?.to_binary()?,
+                        bits_field,
+                    );
+                    let (pk_algo, ec_pk) = match role {
+                        KeyRole::Primary => (
+                            PublicKeyAlgorithm::ECDSA,
+                            mpi::PublicKey::ECDSA { curve, q: point },
+                        ),
+                        KeyRole::Subkey => (
+                            PublicKeyAlgorithm::ECDH,
+                            mpi::PublicKey::ECDH {
+                                curve,
+                                q: point,
+                                hash: HashAlgorithm::SHA512,
+                                sym: SymmetricAlgorithm::AES256,
+                            },
+                        ),
+                    };
+                    let key = Key::V4(
+                        Key4::new(time, pk_algo, ec_pk)
                             .context("cannot import EC key into Sequoia")?,
-                        );
-                        Ok(PublicKey {
-                            descriptor,
-                            role,
-                            sequoia_key: Some(key),
-                        })
-                    }
-                Some(curve) => {
-                    return Err(
-                        Error::msg(format!("unimplemented curve: {:?}", curve))
-                    )
+                    );
+                    Ok(PublicKey {
+                        descriptor,
+                        role,
+                        sequoia_key: Some(key),
+                    })
                 }
-                None => return Err(Error::msg("Sobject has no curve attribute"))
+                Some(curve) => {
+                    return Err(Error::msg(format!(
+                        "unimplemented curve: {:?}",
+                        curve
+                    )))
+                }
+                None => {
+                    return Err(Error::msg("Sobject has no curve attribute"))
+                }
             },
             ObjectType::Rsa => {
                 let deserialized_pk = Pk::from_public_key(&raw_pk)
@@ -541,7 +539,7 @@ impl PublicKey {
                 );
                 let key = Key::V4(
                     Key4::import_public_rsa(&e, &n, Some(time.into()))
-                    .context("cannot import RSA key into Sequoia")?,
+                        .context("cannot import RSA key into Sequoia")?,
                 );
 
                 Ok(PublicKey {
@@ -565,14 +563,13 @@ impl PublicKey {
 }
 
 impl Signer for SdkmsAgent {
-    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
-        &self.public
-    }
+    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
 
     fn sign(
         &mut self,
         hash_algo: HashAlgorithm,
-        digest: &[u8]) -> Result<mpi::Signature> {
+        digest: &[u8],
+    ) -> Result<mpi::Signature> {
         if self.role != Role::Signer {
             return Err(Error::msg("bad role for SDKMS agent"));
         }
@@ -655,9 +652,7 @@ impl Signer for SdkmsAgent {
 const ID_ECDH: [u64; 6] = [1, 2, 840, 10045, 2, 1];
 
 impl Decryptor for SdkmsAgent {
-    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> {
-        &self.public
-    }
+    fn public(&self) -> &Key<PublicParts, UnspecifiedRole> { &self.public }
 
     fn decrypt(
         &mut self,
@@ -692,7 +687,8 @@ impl Decryptor for SdkmsAgent {
                     _ => return Err(Error::msg("inconsistent pk algo")),
                 };
 
-                cli = cli.authenticate_with_api_key(&self.credentials.api_key)?;
+                cli =
+                    cli.authenticate_with_api_key(&self.credentials.api_key)?;
 
                 let ephemeral_der = match curve {
                     SequoiaCurve::Cv25519 => {
@@ -735,7 +731,8 @@ impl Decryptor for SdkmsAgent {
 
                 // Import ephemeral public key
                 let e_descriptor = {
-                    let api_curve = api_curve_from_sequoia_curve(curve.clone())?;
+                    let api_curve =
+                        api_curve_from_sequoia_curve(curve.clone())?;
                     let req = SobjectRequest {
                         elliptic_curve: Some(api_curve),
                         key_ops: Some(KeyOperations::AGREEKEY),
@@ -783,7 +780,9 @@ impl Decryptor for SdkmsAgent {
                         .agree(&agree_req)
                         .expect("failed ECDH agreement on SDKMS")
                         .transient_key
-                        .ok_or_else(|| Error::msg("could not retrieve agreed key"))?;
+                        .ok_or_else(|| {
+                            Error::msg("could not retrieve agreed key")
+                        })?;
 
                     let desc = SobjectDescriptor::TransientKey(agreed_tkey);
 
@@ -805,7 +804,9 @@ impl Decryptor for SdkmsAgent {
 
 fn curve_oid(curve: &SequoiaCurve) -> Result<Oid> {
     match curve {
-        SequoiaCurve::NistP256 => Ok(Oid::from_slice(&[1, 2, 840, 10045, 3, 1, 7])),
+        SequoiaCurve::NistP256 => {
+            Ok(Oid::from_slice(&[1, 2, 840, 10045, 3, 1, 7]))
+        }
         SequoiaCurve::NistP384 => Ok(Oid::from_slice(&[1, 3, 132, 0, 34])),
         SequoiaCurve::NistP521 => Ok(Oid::from_slice(&[1, 3, 132, 0, 35])),
         SequoiaCurve::Cv25519 => Ok(Oid::from_slice(&[1, 3, 101, 110])),
@@ -860,9 +861,9 @@ impl NoProxy {
     pub fn parse(no_proxy: &str) -> Self {
         Self(
             no_proxy
-            .split(",")
-            .filter_map(|no_proxy| no_proxy.parse().ok())
-            .collect(),
+                .split(",")
+                .filter_map(|no_proxy| no_proxy.parse().ok())
+                .collect(),
         )
     }
 
@@ -874,7 +875,11 @@ impl NoProxy {
     }
 
     ///  Check if a host matches a NoProxyEntry
-    fn is_no_proxy_match(no_proxy: &NoProxyEntry, host: &str, port: u16) -> bool {
+    fn is_no_proxy_match(
+        no_proxy: &NoProxyEntry,
+        host: &str,
+        port: u16,
+    ) -> bool {
         // check for CIDR
 
         match (&no_proxy.ipnetwork, IpAddr::from_str(host)) {
@@ -902,9 +907,9 @@ impl NoProxy {
 
 #[derive(Clone, Debug)]
 pub(crate) struct NoProxyEntry {
-    pub ipnetwork: Option<IpNetwork>,
+    pub ipnetwork:      Option<IpNetwork>,
     pub split_hostname: Vec<String>,
-    pub port: Option<u16>,
+    pub port:           Option<u16>,
 }
 
 impl FromStr for NoProxyEntry {
@@ -915,21 +920,24 @@ impl FromStr for NoProxyEntry {
 
         let mut no_proxy_splits = s.trim().splitn(2, ":");
         let no_proxy_host = no_proxy_splits.next().ok_or_else(|| ())?;
-        let no_proxy_port = no_proxy_splits.next()
-            .and_then(|port| port.parse().ok());
+        let no_proxy_port =
+            no_proxy_splits.next().and_then(|port| port.parse().ok());
 
         // remove leading dot
         let no_proxy_host = no_proxy_host.trim_start_matches('.');
 
         Ok(NoProxyEntry {
-            ipnetwork: IpNetwork::from_str(no_proxy_host).ok(),
-            split_hostname: no_proxy_host.split(".").map(String::from).collect(),
-            port: no_proxy_port,
+            ipnetwork:      IpNetwork::from_str(no_proxy_host).ok(),
+            split_hostname: no_proxy_host
+                .split(".")
+                .map(String::from)
+                .collect(),
+            port:           no_proxy_port,
         })
     }
 }
 
-fn decide_proxy_from_env(endpoint: &str) -> Option<Arc::<HyperClient>> {
+fn decide_proxy_from_env(endpoint: &str) -> Option<Arc<HyperClient>> {
     let uri = endpoint.parse::<Uri>().ok()?;
     let endpoint_host = uri.host()?;
     let endpoint_port = uri.port().map_or(80, |p| p.as_u16());
@@ -946,16 +954,15 @@ fn decide_proxy_from_env(endpoint: &str) -> Option<Arc::<HyperClient>> {
             }
         }
 
-        let hyper_client = HyperClient::with_proxy_config(
-            ProxyConfig::new(
-                "http",
-                proxy_host.to_string(),
-                proxy_port,
-                HttpsConnector::new(NativeTlsClient::new().ok()?),
-                NativeTlsClient::new().ok()?,
-            ));
+        let hyper_client = HyperClient::with_proxy_config(ProxyConfig::new(
+            "http",
+            proxy_host.to_string(),
+            proxy_port,
+            HttpsConnector::new(NativeTlsClient::new().ok()?),
+            NativeTlsClient::new().ok()?,
+        ));
 
-        return Some(Arc::new(hyper_client))
+        return Some(Arc::new(hyper_client));
     }
 
     None
