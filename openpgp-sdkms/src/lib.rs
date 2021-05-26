@@ -4,6 +4,13 @@
 //! Fortanix SDKMS for low-level signing and decryption operations, given proper
 //! credentials (namely, the `FORTANIX_API_KEY` and `FORTANIX_API_ENDPOINT`
 //! environment variables).
+//!
+//! # Proxy configuration
+//!
+//! The connection with SDKMS can be set through an http proxy. This crate
+//! follows the `http_proxy` / `no_proxy` environment variables convention,
+//! i.e., if `http_proxy` is set and the SDKMS API endpoint is not in
+//! `no_proxy`, then a connection through said proxy is established.
 
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -30,6 +37,8 @@ use sdkms::api_model::{
     SobjectDescriptor, SobjectRequest,
 };
 use sdkms::SdkmsClient;
+use serde_derive::{Deserialize, Serialize};
+
 use sequoia_openpgp::crypto::mem::Protected;
 use sequoia_openpgp::crypto::mpi::PublicKey::ECDH;
 use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
@@ -47,6 +56,8 @@ use sequoia_openpgp::{Cert, Packet};
 use uuid::Uuid;
 use yasna::models::ObjectIdentifier as Oid;
 
+const VERSION: &str = "0.1.0-beta";
+
 /// SdkmsAgent implements [Signer] and [Decryptor] with secrets stored inside
 /// Fortanix SDKMS.
 ///
@@ -63,7 +74,7 @@ const ENV_API_KEY: &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
 const ENV_HTTP_PROXY: &str = "http_proxy";
 const ENV_NO_PROXY: &str = "no_proxy";
-const SUBKEY: &str = "subkey";
+const SDKMS_LABEL_PGP: &str = "sq_sdkms";
 
 struct Credentials {
     api_endpoint: String,
@@ -139,8 +150,13 @@ impl SdkmsAgent {
             .context(format!("could not get primary key {}", key_name))?;
 
         if let Some(dict) = sobject.custom_metadata {
-            if dict.contains_key(SUBKEY) {
-                let uid = Uuid::parse_str(&dict[SUBKEY])?;
+            if dict.contains_key(SDKMS_LABEL_PGP) {
+                let json_str = &dict[SDKMS_LABEL_PGP];
+                let key_md: KeyMetadata = serde_json::from_str(json_str)?;
+                if key_md.subkeys[0].len() == 0 {
+                    return Err(Error::msg("No subkeys found in SDKMS"));
+                }
+                let uid = Uuid::parse_str(&key_md.subkeys[0])?;
                 let descriptor = SobjectDescriptor::Kid(uid);
                 let sobject = http_client
                     .get_sobject(None, &descriptor)
@@ -175,6 +191,13 @@ enum SupportedPkAlgo {
 enum KeyRole {
     Primary,
     Subkey,
+}
+
+#[derive(Serialize, Deserialize)]
+struct KeyMetadata {
+    version:     String,
+    certificate: String,
+    subkeys:     Vec<String>,
 }
 
 /// Generates an OpenPGP key with secrets stored in SDKMS. At the OpenPGP
@@ -286,9 +309,16 @@ pub fn generate_key(
     info!("bind keys and store certificate in SDKMS");
     let armored = String::from_utf8(cert.armored().to_vec()?)?;
 
+    let key_md = KeyMetadata {
+        version: VERSION.to_string(),
+        certificate: armored,
+        subkeys: vec![subkey.uid()?.to_string()],
+    };
+
+    let key_json = serde_json::to_string(&key_md)?;
+
     let mut metadata = HashMap::<String, String>::new();
-    metadata.insert(SUBKEY.to_string(), subkey.uid()?.to_string());
-    metadata.insert("certificate".to_string(), armored);
+    metadata.insert(SDKMS_LABEL_PGP.to_string(), key_json);
 
     let update_req = SobjectRequest {
         custom_metadata: Some(metadata),
@@ -319,8 +349,13 @@ pub fn extract_cert(key_name: &str) -> Result<Cert> {
             Some(dict) => dict,
         }
     };
+    if !metadata.contains_key(SDKMS_LABEL_PGP) {
+        return Err(Error::msg("malformed metadata in SDKMS".to_string()))
+    }
 
-    Ok(Cert::from_str(&metadata["certificate"])?)
+    let key_md: KeyMetadata = serde_json::from_str(&metadata[SDKMS_LABEL_PGP])?;
+
+    Ok(Cert::from_str(&key_md.certificate)?)
 }
 
 impl PublicKey {
