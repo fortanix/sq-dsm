@@ -28,8 +28,11 @@ pub fn sign(config: Config,
             input: &mut (dyn io::Read + Sync + Send),
             output_path: Option<&str>,
             presecrets: Vec<PreSecret>,
-            detached: bool, binary: bool,
-            append: bool, notarize: bool, time: Option<SystemTime>,
+            detached: bool,
+            binary: bool,
+            append: bool,
+            notarize: bool,
+            time: Option<SystemTime>,
             notations: &[(bool, NotationData)])
             -> Result<()> {
     match (detached, append|notarize) {
@@ -45,8 +48,10 @@ pub fn sign(config: Config,
 fn sign_data(config: Config,
              input: &mut dyn io::Read, output_path: Option<&str>,
              presecrets: Vec<PreSecret>,
-             detached: bool, binary: bool,
-             append: bool, time: Option<SystemTime>,
+             detached: bool,
+             binary: bool,
+             append: bool,
+             time: Option<SystemTime>,
              notations: &[(bool, NotationData)])
              -> Result<()> {
     let (mut output, prepend_sigs, tmp_path):
@@ -163,7 +168,8 @@ fn sign_message(config: Config,
                 input: &mut (dyn io::Read + Sync + Send),
                 output_path: Option<&str>,
                 presecrets: Vec<PreSecret>,
-                binary: bool, notarize: bool,
+                binary: bool,
+                notarize: bool,
                 time: Option<SystemTime>,
                 notations: &[(bool, NotationData)])
              -> Result<()> {
