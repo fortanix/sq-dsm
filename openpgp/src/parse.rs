@@ -1773,14 +1773,20 @@ impl Subpacket {
                     hash_algo.context().map(|c| c.digest_size())
                     .unwrap_or(len);
 
-                if len % digest_size != 0 {
-                    return Err(Error::BadSignature(
-                        "Wrong number of bytes in certification subpacket".into())
-                               .into());
+                if digest_size == 0 {
+                    // Empty body with unknown hash algorithm.
+                    SubpacketValue::AttestedCertifications(
+                        Vec::with_capacity(0))
+                } else {
+                    if len % digest_size != 0 {
+                        return Err(Error::BadSignature(
+                            "Wrong number of bytes in certification subpacket"
+                                .into()).into());
+                    }
+                    let bytes = php.parse_bytes("attested crts", len)?;
+                    SubpacketValue::AttestedCertifications(
+                        bytes.chunks(digest_size).map(Into::into).collect())
                 }
-                let bytes = php.parse_bytes("attested crts", len)?;
-                SubpacketValue::AttestedCertifications(
-                    bytes.chunks(digest_size).map(Into::into).collect())
             },
             SubpacketTag::Reserved(_)
                 | SubpacketTag::PlaceholderForBackwardCompatibility
