@@ -56,8 +56,6 @@ use sequoia_openpgp::{Cert, Packet};
 use uuid::Uuid;
 use yasna::models::ObjectIdentifier as Oid;
 
-const VERSION: &str = "0.1.0-beta";
-
 /// SdkmsAgent implements [Signer] and [Decryptor] with secrets stored inside
 /// Fortanix SDKMS.
 ///
@@ -195,7 +193,6 @@ enum KeyRole {
 
 #[derive(Serialize, Deserialize)]
 struct KeyMetadata {
-    version:     String,
     certificate: String,
     subkeys:     Vec<String>,
 }
@@ -310,7 +307,6 @@ pub fn generate_key(
     let armored = String::from_utf8(cert.armored().to_vec()?)?;
 
     let key_md = KeyMetadata {
-        version: VERSION.to_string(),
         certificate: armored,
         subkeys: vec![subkey.uid()?.to_string()],
     };
