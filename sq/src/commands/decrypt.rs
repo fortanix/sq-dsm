@@ -17,6 +17,7 @@ use crate::openpgp::parse::{
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
+use openpgp_sdkms::SdkmsAgent;
 
 use crate::{
     Config,
@@ -26,6 +27,8 @@ use crate::{
     },
 };
 
+use crate::secrets::PreSecret;
+
 struct Helper<'a> {
     vhelper: VHelper<'a>,
     secret_keys:
@@ -34,36 +37,45 @@ struct Helper<'a> {
     key_hints: HashMap<KeyID, String>,
     dump_session_key: bool,
     dumper: Option<PacketDumper>,
+    sdkms_keys_names: Vec<String>,
 }
 
 impl<'a> Helper<'a> {
     fn new(config: &Config<'a>,
-           signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
+           signatures: usize, certs: Vec<Cert>, presecrets: Vec<PreSecret>,
            dump_session_key: bool, dump: bool)
            -> Self
     {
         let mut keys = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
-        for tsk in secrets {
-            let hint = match tsk.with_policy(&config.policy, None)
-                .and_then(|valid_cert| valid_cert.primary_userid()).ok()
-            {
-                Some(uid) => format!("{} ({})", uid.userid(),
-                                     KeyID::from(tsk.fingerprint())),
-                None => format!("{}", KeyID::from(tsk.fingerprint())),
-            };
+        let mut sdkms_keys_names = Vec::new();
+        for presecret in presecrets {
+            match presecret {
+                PreSecret::Sdkms(name) => {
+                    sdkms_keys_names.push(name);
+                }
+                PreSecret::InMemory(tsk) => {
+                    let hint = match tsk.with_policy(&config.policy, None)
+                        .and_then(|valid_cert| valid_cert.primary_userid()).ok()
+                        {
+                            Some(uid) => format!("{} ({})", uid.userid(),
+                            KeyID::from(tsk.fingerprint())),
+                            None => format!("{}", KeyID::from(tsk.fingerprint())),
+                        };
 
-            for ka in tsk.keys()
-            // XXX: Should use the message's creation time that we do not know.
-                .with_policy(&config.policy, None)
-                .for_transport_encryption().for_storage_encryption()
-                .secret()
-            {
-                let id: KeyID = ka.key().fingerprint().into();
-                keys.insert(id.clone(), ka.key().clone());
-                identities.insert(id.clone(), tsk.fingerprint());
-                hints.insert(id, hint.clone());
+                    for ka in tsk.keys()
+                        // XXX: Should use the message's creation time that we do not know.
+                        .with_policy(&config.policy, None)
+                            .for_transport_encryption().for_storage_encryption()
+                            .secret()
+                            {
+                                let id: KeyID = ka.key().fingerprint().into();
+                                keys.insert(id.clone(), ka.key().clone());
+                                identities.insert(id.clone(), tsk.fingerprint());
+                                hints.insert(id, hint.clone());
+                            }
+                }
             }
         }
 
@@ -80,6 +92,7 @@ impl<'a> Helper<'a> {
             } else {
                 None
             },
+            sdkms_keys_names,
         }
     }
 
@@ -134,6 +147,16 @@ impl<'a> DecryptionHelper for Helper<'a> {
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
+        for sdkms_key in &self.sdkms_keys_names {
+            let mut decryptor = SdkmsAgent::new_decryptor(&sdkms_key)?;
+            for pkesk in pkesks {
+                if let Some(fp) = self.try_decrypt(pkesk, sym_algo, &mut decryptor,
+                    &mut decrypt) {
+                    return Ok(fp);
+                }
+            }
+        }
+
         // First, we try those keys that we can use without prompting
         // for a password.
         for pkesk in pkesks {
@@ -277,12 +300,12 @@ impl<'a> DecryptionHelper for Helper<'a> {
 pub fn decrypt(config: Config,
                input: &mut (dyn io::Read + Sync + Send),
                output: &mut dyn io::Write,
-               signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
+               signatures: usize, certs: Vec<Cert>, secrets: Vec<PreSecret>,
                dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
     let helper = Helper::new(&config, signatures, certs, secrets,
-                             dump_session_key, dump || hex);
+        dump_session_key, dump || hex);
     let mut decryptor = DecryptorBuilder::from_reader(input)?
         .mapping(hex)
         .with_policy(&config.policy, None, helper)
@@ -301,7 +324,8 @@ pub fn decrypt(config: Config,
 pub fn decrypt_unwrap(config: Config,
                       input: &mut (dyn io::Read + Sync + Send),
                       output: &mut dyn io::Write,
-                      secrets: Vec<Cert>, dump_session_key: bool)
+                      secrets: Vec<PreSecret>,
+                      dump_session_key: bool)
                       -> Result<()>
 {
     let mut helper = Helper::new(&config, 0, Vec::new(), secrets,

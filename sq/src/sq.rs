@@ -11,9 +11,7 @@ use itertools::Itertools;
 use buffered_reader::{BufferedReader, Dup, File, Generic, Limitor};
 use sequoia_openpgp as openpgp;
 
-use openpgp::{
-    Result,
-};
+use crate::openpgp::Result;
 use crate::openpgp::{armor, Cert};
 use crate::openpgp::crypto::Password;
 use crate::openpgp::fmt::hex;
@@ -28,6 +26,9 @@ use crate::openpgp::policy::StandardPolicy as P;
 
 mod sq_cli;
 mod commands;
+mod secrets;
+
+use secrets::PreSecret;
 
 fn open_or_stdin(f: Option<&str>)
                  -> Result<Box<dyn BufferedReader<()>>> {
@@ -129,7 +130,7 @@ fn parse_duration(expiry: &str) -> Result<Duration> {
 }
 
 /// Loads one TSK from every given file.
-fn load_keys<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
+fn load_keys<'a, I>(files: I) -> openpgp::Result<Vec<PreSecret>>
     where I: Iterator<Item=&'a str>
 {
     let mut certs = vec![];
@@ -140,7 +141,7 @@ fn load_keys<'a, I>(files: I) -> openpgp::Result<Vec<Cert>>
             Err(anyhow::anyhow!(
                 "Cert in file {:?} does not contain secret keys", f))?;
         }
-        certs.push(cert);
+        certs.push(PreSecret::InMemory(cert));
     }
     Ok(certs)
 }
@@ -429,9 +430,12 @@ fn main() -> Result<()> {
                     // valid signature.
                     1
                 };
-            let secrets = m.values_of("secret-key-file")
+            let mut secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
+            if let Some(name) = m.value_of("sdkms-key") {
+                secrets.push(PreSecret::Sdkms(name.to_string()));
+            }
             commands::decrypt(config,
                               &mut input, &mut output,
                               signatures, certs, secrets,
@@ -447,7 +451,7 @@ fn main() -> Result<()> {
                 config.create_or_stdout_pgp(m.value_of("output"),
                                             m.is_present("binary"),
                                             armor::Kind::Message)?;
-            let additional_secrets = m.values_of("signer-key-file")
+            let mut additional_secrets = m.values_of("signer-key-file")
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
             let mode = match m.value_of("mode").expect("has default") {
@@ -467,6 +471,9 @@ fn main() -> Result<()> {
             } else {
                 None
             };
+            if let Some(name) = m.value_of("signer-sdkms-key") {
+                additional_secrets.push(secrets::PreSecret::Sdkms(name.to_string()));
+            }
             commands::encrypt(policy, &mut input, output,
                               m.occurrences_of("symmetric") as usize,
                               &recipients, additional_secrets,
@@ -483,7 +490,7 @@ fn main() -> Result<()> {
             let binary = m.is_present("binary");
             let append = m.is_present("append");
             let notarize = m.is_present("notarize");
-            let secrets = m.values_of("secret-key-file")
+            let mut secrets = m.values_of("secret-key-file")
                 .map(load_keys)
                 .unwrap_or_else(|| Ok(vec![]))?;
             let time = if let Some(time) = m.value_of("time") {
@@ -516,6 +523,9 @@ fn main() -> Result<()> {
                 }
             }
 
+            if let Some(name) = m.value_of("sdkms-key") {
+                secrets.push(secrets::PreSecret::Sdkms(name.to_string()));
+            }
             if let Some(merge) = m.value_of("merge") {
                 let output = config.create_or_stdout_pgp(output, binary,
                                                          armor::Kind::Message)?;
@@ -523,11 +533,12 @@ fn main() -> Result<()> {
                 commands::merge_signatures(&mut input, &mut input2, output)?;
             } else if m.is_present("clearsign") {
                 let output = config.create_or_stdout_safe(output)?;
-                commands::sign::clearsign(config, input, output, secrets,
-                                          time, &notations)?;
+                commands::sign::clearsign(config, input, output, secrets, time,
+                                          &notations)?;
             } else {
-                commands::sign(config, &mut input, output, secrets, detached,
-                               binary, append, notarize, time, &notations)?;
+                commands::sign(config, &mut input, output, secrets,
+                               detached, binary, append, notarize, time,
+                               &notations)?;
             }
         },
         ("verify",  Some(m)) => {
@@ -640,13 +651,17 @@ fn main() -> Result<()> {
                     config.create_or_stdout_pgp(m.value_of("output"),
                                                 m.is_present("binary"),
                                                 armor::Kind::Message)?;
-                let secrets = m.values_of("secret-key-file")
+                let mut secrets = m.values_of("secret-key-file")
                     .map(load_keys)
                     .unwrap_or_else(|| Ok(vec![]))?;
+                if let Some(name) = m.value_of("sdkms-key") {
+                    secrets.push(PreSecret::Sdkms(name.to_string()));
+                }
                 commands::decrypt::decrypt_unwrap(
                     config,
                     &mut input, &mut output,
-                    secrets, m.is_present("dump-session-key"))?;
+                    secrets,
+                    m.is_present("dump-session-key"))?;
                 output.finalize()?;
             },
 
