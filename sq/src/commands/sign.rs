@@ -19,16 +19,17 @@ use crate::openpgp::serialize::stream::{
     Message, Armorer, Signer, LiteralWriter,
 };
 use crate::openpgp::types::SignatureType;
-use crate::{
-    Config,
-};
+
+use crate::secrets::PreSecret;
+
+use crate::Config;
 
 pub struct SignOpts<'a> {
     pub config: Config<'a>,
     pub private_key_store: Option<&'a str>,
     pub input: &'a mut (dyn io::Read + Sync + Send),
     pub output_path: Option<&'a str>,
-    pub secrets: Vec<openpgp::Cert>,
+    pub presecrets: Vec<PreSecret>,
     pub detached: bool,
     pub binary: bool,
     pub append: bool,
@@ -52,7 +53,7 @@ fn sign_data(opts: SignOpts) -> Result<()> {
         private_key_store,
         input,
         output_path,
-        secrets,
+        presecrets,
         detached,
         binary,
         append,
@@ -91,7 +92,7 @@ fn sign_data(opts: SignOpts) -> Result<()> {
             (config.create_or_stdout_safe(output_path)?, Vec::new(), None)
         };
 
-    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, private_key_store, time)?;
+    let keypairs = super::get_signing_keys(&presecrets, &config.policy, private_key_store, time)?;
     if keypairs.is_empty() {
         return Err(anyhow::anyhow!("No signing keys found"));
     }
@@ -125,13 +126,24 @@ fn sign_data(opts: SignOpts) -> Result<()> {
             *critical)?;
     }
 
-    let mut signer = Signer::with_template(
-        message, keypairs.pop().unwrap(), builder);
+    let mut signing_keys = super::get_signing_keys(&presecrets,
+                                               &config.policy,
+                                               private_key_store,
+                                               time)?;
+    let crypto_signer = if let Some(key) = signing_keys.pop() {
+        key
+    } else {
+        return Err(anyhow::anyhow!("No signing keys found"));
+    };
+
+    let mut signer = Signer::with_template(message, crypto_signer, builder);
+
+    for s in signing_keys {
+        signer = signer.add_signer(s);
+    }
+
     if let Some(time) = time {
         signer = signer.creation_time(time);
-    }
-    for s in keypairs {
-        signer = signer.add_signer(s);
     }
     if detached {
         signer = signer.detached();
@@ -179,7 +191,7 @@ fn sign_message_(opts: SignOpts, output: &mut (dyn io::Write + Sync + Send)) -> 
         config,
         private_key_store,
         input,
-        secrets,
+        presecrets: secrets,
         notarize,
         time,
         notations, ..
@@ -262,8 +274,13 @@ fn sign_message_(opts: SignOpts, output: &mut (dyn io::Write + Sync + Send)) -> 
                         *critical)?;
                 }
 
+                let crypto_signer = if let Some(key) = keypairs.pop() {
+                    key
+                } else {
+                    return Err(anyhow::anyhow!("No signing keys found"));
+                };
                 let mut signer = Signer::with_template(
-                    sink, keypairs.pop().unwrap(), builder);
+                    sink, crypto_signer, builder);
                 if let Some(time) = time {
                     signer = signer.creation_time(time);
                 }
@@ -385,15 +402,15 @@ pub fn clearsign(config: Config,
                  private_key_store: Option<&str>,
                  mut input: impl io::Read + Sync + Send,
                  mut output: impl io::Write + Sync + Send,
-                 secrets: Vec<openpgp::Cert>,
+                 presecrets: Vec<PreSecret>,
                  time: Option<SystemTime>,
                  notations: &[(bool, NotationData)])
                  -> Result<()>
 {
-    let mut keypairs = super::get_signing_keys(&secrets, &config.policy, private_key_store, time)?;
+    let keypairs = super::get_signing_keys(&presecrets, &config.policy, private_key_store, time)?;
     if keypairs.is_empty() {
         return Err(anyhow::anyhow!("No signing keys found"));
-    }
+    };
 
     // Prepare a signature template.
     let mut builder = SignatureBuilder::new(SignatureType::Text);
@@ -406,13 +423,22 @@ pub fn clearsign(config: Config,
     }
 
     let message = Message::new(&mut output);
-    let mut signer = Signer::with_template(
-        message, keypairs.pop().unwrap(), builder)
+
+    let mut signing_keys = super::get_signing_keys(&presecrets,
+                                               &config.policy,
+                                               private_key_store,
+                                               time)?;
+    let crypto_signer = if let Some(key) = signing_keys.pop() {
+        key
+    } else {
+        return Err(anyhow::anyhow!("No signing keys found"));
+    };
+    let mut signer = Signer::with_template(message, crypto_signer, builder)
         .cleartext();
     if let Some(time) = time {
         signer = signer.creation_time(time);
     }
-    for s in keypairs {
+    for s in signing_keys {
         signer = signer.add_signer(s);
     }
     let mut message = signer.build().context("Failed to create signer")?;

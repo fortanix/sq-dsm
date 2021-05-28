@@ -28,11 +28,14 @@ use crate::openpgp::serialize::stream::{
     padding::Padder,
 };
 use crate::openpgp::policy::Policy;
+use openpgp_sdkms::SdkmsAgent;
 
 use crate::{
     Config,
     parse_armor_kind,
 };
+
+use crate::secrets::{PreSecret, Secret};
 
 #[cfg(feature = "autocrypt")]
 pub mod autocrypt;
@@ -54,49 +57,56 @@ pub mod certify;
 
 /// Returns suitable signing keys from a given list of Certs.
 #[allow(clippy::never_loop)]
-fn get_signing_keys(certs: &[openpgp::Cert], p: &dyn Policy,
+fn get_signing_keys(presecrets: &Vec<PreSecret>, p: &dyn Policy,
                     private_key_store: Option<&str>,
                     timestamp: Option<SystemTime>)
     -> Result<Vec<Box<dyn crypto::Signer + Send + Sync>>>
 {
     let mut keys: Vec<Box<dyn crypto::Signer + Send + Sync>> = Vec::new();
-    'next_cert: for tsk in certs {
-        for key in tsk.keys().with_policy(p, timestamp).alive().revoked(false)
-            .for_signing()
-            .supported()
-            .map(|ka| ka.key())
-        {
-            if let Some(secret) = key.optional_secret() {
-                let unencrypted = match secret {
-                    SecretKeyMaterial::Encrypted(ref e) => {
-                        let password = rpassword::read_password_from_tty(Some(
-                            &format!("Please enter password to decrypt {}/{}: ",
-                                     tsk, key)))
-                            .context("Reading password from tty")?;
-                        e.decrypt(key.pk_algo(), &password.into())
-                            .expect("decryption failed")
-                    },
-                    SecretKeyMaterial::Unencrypted(ref u) => u.clone(),
-                };
+    'next_cert: for presecret in presecrets {
+        match presecret {
+            PreSecret::Sdkms(name) => {
+                keys.push(Box::new(Secret::Sdkms(SdkmsAgent::new_signer(name)?)));
+            }
+            PreSecret::InMemory(tsk) => {
+                for key in tsk.keys().with_policy(p, timestamp).alive().revoked(false)
+                    .for_signing()
+                        .supported()
+                        .map(|ka| ka.key())
+                        {
+                            if let Some(secret) = key.optional_secret() {
+                                let unencrypted = match secret {
+                                    SecretKeyMaterial::Encrypted(ref e) => {
+                                        let password = rpassword::read_password_from_tty(Some(
+                                                &format!("Please enter password to decrypt {}/{}: ",
+                                                    tsk, key)))
+                                            .context("Reading password from tty")?;
+                                        e.decrypt(key.pk_algo(), &password.into())
+                                            .expect("decryption failed")
+                                    },
+                                    SecretKeyMaterial::Unencrypted(ref u) => u.clone(),
+                                };
 
-                keys.push(Box::new(crypto::KeyPair::new(key.clone(), unencrypted)
-                          .unwrap()));
-                break 'next_cert;
-            } else if let Some(private_key_store) = private_key_store {
-                let password = rpassword::read_password_from_tty(
-                    Some(&format!("Please enter password to key {}/{}: ", tsk, key))).unwrap().into();
-                match pks::unlock_signer(private_key_store, key.clone(), &password) {
-                    Ok(signer) => {
-                        keys.push(signer);
-                        break 'next_cert;
-                    },
-                    Err(error) => eprintln!("Could not unlock signer: {:?}", error),
-                }
+                                keys.push(Box::new(Secret::InMemory(
+                                        crypto::KeyPair::new(key.clone(), unencrypted)
+                                            .unwrap())));
+                                            break 'next_cert;
+                            } else if let Some(private_key_store) = private_key_store {
+                                let password = rpassword::read_password_from_tty(
+                                    Some(&format!("Please enter password to key {}/{}: ", tsk, key))).unwrap().into();
+                                match pks::unlock_signer(private_key_store, key.clone(), &password) {
+                                    Ok(signer) => {
+                                        keys.push(signer);
+                                        break 'next_cert;
+                                    },
+                                    Err(error) => eprintln!("Could not unlock signer: {:?}", error),
+                                }
+                            }
+                            return Err(anyhow::anyhow!(
+                                    format!("Found no suitable signing key on {}", tsk)));
+                        }
             }
         }
-
-        return Err(anyhow::anyhow!(
-            format!("Found no suitable signing key on {}", tsk)));
     }
 
     Ok(keys)
@@ -109,7 +119,7 @@ pub struct EncryptOpts<'a> {
     pub message: Message<'a>,
     pub npasswords: usize,
     pub recipients: &'a [openpgp::Cert],
-    pub signers: Vec<openpgp::Cert>,
+    pub signers: Vec<PreSecret>,
     pub mode: openpgp::types::KeyFlags,
     pub compression: &'a str,
     pub time: Option<SystemTime>,

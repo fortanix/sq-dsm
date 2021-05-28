@@ -4,6 +4,8 @@ use std::io;
 
 use sequoia_net::pks;
 use sequoia_openpgp as openpgp;
+use openpgp_sdkms::SdkmsAgent;
+
 use crate::openpgp::types::SymmetricAlgorithm;
 use crate::openpgp::fmt::hex;
 use crate::openpgp::crypto::{self, SessionKey, Decryptor, Password};
@@ -18,7 +20,6 @@ use crate::openpgp::parse::{
 use crate::openpgp::parse::stream::{
     VerificationHelper, DecryptionHelper, DecryptorBuilder, MessageStructure,
 };
-
 use crate::{
     Config,
     commands::{
@@ -26,6 +27,7 @@ use crate::{
         VHelper,
     },
 };
+use crate::secrets::PreSecret;
 
 trait PrivateKey {
     fn get_unlocked(&self) -> Option<Box<dyn Decryptor>>;
@@ -95,44 +97,53 @@ struct Helper<'a> {
     key_hints: HashMap<KeyID, String>,
     dump_session_key: bool,
     dumper: Option<PacketDumper>,
+    sdkms_keys_names: Vec<String>,
 }
 
 impl<'a> Helper<'a> {
     fn new(config: &Config<'a>, private_key_store: Option<&str>,
-           signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
+           signatures: usize, certs: Vec<Cert>, presecrets: Vec<PreSecret>,
            dump_session_key: bool, dump: bool)
            -> Self
     {
         let mut keys: HashMap<KeyID, Box<dyn PrivateKey>> = HashMap::new();
         let mut identities: HashMap<KeyID, Fingerprint> = HashMap::new();
         let mut hints: HashMap<KeyID, String> = HashMap::new();
-        for tsk in secrets {
-            let hint = match tsk.with_policy(&config.policy, None)
-                .and_then(|valid_cert| valid_cert.primary_userid()).ok()
-            {
-                Some(uid) => format!("{} ({})", uid.userid(),
-                                     KeyID::from(tsk.fingerprint())),
-                None => format!("{}", KeyID::from(tsk.fingerprint())),
-            };
+        let mut sdkms_keys_names = Vec::new();
+        for presecret in presecrets {
+            match presecret {
+                PreSecret::Sdkms(name) => {
+                    sdkms_keys_names.push(name);
+                }
+                PreSecret::InMemory(tsk) => {
+                    let hint = match tsk.with_policy(&config.policy, None)
+                        .and_then(|valid_cert| valid_cert.primary_userid()).ok()
+                        {
+                            Some(uid) => format!("{} ({})", uid.userid(),
+                            KeyID::from(tsk.fingerprint())),
+                            None => format!("{}", KeyID::from(tsk.fingerprint())),
+                        };
 
-            for ka in tsk.keys()
-            // XXX: Should use the message's creation time that we do not know.
-                .with_policy(&config.policy, None)
-                .for_transport_encryption().for_storage_encryption()
-            {
-                let id: KeyID = ka.key().fingerprint().into();
-                let key = ka.key();
-                keys.insert(id.clone(),
-                    if let Ok(key) = key.parts_as_secret() {
-                        Box::new(LocalPrivateKey::new(key.clone()))
-                    } else if let Some(store) = private_key_store {
-                        Box::new(RemotePrivateKey::new(key.clone(), store.to_string()))
-                    } else {
-                        panic!("Cert does not contain secret keys and private-key-store option has not been set.");
-                    }
-                );
-                identities.insert(id.clone(), tsk.fingerprint());
-                hints.insert(id, hint.clone());
+                    for ka in tsk.keys()
+                        // XXX: Should use the message's creation time that we do not know.
+                        .with_policy(&config.policy, None)
+                            .for_transport_encryption().for_storage_encryption()
+                            {
+                                let id: KeyID = ka.key().fingerprint().into();
+                                let key = ka.key();
+                                keys.insert(id.clone(),
+                                if let Ok(key) = key.parts_as_secret() {
+                                    Box::new(LocalPrivateKey::new(key.clone()))
+                                } else if let Some(store) = private_key_store {
+                                    Box::new(RemotePrivateKey::new(key.clone(), store.to_string()))
+                                } else {
+                                    panic!("Cert does not contain secret keys and private-key-store option has not been set.");
+                                }
+                                );
+                                identities.insert(id.clone(), tsk.fingerprint());
+                                hints.insert(id, hint.clone());
+                            }
+                }
             }
         }
 
@@ -149,6 +160,7 @@ impl<'a> Helper<'a> {
             } else {
                 None
             },
+            sdkms_keys_names,
         }
     }
 
@@ -204,6 +216,16 @@ impl<'a> DecryptionHelper for Helper<'a> {
                   mut decrypt: D) -> openpgp::Result<Option<Fingerprint>>
         where D: FnMut(SymmetricAlgorithm, &SessionKey) -> bool
     {
+        for sdkms_key in &self.sdkms_keys_names {
+            for pkesk in pkesks {
+                let decryptor = SdkmsAgent::new_decryptor(&sdkms_key)?;
+                if let Some(fp) = self.try_decrypt(pkesk, sym_algo, Box::new(decryptor),
+                    &mut decrypt) {
+                    return Ok(fp);
+                }
+            }
+        }
+
         // First, we try those keys that we can use without prompting
         // for a password.
         for pkesk in pkesks {
@@ -339,7 +361,8 @@ pub fn decrypt(config: Config,
                private_key_store: Option<&str>,
                input: &mut (dyn io::Read + Sync + Send),
                output: &mut dyn io::Write,
-               signatures: usize, certs: Vec<Cert>, secrets: Vec<Cert>,
+               signatures: usize, certs: Vec<Cert>,
+               secrets: Vec<PreSecret>,
                dump_session_key: bool,
                dump: bool, hex: bool)
                -> Result<()> {
@@ -363,7 +386,8 @@ pub fn decrypt(config: Config,
 pub fn decrypt_unwrap(config: Config,
                       input: &mut (dyn io::Read + Sync + Send),
                       output: &mut dyn io::Write,
-                      secrets: Vec<Cert>, dump_session_key: bool)
+                      secrets: Vec<PreSecret>,
+                      dump_session_key: bool)
                       -> Result<()>
 {
     let mut helper = Helper::new(&config, None, 0, Vec::new(), secrets,

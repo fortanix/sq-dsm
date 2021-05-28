@@ -34,3 +34,10 @@ install: build-release
 	$(INSTALL) -t $(DESTDIR)$(PREFIX)/share/fish/completions \
 	    $(CARGO_TARGET_DIR)/sq.fish
 	$(MAKE) -C../store install
+
+test-sdkms:
+	./tests/sdkms.sh --p256
+	./tests/sdkms.sh --p384
+	./tests/sdkms.sh --p521
+	./tests/sdkms.sh --rsa3k
+	./tests/sdkms.sh --cv25519
