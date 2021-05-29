@@ -359,6 +359,7 @@
 //!     generate                 Generates a new key
 //!     password                 Changes password protecting secrets
 //!     extract-cert             Converts a key to a cert
+//!     extract-sdkms-secret     Extracts a secret key from Fortanix SDKMS
 //!     attest-certifications    Attests to third-party certifications
 //!     adopt                    Binds keys from one certificate to another
 //!     help
@@ -399,6 +400,9 @@
 //!     -h, --help
 //!             Prints help information
 //!
+//!         --sdkms-exportable
+//!             (DANGER) Configure the secret SDKMS key to be exportable in the
+//!             future
 //!     -V, --version
 //!             Prints version information
 //!
@@ -544,6 +548,36 @@
 //!
 //! # Then, this extracts the certificate for distribution
 //! $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
+//! ```
+//!
+//! ### Subcommand key extract-sdkms-secret
+//!
+//! ```text
+//! Extracts key from Fortanix SDKMS
+//!
+//! Is a Fortanix SDKMS key was generated using the `--sdkms-exportable` flag, this
+//! command exfiltrates secrets from SDKMS and outputs a Key.
+//!
+//! USAGE:
+//!     sq key extract-sdkms-secret [FLAGS] [OPTIONS] --sdkms-key <SDKMS-KEY-NAME>
+//!
+//! FLAGS:
+//!     -B, --binary
+//!             Emits binary data
+//!
+//!     -h, --help
+//!             Prints help information
+//!
+//!     -V, --version
+//!             Prints version information
+//!
+//!
+//! OPTIONS:
+//!     -o, --output <FILE>
+//!             Writes to FILE or stdout if omitted
+//!
+//!         --sdkms-key <SDKMS-KEY-NAME>
+//!             Name of the SDKMS key
 //! ```
 //!
 //! ### Subcommand key attest-certifications

@@ -29,6 +29,7 @@ use crate::decrypt_key;
 pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("generate", Some(m)) => generate(config, m)?,
+        ("export", Some(m)) => generate(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
         ("adopt", Some(m)) => adopt(config, m)?,
