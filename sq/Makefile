@@ -36,8 +36,5 @@ install: build-release
 	$(MAKE) -C../store install
 
 test-sdkms:
-	./tests/sdkms.sh --p256
-	./tests/sdkms.sh --p384
-	./tests/sdkms.sh --p521
-	./tests/sdkms.sh --rsa3k
-	./tests/sdkms.sh --cv25519
+	./tests/sdkms-extract.sh --rsa3k
+	./tests/sdkms-extract.sh --cv25519

@@ -50,12 +50,14 @@ bob_key_name="test-bob-bb$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "${1
 comm "version"
 $sq --version
 
-comm "generate keys (Alice - exportable with $cipher_suite, Bob unexportable)"
+comm "generate keys (Alice - exportable with $cipher_suite)"
 $sq key generate --sdkms-key="$alice_key_name" --sdkms-exportable --userid="Alice Павловна Вишневская <alice@openpgp.example>" --cipher-suite="$cipher_suite"
-$sq key generate --sdkms-key="$bob_key_name" --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>"
 
-comm "extract key"
+comm "extract Alice key"
 $sq key extract-sdkms-secret --sdkms-key="$alice_key_name" --output="$alice_local_priv"
+
+comm "generate keys (Bob)"
+$sq key generate --sdkms-key="$bob_key_name" --userid="Bob Сергeeвич Прокoфьев <bob@openpgp.example>"
 
 comm "certificates"
 $sq key extract-cert --sdkms-key="$alice_key_name" > "$alice_public"

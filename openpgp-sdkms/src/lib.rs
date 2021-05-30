@@ -39,11 +39,11 @@ use sdkms::api_model::{
 };
 use sdkms::SdkmsClient;
 use sequoia_openpgp::crypto::mem::Protected;
-use sequoia_openpgp::crypto::mpi::PublicKey::ECDH;
 use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
 use sequoia_openpgp::packet::key::{
     Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole,
 };
+use sequoia_openpgp::packet::prelude::SecretKeyMaterial;
 use sequoia_openpgp::packet::signature::SignatureBuilder;
 use sequoia_openpgp::packet::{Key, UserID};
 use sequoia_openpgp::serialize::SerializeInto;
@@ -400,7 +400,9 @@ pub fn extract_tsk_from_sdkms(key_name: &str) -> Result<Cert> {
     // Merge with the known public certificate
     let priv_cert = Cert::try_from(packets)?;
     let cert = extract_cert(key_name)?;
-    let merged = cert.merge_public_and_secret(priv_cert)?;
+    let merged = cert
+        .merge_public_and_secret(priv_cert)
+        .context("Could not merge public and private certificates")?;
 
     Ok(merged)
 }
@@ -771,7 +773,7 @@ impl Decryptor for SdkmsAgent {
             }
             mpi::Ciphertext::ECDH { e, .. } => {
                 let curve = match &self.public.mpis() {
-                    ECDH { curve, .. } => curve.clone(),
+                    mpi::PublicKey::ECDH { curve, .. } => curve.clone(),
                     _ => return Err(Error::msg("inconsistent pk algo")),
                 };
 
@@ -978,6 +980,54 @@ fn secret_packet_from_sobject(
             }
             _ => unimplemented!(),
         },
+        ObjectType::Rsa => {
+            let (e, n, d, p, q, u) = yasna::parse_der(&raw_secret, |reader| {
+                reader.read_sequence(|reader| {
+                    let _version = reader.next().read_u32()?;
+                    let n = reader.next().read_biguint()?.to_bytes_be();
+                    let e = reader.next().read_biguint()?.to_bytes_be();
+                    let d = reader.next().read_biguint()?.to_bytes_be();
+                    let p = reader.next().read_biguint()?.to_bytes_be();
+                    let q = reader.next().read_biguint()?.to_bytes_be();
+                    let _exp1 = reader.next().read_biguint()?;
+                    let _exp2 = reader.next().read_biguint()?;
+                    let u = reader.next().read_biguint()?.to_bytes_be();
+
+                    Ok((e, n, d, p, q, u))
+                })
+            })?;
+            let public = mpi::PublicKey::RSA {
+                e: e.into(),
+                n: n.into(),
+            };
+            let secret: SecretKeyMaterial = mpi::SecretKeyMaterial::RSA {
+                d: d.into(),
+                p: p.into(),
+                q: q.into(),
+                u: u.into(),
+            }
+            .into();
+            match role {
+                KeyRole::Primary => {
+                    Ok(Key::V4(Key4::<_, PrimaryRole>::with_secret(
+                        time,
+                        PublicKeyAlgorithm::RSAEncryptSign,
+                        public,
+                        secret,
+                    )?)
+                    .into())
+                }
+                KeyRole::Subkey => {
+                    Ok(Key::V4(Key4::<_, SubordinateRole>::with_secret(
+                        time,
+                        PublicKeyAlgorithm::RSAEncryptSign,
+                        public,
+                        secret,
+                    )?)
+                    .into())
+                }
+            }
+        }
         _ => unimplemented!(),
     }
 }
