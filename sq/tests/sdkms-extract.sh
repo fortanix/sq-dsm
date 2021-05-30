@@ -40,7 +40,8 @@ bob_sdkms=$data/bob_sdkms.asc
 bob_local_priv=$data/bob_local_priv.asc
 bob_local_pub=$data/bob_local_pub.asc
 encrypted=$data/message.txt.gpg
-decrypted=$data/decrypted.txt
+decrypted_sdkms=$data/decrypted_sdkms.txt
+decrypted_local=$data/decrypted_local.txt
 signed=$data/message.signed.asc
 
 alice_key_name="test-alice-$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "${1:-10}" | head -n 1)"
@@ -62,19 +63,21 @@ $sq key extract-cert --sdkms-key="$bob_key_name" > "$bob_sdkms"
 
 printf "Y el verso cae al alma como al pasto el rocío.\n" > "$message"
 
-comm "encrypt to Alice, sign with Bob's key"
-$sq encrypt --signer-sdkms-key="$bob_key_name" --recipient-cert "$alice_public" "$message" --output "$encrypted"
-
-comm "decrypt with SDKMS key"
-$sq decrypt --signer-cert="$bob_sdkms" --sdkms-key="$alice_key_name" "$encrypted" --output "$decrypted"
-
-comm "decrypt with local key"
-$sq decrypt --signer-cert="$bob_sdkms" --key="$alice_local_priv" "$encrypted" --output "$decrypted"
-
 comm "sign with local key"
 $sq sign --signer-key="$alice_local_priv" "$message" > "$signed"
 
 comm "verify"
 $sq verify --signer-cert="$alice_public" "$signed"
 
-diff "$message" "$decrypted"
+comm "encrypt to Alice, sign with Bob's key"
+$sq encrypt --signer-sdkms-key="$bob_key_name" --recipient-cert "$alice_public" "$message" --output "$encrypted"
+
+comm "decrypt with local key"
+$sq decrypt --signer-cert="$bob_sdkms" --recipient-key="$alice_local_priv" "$encrypted" --output "$decrypted_local"
+
+diff "$message" "$decrypted_local"
+
+comm "decrypt with SDKMS key"
+$sq decrypt --signer-cert="$bob_sdkms" --sdkms-key="$alice_key_name" "$encrypted" --output "$decrypted_sdkms"
+
+diff "$message" "$decrypted_sdkms"
