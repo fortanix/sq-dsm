@@ -258,6 +258,7 @@ pub fn generate_key(
         .clone()
         .expect("unloaded primary key")
         .into();
+    let prim_creation_time = prim.creation_time();
 
     packets.push(prim.into());
 
@@ -271,6 +272,7 @@ pub fn generate_key(
     let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_primary_userid(true)?
         .set_key_flags(primary_flags)?
+        .set_signature_creation_time(prim_creation_time)?
         .set_preferred_hash_algorithms(vec![
             HashAlgorithm::SHA512,
             HashAlgorithm::SHA256,
@@ -290,6 +292,7 @@ pub fn generate_key(
         .expect("unloaded subkey")
         .clone()
         .into();
+    let subkey_creation_time = subkey_public.creation_time();
 
     let subkey_flags = KeyFlags::empty()
         .set_storage_encryption()
@@ -297,6 +300,7 @@ pub fn generate_key(
 
     let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
         .set_hash_algo(HashAlgorithm::SHA512)
+        .set_signature_creation_time(subkey_creation_time)?
         .set_key_flags(subkey_flags)?;
 
     let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
