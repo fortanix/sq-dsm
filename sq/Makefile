@@ -36,5 +36,13 @@ install: build-release
 	$(MAKE) -C../store install
 
 test-sdkms:
+	./tests/sdkms-roundtrips.sh --p256
+	./tests/sdkms-roundtrips.sh --p384
+	./tests/sdkms-roundtrips.sh --p521
+	./tests/sdkms-roundtrips.sh --rsa3k
+	./tests/sdkms-roundtrips.sh --cv25519
+	./tests/sdkms-extract.sh --p256
+	./tests/sdkms-extract.sh --p384
+	./tests/sdkms-extract.sh --p521
 	./tests/sdkms-extract.sh --rsa3k
 	./tests/sdkms-extract.sh --cv25519

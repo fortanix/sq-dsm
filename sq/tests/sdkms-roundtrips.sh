@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-sq="cargo run -- "
+sq="cargo run --"
 
 # tmp directory, erased on exit
 create_tmp_dir() {

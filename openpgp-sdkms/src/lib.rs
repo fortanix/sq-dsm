@@ -399,7 +399,7 @@ pub fn extract_tsk_from_sdkms(key_name: &str) -> Result<Cert> {
 
     // Merge with the known public certificate
     let priv_cert = Cert::try_from(packets)?;
-    let cert = extract_cert(key_name)?;
+    let cert = Cert::from_str(&key_md.certificate)?;
     let merged = cert
         .merge_public_and_secret(priv_cert)
         .context("Could not merge public and private certificates")?;
@@ -942,6 +942,8 @@ fn secret_packet_from_sobject(
 ) -> Result<Packet> {
     let time: SystemTime = sobject.created_at.to_datetime().into();
     let raw_secret = sobject.value.context("secret bits missing in Sobject")?;
+    let raw_public = sobject.pub_key.context("public bits missing in Sobject")?;
+    let is_signer = (sobject.key_ops & KeyOperations::SIGN) == KeyOperations::SIGN;
     match sobject.obj_type {
         ObjectType::Ec => match sobject.elliptic_curve {
             Some(ApiCurve::Ed25519) => {
@@ -951,14 +953,12 @@ fn secret_packet_from_sobject(
                         Key4::<_, PrimaryRole>::import_secret_ed25519(
                             secret, time,
                         )?,
-                    )
-                    .into()),
+                    ).into()),
                     KeyRole::Subkey => Ok(Key::V4(
                         Key4::<_, SubordinateRole>::import_secret_ed25519(
                             secret, time,
                         )?,
-                    )
-                    .into()),
+                    ).into()),
                 }
             }
             Some(ApiCurve::X25519) => {
@@ -976,6 +976,68 @@ fn secret_packet_from_sobject(
                         )?,
                     )
                     .into()),
+                }
+            }
+            Some(curve @ ApiCurve::NistP256)
+            | Some(curve @ ApiCurve::NistP384)
+            | Some(curve @ ApiCurve::NistP521) => {
+                // Public key point
+                let curve = sequoia_curve_from_api_curve(curve)?;
+                let deserialized_pk = Pk::from_public_key(&raw_public)
+                    .context("cannot deserialize key into mbedTLS")?;
+                let mbed_point = deserialized_pk.ec_public()?;
+                let bits_field =
+                    curve.bits().ok_or_else(|| Error::msg("bad curve"))?;
+                let point = mpi::MPI::new_point(
+                    &mbed_point.x()?.to_binary()?,
+                    &mbed_point.y()?.to_binary()?,
+                    bits_field,
+                );
+
+                // Secret
+                let scalar: mpi::ProtectedMPI = yasna::parse_der(&raw_secret, |reader| {
+                    Ok(reader.read_sequence(|reader| {
+                        let _version = reader.next().read_u32()?;
+                        let priv_key = reader.next().read_bytes()?;
+                        let _oid = reader.next().read_tagged_der()?;
+                        let _pk = reader.next().read_tagged_der()?;
+                        Ok(priv_key)
+                    })?)
+                })?.into();
+                let algo: PublicKeyAlgorithm;
+                let secret: SecretKeyMaterial;
+                let public: mpi::PublicKey;
+                if is_signer {
+                    algo = PublicKeyAlgorithm::ECDSA;
+                    secret = mpi::SecretKeyMaterial::ECDSA { scalar }.into();
+                    public = mpi::PublicKey::ECDSA { curve, q: point };
+                } else {
+                    algo = PublicKeyAlgorithm::ECDH;
+                    secret = mpi::SecretKeyMaterial::ECDH { scalar }.into();
+                    public = mpi::PublicKey::ECDH {
+                        curve,
+                        q: point,
+                        hash: HashAlgorithm::SHA512,
+                        sym: SymmetricAlgorithm::AES256,
+                    };
+                };
+                match role {
+                    KeyRole::Primary => {
+                        Ok(Key::V4(Key4::<_, PrimaryRole>::with_secret(
+                                    time,
+                                    algo,
+                                    public,
+                                    secret,
+                        )?).into())
+                    }
+                    KeyRole::Subkey => {
+                        Ok(Key::V4(Key4::<_, SubordinateRole>::with_secret(
+                                    time,
+                                    algo,
+                                    public,
+                                    secret,
+                        )?).into())
+                    }
                 }
             }
             _ => unimplemented!(),
