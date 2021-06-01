@@ -942,8 +942,10 @@ fn secret_packet_from_sobject(
 ) -> Result<Packet> {
     let time: SystemTime = sobject.created_at.to_datetime().into();
     let raw_secret = sobject.value.context("secret bits missing in Sobject")?;
-    let raw_public = sobject.pub_key.context("public bits missing in Sobject")?;
-    let is_signer = (sobject.key_ops & KeyOperations::SIGN) == KeyOperations::SIGN;
+    let raw_public =
+        sobject.pub_key.context("public bits missing in Sobject")?;
+    let is_signer =
+        (sobject.key_ops & KeyOperations::SIGN) == KeyOperations::SIGN;
     match sobject.obj_type {
         ObjectType::Ec => match sobject.elliptic_curve {
             Some(ApiCurve::Ed25519) => {
@@ -953,12 +955,14 @@ fn secret_packet_from_sobject(
                         Key4::<_, PrimaryRole>::import_secret_ed25519(
                             secret, time,
                         )?,
-                    ).into()),
+                    )
+                    .into()),
                     KeyRole::Subkey => Ok(Key::V4(
                         Key4::<_, SubordinateRole>::import_secret_ed25519(
                             secret, time,
                         )?,
-                    ).into()),
+                    )
+                    .into()),
                 }
             }
             Some(ApiCurve::X25519) => {
@@ -995,15 +999,17 @@ fn secret_packet_from_sobject(
                 );
 
                 // Secret
-                let scalar: mpi::ProtectedMPI = yasna::parse_der(&raw_secret, |reader| {
-                    Ok(reader.read_sequence(|reader| {
-                        let _version = reader.next().read_u32()?;
-                        let priv_key = reader.next().read_bytes()?;
-                        let _oid = reader.next().read_tagged_der()?;
-                        let _pk = reader.next().read_tagged_der()?;
-                        Ok(priv_key)
-                    })?)
-                })?.into();
+                let scalar: mpi::ProtectedMPI =
+                    yasna::parse_der(&raw_secret, |reader| {
+                        Ok(reader.read_sequence(|reader| {
+                            let _version = reader.next().read_u32()?;
+                            let priv_key = reader.next().read_bytes()?;
+                            let _oid = reader.next().read_tagged_der()?;
+                            let _pk = reader.next().read_tagged_der()?;
+                            Ok(priv_key)
+                        })?)
+                    })?
+                    .into();
                 let algo: PublicKeyAlgorithm;
                 let secret: SecretKeyMaterial;
                 let public: mpi::PublicKey;
@@ -1024,19 +1030,15 @@ fn secret_packet_from_sobject(
                 match role {
                     KeyRole::Primary => {
                         Ok(Key::V4(Key4::<_, PrimaryRole>::with_secret(
-                                    time,
-                                    algo,
-                                    public,
-                                    secret,
-                        )?).into())
+                            time, algo, public, secret,
+                        )?)
+                        .into())
                     }
                     KeyRole::Subkey => {
                         Ok(Key::V4(Key4::<_, SubordinateRole>::with_secret(
-                                    time,
-                                    algo,
-                                    public,
-                                    secret,
-                        )?).into())
+                            time, algo, public, secret,
+                        )?)
+                        .into())
                     }
                 }
             }
