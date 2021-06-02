@@ -35,7 +35,7 @@ comm() {
 my_cat() {
     if (( $verbosity == 1 )); then
         head -n4 $1
-        echo "[TRUNCATED]"
+        echo "    [TRUNCATED OUTPUT]"
     fi
     if (( $verbosity == 2 )); then
         cat $1
