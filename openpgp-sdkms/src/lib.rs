@@ -608,14 +608,15 @@ impl Signer for SdkmsAgent {
         if self.role != Role::Signer {
             return Err(Error::msg("bad role for SDKMS agent"));
         }
-        let http_client = self.credentials.http_client()?;
+        let http_client = self.credentials.http_client()
+            .expect("could not initialize the http client");
 
         let hash_alg = match hash_algo {
             HashAlgorithm::SHA1 => DigestAlgorithm::Sha1,
             HashAlgorithm::SHA512 => DigestAlgorithm::Sha512,
             HashAlgorithm::SHA256 => DigestAlgorithm::Sha256,
             hash @ _ => {
-                return Err(Error::msg(format!("unimplemented: {}", hash)));
+                panic!("unimplemented: {}", hash);
             }
         };
 
@@ -629,7 +630,8 @@ impl Signer for SdkmsAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)?;
+                let sign_resp = http_client.sign(&sign_req)
+                    .expect("bad response for signature request");
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 Ok(mpi::Signature::RSA { s: plain.into() })
@@ -643,7 +645,8 @@ impl Signer for SdkmsAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)?;
+                let sign_resp = http_client.sign(&sign_req)
+                    .expect("bad response for signature request");
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 Ok(mpi::Signature::EdDSA {
@@ -660,17 +663,21 @@ impl Signer for SdkmsAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)?;
+                let sign_resp = http_client.sign(&sign_req)
+                    .expect("bad response for signature request");
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 let (r, s) = yasna::parse_der(&plain, |reader| {
                     reader.read_sequence(|reader| {
-                        let r = reader.next().read_biguint()?.to_bytes_be();
-                        let s = reader.next().read_biguint()?.to_bytes_be();
+                        let r = reader.next().read_biguint()
+                            .expect("bad signature MPI (r)")
+                            .to_bytes_be();
+                        let s = reader.next().read_biguint()
+                            .expect("bad signature MPI (s)")
+                            .to_bytes_be();
                         Ok((r, s))
                     })
-                })
-                .map_err(|e| anyhow::Error::msg(format!("ECDSA: {}", e)))?;
+                }).expect("could not encode ECDSA der");
 
                 Ok(mpi::Signature::ECDSA {
                     r: r.to_vec().into(),
@@ -700,7 +707,7 @@ impl Decryptor for SdkmsAgent {
         let mut cli = SdkmsClient::builder()
             .with_api_endpoint(&self.credentials.api_endpoint)
             .with_api_key(&self.credentials.api_key)
-            .build()?;
+            .build().expect("could not initialize the SDKMS client");
 
         match ciphertext {
             mpi::Ciphertext::RSA { c } => {
@@ -714,16 +721,20 @@ impl Decryptor for SdkmsAgent {
                     tag:    None,
                 };
 
-                Ok(cli.decrypt(&decrypt_req)?.plain.to_vec().into())
+                Ok(
+                    cli.decrypt(&decrypt_req)
+                    .expect("failed RSA decryption")
+                    .plain.to_vec().into()
+                )
             }
             mpi::Ciphertext::ECDH { e, .. } => {
                 let curve = match &self.public.mpis() {
                     ECDH { curve, .. } => curve.clone(),
-                    _ => return Err(Error::msg("inconsistent pk algo")),
+                    _ => panic!("inconsistent pk algo"),
                 };
 
-                cli =
-                    cli.authenticate_with_api_key(&self.credentials.api_key)?;
+                cli = cli.authenticate_with_api_key(&self.credentials.api_key)
+                    .expect("bad authentication");
 
                 let ephemeral_der = match curve {
                     SequoiaCurve::Cv25519 => {
@@ -745,7 +756,8 @@ impl Decryptor for SdkmsAgent {
                         // AND PARAMETERS (RFC5480 sec. 2.1.1) for Nist curves
                         //
                         let id_ecdh = Oid::from_slice(&ID_ECDH);
-                        let named_curve = curve_oid(&curve)?;
+                        let named_curve = curve_oid(&curve)
+                            .expect("bad curve OID");
 
                         let alg_id = yasna::construct_der(|writer| {
                             writer.write_sequence(|writer| {
@@ -766,8 +778,8 @@ impl Decryptor for SdkmsAgent {
 
                 // Import ephemeral public key
                 let e_descriptor = {
-                    let api_curve =
-                        api_curve_from_sequoia_curve(curve.clone())?;
+                    let api_curve = api_curve_from_sequoia_curve(curve.clone())
+                        .expect("bad curve");
                     let req = SobjectRequest {
                         elliptic_curve: Some(api_curve),
                         key_ops: Some(KeyOperations::AGREEKEY),
@@ -780,12 +792,8 @@ impl Decryptor for SdkmsAgent {
                         .import_sobject(&req)
                         .expect("failed import ephemeral public key into SDKMS")
                         .transient_key
-                        .ok_or_else(|| {
-                            Error::msg(
-                                "could not retrieve SDKMS transient key \
-                                 (representing ECDH ephemeral public key)",
-                            )
-                        })?;
+                        .expect("could not retrieve SDKMS transient key \
+                                 (representing ECDH ephemeral public key)");
 
                     SobjectDescriptor::TransientKey(e_tkey)
                 };
@@ -802,7 +810,7 @@ impl Decryptor for SdkmsAgent {
                         name:              None,
                         group_id:          None,
                         key_type:          ObjectType::Secret,
-                        key_size:          curve_key_size(&curve)?,
+                        key_size:          curve_key_size(&curve).expect("size"),
                         enabled:           true,
                         description:       None,
                         custom_metadata:   None,
@@ -815,20 +823,20 @@ impl Decryptor for SdkmsAgent {
                         .agree(&agree_req)
                         .expect("failed ECDH agreement on SDKMS")
                         .transient_key
-                        .ok_or_else(|| {
-                            Error::msg("could not retrieve agreed key")
-                        })?;
+                        .expect("could not retrieve agreed key");
 
                     let desc = SobjectDescriptor::TransientKey(agreed_tkey);
 
-                    cli.export_sobject(&desc)?
+                    cli.export_sobject(&desc)
+                        .expect("could not export transient key")
                         .value
-                        .ok_or_else(|| Error::msg("could not retrieve secret"))?
+                        .expect("could not retrieve secret from sobject")
                         .to_vec()
                         .into()
                 };
 
-                Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext)?
+                Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext)
+                    .expect("could not unwrap the session key")
                     .to_vec()
                     .into())
             }
