@@ -261,6 +261,9 @@ fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
 /// The caller is responsible to `free` it once the writer has been
 /// destroyed.
 ///
+/// If you know the size of the data written to it, or can approximate
+/// it, consider using [`pgp_writer_alloc_with_capacity`].
+///
 /// # Sending objects across thread boundaries
 ///
 /// If you send a Sequoia object (like a pgp_writer_stack_t) that
@@ -320,11 +323,72 @@ fn pgp_writer_from_bytes(buf: *mut u8, len: size_t) -> *mut Writer {
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn pgp_writer_alloc(buf: *mut *mut c_void, len: *mut size_t)
                     -> *mut Writer {
+    let len_ = ffi_param_ref_mut!(len);
+
+    // Assume that the capacity is the current length.
+    let capacity = *len_;
+
+    pgp_writer_alloc_with_capacity(buf, len, capacity)
+}
+
+/// Creates an allocating writer reserving space upfront.
+///
+/// Variant of [`pgp_writer_alloc`] that makes sure that the buffer
+/// can be filled up to `capacity` without causing a reallocation by
+/// allocating space upfront.
+///
+/// # Errors
+///
+/// Returns `NULL` if the initial allocation failed.
+///
+/// # Examples
+///
+/// ```c
+/// #include <assert.h>
+/// #include <stdlib.h>
+/// #include <string.h>
+///
+/// #include <sequoia/openpgp.h>
+///
+/// /* Prepare a buffer.  */
+/// void *buf = NULL;
+/// size_t len = 0;
+///
+/// /* The allocating writer reallocates the buffer so that it grows
+///    if more data is written to it.  However, if we allocate enough
+///    space upfront, we can completely avoid the possibly costly
+///    reallocations.  Demonstrate that.  */
+/// pgp_writer_t sink = pgp_writer_alloc_with_capacity (&buf, &len, 29 * 4096);
+/// void *initial_allocation = buf;
+/// for (int i = 0; i < 4096; i++)
+///     pgp_writer_write (NULL, sink,
+///                       (uint8_t *) "This is a string of length 29", 29);
+/// pgp_writer_free (sink);
+/// assert (len == 29 * 4096);
+/// assert (memcmp (buf, "This is a string of length 29This", 29 + 4) == 0);
+/// assert (buf == initial_allocation);
+/// free (buf);
+/// ```
+#[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
+fn pgp_writer_alloc_with_capacity(buf: *mut *mut c_void, len: *mut size_t,
+                                  capacity: size_t)
+                                  -> *mut Writer {
     let buf = ffi_param_ref_mut!(buf);
     let len = ffi_param_ref_mut!(len);
 
-    // Assume that the capacity is the current length.
-    let capacity = *len;
+    // Sanitize capacity.
+    let capacity = capacity.max(*len);
+
+    if capacity > *len {
+        let new = unsafe {
+            realloc(*buf, capacity)
+        };
+        if new.is_null() {
+            return std::ptr::null_mut();
+        }
+
+        *buf = new;
+    }
 
     let w = WriterKind::Generic(Box::new(WriterAlloc(Mutex::new(Buffer {
         buf: buf,

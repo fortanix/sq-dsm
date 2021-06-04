@@ -109,6 +109,20 @@ pgp_writer_t pgp_writer_from_bytes (uint8_t *buf, size_t len);
 pgp_writer_t pgp_writer_alloc (void **buf, size_t *len);
 
 /*/
+/// Creates an allocating writer reserving space upfront.
+///
+/// Variant of [`pgp_writer_alloc`] that makes sure that the buffer
+/// can be filled up to `capacity` without causing a reallocation by
+/// allocating space upfront.
+///
+/// # Errors
+///
+/// Returns `NULL` if the initial allocation failed.
+/*/
+pgp_writer_t pgp_writer_alloc_with_capacity (void **buf, size_t *len,
+					     size_t capacity);
+
+/*/
 /// The callback type for the generic callback-based writer interface.
 /*/
 typedef ssize_t (*pgp_writer_cb_t) (void *cookie, const void *buf, size_t len);
