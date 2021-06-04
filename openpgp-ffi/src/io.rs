@@ -323,17 +323,25 @@ fn pgp_writer_alloc(buf: *mut *mut c_void, len: *mut size_t)
     let buf = ffi_param_ref_mut!(buf);
     let len = ffi_param_ref_mut!(len);
 
+    // Assume that the capacity is the current length.
+    let capacity = *len;
+
     let w = WriterKind::Generic(Box::new(WriterAlloc(Mutex::new(Buffer {
         buf: buf,
         len: len,
+        capacity,
     }))));
     w.move_into_raw()
 }
 
 struct WriterAlloc(Mutex<Buffer>);
 struct Buffer {
+    /// Pointer to the buffer.
     buf: &'static mut *mut c_void,
+    /// Length of data written to the buffer.
     len: &'static mut size_t,
+    /// Capacity of the buffer.
+    capacity: usize,
 }
 
 unsafe impl Send for Buffer {}
@@ -342,20 +350,34 @@ impl Write for WriterAlloc {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let buffer = self.0.get_mut().expect("Mutex not to be poisoned");
         let old_len = *buffer.len;
-        let new_len = old_len + buf.len();
 
-        let new = unsafe {
-            realloc(*buffer.buf, new_len)
-        };
-        if new.is_null() {
-            return Err(io::Error::new(io::ErrorKind::Other, "out of memory"));
+        if old_len + buf.len() > buffer.capacity {
+            let oom = || io::Error::new(
+                io::ErrorKind::Other, "out of memory");
+
+            // Strategy: Allocate the space we need rounded up to a
+            // power of two, but at least 64k bytes.
+            let need = old_len.checked_add(buf.len()).ok_or_else(oom)?;
+            let new_capacity = (64 * 1024)
+                .max(need.checked_next_power_of_two().ok_or_else(oom)?);
+
+            let new = unsafe {
+                realloc(*buffer.buf, new_capacity)
+            };
+            if new.is_null() {
+                return Err(oom());
+            }
+
+            *buffer.buf = new;
+            buffer.capacity = new_capacity;
         }
 
-        *buffer.buf = new;
-        *buffer.len = new_len;
+        // We make sure that this write can succeed.
+        assert!(old_len + buf.len() <= buffer.capacity);
+        *buffer.len += buf.len();
 
         let sl = unsafe {
-            slice::from_raw_parts_mut(new as *mut u8, new_len)
+            slice::from_raw_parts_mut(*buffer.buf as *mut u8, *buffer.len)
         };
         &mut sl[old_len..].copy_from_slice(buf);
         Ok(buf.len())
