@@ -704,10 +704,9 @@ impl Decryptor for SdkmsAgent {
         if self.role != Role::Decryptor {
             return Err(Error::msg("bad role for SDKMS agent"));
         }
-        let mut cli = SdkmsClient::builder()
-            .with_api_endpoint(&self.credentials.api_endpoint)
-            .with_api_key(&self.credentials.api_key)
-            .build().expect("could not initialize the SDKMS client");
+
+        let mut cli = self.credentials.http_client()
+            .expect("could not initialize the http client");
 
         match ciphertext {
             mpi::Ciphertext::RSA { c } => {
