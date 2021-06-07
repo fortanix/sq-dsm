@@ -393,4 +393,68 @@ mod tests {
         let mut keypair = key.into_keypair().unwrap();
         pkesk.decrypt(&mut keypair, None).unwrap();
     }
+
+    /// Insufficient validation of RSA ciphertexts crash Nettle.
+    ///
+    /// See CVE-2021-3580.
+    #[test]
+    fn cve_2021_3580_ciphertext_too_long() -> Result<()> {
+        // Get (any) 2k RSA key.
+        let cert = Cert::from_bytes(
+            crate::tests::key("testy-private.pgp"))?;
+        let mut keypair = cert.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+
+        let pile = PacketPile::from_bytes(b"-----BEGIN PGP ARMORED FILE-----
+
+wcDNAwAAAAAAAAAAAQwGI5SkpcRMjkiOKx332kxv+2Xh4y1QTefPilKOPOlHYFa0
+rnnLaQVEACKJNQ38YuCFUvtpK4IN2grjlj71IP24+KDp3ZuVWnVTS6JcyE10Y9iq
+uGvKdS0C17XCze2LD4ouVOrUZHGXpeDT47w6DsHb/0UE85h56wpk2CzO1XFQzHxX
+HR2DDLqqeFVzTv0peYiQfLHl7kWXijTNEqmYhFCzxuICXzuClAAJM+fVIRfcm2tm
+2R4AxOQGv9DlWfZwbkpKfj/uuo0CAe21n4NT+NzdVgPlff/hna3yGgPe1B+vjq4e
+jfxHg+pvo/HTLkV+c2HAGbM1bCb/5TedGd1nAMSAIOu/J/WQp/l3HtEv63HaVPZJ
+JInJ6L/KyPwjm/ieZx5EWOLJgFRWGCrBGnb8T81lkFey7uZR5Xiq+9KoUhHQFw8N
+joc0YUVyhUBVFf4B0zVZRUfqZyJtJ07Sl5xppI12U1HQCTjn7Fp8BHMPKuBotYzv
+1Q4f00k6Txctw+LDRM17/w==
+=VtwB
+-----END PGP ARMORED FILE-----
+")?;
+        let pkg = pile.descendants().next();
+        if let Some(Packet::PKESK(ref pkesk)) = pkg {
+            // Boom goes the assertion.
+            let _ = pkesk.decrypt(&mut keypair, None);
+        } else {
+            panic!("message is not a PKESK packet");
+        }
+
+        Ok(())
+    }
+
+    /// Insufficient validation of RSA ciphertexts crash Nettle.
+    ///
+    /// See CVE-2021-3580.
+    #[test]
+    fn cve_2021_3580_zero_ciphertext() -> Result<()> {
+        // Get (any) 2k RSA key.
+        let cert = Cert::from_bytes(
+            crate::tests::key("testy-private.pgp"))?;
+        let mut keypair = cert.primary_key().key().clone()
+            .parts_into_secret()?.into_keypair()?;
+
+        let pile = PacketPile::from_bytes(b"-----BEGIN PGP ARMORED FILE-----
+
+wQwDAAAAAAAAAAABAAA=
+=H/1T
+-----END PGP ARMORED FILE-----
+")?;
+        let pkg = pile.descendants().next();
+        if let Some(Packet::PKESK(ref pkesk)) = pkg {
+            // Boom goes the memory safety.
+            let _ = pkesk.decrypt(&mut keypair, None);
+        } else {
+            panic!("message is not a PKESK packet");
+        }
+
+        Ok(())
+    }
 }
