@@ -507,4 +507,41 @@ mod tests {
             assert_eq!(&Protected::from(test.key_data), &key_data);
         }
     }
+
+    #[test]
+    fn cv25519_generation() -> Result<()> {
+        const CURVE25519_SIZE: usize = 32;
+
+        fn check_clamping<S: AsRef<[u8]>>(s: S) {
+            // Curve25519 Paper, Sec. 3: A user can, for example,
+            // generate 32 uniform random bytes, clear bits 0, 1, 2 of
+            // the first byte, clear bit 7 of the last byte, and set
+            // bit 6 of the last byte.
+
+            // OpenPGP stores the secret in reverse order.
+            const FIRST: usize = CURVE25519_SIZE - 1;
+            const LAST: usize = 0;
+
+            let s = s.as_ref();
+            assert_eq!(s[FIRST] & ! 0b1111_1000, 0);
+            assert_eq!(s[LAST] & 0b1100_0000, 0b0100_0000);
+        }
+
+        for _ in 0..5 {
+            let k: key::Key4<_, key::SubordinateRole> =
+                key::Key4::generate_ecc(false, Curve::Cv25519)?;
+            match k.secret() {
+                key::SecretKeyMaterial::Unencrypted(m) => m.map(|mpis| {
+                    match mpis {
+                        mpi::SecretKeyMaterial::ECDH { scalar } =>
+                            check_clamping(scalar.value()),
+                        o => panic!("unexpected key material: {:?}", o),
+                    }
+                }),
+                o => panic!("expected unencrypted material: {:?}", o),
+            }
+        }
+
+        Ok(())
+    }
 }
