@@ -73,7 +73,7 @@ test check:
 	  then \
 	  echo 'Already tested the benchmarks.'; \
 	  else \
-	  CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) test $(CARGO_FLAGS) $(CARGO_PACKAGES) --benches; \
+	  CARGO_TARGET_DIR=$(CARGO_TARGET_DIR) $(CARGO) test $(CARGO_FLAGS) $(CARGO_PACKAGES) $(CARGO_TEST_ARGS) --benches; \
 	fi
 	if echo "$(CARGO_PACKAGES)" | grep -q -E -e '(^| )[-]p +.'; \
 	then \
