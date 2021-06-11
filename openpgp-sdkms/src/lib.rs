@@ -25,13 +25,14 @@ use http::uri::Uri;
 use hyper::client::{Client as HyperClient, ProxyConfig};
 use hyper::net::HttpsConnector;
 use hyper_native_tls::NativeTlsClient;
+use hyper_native_tls::native_tls::TlsConnector;
 use ipnetwork::IpNetwork;
 use log::info;
 use mbedtls::pk::Pk;
 use sdkms::api_model::Algorithm::Rsa;
 use sdkms::api_model::{
     AgreeKeyMechanism, AgreeKeyRequest, DecryptRequest, DigestAlgorithm,
-    EllipticCurve as ApiCurve, KeyOperations, ObjectType,
+    EllipticCurve as ApiCurve, KeyLinks, KeyOperations, ObjectType,
     RsaEncryptionPaddingPolicy, RsaEncryptionPolicy, RsaOptions,
     RsaSignaturePaddingPolicy, RsaSignaturePolicy, SignRequest, Sobject,
     SobjectDescriptor, SobjectRequest,
@@ -72,8 +73,10 @@ const ENV_API_KEY: &str = "FORTANIX_API_KEY";
 const ENV_API_ENDPOINT: &str = "FORTANIX_API_ENDPOINT";
 const ENV_HTTP_PROXY: &str = "http_proxy";
 const ENV_NO_PROXY: &str = "no_proxy";
+const ENV_INSECURE_TLS: &str = "FORTANIX_DEBUG_INSECURE_TLS";
 const SDKMS_LABEL_PGP: &str = "sq_sdkms";
 
+#[derive(Debug)]
 struct Credentials {
     api_endpoint: String,
     api_key:      String,
@@ -102,6 +105,19 @@ impl Credentials {
         if let Some(proxy) = &self.proxy {
             builder = builder.with_hyper_client(proxy.clone());
         }
+        if let Ok(dbg) = env::var(ENV_INSECURE_TLS) {
+            if dbg == "1" {
+                let tls_conn = TlsConnector::builder()
+                    .danger_accept_invalid_certs(true)
+                    .build()?;
+                let ssl = NativeTlsClient::from(tls_conn);
+                let https_conn = HttpsConnector::new(ssl);
+
+                let hyper_client = HyperClient::with_connector(https_conn);
+                builder = builder.with_hyper_client(Arc::new(hyper_client));
+            }
+        }
+
 
         Ok(builder
             .build()
@@ -109,7 +125,7 @@ impl Credentials {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum Role {
     Signer,
     Decryptor,
@@ -147,28 +163,25 @@ impl SdkmsAgent {
             .get_sobject(None, &descriptor)
             .context(format!("could not get primary key {}", key_name))?;
 
-        if let Some(dict) = sobject.custom_metadata {
-            if dict.contains_key(SDKMS_LABEL_PGP) {
-                let json_str = &dict[SDKMS_LABEL_PGP];
-                let key_md: KeyMetadata = serde_json::from_str(json_str)?;
-                if key_md.subkeys[0].len() == 0 {
-                    return Err(Error::msg("No subkeys found in SDKMS"));
-                }
-                let uid = Uuid::parse_str(&key_md.subkeys[0])?;
-                let descriptor = SobjectDescriptor::Kid(uid);
-                let sobject = http_client
-                    .get_sobject(None, &descriptor)
-                    .context("could not get subkey".to_string())?;
-                let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
-                return Ok(SdkmsAgent {
-                    descriptor,
-                    public: key.sequoia_key.expect("key is not loaded"),
-                    role: Role::Decryptor,
-                    credentials,
-                });
+        if let Some(links) = sobject.links {
+            if links.subkeys.is_empty() {
+                return Err(Error::msg("empty key links"));
             }
+
+            let uid = links.subkeys[0];
+            let descriptor = SobjectDescriptor::Kid(uid);
+            let sobject = http_client
+                .get_sobject(None, &descriptor)
+                .context("could not get subkey".to_string())?;
+            let key = PublicKey::from_sobject(sobject, KeyRole::Subkey)?;
+            return Ok(SdkmsAgent {
+                descriptor,
+                public: key.sequoia_key.expect("key is not loaded"),
+                role: Role::Decryptor,
+                credentials,
+            });
         }
-        Err(Error::msg("was not able to get decryption subkey"))
+        Err(Error::msg("could not get decryption subkey"))
     }
 }
 
@@ -194,7 +207,6 @@ enum KeyRole {
 #[derive(Serialize, Deserialize)]
 struct KeyMetadata {
     certificate: String,
-    subkeys:     Vec<String>,
 }
 
 /// Generates an OpenPGP key with secrets stored in SDKMS. At the OpenPGP
@@ -312,20 +324,28 @@ pub fn generate_key(
 
     let key_md = KeyMetadata {
         certificate: armored,
-        subkeys: vec![subkey.uid()?.to_string()],
     };
 
     let key_json = serde_json::to_string(&key_md)?;
 
     let mut metadata = HashMap::<String, String>::new();
     metadata.insert(SDKMS_LABEL_PGP.to_string(), key_json);
-
-    let update_req = SobjectRequest {
+    let update_metadata = SobjectRequest {
         custom_metadata: Some(metadata),
         ..Default::default()
     };
 
-    http_client.update_sobject(&primary.uid()?, &update_req)?;
+    http_client.update_sobject(&primary.uid()?, &update_metadata)?;
+
+    let key_links = KeyLinks {
+        parent:      Some(primary.uid()?),
+        ..Default::default()
+    };
+    let update_links = SobjectRequest {
+        links: Some(key_links),
+        ..Default::default()
+    };
+    http_client.update_sobject(&subkey.uid()?, &update_links)?;
 
     Ok(())
 }
