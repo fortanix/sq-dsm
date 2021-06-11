@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-sq="cargo run -- "
+sq="cargo run --"
 
 # Parse input flags
 case "$1" in
@@ -13,7 +13,7 @@ case "$1" in
 esac
 
 if (( $# != 3 )); then
-    echo "Usage: test.sh --[rsa3k, p256, p384, p521, cv25519] -v <int verbosity [0, 1, 2]>"
+    echo "Usage: sq_roundtrips.sh --[rsa3k, p256, p384, p521, cv25519] -v <int verbosity [0, 1, 2]>"
     exit 1
 fi
 
@@ -29,7 +29,7 @@ erase_tmp_dir() {
 }
 
 comm() {
-    printf "$ %s\n" "$1"
+    printf "~~~ %s ~~~\n" "$1"
 }
 
 my_cat() {
@@ -60,8 +60,8 @@ decrypted_signed=$data/decrypted.txt.signed
 signed=$data/message.signed.asc
 
 random=$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w "10" | head -n 1)
-alice_key_name="test-alice-$random"
-bob_key_name="test-bob-$random"
+alice_key_name="test-sq-roundtrip-alice-$random"
+bob_key_name="test-sq-roundtrip-bob-$random"
 
 comm "version"
 $sq --version
