@@ -245,7 +245,7 @@ impl Descriptor {
     }
 
     fn fork(&self, listener: TcpListener) -> Result<()> {
-        let mut cmd = Command::new(&self.executable);
+        let mut cmd = new_background_command(&self.executable);
         cmd
             .arg("--home")
             .arg(self.ctx.home())
@@ -532,4 +532,24 @@ fn wsa_cleanup() {
     if WSA_INITED.load(Ordering::SeqCst) {
         let _ = unsafe { winsock2::WSACleanup() };
     }
+}
+
+pub(crate) fn new_background_command<S>(program: S) -> Command
+where
+    S: AsRef<std::ffi::OsStr>,
+{
+    let command = Command::new(program);
+
+    #[cfg(windows)]
+    let command = {
+        use std::os::windows::process::CommandExt;
+
+        // see https://docs.microsoft.com/en-us/windows/win32/procthread/process-creation-flags
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let mut command = command;
+        command.creation_flags(CREATE_NO_WINDOW);
+        command
+    };
+
+    command
 }
