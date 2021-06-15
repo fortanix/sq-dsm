@@ -18,6 +18,7 @@ use std::env;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use anyhow::{Context, Error, Result};
 use bit_vec::BitVec;
@@ -37,14 +38,12 @@ use sdkms::api_model::{
     SobjectDescriptor, SobjectRequest,
 };
 use sdkms::SdkmsClient;
-use serde_derive::{Deserialize, Serialize};
-
 use sequoia_openpgp::crypto::mem::Protected;
-use sequoia_openpgp::crypto::mpi::PublicKey::ECDH;
 use sequoia_openpgp::crypto::{ecdh, mpi, Decryptor, SessionKey, Signer};
 use sequoia_openpgp::packet::key::{
     Key4, PrimaryRole, PublicParts, SubordinateRole, UnspecifiedRole,
 };
+use sequoia_openpgp::packet::prelude::SecretKeyMaterial;
 use sequoia_openpgp::packet::signature::SignatureBuilder;
 use sequoia_openpgp::packet::{Key, UserID};
 use sequoia_openpgp::serialize::SerializeInto;
@@ -53,6 +52,7 @@ use sequoia_openpgp::types::{
     SignatureType, SymmetricAlgorithm,
 };
 use sequoia_openpgp::{Cert, Packet};
+use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
 use yasna::models::ObjectIdentifier as Oid;
 
@@ -197,6 +197,22 @@ struct KeyMetadata {
     subkeys:     Vec<String>,
 }
 
+impl KeyMetadata {
+    fn from_primary_sobject(sob: &Sobject) -> Result<Self> {
+        match &sob.custom_metadata {
+            Some(dict) => {
+                if !dict.contains_key(SDKMS_LABEL_PGP) {
+                    return Err(anyhow::anyhow!("malformed metadata"));
+                }
+                let key_md: KeyMetadata =
+                    serde_json::from_str(&dict[SDKMS_LABEL_PGP])?;
+                Ok(key_md)
+            }
+            None => Err(anyhow::anyhow!("no custom metadata found")),
+        }
+    }
+}
+
 /// Generates an OpenPGP key with secrets stored in SDKMS. At the OpenPGP
 /// level, this method produces a key consisting of
 ///
@@ -213,6 +229,7 @@ pub fn generate_key(
     key_name: &str,
     user_id: Option<&str>,
     algo: Option<&str>,
+    exportable: bool,
 ) -> Result<()> {
     let uid: UserID = match user_id {
         Some(id) => id.into(),
@@ -237,6 +254,7 @@ pub fn generate_key(
         key_name.to_string(),
         KeyRole::Primary,
         &algorithm,
+        exportable,
     )
     .context("could not create primary key")?;
 
@@ -246,6 +264,7 @@ pub fn generate_key(
         key_name.to_string(),
         KeyRole::Subkey,
         &algorithm,
+        exportable,
     )?;
 
     info!("generate certificate");
@@ -258,6 +277,7 @@ pub fn generate_key(
         .clone()
         .expect("unloaded primary key")
         .into();
+    let prim_creation_time = prim.creation_time();
 
     packets.push(prim.into());
 
@@ -271,6 +291,7 @@ pub fn generate_key(
     let builder = SignatureBuilder::new(SignatureType::PositiveCertification)
         .set_primary_userid(true)?
         .set_key_flags(primary_flags)?
+        .set_signature_creation_time(prim_creation_time)?
         .set_preferred_hash_algorithms(vec![
             HashAlgorithm::SHA512,
             HashAlgorithm::SHA256,
@@ -290,6 +311,7 @@ pub fn generate_key(
         .expect("unloaded subkey")
         .clone()
         .into();
+    let subkey_creation_time = subkey_public.creation_time();
 
     let subkey_flags = KeyFlags::empty()
         .set_storage_encryption()
@@ -297,6 +319,7 @@ pub fn generate_key(
 
     let builder = SignatureBuilder::new(SignatureType::SubkeyBinding)
         .set_hash_algo(HashAlgorithm::SHA512)
+        .set_signature_creation_time(subkey_creation_time)?
         .set_key_flags(subkey_flags)?;
 
     let signature = subkey_public.bind(&mut prim_signer, &cert, builder)?;
@@ -308,7 +331,7 @@ pub fn generate_key(
 
     let key_md = KeyMetadata {
         certificate: armored,
-        subkeys: vec![subkey.uid()?.to_string()],
+        subkeys:     vec![subkey.uid()?.to_string()],
     };
 
     let key_json = serde_json::to_string(&key_md)?;
@@ -335,9 +358,8 @@ pub fn extract_cert(key_name: &str) -> Result<Cert> {
     let http_client = credentials.http_client()?;
 
     let metadata = {
-        let req = SobjectDescriptor::Name(key_name.to_string());
         let sobject = http_client
-            .get_sobject(None, &req)
+            .get_sobject(None, &SobjectDescriptor::Name(key_name.to_string()))
             .context(format!("could not get primary key {}", key_name))?;
 
         match sobject.custom_metadata {
@@ -346,12 +368,47 @@ pub fn extract_cert(key_name: &str) -> Result<Cert> {
         }
     };
     if !metadata.contains_key(SDKMS_LABEL_PGP) {
-        return Err(Error::msg("malformed metadata in SDKMS".to_string()))
+        return Err(Error::msg("malformed metadata in SDKMS".to_string()));
     }
 
     let key_md: KeyMetadata = serde_json::from_str(&metadata[SDKMS_LABEL_PGP])?;
 
     Ok(Cert::from_str(&key_md.certificate)?)
+}
+
+pub fn extract_tsk_from_sdkms(key_name: &str) -> Result<Cert> {
+    // Extract all secrets as packets
+    let credentials = Credentials::new_from_env()?;
+    let http_client = credentials.http_client()?;
+
+    let mut packets = Vec::<Packet>::with_capacity(2);
+
+    // Primary key
+    let prim_sob = http_client
+        .export_sobject(&SobjectDescriptor::Name(key_name.to_string()))
+        .context(format!("could not export primary secret {}", key_name))?;
+    let key_md = KeyMetadata::from_primary_sobject(&prim_sob)?;
+    let packet = secret_packet_from_sobject(prim_sob, KeyRole::Primary)?;
+    packets.push(packet);
+
+    // Subkeys
+    for subkey_name in &key_md.subkeys {
+        let uid = Uuid::parse_str(&subkey_name)?;
+        let sob = http_client
+            .export_sobject(&SobjectDescriptor::Kid(uid))
+            .context(format!("could not export subkey secret {}", key_name))?;
+        let packet = secret_packet_from_sobject(sob, KeyRole::Subkey)?;
+        packets.push(packet);
+    }
+
+    // Merge with the known public certificate
+    let priv_cert = Cert::try_from(packets)?;
+    let cert = Cert::from_str(&key_md.certificate)?;
+    let merged = cert
+        .merge_public_and_secret(priv_cert)
+        .context("Could not merge public and private certificates")?;
+
+    Ok(merged)
 }
 
 impl PublicKey {
@@ -360,10 +417,11 @@ impl PublicKey {
         name: String,
         role: KeyRole,
         algo: &SupportedPkAlgo,
+        exportable: bool,
     ) -> Result<Self> {
         let description = Some("Created with sq-sdkms".to_string());
 
-        let sobject_request = match (&role, algo) {
+        let mut sobject_request = match (&role, algo) {
             (KeyRole::Primary, SupportedPkAlgo::Rsa(key_size)) => {
                 let sig_policy = RsaSignaturePolicy {
                     padding: Some(RsaSignaturePaddingPolicy::Pkcs1V15 {}),
@@ -451,6 +509,11 @@ impl PublicKey {
                 ..Default::default()
             },
         };
+
+        if exportable {
+            sobject_request.key_ops =
+                Some(sobject_request.key_ops.unwrap() | KeyOperations::EXPORT)
+        }
 
         let sobject = client.create_sobject(&sobject_request)?;
 
@@ -604,14 +667,15 @@ impl Signer for SdkmsAgent {
         if self.role != Role::Signer {
             return Err(Error::msg("bad role for SDKMS agent"));
         }
-        let http_client = self.credentials.http_client()?;
+        let http_client = self.credentials.http_client()
+            .expect("could not initialize the http client");
 
         let hash_alg = match hash_algo {
             HashAlgorithm::SHA1 => DigestAlgorithm::Sha1,
             HashAlgorithm::SHA512 => DigestAlgorithm::Sha512,
             HashAlgorithm::SHA256 => DigestAlgorithm::Sha256,
             hash @ _ => {
-                return Err(Error::msg(format!("unimplemented: {}", hash)));
+                panic!("unimplemented: {}", hash);
             }
         };
 
@@ -625,7 +689,8 @@ impl Signer for SdkmsAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)?;
+                let sign_resp = http_client.sign(&sign_req)
+                    .expect("bad response for signature request");
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 Ok(mpi::Signature::RSA { s: plain.into() })
@@ -639,7 +704,8 @@ impl Signer for SdkmsAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)?;
+                let sign_resp = http_client.sign(&sign_req)
+                    .expect("bad response for signature request");
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 Ok(mpi::Signature::EdDSA {
@@ -656,17 +722,21 @@ impl Signer for SdkmsAgent {
                     mode: None,
                     deterministic_signature: None,
                 };
-                let sign_resp = http_client.sign(&sign_req)?;
+                let sign_resp = http_client.sign(&sign_req)
+                    .expect("bad response for signature request");
 
                 let plain: Vec<u8> = sign_resp.signature.into();
                 let (r, s) = yasna::parse_der(&plain, |reader| {
                     reader.read_sequence(|reader| {
-                        let r = reader.next().read_biguint()?.to_bytes_be();
-                        let s = reader.next().read_biguint()?.to_bytes_be();
+                        let r = reader.next().read_biguint()
+                            .expect("bad signature MPI (r)")
+                            .to_bytes_be();
+                        let s = reader.next().read_biguint()
+                            .expect("bad signature MPI (s)")
+                            .to_bytes_be();
                         Ok((r, s))
                     })
-                })
-                .map_err(|e| anyhow::Error::msg(format!("ECDSA: {}", e)))?;
+                }).expect("could not encode ECDSA der");
 
                 Ok(mpi::Signature::ECDSA {
                     r: r.to_vec().into(),
@@ -693,10 +763,9 @@ impl Decryptor for SdkmsAgent {
         if self.role != Role::Decryptor {
             return Err(Error::msg("bad role for SDKMS agent"));
         }
-        let mut cli = SdkmsClient::builder()
-            .with_api_endpoint(&self.credentials.api_endpoint)
-            .with_api_key(&self.credentials.api_key)
-            .build()?;
+
+        let mut cli = self.credentials.http_client()
+            .expect("could not initialize the http client");
 
         match ciphertext {
             mpi::Ciphertext::RSA { c } => {
@@ -710,16 +779,20 @@ impl Decryptor for SdkmsAgent {
                     tag:    None,
                 };
 
-                Ok(cli.decrypt(&decrypt_req)?.plain.to_vec().into())
+                Ok(
+                    cli.decrypt(&decrypt_req)
+                    .expect("failed RSA decryption")
+                    .plain.to_vec().into()
+                )
             }
             mpi::Ciphertext::ECDH { e, .. } => {
                 let curve = match &self.public.mpis() {
-                    ECDH { curve, .. } => curve.clone(),
-                    _ => return Err(Error::msg("inconsistent pk algo")),
+                    mpi::PublicKey::ECDH { curve, .. } => curve.clone(),
+                    _ => panic!("inconsistent pk algo"),
                 };
 
-                cli =
-                    cli.authenticate_with_api_key(&self.credentials.api_key)?;
+                cli = cli.authenticate_with_api_key(&self.credentials.api_key)
+                    .expect("bad authentication");
 
                 let ephemeral_der = match curve {
                     SequoiaCurve::Cv25519 => {
@@ -741,7 +814,8 @@ impl Decryptor for SdkmsAgent {
                         // AND PARAMETERS (RFC5480 sec. 2.1.1) for Nist curves
                         //
                         let id_ecdh = Oid::from_slice(&ID_ECDH);
-                        let named_curve = curve_oid(&curve)?;
+                        let named_curve = curve_oid(&curve)
+                            .expect("bad curve OID");
 
                         let alg_id = yasna::construct_der(|writer| {
                             writer.write_sequence(|writer| {
@@ -762,8 +836,8 @@ impl Decryptor for SdkmsAgent {
 
                 // Import ephemeral public key
                 let e_descriptor = {
-                    let api_curve =
-                        api_curve_from_sequoia_curve(curve.clone())?;
+                    let api_curve = api_curve_from_sequoia_curve(curve.clone())
+                        .expect("bad curve");
                     let req = SobjectRequest {
                         elliptic_curve: Some(api_curve),
                         key_ops: Some(KeyOperations::AGREEKEY),
@@ -776,12 +850,8 @@ impl Decryptor for SdkmsAgent {
                         .import_sobject(&req)
                         .expect("failed import ephemeral public key into SDKMS")
                         .transient_key
-                        .ok_or_else(|| {
-                            Error::msg(
-                                "could not retrieve SDKMS transient key \
-                                 (representing ECDH ephemeral public key)",
-                            )
-                        })?;
+                        .expect("could not retrieve SDKMS transient key \
+                                 (representing ECDH ephemeral public key)");
 
                     SobjectDescriptor::TransientKey(e_tkey)
                 };
@@ -798,7 +868,7 @@ impl Decryptor for SdkmsAgent {
                         name:              None,
                         group_id:          None,
                         key_type:          ObjectType::Secret,
-                        key_size:          curve_key_size(&curve)?,
+                        key_size:          curve_key_size(&curve).expect("size"),
                         enabled:           true,
                         description:       None,
                         custom_metadata:   None,
@@ -811,20 +881,20 @@ impl Decryptor for SdkmsAgent {
                         .agree(&agree_req)
                         .expect("failed ECDH agreement on SDKMS")
                         .transient_key
-                        .ok_or_else(|| {
-                            Error::msg("could not retrieve agreed key")
-                        })?;
+                        .expect("could not retrieve agreed key");
 
                     let desc = SobjectDescriptor::TransientKey(agreed_tkey);
 
-                    cli.export_sobject(&desc)?
+                    cli.export_sobject(&desc)
+                        .expect("could not export transient key")
                         .value
-                        .ok_or_else(|| Error::msg("could not retrieve secret"))?
+                        .expect("could not retrieve secret from sobject")
                         .to_vec()
                         .into()
                 };
 
-                Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext)?
+                Ok(ecdh::decrypt_unwrap(&self.public, &secret, ciphertext)
+                    .expect("could not unwrap the session key")
                     .to_vec()
                     .into())
             }
@@ -874,6 +944,172 @@ fn api_curve_from_sequoia_curve(curve: SequoiaCurve) -> Result<ApiCurve> {
         SequoiaCurve::NistP384 => Ok(ApiCurve::NistP384),
         SequoiaCurve::NistP521 => Ok(ApiCurve::NistP521),
         curve @ _ => Err(Error::msg(format!("unsupported curve {}", curve))),
+    }
+}
+
+fn secret_packet_from_sobject(
+    sobject: Sobject,
+    role: KeyRole,
+) -> Result<Packet> {
+    let time: SystemTime = sobject.created_at.to_datetime().into();
+    let raw_secret = sobject.value.context("secret bits missing in Sobject")?;
+    let raw_public =
+        sobject.pub_key.context("public bits missing in Sobject")?;
+    let is_signer =
+        (sobject.key_ops & KeyOperations::SIGN) == KeyOperations::SIGN;
+    match sobject.obj_type {
+        ObjectType::Ec => match sobject.elliptic_curve {
+            Some(ApiCurve::Ed25519) => {
+                if raw_secret.len() < 16 {
+                    return Err(anyhow::anyhow!("malformed Ed25519 secret"));
+                }
+                let secret = &raw_secret[16..];
+                match role {
+                    KeyRole::Primary => Ok(Key::V4(
+                        Key4::<_, PrimaryRole>::import_secret_ed25519(
+                            secret, time,
+                        )?,
+                    )
+                    .into()),
+                    KeyRole::Subkey => Ok(Key::V4(
+                        Key4::<_, SubordinateRole>::import_secret_ed25519(
+                            secret, time,
+                        )?,
+                    )
+                    .into()),
+                }
+            }
+            Some(ApiCurve::X25519) => {
+                if raw_secret.len() < 16 {
+                    return Err(anyhow::anyhow!("malformed X25519 secret"));
+                }
+                let secret = &raw_secret[16..];
+                match role {
+                    KeyRole::Primary => Ok(Key::V4(
+                        Key4::<_, PrimaryRole>::import_secret_cv25519(
+                            secret, None, None, time,
+                        )?,
+                    )
+                    .into()),
+                    KeyRole::Subkey => Ok(Key::V4(
+                        Key4::<_, SubordinateRole>::import_secret_cv25519(
+                            secret, None, None, time,
+                        )?,
+                    )
+                    .into()),
+                }
+            }
+            Some(curve @ ApiCurve::NistP256)
+            | Some(curve @ ApiCurve::NistP384)
+            | Some(curve @ ApiCurve::NistP521) => {
+                // Public key point
+                let curve = sequoia_curve_from_api_curve(curve)?;
+                let deserialized_pk = Pk::from_public_key(&raw_public)
+                    .context("cannot deserialize key into mbedTLS")?;
+                let mbed_point = deserialized_pk.ec_public()?;
+                let bits_field =
+                    curve.bits().ok_or_else(|| Error::msg("bad curve"))?;
+                let point = mpi::MPI::new_point(
+                    &mbed_point.x()?.to_binary()?,
+                    &mbed_point.y()?.to_binary()?,
+                    bits_field,
+                );
+
+                // Secret
+                let scalar: mpi::ProtectedMPI =
+                    yasna::parse_der(&raw_secret, |reader| {
+                        Ok(reader.read_sequence(|reader| {
+                            let _version = reader.next().read_u32()?;
+                            let priv_key = reader.next().read_bytes()?;
+                            let _oid = reader.next().read_tagged_der()?;
+                            let _pk = reader.next().read_tagged_der()?;
+                            Ok(priv_key)
+                        })?)
+                    })?
+                    .into();
+                let algo: PublicKeyAlgorithm;
+                let secret: SecretKeyMaterial;
+                let public: mpi::PublicKey;
+                if is_signer {
+                    algo = PublicKeyAlgorithm::ECDSA;
+                    secret = mpi::SecretKeyMaterial::ECDSA { scalar }.into();
+                    public = mpi::PublicKey::ECDSA { curve, q: point };
+                } else {
+                    algo = PublicKeyAlgorithm::ECDH;
+                    secret = mpi::SecretKeyMaterial::ECDH { scalar }.into();
+                    public = mpi::PublicKey::ECDH {
+                        curve,
+                        q: point,
+                        hash: HashAlgorithm::SHA512,
+                        sym: SymmetricAlgorithm::AES256,
+                    };
+                };
+                match role {
+                    KeyRole::Primary => {
+                        Ok(Key::V4(Key4::<_, PrimaryRole>::with_secret(
+                            time, algo, public, secret,
+                        )?)
+                        .into())
+                    }
+                    KeyRole::Subkey => {
+                        Ok(Key::V4(Key4::<_, SubordinateRole>::with_secret(
+                            time, algo, public, secret,
+                        )?)
+                        .into())
+                    }
+                }
+            }
+            _ => unimplemented!(),
+        },
+        ObjectType::Rsa => {
+            let (e, n, d, p, q, u) = yasna::parse_der(&raw_secret, |reader| {
+                reader.read_sequence(|reader| {
+                    let _version = reader.next().read_u32()?;
+                    let n = reader.next().read_biguint()?.to_bytes_be();
+                    let e = reader.next().read_biguint()?.to_bytes_be();
+                    let d = reader.next().read_biguint()?.to_bytes_be();
+                    let p = reader.next().read_biguint()?.to_bytes_be();
+                    let q = reader.next().read_biguint()?.to_bytes_be();
+                    let _exp1 = reader.next().read_biguint()?;
+                    let _exp2 = reader.next().read_biguint()?;
+                    let u = reader.next().read_biguint()?.to_bytes_be();
+
+                    Ok((e, n, d, p, q, u))
+                })
+            })?;
+            let public = mpi::PublicKey::RSA {
+                e: e.into(),
+                n: n.into(),
+            };
+            let secret: SecretKeyMaterial = mpi::SecretKeyMaterial::RSA {
+                d: d.into(),
+                p: p.into(),
+                q: q.into(),
+                u: u.into(),
+            }
+            .into();
+            match role {
+                KeyRole::Primary => {
+                    Ok(Key::V4(Key4::<_, PrimaryRole>::with_secret(
+                        time,
+                        PublicKeyAlgorithm::RSAEncryptSign,
+                        public,
+                        secret,
+                    )?)
+                    .into())
+                }
+                KeyRole::Subkey => {
+                    Ok(Key::V4(Key4::<_, SubordinateRole>::with_secret(
+                        time,
+                        PublicKeyAlgorithm::RSAEncryptSign,
+                        public,
+                        secret,
+                    )?)
+                    .into())
+                }
+            }
+        }
+        _ => unimplemented!(),
     }
 }
 
