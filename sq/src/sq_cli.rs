@@ -548,8 +548,7 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                              .help("Protects the key with a password"))
                         .arg(Arg::with_name("sdkms-exportable")
                             .long("sdkms-exportable")
-                            .help("(DANGER) Configure the secret SDKMS key to \
-                                be exportable in the future"))
+                            .help("(DANGER) Configure the key to be exportable from SDKMS"))
                         .arg(Arg::with_name("sdkms-key")
                              .long("sdkms-key").value_name("SDKMS-KEY-NAME")
                              .help("Generate secrets inside Fortanix SDKMS with \

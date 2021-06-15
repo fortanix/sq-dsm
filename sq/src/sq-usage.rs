@@ -401,8 +401,8 @@
 //!             Prints help information
 //!
 //!         --sdkms-exportable
-//!             (DANGER) Configure the secret SDKMS key to be exportable in the
-//!             future
+//!             (DANGER) Configure the key to be exportable from SDKMS
+//!
 //!     -V, --version
 //!             Prints version information
 //!
