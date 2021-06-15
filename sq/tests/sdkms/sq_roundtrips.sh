@@ -3,21 +3,24 @@
 sq="cargo run --"
 
 # Parse input flags
+if (( $# != 3 )); then
+    echo "Usage: sq_roundtrips.sh [--rsa3k, --p256, -p384, --p521, --cv25519] -v <int verbosity [0, 1, 2]>"
+    exit 1
+fi
+
 case "$1" in
     --p256) cipher_suite="nistp256";;
     --p384) cipher_suite="nistp384";;
     --p521) cipher_suite="nistp521";;
     --cv25519) cipher_suite="cv25519";;
     --rsa3k) cipher_suite="rsa3k";;
-    -*) echo "unknown option: $1" >&2; exit 1;;
+    *) echo "unknown option: $1" >&2; exit 1;;
 esac
 
-if (( $# != 3 )); then
-    echo "Usage: sq_roundtrips.sh --[rsa3k, p256, p384, p521, cv25519] -v <int verbosity [0, 1, 2]>"
-    exit 1
-fi
-
-verbosity=$3
+case "$3" in
+    0|1|2) verbosity=$3;;
+    *) echo "Select verbosity 0, 1, or 2" >&2; exit 1;;
+esac
 
 # tmp directory, erased on exit
 create_tmp_dir() {
