@@ -546,6 +546,9 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                         .arg(Arg::with_name("with-password")
                              .long("with-password")
                              .help("Protects the key with a password"))
+                        .arg(Arg::with_name("sdkms-exportable")
+                            .long("sdkms-exportable")
+                            .help("(DANGER) Configure the key to be exportable from SDKMS"))
                         .arg(Arg::with_name("sdkms-key")
                              .long("sdkms-key").value_name("SDKMS-KEY-NAME")
                              .help("Generate secrets inside Fortanix SDKMS with \
@@ -561,10 +564,8 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                                  "rev-cert",
                              ])
                              .requires("userid"))
-
                         .group(ArgGroup::with_name("expiration-group")
                                .args(&["expires", "expires-in"]))
-
                         .arg(Arg::with_name("expires")
                              .long("expires").value_name("TIME")
                              .help("Makes the key expire at TIME (as ISO 8601)")
@@ -609,7 +610,6 @@ $ sq key generate --userid \"<juliet@example.org>\" --userid \"Juliet Capulet\"
                         .arg(Arg::with_name("cannot-encrypt")
                              .long("cannot-encrypt")
                              .help("Adds no encryption-capable subkey"))
-
                         .arg(Arg::with_name("export")
                              .short("e").long("export").value_name("OUTFILE")
                              .help("Writes the key to OUTFILE")
@@ -694,6 +694,26 @@ $ sq key extract-cert --output juliet.cert.pgp juliet.key.pgp
                                 .long("sdkms-key").value_name("SDKMS-KEY-NAME")
                                 .help("Extracts the certificate from the Fortanix \
                                  Self-Defending Key-Management System"))
+                            )
+                .subcommand(SubCommand::with_name("extract-sdkms-secret")
+                            .display_order(111)
+                            .about("Extracts a secret key from Fortanix SDKMS")
+                            .long_about(
+"Extracts key from Fortanix SDKMS
+
+Is a Fortanix SDKMS key was generated using the `--sdkms-exportable` flag, this
+command exfiltrates secrets from SDKMS and outputs a Key.
+")
+                            .arg(Arg::with_name("sdkms-key")
+                                .long("sdkms-key").value_name("SDKMS-KEY-NAME")
+                                .required(true)
+                                .help("Name of the SDKMS key"))
+                            .arg(Arg::with_name("output")
+                                 .short("o").long("output").value_name("FILE")
+                                 .help("Writes to FILE or stdout if omitted"))
+                            .arg(Arg::with_name("binary")
+                                 .short("B").long("binary")
+                                 .help("Emits binary data"))
                             )
                 .subcommand(
                     SubCommand::with_name("adopt")
@@ -1119,7 +1139,6 @@ $ sq certify juliet.pgp romeo.pgp \"<romeo@example.org>\"
                               doesn't understand a critical notation, \
                               then it will ignore the signature.  The \
                               notation is marked as being human readable."))
-
                     .group(ArgGroup::with_name("expiration-group")
                            .args(&["expires", "expires-in"]))
                     .arg(Arg::with_name("expires")

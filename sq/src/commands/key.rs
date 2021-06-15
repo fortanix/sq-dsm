@@ -29,8 +29,10 @@ use crate::decrypt_key;
 pub fn dispatch(config: Config, m: &clap::ArgMatches) -> Result<()> {
     match m.subcommand() {
         ("generate", Some(m)) => generate(config, m)?,
+        ("export", Some(m)) => generate(config, m)?,
         ("password", Some(m)) => password(config, m)?,
         ("extract-cert", Some(m)) => extract_cert(config, m)?,
+        ("extract-sdkms-secret", Some(m)) => extract_sdkms(config, m)?,
         ("adopt", Some(m)) => adopt(config, m)?,
         ("attest-certifications", Some(m)) =>
             attest_certifications(config, m)?,
@@ -45,6 +47,7 @@ fn generate(config: Config, m: &ArgMatches) -> Result<()> {
             sdkms_key_name,
             m.value_of("userid"),
             m.value_of("cipher-suite"),
+            m.is_present("sdkms-exportable"),
         );
     }
 
@@ -300,6 +303,22 @@ fn extract_cert(config: Config, m: &ArgMatches) -> Result<()> {
         cert.serialize(&mut output)?;
     } else {
         cert.armored().serialize(&mut output)?;
+    }
+    Ok(())
+}
+
+fn extract_sdkms(config: Config, m: &ArgMatches) -> Result<()> {
+    let mut output = config.create_or_stdout_safe(m.value_of("output"))?;
+
+    let key = match m.value_of("sdkms-key") {
+        Some(key_name) => sdkms::extract_tsk_from_sdkms(key_name)?,
+        None => unreachable!("name is compulsory")
+    };
+
+    if m.is_present("binary") {
+        key.as_tsk().serialize(&mut output)?;
+    } else {
+        key.as_tsk().armored().serialize(&mut output)?;
     }
     Ok(())
 }

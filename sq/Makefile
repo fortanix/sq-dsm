@@ -36,8 +36,13 @@ install: build-release
 	$(MAKE) -C../store install
 
 test-sdkms:
-	./tests/sdkms.sh --p256
-	./tests/sdkms.sh --p384
-	./tests/sdkms.sh --p521
-	./tests/sdkms.sh --rsa3k
-	./tests/sdkms.sh --cv25519
+	./tests/sdkms/extract_sdkms_import_gpg.sh --p256 -v 0
+	./tests/sdkms/extract_sdkms_import_gpg.sh --p384 -v 0
+	./tests/sdkms/extract_sdkms_import_gpg.sh --p521 -v 0
+	# GPG RSA3k issue: ./tests/sdkms/extract_sdkms_import_gpg.sh -v 0
+	./tests/sdkms/extract_sdkms_import_gpg.sh --cv25519 -v 0
+	./tests/sdkms/sq_roundtrips.sh --p256 -v 0
+	./tests/sdkms/sq_roundtrips.sh --p384 -v 0
+	./tests/sdkms/sq_roundtrips.sh --p521 -v 0
+	./tests/sdkms/sq_roundtrips.sh --rsa3k -v 0
+	./tests/sdkms/sq_roundtrips.sh --cv25519 -v 0
