@@ -960,6 +960,9 @@ fn secret_packet_from_sobject(
     match sobject.obj_type {
         ObjectType::Ec => match sobject.elliptic_curve {
             Some(ApiCurve::Ed25519) => {
+                if raw_secret.len() < 16 {
+                    return Err(anyhow::anyhow!("malformed Ed25519 secret"));
+                }
                 let secret = &raw_secret[16..];
                 match role {
                     KeyRole::Primary => Ok(Key::V4(
@@ -977,6 +980,9 @@ fn secret_packet_from_sobject(
                 }
             }
             Some(ApiCurve::X25519) => {
+                if raw_secret.len() < 16 {
+                    return Err(anyhow::anyhow!("malformed X25519 secret"));
+                }
                 let secret = &raw_secret[16..];
                 match role {
                     KeyRole::Primary => Ok(Key::V4(
