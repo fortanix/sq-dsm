@@ -151,7 +151,10 @@ impl PublicKeyAlgorithm {
                      | DSA
                      | ECDSA
                      | ElGamalEncryptSign
-                     | EdDSA)
+                     | EdDSA
+                     | Private(_)
+                     | Unknown(_)
+            )
         }
     }
 
@@ -174,7 +177,10 @@ impl PublicKeyAlgorithm {
                      | RSAEncrypt
                      | ElGamalEncrypt
                      | ECDH
-                     | ElGamalEncryptSign)
+                     | ElGamalEncryptSign
+                     | Private(_)
+                     | Unknown(_)
+            )
         }
     }
 
