@@ -41,6 +41,7 @@ build-bullseye:arm64:
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
     - codespell
+  when: manual
   only:
     variables:
       # Forks of this project most likely do not have an arm64 runner
@@ -86,6 +87,7 @@ bullseye:arm64:
     variables:
       # Forks of this project most likely do not have an arm64 runner
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
+  when: manual
   stage: build
   image: registry.gitlab.com/sequoia-pgp/build-docker-image/bullseye-prebuild-arm64:latest
   dependencies:
@@ -159,6 +161,7 @@ all_commits:arm64:
     variables:
       # Forks of this project most likely do not have an arm64 runner
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
+  when: manual
   except:
     # Do not run for pushes to the pep-engine branch.
     - /^pep-engine$/
@@ -210,6 +213,7 @@ rust-stable:arm64:
     variables:
       # Forks of this project most likely do not have an arm64 runner
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
+  when: manual
   before_script:
     - if [ -d $CARGO_TARGET_DIR ]; then find $CARGO_TARGET_DIR | wc --lines; du -sh $CARGO_TARGET_DIR; fi
     - if [ -d $CARGO_HOME ]; then find $CARGO_HOME | wc --lines; du -sh $CARGO_HOME; fi
