@@ -276,6 +276,7 @@ use crate::{
     seal,
     types::{
         KeyFlags,
+        RevocationKey,
         RevocationStatus,
         SignatureType,
     },
@@ -1237,6 +1238,32 @@ impl<'a, P, R, R2> ValidAmalgamation<'a, Key<P, R>>
             self.bundle()._revocation_status(self.policy(), self.time(),
                                              true, Some(self.binding_signature))
         }
+    }
+
+    fn revocation_keys(&self)
+                       -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
+    {
+        let mut keys = std::collections::HashSet::new();
+
+        let policy = self.policy();
+        let pk_sec = self.cert().primary_key().hash_algo_security();
+
+        // All valid self-signatures.
+        let sec = self.hash_algo_security;
+        self.self_signatures()
+            .filter(move |sig| {
+                policy.signature(sig, sec).is_ok()
+            })
+        // All direct-key signatures.
+            .chain(self.cert().primary_key()
+                   .self_signatures()
+                   .filter(|sig| {
+                       policy.signature(sig, pk_sec).is_ok()
+                   }))
+            .flat_map(|sig| sig.revocation_keys())
+            .for_each(|rk| { keys.insert(rk); });
+
+        Box::new(keys.into_iter())
     }
 }
 

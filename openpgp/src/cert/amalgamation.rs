@@ -250,6 +250,7 @@ use crate::{
         Features,
         HashAlgorithm,
         KeyServerPreferences,
+        RevocationKey,
         RevocationStatus,
         SignatureType,
         SymmetricAlgorithm,
@@ -607,6 +608,52 @@ pub trait ValidAmalgamation<'a, C: 'a>: seal::Sealed
     /// # }
     /// ```
     fn revocation_status(&self) -> RevocationStatus<'a>;
+
+    /// Returns a list of any designated revokers for this component.
+    ///
+    /// This function returns the designated revokers listed on the
+    /// components's binding signatures and the certificate's direct
+    /// key signatures.
+    ///
+    /// Note: the returned list is deduplicated.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::RevocationKey;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    /// // Make Alice a designated revoker for Bob.
+    /// let (bob, _) =
+    ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///     .set_revocation_keys(vec![(&alice).into()])
+    ///     .generate()?;
+    ///
+    /// // Make sure Alice is listed as a designated revoker for Bob's
+    /// // primary user id.
+    /// assert_eq!(bob.with_policy(p, None)?.primary_userid()?
+    ///            .revocation_keys().collect::<Vec<&RevocationKey>>(),
+    ///            vec![&(&alice).into()]);
+    ///
+    /// // Make sure Alice is listed as a designated revoker for Bob's
+    /// // encryption subkey.
+    /// assert_eq!(bob.with_policy(p, None)?
+    ///            .keys().for_transport_encryption().next().unwrap()
+    ///            .revocation_keys().collect::<Vec<&RevocationKey>>(),
+    ///            vec![&(&alice).into()]);
+    /// # Ok(()) }
+    /// ```
+    fn revocation_keys(&self)
+                       -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>;
 }
 
 /// A certificate component, its associated data, and useful methods.
@@ -1751,6 +1798,32 @@ impl<'a, C> ValidAmalgamation<'a, C> for ValidComponentAmalgamation<'a, C> {
     fn revocation_status(&self) -> RevocationStatus<'a> {
         self.bundle._revocation_status(self.policy(), self.cert.time,
                                        false, Some(self.binding_signature))
+    }
+
+    fn revocation_keys(&self)
+                       -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
+    {
+        let mut keys = std::collections::HashSet::new();
+
+        let policy = self.policy();
+        let pk_sec = self.cert().primary_key().hash_algo_security();
+
+        // All valid self-signatures.
+        let sec = self.hash_algo_security;
+        self.self_signatures()
+            .filter(move |sig| {
+                policy.signature(sig, sec).is_ok()
+            })
+        // All direct-key signatures.
+            .chain(self.cert().primary_key()
+                   .self_signatures()
+                   .filter(|sig| {
+                       policy.signature(sig, pk_sec).is_ok()
+                   }))
+            .flat_map(|sig| sig.revocation_keys())
+            .for_each(|rk| { keys.insert(rk); });
+
+        Box::new(keys.into_iter())
     }
 }
 
