@@ -1697,7 +1697,7 @@ mod tests {
             .generate()?;
         let cert = cert.with_policy(p, None)?;
 
-        assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
+        assert_eq!(cert.revocation_keys(None).collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
 
         // Do it again, with a key that has no User IDs.
@@ -1707,7 +1707,7 @@ mod tests {
         let cert = cert.with_policy(p, None)?;
         assert!(cert.primary_userid().is_err());
 
-        assert_eq!(cert.revocation_keys(p).collect::<HashSet<_>>(),
+        assert_eq!(cert.revocation_keys(None).collect::<HashSet<_>>(),
                    revokers.iter().collect::<HashSet<_>>());
 
         // The designated revokers on all signatures should be

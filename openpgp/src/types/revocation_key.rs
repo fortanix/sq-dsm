@@ -46,7 +46,7 @@ use crate::{
 ///     .generate()?;
 ///
 /// // Make sure Alice is listed as a designated revoker for Bob.
-/// assert_eq!(bob.with_policy(p, None)?.revocation_keys(p)
+/// assert_eq!(bob.with_policy(p, None)?.revocation_keys(None)
 ///                .collect::<Vec<&RevocationKey>>(),
 ///            vec![&(&alice).into()]);
 /// # Ok(()) }

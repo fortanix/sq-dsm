@@ -3530,6 +3530,56 @@ impl<'a> ValidCert<'a> {
     pub fn user_attributes(&self) -> ValidUserAttributeAmalgamationIter<'a> {
         self.cert.user_attributes().with_policy(self.policy, self.time)
     }
+
+    /// Returns a list of any designated revokers for this certificate.
+    ///
+    /// This function returns the designated revokers listed on the
+    /// primary key's binding signatures and the certificate's direct
+    /// key signatures.
+    ///
+    /// Note: the returned list is deduplicated.
+    ///
+    /// In order to preserve our API during the 1.x series, this
+    /// function takes an optional policy argument.  It should be
+    /// `None`, but if it is `Some(_)`, it will be used instead of the
+    /// `ValidCert`'s policy.  This makes the function signature
+    /// compatible with [`Cert::revocation_keys`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use sequoia_openpgp as openpgp;
+    /// # use openpgp::Result;
+    /// use openpgp::cert::prelude::*;
+    /// use openpgp::policy::StandardPolicy;
+    /// use openpgp::types::RevocationKey;
+    ///
+    /// # fn main() -> Result<()> {
+    /// let p = &StandardPolicy::new();
+    ///
+    /// let (alice, _) =
+    ///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+    ///     .generate()?;
+    /// // Make Alice a designated revoker for Bob.
+    /// let (bob, _) =
+    ///     CertBuilder::general_purpose(None, Some("bob@example.org"))
+    ///     .set_revocation_keys(vec![(&alice).into()])
+    ///     .generate()?;
+    ///
+    /// // Make sure Alice is listed as a designated revoker for Bob.
+    /// assert_eq!(bob.with_policy(p, None)?.revocation_keys(None)
+    ///            .collect::<Vec<&RevocationKey>>(),
+    ///            vec![&(&alice).into()]);
+    /// # Ok(()) }
+    /// ```
+    pub fn revocation_keys<P>(&self, policy: P)
+        -> Box<dyn Iterator<Item = &'a RevocationKey> + 'a>
+    where
+        P: Into<Option<&'a dyn Policy>>,
+    {
+        self.cert.revocation_keys(
+            policy.into().unwrap_or_else(|| self.policy()))
+    }
 }
 
 macro_rules! impl_pref {
