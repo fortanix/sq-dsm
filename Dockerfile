@@ -40,11 +40,9 @@ USER builder
 # the `build-release` target is used instead of the default because
 # `install` calls it after anyways
 RUN cd /home/builder/sequoia && \
-    CARGO_TARGET_DIR=target cargo build -p sequoia-sqv --release && \
     CARGO_TARGET_DIR=target cargo build -p sequoia-sq --release && \
     install --strip -D --target-directory /opt/usr/local/bin \
                   target/release/sq \
-                  target/release/sqv
 
 FROM debian:bullseye-slim AS sq-base
 
@@ -57,16 +55,6 @@ RUN groupadd user && \
     apt-get install --assume-yes ca-certificates libssl1.1 libsqlite3-0 && \
     apt-get clean && \
     rm -fr -- /var/lib/apt/lists/* /var/cache/*
-
-FROM sq-base AS sqv
-
-COPY --from=build /opt/usr/local/bin/sqv /usr/local/bin/sqv
-
-USER user
-
-WORKDIR /home/user
-ENTRYPOINT ["/usr/local/bin/sqv"]
-CMD ["--help"]
 
 FROM sq-base AS sq
 
