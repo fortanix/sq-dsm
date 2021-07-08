@@ -26,7 +26,6 @@ build-bullseye:
     - $MAKE_TOP
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
     - if ! git diff --quiet sq ; then echo "Please commit the changes to sq/src/sq-usage.rs." ; false ; fi
-    - if ! git diff --quiet sqv ; then echo "Please commit the changes to sqv/src/sqv-usage.rs." ; false ; fi
     - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi
   variables:
     CARGO_TARGET_DIR: /target
@@ -50,7 +49,6 @@ build-bullseye:arm64:
     - $MAKE_TOP
     - if ! git diff --quiet Cargo.lock ; then echo "Cargo.lock changed.  Please add the change to the corresponding commit." ; false ; fi
     - if ! git diff --quiet sq ; then echo "Please commit the changes to sq/src/sq-usage.rs." ; false ; fi
-    - if ! git diff --quiet sqv ; then echo "Please commit the changes to sqv/src/sqv-usage.rs." ; false ; fi
     - if ! git diff --quiet ; then echo "The build changed the source.  Please investigate." ; git diff ; fi
   variables:
     CARGO_TARGET_DIR: /target
@@ -198,7 +196,7 @@ rust-stable:
     - cargo --version
     - clang --version
   script:
-    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" $MAKE_TOP test
+    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp" $MAKE_TOP test
   variables:
     CARGO_TARGET_DIR: /target
     CARGO_HOME: /cargo
@@ -222,7 +220,7 @@ rust-stable:arm64:
     - cargo --version
     - clang --version
   script:
-    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp -p sequoia-sqv" $MAKE_TOP test
+    - CARGO_PACKAGES="-p buffered-reader -p sequoia-openpgp" $MAKE_TOP test
   variables:
     CARGO_TARGET_DIR: /target
     CARGO_HOME: /cargo

@@ -106,7 +106,6 @@ build-release:
 	$(MAKE) -Copenpgp-ffi build-release
 	$(MAKE) -Cffi build-release
 	$(MAKE) -Csq build-release
-	$(MAKE) -Csqv build-release
 
 # "install" needs "build-release" as it builds the project
 # with optimizations enabled.
@@ -115,7 +114,6 @@ install: build-release
 	$(MAKE) -Copenpgp-ffi install
 	$(MAKE) -Cffi install
 	$(MAKE) -Csq install
-	$(MAKE) -Csqv install
 
 # Infrastructure for creating source distributions.
 .PHONY: dist
