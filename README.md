@@ -65,7 +65,10 @@ The foreign function interface provides a C API for some of Sequoia's
 low- and high-level interfaces, but it is incomplete.
 
 There is a mostly feature-complete command-line verification tool for
-detached messages called 'sqv'.
+detached messages called ['sqv'].
+
+['sqv']: https://gitlab.com/sequoia-pgp/sequoia-sqv
+
 
 LICENSE
 =======
