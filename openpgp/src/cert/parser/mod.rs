@@ -782,9 +782,10 @@ impl<'a> CertParser<'a> {
     //
     // Returns the old state.  Note: the packet iterator is preserved.
     fn reset(&mut self) -> Self {
-        // We need to preserve `source`.
+        // We need to preserve `source` and `filter`.
         let mut orig = mem::replace(self, Default::default());
         self.source = orig.source.take();
+        mem::swap(&mut self.filter, &mut orig.filter);
         orig
     }
 
@@ -1028,6 +1029,8 @@ mod test {
     use crate::parse::RECOVERY_THRESHOLD;
     use crate::serialize::Serialize;
     use crate::types::DataFormat;
+
+    use crate::tests;
 
     #[test]
     fn tokens() {
@@ -1728,5 +1731,21 @@ mod test {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn filter() {
+        let fp = Fingerprint::from_hex(
+            "CBCD8F030588653EEDD7E2659B7DD433F254904A",
+        ).unwrap();
+
+        let cp = CertParser::from_bytes(tests::key("bad-subkey-keyring.pgp"))
+            .unwrap()
+            .unvalidated_cert_filter(|cert, _| {
+                cert.fingerprint() == fp
+            });
+        let certs = cp.collect::<Result<Vec<Cert>>>().unwrap();
+        assert_eq!(certs.len(), 1);
+        assert!(certs[0].fingerprint() == fp);
     }
 }
