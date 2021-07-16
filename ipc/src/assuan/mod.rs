@@ -66,13 +66,16 @@ pub struct Client {
     done: bool,
     w: WriteState,
 }
+assert_send_and_sync!(Client);
 
 enum WriteState {
     Ready(WriteHalf<IpcStream>),
-    Sending(Pin<Box<dyn Future<Output = Result<WriteHalf<IpcStream>, anyhow::Error>>>>),
+    Sending(Pin<Box<dyn Future<Output = Result<WriteHalf<IpcStream>,
+                                               anyhow::Error>> + Send + Sync>>),
     Transitioning,
     Dead,
 }
+assert_send_and_sync!(WriteState);
 
 impl Client {
     /// Connects to the server.
