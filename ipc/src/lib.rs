@@ -65,7 +65,7 @@ use std::thread;
 
 use sequoia_openpgp as openpgp;
 
-#[macro_use] mod trace;
+#[macro_use] mod macros;
 pub mod assuan;
 pub mod gnupg;
 pub mod keybox;
