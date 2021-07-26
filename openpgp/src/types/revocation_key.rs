@@ -151,7 +151,7 @@ const REVOCATION_KEY_MASK_UNKNOWN: u8 = ! (REVOCATION_KEY_FLAG_MUST_BE_SET
 
 #[cfg(test)]
 impl Arbitrary for RevocationKey {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         RevocationKey {
             pk_algo: Arbitrary::arbitrary(g),
             fp: Arbitrary::arbitrary(g),

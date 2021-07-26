@@ -508,9 +508,10 @@ impl fmt::Debug for Packet {
 
 #[cfg(test)]
 impl Arbitrary for Packet {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        use rand::Rng;
-        match g.gen_range(0, 15) {
+    fn arbitrary(g: &mut Gen) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
+        match gen_arbitrary_from_range(0..15, g) {
             0 => Signature::arbitrary(g).into(),
             1 => OnePassSig::arbitrary(g).into(),
             2 => Key::<key::PublicParts, key::UnspecifiedRole>::arbitrary(g)
@@ -573,7 +574,7 @@ assert_send_and_sync!(Common);
 
 #[cfg(test)]
 impl Arbitrary for Common {
-    fn arbitrary<G: Gen>(_: &mut G) -> Self {
+    fn arbitrary(_: &mut Gen) -> Self {
         // XXX: Change if this gets interesting fields.
         Common::default()
     }

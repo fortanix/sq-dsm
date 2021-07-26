@@ -263,27 +263,20 @@ impl fmt::Display for PublicKeyAlgorithm {
 
 #[cfg(test)]
 impl Arbitrary for PublicKeyAlgorithm {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }
 
 #[cfg(test)]
 impl PublicKeyAlgorithm {
-    pub(crate) fn arbitrary_for_signing<G: Gen>(g: &mut G) -> Self {
-        use rand::Rng;
+    pub(crate) fn arbitrary_for_signing(g: &mut Gen) -> Self {
         use self::PublicKeyAlgorithm::*;
+
         #[allow(deprecated)]
-        let a = match g.gen_range(0, 5) {
-            0 => RSAEncryptSign,
-            1 => RSASign,
-            2 => DSA,
-            3 => ECDSA,
-            4 => EdDSA,
-            _ => unreachable!(),
-        };
+        let a = g.choose(&[RSAEncryptSign, RSASign, DSA, ECDSA, EdDSA]).unwrap();
         assert!(a.for_signing());
-        a
+        *a
     }
 }
 
@@ -489,7 +482,7 @@ impl Curve {
 
 #[cfg(test)]
 impl Arbitrary for Curve {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         match u8::arbitrary(g) % 8 {
             0 => Curve::NistP256,
             1 => Curve::NistP384,
@@ -658,7 +651,7 @@ impl fmt::Display for SymmetricAlgorithm {
 
 #[cfg(test)]
 impl Arbitrary for SymmetricAlgorithm {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }
@@ -767,7 +760,7 @@ impl fmt::Display for AEADAlgorithm {
 
 #[cfg(test)]
 impl Arbitrary for AEADAlgorithm {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }
@@ -909,7 +902,7 @@ impl fmt::Display for CompressionAlgorithm {
 
 #[cfg(test)]
 impl Arbitrary for CompressionAlgorithm {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }
@@ -1079,7 +1072,7 @@ impl HashAlgorithm {
 
 #[cfg(test)]
 impl Arbitrary for HashAlgorithm {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }
@@ -1250,7 +1243,7 @@ impl fmt::Display for SignatureType {
 
 #[cfg(test)]
 impl Arbitrary for SignatureType {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }
@@ -1394,7 +1387,7 @@ impl fmt::Display for ReasonForRevocation {
 
 #[cfg(test)]
 impl Arbitrary for ReasonForRevocation {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }
@@ -1641,7 +1634,7 @@ impl fmt::Display for DataFormat {
 
 #[cfg(test)]
 impl Arbitrary for DataFormat {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }

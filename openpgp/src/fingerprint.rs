@@ -345,10 +345,9 @@ impl Fingerprint {
 
 #[cfg(test)]
 impl Arbitrary for Fingerprint {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        use rand::Rng;
+    fn arbitrary(g: &mut Gen) -> Self {
         let mut fp = [0; 20];
-        fp.iter_mut().for_each(|p| *p = g.gen());
+        fp.iter_mut().for_each(|p| *p = Arbitrary::arbitrary(g));
         Fingerprint::V4(fp)
     }
 }

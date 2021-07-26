@@ -420,7 +420,7 @@ impl From<SubpacketTag> for u8 {
 
 #[cfg(test)]
 impl Arbitrary for SubpacketTag {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         u8::arbitrary(g).into()
     }
 }
@@ -516,11 +516,11 @@ assert_send_and_sync!(SubpacketArea);
 
 #[cfg(test)]
 impl ArbitraryBounded for SubpacketArea {
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
-        use rand::Rng;
+    fn arbitrary_bounded(g: &mut Gen, depth: usize) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
 
         let mut a = Self::default();
-        for _ in 0..g.gen_range(0, 32) {
+        for _ in 0..gen_arbitrary_from_range(0..32, g) {
             let _ = a.add(ArbitraryBounded::arbitrary_bounded(g, depth));
         }
 
@@ -1147,7 +1147,7 @@ impl fmt::Debug for NotationData {
 
 #[cfg(test)]
 impl Arbitrary for NotationData {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         NotationData {
             flags: Arbitrary::arbitrary(g),
             name: Arbitrary::arbitrary(g),
@@ -1193,7 +1193,7 @@ assert_send_and_sync!(NotationDataFlags);
 
 #[cfg(test)]
 impl Arbitrary for NotationDataFlags {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         NotationDataFlags(vec![u8::arbitrary(g), u8::arbitrary(g),
                                u8::arbitrary(g), u8::arbitrary(g)].into())
     }
@@ -1599,11 +1599,12 @@ assert_send_and_sync!(SubpacketValue);
 
 #[cfg(test)]
 impl ArbitraryBounded for SubpacketValue {
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
-        use rand::Rng;
+    fn arbitrary_bounded(g: &mut Gen, depth: usize) -> Self {
         use self::SubpacketValue::*;
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
         loop {
-            break match g.gen_range(0, 26) {
+            break match gen_arbitrary_from_range(0..26, g) {
                 0 => SignatureCreationTime(Arbitrary::arbitrary(g)),
                 1 => SignatureExpirationTime(Arbitrary::arbitrary(g)),
                 2 => ExportableCertification(Arbitrary::arbitrary(g)),
@@ -1786,8 +1787,8 @@ impl Hash for Subpacket {
 
 #[cfg(test)]
 impl ArbitraryBounded for Subpacket {
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
-        use rand::Rng;
+    fn arbitrary_bounded(g: &mut Gen, depth: usize) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
 
         fn encode_non_optimal(length: usize) -> SubpacketLength {
             // Calculate length the same way as Subpacket::new.
@@ -1802,12 +1803,13 @@ impl ArbitraryBounded for Subpacket {
         let critical = <bool>::arbitrary(g);
         let use_nonoptimal_encoding = <bool>::arbitrary(g);
         // We don't want to overrepresent large subpackets.
-        let create_large_subpacket = g.gen_range(0, 25) == 0;
+        let create_large_subpacket =
+            gen_arbitrary_from_range(0..25, g) == 0;
 
         let value = if create_large_subpacket {
             // Choose a size which makes sure the subpacket length must be
             // encoded with 2 or 5 octets.
-            let value_size = g.gen_range(7000, 9000);
+            let value_size = gen_arbitrary_from_range(7000..9000, g);
             let nd = NotationData {
                 flags: Arbitrary::arbitrary(g),
                 name: Arbitrary::arbitrary(g),
@@ -2039,7 +2041,7 @@ assert_send_and_sync!(SubpacketAreas);
 
 #[cfg(test)]
 impl ArbitraryBounded for SubpacketAreas {
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+    fn arbitrary_bounded(g: &mut Gen, depth: usize) -> Self {
         SubpacketAreas::new(ArbitraryBounded::arbitrary_bounded(g, depth),
                             ArbitraryBounded::arbitrary_bounded(g, depth))
     }

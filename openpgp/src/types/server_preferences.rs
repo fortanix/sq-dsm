@@ -276,7 +276,7 @@ const KEYSERVER_PREFERENCE_NO_MODIFY: usize = 7;
 
 #[cfg(test)]
 impl Arbitrary for KeyServerPreferences {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Self::new(Vec::arbitrary(g))
     }
 }

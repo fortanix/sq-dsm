@@ -64,7 +64,7 @@ impl From<Trust> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for Trust {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Vec::<u8>::arbitrary(g).into()
     }
 }

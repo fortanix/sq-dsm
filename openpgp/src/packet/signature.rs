@@ -154,7 +154,7 @@ use crate::packet::signature::subpacket::{
 trait ArbitraryBounded {
     /// Generates an arbitrary value, but only recurses if `depth >
     /// 0`.
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self;
+    fn arbitrary_bounded(g: &mut Gen, depth: usize) -> Self;
 }
 
 #[cfg(test)]
@@ -165,7 +165,7 @@ const DEFAULT_ARBITRARY_DEPTH: usize = 2;
 macro_rules! impl_arbitrary_with_bound {
     ($typ:path) => {
         impl Arbitrary for $typ {
-            fn arbitrary<G: Gen>(g: &mut G) -> Self {
+            fn arbitrary(g: &mut Gen) -> Self {
                 Self::arbitrary_bounded(
                     g,
                     crate::packet::signature::DEFAULT_ARBITRARY_DEPTH)
@@ -224,7 +224,7 @@ assert_send_and_sync!(SignatureFields);
 
 #[cfg(test)]
 impl ArbitraryBounded for SignatureFields {
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+    fn arbitrary_bounded(g: &mut Gen, depth: usize) -> Self {
         SignatureFields {
             // XXX: Make this more interesting once we dig other
             // versions.
@@ -3084,7 +3084,7 @@ impl From<Signature4> for super::Signature {
 
 #[cfg(test)]
 impl ArbitraryBounded for super::Signature {
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+    fn arbitrary_bounded(g: &mut Gen, depth: usize) -> Self {
         Signature4::arbitrary_bounded(g, depth).into()
     }
 }
@@ -3094,7 +3094,7 @@ impl_arbitrary_with_bound!(super::Signature);
 
 #[cfg(test)]
 impl ArbitraryBounded for Signature4 {
-    fn arbitrary_bounded<G: Gen>(g: &mut G, depth: usize) -> Self {
+    fn arbitrary_bounded(g: &mut Gen, depth: usize) -> Self {
         use mpi::MPI;
         use PublicKeyAlgorithm::*;
 

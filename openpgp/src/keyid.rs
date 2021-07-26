@@ -400,7 +400,7 @@ impl KeyID {
 
 #[cfg(test)]
 impl Arbitrary for KeyID {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         KeyID::new(u64::arbitrary(g))
     }
 }

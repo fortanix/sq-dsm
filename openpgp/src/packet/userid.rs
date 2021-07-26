@@ -976,7 +976,7 @@ impl From<UserID> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for UserID {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Vec::<u8>::arbitrary(g).into()
     }
 }

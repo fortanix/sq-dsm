@@ -4389,8 +4389,8 @@ mod test {
 
     #[test]
     fn set_validity_period_two_uids() -> Result<()> {
-        use quickcheck::{Arbitrary, StdThreadGen};
-        let mut gen = StdThreadGen::new(16);
+        use quickcheck::{Arbitrary, Gen};
+        let mut gen = Gen::new(16);
         let p = &P::new();
 
         let userid1 = UserID::arbitrary(&mut gen);

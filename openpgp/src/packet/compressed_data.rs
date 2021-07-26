@@ -99,11 +99,13 @@ impl From<CompressedData> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for CompressedData {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        use rand::Rng;
+    fn arbitrary(g: &mut Gen) -> Self {
         use crate::serialize::SerializeInto;
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
         loop {
-            let a = CompressionAlgorithm::from(g.gen_range(0, 4));
+            let a =
+                CompressionAlgorithm::from(gen_arbitrary_from_range(0..4, g));
             if a.is_supported() {
                 let mut c = CompressedData::new(a);
                 // We arbitrarily chose to create packets with

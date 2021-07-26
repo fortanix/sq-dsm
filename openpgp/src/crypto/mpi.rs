@@ -22,8 +22,6 @@ use std::borrow::Cow;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
-#[cfg(test)]
-use rand::Rng;
 
 use crate::types::{
     Curve,
@@ -259,7 +257,7 @@ impl Hash for MPI {
 
 #[cfg(test)]
 impl Arbitrary for MPI {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         loop {
             let buf = <Vec<u8>>::arbitrary(g);
 
@@ -580,9 +578,11 @@ impl Hash for PublicKey {
 
 #[cfg(test)]
 impl Arbitrary for PublicKey {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         use self::PublicKey::*;
-        match g.gen_range(0, 6) {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
+        match gen_arbitrary_from_range(0..6, g) {
             0 => RSA {
                 e: MPI::arbitrary(g),
                 n: MPI::arbitrary(g),
@@ -842,8 +842,10 @@ impl Hash for SecretKeyMaterial {
 
 #[cfg(test)]
 impl Arbitrary for SecretKeyMaterial {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        match g.gen_range(0, 6) {
+    fn arbitrary(g: &mut Gen) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
+        match gen_arbitrary_from_range(0..6, g) {
             0 => SecretKeyMaterial::RSA {
                 d: MPI::arbitrary(g).into(),
                 p: MPI::arbitrary(g).into(),
@@ -969,8 +971,10 @@ impl Hash for Ciphertext {
 
 #[cfg(test)]
 impl Arbitrary for Ciphertext {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        match g.gen_range(0, 3) {
+    fn arbitrary(g: &mut Gen) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
+        match gen_arbitrary_from_range(0..3, g) {
             0 => Ciphertext::RSA {
                 c: MPI::arbitrary(g),
             },
@@ -1062,8 +1066,10 @@ impl Hash for Signature {
 
 #[cfg(test)]
 impl Arbitrary for Signature {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        match g.gen_range(0, 4) {
+    fn arbitrary(g: &mut Gen) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
+        match gen_arbitrary_from_range(0..4, g) {
             0 => Signature::RSA  {
                 s: MPI::arbitrary(g),
             },

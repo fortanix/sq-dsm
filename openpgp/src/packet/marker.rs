@@ -30,7 +30,7 @@ impl From<Marker> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for Marker {
-    fn arbitrary<G: Gen>(_: &mut G) -> Self {
+    fn arbitrary(_: &mut Gen) -> Self {
         Self::default()
     }
 }

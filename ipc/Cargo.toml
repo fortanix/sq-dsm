@@ -48,7 +48,7 @@ lalrpop = ">=0.17"
 
 [dev-dependencies]
 clap = "2.33"
-quickcheck = { version = "0.9", default-features = false }
+quickcheck = { version = "1", default-features = false }
 
 [lib]
 bench = false

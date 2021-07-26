@@ -195,14 +195,14 @@ impl From<PKESK3> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for super::PKESK {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         PKESK3::arbitrary(g).into()
     }
 }
 
 #[cfg(test)]
 impl Arbitrary for PKESK3 {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         let (ciphertext, pk_algo) = loop {
             let ciphertext = Ciphertext::arbitrary(g);
             if let Some(pk_algo) = ciphertext.pk_algo() {

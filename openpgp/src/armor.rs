@@ -83,7 +83,7 @@ assert_send_and_sync!(Kind);
 
 #[cfg(test)]
 impl Arbitrary for Kind {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         use self::Kind::*;
         match u8::arbitrary(g) % 5 {
             0 => Message,

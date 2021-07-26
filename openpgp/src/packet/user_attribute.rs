@@ -8,8 +8,6 @@ use std::fmt;
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
-#[cfg(test)]
-use rand::Rng;
 
 use buffered_reader::BufferedReader;
 
@@ -136,9 +134,11 @@ impl From<UserAttribute> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for UserAttribute {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
         UserAttribute::new(
-            &(0..g.gen_range(1, 10))
+            &(0..gen_arbitrary_from_range(1..10, g))
                 .map(|_| Subpacket::arbitrary(g))
                 .collect::<Vec<_>>()[..]).unwrap()
     }
@@ -227,15 +227,17 @@ assert_send_and_sync!(Subpacket);
 
 #[cfg(test)]
 impl Arbitrary for Subpacket {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        match g.gen_range(0, 3) {
+    fn arbitrary(g: &mut Gen) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
+        match gen_arbitrary_from_range(0..3, g) {
             0 => Subpacket::Image(Image::arbitrary(g)),
             1 => Subpacket::Unknown(
                 0,
                 Vec::<u8>::arbitrary(g).into_boxed_slice()
             ),
             2 => Subpacket::Unknown(
-                g.gen_range(2, 256) as u8,
+                gen_arbitrary_from_range(2..256, g) as u8,
                 Vec::<u8>::arbitrary(g).into_boxed_slice()
             ),
             _ => unreachable!(),
@@ -261,20 +263,23 @@ assert_send_and_sync!(Image);
 
 #[cfg(test)]
 impl Arbitrary for Image {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        match g.gen_range(0, 5) {
+
+    fn arbitrary(g: &mut Gen) -> Self {
+        use crate::arbitrary_helper::gen_arbitrary_from_range;
+
+        match gen_arbitrary_from_range(0..5, g) {
             0 =>
                 Image::JPEG(
                     Vec::<u8>::arbitrary(g).into_boxed_slice()
                 ),
             1 =>
                 Image::Unknown(
-                    g.gen_range(2, 100),
+                    gen_arbitrary_from_range(2..100, g),
                     Vec::<u8>::arbitrary(g).into_boxed_slice()
                 ),
             2 =>
                 Image::Private(
-                    g.gen_range(100, 111),
+                    gen_arbitrary_from_range(100..111, g),
                     Vec::<u8>::arbitrary(g).into_boxed_slice()
                 ),
             3 =>
@@ -284,7 +289,7 @@ impl Arbitrary for Image {
                 ),
             4 =>
                 Image::Unknown(
-                    g.gen_range(111, 256) as u8,
+                    gen_arbitrary_from_range(111..256, g) as u8,
                     Vec::<u8>::arbitrary(g).into_boxed_slice()
                 ),
             _ => unreachable!(),

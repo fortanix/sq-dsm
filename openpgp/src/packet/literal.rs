@@ -176,7 +176,7 @@ impl From<Literal> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for Literal {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         let mut l = Literal::new(DataFormat::arbitrary(g));
         l.set_body(Vec::<u8>::arbitrary(g));
         while let Err(_) = l.set_filename(&Vec::<u8>::arbitrary(g)) {

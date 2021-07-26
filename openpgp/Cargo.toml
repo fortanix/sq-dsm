@@ -86,8 +86,9 @@ rand = { version = "0.7", features = ["wasm-bindgen"] }
 lalrpop = ">=0.17"
 
 [dev-dependencies]
-quickcheck = { version = "0.9", default-features = false }
-rand = { version = "0.7", default-features = false }
+quickcheck = { version = "1", default-features = false }
+quickcheck_macros = { version = "1", default-features = false }
+rand = { version = "0.8" }
 rpassword = "5.0"
 criterion = { version = "0.3.4", features = ["html_reports"] }
 

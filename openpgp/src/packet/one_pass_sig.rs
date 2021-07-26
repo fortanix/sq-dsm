@@ -171,14 +171,14 @@ impl<'a> std::convert::TryFrom<&'a Signature> for OnePassSig3 {
 
 #[cfg(test)]
 impl Arbitrary for super::OnePassSig {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         OnePassSig3::arbitrary(g).into()
     }
 }
 
 #[cfg(test)]
 impl Arbitrary for OnePassSig3 {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         let mut ops = OnePassSig3::new(SignatureType::arbitrary(g));
         ops.set_hash_algo(HashAlgorithm::arbitrary(g));
         ops.set_pk_algo(PublicKeyAlgorithm::arbitrary(g));

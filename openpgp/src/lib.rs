@@ -329,3 +329,36 @@ pub enum Error {
 }
 
 assert_send_and_sync!(Error);
+
+/// Provide a helper function that generates an arbitrary value from a given
+/// range.  Quickcheck > 1 does not re-export rand so we need to implement this
+/// ourselves.
+#[cfg(test)]
+mod arbitrary_helper {
+    use quickcheck::{Arbitrary, Gen};
+
+    pub(crate) fn gen_arbitrary_from_range<T>(
+        range: std::ops::Range<T>,
+        g: &mut Gen,
+    ) -> T
+    where
+        T: Arbitrary
+            + std::cmp::PartialOrd
+            + std::ops::Sub<Output = T>
+            + std::ops::Rem<Output = T>
+            + std::ops::Add<Output = T>
+            + Copy,
+    {
+        if !range.is_empty() {
+            let m = range.end - range.start;
+            // The % operator calculates the remainder, which is negative for
+            // negative inputs, not the modulus.  This actually calculates the
+            // modulus by making sure the result is positive.  The primitive
+            // integer types implement .rem_euclid for that, but there is no way
+            // to constrain this function to primitive types.
+            range.start + (T::arbitrary(g) % m + m) % m
+        } else {
+            panic!()
+        }
+    }
+}

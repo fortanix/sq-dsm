@@ -315,7 +315,7 @@ impl TryFrom<&mpi::Ciphertext> for Sexp {
 
 #[cfg(test)]
 impl Arbitrary for Sexp {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         if f32::arbitrary(g) < 0.7 {
             Sexp::String(String_::arbitrary(g))
         } else {
@@ -417,7 +417,7 @@ impl Deref for String_ {
 
 #[cfg(test)]
 impl Arbitrary for String_ {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         if bool::arbitrary(g) {
             Self::new(Vec::arbitrary(g).into_boxed_slice())
         } else {

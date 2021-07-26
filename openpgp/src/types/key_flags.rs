@@ -407,7 +407,7 @@ const KEY_FLAG_GROUP_KEY: usize = 7;
 
 #[cfg(test)]
 impl Arbitrary for KeyFlags {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Self::new(Vec::arbitrary(g))
     }
 }

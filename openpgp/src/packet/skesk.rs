@@ -38,7 +38,7 @@ impl SKESK {
 
 #[cfg(test)]
 impl Arbitrary for SKESK {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         if bool::arbitrary(g) {
             SKESK::V4(SKESK4::arbitrary(g))
         } else {
@@ -299,7 +299,7 @@ impl From<SKESK4> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for SKESK4 {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         SKESK4::new(SymmetricAlgorithm::arbitrary(g),
                     S2K::arbitrary(g),
                     Option::<Vec<u8>>::arbitrary(g).map(|v| v.into()))
@@ -579,7 +579,7 @@ impl From<SKESK5> for Packet {
 
 #[cfg(test)]
 impl Arbitrary for SKESK5 {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         let algo = AEADAlgorithm::EAX;  // The only one we dig.
         let mut iv = vec![0u8; algo.iv_size().unwrap()];
         for b in iv.iter_mut() {

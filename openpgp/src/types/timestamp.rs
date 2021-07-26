@@ -252,7 +252,7 @@ impl Timestamp {
 
 #[cfg(test)]
 impl Arbitrary for Timestamp {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Timestamp(u32::arbitrary(g))
     }
 }
@@ -608,7 +608,7 @@ impl Timestamp {
 
 #[cfg(test)]
 impl Arbitrary for Duration {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Duration(u32::arbitrary(g))
     }
 }

@@ -1613,28 +1613,28 @@ impl<P, R> Arbitrary for super::Key<P, R>
           R: KeyRole, R: Clone,
           Key4<P, R>: Arbitrary,
 {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Key4::arbitrary(g).into()
     }
 }
 
 #[cfg(test)]
 impl Arbitrary for Key4<PublicParts, PrimaryRole> {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Key4::<PublicParts, UnspecifiedRole>::arbitrary(g).into()
     }
 }
 
 #[cfg(test)]
 impl Arbitrary for Key4<PublicParts, SubordinateRole> {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Key4::<PublicParts, UnspecifiedRole>::arbitrary(g).into()
     }
 }
 
 #[cfg(test)]
 impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         let mpis = mpi::PublicKey::arbitrary(g);
         Key4 {
             common: Arbitrary::arbitrary(g),
@@ -1651,22 +1651,21 @@ impl Arbitrary for Key4<PublicParts, UnspecifiedRole> {
 
 #[cfg(test)]
 impl Arbitrary for Key4<SecretParts, PrimaryRole> {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Key4::<SecretParts, UnspecifiedRole>::arbitrary(g).into()
     }
 }
 
 #[cfg(test)]
 impl Arbitrary for Key4<SecretParts, SubordinateRole> {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Key4::<SecretParts, UnspecifiedRole>::arbitrary(g).into()
     }
 }
 
 #[cfg(test)]
 impl Arbitrary for Key4<SecretParts, UnspecifiedRole> {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
-        use rand::Rng;
+    fn arbitrary(g: &mut Gen) -> Self {
         use PublicKeyAlgorithm::*;
         use mpi::MPI;
 
@@ -1702,7 +1701,7 @@ impl Arbitrary for Key4<SecretParts, UnspecifiedRole> {
             _ => unreachable!("only valid algos, normalizes to these values"),
         }.into();
 
-        if g.gen() {
+        if <bool>::arbitrary(g) {
             secret.encrypt_in_place(&Password::from(Vec::arbitrary(g)))
                 .unwrap();
         }
@@ -1747,7 +1746,7 @@ mod tests {
 
     #[test]
     fn key_encrypt_decrypt() -> Result<()> {
-        let mut g = quickcheck::StdThreadGen::new(256);
+        let mut g = quickcheck::Gen::new(256);
         let p: Password = Vec::<u8>::arbitrary(&mut g).into();
 
         let check = |key: Key4<SecretParts, UnspecifiedRole>| -> Result<()> {

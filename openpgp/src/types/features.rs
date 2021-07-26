@@ -358,7 +358,7 @@ const FEATURE_FLAG_AEAD: usize = 1;
 
 #[cfg(test)]
 impl Arbitrary for Features {
-    fn arbitrary<G: Gen>(g: &mut G) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         Self::new(Vec::arbitrary(g))
     }
 }
