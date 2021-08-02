@@ -1,6 +1,7 @@
 use std::env;
 use std::fs;
 use std::io::{self, Write};
+use std::path::Path;
 use clap::Shell;
 
 mod sq_cli {
@@ -12,6 +13,9 @@ fn main() {
 
     // XXX: Revisit once
     // https://github.com/rust-lang/rust/issues/44732 is stabilized.
+
+    subplot_build::codegen(Path::new("sq-subplot.md"))
+        .expect("failed to generate code with Subplot");
 
     let mut sq = sq_cli::configure(
         clap::App::new("sq").set_term_width(80),

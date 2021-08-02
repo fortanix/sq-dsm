@@ -1,0 +1,4 @@
+- given: "an installed sq"
+  impl:
+    rust:
+      function: install_sq

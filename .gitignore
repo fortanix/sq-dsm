@@ -4,3 +4,5 @@
 .gdb_history
 .dir-locals.el
 Makefile
+sq/*.html
+sq/*.pdf

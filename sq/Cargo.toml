@@ -42,9 +42,12 @@ rpassword = "5.0"
 [build-dependencies]
 clap = "2.33"
 sequoia-openpgp = { path = "../openpgp", version = "1.0.0", default-features = false }
+subplot-build = "0.1.0"
 
 [dev-dependencies]
 assert_cli = "0.6"
+subplotlib = "0.1.0"
+fehler = "1.0.0"
 
 [[bin]]
 name = "sq"
