@@ -17,10 +17,7 @@
 //! # }
 //! ```
 
-#![doc(html_favicon_url = "https://docs.sequoia-pgp.org/favicon.png")]
-#![doc(html_logo_url = "https://docs.sequoia-pgp.org/logo.svg")]
 #![warn(missing_docs)]
-
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -102,7 +99,7 @@ impl Context {
     /// `.build()` in order to turn it into a Context.
     pub fn configure() -> Config {
         Config(Context {
-            home: PathBuf::from(""),  // Defer computation of default.
+            home: PathBuf::from(""), // Defer computation of default.
             lib: prefix().join("lib").join("sequoia"),
             ipc_policy: IPCPolicy::Robust,
             ephemeral: false,
@@ -183,10 +180,9 @@ impl Config {
             c.cleanup = true;
         } else {
             if home_not_set {
-                c.home =
-                    dirs::home_dir().ok_or_else(||
-                        anyhow::anyhow!("Failed to get users home directory"))?
-                .join(".sequoia");
+                c.home = dirs::home_dir()
+                    .ok_or_else(|| anyhow::anyhow!("Failed to get users home directory"))?
+                    .join(".sequoia");
             }
         }
         Ok(c)
@@ -249,7 +245,6 @@ pub enum Error {
     #[error("{0}")]
     IoError(#[from] io::Error),
 }
-
 
 /* IPC policy.  */
 
@@ -314,7 +309,6 @@ impl<'a> From<&'a IPCPolicy> for u8 {
         }
     }
 }
-
 
 // XXX: TryFrom would be nice.
 impl From<u8> for IPCPolicy {
