@@ -1100,7 +1100,7 @@ impl Cert {
     /// subkeys, use [`KeyAmalgamationIter::subkeys`].  These
     /// functions preserve the keys' role in the type system.
     ///
-    /// A key's secret secret key material may be protected with a
+    /// A key's secret key material may be protected with a
     /// password.  In such cases, it needs to be decrypted before it
     /// can be used to decrypt data or generate a signature.  Refer to
     /// [`Key::decrypt_secret`] for details.
@@ -3222,7 +3222,7 @@ impl<'a> ValidCert<'a> {
 
     /// Returns the certificate's primary key.
     ///
-    /// A key's secret secret key material may be protected with a
+    /// A key's secret key material may be protected with a
     /// password.  In such cases, it needs to be decrypted before it
     /// can be used to decrypt data or generate a signature.  Refer to
     /// [`Key::decrypt_secret`] for details.
@@ -3267,7 +3267,7 @@ impl<'a> ValidCert<'a> {
     /// instead of skipping the first key: this causes the iterator to
     /// return values with a more accurate type.
     ///
-    /// A key's secret secret key material may be protected with a
+    /// A key's secret key material may be protected with a
     /// password.  In such cases, it needs to be decrypted before it
     /// can be used to decrypt data or generate a signature.  Refer to
     /// [`Key::decrypt_secret`] for details.
