@@ -299,7 +299,7 @@ windows-msvc-32:
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
   before_script:
     - rm rust-toolchain
-    - rustup default stable-x86_64-pc-windows-msvc
+    - rustup default 1.54.0-x86_64-pc-windows-msvc
     - rustup target add i686-pc-windows-msvc
     - rustup show
     - rustc --version --verbose
