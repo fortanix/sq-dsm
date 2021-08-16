@@ -286,8 +286,12 @@ windows-msvc-32:
   stage: build
   image:
     name: registry.gitlab.com/sequoia-pgp/build-docker-image/windows-msvc
-    # Set up a 32-bit environment with VsDevCmd.bat -arch=x86, line copied from Dockerfile.windows.msvc
-    entrypoint: ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "-arch=x86", "&&", "type", "README", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+    # Set up a cross compilation environment for building x86 binaries on amd64, line copied from Dockerfile.windows.msvc
+    # see https://renenyffenegger.ch/notes/Windows/dirs/Program-Files-x86/Microsoft-Visual-Studio/version/edition/Common7/Tools/VsDevCmd_bat
+    #
+    # Alternatively: ["C:\\BuildTools\\VC\\Auxiliary\\Build\\vcvarsamd64_x86.bat", "&&", "type", "README", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
+    # see https://docs.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-160
+    entrypoint: ["C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat", "-arch=x86", "-host_arch=amd64", "&&", "type", "README", "&&", "powershell.exe", "-NoLogo", "-ExecutionPolicy", "Bypass"]
   only:
     variables:
       # Forks of this project most likely use gitlab's shared windows runners, which
@@ -295,15 +299,16 @@ windows-msvc-32:
       - $CI_PROJECT_NAMESPACE == "sequoia-pgp"
   before_script:
     - rm rust-toolchain
-    - rustup default stable-i686-pc-windows-msvc
+    - rustup default stable-x86_64-pc-windows-msvc
+    - rustup target add i686-pc-windows-msvc
     - rustup show
     - rustc --version --verbose
     - cargo --version
   script:
     # https://github.com/rust-lang/cargo/issues/5015
-    - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression
-    - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression
-    - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression
+    - cargo build --manifest-path ffi/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
+    - cargo build --manifest-path openpgp-ffi/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
+    - cargo test --manifest-path openpgp/Cargo.toml --no-default-features --features crypto-cng,compression --target i686-pc-windows-msvc
   after_script: []
   variables:
     CFLAGS: "" # Silence some C warnings when compiling with MSVC
