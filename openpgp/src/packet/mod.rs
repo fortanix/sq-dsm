@@ -1709,7 +1709,9 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     ///
     /// # Examples
     ///
-    /// Encrypt the primary key:
+    /// This example demonstrates how to encrypt the secret key
+    /// material of every key in a certificate.  Decryption can be
+    /// done the same way with [`Key::decrypt_secret`].
     ///
     /// ```rust
     /// use sequoia_openpgp as openpgp;
@@ -1724,19 +1726,31 @@ impl<R: key::KeyRole> Key<key::SecretParts, R> {
     ///     CertBuilder::general_purpose(None,
     ///                                  Some("Alice Lovelace <alice@example.org>"))
     ///         .generate()?;
-    /// let key = cert.primary_key().key().clone().parts_into_secret()?;
-    /// assert!(key.has_unencrypted_secret());
     ///
-    /// // Encrypt the key's secret key material.
-    /// let key = key.encrypt_secret(&"1234".into())?;
-    /// assert!(! key.has_unencrypted_secret());
+    /// // Encrypt every key.
+    /// let mut encrypted_keys: Vec<Packet> = Vec::new();
+    /// for ka in cert.keys().secret() {
+    ///     assert!(ka.has_unencrypted_secret());
     ///
-    /// // Merge it into the certificate.  Note: `Cert::insert_packets`
+    ///     // Encrypt the key's secret key material.
+    ///     let key = ka.key().clone().encrypt_secret(&"1234".into())?;
+    ///     assert!(! key.has_unencrypted_secret());
+    ///
+    ///     // We cannot merge it right now, because `cert` is borrowed.
+    ///     encrypted_keys.push(if ka.primary() {
+    ///         key.role_into_primary().into()
+    ///     } else {
+    ///         key.role_into_subordinate().into()
+    ///     });
+    /// }
+    ///
+    /// // Merge the keys into the certificate.  Note: `Cert::insert_packets`
     /// // prefers added versions of keys.  So, the encrypted version
     /// // will override the decrypted version.
-    /// let cert = cert.insert_packets(Packet::from(key))?;
+    /// let cert = cert.insert_packets(encrypted_keys)?;
     ///
-    /// // Now the primary key's secret key material is encrypted.
+    /// // Now the every key's secret key material is encrypted.  We'll
+    /// // demonstrate this using the primary key:
     /// let key = cert.primary_key().key().parts_as_secret()?;
     /// assert!(! key.has_unencrypted_secret());
     ///
