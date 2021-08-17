@@ -35,6 +35,7 @@
 //!    also include any secret key material.
 //!  - *Using a certificate*: See the [`Cert`] and [`ValidCert`] data structures.
 //!  - *Revoking a certificate*: See the [`CertRevocationBuilder`] data structure.
+//!  - *Decrypt or encrypt secret keys*: See [`packet::Key::encrypt_secret`]'s example.
 //!  - *Merging packets*: See the [`Cert::insert_packets`] method.
 //!  - *Merging certificates*: See the [`Cert::merge_public`] method.
 //!  - *Creating third-party certifications*: See the [`UserID::certify`]
