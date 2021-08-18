@@ -231,7 +231,7 @@ impl Cert {
 /// ```
 pub struct TSK<'a> {
     pub(crate) cert: &'a Cert,
-    filter: Option<Box<dyn Fn(&'a key::UnspecifiedSecret) -> bool + 'a>>,
+    filter: Box<dyn Fn(&'a key::UnspecifiedSecret) -> bool + 'a>,
     emit_stubs: bool,
 }
 
@@ -240,7 +240,7 @@ impl<'a> TSK<'a> {
     fn new(cert: &'a Cert) -> Self {
         Self {
             cert,
-            filter: None,
+            filter: Box::new(|_| true),
             emit_stubs: false,
         }
     }
@@ -278,7 +278,7 @@ impl<'a> TSK<'a> {
     pub fn set_filter<P>(mut self, predicate: P) -> Self
         where P: 'a + Fn(&'a key::UnspecifiedSecret) -> bool
     {
-        self.filter = Some(Box::new(predicate));
+        self.filter = Box::new(predicate);
         self
     }
 
@@ -386,8 +386,7 @@ impl<'a> TSK<'a> {
             |o: &mut dyn std::io::Write, key: &'a key::UnspecifiedSecret,
              tag_public, tag_secret|
         {
-            let tag = if key.has_secret()
-                && self.filter.as_ref().map(|f| f(key)).unwrap_or(true) {
+            let tag = if key.has_secret() && (self.filter)(key) {
                 tag_secret
             } else {
                 tag_public
@@ -536,8 +535,7 @@ impl<'a> MarshalInto for TSK<'a> {
         let serialized_len_key
             = |key: &'a key::UnspecifiedSecret, tag_public, tag_secret|
         {
-            let tag = if key.has_secret()
-                && self.filter.as_ref().map(|f| f(key)).unwrap_or(true) {
+            let tag = if key.has_secret() && (self.filter)(key) {
                 tag_secret
             } else {
                 tag_public
