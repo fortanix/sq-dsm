@@ -235,6 +235,41 @@ pub struct TSK<'a> {
     emit_stubs: bool,
 }
 
+impl PartialEq for TSK<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        // First, compare the certs.  If they are not equal, then the
+        // TSK's cannot possibly be equal.
+        if self.cert != other.cert {
+            return false;
+        }
+
+        // Second, consider all the keys.
+        for (a, b) in self.cert.keys()
+            .zip(other.cert.keys())
+        {
+            match (a.has_secret()
+                   && (self.filter)(a.key().parts_as_secret().expect("has secret")),
+                   b.has_secret()
+                   && (other.filter)(b.key().parts_as_secret().expect("has_secret")))
+            {
+                // Both have secrets.  Compare secrets.
+                (true, true) => if a.optional_secret() != b.optional_secret() {
+                    return false;
+                },
+                // No secrets.  Equal iff both or neither emit stubs.
+                (false, false) => if self.emit_stubs != other.emit_stubs {
+                    return false;
+                },
+                // Otherwise, they differ.
+                _ => return false,
+            }
+        }
+
+        // Everything matched.
+        true
+    }
+}
+
 impl<'a> TSK<'a> {
     /// Creates a new view for the given `Cert`.
     fn new(cert: &'a Cert) -> Self {
@@ -867,6 +902,69 @@ mod test {
         // When roundtripping such a key, the stub should be preserved.
         let buf_ = cert_.as_tsk().to_vec()?;
         assert_eq!(buf, buf_);
+        Ok(())
+    }
+
+    /// Checks partial equality of certificates and TSKs.
+    #[test]
+    fn issue_701() -> Result<()> {
+        let cert_0 = Cert::from_bytes(crate::tests::key("testy.pgp"))?;
+        let cert_1 = Cert::from_bytes(crate::tests::key("testy.pgp"))?;
+        let tsk_0 = Cert::from_bytes(crate::tests::key("testy-private.pgp"))?;
+        let tsk_1 = Cert::from_bytes(crate::tests::key("testy-private.pgp"))?;
+
+        // We define equality by equality of the serialized form.
+        // This macro checks that.
+        macro_rules! check {
+            ($a: expr, $b: expr, $expectation: expr) => {{
+                let a = $a;
+                let b = $b;
+                let serialized_eq = a.to_vec()? == b.to_vec()?;
+                let eq = a == b;
+                assert_eq!(serialized_eq, eq);
+                assert_eq!(eq, $expectation);
+            }};
+        }
+
+        // Equal as certs, because equality is defined by equality of
+        // the serialized form, and serializing a cert never writes
+        // out any secrets.
+        check!(&cert_0, &cert_1, true);
+        check!(&cert_0, &tsk_0, true);
+
+        // Filters out secrets.
+        let no_secrets = |_| false;
+
+        // TSK's equality.
+        check!(tsk_0.as_tsk(), tsk_1.as_tsk(), true);
+
+        // Without secrets.
+        check!(tsk_0.as_tsk().set_filter(no_secrets),
+               tsk_1.as_tsk().set_filter(no_secrets),
+               true);
+
+        // Still equal if one uses stubs and the other one does not if
+        // every key has a secret, i.e. stubs are not in fact used.
+        check!(
+            tsk_0.as_tsk().emit_secret_key_stubs(true),
+            tsk_1.as_tsk(),
+            true);
+
+        // No longer equal if one actually emits stubs.
+        check!(
+            tsk_0.as_tsk().emit_secret_key_stubs(true).set_filter(no_secrets),
+            tsk_1.as_tsk(),
+            false);
+
+        // Certs are not equal to TSKs, because here the secrets are
+        // written out when serialized.
+        check!(cert_0.as_tsk(), tsk_0.as_tsk(), false);
+
+        // Equal, if we filter out the secrets.
+        check!(cert_0.as_tsk(),
+               tsk_0.as_tsk().set_filter(no_secrets),
+               true);
+
         Ok(())
     }
 }

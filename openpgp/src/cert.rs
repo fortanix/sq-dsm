@@ -674,6 +674,40 @@ pub trait Preferences<'a>: seal::Sealed {
 /// # }
 /// ```
 ///
+/// # A note on equality
+///
+/// We define equality on `Cert` as the equality of the serialized
+/// form as defined by RFC 4880.  That is, two certs are considered
+/// equal if and only if their serialized forms are equal, modulo the
+/// OpenPGP packet framing (see [`Packet`#a-note-on-equality]).
+///
+/// Because secret key material is not emitted when a `Cert` is
+/// serialized, two certs are considered equal even if only one of
+/// them has secret key material.  To take secret key material into
+/// account, compare the [`TSK`s](crate::serialize::TSK) instead:
+///
+/// ```rust
+/// # fn main() -> sequoia_openpgp::Result<()> {
+/// # use sequoia_openpgp as openpgp;
+/// use openpgp::cert::prelude::*;
+///
+/// // Generate a cert with secrets.
+/// let (cert_with_secrets, _) =
+///     CertBuilder::general_purpose(None, Some("alice@example.org"))
+///     .generate()?;
+///
+/// // Derive a cert without secrets.
+/// let cert_without_secrets =
+///     cert_with_secrets.clone().strip_secret_key_material();
+///
+/// // Both are considered equal.
+/// assert!(cert_with_secrets == cert_without_secrets);
+///
+/// // But not if we compare their TSKs:
+/// assert!(cert_with_secrets.as_tsk() != cert_without_secrets.as_tsk());
+/// # Ok(()) }
+/// ```
+///
 /// # Examples
 ///
 /// Parse a certificate:
