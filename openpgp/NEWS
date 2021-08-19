@@ -12,6 +12,10 @@
 ** Notable fixes
    - Filters set using CertParser::unvalidated_cert_filter are now
      preserved during iterations.
+* Changes in 1.3.1
+** Notable fixes
+   - Fixed a crash resulting from unconstrained, attacker-controlled
+     heap allocations.
 * Changes in 1.3.0
 ** New functionality
    - CertBuilder::add_subkey_with

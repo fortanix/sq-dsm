@@ -5482,9 +5482,9 @@ mod test {
             ],
         },
         DecryptTest {
-            filename: "aed/msg-aes128-eax-chunk-size-134217728-password-123.pgp",
+            filename: "aed/msg-aes128-eax-chunk-size-4194304-password-123.pgp",
             algo: SymmetricAlgorithm::AES128,
-            key_hex: "D7EE3F3B049DE011687EC9E08D6DCBB0",
+            key_hex: "918E6BF5C6CE4320D014735AF27BFA76",
             plaintext: Data::File("a-cypherpunks-manifesto.txt"),
             paths: &[
                 (Tag::SKESK, &[ 0 ]),
