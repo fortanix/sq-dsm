@@ -45,7 +45,7 @@ use std::io::{self, Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream, TcpListener};
 use std::path::PathBuf;
 
-use anyhow::{anyhow, Result};
+use anyhow::anyhow;
 use fs2::FileExt;
 
 use tokio_util::compat::Compat;
@@ -72,7 +72,8 @@ pub mod keybox;
 mod keygrip;
 pub use self::keygrip::Keygrip;
 pub mod sexp;
-pub mod core;
+mod core;
+pub use crate::core::{Config, Context, IPCPolicy};
 
 #[cfg(test)]
 mod tests;
@@ -507,6 +508,9 @@ pub enum Error {
     #[error("Connection closed unexpectedly.")]
     ConnectionClosed(Vec<u8>),
 }
+
+/// Result type specialization.
+pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
 // Global initialization and cleanup of the Windows Sockets API (WSA) module.
 // NOTE: This has to be top-level in order for `ctor::{ctor, dtor}` to work.

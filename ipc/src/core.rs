@@ -10,7 +10,7 @@
 //! `Context::new`:
 //!
 //! ```no_run
-//! # use sequoia_ipc::core::{Context, Result};
+//! # use sequoia_ipc::{Context, Result};
 //! # fn main() -> Result<()> {
 //! let c = Context::new();
 //! # Ok(())
@@ -21,6 +21,8 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::Result;
+
 /// A `Context` for Sequoia.
 ///
 /// # Examples
@@ -29,7 +31,7 @@ use std::path::{Path, PathBuf};
 /// `Context::new`:
 ///
 /// ```no_run
-/// # use sequoia_ipc::core::{Context, Result};
+/// # use sequoia_ipc::{Context, Result};
 /// # fn main() -> Result<()> {
 /// let c = Context::new()?;
 /// # Ok(())
@@ -40,7 +42,7 @@ use std::path::{Path, PathBuf};
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_ipc::core::{Context, IPCPolicy, Result};
+/// # use sequoia_ipc::{Context, IPCPolicy, Result};
 /// # fn main() -> Result<()> {
 /// let c = Context::configure()
 /// #           .ephemeral()
@@ -133,7 +135,7 @@ impl Context {
 /// `Context::configure`:
 ///
 /// ```
-/// # use sequoia_ipc::core::{Context, IPCPolicy, Result};
+/// # use sequoia_ipc::{Context, IPCPolicy, Result};
 /// # fn main() -> Result<()> {
 /// let c = Context::configure()
 /// #           .ephemeral()
@@ -147,7 +149,7 @@ impl Context {
 /// one-shot programs:
 ///
 /// ```
-/// # use sequoia_ipc::core::{Context, Result};
+/// # use sequoia_ipc::{Context, Result};
 /// # use std::path::Path;
 /// # fn main() -> Result<()> {
 /// let c = Context::configure().ephemeral().build()?;
@@ -231,11 +233,6 @@ impl Config {
         ::std::mem::replace(&mut self.0.ephemeral, true)
     }
 }
-
-/* Error handling.  */
-
-/// Result type for Sequoia.
-pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
 
 /* IPC policy.  */
 

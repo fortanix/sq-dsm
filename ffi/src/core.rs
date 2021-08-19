@@ -41,18 +41,17 @@
 use std::ptr;
 use libc::{c_char, c_int};
 
-use sequoia_ipc::core as core;
-use sequoia_ipc::core::Config;
+use sequoia_ipc::Config;
 
 /// Wraps a Context and provides an error slot.
 #[doc(hidden)]
 pub struct Context {
-    pub(crate) c: core::Context,
+    pub(crate) c: sequoia_ipc::Context,
     e: *mut crate::error::Error,
 }
 
 impl Context {
-    fn new(c: core::Context) -> Self {
+    fn new(c: sequoia_ipc::Context) -> Self {
         Context{c: c, e: ptr::null_mut()}
     }
 
@@ -88,7 +87,7 @@ fn sq_context_last_error(ctx: *mut Context) -> *mut crate::error::Error {
 fn sq_context_new(errp: Option<&mut *mut crate::error::Error>)
                   -> *mut Context {
     ffi_make_fry_from_errp!(errp);
-    ffi_try_box!(core::Context::new().map(Context::new))
+    ffi_try_box!(sequoia_ipc::Context::new().map(Context::new))
 }
 
 /// Frees a context.
@@ -104,7 +103,7 @@ fn sq_context_free(context: Option<&mut Context>) {
 /// `sq_config_build()` in order to turn it into a Context.
 #[::sequoia_ffi_macros::extern_fn] #[no_mangle] pub extern "C"
 fn sq_context_configure() -> *mut Config {
-    Box::into_raw(Box::new(core::Context::configure()))
+    Box::into_raw(Box::new(sequoia_ipc::Context::configure()))
 }
 
 /// Returns the directory containing shared state.

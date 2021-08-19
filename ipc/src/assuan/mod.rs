@@ -70,8 +70,8 @@ assert_send_and_sync!(Client);
 
 enum WriteState {
     Ready(WriteHalf<IpcStream>),
-    Sending(Pin<Box<dyn Future<Output = Result<WriteHalf<IpcStream>,
-                                               anyhow::Error>> + Send + Sync>>),
+    Sending(Pin<Box<dyn Future<Output = Result<WriteHalf<IpcStream>>>
+                    + Send + Sync>>),
     Transitioning,
     Dead,
 }
