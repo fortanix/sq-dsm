@@ -23,7 +23,6 @@ use tokio_util::compat::Compat;
 use crate::openpgp::{self, Cert, KeyID, Fingerprint};
 use crate::openpgp::parse::Parse;
 use crate::openpgp::serialize::Serialize;
-use sequoia_ipc::core as core;
 use sequoia_net as net;
 use sequoia_ipc as ipc;
 
@@ -1295,12 +1294,6 @@ impl From<openpgp::Error> for node::Error {
                 node::Error::MalformedCert,
             _ => node::Error::SystemError,
         }
-    }
-}
-
-impl From<core::Error> for node::Error {
-    fn from(_: core::Error) -> Self {
-        node::Error::SystemError
     }
 }
 

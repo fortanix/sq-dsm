@@ -19,7 +19,6 @@
 
 #![warn(missing_docs)]
 
-use std::io;
 use std::path::{Path, PathBuf};
 
 /// A `Context` for Sequoia.
@@ -237,14 +236,6 @@ impl Config {
 
 /// Result type for Sequoia.
 pub type Result<T> = ::std::result::Result<T, anyhow::Error>;
-
-#[derive(thiserror::Error, Debug)]
-/// Errors for Sequoia.
-pub enum Error {
-    /// An `io::Error` occurred.
-    #[error("{0}")]
-    IoError(#[from] io::Error),
-}
 
 /* IPC policy.  */
 
