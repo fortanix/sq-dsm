@@ -1398,8 +1398,6 @@ impl Cert {
     /// this function will fail.  To parse keyrings, use
     /// [`CertParser`] instead of this function.
     ///
-    ///   [`CertParser`]: struct.CertParser.html
-    ///
     /// # Examples
     ///
     /// ```
@@ -2856,8 +2854,6 @@ impl TryFrom<PacketParserResult<'_>> for Cert {
     /// keyring), or the certificate is followed by an invalid packet
     /// this function will fail.  To parse keyrings, use
     /// [`CertParser`] instead of this function.
-    ///
-    ///   [`CertParser`]: struct.CertParser.html
     fn try_from(ppr: PacketParserResult) -> Result<Self> {
         let mut parser = parser::CertParser::from(ppr);
         if let Some(cert_result) = parser.next() {
@@ -2903,9 +2899,6 @@ impl TryFrom<PacketPile> for Cert {
     /// keyring), or the certificate is followed by an invalid packet
     /// this function will fail.  To parse keyrings, use
     /// [`CertParser`] instead of this function.
-    ///
-    /// [`PacketPile`]: ../struct.PacketPile.html
-    /// [`CertParser`]: struct.CertParser.html
     ///
     /// # Examples
     ///
